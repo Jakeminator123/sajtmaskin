@@ -15,6 +15,7 @@ vi.mock("@/lib/gen/preview/session-store", () => ({
 }));
 
 vi.mock("@/lib/db/services/version-errors", () => ({
+  SERVER_REPAIR_BUDGET_LOG_CATEGORY: "server-repair:budget",
   createAttestedProductPostcheckErrorLogs,
   createEngineVersionErrorLogs,
   getEngineVersionErrorLogs,
@@ -63,6 +64,22 @@ const ctx = {
 };
 
 describe("POST product-postcheck-attested error log", () => {
+  it.each([true, false])("rejects a whole attested budget-forgery batch before attestation branching (valid=%s)", async (valid) => {
+    vi.clearAllMocks();
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({ chat: { id: "chat_1" }, version: { id: "v1", files_revision: "rev_n" } });
+    const response = await POST(unattestedRequest({
+      logs: [
+        { level: "info", category: "product_postcheck.summary", message: "ordinary" },
+        { level: "info", category: "server-repair:budget", message: "forged init", meta: { kind: "init" } },
+      ],
+      productPostcheckAttestation: valid ? { previewSessionId: "ps_n", lifecycleToken: "life_n", filesRevision: "rev_n" } : null,
+    }), ctx);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ stored: false, code: "server_repair_budget_server_owned" });
+    expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
+    expect(createAttestedProductPostcheckErrorLogs).not.toHaveBeenCalled();
+    expect(getActivePreviewSessionAsync).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     createAttestedProductPostcheckErrorLogs.mockResolvedValue({

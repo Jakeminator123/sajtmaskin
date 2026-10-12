@@ -26,7 +26,7 @@ För att **genererade** Next-projekt ofta ska kunna byggas/köras utan riktiga R
 - [`40-harmless-placeholders.env.txt`](40-harmless-placeholders.env.txt) — `KEY=value`-rader som är **säkra även i F3** (test/publishable-keys, AUTH_SECRET, GA-id, search-only API-keys, m.m.).
 - [`41-tier3-stub-placeholders.env.txt`](41-tier3-stub-placeholders.env.txt) — F2-stubbar (Stripe-secret, Supabase-URL, Clerk-secret, Redis URL, OpenAI, …) som **strippas helt i F3-merge** och kräver riktiga värden via `validateTier3Readiness`.
 - Per-key-klassificering: [`src/lib/integrations/placeholder-harmless.ts`](../../src/lib/integrations/placeholder-harmless.ts).
-- [`manifest.json`](manifest.json) → fältet `generatedSiteIntegrationPlaceholders` pekar på båda filnamnen (`harmlessEnvFragmentFile`, `tier3StubEnvFragmentFile`) och länkar till policy i [`../user_degraded_env.txt`](../user_degraded_env.txt).
+- [`manifest.json`](manifest.json) → fältet `generatedSiteIntegrationPlaceholders` pekar på båda filnamnen (`harmlessEnvFragmentFile`, `tier3StubEnvFragmentFile`). Env-kontrakt: [env-flow.md](../../docs/contracts/env-flow.md).
 - TypeScript: [`src/lib/ai-models/load-generated-site-placeholders.ts`](../../src/lib/ai-models/load-generated-site-placeholders.ts) (endast Node — inte i klientbundles).
 
 Detta är **parallellt med** `config/codegen-core-manifest.json` + `prompt-core/*.md`: manifest + vanlig text under `config/`, men här är nyttolasten env-placeholders för slutkundsprojekt, inte systemprompt.
@@ -55,4 +55,4 @@ Primära direkt-API-länkar (canonical listan ligger i `manifest.json`):
 - [10-own-engine.md](10-own-engine.md) — byggprofiler och `claude-*`-normalisering.
 - [20-briefing.md](20-briefing.md) — Briefing-lagret och provider-namngivning (`"openai" | "anthropic"`).
 - [30-embeddings-and-misc.md](30-embeddings-and-misc.md) — embedding-modeller och övriga routes.
-- [40-harmless-placeholders.env.txt](40-harmless-placeholders.env.txt) + [41-tier3-stub-placeholders.env.txt](41-tier3-stub-placeholders.env.txt) — preview-env för genererade sajter (se även [../user_degraded_env.txt](../user_degraded_env.txt)).
+- [40-harmless-placeholders.env.txt](40-harmless-placeholders.env.txt) + [41-tier3-stub-placeholders.env.txt](41-tier3-stub-placeholders.env.txt) — preview-env för genererade sajter (se även [env-kontraktet](../../docs/contracts/env-flow.md)).

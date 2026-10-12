@@ -2,7 +2,8 @@ import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { isUnderRoutePath, resolveScaffoldRouteDelivery } from "@/lib/gen/scaffolds/route-delivery";
 import { checkCrossFileImports } from "@/lib/gen/autofix/rules/cross-file-import-checker";
 import { fixTypeOnlyModuleDefaultImports } from "@/lib/gen/autofix/rules/type-only-module-default-import-fixer";
-import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
+import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
+import { isEnvArtifactPath } from "@/lib/integrations/stub-env-filter";
 import { mergeVersionFilesWithWarnings } from "@/lib/gen/version-file-merge";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { warnLog } from "@/lib/utils/debug";
@@ -93,6 +94,8 @@ export interface MergeGeneratedProjectFilesParams {
   chatId: string;
   originalFilesJson: string;
   generatedFiles: CodeFile[];
+  /** Actual source emissions; assembled files and unchanged repair echoes are not emissions. */
+  emittedFiles?: CodeFile[];
   resolvedScaffold: ScaffoldManifest | null;
   previousFiles?: CodeFile[];
   /**
@@ -197,6 +200,35 @@ export function prepareGeneratedProjectCandidate({
   };
 }
 
+/** Preserve source provenance when a repair works on the assembled project. */
+export function updateEmittedFilesAfterRepair(
+  emittedFiles: CodeFile[],
+  candidateFiles: CodeFile[],
+  repairedFiles: CodeFile[],
+  source: "llm" | "mechanical",
+): CodeFile[] {
+  const emitted = new Map(emittedFiles.map((file) => [file.path, file]));
+  const candidate = new Map(candidateFiles.map((file) => [file.path, file]));
+  for (const file of repairedFiles) {
+    if (isEnvArtifactPath(file.path)) continue;
+    if (emitted.has(file.path) || (source === "llm" && candidate.get(file.path)?.content !== file.content)) {
+      emitted.set(file.path, file);
+    }
+  }
+  return [...emitted.values()];
+}
+
+/** Env requirements may be judged, but stored values must never reach a model. */
+export function serializeProjectCandidateForVerifier(files: CodeFile[]): string {
+  return serializeCodeProject(files.map((file) => !isEnvArtifactPath(file.path) ? file : {
+    ...file,
+    content: file.content.split(/\r?\n/).flatMap((line) => {
+      const key = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/.exec(line)?.[1];
+      return key ? [`${key}=`] : [];
+    }).join("\n"),
+  }));
+}
+
 function normalizeDossierPath(path: string): string {
   return normalizeDossierProjectPath(path);
 }
@@ -295,6 +327,7 @@ export function mergeGeneratedProjectFiles({
   chatId,
   originalFilesJson,
   generatedFiles: rawGeneratedFiles,
+  emittedFiles,
   resolvedScaffold,
   previousFiles,
   selectedDossiers,
@@ -302,6 +335,10 @@ export function mergeGeneratedProjectFiles({
   removedDossiers,
   routePlan,
 }: MergeGeneratedProjectFilesParams): MergeGeneratedProjectFilesResult {
+  const emittedPaths = new Set((emittedFiles ?? rawGeneratedFiles).map((file) => file.path.replace(/\\/g, "/")));
+  const candidateFiles = emittedFiles && resolvedScaffold && !previousFiles?.length
+    ? rawGeneratedFiles.filter((file) => !isLlmOnlyPath(file.path) || emittedPaths.has(file.path.replace(/\\/g, "/")))
+    : rawGeneratedFiles;
   // B05: ids of the dossiers selected for THIS generation. Threaded into
   // checkCrossFileImports so the refuseDossierStubs gate only fires for an
   // unresolved import owned by a selected dossier (not any registry-wide match).
@@ -323,7 +360,7 @@ export function mergeGeneratedProjectFiles({
   // init branch (scaffold-base wins) and the follow-up branch (previousFiles
   // wins) keep the canonical version. See note on `SCAFFOLD_PROTECTED_PATHS`.
   const protectedPartition =
-    partitionGeneratedFilesForProtectedPaths(rawGeneratedFiles);
+    partitionGeneratedFilesForProtectedPaths(candidateFiles);
   if (protectedPartition.dropped.length > 0) {
     const droppedPaths = protectedPartition.dropped.map((f) => f.path);
     warnLog(
@@ -527,7 +564,7 @@ export function mergeGeneratedProjectFiles({
     // (scaffold `/blog` vs generated `/blogg`, or the reverse). Keeping both
     // leaves the scaffold's copy in the project with nothing linking to it.
     const supersededRoutes = findSupersededScaffoldRoutes(
-      extractAppRoutePathsFromFilePaths(generatedFiles.map((file) => file.path)),
+      extractAppRoutePathsFromFilePaths((emittedFiles ?? generatedFiles).map((file) => file.path)),
       extractAppRoutePathsFromFilePaths(resolvedScaffold.files.map((file) => file.path)),
     );
     const supersededScaffoldPaths: string[] = [];
@@ -601,7 +638,6 @@ export function mergeGeneratedProjectFiles({
 
     // Which LLM-only paths did the generator actually emit? (Used both for
     // observability logging and for the missingEmittedEssentials signal.)
-    const emittedPaths = new Set(generatedFiles.map((f) => f.path.replace(/\\/g, "/")));
     const scaffoldDefaultsBlocked = llmOnlyScaffoldPaths.map((path) => ({
       path,
       emittedByLlm: emittedPaths.has(path.replace(/\\/g, "/")),

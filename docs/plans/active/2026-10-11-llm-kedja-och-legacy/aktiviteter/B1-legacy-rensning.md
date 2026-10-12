@@ -27,22 +27,18 @@ inte för att möjliggöra en snabbare cleanup.
 
 ## Resultat
 
-B1.0 readonly-recon klar på `b5b7474e…`. REMOVE: den separata MCP-wrappern,
-`generate-site-from-prompt` med eget test och just dess `knip`-entry; enda
-kodkedjan är wrapper → generator. KEEP: legacy-URL-shim, aktiva hostfunktioner
-och env-/F2/F3-skydd. NEEDS-OWNER/EVIDENCE: `/api/preview-render`, host-aliaser
-och äldre readiness-kontrakt. CONSOLIDATE-kandidat: fullkatalog-fallbacken i
-env-local, men den kräver separat caller-kontrakt. B1.1 ska ta bort den döda
-MCP-kedjan samt uppdatera docs-test, genererad modellprojektion och två
-configöversikter. Ingen fil ändrades under recon.
+B1.1/B1.2 lokalt klara och granskade utan kvarvarande fynd. Den oanvända
+MCP-wrappern, `generate-site-from-prompt`, dess test och knip-entry är borttagna;
+fem följdytor är synkade (+11/−853, netto −842). Inga interna konsumenter eller
+registrerade runtime-ingångar återstår. Env.example kräver `dossierEnvScope`;
+dess oanvända scope-lösa fallback är borttagen (netto −35 rader).
 
-B1.1 implementerad lokalt: tre filer raderade och fem följdytor synkade,
-`+11/−853` (netto `−842`). Node 22.23.1; 49 docs-tester, typecheck,
-`docs:check` och `git diff --check` passerade. `docs:links` blockeras tills den
-nya planmappen Git-spåras vid integration. A1-filernas hashvärden bevarades.
-Ingen commit/push; readonly-review klar.
+KEEP: legacy-URL-shim, aktiva hostfunktioner, env-/F2/F3-skydd och den separata
+runtime-env-resolverns fullkatalogläge. NEEDS-OWNER/EVIDENCE: `/api/preview-render`,
+host-aliaser och äldre readiness-kontrakt. Dessa är inte raderade. Externa
+råkällkonsumenter och live-runtime har inte verifierats.
 
-Readonly-review fann inga konkreta fynd: inga kvarvarande interna konsumenter
-eller registrerade runtime-ingångar, och knip/docs/projektion är samstämmiga.
-Bevisgräns: externa råkällkonsumenter utanför repot och live-runtime är inte
-verifierade. Preview/env/host-kandidaterna är fortsatt uppskjutna, inte raderade.
+Node 22.23.1: B1.1 49 docs-tester; B2.1/B1.2 102 riktade tester, typecheck,
+docs-/registerkontroller och diff-check PASS. Docs-links passerar efter
+snapshotåterställningen. Det inaktuella ENV-kontraktet rättades och granskades
+i B2.2. Andras filer/hashes bevarade; ingen publicering.

@@ -45,6 +45,7 @@ import {
   formatVerifierFindingsAsFixerErrors,
   parseImportRepairRefsFromFinding,
   runVerifierPass,
+  verifierLlmUnavailableFinding,
   suppressTier3StrippedImportFindings,
 } from "@/lib/gen/verify/verifier-pass";
 import { dropResolvedVerifierFindings } from "@/lib/gen/verify/stale-verifier-findings";
@@ -61,7 +62,6 @@ import { parseCodeProject } from "@/lib/gen/parser";
 import { fixDomBuiltinJsxTags } from "@/lib/gen/autofix/rules/dom-builtin-jsx-fixer";
 import { rebuildContent, type AutoFixResult } from "@/lib/gen/autofix/pipeline";
 import { createFinalizeStepTelemetry } from "./step-telemetry";
-import { prepareVerifierPackageJson } from "./merge-package-json-for-verifier";
 import {
   VERIFIER_REPAIR_TIMEOUT_MS,
   resolveVerifierRerunTimeoutMs,
@@ -120,17 +120,12 @@ export async function runVerifierPhase(params: {
   resolvedScaffold: ScaffoldManifest | null;
   repairPassIndex: number;
   contentForVersion: string;
+  /** Rebuild the persisted candidate before judging any changed content. */
+  prepareCandidate: (content: string, source: "llm" | "mechanical") => Promise<string>;
   onProgress?: FinalizeProgressCallback;
   runAutoFix: (content: string) => Promise<AutoFixResult>;
   repairLedger?: RepairLedger;
   repairScopeId?: string;
-  /**
-   * Skip the Sajtmaskin baseline `package.json` merge before the verifier.
-   * Imported-repo chats persist the template's own manifest — overlaying the
-   * baseline would hide real missing deps and rewrite versions the verifier
-   * should not see.
-   */
-  skipBaselinePackageJsonMerge?: boolean;
 }): Promise<VerifierPhaseResult> {
   const {
     enabled,
@@ -145,7 +140,7 @@ export async function runVerifierPhase(params: {
     runAutoFix,
     repairLedger: providedRepairLedger,
     repairScopeId,
-    skipBaselinePackageJsonMerge = false,
+    prepareCandidate,
   } = params;
   const repairLedger = providedRepairLedger ?? new RepairLedger();
   let contentForVersion = params.contentForVersion;
@@ -168,16 +163,10 @@ export async function runVerifierPhase(params: {
   // errors — prod chat 8bf59f13, 2026-07-01). Mirrors the repair-loop, which
   // already runs the mechanical autofix pass before its LLM fixer.
   // Guarded on an actual change so the no-op path leaves content untouched.
-  contentForVersion = applyDeterministicDomJsxFix(contentForVersion, chatId);
-
-  // Judge the package.json persist will write — baseline merge — not the
-  // model's thin draft. Display-only: contentForVersion stays the model
-  // output so imported-repo skip cannot leak Sajtmaskin pins into persist.
-  // Prod chat 6e865848 (2026-08-14): verifier blocked on missing next/react
-  // that the saved version already had.
-  const packageJsonForVerifier = prepareVerifierPackageJson(contentForVersion, {
-    skipBaselineMerge: skipBaselinePackageJsonMerge,
-  });
+  const domFixed = applyDeterministicDomJsxFix(contentForVersion, chatId);
+  if (domFixed !== contentForVersion) {
+    contentForVersion = await prepareCandidate(domFixed, "mechanical");
+  }
 
   const verifierStartedAt = Date.now();
   onProgress?.("verifier", { phase: "start" });
@@ -186,7 +175,7 @@ export async function runVerifierPhase(params: {
     "error",
   );
   try {
-    const rawFindings = await runVerifierPass(packageJsonForVerifier.verifierContent, {
+    const rawFindings = await runVerifierPass(contentForVersion, {
       resolvedTier: verifierTier,
     });
     devLogAppend("in-progress", {
@@ -236,6 +225,7 @@ export async function runVerifierPhase(params: {
     });
 
     let findings = policyFindings;
+    let mechanicallyReprepared = false;
     if (policyFindings.blocking.length > 0) {
       try {
         const diagnostics = policyFindings.blocking.flatMap((finding) =>
@@ -258,7 +248,8 @@ export async function runVerifierPhase(params: {
             // finding mixing a fixable name (toast) with an unresolvable one
             // kept `staleCheck.dropped` empty, which used to throw the
             // correct imports away — the LLM gate then redid catalog work.
-            contentForVersion = repair.content;
+            contentForVersion = await prepareCandidate(repair.content, "mechanical");
+            mechanicallyReprepared = true;
             // The stale-check stays fail-closed for the BLOCKING LIST:
             // `checkUndefinedJsxSymbols` only sees JSX tags, so toast/z/
             // FormEvent would look "resolved" even if the catalog no-op'd.
@@ -266,7 +257,7 @@ export async function runVerifierPhase(params: {
             // confirmed bound in the repaired files; mixed findings stay.
             const staleCheck = dropResolvedVerifierFindings(
               policyFindings.blocking,
-              parseCodeProject(repair.content).files,
+              parseCodeProject(contentForVersion).files,
             );
             findings = {
               ...policyFindings,
@@ -327,7 +318,7 @@ export async function runVerifierPhase(params: {
     // devDependencies — the re-check reads both sections.
     const manifestStale = dropResolvedVerifierFindings(
       findings.blocking,
-      packageJsonForVerifier.filesForDependencyCheck,
+      parseCodeProject(contentForVersion).files,
       { classes: ["package-json"] },
     );
     if (manifestStale.dropped.length > 0) {
@@ -391,6 +382,34 @@ export async function runVerifierPhase(params: {
       qualityCount: findings.quality.length,
     });
 
+    // A catalog-only repair also changes the candidate. Confirm it once
+    // when no LLM repair is needed; otherwise the existing LLM branch below
+    // owns that same one-confirmation budget.
+    if (mechanicallyReprepared && findings.blocking.length === 0 && didVerifierLlmComplete(rawFindings)) {
+      const abort = new AbortController();
+      const timeout = setTimeout(() => abort.abort(), resolveVerifierRerunTimeoutMs());
+      try {
+        const confirmation = await runVerifierPass(contentForVersion, {
+          resolvedTier: verifierTier, abortSignal: abort.signal,
+        });
+        verifierBlockingFindings = didVerifierLlmComplete(confirmation)
+          ? dropResolvedVerifierFindings(
+              suppressTier3StrippedImportFindings(confirmation, { previewPolicy: params.buildSpec?.previewPolicy }).blocking,
+              parseCodeProject(contentForVersion).files,
+              { classes: ["package-json"] },
+            ).kept
+          : [verifierLlmUnavailableFinding()];
+      } catch {
+        verifierBlockingFindings = [verifierLlmUnavailableFinding()];
+      } finally {
+        clearTimeout(timeout);
+      }
+      stepTelemetry = createFinalizeStepTelemetry(verifierStartedAt, "done", {
+        trigger: reason, blockingCount: verifierBlockingFindings.length,
+        qualityCount: findings.quality.length, mechanicallyReprepared: true,
+      });
+    }
+
     // Close the verifier feedback loop: when there are blocking findings,
     // feed them straight back into the LLM fixer with the same prompt
     // shape used for syntax/typecheck repairs. Previously these findings
@@ -431,7 +450,7 @@ export async function runVerifierPhase(params: {
         let rerunDurationMs: number | null = null;
         if (repaired.success && repaired.fixedContent) {
           const reFixed = await runAutoFix(repaired.fixedContent);
-          contentForVersion = reFixed.fixedContent;
+          contentForVersion = await prepareCandidate(reFixed.fixedContent, "llm");
 
           // Re-run the verifier ONCE on the fixed content to confirm the
           // LLM actually addressed the blocking finding. Without this we
@@ -452,10 +471,7 @@ export async function runVerifierPhase(params: {
             // Same policy filter as the first pass — without it a tier-3
             // finding that F2 suppressed up front would reappear here and
             // block the version after an otherwise successful fix.
-            const rerunPrepared = prepareVerifierPackageJson(contentForVersion, {
-              skipBaselineMerge: skipBaselinePackageJsonMerge,
-            });
-            const rerunPass = await runVerifierPass(rerunPrepared.verifierContent, {
+            const rerunPass = await runVerifierPass(contentForVersion, {
               resolvedTier: verifierTier,
               abortSignal: rerunAbort.signal,
             });
@@ -480,7 +496,7 @@ export async function runVerifierPhase(params: {
               });
               const rerunStale = dropResolvedVerifierFindings(
                 rerunRaw.blocking,
-                rerunPrepared.filesForDependencyCheck,
+                parseCodeProject(contentForVersion).files,
                 { classes: ["package-json"] },
               );
               const rerunFindings = { ...rerunRaw, blocking: rerunStale.kept };
@@ -648,7 +664,8 @@ export async function runVerifierPhase(params: {
       });
     }
   } catch (verifierErr) {
-    console.warn("[verifier-pass] Non-fatal error, skipping:", verifierErr);
+    console.warn("[verifier-pass] Verification unavailable:", verifierErr);
+    if (verifierBlockingFindings.length === 0) verifierBlockingFindings = [verifierLlmUnavailableFinding()];
     onProgress?.("verifier", { phase: "error" });
     stepTelemetry = createFinalizeStepTelemetry(verifierStartedAt, "error");
   }

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const appendErrorLogEvent = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/logging/error-log-rag", () => ({ appendErrorLogEvent }));
@@ -39,6 +39,43 @@ import {
   buildGroupedRepairErrorContext,
   buildRepairErrorContextLines,
 } from "./repair-loop";
+import * as verificationLease from "./server-verify/lease";
+import * as versionManager from "@/lib/gen/version-manager";
+import * as versionRepo from "@/lib/db/chat-repository-pg";
+import * as repairBudget from "@/lib/db/services/server-repair-budget";
+import * as projectExport from "@/lib/gen/export/build-exportable-project";
+import * as previewGate from "./preview-quality-gate";
+import { triggerServerVerification } from "./server-verify/verify-run";
+
+describe("server verification automatic bootstrap", () => {
+  afterEach(() => { vi.restoreAllMocks(); verificationLease.inflight.clear(); });
+
+  it.each(["known", "missing", "manual"])("awaits %s history under the actual lease before the deterministic gate", async (mode) => {
+    vi.spyOn(verificationLease, "isServerVerifyEligible").mockReturnValue(true);
+    vi.spyOn(verificationLease, "isLatestVersionForChat").mockResolvedValue(true);
+    vi.spyOn(verificationLease, "acquireVerifyLease").mockResolvedValue({ proceed: true, runId: "run" });
+    vi.spyOn(verificationLease, "releaseVerifyLease").mockResolvedValue(undefined);
+    const files = [{ path: "app/page.tsx", content: "export default function Page(){return null}", language: "tsx" as const }];
+    vi.spyOn(versionManager, "getVersionFilesSnapshot").mockResolvedValue({ files, filesJson: JSON.stringify(files), filesRevision: "actual-db-revision", lifecycleStage: "design", editKind: null } as never);
+    vi.spyOn(versionRepo, "markVersionVerifying").mockResolvedValue(null as never);
+    vi.spyOn(versionRepo, "failVersionVerification").mockResolvedValue(null as never);
+    const promotion = vi.spyOn(versionRepo, "promoteVersion").mockResolvedValue(null as never);
+    vi.spyOn(projectExport, "chatUsesVerbatimRepo").mockResolvedValue(false);
+    vi.spyOn(projectExport, "buildExportableProject").mockResolvedValue(files);
+    const gate = vi.spyOn(previewGate, "runQualityGateOnExportable").mockResolvedValue(null);
+    const prepare = vi.spyOn(repairBudget, "prepareServerRepairBudget").mockResolvedValue({ status: "history_unknown" });
+    const seed = { scopeId: "original:root", history: { source: "observed_fixer_calls" as const, finalize: [], consumed: [] } };
+    await triggerServerVerification({ chatId: "c", versionId: "v", repairBudgetSeed: mode === "known" ? seed : undefined,
+      repairAuthority: mode === "manual" ? "manual" : "automatic" });
+    if (mode === "manual") expect(prepare).not.toHaveBeenCalled();
+    else {
+      expect(prepare).toHaveBeenCalledWith({ chatId: "c", versionId: "v", runId: "run", filesRevision: "actual-db-revision" }, mode === "known" ? seed : undefined);
+      expect(prepare.mock.invocationCallOrder[0]).toBeLessThan(gate.mock.invocationCallOrder[0]);
+    }
+    expect(gate).toHaveBeenCalledTimes(1);
+    expect(promotion).not.toHaveBeenCalled();
+  });
+});
 
 describe("server-verify repairability partition", () => {
   const failed = (check: string, repairable: boolean) => ({

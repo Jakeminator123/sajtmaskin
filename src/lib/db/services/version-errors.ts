@@ -18,6 +18,14 @@ type VersionErrorLogPayload = {
   meta?: Record<string, unknown> | null;
 };
 
+export const SERVER_REPAIR_BUDGET_LOG_CATEGORY = "server-repair:budget";
+
+function rejectBudgetPayloads(payloads: VersionErrorLogPayload[]): void {
+  if (payloads.some((payload) => payload.category === SERVER_REPAIR_BUDGET_LOG_CATEGORY)) {
+    throw new Error("Server repair budget receipts require their private owner");
+  }
+}
+
 export type AttestedProductPostcheckInsertResult =
   | { status: "stored"; logs: VersionErrorLog[] }
   | { status: "superseded"; logs: [] }
@@ -38,6 +46,7 @@ export type AttestedProductPostcheckInsertResult =
  * observation och sätter heller aldrig `meta.repairPassIndex`.
  */
 export const PRUNE_EXEMPT_CATEGORIES = [
+  SERVER_REPAIR_BUDGET_LOG_CATEGORY,
   "f3-readiness:missing-env",
   "preview:client-error",
   "server-repair:phase",
@@ -190,6 +199,7 @@ export async function createEngineVersionErrorLogs(
     lockTimeoutMs?: number;
   },
 ): Promise<VersionErrorLog[]> {
+  rejectBudgetPayloads(payloads);
   assertDbConfigured();
   if (payloads.length === 0) return [];
   const now = new Date();
@@ -240,6 +250,7 @@ export async function createAttestedProductPostcheckErrorLogs(
   payloads: VersionErrorLogPayload[],
   options: { expectedFilesRevision: string; lockTimeoutMs: number },
 ): Promise<AttestedProductPostcheckInsertResult> {
+  rejectBudgetPayloads(payloads);
   assertDbConfigured();
   if (payloads.length === 0) return { status: "stored", logs: [] };
 

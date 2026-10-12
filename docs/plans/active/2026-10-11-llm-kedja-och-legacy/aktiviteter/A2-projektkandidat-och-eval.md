@@ -29,12 +29,20 @@ finalize/eval-tester + typecheck. Ingen betald evalmatris som standard.
 
 ## Resultat
 
-A2.0 readonly-recon klar på `b5b7474e…`. Dubblerad parse → språkdefault →
-merge finns två gånger i preflight och separat i eval; eval monterar dessutom
-projekt före preflightens montering. Fast-path verifierar före merge och
-stale-filter kompenserar efteråt. A2.1 ska dela den rena parse/merge-delen via
-befintlig `finalize-merge.ts` och flytta rena versionsmerge-primitiver från den
-DB-importerande `version-manager.ts` till en smal `version-file-merge.ts` med
-re-exports. DB-bunden import/env-upplösning, package-overlay, stale-filter,
-tidig syntax, RepairLedger och verifieringsordning lämnas till A2.2. Ingen kod
-ändrades eller testades under recon.
+A2.1/A2.2 lokalt klara och granskade utan kvarvarande fynd. Preflight,
+partial-repair och eval delar `prepareGeneratedProjectCandidate`; rena
+mergefunktioner ligger i `version-file-merge.ts` med kompatibla re-exports.
+Komplett preflight-kandidat verifieras och reparerade kandidater bereds igen
+före bekräftelse. Samma kandidat går till persist. Original modell-emission
+skiljs från monterade filer; redigerad env-vy ersätter aldrig lagrade env-bytes.
+Eval använder `sources.canonicalRuntimeFiles`. Extra eval-montering,
+package-overlay och fast-paths efter-merge-stale-block är raderade, medan
+manifestkontroll/importbekräftelse behåller sina egna skydd. A2.2 produktkod
+netto −73 rader mot snapshot `1c12697d…`.
+
+Node 22.23.1: A2.1 184 tester; A2.2 339 tester i åtta filer PASS (331 oförändrade
+resultat återanvända, åtta slutligt omkörda). Typecheck, diff-check,
+verifieringsplan och canvas-kontroll PASS. Slutreview band 14 stabila scopehashar
+och stängde env-/skip-regressionerna. Provider, DB och genererad syntaxkontroll
+mockas i kandidatfixturen. Ingen live-runtime, betald eval eller mätt
+kostnads-/latensvinst påstås.

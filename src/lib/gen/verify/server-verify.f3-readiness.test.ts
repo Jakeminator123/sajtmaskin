@@ -36,6 +36,9 @@ const runLlmRepairGate = vi.hoisted(() => vi.fn());
 const runAutoFix = vi.hoisted(() => vi.fn());
 const runDeterministicImportRepair = vi.hoisted(() => vi.fn());
 const runRepairLoop = vi.hoisted(() => vi.fn());
+const readServerRepairBudget = vi.hoisted(() => vi.fn());
+const prepareServerRepairBudget = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/db/services/server-repair-budget", () => ({ readServerRepairBudget, prepareServerRepairBudget }));
 
 vi.mock("@/lib/db/client", () => ({ dbConfigured: true, db: {}, pool: null }));
 vi.mock("@/lib/db/chat-repository-pg", () => ({
@@ -77,7 +80,9 @@ vi.mock("@/lib/gen/autofix/deterministic-import-repair", () => ({
   runDeterministicImportRepair,
 }));
 vi.mock("@/lib/gen/autofix/llm-repair-gate", () => {
-  class RepairLedger {}
+  class RepairLedger {
+    static hydrate() { return new RepairLedger(); }
+  }
   return { RepairLedger, runLlmRepairGate };
 });
 vi.mock("./preview-quality-gate", () => ({
@@ -167,6 +172,12 @@ function gateFailTypecheck() {
 }
 
 beforeEach(() => {
+  // A pre-existing trusted bootstrap is read under this run's real lease/revision.
+  readServerRepairBudget.mockReset().mockImplementation(async (target: { chatId: string; versionId: string; runId: string; filesRevision: string }) => {
+    expect(target).toMatchObject({ chatId, versionId, runId: "run-l1", filesRevision: expect.any(String) });
+    return { status: "ready", snapshot: { scopeId: `${versionId}:original`, finalize: [], consumed: [] } };
+  });
+  prepareServerRepairBudget.mockReset().mockImplementation((target) => readServerRepairBudget(target));
   promoteVersion.mockReset().mockResolvedValue({ id: versionId });
   failVersionVerification.mockReset().mockResolvedValue(null);
   resetVersionVerificationToPending.mockReset().mockResolvedValue({ id: versionId });

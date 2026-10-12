@@ -17,12 +17,18 @@ mellan dessa. Varje skrivpaket binds ändå till aktuell HEAD och berörda blobs
 Vid samordningsövertagandet 2026-10-11 var aktuell HEAD
 `b5b7474e517b978d5a331aa3ff93c7ece1da73ad`; första paket binds till denna.
 
-- Arbetskatalog: `C:/Users/jakem/.codex/worktrees/1634/sajtmaskin`.
+- Arbetskatalog: `C:/Users/jakem/.codex/worktrees/llm-legacy-cleanup/sajtmaskin`.
+- Återställd 2026-10-12 efter Jakobs mandat från snapshot
+  `1c12697dca15d15e58cdd3d431d829b7b1832627`, vars förälder är `b5b7474e…`.
+  Snapshoten innehåller A1, B1, planerna och ofärdig A2.1. Den gamla katalogen
+  `1634` arkiverades under arbetet; den används inte längre.
 - Planmapp: `docs/plans/active/2026-10-11-llm-kedja-och-legacy/`.
 - Produktkod, städning och nödvändiga följdytor ingår efter tilldelning.
 - Inga nya worktrees, underagenter eller parallella skrivare utan nytt mandat.
 - Ingen push, PR, merge, DB-apply, providerändring eller aktivering av flaggor
   ingår i en aktivitet. Samordnaren begär separat publiceringsmandat.
+- Jakob godkände 2026-10-12 lokala Git-commits efter verifiering och granskning.
+  Detta ändrar inte gränserna för push, PR, drift, Master eller DB-apply.
 - Befintliga CI-/Buggpassregler gäller; bygg inte en andra verifieringsmotor.
 - Andra aktiva spår och deras öppna acceptanskrav stängs inte av denna plan.
 
@@ -68,28 +74,34 @@ uppdrag. Svaret ACK på första meddelandet verifierar kanalen. Därefter använ
 `wait_threads` med cursor och kort `read_thread` vid slutresultat. Rapportering
 sker i arbetarchatten, inte genom returmeddelanden till denna sidokonversation.
 
-Samordnarens nuvarande sidokonversation har ID
-`01a12cab-7ec1-71e0-a6fb-ab392f21ab92`; `read_thread` rapporterar att den är
-ephemeral. Den ska därför **inte** användas som meddelandemottagare eller
-återhämtningskälla. Planen + arbetarchattarnas resultat är återstartspunkten.
-Kontakt med de nya chattarna är ännu inte verifierad. Den befintliga chatten
+Samordnarens chatt är `01a12cf8-055c-7640-a5bc-f971dd1fc41b`.
+Planen + arbetarchattarnas resultat är återstartspunkten. Kontakten är
+verifierad med READY och ACK för alla tre roller. Den befintliga chatten
 `3 - DATABASER` är inte roll 3 och ska inte styras av denna plan.
 
 ## Körbord — samordnaren är enda redaktör
 
-**Aktuell skrivrätt: ingen. Nästa skrivpaket: A2.1 efter klar recon.**
-Tre READY och ACK verifierades 2026-10-11. Checkouten visade bara den sedan
-tidigare modifierade planindexfilen och den otrackade planmappen.
+**Aktuell skrivrätt: samordnaren, planuppdatering och lokal Git-checkpoint.**
+A2.2, B2.2 och C1.1 är lokalt klara och slutgranskade utan kvarvarande fynd.
+C1.2b är slutgranskat på `1c12697d…` + delta, utan kvarvarande fynd.
+286-resultatbasen återanvänds där oförändrad; senaste looprättningen har
+29 berörda tester samt typecheck/diff PASS. Ingen summering av överlappande tester.
+1, 2 och 3 inväntar paket. C1.3a:s sju produktfiler är avgränsade readonly;
+skrivmandat ges efter lokal checkpoint. Ingen cron eller runtimeacceptans ännu.
+Lokal gren är `codex/llm-legacy-cleanup`.
+Samordnaren sparar granskade och verifierade uppgiftsfiler i lokal checkpoint
+enligt Jakobs commitmandat. Inga orelaterade filer får stageas. Den tidigare
+snapshoten kommer från appens arkivering; ingen push eller driftändring ingår.
 Rätt till en aktivitet är inte rätt att själv ta nästa.
 
 | ID | Aktivitet | Utförare | Beroende | Status |
 |---|---|---|---|---|
 | A1 | [Typat byggunderlag](aktiviteter/A1-typat-byggunderlag.md) | 1 | registrering | lokalt klar, review utan fynd; runtime ej verifierad |
-| A2 | [Gemensam kandidat och eval](aktiviteter/A2-projektkandidat-och-eval.md) | 1 | A1 | A2.0 recon klar; A2.1 redo |
+| A2 | [Gemensam kandidat och eval](aktiviteter/A2-projektkandidat-och-eval.md) | 1 | A1 | lokalt klar, 339 tester; slutlig review utan kvarvarande fynd |
 | B1 | [Legacy-rensning](aktiviteter/B1-legacy-rensning.md) | 2 | registrering | lokalt klar för säkra delen, review utan fynd |
-| B2 | [Ägare och dokumentation](aktiviteter/B2-agare-och-dokumentation.md) | 2 | berörda kodpaket | planerad |
-| C1 | [Serverägd efterkontroll](aktiviteter/C1-serveragd-efterkontroll.md) | 1, granskning 3 | A1 + A2 | planerad |
-| D1 | [Integration och leverans](aktiviteter/D1-integration-och-leverans.md) | samordnare + 3 | föregående paket | planerad |
+| B2 | [Ägare och dokumentation](aktiviteter/B2-agare-och-dokumentation.md) | 2 | berörda kodpaket | lokalt klar, netto −408 rader i B2.2; review utan fynd |
+| C1 | [Serverägd efterkontroll](aktiviteter/C1-serveragd-efterkontroll.md) | 1, granskning 3 | A1 + A2 | C1.1–2b lokalt verifierade/granskade; C1.3a atomicbootstrap står näst |
+| D1 | [Integration och leverans](aktiviteter/D1-integration-och-leverans.md) | samordnare + 3 | föregående paket | lokal checkpoint för klara paket; slutlig integration/leverans återstår |
 
 Tilldelning: `PAKET <ID/del> | HEAD <sha> | skrivytor <paths> | mål <en mening>`.
 Skrivrätt gäller angivet paket tills agenten rapporterar klart/blockerat.

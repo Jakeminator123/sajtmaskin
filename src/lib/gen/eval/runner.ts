@@ -6,8 +6,6 @@ import { parseCodeProject, serializeCodeProject, type CodeFile } from "../parser
 import { runAutoFix } from "../autofix/pipeline";
 import { DEFAULT_MODEL } from "../models";
 import { DB_ENV_VARS, resolveConfiguredDbEnv } from "@/lib/db/env";
-import { buildCompleteProject } from "../export/project-scaffold";
-import { collectRequiredUiComponents } from "../export/project-scaffold-ui-reader";
 import { runFinalizePreflight } from "../stream/finalize-preflight";
 import { parseSSEBuffer } from "../stream/sse-parser";
 import { classifyProviderError } from "@/lib/providers/own-engine/provider-error-messages";
@@ -815,12 +813,6 @@ async function evaluatePrompt(
       language?: string;
     }>
   ).map((file) => ({ ...file, language: file.language || "tsx" }));
-  const completeProjectFiles = buildCompleteProject(
-    mergedFiles,
-    collectRequiredUiComponents(mergedFiles),
-    projectEnvLocalOptions,
-  );
-  const seoIssues = runSeoPreflightChecks(completeProjectFiles);
   const preflight = await runFinalizePreflight({
     chatId: `eval_${evalPrompt.id}`,
     model,
@@ -836,6 +828,8 @@ async function evaluatePrompt(
     rawFiles: mergeResult.generatedFiles,
     preflightFilesJson: preflight.filesJson,
   });
+  const completeProjectFiles = sources.canonicalRuntimeFiles;
+  const seoIssues = runSeoPreflightChecks(completeProjectFiles);
 
   if (sources.droppedProtectedPaths.length > 0) {
     // Telemetry-only. The protected-paths guard removed these LLM

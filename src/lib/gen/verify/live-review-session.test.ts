@@ -10,7 +10,6 @@ vi.mock("@/lib/db/services/live-review-runs", () => ({
   completeLiveReviewRun: vi.fn(),
   abandonLiveReviewRun: vi.fn(),
   beginPaidLiveReviewAttempt: vi.fn(),
-  incrementLiveReviewModelAttempts: vi.fn(),
   deletePreviousLiveReviewBlobs: vi.fn(),
   deleteLiveReviewScreenshotUrls: vi.fn(),
   purgeExpiredLiveReviewBlobs: vi.fn(),
@@ -405,7 +404,7 @@ describe("finishLiveReviewSession", () => {
     expect(deleteScreenshotUrls).not.toHaveBeenCalledWith(
       expect.objectContaining({ desktopUrl: "https://blob.example/n-plus-1.jpg" }),
     );
-    expect(abandonRun).toHaveBeenCalledWith("lr_1", expect.any(Date));
+    expect(abandonRun).not.toHaveBeenCalled();
   });
 
   it("raderar inte N+1-blobs när målet supersedas direkt efter N:s complete", async () => {
@@ -453,7 +452,7 @@ describe("finishLiveReviewSession", () => {
     expect(deletePreviousBlobs).not.toHaveBeenCalled();
   });
 
-  it("raderar inte föregående par om complete misslyckas — överger claimen", async () => {
+  it.each(["false", "throw"] as const)("bevarar reservationen när complete misslyckas med %s", async (failure) => {
     const deletePreviousBlobs = vi.fn(async () => 1);
     const abandonRun = vi.fn(async () => {});
     const deleteScreenshotUrls = vi.fn(async () => {});
@@ -480,7 +479,10 @@ describe("finishLiveReviewSession", () => {
       {
         attachReview: async () => completed,
         beginPaidAttempt: async () => 1,
-        completeRun: async () => false,
+        completeRun: async () => {
+          if (failure === "throw") throw new Error("offline persistence failure");
+          return false;
+        },
         deletePreviousBlobs,
         abandonRun,
         deleteScreenshotUrls,
@@ -488,11 +490,11 @@ describe("finishLiveReviewSession", () => {
     );
     expect(result.status).toBe("completed");
     expect(deletePreviousBlobs).not.toHaveBeenCalled();
-    expect(abandonRun).toHaveBeenCalledWith("lr_1", expect.any(Date));
+    expect(abandonRun).not.toHaveBeenCalled();
     expect(deleteScreenshotUrls).toHaveBeenCalled();
   });
 
-  it("raderar redan uppladdade JPEG när claim överges", async () => {
+  it("raderar egna JPEG men behåller reservationen även vid ett skipped-resultat", async () => {
     const deleteScreenshotUrls = vi.fn(async () => {});
     const abandonRun = vi.fn(async () => {});
     const screenshots = {
@@ -528,7 +530,7 @@ describe("finishLiveReviewSession", () => {
     );
     expect(result).toEqual(skippedLiveReviewResult("postcheck_skipped"));
     expect(deleteScreenshotUrls).toHaveBeenCalledWith(screenshots);
-    expect(abandonRun).toHaveBeenCalledWith("lr_1", expect.any(Date));
+    expect(abandonRun).not.toHaveBeenCalled();
   });
 
   it("startar inte critic om leasen redan tagits över", async () => {
@@ -567,5 +569,63 @@ describe("finishLiveReviewSession", () => {
     expect(attachReview).not.toHaveBeenCalled();
     expect(waitForRun).toHaveBeenCalled();
     expect(deleteScreenshotUrls).toHaveBeenCalledWith(screenshots);
+  });
+});
+
+describe("LiveReview reservation survives handler restart", () => {
+  const input = {
+    skipped: false, findings: [],
+    screenshots: { desktopUrl: "https://blob.example/current.jpg", mobileUrl: null },
+    domSummary: null, filesJson: "[]", userRequest: "x", briefSummary: "",
+  };
+  const session = (modelAttempts: number) => ({
+    captureEnabled: true, allowed: true, claim: acquired({ row: { modelAttempts } }),
+    earlyResult: null, chatId: "chat_1", versionId: "v1", filesRevision: "rev_a", userId: "user_1",
+  });
+
+  it("allows only the remaining slot after failed completion and then caps a restarted handler", async () => {
+    let reserved = 0;
+    const beginPaidAttempt = vi.fn(async () => reserved < 2 ? ++reserved : null);
+    const attachReview = vi.fn(async () => completed);
+    const completeRun = vi.fn(async () => false);
+    // A destructive abandon would reproduce the bug by reopening all slots.
+    const abandonRun = vi.fn(async () => { reserved = 0; });
+    const deps = { beginPaidAttempt, attachReview, completeRun, abandonRun, deleteScreenshotUrls: vi.fn(async () => {}) };
+
+    await finishLiveReviewSession(session(reserved), input, deps);
+    expect(reserved).toBe(1);
+    await finishLiveReviewSession(session(reserved), input, deps);
+    expect(reserved).toBe(2);
+    const capped = await finishLiveReviewSession(session(reserved), input, deps);
+    expect(capped).toEqual(skippedLiveReviewResult("cost_capped"));
+    expect(attachReview).toHaveBeenCalledTimes(2);
+    expect(beginPaidAttempt).toHaveBeenCalledTimes(2);
+    expect(abandonRun).not.toHaveBeenCalled();
+  });
+
+  it.each([0, 1])("abandons a superseded pre-call claim only when its prior reserved count is zero (%s)", async (reserved) => {
+    const abandonRun = vi.fn(async () => {});
+    const beginPaidAttempt = vi.fn();
+    const attachReview = vi.fn();
+    const deleteScreenshotUrls = vi.fn(async () => {});
+    const result = await finishLiveReviewSession(session(reserved), { ...input, isTargetCurrent: async () => false }, {
+      abandonRun, beginPaidAttempt, attachReview, deleteScreenshotUrls,
+    });
+    expect(result).toEqual(skippedLiveReviewResult("preview_superseded"));
+    expect(abandonRun).toHaveBeenCalledTimes(reserved === 0 ? 1 : 0);
+    expect(deleteScreenshotUrls).toHaveBeenCalledWith(input.screenshots);
+    expect(beginPaidAttempt).not.toHaveBeenCalled();
+    expect(attachReview).not.toHaveBeenCalled();
+  });
+
+  it("does not start a critic after a thrown reservation failure", async () => {
+    const attachReview = vi.fn();
+    const abandonRun = vi.fn();
+    await expect(finishLiveReviewSession(session(0), input, {
+      beginPaidAttempt: vi.fn(async () => { throw new Error("reservation unavailable"); }),
+      attachReview, abandonRun,
+    })).rejects.toThrow("reservation unavailable");
+    expect(attachReview).not.toHaveBeenCalled();
+    expect(abandonRun).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SERVER_REPAIR_BUDGET_LOG_CATEGORY } from "./version-errors";
 
 // ---------------------------------------------------------------------------
 // db/client mock — captures the chained .delete().where().returning() call.
@@ -119,6 +120,31 @@ describe("productPostcheckLogMatchesCurrentFilesRevision", () => {
         "rev_n_plus_1",
       ),
     ).toBe(false);
+  });
+});
+
+describe("budget receipt trust boundary", () => {
+  it.each(["generic", "attested"])("rejects an entire %s insert containing a reserved budget category", async (writer) => {
+    vi.clearAllMocks();
+    const payload = [
+      { chatId: "c1", versionId: "v1", level: "info" as const, category: "diagnostic", message: "ordinary" },
+      { chatId: "c1", versionId: "v1", level: "info" as const, category: SERVER_REPAIR_BUDGET_LOG_CATEGORY, message: "forged init", meta: { kind: "init" } },
+    ];
+    await expect(writer === "generic" ? createEngineVersionErrorLogs(payload) :
+      createAttestedProductPostcheckErrorLogs(payload, { expectedFilesRevision: "rev1", lockTimeoutMs: 3000 })).rejects.toThrow("private owner");
+    expect(db.insert).not.toHaveBeenCalled();
+    expect(db.transaction).not.toHaveBeenCalled();
+    expect(insertValuesSpy).not.toHaveBeenCalled();
+  });
+
+  it("exempts the exact budget category from real prune SQL even without repairPassIndex", async () => {
+    whereSpy.mockClear();
+    deletedRows.mockReturnValue([]);
+    await pruneStaleVersionErrorLogs("v1", 2);
+    const query = new PgDialect().sqlToQuery(whereSpy.mock.calls[0][0] as never);
+    expect(query.sql.toLowerCase()).toContain("not in");
+    expect(query.params).toContain(SERVER_REPAIR_BUDGET_LOG_CATEGORY);
+    expect(PRUNE_EXEMPT_CATEGORIES).toContain(SERVER_REPAIR_BUDGET_LOG_CATEGORY);
   });
 });
 

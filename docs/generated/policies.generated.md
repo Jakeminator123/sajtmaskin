@@ -10,7 +10,7 @@
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:a942d58ff7107e33 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:6fdc4794d0a6a606 -->
-<!-- source-fingerprint: config/control-plane/*-registry.json sha256:857129e1a1753dc2 -->
+<!-- source-fingerprint: config/control-plane/*-registry.json sha256:ed83b142db793efe -->
 
 # Policies
 
@@ -219,7 +219,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 
 ## Control-plane registry
 
-This index contains 61 control-plane entries. It is a map to canonical owners, not a runtime policy layer.
+This index contains 60 control-plane entries. It is a map to canonical owners, not a runtime policy layer.
 
 | ID                                            | Type                | Canonical source                                                  | Validator               | CI status | Runtime status  | Runtime enforced |
 | --------------------------------------------- | ------------------- | ----------------------------------------------------------------- | ----------------------- | --------- | --------------- | ---------------- |
@@ -250,7 +250,6 @@ This index contains 61 control-plane entries. It is a map to canonical owners, n
 | `server-repair-policy`                        | `policy`            | `src/lib/gen/verify/server-repair-policy.ts`                      | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `shadcn-mirror-audit-policy`                  | `policy`            | `config/shadcn-mirror-audit-policy.json`                          | `mirror:audit`          | `manual`  | `declared-only` | No               |
 | `tier3-sdk-deny`                              | `policy`            | `config/integrations/tier3-sdk-deny.json`                         | `test:ci`               | `hard`    | `wired`         | Yes              |
-| `user-degraded-env`                           | `policy`            | `config/user_degraded_env.txt`                                    | —                       | `none`    | `declared-only` | No               |
 | `variant-template-addenda-runtime`            | `runtime-authority` | `src/lib/gen/scaffold-variants/variant-template-addendum.ts`      | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `agent-workflow-schema`                       | `schema`            | `docs/schemas/strict/agent-workflow.schema.json`                  | `workflow:contract`     | `hard`    | `n/a`           | No               |
 | `ai-models-manifest`                          | `schema`            | `config/ai_models/manifest.json`                                  | `test:ci`               | `hard`    | `wired`         | Yes              |

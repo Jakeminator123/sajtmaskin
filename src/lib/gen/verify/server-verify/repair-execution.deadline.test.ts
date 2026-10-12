@@ -18,6 +18,9 @@ const buildExportableProject = vi.hoisted(() => vi.fn());
 const chatUsesVerbatimRepo = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const isLatestVersionForChat = vi.hoisted(() => vi.fn());
+const readServerRepairBudget = vi.hoisted(() => vi.fn());
+const hydrateRepairLedger = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/db/services/server-repair-budget", () => ({ readServerRepairBudget }));
 
 vi.mock("@/lib/db/client", () => ({ dbConfigured: true, db: {}, pool: null }));
 vi.mock("@/lib/db/chat-repository-pg", () => ({
@@ -43,7 +46,9 @@ vi.mock("@/lib/logging/recurring-patterns-reader", () => ({
   readRecurringPatternsForChat: () => [],
 }));
 vi.mock("@/lib/gen/autofix/llm-repair-gate", () => {
-  class RepairLedger {}
+  class RepairLedger {
+    static hydrate(...args: unknown[]) { hydrateRepairLedger(...args); return new RepairLedger(); }
+  }
   return { RepairLedger, runLlmRepairGate: vi.fn() };
 });
 vi.mock("../preview-quality-gate", () => ({
@@ -107,6 +112,8 @@ describe("tryServerRepairLoop threads verifyDeadlineEpochMs (C4)", () => {
       jobFinishedAt: null,
     });
     runRepairLoop.mockReset();
+    readServerRepairBudget.mockReset().mockResolvedValue({ status: "history_unknown" });
+    hydrateRepairLedger.mockReset();
   });
 
   it("forwards the repair-loop final-gate deadline into shouldPromoteAfterRepair", async () => {
@@ -153,10 +160,36 @@ describe("tryServerRepairLoop threads verifyDeadlineEpochMs (C4)", () => {
       jobFinishedAt: null,
       previewPolicy: "fidelity2",
       repairDeadlineEpochMs: verifyDeadlineEpochMs + 5_000,
+      repairAuthority: "manual",
     });
 
     expect(shouldPromoteAfterRepair).toHaveBeenCalledWith(
       expect.objectContaining({ verifyDeadlineEpochMs }),
     );
+  });
+
+  it("hydrates authenticated history with its original scope and retains occupied slots", async () => {
+    const identity = { contentHash: "a".repeat(16), diagnosticFingerprint: "b".repeat(16), requiredFiles: ["app/page.tsx"], outcome: "success" as const };
+    const consumed = [{ ...identity, passIndex: 0, slot: "primary" as const }];
+    readServerRepairBudget.mockResolvedValue({ status: "ready", snapshot: { scopeId: "original:root", finalize: [identity], consumed } });
+    runRepairLoop.mockResolvedValue({ stopped: true });
+    await tryServerRepairLoop({ chatId: "chat-c4", versionId: "ver-c4", codeFiles: projectFiles, baseFilesJson: JSON.stringify(projectFiles),
+      baseFilesRevision: "actual-db-revision", runId: "run2", repairScopeId: "caller-must-not-replace-scope",
+      failedOutputs: [], verifyLaneDurationMs: 0, firstFailureCheck: null, jobStartedAt: null, jobFinishedAt: null });
+    expect(readServerRepairBudget).toHaveBeenCalledWith({ chatId: "chat-c4", versionId: "ver-c4", runId: "run2", filesRevision: "actual-db-revision" });
+    expect(hydrateRepairLedger).toHaveBeenCalledWith("chat-c4", "original:root", [identity, ...consumed]);
+    expect(runRepairLoop).toHaveBeenCalledWith(expect.objectContaining({ repairScopeId: "original:root", serverRepairBudget: {
+      target: { chatId: "chat-c4", versionId: "ver-c4", runId: "run2", filesRevision: "actual-db-revision", scopeId: "original:root" }, consumed,
+    } }));
+  });
+
+  it.each(["missing_revision", "history_unknown", "unavailable"])("never substitutes a fresh automatic ledger after %s", async (reason) => {
+    readServerRepairBudget.mockResolvedValue({ status: reason });
+    await expect(tryServerRepairLoop({ chatId: "chat-c4", versionId: "ver-c4", codeFiles: projectFiles, baseFilesJson: JSON.stringify(projectFiles),
+      baseFilesRevision: reason === "missing_revision" ? undefined : "actual", runId: "run2", failedOutputs: [],
+      verifyLaneDurationMs: 0, firstFailureCheck: null, jobStartedAt: null, jobFinishedAt: null })).rejects.toThrow(/Automatic repair/);
+    expect(runRepairLoop).not.toHaveBeenCalled();
+    expect(markVersionRepairing).not.toHaveBeenCalled();
+    expect(saveRepairedFiles).not.toHaveBeenCalled();
   });
 });

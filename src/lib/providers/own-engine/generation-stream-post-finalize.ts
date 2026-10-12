@@ -132,6 +132,10 @@ export async function runOwnEngineStreamPostFinalize(params: {
     repairPassIndex = 0,
   } = params;
 
+  const repairBudgetSeed = finalized.repairLedger?.exportFinalizeSeed?.(
+    finalized.version.id, chatId, finalized.repairScopeId ?? "",
+  );
+
   // A persisted version is not reported as completed until its durable
   // billing work marker exists. Attribution/settlement failures remain
   // recoverable from that marker, while marker failure itself propagates and
@@ -569,6 +573,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
             // content+diagnostics already LLM-repaired during finalize.
             repairLedger: finalized.repairLedger,
             repairScopeId: finalized.repairScopeId,
+            repairBudgetSeed,
             onRepairAvailable: (payload) => {
               safeEnqueue(
                 enc.encode(
@@ -627,6 +632,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
           },
           repairLedger: finalized.repairLedger,
           repairScopeId: finalized.repairScopeId,
+          repairBudgetSeed,
           onRepairAvailable: (payload) => {
             safeEnqueue(
               enc.encode(
@@ -729,6 +735,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
         // lane dedupes against LLM repairs already attempted in finalize.
         repairLedger: finalized.repairLedger,
         repairScopeId: finalized.repairScopeId,
+        repairBudgetSeed,
         onRepairAvailable: (payload) => {
           safeEnqueue(
             enc.encode(

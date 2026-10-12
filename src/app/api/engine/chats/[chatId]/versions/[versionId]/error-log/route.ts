@@ -4,6 +4,7 @@ import {
   createAttestedProductPostcheckErrorLogs,
   createEngineVersionErrorLogs,
   getEngineVersionErrorLogs,
+  SERVER_REPAIR_BUDGET_LOG_CATEGORY,
 } from "@/lib/db/services/version-errors";
 import { buildErrorLogSummary } from "./summary";
 import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
@@ -95,6 +96,13 @@ export async function POST(request: Request, ctx: RouteParams) {
       | null;
     if (!body) {
       return NextResponse.json({ error: "Missing payload" }, { status: 400 });
+    }
+
+    // Attestation authorizes preview observations, never paid-budget receipts.
+    // Reject the entire payload before choosing singleton/batch/attested paths.
+    if (("category" in body && body.category === SERVER_REPAIR_BUDGET_LOG_CATEGORY) ||
+      ("logs" in body && Array.isArray(body.logs) && body.logs.some((log) => log?.category === SERVER_REPAIR_BUDGET_LOG_CATEGORY))) {
+      return NextResponse.json({ success: false, stored: false, code: "server_repair_budget_server_owned" }, { status: 400 });
     }
 
     if ("productPostcheckAttestation" in body) {

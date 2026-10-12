@@ -189,23 +189,6 @@
       "notes": "research audit only."
     },
     {
-      "id": "user-degraded-env",
-      "sourceOfTruth": "config/user_degraded_env.txt",
-      "type": "policy",
-      "validator": null,
-      "ciStatus": "none",
-      "runtimeEnforced": false,
-      "runtimeStatus": "declared-only",
-      "backoffice": {
-        "surface": "user_degraded_env",
-        "editable": true,
-        "writePath": "config/user_degraded_env.txt",
-        "danger": "low"
-      },
-      "mobility": "safe",
-      "notes": "Human policy text with a Backoffice editor; no runtime loader reads it."
-    },
-    {
       "id": "placeholder-harmless",
       "sourceOfTruth": "src/lib/integrations/placeholder-harmless.ts",
       "type": "policy",

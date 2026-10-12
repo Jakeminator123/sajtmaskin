@@ -164,13 +164,15 @@ export async function finishLiveReviewSession(
     input.isTargetCurrent ? input.isTargetCurrent().catch(() => false) : true;
   const discardSuperseded = async () => {
     await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
-    await (deps.abandonRun ?? abandonLiveReviewRun)(
-      acquiredClaim.row.id,
-      acquiredClaim.row.claimedAt,
-    );
     return skippedLiveReviewResult("preview_superseded");
   };
-  if (!(await targetIsCurrent())) return discardSuperseded();
+  if (!(await targetIsCurrent())) {
+    const discarded = await discardSuperseded();
+    if (acquiredClaim.row.modelAttempts === 0) {
+      await (deps.abandonRun ?? abandonLiveReviewRun)(acquiredClaim.row.id, acquiredClaim.row.claimedAt);
+    }
+    return discarded;
+  }
 
   if (session.claim.row.modelAttempts >= LIVE_REVIEW_MAX_MODEL_ATTEMPTS) {
     const capped = skippedLiveReviewResult("cost_capped");
@@ -228,10 +230,7 @@ export async function finishLiveReviewSession(
         result.reason === "cost_capped"));
   if (!paid) {
     await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
-    await (deps.abandonRun ?? abandonLiveReviewRun)(
-      session.claim.row.id,
-      session.claim.row.claimedAt,
-    );
+    // Even a skipped result cannot prove that a reserved model call was free.
     return result;
   }
 
@@ -240,14 +239,11 @@ export async function finishLiveReviewSession(
     result,
     screenshots: input.screenshots,
     modelAttempts: attempts,
-  });
+  }).catch(() => false);
 
   if (!persisted) {
     await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
-    await (deps.abandonRun ?? abandonLiveReviewRun)(
-      session.claim.row.id,
-      session.claim.row.claimedAt,
-    );
+    // Keep the claim and its reserved count for a bounded lease takeover.
     return result;
   }
 

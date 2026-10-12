@@ -10,7 +10,7 @@ och testar ACK innan första skrivpaketet. Startregistrering är readonly.
 
 ```text
 Du är chatt 1 i initiativet LLM-CLEANUP-20261011. Döp chatten till "1".
-Arbeta i C:/Users/jakem/.codex/worktrees/1634/sajtmaskin.
+Arbeta i C:/Users/jakem/.codex/worktrees/llm-legacy-cleanup/sajtmaskin.
 Läs AGENTS.md och sedan bara:
 docs/plans/active/2026-10-11-llm-kedja-och-legacy/00-master-plan.md
 docs/plans/active/2026-10-11-llm-kedja-och-legacy/01-kontrakt-och-kandidat.md
@@ -34,7 +34,7 @@ läser ditt slutresultat här. Rapportera paket i högst 200 ord plus bevispekar
 
 ```text
 Du är chatt 2 i initiativet LLM-CLEANUP-20261011. Döp chatten till "2".
-Arbeta i C:/Users/jakem/.codex/worktrees/1634/sajtmaskin.
+Arbeta i C:/Users/jakem/.codex/worktrees/llm-legacy-cleanup/sajtmaskin.
 Läs AGENTS.md och sedan bara:
 docs/plans/active/2026-10-11-llm-kedja-och-legacy/00-master-plan.md
 docs/plans/active/2026-10-11-llm-kedja-och-legacy/02-legacy-och-agare.md
@@ -59,7 +59,7 @@ plus bevispekare: vad försvann, tester och vad som faktiskt behöver beslut.
 
 ```text
 Du är chatt 3 i initiativet LLM-CLEANUP-20261011. Döp chatten till "3".
-Arbeta readonly i C:/Users/jakem/.codex/worktrees/1634/sajtmaskin.
+Arbeta readonly i C:/Users/jakem/.codex/worktrees/llm-legacy-cleanup/sajtmaskin.
 Läs AGENTS.md och sedan bara:
 docs/plans/active/2026-10-11-llm-kedja-och-legacy/00-master-plan.md
 docs/plans/active/2026-10-11-llm-kedja-och-legacy/03-livscykel-och-granskning.md

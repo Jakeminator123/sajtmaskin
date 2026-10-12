@@ -202,7 +202,9 @@ export async function completeLiveReviewRun(input: {
         mobileUrl: input.screenshots?.mobileUrl ?? null,
         desktopBlobPath: input.desktopBlobPath ?? null,
         mobileBlobPath: input.mobileBlobPath ?? null,
-        modelAttempts: input.modelAttempts ?? 0,
+        // Reservation is durable before the critic starts. A late completion
+        // or an omitted count must never refund an already reserved attempt.
+        modelAttempts: sql`greatest(${liveReviewRuns.modelAttempts}, ${input.modelAttempts ?? 0})`,
         completedAt: now,
         expiresAt: liveReviewExpiresAt(now),
       })
@@ -228,6 +230,7 @@ export async function abandonLiveReviewRun(
       and(
         eq(liveReviewRuns.id, id),
         eq(liveReviewRuns.status, "running"),
+        eq(liveReviewRuns.modelAttempts, 0),
         ...(claimedAt ? [eq(liveReviewRuns.claimedAt, claimedAt)] : []),
       ),
     );
@@ -266,25 +269,6 @@ export async function beginPaidLiveReviewAttempt(input: {
     return rows[0]?.modelAttempts ?? null;
   } catch {
     return null;
-  }
-}
-
-export async function incrementLiveReviewModelAttempts(id: string): Promise<number> {
-  if (!dbConfigured) return LIVE_REVIEW_MAX_MODEL_ATTEMPTS;
-  try {
-    const rows = await db
-      .select({ modelAttempts: liveReviewRuns.modelAttempts })
-      .from(liveReviewRuns)
-      .where(eq(liveReviewRuns.id, id))
-      .limit(1);
-    const next = (rows[0]?.modelAttempts ?? 0) + 1;
-    await db
-      .update(liveReviewRuns)
-      .set({ modelAttempts: next })
-      .where(eq(liveReviewRuns.id, id));
-    return next;
-  } catch {
-    return LIVE_REVIEW_MAX_MODEL_ATTEMPTS;
   }
 }
 

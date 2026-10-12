@@ -34,6 +34,7 @@ import "@/lib/logging/event-bus-subscribers";
 import "@/lib/logging/event-bus-error-log-sink";
 import { resolveSameSignalGateChecks } from "../quality-gate-checks";
 import { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
+import { readServerRepairBudget, type ServerRepairBudgetSnapshot, type ServerRepairBudgetTarget } from "@/lib/db/services/server-repair-budget";
 import {
   maybeAnalyzeVisualQAForPassedExportable,
   shouldPromoteAfterRepair,
@@ -151,6 +152,8 @@ export async function tryServerRepairLoop(params: {
   /** Fas 3 (RepairGate): shared ledger + scope for cross-lane dedupe. */
   repairLedger?: RepairLedger;
   repairScopeId?: string;
+  /** Manual authority is request-local; it never initializes automatic capacity. */
+  repairAuthority?: "automatic" | "manual";
   /**
    * L1: F3 snapshot context so post-repair readiness re-runs against the
    * repaired files before the post-repair gate / persist.
@@ -188,11 +191,22 @@ export async function tryServerRepairLoop(params: {
     f3Readiness = null,
     repairProvenance,
   } = params;
-  // Fas 3: without a finalize handover, use a fresh per-run ledger + a
-  // version-bound scope (mirrors runner.ts's `{base}:{pass}` pattern) so the
-  // loop still dedupes identical retries within this repair run.
-  const repairLedger = params.repairLedger ?? new RepairLedger();
-  const repairScopeId = params.repairScopeId ?? `${versionId}:server-repair`;
+  let repairLedger: RepairLedger;
+  let repairScopeId: string;
+  let serverRepairBudget: { target: ServerRepairBudgetTarget; consumed: ServerRepairBudgetSnapshot["consumed"] } | undefined;
+  if (params.repairAuthority === "manual") {
+    repairLedger = params.repairLedger ?? new RepairLedger();
+    repairScopeId = params.repairScopeId ?? `${versionId}:server-repair`;
+  } else {
+    // No synthetic revision, fresh ledger or caller-provided scope can authorize automatic payment.
+    if (!runId || !suppliedBaseFilesRevision) throw new Error("Automatic repair history/lease unknown");
+    const target = { chatId, versionId, runId, filesRevision: suppliedBaseFilesRevision };
+    const budget = await readServerRepairBudget(target);
+    if (budget.status !== "ready") throw new Error(`Automatic repair history unavailable: ${budget.status}`);
+    repairScopeId = budget.snapshot.scopeId;
+    repairLedger = RepairLedger.hydrate(chatId, repairScopeId, [...budget.snapshot.finalize, ...budget.snapshot.consumed]);
+    serverRepairBudget = { target: { ...target, scopeId: repairScopeId }, consumed: budget.snapshot.consumed };
+  }
   const verifyContext = {
     verifyLaneDurationMs,
     firstFailureCheck,
@@ -652,6 +666,7 @@ export async function tryServerRepairLoop(params: {
     repairLedger,
     repairScopeId,
     shouldAbortSuperseded,
+    serverRepairBudget,
     onBeforePass: async () => {
       if (runId) await renewVersionLease(versionId, runId).catch(() => {});
     },

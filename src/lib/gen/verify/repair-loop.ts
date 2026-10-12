@@ -31,6 +31,7 @@ import {
 } from "./server-repair-policy";
 import { collectRepairBlockers, introducedRepairBlockers } from "./repair-blockers";
 import type { ReasoningEffort, ReasoningMode } from "@/lib/gen/engine";
+import type { ServerRepairBudgetTarget, ServerRepairBudgetSnapshot } from "@/lib/db/services/server-repair-budget";
 
 export type RepairMethod = "deterministic" | "llm";
 
@@ -177,6 +178,8 @@ export type RunRepairLoopParams<TPayload = unknown> = {
    * inside the gate when omitted.
    */
   repairScopeId?: string;
+  /** Automatic server calls only; manual/eval retain their existing explicit policy. */
+  serverRepairBudget?: { target: ServerRepairBudgetTarget; consumed: ServerRepairBudgetSnapshot["consumed"] };
   /**
    * Fas 3 (base-aware tidig abort): checked at the start of every LLM pass and
    * again before the final verify gate. Return `true` when the version being
@@ -849,7 +852,13 @@ export async function runRepairLoop<TPayload = unknown>(
     : undefined;
 
   const filesFromGateOutput = parseFilesFromErrorLines(repairContextLines);
-  for (let pass = 0; pass < params.maxLlmPasses; pass++) {
+  const lastReserved = params.serverRepairBudget?.consumed.at(-1);
+  // Any earlier partial's merged bytes are process-local, not in an outcome receipt.
+  // Keep same-request partial retries below, but never reconstruct lost output on restart.
+  if (params.serverRepairBudget?.consumed.some((attempt) => attempt.outcome === "partial")) throw new Error("Durable partial repair candidate unavailable");
+  const resumeRetry = lastReserved?.slot === "primary" && lastReserved.outcome === "aborted";
+  const firstPass = lastReserved ? lastReserved.passIndex + (resumeRetry ? 0 : 1) : 0;
+  for (let pass = firstPass; pass < params.maxLlmPasses; pass++) {
     // Wall-clock graceful stop (#284 follow-up): never START a new LLM fixer
     // pass that can't finish (including its retry attempt) before the route's
     // static maxDuration. `pass > 0` so a repair always makes at least one
@@ -927,6 +936,7 @@ export async function runRepairLoop<TPayload = unknown>(
       maxTokens: number,
       timeoutMs: number,
       bundleOverride?: TargetedRepairBundle | null,
+      slot: "primary" | "retry" = "primary",
     ): Promise<FixerResult> => {
       const activeBundle = bundleOverride ?? targetedBundle;
       const activeFixerInput = activeBundle?.contentForFixer ?? content;
@@ -943,6 +953,19 @@ export async function runRepairLoop<TPayload = unknown>(
         phase: "repair-loop",
         scopeId: params.repairScopeId,
         ledger: params.repairLedger,
+        repairBudget: params.serverRepairBudget ? {
+          reserve: async (identity) => {
+            const { reserveServerRepairBudget } = await import("@/lib/db/services/server-repair-budget");
+            const result = await reserveServerRepairBudget(params.serverRepairBudget!.target, { ...identity, passIndex: pass, slot });
+            if (result.status !== "reserved") throw new Error(`Server repair reservation denied: ${result.status}`);
+          },
+          complete: async (identity) => {
+            const { recordServerRepairBudgetOutcome } = await import("@/lib/db/services/server-repair-budget");
+            if (identity.outcome === "unknown") throw new Error("Server repair outcome unknown");
+            const result = await recordServerRepairBudgetOutcome(params.serverRepairBudget!.target, { ...identity, passIndex: pass, slot }, identity.outcome);
+            if (result.status !== "outcome_recorded") throw new Error(`Server repair outcome denied: ${result.status}`);
+          },
+        } : undefined,
       });
       // A deduped attempt made no LLM call; keep llmPasses an honest count of
       // actual fixer invocations. A deduped result flows on as a no-op
@@ -993,10 +1016,11 @@ export async function runRepairLoop<TPayload = unknown>(
     let activeBundle: TargetedRepairBundle | null = targetedBundle;
     const fixerResult = await withOptionalLlmPhaseSignal(params.onPhaseSignal, pass, async () => {
       let result = await runFixerAttempt(
-        errorSummary,
-        originalMaxTokens,
-        params.llmTimeoutMs,
+        pass === firstPass && resumeRetry ? errorSummary.slice(0, 3) : errorSummary,
+        pass === firstPass && resumeRetry ? reducedMaxTokens : originalMaxTokens,
+        pass === firstPass && resumeRetry ? params.llmRetryTimeoutMs ?? params.llmTimeoutMs : params.llmTimeoutMs,
         activeBundle,
+        pass === firstPass && resumeRetry ? "retry" : "primary",
       );
 
       const needsTargetedRetry =
@@ -1005,7 +1029,7 @@ export async function runRepairLoop<TPayload = unknown>(
           !result.success &&
           (result.incompleteFiles.length > 0 || result.missingFiles.length > 0));
 
-      if (needsTargetedRetry) {
+      if (needsTargetedRetry && !(pass === firstPass && resumeRetry)) {
         if (result.aborted) {
           devLogAppend("in-progress", {
             type: "repair_loop.llm_abort",
@@ -1045,6 +1069,7 @@ export async function runRepairLoop<TPayload = unknown>(
           reducedMaxTokens,
           params.llmRetryTimeoutMs ?? params.llmTimeoutMs,
           activeBundle,
+          "retry",
         );
         if (result.aborted) {
           devLogAppend("in-progress", {

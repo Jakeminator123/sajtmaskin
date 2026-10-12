@@ -74,7 +74,6 @@ def render(ctx: BackofficeContext) -> None:
         "tier3-sdk-deny.json": ctx.config_dir / "integrations" / "tier3-sdk-deny.json",
         "env-policy.json": ctx.config_dir / "env-policy.json",
         "shadcn-mirror-audit-policy.json": ctx.config_dir / "shadcn-mirror-audit-policy.json",
-        "user_degraded_env.txt": ctx.config_dir / "user_degraded_env.txt",
         "ai_models/manifest.json": ctx.config_dir / "ai_models" / "manifest.json",
     }
     items = list(paths.items())

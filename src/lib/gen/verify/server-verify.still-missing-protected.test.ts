@@ -19,6 +19,8 @@ const runRepairLoop = vi.hoisted(() => vi.fn());
 const isLatestVersionForChat = vi.hoisted(() => vi.fn());
 const buildExportableProject = vi.hoisted(() => vi.fn());
 const chatUsesVerbatimRepo = vi.hoisted(() => vi.fn());
+const readServerRepairBudget = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/db/services/server-repair-budget", () => ({ readServerRepairBudget }));
 
 vi.mock("@/lib/db/client", () => ({ dbConfigured: true, db: {}, pool: null }));
 vi.mock("@/lib/db/chat-repository-pg", () => ({
@@ -45,7 +47,9 @@ vi.mock("@/lib/logging/recurring-patterns-reader", () => ({
 }));
 vi.mock("@/lib/utils/debug", () => ({ warnLog: vi.fn() }));
 vi.mock("@/lib/gen/autofix/llm-repair-gate", () => ({
-  RepairLedger: class RepairLedgerStub {},
+  RepairLedger: class RepairLedgerStub {
+    static hydrate() { return new RepairLedgerStub(); }
+  },
 }));
 vi.mock("./preview-quality-gate", () => ({
   maybeAnalyzeVisualQAForPassedExportable: vi.fn(() => undefined),
@@ -114,6 +118,11 @@ async function driveOnePromotion(projectContent: string) {
 }
 
 beforeEach(() => {
+  // Existing authenticated bootstrap, not a newly invented empty ledger.
+  readServerRepairBudget.mockReset().mockImplementation(async (target: { chatId: string; versionId: string; runId: string; filesRevision: string }) => {
+    expect(target).toMatchObject({ runId: "run-protected", filesRevision: "rev-protected" });
+    return { status: "ready", snapshot: { scopeId: `${target.versionId}:original`, finalize: [], consumed: [] } };
+  });
   failVersionVerification.mockReset().mockResolvedValue(null);
   saveRepairedFiles.mockReset().mockResolvedValue({
     status: "saved",
@@ -126,6 +135,7 @@ beforeEach(() => {
   getVersionFilesSnapshot.mockReset().mockResolvedValue({
     files: fallbackWithoutProtected,
     filesJson: baseFilesJson,
+    filesRevision: "rev-protected",
   });
   shouldPromoteAfterRepair.mockReset().mockResolvedValue({
     promote: true,
@@ -151,6 +161,8 @@ describe("tryServerRepairLoop — stillMissing protected path must not persist (
     await tryServerRepairLoop({
       chatId: "chat-sm034",
       versionId: "ver-sm034",
+      runId: "run-protected",
+      baseFilesRevision: "rev-protected",
       codeFiles: fallbackWithoutProtected,
       baseFilesJson,
       failedOutputs: [{ check: "typecheck", exitCode: 1, output: "boom", durationMs: 10 }],
@@ -192,6 +204,8 @@ describe("tryServerRepairLoop — stillMissing protected path must not persist (
     await tryServerRepairLoop({
       chatId: "chat-sm034",
       versionId: "ver-sm034",
+      runId: "run-protected",
+      baseFilesRevision: "rev-protected",
       codeFiles: fallbackWithoutProtected,
       baseFilesJson,
       failedOutputs: [{ check: "typecheck", exitCode: 1, output: "boom", durationMs: 10 }],
@@ -246,6 +260,8 @@ describe("tryServerRepairLoop — stillMissing protected path must not persist (
     await tryServerRepairLoop({
       chatId: "chat-sm034",
       versionId: "ver-sm034",
+      runId: "run-protected",
+      baseFilesRevision: "rev-protected",
       codeFiles: fallbackWithoutProtected,
       baseFilesJson,
       failedOutputs: [{ check: "typecheck", exitCode: 1, output: "boom", durationMs: 10 }],
@@ -281,6 +297,8 @@ describe("tryServerRepairLoop — omitted protected path must not vanish (SM-066
     await tryServerRepairLoop({
       chatId: "chat-sm066",
       versionId: "ver-sm066",
+      runId: "run-protected",
+      baseFilesRevision: "rev-protected",
       codeFiles: fallbackWithProtected,
       baseFilesJson: JSON.stringify(fallbackWithProtected),
       failedOutputs: [{ check: "typecheck", exitCode: 1, output: "boom", durationMs: 10 }],
@@ -305,6 +323,8 @@ describe("tryServerRepairLoop — omitted protected path must not vanish (SM-066
     await tryServerRepairLoop({
       chatId: "chat-sm066",
       versionId: "ver-sm066",
+      runId: "run-protected",
+      baseFilesRevision: "rev-protected",
       codeFiles: fallbackWithoutProtected,
       baseFilesJson,
       failedOutputs: [{ check: "typecheck", exitCode: 1, output: "boom", durationMs: 10 }],

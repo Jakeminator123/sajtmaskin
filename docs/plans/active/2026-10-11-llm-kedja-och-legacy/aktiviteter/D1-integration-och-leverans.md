@@ -29,4 +29,10 @@ rapportmapp ska vara restprodukten av städningen.
 
 ## Resultat
 
-Ej startad. Inget commit-/push-/merge-/DB-mandat är registrerat för detta initiativ.
+Jakob godkände 2026-10-12 lokala Git-commits efter verifiering och granskning.
+Inget push-/PR-/merge-/drift-/DB-apply-mandat finns. Implementation och riktad
+verifiering pågår; inget slutligt Buggpass-/leveranskvitto är ännu utfärdat.
+A1/A2, den säkra B1/B2-delen och C1.1–2b är paketgranskade och riktat
+verifierade för en lokal checkpoint. C1:s atomicbootstrap, gemensamma serverägare,
+cron och klientavveckling återstår. Lokal checkpoint är inte leveransgodkännande
+eller runtimeacceptans; inget fullbygge eller betalt modelltest har körts.

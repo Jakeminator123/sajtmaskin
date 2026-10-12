@@ -1772,6 +1772,22 @@ describe("runOwnEngineStreamPostFinalize keeps background jobs alive for lease r
     await expect(afterMock.mock.calls[0][0]).resolves.toBeUndefined();
   });
 
+  it("forwards only a version-bound trusted finalize seed, never a fabricated empty ledger", async () => {
+    const serverVerify = await import("@/lib/gen/verify/server-verify");
+    const { RepairLedger } = await import("@/lib/gen/autofix/llm-repair-gate");
+    const ledger = new RepairLedger();
+    const runWithLedger = () => runOwnEngineStreamPostFinalize({ sse: { enc: new TextEncoder(), safeEnqueue: () => {} }, chatId: "chat_1",
+      finalized: { ...finalized, repairLedger: ledger, repairScopeId: "original:root" } as never,
+      accumulatedContent: "prefix", toolSignaledProviders: new Set(), engineStartedAt: Date.now(), commitCredits: async () => {}, buildSpec: verifyBuildSpec as never });
+    await runWithLedger();
+    expect(vi.mocked(serverVerify.triggerServerVerification).mock.calls[0][0].repairBudgetSeed).toBeUndefined();
+    ledger.markKnownFinalize("ver_1", "chat_1", "original:root");
+    await runWithLedger();
+    expect(vi.mocked(serverVerify.triggerServerVerification).mock.calls[1][0].repairBudgetSeed).toEqual({
+      scopeId: "original:root", history: { source: "observed_fixer_calls", consumed: [], finalize: [] },
+    });
+  });
+
   it("registers the build-error repair with after() when the preview fails to start", async () => {
     const serverVerify = await import("@/lib/gen/verify/server-verify");
     shouldStartOwnEnginePreview.mockReturnValue(true);

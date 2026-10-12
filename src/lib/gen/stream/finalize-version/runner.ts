@@ -578,6 +578,9 @@ export async function finalizeAndSaveVersion(
         selectedDossierEnvKeys: selectedDossierEnvKeys.length > 0 ? selectedDossierEnvKeys : null,
       });
   let version = initialVersion;
+  if (!targetVersionId && repairPassIndex === 0) {
+    repairLedger.markKnownFinalize(version.id, chatId, repairScopeId);
+  }
   const finalizeRunId = repairPassIndex > 0 ? `repair-${repairPassIndex}` : undefined;
   // Nu finns versionen — knyt resten av körningens LLM-anrop (verifier,
   // RepairGate) till den, och efterstämpla de som redan hunnit köra utan

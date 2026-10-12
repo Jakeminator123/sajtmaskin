@@ -224,4 +224,64 @@ describe("runLlmRepairGate ledger", () => {
       }),
     );
   });
+
+  it("exports actual invocations/outcomes, not repeated ledger begin/dedupe attempts", async () => {
+    const ledger = new RepairLedger();
+    const params = { content: "A", errors: ["boom"], chatId: "c", scopeId: "original:root", requiredFiles: [" a.ts ", "a.ts"], timeoutMs: 1_000, ledger };
+    runLlmFixer.mockResolvedValue({ fixedContent: "fixed", fixedFiles: [], missingFiles: [], incompleteFiles: [], partial: false, success: true, durationMs: 1 });
+    await runLlmRepairGate(params);
+    await runLlmRepairGate(params);
+    expect(ledger.exportFinalizeSeed("v", "c", params.scopeId)).toBeUndefined();
+    ledger.markKnownFinalize("v", "c", params.scopeId);
+    const seed = ledger.exportFinalizeSeed("v", "c", params.scopeId)!;
+    expect(seed.history.consumed).toEqual([]);
+    expect(seed.history.finalize).toEqual([expect.objectContaining({ requiredFiles: ["a.ts"], outcome: "success" })]);
+    expect(ledger.exportFinalizeSeed("other", "c", params.scopeId)).toBeUndefined();
+    const hydrated = RepairLedger.hydrate("c", params.scopeId, seed.history.finalize);
+    expect((await runLlmRepairGate({ ...params, ledger: hydrated })).deduped).toBe(true);
+    expect(hydrated.exportFinalizeSeed("v", "c", params.scopeId)).toBeUndefined();
+    expect(runLlmFixer).toHaveBeenCalledTimes(1);
+    expect((await runLlmRepairGate({ ...params, content: "B", ledger: hydrated })).deduped).toBe(false);
+    ledger.clear();
+    expect(ledger.exportFinalizeSeed("v", "c", params.scopeId)).toBeUndefined();
+  });
+
+  it("reserves strictly after dedupe and before invoking, then durably completes before returning", async () => {
+    const events: string[] = [];
+    const ledger = new RepairLedger();
+    const params = { content: "A", errors: ["boom"], chatId: "c", scopeId: "s", timeoutMs: 1_000, ledger,
+      repairBudget: { reserve: vi.fn(async () => { events.push("reserve"); }), complete: vi.fn(async () => { events.push("outcome"); }) } };
+    runLlmFixer.mockImplementation(async () => { events.push("model"); return { fixedContent: "fixed", fixedFiles: [], missingFiles: [], incompleteFiles: [], partial: false, success: true, durationMs: 1 }; });
+    await runLlmRepairGate(params);
+    await runLlmRepairGate(params);
+    expect(events).toEqual(["reserve", "model", "outcome"]);
+    expect(params.repairBudget.complete).toHaveBeenCalledWith(expect.objectContaining({ outcome: "success" }));
+  });
+
+  it.each(["reservation", "outcome"])("fails closed on %s persistence without pretending the model succeeded", async (stage) => {
+    const ledger = new RepairLedger();
+    const failure = new Error("receipt unavailable");
+    const hooks = { reserve: vi.fn(async () => { if (stage === "reservation") throw failure; }), complete: vi.fn(async () => { if (stage === "outcome") throw failure; }) };
+    runLlmFixer.mockResolvedValue({ fixedContent: "fixed", fixedFiles: [], missingFiles: [], incompleteFiles: [], partial: false, success: true, durationMs: 1 });
+    await expect(runLlmRepairGate({ content: "A", errors: ["boom"], chatId: "c", scopeId: "s", timeoutMs: 1_000, ledger, repairBudget: hooks })).rejects.toBe(failure);
+    expect(runLlmFixer).toHaveBeenCalledTimes(stage === "reservation" ? 0 : 1);
+    ledger.markKnownFinalize("v", "c", "s");
+    expect(ledger.exportFinalizeSeed("v", "c", "s")!.history.finalize).toHaveLength(stage === "reservation" ? 0 : 1);
+  });
+
+  it("restores aborted/unknown identities and records thrown fixer invocations as error", async () => {
+    const ledger = new RepairLedger();
+    runLlmFixer.mockRejectedValueOnce(new Error("model failed"));
+    const params = { content: "A", errors: ["boom"], chatId: "c", scopeId: "s", timeoutMs: 1_000, ledger };
+    await expect(runLlmRepairGate(params)).rejects.toThrow("model failed");
+    ledger.markKnownFinalize("v", "c", "s");
+    const call = ledger.exportFinalizeSeed("v", "c", "s")!.history.finalize[0];
+    expect(call.outcome).toBe("error");
+    runLlmFixer.mockResolvedValue({ fixedContent: "fixed", fixedFiles: [], missingFiles: [], incompleteFiles: [], partial: false, success: true, durationMs: 1 });
+    const unknown = RepairLedger.hydrate("c", "s", [{ ...call, outcome: "unknown" }]);
+    expect((await runLlmRepairGate({ ...params, ledger: unknown })).deduped).toBe(true);
+    const aborted = RepairLedger.hydrate("c", "s", [{ ...call, outcome: "aborted" }]);
+    expect((await runLlmRepairGate({ ...params, ledger: aborted })).deduped).toBe(false);
+    expect(runLlmFixer).toHaveBeenCalledTimes(2);
+  });
 });

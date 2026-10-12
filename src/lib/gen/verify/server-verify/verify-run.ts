@@ -6,6 +6,7 @@ import {
   resetVersionVerificationToPending,
   updateVersionFiles,
 } from "@/lib/db/chat-repository-pg";
+import { prepareServerRepairBudget, type ServerRepairBudgetSeed } from "@/lib/db/services/server-repair-budget";
 import { holdVersionForIntegrationMigration } from "@/lib/db/chat-repository/version-lifecycle";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
@@ -133,11 +134,13 @@ export async function triggerServerVerification(params: {
    * Fas 3 (RepairGate): finalize's `RepairLedger`, handed over so a repair in
    * THIS lane dedupes against content+diagnostics already LLM-repaired during
    * finalize (same process — server-verify is fired from post-finalize).
-   * Omitted (manual re-verify, watchdog) → a fresh per-run ledger.
+   * Automatic restarts hydrate durable history; absence never mints a fresh budget.
    */
   repairLedger?: RepairLedger;
   /** Fas 3: finalize's `repairScopeId` — must accompany `repairLedger` so ledger keys collide across lanes. */
   repairScopeId?: string;
+  repairBudgetSeed?: ServerRepairBudgetSeed;
+  repairAuthority?: "automatic" | "manual";
   onRepairAvailable?: (payload: {
     versionId: string;
     summary: string | null;
@@ -197,6 +200,11 @@ export async function triggerServerVerification(params: {
     }
     let snapshot = await getVersionFilesSnapshot(versionId);
     if (!snapshot || snapshot.files.length === 0) return;
+    // Await bootstrap under the first lease, not only when a paid repair starts.
+    // Persist -> post-finalize remains a C1.3 gap; missing history is not recreated here.
+    if (params.repairAuthority !== "manual" && snapshot.filesRevision) {
+      await prepareServerRepairBudget({ chatId, versionId, runId, filesRevision: snapshot.filesRevision }, params.repairBudgetSeed);
+    }
     let codeFiles = snapshot.files;
     // #260 / P2 #5: carry the exact files_json the repair will be based on so a
     // concurrent user edit can't be silently overwritten by saveRepairedFiles.
@@ -863,6 +871,7 @@ export async function triggerServerVerification(params: {
       repairLedger,
       repairScopeId,
       contextRetryUsed,
+      repairAuthority: params.repairAuthority,
       f3Readiness:
         previewPolicy === "fidelity3" && f3ReadinessContext
           ? {
@@ -930,6 +939,7 @@ export async function triggerServerVerification(params: {
       repairLedger,
       repairScopeId,
       contextRetryUsed: contextRetryUsed || reverifyFromContextCasMiss,
+      repairAuthority: params.repairAuthority,
     });
   }
 }
