@@ -10,6 +10,7 @@ import type { OrchestrationBase } from "./types";
 
 interface OrchestrationInputLike {
   prompt: string;
+  materializeImages?: boolean;
   rawPrompt?: string;
   brief?: Record<string, unknown> | null;
   scaffoldMode?: "auto" | "manual" | "off";
@@ -69,6 +70,7 @@ export function buildGenerationInputPackage(
 
   return {
     ...base,
+    materializeImages: input.materializeImages === true && input.importedRepoMode !== true,
     userPrompt: input.prompt,
     rawPrompt: input.rawPrompt ?? input.prompt,
     brief: effectiveBrief,

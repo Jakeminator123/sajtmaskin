@@ -596,6 +596,7 @@ export async function finalizeAndSaveVersion(
           previewHasBuildBreakingFindings,
           willRunQualityGate,
           qualityGatePlanned,
+          materializeImages: generationInput.materializeImages === true,
           preflight: { preflightIssues, preflightFileCount, previewBlockingReason,
             previewStart: preflightResult.previewStart,
             finalizedPreviewFileCount: finalizedFilesForPreview.length,

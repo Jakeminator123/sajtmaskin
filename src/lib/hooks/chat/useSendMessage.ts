@@ -375,6 +375,7 @@ export function useSendMessage(
           modelId: selectedModelTier,
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
+          materializeImages: enableImageMaterialization,
           meta: promptMeta,
         };
         // OpenClaw prepared-prompt fast lane: top-level body tag (NOT meta —

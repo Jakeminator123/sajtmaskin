@@ -54,7 +54,7 @@ import { writeServerFinalizeBootstrap, readServerRepairBudget, recordServerRepai
 const target = { chatId: "c1", versionId: "v1", filesRevision: "rev1", runId: "run1", scopeId: "v1:server-repair" };
 const primary = { passIndex: 0, slot: "primary" as const, contentHash: "a".repeat(16), diagnosticFingerprint: "b".repeat(16), requiredFiles: ["src/a.ts"] };
 const known = { source: "observed_fixer_calls" as const, finalize: [], consumed: [] };
-const initialize = (finalize: ServerFinalizeBootstrap["finalize"] = []) => db.transaction((tx) => writeServerFinalizeBootstrap(tx,
+const initialize = (finalize: ServerFinalizeBootstrap["finalize"] = [], materializeImages?: boolean) => db.transaction((tx) => writeServerFinalizeBootstrap(tx,
   state.version.chatId, { id: state.version.id, chat_id: state.version.chatId, files_revision: state.version.filesRevision, edit_kind: null }, {
     source: "trusted_new_finalize", scopeId: target.scopeId, finalize,
     buildSpec: { buildIntent: "website", generationMode: "init", changeScope: "redesign", scaffoldId: null,
@@ -63,6 +63,7 @@ const initialize = (finalize: ServerFinalizeBootstrap["finalize"] = []) => db.tr
       tokenBudgets: { scaffoldChars: 0, refsChars: 0, systemContextChars: 0 } },
     verifierGatesVerification: false, previewHasBuildBreakingFindings: false,
     willRunQualityGate: true, qualityGatePlanned: true,
+    materializeImages,
     preflight: { preflightIssues: [], preflightFileCount: 1, finalizedPreviewFileCount: 1, previewBlockingReason: null,
       scaffoldRetry: null, routePlan: null, scaffoldSelection: null,
       previewStart: { canStartPreview: true, primaryPreviewTarget: "preview", shimBlocked: false, requiresEnvConfig: false,
@@ -79,6 +80,35 @@ beforeEach(() => {
 });
 
 describe("durable server repair budget receipts", () => {
+  it.each([true, false, undefined])("reads explicit post-processing %s without changing repair capacity", async (choice) => {
+    await initialize([], choice);
+    expect(await readServerRepairBudget(target)).toMatchObject({ status: "ready", snapshot: {
+      scopeId: target.scopeId, startPolicy: { postChecks: { materializeImages: choice === true } }, consumed: [],
+    } });
+    expect(state.logs).toHaveLength(1);
+    expect(await reserveServerRepairBudget(target, primary)).toMatchObject({ status: "reserved" });
+    expect(await reserveServerRepairBudget(target, primary)).toEqual({ status: "duplicate" });
+  });
+
+  it("reads an older receipt as off without rewriting it or reopening an occupied slot", async () => {
+    await initialize([], true);
+    await reserveServerRepairBudget(target, primary);
+    delete (state.logs[0].meta.startPolicy as { postChecks: Record<string, unknown> }).postChecks.materializeImages;
+    const originalReceipts = JSON.stringify(state.logs);
+    expect(await readServerRepairBudget(target)).toMatchObject({ status: "ready", snapshot: {
+      startPolicy: { postChecks: { materializeImages: false } }, consumed: [{ ...primary, outcome: "unknown" }],
+    } });
+    expect(await reserveServerRepairBudget(target, primary)).toEqual({ status: "duplicate" });
+    expect(JSON.stringify(state.logs)).toBe(originalReceipts);
+  });
+
+  it("rejects a wrong-type stored image choice instead of authorizing any new attempt", async () => {
+    await initialize();
+    (state.logs[0].meta.startPolicy as { postChecks: Record<string, unknown> }).postChecks.materializeImages = "true";
+    expect(await readServerRepairBudget(target)).toEqual({ status: "history_unknown" });
+    expect(await reserveServerRepairBudget(target, primary)).toEqual({ status: "history_unknown" });
+    expect(state.logs).toHaveLength(1);
+  });
   it("requires explicit known actual-call history; absence never grants a free slot", async () => {
     expect(await reserveServerRepairBudget(target, primary)).toEqual({ status: "history_unknown" });
     expect(await readServerRepairBudget(target)).toEqual({ status: "history_unknown" });

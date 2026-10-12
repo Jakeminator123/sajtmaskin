@@ -6,6 +6,7 @@ import type { RoutePlan } from "@/lib/gen/route-plan";
 import { getDossierById } from "@/lib/gen/dossiers/registry";
 import * as prePhases from "./pre-phases";
 import * as fastPath from "./fast-path";
+import * as chatRepo from "@/lib/db/chat-repository-pg";
 
 // Mocka DB-klienten innan runner.ts laddas — annars kraschar modulladdningen
 // med "Missing database connection string" eftersom runner.ts transitive
@@ -65,6 +66,53 @@ function decidedInput(overrides: Partial<GenerationFinalizeInput> = {}): Generat
     ...overrides,
   };
 }
+
+describe("finalize typed image policy bootstrap", () => {
+  it.each([true, false, undefined])("writes only the typed image choice %s, never stream metadata", async (choice) => {
+    const input = decidedInput({ materializeImages: choice });
+    const file = { path: "app/page.tsx", content: "export default function Page(){return null}", language: "tsx" };
+    const stop = new Error("mocked version writer boundary");
+    const prepare = vi.spyOn(fastPath, "runFinalizeFastPath").mockResolvedValue({
+      contentForVersion: "```tsx file=app/page.tsx\nexport default function Page(){return null}\n```",
+      filesJson: JSON.stringify([file]), preflightResult: { postMergeFixes: [], previewStart: { canStartPreview: true } },
+      preflightIssues: [], preflightFileCount: 1, previewBlockingReason: null, finalizedFilesForPreview: [file],
+      scaffoldRetry: null, verifierBlockingFindings: [], rejectedShrinks: [], rejectedStructural: [],
+      selectedDossierEnvKeys: [], crossFileStubs: [], stepTelemetry: {}, repairLedger: { exportInvocations: () => [] },
+    } as never);
+    const save = vi.spyOn(chatRepo, "addAssistantMessageAndCreateDraftVersion").mockRejectedValue(stop);
+    try {
+      await expect(finalizeAndSaveVersion({ accumulatedContent: "Generated explanation", chatId: "typed-images", model: "gpt-5.4",
+        resolvedScaffold: null, urlMap: {}, startedAt: Date.now(), runAutofix: false, generationInput: input,
+        orchestrationStreamMeta: { materializeImages: choice !== true, imageGenerations: choice !== true },
+      })).rejects.toBe(stop);
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(save.mock.calls[0][3]?.finalizeBootstrap).toMatchObject({ materializeImages: choice === true, source: "trusted_new_finalize" });
+      expect(save.mock.calls[0][3]?.finalizeBootstrap?.buildSpec).not.toHaveProperty("materializeImages");
+    } finally { prepare.mockRestore(); save.mockRestore(); }
+  });
+
+  it("updating a target version never bootstraps another paid scope even with image=true", async () => {
+    const input = decidedInput({ materializeImages: true });
+    const stop = new Error("mocked existing version writer boundary");
+    const prepare = vi.spyOn(fastPath, "runFinalizeFastPath").mockResolvedValue({
+      contentForVersion: "Generated explanation", filesJson: "[]", preflightResult: { postMergeFixes: [], previewStart: { canStartPreview: true } },
+      preflightIssues: [], preflightFileCount: 0, previewBlockingReason: null, finalizedFilesForPreview: [],
+      scaffoldRetry: null, verifierBlockingFindings: [], rejectedShrinks: [], rejectedStructural: [],
+      selectedDossierEnvKeys: [], crossFileStubs: [], stepTelemetry: {}, repairLedger: { exportInvocations: () => [] },
+    } as never);
+    const save = vi.spyOn(chatRepo, "addAssistantMessageAndUpdateExistingVersion").mockRejectedValue(stop);
+    const create = vi.spyOn(chatRepo, "addAssistantMessageAndCreateDraftVersion");
+    try {
+      await expect(finalizeAndSaveVersion({ accumulatedContent: "Generated explanation", chatId: "typed-images", model: "gpt-5.4",
+        resolvedScaffold: null, urlMap: {}, startedAt: Date.now(), runAutofix: false, generationInput: input,
+        targetVersionId: "existing-version", repairPassIndex: 1,
+      })).rejects.toBe(stop);
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(save.mock.calls[0][4]).not.toHaveProperty("finalizeBootstrap");
+      expect(create).not.toHaveBeenCalled();
+    } finally { prepare.mockRestore(); save.mockRestore(); create.mockRestore(); }
+  });
+});
 
 describe("decided generation input → finalize", () => {
   it("uses the exact selected entries despite malformed or conflicting metadata", () => {

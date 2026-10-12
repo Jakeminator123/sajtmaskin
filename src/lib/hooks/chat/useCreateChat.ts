@@ -575,6 +575,7 @@ export function useCreateChat(
           modelId: selectedModelTier,
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
+          materializeImages: enableImageMaterialization,
           chatPrivacy: chatPrivacy || "private",
           meta: promptMeta,
         };

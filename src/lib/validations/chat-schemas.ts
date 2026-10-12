@@ -66,6 +66,7 @@ export const createChatSchema = z.object({
   modelId: modelIdSchema.optional().default(DEFAULT_MODEL_ID),
   thinking: z.boolean().optional(),
   imageGenerations: z.boolean().optional(),
+  materializeImages: z.boolean().default(false),
   chatPrivacy: z.enum(["public", "private", "team-edit", "team", "unlisted"]).optional(),
   designSystemId: z.string().optional(),
   meta: promptMetaSchema.optional(),
@@ -82,6 +83,7 @@ export const sendMessageSchema = z.object({
   modelId: modelIdSchema.optional(),
   thinking: z.boolean().optional(),
   imageGenerations: z.boolean().optional(),
+  materializeImages: z.boolean().default(false),
   designSystemId: z.string().optional(),
   /**
    * OpenClaw prepared-prompt fast lane: `"openclaw-prepared"` marks a

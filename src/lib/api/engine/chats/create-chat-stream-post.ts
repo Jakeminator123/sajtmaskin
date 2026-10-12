@@ -191,6 +191,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           modelId = DEFAULT_MODEL_ID,
           thinking,
           imageGenerations,
+          materializeImages,
           chatPrivacy,
           meta,
         } = validationResult.data;
@@ -922,7 +923,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             qualityTarget: orchestrationBase.buildSpec.qualityTarget,
             contextPolicy: orchestrationBase.buildSpec.contextPolicy,
           });
-          const { resolvedScaffold, routePlan, preGenerationContracts } = orchestrationBase;
+          const { resolvedScaffold, preGenerationContracts } = orchestrationBase;
 
           debugLog("engine", "Own engine model resolved", {
             resolvedModelTier,
@@ -963,7 +964,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           }
           const generationInputPackage = buildGenerationInputPackage(
             orchestrationBase,
-            orchestrationInput,
+            { ...orchestrationInput, materializeImages },
             finalized,
           );
           writeOrchestrationDynamicDump(generationInputPackage);

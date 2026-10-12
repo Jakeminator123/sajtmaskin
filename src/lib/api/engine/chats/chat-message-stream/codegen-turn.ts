@@ -78,6 +78,8 @@ export async function runCodegenTurn(params: {
   resolvedModelTier: CanonicalModelId;
   resolvedThinking: boolean;
   resolvedImageGenerations: boolean;
+  /** Validated request choice, already fail-closed on unknown/imported lineage. */
+  materializeImages?: boolean;
   buildProfileId: BuildProfileId;
   requestAttachments: ReturnType<typeof normalizeRequestAttachments>;
   designReferences: ReturnType<typeof summarizeDesignReferences>;
@@ -314,7 +316,7 @@ export async function runCodegenTurn(params: {
     qualityTarget: orchestrationBase.buildSpec.qualityTarget,
     contextPolicy: orchestrationBase.buildSpec.contextPolicy,
   });
-  const { resolvedScaffold, routePlan, preGenerationContracts } = orchestrationBase;
+  const { resolvedScaffold, preGenerationContracts } = orchestrationBase;
   devLogAppend("in-progress", {
     type: "contracts.inferred",
     chatId,
@@ -433,7 +435,7 @@ export async function runCodegenTurn(params: {
   }
   const generationInputPackage = buildGenerationInputPackage(
     orchestrationBase,
-    orchestrationInput,
+    { ...orchestrationInput, materializeImages: params.materializeImages === true && versionsQuerySucceeded && !importedRepoMode },
     finalized,
   );
   writeOrchestrationDynamicDump(generationInputPackage);

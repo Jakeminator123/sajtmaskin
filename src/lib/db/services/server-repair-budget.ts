@@ -36,13 +36,15 @@ export type ServerFinalizeBootstrap = {
   previewHasBuildBreakingFindings: boolean;
   willRunQualityGate: boolean;
   qualityGatePlanned: boolean;
+  /** Typed post-processing choice; absent on legacy finalize callers means off. */
+  materializeImages?: boolean;
   finalize: RepairLedgerInvocation[];
 };
 type StartPolicy = Pick<BuildSpec, "previewPolicy" | "verificationPolicy"> & {
   serverVerify: ServerVerifyDecision;
   preview: { canStartPreview: boolean; hasBuildBreakingFindings: boolean };
   // A server-verify skip (normal F2) is NOT a skip of image/product/QG work.
-  postChecks: { willRunQualityGate: boolean; qualityGatePlanned: boolean };
+  postChecks: { willRunQualityGate: boolean; qualityGatePlanned: boolean; materializeImages?: boolean };
 };
 export type ServerRepairBudgetSnapshot = { scopeId: string; startPolicy: StartPolicy; finalize: RepairLedgerInvocation[]; consumed: Attempt[] };
 export type ServerRepairBudgetTarget = {
@@ -95,7 +97,8 @@ function validStartPolicy(value: unknown): value is StartPolicy {
     object(value.serverVerify) && typeof value.serverVerify.run === "boolean" && text(value.serverVerify.reason) &&
     (value.serverVerify.diagnosticOnly === undefined || typeof value.serverVerify.diagnosticOnly === "boolean") &&
     object(value.preview) && typeof value.preview.canStartPreview === "boolean" && typeof value.preview.hasBuildBreakingFindings === "boolean" &&
-    object(value.postChecks) && typeof value.postChecks.willRunQualityGate === "boolean" && typeof value.postChecks.qualityGatePlanned === "boolean";
+    object(value.postChecks) && typeof value.postChecks.willRunQualityGate === "boolean" && typeof value.postChecks.qualityGatePlanned === "boolean" &&
+    (value.postChecks.materializeImages === undefined || typeof value.postChecks.materializeImages === "boolean");
 }
 function readBudget(rows: Receipt[], target: ServerRepairBudgetTarget): { init: Init; used: Used[] } | null {
   const root = rows.find((row) => row.id === initId(target.versionId));
@@ -161,7 +164,8 @@ export async function writeServerFinalizeBootstrap(
     verificationPolicy: input.buildSpec.verificationPolicy,
     serverVerify: resolvePostFinalizeServerVerifyDecision({ buildSpec: input.buildSpec, finalized: { version, preflight } }),
     preview: { canStartPreview: input.preflight.previewStart.canStartPreview, hasBuildBreakingFindings: input.previewHasBuildBreakingFindings },
-    postChecks: { willRunQualityGate: input.willRunQualityGate, qualityGatePlanned: input.qualityGatePlanned },
+    postChecks: { willRunQualityGate: input.willRunQualityGate, qualityGatePlanned: input.qualityGatePlanned,
+      materializeImages: input.materializeImages === true },
   };
   if (!validStartPolicy(startPolicy)) throw new Error("Invalid trusted finalize start policy");
   const id = initId(version.id);
@@ -202,7 +206,8 @@ async function transact(target: ServerRepairBudgetTarget, slot?: Slot, outcome?:
           or(eq(engineVersionErrorLogs.category, SERVER_REPAIR_BUDGET_LOG_CATEGORY), like(engineVersionErrorLogs.id, `${RECEIPT_PREFIX}%`))));
       const budget = readBudget(rows, target);
       if (!budget) return { status: "history_unknown" };
-      if (readOnly) return { status: "ready", snapshot: { scopeId: budget.init.scopeId, startPolicy: budget.init.startPolicy, finalize: budget.init.history.finalize,
+      if (readOnly) return { status: "ready", snapshot: { scopeId: budget.init.scopeId, startPolicy: { ...budget.init.startPolicy,
+        postChecks: { ...budget.init.startPolicy.postChecks, materializeImages: budget.init.startPolicy.postChecks.materializeImages === true } }, finalize: budget.init.history.finalize,
         consumed: budget.used.map(({ passIndex, slot, contentHash, diagnosticFingerprint, requiredFiles, outcome }) =>
           ({ passIndex, slot, contentHash, diagnosticFingerprint, requiredFiles, outcome })).sort((a, b) => a.passIndex - b.passIndex || (a.slot === "retry" ? 1 : -1)) } };
       if (budget.init.scopeId !== target.scopeId) return { status: "scope_mismatch" };

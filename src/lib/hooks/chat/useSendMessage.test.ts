@@ -150,6 +150,19 @@ afterEach(() => {
 });
 
 describe("useSendMessage 5-2 stale-base gate (client half)", () => {
+  it.each([[true, false], [false, true], [true, true], [undefined, false]] as const)(
+    "sends Blob materialization %s independently of image generations %s", async (materializeImages, imageGenerations) => {
+      fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+        capturedBody = JSON.parse(String(init?.body));
+        return new Response(null, { status: 200 });
+      });
+      handleSseStream.mockResolvedValue(undefined);
+      const { result } = createHarness({ enableImageMaterialization: materializeImages, enableImageGenerations: imageGenerations });
+      await send(result, "Uppdatera hero copy");
+      expect(capturedBody).toMatchObject({ materializeImages: materializeImages === true, imageGenerations });
+      expect(capturedBody?.meta).not.toHaveProperty("materializeImages");
+    },
+  );
   // Fast-edit robustness (2026-07-23): the FIRST 409 stale_base_version is
   // auto-rebased — the send retries once against the server's latest version
   // so a quick follow-up prompt survives an autofix/repair that advanced the

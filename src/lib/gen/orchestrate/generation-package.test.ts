@@ -107,6 +107,22 @@ describe("writeOrchestrationDynamicDump — prompt-dump gating", () => {
 });
 
 describe("buildGenerationInputPackage — source receipt", () => {
+  it.each([true, false, undefined])("carries post-processing %s outside prompt/BuildSpec/hash inputs", (materializeImages) => {
+    const base = makePkg();
+    const finalized = { ...base, variantSelection: null, variantTemplateId: null, variantTemplateReferenceAttachments: [] };
+    const pkg = buildGenerationInputPackage(base, { prompt: "prompt", materializeImages }, finalized as never);
+    expect(pkg.materializeImages).toBe(materializeImages === true);
+    expect(pkg.buildSpec).toBe(base.buildSpec);
+    expect(pkg.engineSystemPrompt).toBe(finalized.engineSystemPrompt);
+    expect(pkg.dynamicContext).toBe(finalized.dynamicContext);
+    expect(pkg.buildSpec).not.toHaveProperty("materializeImages");
+  });
+
+  it("forces imported lineage off despite an explicit image choice", () => {
+    const base = makePkg();
+    const pkg = buildGenerationInputPackage(base, { prompt: "prompt", importedRepoMode: true, materializeImages: true }, base as never);
+    expect(pkg.materializeImages).toBe(false);
+  });
   it("copies finalized sources onto the package without rebuilding them", () => {
     const sources: GenerationSource[] = [
       {

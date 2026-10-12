@@ -70,6 +70,7 @@ function bootstrap(): ServerFinalizeBootstrap {
       tokenBudgets: { scaffoldChars: 0, refsChars: 0, systemContextChars: 0 } },
     verifierGatesVerification: false, previewHasBuildBreakingFindings: false,
     willRunQualityGate: true, qualityGatePlanned: true,
+    materializeImages: false,
     preflight: { preflightIssues: [], preflightFileCount: 1, finalizedPreviewFileCount: 1,
       previewBlockingReason: null, scaffoldRetry: null, routePlan: null, scaffoldSelection: null,
       previewStart: { canStartPreview: true, primaryPreviewTarget: "preview", shimBlocked: false,
@@ -94,6 +95,18 @@ beforeEach(() => {
 });
 
 describe("atomic trusted new finalize bootstrap", () => {
+  it.each([true, false, undefined])("persists typed materializeImages %s in the existing atomic start receipt", async (choice) => {
+    await create({ ...bootstrap(), materializeImages: choice });
+    expect(metadata().startPolicy).toMatchObject({ postChecks: { materializeImages: choice === true } });
+    expect(state.order).toEqual(["message", "version", "receipt", "commit"]);
+    expect(state.receipts).toHaveLength(1);
+  });
+
+  it.each(["imported_repo", "quick_edit", "restore"])("image choice never permits %s to bootstrap paid authority", async (editKind) => {
+    await expect(create({ ...bootstrap(), materializeImages: true }, editKind)).rejects.toThrow("Only normal finalize");
+    expect(state.receipts).toEqual([]);
+    expect(state.messages).toEqual([]);
+  });
   it("commits message/version/start together with actual DB identity, without lease or model reservation", async () => {
     const result = await create();
     expect(state.order).toEqual(["message", "version", "receipt", "commit"]);

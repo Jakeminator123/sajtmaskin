@@ -129,6 +129,17 @@ afterEach(() => {
 });
 
 describe("useCreateChat broken-stream handling", () => {
+  it.each([[true, false], [false, true], [true, true], [undefined, false]] as const)(
+    "sends Blob materialization %s independently of image generations %s", async (materializeImages, imageGenerations) => {
+      fetchMock.mockResolvedValue(sseResponse());
+      handleSseStream.mockResolvedValue({ versionIdFromStream: null });
+      const { result } = createHarness({ enableImageMaterialization: materializeImages, enableImageGenerations: imageGenerations });
+      await create(result);
+      const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+      expect(body).toMatchObject({ materializeImages: materializeImages === true, imageGenerations });
+      expect(body.meta).not.toHaveProperty("materializeImages");
+    },
+  );
   it("does not start a second codegen when fetch fails with a network error", async () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
     const { result, messagesBox } = createHarness();
