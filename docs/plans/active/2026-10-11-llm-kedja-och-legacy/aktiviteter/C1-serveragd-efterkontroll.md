@@ -344,3 +344,29 @@ vägar raderas när alla callers är flyttade. Befintlig live-review-owner måst
 respektera återstående deadline; inget åttasekundersgolv efter budgetslut.
 F2/F3/feature-disabled och kostnadstak bevaras. Ingen ny resultatdatabas,
 generiskt transaktionsramverk, faktisk modell-/DB-körning eller aktivering.
+
+C1.3c0 checkpoint: 0ebc9b1ad62b2a4b45a6e06b05911b37600892da. im:s fyra filer
+lämnades utanför. C1.3im slutreview 3: inga fynd, fyra scopehashar stabila;
+snapshot/CAS/readback, importskydd, avbrott och oförändrad äldre bildsemantik
+bekräftade. 78-resultatbasen återanvänds, ingen live Blob/DB-acceptans.
+
+C1.3c1 verktygsstopp: åtta-owner-paketets patch avböjdes före applicering.
+Granskningen krävde direkt användargodkännande för atomisk serverägd loggskrivning
++ claim-completion och ersättningen av routen, utöver C0-godkännandet. 1 har släppt
+skrivfönstret; ingen retry/bypass. Samordnaren verifierade att endast fyra im-filer
+var dirty och har ställt exakt C1.3c1-fråga i huvudchatten. Ingen C1.3c1-kod/test
+är införd. Detta är ett verktygsmandatstopp, inte ett nytt arkitekturbeslut.
+
+C1.3q tilldelas 2 separat: quality-gate/route.ts, server-verify/verify-run.ts,
+build-error-trigger.ts, repair-execution.ts och publik server-verify.ts plus
+direkt riktade tester. Befintlig verify-run-owner får delad QG-kärna och
+verifyVersionUnderLease med samma råsnapshot; ingen ny fil/ramverk eller DB-TX.
+3:s smala designcheck bekräftar fem owners. HTTP-QG behåller auth, F2-killswitch,
+501 ej konfigurerad och retrybar 503/pending; får inte starta automatisk LLM-repair.
+Bevara diagnosticOnly/build-origin/forceBuildCheck/advisory samt faktisk promotion
+separat från VM-pass. Manualauthority/usageägare/credits/provenance/callbacks är
+oförändrade; autobetald repair använder befintligt startkvitto och budget.
+Readiness/export/gate/CAS använder samma efterlease-snapshot. Alla tre renew-fel
+stoppar; held-core returnerar continue/stop/superseded med contextRetryUsed och
+build-origin, utan acquire/release eller release→rekursion. Wrappers behålls.
+Koordinatorns begränsade helkedjeomstart blir senare; ingen cron/klientflytt här.

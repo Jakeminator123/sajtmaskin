@@ -2,6 +2,8 @@ import { FEATURES, SECRETS } from "@/lib/config";
 import { chatHasImportedRepoVersion, recordKnownBrokenImageReplacements, updateVersionFiles } from "@/lib/db/chat-repository-pg";
 import { VersionLeaseHeldError } from "@/lib/db/version-lease-error";
 import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
+import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
+import { materializeImagesInTextFiles, type MaterializeImagesResult } from "@/lib/images/image-assets";
 import { buildKnownImageReplacementMap, validateImages, type ImageValidationResult } from "@/lib/utils/image-validator";
 
 export type VersionImageValidationInput = {
@@ -32,6 +34,78 @@ export type VersionImageValidationOutcome = {
 function emptyResult(message: string, persisted: boolean): ImageValidationResponse {
   return { valid: persisted, total: 0, broken: [], replacedCount: 0, warnings: [],
     fixed: false, persisted, filesRevision: null, message };
+}
+
+export type VersionImagePreparationInput = Pick<VersionImageValidationInput, "chatId" | "versionId" | "signal"> & {
+  holderRunId: string;
+  expectedFilesRevision: string;
+  /** Trusted server policy; not inferred from a browser query parameter. */
+  materialize: boolean;
+  deadlineEpochMs?: number;
+};
+
+export type VersionImagePreparationOutcome = {
+  kind: "prepared" | "verbatim" | "no_files" | "stopped";
+  persisted: boolean;
+  filesRevision: string | null;
+  materialization: MaterializeImagesResult["summary"] | null;
+  warnings: string[];
+};
+
+/** Held-only preparation before preview/postcheck; never acquires or releases a lease. */
+export async function prepareVersionImages(
+  input: VersionImagePreparationInput,
+): Promise<VersionImagePreparationOutcome> {
+  const deadlineEpochMs = input.deadlineEpochMs ?? Date.now() + 30_000;
+  const stopped = () => input.signal?.aborted || !Number.isFinite(deadlineEpochMs) || Date.now() >= deadlineEpochMs;
+  const outcome: VersionImagePreparationOutcome = {
+    kind: "stopped", persisted: false, filesRevision: null, materialization: null, warnings: [],
+  };
+  if (!input.holderRunId?.trim() || !input.expectedFilesRevision?.trim() || stopped()) return outcome;
+  const snapshot = await getVersionFilesSnapshot(input.versionId);
+  if (!snapshot || snapshot.filesRevision !== input.expectedFilesRevision || stopped()) return outcome;
+  if (!snapshot.files.length) return { ...outcome, kind: "no_files" };
+
+  try {
+    // A descendant of an imported repo is still verbatim; unknown lineage fails closed.
+    const verbatim = snapshot.editKind === "imported_repo" ? true : await chatHasImportedRepoVersion(input.chatId);
+    if (stopped()) return outcome;
+    if (verbatim === true) return {
+      ...outcome, kind: "verbatim", persisted: true, filesRevision: snapshot.filesRevision,
+    };
+    if (verbatim !== false) return outcome;
+    let files = repairGeneratedFiles(snapshot.files.map((file) => ({ ...file }))).files;
+    if (input.materialize && process.env.BLOB_READ_WRITE_TOKEN && !stopped()) {
+      const materialized = await materializeImagesInTextFiles({
+        files: files.map((file) => ({ name: file.path, content: file.content })),
+        strategy: "blob", blobToken: process.env.BLOB_READ_WRITE_TOKEN,
+        namespace: { chatId: input.chatId, versionId: input.versionId },
+        signal: input.signal, deadlineEpochMs,
+      });
+      outcome.materialization = materialized.summary;
+      outcome.warnings.push(...materialized.warnings);
+      const contents = new Map(materialized.files.map((file) => [file.name, file.content]));
+      files = files.map((file) => ({ ...file, content: contents.get(file.path) ?? file.content }));
+    }
+    if (stopped()) return outcome;
+    const filesJson = JSON.stringify(files);
+    const changed = filesJson !== JSON.stringify(snapshot.files);
+    if (changed) {
+      const wrote = await updateVersionFiles(input.versionId, filesJson, {
+        holderRunId: input.holderRunId, expectedFilesJson: snapshot.filesJson, invalidateVerification: true,
+      });
+      if (!wrote || stopped()) return outcome;
+    }
+    const refreshed = await getVersionFilesSnapshot(input.versionId);
+    if (stopped() || refreshed?.filesJson !== (changed ? filesJson : snapshot.filesJson) ||
+        !refreshed.filesRevision?.trim() || (changed
+          ? refreshed.filesRevision === snapshot.filesRevision
+          : refreshed.filesRevision !== snapshot.filesRevision)) return outcome;
+    return { ...outcome, kind: "prepared", persisted: true, filesRevision: refreshed.filesRevision };
+  } catch (error) {
+    outcome.warnings.push(`Image preparation stopped: ${error instanceof Error ? error.message : "unknown error"}`);
+    return outcome;
+  }
 }
 
 /** No Request/HTTP transport or lease ownership here; every write uses the caller's fence. */

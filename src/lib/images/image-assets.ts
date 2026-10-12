@@ -143,10 +143,12 @@ function guessExtension(contentType: string | null, fallbackUrl: string): string
 async function fetchWithLimits(
   url: string,
   limits: MaterializeImagesLimits,
+  signal?: AbortSignal,
 ): Promise<{ buffer: Buffer; contentType: string | null }> {
   const res = await safeFetch(url, {
     timeoutMs: limits.timeoutMs,
     maxBodyBytes: limits.maxBytesPerImage,
+    ...(signal ? { signal } : {}),
     headers: {
       "User-Agent": "sajtmaskin/1.0 (+https://localhost)",
     },
@@ -207,6 +209,9 @@ export async function materializeImagesInTextFiles(params: {
   blobToken: string | null | undefined;
   namespace: { chatId: string; versionId: string };
   limits?: Partial<MaterializeImagesLimits>;
+  signal?: AbortSignal;
+  /** Optional whole-pass deadline; legacy callers keep their per-image timeout. */
+  deadlineEpochMs?: number;
 }): Promise<MaterializeImagesResult> {
   const limits: MaterializeImagesLimits = { ...DEFAULT_LIMITS, ...(params.limits || {}) };
   const warnings: string[] = [];
@@ -270,9 +275,24 @@ export async function materializeImagesInTextFiles(params: {
     { blobUrl: string; contentType: string | null; size: number }
   >();
 
+  const stopped = () => params.signal?.aborted ||
+    (params.deadlineEpochMs !== undefined &&
+     (!Number.isFinite(params.deadlineEpochMs) || Date.now() >= params.deadlineEpochMs));
   for (const url of candidates.slice(0, limits.maxImages)) {
+    if (stopped()) {
+      warnings.push("Image materialization aborted or deadline reached. Remaining images are skipped.");
+      break;
+    }
     try {
-      const { buffer, contentType } = await fetchWithLimits(url, limits);
+      const fetchLimits = params.deadlineEpochMs === undefined ? limits : {
+        ...limits,
+        timeoutMs: Math.min(limits.timeoutMs, Math.max(1, params.deadlineEpochMs - Date.now())),
+      };
+      const { buffer, contentType } = await fetchWithLimits(url, fetchLimits, params.signal);
+      if (stopped()) {
+        warnings.push("Image materialization aborted or deadline reached before upload.");
+        break;
+      }
       const size = buffer.byteLength;
       totalBytesUploaded += size;
       if (totalBytesUploaded > limits.maxTotalBytes) {

@@ -81,7 +81,7 @@ verifierad med READY och ACK för alla tre roller. Den befintliga chatten
 
 ## Körbord — samordnaren är enda redaktör
 
-**Aktuell skrivrätt: 1, C1.3c1:s åtta produktägare och riktade tester efter lokal C0-checkpoint.**
+**Aktuell skrivrätt: 2, C1.3q:s fem befintliga QG/serververify-ägare och riktade tester efter im-checkpoint.**
 A2.2, B2.2 och C1.1 är lokalt klara och slutgranskade utan kvarvarande fynd.
 C1.2b är slutgranskat på `1c12697d…` + delta, utan kvarvarande fynd.
 286-resultatbasen återanvänds där oförändrad; senaste looprättningen har
@@ -107,6 +107,7 @@ aktivering eller live-DB-ändring. C1.3c0 är nu lokalt klar: 111 unika tester i
 fem filer, typecheck, riktad lint, diff och verifieringsplan PASS. 3:s slutreview
 har inga fynd, sex scopehashar stabila. Produktnetto +106, tester +328.
 Skyddet kopplas in via nästa produktkontrollspaket; inte runtimeacceptans.
+C0 är lokalt committat i `0ebc9b1ad62b2a4b45a6e06b05911b37600892da`.
 C1.3cf är lokalt klar och slutgranskad utan fynd: beteendeidentisk formatterflytt
 till befintlig serverneutral owner, direkta importer och nio textidentiska tester.
 126 riktade tester, typecheck utan cache, diff-check och verifieringsplan PASS.
@@ -121,13 +122,17 @@ Prioritera nu rak serverkedja och radering av ersatta klientvägar. Behåll
 befintliga skydd där de hör hemma, inga nya generiska kontrollager.
 C1.3im är lokalt klar: held-only heal/Blob-förberedelse i befintlig image-owner,
 en snapshot-CAS och ny revisionskvittens, valfri signal/deadline i bildmotorn.
-78 mockade tester, typecheck utan cache, lint/diff/plan PASS. 2 har släppt
-skrivrätten; fyra scopefiler fryses för 3:s review. /files GET och klientvägar
+78 mockade tester, typecheck utan cache, lint/diff/plan PASS. 3:s slutreview har
+inga fynd och fyra hashvärden är stabila. /files GET och klientvägar
 raderas först vid inkoppling. Inget verkligt provider-/DB-bevis.
 Manuellt Spara materialiserar också idag; den följdytan får inte tappas tyst.
-C1.3c1 kopplar nu in LiveReview-skyddet: tunn produkt-route + gemensam serverkärna,
-en atomisk serverägd logg-/claim-completion, klientens attested POST blir replay.
-Ta bort ersatta unheld-reservationen, separata completion och deadlinegolvet.
+C1.3c1 stoppades av verktygets säkerhetsgranskning före patch: generellt mandat
+och C0-godkännande ansågs inte täcka just åtta-owner-flytten/den atomiska
+serverägda logg-/claim-transaktionen. Ingen patch applicerades; 1 har släppt.
+Samordnaren har ställt en direkt fråga till Jakob om exakt detta lokala paket.
+Ingen retry/bypass. C1.3q är ett separat, oförändrat behörighets-/kostnadspaket:
+2 får förenkla QG och held-serververify i fem befintliga owners. 3:s smala
+designcheck bekräftar scope; HTTP-QG får inte börja göra automatisk LLM-repair.
 Ingen cron, aktivering, live-DB-ändring eller runtimeacceptans ännu.
 Lokal gren är `codex/llm-legacy-cleanup`.
 Samordnaren sparar granskade och verifierade uppgiftsfiler i lokal checkpoint
@@ -141,7 +146,7 @@ Rätt till en aktivitet är inte rätt att själv ta nästa.
 | A2 | [Gemensam kandidat och eval](aktiviteter/A2-projektkandidat-och-eval.md) | 1 | A1 | lokalt klar, 339 tester; slutlig review utan kvarvarande fynd |
 | B1 | [Legacy-rensning](aktiviteter/B1-legacy-rensning.md) | 2 | registrering | lokalt klar för säkra delen, review utan fynd |
 | B2 | [Ägare och dokumentation](aktiviteter/B2-agare-och-dokumentation.md) | 2 | berörda kodpaket | lokalt klar, netto −408 rader i B2.2; review utan fynd |
-| C1 | [Serverägd efterkontroll](aktiviteter/C1-serveragd-efterkontroll.md) | 1 + 2, granskning 3 | A1 + A2 | C0 slutgranskad; im lokalt klar till review; c1 produktinkoppling till 1 |
+| C1 | [Serverägd efterkontroll](aktiviteter/C1-serveragd-efterkontroll.md) | 1 + 2, granskning 3 | A1 + A2 | C0 committad, im slutgranskad; c1 väntar specifikt mandat efter verktygsstopp; q till 2 |
 | D1 | [Integration och leverans](aktiviteter/D1-integration-och-leverans.md) | samordnare + 3 | föregående paket | lokal checkpoint för klara paket; slutlig integration/leverans återstår |
 
 Tilldelning: `PAKET <ID/del> | HEAD <sha> | skrivytor <paths> | mål <en mening>`.
