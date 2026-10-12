@@ -45,10 +45,22 @@ import * as versionRepo from "@/lib/db/chat-repository-pg";
 import * as repairBudget from "@/lib/db/services/server-repair-budget";
 import * as projectExport from "@/lib/gen/export/build-exportable-project";
 import * as previewGate from "./preview-quality-gate";
-import { triggerServerVerification } from "./server-verify/verify-run";
+import { triggerServerVerification, verifyVersionUnderLease } from "./server-verify/verify-run";
 
 describe("server verification persisted bootstrap readback", () => {
   afterEach(() => { vi.restoreAllMocks(); verificationLease.inflight.clear(); });
+
+  it("held core rejects missing ownership/revision without DB, gate, or wrapper lease actions", async () => {
+    const snapshotRead = vi.spyOn(versionManager, "getVersionFilesSnapshot");
+    const acquire = vi.spyOn(verificationLease, "acquireVerifyLease");
+    const release = vi.spyOn(verificationLease, "releaseVerifyLease");
+    const gate = vi.spyOn(previewGate, "runQualityGateOnExportable");
+    expect(await verifyVersionUnderLease({ chatId: "chat", versionId: "version", holderRunId: " ",
+      snapshot: { files: [], filesJson: "[]", filesRevision: "actual" } as never })).toEqual({
+        kind: "stop", reason: "snapshot_unavailable", retryable: true,
+      });
+    for (const spy of [snapshotRead, acquire, release, gate]) expect(spy).not.toHaveBeenCalled();
+  });
 
   it.each(["known", "missing", "manual"])("awaits %s history under the actual lease before the deterministic gate", async (mode) => {
     vi.spyOn(verificationLease, "isServerVerifyEligible").mockReturnValue(true);

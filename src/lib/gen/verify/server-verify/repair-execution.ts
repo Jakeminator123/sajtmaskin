@@ -80,12 +80,12 @@ import {
  * Outcome of a server-repair loop run. `reverifyCurrent` is set when the
  * repair no-op'd because a concurrent user edit advanced `files_json` past the
  * snapshot the repair was based on (#260 Codex P2 `stale_base`). The caller MUST
- * then re-verify the CURRENT files on a fresh lease so the user's newer edit B
- * reaches an honest terminal state instead of lingering in `repairing` (where
- * the readiness watchdog could fail it). Every other outcome already left the
- * row terminal (`repair_available` / `failed`).
+ * return supersession to the chain coordinator rather than releasing/re-entering
+ * from this helper. A lost lease/budget returns typed STOP, never a product failure.
  */
 interface ServerRepairLoopOutcome {
+  /** Lost/unproven ownership is not a product failure and must not be terminalized. */
+  stop?: { reason: "lease_lost" | "repair_budget_unavailable"; retryable: true };
   /** Re-run the current row after the old repair context was superseded. */
   reverifyCurrent: boolean;
   /** Re-entry came from a full decision-context race, not a user file edit. */
@@ -103,6 +103,8 @@ interface ServerRepairLoopOutcome {
    */
   buildOriginated: boolean;
 }
+
+class RepairLeaseLost extends Error {}
 
 export async function tryServerRepairLoop(params: {
   chatId: string;
@@ -191,6 +193,11 @@ export async function tryServerRepairLoop(params: {
     f3Readiness = null,
     repairProvenance,
   } = params;
+  const renewHeldLease = async () => {
+    if (runId && await renewVersionLease(versionId, runId).catch(() => false) !== true) {
+      throw new RepairLeaseLost("Repair lease lost or unavailable");
+    }
+  };
   let repairLedger: RepairLedger;
   let repairScopeId: string;
   let serverRepairBudget: { target: ServerRepairBudgetTarget; consumed: ServerRepairBudgetSnapshot["consumed"] } | undefined;
@@ -199,10 +206,18 @@ export async function tryServerRepairLoop(params: {
     repairScopeId = params.repairScopeId ?? `${versionId}:server-repair`;
   } else {
     // No synthetic revision, fresh ledger or caller-provided scope can authorize automatic payment.
-    if (!runId || !suppliedBaseFilesRevision) throw new Error("Automatic repair history/lease unknown");
+    if (!runId || !suppliedBaseFilesRevision) return {
+      stop: { reason: "repair_budget_unavailable", retryable: true }, reverifyCurrent: false,
+      contextCasMiss: false, buildOriginated: params.forceBuildGate === true || params.firstFailureCheck === "build" ||
+        params.failedOutputs.some((output) => output.check === "build"), integrationMigrationHoldApplied: false,
+    };
     const target = { chatId, versionId, runId, filesRevision: suppliedBaseFilesRevision };
-    const budget = await readServerRepairBudget(target);
-    if (budget.status !== "ready") throw new Error(`Automatic repair history unavailable: ${budget.status}`);
+    const budget = await readServerRepairBudget(target).catch(() => null);
+    if (!budget || budget.status !== "ready") return {
+      stop: { reason: "repair_budget_unavailable", retryable: true }, reverifyCurrent: false,
+      contextCasMiss: false, buildOriginated: params.forceBuildGate === true || params.firstFailureCheck === "build" ||
+        params.failedOutputs.some((output) => output.check === "build"), integrationMigrationHoldApplied: false,
+    };
     repairScopeId = budget.snapshot.scopeId;
     repairLedger = RepairLedger.hydrate(chatId, repairScopeId, [...budget.snapshot.finalize, ...budget.snapshot.consumed]);
     serverRepairBudget = { target: { ...target, scopeId: repairScopeId }, consumed: budget.snapshot.consumed };
@@ -273,7 +288,7 @@ export async function tryServerRepairLoop(params: {
     // renew-before-save fires. Since renewVersionLease refuses expired leases,
     // a slow gate could otherwise expire the lease and no-op a valid
     // saveRepairedFiles. Renew here so the gate window is covered too.
-    if (runId) await renewVersionLease(versionId, runId).catch(() => {});
+    await renewHeldLease();
     // Terminal persist block: a prior pass already lacked a protected path
     // (emitted-and-dropped or never mentioned). Returning false alone lets
     // the loop retry; refuse every subsequent persist in this run so the
@@ -517,7 +532,7 @@ export async function tryServerRepairLoop(params: {
       // past the TTL. Renew re-extends it while we still own it (run_id +
       // status='running'); if another run took over, saveRepairedFiles's
       // lease-conditioned write no-ops, so we never clobber a newer repair.
-      if (runId) await renewVersionLease(versionId, runId).catch(() => {});
+      await renewHeldLease();
       const saveResult = await saveRepairedFiles(
         versionId,
         filesJson,
@@ -643,7 +658,9 @@ export async function tryServerRepairLoop(params: {
     return false;
   };
 
-  const loopResult = await runRepairLoop({
+  let loopResult: Awaited<ReturnType<typeof runRepairLoop<{ reason: string; holdResult: string | null }>>>;
+  try {
+  loopResult = await runRepairLoop({
     initialContent,
     chatId,
     previewPolicy,
@@ -668,7 +685,7 @@ export async function tryServerRepairLoop(params: {
     shouldAbortSuperseded,
     serverRepairBudget,
     onBeforePass: async () => {
-      if (runId) await renewVersionLease(versionId, runId).catch(() => {});
+      await renewHeldLease();
     },
     onPhaseSignal: (event) =>
       recordRepairPhaseSignal({
@@ -683,6 +700,11 @@ export async function tryServerRepairLoop(params: {
       }),
     onAttemptPromotion: tryPromoteAfterGate,
   });
+  } catch (error) {
+    if (!(error instanceof RepairLeaseLost)) throw error;
+    return { stop: { reason: "lease_lost", retryable: true }, reverifyCurrent: false,
+      contextCasMiss: false, buildOriginated, integrationMigrationHoldApplied: false };
+  }
 
   if (loopResult.stopped) {
     return {

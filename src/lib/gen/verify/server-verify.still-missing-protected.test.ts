@@ -130,7 +130,7 @@ beforeEach(() => {
   });
   markVersionRepairing.mockReset().mockResolvedValue(null);
   markVersionSupersededByRepair.mockReset().mockResolvedValue(null);
-  renewVersionLease.mockReset().mockResolvedValue(undefined);
+    renewVersionLease.mockReset().mockResolvedValue(true);
   getChat.mockReset().mockResolvedValue(null);
   getVersionFilesSnapshot.mockReset().mockResolvedValue({
     files: fallbackWithoutProtected,

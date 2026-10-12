@@ -65,7 +65,7 @@ vi.mock("./f3-readiness", () => ({
   }) => filesRevision?.trim() || `md5:${filesJson.length}`,
 }));
 
-import { isAutoRepairBuildErrorEnabled, triggerBuildErrorRepair } from "./build-error-trigger";
+import { isAutoRepairBuildErrorEnabled, triggerBuildErrorRepair, repairBuildErrorUnderLease } from "./build-error-trigger";
 
 const chatId = "chat-be";
 const versionId = "version-be";
@@ -123,6 +123,19 @@ beforeEach(() => {
 });
 
 describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => {
+  it("held build-error repair returns lease STOP without wrapper acquisition/release or terminal failure", async () => {
+    tryServerRepairLoop.mockResolvedValue({ stop: { reason: "lease_lost", retryable: true }, reverifyCurrent: false });
+    const outcome = await repairBuildErrorUnderLease({ chatId, versionId, holderRunId: "existing-holder",
+      snapshot: snapshot(BASE_FILES_JSON) as never, force: true, contextRetryUsed: true,
+      buildError: { stage: "next-build", message: "boom" } });
+    expect(outcome.verification).toEqual({ kind: "stop", reason: "lease_lost", retryable: true });
+    expect(tryServerRepairLoop).toHaveBeenCalledWith(expect.objectContaining({
+      runId: "existing-holder", baseFilesJson: BASE_FILES_JSON, baseFilesRevision: "rev-a",
+      forceBuildGate: true, repairAuthority: "manual", contextRetryUsed: true,
+    }));
+    for (const mock of [acquireVerifyLease, releaseVerifyLease, getVersionFilesSnapshot, failVersionVerification,
+      triggerServerVerification, readServerRepairBudget]) expect(mock).not.toHaveBeenCalled();
+  });
   it("reads persisted automatic bootstrap on the actual revision without seeding before repair", async () => {
     tryServerRepairLoop.mockResolvedValue({ reverifyCurrent: false, buildOriginated: true });
     await triggerBuildErrorRepair({ chatId, versionId, buildError: { stage: "next-build", message: "boom" } });
@@ -133,11 +146,11 @@ describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => 
 
   it("manual force never initializes/resets automatic capacity or grants future cron authority", async () => {
     tryServerRepairLoop.mockResolvedValue({ reverifyCurrent: true, buildOriginated: true });
-    await triggerBuildErrorRepair({ chatId, versionId, force: true, buildError: { stage: "next-build", message: "boom" } });
+    const result = await triggerBuildErrorRepair({ chatId, versionId, force: true, buildError: { stage: "next-build", message: "boom" } });
     expect(readServerRepairBudget).not.toHaveBeenCalled();
     expect(tryServerRepairLoop).toHaveBeenCalledWith(expect.objectContaining({ repairAuthority: "manual" }));
-    expect(triggerServerVerification).toHaveBeenCalledWith(expect.objectContaining({ repairAuthority: "manual" }));
-    expect(triggerServerVerification.mock.calls[0][0]).not.toHaveProperty("repairBudgetSeed");
+    expect(triggerServerVerification).not.toHaveBeenCalled();
+    expect(result.verification).toEqual({ kind: "superseded", cause: "files", forceBuildCheck: true, contextRetryUsed: false });
   });
 
   it("durably holds a before-first F3 migration decision and skips the repair loop", async () => {
@@ -182,20 +195,19 @@ describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => 
     expect(releaseVerifyLease).toHaveBeenCalledWith(versionId, "run-1");
   });
 
-  it("re-verifierar i stället för att faila när en redigering flyttat files_json", async () => {
+  it("returns typed supersession instead of re-entering after release when files advance", async () => {
     tryServerRepairLoop.mockRejectedValue(new Error("repair exploded"));
     getVersionFilesSnapshot
       .mockResolvedValueOnce(snapshot(BASE_FILES_JSON))
       .mockResolvedValueOnce(snapshot(JSON.stringify([{ path: "app/page.tsx", content: "B" }])));
 
-    await run();
+    const result = await run();
 
     // B får nå ett ärligt terminalt tillstånd på egna meriter — den får aldrig
     // failas från en överkörd repair av A.
     expect(failVersionVerification).not.toHaveBeenCalled();
-    expect(triggerServerVerification).toHaveBeenCalledWith(
-      expect.objectContaining({ chatId, versionId, forceBuildCheck: true }),
-    );
+    expect(triggerServerVerification).not.toHaveBeenCalled();
+    expect(result.verification).toEqual({ kind: "superseded", cause: "files", forceBuildCheck: true, contextRetryUsed: false });
   });
 
   it("failar inte en version som aldrig nådde repair-loopen", async () => {
@@ -256,6 +268,7 @@ describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => 
       started: false,
       repairAvailable: false,
       skippedReason: "f3_readiness_hold",
+      verification: { kind: "stop", reason: "integration_migration_required", retryable: false },
     });
     expect(failVersionVerification).not.toHaveBeenCalled();
     expect(triggerServerVerification).not.toHaveBeenCalled();
@@ -299,6 +312,7 @@ describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => 
       started: false,
       repairAvailable: false,
       skippedReason: "f3_readiness_hold",
+      verification: { kind: "stop", reason: "missing_env", retryable: false },
     });
     expect(tryServerRepairLoop).not.toHaveBeenCalled();
     expect(persistF3ReadinessHold).toHaveBeenCalledWith(

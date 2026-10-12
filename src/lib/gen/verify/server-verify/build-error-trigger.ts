@@ -39,7 +39,7 @@ import {
   persistF3ReadinessHold,
   resolveSnapshotFilesRevision,
 } from "./f3-readiness";
-import { triggerServerVerification } from "./verify-run";
+import type { HeldVersionVerificationInput, VersionVerificationOutcome } from "./verify-run";
 
 const REVERIFY_CURRENT_CONTEXT = Symbol("reverify-current-context");
 
@@ -90,6 +90,7 @@ export function isAutoRepairBuildErrorEnabled(
  * producerades för att kunna svara UI:t.
  */
 export type BuildErrorRepairOutcome = {
+  verification?: VersionVerificationOutcome;
   /** Sant om repair-loopen faktiskt kördes (klarade eligibility + fick lease). */
   started: boolean;
   /** Sant om en repair sparades (`repair_available`) — `onRepairAvailable` fyrade. */
@@ -105,7 +106,7 @@ export type BuildErrorRepairOutcome = {
     | "f3_readiness_hold";
 };
 
-export async function triggerBuildErrorRepair(params: {
+export type BuildErrorRepairInput = {
   chatId: string;
   versionId: string;
   buildError: {
@@ -130,6 +131,7 @@ export async function triggerBuildErrorRepair(params: {
    * Utelämnad → obundet (dagens bakgrundsbeteende).
    */
   repairDeadlineEpochMs?: number;
+  contextRetryUsed?: boolean;
   onRepairAvailable?: (payload: {
     versionId: string;
     summary: string | null;
@@ -137,8 +139,10 @@ export async function triggerBuildErrorRepair(params: {
   }) => void;
   /** SM-003: stamp the saved envelope when this run is a manual deploy-repair. */
   repairProvenance?: RepairProvenance;
-}): Promise<BuildErrorRepairOutcome> {
-  const { force = false, repairDeadlineEpochMs } = params;
+};
+
+export async function triggerBuildErrorRepair(params: BuildErrorRepairInput): Promise<BuildErrorRepairOutcome> {
+  const { force = false } = params;
   if (!force && !isAutoRepairBuildErrorEnabled()) {
     return { started: false, repairAvailable: false, skippedReason: "auto_repair_disabled" };
   }
@@ -146,10 +150,6 @@ export async function triggerBuildErrorRepair(params: {
     chatId,
     versionId,
     buildError,
-    onRepairAvailable,
-    repairLedger,
-    repairScopeId,
-    repairProvenance,
   } = params;
   if (!isServerVerifyEligible(versionId)) {
     return { started: false, repairAvailable: false, skippedReason: "not_eligible" };
@@ -157,15 +157,6 @@ export async function triggerBuildErrorRepair(params: {
   // A3: fånga om en repair faktiskt sparades (repair_available) så det manuella
   // endpointet kan svara UI:t, utan att ändra callback-kontraktet för de
   // befintliga fire-and-forget-anroparna.
-  let repairAvailable = false;
-  const trackedOnRepairAvailable = (payload: {
-    versionId: string;
-    summary: string | null;
-    repairAvailableAt: string | null;
-  }): void => {
-    repairAvailable = true;
-    onRepairAvailable?.(payload);
-  };
   // OMTAG-06 / Codex P2: surface the preview-VM build error as a first-class bus
   // event BEFORE acquiring the lease, so the signal (and its error-log
   // projection) is never dropped when another job already owns the version —
@@ -220,7 +211,38 @@ export async function triggerBuildErrorRepair(params: {
       skippedReason: lease.reason,
     };
   }
-  const runId = lease.runId;
+  try {
+    const snapshot = await getVersionFilesSnapshot(versionId).catch(() => null);
+    if (!snapshot?.files.length) return { started: false, repairAvailable: false, skippedReason: "no_files" };
+    const held = await repairBuildErrorUnderLease({ ...params, holderRunId: lease.runId, snapshot });
+    return { started: held.started, repairAvailable: held.repairAvailable,
+      skippedReason: held.skippedReason, verification: held.verification };
+  } finally {
+    await releaseVerifyLease(versionId, lease.runId);
+    inflight.delete(versionId);
+  }
+}
+
+/** Preview/build-error path under an existing lease; no fresh paid scope or re-entry. */
+export async function repairBuildErrorUnderLease(
+  params: BuildErrorRepairInput & Pick<HeldVersionVerificationInput, "holderRunId" | "snapshot">,
+): Promise<BuildErrorRepairOutcome & { verification: VersionVerificationOutcome }> {
+  const { chatId, versionId, buildError, repairLedger, repairScopeId, repairProvenance,
+    force = false, repairDeadlineEpochMs } = params;
+  const runId = params.holderRunId;
+  let verification: VersionVerificationOutcome = { kind: "stop", reason: "repair_settled", retryable: false };
+  if (!runId?.trim() || !params.snapshot.filesRevision?.trim()) return {
+    started: false, repairAvailable: false, verification: { kind: "stop", reason: "snapshot_unavailable", retryable: true },
+  };
+  if (!force && !isAutoRepairBuildErrorEnabled()) return {
+    started: false, repairAvailable: false, skippedReason: "auto_repair_disabled",
+    verification: { kind: "stop", reason: "auto_repair_disabled", retryable: false },
+  };
+  let repairAvailable = false;
+  const trackedOnRepairAvailable = (payload: Parameters<NonNullable<BuildErrorRepairInput["onRepairAvailable"]>>[0]) => {
+    repairAvailable = true;
+    params.onRepairAvailable?.(payload);
+  };
   // A3-utfall: sätts när loopen faktiskt körs / hoppas över inuti try/finally.
   let started = false;
   let skippedReason: BuildErrorRepairOutcome["skippedReason"];
@@ -228,17 +250,17 @@ export async function triggerBuildErrorRepair(params: {
   let reverifyFromContextCasMiss = false;
   // #260 Codex P2: this loop is always build-originated; carry that into the
   // post-supersede re-verify so the current files' gate keeps `build`.
-  let reverifyForceBuildCheck = false;
   // #260 Codex P2 / Bugbot (no stuck `repairing` / no fail of B on crash): the
   // exact files_json this run is based on, hoisted so the catch can re-check
   // staleness and schedule a re-verify instead of leaving B stuck in `repairing`.
   let baseFilesJsonForRecovery: string | null = null;
+  const execute = async (): Promise<BuildErrorRepairOutcome> => {
   try {
     if (!(await isLatestVersionForChat(chatId, versionId))) {
       skippedReason = "not_latest";
       return { started, repairAvailable, skippedReason };
     }
-    const snapshot = await getVersionFilesSnapshot(versionId);
+    const snapshot = params.snapshot;
     if (!snapshot || snapshot.files.length === 0) {
       skippedReason = "no_files";
       return { started, repairAvailable, skippedReason };
@@ -274,6 +296,7 @@ export async function triggerBuildErrorRepair(params: {
           at: "before_first_gate",
         });
         skippedReason = "f3_readiness_hold";
+        verification = { kind: "stop", reason: "readiness_unavailable", retryable: true };
         started = false;
         return { started, repairAvailable, skippedReason };
       }
@@ -287,6 +310,7 @@ export async function triggerBuildErrorRepair(params: {
         projectId: loaded.projectId,
       });
       if (!readiness.ready) {
+        verification = { kind: "stop", reason: readiness.reason, retryable: readiness.retryable === true };
         if (readiness.reason === "integration_migration_required") {
           const holdResult = await holdVersionForIntegrationMigration(
             versionId,
@@ -381,17 +405,23 @@ export async function triggerBuildErrorRepair(params: {
       repairScopeId,
       repairProvenance,
       repairAuthority: force ? "manual" : "automatic",
+      contextRetryUsed: params.contextRetryUsed,
     });
+    if (repairOutcome.stop) {
+      verification = { kind: "stop", ...repairOutcome.stop };
+      return { started, repairAvailable, skippedReason };
+    }
     reverifyCurrent = repairOutcome.reverifyCurrent;
-    reverifyFromContextCasMiss = repairOutcome.contextCasMiss;
-    reverifyForceBuildCheck = repairOutcome.buildOriginated;
+    reverifyFromContextCasMiss = repairOutcome.contextCasMiss === true;
     if (repairOutcome.integrationMigrationStop && !repairOutcome.reverifyCurrent) {
+      verification = { kind: "stop", reason: "integration_migration_required",
+        retryable: repairOutcome.integrationMigrationStop !== "applied" };
       skippedReason = "f3_readiness_hold";
       started = false;
     }
   } catch (err) {
     if (err === REVERIFY_CURRENT_CONTEXT) {
-      // Re-entry happens after the current lease is released below.
+      // Report context supersession to the caller; no fresh lease is acquired here.
     } else {
       console.error("[server-verify] build-error repair failed:", err);
       // #260 Codex P2 / Bugbot: if a concurrent user edit advanced files_json past
@@ -407,7 +437,6 @@ export async function triggerBuildErrorRepair(params: {
       }
       if (staleAfterError) {
         reverifyCurrent = true;
-        reverifyForceBuildCheck = true;
       } else if (started) {
         // `tryServerRepairLoop` already moved the row to `repairing`; the lease is
         // released in `finally` and nothing else settles it, so a non-stale crash
@@ -421,28 +450,16 @@ export async function triggerBuildErrorRepair(params: {
         ).catch(() => null);
       }
     }
-  } finally {
-    await releaseVerifyLease(versionId, runId);
-    inflight.delete(versionId);
   }
-
-  // #260 Codex P2 (stale-base re-verify): a concurrent user edit advanced
-  // files_json past the repaired-from snapshot, so the repair no-op'd and did
-  // NOT fail the version. Re-verify the CURRENT files (B) on a fresh lease (run
-  // AFTER releasing this run's lease) so B reaches an honest terminal state
-  // instead of lingering in `repairing`. See triggerServerVerification.
-  if (reverifyCurrent) {
-    await triggerServerVerification({
-      chatId,
-      versionId,
-      onRepairAvailable: trackedOnRepairAvailable,
-      forceBuildCheck: reverifyForceBuildCheck,
-      repairLedger,
-      repairScopeId,
-      contextRetryUsed: reverifyFromContextCasMiss,
-      repairAuthority: force ? "manual" : "automatic",
-    });
-  }
-
   return { started, repairAvailable, skippedReason };
+  };
+  const result = await execute();
+  if (reverifyCurrent) verification = { kind: "superseded",
+    cause: reverifyFromContextCasMiss ? "context" : "files", forceBuildCheck: true,
+    contextRetryUsed: params.contextRetryUsed === true || reverifyFromContextCasMiss };
+  else if (result.skippedReason === "not_latest") verification = {
+    kind: "superseded", cause: "newer_version", forceBuildCheck: true, contextRetryUsed: false };
+  else if (result.skippedReason && result.skippedReason !== "f3_readiness_hold") verification = { kind: "stop", reason: result.skippedReason,
+    retryable: false };
+  return { ...result, verification };
 }

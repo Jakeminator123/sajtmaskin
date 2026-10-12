@@ -15,8 +15,10 @@ export {
   logQualityGateFailuresBestEffort,
   partitionServerVerifyFailures,
 } from "./server-verify/failures";
-export { triggerServerVerification } from "./server-verify/verify-run";
+export { triggerServerVerification, verifyVersionUnderLease, runVersionQualityGateUnderLease,
+  type HeldVersionVerificationInput, type VersionVerificationOutcome } from "./server-verify/verify-run";
 export {
   triggerBuildErrorRepair,
+  repairBuildErrorUnderLease,
   type BuildErrorRepairOutcome,
 } from "./server-verify/build-error-trigger";

@@ -94,7 +94,7 @@ describe("tryServerRepairLoop threads verifyDeadlineEpochMs (C4)", () => {
     saveRepairedFiles.mockReset().mockResolvedValue({ status: "failed" });
     getChat.mockReset().mockResolvedValue({ id: "chat-c4" });
     markVersionSupersededByRepair.mockReset().mockResolvedValue(null);
-    renewVersionLease.mockReset().mockResolvedValue(undefined);
+    renewVersionLease.mockReset().mockResolvedValue(true);
     getVersionFilesSnapshot.mockReset().mockResolvedValue({
       files: projectFiles,
       filesJson: JSON.stringify(projectFiles),
@@ -183,11 +183,49 @@ describe("tryServerRepairLoop threads verifyDeadlineEpochMs (C4)", () => {
     } }));
   });
 
+  it.each(["before_pass", "before_gate", "before_save"] as const)(
+    "renew false or throw at %s returns typed STOP before further paid/gate/save work", async (stage) => {
+      for (const throws of [false, true]) {
+        vi.clearAllMocks();
+        renewVersionLease.mockReset();
+        if (stage === "before_save") renewVersionLease.mockResolvedValueOnce(true);
+        if (throws) renewVersionLease.mockRejectedValue(new Error("renew unavailable"));
+        else renewVersionLease.mockResolvedValue(false);
+        shouldPromoteAfterRepair.mockResolvedValue({ promote: true, results: [], verifyLaneDurationMs: 1,
+          firstFailureCheck: null, jobStartedAt: null, jobFinishedAt: null });
+        const paidStep = vi.fn();
+        runRepairLoop.mockImplementation(async (params) => {
+          if (stage === "before_pass") {
+            await params.onBeforePass(0);
+            paidStep();
+          } else {
+            await params.onAttemptPromotion(serializeCodeProject(projectFiles), "llm");
+          }
+          return { stopped: true };
+        });
+        const outcome = await tryServerRepairLoop({
+          chatId: "chat-c4", versionId: "ver-c4", runId: "held", codeFiles: projectFiles,
+          baseFilesJson: JSON.stringify(projectFiles), baseFilesRevision: "actual",
+          failedOutputs: [], verifyLaneDurationMs: 0, firstFailureCheck: null,
+          jobStartedAt: null, jobFinishedAt: null, previewPolicy: "fidelity2", repairAuthority: "manual",
+        });
+        expect(outcome).toMatchObject({ stop: { reason: "lease_lost", retryable: true }, reverifyCurrent: false });
+        expect(paidStep).not.toHaveBeenCalled();
+        expect(saveRepairedFiles).not.toHaveBeenCalled();
+        expect(failVersionVerification).not.toHaveBeenCalled();
+        expect(renewVersionLease).toHaveBeenCalledTimes(stage === "before_save" ? 2 : 1);
+        if (stage !== "before_save") expect(shouldPromoteAfterRepair).not.toHaveBeenCalled();
+      }
+    },
+  );
+
   it.each(["missing_revision", "history_unknown", "unavailable"])("never substitutes a fresh automatic ledger after %s", async (reason) => {
     readServerRepairBudget.mockResolvedValue({ status: reason });
     await expect(tryServerRepairLoop({ chatId: "chat-c4", versionId: "ver-c4", codeFiles: projectFiles, baseFilesJson: JSON.stringify(projectFiles),
       baseFilesRevision: reason === "missing_revision" ? undefined : "actual", runId: "run2", failedOutputs: [],
-      verifyLaneDurationMs: 0, firstFailureCheck: null, jobStartedAt: null, jobFinishedAt: null })).rejects.toThrow(/Automatic repair/);
+      verifyLaneDurationMs: 0, firstFailureCheck: null, jobStartedAt: null, jobFinishedAt: null })).resolves.toMatchObject({
+        stop: { reason: "repair_budget_unavailable", retryable: true },
+      });
     expect(runRepairLoop).not.toHaveBeenCalled();
     expect(markVersionRepairing).not.toHaveBeenCalled();
     expect(saveRepairedFiles).not.toHaveBeenCalled();
