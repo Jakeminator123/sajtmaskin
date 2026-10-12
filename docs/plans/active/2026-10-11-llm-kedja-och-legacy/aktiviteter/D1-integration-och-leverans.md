@@ -102,3 +102,64 @@ fullbygge, live-DB-/provider-/modelltest eller schemaprov har körts. Node/Volta
 22.23.1 och engines >=22.14.0 <23 kontrollerades igen före dokumentkontroller.
 Slutligt färskkontext-Buggpass och publiceringsgrindar återstår före eventuell
 push; befintlig paketreview får inte presenteras som ett sådant kvitto.
+
+## Förberett enda manuellt runtimeprov — 2026-10-12
+
+Status: förberett, inte startat. Kodkandidat `e5e5b7d7258dc8aa2a2d2876c75514149863b43c`.
+Schemaläggningsflaggan ligger kvar på `0` lokalt och i Vercel; inget cron-anrop ingår.
+Provet kör den lokala kandidatens vanliga generationsväg och gemensamma servercore.
+Den lokala env-filens DB-adress har kontrollerats med den befintliga guarden:
+DEV `yubbckduwblyrbnlglwf`, utan DB-anslutning. Ingen server har startats.
+
+I en ny terminal används Node/Volta 22.23.1, kandidatcheckouten och huvudcheckoutens
+befintliga env-fil utan att kopiera eller ändra dess värden. Budgetarna nedan gäller
+bara testprocessen. Ingen ändring av Vercels modellval eller tokenbudgetar:
+
+```powershell
+Set-Location 'C:\Users\jakem\.codex\worktrees\llm-legacy-cleanup\sajtmaskin'
+$env:SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED = '0'
+$env:SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS = '16384'
+$env:SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS = '4096'
+$env:SAJTMASKIN_VERIFIER_MAX_OUTPUT_TOKENS = '4096'
+$env:SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS = '4096'
+& 'C:\Program Files\Volta\node.exe' --env-file='C:\Users\jakem\dev\projects\sajtmaskin\.env.local' scripts/dev/next-runner.mjs dev --port 3100
+```
+
+Efter att lokal server, inloggning och preview-host fungerar: öppna buildern på
+`http://localhost:3100`, välj **Låg / pro**, håll bildgenerering/materialisering av
+och använd en ny testchatt med denna enda beställning:
+
+> Skapa en enkel svensk ensidig sajt för det fiktiva caféet Testfika. Använd bara
+> text, CSS och enkla ikoner, inga foton eller bildtjänster. Ha rubrik, kort
+> presentation, tre menypriser och kontaktsektion. Knappen "Se menyn" ska scrolla
+> till menyn. Ingen inloggning, formulärsändning, betalning eller extern integration.
+> Visa att detta är en testsajt.
+
+Skicka en gång och invänta serverns faktiska slutstatus. Spara chatId/versionId,
+exakt revision, runtime-/produktresultat, relevant kvalitetsgrind och samtliga
+usage-rader för körningen (även förhandsfasernas senare bundna usage).
+Kontrollera desktop/mobil och menyknappen. Därefter Spara och återöppna samma
+projekt: samma snapshot ska visas och usage ska inte öka på grund av Spara/GET.
+Ingen ny generation eller manuell repair beställs vid fel; felet rapporteras.
+Ingen avstängning av sidans observation räknas som färdig serverkontroll.
+
+Kostnadsuppskattning: **5–15 SEK i leverantörens modellkostnad**; **15–30 SEK**
+som planeringsmarginal om avgränsade reparationer/fler anrop behövs. Detta är inte
+ett hårt gemensamt krontak eller ett verifierat historiskt medelvärde. Antagande:
+bygganropet använder 30–80k input och 5–16k output inklusive reasoning, utan
+antagen cacherabatt. Sols bygganrop blir då cirka $0.22–$0.64; återstående marginal
+täcker brief, verifier, LiveReview och möjliga fixer-anrop. Befintliga försökstak
+behålls. Sajtmaskins creditdebitering/påslag och eventuell driftkostnad räknas
+separat; det aktuella kontots creditpris har inte lästs från DB.
+
+Priserna kontrollerades 2026-10-12 mot
+[OpenAI](https://developers.openai.com/api/docs/models/gpt-5.6-sol) och den publika
+[Gateway-katalogen](https://ai-gateway.vercel.sh/v1/models): Sol $4/$20, Terra $2/$12,
+Luna $0.20/$1.20 per miljon input/output-tokens. SEK använder repots uttryckliga
+approximativa kurs 10.5. Efter provet summeras `llm_usage.cost_microusd` för exakt
+chatt/version/körning och stäms av mot billing; saknade usage-kvitton betyder att
+kostnaden är ofullständig, inte noll. Inga kostnads-/saldoqueries har körts ännu.
+
+Detta prov ger runtimebevis för den vanliga F2-generationen och dess serverkontroller.
+Schemalagd återstart, avbrott/takeover, F3 och bildmaterialisering verifieras inte
+av detta enda prov. Resultat skrivs här först efter faktisk körning.
