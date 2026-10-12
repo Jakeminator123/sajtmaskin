@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mirror the mocking strategy of repair-loop.preview-policy.test.ts: the LLM
 // fixer and the esbuild-backed syntax validator are stubbed so the test fully
@@ -75,6 +75,36 @@ describe("runRepairLoop — non-promoted outcome is never silent (M#sr0)", () =>
     validateGeneratedCode.mockClear();
     reserveServerRepairBudget.mockReset().mockResolvedValue({ status: "reserved" });
     recordServerRepairBudgetOutcome.mockReset().mockResolvedValue({ status: "outcome_recorded" });
+  });
+
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+
+  it.each(["primary", "retry"] as const)("real port stops after a slow %s reservation without inventing another invocation", async delayedSlot => {
+    vi.useFakeTimers(); vi.setSystemTime(100_000);
+    const target = { chatId: "c", versionId: "v", runId: "r", filesRevision: "rev", scopeId: "s" };
+    const ledger = new RepairLedger();
+    const reservations: Array<{ passIndex: number; slot: string }> = [];
+    reserveServerRepairBudget.mockImplementation(async (_target: unknown, slot: { passIndex: number; slot: string }) => {
+      reservations.push({ ...slot });
+      if (slot.slot === delayedSlot) await new Promise(resolve => setTimeout(resolve, 600_001));
+      return { status: "reserved" };
+    });
+    if (delayedSlot === "retry") runLlmFixer.mockResolvedValueOnce({ ...fixerSucceedsWithChange,
+      fixedContent: validPage, fixedFiles: [], success: false, aborted: true });
+    const promote = vi.fn(async (_projectContent: string, _method: RepairMethod) => ({ promoted: false }));
+    const pending = runRepairLoop({ initialContent: validPage, failedOutputs: [gateFailure], contextLines: [], maxLlmPasses: 2,
+      llmTimeoutMs: 1_000, llmRetryTimeoutMs: 500, repairDeadlineEpochMs: 700_000, enableTargetedRepair: false,
+      chatId: "c", repairScopeId: "s", repairLedger: ledger, serverRepairBudget: { target, consumed: [] },
+      onAttemptPromotion: promote });
+    await vi.waitFor(() => expect(reserveServerRepairBudget).toHaveBeenCalledTimes(delayedSlot === "primary" ? 1 : 2));
+    await vi.advanceTimersByTimeAsync(600_001);
+    expect(await pending).toMatchObject({ promoted: false, earlyStopReason: "time_budget_exceeded", llmPasses: delayedSlot === "primary" ? 0 : 1 });
+    expect(runLlmFixer).toHaveBeenCalledTimes(delayedSlot === "primary" ? 0 : 1);
+    expect(recordServerRepairBudgetOutcome).toHaveBeenCalledTimes(delayedSlot === "primary" ? 0 : 1);
+    expect(reservations.at(-1)).toMatchObject({ passIndex: 0, slot: delayedSlot });
+    expect(ledger.exportInvocations("c", "s")).toHaveLength(delayedSlot === "primary" ? 0 : 1);
+    expect(promote.mock.calls.map(([candidate]) => candidate)).toEqual([validPage]); // Original deterministic candidate only; no post-STOP merge/promotion.
+    expect(appendErrorLogEvent).not.toHaveBeenCalled();
   });
 
   it.each(["reserve", "outcome"])("never promotes fixer output after a durable %s write failure", async (stage) => {

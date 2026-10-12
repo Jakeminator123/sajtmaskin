@@ -85,7 +85,7 @@ import {
  */
 interface ServerRepairLoopOutcome {
   /** Lost/unproven ownership is not a product failure and must not be terminalized. */
-  stop?: { reason: "lease_lost" | "repair_budget_unavailable"; retryable: true };
+  stop?: { reason: "lease_lost" | "repair_budget_unavailable" | "time_budget_exceeded"; retryable: true };
   /** Re-run the current row after the old repair context was superseded. */
   reverifyCurrent: boolean;
   /** Re-entry came from a full decision-context race, not a user file edit. */
@@ -105,6 +105,7 @@ interface ServerRepairLoopOutcome {
 }
 
 class RepairLeaseLost extends Error {}
+class RepairDeadlineExceeded extends Error {}
 
 export async function tryServerRepairLoop(params: {
   chatId: string;
@@ -193,10 +194,22 @@ export async function tryServerRepairLoop(params: {
     f3Readiness = null,
     repairProvenance,
   } = params;
+  const checkRepairDeadline = (deadline = repairDeadlineEpochMs) => {
+    if (deadline !== undefined && Date.now() >= deadline) {
+      throw new RepairDeadlineExceeded("Repair time budget exhausted");
+    }
+  };
+  const boundedLlmTimeout = (phaseCapMs: number) => {
+    if (repairDeadlineEpochMs === undefined) return phaseCapMs;
+    const remainingMs = repairDeadlineEpochMs - Date.now();
+    if (remainingMs <= 0) throw new RepairDeadlineExceeded("Repair time budget exhausted");
+    return Math.min(phaseCapMs, remainingMs);
+  };
   const renewHeldLease = async () => {
     if (runId && await renewVersionLease(versionId, runId).catch(() => false) !== true) {
       throw new RepairLeaseLost("Repair lease lost or unavailable");
     }
+    checkRepairDeadline();
   };
   let repairLedger: RepairLedger;
   let repairScopeId: string;
@@ -475,6 +488,9 @@ export async function tryServerRepairLoop(params: {
     const exportableForGate = await buildExportableProject(repairedFiles, {
       verbatimRepo: repairVerbatimRepo,
     });
+    const verifyDeadlineEpochMs = repairDeadlineEpochMs === undefined ? options?.verifyDeadlineEpochMs
+      : Math.min(repairDeadlineEpochMs, options?.verifyDeadlineEpochMs ?? Infinity);
+    checkRepairDeadline(verifyDeadlineEpochMs);
     const decision = await withRepairPhaseSignal(
       { chatId, versionId, phase: "preview_verify" },
       () =>
@@ -492,7 +508,7 @@ export async function tryServerRepairLoop(params: {
             buildOriginated,
             previewPolicy,
           }),
-          verifyDeadlineEpochMs: options?.verifyDeadlineEpochMs,
+          verifyDeadlineEpochMs,
         }),
     );
     const visualQA = maybeAnalyzeVisualQAForPassedExportable({
@@ -669,8 +685,9 @@ export async function tryServerRepairLoop(params: {
     contextLines: repairLogContext.contextLines,
     // Global budget (manifest `repairPolicies.serverRepairPasses`, default 2).
     maxLlmPasses: SERVER_REPAIR_MAX_PASSES,
-    llmTimeoutMs: LLM_FIXER_TIMEOUT_MS,
-    llmRetryTimeoutMs: LLM_FIXER_RETRY_TIMEOUT_MS,
+    // Resolve remaining time at each attempt, including an intra-pass retry.
+    get llmTimeoutMs() { return boundedLlmTimeout(LLM_FIXER_TIMEOUT_MS); },
+    get llmRetryTimeoutMs() { return boundedLlmTimeout(LLM_FIXER_RETRY_TIMEOUT_MS); },
     // A3: bunden till anroparens route-maxDuration för synkron deploy-repair;
     // undefined för bakgrundskörning (obundet, dagens beteende).
     repairDeadlineEpochMs,
@@ -701,11 +718,16 @@ export async function tryServerRepairLoop(params: {
     onAttemptPromotion: tryPromoteAfterGate,
   });
   } catch (error) {
-    if (!(error instanceof RepairLeaseLost)) throw error;
-    return { stop: { reason: "lease_lost", retryable: true }, reverifyCurrent: false,
+    if (!(error instanceof RepairLeaseLost) && !(error instanceof RepairDeadlineExceeded)) throw error;
+    return { stop: { reason: error instanceof RepairDeadlineExceeded ? "time_budget_exceeded" : "lease_lost", retryable: true }, reverifyCurrent: false,
       contextCasMiss: false, buildOriginated, integrationMigrationHoldApplied: false };
   }
 
+  if (!loopResult.promoted && !loopResult.stopped && repairDeadlineEpochMs !== undefined &&
+      (Date.now() >= repairDeadlineEpochMs || loopResult.earlyStopReason === "time_budget_exceeded")) {
+    return { stop: { reason: "time_budget_exceeded", retryable: true }, reverifyCurrent: false,
+      contextCasMiss: false, buildOriginated, integrationMigrationHoldApplied: false };
+  }
   if (loopResult.stopped) {
     return {
       reverifyCurrent,

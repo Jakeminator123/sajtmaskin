@@ -822,6 +822,7 @@ export async function runRepairLoop<TPayload = unknown>(
   let bestErrorCount = syntaxResult.errors.length;
   let llmPasses = 0;
   let earlyStopReason: RepairEarlyStopReason = null;
+  let fixerDeadlineStopped = false;
   // Blocking preflight findings per pass. A pass that trades one blocker for a
   // new one is rolled back; a blocker that survives two passes stops the loop
   // instead of buying a third identical round.
@@ -937,7 +938,7 @@ export async function runRepairLoop<TPayload = unknown>(
       timeoutMs: number,
       bundleOverride?: TargetedRepairBundle | null,
       slot: "primary" | "retry" = "primary",
-    ): Promise<FixerResult> => {
+    ): Promise<FixerResult | null> => {
       const activeBundle = bundleOverride ?? targetedBundle;
       const activeFixerInput = activeBundle?.contentForFixer ?? content;
       lastFixerInput = activeFixerInput;
@@ -946,6 +947,7 @@ export async function runRepairLoop<TPayload = unknown>(
         errors: attemptErrors,
         chatId: params.chatId ?? "",
         timeoutMs,
+        deadlineEpochMs: params.repairDeadlineEpochMs,
         maxTokens,
         requiredFiles: activeBundle?.requiredFiles ?? brokenFiles,
         config: gateConfig,
@@ -967,6 +969,11 @@ export async function runRepairLoop<TPayload = unknown>(
           },
         } : undefined,
       });
+      if (gate.stop) {
+        earlyStopReason = gate.stop.reason;
+        fixerDeadlineStopped = true;
+        return null;
+      }
       // A deduped attempt made no LLM call; keep llmPasses an honest count of
       // actual fixer invocations. A deduped result flows on as a no-op
       // (`success:false`, `partial:false`) → `fixer_noop` early stop.
@@ -1022,6 +1029,7 @@ export async function runRepairLoop<TPayload = unknown>(
         activeBundle,
         pass === firstPass && resumeRetry ? "retry" : "primary",
       );
+      if (!result) return null;
 
       const needsTargetedRetry =
         result.aborted ||
@@ -1071,6 +1079,7 @@ export async function runRepairLoop<TPayload = unknown>(
           activeBundle,
           "retry",
         );
+        if (!result) return null;
         if (result.aborted) {
           devLogAppend("in-progress", {
             type: "repair_loop.llm_abort",
@@ -1087,8 +1096,9 @@ export async function runRepairLoop<TPayload = unknown>(
       }
       return result;
     });
-    const timedOut = fixerResult.aborted === true;
     llmPasses += fixerAttemptCount;
+    if (!fixerResult) break;
+    const timedOut = fixerResult.aborted === true;
 
     if (!fixerResult.success && !fixerResult.partial) {
       // LLM produced no mergeable output. Deterministic pre-pass progress
@@ -1310,10 +1320,10 @@ export async function runRepairLoop<TPayload = unknown>(
   // skip the (expensive) final gate — the base-bound save would discard the
   // result anyway. `earlyStopReason` may already be "superseded" from the
   // per-pass check above.
-  if (syntaxClean && earlyStopReason !== "superseded" && (await params.shouldAbortSuperseded?.())) {
+  if (!fixerDeadlineStopped && syntaxClean && earlyStopReason !== "superseded" && (await params.shouldAbortSuperseded?.())) {
     earlyStopReason = "superseded";
   }
-  if (syntaxClean && earlyStopReason !== "superseded") {
+  if (!fixerDeadlineStopped && syntaxClean && earlyStopReason !== "superseded") {
     const finalGate = resolveFinalGateVerifyBudget({
       deadlineEpochMs: params.repairDeadlineEpochMs,
       nowMs: Date.now(),
@@ -1368,10 +1378,9 @@ export async function runRepairLoop<TPayload = unknown>(
     }
   }
 
-  // A "superseded" exit is an abort (a newer version/edit made the result
-  // moot), not a real fault — logging it as `still-failing` would pollute RAG
-  // with lessons about failures that never actually happened.
-  if (earlyStopReason !== "superseded") {
+  // Supersession and a pre-invocation deadline STOP are not real model
+  // failures; never publish a still-failing repair lesson for either.
+  if (!fixerDeadlineStopped && earlyStopReason !== "superseded") {
     logRepairLoopOutcomeBestEffort({
       chatId: params.chatId,
       failedOutputs: params.failedOutputs,

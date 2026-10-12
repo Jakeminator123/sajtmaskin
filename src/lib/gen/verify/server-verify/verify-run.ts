@@ -140,6 +140,8 @@ export type ServerVerificationInput = {
    * a Next build failure still lingers. Defaults to off for the normal F2 path.
    */
   forceBuildCheck?: boolean;
+  /** Original absolute chain deadline; re-entry must not mint a new window. */
+  verifyDeadlineEpochMs?: number;
   /**
    * Fas 3 (RepairGate): finalize's `RepairLedger`, handed over so a repair in
    * THIS lane dedupes against content+diagnostics already LLM-repaired during
@@ -168,6 +170,13 @@ export type HeldVersionVerificationInput = ServerVerificationInput & {
   holderRunId: string;
   snapshot: VersionFilesSnapshot;
 };
+
+class VerificationDeadlineExceeded extends Error {}
+function checkVerificationDeadline(deadlineEpochMs: number | undefined): void {
+  if (deadlineEpochMs !== undefined && Date.now() >= deadlineEpochMs) {
+    throw new VerificationDeadlineExceeded("Verification time budget exhausted");
+  }
+}
 
 export async function triggerServerVerification(params: ServerVerificationInput): Promise<VersionVerificationOutcome | void> {
   if (!isServerVerifyEligible(params.versionId)) return { kind: "stop", reason: "not_eligible", retryable: false };
@@ -217,6 +226,7 @@ export async function verifyVersionUnderLease(params: HeldVersionVerificationInp
 
   const execute = async (): Promise<void> => {
   try {
+    checkVerificationDeadline(params.verifyDeadlineEpochMs);
     if (!(await isLatestVersionForChat(chatId, versionId))) {
       outcome = { kind: "superseded", cause: "newer_version", forceBuildCheck, contextRetryUsed };
       await markVersionSupersededByRepair(versionId, null, runId).catch(() => null);
@@ -338,7 +348,8 @@ export async function verifyVersionUnderLease(params: HeldVersionVerificationInp
     // Imported repos (v0-templates / ZIP imports) verify verbatim so the gate
     // tests the SAME project the preview VM runs — never a scaffold-merged
     // variant with force-pinned baseline dependency versions.
-    const evaluation = await evaluateVersionGateSnapshot({ chatId, versionId, snapshot, forceBuildCheck });
+    const evaluation = await evaluateVersionGateSnapshot({ chatId, versionId, snapshot, forceBuildCheck,
+      verifyDeadlineEpochMs: params.verifyDeadlineEpochMs });
     if (!evaluation) {
       outcome = { kind: "stop", reason: "quality_gate_disabled", retryable: false };
       await resetVersionVerificationToPending(versionId, undefined, runId).catch(() => null);
@@ -371,7 +382,8 @@ export async function verifyVersionUnderLease(params: HeldVersionVerificationInp
           versionId,
           "Designläge: previewen renderar. Typecheck-varningar kvarstår (advisory, ej blockerande).",
           runId,
-        ).catch(() => null)
+          params.verifyDeadlineEpochMs,
+        )
       : null;
     if (advisoryPromotion === "integration_migration_required") {
       await persistPromotionMigrationHold();
@@ -515,7 +527,8 @@ export async function verifyVersionUnderLease(params: HeldVersionVerificationInp
           ? "Automatic server verification passed with lint warnings (advisory)."
           : "Automatic server verification passed.",
         runId,
-      ).catch(() => null);
+        params.verifyDeadlineEpochMs,
+      );
       if (promotion === "integration_migration_required") {
         await persistPromotionMigrationHold();
         return;
@@ -747,6 +760,7 @@ export async function verifyVersionUnderLease(params: HeldVersionVerificationInp
               if (!(await isLatestVersionForChat(chatId, versionId))) {
                 deterministicMeta.skippedPersistReason = "superseded_by_newer_version";
               } else {
+                checkVerificationDeadline(params.verifyDeadlineEpochMs);
                 const persisted = await updateVersionFiles(versionId, repairedFilesJson, {
                   holderRunId: runId,
                   expectedFilesJson: baseFilesJson,
@@ -762,6 +776,7 @@ export async function verifyVersionUnderLease(params: HeldVersionVerificationInp
             }
           }
         } catch (err) {
+          if (err instanceof VerificationDeadlineExceeded) throw err;
           // Fail-closed: keep today's surface-only path when mechanical repair throws.
           deterministicMeta = {
             ...deterministicMeta,
@@ -825,6 +840,7 @@ export async function verifyVersionUnderLease(params: HeldVersionVerificationInp
       return;
     }
 
+    checkVerificationDeadline(params.verifyDeadlineEpochMs);
     const repairOutcome = await tryServerRepairLoop({
       chatId,
       versionId,
@@ -847,10 +863,10 @@ export async function verifyVersionUnderLease(params: HeldVersionVerificationInp
       // burning LLM passes minutes after the user left (the background lane
       // previously passed no deadline → capped only by pass count + per-pass
       // timeouts). Reuses the lease-holding-route budget as a generous bound.
-      repairDeadlineEpochMs: resolveBackgroundRepairDeadlineEpochMs({
+      repairDeadlineEpochMs: Math.min(params.verifyDeadlineEpochMs ?? Infinity, resolveBackgroundRepairDeadlineEpochMs({
         nowMs: Date.now(),
         budgetMs: REPAIR_LOOP_BUDGET_MS,
-      }),
+      })),
       repairLedger,
       repairScopeId,
       contextRetryUsed,
@@ -866,6 +882,9 @@ export async function verifyVersionUnderLease(params: HeldVersionVerificationInp
     });
     if (repairOutcome.stop) {
       outcome = { kind: "stop", ...repairOutcome.stop };
+      if (repairOutcome.stop.reason === "time_budget_exceeded") {
+        await resetVersionVerificationToPending(versionId, undefined, runId).catch(() => null);
+      }
       return;
     }
     outcome = { kind: "stop", reason: "repair_settled", retryable: false };
@@ -874,7 +893,10 @@ export async function verifyVersionUnderLease(params: HeldVersionVerificationInp
     reverifyForceBuildCheck = repairOutcome.buildOriginated;
     if (repairOutcome.integrationMigrationHoldApplied) return;
   } catch (err) {
-    if (err === REVERIFY_CURRENT_CONTEXT) {
+    if (err instanceof VerificationDeadlineExceeded) {
+      outcome = { kind: "stop", reason: "time_budget_exceeded", retryable: true };
+      await resetVersionVerificationToPending(versionId, undefined, runId).catch(() => null);
+    } else if (err === REVERIFY_CURRENT_CONTEXT) {
       // Return supersession to the coordinator. No fail/green signal belongs
       // to the old context and this core never acquires a replacement lease.
     } else if (err instanceof QualityGateUnavailableError || err instanceof QualityGateNotConfiguredError) {
@@ -1064,8 +1086,10 @@ async function promoteVersionWithRetry(
   versionId: string,
   summary: string,
   runId: string | undefined,
+  verifyDeadlineEpochMs?: number,
 ): Promise<Awaited<ReturnType<typeof promoteVersion>> | null> {
   for (let attempt = 1; attempt <= PROMOTE_MAX_ATTEMPTS; attempt++) {
+    checkVerificationDeadline(verifyDeadlineEpochMs);
     try {
       return await promoteVersion(versionId, summary, runId);
     } catch (err) {
@@ -1088,17 +1112,22 @@ async function promoteVersionWithRetry(
 async function evaluateVersionGateSnapshot(params: {
   chatId: string; versionId: string; snapshot: VersionFilesSnapshot;
   forceBuildCheck?: boolean;
+  verifyDeadlineEpochMs?: number;
   beforeVerify?: () => Promise<void>;
 }) {
+  checkVerificationDeadline(params.verifyDeadlineEpochMs);
   const previewPolicy = params.snapshot.lifecycleStage === "integrations" ? "fidelity3" : "fidelity2";
   const exportable = await buildExportableProject(params.snapshot.files, {
     verbatimRepo: await chatUsesVerbatimRepo(params.chatId),
   });
   await params.beforeVerify?.();
+  checkVerificationDeadline(params.verifyDeadlineEpochMs);
   const gateResult = await runQualityGateOnExportable({
     chatId: params.chatId, versionId: params.versionId, exportable,
     checks: resolvePostRepairGateChecks(params.forceBuildCheck === true, previewPolicy),
+    verifyDeadlineEpochMs: params.verifyDeadlineEpochMs,
   });
+  checkVerificationDeadline(params.verifyDeadlineEpochMs);
   if (!gateResult) return null;
   const passed = qualityGateAllPassed(gateResult.results);
   const advisory = isTypecheckOnlyAdvisory({
@@ -1138,6 +1167,7 @@ async function settleVersionQualityGateUnderLease(params: {
   chatId: string; versionId: string; holderRunId: string;
   snapshot: VersionFilesSnapshot;
   gate?: "designPreview" | "integrationsBuild";
+  verifyDeadlineEpochMs?: number;
 }): Promise<VersionQualityGateResponse> {
   const { chatId, versionId: internalVersionId, holderRunId: qgRunId, snapshot } = params;
   if (!qgRunId.trim() || !snapshot.filesRevision?.trim()) {
@@ -1154,6 +1184,7 @@ async function settleVersionQualityGateUnderLease(params: {
   const readinessContext = loaded ?? { orchestrationSnapshot: null, projectId: null };
     let verifyLaneStarted = false;
     try {
+      checkVerificationDeadline(params.verifyDeadlineEpochMs);
       // Read the version files EXACTLY ONCE under the lease and feed the SAME
       // set to readiness/export/verify/promotion — no re-read that could observe
       // a different snapshot (TOCTOU + Codex P2 stale-snapshot fix).
@@ -1359,6 +1390,7 @@ async function settleVersionQualityGateUnderLease(params: {
         }
 
         const evaluation = await evaluateVersionGateSnapshot({ chatId, versionId: internalVersionId, snapshot,
+          verifyDeadlineEpochMs: params.verifyDeadlineEpochMs,
           beforeVerify: async () => {
             verifyLaneStarted = true;
             await markVersionVerifying(internalVersionId, undefined, qgRunId).catch((err) => {
@@ -1587,6 +1619,7 @@ async function settleVersionQualityGateUnderLease(params: {
               internalVersionId,
               promoteSummary,
               qgRunId,
+              params.verifyDeadlineEpochMs,
             );
             // The guard already allowed promotion, so a null here is a transient
             // failure (DB error, or a race that re-flagged the signal between the
@@ -1811,6 +1844,10 @@ async function settleVersionQualityGateUnderLease(params: {
 
       return qualityGateResponse({ error: "No files found for version" }, { status: 404 });
     } catch (err) {
+      if (err instanceof VerificationDeadlineExceeded) {
+        if (verifyLaneStarted) await resetVersionVerificationToPending(internalVersionId, undefined, qgRunId).catch(() => null);
+        return qualityGateResponse({ code: "time_budget_exceeded", retryable: true, passed: false, promoted: false }, { status: 503 });
+      }
       // Unreachable verify lane (network / timeout / HTTP 4xx-5xx / disk-full):
       // the gate never evaluated the code, so do NOT mark the version `failed`
       // (a false-RED verdict) and do NOT hard-500. Surface a retryable 503 the

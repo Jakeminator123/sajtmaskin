@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const runLlmFixer = vi.hoisted(() => vi.fn());
 const devLogAppend = vi.hoisted(() => vi.fn());
@@ -26,6 +26,89 @@ describe("runLlmRepairGate ledger", () => {
   beforeEach(() => {
     runLlmFixer.mockReset();
     devLogAppend.mockReset();
+  });
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+
+  const deadlineParams = () => ({ content: "A", errors: ["boom"], chatId: "c", scopeId: "s", timeoutMs: 5_000,
+    ledger: new RepairLedger(), recurringPatterns: [],
+    repairBudget: { reserve: vi.fn(async (_identity?: unknown): Promise<void> => undefined), complete: vi.fn(async (): Promise<void> => undefined) } });
+  const abortedResult = { fixedContent: "A", fixedFiles: [], missingFiles: [], incompleteFiles: [], partial: false, success: false, durationMs: 0, aborted: true };
+
+  it("deadline STOP before reservation has no payment or fake invocation", async () => {
+    vi.useFakeTimers(); vi.setSystemTime(100_000);
+    const params = deadlineParams();
+    const result = await runLlmRepairGate({ ...params, deadlineEpochMs: Date.now() });
+    expect(result.stop).toEqual({ reason: "time_budget_exceeded", retryable: true });
+    expect(params.repairBudget.reserve).not.toHaveBeenCalled();
+    expect(params.repairBudget.complete).not.toHaveBeenCalled();
+    expect(runLlmFixer).not.toHaveBeenCalled();
+    expect(params.ledger.exportInvocations("c", "s")).toEqual([]);
+  });
+
+  it("slow paid reservation past the original deadline stays reserved without fixer or completion", async () => {
+    vi.useFakeTimers(); vi.setSystemTime(100_000);
+    const params = deadlineParams();
+    const reservations: unknown[] = [];
+    params.repairBudget.reserve.mockImplementation(async (identity?: unknown) => {
+      reservations.push(identity);
+      await new Promise(resolve => setTimeout(resolve, 60));
+    });
+    const pending = runLlmRepairGate({ ...params, deadlineEpochMs: Date.now() + 50 });
+    await vi.advanceTimersByTimeAsync(60);
+    const result = await pending;
+    expect(result.stop).toEqual({ reason: "time_budget_exceeded", retryable: true });
+    expect(result.result.aborted).not.toBe(true);
+    expect(reservations).toEqual([expect.objectContaining({ outcome: "unknown" })]);
+    expect(runLlmFixer).not.toHaveBeenCalled();
+    expect(params.repairBudget.complete).not.toHaveBeenCalled();
+    expect(params.ledger.exportInvocations("c", "s")).toEqual([]);
+  });
+
+  it("checks again at the actual fixer boundary after synchronous prompt preparation", async () => {
+    vi.useFakeTimers(); vi.setSystemTime(100_000);
+    const params = deadlineParams();
+    Object.defineProperty(params, "recurringPatterns", { get: () => { vi.setSystemTime(100_051); return []; } });
+    const result = await runLlmRepairGate(Object.assign(params, { deadlineEpochMs: 100_050 }));
+    expect(result.stop).toEqual({ reason: "time_budget_exceeded", retryable: true });
+    expect(params.repairBudget.reserve).toHaveBeenCalledTimes(1);
+    expect(params.repairBudget.complete).not.toHaveBeenCalled();
+    expect(runLlmFixer).not.toHaveBeenCalled();
+    expect(params.ledger.exportInvocations("c", "s")).toEqual([]);
+  });
+
+  it.each([5_000, 100])("deadline caller clamps the actual timer below 1s and phase cap %s", async phaseCap => {
+    vi.useFakeTimers(); vi.setSystemTime(100_000);
+    const params = deadlineParams();
+    params.repairBudget.reserve.mockImplementation(async () => { await new Promise(resolve => setTimeout(resolve, 100)); });
+    runLlmFixer.mockImplementation(async (_content: string, _errors: string[], options: { abortSignal: AbortSignal }) =>
+      new Promise(resolve => { options.abortSignal.addEventListener("abort", () => resolve(abortedResult)); }));
+    const pending = runLlmRepairGate({ ...params, timeoutMs: phaseCap, deadlineEpochMs: 100_350 });
+    await vi.advanceTimersByTimeAsync(100);
+    expect(runLlmFixer).toHaveBeenCalledTimes(1);
+    const signal = runLlmFixer.mock.calls[0][2].abortSignal as AbortSignal;
+    await vi.advanceTimersByTimeAsync(Math.min(250, phaseCap) - 1);
+    expect(signal.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(signal.aborted).toBe(true);
+    expect((await pending).stop).toBeUndefined();
+    expect(params.repairBudget.complete).toHaveBeenCalledWith(expect.objectContaining({ outcome: "aborted" }));
+  });
+
+  it("omitted deadline retains the legacy 1s floor", async () => {
+    vi.useFakeTimers(); vi.setSystemTime(100_000);
+    const params = deadlineParams();
+    runLlmFixer.mockImplementation(async (_content: string, _errors: string[], options: { abortSignal: AbortSignal }) =>
+      new Promise(resolve => { options.abortSignal.addEventListener("abort", () => resolve(abortedResult)); }));
+    const pending = runLlmRepairGate({ ...params, timeoutMs: 1 });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(runLlmFixer).toHaveBeenCalledTimes(1);
+    const signal = runLlmFixer.mock.calls[0][2].abortSignal as AbortSignal;
+    await vi.advanceTimersByTimeAsync(999);
+    expect(signal.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(signal.aborted).toBe(true);
+    expect((await pending).stop).toBeUndefined();
+    expect(params.ledger.exportInvocations("c", "s")).toEqual([expect.objectContaining({ outcome: "aborted" })]);
   });
 
   it("dedupes repeated identical repair attempts in the same scope", async () => {

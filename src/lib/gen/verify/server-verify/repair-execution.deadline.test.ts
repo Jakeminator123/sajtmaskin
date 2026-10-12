@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * C4: the server-verify `onAttemptPromotion` adapter must forward
@@ -88,7 +88,9 @@ const placeholderFile = {
 const projectFiles = [pageFile, iconFile, placeholderFile];
 
 describe("tryServerRepairLoop threads verifyDeadlineEpochMs (C4)", () => {
+  afterEach(() => vi.restoreAllMocks());
   beforeEach(() => {
+    vi.spyOn(Date, "now").mockReturnValue(1_699_999_999_000);
     markVersionRepairing.mockReset().mockResolvedValue(null);
     failVersionVerification.mockReset().mockResolvedValue(null);
     saveRepairedFiles.mockReset().mockResolvedValue({ status: "failed" });
@@ -181,6 +183,51 @@ describe("tryServerRepairLoop threads verifyDeadlineEpochMs (C4)", () => {
     expect(runRepairLoop).toHaveBeenCalledWith(expect.objectContaining({ repairScopeId: "original:root", serverRepairBudget: {
       target: { chatId: "chat-c4", versionId: "ver-c4", runId: "run2", filesRevision: "actual-db-revision", scopeId: "original:root" }, consumed,
     } }));
+  });
+
+  it.each(["before_pass", "before_gate", "before_save"] as const)(
+    "renew crossing the original deadline at %s stops without another LLM/gate/save", async (stage) => {
+      const deadline = Date.now() + 100;
+      renewVersionLease.mockImplementation(async () => { vi.mocked(Date.now).mockReturnValue(deadline); return true; });
+      if (stage === "before_save") renewVersionLease.mockResolvedValueOnce(true);
+      shouldPromoteAfterRepair.mockResolvedValue({ promote: true, results: [], verifyLaneDurationMs: 1 });
+      const paidStep = vi.fn();
+      runRepairLoop.mockImplementation(async (params) => {
+        if (stage === "before_pass") { await params.onBeforePass(0); paidStep(); }
+        else await params.onAttemptPromotion(serializeCodeProject(projectFiles), "llm");
+        return { stopped: true };
+      });
+      const result = await tryServerRepairLoop({ chatId: "chat-c4", versionId: "ver-c4", runId: "held",
+        codeFiles: projectFiles, baseFilesJson: JSON.stringify(projectFiles), failedOutputs: [],
+        verifyLaneDurationMs: 0, firstFailureCheck: null, jobStartedAt: null, jobFinishedAt: null,
+        previewPolicy: "fidelity2", repairAuthority: "manual", repairDeadlineEpochMs: deadline });
+      expect(result).toMatchObject({ stop: { reason: "time_budget_exceeded", retryable: true } });
+      expect(paidStep).not.toHaveBeenCalled();
+      expect(saveRepairedFiles).not.toHaveBeenCalled();
+      expect(failVersionVerification).not.toHaveBeenCalled();
+      if (stage !== "before_save") expect(shouldPromoteAfterRepair).not.toHaveBeenCalled();
+    },
+  );
+
+  it("clamps callback gate and every LLM attempt to the remaining original window", async () => {
+    const deadline = Date.now() + 100;
+    runRepairLoop.mockImplementation(async (params) => {
+      expect(params.llmTimeoutMs).toBe(100);
+      vi.mocked(Date.now).mockReturnValue(deadline - 20);
+      expect(params.llmRetryTimeoutMs).toBe(20);
+      await params.onAttemptPromotion(serializeCodeProject(projectFiles), "deterministic", {
+        verifyDeadlineEpochMs: deadline + 5_000,
+      });
+      vi.mocked(Date.now).mockReturnValue(deadline);
+      expect(() => params.llmRetryTimeoutMs).toThrow("time budget exhausted");
+      return { stopped: true };
+    });
+    await tryServerRepairLoop({ chatId: "chat-c4", versionId: "ver-c4", codeFiles: projectFiles,
+      baseFilesJson: JSON.stringify(projectFiles), failedOutputs: [], verifyLaneDurationMs: 0,
+      firstFailureCheck: null, jobStartedAt: null, jobFinishedAt: null, repairAuthority: "manual",
+      repairDeadlineEpochMs: deadline });
+    expect(shouldPromoteAfterRepair).toHaveBeenCalledWith(expect.objectContaining({ verifyDeadlineEpochMs: deadline }));
+    expect(failVersionVerification).not.toHaveBeenCalled();
   });
 
   it.each(["before_pass", "before_gate", "before_save"] as const)(

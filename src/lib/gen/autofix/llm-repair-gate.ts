@@ -199,6 +199,8 @@ export async function runLlmRepairGate(params: {
   errors: string[];
   chatId: string;
   timeoutMs: number;
+  /** Original absolute caller deadline, including time spent reserving payment. */
+  deadlineEpochMs?: number;
   requiredFiles?: string[];
   resolvedTier?: CanonicalModelId;
   config?: LlmRepairConfig;
@@ -220,8 +222,14 @@ export async function runLlmRepairGate(params: {
   fixerModel: string;
   /** True when the ledger dedupe-skipped this attempt (no LLM call made). */
   deduped: boolean;
+  stop?: { reason: "time_budget_exceeded"; retryable: true };
 }> {
   const config = params.config ?? resolveLlmRepairConfig(params.resolvedTier);
+  const deadlineExpired = () => params.deadlineEpochMs !== undefined &&
+    (!Number.isFinite(params.deadlineEpochMs) || Date.now() >= params.deadlineEpochMs);
+  const deadlineStop = () => ({ result: skippedResult(params.content), fixerModel: config.fixerModel, deduped: false,
+    stop: { reason: "time_budget_exceeded" as const, retryable: true as const } });
+  if (deadlineExpired()) return deadlineStop();
   const ledger = params.ledger;
   const scopeId = params.scopeId ?? params.chatId;
   const ledgerStart = ledger
@@ -259,13 +267,23 @@ export async function runLlmRepairGate(params: {
     requiredFiles: [...ledgerStart.record.requiredFiles], outcome: "unknown" as const } : null;
   // Dedupe has finished; reserve strictly before invoking the fixer.
   if (identity) await params.repairBudget?.reserve(identity);
-  const observation = ledgerStart ? ledger?.observeInvocation(ledgerStart.record) : undefined;
+  // A slow reservation cannot extend the original deadline. Keep any durable
+  // reservation; this STOP is neither a fixer invocation nor an aborted retry.
+  if (deadlineExpired()) return deadlineStop();
+  const timeoutMs = params.deadlineEpochMs === undefined
+    ? Math.max(1_000, params.timeoutMs)
+    : Math.min(params.timeoutMs, params.deadlineEpochMs - Date.now());
+  if (params.deadlineEpochMs !== undefined && (!Number.isFinite(timeoutMs) || timeoutMs <= 0)) return deadlineStop();
+  let observation = params.deadlineEpochMs === undefined && ledgerStart ? ledger?.observeInvocation(ledgerStart.record) : undefined;
 
   const abort = new AbortController();
-  const timeoutHandle = setTimeout(() => abort.abort(), Math.max(1_000, params.timeoutMs));
+  const timeoutHandle = setTimeout(() => abort.abort(), timeoutMs);
   try {
     let result: FixerResult;
     try {
+      const recurringPatterns = params.recurringPatterns ?? readRecurringPatternsForChat(params.chatId);
+      if (deadlineExpired()) return deadlineStop();
+      observation ??= ledgerStart ? ledger?.observeInvocation(ledgerStart.record) : undefined;
       result = await runLlmFixer(params.content, params.errors, {
       model: config.fixerModel,
       thinking: config.thinking,
@@ -273,7 +291,7 @@ export async function runLlmRepairGate(params: {
       reasoningMode: config.reasoningMode,
       maxTokens: params.maxTokens,
       requiredFiles: params.requiredFiles,
-      recurringPatterns: params.recurringPatterns ?? readRecurringPatternsForChat(params.chatId),
+      recurringPatterns,
       abortSignal: abort.signal,
       });
     } catch (err) {
