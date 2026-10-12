@@ -109,6 +109,8 @@ export async function runOwnEngineStreamPostFinalize(params: {
   accumulatedContent: string;
   toolSignaledProviders: Set<string>;
   engineStartedAt: number;
+  /** Original request deadline; servercore consumes it, never a fresh finalize budget. */
+  requestDeadlineEpochMs: number;
   commitCredits: (target?: { chatId: string; versionId: string }) => Promise<void>;
   buildSpec: BuildSpec;
   /** Called immediately after the persisted-version `done` SSE is enqueued. */

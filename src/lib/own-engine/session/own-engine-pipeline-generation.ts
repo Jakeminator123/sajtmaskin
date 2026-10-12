@@ -27,6 +27,8 @@ export type OwnEnginePipelineFragment = {
 };
 
 export type OwnEnginePipelineAndGenerationInput = {
+  /** Absolute deadline derived by the HTTP caller from its original request start. */
+  requestDeadlineEpochMs: number;
   chatId: string;
   resolvedTier: CanonicalModelId;
   pipeline: OwnEnginePipelineFragment;
@@ -97,6 +99,7 @@ export function createOwnEnginePipelineAndGenerationStream(
     },
   });
   return createOwnEngineGenerationStream({
+    requestDeadlineEpochMs: input.requestDeadlineEpochMs,
     chatId: input.chatId,
     pipelineStream,
     abortSignal: input.pipeline.abortSignal,

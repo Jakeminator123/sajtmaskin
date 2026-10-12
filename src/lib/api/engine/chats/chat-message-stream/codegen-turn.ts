@@ -5,6 +5,8 @@
  * `chat-message-stream-post.ts`.
  */
 import type { FollowUpCapabilityDetection } from "@/lib/builder/follow-up-capability-detection";
+import { getAiModelsManifest } from "@/lib/ai-models/load-manifest";
+import { ENGINE_ROUTE_MAX_DURATION_SECONDS } from "@/lib/gen/defaults";
 import type { orchestratePromptMessage } from "@/lib/builder/prompt-orchestration";
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
@@ -472,6 +474,10 @@ export async function runCodegenTurn(params: {
     });
   }
   const engineStream = createOwnEnginePipelineAndGenerationStream({
+    requestDeadlineEpochMs: promptStartedAt + Math.min(
+      getAiModelsManifest().routeTimeouts.engineRouteMaxDurationSeconds.default,
+      ENGINE_ROUTE_MAX_DURATION_SECONDS,
+    ) * 1000,
     chatId,
     resolvedTier: resolvedModelTier,
     // Integration tools (`requestEnvVar`, `suggestIntegration`) are

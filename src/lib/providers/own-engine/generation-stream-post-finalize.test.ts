@@ -201,6 +201,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits,
       buildSpec: billingOrderBuildSpec,
       onDoneEmitted,
@@ -221,6 +222,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         accumulatedContent: "prefix",
         toolSignaledProviders: new Set(),
         engineStartedAt: Date.now(),
+        requestDeadlineEpochMs: 1_700_000_900_000,
         commitCredits: async () => {
           throw new Error("marker unavailable");
         },
@@ -248,6 +250,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: `prefix ${marker}`,
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -301,6 +304,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now() - 250,
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -390,6 +394,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -449,6 +454,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -520,6 +526,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -570,6 +577,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         accumulatedContent: "prefix",
         toolSignaledProviders: new Set(),
         engineStartedAt: Date.now(),
+        requestDeadlineEpochMs: 1_700_000_900_000,
         commitCredits: async () => {},
         buildSpec: {
           buildIntent: "website",
@@ -619,6 +627,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "import Stripe from 'stripe'",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -672,6 +681,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "import Stripe from 'stripe'",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -721,6 +731,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -772,6 +783,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -839,6 +851,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -931,6 +944,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -985,6 +999,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -1036,6 +1051,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -1506,6 +1522,7 @@ describe("runOwnEngineStreamPostFinalize server verify policy logging", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -1573,6 +1590,7 @@ describe("runOwnEngineStreamPostFinalize preview_success runtime outcome (M#pv1)
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: previewBuildSpec as never,
     });
@@ -1739,6 +1757,7 @@ describe("runOwnEngineStreamPostFinalize keeps background jobs alive for lease r
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: buildSpec as never,
     });
@@ -1779,7 +1798,8 @@ describe("runOwnEngineStreamPostFinalize keeps background jobs alive for lease r
     const exportInvocations = vi.spyOn(ledger, "exportInvocations");
     const runWithLedger = () => runOwnEngineStreamPostFinalize({ sse: { enc: new TextEncoder(), safeEnqueue: () => {} }, chatId: "chat_1",
       finalized: { ...finalized, repairLedger: ledger, repairScopeId: "original:root" } as never,
-      accumulatedContent: "prefix", toolSignaledProviders: new Set(), engineStartedAt: Date.now(), commitCredits: async () => {}, buildSpec: verifyBuildSpec as never });
+      accumulatedContent: "prefix", toolSignaledProviders: new Set(), engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000, commitCredits: async () => {}, buildSpec: verifyBuildSpec as never });
     await runWithLedger();
     const request = vi.mocked(serverVerify.triggerServerVerification).mock.calls[0][0];
     expect(request).not.toHaveProperty("repairBudgetSeed");

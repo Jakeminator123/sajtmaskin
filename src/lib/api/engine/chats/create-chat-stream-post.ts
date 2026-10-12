@@ -1,4 +1,6 @@
 import { runWithGenerationWork } from "@/lib/gen/stream/generation-work";
+import { getAiModelsManifest } from "@/lib/ai-models/load-manifest";
+import { ENGINE_ROUTE_MAX_DURATION_SECONDS } from "@/lib/gen/defaults";
 import { withPromptToDoneMetricResponse } from "@/lib/observability/prompt-to-done-stream";
 import { createChatSchema } from "@/lib/validations/chat-schemas";
 import { NextResponse } from "next/server";
@@ -1069,6 +1071,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           const generatorThinking = resolvePhaseThinking(resolvedModelTier, "generator");
           const effectiveGeneratorThinking = resolvedThinking && generatorThinking.thinking;
           const engineStream = createOwnEnginePipelineAndGenerationStream({
+            requestDeadlineEpochMs: requestStartedAt + Math.min(
+              getAiModelsManifest().routeTimeouts.engineRouteMaxDurationSeconds.default,
+              ENGINE_ROUTE_MAX_DURATION_SECONDS,
+            ) * 1000,
             chatId: engineChat.id,
             resolvedTier: resolvedModelTier,
             // F2-init must NEVER surface env-var prompts in chat. Tier-3 env

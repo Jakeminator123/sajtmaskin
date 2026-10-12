@@ -1,4 +1,19 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getAiModelsManifest } from "@/lib/ai-models/load-manifest";
+import { runOwnEngineStreamPostFinalize } from "@/lib/providers/own-engine/generation-stream-post-finalize";
+
+const resolvedEngineBudget = vi.hoisted(() => ({ seconds: undefined as number | undefined }));
+vi.mock("@/lib/gen/defaults", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/gen/defaults")>();
+  return { ...actual, get ENGINE_ROUTE_MAX_DURATION_SECONDS() {
+    return resolvedEngineBudget.seconds ?? actual.ENGINE_ROUTE_MAX_DURATION_SECONDS;
+  } };
+});
+vi.mock("@/lib/providers/own-engine/generation-stream-post-finalize", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/providers/own-engine/generation-stream-post-finalize")>();
+  return { ...actual, runOwnEngineStreamPostFinalize: vi.fn(actual.runOwnEngineStreamPostFinalize) };
+});
+afterEach(() => { vi.restoreAllMocks(); resolvedEngineBudget.seconds = undefined; });
 
 const handleCreateChatStreamPost = vi.hoisted(() => vi.fn());
 const attachVersionToPendingUsageAsync = vi.hoisted(() => vi.fn());
@@ -664,6 +679,31 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     // these migrated tests exercise the actual implementation, not the
     // delegation mock used by the existing engine tests above.
     handleCreateChatStreamPost.mockImplementation(realHandleCreateChatStreamPost);
+  });
+
+  it.each([120, 1800])("threads the original init deadline through the real bridge/stream with resolved env budget %is", async (seconds) => {
+    resolvedEngineBudget.seconds = seconds;
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    prepareCredits.mockImplementationOnce(async () => {
+      vi.mocked(Date.now).mockReturnValue(120_000);
+      return { ok: true, user: { id: "user_1" }, isTest: false, commit: commitCredits };
+    });
+    createGenerationPipeline.mockReturnValue(buildPipelineStream([
+      { event: "content", data: { text: "<main>Deadline</main>" } },
+      { event: "done", data: { promptTokens: 1, completionTokens: 1 } },
+    ]));
+    finalizeOrHandleEmptyGeneration.mockResolvedValue({ version: { id: "ver_deadline" }, messageId: "msg_deadline",
+      previewUrl: "https://preview.example/deadline", preflight: { previewBlocked: false, verificationBlocked: false,
+        previewBlockingReason: null }, contentForVersion: "<main>Deadline</main>", rejectedShrinks: [],
+      rejectedStructural: [], crossFileStubs: [] });
+    const response = await POST(new Request("https://example.com/api/engine/chats/stream", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "Build a simple site" }),
+    }));
+    expect(response.status).toBe(200);
+    await response.text();
+    expect(runOwnEngineStreamPostFinalize).toHaveBeenCalledWith(expect.objectContaining({
+      requestDeadlineEpochMs: 1_000 + Math.min(seconds, getAiModelsManifest().routeTimeouts.engineRouteMaxDurationSeconds.default) * 1000,
+    }));
   });
 
   it("finalizes an own-engine generation and emits preview data on done", async () => {

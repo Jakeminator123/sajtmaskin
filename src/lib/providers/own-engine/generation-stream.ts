@@ -139,6 +139,7 @@ export interface GenerationStreamMeta extends Record<string, unknown> {
 }
 
 export interface GenerationStreamParams {
+  requestDeadlineEpochMs: number;
   chatId: string;
   pipelineStream: ReadableStream<Uint8Array>;
   abortSignal?: AbortSignal;
@@ -224,6 +225,7 @@ export function createOwnEngineGenerationStream(
     f3PriorSuggestedProviders,
     f3PriorRequestedEnvKeys,
     accumulatedThinkingRef,
+    requestDeadlineEpochMs,
   } = params;
 
   const engineStartedAt = Date.now();
@@ -746,6 +748,7 @@ export function createOwnEngineGenerationStream(
             accumulatedContent,
             toolSignaledProviders,
             engineStartedAt,
+            requestDeadlineEpochMs,
             commitCredits,
             buildSpec,
             onDoneEmitted: () => {
