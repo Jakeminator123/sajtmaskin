@@ -1,6 +1,6 @@
 import { dbConfigured } from "@/lib/db/client";
 import { assertPromoteAllowed } from "@/lib/db/promote-guard";
-import { recordQualityGatePassedForCurrentContent } from "@/lib/db/services/generation-telemetry";
+import { recordPreviewRuntimeOutcomeForVersion, recordQualityGatePassedForCurrentContent } from "@/lib/db/services/generation-telemetry";
 import { logTier3MissingEnvBlockedDetached } from "@/lib/integrations/log-tier3-missing-env";
 import { warnLog } from "@/lib/utils/debug";
 import type { VisualQAResult } from "../visual-qa";
@@ -15,8 +15,23 @@ import {
   markVersionSupersededByRepair,
   resetVersionVerificationToPending,
   updateVersionFiles,
+  getServerPostcheckTarget,
+  renewVersionLease,
 } from "@/lib/db/chat-repository-pg";
-import { readServerRepairBudget } from "@/lib/db/services/server-repair-budget";
+import { completeServerPostchecks, readServerRepairBudget, readServerResumeControl, recordServerResumeHold,
+  reserveServerResumeAttempt, settleServerResumeAttempt, type ServerResumeHold, type ServerRepairBudgetSnapshot } from "@/lib/db/services/server-repair-budget";
+import { settleExistingGenerationBillingIfPresent } from "@/lib/db/services/generation-billing";
+import { flushPendingUsageWrites, runWithLlmUsageContext } from "@/lib/observability/llm-usage";
+import { prepareVersionImages } from "../version-image-validation";
+import { ensureVersionPreview, persistVersionPreviewOutcome, type VersionPreviewReceipt } from "@/lib/gen/preview/ensure-version-preview";
+import type { PreviewSessionError } from "@/lib/gen/preview/preview-session";
+import { runHeldVersionProductPostcheck, runVersionProductPostcheck } from "../version-product-postcheck";
+import { readProductPostcheckPreviewProbe, waitForProductPostcheckPreviewRunning, PRODUCT_POSTCHECK_PREVIEW_WAIT_MS } from "../product-postcheck-preview-wait";
+import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
+import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
+import { verdictFromProductPostcheckResult } from "../product-postcheck-verdict";
+import { lookupProductPostcheckRun, normalizeProductPostcheckMutationRevision } from "@/lib/db/services/product-postcheck-runs";
+import { repairBuildErrorUnderLease } from "./build-error-trigger";
 import { holdVersionForIntegrationMigration } from "@/lib/db/chat-repository/version-lifecycle";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
@@ -197,6 +212,253 @@ export async function triggerServerVerification(params: ServerVerificationInput)
 }
 
 /** Same post-lease raw snapshot throughout. No lease ownership or re-entry here. */
+export type VersionPostchecksInput = {
+  chatId: string; versionId: string; entry: "initial" | "resume"; deadlineEpochMs: number;
+  /** Notifications carry no policy, ownership or billing authority. */
+  notifications?: {
+    policy?: (policy: ServerRepairBudgetSnapshot["startPolicy"]) => void;
+    previewReady?: (receipt: VersionPreviewReceipt) => void;
+    buildError?: (error: PreviewSessionError) => void;
+    repairAvailable?: ServerVerificationInput["onRepairAvailable"];
+  };
+};
+
+/** One server chain for generation and cron. Never accepts a caller's files/policy/owner snapshot. */
+export async function runVersionPostchecks(input: VersionPostchecksInput): Promise<VersionVerificationOutcome> {
+  const stop = (reason: string, retryable = true): VersionVerificationOutcome => ({ kind: "stop", reason, retryable });
+  const expired = () => !Number.isFinite(input.deadlineEpochMs) || Date.now() >= input.deadlineEpochMs;
+  if (!dbConfigured || expired()) return stop("postchecks_deadline");
+  if (!isTier2PreviewConfigured()) return stop("preview_unconfigured");
+  if (inflight.has(input.versionId)) return stop("lease_busy");
+  inflight.add(input.versionId);
+  const lease = await acquireVerifyLease(input.versionId, "server_verify");
+  if (!lease.proceed) { inflight.delete(input.versionId); return stop(lease.reason); }
+  const runId = lease.runId;
+  let attemptId: number | undefined;
+  let revision: string | null = null;
+  const budgetTarget = () => ({ chatId: input.chatId, versionId: input.versionId, runId, filesRevision: revision! });
+  const notify = <T>(callback: ((value: T) => void) | undefined, value: T) => {
+    try { callback?.(value); } catch (error) { warnLog("engine", "Postcheck notification failed", { error: String(error) }); }
+  };
+  const hold = async (reason: ServerResumeHold) => {
+    if (input.entry === "resume" && revision) {
+      const recorded = attemptId === undefined ? await recordServerResumeHold(budgetTarget(), reason)
+        : await settleServerResumeAttempt(budgetTarget(), attemptId, reason);
+      if (!["resume_held", "resume_settled"].includes(recorded.status)) return stop("resume_receipt_unavailable");
+      attemptId = undefined;
+    }
+    return stop(reason);
+  };
+  try {
+    const target = await getServerPostcheckTarget(input.chatId, input.versionId);
+    if (expired()) return stop("postchecks_deadline");
+    if (!target) return stop("stored_owner_unavailable", false);
+    if (!target.latest) return stop("newer_version", false);
+    if (!target.imported && !target.hasBilling) return stop("billing_marker_missing", false);
+    if (target.version.edit_kind !== null && target.version.edit_kind !== "imported_repo") return stop("edit_provenance", false);
+    let snapshot = await getVersionFilesSnapshot(input.versionId);
+    if (!snapshot?.filesRevision || !snapshot.files.length || snapshotIsTerminalOrMigrationHeld(snapshot)) return stop("snapshot_ineligible", false);
+    if (target.version.repaired_files_json) return stop("repair_requires_decision", false);
+    if (input.entry === "resume" && snapshot.lifecycleStage === "design" &&
+        (snapshot.verificationState === "verifying" || snapshot.verificationState === "repairing")) {
+      if (expired()) return stop("postchecks_deadline");
+      // Takeover changes verification status only, never paid/history/age counters or repair payload.
+      await resetVersionVerificationToPending(input.versionId, "Interrupted server postchecks; resume under the current holder.", runId, {
+        expected: { filesJson: snapshot.filesJson, filesRevision: snapshot.filesRevision, editKind: snapshot.editKind,
+          verificationState: snapshot.verificationState, releaseState: "draft", verificationSummary: snapshot.verificationSummary },
+        preserveRepairPayload: true,
+      });
+      const refreshed = await getVersionFilesSnapshot(input.versionId);
+      if (expired() || refreshed?.verificationState !== "pending" || refreshed.filesRevision !== snapshot.filesRevision ||
+          refreshed.filesJson !== snapshot.filesJson || refreshed.editKind !== snapshot.editKind) return stop("takeover_reset_unconfirmed");
+      snapshot = refreshed;
+    }
+    revision = snapshot.filesRevision;
+    const paid = await readServerRepairBudget(budgetTarget());
+    if (expired()) return stop("postchecks_deadline");
+    if (!target.imported && paid.status !== "ready") return stop("history_unknown", false);
+    // Import has a separate, non-paid, non-mutating F2 control contract.
+    if (target.imported && snapshot.lifecycleStage !== "design") return stop("import_stage", false);
+    const policy = target.imported ? {
+      previewPolicy: "fidelity2" as const, verificationPolicy: "strict" as const,
+      preview: { canStartPreview: true, hasBuildBreakingFindings: false },
+      postChecks: { materializeImages: false, willRunQualityGate: true, qualityGatePlanned: true },
+      serverVerify: { run: false, reason: "import_postchecks_resume", diagnosticOnly: false },
+    } : paid.status === "ready" ? paid.snapshot.startPolicy : null;
+    if (!policy) return stop("history_unknown", false);
+    if (!policy.preview.canStartPreview || policy.preview.hasBuildBreakingFindings) return stop("preview_blocked", false);
+    const current = async (): Promise<boolean> => {
+      if (expired() || !(await renewVersionLease(input.versionId, runId)) || expired()) return false;
+      const fresh = await getServerPostcheckTarget(input.chatId, input.versionId);
+      return !expired() && !!fresh?.latest && fresh.imported === target.imported &&
+        fresh.userId === target.userId && fresh.sessionId === target.sessionId && (target.imported || fresh.hasBilling) &&
+        fresh.chat.project_id === target.chat.project_id && fresh.version.files_revision === revision &&
+        fresh.version.edit_kind === target.version.edit_kind && !isCurrentIntegrationMigrationHold(fresh.version);
+    };
+    if (!(await current())) return stop("lease_or_context_lost");
+    return await runWithLlmUsageContext({ chatId: input.chatId, versionId: input.versionId, runId,
+      userId: target.userId, sessionId: target.sessionId }, async () => {
+      try {
+        if (input.entry === "resume") {
+          const control = await readServerResumeControl(budgetTarget());
+          if (control.status !== "resume_control" || control.snapshot.disposition !== "eligible") return stop(`resume_${control.status}`, false);
+          // Pure runtime/claim replay precedes reservation: no paid work or attempt on a wait tick.
+          const probe = await readProductPostcheckPreviewProbe({ chatId: input.chatId,
+            expectedVersionId: input.versionId, deadlineEpochMs: input.deadlineEpochMs });
+          if (!(await current())) return stop("lease_or_context_lost");
+          if (probe.versionId === input.versionId && probe.filesRevision === revision && !probe.running && probe.readinessState) {
+            return await hold(probe.readinessState === "starting" ? "starting" : "runtime_hold");
+          }
+          if (probe.versionId === input.versionId && probe.filesRevision === revision && probe.previewSessionId) {
+            const lookup = await lookupProductPostcheckRun({ chatId: input.chatId, key: {
+              versionId: input.versionId, filesRevision: revision!, previewSession: probe.previewSessionId,
+              lifecycleToken: probe.lifecycleToken, mutationRevision: normalizeProductPostcheckMutationRevision(probe.mutationRevision),
+            } });
+            if (!(await current())) return stop("lease_or_context_lost");
+            if (lookup.kind === "busy") return await hold("claim_busy");
+            if (lookup.kind === "unavailable") return stop("claim_unavailable");
+            if (lookup.kind === "settled") {
+              const replay = await runVersionProductPostcheck({ chatId: input.chatId, versionId: input.versionId,
+                userId: target.userId, filesRevision: revision!, deadlineAt: input.deadlineEpochMs });
+              if (!(await current())) return stop("lease_or_context_lost");
+              if (replay.kind !== "result" || verdictFromProductPostcheckResult(replay.result) === "pending") return stop("product_replay_pending");
+            }
+          }
+          const reserved = await reserveServerResumeAttempt(budgetTarget());
+          if (reserved.status !== "resume_reserved" || reserved.attemptId === undefined) return stop(`resume_${reserved.status}`, false);
+          attemptId = reserved.attemptId;
+        }
+        let forceBuildCheck = false;
+        let contextRetryUsed = false;
+        let outcome: VersionVerificationOutcome = stop("postchecks_stopped");
+        for (let restart = 0; restart < 2; restart++) {
+          if (!(await current())) { outcome = stop("lease_or_context_lost"); break; }
+          if (restart === 0) notify(input.notifications?.policy, policy);
+          if (!target.imported) {
+            const prepared = await prepareVersionImages({ chatId: input.chatId, versionId: input.versionId,
+              holderRunId: runId, expectedFilesRevision: revision!, materialize: policy.postChecks.materializeImages === true,
+              deadlineEpochMs: input.deadlineEpochMs });
+            if (!prepared.persisted || !prepared.filesRevision || prepared.kind === "stopped") { outcome = stop("image_preparation_stopped"); break; }
+            revision = prepared.filesRevision;
+          }
+          snapshot = await getVersionFilesSnapshot(input.versionId);
+          if (snapshot?.filesRevision !== revision || !snapshot.files.length || !(await current())) { outcome = stop("revision_readback_failed"); break; }
+          const version = { ...target.version, files_json: snapshot.filesJson, files_revision: revision };
+          const preview = await ensureVersionPreview({ chat: target.chat, version, policy,
+            forceRestart: false, holderRunId: runId, expectedFilesRevision: revision!, previewDeadlineEpochMs: input.deadlineEpochMs });
+          if (!(await current())) { outcome = stop("lease_or_context_lost"); break; }
+          if (!preview.ok) {
+            if (preview.reason === "start_failed") {
+              notify(input.notifications?.buildError, preview.error);
+              await recordPreviewRuntimeOutcomeForVersion(input.versionId, false, { bootedFilesRevision: revision! });
+              if (!(await current())) { outcome = stop("lease_or_context_lost"); break; }
+              if (!target.imported && policy.serverVerify.diagnosticOnly !== true && isQualityGateConfigured()) {
+                const repaired = await repairBuildErrorUnderLease({ chatId: input.chatId, versionId: input.versionId,
+                  holderRunId: runId, snapshot, buildError: preview.error, repairDeadlineEpochMs: input.deadlineEpochMs,
+                  onRepairAvailable: payload => notify(input.notifications?.repairAvailable, payload) });
+                outcome = repaired.verification;
+              } else outcome = stop("preview_start_failed");
+            } else outcome = stop(preview.reason, preview.reason === "version_changed");
+          } else if (!(await persistVersionPreviewOutcome({ receipt: preview.result, holderRunId: runId, expectedFilesRevision: revision! })) || !(await current())) {
+            outcome = stop("preview_persist_failed");
+          } else {
+            notify(input.notifications?.previewReady, preview.result);
+            const session = await getActivePreviewSessionAsync(input.chatId);
+            if (!(await current())) { outcome = stop("lease_or_context_lost"); break; }
+            if (session?.versionId !== input.versionId || session.filesRevision !== revision ||
+                session.previewSessionId !== preview.result.previewSessionId || session.lifecycleToken !== preview.result.lifecycleToken) {
+              outcome = { kind: "superseded", cause: "context", forceBuildCheck, contextRetryUsed: true };
+            } else {
+            const expectedPreview = { previewSessionId: preview.result.previewSessionId, lifecycleToken: preview.result.lifecycleToken,
+              filesRevision: revision!, mutationRevision: normalizeProductPostcheckMutationRevision(session.mutationRevision) };
+            // Await the existing pure readiness owner under this holder, not a second after-poller.
+            // Unlike applyPreviewReadinessOutcome this cannot reconcile/mutate an imported lockfile.
+            const ready = await waitForProductPostcheckPreviewRunning({ expectedVersionId: input.versionId,
+              expectedFilesRevision: revision!, expectedPreviewSessionId: expectedPreview.previewSessionId,
+              expectedLifecycleToken: expectedPreview.lifecycleToken, expectedMutationRevision: expectedPreview.mutationRevision,
+              timeoutMs: Math.max(0, Math.min(PRODUCT_POSTCHECK_PREVIEW_WAIT_MS, input.deadlineEpochMs - Date.now())),
+              probe: async () => {
+                if (!(await current())) throw new Error("postchecks fence lost");
+                const probe = await readProductPostcheckPreviewProbe({ chatId: input.chatId, expectedVersionId: input.versionId, deadlineEpochMs: input.deadlineEpochMs });
+                if (!(await current())) throw new Error("postchecks fence lost");
+                return probe;
+              },
+            });
+            if (!(await current())) { outcome = stop("lease_or_context_lost"); break; }
+            if (!ready.ok && ready.reason === "preview_superseded") {
+              outcome = { kind: "superseded", cause: "context", forceBuildCheck, contextRetryUsed: true };
+            } else if (!ready.ok || ready.probe.readinessState !== "ready" || ready.probe.httpReady === false) {
+              const observed = ready.ok ? ready.probe : ready.lastProbe;
+              if (observed?.readinessState === "starting") return await hold("starting");
+              if (observed?.readinessState === "failed" || (observed?.readinessState === "ready" && observed.httpReady === false)) return await hold("runtime_hold");
+              // An unavailable/legacy-unknown probe is not a confirmed refundable hold.
+              outcome = stop("runtime_unconfirmed"); break;
+            } else {
+            if (!preview.result.runtimeReady) {
+              await recordPreviewRuntimeOutcomeForVersion(input.versionId, true, { bootedFilesRevision: revision! });
+              if (!(await current())) { outcome = stop("lease_or_context_lost"); break; }
+              notify(input.notifications?.previewReady, { ...preview.result, runtimeReady: true });
+            }
+            const product = await runHeldVersionProductPostcheck({ chatId: input.chatId, versionId: input.versionId,
+              userId: target.userId, previewUrl: preview.result.previewUrl, filesRevision: revision!, deadlineAt: input.deadlineEpochMs,
+              held: { chatId: input.chatId, versionId: input.versionId, filesRevision: revision!, holderRunId: runId },
+              liveReviewPolicy: target.imported ? "disabled" : "default", expectedPreview });
+            if (!(await current())) { outcome = stop("lease_or_context_lost"); break; }
+            if (product.kind !== "result") { outcome = stop(product.kind === "unavailable" ? product.code : "product_not_found"); break; }
+            if (product.result.skippedReason === "preview_superseded") {
+              outcome = { kind: "superseded", cause: "files", forceBuildCheck, contextRetryUsed };
+            } else if (["preview_not_ready", "preview_not_running", "claim_busy"].includes(product.result.skippedReason ?? "")) {
+              return await hold(product.result.skippedReason === "claim_busy" ? "claim_busy" : "runtime_hold");
+            } else if (!["passed", "blocked", "allowed_skip"].includes(verdictFromProductPostcheckResult(product.result))) {
+              outcome = stop("product_result_unattested"); break;
+            } else if (policy.serverVerify.run) {
+              outcome = await verifyVersionUnderLease({ chatId: input.chatId, versionId: input.versionId,
+                holderRunId: runId, snapshot, diagnosticOnly: policy.serverVerify.diagnosticOnly === true,
+                forceBuildCheck, contextRetryUsed, verifyDeadlineEpochMs: input.deadlineEpochMs,
+                onRepairAvailable: payload => notify(input.notifications?.repairAvailable, payload) });
+            } else if (policy.serverVerify.diagnosticOnly === true) {
+              outcome = stop("diagnostic_only_policy", false);
+            } else if (policy.postChecks.willRunQualityGate || policy.postChecks.qualityGatePlanned) {
+              outcome = await runVersionQualityGateUnderLease({ chatId: input.chatId, versionId: input.versionId,
+                holderRunId: runId, snapshot, verifyDeadlineEpochMs: input.deadlineEpochMs });
+            } else outcome = { kind: "continue", filesRevision: revision!, vmGatePassed: false, promoted: false, advisory: false };
+            }
+            }
+          }
+          if (outcome.kind !== "superseded" || outcome.cause === "newer_version" || restart === 1 || expired()) break;
+          const refreshed = await getVersionFilesSnapshot(input.versionId);
+          if (!refreshed?.filesRevision || snapshotIsTerminalOrMigrationHeld(refreshed)) break;
+          snapshot = refreshed; revision = refreshed.filesRevision;
+          forceBuildCheck = outcome.forceBuildCheck; contextRetryUsed = outcome.contextRetryUsed;
+        }
+        if (attemptId !== undefined) {
+          const result = await settleServerResumeAttempt(budgetTarget(), attemptId,
+            outcome.kind === "superseded" ? "superseded" : outcome.kind === "continue" ? "completed" : outcome.retryable ? "retryable_failure" : "terminal");
+          attemptId = undefined;
+          if (result.status !== "resume_settled") return stop("resume_receipt_unavailable");
+        } else if (input.entry === "initial" && outcome.kind === "continue" && snapshot?.lifecycleStage === "design") {
+          const result = await completeServerPostchecks(budgetTarget());
+          if (result.status !== "resume_settled") return stop("resume_receipt_unavailable");
+        }
+        return outcome;
+      } finally {
+        await flushPendingUsageWrites();
+        if (target.hasBilling) await settleExistingGenerationBillingIfPresent({ chatId: input.chatId, versionId: input.versionId, userId: target.userId }).catch(error => {
+          warnLog("engine", "Postchecks billing settlement deferred", { error: String(error) });
+        });
+      }
+    });
+  } catch (error) {
+    warnLog("engine", "Postchecks stopped", { versionId: input.versionId, error: String(error) });
+    // Unknown crashes never refund the durable reservation.
+    return stop("postchecks_unavailable");
+  } finally {
+    await releaseVerifyLease(input.versionId, runId);
+    inflight.delete(input.versionId);
+  }
+}
+
+
 export async function verifyVersionUnderLease(params: HeldVersionVerificationInput): Promise<VersionVerificationOutcome> {
   const {
     chatId,

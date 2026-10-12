@@ -4,12 +4,14 @@ import {
   type EngineVersionVerificationState,
   selectPreferredEngineVersion,
 } from "../engine-version-lifecycle";
-import { engineChats, engineMessages, engineVersions } from "../schema";
-import { and, eq, desc, sql } from "drizzle-orm";
+import { appProjects, engineChats, engineMessages, engineVersionErrorLogs, engineVersionJobs, engineVersions, generationBillings } from "../schema";
+import { and, asc, eq, desc, gt, gte, inArray, isNull, like, lte, or, sql } from "drizzle-orm";
 import type { Message, Version } from "./types";
 import { uuid, toRow, loadVersionById } from "./internal";
 import { promoteVersion, type PromoteVersionResult } from "./version-lifecycle";
-import { writeServerFinalizeBootstrap, type ServerFinalizeBootstrap } from "../services/server-repair-budget";
+import { isServerPostcheckResumeDue, writeServerFinalizeBootstrap, type ServerFinalizeBootstrap } from "../services/server-repair-budget";
+import { SERVER_REPAIR_BUDGET_LOG_CATEGORY } from "../services/version-errors";
+import { isCurrentIntegrationMigrationHold } from "@/lib/gen/verify/stale-verification";
 
 const MAX_VERSION_INSERT_RETRIES = 3;
 
@@ -310,6 +312,74 @@ export async function getLatestVersion(chatId: string): Promise<Version | null> 
     .orderBy(desc(engineVersions.versionNumber))
     .limit(1);
   return rows.length > 0 ? (toRow(rows[0]) as unknown as Version) : null;
+}
+
+export type ServerPostcheckTarget = {
+  chat: { id: string; project_id: string };
+  version: Version;
+  userId: string;
+  sessionId: string | null;
+  hasBilling: boolean;
+  imported: boolean;
+  latest: boolean;
+};
+/** Persisted identity only: never synthesize a Request or an anonymous paying owner. */
+export async function getServerPostcheckTarget(chatId: string, versionId: string): Promise<ServerPostcheckTarget | null> {
+  const rows = await db.select({ version: engineVersions, projectId: appProjects.id,
+    userId: appProjects.user_id, sessionId: appProjects.session_id,
+    billingId: generationBillings.id,
+    imported: sql<boolean>`EXISTS (SELECT 1 FROM engine_versions provenance WHERE provenance.chat_id = ${engineVersions.chatId} AND provenance.edit_kind = 'imported_repo')`,
+    latest: sql<boolean>`NOT EXISTS (SELECT 1 FROM engine_versions newer WHERE newer.chat_id = ${engineVersions.chatId} AND newer.version_number > ${engineVersions.versionNumber})`,
+  }).from(engineVersions).innerJoin(engineChats, eq(engineChats.id, engineVersions.chatId))
+    .innerJoin(appProjects, eq(appProjects.id, engineChats.projectId))
+    .leftJoin(generationBillings, and(eq(generationBillings.version_id, engineVersions.id), eq(generationBillings.chat_id, engineChats.id)))
+    .where(and(eq(engineVersions.id, versionId), eq(engineVersions.chatId, chatId))).limit(1);
+  const row = rows[0];
+  const sessionId = row?.sessionId?.trim() || null;
+  const userId = row?.userId?.trim() || (sessionId ? `guest:${sessionId}` : null);
+  if (!row || !userId || userId === "guest:" || typeof row.imported !== "boolean" || typeof row.latest !== "boolean") return null;
+  return { chat: { id: chatId, project_id: row.projectId }, version: toRow(row.version) as unknown as Version,
+    userId, sessionId, hasBilling: !!row.billingId, imported: row.imported, latest: row.latest };
+}
+
+/** Latest version_number per chat FIRST. Walk past unknown/not-due rows before filling the small batch. */
+export async function listServerPostcheckCandidates(limit: number, deadlineEpochMs: number): Promise<Array<{ chatId: string; versionId: string }>> {
+  const candidates: Array<{ chatId: string; versionId: string }> = [];
+  const take = Math.min(2, Math.max(0, Math.floor(limit)));
+  if (!Number.isFinite(deadlineEpochMs) || !take) return candidates;
+  const latest = db.selectDistinctOn([engineVersions.chatId]).from(engineVersions)
+    .orderBy(engineVersions.chatId, desc(engineVersions.versionNumber)).as("latest_postcheck_version");
+  let cursor: string | undefined;
+  while (candidates.length < take && Date.now() < deadlineEpochMs) {
+    const now = Date.now();
+    const page = await db.select().from(latest).where(and(
+      eq(latest.releaseState, "draft"), inArray(latest.verificationState, ["pending", "verifying", "repairing"]), eq(latest.lifecycleStage, "design"),
+      isNull(latest.repairedFilesJson),
+      or(isNull(latest.editKind), eq(latest.editKind, "imported_repo")),
+      gte(latest.createdAt, new Date(now - 7 * 24 * 60 * 60_000)), lte(latest.createdAt, new Date(now - 90_000)),
+      cursor ? gt(latest.id, cursor) : undefined,
+      sql`NOT EXISTS (SELECT 1 FROM ${engineVersionJobs} job WHERE job.version_id = ${latest.id} AND job.status = 'running' AND job.lease_expires_at > clock_timestamp())`,
+    )).orderBy(asc(latest.id)).limit(64);
+    if (!page.length || Date.now() >= deadlineEpochMs) break;
+    const receipts = await db.select({ id: engineVersionErrorLogs.id, category: engineVersionErrorLogs.category,
+      meta: engineVersionErrorLogs.meta, versionId: engineVersionErrorLogs.version_id }).from(engineVersionErrorLogs)
+      .where(and(inArray(engineVersionErrorLogs.version_id, page.map(version => version.id)),
+        or(eq(engineVersionErrorLogs.category, SERVER_REPAIR_BUDGET_LOG_CATEGORY), like(engineVersionErrorLogs.id, "server-repair-budget:%"))));
+    for (const version of page) {
+      if (Date.now() >= deadlineEpochMs || candidates.length === take) break;
+      if (isCurrentIntegrationMigrationHold({ release_state: version.releaseState, verification_state: version.verificationState,
+        verification_summary: version.verificationSummary, files_revision: version.filesRevision })) continue;
+      const target = await getServerPostcheckTarget(version.chatId, version.id);
+      if (!target?.latest || (!target.imported && !target.hasBilling)) continue;
+      // A selection hint only. The new holder must CAS and read back pending before r-authority can proceed.
+      const resumable = { ...version, verificationState: "pending" };
+      if (isServerPostcheckResumeDue(resumable, receipts.filter(row => row.versionId === version.id), target.imported, Date.now())) {
+        candidates.push({ chatId: version.chatId, versionId: version.id });
+      }
+    }
+    cursor = page.at(-1)!.id;
+  }
+  return candidates;
 }
 
 export async function getPreferredVersion(chatId: string): Promise<Version | null> {

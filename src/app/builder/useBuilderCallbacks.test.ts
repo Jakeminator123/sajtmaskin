@@ -3,6 +3,25 @@ import { describe, expect, it, vi } from "vitest";
 import { useBuilderCallbacks } from "./useBuilderCallbacks";
 
 describe("useBuilderCallbacks handleVersionSelect", () => {
+  it("sends manual preview repair only after the user invokes it", async () => {
+    const sendMessage = vi.fn().mockResolvedValue({ status: "started", via: "stream" });
+    const { result } = renderHook(() => useBuilderCallbacks({
+      chatId: "chat_1",
+      currentPreviewUrl: null,
+      sendMessage,
+      effectiveVersionsList: [],
+      bumpPreviewRefreshToken: vi.fn(),
+      setCurrentPreviewUrl: vi.fn(),
+      setSelectedVersionId: vi.fn(),
+      setIsVersionPanelCollapsed: vi.fn(),
+    }));
+    expect(sendMessage).not.toHaveBeenCalled();
+    await act(async () => { await result.current.handleFixPreview(); });
+    expect(sendMessage).toHaveBeenCalledOnce();
+    expect(sendMessage).toHaveBeenCalledWith(expect.stringContaining("VM-preview saknas"), {
+      promptSourceMeta: { sourceKind: "autofix", isTechnical: true, preservePayload: true },
+    });
+  });
   it("prefers preview URL for own-engine rows over shim demoUrl argument", () => {
     const setCurrentPreviewUrl = vi.fn();
     const bumpPreviewRefreshToken = vi.fn();

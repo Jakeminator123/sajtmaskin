@@ -22,6 +22,20 @@ describe("original preview deadline across host requests", () => {
   const response = (body: object, status = 200) => new Response(JSON.stringify(body), { status });
   const ok = { ok: true, running: true, previewUrl: "https://preview.example", previewSessionId: "session", versionId: "v" };
 
+  it("readiness probe clamps to original remaining time, then stops; omitted caller keeps status cap", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => new AbortController().signal);
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => response({ ...ok, readinessState: "ready", httpReady: true }));
+    await fetchPreviewHostReadinessVerdict("session", { expectedVersionId: "v", previewDeadlineEpochMs: 1_025 });
+    expect(timeout).toHaveBeenLastCalledWith(25);
+    vi.mocked(Date.now).mockReturnValue(1_025);
+    expect(await fetchPreviewHostReadinessVerdict("session", { previewDeadlineEpochMs: 1_025 })).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await fetchPreviewHostReadinessVerdict("session");
+    expect(timeout).toHaveBeenLastCalledWith(PREVIEW_HOST_CLIENT_TIMEOUTS_MS.status);
+  });
+
   it.each([startPreviewHostSession, updatePreviewHostSession, patchPreviewHostSession])(
     "%s spends one absolute window across disk cleanup and retry", async (request) => {
       process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";

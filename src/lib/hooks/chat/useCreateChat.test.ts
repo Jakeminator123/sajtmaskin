@@ -6,7 +6,7 @@ import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
 import { resetInitBuildChoices } from "@/lib/builder/init-build-choices";
 import { ENGINE_CHATS_API_PREFIX } from "@/lib/api/engine-chats-path";
 import { CREATE_CHAT_CONNECTION_BROKEN_MESSAGE } from "./helpers-errors";
-import type { AutoFixPayload, ChatMessagingParams } from "./types";
+import type { ChatMessagingParams } from "./types";
 
 const handleSseStream = vi.hoisted(() => vi.fn());
 const toast = vi.hoisted(() => {
@@ -21,18 +21,6 @@ const toast = vi.hoisted(() => {
 
 vi.mock("sonner", () => ({ toast }));
 vi.mock("./stream-handlers", () => ({ handleSseStream }));
-vi.mock("./post-checks", () => ({
-  runPostGenerationChecks: vi.fn(),
-  abortPostChecksForChat: vi.fn(),
-}));
-vi.mock("./post-checks-fetch", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./post-checks-fetch")>();
-  return {
-    ...actual,
-    triggerImageMaterialization: vi.fn(),
-  };
-});
-vi.mock("./post-checks-preview", () => ({ readPreviewPreflight: vi.fn(() => null) }));
 vi.mock("@/lib/utils/debug", () => ({
   debugLog: vi.fn(),
   errorLog: vi.fn(),
@@ -96,7 +84,6 @@ function createHarness(overrides?: Partial<ChatMessagingParams>) {
       return p;
     },
     streamAbortRef: { current: null } as MutableRefObject<AbortController | null>,
-    autoFixHandlerRef: { current: vi.fn() } as MutableRefObject<(payload: AutoFixPayload) => void>,
     lastSentSystemPromptRef: { current: null } as MutableRefObject<string | null>,
     startStreamSafetyTimer: vi.fn(),
     touchStreamSafetyTimer: vi.fn(),
@@ -129,6 +116,23 @@ afterEach(() => {
 });
 
 describe("useCreateChat broken-stream handling", () => {
+  it("finishes a JSON generation without materialization, postcheck or verify requests", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, {
+      chatId: "chat_json", versionId: "ver_json", previewUrl: "https://preview.example/json",
+    }));
+    const refresh = vi.fn();
+    const { result, messagesBox } = createHarness({
+      enableImageMaterialization: true,
+      onVersionStatusRefresh: refresh,
+    });
+    expect(await create(result)).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/stream");
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)).materializeImages).toBe(true);
+    expect(handleSseStream).not.toHaveBeenCalled();
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(messagesBox.current.some(message => message.isStreaming)).toBe(false);
+  });
   it.each([[true, false], [false, true], [true, true], [undefined, false]] as const)(
     "sends Blob materialization %s independently of image generations %s", async (materializeImages, imageGenerations) => {
       fetchMock.mockResolvedValue(sseResponse());

@@ -24,7 +24,8 @@ Vid samordningsövertagandet 2026-10-11 var aktuell HEAD
   `1634` arkiverades under arbetet; den används inte längre.
 - Planmapp: `docs/plans/active/2026-10-11-llm-kedja-och-legacy/`.
 - Produktkod, städning och nödvändiga följdytor ingår efter tilldelning.
-- Inga nya worktrees, underagenter eller parallella skrivare utan nytt mandat.
+- Inga nya worktrees eller parallella skrivare. Jakob godkände 2026-10-12
+  en lokal ersättande underagent för slutreview när appkontakten med 1/2/3 bröts.
 - Ingen push, PR, merge, DB-apply, providerändring eller aktivering av flaggor
   ingår i en aktivitet. Samordnaren begär separat publiceringsmandat.
 - Jakob godkände 2026-10-12 lokala Git-commits efter verifiering och granskning.
@@ -81,64 +82,87 @@ verifierad med READY och ACK för alla tre roller. Den befintliga chatten
 
 ## Körbord — samordnaren är enda redaktör
 
-**Aktuell skrivrätt: 2, C1.3q:s fem befintliga QG/serververify-ägare och riktade tester efter im-checkpoint.**
-A2.2, B2.2 och C1.1 är lokalt klara och slutgranskade utan kvarvarande fynd.
-C1.2b är slutgranskat på `1c12697d…` + delta, utan kvarvarande fynd.
-286-resultatbasen återanvänds där oförändrad; senaste looprättningen har
-29 berörda tester samt typecheck/diff PASS. Ingen summering av överlappande tester.
-Lokal checkpoint före C1.3cf är `99bd32ad033a641807de04b3686a8a7a8f619090`;
-arbetsytan var ren efter commit. Origin/preview har därefter kontrollerats med
-readonly `git ls-remote` och är fortfarande `b5b7474e…`. Inget pushat.
-C1.3a är lokalt implementerat och produktgranskat utan fynd, med åtta stabila
-produkthashar. 74 finalize-tester, typecheck och diff-check PASS; tidigare
-oförändrade riktade resultat återanvänds utan överlappande totalsummering.
-19 äldre A1/A2-testfixturfel är rättade; 3:s slutliga testreview är utan fynd.
-Jakob godkände uttryckligen 2026-10-12: "Ja, ersätt och ta bort gamla
-startvägen". Okänd/äldre historik får inte nya automatiska betalda försök;
-manuell reparation finns kvar. C1.3a–b är nu lokalt committade.
-C1.3b är lokalt klar: 71 riktade tester, typecheck utan cache, diff och
-verifieringsplan med --no-fetch PASS. 2 har släppt skrivfönstret; 3:s review av
-fem produktfiler och fem tester är utan fynd, tio hashvärden stabila.
-Produktnetto −2 rader efter borttagen extra slutrad, routes 481→205 rader.
-C1.3c0:s tidigare patch nekades i väntan på direkt mandat; inget applicerades då.
-Jakob har nu uttryckligen godkänt lokal implementation av LiveReview-skyddet
-med bibehållna kostnadstak och fortsatt städning med 1, 2 och 3. Ingen push,
-aktivering eller live-DB-ändring. C1.3c0 är nu lokalt klar: 111 unika tester i
-fem filer, typecheck, riktad lint, diff och verifieringsplan PASS. 3:s slutreview
-har inga fynd, sex scopehashar stabila. Produktnetto +106, tester +328.
-Skyddet kopplas in via nästa produktkontrollspaket; inte runtimeacceptans.
-C0 är lokalt committat i `0ebc9b1ad62b2a4b45a6e06b05911b37600892da`.
-C1.3cf är lokalt klar och slutgranskad utan fynd: beteendeidentisk formatterflytt
-till befintlig serverneutral owner, direkta importer och nio textidentiska tester.
-126 riktade tester, typecheck utan cache, diff-check och verifieringsplan PASS.
-Fem scopehashar är oförändrade efter avbrottet och 3:s återupptagna slutreview.
-2 har släppt skrivfönstret. Netto +1 produktrad och +6 testrader; ingen ny ownerfil.
-Formatterflytten och planerna är sparade i lokal commit
-`dc7f14cc6a474708e29b8ab9694d4cbd91dd7b39`; ren checkout verifierad vid återstart.
-Docs-länkar och uppdaterad plan/diff PASS.
-Git-åtkomstfelet efter avbrottet var sandboxrelaterat; readonly eskalering visade
-korrekt checkout/HEAD, exakt sju väntade WIP-filer och tomt index. Inget förlorat.
-Prioritera nu rak serverkedja och radering av ersatta klientvägar. Behåll
-befintliga skydd där de hör hemma, inga nya generiska kontrollager.
-C1.3im är lokalt klar: held-only heal/Blob-förberedelse i befintlig image-owner,
-en snapshot-CAS och ny revisionskvittens, valfri signal/deadline i bildmotorn.
-78 mockade tester, typecheck utan cache, lint/diff/plan PASS. 3:s slutreview har
-inga fynd och fyra hashvärden är stabila. /files GET och klientvägar
-raderas först vid inkoppling. Inget verkligt provider-/DB-bevis.
-Manuellt Spara materialiserar också idag; den följdytan får inte tappas tyst.
-C1.3c1 stoppades av verktygets säkerhetsgranskning före patch: generellt mandat
-och C0-godkännande ansågs inte täcka just åtta-owner-flytten/den atomiska
-serverägda logg-/claim-transaktionen. Ingen patch applicerades; 1 har släppt.
-Samordnaren har ställt en direkt fråga till Jakob om exakt detta lokala paket.
-Ingen retry/bypass. C1.3q är ett separat, oförändrat behörighets-/kostnadspaket:
-2 får förenkla QG och held-serververify i fem befintliga owners. 3:s smala
-designcheck bekräftar scope; HTTP-QG får inte börja göra automatisk LLM-repair.
-Ingen cron, aktivering, live-DB-ändring eller runtimeacceptans ännu.
-Lokal gren är `codex/llm-legacy-cleanup`.
-Samordnaren sparar granskade och verifierade uppgiftsfiler i lokal checkpoint
-enligt Jakobs commitmandat. Inga orelaterade filer får stageas. Den tidigare
-snapshoten kommer från appens arkivering; ingen push eller driftändring ingår.
-Rätt till en aktivitet är inte rätt att själv ta nästa.
+**Lokalt implementerat och slutgranskat 2026-10-12. Inga arbetare har kvar
+skrivfönster. Samordnaren sparar den verifierade integrationen som lokal
+checkpoint; publicering, schemaläggning och liveacceptans ingår inte.**
+
+Arbetsgren: `codex/llm-legacy-cleanup`. C1.4-integrationens föregående checkpoint:
+`24b9bc8ae17733765f5735fa6a9a8de28993d977` (C1.3t, nio filer).
+Slutcheckpoint identifieras i grenens Git-historik som
+`refactor: make postchecks server-owned and remove client orchestration`.
+Arbetskopian ovan är verifierad; primärcheckouten och den arkiverade 1634 används inte.
+Ingen push har gjorts. Origin/preview var vid senaste readonly-kontroll `b5b7474e…`.
+
+A1/A2, säkra B1/B2 samt C1.1–3a/b/cf/c0/im/q/c1/m/p/save är lokalt verifierade
+och paketgranskade. Exakta C1-checkpoints och bevisgränser finns i
+[C1](aktiviteter/C1-serveragd-efterkontroll.md), övriga i respektive aktivitet.
+Paketreview är inte det slutliga färskkontext-Buggpass-kvittot inför publicering.
+
+C1.3d är fryst: fyra filer, 189 riktade mocktester och cachefri
+typecheck/lint/diff/plan PASS. Review fann modellstart efter originaldeadline
+vid en sen betalreservation. C1.3d-fix är nu fryst i ytterligare fyra filer:
+60 riktade tester och cachefri typecheck/lint/diff/plan PASS. Deadline kontrolleras
+före/efter reservation och före fixerstart; ingen förlängande floor för
+deadlinecaller, falsk observation, retry/merge eller extra llmPasses.
+Sparad reservation och omittedmanualdefaults består. D4/p7/plan3/r2 hashbevarade.
+3 har stängt fyndet och slutgranskat d8 utan nya fynd. Sparat lokalt i
+`a906b951fdc4987326b23dc3740013ac1fb77502`, produkt +86/test +227.
+Alla 13 dåvarande WIP-innehåll bevarades; index tomt efter commit.
+
+Tidigare verktygsnekningar är lösta genom uttryckligt direkt godkännande i 1:
+d-fix userMessage `01a12f2b-6a91-7f40-8194-f8279f55032c`;
+r userMessage `01a12f30-d969-7bc2-8af9-6e1a4a44545a`.
+1 har ACK:at båda. Inga alternativa skrivvägar användes.
+R är nu klart i `6a378746f…`: 102 tester, lint/diff/plan PASS och återanvänd
+cachefri tsc. 3:s slutreview utan fynd; båda slutblobbarna hashstabila.
+Ett Vitest-fasadmockfel vid parallell import rättades vid canonical query-owner;
+idempotensassertions är kvar. Produkt +179/test +244. Alla fem dåvarande
+WIP-innehåll bevarades vid commit. Endast tre rootplaner återstår som WIP.
+
+C1-save i `72e0162c0`: tolv mocktester och cachefri typecheck/lint/diff/plan PASS;
+3 utan fynd, tre scopehashar stabila. Alla tio dåvarande WIP-innehåll bevarades
+vid commit. Produkt −5/test +76. Sparas extra materialiseringsflagga och
+oanvända media-argument är borta; generering/GET/export/deploy är ännu orörda.
+
+C1.3t är klar: obligatorisk ursprunglig request-deadline genom init/followup,
+brygga och stream till post-finalize. 112 mocktester, cachefri tsc/lint/diff/plan
+PASS. 3 utan fynd, nio stabila blobbar. Produkt +20/test +111. Alla tolv WIP-
+innehåll bevarades vid commit. Konsumtion/dispatch kopplades därefter in i C1.4.
+
+C1.4-server är fryst: 19 filer, produkt +56/test +655. 467 unika offlinetester
+i 14 sviter och cachefri tsc/lint/diff/plan PASS, med oförändrade resultat
+återanvända. Alla 38 äldre wrapperfall behållna. Samma servercore driver
+generation och den oschemalagda återstarts-routen; gamla parallella
+post-finalize-dispatcher är borttagna (filnetto −346). 3:s preliminära review
+stängde urvalets policyblockerade batchsvält och verifierade faktisk core/wait
+för sen runtimebekräftelse. Slutlig integrationsreview är CLEAN, utan fynd.
+
+C1.4-client är fryst: 36 paths, 14 filer raderade (sju produkt/sju tester),
+produkt netto −4 805 rader. Automatisk materialisering, klientefterkontroll,
+kö/tail och reopen-resume är borta; GET läser bara sparad snapshot. Manuella
+reparationsbeslut, typed bildpolicy, observation och övriga skrivverb består.
+329 tester i 24 sviter, cachefri tsc/lint/testupptäckt/diff/plan PASS. Root har
+kontrollerat 58/58 manifestposter före docsändringarna. Arkitektursidornas gamla
+klientägarskap och trasiga länk rättas i samma integrationspaket.
+
+Cron-posten i vercel.json nekades av verktygsprövningen eftersom en framtida
+deploy kan aktivera betalt arbete. Den är inte införd eller återförsökt via
+annan väg; vercel.json är oförändrad. Oschemalagd autentiserad route och lokala
+tester accepterades separat. Automatisk periodisk återstart/importverifiering
+är därför ett explicit kvarstående publiceringsbeslut, inte färdig runtime.
+Ingen live-DB/provider/model/Blob, push eller aktivering har skett.
+
+Oberoende färskkontext-underagent verifierade samtliga 41 kod-/testhashar och
+14 raderingar samt server/klient-integrationen utan konkreta fynd. Root körde
+ytterligare 49 dokumentationstester i fyra sviter; docs:check/docs:links,
+plans:history:check, check:terms:contract, canvas:check, route-timeouts:check,
+knip:files och staged diff/plan --no-fetch PASS. Knip gav en icke-blockerande
+konfigurationshint om logs/**, inga oanvända filer. Oförändrad produktkod
+behövde inga nya tester eller fixar efter de frysta paketen.
+
+Det lokala arbetet är klart. Nästa eventuella uppdrag är separat beslut om
+schemaläggning och publicering med befintliga Buggpass-/CI-/runtimegrindar.
+Planen ligger kvar i active eftersom ingenting är mergat eller publicerat.
 
 | ID | Aktivitet | Utförare | Beroende | Status |
 |---|---|---|---|---|
@@ -146,8 +170,8 @@ Rätt till en aktivitet är inte rätt att själv ta nästa.
 | A2 | [Gemensam kandidat och eval](aktiviteter/A2-projektkandidat-och-eval.md) | 1 | A1 | lokalt klar, 339 tester; slutlig review utan kvarvarande fynd |
 | B1 | [Legacy-rensning](aktiviteter/B1-legacy-rensning.md) | 2 | registrering | lokalt klar för säkra delen, review utan fynd |
 | B2 | [Ägare och dokumentation](aktiviteter/B2-agare-och-dokumentation.md) | 2 | berörda kodpaket | lokalt klar, netto −408 rader i B2.2; review utan fynd |
-| C1 | [Serverägd efterkontroll](aktiviteter/C1-serveragd-efterkontroll.md) | 1 + 2, granskning 3 | A1 + A2 | C0 committad, im slutgranskad; c1 väntar specifikt mandat efter verktygsstopp; q till 2 |
-| D1 | [Integration och leverans](aktiviteter/D1-integration-och-leverans.md) | samordnare + 3 | föregående paket | lokal checkpoint för klara paket; slutlig integration/leverans återstår |
+| C1 | [Serverägd efterkontroll](aktiviteter/C1-serveragd-efterkontroll.md) | 1 + 2, oberoende review | A1 + A2 | lokalt klar och slutgranskad; schemaläggning/runtime separat |
+| D1 | [Integration och leverans](aktiviteter/D1-integration-och-leverans.md) | samordnare + readonly-underagent | föregående paket | lokal integration/docs/verifiering klar; ingen publicering |
 
 Tilldelning: `PAKET <ID/del> | HEAD <sha> | skrivytor <paths> | mål <en mening>`.
 Skrivrätt gäller angivet paket tills agenten rapporterar klart/blockerat.

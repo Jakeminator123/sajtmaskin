@@ -436,23 +436,25 @@ export type PreviewHostReadinessVerdict = Pick<
 
 export async function fetchPreviewHostReadinessVerdict(
   previewSessionId: string,
-  opts?: { expectedVersionId?: string | null; expectedLifecycleToken?: string | null },
+  opts?: { expectedVersionId?: string | null; expectedLifecycleToken?: string | null; previewDeadlineEpochMs?: number },
 ): Promise<PreviewHostReadinessVerdict | null> {
   const base = getPreviewHostBaseUrl();
   const id = previewSessionId.trim();
   if (!base || !id) return null;
   try {
+    checkPreviewDeadline(opts?.previewDeadlineEpochMs);
     const res = await fetch(
       `${base}/preview/session/${encodeURIComponent(id)}/status`,
       {
         method: "GET",
         headers: { ...previewHostAuthHeaders() },
         cache: "no-store",
-        signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
+        signal: previewRequestSignal(STATUS_TIMEOUT_MS, opts?.previewDeadlineEpochMs),
       },
     );
     if (!res.ok) return null;
     const body = (await res.json()) as Record<string, unknown>;
+    checkPreviewDeadline(opts?.previewDeadlineEpochMs);
     if (body.ok !== true) return null;
     // Same version binding as the resume path, including the missing-echo case:
     // a verdict is only usable if the host says WHICH version it describes. An

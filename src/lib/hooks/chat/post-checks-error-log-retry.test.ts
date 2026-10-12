@@ -104,7 +104,7 @@ describe("persistVersionErrorLogs — 503-retry", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("bär Product Postchecks exakta revision/lifecycle till den durabla skrivningen", async () => {
+  it("keeps ordinary diagnostics independent of a product attestation", async () => {
     const fetchMock = vi.fn<typeof fetch>(async () => response(200));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -122,15 +122,7 @@ describe("persistVersionErrorLogs — 503-retry", () => {
     ).resolves.toBe(true);
 
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
-    expect(JSON.parse(String(init.body))).toEqual(
-      expect.objectContaining({
-        productPostcheckAttestation: {
-          previewSessionId: "ps_legacy",
-          lifecycleToken: null,
-          filesRevision: "rev_n",
-        },
-      }),
-    );
+    expect(JSON.parse(String(init.body))).toEqual({ logs: LOGS });
   });
 });
 
@@ -167,7 +159,7 @@ describe("persistVersionErrorLogs — oattesterbara postcheck-rader", () => {
     expect(body).not.toHaveProperty("productPostcheckAttestation");
   });
 
-  it("skriver oattesterad pending-dom i hela batchen", async () => {
+  it("does not client-write even a pending product verdict", async () => {
     const fetchMock = vi.fn<typeof fetch>(async () => response(200));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -185,18 +177,12 @@ describe("persistVersionErrorLogs — oattesterbara postcheck-rader", () => {
           },
         ],
       }),
-    ).resolves.toBe(true);
+    ).resolves.toBe(false);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     const body = JSON.parse(String(init.body));
-    expect(body.logs).toEqual([
-      PLAIN_LOG,
-      expect.objectContaining({
-        category: "product_postcheck.summary",
-        meta: { verdict: "pending" },
-      }),
-    ]);
+    expect(body.logs).toEqual([PLAIN_LOG]);
     expect(body).not.toHaveProperty("productPostcheckAttestation");
   });
 

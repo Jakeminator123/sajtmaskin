@@ -254,6 +254,10 @@ export async function recordServerResumeHold(target: ServerResumeTarget, reason:
   if (!resumeHolds.includes(reason)) return { status: "history_unknown" };
   return transactResume(target, { kind: "hold", reason, retryAfterMs });
 }
+/** Initial postchecks completed under this holder; persist terminal state without a resume attempt. */
+export async function completeServerPostchecks(target: ServerResumeTarget): Promise<ServerResumeControlResult> {
+  return transactResume(target, { kind: "complete" });
+}
 
 async function transact(target: ServerRepairBudgetTarget, slot?: Slot, outcome?: KnownOutcome, readOnly = false): Promise<ServerRepairBudgetResult> {
   if (!dbConfigured) return { status: "unavailable" };
@@ -339,8 +343,35 @@ function resumeSnapshot(state: ResumeState, target: ServerResumeTarget, version:
     : ownActive ? "busy" : now < state.nextEligibleAt ? "backoff" : "eligible";
   return { ...state, terminal, disposition, attemptsUsed: resumeUsed(state), nextAttemptId: state.attempts.length + 1 };
 }
-type ResumeOperation = { kind: "read" | "reserve" } | { kind: "hold"; reason: ServerResumeHold; retryAfterMs: number }
+type ResumeOperation = { kind: "read" | "reserve" | "complete" } | { kind: "hold"; reason: ServerResumeHold; retryAfterMs: number }
   | { kind: "settle"; attemptId: number; outcome: ServerResumeOutcome; retryAfterMs: number };
+function resumeStateFromRows(rows: Receipt[], target: ServerResumeTarget, version: BudgetVersion, imported: boolean): ResumeState | null {
+  const originalCreatedAt = version.createdAt?.getTime();
+  if (!integer(originalCreatedAt)) return null;
+  const paid = readBudget(rows, { ...target, scopeId: "read" });
+  if ((!imported && !paid) || (rows.some(row => !validResumeReceipt(row, target)) && !paid)) return null;
+  const authority = imported ? "import_postchecks_resume" : "generated_postchecks_resume";
+  const scopeId = paid?.init.scopeId ?? `${target.versionId}:import_postchecks_resume`;
+  const existing = rows.find(row => row.id === resumeId(target.versionId));
+  if (existing) {
+    if (!validResumeReceipt(existing, target) || existing.meta.authority !== authority || existing.meta.scopeId !== scopeId ||
+        existing.meta.originalCreatedAt !== originalCreatedAt) return null;
+    const { kind: _kind, schema: _schema, chatId: _chatId, versionId: _versionId, ...state } = structuredClone(existing.meta);
+    return state;
+  }
+  return { authority, scopeId, originalCreatedAt, attempts: [], boundedHolds: 0,
+    nextEligibleAt: originalCreatedAt + resumeMinAge({ authority }), terminal: null };
+}
+/** Selection hint only. The versions owner supplies DB rows; execution revalidates under lease. */
+export function isServerPostcheckResumeDue(version: BudgetVersion, rows: Receipt[], imported: boolean, now: number): boolean {
+  if (version.lifecycleStage !== "design" || (version.editKind !== null && version.editKind !== "imported_repo") ||
+      !text(version.filesRevision) || typeof imported !== "boolean") return false;
+  const target = { chatId: version.chatId, versionId: version.id, filesRevision: version.filesRevision, runId: "" };
+  const paid = readBudget(rows, { ...target, scopeId: "read" });
+  if (!imported && paid && (!paid.init.startPolicy.preview.canStartPreview || paid.init.startPolicy.preview.hasBuildBreakingFindings)) return false;
+  const state = resumeStateFromRows(rows, target, version, imported);
+  return !!state && resumeSnapshot(state, target, version, now).disposition === "eligible";
+}
 async function transactResume(target: ServerResumeTarget, operation: ResumeOperation): Promise<ServerResumeControlResult> {
   if (!dbConfigured) return { status: "unavailable" };
   if (![target.chatId, target.versionId, target.filesRevision, target.runId].every(text) ||
@@ -359,19 +390,8 @@ async function transactResume(target: ServerResumeTarget, operation: ResumeOpera
       const originalCreatedAt = version.createdAt?.getTime();
       if (!integer(originalCreatedAt)) return { status: "history_unknown" };
       const imported = version.editKind === "imported_repo" || importLineage;
-      const paid = readBudget(rows, { ...target, scopeId: "read" });
-      if ((!imported && !paid) || (rows.some(row => !validResumeReceipt(row, target)) && !paid)) return { status: "history_unknown" };
-      const authority = imported ? "import_postchecks_resume" : "generated_postchecks_resume";
-      const scopeId = paid?.init.scopeId ?? `${target.versionId}:import_postchecks_resume`;
-      const existing = rows.find(row => row.id === resumeId(target.versionId));
-      let state: ResumeState;
-      if (existing) {
-        if (!validResumeReceipt(existing, target) || existing.meta.authority !== authority || existing.meta.scopeId !== scopeId ||
-            existing.meta.originalCreatedAt !== originalCreatedAt) return { status: "history_unknown" };
-        const { kind: _kind, schema: _schema, chatId: _chatId, versionId: _versionId, ...stored } = structuredClone(existing.meta);
-        state = stored;
-      } else state = { authority, scopeId, originalCreatedAt, attempts: [], boundedHolds: 0,
-        nextEligibleAt: originalCreatedAt + resumeMinAge({ authority }), terminal: null };
+      const state = resumeStateFromRows(rows, target, version, imported);
+      if (!state) return { status: "history_unknown" };
       // Final eligibility/read proof stays under the current version -> job fence.
       if (!(await currentBudgetLease(tx, target))) return { status: "lease_unavailable" };
       const now = Date.now();
@@ -379,7 +399,11 @@ async function transactResume(target: ServerResumeTarget, operation: ResumeOpera
       if (operation.kind === "read") return { status: "resume_control", snapshot: snapshot() };
       let attemptId: number | undefined;
       let status: "resume_reserved" | "resume_settled" | "resume_held";
-      if (operation.kind === "settle") {
+      if (operation.kind === "complete") {
+        if (state.terminal === "completed") return { status: "resume_settled", snapshot: snapshot() };
+        if (state.terminal || state.attempts.some(attempt => attempt.outcome === "unknown")) return { status: "terminal", snapshot: snapshot() };
+        state.terminal = "completed"; status = "resume_settled";
+      } else if (operation.kind === "settle") {
         const attempt = state.attempts.find(a => a.attemptId === operation.attemptId);
         if (!attempt) return { status: "reservation_missing" };
         if (attempt.runId !== target.runId) return { status: "stale_target" };
@@ -409,7 +433,8 @@ async function transactResume(target: ServerResumeTarget, operation: ResumeOpera
         if (hold === "runtime_hold" || hold === "claim_busy") state.boundedHolds++;
         state.lastHold = { runId: target.runId, filesRevision: target.filesRevision, reason: hold, observedAt: now };
       }
-      state.nextEligibleAt = Math.min(originalCreatedAt + RESUME_MAX_AGE_MS, now + ("retryAfterMs" in operation ? operation.retryAfterMs : RESUME_BACKOFF_MS));
+      state.nextEligibleAt = Math.min(originalCreatedAt + RESUME_MAX_AGE_MS,
+        Math.max(originalCreatedAt + resumeMinAge(state), now + ("retryAfterMs" in operation ? operation.retryAfterMs : RESUME_BACKOFF_MS)));
       if (!state.terminal && state.boundedHolds >= RESUME_MAX_HOLDS) state.terminal = "holds_exhausted";
       if (!state.terminal && resumeUsed(state) >= RESUME_MAX_ATTEMPTS) state.terminal = "attempts_exhausted";
       const meta: ResumeControl = { ...state, kind: "resume_control", schema: 1, chatId: target.chatId, versionId: target.versionId };

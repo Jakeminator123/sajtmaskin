@@ -20,6 +20,10 @@
  */
 export const ROUTE_TIMEOUT_TARGETS = [
   {
+    rel: "src/app/api/engine/postchecks/route.ts",
+    manifestField: "engineRouteMaxDurationSeconds",
+  },
+  {
     rel: "src/app/api/engine/chats/stream/route.ts",
     manifestField: "engineRouteMaxDurationSeconds",
   },

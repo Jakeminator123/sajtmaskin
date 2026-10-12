@@ -334,9 +334,8 @@ export type ChatMessagingParams = {
     force?: boolean;
   }) => void;
   /**
-   * Område 6-3 punkt 1: bumped when the post-generation check flow
-   * completes, so `useVersionStatus` does a guaranteed final read after a
-   * late `version.degraded` from `/product-postcheck`. Stable callback.
+   * Refresh the read-only version projection after generation or explicit
+   * user actions. Server postchecks are not started by this callback.
    */
   onVersionStatusRefresh?: () => void;
   /** Select and refresh a deterministic exact-file F3 fork after ReleaseGate settles. */

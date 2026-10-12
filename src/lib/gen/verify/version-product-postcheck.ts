@@ -208,7 +208,7 @@ export async function runHeldVersionProductPostcheck(input: VersionProductPostch
           routeBudgetMs: Math.max(0, workDeadlineAt - Date.now()) }),
         probe: async () => {
           if (!(await current())) throw new Error("versionslease or deadline lost");
-          return readProductPostcheckPreviewProbe({ chatId: input.chatId, expectedVersionId: input.versionId });
+          return readProductPostcheckPreviewProbe({ chatId: input.chatId, expectedVersionId: input.versionId, deadlineEpochMs: workDeadlineAt });
         },
       });
       if (!previewWait.ok) return outcome(skipped(previewWait.reason === "preview_superseded" ? "preview_superseded" : "preview_not_ready",

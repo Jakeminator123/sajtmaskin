@@ -114,17 +114,25 @@ Dossiers äger demo/fallback, env-enforcement och leveransbevis:
 [dossier-system](../contracts/dossier-system.md), [env-flow](../contracts/env-flow.md).
 Placeholders är aldrig integrationsbevis.
 
-[Post-checks](../../src/lib/hooks/chat/post-checks.ts) och
-[stream-handlers-post-stream.ts](../../src/lib/hooks/chat/stream-handlers-post-stream.ts)
-äger fortfarande klientens serialiserade efterkontroll: bekräfta bild-/filmutationer,
-läs den nya `files_revision`, resynka preview och attestera just den revisionen.
-Fel vid kontroll eller persist av dess error-loggar är pending, aldrig pass.
-SSE-done är alltså inte ett bevis på att versionslivscykeln är klar.
-
-RenderGate för F2 anropas av klienten. F3:s strömmade generation använder serverns
+[runVersionPostchecks](../../src/lib/gen/verify/server-verify/verify-run.ts)
+äger den sammanhållna efterkontrollen: bildförberedelse → omläst `files_revision`
+→ väntad previewpersistens/readiness → serverägt produktresultat → en relevant
+kvalitetsgrind. Samma versionslås och ursprungliga request-deadline följer kedjan.
 [generation-stream-post-finalize.ts](../../src/lib/providers/own-engine/generation-stream-post-finalize.ts)
-för ReleaseGate/readiness; den deterministiska finalize-design-forken har kvar
-klientens gate-anrop. En oläsbar postcheck-dom är aldrig pass; F3 släpper bara
+anropar denna ägare; klienten observerar status utan egen efterkontrollkö eller
+återstart vid återöppning. GET av filer läser bara sparad snapshot, och Spara
+startar inget extra bildarbete. SSE-done bevisar inte färdig versionslivscykel.
+
+Serverns [resume-route](../../src/app/api/engine/postchecks/route.ts) använder
+samma kedja och bestående återstartsbudget. Routen är inte schemalagd i
+`vercel.json`; automatisk återstart efter avbruten serverkörning kräver separat
+godkänd schemaläggning och runtimeverifiering. Den ska inte tillskrivas en
+klientfallback som inte längre finns.
+
+F2:s RenderGate och strömmad F3:s ReleaseGate/readiness ägs av serverkedjan.
+Den explicita deterministiska finalize-design-forken behåller sitt gate-anrop
+via [runF3FinalizeAction](../../src/lib/builder/f3-finalize-action.ts).
+En oläsbar postcheck-dom är aldrig pass; F3 släpper bara
 `passed` eller `allowed_skip`. Gate mot exakt version/revision, lease, promotion,
 `superseded` och readiness/deploy-paritet ägs av
 [quality-gate-flow](quality-gate-flow.md) och

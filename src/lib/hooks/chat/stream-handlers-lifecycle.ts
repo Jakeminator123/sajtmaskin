@@ -234,10 +234,6 @@ export function handlePreviewReadyEvent(
   
   if (previewUrl) {
     deps.deliverPreviewUrl(previewUrl, state.versionIdFromStream);
-    const pendingPost = state.postCheckQueue[state.postCheckQueue.length - 1];
-    if (pendingPost) {
-      pendingPost.demoUrl = previewUrl;
-    }
   }
   
   const tierMeta =

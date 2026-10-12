@@ -6,7 +6,6 @@ import { useCssValidation } from "@/lib/hooks/useCssValidation";
 import { usePersistedChatMessages } from "@/lib/hooks/usePersistedChatMessages";
 import { useInitBrief } from "@/lib/hooks/useInitBrief";
 import { useChatMessaging } from "@/lib/hooks/chat/useChatMessaging";
-import { useResumePendingVerification } from "@/lib/hooks/chat/useResumePendingVerification";
 import { useVersions } from "@/lib/hooks/useVersions";
 import { useChatReadiness } from "@/lib/hooks/useChatReadiness";
 import { useAuth } from "@/lib/auth/auth-store";
@@ -112,13 +111,7 @@ export function useBuilderPageController() {
     setPreviewRefreshToken,
   });
 
-  // Område 6-3 punkt 1: deterministic post-check completion → version-status
-  // refetch. The post-generation check flow calls `onVersionStatusRefresh`
-  // in its `finally`, which bumps this nonce; `useVersionStatus` reads it as
-  // `refreshNonce` and does a guaranteed final fetch AFTER `/product-postcheck`
-  // has emitted any late `version.degraded`. Must stay a stable callback
-  // (empty deps; the setState setter is stable) so it never re-triggers
-  // downstream effects on every render.
+  // Read-only status refresh after generation and explicit user actions.
   const [versionStatusNonce, setVersionStatusNonce] = useState(0);
   const bumpVersionStatusRefresh = useCallback(() => {
     setVersionStatusNonce((n) => n + 1);
@@ -151,19 +144,6 @@ export function useBuilderPageController() {
   });
 
   const { versionlessAborted } = useBuilderVersionNotices({ versions, chatStatus });
-
-  // F2-promotion körs från webbläsaren (post-checks → /quality-gate). Om
-  // fliken stängdes/navigerades i fönstret efter finalize blir versionen
-  // strandad som draft/pending för alltid (watchdogen rör medvetet inte
-  // F2-pending). Denna hook återupptar verify-lanen för en strandad senaste
-  // version vid nästa builder-besök. Se useResumePendingVerification.
-  useResumePendingVerification({
-    chatId: chatHooksChatId,
-    versions,
-    isStreaming: isAnyStreamingEarly,
-    mutateVersions,
-    onVersionStatusRefresh: bumpVersionStatusRefresh,
-  });
 
   // ── Derived / memoized state ─────────────────────────────────────────
   const derived = useBuilderDerivedState({

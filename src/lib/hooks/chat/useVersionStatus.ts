@@ -24,22 +24,16 @@ import type { VersionStatus } from "@/lib/logging/event-bus-types";
  * hidden, and backs off exponentially while the endpoint is failing (A2 —
  * honouring `Retry-After` from a degraded 503). It stops once the
  * projection is STABLE — `done` AND its `eventCount` unchanged vs the
- * previous fetch — rather than on the first `done`. The client
- * product-postcheck flow runs *after* finalize and can emit a late
+ * previous fetch — rather than on the first `done`. Server
+ * postchecks run after finalize and can emit a late
  * `version.degraded`, so stopping on the first `done` would miss it and
  * render a degraded version as solid green (Finding A, område 6-3). A
  * `failed` phase still stops immediately.
  *
- * Område 6-3 punkt 1: the PRIMARY guarantee against a missed late
- * degradation is now deterministic — the client bumps `refreshNonce`
- * when the post-check flow actually finishes (see
- * `runPostGenerationChecks`'s `onComplete`, wired to
- * `onVersionStatusRefresh`). Because `/product-postcheck` emits
- * `version.degraded` *before* it returns and the client awaits that
- * response, the nonce-driven refetch is guaranteed to read the final
- * projection. Poll-until-stable above is kept as a cheap SECONDARY guard
- * (it also catches a late `eventCount` bump within the polling window).
- * `refreshNonce` is likewise bumped on user-triggered repairs.
+ * The shell also keys `refreshNonce` from the server projection returned
+ * by the existing /versions poll. Late changes restart this read-only hook
+ * even after stable polling stopped; no client job/completion callback is
+ * required. Explicit generation/user refreshes remain supported.
  */
 
 const DEFAULT_POLL_INTERVAL_MS = 4_000;
@@ -90,7 +84,7 @@ export function useVersionStatus(params: {
    * Bump a counter from the parent to force-refresh outside the
    * polling cadence (e.g. after a repair-triggered button press).
    */
-  refreshNonce?: number;
+  refreshNonce?: number | string;
   /**
    * Override the wall-clock cap after which a never-terminal projection stops
    * polling (see `DEFAULT_MAX_NON_TERMINAL_POLL_MS`). Mainly for tests.

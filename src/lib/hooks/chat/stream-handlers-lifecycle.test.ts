@@ -37,8 +37,6 @@ function createState(): StreamRunState {
     generationProgressStarted: false,
     generationDoneProgressReceived: false,
     pendingStreamErrorMessage: null,
-    postCheckQueue: [],
-    materializeQueue: [],
     streamStats: {
       streamType: "create",
       assistantMessageId: "assistant_1",
@@ -73,8 +71,6 @@ function createCtx(
     touchStreamSafetyTimer: vi.fn(),
     setCurrentPreviewUrl: vi.fn(),
     mutateVersions: vi.fn(),
-    enableImageMaterialization: false,
-    autoFixHandlerRef: { current: vi.fn() },
     promptAssistModel: "openai/gpt-5.6-sol",
     promptAssistDeep: true,
     ...overrides,

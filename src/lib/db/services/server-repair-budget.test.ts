@@ -69,6 +69,7 @@ vi.mock("@/lib/db/client", () => ({
 
 import { writeServerFinalizeBootstrap, readServerRepairBudget, recordServerRepairBudgetOutcome, reserveServerRepairBudget,
   readServerResumeControl, reserveServerResumeAttempt, settleServerResumeAttempt, recordServerResumeHold,
+  completeServerPostchecks, isServerPostcheckResumeDue,
   type ServerFinalizeBootstrap, type ServerResumeControlResult } from "./server-repair-budget";
 const target = { chatId: "c1", versionId: "v1", filesRevision: "rev1", runId: "run1", scopeId: "v1:server-repair" };
 const primary = { passIndex: 0, slot: "primary" as const, contentHash: "a".repeat(16), diagnosticFingerprint: "b".repeat(16), requiredFiles: ["src/a.ts"] };
@@ -116,6 +117,39 @@ describe("durable non-paid resume control", () => {
     state.lease.expiresAt = NOW + 8 * DAY;
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it("initial completion before minimum age persists terminal control with ZERO resume attempts and unchanged paid history", async () => {
+    state.version.createdAt = new Date(NOW);
+    await initialize(); const before = paidJson();
+    expect((await completeServerPostchecks(target)).status).toBe("resume_settled");
+    expect(control().meta).toMatchObject({ terminal: "completed", attempts: [], originalCreatedAt: NOW });
+    expect(paidJson()).toBe(before);
+    expect((await readServerRepairBudget(target)).status).toBe("ready");
+    const writes = state.writes;
+    await completeServerPostchecks(target); expect(state.writes).toBe(writes);
+    expect(isServerPostcheckResumeDue(state.version, state.logs, false, NOW + DAY)).toBe(false);
+  });
+
+  it.each(["cannot_start", "build_breaking"])("selection excludes the SAME persisted preview policy STOP (%s), without attempts/writes", async reason => {
+    await initialize();
+    const policy = state.logs[0].meta.startPolicy as { preview: { canStartPreview: boolean; hasBuildBreakingFindings: boolean } };
+    expect(isServerPostcheckResumeDue(state.version, state.logs, false, NOW)).toBe(true);
+    if (reason === "cannot_start") policy.preview.canStartPreview = false;
+    else policy.preview.hasBuildBreakingFindings = true;
+    const writes = state.writes;
+    expect(isServerPostcheckResumeDue(state.version, state.logs, false, NOW)).toBe(false);
+    expect(state.writes).toBe(writes); expect(control()).toBeUndefined();
+  });
+
+  it("unknown takeovers and due/backoff/terminal hints use the existing receipt parser, never a fresh budget", async () => {
+    await initialize(); await reserveServerResumeAttempt(target);
+    expect(isServerPostcheckResumeDue(state.version, state.logs, false, NOW)).toBe(false);
+    advance(8_000);
+    expect(isServerPostcheckResumeDue(state.version, state.logs, false, Date.now())).toBe(true);
+    (control().meta as { terminal: string }).terminal = "policy_stop";
+    expect(isServerPostcheckResumeDue(state.version, state.logs, false, Date.now())).toBe(false);
+    expect(isServerPostcheckResumeDue(state.version, [], false, Date.now())).toBe(false);
+  });
 
   it("unknown generated history and caller import/scope flags never create authority", async () => {
     const forged = { ...target, scopeId: "replacement", importedRepo: true };

@@ -3,6 +3,33 @@
 Utförare: 1. Avgränsad arkitektur-/diffgranskning: 3 på beställning.
 Beroende: A1 + A2. Status: se [körbordet](../00-master-plan.md).
 
+## Aktuellt integrationsresultat 2026-10-12
+
+C1.4-server och C1.4-client är frysta; båda skrivfönstren är släppta.
+Servern använder en gemensam runVersionPostchecks för generation och förberedd
+resume-route. Produktresultat föregår en held-gate; deadline, betalhistorik,
+revision och lås bevaras. Gamla post-finalize-dispatcher är borttagna.
+Klientens automatmaterialisering, kö/tail, efterkontroll och reopen-resume
+är raderade; files GET är ren läsning. Observation, manual repair/accept,
+generationspolicy och PUT/PATCH/DELETE är kvar.
+
+Server: 467 offlinetester i 14 sviter, produktnetto +56. Klient: 329 tester i
+24 sviter, produktnetto −4 805 och 14 borttagna filer. Cachefri tsc/lint,
+diff/plan passerade för båda; klientens testupptäckt passerade. Oförändrade
+serverbevis återanvänds, inte ännu en fullkörning. Samordnaren verifierade
+alla 58 frysta klient-/server-/planposter före docsändringarna. En ny readonly-
+underagent med Jakobs mandat slutgranskade integrationen utan konkreta fynd;
+41 kod-/testhashar och 14 raderingar kontrollerades oberoende.
+
+Schemaläggningsposten nekades separat av verktygsprövningen; vercel.json är
+orörd. Routen är autentiserad men oschemalagd. Automatisk periodisk återstart
+och importverifiering är inte aktiverad och måste lösas före publicering.
+F3-resume-auktoritet utökas inte. Inga live-DB/model/Blob-körningar utförda.
+Docs-synk och slutreview är klara: 49 dokumentationstester samt docs-/plan-/
+terminologi-/canvas-/timeout-/knip-/diffkontroller PASS. Samlad lokal checkpoint
+sparas av samordnaren. Historiska paket-/designanteckningar nedan är underlag,
+inte öppna skrivuppdrag. Verklig runtimeacceptans är fortfarande separat.
+
 ## Första beslutet — högst en kort designavstämning
 
 Utgå från `src/lib/hooks/chat/post-checks.ts`, `useResumePendingVerification.ts`,
@@ -40,333 +67,243 @@ klient inte lämnar körningen beroende av nästa besök, samt att ny revision i
 ärver gammalt godkännande. Kör mot godkänd testmiljö, inte en riktig kund.
 Utan runtimebevis: markera kodklar/runtime ej verifierad, inte DONE.
 
-## Resultat
+## Resultat och återstart
 
-C1.0 readonly-design klar. Befintlig versionspersistens, leases och claims
-räcker utan DB-migration; `after(promise)` och builder-resume saknar däremot
-oberoende durabel väckning. Föreslagen lösning är en separat autentiserad
-cron-route i befintlig Vercel med begränsad dispatch till en serverkoordinator.
-Välj senaste version per chat först, sedan pending draft inom befintligt
-historikfönster; exkludera quick-edit/restore och migrationshold. Härled tenant
-från version/chat/projekt och kontrollera revision före resultat/promotion.
-Deterministisk quality-gate kostar inget modellsteg, men befintliga LiveReview-
-och repairgrenar kan debitera. Jakob godkände 2026-10-12 lokal implementation
-av hela C1 med femminuterstick, liten batch och befintliga kostnadsgränser.
-Push, aktivering och produktion är fortfarande separata mandat.
+### Mandat och bevisgräns
 
-Readonly kostnadsgranskning identifierade en nödvändig säkerhetsförutsättning:
-RepairLedger/passräknare är minnesbaserade, lease-takeover bevarar inte förbrukad
-budget och fasloggar är best-effort. Betald cron-retry får inte kopplas in utan
-durabel reservation före anrop/retry, bunden till version/revision/fingerprint
-i befintlig persistens. Oklar äldre historik eller misslyckad reservation ska
-stoppa betalning. LiveReview har redan durabel räknare men
-`live-review-session.ts` kan radera den efter misslyckad resultatskrivning;
-räknaren måste bevaras. Inget nytt DB-schema eller generiskt kontrollramverk.
+Jakob har uttryckligen godkänt lokal C1 med befintlig Vercel-cron var femte
+minut, liten batch och oförändrade kostnadstak; lokal ersättning av gamla
+auto-repair-startvägen; LiveReview-skydd; hela c1- och q-paketen; samt lokala
+commits efter verifiering/granskning. Verktygens tidigare mandatstopp är lösta
+med de specifika godkännandena, inte genom bypass.
+Jakob godkände även 2026-10-12 direkt och separat C1.3r lokalt (två filer) och
+C1.3d-fix lokalt (fyra filer), efter respektive verktygsstopp. Deadlinefyndet
+och resume-paketet är nu rättade/testade/granskade; betalda kvitton och tak
+återställs aldrig. Exakta direkta godkännanden är registrerade i master.
 
-Vercels native cron körs bara på Production, inte Preview. Lokal/Preview-
-endpointverifiering är därför skild från bevisad automatisk schemakörning.
+Ingen push, aktivering, faktisk modellkörning, live-DB/schema/providerändring
+eller ny extern tjänst ingår. Native Vercel-cron körs på Production, inte Preview.
 [Plattformsowner](https://vercel.com/docs/cron-jobs/quickstart) och
 [leverans/dupplikat/auth](https://vercel.com/docs/cron-jobs/manage-cron-jobs).
-Befintliga tidsgränser, autentisering, versionslease och revisionskontroller
-ska återanvändas; inga själv-anropskedjor som skenbar durabilitet.
-C1.1 lokalt klar: endast `live-review-session.ts`, DB-servicen
-`live-review-runs.ts`, sessiontestet och nytt `live-review-runs.attempts.test.ts`.
-Reserverad räknare bevaras vid persistensfel/superseded-cleanup, abandon kräver
-noll försök och complete använder atomisk greatest. Den oanvända icke-atomiska
-`incrementLiveReviewModelAttempts` och dess mock är raderade efter caller-kontroll.
-Befintlig atomisk reservation förblir ägare. Produktkod netto −20 rader;
-49 tester i fem filer, typecheck, diff-check och verifieringsplan PASS.
-DB/Blob/critic mockas; SQL kompileras med riktig Drizzle-dialekt. Review klar
-utan konkreta fynd och med fyra stabila scopehashar; ingen riktig DB-konkurrens körd.
-TTL (sju dygn), schema och drift oförändrade. TTL kontra crons sju-dygnsfönster
-ska prövas innan någon retention utökas. Serverrepair-reservation, koordinator,
-cron och klientborttagning återstår; ingen runtimeacceptans genomförd.
+Koden nedan är lokalt verifierad med doubles; verklig DB-konkurrens och
+stängd-klient/schemakörning är inte verifierade. Ingen runtime-DONE.
 
-C1.2a lokalt klar i sju scopefiler: smal reservationsservice i befintliga versionsloggar,
-med transaktion/versionslås, aktiv lease, revisionsbindning och stabil budget-ID
-över takeover. Deterministiska server-ID:n måste skiljas från vanliga nanoid-
-diagnostikrader; kategori/meta ensamt är inte autenticitet. Generiska loggskrivare
-och alla publika payloadgrenar nekar budgetkategorin; exakt prune-undantag
-behåller kvitton utan repairPassIndex. Ingen modellkoppling i detta delpaket.
-Nästa del kopplar befintlig RepairGate/loop till kvittot och initialiserar från
-verkligt finalize-ledger. Ledgerns attempts innehåller även dedupe-anrop och
-får inte felaktigt användas som exakt betalräknare. Primär/retry är inte samma
-räknare som loopens maxLlmPasses. Saknad/okänd init ger fail-closed stopp.
-Reviewfynd om ofullständig ledger-identitet är rättat: normaliserade requiredFiles
-och durabla outcomes ingår. Okänt kraschutfall förbrukar slot och stoppar nya
-reservationer; outcome-skrivning kräver original lease/revision. 45 nykörda
-och 47 återanvända tester, typecheck, diff-check och verifieringsplan PASS.
-Slutlig deltareview stänger requiredFiles/outcome-fyndet men identifierar ett
-anslutningshinder: finalize-observationer får inte ta primary/retry-platser i
-serverloopens separata budget. Det är inte en inkopplad runtime-regression.
-Service/test SHA-256-prefix 81CAF0A83A3B7204 / 36E706AB1055EA41 före C1.2b.
-DB mockas; runtime ej verifierad.
+### Sparade lokala checkpoints
 
-C1.2b tilldelat 1: reservationsservice, llm-repair-gate, finalize-runner,
-repair-loop, server-verify repair-execution/verify-run/build-error-trigger och
-provider generation-stream-post-finalize, med deras riktade tester. Separera
-finalize-observationer från loopplatser, exportera verkliga invokationer/utfall,
-läs/hydrera betrodd historik och reservera före modellen. Okänd historik eller
-misslyckad reservation/utfallsskrivning stoppar vidare betalt arbete. Manuell
-force får inte skapa framtida cronauktoritet. Inga cron-/koordinatorändringar.
-Gapet efter versionspersistens kräver ett väntat durabelt startkvitto i C1.3;
-det får inte döljas av after(promise) eller tom rekonstruerad historik.
+| SHA | Paket och faktiskt resultat | Återanvändbart testunderlag |
+|---|---|---|
+| `a9f209e95f3f8f68bf4a1c08c6cc88d20c579270` | C1.1 behåller LR-förbrukning; C1.2 privat durabel repairbudget, reservation före modell, unknown/partial stoppar ny kapacitet. Ingår med övriga tidiga paket. | C1.1: 49; C1.2: 286-bas samt 29 ändrade looptester. Ingen överlappande totalsumma. |
+| `99bd32ad033a641807de04b3686a8a7a8f619090` | C1.3a atomiskt versions-/assistant-/startkvitto; C1.3b delad bildvalidering/preview och väntad revisionsbunden persistens. Gamla startvägen bort. | a: 74 finalize-tester och rättade A1/A2-fixturer; b: 71. |
+| `dc7f14cc6a474708e29b8ab9694d4cbd91dd7b39` | C1.3cf formatterare hos befintlig serverneutral verdict-owner, inga nya ownerfiler. | 126; nio flyttade tester textidentiska. |
+| `0ebc9b1ad62b2a4b45a6e06b05911b37600892da` | C1.3c0 LR-reservation under samma holder/revision; ren tuple-lookup; version→job→claim-låsordning, tak/norefund bevarade. | 111 i fem filer. |
+| `2bcca4f5fcca4f26fab4f463c24b6acf56b10932` | C1.3im held bildförberedelse i befintlig image-owner: rå snapshot→heal/Blob→en CAS→bekräftad revision. Import/followup/okänd lineage muteras inte. | 78; avbrott stoppar nästa upload/persist, påbörjad upload kan slutföras. |
+| `46034ed3f85d7840ef0cb6e894557c3a76ed0000` | C1.3q gemensam snapshot/export/gate/advisory, held-verify/held-build-repair, typade resultat. Två rekursiva svansar borta; alla tre renew-fel stoppar. HTTP startar ingen LLM-repair. | 176 i sju filer, typecheck/lint/diff/plan PASS. 3 utan fynd, 12 hashvärden stabila. Produkt −92/test +172. |
+| `c681e6fe778a158c88ff6633ed62f0c1f15d330a` | C1.3c1 inklusive rättning: serverägt produktresultat, atomisk resultat/claim-TX och borttagen klient-whitelist. | Deltareview stänger fyndet; 16 fixfiler + 10 oförändrade verifierade. 26 filer, produkt −408/test +350. |
+| `177f0d500492819a5cea1a327d59c6fd3391a2e6` | C1.3m explicit typat bildval utan ny meta-/prompt-/hashsanning. Import/okänd lineage off, ingen ny repair-auktoritet. | 215 i tio sviter, typecheck/lint/diff/plan PASS. 3 utan fynd, tjugo hashvärden stabila. Produkt +21/test +196. |
+| `4047f4ce020f776a2c00b1afc7f86ee5c5b7ca01` | C1.3p samma deadline genom befintlig preview-start/resume/status/patch/update/fallback; egna dedupe-väntgränser. | 130 mocktester, typecheck/lint/diff/plan PASS. 3 utan blockerande fynd, sju hashvärden stabila. Produkt +103/test +205. |
+| `72e0162c015401ef48984ef0dee1deda71800c04` | C1-save tar bort Sparas extra materialiseringsjobb och oanvänt media-argument/beroende. | 12 mocktester, cachefri typecheck/lint/diff/plan PASS. 3 utan fynd, tre stabila hashvärden. Produkt −5/test +76. |
+| `a906b951fdc4987326b23dc3740013ac1fb77502` | C1.3d + d-fix: absolut deadline genom held-verify/QG/repair och modellreservation; typed STOP utan falsk observation eller återställda kvitton. | d: 189 tester; fix: 60 riktade, inte adderade som unik summa. Cachefri tsc/lint/diff/plan PASS, 3 stänger fyndet. Åtta stabila hashvärden. Produkt +86/test +227. |
+| `6a378746f4d783fbfda4c6092b5c99f231ec3bd2` | C1.3r: ett durabelt privat resume-control-kvitto, max tre försök, bevarad historik/ålder och separerad importauthority. | 102 tester, lint/diff/plan PASS, cachefri tsc återanvänd. 3:s preliminär- och deltareview utan kvarstående fynd. Produkt +179/test +244. |
 
-C1.2b fryst för granskning: totalt 286 riktade testresultat, typecheck,
-diff-check och verifieringsplan PASS, med oförändrade resultat återanvända.
-Två äldre policyfixturer (server-verify.f3-readiness.test.ts och
-server-verify.still-missing-protected.test.ts) uppdaterades med giltig budget/
-lease/revision; 23 tester gröna, alla åtta tidigare fel borta, policyassertions
-oförändrade. Fixturehashar 3588206B6A23307D / 14D94E53D1468E83. Budget/gate/loop
-SHA-256-prefix: 81A585436EE36B91 / 6F5463F5D6EBDE27 / 1E4180CCD5C466F6.
-Förlorad partial-output som bara fanns i minnet behåller förbrukad plats och
-stoppar återstart; ingen andra lagring av full modelloutput införs.
-Full review av åtta produktfiler + två fixturer stängde finalize/slot-fyndet
-och fann provenance/manual-force/reservation korrekt. Ett konkret kvarvarande
-fynd (95 %, impact 3): restartspärren ser bara senaste primary/partial, inte
-retry/partial eller primary/partial följt av retry/aborted. Vid ändrad diagnostik
-kan nästa betalda pass starta från ursprungsfiler utan förlorade partial-bytes.
-Rättat i loopens fail-closed spärr: hela consumed-historiken kontrolleras.
-Båda kedjor reproducerades före fix med ändrad diagnostik och ett mockat nytt
-modellanrop. Efter fix stopp före reservation/modell; samma-request partial-
-retry bevisar att ändrade bytes följer med. 29 berörda tester, typecheck och
-diff-check PASS; oförändrade tidigare resultat återanvänds. Slutlig deltareview
-stänger fyndet utan kvarstående fynd; tre hashvärden stabila och de övriga sju
-produktfilernas granskning återanvänd. Loop/aborttest/outcometest SHA-prefix:
-89355E8DCA0E3A4C / FA2A295A70C67B6D / A7AB98256DCB5139.
-Inget nytt checkpoint-/outputlager; saknad återställbar kandidat stoppar betalning.
+Samtliga paket är oberoende paketgranskade utan kvarstående fynd; detta är
+inte det slutliga färskkontext-Buggpass-kvittot inför eventuell publicering.
+Typecheck/diff och riktade kontroller återanvänds endast för oförändrad kod/
+miljö. Max fyra workers och ingen upprepad fullbyggnad.
 
-C1.3a tilldelat 1 på `a9f209e95f3f8f68bf4a1c08c6cc88d20c579270`.
-Skrivytor: chat-repository/versions.ts, reservationsservice, llm-repair-gate,
-finalize-runner, server-verify verify-run/build-error-trigger och provider
-generation-stream-post-finalize, plus riktade tester och nytt transaktionstest.
-Åttonde filen post-finalize-policies.ts får enbart smalare inputtyper till
-de faktiskt använda fälten (version.id/preflight); policylogiken ska vara
-oförändrad. Detta låter samma resolver användas med verkligt DB-ID i
-transaktionen utan fabricerat FinalizeResult, cast eller duplicerad policy.
-Ta bort eftercommit-markering, seed-export, prepare-init och seedtrådning när
-de ersätts; ingen parallell bootstrapägare. Typad startavsikt från befintligt
-beslutat byggunderlag följer kvittot, inte gissning ur lös metadata eller nya
-policytabeller. Ingen full koordinator/cron/klientflytt i detta paket.
-C1.3a:s första delpatch och transaktionstest är införda: 16 isolerade tester
-PASS, diff-check PASS. Typecheck har 22 diagnostiker i detta mellantillstånd:
-gamla caller-/test-API:n återstår och bootstrap-preflight saknar ett
-previewBlockingReason-fält. Detta är inte leveransklar kod.
-Caller-patchen nekades av säkerhetskontrollen med motiveringen att byte från
-legacy-init till krav på durabelt kvitto kan störa äldre körvägar utan
-uttryckligt ägargodkännande/verifiering. Jakob godkände därefter uttryckligen
-lokal ersättning och borttagning: "Ja, ersätt och ta bort gamla startvägen".
-Godkänd konsekvens: äldre/okänd historik får inga nya automatiska betalda försök;
-uttrycklig manuell reparation ska finnas kvar. 1 fortsätter inom samma åtta
-produktfiler och riktade tester; ingen push, aktivering eller live-DB-ändring.
+### C1.3c1 — committat och slutgranskat
 
-C1.3-designbeslut efter readonly-review: startkvitto ska ingå i samma befintliga
-transaktion som ny version/assistentmeddelande, inte bara await efter commit.
-Kvittoskrivningsfel rullar tillbaka; verkligt DB-genererat files_revision används.
-Endast betrodd ny finalize får bootstrap; replace/manual/quick-edit får aldrig
-mint/resetta budget. Befintliga loggtabellen räcker, inget schema/callbackramverk.
-Efter detta extraheras befintlig routeorkestrering till en gemensam serverägare
-med exakt en versionslease. QG/serververify-kärnor tar internt holder-kontext,
-inte dubbel acquire/release eller släpp före reverify. Bildpersist använder
-befintlig holderRunId + expectedFilesJson och läser ny revision före preview/
-productclaim/QG. Produktclaim behåller egen identitet. Renew-fel stoppar arbete.
-Durabla kvitton måste även skydda mot senare dublett efter att leasen släppts.
-Befintliga resumegränser (3 försök, 20 runtimeväntor, per buildersession idag)
-ska hanteras uttryckligt vid serverflytten, inte bli obegränsad cron-retry.
+Grundpaketet flyttar product-route till wrapper/held-core, serverlagrar formatterade
+resultat och claim-completion atomiskt, kopplar in LR-skyddet och tar bort gamla
+unheld/split-completion-vägar. Grundpaketets 256 unika offlinetester, typecheck/
+lint/diff/plan passerade. Deadline reserverar persistensutrymme; inget critic-golv
+efter sluttid. SM-077 boot-pending, wait-normalisering och lifecycle-supersession
+bevaras. PG-fixturer är uppdaterade, inte körda mot DB; Redis/PG är skilda stores.
 
-Readonly plattformskontroll bekräftar projekt sajtmaskin med Node 22.x.
-MCP-svaret visar inte abonnemang, cron- eller faktisk funktionsduration;
-schemats stöd och verklig tidsgräns måste verifieras före aktivering. Manifestets
-950 sekunder är inte i sig driftbevis. Ingen providerinställning har ändrats.
+Review fann att oattesterad klient-summary med feature_disabled fortfarande
+kunde bli F3-bevis när serverflaggan var ON, även med påhittad revision.
+1:s rättning tar bort klientens och generiska writers produktauktoritet samt
+den gamla whitelistfunktionen. Verklig OFF skapar serverägt revisionsbundet
+lagringskvitto efter auth, utan capture/critic/LR. Centralt SQL-/batchfilter
+ignorerar gamla OFF-kvitton när flaggan är ON. Normalflöde/resume konsumerar
+serverkvittot; ordinary diagnostics från blandade batcher sparas separat.
 
-C1.3a slutresultat: 74 finalize-tester, typecheck och diff-check PASS; tidigare
-oförändrade riktade resultat återanvänds utan överlappande totalsummering.
-19 äldre A1/A2-fixturfel rättades genom att ersätta oanvänd testparser och gamla
-lookup-/shim-förväntningar med nuvarande kandidatkontrakt. Åtta produktfiler
-är granskade utan fynd och oförändrade sedan review; 3 granskar testdeltat.
-Produkthashprefix: versions 71695B737ACCDC85; budget AEEE7878382333A4;
-gate D24C9AF4A3E856B4; runner 5D773A6C9CF54EFB; policies E1F1E495B6378685;
-verify-run 5E8804FBA71CCA6C; build-error FE620857998DF3A5;
-post-finalize 35D1D15201D46E0C. Rollbackbeviset använder mockad transaktion,
-inte verklig PostgreSQL. Ingen runtimeacceptans eller ny commit ännu.
+Rättningen: åtta befintliga produktägare + åtta tester, produktnetto −9 mot
+grundpaketet. 127 tester i senaste fyrfilspaketet, 60 resume, 11 generell
+error-log samt berörda route/verdict PASS; ingen överlappande totalsumma.
+Cachefri typecheck/lint/diff/plan PASS. 1 har släppt skrivrätten.
+Manifestet C1.3c1-fix.sha256 finns länkat i chatt 1:s slutrapport; 16 fixhashar
+är stabila efter q-commiten. 3:s deltareview stängde fyndet och båda callerföljderna
+utan nya fynd; 16 fixhashar och tio oförändrade tidigare hashvärden verifierade.
+Alla 48 dåvarande WIP-filinnehåll var oförändrade efter c1-commiten; tomt index.
 
-C1.3b tilldelas 2: endast validate-images/route.ts, preview-session/route.ts,
-nya gen/verify/version-image-validation.ts och gen/preview/ensure-version-preview.ts,
-samt db/chat-repository/preview-url.ts och riktade tester. Flytta befintlig
-orkestrering till gemensamma smala funktioner; HTTP behåller auth/tenant,
-inputvalidering, rate-limit och responsmappning. Inga hjälpare acquire/release.
-Image använder befintlig snapshot/CAS/holder och ny auktoritativ revision;
-importer får inte muteras. Preview tar explicit typad policy och bevarar
-dossier-env/lifecycle/session. HTTP kan schemalägga befintlig bokföring med
-after; serverkoordinatorn ska kunna invänta samma persist-funktion.
-Preview-URL-writern behöver atomisk expectedFilesRevision/holder-fence med
-befintlig versionslåsägare, inte kontroll följd av ofencad skrivning.
-Behåll bounded contention-retry och gamla callers där kontraktet är oförändrat.
-Ingen ny DB-struktur, faktisk DB-skrivning, koordinator eller cron i delpaketet.
+### Nästa avgränsade paket
 
-Runtimeinventering 2: ingen färdig lokal fullkedjeharness med browser och
-DB/provider-dubblar. Befintlig Vitest kan testa verkliga entrypoints med dubblar
-för klient borta, dublett/takeover och N→N+1. Den bevisar kontrollflöde/fences,
-inte verklig SQL-atomicitet, tenant/auth eller plattformens processlivstid.
-Verklig leasekonkurrens har scripts/db/version-lease-ownership.postgres.test.ts;
-befintlig browserharness scripts/e2e/run-project-persistence.mjs är CI-only och
-kräver disponibel Postgres. Godkänd testmiljö återstår före runtimeacceptans.
+**C1.3m, 2:** explicit materializeImages från de två requestbyggarna genom
+chat-schemas, init-route, followup-handler/codegen-turn, GenerationInputPackage/
+GenerationFinalizeInput och paketfabriken till finalize/bootstrap/startpolicy.
+Tio befintliga produktägare och direkta tester; inget nytt metadata-/kontrollager.
+Valet kommer från enableImageMaterialization (UI: isMediaEnabled && enableBlobMedia),
+INTE imageGenerations. Saknat fält/äldre kvitto betyder false; feltyp avvisas.
+Import-lineage off, quickedit inget nytt startkvitto. Detta är efterbearbetningspolicy,
+inte BuildSpec/promptunderlag: ändra inte lineagehashen eller promptsemantiken.
+Lokalt kodklart: exakt tio produktägare + tio tester, inga nya filer, produkt +21.
+215 tester, cachefri typecheck, lint/diff/plan PASS. 28 tidigare WIP-filer och
+QG12 bevarade. 3:s slutreview utan fynd, tjugo hashvärden stabila före/efter
+review och commit. Ingen faktisk serverinkoppling eller live Blob/DB-acceptans ännu.
 
-C1.3a slutlig testreview utan fynd: åtta stabila testhashar och tidigare åtta
-produktblobs oförändrade. Testhashprefix: bootstrap 4B8E56E33B392A43;
-budget 13D0F59AE1130F50; gate E9F24D6D825BD6A9; finalize 5BC919239F2DFDBE;
-verify 8CD9FCC7CC7767D6; F3 EA1D36215F974A5F; build-error AB7A679390AD423B;
-post-finalize 27781C642E3636AD. 1:s slutrapport bekräftar typecheck/diff PASS.
+**Durabel resume, befintlig server-repair-budget-owner:** initialkörning skiljs
+från högst tre resume-försök. Runtimeprober/pure replay först; reservera under
+holder före verkligt kontroll-/mutationsarbete. Okänt kraschutfall förbrukar
+försöket. Bekräftad runtimehold/claimbusy/supersession får återföra en logisk
+resume-plats enligt befintlig policy, men aldrig radera historik eller återbetala
+LLM/LR-kvitton. Starting väntar utan waittak inom sju dygn; övriga begränsade
+runtimeholds har 20. Import får endast ett separat strikt validerat kontrollkvitto,
+aldrig paid init; parsern skiljer detta från befintlig betald historik.
+Okänd äldre genererad historik får inget nytt automatiskt betalmandat.
+1:s tvåfiliga C1.3r är committat: ett privat resume_control-
+kvitto, monoton försöksidentitet, bevarad historik, avgränsade hold-räknare och
+nextEligibleAt/terminal-disposition. Separat import/control-läsning är aldrig
+paid-budget-ready. Rena prober ska inte skapa en ny loggrad per tick. Queryn får
+inte låta terminala/ej förfallna/okända kandidater fylla varje batch och svälta andra.
+Direkt användargodkännande nådde 1 och ordinarie verktygsprövning accepterade
+paketet. 102 tester PASS. Samtidiga reservationer behåller samma attemptId;
+testmocken ligger på query-ägaren efter ett fångat fasadmockfel. Canonical
+historisk importproveniens läses före TX för att undvika en andra poolanslutning;
+current version/lease/revision/kvittoauthority verifieras under lås. 3 har granskat
+denna delta. Superseded ökar inte 20-räknaren, enligt tidigare klientowner
+useResumePendingVerification.ts; runtime/claim-busy gör det. Ingen paid refund.
+API i befintlig budget-owner: readServerResumeControl, reserveServerResumeAttempt,
+settleServerResumeAttempt och recordServerResumeHold. Samtliga tar typed target
+och returnerar ServerResumeControlResult med snapshot/disposition; settle tar
+monotont attemptId. Initialgenereringen förbrukar inte resume-försök.
 
-C1.3b lokalt klar/fryst: 71 riktade tester, typecheck utan incremental-cache,
-diff-check och verifieringsplan --no-fetch PASS. Första plan-fetch nekades före
-FETCH_HEAD-skrivning; planbeviset är därför bundet till lokal origin/preview.
-Fem produktfiler netto −1 rad; routes 481→205. Tester +426, totalt +425.
-19 andra WIP-filer hashoförändrade. 3 granskar produkterna och testerna.
-Produktens kombinerade SHA-256: E93B2F5F31A3B4F13B26B82EF357011E8B2B2E91C273E330F1772714C1DDDECE.
-Testernas: 6FF2CAF9EF1BA40B4D9BDCE309E2A433B00E2306861D3C144DB948657EE2C2DB.
-Inget verkligt DB-/runtimebevis hävdas.
+**En serverkedja:** samma holder, trusted startpolicy och rå snapshot.
+Bildförberedelse→kvitterad revision→preview/väntad persistens→serverproduktresultat.
+Runtime-wait/superseded fortsätter inte till gate. Välj EN gate-owner:
+serverVerify.run använder verifyVersionUnderLease med exakt diagnosticOnly;
+annars kan separat QG-intent använda runVersionQualityGateUnderLease.
+F2 serververify-skip är inte skip av postchecks. Konsumera typade
+continue/stop/superseded, inte HTTP-body. stop (även repair_settled) fortsätter
+inte releasekedjan; omstart är begränsad och skapar inte ny paid capacity.
+F2-produktblock bevarar dagens gate-/holdsemantik. Inget nytt resultatlager behövs.
 
-C1.3c designreview kräver två skydd före produktkontrollsflytten: ren
-busy/settled-lookup innan nytt arbete; versionslease → omläsning → productclaim,
-så lease-nekande inte lämnar claim upptagen. Betald LiveReview-reservation måste
-atomiskt kontrollera holder/revision samtidigt som försöksräknaren ökas.
-En senare resultatfence räcker inte. Förbered därför ett litet grundpaket i
-live-review-runs.ts, live-review-session.ts och product-postcheck-runs.ts, med
-riktade tester. Befintliga direktcallers behålls tills routepaketet ansluts;
-en uttryckligen medskickad men felaktig held-kontext får aldrig degradera till
-ofencad reservation. Inga reserverade försök återbetalas.
-Efter grundpaketet: produkt-route/core + atomisk canonical-resultat/claim-owner,
-sedan QG-core och held-serververify. Klientens error-log-POST ska bara replaya
-serverlagrat releasebevis. Renew-fel stoppar; deadline reserverar persist/release-
-tid och får inte starta betalt arbete genom ett åttasekundersgolv efter timeout.
+C1.3d är nu fryst i befintliga verify-run/repair-execution
+och deras två testfiler: valfri absolut kedjedeadline till held-verify/delad QG,
+befintligt verifyDeadlineEpochMs och repairDeadlineEpochMs vidare till helpers.
+Ingen fas/omstart får nollställa totalbudgeten; mindre befintliga fasgränser består.
+Efter awaitad renew kontrolleras tiden före nästa LLM/gate/save. Omitted manual-
+defaults och kostnadstak består. Fake-clock: första gate förbrukar nästan all tid,
+repair får ursprunglig deadline; renew över deadline ger typed retrybar STOP.
+189 unika mocktester i sju filer, cachefri typecheck/lint/diff/plan --no-fetch PASS.
+Fyra scopehashar är frysta, tre rootplaner bevarades; 2 har släppt skrivrätten.
+3:s review fann en konkret lucka: repair-loop fryser timeout-gettern före
+modellportens awaitade betalreservation, sedan används ett 1-sekundsgolv.
+Försenad reservation kan därmed följas av LLM-start efter originaldeadline.
+1 har readonly-bekräftat minsta d-fix: valfri absolut deadline genom befintliga
+llm-repair-gate.ts och repair-loop.ts, kontroll före/efter reservation och inget
+förlängande golv för deadlinecaller. Typat retrybart STOP, ingen påhittad
+modellobservation/llmPasses-ökning, retry eller merge; befintlig reservation
+behålls utan completion/refund/reset. Direkta tester är llm-repair-gate.test.ts
+och repair-loop.outcome.test.ts. Efter uttryckligt direkt paketgodkännande i 1
+accepterades normal verktygsprövning. Inga alternativa skrivvägar användes.
+Fixen passerar 60 riktade tester och cachefri tsc/lint/diff/plan. 3 stängde
+deadlinefyndet och verifierade åtta slutblobbar. D8 är committat i a906b951f;
+detta bevisar inte faktisk provider- eller plattformskörning.
 
-C1.3b slutreview utan konkreta fynd: 10/10 scopehashar stabila. Granskaren
-bekräftar import/followup/okänd-provenance-skydd, CAS/readback, previewidentitet,
-await/after-paritet och atomisk writer. Slutrapporten från 2 bekräftar 71 tester,
-typecheck utan cache, diff och plan PASS. Kod/testbevis, inte live konkurrens.
+Preview-start behöver separat trådning vid serverinkopplingen: ensure-version-preview,
+preview-session, preview-host-client och tier2-resume är befintliga owners.
+Start/update/patch har idag 300 sekunder per anrop; disk-full-cleanup/omförsök
+kan starta en ny period. För vidare en absolut deadline och klampa befintliga
+timeouts till återstående tid; kontrollera före fallback/nytt försök. In-flight-
+dedupe får inte låta en kortare väntande caller avbryta en annan körning.
+Ingen ny timeoutmotor; omitted callers behåller befintligt beteende. Detta är
+3:s bekräftade framtida inkopplingskrav, inte ett regressionsfynd i C1.3d.
+C1.3p är committat i 4047f4ce0: fyra produktägare och tre befintliga tester, inga nya filer.
+130 mocktester i fyra filer, cachefri typecheck/lint/diff/plan --no-fetch PASS.
+Alla d4/rootplan3-hashar bevarade, sju p-hashar verifierade av samordnaren.
+Omitted defaults och befintlig retrybar start_failed/503 bevaras; ingen ny
+HTTP-felkod. 3:s review utan blockerande fynd, sju hashvärden stabila före/efter.
+Redan initierad bounded cleanup och revisions-/holderbunden URL-bokföring får
+slutföras efter deadline; ingen ny hoststart eller runtimeReady-stämpling följer.
+Samtliga 14 dåvarande WIP-filinnehåll bevarades efter commit, index tomt.
+D8 och r2 har därefter committats; endast tre rootplaner är WIP före nästa paket.
 
-C1.3a–b lokal checkpoint: 99bd32ad033a641807de04b3686a8a7a8f619090.
-29 exakta filer, +1379/−584 inklusive tester/planer. Indexets diff-check hittade
-en extra slutrad i nya version-image-validation.ts som inte syntes i unstaged
-diff-check när filen var untracked. Endast denna tomrad togs bort; jämförelse
-med --ignore-blank-lines var identisk. B:s produktnetto blir därför −2 rader.
-Samtliga 16 A-filer matchade reviewhasharna före commit; B:s slutreview 10/10
-stabila. Arbetsytan ren efter commit. Ingen push, runtime eller live-DB.
+**Ursprunglig request-deadline (C1.3t klart):** create-chat-stream-post
+har requestStartedAt, followup-handler har promptStartedAt. Härled absolut
+deadline från detta startvärde och canonical manifest routeTimeouts-
+engineRouteMaxDurationSeconds.default, begränsad av eventuellt kortare
+befintligt enginebudget. Env-overridable ENGINE_ROUTE_MAX_DURATION_SECONDS
+ensamt är inte en säker statisk gräns. Tråda typat genom codegen-turn,
+own-engine-pipeline-generation, generation-stream och post-finalize; inget
+nytt meta-/BuildSpec-/promptfält, SDK-beroende eller duplicerad 950-konstant.
+engineStartedAt skapas för sent. after(pending) bevaras men ger inte ny tidsbudget.
+Runtimeplattformens faktiska tidsstöd är inte verifierat av lokal deklaration.
+Sparat i 24b9bc8ae17733765f5735fa6a9a8de28993d977, nio filer: produkt +20/
+test +111. 112 mocktester, cachefri tsc/lint/diff/plan PASS; 3 utan fynd, nio
+hashstabila blobbar. Typfältet är obligatoriskt; normal/abort/fallback bevarar
+samma deadline. Ingen faktisk servercore-konsumtion i detta paket.
 
-C1.3c0 tilldelat 1 på denna checkpoint: endast db/services/live-review-runs.ts,
-gen/verify/live-review-session.ts och db/services/product-postcheck-runs.ts
-samt deras riktade tester. Befintlig betalreservation får explicit holder/
-revision-kontext med atomisk kontroll vid counter-ökning; sessionsadaptern
-stoppar före modell vid nekande. Lägg ren busy/settled-lookup utan att claim
-skrivs; återanvänd befintlig klassificering. Äldre direktcallers ska bete sig
-oförändrat tills nästa paket kopplar in held-core. Ingen route, ny typfil,
-koordinator, timeoutändring eller cron i grundpaketet; utökat ownerbehov frågas.
+**C1.4 disposition:** runVersionPostchecks i befintliga server-verify/verify-run.ts,
+exporterad via server-verify.ts. Typed chatId/versionId/entry initial|resume/
+deadlineEpochMs och smala valfria notifieringar utan auktoritet. Samma core från
+post-finalize och tunn cron-route. Högst en superseded-omstart per invocation.
+Kandidatquery hör i chat-repository/versions.ts, inte en ny budget-query-owner.
+1 har implementerat core/server-entry/oschemalagd route och raderat gamla
+postfinalize-dispatcher; 2 har raderat klientköer/resume/GET-mutation. Ingen
+mellancommit med dubbla automatiska owners; gemensam slutreview före commit.
 
-C1.3c0 säkerhetsstopp: patchen nekades därför att granskaren inte ansåg att
-verifierat användarmandat tydligt täckte just ändringen av de tre produkt-/DB-
-ägarna och atomisk reservation för betalda modellförsök. Ingenting applicerades,
-inga tester kördes, skrivfönstret släppt. Ingen alternativ verktygsväg/retry.
-Direkt godkännandefråga finns nu i samordnarens chatt; äldre direktcallers och
-kostnadstak ska vara oförändrade. Ingen live-DB/push/aktivering/modellkörning.
+**Cron/inkoppling:** versions.ts bredvid getLatestVersion är befintlig query-owner.
+Välj verklig senaste version_number per chat FÖRST, aldrig preferred-head; filtrera
+sedan draft/återtagbart tillstånd, minålder 5 min/import 90 s, ålder <7 dygn,
+provenance, aktuell migrationshold och färsk lease. Join via engine_chats till
+app_projects ger verklig user/session. SQL är kandidater; återvalidera latest,
+ålder, ägare, provenance och migrationshold under lease. Import-lineage ägs av
+chatHasImportedRepoVersion, inte bara edit_kind. LR-expiry räknas från LR-kvitto,
+inte version; utgånget/raderat kvitto är inte ny paid authority.
+CRON_SECRET måste finnas även lokalt; återanvänd inte någon lokal fail-open.
+Inga fake Requests/owners, interna HTTP-kedjor, nya köer/tabeller/tjänster.
 
-C1.3cf lokalt klar medan detta inväntas: fem befintliga filer, beteendeidentisk
-flytt av buildProductPostcheckLogItems och dess privata formatterberoende till
-gen/verify/product-postcheck-verdict.ts. Payloadtyp härleds type-only från
-DB-ägarens input, ingen ny typfil/kopia eller klientruntimeimport. Uppdatera
-hooks/chat/post-checks.ts och useResumePendingVerification.ts med direktimport,
-inga återexportalias. Flytta nio befintliga tester från post-checks.test.ts till
-product-postcheck-verdict.test.ts, oförändrade fixtures/assertions. Inga DB-/route-
-eller produktpolicyändringar. Runtime och koordinator kvarstår.
+Usage/billing: befintlig runWithLlmUsageContext får egen claimKey för en verklig
+bakgrundskörning med lagrad user/session, chat/version och runId. Originalnyckeln
+finns redan i credits-handler/generation-billing-marker; attribution/recovery
+av ursprungsgenereringen behåller den. Vid behov används befintlig
+appendGenerationBillingClaimKey och settleExistingGenerationBillingIfPresent.
+Settlement räknar versionsbunden usage. Saknad marker/okänd betalhistorik skapar
+inte nytt betalmandat. Inget nytt claimKey-fält i finalize-bootstrap behövs.
 
-C1.3cf slutresultat: 126 riktade tester, typecheck --incremental false,
-diff-check och verifieringsplan --no-fetch PASS. Resume-testet är oförändrat.
-Netto +1 produktrad och +6 testrader. 2 har släppt skrivfönstret. 3:s återupptagna
-slutreview efter Jakobs avbrott har inga fynd: funktionskroppar är identiska
-förutom typ-/exportanpassning, samtliga nio tester textidentiska, endast
-type-only-import från DB-owner, direkta konsumentimporter utan kopia/alias.
-Fem SHA-256 är oförändrade före/efter review och kontroll i samordnarchatten:
-verdict AE5EE2F9EE5452F4400710A17966C1CA4D7F11DE201082D87479F361CEDA0A2A;
-verdict-test 5666458FCE7FA82B17F3D98964B291DDD68B69CCA0710218A50F9E8387B7E58E;
-post-checks 2EACA28E61C3E2B3A686D8340B52FD7D8DECABAF69DD498B21AFD9B6C92F419F;
-post-checks-test 9A2B73C2BAEE9CA0B2F26D259AE9A30EA5FEF452A756CB017750F198053586AA;
-resume 232CD99D4FAFAA62D430D498AA6F4B16E4DC4459BBA6F38EC97672CB35CED425.
-Ingen ny runtimeacceptans. C1.3cf är committad i dc7f14cc6a474708e29b8ab9694d4cbd91dd7b39.
+2:s riktade identitetskontroll: befintliga getChat (chat-repository/chats.ts)
+→ project_id → getProjectById (services/projects.ts) ger lagrad user_id/session_id.
+Produktvägens befintliga sträng-ID är verkligt konto-ID eller guest:<sessionId>
+(tenant.ts och product-postcheck-route), usage behåller separata user/session-
+fält. Saknas båda finns ingen lagrad identitet att återuppta med. Inför inte
+en ny gästspärr: nuvarande LiveReview-access/claim förbjuder inte gäster.
+anonymous_unbilled i generation-billing betyder ingen användardebitering, inte
+att provideranrop saknar kostnad. Befintliga paid grants/kvitton/caps avgör
+auktoritet; saknad billingmarker får inte ensam misstolkas som gästförbud.
 
-C1.3c0 nytt direkt användarmandat 2026-10-12: "Ja, godkänner att du inför
-LiveReview-skyddet lokalt. Behåll kostnadstaken och fortsätt med resten av
-städningen med 1, 2 och 3. Ingen push, aktivering eller live-DB-ändring."
-1 tilldelas på nytt samma tre produktägare och riktade tester från dc7f14cc6.
-Prioritera enkel befintlig reservation och ren read-only lookup, inte ett nytt
-kontrollramverk. 2 inventerar samtidigt återstående flytt/radering readonly;
-3 granskar fryst delta. En skrivare åt gången; inga verkliga modell-/DB-anrop.
+Post-finalize ska ersätta befintliga parallella preview/verify/repair-dispatcher
+med samma core och bevara billing→done, preview-ready/build-error/repair-SSE
+och versions/status-polling. Preview läser lagrad snapshot efter bildmutation,
+inte rå SSE-output. Ta samtidigt bort motsvarande klienttrigger/kö/retry.
+Befintliga wrappers/manual repair/ordinary diagnostics och UI/status behålls.
 
-C1.3c0 lokalt klar: 111 unika tester i fem filer, typecheck, riktad lint,
-diff-check och plan --no-fetch PASS. Sex ändrade filer, produkt +106/test +328.
-3 granskar fryst delta; reservationen är ännu inte inkopplad i produkt-routen.
-SHA-prefix: live-review-runs 1DF4BFBD3F136E33; attempts-test 8E5B980AED505AF8;
-product-postcheck-runs 42C916110BEE067D; dess test 4E9EBBFC3807CF1B;
-live-review-session 4246C6AD0C7B7E99; dess test 48CB8F686151B3BF.
+**Sista legacy-raderingen:** /files GET blir ren snapshotläsning; dess heal/
+materialize-persist och klientens gamla materialiseringsväg raderas när servern
+är inkopplad. Jakob delegerade Spara-beslutet: snapshot-only; genereringen äger
+bilder. Befintliga bilder raderas inte, gamla projekt får ingen extra bildkopiering
+via Spara. Export/deploy har egna aktiva bildowners och lämnas orörda.
+C1-save är nu separat klart: materialize=1 är borttaget från Spara, liksom
+hookens oanvända media-parameter/beroende och callerns argument. Befintligt
+och nytt projekt testas med oförändrade bildreferenser/filer. Tolv mocktester
+PASS, två nya regressioner först RED; cachefri typecheck/lint/diff/plan PASS.
+3:s review utan fynd, tre scopehashar stabila. Alla tio dåvarande WIP-filinnehåll
+bevarades vid commit. GET:s generella mutation och generationens klientbildjobb
+lämnades då orörda; de är nu raderade i C1.4-client tillsammans med serverinkopplingen.
 
-C1.3im tilldelat 2: version-image-validation.ts + test och images/image-assets.ts
-+ test. Befintlig owner får held-only förberedelse: rå snapshot → befintlig
-repairGeneratedFiles → befintlig Blob-motor → en holder/snapshot-CAS med
-invaliderad verifiering → bekräftad ny revision. Ingen ny fil/lease/ramverk;
-bildmotorn får endast avbrott/deadline, befintliga tak och gamla callers behålls.
-Import/followup/okänd lineage får inte muteras. Ingen route-/klientinkoppling ännu.
-Readonly fynd: /files GET gör idag både heal och Blob-persist utan detta skydd.
-Det raderas tillsammans med triggerImageMaterialization/kö/retry när servervägen
-kopplas in. Manuellt Spara använder också materialize=1; bevara funktionen eller
-lös dess uttryckliga beteendebeslut före borttagning. Export/deploy har egna
-befintliga owners och lämnas orörda. Ingen provider-/DB-körning i verifieringen.
+### Återstående acceptans
 
-C1.3c0 slutreview 3: inga konkreta fynd; sex hashvärden oförändrade. Samma
-transaktion/låsordning, aktiv holder/revision, oförändrad cap/CAS/norefund och
-ren tuplebunden lookup verifierade i diffen. 111 testresultat återanvända;
-DB-mocks/SQL-inspektion är inte live-konkurrens. Lokal separat C0-checkpoint
-görs före c1; im:s fyra frysta WIP-filer lämnas utanför den.
-
-C1.3im resultat: 78 mockade tester, cachefri typecheck, lint/diff/plan PASS.
-Fyra ändrade filer netto +335; ingen GET/klientinkoppling ännu. prepareVersionImages
-bevarar import/followup/okänd lineage, no-op kontrollerar originalrevisionen.
-Avbrott stoppar nästa upload och revisionskvittens; påbörjad upload kan slutföras.
-SHA-prefix: kärna E3ACDB8CF4F64477; kärntest C25AEE81ACFAD6E4;
-image-assets E61A49E6473593BD; asset-test 252AD846A9ACB5A6. 3 granskar fryst delta.
-
-C1.3c1 scope godkänt av samordnaren: ny version-product-postcheck.ts med wrapper/
-held-core, product-route, error-log-route, version-errors, product-postcheck-runs,
-live-review-session, live-review-runs och live-review.ts, med direkt riktade tester.
-Auth/schema/rate-limit/HTTP stannar i routen. Purelookup före lease; nytt arbete
-tar versionslease → omläsning → productclaim. Befintlig formatterare används.
-Servern sparar canonical loggar och claim-completion i samma transaktion och
-attested client-POST läser bara redan lagrat resultat. Ersatta unheld-/splittrade
-vägar raderas när alla callers är flyttade. Befintlig live-review-owner måste
-respektera återstående deadline; inget åttasekundersgolv efter budgetslut.
-F2/F3/feature-disabled och kostnadstak bevaras. Ingen ny resultatdatabas,
-generiskt transaktionsramverk, faktisk modell-/DB-körning eller aktivering.
-
-C1.3c0 checkpoint: 0ebc9b1ad62b2a4b45a6e06b05911b37600892da. im:s fyra filer
-lämnades utanför. C1.3im slutreview 3: inga fynd, fyra scopehashar stabila;
-snapshot/CAS/readback, importskydd, avbrott och oförändrad äldre bildsemantik
-bekräftade. 78-resultatbasen återanvänds, ingen live Blob/DB-acceptans.
-
-C1.3c1 verktygsstopp: åtta-owner-paketets patch avböjdes före applicering.
-Granskningen krävde direkt användargodkännande för atomisk serverägd loggskrivning
-+ claim-completion och ersättningen av routen, utöver C0-godkännandet. 1 har släppt
-skrivfönstret; ingen retry/bypass. Samordnaren verifierade att endast fyra im-filer
-var dirty och har ställt exakt C1.3c1-fråga i huvudchatten. Ingen C1.3c1-kod/test
-är införd. Detta är ett verktygsmandatstopp, inte ett nytt arkitekturbeslut.
-
-C1.3q tilldelas 2 separat: quality-gate/route.ts, server-verify/verify-run.ts,
-build-error-trigger.ts, repair-execution.ts och publik server-verify.ts plus
-direkt riktade tester. Befintlig verify-run-owner får delad QG-kärna och
-verifyVersionUnderLease med samma råsnapshot; ingen ny fil/ramverk eller DB-TX.
-3:s smala designcheck bekräftar fem owners. HTTP-QG behåller auth, F2-killswitch,
-501 ej konfigurerad och retrybar 503/pending; får inte starta automatisk LLM-repair.
-Bevara diagnosticOnly/build-origin/forceBuildCheck/advisory samt faktisk promotion
-separat från VM-pass. Manualauthority/usageägare/credits/provenance/callbacks är
-oförändrade; autobetald repair använder befintligt startkvitto och budget.
-Readiness/export/gate/CAS använder samma efterlease-snapshot. Alla tre renew-fel
-stoppar; held-core returnerar continue/stop/superseded med contextRetryUsed och
-build-origin, utan acquire/release eller release→rekursion. Wrappers behålls.
-Koordinatorns begränsade helkedjeomstart blir senare; ingen cron/klientflytt här.
+Riktade offline-integrationstester ska gå genom verkliga entrypoints med
+DB/provider-doubles: F2/F3, dubletttrigger, revision/leasebyte, runtimewait,
+stängd SSE, cron/owner/auth, budget vid krasch/takeover samt import/quickedit.
+Verklig SQL/processdurabilitet och automatiskt schema kräver senare godkänd
+testmiljö/aktivering. Inget sådant bevis eller fullbygge påstås här.
