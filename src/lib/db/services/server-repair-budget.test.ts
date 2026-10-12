@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getTableName, type SQL, type Table } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
@@ -6,13 +6,21 @@ import { db } from "@/lib/db/client";
 
 const state = vi.hoisted(() => ({
   logs: [] as Array<{ id: string; category: string; meta: Record<string, unknown>; version_id: string }>,
-  version: { id: "v1", chatId: "c1", filesRevision: "rev1" },
+  version: { id: "v1", chatId: "c1", filesRevision: "rev1", createdAt: new Date(Date.now() - 600_000),
+    editKind: null as string | null, lifecycleStage: "design", releaseState: "draft", verificationState: "pending" },
   lease: { runId: "run1", status: "running", expiresAt: Date.now() + 60_000 },
   locks: [] as string[],
   predicates: [] as unknown[],
   failInsert: false,
+  emptyInsert: false,
+  writes: 0,
+  inTransaction: false,
   tail: Promise.resolve(),
 }));
+const chatHasImportedRepoVersion = vi.hoisted(() => vi.fn());
+// Mock the canonical query owner, not the facade: concurrent dynamic facade
+// imports must resolve the same controlled query without loading a real DB read.
+vi.mock("@/lib/db/chat-repository/versions", () => ({ chatHasImportedRepoVersion }));
 vi.mock("./version-errors", () => ({ SERVER_REPAIR_BUDGET_LOG_CATEGORY: "server-repair:budget" }));
 vi.mock("@/lib/gen/verify/server-verify", () => ({ isServerVerifyEligible: () => true }));
 vi.mock("@/lib/db/client", () => ({
@@ -23,6 +31,7 @@ vi.mock("@/lib/db/client", () => ({
     let release!: () => void;
     state.tail = new Promise<void>((resolve) => { release = resolve; });
     await prior;
+    state.inTransaction = true;
     const snapshot = [...state.logs];
     const tx = {
       execute: vi.fn(async () => []),
@@ -37,20 +46,30 @@ vi.mock("@/lib/db/client", () => ({
             : state.logs.filter((row) => row.version_id === params[0] && (row.category === "server-repair:budget" || row.id.startsWith("server-repair-budget:")));
         return Object.assign(Promise.resolve().then(rows), { for: async (lock: string) => { state.locks.push(`${name}:${lock}`); return rows(); } });
       } }) }),
-      insert: () => ({ values: (row: typeof state.logs[number]) => ({ onConflictDoNothing: () => ({ returning: async () => {
-        if (state.failInsert) throw new Error("receipt write unavailable");
-        if (state.logs.some((existing) => existing.id === row.id)) return [];
-        state.logs.push(row);
-        return [{ id: row.id }];
-      } }) }) }),
+      insert: () => ({ values: (row: typeof state.logs[number]) => {
+        const returning = async (update?: { meta: Record<string, unknown> }) => {
+          if (state.failInsert) throw new Error("receipt write unavailable");
+          if (state.emptyInsert) return [];
+          const existing = state.logs.find(entry => entry.id === row.id);
+          if (existing && !update) return [];
+          if (existing) state.logs = state.logs.map(entry => entry.id === row.id ? { ...entry, meta: structuredClone(update!.meta) } : entry);
+          else state.logs.push(structuredClone(row));
+          state.writes++;
+          return [{ id: row.id }];
+        };
+        return { onConflictDoNothing: () => ({ returning: () => returning() }),
+          onConflictDoUpdate: (options: { set: { meta: Record<string, unknown> } }) => ({ returning: () => returning(options.set) }) };
+      } }),
     };
     try { return await fn(tx); }
     catch (error) { state.logs = snapshot; throw error; }
-    finally { release(); }
+    finally { state.inTransaction = false; release(); }
   } },
 }));
 
-import { writeServerFinalizeBootstrap, readServerRepairBudget, recordServerRepairBudgetOutcome, reserveServerRepairBudget, type ServerFinalizeBootstrap } from "./server-repair-budget";
+import { writeServerFinalizeBootstrap, readServerRepairBudget, recordServerRepairBudgetOutcome, reserveServerRepairBudget,
+  readServerResumeControl, reserveServerResumeAttempt, settleServerResumeAttempt, recordServerResumeHold,
+  type ServerFinalizeBootstrap, type ServerResumeControlResult } from "./server-repair-budget";
 const target = { chatId: "c1", versionId: "v1", filesRevision: "rev1", runId: "run1", scopeId: "v1:server-repair" };
 const primary = { passIndex: 0, slot: "primary" as const, contentHash: "a".repeat(16), diagnosticFingerprint: "b".repeat(16), requiredFiles: ["src/a.ts"] };
 const known = { source: "observed_fixer_calls" as const, finalize: [], consumed: [] };
@@ -73,10 +92,235 @@ const initialize = (finalize: ServerFinalizeBootstrap["finalize"] = [], material
   }));
 
 beforeEach(() => {
-  state.logs = []; state.locks = []; state.predicates = []; state.failInsert = false;
-  state.version = { id: "v1", chatId: "c1", filesRevision: "rev1" };
+  state.logs = []; state.locks = []; state.predicates = []; state.failInsert = false; state.emptyInsert = false; state.writes = 0; state.inTransaction = false;
+  state.version = { id: "v1", chatId: "c1", filesRevision: "rev1", createdAt: new Date(Date.now() - 600_000),
+    editKind: null, lifecycleStage: "design", releaseState: "draft", verificationState: "pending" };
+  chatHasImportedRepoVersion.mockReset().mockResolvedValue(false);
   state.lease = { runId: "run1", status: "running", expiresAt: Date.now() + 60_000 };
   state.tail = Promise.resolve();
+});
+
+describe("durable non-paid resume control", () => {
+  const NOW = Date.UTC(2026, 9, 12, 10);
+  const DAY = 24 * 60 * 60_000;
+  const advance = (ms: number) => vi.mocked(Date.now).mockReturnValue(Date.now() + ms);
+  const control = () => state.logs.find(row => row.meta.kind === "resume_control")!;
+  const paidJson = () => JSON.stringify(state.logs.filter(row => row.meta.kind !== "resume_control"));
+  const snapshot = (result: ServerResumeControlResult) => {
+    if (!result.snapshot) throw new Error(`Expected control snapshot, received ${result.status}`);
+    return result.snapshot;
+  };
+  beforeEach(() => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    state.version.createdAt = new Date(NOW - 600_000);
+    state.lease.expiresAt = NOW + 8 * DAY;
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("unknown generated history and caller import/scope flags never create authority", async () => {
+    const forged = { ...target, scopeId: "replacement", importedRepo: true };
+    expect(await reserveServerResumeAttempt(forged)).toEqual({ status: "history_unknown" });
+    expect(state.logs).toEqual([]);
+    await initialize();
+    expect(snapshot(await reserveServerResumeAttempt(forged)).scopeId).toBe(target.scopeId);
+  });
+
+  it("initial finalize/paid calls consume no resume capacity and pure reads write no tick receipt", async () => {
+    await initialize([{ ...primary, outcome: "success" }]);
+    await reserveServerRepairBudget(target, primary);
+    await recordServerRepairBudgetOutcome(target, primary, "success");
+    const before = paidJson(); const writes = state.writes;
+    for (let n = 0; n < 3; n++) expect(await readServerResumeControl(target)).toMatchObject({ status: "resume_control", snapshot: {
+      authority: "generated_postchecks_resume", attemptsUsed: 0, nextAttemptId: 1, disposition: "eligible",
+    } });
+    expect(state.writes).toBe(writes); expect(control()).toBeUndefined(); expect(paidJson()).toBe(before);
+  });
+
+  it("serializes duplicate reservations into one monotonically identified logical attempt", async () => {
+    await initialize();
+    const [a, b] = await Promise.all([reserveServerResumeAttempt(target), reserveServerResumeAttempt(target)]);
+    expect(a).toMatchObject({ status: "resume_reserved", attemptId: 1 });
+    expect(b).toMatchObject({ status: "resume_reserved", attemptId: 1 });
+    expect(snapshot(a).attemptsUsed).toBe(1); expect(snapshot(b).attempts).toHaveLength(1);
+    expect(state.logs).toHaveLength(2);
+    expect(chatHasImportedRepoVersion).toHaveBeenCalledTimes(2);
+    expect(state.locks.slice(0, 2)).toEqual(["engine_versions:update", "engine_version_jobs:update"]);
+  });
+
+  it.each(["chat", "version", "revision", "run", "expired", "released"])("rejects stale resume %s before writes", async stale => {
+    await initialize(); const before = JSON.stringify(state.logs);
+    const next = { ...target };
+    if (stale === "chat") next.chatId = "other";
+    if (stale === "version") next.versionId = "other";
+    if (stale === "revision") next.filesRevision = "old";
+    if (stale === "run") next.runId = "old";
+    if (stale === "expired") state.lease.expiresAt = NOW;
+    if (stale === "released") state.lease.status = "released";
+    expect(await reserveServerResumeAttempt(next)).toEqual({ status: ["chat", "version", "revision"].includes(stale) ? "stale_target" : "lease_unavailable" });
+    expect(JSON.stringify(state.logs)).toBe(before);
+  });
+
+  it.each(["starting", "runtime_hold", "claim_busy", "superseded"] as const)("confirmed %s refunds only logical capacity; duplicate settlement preserves identity/history", async reason => {
+    await initialize(); await reserveServerRepairBudget(target, primary);
+    const before = paidJson();
+    await reserveServerResumeAttempt(target);
+    expect(await settleServerResumeAttempt(target, 1, reason)).toMatchObject({ status: "resume_settled", snapshot: {
+      attemptsUsed: 0, nextAttemptId: 2, boundedHolds: ["runtime_hold", "claim_busy"].includes(reason) ? 1 : 0,
+    } });
+    const saved = JSON.stringify(control()); const writes = state.writes;
+    expect((await settleServerResumeAttempt(target, 1, reason)).status).toBe("resume_settled");
+    expect(JSON.stringify(control())).toBe(saved); expect(state.writes).toBe(writes); expect(paidJson()).toBe(before);
+    expect((await reserveServerRepairBudget(target, { ...primary, passIndex: 1 })).status).toBe("outcome_unknown");
+    advance(8_000);
+    expect(await reserveServerResumeAttempt(target)).toMatchObject({ status: "resume_reserved", attemptId: 2, snapshot: { attemptsUsed: 1 } });
+    expect(snapshot(await readServerResumeControl(target)).attempts[0]).toMatchObject({ attemptId: 1, outcome: reason, runId: "run1", filesRevision: "rev1" });
+  });
+
+  it("unknown crash/takeover consumes all three logical attempts without a time or paid-budget reset", async () => {
+    await initialize(); const original = state.version.createdAt.getTime(); const before = paidJson();
+    for (let id = 1; id <= 3; id++) {
+      expect(await reserveServerResumeAttempt({ ...target, runId: state.lease.runId, filesRevision: state.version.filesRevision })).toMatchObject({ status: "resume_reserved", attemptId: id });
+      state.lease.runId = `takeover${id}`; state.version.filesRevision = `rev${id + 1}`; advance(8_000);
+    }
+    const next = { ...target, runId: state.lease.runId, filesRevision: state.version.filesRevision };
+    expect(await reserveServerResumeAttempt(next)).toMatchObject({ status: "terminal", snapshot: { terminal: "attempts_exhausted", attemptsUsed: 3, originalCreatedAt: original } });
+    expect((await settleServerResumeAttempt(next, 1, "runtime_hold")).status).toBe("stale_target");
+    expect(snapshot(await readServerResumeControl(next)).attempts.every(a => a.outcome === "unknown")).toBe(true);
+    expect(paidJson()).toBe(before); expect(state.logs).toHaveLength(2);
+  });
+
+  it("same-holder image revision preserves original history, age, scope and paid receipts", async () => {
+    await initialize([], true); await reserveServerRepairBudget(target, primary);
+    const before = paidJson(); const original = state.version.createdAt.getTime();
+    await reserveServerResumeAttempt(target); state.version.filesRevision = "rev2";
+    expect((await settleServerResumeAttempt(target, 1, "superseded")).status).toBe("stale_target");
+    const next = { ...target, filesRevision: "rev2" };
+    expect(await settleServerResumeAttempt(next, 1, "superseded")).toMatchObject({ status: "resume_settled", snapshot: { originalCreatedAt: original, scopeId: target.scopeId, attemptsUsed: 0 } });
+    expect(snapshot(await readServerResumeControl(next)).attempts[0]).toMatchObject({ filesRevision: "rev1", settledFilesRevision: "rev2" });
+    expect(paidJson()).toBe(before);
+    expect(await readServerRepairBudget(next)).toMatchObject({ status: "ready", snapshot: { startPolicy: { postChecks: { materializeImages: true } }, consumed: [{ outcome: "unknown" }] } });
+  });
+
+  it.each(["completed", "terminal"] as const)("persists terminal %s disposition and immutable idempotent settlement", async outcome => {
+    await initialize(); await reserveServerResumeAttempt(target);
+    expect(await settleServerResumeAttempt(target, 1, outcome)).toMatchObject({ status: "resume_settled", snapshot: { disposition: "terminal", terminal: outcome === "completed" ? "completed" : "policy_stop" } });
+    const writes = state.writes;
+    expect((await settleServerResumeAttempt(target, 1, outcome)).status).toBe("resume_settled");
+    expect((await settleServerResumeAttempt(target, 1, "runtime_hold")).status).toBe("outcome_conflict");
+    expect((await reserveServerResumeAttempt(target)).status).toBe("terminal"); expect(state.writes).toBe(writes);
+  });
+
+  it.each([false, true])("canonical generated/import %s min-age is server-derived, never caller-derived", async imported => {
+    chatHasImportedRepoVersion.mockResolvedValue(imported);
+    const min = imported ? 90_000 : 300_000;
+    state.version.createdAt = new Date(NOW - min + 1);
+    if (!imported) await initialize();
+    expect(await reserveServerResumeAttempt(target)).toMatchObject({ status: "not_eligible", snapshot: { disposition: "too_young", nextEligibleAt: NOW + 1 } });
+    advance(1); expect((await reserveServerResumeAttempt(target)).status).toBe("resume_reserved");
+  });
+
+  it("starting has no wait cap, no attempt history and no per-tick row; hard seven days remains", async () => {
+    await initialize(); const original = state.version.createdAt.getTime();
+    for (let n = 0; n < 25; n++) {
+      expect(await recordServerResumeHold(target, "starting")).toMatchObject({ status: "resume_held", snapshot: { boundedHolds: 0, attemptsUsed: 0 } });
+      advance(8_000);
+    }
+    expect(state.logs).toHaveLength(2); expect(snapshot(await readServerResumeControl(target)).attempts).toEqual([]);
+    vi.mocked(Date.now).mockReturnValue(original + 7 * DAY);
+    expect(await reserveServerResumeAttempt(target)).toMatchObject({ status: "terminal", snapshot: { terminal: "expired", originalCreatedAt: original } });
+  });
+
+  it.each(["runtime_hold", "claim_busy"] as const)("bounded %s stops at 20 without consuming/refunding paid slots", async reason => {
+    await initialize(); const before = paidJson();
+    for (let n = 0; n < 20; n++) { await recordServerResumeHold(target, reason); advance(8_000); }
+    expect(await reserveServerResumeAttempt(target)).toMatchObject({ status: "terminal", snapshot: { boundedHolds: 20, terminal: "holds_exhausted", attemptsUsed: 0 } });
+    expect(state.logs).toHaveLength(2); expect(paidJson()).toBe(before);
+  });
+
+  it("honors default/server Retry-After, dedupes a hold before due and exposes eligibility", async () => {
+    await initialize();
+    expect(snapshot(await recordServerResumeHold(target, "claim_busy", 3_000)).nextEligibleAt).toBe(NOW + 3_000);
+    const writes = state.writes;
+    expect(snapshot(await recordServerResumeHold(target, "claim_busy", 3_000)).boundedHolds).toBe(1);
+    expect(state.writes).toBe(writes);
+    advance(2_999); expect((await reserveServerResumeAttempt(target)).status).toBe("not_eligible");
+    advance(1); expect((await reserveServerResumeAttempt(target)).status).toBe("resume_reserved");
+  });
+
+  it.each(["row", "lineage"])("DB-confirmed import %s has strict non-paid control, never a paid-ready/init receipt", async origin => {
+    if (origin === "row") state.version.editKind = "imported_repo";
+    else chatHasImportedRepoVersion.mockResolvedValue(true);
+    expect(await readServerResumeControl(target)).toMatchObject({ status: "resume_control", snapshot: { authority: "import_postchecks_resume" } });
+    expect(state.logs).toEqual([]);
+    expect((await reserveServerResumeAttempt(target)).status).toBe("resume_reserved");
+    expect(chatHasImportedRepoVersion).toHaveBeenCalledWith("c1");
+    expect(state.logs.some(row => row.meta.kind === "init")).toBe(false);
+    expect((await readServerRepairBudget(target)).status).toBe("history_unknown");
+    expect((await reserveServerRepairBudget(target, primary)).status).toBe("history_unknown");
+  });
+
+  it("valid import/control receipt is parsed separately without damaging a valid paid init or legacy image-off policy", async () => {
+    await initialize(); const before = paidJson(); chatHasImportedRepoVersion.mockResolvedValue(true);
+    await reserveServerResumeAttempt(target);
+    expect(await readServerRepairBudget(target)).toMatchObject({ status: "ready", snapshot: { startPolicy: { postChecks: { materializeImages: false } }, consumed: [] } });
+    expect(paidJson()).toBe(before);
+    expect((await reserveServerRepairBudget(target, primary)).status).toBe("reserved");
+  });
+
+  it("unknown DB lineage and a lease expiring during provenance read never authorize a control write", async () => {
+    await initialize(); const writes = state.writes;
+    chatHasImportedRepoVersion.mockRejectedValueOnce(new Error("lineage unavailable"));
+    expect((await reserveServerResumeAttempt(target)).status).toBe("unavailable");
+    chatHasImportedRepoVersion.mockResolvedValueOnce(null);
+    expect((await reserveServerResumeAttempt(target)).status).toBe("history_unknown");
+    chatHasImportedRepoVersion.mockImplementationOnce(async () => { state.lease.expiresAt = NOW; return false; });
+    expect((await reserveServerResumeAttempt(target)).status).toBe("lease_unavailable");
+    expect(state.writes).toBe(writes); expect(control()).toBeUndefined();
+  });
+
+  it("canonical lineage read does not await a second pool connection inside the locked transaction", async () => {
+    await initialize();
+    chatHasImportedRepoVersion.mockImplementation(async () => { expect(state.inTransaction).toBe(false); return false; });
+    expect((await reserveServerResumeAttempt(target)).status).toBe("resume_reserved");
+    expect(state.locks.slice(-3)).toEqual(["engine_version_jobs:update", "engine_version_jobs:update", "engine_version_jobs:update"]);
+  });
+
+  it.each(["quick_edit", "restore", "unknown", "integrations"])("does not auto-authorize %s provenance/stage", async kind => {
+    await initialize();
+    if (kind === "integrations") state.version.lifecycleStage = kind; else state.version.editKind = kind;
+    chatHasImportedRepoVersion.mockResolvedValue(true);
+    expect((await reserveServerResumeAttempt(target)).status).toBe("ineligible"); expect(control()).toBeUndefined();
+  });
+
+  it.each(["id", "schema", "chat", "version", "authority", "scope", "age", "sequence", "revision", "outcome", "holds", "paid_field", "next"])("rejects forged/corrupt control %s without replacing history", async field => {
+    await initialize(); await reserveServerResumeAttempt(target); const row = control();
+    if (field === "id") row.id += "forged";
+    if (field === "schema") row.meta.schema = 99;
+    if (field === "chat") row.meta.chatId = "other";
+    if (field === "version") row.meta.versionId = "other";
+    if (field === "authority") row.meta.authority = "import_postchecks_resume";
+    if (field === "scope") row.meta.scopeId = "reset";
+    if (field === "age") row.meta.originalCreatedAt = NOW - 500_000;
+    if (field === "sequence") (row.meta.attempts as Record<string, unknown>[])[0].attemptId = 42;
+    if (field === "revision") (row.meta.attempts as Record<string, unknown>[])[0].filesRevision = "";
+    if (field === "outcome") (row.meta.attempts as Record<string, unknown>[])[0].outcome = "free";
+    if (field === "holds") row.meta.boundedHolds = -1;
+    if (field === "paid_field") row.meta.history = { finalize: [], consumed: [] };
+    if (field === "next") row.meta.nextEligibleAt = NOW + 100 * DAY;
+    const before = JSON.stringify(state.logs); const writes = state.writes;
+    expect((await reserveServerResumeAttempt(target)).status).toBe("history_unknown");
+    expect(JSON.stringify(state.logs)).toBe(before); expect(state.writes).toBe(writes);
+  });
+
+  it.each(["throws", "empty"])("never reports a reservation/settlement on %s persistence", async mode => {
+    await initialize(); const before = JSON.stringify(state.logs);
+    if (mode === "throws") state.failInsert = true; else state.emptyInsert = true;
+    expect((await reserveServerResumeAttempt(target)).status).toBe("unavailable"); expect(JSON.stringify(state.logs)).toBe(before);
+    state.failInsert = false; state.emptyInsert = false; await reserveServerResumeAttempt(target);
+    const reserved = JSON.stringify(state.logs);
+    if (mode === "throws") state.failInsert = true; else state.emptyInsert = true;
+    expect((await settleServerResumeAttempt(target, 1, "runtime_hold")).status).toBe("unavailable"); expect(JSON.stringify(state.logs)).toBe(reserved);
+  });
 });
 
 describe("durable server repair budget receipts", () => {

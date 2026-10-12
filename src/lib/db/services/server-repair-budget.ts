@@ -62,9 +62,38 @@ type Reservation = Slot & { kind: "reservation"; schema: 1; chatId: string; vers
 type OutcomeReceipt = Omit<Reservation, "kind"> & { kind: "outcome"; outcome: KnownOutcome };
 type Used = Attempt & { reservation?: Reservation };
 type Receipt = { id: string; category: string | null; meta: unknown };
+type BudgetTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type BudgetVersion = Pick<typeof engineVersions.$inferSelect, "id" | "chatId" | "filesRevision" | "createdAt" | "editKind" | "lifecycleStage" | "releaseState" | "verificationState">;
+export type ServerResumeTarget = Omit<ServerRepairBudgetTarget, "scopeId">;
+export type ServerResumeHold = "starting" | "runtime_hold" | "claim_busy" | "superseded";
+export type ServerResumeOutcome = ServerResumeHold | "retryable_failure" | "completed" | "terminal";
+type ResumeAttempt = { attemptId: number; runId: string; filesRevision: string; reservedAt: number;
+  /** Unknown (including crash/takeover) consumes a logical attempt. */
+  outcome: ServerResumeOutcome | "unknown"; settledAt?: number; settledFilesRevision?: string };
+type ResumeState = { authority: "generated_postchecks_resume" | "import_postchecks_resume"; scopeId: string; originalCreatedAt: number;
+  attempts: ResumeAttempt[]; boundedHolds: number; nextEligibleAt: number;
+  terminal: "completed" | "policy_stop" | "expired" | "attempts_exhausted" | "holds_exhausted" | "version_closed" | null;
+  lastHold?: { runId: string; filesRevision: string; reason: ServerResumeHold; observedAt: number } };
+type ResumeControl = ResumeState & { kind: "resume_control"; schema: 1; chatId: string; versionId: string };
+export type ServerResumeControlSnapshot = ResumeState & { attemptsUsed: number; nextAttemptId: number;
+  disposition: "eligible" | "too_young" | "backoff" | "busy" | "terminal" };
+export type ServerResumeControlResult =
+  | { status: "resume_control" | "resume_reserved" | "resume_settled" | "resume_held"; snapshot: ServerResumeControlSnapshot; attemptId?: number }
+  | { status: Denied | "not_eligible" | "terminal" | "resume_busy" | "ineligible"; snapshot?: ServerResumeControlSnapshot };
+const RESUME_MAX_ATTEMPTS = 3;
+const RESUME_MAX_HOLDS = 20;
+const RESUME_MAX_AGE_MS = 7 * 24 * 60 * 60_000;
+const RESUME_BACKOFF_MS = 8_000;
+const resumeHolds: readonly ServerResumeHold[] = ["starting", "runtime_hold", "claim_busy", "superseded"];
+const resumeOutcomes: readonly ServerResumeOutcome[] = [...resumeHolds, "retryable_failure", "completed", "terminal"];
+const resumeKeys = new Set(["kind", "schema", "chatId", "versionId", "authority", "scopeId", "originalCreatedAt", "attempts", "boundedHolds", "nextEligibleAt", "terminal", "lastHold"]);
+const integer = (value: unknown): value is number => typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+const resumeMinAge = (state: Pick<ResumeState, "authority">) => state.authority === "import_postchecks_resume" ? 90_000 : 5 * 60_000;
+const resumeUsed = (state: Pick<ResumeState, "attempts">) => state.attempts.filter(attempt => !resumeHolds.includes(attempt.outcome as ServerResumeHold)).length;
 
 const digest = (parts: unknown[]) => createHash("sha256").update(JSON.stringify(parts)).digest("hex");
 const initId = (versionId: string) => `${RECEIPT_PREFIX}${digest([versionId, "init"])}`;
+const resumeId = (versionId: string) => `${RECEIPT_PREFIX}${digest([versionId, "resume_control"])}`;
 const slotId = (versionId: string, scopeId: string, slot: Slot) => `${RECEIPT_PREFIX}${digest([versionId, scopeId, slot.passIndex, slot.slot])}`;
 const outcomeId = (versionId: string, scopeId: string, slot: Slot) => `${RECEIPT_PREFIX}${digest([versionId, scopeId, slot.passIndex, slot.slot, "outcome"])}`;
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
@@ -100,6 +129,26 @@ function validStartPolicy(value: unknown): value is StartPolicy {
     object(value.postChecks) && typeof value.postChecks.willRunQualityGate === "boolean" && typeof value.postChecks.qualityGatePlanned === "boolean" &&
     (value.postChecks.materializeImages === undefined || typeof value.postChecks.materializeImages === "boolean");
 }
+function validResumeReceipt(row: Receipt, target: ServerResumeTarget): row is Receipt & { meta: ResumeControl } {
+  const m = row.meta;
+  if (row.id !== resumeId(target.versionId) || row.category !== SERVER_REPAIR_BUDGET_LOG_CATEGORY || !object(m) ||
+      !Object.keys(m).every(key => resumeKeys.has(key)) || m.kind !== "resume_control" || m.schema !== 1 ||
+      m.chatId !== target.chatId || m.versionId !== target.versionId || !text(m.scopeId) ||
+      !["generated_postchecks_resume", "import_postchecks_resume"].includes(m.authority as string) || !integer(m.originalCreatedAt) ||
+      !integer(m.nextEligibleAt) || m.nextEligibleAt < m.originalCreatedAt + resumeMinAge(m as ResumeControl) || m.nextEligibleAt > m.originalCreatedAt + RESUME_MAX_AGE_MS ||
+      !integer(m.boundedHolds) || m.boundedHolds > RESUME_MAX_HOLDS || !Array.isArray(m.attempts) ||
+      ![null, "completed", "policy_stop", "expired", "attempts_exhausted", "holds_exhausted", "version_closed"].includes(m.terminal as null)) return false;
+  const attemptsValid = m.attempts.every((a, index) => object(a) &&
+    Object.keys(a).every(key => ["attemptId", "runId", "filesRevision", "reservedAt", "outcome", "settledAt", "settledFilesRevision"].includes(key)) &&
+    a.attemptId === index + 1 && text(a.runId) && text(a.filesRevision) && integer(a.reservedAt) && a.reservedAt >= Number(m.originalCreatedAt) + resumeMinAge(m as ResumeControl) && a.reservedAt < Number(m.originalCreatedAt) + RESUME_MAX_AGE_MS &&
+    (a.outcome === "unknown" ? a.settledAt === undefined && a.settledFilesRevision === undefined
+      : resumeOutcomes.includes(a.outcome as ServerResumeOutcome) && integer(a.settledAt) && a.settledAt >= a.reservedAt && a.settledAt < Number(m.originalCreatedAt) + RESUME_MAX_AGE_MS && text(a.settledFilesRevision)));
+  if (!attemptsValid || resumeUsed(m as ResumeControl) > RESUME_MAX_ATTEMPTS) return false;
+  return m.lastHold === undefined || (object(m.lastHold) &&
+    Object.keys(m.lastHold).every(key => ["runId", "filesRevision", "reason", "observedAt"].includes(key)) &&
+    text(m.lastHold.runId) && text(m.lastHold.filesRevision) && resumeHolds.includes(m.lastHold.reason as ServerResumeHold) && integer(m.lastHold.observedAt) &&
+    m.lastHold.observedAt >= Number(m.originalCreatedAt) + resumeMinAge(m as ResumeControl) && m.lastHold.observedAt < Number(m.originalCreatedAt) + RESUME_MAX_AGE_MS);
+}
 function readBudget(rows: Receipt[], target: ServerRepairBudgetTarget): { init: Init; used: Used[] } | null {
   const root = rows.find((row) => row.id === initId(target.versionId));
   if (!root || root.category !== SERVER_REPAIR_BUDGET_LOG_CATEGORY || !object(root.meta)) return null;
@@ -111,6 +160,8 @@ function readBudget(rows: Receipt[], target: ServerRepairBudgetTarget): { init: 
   const outcomes: OutcomeReceipt[] = [];
   for (const row of rows) {
     if (row === root) continue;
+    // Control/import receipts carry no model slots. Validate before paid parsing.
+    if (validResumeReceipt(row, target)) continue;
     const receipt = row.meta;
     if (row.category !== SERVER_REPAIR_BUDGET_LOG_CATEGORY || !object(receipt) || receipt.schema !== 1 ||
       receipt.chatId !== target.chatId || receipt.versionId !== target.versionId || receipt.scopeId !== init.scopeId || !text(receipt.filesRevision) || !text(receipt.runId) || !canonicalSlot(receipt)) return null;
@@ -185,25 +236,33 @@ export async function recordServerRepairBudgetOutcome(target: ServerRepairBudget
   return transact(target, { ...slot, requiredFiles: normalizeFiles(slot.requiredFiles) }, outcome);
 }
 
+/** Non-paid read. A probe/replay must not reserve or create a control receipt. */
+export async function readServerResumeControl(target: ServerResumeTarget): Promise<ServerResumeControlResult> {
+  return transactResume(target, { kind: "read" });
+}
+/** Resume only: the initial generation/bootstrap is never a logical attempt. */
+export async function reserveServerResumeAttempt(target: ServerResumeTarget): Promise<ServerResumeControlResult> {
+  return transactResume(target, { kind: "reserve" });
+}
+/** Only the original current holder may confirm/refund its own logical attempt. */
+export async function settleServerResumeAttempt(target: ServerResumeTarget, attemptId: number, outcome: ServerResumeOutcome, retryAfterMs = RESUME_BACKOFF_MS): Promise<ServerResumeControlResult> {
+  if (!integer(attemptId) || attemptId < 1 || !resumeOutcomes.includes(outcome)) return { status: "history_unknown" };
+  return transactResume(target, { kind: "settle", attemptId, outcome, retryAfterMs });
+}
+/** Summarize a confirmed pre-work hold in the same row, never one event per tick. */
+export async function recordServerResumeHold(target: ServerResumeTarget, reason: ServerResumeHold, retryAfterMs = RESUME_BACKOFF_MS): Promise<ServerResumeControlResult> {
+  if (!resumeHolds.includes(reason)) return { status: "history_unknown" };
+  return transactResume(target, { kind: "hold", reason, retryAfterMs });
+}
+
 async function transact(target: ServerRepairBudgetTarget, slot?: Slot, outcome?: KnownOutcome, readOnly = false): Promise<ServerRepairBudgetResult> {
   if (!dbConfigured) return { status: "unavailable" };
   if (![target.chatId, target.versionId, target.filesRevision, target.runId, target.scopeId].every(text)) return { status: "stale_target" };
   try {
     return await db.transaction(async (tx): Promise<ServerRepairBudgetResult> => {
-      await tx.execute(sql`SELECT set_config('lock_timeout', '3000', true)`);
-      // Same lock order as acquireVersionLease and files-json writers.
-      const versions = await tx.select({ id: engineVersions.id, chatId: engineVersions.chatId, filesRevision: engineVersions.filesRevision })
-        .from(engineVersions).where(eq(engineVersions.id, target.versionId)).for("update");
-      if (versions[0]?.chatId !== target.chatId || versions[0]?.filesRevision !== target.filesRevision) return { status: "stale_target" };
-      const leases = await tx.select({ runId: engineVersionJobs.runId }).from(engineVersionJobs).where(and(
-        eq(engineVersionJobs.versionId, target.versionId), eq(engineVersionJobs.runId, target.runId),
-        eq(engineVersionJobs.status, "running"), gt(engineVersionJobs.leaseExpiresAt, sql`clock_timestamp()`),
-      )).for("update");
-      if (!leases.length) return { status: "lease_unavailable" };
-      // All receipts, not the truncated/age-limited diagnostic reader.
-      const rows = await tx.select({ id: engineVersionErrorLogs.id, category: engineVersionErrorLogs.category, meta: engineVersionErrorLogs.meta })
-        .from(engineVersionErrorLogs).where(and(eq(engineVersionErrorLogs.version_id, target.versionId),
-          or(eq(engineVersionErrorLogs.category, SERVER_REPAIR_BUDGET_LOG_CATEGORY), like(engineVersionErrorLogs.id, `${RECEIPT_PREFIX}%`))));
+      const locked = await lockBudgetTarget(tx, target);
+      if (locked.kind === "denied") return { status: locked.status };
+      const { rows } = locked;
       const budget = readBudget(rows, target);
       if (!budget) return { status: "history_unknown" };
       if (readOnly) return { status: "ready", snapshot: { scopeId: budget.init.scopeId, startPolicy: { ...budget.init.startPolicy,
@@ -244,4 +303,124 @@ async function transact(target: ServerRepairBudgetTarget, slot?: Slot, outcome?:
   } catch {
     return { status: "unavailable" };
   }
+}
+
+async function currentBudgetLease(tx: BudgetTx, target: ServerResumeTarget): Promise<boolean> {
+  const leases = await tx.select({ runId: engineVersionJobs.runId }).from(engineVersionJobs).where(and(
+    eq(engineVersionJobs.versionId, target.versionId), eq(engineVersionJobs.runId, target.runId),
+    eq(engineVersionJobs.status, "running"), gt(engineVersionJobs.leaseExpiresAt, sql`clock_timestamp()`),
+  )).for("update");
+  return leases.length > 0;
+}
+async function lockBudgetTarget(tx: BudgetTx, target: ServerResumeTarget): Promise<
+  { kind: "held"; version: BudgetVersion; rows: Receipt[] } | { kind: "denied"; status: "stale_target" | "lease_unavailable" }
+> {
+  await tx.execute(sql`SELECT set_config('lock_timeout', '3000', true)`);
+  // Shared version -> job lock order; the version row cannot advance in this TX.
+  const versions = await tx.select({ id: engineVersions.id, chatId: engineVersions.chatId, filesRevision: engineVersions.filesRevision,
+    createdAt: engineVersions.createdAt, editKind: engineVersions.editKind, lifecycleStage: engineVersions.lifecycleStage,
+    releaseState: engineVersions.releaseState, verificationState: engineVersions.verificationState })
+    .from(engineVersions).where(eq(engineVersions.id, target.versionId)).for("update");
+  if (versions[0]?.chatId !== target.chatId || versions[0]?.filesRevision !== target.filesRevision) return { kind: "denied", status: "stale_target" };
+  if (!(await currentBudgetLease(tx, target))) return { kind: "denied", status: "lease_unavailable" };
+  const rows = await tx.select({ id: engineVersionErrorLogs.id, category: engineVersionErrorLogs.category, meta: engineVersionErrorLogs.meta })
+    .from(engineVersionErrorLogs).where(and(eq(engineVersionErrorLogs.version_id, target.versionId),
+      or(eq(engineVersionErrorLogs.category, SERVER_REPAIR_BUDGET_LOG_CATEGORY), like(engineVersionErrorLogs.id, `${RECEIPT_PREFIX}%`))));
+  return { kind: "held", version: versions[0], rows };
+}
+
+function resumeSnapshot(state: ResumeState, target: ServerResumeTarget, version: BudgetVersion, now: number): ServerResumeControlSnapshot {
+  const ownActive = state.attempts.at(-1)?.outcome === "unknown" && state.attempts.at(-1)?.runId === target.runId;
+  const terminal = now >= state.originalCreatedAt + RESUME_MAX_AGE_MS ? "expired"
+    : version.releaseState !== "draft" || version.verificationState !== "pending" ? "version_closed"
+    : state.terminal ?? (state.boundedHolds >= RESUME_MAX_HOLDS ? "holds_exhausted" : resumeUsed(state) >= RESUME_MAX_ATTEMPTS ? "attempts_exhausted" : null);
+  const disposition = terminal && !(ownActive && terminal === "attempts_exhausted") ? "terminal"
+    : now < state.originalCreatedAt + resumeMinAge(state) ? "too_young"
+    : ownActive ? "busy" : now < state.nextEligibleAt ? "backoff" : "eligible";
+  return { ...state, terminal, disposition, attemptsUsed: resumeUsed(state), nextAttemptId: state.attempts.length + 1 };
+}
+type ResumeOperation = { kind: "read" | "reserve" } | { kind: "hold"; reason: ServerResumeHold; retryAfterMs: number }
+  | { kind: "settle"; attemptId: number; outcome: ServerResumeOutcome; retryAfterMs: number };
+async function transactResume(target: ServerResumeTarget, operation: ResumeOperation): Promise<ServerResumeControlResult> {
+  if (!dbConfigured) return { status: "unavailable" };
+  if (![target.chatId, target.versionId, target.filesRevision, target.runId].every(text) ||
+      ("retryAfterMs" in operation && (!integer(operation.retryAfterMs) || operation.retryAfterMs < 1))) return { status: "stale_target" };
+  try {
+    // Historical import provenance is persistent; read before holding a pool connection.
+    // Current version, lease and authority-bound receipts are still checked under TX.
+    const { chatHasImportedRepoVersion } = await import("@/lib/db/chat-repository-pg");
+    const importLineage = await chatHasImportedRepoVersion(target.chatId);
+    if (typeof importLineage !== "boolean") return { status: "history_unknown" };
+    return await db.transaction(async (tx): Promise<ServerResumeControlResult> => {
+      const locked = await lockBudgetTarget(tx, target);
+      if (locked.kind === "denied") return { status: locked.status };
+      const { version, rows } = locked;
+      if (version.lifecycleStage !== "design" || (version.editKind !== null && version.editKind !== "imported_repo")) return { status: "ineligible" };
+      const originalCreatedAt = version.createdAt?.getTime();
+      if (!integer(originalCreatedAt)) return { status: "history_unknown" };
+      const imported = version.editKind === "imported_repo" || importLineage;
+      const paid = readBudget(rows, { ...target, scopeId: "read" });
+      if ((!imported && !paid) || (rows.some(row => !validResumeReceipt(row, target)) && !paid)) return { status: "history_unknown" };
+      const authority = imported ? "import_postchecks_resume" : "generated_postchecks_resume";
+      const scopeId = paid?.init.scopeId ?? `${target.versionId}:import_postchecks_resume`;
+      const existing = rows.find(row => row.id === resumeId(target.versionId));
+      let state: ResumeState;
+      if (existing) {
+        if (!validResumeReceipt(existing, target) || existing.meta.authority !== authority || existing.meta.scopeId !== scopeId ||
+            existing.meta.originalCreatedAt !== originalCreatedAt) return { status: "history_unknown" };
+        const { kind: _kind, schema: _schema, chatId: _chatId, versionId: _versionId, ...stored } = structuredClone(existing.meta);
+        state = stored;
+      } else state = { authority, scopeId, originalCreatedAt, attempts: [], boundedHolds: 0,
+        nextEligibleAt: originalCreatedAt + resumeMinAge({ authority }), terminal: null };
+      // Final eligibility/read proof stays under the current version -> job fence.
+      if (!(await currentBudgetLease(tx, target))) return { status: "lease_unavailable" };
+      const now = Date.now();
+      const snapshot = () => resumeSnapshot(state, target, version, Date.now());
+      if (operation.kind === "read") return { status: "resume_control", snapshot: snapshot() };
+      let attemptId: number | undefined;
+      let status: "resume_reserved" | "resume_settled" | "resume_held";
+      if (operation.kind === "settle") {
+        const attempt = state.attempts.find(a => a.attemptId === operation.attemptId);
+        if (!attempt) return { status: "reservation_missing" };
+        if (attempt.runId !== target.runId) return { status: "stale_target" };
+        if (attempt.outcome !== "unknown") return attempt.outcome === operation.outcome
+          ? { status: "resume_settled", attemptId: attempt.attemptId, snapshot: snapshot() } : { status: "outcome_conflict" };
+        if (now >= originalCreatedAt + RESUME_MAX_AGE_MS) return { status: "terminal", snapshot: snapshot() };
+        attempt.outcome = operation.outcome; attempt.settledAt = now; attempt.settledFilesRevision = target.filesRevision;
+        attemptId = attempt.attemptId; status = "resume_settled";
+        if (state.terminal === "attempts_exhausted" && resumeUsed(state) < RESUME_MAX_ATTEMPTS) state.terminal = null;
+        if (operation.outcome === "completed") state.terminal = "completed";
+        if (operation.outcome === "terminal") state.terminal = "policy_stop";
+      } else {
+        const current = snapshot();
+        const active = state.attempts.at(-1);
+        if (operation.kind === "reserve" && current.disposition === "busy" && active) return { status: "resume_reserved", attemptId: active.attemptId, snapshot: current };
+        if (operation.kind === "hold" && state.lastHold?.runId === target.runId && state.lastHold.filesRevision === target.filesRevision &&
+            state.lastHold.reason === operation.reason && current.disposition === "backoff") return { status: "resume_held", snapshot: current };
+        if (current.disposition !== "eligible") return { status: current.disposition === "terminal" ? "terminal" : current.disposition === "busy" ? "resume_busy" : "not_eligible", snapshot: current };
+        if (operation.kind === "reserve") {
+          attemptId = current.nextAttemptId;
+          state.attempts.push({ attemptId, runId: target.runId, filesRevision: target.filesRevision, reservedAt: now, outcome: "unknown" });
+          status = "resume_reserved";
+        } else status = "resume_held";
+      }
+      const hold = operation.kind === "hold" ? operation.reason : operation.kind === "settle" && resumeHolds.includes(operation.outcome as ServerResumeHold) ? operation.outcome as ServerResumeHold : null;
+      if (hold) {
+        if (hold === "runtime_hold" || hold === "claim_busy") state.boundedHolds++;
+        state.lastHold = { runId: target.runId, filesRevision: target.filesRevision, reason: hold, observedAt: now };
+      }
+      state.nextEligibleAt = Math.min(originalCreatedAt + RESUME_MAX_AGE_MS, now + ("retryAfterMs" in operation ? operation.retryAfterMs : RESUME_BACKOFF_MS));
+      if (!state.terminal && state.boundedHolds >= RESUME_MAX_HOLDS) state.terminal = "holds_exhausted";
+      if (!state.terminal && resumeUsed(state) >= RESUME_MAX_ATTEMPTS) state.terminal = "attempts_exhausted";
+      const meta: ResumeControl = { ...state, kind: "resume_control", schema: 1, chatId: target.chatId, versionId: target.versionId };
+      const row = { id: resumeId(target.versionId), chat_id: target.chatId, version_id: target.versionId,
+        level: "info", category: SERVER_REPAIR_BUDGET_LOG_CATEGORY, message: "Server resume control.", meta };
+      if (!validResumeReceipt(row, target)) return { status: "history_unknown" };
+      if (!(await currentBudgetLease(tx, target))) return { status: "lease_unavailable" };
+      if (Date.now() >= originalCreatedAt + RESUME_MAX_AGE_MS) return { status: "terminal", snapshot: snapshot() };
+      const stored = await tx.insert(engineVersionErrorLogs).values(row).onConflictDoUpdate({ target: engineVersionErrorLogs.id, set: { meta } }).returning({ id: engineVersionErrorLogs.id });
+      if (stored.length !== 1) throw new Error("Resume control not stored");
+      return { status, attemptId, snapshot: snapshot() };
+    });
+  } catch { return { status: "unavailable" }; }
 }
