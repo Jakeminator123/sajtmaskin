@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const snapshot = vi.hoisted(() => vi.fn());
 const parse = vi.hoisted(() => vi.fn());
@@ -37,6 +37,7 @@ const result = { previewUrl: "https://preview.example", previewSessionId: "sessi
 const session = { ...result, versionId: "version" };
 
 describe("ensureVersionPreview shared server orchestration", () => {
+  afterEach(() => vi.restoreAllMocks());
   beforeEach(() => {
     vi.resetAllMocks();
     canExpose.mockReturnValue(true);
@@ -60,6 +61,33 @@ describe("ensureVersionPreview shared server orchestration", () => {
     expect(acquire).not.toHaveBeenCalled();
     expect(release).not.toHaveBeenCalled();
     expect(write).not.toHaveBeenCalled();
+  });
+
+  it("threads the original deadline to start and refuses a late receipt", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    start.mockImplementation(async () => { vi.mocked(Date.now).mockReturnValue(1_100); return { ok: true, result }; });
+    expect(await ensureVersionPreview({ ...input, previewDeadlineEpochMs: 1_100 })).toEqual({
+      ok: false, reason: "start_failed", error: { stage: "preview-start", message: "Preview time budget exhausted" },
+    });
+    expect(start).toHaveBeenCalledWith(files, expect.objectContaining({ previewDeadlineEpochMs: 1_100 }));
+    expect(write).not.toHaveBeenCalled();
+    expect(stamp).not.toHaveBeenCalled();
+  });
+
+  it("cannot reuse or persist a receipt after its caller deadline", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    active.mockResolvedValue(session);
+    const outcome = await ensureVersionPreview({ ...input, previewDeadlineEpochMs: 1_100 });
+    if (!outcome.ok) throw new Error("fixture failed");
+    expect(outcome.result.previewDeadlineEpochMs).toBe(1_100);
+    vi.mocked(Date.now).mockReturnValue(1_100);
+    expect(await persistVersionPreviewOutcome({ receipt: outcome.result, holderRunId: "holder", expectedFilesRevision: "rev" })).toBe(false);
+    expect(await ensureVersionPreview({ ...input, previewDeadlineEpochMs: 1_100 })).toEqual({
+      ok: false, reason: "start_failed", error: { stage: "preview-start", message: "Preview time budget exhausted" },
+    });
+    expect(start).not.toHaveBeenCalled();
+    expect(write).not.toHaveBeenCalled();
+    expect(stamp).not.toHaveBeenCalled();
   });
 
   it("reuses only the exact active version/URL/revision/session", async () => {

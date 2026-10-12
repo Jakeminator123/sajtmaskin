@@ -16,6 +16,81 @@ import {
   updatePreviewHostSession,
 } from "./preview-host-client";
 
+describe("original preview deadline across host requests", () => {
+  const payload = { chatId: "chat", versionId: "v", previewSessionId: "session", filesJson: { "app/page.tsx": "content" },
+    files: { "app/page.tsx": "content" }, previewDeadlineEpochMs: 1_100 };
+  const response = (body: object, status = 200) => new Response(JSON.stringify(body), { status });
+  const ok = { ok: true, running: true, previewUrl: "https://preview.example", previewSessionId: "session", versionId: "v" };
+
+  it.each([startPreviewHostSession, updatePreviewHostSession, patchPreviewHostSession])(
+    "%s spends one absolute window across disk cleanup and retry", async (request) => {
+      process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+      process.env.SAJTMASKIN_PREVIEW_HOST_API_KEY = "test-key";
+      vi.spyOn(Date, "now").mockReturnValue(1_000);
+      const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => new AbortController().signal);
+      const fetchMock = vi.spyOn(globalThis, "fetch")
+        .mockImplementationOnce(async () => { vi.mocked(Date.now).mockReturnValue(1_040); return response({ message: "ENOSPC" }, 500); })
+        .mockImplementationOnce(async () => { vi.mocked(Date.now).mockReturnValue(1_060); return response({}); })
+        .mockResolvedValueOnce(response(ok));
+      expect(await request(payload)).toMatchObject({ ok: true });
+      expect(timeout.mock.calls.map(([ms]) => ms)).toEqual([100, 60, 40]);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      for (const [, init] of fetchMock.mock.calls) expect(init?.headers).toMatchObject({ Authorization: "Bearer test-key" });
+      expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).not.toHaveProperty("previewDeadlineEpochMs");
+    },
+  );
+
+  it("does not retry when cleanup spends the remaining time", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    vi.spyOn(AbortSignal, "timeout").mockImplementation(() => new AbortController().signal);
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(response({ message: "ENOSPC" }, 500))
+      .mockImplementationOnce(async () => { vi.mocked(Date.now).mockReturnValue(1_100); return response({}); });
+    expect(await startPreviewHostSession(payload)).toMatchObject({ ok: false, retryable: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([startPreviewHostSession, updatePreviewHostSession, patchPreviewHostSession])(
+    "%s cannot fetch on expiry or return a late success", async (request) => {
+      process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+      vi.spyOn(Date, "now").mockReturnValue(1_100);
+      const fetchMock = vi.spyOn(globalThis, "fetch");
+      expect(await request(payload)).toMatchObject({ ok: false, retryable: true });
+      expect(fetchMock).not.toHaveBeenCalled();
+      vi.mocked(Date.now).mockReturnValue(1_000);
+      fetchMock.mockImplementationOnce(async () => { vi.mocked(Date.now).mockReturnValue(1_100); return response(ok); });
+      expect(await request(payload)).toMatchObject({ ok: false, retryable: true });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([fetchPreviewHostStatus, fetchPreviewHostFilesManifest])("%s bounds status probes and rejects late/expired replies", async (probe) => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => new AbortController().signal);
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementationOnce(async () => {
+      vi.mocked(Date.now).mockReturnValue(1_100);
+      return response({ ...ok, hashAlgorithm: "sha256", files: {} });
+    });
+    expect(await probe("session", { previewDeadlineEpochMs: 1_100 })).toBeNull();
+    expect(timeout).toHaveBeenCalledWith(100);
+    expect(await probe("session", { previewDeadlineEpochMs: 1_100 })).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("omitted and longer caller windows retain each existing static cap", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => new AbortController().signal);
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => response(ok));
+    await startPreviewHostSession({ ...payload, previewDeadlineEpochMs: undefined });
+    await updatePreviewHostSession({ ...payload, previewDeadlineEpochMs: 2_000_000 });
+    await fetchPreviewHostStatus("session");
+    expect(timeout.mock.calls.map(([ms]) => ms)).toEqual([300_000, 300_000, 15_000]);
+  });
+});
+
 describe("destroyPreviewHostSession lifecycle fencing", () => {
   it("sends the lifecycle token and treats a stale 409 as superseded idempotence", async () => {
     process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";

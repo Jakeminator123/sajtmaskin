@@ -25,12 +25,15 @@ export type EnsureVersionPreviewInput = {
     verificationPolicy: BuildSpecVerificationPolicy | null;
   }>;
   forceRestart: boolean;
+  /** Original chain deadline, also carried by the receipt to fenced persistence. */
+  previewDeadlineEpochMs?: number;
 } & ChainFence;
 
 export type VersionPreviewReceipt = Omit<PreviewSessionResult, "startOutcome"> & {
   versionId: string;
   startOutcome: PreviewSessionResult["startOutcome"] | "reused_url";
   bookkeepingRequired: boolean;
+  previewDeadlineEpochMs?: number;
 };
 
 export type EnsureVersionPreviewOutcome =
@@ -43,6 +46,11 @@ export async function ensureVersionPreview(
   input: EnsureVersionPreviewInput,
 ): Promise<EnsureVersionPreviewOutcome> {
   const { chat, version, policy, forceRestart } = input;
+  const deadlineExceeded = () => input.previewDeadlineEpochMs !== undefined && Date.now() >= input.previewDeadlineEpochMs;
+  const budgetStop = { ok: false, reason: "start_failed", error: {
+    stage: "preview-start", message: "Preview time budget exhausted",
+  } } as const;
+  if (deadlineExceeded()) return budgetStop;
   const strict = input.holderRunId !== undefined;
   const revision = version.files_revision?.trim() || null;
   if (strict && (!input.holderRunId?.trim() || !input.expectedFilesRevision?.trim() ||
@@ -55,6 +63,7 @@ export async function ensureVersionPreview(
   const previewUrl = version.preview_url?.trim();
   if (!forceRestart && previewUrl && isTier2LivePreviewUrl(previewUrl)) {
     const active = await getActivePreviewSessionAsync(chat.id);
+    if (deadlineExceeded()) return budgetStop;
     if (active?.versionId === version.id && active.previewUrl === previewUrl &&
         active.previewSessionId && (!revision || active.filesRevision === revision)) {
       try { incIngressEvent("preview_reused_url"); } catch {}
@@ -67,6 +76,7 @@ export async function ensureVersionPreview(
         lifecycleToken: active.lifecycleToken ?? null, filesRevision: revision ?? active.filesRevision ?? null,
         previewMode: "dev_only", fidelityTier: 2, startOutcome: "reused_url",
         runtimeReady: false, bookkeepingRequired: false,
+        ...(input.previewDeadlineEpochMs !== undefined ? { previewDeadlineEpochMs: input.previewDeadlineEpochMs } : {}),
       } };
     }
   }
@@ -81,6 +91,7 @@ export async function ensureVersionPreview(
     files = parseCodeFilesFromFilesJson(version.files_json) ?? [];
   }
   if (!files.length) return { ok: false, reason: "no_files" };
+  if (deadlineExceeded()) return budgetStop;
   const started = await startPreviewSession(files.map((file) => ({ ...file })), {
     chatId: chat.id,
     appProjectId: chat.project_id?.trim() || null,
@@ -94,7 +105,9 @@ export async function ensureVersionPreview(
       ? [...version.selected_dossier_env_keys] : undefined,
     skipRepair: true,
     skipProjectScaffold: true,
+    ...(input.previewDeadlineEpochMs !== undefined ? { previewDeadlineEpochMs: input.previewDeadlineEpochMs } : {}),
   });
+  if (deadlineExceeded()) return budgetStop;
   if (!started.ok) return { ok: false, reason: "start_failed", error: started.error };
   const result = started.result;
   if ((strict && result.filesRevision !== input.expectedFilesRevision) ||
@@ -109,6 +122,7 @@ export async function ensureVersionPreview(
     // Only HTTP compatibility may use its known snapshot when an old host omits revision.
     filesRevision: strict ? result.filesRevision : result.filesRevision ?? revision,
     bookkeepingRequired: true,
+    ...(input.previewDeadlineEpochMs !== undefined ? { previewDeadlineEpochMs: input.previewDeadlineEpochMs } : {}),
   } };
 }
 
@@ -117,6 +131,8 @@ export async function persistVersionPreviewOutcome(
   input: { receipt: Readonly<VersionPreviewReceipt> } & ChainFence,
 ): Promise<boolean> {
   const { receipt } = input;
+  const deadlineExceeded = () => receipt.previewDeadlineEpochMs !== undefined && Date.now() >= receipt.previewDeadlineEpochMs;
+  if (deadlineExceeded()) return false;
   const strict = input.holderRunId !== undefined;
   if (strict && (!input.holderRunId?.trim() || !input.expectedFilesRevision?.trim() ||
       receipt.filesRevision !== input.expectedFilesRevision)) return false;
@@ -132,6 +148,7 @@ export async function persistVersionPreviewOutcome(
     if (strict) return false;
   }
   if (receipt.runtimeReady) {
+    if (deadlineExceeded()) return false;
     await recordPreviewRuntimeOutcomeForVersion(receipt.versionId, true,
       receipt.filesRevision ? { bootedFilesRevision: receipt.filesRevision } : undefined);
   }

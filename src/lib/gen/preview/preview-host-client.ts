@@ -80,6 +80,18 @@ const STATUS_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.status;
 const VERIFY_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.verify;
 const CLEANUP_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.cleanup;
 
+function checkPreviewDeadline(deadlineEpochMs: number | undefined): void {
+  if (deadlineEpochMs !== undefined && Date.now() >= deadlineEpochMs) {
+    throw new Error("Preview time budget exhausted");
+  }
+}
+
+function previewRequestSignal(phaseCapMs: number, deadlineEpochMs?: number): AbortSignal {
+  const remainingMs = deadlineEpochMs === undefined ? phaseCapMs : deadlineEpochMs - Date.now();
+  if (remainingMs <= 0) throw new Error("Preview time budget exhausted");
+  return AbortSignal.timeout(Math.min(phaseCapMs, Math.max(1, Math.floor(remainingMs))));
+}
+
 /**
  * Resolve the effective abort timeout (ms) for a `/preview/verify` call.
  *
@@ -139,7 +151,7 @@ function previewSessionRefBody(params: {
   };
 }
 
-async function triggerPreviewHostCleanup(): Promise<boolean> {
+async function triggerPreviewHostCleanup(previewDeadlineEpochMs?: number): Promise<boolean> {
   const base = getPreviewHostBaseUrl();
   if (!base) return false;
   try {
@@ -148,7 +160,7 @@ async function triggerPreviewHostCleanup(): Promise<boolean> {
       headers: {
         ...previewHostAuthHeaders(),
       },
-      signal: AbortSignal.timeout(CLEANUP_TIMEOUT_MS),
+      signal: previewRequestSignal(CLEANUP_TIMEOUT_MS, previewDeadlineEpochMs),
     });
     return res.ok;
   } catch {
@@ -158,13 +170,15 @@ async function triggerPreviewHostCleanup(): Promise<boolean> {
 
 async function retryPreviewHostRequestAfterCleanup<T extends { ok: boolean; message?: string }>(
   execute: () => Promise<T>,
+  previewDeadlineEpochMs?: number,
 ): Promise<T> {
   const first = await execute();
   if (first.ok || !isPreviewHostDiskFullMessage(first.message)) {
     return first;
   }
-  const cleaned = await triggerPreviewHostCleanup();
-  if (!cleaned) {
+  if (previewDeadlineEpochMs !== undefined && Date.now() >= previewDeadlineEpochMs) return first;
+  const cleaned = await triggerPreviewHostCleanup(previewDeadlineEpochMs);
+  if (!cleaned || (previewDeadlineEpochMs !== undefined && Date.now() >= previewDeadlineEpochMs)) {
     return first;
   }
   return execute();
@@ -310,7 +324,7 @@ function readRegeneratedLockfileFromHostBody(
 
 export async function fetchPreviewHostStatus(
   previewSessionId: string,
-  opts?: { expectedVersionId?: string | null; expectedLifecycleToken?: string | null },
+  opts?: { expectedVersionId?: string | null; expectedLifecycleToken?: string | null; previewDeadlineEpochMs?: number },
 ): Promise<PreviewHostStatusResult | null> {
   const base = getPreviewHostBaseUrl();
   const id = previewSessionId.trim();
@@ -322,11 +336,12 @@ export async function fetchPreviewHostStatus(
         method: "GET",
         headers: { ...previewHostAuthHeaders() },
         cache: "no-store",
-        signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
+        signal: previewRequestSignal(STATUS_TIMEOUT_MS, opts?.previewDeadlineEpochMs),
       },
     );
     if (!res.ok) return null;
     const body = (await res.json()) as Record<string, unknown>;
+    checkPreviewDeadline(opts?.previewDeadlineEpochMs);
     if (body.ok !== true || body.running !== true) return null;
     const url = readPreviewUrlFromHostBody(body);
     const sid = readPreviewSessionIdFromHostBody(body);
@@ -507,6 +522,7 @@ export type PreviewHostFilesManifest = {
 
 export async function fetchPreviewHostFilesManifest(
   previewSessionId: string,
+  opts?: { previewDeadlineEpochMs?: number },
 ): Promise<PreviewHostFilesManifest | null> {
   const base = getPreviewHostBaseUrl();
   const id = previewSessionId.trim();
@@ -518,13 +534,14 @@ export async function fetchPreviewHostFilesManifest(
         method: "GET",
         headers: { ...previewHostAuthHeaders() },
         cache: "no-store",
-        signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
+        signal: previewRequestSignal(STATUS_TIMEOUT_MS, opts?.previewDeadlineEpochMs),
       },
     );
     // 404 also covers a preview-host deployed before this route existed, which
     // is exactly the "fall back to /update" case — no special handling needed.
     if (!res.ok) return null;
     const body = (await res.json()) as Record<string, unknown>;
+    checkPreviewDeadline(opts?.previewDeadlineEpochMs);
     if (body.ok !== true) return null;
     const sid = readPreviewSessionIdFromHostBody(body);
     if (!sid) return null;
@@ -682,6 +699,7 @@ export async function startPreviewHostSession(params: {
    */
   prewarm?: boolean;
   prewarmLeaseKey?: string;
+  previewDeadlineEpochMs?: number;
 }): Promise<PreviewHostStartOk | PreviewHostStartErr> {
   const base = getPreviewHostBaseUrl();
   if (!base) {
@@ -713,9 +731,10 @@ export async function startPreviewHostSession(params: {
           ...previewHostAuthHeaders(),
         },
         body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(START_TIMEOUT_MS),
+        signal: previewRequestSignal(START_TIMEOUT_MS, params.previewDeadlineEpochMs),
       });
       const responseBody = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      checkPreviewDeadline(params.previewDeadlineEpochMs);
       if (!res.ok) {
         const hostError =
           typeof responseBody.error === "string" ? responseBody.error.trim() : "";
@@ -763,7 +782,7 @@ export async function startPreviewHostSession(params: {
       const message = e instanceof Error ? e.message : "Preview host request failed";
       return { ok: false, message, retryable: true };
     }
-  });
+  }, params.previewDeadlineEpochMs);
 }
 
 /**
@@ -791,6 +810,7 @@ export async function updatePreviewHostSession(params: {
   lifecycleToken?: string | null;
   versionId: string;
   filesJson: Record<string, string>;
+  previewDeadlineEpochMs?: number;
 }): Promise<PreviewHostUpdateOk | PreviewHostUpdateErr> {
   const base = getPreviewHostBaseUrl();
   if (!base) {
@@ -822,9 +842,10 @@ export async function updatePreviewHostSession(params: {
           ...previewHostAuthHeaders(),
         },
         body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(START_TIMEOUT_MS),
+        signal: previewRequestSignal(START_TIMEOUT_MS, params.previewDeadlineEpochMs),
       });
       const responseBody = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      checkPreviewDeadline(params.previewDeadlineEpochMs);
       if (res.status === 404) {
         return {
           ok: false,
@@ -877,7 +898,7 @@ export async function updatePreviewHostSession(params: {
       const message = e instanceof Error ? e.message : "Preview host update failed";
       return { ok: false, message, retryable: true };
     }
-  });
+  }, params.previewDeadlineEpochMs);
 }
 
 /**
@@ -929,6 +950,7 @@ export async function patchPreviewHostSession(params: {
    * two concurrent quick edits cannot both merge into the same session.
    */
   expectedBaseVersionId?: string;
+  previewDeadlineEpochMs?: number;
 }): Promise<PreviewHostPatchOk | PreviewHostPatchErr> {
   const base = getPreviewHostBaseUrl();
   if (!base) {
@@ -960,9 +982,10 @@ export async function patchPreviewHostSession(params: {
           ...previewHostAuthHeaders(),
         },
         body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(START_TIMEOUT_MS),
+        signal: previewRequestSignal(START_TIMEOUT_MS, params.previewDeadlineEpochMs),
       });
       const responseBody = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      checkPreviewDeadline(params.previewDeadlineEpochMs);
       if (res.status === 404) {
         return {
           ok: false,
@@ -1036,7 +1059,7 @@ export async function patchPreviewHostSession(params: {
       const message = e instanceof Error ? e.message : "Preview host patch failed";
       return { ok: false, message, retryable: true };
     }
-  });
+  }, params.previewDeadlineEpochMs);
 }
 
 /**

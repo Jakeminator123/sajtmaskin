@@ -55,6 +55,7 @@ import { hashPreviewFileContent } from "./preview-patch-plan";
 import { startPreviewSession, tryPatchPreviewSession } from "./preview-session";
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   resetPreviewSessionStoreForTests();
   delete process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL;
@@ -68,6 +69,107 @@ afterEach(() => {
   buildCompleteProject.mockReset();
   logPreviewLifecycleTelemetry.mockReset();
   getStoredProjectEnvVarMap.mockClear();
+});
+
+describe("preview chain deadline and dedupe waiters", () => {
+  const files = [{ path: "app/page.tsx", content: "export default function Page(){return <main/>}", language: "tsx" as const }];
+  const options = { chatId: "deadline-chat", versionIdForSession: "new", skipProjectScaffold: true,
+    skipRepair: true, preparedEnvLocalContents: "", previewDeadlineEpochMs: 1_100 };
+  const started = { ok: true, previewSessionId: "session", previewUrl: "https://preview.example", lifecycleToken: "life",
+    startOutcome: "recreated", mutationRevision: 1 };
+  const seed = async (versionId = "old") => touchPreviewSessionAsync({ chatId: options.chatId, previewSessionId: "old-session",
+    previewUrl: "https://old.example", versionId, lifecycleToken: "old-life", tier2Provider: "preview_host" });
+  beforeEach(() => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+  });
+
+  it("expired entry neither starts nor tears down a session", async () => {
+    await seed();
+    vi.mocked(Date.now).mockReturnValue(1_100);
+    expect(await startPreviewSession(files, { ...options, forceRestart: true })).toMatchObject({ ok: false,
+      error: { stage: "preview-start", message: "Preview time budget exhausted" } });
+    expect(startPreviewHostSession).not.toHaveBeenCalled();
+    expect(destroyPreviewHostSession).not.toHaveBeenCalled();
+  });
+
+  it("passes the original deadline through resume/status and does not persist a late receipt or fallback", async () => {
+    await seed("new");
+    fetchPreviewHostStatus.mockImplementation(async () => {
+      vi.mocked(Date.now).mockReturnValue(1_100);
+      return { previewSessionId: "late-session", primaryUrl: "https://late.example", readinessState: "ready", httpReady: true };
+    });
+    expect(await startPreviewSession(files, options)).toMatchObject({ ok: false, error: { stage: "preview-start", message: "Preview time budget exhausted" } });
+    expect(fetchPreviewHostStatus).toHaveBeenCalledWith("old-session", expect.objectContaining({ previewDeadlineEpochMs: 1_100,
+      expectedVersionId: "new", expectedLifecycleToken: "old-life" }));
+    expect(getActivePreviewSession(options.chatId)?.previewSessionId).toBe("old-session");
+    expect(destroyPreviewHostSession).not.toHaveBeenCalled();
+    expect(startPreviewHostSession).not.toHaveBeenCalled();
+  });
+
+  it("manifest, patch, update and fresh fallback share the original deadline", async () => {
+    await seed("seed");
+    updatePreviewHostSession.mockResolvedValueOnce({ ...started, previewSessionId: "old-session", lifecycleToken: "old-life" });
+    await startPreviewSession(files, { ...options, versionIdForSession: "old", previewDeadlineEpochMs: undefined });
+    const livePayload = updatePreviewHostSession.mock.calls[0][0].filesJson as Record<string, string>;
+    const hashes = Object.fromEntries(Object.entries(livePayload).map(([path, content]) => [path, hashPreviewFileContent(content)]));
+    hashes["app/page.tsx"] = hashPreviewFileContent("old page");
+    updatePreviewHostSession.mockReset();
+    process.env.SAJTMASKIN_PREVIEW_PATCH_LANE = "true";
+    fetchPreviewHostFilesManifest.mockResolvedValue({ previewSessionId: "old-session", versionId: "old", running: true, files: hashes });
+    patchPreviewHostSession.mockImplementation(async () => { vi.mocked(Date.now).mockReturnValue(1_040); return { ok: false, message: "fallback" }; });
+    updatePreviewHostSession.mockImplementation(async () => { vi.mocked(Date.now).mockReturnValue(1_080); return { ok: false, message: "fallback" }; });
+    startPreviewHostSession.mockImplementation(async () => { vi.mocked(Date.now).mockReturnValue(1_100); return started; });
+    expect(await startPreviewSession(files, options)).toMatchObject({ ok: false, error: { stage: "preview-start", message: "Preview time budget exhausted" } });
+    expect(fetchPreviewHostFilesManifest).toHaveBeenCalledWith("old-session", { previewDeadlineEpochMs: 1_100 });
+    for (const request of [patchPreviewHostSession, updatePreviewHostSession, startPreviewHostSession]) {
+      expect(request).toHaveBeenCalledWith(expect.objectContaining({ previewDeadlineEpochMs: 1_100 }));
+    }
+    expect(getActivePreviewSession(options.chatId)?.previewSessionId).toBe("old-session");
+  });
+
+  it("update exhaustion prevents both pointer persistence and a fresh-start fallback", async () => {
+    await seed();
+    updatePreviewHostSession.mockImplementation(async () => { vi.mocked(Date.now).mockReturnValue(1_100); return started; });
+    expect(await startPreviewSession(files, options)).toMatchObject({ ok: false, error: { stage: "preview-start", message: "Preview time budget exhausted" } });
+    expect(getActivePreviewSession(options.chatId)?.previewSessionId).toBe("old-session");
+    expect(startPreviewHostSession).not.toHaveBeenCalled();
+  });
+
+  it("a shorter dedupe waiter times out without aborting or shortening the operation", async () => {
+    vi.restoreAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    let finish!: (value: typeof started) => void;
+    startPreviewHostSession.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const owner = startPreviewSession(files, { ...options, previewDeadlineEpochMs: 2_000 });
+    await vi.advanceTimersByTimeAsync(0);
+    const waiter = startPreviewSession(files, { ...options, previewDeadlineEpochMs: 1_050 });
+    await vi.advanceTimersByTimeAsync(50);
+    expect(await waiter).toMatchObject({ ok: false, error: { stage: "preview-start", message: "Preview time budget exhausted" } });
+    finish(started);
+    expect(await owner).toMatchObject({ ok: true });
+    expect(startPreviewHostSession).toHaveBeenCalledTimes(1);
+    expect(startPreviewHostSession).toHaveBeenCalledWith(expect.objectContaining({ previewDeadlineEpochMs: 2_000 }));
+    expect(getActivePreviewSession(options.chatId)?.previewSessionId).toBe("session");
+  });
+
+  it("a longer dedupe waiter cannot mint a new operation window after its owner's deadline", async () => {
+    vi.restoreAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    let finish!: (value: typeof started) => void;
+    startPreviewHostSession.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const owner = startPreviewSession(files, { ...options, previewDeadlineEpochMs: 1_050 });
+    await vi.advanceTimersByTimeAsync(0);
+    const waiter = startPreviewSession(files, { ...options, previewDeadlineEpochMs: 2_000 });
+    await vi.advanceTimersByTimeAsync(50);
+    expect(await owner).toMatchObject({ ok: false, error: { stage: "preview-start", message: "Preview time budget exhausted" } });
+    finish(started);
+    expect(await waiter).toMatchObject({ ok: false, error: { stage: "preview-start", message: "Preview time budget exhausted" } });
+    expect(startPreviewHostSession).toHaveBeenCalledTimes(1);
+    expect(getActivePreviewSession(options.chatId)).toBeNull();
+  });
 });
 
 describe("startPreviewSession update path", () => {
