@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 
 const execute = vi.hoisted(() => vi.fn());
 const dbConfigured = vi.hoisted(() => ({ value: true }));
@@ -18,6 +20,7 @@ import {
   getRunningProductPostcheckClaimForVersion,
   isProductPostcheckClaimExpired,
   isTakeoverEligibleProductPostcheckRow,
+  lookupProductPostcheckRun,
   mapProductPostcheckResultToStatus,
   normalizeProductPostcheckClaimKey,
   normalizeProductPostcheckLifecycleToken,
@@ -337,4 +340,88 @@ describe("getRunningProductPostcheckClaimForVersion", () => {
     dbConfigured.value = false;
     await expect(getRunningProductPostcheckClaimForVersion("v1")).resolves.toBeNull();
   });
+});
+
+describe("read-only product claim lookup", () => {
+  beforeEach(() => {
+    execute.mockReset();
+    dbConfigured.value = true;
+  });
+  const lookup = (key = KEY, chatId = "chat_1") => lookupProductPostcheckRun({ chatId, key });
+  const queries = () => execute.mock.calls.map(([statement]) => new PgDialect().sqlToQuery(statement as SQL));
+  const expectReadOnly = () => {
+    for (const query of queries()) {
+      expect(query.sql.trim()).toMatch(/^SELECT\b/i);
+      expect(query.sql).not.toMatch(/\b(?:INSERT|UPDATE|DELETE)\b/i);
+    }
+  };
+
+  it("returns the current busy run without creating or taking over any claim", async () => {
+    execute.mockResolvedValueOnce(existsProbe()).mockResolvedValueOnce({ rows: [row()] });
+    await expect(lookup()).resolves.toEqual({ kind: "busy", runId: "run_active", claimGeneration: 1, status: "running" });
+    expect(execute).toHaveBeenCalledTimes(2);
+    expectReadOnly();
+  });
+
+  it.each(["passed", "blocked", "failed"])("replays settled %s even after expiry, without renewing it", async (status) => {
+    execute.mockResolvedValueOnce(existsProbe()).mockResolvedValueOnce({ rows: [row({ status, expires_at: new Date(0) })] });
+    await expect(lookup()).resolves.toEqual({ kind: "settled", runId: "run_active", claimGeneration: 1, status });
+    expectReadOnly();
+  });
+
+  it.each(["running", "superseded", "expired"])("does not reclaim an expired/reclaimable %s row", async (status) => {
+    execute.mockResolvedValueOnce(existsProbe()).mockResolvedValueOnce({ rows: [row({ status, expires_at: new Date(0) })] });
+    await expect(lookup()).resolves.toEqual({ kind: "unclaimed" });
+    expectReadOnly();
+  });
+
+  it("keeps unknown status conservative rather than granting new work authority", async () => {
+    execute.mockResolvedValueOnce(existsProbe()).mockResolvedValueOnce({ rows: [row({ status: "unknown" })] });
+    await expect(lookup()).resolves.toMatchObject({ kind: "busy" });
+    expectReadOnly();
+  });
+
+  it.each([
+    { ...KEY, versionId: "other-version" }, { ...KEY, filesRevision: "other-revision" },
+    { ...KEY, previewSession: "other-session" }, { ...KEY, lifecycleToken: "other-lifecycle" },
+    { ...KEY, mutationRevision: 3 },
+  ])("queries the exact target tuple, and a mismatch (%j) remains unclaimed", async (key) => {
+    execute.mockResolvedValueOnce(existsProbe()).mockResolvedValueOnce({ rows: [] });
+    await expect(lookup(key)).resolves.toEqual({ kind: "unclaimed" });
+    expect(queries()[1].params).toEqual([
+      key.versionId, key.filesRevision, key.previewSession, key.lifecycleToken, key.mutationRevision, "chat_1",
+    ]);
+    expectReadOnly();
+  });
+
+  it("also scopes replay to the chat, not just the version/revision tuple", async () => {
+    execute.mockResolvedValueOnce(existsProbe()).mockResolvedValueOnce({ rows: [] });
+    await expect(lookup(KEY, "other-chat")).resolves.toEqual({ kind: "unclaimed" });
+    expect(queries()[1].sql).toContain("AND chat_id =");
+    expect(queries()[1].params.at(-1)).toBe("other-chat");
+    expectReadOnly();
+  });
+
+  it("fails closed on table absence and read errors", async () => {
+    execute.mockResolvedValueOnce({ rows: [{ oid: null }] });
+    await expect(lookup()).resolves.toEqual({ kind: "unavailable", reason: "missing" });
+    execute.mockResolvedValueOnce(existsProbe()).mockRejectedValueOnce(new Error("offline read failure"));
+    await expect(lookup()).resolves.toEqual({ kind: "unavailable", reason: "db_error" });
+    expectReadOnly();
+  });
+
+  it("never probes or writes when the DB is not configured", async () => {
+    dbConfigured.value = false;
+    await expect(lookup()).resolves.toEqual({ kind: "unavailable", reason: "not_configured" });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it.each([{ ...KEY, previewSession: "unbound" }, { ...KEY, filesRevision: " " }])(
+    "does not invent a claim for a malformed target (%j)", async (key) => {
+      execute.mockResolvedValueOnce(existsProbe());
+      await expect(lookup(key)).resolves.toEqual({ kind: "unavailable", reason: "db_error" });
+      expect(execute).toHaveBeenCalledTimes(1);
+      expectReadOnly();
+    },
+  );
 });

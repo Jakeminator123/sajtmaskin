@@ -291,5 +291,56 @@ verdict-test 5666458FCE7FA82B17F3D98964B291DDD68B69CCA0710218A50F9E8387B7E58E;
 post-checks 2EACA28E61C3E2B3A686D8340B52FD7D8DECABAF69DD498B21AFD9B6C92F419F;
 post-checks-test 9A2B73C2BAEE9CA0B2F26D259AE9A30EA5FEF452A756CB017750F198053586AA;
 resume 232CD99D4FAFAA62D430D498AA6F4B16E4DC4459BBA6F38EC97672CB35CED425.
-Ingen ny runtimeacceptans. C1.3c0 är fortsatt oapplicerad i väntan på direkt
-godkännande; avbrottets "fortsätt" ändrar inte säkerhetsstoppets mandatgräns.
+Ingen ny runtimeacceptans. C1.3cf är committad i dc7f14cc6a474708e29b8ab9694d4cbd91dd7b39.
+
+C1.3c0 nytt direkt användarmandat 2026-10-12: "Ja, godkänner att du inför
+LiveReview-skyddet lokalt. Behåll kostnadstaken och fortsätt med resten av
+städningen med 1, 2 och 3. Ingen push, aktivering eller live-DB-ändring."
+1 tilldelas på nytt samma tre produktägare och riktade tester från dc7f14cc6.
+Prioritera enkel befintlig reservation och ren read-only lookup, inte ett nytt
+kontrollramverk. 2 inventerar samtidigt återstående flytt/radering readonly;
+3 granskar fryst delta. En skrivare åt gången; inga verkliga modell-/DB-anrop.
+
+C1.3c0 lokalt klar: 111 unika tester i fem filer, typecheck, riktad lint,
+diff-check och plan --no-fetch PASS. Sex ändrade filer, produkt +106/test +328.
+3 granskar fryst delta; reservationen är ännu inte inkopplad i produkt-routen.
+SHA-prefix: live-review-runs 1DF4BFBD3F136E33; attempts-test 8E5B980AED505AF8;
+product-postcheck-runs 42C916110BEE067D; dess test 4E9EBBFC3807CF1B;
+live-review-session 4246C6AD0C7B7E99; dess test 48CB8F686151B3BF.
+
+C1.3im tilldelat 2: version-image-validation.ts + test och images/image-assets.ts
++ test. Befintlig owner får held-only förberedelse: rå snapshot → befintlig
+repairGeneratedFiles → befintlig Blob-motor → en holder/snapshot-CAS med
+invaliderad verifiering → bekräftad ny revision. Ingen ny fil/lease/ramverk;
+bildmotorn får endast avbrott/deadline, befintliga tak och gamla callers behålls.
+Import/followup/okänd lineage får inte muteras. Ingen route-/klientinkoppling ännu.
+Readonly fynd: /files GET gör idag både heal och Blob-persist utan detta skydd.
+Det raderas tillsammans med triggerImageMaterialization/kö/retry när servervägen
+kopplas in. Manuellt Spara använder också materialize=1; bevara funktionen eller
+lös dess uttryckliga beteendebeslut före borttagning. Export/deploy har egna
+befintliga owners och lämnas orörda. Ingen provider-/DB-körning i verifieringen.
+
+C1.3c0 slutreview 3: inga konkreta fynd; sex hashvärden oförändrade. Samma
+transaktion/låsordning, aktiv holder/revision, oförändrad cap/CAS/norefund och
+ren tuplebunden lookup verifierade i diffen. 111 testresultat återanvända;
+DB-mocks/SQL-inspektion är inte live-konkurrens. Lokal separat C0-checkpoint
+görs före c1; im:s fyra frysta WIP-filer lämnas utanför den.
+
+C1.3im resultat: 78 mockade tester, cachefri typecheck, lint/diff/plan PASS.
+Fyra ändrade filer netto +335; ingen GET/klientinkoppling ännu. prepareVersionImages
+bevarar import/followup/okänd lineage, no-op kontrollerar originalrevisionen.
+Avbrott stoppar nästa upload och revisionskvittens; påbörjad upload kan slutföras.
+SHA-prefix: kärna E3ACDB8CF4F64477; kärntest C25AEE81ACFAD6E4;
+image-assets E61A49E6473593BD; asset-test 252AD846A9ACB5A6. 3 granskar fryst delta.
+
+C1.3c1 scope godkänt av samordnaren: ny version-product-postcheck.ts med wrapper/
+held-core, product-route, error-log-route, version-errors, product-postcheck-runs,
+live-review-session, live-review-runs och live-review.ts, med direkt riktade tester.
+Auth/schema/rate-limit/HTTP stannar i routen. Purelookup före lease; nytt arbete
+tar versionslease → omläsning → productclaim. Befintlig formatterare används.
+Servern sparar canonical loggar och claim-completion i samma transaktion och
+attested client-POST läser bara redan lagrat resultat. Ersatta unheld-/splittrade
+vägar raderas när alla callers är flyttade. Befintlig live-review-owner måste
+respektera återstående deadline; inget åttasekundersgolv efter budgetslut.
+F2/F3/feature-disabled och kostnadstak bevaras. Ingen ny resultatdatabas,
+generiskt transaktionsramverk, faktisk modell-/DB-körning eller aktivering.

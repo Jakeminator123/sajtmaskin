@@ -1,7 +1,8 @@
-import { and, desc, eq, inArray, lt, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, lt, ne, or, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db, dbConfigured } from "@/lib/db/client";
-import { engineChats, engineVersions, liveReviewRuns } from "@/lib/db/schema";
+import { engineChats, engineVersionJobs, engineVersions, liveReviewRuns } from "@/lib/db/schema";
+import { LEASE_LOCK_TIMEOUT_MS, versionWriteWhere } from "@/lib/db/chat-repository/internal";
 import { deleteBlob } from "@/lib/vercel/blob-service";
 import {
   LIVE_REVIEW_CLAIM_LEASE_MS,
@@ -44,6 +45,21 @@ export type ClaimedLiveReview =
   | { kind: "cached"; result: LiveReviewResult; row: LiveReviewRunRow }
   | { kind: "in_flight"; row: LiveReviewRunRow }
   | { kind: "cost_capped"; result: LiveReviewResult; row: LiveReviewRunRow };
+
+/** Internal context from an existing versionslease, never a product/LR claim id. */
+export type LiveReviewHeldContext = {
+  chatId: string;
+  versionId: string;
+  filesRevision: string;
+  holderRunId: string;
+};
+
+export function isLiveReviewHeldContext(value: unknown): value is LiveReviewHeldContext {
+  if (!value || typeof value !== "object") return false;
+  const held = value as Partial<LiveReviewHeldContext>;
+  return [held.chatId, held.versionId, held.filesRevision, held.holderRunId]
+    .every((part) => typeof part === "string" && part.trim().length > 0);
+}
 
 async function selectRun(
   versionId: string,
@@ -243,30 +259,63 @@ export async function abandonLiveReviewRun(
 }
 
 /**
- * Reserve the paid critic slot only if this handler still owns the lease.
- * Returns null when another postcheck took over or the attempt cap is hit.
+ * Reserve under the LR claim CAS and cap. An explicit held context also binds
+ * the increment atomically to the active versionsholder and exact revision.
+ * Only callers that OMIT held retain the existing direct-call behavior.
  */
 export async function beginPaidLiveReviewAttempt(input: {
   id: string;
   claimedAt: Date;
+  held?: LiveReviewHeldContext;
 }): Promise<number | null> {
   if (!dbConfigured) return null;
   try {
-    const rows = await db
-      .update(liveReviewRuns)
-      .set({
-        modelAttempts: sql`${liveReviewRuns.modelAttempts} + 1`,
-      })
-      .where(
-        and(
+    const hasHeld = Object.prototype.hasOwnProperty.call(input, "held");
+    if (hasHeld && !isLiveReviewHeldContext(input.held)) return null;
+    const held = hasHeld ? input.held! : undefined;
+    const jobWhere = held ? and(
+      eq(engineVersionJobs.versionId, held.versionId),
+      eq(engineVersionJobs.runId, held.holderRunId),
+      eq(engineVersionJobs.status, "running"),
+      gt(engineVersionJobs.leaseExpiresAt, sql`clock_timestamp()`),
+    ) : undefined;
+    const reserve = async (writer: Pick<typeof db, "update">) => {
+      const rows = await writer
+        .update(liveReviewRuns)
+        .set({ modelAttempts: sql`${liveReviewRuns.modelAttempts} + 1` })
+        .where(and(
           eq(liveReviewRuns.id, input.id),
           eq(liveReviewRuns.status, "running"),
           eq(liveReviewRuns.claimedAt, input.claimedAt),
           lt(liveReviewRuns.modelAttempts, LIVE_REVIEW_MAX_MODEL_ATTEMPTS),
-        ),
-      )
-      .returning({ modelAttempts: liveReviewRuns.modelAttempts });
-    return rows[0]?.modelAttempts ?? null;
+          ...(held ? [
+            eq(liveReviewRuns.chatId, held.chatId),
+            eq(liveReviewRuns.versionId, held.versionId),
+            eq(liveReviewRuns.filesRevision, held.filesRevision),
+            sql`EXISTS (SELECT 1 FROM ${engineVersions} WHERE ${and(
+              versionWriteWhere(held.versionId, held.holderRunId),
+              eq(engineVersions.chatId, held.chatId),
+              eq(engineVersions.filesRevision, held.filesRevision),
+            )})`,
+            sql`EXISTS (SELECT 1 FROM ${engineVersionJobs} WHERE ${jobWhere})`,
+          ] : []),
+        ))
+        .returning({ modelAttempts: liveReviewRuns.modelAttempts });
+      return rows[0]?.modelAttempts ?? null;
+    };
+    if (!held) return await reserve(db);
+    return await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT set_config('lock_timeout', ${String(LEASE_LOCK_TIMEOUT_MS)}, true)`);
+      // Same order as acquireVersionLease / server-repair-budget. The final
+      // UPDATE rechecks expiry even if waiting for the LR row took time.
+      const versions = await tx.select({ chatId: engineVersions.chatId, filesRevision: engineVersions.filesRevision })
+        .from(engineVersions).where(eq(engineVersions.id, held.versionId)).for("update");
+      if (versions[0]?.chatId !== held.chatId || versions[0]?.filesRevision !== held.filesRevision) return null;
+      const jobs = await tx.select({ runId: engineVersionJobs.runId })
+        .from(engineVersionJobs).where(jobWhere).for("update");
+      if (jobs.length !== 1) return null;
+      return reserve(tx);
+    });
   } catch {
     return null;
   }

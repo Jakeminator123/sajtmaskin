@@ -7,9 +7,11 @@ import {
   completeLiveReviewRun,
   deleteLiveReviewScreenshotUrls,
   deletePreviousLiveReviewBlobs,
+  isLiveReviewHeldContext,
   purgeExpiredLiveReviewBlobs,
   waitForLiveReviewRun,
   type ClaimedLiveReview,
+  type LiveReviewHeldContext,
 } from "@/lib/db/services/live-review-runs";
 import {
   isLiveReviewAutoGrantEnabled,
@@ -42,6 +44,7 @@ export interface LiveReviewSession {
   versionId: string;
   filesRevision: string | null;
   userId: string;
+  held?: LiveReviewHeldContext;
 }
 
 export interface LiveReviewSessionDeps {
@@ -67,6 +70,7 @@ export async function beginLiveReviewSession(
     filesRevision: string | null | undefined;
     userId: string;
     grant?: LiveReviewGrantRecord | null;
+    held?: LiveReviewHeldContext;
   },
   deps: LiveReviewSessionDeps = {},
 ): Promise<LiveReviewSession> {
@@ -94,12 +98,20 @@ export async function beginLiveReviewSession(
     versionId: input.versionId,
     filesRevision: input.filesRevision?.trim() || null,
     userId: input.userId,
+    ...(Object.prototype.hasOwnProperty.call(input, "held") ? { held: input.held } : {}),
   };
   if (!access.allow) {
     return { ...base, earlyResult: skippedLiveReviewResult(access.reason) };
   }
   if (!base.filesRevision) {
     return { ...base, earlyResult: skippedLiveReviewResult("missing_revision") };
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "held") && (
+    !isLiveReviewHeldContext(input.held) ||
+    input.held.chatId !== base.chatId || input.held.versionId !== base.versionId ||
+    input.held.filesRevision !== base.filesRevision
+  )) {
+    return { ...base, earlyResult: skippedLiveReviewResult("preview_superseded") };
   }
 
   void (deps.purgeExpired ?? purgeExpiredLiveReviewBlobs)();
@@ -166,6 +178,15 @@ export async function finishLiveReviewSession(
     await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
     return skippedLiveReviewResult("preview_superseded");
   };
+  const hasHeld = Object.prototype.hasOwnProperty.call(session, "held");
+  if (hasHeld && (
+    !isLiveReviewHeldContext(session.held) ||
+    session.held.chatId !== session.chatId || session.held.versionId !== session.versionId ||
+    session.held.filesRevision !== session.filesRevision ||
+    session.held.chatId !== acquiredClaim.row.chatId ||
+    session.held.versionId !== acquiredClaim.row.versionId ||
+    session.held.filesRevision !== acquiredClaim.row.filesRevision
+  )) return discardSuperseded();
   if (!(await targetIsCurrent())) {
     const discarded = await discardSuperseded();
     if (acquiredClaim.row.modelAttempts === 0) {
@@ -187,6 +208,7 @@ export async function finishLiveReviewSession(
   const attempts = await (deps.beginPaidAttempt ?? beginPaidLiveReviewAttempt)({
     id: session.claim.row.id,
     claimedAt: session.claim.row.claimedAt,
+    ...(hasHeld ? { held: session.held } : {}),
   });
   if (attempts == null) {
     await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);

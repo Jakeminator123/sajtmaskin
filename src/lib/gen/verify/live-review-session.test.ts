@@ -5,7 +5,8 @@ vi.mock("@/lib/db/services/live-review-grants", () => ({
   readLiveReviewGrant: vi.fn(),
   writeLiveReviewGrant: vi.fn(),
 }));
-vi.mock("@/lib/db/services/live-review-runs", () => ({
+vi.mock("@/lib/db/services/live-review-runs", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/db/services/live-review-runs")>(),
   claimLiveReviewRun: vi.fn(),
   completeLiveReviewRun: vi.fn(),
   abandonLiveReviewRun: vi.fn(),
@@ -17,12 +18,13 @@ vi.mock("@/lib/db/services/live-review-runs", () => ({
 }));
 vi.mock("@/lib/config", () => ({ OPENCLAW: { editEnabled: true } }));
 
-import { skippedLiveReviewResult } from "./live-review-claim";
-import { beginLiveReviewSession, finishLiveReviewSession } from "./live-review-session";
-import type { ClaimedLiveReview } from "@/lib/db/services/live-review-runs";
+import { LIVE_REVIEW_MAX_MODEL_ATTEMPTS, skippedLiveReviewResult } from "./live-review-claim";
+import { beginLiveReviewSession, finishLiveReviewSession, type LiveReviewSession } from "./live-review-session";
+import type { ClaimedLiveReview, LiveReviewHeldContext } from "@/lib/db/services/live-review-runs";
 import type { LiveReviewResult } from "./live-review-types";
 
 const GRANT = { powersOn: true, granted: ["live_review"] as const };
+const HELD = { chatId: "chat_1", versionId: "v1", filesRevision: "rev_a", holderRunId: "holder_1" };
 type AcquiredLiveReview = Extract<ClaimedLiveReview, { kind: "acquired" }>;
 
 const completed: LiveReviewResult = {
@@ -66,6 +68,27 @@ function acquired(
 }
 
 describe("beginLiveReviewSession", () => {
+  it("preserves explicit held context for the later atomic model reservation", async () => {
+    const session = await beginLiveReviewSession({
+      chatId: "chat_1", versionId: "v1", filesRevision: "rev_a", userId: "user_1", grant: GRANT, held: HELD,
+    }, { flagEnabled: true, editEnabled: true, claimRun: async () => acquired(), purgeExpired: async () => 0 });
+    expect(session.held).toBe(HELD);
+    expect(session.captureEnabled).toBe(true);
+  });
+
+  it.each([undefined, null, {}, { ...HELD, holderRunId: " " }, { ...HELD, versionId: "other" }, { ...HELD, filesRevision: "rev_b" }])(
+    "rejects malformed/mismatched explicit held context (%j) before a claim or capture", async (held) => {
+      const claimRun = vi.fn();
+      const session = await beginLiveReviewSession({
+        chatId: "chat_1", versionId: "v1", filesRevision: "rev_a", userId: "user_1", grant: GRANT,
+        held: held as LiveReviewHeldContext,
+      }, { flagEnabled: true, editEnabled: true, claimRun });
+      expect(session.captureEnabled).toBe(false);
+      expect(session.earlyResult).toEqual(skippedLiveReviewResult("preview_superseded"));
+      expect(Object.prototype.hasOwnProperty.call(session, "held")).toBe(true);
+      expect(claimRun).not.toHaveBeenCalled();
+    },
+  );
   it("flagga av: ingen capture, ingen claim", async () => {
     const claimRun = vi.fn();
     const session = await beginLiveReviewSession(
@@ -227,6 +250,73 @@ describe("beginLiveReviewSession", () => {
 });
 
 describe("finishLiveReviewSession", () => {
+  const heldSession = (): LiveReviewSession => ({
+    captureEnabled: true, allowed: true, claim: acquired(), earlyResult: null,
+    chatId: HELD.chatId, versionId: HELD.versionId, filesRevision: HELD.filesRevision, userId: "user_1", held: HELD,
+  });
+  const heldInput = { skipped: false, findings: [], screenshots: null, domSummary: null,
+    filesJson: "[]", userRequest: "x", briefSummary: "" };
+
+  it("passes the exact versionsholder to reservation before starting the critic", async () => {
+    const session = heldSession();
+    const beginPaidAttempt = vi.fn(async () => 1);
+    const attachReview = vi.fn(async () => completed);
+    await expect(finishLiveReviewSession(session, heldInput, {
+      beginPaidAttempt, attachReview, completeRun: async () => true, deletePreviousBlobs: async () => 0,
+    })).resolves.toEqual(completed);
+    expect(beginPaidAttempt).toHaveBeenCalledWith({
+      id: session.claim!.row.id, claimedAt: session.claim!.row.claimedAt, held: HELD,
+    });
+    expect(beginPaidAttempt.mock.invocationCallOrder[0]).toBeLessThan(attachReview.mock.invocationCallOrder[0]);
+    expect(attachReview).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([undefined, null, {}, { ...HELD, holderRunId: "" }, { ...HELD, chatId: "other" }, { ...HELD, filesRevision: "rev_b" }])(
+    "never falls back to an unheld reservation for malformed explicit context (%j)", async (held) => {
+      const beginPaidAttempt = vi.fn(async () => 1);
+      const attachReview = vi.fn();
+      const abandonRun = vi.fn();
+      await expect(finishLiveReviewSession({ ...heldSession(), held: held as LiveReviewHeldContext }, heldInput, {
+        beginPaidAttempt, attachReview, abandonRun, deleteScreenshotUrls: async () => {},
+      })).resolves.toEqual(skippedLiveReviewResult("preview_superseded"));
+      expect(beginPaidAttempt).not.toHaveBeenCalled();
+      expect(attachReview).not.toHaveBeenCalled();
+      expect(abandonRun).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects a mismatched LR claim even when session and held target agree", async () => {
+    const beginPaidAttempt = vi.fn(async () => 1);
+    const attachReview = vi.fn();
+    await expect(finishLiveReviewSession({ ...heldSession(), claim: acquired({ row: { filesRevision: "rev_b" } }) }, heldInput, {
+      beginPaidAttempt, attachReview, deleteScreenshotUrls: async () => {},
+    })).resolves.toEqual(skippedLiveReviewResult("preview_superseded"));
+    expect(beginPaidAttempt).not.toHaveBeenCalled();
+    expect(attachReview).not.toHaveBeenCalled();
+  });
+
+  it("keeps the existing cap and does not buy a model for an already capped held claim", async () => {
+    const beginPaidAttempt = vi.fn();
+    const attachReview = vi.fn();
+    await expect(finishLiveReviewSession({ ...heldSession(), claim: acquired({ row: { modelAttempts: LIVE_REVIEW_MAX_MODEL_ATTEMPTS } }) }, heldInput, {
+      beginPaidAttempt, attachReview, completeRun: async () => true,
+    })).resolves.toEqual(skippedLiveReviewResult("cost_capped"));
+    expect(beginPaidAttempt).not.toHaveBeenCalled();
+    expect(attachReview).not.toHaveBeenCalled();
+  });
+
+  it("does not refund a held reservation when the critic subsequently returns a nonpaid skip", async () => {
+    const beginPaidAttempt = vi.fn(async () => 1);
+    const abandonRun = vi.fn();
+    const completeRun = vi.fn();
+    await expect(finishLiveReviewSession(heldSession(), { ...heldInput, skipped: true }, {
+      beginPaidAttempt, abandonRun, completeRun, deleteScreenshotUrls: async () => {},
+      attachReview: async () => skippedLiveReviewResult("postcheck_skipped"),
+    })).resolves.toEqual(skippedLiveReviewResult("postcheck_skipped"));
+    expect(beginPaidAttempt).toHaveBeenCalledTimes(1);
+    expect(abandonRun).not.toHaveBeenCalled();
+    expect(completeRun).not.toHaveBeenCalled();
+  });
   it("cache och cost-cap returnerar hydrerat resultat utan capture eller critic", async () => {
     const hydrated: LiveReviewResult = {
       ...completed,

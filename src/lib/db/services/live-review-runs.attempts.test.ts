@@ -10,14 +10,17 @@ const state = vi.hoisted(() => ({
   wheres: [] as unknown[],
   deletes: [] as unknown[],
   failUpdate: false,
+  guardSelected: [] as Array<Array<Record<string, unknown>>>,
+  guards: [] as unknown[],
+  lockOrder: [] as string[],
+  statements: [] as unknown[],
+  txWrites: 0,
+  failGuard: false,
+  failCommit: false,
 }));
 vi.mock("@/lib/vercel/blob-service", () => ({ deleteBlob: vi.fn() }));
-vi.mock("@/lib/db/client", () => ({
-  dbConfigured: true,
-  db: {
-    insert: () => ({ values: () => ({ onConflictDoNothing: () => ({ returning: async () => [] }) }) }),
-    select: () => ({ from: () => ({ where: () => ({ limit: async () => state.selected.shift() ?? [] }) }) }),
-    update: () => ({
+vi.mock("@/lib/db/client", () => {
+  const update = () => ({
       set: (value: Record<string, unknown>) => {
         state.sets.push(value);
         return { where: (condition: unknown) => {
@@ -28,13 +31,45 @@ vi.mock("@/lib/db/client", () => ({
           } };
         } };
       },
-    }),
-    delete: () => ({ where: async (condition: unknown) => { state.deletes.push(condition); } }),
-  },
-}));
+  });
+  return {
+    dbConfigured: true,
+    db: {
+      insert: () => ({ values: () => ({ onConflictDoNothing: () => ({ returning: async () => [] }) }) }),
+      select: () => ({ from: () => ({ where: () => ({ limit: async () => state.selected.shift() ?? [] }) }) }),
+      update,
+      delete: () => ({ where: async (condition: unknown) => { state.deletes.push(condition); } }),
+      transaction: async (run: (tx: unknown) => Promise<unknown>) => {
+        const result = await run({
+          execute: async (statement: unknown) => {
+            state.statements.push(statement);
+            if (state.failGuard) throw new Error("offline guard failure");
+          },
+          select: () => ({ from: (table: unknown) => ({ where: (condition: unknown) => ({
+            for: async (mode: string) => {
+              expect(mode).toBe("update");
+              state.lockOrder.push(table === engineVersions ? "version" : "job");
+              state.guards.push(condition);
+              return state.guardSelected.shift() ?? [];
+            },
+          }) }) }),
+          update: () => {
+            state.lockOrder.push("live-review");
+            state.txWrites += 1;
+            return update();
+          },
+        });
+        if (state.failCommit) throw new Error("offline commit failure");
+        return result;
+      },
+    },
+  };
+});
 
 import { abandonLiveReviewRun, beginPaidLiveReviewAttempt, claimLiveReviewRun, completeLiveReviewRun } from "./live-review-runs";
 import { LIVE_REVIEW_MAX_MODEL_ATTEMPTS, skippedLiveReviewResult } from "@/lib/gen/verify/live-review-claim";
+import { engineVersions } from "@/lib/db/schema";
+import { finishLiveReviewSession, type LiveReviewSession } from "@/lib/gen/verify/live-review-session";
 
 const compile = (value: unknown) => new PgDialect().sqlToQuery(value as SQL);
 const claimedAt = new Date("2020-01-01T00:00:00.000Z");
@@ -42,7 +77,123 @@ const claimedAt = new Date("2020-01-01T00:00:00.000Z");
 beforeEach(() => {
   state.selected = []; state.updated = []; state.sets = [];
   state.wheres = []; state.deletes = []; state.failUpdate = false;
+  state.guardSelected = []; state.guards = []; state.lockOrder = []; state.statements = [];
+  state.txWrites = 0; state.failGuard = false; state.failCommit = false;
   vi.spyOn(console, "warn").mockImplementation(() => {});
+});
+
+describe("LiveReview reservation under an existing versionsholder", () => {
+  const held = { chatId: "chat_1", versionId: "v1", filesRevision: "rev_a", holderRunId: "holder_1" };
+  const reserve = (context = held) => beginPaidLiveReviewAttempt({ id: "lr_1", claimedAt, held: context });
+  function currentTarget() {
+    state.guardSelected.push([{ chatId: held.chatId, filesRevision: held.filesRevision }], [{ runId: held.holderRunId }]);
+  }
+
+  it("locks version then job and increments in the same transaction with both SQL fences and the unchanged LR CAS/cap", async () => {
+    currentTarget();
+    state.updated.push([{ modelAttempts: 2 }]);
+    await expect(reserve()).resolves.toBe(2);
+    expect(state.lockOrder).toEqual(["version", "job", "live-review"]);
+    expect(state.txWrites).toBe(1);
+    expect(compile(state.statements[0]).sql).toContain("set_config('lock_timeout'");
+    const job = compile(state.guards[1]);
+    expect(job.params).toEqual([held.versionId, held.holderRunId, "running"]);
+    expect(job.sql).toContain('"lease_expires_at" > clock_timestamp()');
+    const increment = compile(state.wheres[0]);
+    expect(increment.sql).toContain('"live_review_runs"."claimed_at" =');
+    expect(increment.sql).toContain('"live_review_runs"."model_attempts" <');
+    expect(increment.params).toContain(LIVE_REVIEW_MAX_MODEL_ATTEMPTS);
+    expect(increment.sql).toContain('EXISTS (SELECT 1 FROM "engine_versions"');
+    expect(increment.sql).toContain('"engine_versions"."files_revision" =');
+    expect(increment.sql).toContain('EXISTS (SELECT 1 FROM "engine_version_jobs"');
+    expect(increment.sql).toContain('"lease_expires_at" > clock_timestamp()');
+    expect(increment.params).toContain(held.holderRunId);
+    expect(increment.params).toContain(held.filesRevision);
+    expect(compile(state.sets[0].modelAttempts).sql).toBe('"live_review_runs"."model_attempts" + 1');
+  });
+
+  it.each([
+    { reason: "unknown", versions: [] },
+    { reason: "chat-mismatched", versions: [{ chatId: "other", filesRevision: "rev_a" }] },
+    { reason: "replaced", versions: [{ chatId: "chat_1", filesRevision: "rev_b" }] },
+  ])(
+    "does not increment for a $reason version", async ({ versions }) => {
+      state.guardSelected.push(versions);
+      await expect(reserve()).resolves.toBeNull();
+      expect(state.txWrites).toBe(0);
+      expect(state.lockOrder).toEqual(["version"]);
+    },
+  );
+
+  it("does not increment when the holder query finds no active unexpired job", async () => {
+    state.guardSelected.push([{ chatId: "chat_1", filesRevision: "rev_a" }], []);
+    await expect(reserve()).resolves.toBeNull();
+    expect(state.txWrites).toBe(0);
+  });
+
+  it("also fails closed if expiry or LR takeover makes the final conditional increment miss", async () => {
+    currentTarget();
+    state.updated.push([]);
+    await expect(reserve()).resolves.toBeNull();
+    expect(state.txWrites).toBe(1);
+    expect(compile(state.wheres[0]).sql).toContain("clock_timestamp()");
+  });
+
+  it.each([undefined, null, {}, { ...held, holderRunId: " " }, { ...held, filesRevision: null }, { ...held, versionId: 4 }])(
+    "never degrades an explicitly malformed held context (%j) to a direct reservation", async (invalid) => {
+      state.updated.push([{ modelAttempts: 1 }]);
+      await expect(beginPaidLiveReviewAttempt({ id: "lr_1", claimedAt, held: invalid as typeof held })).resolves.toBeNull();
+      expect(state.sets).toEqual([]);
+      expect(state.statements).toEqual([]);
+    },
+  );
+
+  function session(): LiveReviewSession {
+    return {
+      captureEnabled: true, allowed: true, earlyResult: null, ...held, userId: "user_1", held,
+      claim: { kind: "acquired", row: {
+        id: "lr_1", chatId: held.chatId, versionId: held.versionId, filesRevision: held.filesRevision,
+        userId: "user_1", status: "running", skipReason: null, result: null, modelAttempts: 1,
+        desktopUrl: null, mobileUrl: null, desktopBlobPath: null, mobileBlobPath: null,
+        claimedAt, completedAt: null, expiresAt: new Date(),
+      } },
+    };
+  }
+
+  it.each(["takeover", "unknown-holder", "expired-holder", "revision", "guard-error", "update-error", "commit-error", "conditional-miss"])(
+    "stops before the model when %s occurs after target checking and before reservation", async (failure) => {
+      currentTarget();
+      state.updated.push([{ modelAttempts: 2 }]);
+      const attachReview = vi.fn();
+      const completeRun = vi.fn();
+      const abandonRun = vi.fn();
+      const deleteScreenshotUrls = vi.fn(async () => {});
+      const screenshots = { desktopUrl: "https://blob.example/own.jpg", mobileUrl: null };
+      const result = await finishLiveReviewSession(session(), {
+        skipped: false, findings: [], screenshots, domSummary: null, filesJson: "[]",
+        userRequest: "x", briefSummary: "",
+        isTargetCurrent: async () => {
+          if (["takeover", "unknown-holder", "expired-holder"].includes(failure)) state.guardSelected[1] = [];
+          if (failure === "revision") state.guardSelected[0] = [{ chatId: "chat_1", filesRevision: "rev_b" }];
+          if (failure === "guard-error") state.failGuard = true;
+          if (failure === "update-error") state.failUpdate = true;
+          if (failure === "commit-error") state.failCommit = true;
+          if (failure === "conditional-miss") state.updated[0] = [];
+          return true;
+        },
+      }, {
+        beginPaidAttempt: beginPaidLiveReviewAttempt,
+        attachReview, completeRun, abandonRun, deleteScreenshotUrls,
+        waitForRun: async () => skippedLiveReviewResult("claim_busy"),
+      });
+      expect(result).toEqual(skippedLiveReviewResult("claim_busy"));
+      expect(attachReview).not.toHaveBeenCalled();
+      expect(completeRun).not.toHaveBeenCalled();
+      expect(abandonRun).not.toHaveBeenCalled();
+      expect(state.deletes).toEqual([]);
+      expect(deleteScreenshotUrls).toHaveBeenCalledWith(screenshots);
+    },
+  );
 });
 afterEach(() => vi.restoreAllMocks());
 

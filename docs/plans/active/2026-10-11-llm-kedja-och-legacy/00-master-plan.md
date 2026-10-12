@@ -81,7 +81,7 @@ verifierad med READY och ACK för alla tre roller. Den befintliga chatten
 
 ## Körbord — samordnaren är enda redaktör
 
-**Aktuell skrivrätt: ingen arbetare. C1.3cf verifierad; nästa paket väntar mandat.**
+**Aktuell skrivrätt: 1, C1.3c1:s åtta produktägare och riktade tester efter lokal C0-checkpoint.**
 A2.2, B2.2 och C1.1 är lokalt klara och slutgranskade utan kvarvarande fynd.
 C1.2b är slutgranskat på `1c12697d…` + delta, utan kvarvarande fynd.
 286-resultatbasen återanvänds där oförändrad; senaste looprättningen har
@@ -100,20 +100,34 @@ C1.3b är lokalt klar: 71 riktade tester, typecheck utan cache, diff och
 verifieringsplan med --no-fetch PASS. 2 har släppt skrivfönstret; 3:s review av
 fem produktfiler och fem tester är utan fynd, tio hashvärden stabila.
 Produktnetto −2 rader efter borttagen extra slutrad, routes 481→205 rader.
-C1.3c0:s patch nekades av säkerhetsgranskningen: uttryckligt Jakob-mandat
-för just LiveReview-reservationsändringen efterfrågas. Ingenting applicerades;
-1 har släppt skrivfönstret. Samordnaren har ställt frågan i huvudchatten.
+C1.3c0:s tidigare patch nekades i väntan på direkt mandat; inget applicerades då.
+Jakob har nu uttryckligen godkänt lokal implementation av LiveReview-skyddet
+med bibehållna kostnadstak och fortsatt städning med 1, 2 och 3. Ingen push,
+aktivering eller live-DB-ändring. C1.3c0 är nu lokalt klar: 111 unika tester i
+fem filer, typecheck, riktad lint, diff och verifieringsplan PASS. 3:s slutreview
+har inga fynd, sex scopehashar stabila. Produktnetto +106, tester +328.
+Skyddet kopplas in via nästa produktkontrollspaket; inte runtimeacceptans.
 C1.3cf är lokalt klar och slutgranskad utan fynd: beteendeidentisk formatterflytt
 till befintlig serverneutral owner, direkta importer och nio textidentiska tester.
 126 riktade tester, typecheck utan cache, diff-check och verifieringsplan PASS.
 Fem scopehashar är oförändrade efter avbrottet och 3:s återupptagna slutreview.
 2 har släppt skrivfönstret. Netto +1 produktrad och +6 testrader; ingen ny ownerfil.
-Formatterflytten och dessa två planer sparas som separat lokal commit;
-läs aktuell Git HEAD vid återstart. Docs-länkar och uppdaterad plan/diff PASS.
+Formatterflytten och planerna är sparade i lokal commit
+`dc7f14cc6a474708e29b8ab9694d4cbd91dd7b39`; ren checkout verifierad vid återstart.
+Docs-länkar och uppdaterad plan/diff PASS.
 Git-åtkomstfelet efter avbrottet var sandboxrelaterat; readonly eskalering visade
 korrekt checkout/HEAD, exakt sju väntade WIP-filer och tomt index. Inget förlorat.
-Nästa skrivpaket C1.3c0 inväntar fortfarande direkt godkännande från Jakob;
-"fortsätt" efter avbrottet är inte godkännande av den nekade ändringen.
+Prioritera nu rak serverkedja och radering av ersatta klientvägar. Behåll
+befintliga skydd där de hör hemma, inga nya generiska kontrollager.
+C1.3im är lokalt klar: held-only heal/Blob-förberedelse i befintlig image-owner,
+en snapshot-CAS och ny revisionskvittens, valfri signal/deadline i bildmotorn.
+78 mockade tester, typecheck utan cache, lint/diff/plan PASS. 2 har släppt
+skrivrätten; fyra scopefiler fryses för 3:s review. /files GET och klientvägar
+raderas först vid inkoppling. Inget verkligt provider-/DB-bevis.
+Manuellt Spara materialiserar också idag; den följdytan får inte tappas tyst.
+C1.3c1 kopplar nu in LiveReview-skyddet: tunn produkt-route + gemensam serverkärna,
+en atomisk serverägd logg-/claim-completion, klientens attested POST blir replay.
+Ta bort ersatta unheld-reservationen, separata completion och deadlinegolvet.
 Ingen cron, aktivering, live-DB-ändring eller runtimeacceptans ännu.
 Lokal gren är `codex/llm-legacy-cleanup`.
 Samordnaren sparar granskade och verifierade uppgiftsfiler i lokal checkpoint
@@ -127,7 +141,7 @@ Rätt till en aktivitet är inte rätt att själv ta nästa.
 | A2 | [Gemensam kandidat och eval](aktiviteter/A2-projektkandidat-och-eval.md) | 1 | A1 | lokalt klar, 339 tester; slutlig review utan kvarvarande fynd |
 | B1 | [Legacy-rensning](aktiviteter/B1-legacy-rensning.md) | 2 | registrering | lokalt klar för säkra delen, review utan fynd |
 | B2 | [Ägare och dokumentation](aktiviteter/B2-agare-och-dokumentation.md) | 2 | berörda kodpaket | lokalt klar, netto −408 rader i B2.2; review utan fynd |
-| C1 | [Serverägd efterkontroll](aktiviteter/C1-serveragd-efterkontroll.md) | 1 + 2, granskning 3 | A1 + A2 | C1.1–3b committade; C1.3cf verifierad/review utan fynd; C1.3c0 väntar direkt godkännande |
+| C1 | [Serverägd efterkontroll](aktiviteter/C1-serveragd-efterkontroll.md) | 1 + 2, granskning 3 | A1 + A2 | C0 slutgranskad; im lokalt klar till review; c1 produktinkoppling till 1 |
 | D1 | [Integration och leverans](aktiviteter/D1-integration-och-leverans.md) | samordnare + 3 | föregående paket | lokal checkpoint för klara paket; slutlig integration/leverans återstår |
 
 Tilldelning: `PAKET <ID/del> | HEAD <sha> | skrivytor <paths> | mål <en mening>`.

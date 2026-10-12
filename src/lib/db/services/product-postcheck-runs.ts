@@ -70,6 +70,11 @@ type ClaimRow = {
   expires_at: Date | string;
 };
 
+/** Read-only hint. unclaimed never grants authority to create a new work claim. */
+export type ProductPostcheckRunLookup =
+  | Extract<ClaimedProductPostcheck, { kind: "busy" | "settled" | "unavailable" }>
+  | { kind: "unclaimed" };
+
 function asRows(result: unknown): ClaimRow[] {
   return (result as { rows?: ClaimRow[] } | undefined)?.rows ?? [];
 }
@@ -275,6 +280,7 @@ export async function getRunningProductPostcheckClaimForVersion(
 
 async function selectClaimRow(
   key: NormalizedProductPostcheckClaimKey,
+  chatId?: string,
 ): Promise<(ClaimRow & { expires_at: Date | string }) | null> {
   const result = await db.execute(sql`
     SELECT run_id, owner, claim_generation, status, expires_at
@@ -284,9 +290,38 @@ async function selectClaimRow(
       AND preview_session = ${key.previewSession}
       AND lifecycle_token = ${key.lifecycleToken}
       AND mutation_revision = ${key.mutationRevision}
+      ${chatId === undefined ? sql`` : sql`AND chat_id = ${chatId}`}
     LIMIT 1
   `);
   return asRows(result)[0] ?? null;
+}
+
+/** Peek only: wrappers can replay before acquiring the single versionslease. */
+export async function lookupProductPostcheckRun(input: {
+  chatId: string;
+  key: ProductPostcheckClaimKey;
+}): Promise<ProductPostcheckRunLookup> {
+  if (!dbConfigured) return { kind: "unavailable", reason: "not_configured" };
+  try {
+    const presence = await productPostcheckRunsTablePresence();
+    if (presence !== "exists") return { kind: "unavailable", reason: presence };
+    const key = normalizeProductPostcheckClaimKey(input.key);
+    if (!input.chatId.trim() || !key.versionId || !key.filesRevision || !key.previewSession || key.previewSession === "unbound") {
+      return { kind: "unavailable", reason: "db_error" };
+    }
+    const existing = await selectClaimRow(key, input.chatId);
+    if (!existing) return { kind: "unclaimed" };
+    const row = mapClaimRow(existing);
+    if (isSettledProductPostcheckStatus(row.status)) {
+      return { kind: "settled", runId: row.runId, claimGeneration: row.claimGeneration, status: row.status };
+    }
+    if (isTakeoverEligibleProductPostcheckRow({ status: row.status, expiresAt: existing.expires_at })) {
+      return { kind: "unclaimed" };
+    }
+    return { kind: "busy", runId: row.runId, claimGeneration: row.claimGeneration, status: row.status };
+  } catch {
+    return { kind: "unavailable", reason: "db_error" };
+  }
 }
 
 /**
