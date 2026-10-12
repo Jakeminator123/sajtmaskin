@@ -39,7 +39,7 @@ import { parseRetryAfterMs } from "@/lib/builder/preview-bootstrap-retry";
  * resume mirrors the tail of the normal lane (Codex P1+P2 rounds on #353):
  * `POST /validate-images` (auto-replacement of broken image URLs) →
  * `POST /product-postcheck` (emits `version.degraded` server-side for
- * skipped/blocked DOM checks AND its result is persisted to `/error-log` as
+ * skipped/blocked DOM checks AND stores its result server-side as
  * `product_postcheck.summary` — the row `PreviewPanelF3Trigger` reads to
  * block F3) → `POST /quality-gate`. A `productBlocked` result does NOT stop
  * the gate: normal-lane parity records it as a warning and still verifies,
@@ -443,18 +443,10 @@ async function fetchPreviewRuntimeStatus(params: {
 }
 
 /**
- * Best-effort mirror of the normal lane's product-postcheck step. A
- * network/parse failure returns `productBlocked:false` (same as the normal
- * lane, which continues to the verify lane when `runProductPostcheckApi`
- * yields null). Two truth surfaces are fed here (Codex P1 round 2 on #353):
- * the route emits `version.degraded` bus events, and the full result is
- * persisted to `/error-log` — including the `product_postcheck.summary` row
- * whose `meta.productBlocked` is what `PreviewPanelF3Trigger` reads (and
- * `/finalize-design` enforces server-side) to block F3. `blockerPersistFailed`
- * is true when the result was productBlocked but the log write could not be
- * verified — the caller must then HOLD the resume instead of promoting a
- * version whose blocker never reached the enforcement surface (Codex P1
- * round 4).
+ * Resume the normal lane's product step. Only the server stores product
+ * verdicts; this client consumes its revision-bound storage receipt or replays
+ * an attested stored result. Transport failures keep an ordinary diagnostic
+ * and HOLD. `blockerPersistFailed` also holds when durable proof is unconfirmed.
  */
 async function runResumeProductPostcheck(params: {
   chatId: string;
@@ -547,15 +539,15 @@ async function runResumeProductPostcheck(params: {
     });
     return { ...idle, persistFailed: !persisted, superseded: true };
   }
-  // Winner replay (L6 `activeRunId`) is report-state from the L2 domain
-  // (`readProductPostcheckVerdictForVersion` on the route). Persist the
-  // same rows the winner would have written so F3 never sees a missing
-  // summary as pass.
+  // Server results are already durable. Consume a bound receipt or perform
+  // compatibility replay; this lane never writes a Product Postcheck verdict.
   const persisted = await persistVersionErrorLogs({
     chatId: params.chatId,
     versionId: params.versionId,
     logs: buildProductPostcheckLogItems(data),
     productPostcheckAttestation: data?.attestation ?? null,
+    storageReceipt: data.storageReceipt,
+    expectedFilesRevision: params.filesRevision,
   });
   const verdict = verdictFromProductPostcheckResult(data);
   const productBlocked = verdict === "blocked";
@@ -782,7 +774,7 @@ export function useResumePendingVerification(params: {
 
         // Step 3 — product-postcheck, mirroring the normal lane order. The
         // route emits `version.degraded` server-side AND the result is
-        // persisted as `/error-log` rows (incl. `product_postcheck.summary`,
+        // stored server-side as log rows (incl. `product_postcheck.summary`,
         // the row the F3 trigger + /finalize-design enforce) so a resumed
         // promotion can never read as solid green without DOM verification
         // (Codex P1 rounds 1+2).

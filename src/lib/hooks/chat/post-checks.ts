@@ -46,8 +46,6 @@ import {
 } from "@/lib/gen/verify/product-postcheck-skip";
 import {
   buildProductPostcheckLogItems,
-  isUnattestedProductPostcheckVerdictWriteAllowed,
-  verdictFromProductPostcheckResult,
 } from "@/lib/gen/verify/product-postcheck-verdict";
 import { MAX_SCOPED_IMAGE_URLS } from "@/lib/utils/validate-images-limit";
 
@@ -141,15 +139,10 @@ function appendAbortedQualityGateCard(
 }
 
 /**
- * Exported for the resume-verify lane (`useResumePendingVerification`), which
- * mirrors this lane's tail and must persist the SAME log rows — notably the
- * `product_postcheck.summary` row that `PreviewPanelF3Trigger` reads to block
- * F3 on product-blocked versions (Codex P1 on #353).
- *
- * Returns whether the write verifiably succeeded (2xx). Both the generation
- * tail and the resume lane await this write before `/quality-gate`. When a
- * product-BLOCKER row could not be persisted the caller fail-closes
- * (`blockerPersistFailed`) and leaves the version pending (Codex P1 round 4).
+ * Shared by generation and resume. Writes ordinary diagnostics separately;
+ * product rows are never client-written. A bound server storage receipt or
+ * read-only attested replay confirms their existing durable result. A missing
+ * confirmation holds the caller before `/quality-gate`.
  *
  * **Retryar på 503 (spår B).** Routen degraderar medvetet till
  * `503 row_contention` + `Retry-After` när verify/lease håller `FOR UPDATE` på
@@ -164,34 +157,29 @@ export async function persistVersionErrorLogs(params: {
   versionId: string;
   logs: VersionErrorLogPayload[];
   productPostcheckAttestation?: ProductPostcheckAttestation | null;
+  storageReceipt?: ProductPostcheckResult["storageReceipt"] | null;
+  expectedFilesRevision?: string | null;
 }): Promise<boolean> {
-  const { chatId, versionId, logs, productPostcheckAttestation } = params;
+  const { chatId, versionId, logs, productPostcheckAttestation, storageReceipt, expectedFilesRevision } = params;
   if (!logs.length) return true;
   const url = `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`;
   const productPostcheckLogs = logs.filter((log) =>
     log.category?.startsWith("product_postcheck."),
   );
-  if (productPostcheckLogs.length > 0 && !productPostcheckAttestation) {
-    // `passed`/`blocked` still require the exact preview/revision tuple.
-    // Non-release verdicts (pending/superseded/indeterminate) may be written
-    // unattested. `allowed_skip` is unattested only for server-config
-    // `feature_disabled` — otherwise it is an F3-release domain.
-    if (isUnattestedProductPostcheckVerdictWriteAllowed(productPostcheckLogs)) {
-      return postErrorLogBatch(url, logs, null);
-    }
-    // Fail closed client-side as well as in the route: a Product Postcheck row
-    // without its exact preview/revision tuple is never valid. The REST of the
-    // batch is not lifecycle-scoped though — preflight/sanity/image diagnostics
-    // used to be dropped with it, which is how a run could end up with no trace
-    // at all in `engine_version_error_logs`. Persist those unattested and still
-    // report failure for the rows we refused.
-    const plainLogs = logs.filter(
-      (log) => !log.category?.startsWith("product_postcheck."),
-    );
-    if (plainLogs.length > 0) await postErrorLogBatch(url, plainLogs, null);
-    return false;
+  const plainLogs = logs.filter(log => !log.category?.startsWith("product_postcheck."));
+  // Ordinary diagnostics are independent of the product's server receipt.
+  // Never put them in the attested compatibility-replay request.
+  const diagnosticsStored = plainLogs.length ? await postErrorLogBatch(url, plainLogs, null) : true;
+  if (!productPostcheckLogs.length) return diagnosticsStored;
+  if (storageReceipt?.status === "stored" && storageReceipt.versionId === versionId &&
+      typeof storageReceipt.filesRevision === "string" && storageReceipt.filesRevision.trim() &&
+      (!expectedFilesRevision || storageReceipt.filesRevision === expectedFilesRevision) &&
+      (!productPostcheckAttestation || storageReceipt.filesRevision === productPostcheckAttestation.filesRevision)) {
+    return diagnosticsStored; // Acknowledge the server write; send no product payload.
   }
-  return postErrorLogBatch(url, logs, productPostcheckAttestation ?? null);
+  if (!productPostcheckAttestation) return false;
+  const productStored = await postErrorLogBatch(url, [], productPostcheckAttestation);
+  return diagnosticsStored && productStored;
 }
 
 async function postErrorLogBatch(
@@ -691,6 +679,8 @@ export async function runPostGenerationChecks(params: {
       versionId,
       logs: [...artifacts.logItems, ...buildProductPostcheckLogItems(productPostcheck)],
       productPostcheckAttestation: productPostcheck?.attestation ?? null,
+      storageReceipt: productPostcheck?.storageReceipt,
+      expectedFilesRevision: filesRevision,
     });
     completionPersistence = Promise.resolve(persisted);
     productPostcheckPersistenceScheduled = true;
@@ -870,6 +860,7 @@ export async function runPostGenerationChecks(params: {
             : buildProductPostcheckLogItems(productPostcheckResult ?? null)),
         ],
         productPostcheckAttestation: productPostcheckResult?.attestation ?? null,
+        storageReceipt: productPostcheckResult?.storageReceipt,
       });
       appendToolPartToMessage(setMessages, assistantMessageId, {
         type: "tool:post-check",

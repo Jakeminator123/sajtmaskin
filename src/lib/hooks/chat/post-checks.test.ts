@@ -10,6 +10,7 @@ vi.mock("@/lib/gen/validation/project-sanity", () => ({
 import {
   abortPostChecksForChat,
   hasActivePostCheck,
+  persistVersionErrorLogs,
   productPostcheckResultFromUnavailableHttp,
   runPostGenerationChecks,
 } from "./post-checks";
@@ -42,7 +43,7 @@ function featureDisabledProductPostcheckResponse() {
   return jsonResponse({
     ok: true,
     skipped: true,
-    skippedReason: "feature_disabled",
+    skippedReason: "feature_disabled", storageReceipt: { status: "stored", versionId: "ver_1", filesRevision: "rev_n" },
     warnings: [],
     productBlocked: false,
   });
@@ -220,7 +221,7 @@ describe("runPostGenerationChecks", () => {
         if (url.includes("/product-postcheck")) {
           return jsonResponse({
             skipped: true,
-            skippedReason: "feature_disabled",
+            skippedReason: "feature_disabled", storageReceipt: { status: "stored", versionId: "ver_1", filesRevision: "rev_n" },
             warnings: [],
           });
         }
@@ -715,7 +716,7 @@ describe("runPostGenerationChecks", () => {
         if (url.includes("/product-postcheck")) {
           return jsonResponse({
             skipped: true,
-            skippedReason: "feature_disabled",
+            skippedReason: "feature_disabled", storageReceipt: { status: "stored", versionId: "ver_1", filesRevision: "rev_n" },
             warnings: [],
           });
         }
@@ -1520,7 +1521,7 @@ describe("runPostGenerationChecks", () => {
           return jsonResponse({ files });
         }
         if (url.includes("/product-postcheck")) {
-          return jsonResponse({ ok: true, skipped: true, skippedReason: "feature_disabled" });
+          return jsonResponse({ ok: true, skipped: true, skippedReason: "feature_disabled", storageReceipt: { status: "stored", versionId: "ver_1", filesRevision: "rev_n" } });
         }
         if (url.includes("/quality-gate")) {
           return jsonResponse({
@@ -2241,23 +2242,15 @@ describe("runPostGenerationChecks", () => {
     const errorLogBody = JSON.parse(String(errorLogCall?.init?.body ?? "{}")) as {
       logs?: Array<{ category?: string; meta?: { verdict?: string } }>;
     };
-    expect(errorLogBody.logs).toEqual([
-      expect.objectContaining({
-        category: "product_postcheck.summary",
-        meta: expect.objectContaining({
-          verdict: "allowed_skip",
-          skippedReason: "feature_disabled",
-        }),
-      }),
-    ]);
+    expect(errorLogCall).toBeUndefined();
     expect(
-      errorLogBody.logs?.some((log) => log.category?.toLowerCase().includes("seo")),
+      (errorLogBody.logs ?? []).some((log) => log.category?.toLowerCase().includes("seo")),
     ).toBe(false);
 
     expect(onAutoFix).not.toHaveBeenCalled();
   });
 
-  it("persists Product Postcheck blockers as product_postcheck logs and output", async () => {
+  it("replays server-stored Product Postcheck blockers and preserves their output", async () => {
     const onAutoFix = vi.fn();
     const store = createMessageStore();
     const files = buildHealthyFiles();
@@ -2316,18 +2309,10 @@ describe("runPostGenerationChecks", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     const errorLogCall = fetchCalls.find((call) => call.url.includes("/error-log"));
-    const body = JSON.parse(String(errorLogCall?.init?.body ?? "{}")) as {
-      logs?: Array<{ category?: string; meta?: Record<string, unknown> }>;
-    };
-    expect(body.logs?.map((log) => log.category)).toEqual(
-      expect.arrayContaining(["product_postcheck.summary", "product_postcheck.mobile_menu_failed"]),
-    );
-    expect(body.logs?.find((log) => log.category === "product_postcheck.summary")?.meta).toEqual(
-      expect.objectContaining({ productBlocked: true, verdict: "blocked" }),
-    );
-    expect(body.logs?.find((log) => log.category === "product_postcheck.mobile_menu_failed")?.meta).toEqual(
-      expect.objectContaining({ code: "mobile_menu_failed" }),
-    );
+    expect(JSON.parse(String(errorLogCall?.init?.body ?? "{}"))).toEqual({
+      logs: [],
+      productPostcheckAttestation: CURRENT_POSTCHECK_ATTESTATION,
+    });
     const postCheck = getToolPart("Post-check", store);
     expect(((postCheck?.output as { summary?: { productBlocked?: boolean } }).summary)?.productBlocked).toBe(true);
     expect((postCheck?.output as { productPostcheck?: { productBlocked?: boolean } }).productPostcheck?.productBlocked).toBe(true);
@@ -3167,15 +3152,64 @@ describe("runPostGenerationChecks", () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    const errorLogCall = fetchCalls.find((call) => call.url.includes("/error-log"));
-    const body = JSON.parse(String(errorLogCall?.init?.body ?? "{}")) as {
-      logs?: Array<{ category?: string; meta?: Record<string, unknown> }>;
-    };
-    expect(body.logs?.find((log) => log.category === "product_postcheck.skipped")?.meta).toEqual(
-      expect.objectContaining({ skippedReason: "missing_preview_url" }),
-    );
+    const errorLogBodies = fetchCalls.filter((call) => call.url.includes("/error-log"))
+      .map(call => JSON.parse(String(call.init?.body)) as { logs: Array<{ category: string }>; productPostcheckAttestation?: unknown });
+    expect(errorLogBodies).toHaveLength(2);
+    expect(errorLogBodies[0].logs.map(log => log.category)).toEqual(["preview", "quality-gate"]);
+    expect(errorLogBodies[0].productPostcheckAttestation).toBeUndefined();
+    expect(errorLogBodies[1]).toEqual({ logs: [], productPostcheckAttestation: CURRENT_POSTCHECK_ATTESTATION });
     // Befintlig readiness-logik kan fortfarande köa autofix för "preview saknas".
-    // Product Postcheck ska däremot fail-open och bara lägga en skipped-logg.
+    // Klienten återspelar bara serverns redan sparade skipped-resultat.
+  });
+});
+
+describe("persistVersionErrorLogs server receipts", () => {
+  const product = { level: "info" as const, message: "Stored server result", category: "product_postcheck.summary", meta: { verdict: "allowed_skip" } };
+  const diagnostic = { level: "warning" as const, category: "image_validation", message: "Broken image" };
+  const storageReceipt = { status: "stored" as const, versionId: "ver_1", filesRevision: "rev_n" };
+
+  beforeEach(() => vi.unstubAllGlobals());
+
+  it("accepts a revision-bound feature-OFF receipt without posting product rows", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await persistVersionErrorLogs({ chatId: "chat_1", versionId: "ver_1", logs: [product], storageReceipt, expectedFilesRevision: "rev_n" })).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("preserves ordinary diagnostics separately from a stored product receipt", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await persistVersionErrorLogs({ chatId: "chat_1", versionId: "ver_1", logs: [diagnostic, product], storageReceipt, expectedFilesRevision: "rev_n" })).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ logs: [diagnostic] });
+  });
+
+  it("separates mixed diagnostics from attested read-only replay", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await persistVersionErrorLogs({ chatId: "chat_1", versionId: "ver_1", logs: [diagnostic, product], productPostcheckAttestation: CURRENT_POSTCHECK_ATTESTATION })).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ logs: [diagnostic] });
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({ logs: [], productPostcheckAttestation: CURRENT_POSTCHECK_ATTESTATION });
+  });
+
+  it.each([
+    { ...storageReceipt, versionId: "another_version" },
+    { ...storageReceipt, filesRevision: "forged_revision" },
+  ])("rejects a receipt for another version or revision", async (receipt) => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await persistVersionErrorLogs({ chatId: "chat_1", versionId: "ver_1", logs: [product], storageReceipt: receipt, expectedFilesRevision: "rev_n" })).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps diagnostics but refuses an unattested product write without a receipt", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await persistVersionErrorLogs({ chatId: "chat_1", versionId: "ver_1", logs: [diagnostic, product] })).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ logs: [diagnostic] });
   });
 });
 

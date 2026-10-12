@@ -72,6 +72,8 @@ import { engineVersions } from "@/lib/db/schema";
 import { finishLiveReviewSession, type LiveReviewSession } from "@/lib/gen/verify/live-review-session";
 
 const compile = (value: unknown) => new PgDialect().sqlToQuery(value as SQL);
+const HELD = { chatId: "chat_1", versionId: "v1", filesRevision: "rev_a", holderRunId: "holder_1" };
+const FUTURE = Date.now() + 900_000;
 const claimedAt = new Date("2020-01-01T00:00:00.000Z");
 
 beforeEach(() => {
@@ -84,7 +86,7 @@ beforeEach(() => {
 
 describe("LiveReview reservation under an existing versionsholder", () => {
   const held = { chatId: "chat_1", versionId: "v1", filesRevision: "rev_a", holderRunId: "holder_1" };
-  const reserve = (context = held) => beginPaidLiveReviewAttempt({ id: "lr_1", claimedAt, held: context });
+  const reserve = (context = held) => beginPaidLiveReviewAttempt({deadlineAt: FUTURE,  id: "lr_1", claimedAt, held: context });
   function currentTarget() {
     state.guardSelected.push([{ chatId: held.chatId, filesRevision: held.filesRevision }], [{ runId: held.holderRunId }]);
   }
@@ -139,10 +141,22 @@ describe("LiveReview reservation under an existing versionsholder", () => {
     expect(compile(state.wheres[0]).sql).toContain("clock_timestamp()");
   });
 
+  it.each([0, NaN, Infinity])("invalid/exhausted deadline %s cannot reserve", async deadlineAt => {
+    currentTarget();
+    await expect(beginPaidLiveReviewAttempt({ id: "lr_1", claimedAt, held, deadlineAt })).resolves.toBeNull();
+    expect(state.statements).toEqual([]); expect(state.sets).toEqual([]);
+  });
+
+  it("an old caller omitting held is denied rather than buying unheld work", async () => {
+    const input = { id: "lr_1", claimedAt, deadlineAt: FUTURE } as Parameters<typeof beginPaidLiveReviewAttempt>[0];
+    await expect(beginPaidLiveReviewAttempt(input)).resolves.toBeNull();
+    expect(state.statements).toEqual([]); expect(state.sets).toEqual([]);
+  });
+
   it.each([undefined, null, {}, { ...held, holderRunId: " " }, { ...held, filesRevision: null }, { ...held, versionId: 4 }])(
     "never degrades an explicitly malformed held context (%j) to a direct reservation", async (invalid) => {
       state.updated.push([{ modelAttempts: 1 }]);
-      await expect(beginPaidLiveReviewAttempt({ id: "lr_1", claimedAt, held: invalid as typeof held })).resolves.toBeNull();
+      await expect(beginPaidLiveReviewAttempt({deadlineAt: FUTURE,  id: "lr_1", claimedAt, held: invalid as typeof held })).resolves.toBeNull();
       expect(state.sets).toEqual([]);
       expect(state.statements).toEqual([]);
     },
@@ -150,6 +164,7 @@ describe("LiveReview reservation under an existing versionsholder", () => {
 
   function session(): LiveReviewSession {
     return {
+        deadlineAt: FUTURE,
       captureEnabled: true, allowed: true, earlyResult: null, ...held, userId: "user_1", held,
       claim: { kind: "acquired", row: {
         id: "lr_1", chatId: held.chatId, versionId: held.versionId, filesRevision: held.filesRevision,
@@ -224,8 +239,10 @@ describe("durable LiveReview attempt guards", () => {
   });
 
   it("reserves by an atomic increment fenced by owner, running status and the existing cap", async () => {
+    state.guardSelected.push([{ chatId: HELD.chatId, filesRevision: HELD.filesRevision }], [{ runId: HELD.holderRunId }]);
     state.updated.push([{ modelAttempts: 2 }]);
-    await expect(beginPaidLiveReviewAttempt({ id: "lr_1", claimedAt })).resolves.toBe(2);
+    await expect(beginPaidLiveReviewAttempt({
+        held: HELD, deadlineAt: FUTURE,  id: "lr_1", claimedAt })).resolves.toBe(2);
     expect(compile(state.sets[0]?.modelAttempts).sql).toBe('"live_review_runs"."model_attempts" + 1');
     const condition = compile(state.wheres[0]);
     expect(condition.sql).toContain('"claimed_at" = $3');
@@ -236,8 +253,10 @@ describe("durable LiveReview attempt guards", () => {
   });
 
   it.each([false, true])("returns no reservation on a lost/capped claim or write failure (%s)", async (failUpdate) => {
+    state.guardSelected.push([{ chatId: HELD.chatId, filesRevision: HELD.filesRevision }], [{ runId: HELD.holderRunId }]);
     state.failUpdate = failUpdate;
-    await expect(beginPaidLiveReviewAttempt({ id: "lr_1", claimedAt })).resolves.toBeNull();
+    await expect(beginPaidLiveReviewAttempt({
+        held: HELD, deadlineAt: FUTURE,  id: "lr_1", claimedAt })).resolves.toBeNull();
   });
 
   it("takes over an expired lease without resetting its reserved attempt count", async () => {

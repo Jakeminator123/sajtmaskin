@@ -23,6 +23,7 @@ import { beginLiveReviewSession, finishLiveReviewSession, type LiveReviewSession
 import type { ClaimedLiveReview, LiveReviewHeldContext } from "@/lib/db/services/live-review-runs";
 import type { LiveReviewResult } from "./live-review-types";
 
+const FUTURE = Date.now() + 900_000;
 const GRANT = { powersOn: true, granted: ["live_review"] as const };
 const HELD = { chatId: "chat_1", versionId: "v1", filesRevision: "rev_a", holderRunId: "holder_1" };
 type AcquiredLiveReview = Extract<ClaimedLiveReview, { kind: "acquired" }>;
@@ -70,6 +71,7 @@ function acquired(
 describe("beginLiveReviewSession", () => {
   it("preserves explicit held context for the later atomic model reservation", async () => {
     const session = await beginLiveReviewSession({
+        deadlineAt: FUTURE,
       chatId: "chat_1", versionId: "v1", filesRevision: "rev_a", userId: "user_1", grant: GRANT, held: HELD,
     }, { flagEnabled: true, editEnabled: true, claimRun: async () => acquired(), purgeExpired: async () => 0 });
     expect(session.held).toBe(HELD);
@@ -80,6 +82,7 @@ describe("beginLiveReviewSession", () => {
     "rejects malformed/mismatched explicit held context (%j) before a claim or capture", async (held) => {
       const claimRun = vi.fn();
       const session = await beginLiveReviewSession({
+        deadlineAt: FUTURE,
         chatId: "chat_1", versionId: "v1", filesRevision: "rev_a", userId: "user_1", grant: GRANT,
         held: held as LiveReviewHeldContext,
       }, { flagEnabled: true, editEnabled: true, claimRun });
@@ -93,6 +96,7 @@ describe("beginLiveReviewSession", () => {
     const claimRun = vi.fn();
     const session = await beginLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         chatId: "chat_1",
         versionId: "v1",
         filesRevision: "rev_a",
@@ -111,6 +115,7 @@ describe("beginLiveReviewSession", () => {
     const claimRun = vi.fn();
     const session = await beginLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         chatId: "chat_1",
         versionId: "v1",
         filesRevision: "rev_a",
@@ -129,6 +134,7 @@ describe("beginLiveReviewSession", () => {
     const readGrant = vi.fn();
     const session = await beginLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         chatId: "chat_1",
         versionId: "v1",
         filesRevision: "rev_a",
@@ -152,6 +158,7 @@ describe("beginLiveReviewSession", () => {
   it("förfalskad grant i request räknas inte — bara persistad grant", async () => {
     const session = await beginLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         chatId: "chat_1",
         versionId: "v1",
         filesRevision: "rev_a",
@@ -166,6 +173,7 @@ describe("beginLiveReviewSession", () => {
   it("OC_EDIT av: edit_off även med persistad grant", async () => {
     const session = await beginLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         chatId: "chat_1",
         versionId: "v1",
         filesRevision: "rev_a",
@@ -181,6 +189,7 @@ describe("beginLiveReviewSession", () => {
     const claimRun = vi.fn();
     const session = await beginLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         chatId: "chat_1",
         versionId: "v1",
         filesRevision: "  ",
@@ -196,6 +205,7 @@ describe("beginLiveReviewSession", () => {
   it("cache och in-flight stänger av ny capture", async () => {
     const cached = await beginLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         chatId: "chat_1",
         versionId: "v1",
         filesRevision: "rev_a",
@@ -213,6 +223,7 @@ describe("beginLiveReviewSession", () => {
 
     const busy = await beginLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         chatId: "chat_1",
         versionId: "v1",
         filesRevision: "rev_a",
@@ -236,6 +247,7 @@ describe("beginLiveReviewSession", () => {
     });
     const session = await beginLiveReviewSession(
       {
+        held: { ...HELD, filesRevision: "rev_b" }, deadlineAt: FUTURE,
         chatId: "chat_1",
         versionId: "v1",
         filesRevision: "rev_b",
@@ -251,6 +263,7 @@ describe("beginLiveReviewSession", () => {
 
 describe("finishLiveReviewSession", () => {
   const heldSession = (): LiveReviewSession => ({
+        deadlineAt: FUTURE,
     captureEnabled: true, allowed: true, claim: acquired(), earlyResult: null,
     chatId: HELD.chatId, versionId: HELD.versionId, filesRevision: HELD.filesRevision, userId: "user_1", held: HELD,
   });
@@ -265,7 +278,7 @@ describe("finishLiveReviewSession", () => {
       beginPaidAttempt, attachReview, completeRun: async () => true, deletePreviousBlobs: async () => 0,
     })).resolves.toEqual(completed);
     expect(beginPaidAttempt).toHaveBeenCalledWith({
-      id: session.claim!.row.id, claimedAt: session.claim!.row.claimedAt, held: HELD,
+      id: session.claim!.row.id, claimedAt: session.claim!.row.claimedAt, held: HELD, deadlineAt: FUTURE,
     });
     expect(beginPaidAttempt.mock.invocationCallOrder[0]).toBeLessThan(attachReview.mock.invocationCallOrder[0]);
     expect(attachReview).toHaveBeenCalledTimes(1);
@@ -330,6 +343,7 @@ describe("finishLiveReviewSession", () => {
       const attachReview = vi.fn();
       const session = await beginLiveReviewSession(
         {
+        held: HELD, deadlineAt: FUTURE,
           chatId: "chat_1",
           versionId: "v1",
           filesRevision: "rev_a",
@@ -368,6 +382,7 @@ describe("finishLiveReviewSession", () => {
     const waitForRun = vi.fn(async () => completed);
     const result = await finishLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         captureEnabled: false,
         allowed: true,
         claim: { kind: "in_flight", row: acquired().row },
@@ -399,9 +414,10 @@ describe("finishLiveReviewSession", () => {
     const beginPaidAttempt = vi.fn(async () => 1);
     const result = await finishLiveReviewSession(
       {
+        held: { ...HELD, filesRevision: "rev_b" }, deadlineAt: FUTURE,
         captureEnabled: true,
         allowed: true,
-        claim: acquired(),
+        claim: acquired({ row: { filesRevision: "rev_b" } }),
         earlyResult: null,
         chatId: "chat_1",
         versionId: "v1",
@@ -452,6 +468,7 @@ describe("finishLiveReviewSession", () => {
 
     const finishingN = finishLiveReviewSession(
       {
+        held: { ...HELD, filesRevision: "rev_n" }, deadlineAt: FUTURE,
         captureEnabled: true,
         allowed: true,
         claim: acquired({ row: { filesRevision: "rev_n" } }),
@@ -510,6 +527,7 @@ describe("finishLiveReviewSession", () => {
 
     const result = await finishLiveReviewSession(
       {
+        held: { ...HELD, filesRevision: "rev_n" }, deadlineAt: FUTURE,
         captureEnabled: true,
         allowed: true,
         claim: acquired({ row: { filesRevision: "rev_n" } }),
@@ -548,9 +566,10 @@ describe("finishLiveReviewSession", () => {
     const deleteScreenshotUrls = vi.fn(async () => {});
     const result = await finishLiveReviewSession(
       {
+        held: { ...HELD, filesRevision: "rev_b" }, deadlineAt: FUTURE,
         captureEnabled: true,
         allowed: true,
-        claim: acquired(),
+        claim: acquired({ row: { filesRevision: "rev_b" } }),
         earlyResult: null,
         chatId: "chat_1",
         versionId: "v1",
@@ -593,9 +612,10 @@ describe("finishLiveReviewSession", () => {
     };
     const result = await finishLiveReviewSession(
       {
+        held: { ...HELD, filesRevision: "rev_b" }, deadlineAt: FUTURE,
         captureEnabled: true,
         allowed: true,
-        claim: acquired(),
+        claim: acquired({ row: { filesRevision: "rev_b" } }),
         earlyResult: null,
         chatId: "chat_1",
         versionId: "v1",
@@ -630,6 +650,7 @@ describe("finishLiveReviewSession", () => {
     const screenshots = { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null };
     const result = await finishLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         captureEnabled: true,
         allowed: true,
         claim: acquired(),
@@ -669,6 +690,7 @@ describe("LiveReview reservation survives handler restart", () => {
     domSummary: null, filesJson: "[]", userRequest: "x", briefSummary: "",
   };
   const session = (modelAttempts: number) => ({
+        held: HELD, deadlineAt: FUTURE,
     captureEnabled: true, allowed: true, claim: acquired({ row: { modelAttempts } }),
     earlyResult: null, chatId: "chat_1", versionId: "v1", filesRevision: "rev_a", userId: "user_1",
   });

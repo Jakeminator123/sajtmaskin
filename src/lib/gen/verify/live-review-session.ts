@@ -19,8 +19,7 @@ import {
   resolveLiveReviewAccess,
   type LiveReviewGrantRecord,
 } from "@/lib/openclaw/live-review-access";
-import { LIVE_REVIEW_MAX_MODEL_ATTEMPTS } from "./live-review-claim";
-import { skippedLiveReviewResult } from "./live-review-claim";
+import { LIVE_REVIEW_CLAIM_WAIT_MS, LIVE_REVIEW_MAX_MODEL_ATTEMPTS, skippedLiveReviewResult } from "./live-review-claim";
 import { maybeAttachLiveReview } from "./live-review";
 import type {
   LiveReviewResult,
@@ -44,7 +43,8 @@ export interface LiveReviewSession {
   versionId: string;
   filesRevision: string | null;
   userId: string;
-  held?: LiveReviewHeldContext;
+  held: LiveReviewHeldContext;
+  deadlineAt: number;
 }
 
 export interface LiveReviewSessionDeps {
@@ -70,7 +70,8 @@ export async function beginLiveReviewSession(
     filesRevision: string | null | undefined;
     userId: string;
     grant?: LiveReviewGrantRecord | null;
-    held?: LiveReviewHeldContext;
+    held: LiveReviewHeldContext;
+    deadlineAt: number;
   },
   deps: LiveReviewSessionDeps = {},
 ): Promise<LiveReviewSession> {
@@ -98,7 +99,8 @@ export async function beginLiveReviewSession(
     versionId: input.versionId,
     filesRevision: input.filesRevision?.trim() || null,
     userId: input.userId,
-    ...(Object.prototype.hasOwnProperty.call(input, "held") ? { held: input.held } : {}),
+    held: input.held,
+    deadlineAt: input.deadlineAt,
   };
   if (!access.allow) {
     return { ...base, earlyResult: skippedLiveReviewResult(access.reason) };
@@ -106,11 +108,12 @@ export async function beginLiveReviewSession(
   if (!base.filesRevision) {
     return { ...base, earlyResult: skippedLiveReviewResult("missing_revision") };
   }
-  if (Object.prototype.hasOwnProperty.call(input, "held") && (
+  if (
     !isLiveReviewHeldContext(input.held) ||
     input.held.chatId !== base.chatId || input.held.versionId !== base.versionId ||
-    input.held.filesRevision !== base.filesRevision
-  )) {
+    input.held.filesRevision !== base.filesRevision ||
+    !Number.isFinite(input.deadlineAt) || Date.now() >= input.deadlineAt
+  ) {
     return { ...base, earlyResult: skippedLiveReviewResult("preview_superseded") };
   }
 
@@ -164,6 +167,7 @@ export async function finishLiveReviewSession(
     return (deps.waitForRun ?? waitForLiveReviewRun)({
       versionId: session.versionId,
       filesRevision: session.filesRevision,
+      timeoutMs: Number.isFinite(session.deadlineAt) ? Math.max(0, Math.min(LIVE_REVIEW_CLAIM_WAIT_MS, session.deadlineAt - Date.now())) : 0,
     });
   }
 
@@ -173,20 +177,20 @@ export async function finishLiveReviewSession(
 
   const acquiredClaim = session.claim;
   const targetIsCurrent = async () =>
-    input.isTargetCurrent ? input.isTargetCurrent().catch(() => false) : true;
+    Number.isFinite(session.deadlineAt) && Date.now() < session.deadlineAt &&
+    (input.isTargetCurrent ? input.isTargetCurrent().catch(() => false) : true);
   const discardSuperseded = async () => {
     await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
     return skippedLiveReviewResult("preview_superseded");
   };
-  const hasHeld = Object.prototype.hasOwnProperty.call(session, "held");
-  if (hasHeld && (
+  if (
     !isLiveReviewHeldContext(session.held) ||
     session.held.chatId !== session.chatId || session.held.versionId !== session.versionId ||
     session.held.filesRevision !== session.filesRevision ||
     session.held.chatId !== acquiredClaim.row.chatId ||
     session.held.versionId !== acquiredClaim.row.versionId ||
     session.held.filesRevision !== acquiredClaim.row.filesRevision
-  )) return discardSuperseded();
+  ) return discardSuperseded();
   if (!(await targetIsCurrent())) {
     const discarded = await discardSuperseded();
     if (acquiredClaim.row.modelAttempts === 0) {
@@ -208,7 +212,8 @@ export async function finishLiveReviewSession(
   const attempts = await (deps.beginPaidAttempt ?? beginPaidLiveReviewAttempt)({
     id: session.claim.row.id,
     claimedAt: session.claim.row.claimedAt,
-    ...(hasHeld ? { held: session.held } : {}),
+    held: session.held,
+    deadlineAt: session.deadlineAt,
   });
   if (attempts == null) {
     await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
@@ -216,6 +221,7 @@ export async function finishLiveReviewSession(
       return (deps.waitForRun ?? waitForLiveReviewRun)({
         versionId: session.versionId,
         filesRevision: session.filesRevision,
+        timeoutMs: Number.isFinite(session.deadlineAt) ? Math.max(0, Math.min(LIVE_REVIEW_CLAIM_WAIT_MS, session.deadlineAt - Date.now())) : 0,
       });
     }
     return skippedLiveReviewResult("claim_busy");
@@ -236,6 +242,8 @@ export async function finishLiveReviewSession(
     userRequestSource: input.userRequestSource,
     briefSummary: input.briefSummary,
     filesRevision: session.filesRevision,
+    deadlineAt: session.deadlineAt,
+    isTargetCurrent: targetIsCurrent,
   });
 
   // The critic may be slow enough for N+1 to commit while N is in flight.

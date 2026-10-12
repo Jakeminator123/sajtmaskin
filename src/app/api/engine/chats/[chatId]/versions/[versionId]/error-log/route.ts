@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import {
-  createAttestedProductPostcheckErrorLogs,
   createEngineVersionErrorLogs,
   getEngineVersionErrorLogs,
   SERVER_REPAIR_BUDGET_LOG_CATEGORY,
@@ -12,7 +11,7 @@ import {
   isProductPostcheckAttestation,
   type ProductPostcheckAttestation,
 } from "@/lib/gen/verify/product-postcheck";
-import { isUnattestedProductPostcheckVerdictWriteAllowed } from "@/lib/gen/verify/product-postcheck-verdict";
+import { lookupProductPostcheckRun, normalizeProductPostcheckMutationRevision } from "@/lib/db/services/product-postcheck-runs";
 
 type RouteParams = { params: Promise<{ chatId: string; versionId: string }> };
 
@@ -118,9 +117,8 @@ export async function POST(request: Request, ctx: RouteParams) {
           { status: 400 },
         );
       }
-      // Re-read both authorities immediately before the all-or-nothing batch
-      // insert. A response for N cannot write PASS/blocker rows after N+1 has
-      // replaced either the DB revision or the active preview lifecycle.
+      // Re-read both authorities before replay. An old N receipt may not
+      // return current release proof after revision or preview lifecycle N+1.
       const [latestScopedVersion, activeSession] = await Promise.all([
         getEngineVersionForChatByIdForRequest(request, chatId, versionId),
         getActivePreviewSessionAsync(chatId),
@@ -139,49 +137,33 @@ export async function POST(request: Request, ctx: RouteParams) {
         );
       }
 
+      // Compatibility replay only. Ignore all client-supplied log/message/meta.
       const attestation = body.productPostcheckAttestation;
-      const attestationMeta = {
-        attestedPreviewSessionId: attestation.previewSessionId.trim(),
-        attestedLifecycleToken: attestation.lifecycleToken?.trim() || null,
-        attestedFilesRevision: attestation.filesRevision.trim(),
-      };
-      const result = await createAttestedProductPostcheckErrorLogs(
-        body.logs.map((log) => ({
-          chatId: internalChatId,
-          versionId: internalVersionId,
-          level: log.level,
-          category: log.category || null,
-          message: log.message,
-          meta: { ...(log.meta || {}), ...attestationMeta },
-        })),
-        {
-          expectedFilesRevision: attestationMeta.attestedFilesRevision,
-          lockTimeoutMs: ERROR_LOG_LOCK_TIMEOUT_MS,
-        },
-      );
-      if (result.status === "superseded") {
-        return NextResponse.json(
-          { success: false, stored: false, code: "product_postcheck_superseded" },
-          { status: 409 },
-        );
-      }
-      if (result.status === "contention") return errorLogContentionResponse();
-      return NextResponse.json({ success: true, stored: true, logs: result.logs });
+      const claim = await lookupProductPostcheckRun({ chatId: internalChatId, key: {
+        versionId: internalVersionId, filesRevision: attestation.filesRevision.trim(),
+        previewSession: attestation.previewSessionId.trim(), lifecycleToken: attestation.lifecycleToken,
+        mutationRevision: normalizeProductPostcheckMutationRevision(activeSession?.mutationRevision),
+      } });
+      if (claim.kind === "unavailable" || claim.kind === "busy") return errorLogContentionResponse();
+      if (claim.kind !== "settled") return NextResponse.json(
+        { success: false, stored: false, code: "product_postcheck_not_stored" }, { status: 409 });
+      const logs = (await getEngineVersionErrorLogs(internalVersionId)).filter(log => {
+        const meta = log.meta && typeof log.meta === "object" ? log.meta as Record<string, unknown> : null;
+        return isProductPostcheckCategory(log.category) && meta?.verificationRunId === claim.runId &&
+          meta?.attestedFilesRevision === attestation.filesRevision.trim() &&
+          meta?.attestedPreviewSessionId === attestation.previewSessionId.trim() &&
+          (meta?.attestedLifecycleToken ?? null) === (attestation.lifecycleToken?.trim() || null);
+      });
+      if (!logs.length) return NextResponse.json(
+        { success: false, stored: false, code: "product_postcheck_not_stored" }, { status: 409 });
+      return NextResponse.json({ success: true, stored: true, logs });
     }
 
     if ("logs" in body && Array.isArray(body.logs)) {
-      // Product Postcheck observations are lifecycle/revision-scoped. Existing
-      // unattested rows remain readable for backwards compatibility, but every
-      // new Product Postcheck write must use the attested all-or-nothing path
-      // above. Otherwise an old client could publish a false PASS after N+1.
+      // Product results have exactly one server writer. Generic diagnostics
+      // remain writable, but a client can never create a release-domain row.
       if (body.logs.some((log) => isProductPostcheckCategory(log.category))) {
-        // L2: `pending`/`indeterminate`/`superseded` may be stored without a
-        // preview tuple. `allowed_skip` is an F3-release domain: unattested
-        // only when `skippedReason` is server-config `feature_disabled`.
-        // Infra skips and `passed`/`blocked` still require the preview tuple.
-        if (!isUnattestedProductPostcheckVerdictWriteAllowed(body.logs)) {
-          return productPostcheckAttestationRequiredResponse();
-        }
+        return productPostcheckAttestationRequiredResponse();
       }
       const requestedCount = body.logs.length;
       const rows = await createEngineVersionErrorLogs(

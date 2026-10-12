@@ -16,7 +16,6 @@ vi.mock("@/lib/db/client", () => ({
 
 import {
   claimProductPostcheckRun,
-  completeProductPostcheckRun,
   getRunningProductPostcheckClaimForVersion,
   isProductPostcheckClaimExpired,
   isTakeoverEligibleProductPostcheckRow,
@@ -278,37 +277,6 @@ describe("claimProductPostcheckRun", () => {
       status: "failed",
     });
     expect(execute).toHaveBeenCalledTimes(3);
-  });
-});
-
-describe("completeProductPostcheckRun CAS", () => {
-  beforeEach(() => {
-    execute.mockReset();
-    dbConfigured.value = true;
-  });
-
-  it("(e) gammal ägares completion efter takeover → CAS-miss, no-op", async () => {
-    execute.mockResolvedValueOnce({ rows: [] });
-    expect(
-      await completeProductPostcheckRun({
-        runId: "run_old",
-        claimGeneration: 1,
-        status: "passed",
-      }),
-    ).toBe(false);
-  });
-
-  it("(f) completion med rätt generation skriver", async () => {
-    execute.mockResolvedValueOnce({
-      rows: [row({ run_id: "run_mine", claim_generation: 2, status: "passed" })],
-    });
-    expect(
-      await completeProductPostcheckRun({
-        runId: "run_mine",
-        claimGeneration: 2,
-        status: "passed",
-      }),
-    ).toBe(true);
   });
 });
 

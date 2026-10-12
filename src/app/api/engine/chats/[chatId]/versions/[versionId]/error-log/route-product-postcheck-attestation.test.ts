@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getActivePreviewSessionAsync = vi.hoisted(() => vi.fn());
-const createAttestedProductPostcheckErrorLogs = vi.hoisted(() => vi.fn());
+const lookupProductPostcheckRun = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/db/services/product-postcheck-runs", () => ({ lookupProductPostcheckRun, normalizeProductPostcheckMutationRevision: () => 0 }));
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const getEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 
@@ -16,7 +17,6 @@ vi.mock("@/lib/gen/preview/session-store", () => ({
 
 vi.mock("@/lib/db/services/version-errors", () => ({
   SERVER_REPAIR_BUDGET_LOG_CATEGORY: "server-repair:budget",
-  createAttestedProductPostcheckErrorLogs,
   createEngineVersionErrorLogs,
   getEngineVersionErrorLogs,
 }));
@@ -77,15 +77,14 @@ describe("POST product-postcheck-attested error log", () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ stored: false, code: "server_repair_budget_server_owned" });
     expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
-    expect(createAttestedProductPostcheckErrorLogs).not.toHaveBeenCalled();
     expect(getActivePreviewSessionAsync).not.toHaveBeenCalled();
   });
   beforeEach(() => {
     vi.clearAllMocks();
-    createAttestedProductPostcheckErrorLogs.mockResolvedValue({
-      status: "stored",
-      logs: [{ id: "log_1" }],
-    });
+    lookupProductPostcheckRun.mockResolvedValue({ kind: "settled", runId: "server_n", claimGeneration: 1, status: "passed" });
+    getEngineVersionErrorLogs.mockResolvedValue([{ id: "log_1", category: "product_postcheck.summary",
+      message: "Server verdict", meta: { verificationRunId: "server_n", attestedFilesRevision: "rev_n",
+        attestedPreviewSessionId: "ps_n", attestedLifecycleToken: "life_n", verdict: "passed" } }]);
     createEngineVersionErrorLogs.mockResolvedValue([{ id: "log_1" }]);
   });
 
@@ -124,10 +123,9 @@ describe("POST product-postcheck-attested error log", () => {
       }),
     );
     expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
-    expect(createAttestedProductPostcheckErrorLogs).not.toHaveBeenCalled();
   });
 
-  it("returns 409 when the locked DB revision supersedes the pre-check", async () => {
+  it("returns 409 when no server-owned result has been committed", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat_1" },
       version: { id: "v1", files_revision: "rev_n" },
@@ -138,10 +136,7 @@ describe("POST product-postcheck-attested error log", () => {
       versionId: "v1",
       filesRevision: "rev_n",
     });
-    createAttestedProductPostcheckErrorLogs.mockResolvedValue({
-      status: "superseded",
-      logs: [],
-    });
+    lookupProductPostcheckRun.mockResolvedValue({ kind: "unclaimed" });
 
     const response = await POST(
       request({
@@ -154,12 +149,12 @@ describe("POST product-postcheck-attested error log", () => {
 
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual(
-      expect.objectContaining({ stored: false, code: "product_postcheck_superseded" }),
+      expect.objectContaining({ stored: false, code: "product_postcheck_not_stored" }),
     );
     expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
   });
 
-  it("returns retryable 503 when the version row is contended", async () => {
+  it("returns retryable 503 while the server claim is busy", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat_1" },
       version: { id: "v1", files_revision: "rev_n" },
@@ -170,10 +165,7 @@ describe("POST product-postcheck-attested error log", () => {
       versionId: "v1",
       filesRevision: "rev_n",
     });
-    createAttestedProductPostcheckErrorLogs.mockResolvedValue({
-      status: "contention",
-      logs: [],
-    });
+    lookupProductPostcheckRun.mockResolvedValue({ kind: "busy", runId: "server_n", claimGeneration: 1, status: "running" });
 
     const response = await POST(
       request({
@@ -188,7 +180,7 @@ describe("POST product-postcheck-attested error log", () => {
     expect(response.headers.get("Retry-After")).toBe("3");
   });
 
-  it("stores a stable tokenless legacy attestation", async () => {
+  it("replays a stable tokenless server result without trusting the client pass", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat_1" },
       version: { id: "v1", files_revision: "rev_legacy" },
@@ -200,6 +192,9 @@ describe("POST product-postcheck-attested error log", () => {
       filesRevision: "rev_legacy",
     });
 
+    getEngineVersionErrorLogs.mockResolvedValue([{ id: "server_block", category: "product_postcheck.summary",
+      message: "Server blocker", meta: { verificationRunId: "server_n", attestedFilesRevision: "rev_legacy",
+        attestedPreviewSessionId: "ps_legacy", attestedLifecycleToken: null, verdict: "blocked", productBlocked: true } }]);
     const response = await POST(
       request({
         previewSessionId: "ps_legacy",
@@ -210,18 +205,7 @@ describe("POST product-postcheck-attested error log", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(createAttestedProductPostcheckErrorLogs).toHaveBeenCalledTimes(1);
-    const [rows, options] = createAttestedProductPostcheckErrorLogs.mock.calls[0]!;
-    expect(rows[0].meta).toEqual(
-      expect.objectContaining({
-        attestedPreviewSessionId: "ps_legacy",
-        attestedLifecycleToken: null,
-        attestedFilesRevision: "rev_legacy",
-      }),
-    );
-    expect(options).toEqual(
-      expect.objectContaining({ expectedFilesRevision: "rev_legacy" }),
-    );
+    expect(await response.json()).toMatchObject({ stored: true, logs: [{ message: "Server blocker" }] });
     expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
   });
 
@@ -252,10 +236,20 @@ describe("POST product-postcheck-attested error log", () => {
       }),
     );
     expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
-    expect(createAttestedProductPostcheckErrorLogs).not.toHaveBeenCalled();
   });
 
-  it("stores an unattested non-release verdict (pending/superseded)", async () => {
+  it("rejects forged feature_disabled and arbitrary revision without changing the stored blocker", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({ chat: { id: "chat_1" }, version: { id: "v1", files_revision: "rev_n" } });
+    getEngineVersionErrorLogs.mockResolvedValue([{ category: "product_postcheck.summary", meta: { verdict: "blocked", attestedFilesRevision: "rev_n" } }]);
+    const response = await POST(unattestedRequest({ logs: [{ level: "info", category: "product_postcheck.summary", message: "forged policy skip",
+      meta: { verdict: "allowed_skip", skippedReason: "feature_disabled", filesRevision: "forged_newer" } }] }), ctx);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ stored: false, code: "product_postcheck_attestation_required" });
+    expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
+    expect(lookupProductPostcheckRun).not.toHaveBeenCalled();
+  });
+
+  it("rejects even unattested non-release product verdicts", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat_1" },
       version: { id: "v1", files_revision: "rev_n" },
@@ -275,20 +269,11 @@ describe("POST product-postcheck-attested error log", () => {
       ctx,
     );
 
-    expect(response.status).toBe(200);
-    expect(createEngineVersionErrorLogs).toHaveBeenCalledWith(
-      [
-        expect.objectContaining({
-          category: "product_postcheck.summary",
-          meta: expect.objectContaining({ verdict: "superseded" }),
-        }),
-      ],
-      expect.anything(),
-    );
-    expect(createAttestedProductPostcheckErrorLogs).not.toHaveBeenCalled();
+    expect(response.status).toBe(400);
+    expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
   });
 
-  it("stores unattested allowed_skip only for server-config feature_disabled", async () => {
+  it("rejects client claimed feature_disabled as well as infrastructure allowed_skip", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat_1" },
       version: { id: "v1", files_revision: "rev_n" },
@@ -307,8 +292,8 @@ describe("POST product-postcheck-attested error log", () => {
       }),
       ctx,
     );
-    expect(allowed.status).toBe(200);
-    expect(createEngineVersionErrorLogs).toHaveBeenCalled();
+    expect(allowed.status).toBe(400);
+    expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
 
     createEngineVersionErrorLogs.mockClear();
     const rejected = await POST(
@@ -357,6 +342,25 @@ describe("POST product-postcheck-attested error log", () => {
       }),
     );
     expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
-    expect(createAttestedProductPostcheckErrorLogs).not.toHaveBeenCalled();
+  });
+});
+
+describe("attested POST cannot manufacture release proof", () => {
+  it("returns only canonical stored rows, ignoring forged messages, pass meta and warning counts", async () => {
+    vi.clearAllMocks();
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({ chat: { id: "chat_1" }, version: { id: "v1", files_revision: "rev_n" } });
+    getActivePreviewSessionAsync.mockResolvedValue({ versionId: "v1", previewSessionId: "ps_n", filesRevision: "rev_n", lifecycleToken: "life_n" });
+    lookupProductPostcheckRun.mockResolvedValue({ kind: "settled", runId: "server_n", claimGeneration: 2, status: "blocked" });
+    const canonical = { id: "canonical", category: "product_postcheck.summary", message: "Server blocker",
+      meta: { verificationRunId: "server_n", attestedFilesRevision: "rev_n", attestedPreviewSessionId: "ps_n", attestedLifecycleToken: "life_n", verdict: "blocked" } };
+    getEngineVersionErrorLogs.mockResolvedValue([canonical, { ...canonical, id: "unrelated", meta: { ...canonical.meta, verificationRunId: "older" } }]);
+    const response = await POST(request({ previewSessionId: "ps_n", lifecycleToken: "life_n", filesRevision: "rev_n" }), ctx);
+    expect(response.status).toBe(200); expect(await response.json()).toEqual({ success: true, stored: true, logs: [canonical] });
+    expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
+  });
+  it("a settled claim without matching server logs is not a release receipt", async () => {
+    getEngineVersionErrorLogs.mockResolvedValue([]);
+    const response = await POST(request({ previewSessionId: "ps_n", lifecycleToken: "life_n", filesRevision: "rev_n" }), ctx);
+    expect(response.status).toBe(409);
   });
 });

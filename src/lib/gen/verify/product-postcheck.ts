@@ -192,6 +192,8 @@ export type ProductPostcheckResult = {
   liveReview?: LiveReviewResult | null;
   /** Exact preview lifecycle/revision this result attests, set by the route. */
   attestation?: ProductPostcheckAttestation | null;
+  /** A server-confirmed durable write, not a client-supplied permission. */
+  storageReceipt?: { status: "stored"; versionId: string; filesRevision: string };
   /**
    * Unikt id för exakt DENNA verifieringskörning, myntat av API-routen.
    * Binder summary-, warning- och live-review-rader till samma körning så

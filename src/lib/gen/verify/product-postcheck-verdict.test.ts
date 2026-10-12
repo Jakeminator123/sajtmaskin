@@ -8,7 +8,6 @@ import {
   interpretProductPostcheckSummaryRead,
   isNonBlockingPreviewBootResult,
   isRetryableProductPostcheckVerdict,
-  isUnattestedProductPostcheckVerdictWriteAllowed,
   productPostcheckF3GateReason,
   productPostcheckResultFromVerdict,
   verdictFromProductPostcheckResult,
@@ -309,48 +308,6 @@ describe("Product Postcheck verdict (L2)", () => {
     ).toBe("pending");
   });
 
-  it("tillåter oattesterad skrivning bara för icke-pass-domar", () => {
-    expect(
-      isUnattestedProductPostcheckVerdictWriteAllowed([
-        {
-          category: "product_postcheck.summary",
-          meta: { verdict: "superseded" },
-        },
-      ]),
-    ).toBe(true);
-    expect(
-      isUnattestedProductPostcheckVerdictWriteAllowed([
-        {
-          category: "product_postcheck.summary",
-          meta: { verdict: "passed" },
-        },
-      ]),
-    ).toBe(false);
-    expect(
-      isUnattestedProductPostcheckVerdictWriteAllowed([
-        {
-          category: "product_postcheck.summary",
-          meta: { productBlocked: false },
-        },
-      ]),
-    ).toBe(false);
-    expect(
-      isUnattestedProductPostcheckVerdictWriteAllowed([
-        {
-          category: "product_postcheck.summary",
-          meta: { verdict: "allowed_skip", skippedReason: "feature_disabled" },
-        },
-      ]),
-    ).toBe(true);
-    expect(
-      isUnattestedProductPostcheckVerdictWriteAllowed([
-        {
-          category: "product_postcheck.summary",
-          meta: { verdict: "allowed_skip", skippedReason: "browser_crashed" },
-        },
-      ]),
-    ).toBe(false);
-  });
 
   it("L6 loser-replay: report-state kommer från L2-domen + activeRunId", () => {
     const passed = productPostcheckResultFromVerdict({

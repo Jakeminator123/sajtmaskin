@@ -196,12 +196,18 @@ describe.skipIf(!target.url)("product_postcheck_runs mot riktig Postgres", () =>
     expect(takeover.runId).not.toBe(first.runId);
     expect(takeover.owner).toBe("owner_new");
 
-    const staleWrite = await claims.completeProductPostcheckRun({
-      runId: first.runId,
-      claimGeneration: first.claimGeneration,
-      status: "passed",
+    const { acquireVersionLease, releaseVersionLease } = await import("../../src/lib/db/chat-repository/leases");
+    const { commitProductPostcheckResult } = await import("../../src/lib/db/services/version-errors");
+    const lease = await acquireVersionLease(claimKey.versionId, "server_verify");
+    if (!lease) throw new Error("expected fixture lease");
+    const held = { chatId, versionId: claimKey.versionId, filesRevision: claimKey.filesRevision, holderRunId: lease.runId };
+    const result = { ok: true as const, skipped: false, skippedReason: null, warnings: [], warningCount: 0,
+      productBlocked: false, routesChecked: 1, durationMs: 1, checkedUrl: "https://preview.example",
+      attestation: { previewSessionId: claimKey.previewSession, lifecycleToken: claimKey.lifecycleToken, filesRevision: claimKey.filesRevision } };
+    const staleWrite = await commitProductPostcheckResult({
+      held, key: claimKey, claim: first, result, deadlineAt: Date.now() + 60_000,
     });
-    expect(staleWrite).toBe(false);
+    expect(staleWrite.status).toBe("superseded");
     const afterStale = await pool.query<{ status: string; run_id: string }>(
       `select status, run_id from product_postcheck_runs where version_id = $1`,
       [claimKey.versionId],
@@ -209,12 +215,16 @@ describe.skipIf(!target.url)("product_postcheck_runs mot riktig Postgres", () =>
     expect(afterStale.rows[0]?.status).toBe("running");
     expect(afterStale.rows[0]?.run_id).toBe(takeover.runId);
 
-    const freshWrite = await claims.completeProductPostcheckRun({
-      runId: takeover.runId,
-      claimGeneration: takeover.claimGeneration,
-      status: "passed",
+    const freshWrite = await commitProductPostcheckResult({
+      held, key: claimKey, claim: takeover, result, deadlineAt: Date.now() + 60_000,
     });
-    expect(freshWrite).toBe(true);
+    expect(freshWrite.status).toBe("stored");
+    const canonical = await pool.query<{ n: string }>(
+      "select count(*)::text as n from engine_version_error_logs where version_id = $1 and meta->>'verificationRunId' = $2",
+      [claimKey.versionId, takeover.runId],
+    );
+    expect(Number(canonical.rows[0].n)).toBeGreaterThan(0);
+    await releaseVersionLease(claimKey.versionId, lease.runId);
     const afterFresh = await pool.query<{
       status: string;
       claim_generation: number;

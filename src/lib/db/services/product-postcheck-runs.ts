@@ -457,35 +457,3 @@ export async function claimProductPostcheckRun(input: {
     return { kind: "unavailable", reason: "db_error" };
   }
 }
-
-/**
- * Complete the claim. CAS on `run_id` + `claim_generation` — a displaced
- * owner after takeover writes zero rows (no-op).
- */
-export async function completeProductPostcheckRun(input: {
-  runId: string;
-  claimGeneration: number;
-  status: Exclude<ProductPostcheckRunStatus, "running">;
-}): Promise<boolean> {
-  if (!dbConfigured) return false;
-  try {
-    const updated = asRows(
-      await db.execute(sql`
-        UPDATE product_postcheck_runs
-        SET status = ${input.status},
-            completed_at = now()
-        WHERE run_id = ${input.runId}
-          AND claim_generation = ${input.claimGeneration}
-          AND status = 'running'
-        RETURNING run_id, owner, claim_generation, status, expires_at
-      `),
-    );
-    return updated.length > 0;
-  } catch (error) {
-    console.warn(
-      "[product-postcheck-claim] complete failed:",
-      error instanceof Error ? error.message : error,
-    );
-    return false;
-  }
-}

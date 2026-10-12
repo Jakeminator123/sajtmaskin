@@ -3,12 +3,12 @@ import { buildErrorLogSummary } from "./summary";
 import { partitionErrorLogsByPass } from "@/lib/builder/version-diagnostics-summary";
 
 const genericWrite = vi.hoisted(() => vi.fn());
-const attestedWrite = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/db/services/product-postcheck-runs", () => ({ lookupProductPostcheckRun: vi.fn(), normalizeProductPostcheckMutationRevision: () => 0 }));
 vi.mock("@/lib/tenant", () => ({ getEngineVersionForChatByIdForRequest: vi.fn(async () => ({ chat: { id: "c1" }, version: { id: "v1" } })) }));
 vi.mock("@/lib/gen/preview/session-store", () => ({ getActivePreviewSessionAsync: vi.fn() }));
 vi.mock("@/lib/db/services/version-errors", () => ({
   SERVER_REPAIR_BUDGET_LOG_CATEGORY: "server-repair:budget",
-  createEngineVersionErrorLogs: genericWrite, createAttestedProductPostcheckErrorLogs: attestedWrite, getEngineVersionErrorLogs: vi.fn(),
+  createEngineVersionErrorLogs: genericWrite, getEngineVersionErrorLogs: vi.fn(),
 }));
 
 describe("public budget receipt rejection", () => {
@@ -24,7 +24,6 @@ describe("public budget receipt rejection", () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ stored: false, code: "server_repair_budget_server_owned" });
     expect(genericWrite).not.toHaveBeenCalled();
-    expect(attestedWrite).not.toHaveBeenCalled();
   });
 });
 

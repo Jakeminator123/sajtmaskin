@@ -1,8 +1,15 @@
-import { and, desc, eq, inArray, lt, notInArray, notLike, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, lt, notInArray, notLike, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
+import { FEATURES } from "@/lib/config";
 import { getScaffoldById } from "@/lib/gen/scaffolds";
-import { engineChats, engineVersionErrorLogs, engineVersions } from "@/lib/db/schema";
+import { engineChats, engineVersionErrorLogs, engineVersionJobs, engineVersions, productPostcheckRuns } from "@/lib/db/schema";
+import { LEASE_LOCK_TIMEOUT_MS } from "@/lib/db/chat-repository/internal";
+import { isLiveReviewHeldContext, type LiveReviewHeldContext } from "./live-review-runs";
+import { mapProductPostcheckResultToStatus, normalizeProductPostcheckClaimKey, type ProductPostcheckClaimKey } from "./product-postcheck-runs";
+import { buildProductPostcheckLogItems, isNonBlockingPreviewBootResult } from "@/lib/gen/verify/product-postcheck-verdict";
+import { isNonFinalProductPostcheckSkipReason } from "@/lib/gen/verify/product-postcheck-skip";
+import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
 import { assertDbConfigured } from "./shared";
 import type { VersionErrorLog } from "./shared";
 import { appendBugRegisterEntries } from "@/lib/logging/bug-register";
@@ -24,9 +31,12 @@ function rejectBudgetPayloads(payloads: VersionErrorLogPayload[]): void {
   if (payloads.some((payload) => payload.category === SERVER_REPAIR_BUDGET_LOG_CATEGORY)) {
     throw new Error("Server repair budget receipts require their private owner");
   }
+  if (payloads.some(payload => payload.category?.startsWith("product_postcheck."))) {
+    throw new Error("Product Postcheck receipts require their server owner");
+  }
 }
 
-export type AttestedProductPostcheckInsertResult =
+export type ProductPostcheckCommitResult =
   | { status: "stored"; logs: VersionErrorLog[] }
   | { status: "superseded"; logs: [] }
   | { status: "contention"; logs: [] };
@@ -236,65 +246,94 @@ export async function createEngineVersionErrorLogs(
 }
 
 /**
- * Writes one Product Postcheck batch against the exact files revision it
- * inspected. The `FOR UPDATE` lock serializes this check with every files-json
- * writer, so revision N can never be inserted after N+1 has committed.
- *
- * Preview-session/lifecycle authority lives in Redis and is fenced by the API
- * route immediately before this call. It cannot participate in the Postgres
- * transaction; the durable guarantee here is therefore the canonical DB
- * content revision, while the attestation metadata preserves the cross-store
- * identity for diagnostics.
+ * Sole server-owned Product Postcheck writer. Logs and claim completion commit
+ * together, under version -> versionsjob -> productclaim. Redis lifecycle is
+ * re-read by the held core; this TX fences its durable tuple.
  */
-export async function createAttestedProductPostcheckErrorLogs(
-  payloads: VersionErrorLogPayload[],
-  options: { expectedFilesRevision: string; lockTimeoutMs: number },
-): Promise<AttestedProductPostcheckInsertResult> {
-  rejectBudgetPayloads(payloads);
+export async function commitProductPostcheckResult(input: {
+  held: LiveReviewHeldContext;
+  key: ProductPostcheckClaimKey;
+  claim: { runId: string; claimGeneration: number };
+  result: ProductPostcheckResult;
+  deadlineAt: number;
+}): Promise<ProductPostcheckCommitResult> {
   assertDbConfigured();
-  if (payloads.length === 0) return { status: "stored", logs: [] };
-
-  const versionId = payloads[0]?.versionId;
-  if (!versionId || payloads.some((payload) => payload.versionId !== versionId)) {
-    throw new Error("Attested Product Postcheck batch must target one version");
-  }
-
-  const expectedFilesRevision = options.expectedFilesRevision.trim();
-  if (!expectedFilesRevision) {
-    throw new Error("Attested Product Postcheck requires files revision");
-  }
-
-  const now = new Date();
-  const enrichedPayloads = await enrichEnginePayloads(payloads);
-  const values = enrichedPayloads.map((payload) => mapLogPayload(payload, now));
-
+  const key = normalizeProductPostcheckClaimKey(input.key);
+  if (!isLiveReviewHeldContext(input.held) || key.versionId !== input.held.versionId ||
+      key.filesRevision !== input.held.filesRevision || !key.previewSession || key.previewSession === "unbound" ||
+      !input.claim.runId || !Number.isSafeInteger(input.claim.claimGeneration) || input.claim.claimGeneration < 1 ||
+      !Number.isFinite(input.deadlineAt) || Date.now() >= input.deadlineAt) return { status: "superseded", logs: [] };
+  const attestation = input.result.attestation;
+  if (attestation && (attestation.filesRevision !== key.filesRevision ||
+      attestation.previewSessionId !== key.previewSession ||
+      (attestation.lifecycleToken?.trim() || "") !== key.lifecycleToken)) return { status: "superseded", logs: [] };
+  const payloads = buildProductPostcheckLogItems({ ...input.result, verificationRunId: input.claim.runId })
+    .map(log => ({ ...log, chatId: input.held.chatId, versionId: key.versionId,
+      meta: { ...log.meta, claimGeneration: input.claim.claimGeneration } }));
+  const enriched = await enrichEnginePayloads(payloads);
+  const values = enriched.map(log => mapLogPayload(log, new Date()));
+  const status = isNonBlockingPreviewBootResult(input.result) || input.result.skippedReason === "preview_not_ready" || isNonFinalProductPostcheckSkipReason(input.result.skippedReason)
+    ? "superseded" : mapProductPostcheckResultToStatus(input.result);
+  const jobWhere = and(eq(engineVersionJobs.versionId, key.versionId),
+    eq(engineVersionJobs.runId, input.held.holderRunId), eq(engineVersionJobs.status, "running"),
+    gt(engineVersionJobs.leaseExpiresAt, sql`clock_timestamp()`));
   try {
-    const result = await db.transaction(async (tx) => {
-      await tx.execute(
-        sql`SELECT set_config('lock_timeout', ${String(Math.floor(options.lockTimeoutMs))}, true)`,
-      );
-      const locked = await tx
-        .select({ filesRevision: engineVersions.filesRevision })
-        .from(engineVersions)
-        .where(eq(engineVersions.id, versionId))
-        .for("update");
-      if (locked[0]?.filesRevision?.trim() !== expectedFilesRevision) {
-        return {
-          status: "superseded",
-          logs: [] as [],
-        } satisfies AttestedProductPostcheckInsertResult;
-      }
-      const logs = (await tx
-        .insert(engineVersionErrorLogs)
-        .values(values)
-        .returning()) as VersionErrorLog[];
-      return { status: "stored", logs } satisfies AttestedProductPostcheckInsertResult;
+    const result = await db.transaction(async tx => {
+      await tx.execute(sql`SELECT set_config('lock_timeout', ${String(LEASE_LOCK_TIMEOUT_MS)}, true)`);
+      const versions = await tx.select({ chatId: engineVersions.chatId, filesRevision: engineVersions.filesRevision })
+        .from(engineVersions).where(eq(engineVersions.id, key.versionId)).for("update");
+      if (versions[0]?.chatId !== input.held.chatId || versions[0]?.filesRevision !== key.filesRevision) return { status: "superseded", logs: [] } satisfies ProductPostcheckCommitResult;
+      const jobs = await tx.select({ runId: engineVersionJobs.runId }).from(engineVersionJobs).where(jobWhere).for("update");
+      if (jobs.length !== 1) return { status: "superseded", logs: [] } satisfies ProductPostcheckCommitResult;
+      const completed = await tx.update(productPostcheckRuns).set({ status, completedAt: sql`clock_timestamp()` })
+        .where(and(eq(productPostcheckRuns.chatId, input.held.chatId), eq(productPostcheckRuns.versionId, key.versionId),
+          eq(productPostcheckRuns.filesRevision, key.filesRevision), eq(productPostcheckRuns.previewSession, key.previewSession),
+          eq(productPostcheckRuns.lifecycleToken, key.lifecycleToken), eq(productPostcheckRuns.mutationRevision, key.mutationRevision),
+          eq(productPostcheckRuns.runId, input.claim.runId), eq(productPostcheckRuns.claimGeneration, input.claim.claimGeneration),
+          eq(productPostcheckRuns.status, "running"), gt(productPostcheckRuns.expiresAt, sql`clock_timestamp()`),
+          lt(sql`clock_timestamp()`, new Date(input.deadlineAt)),
+          sql`EXISTS (SELECT 1 FROM ${engineVersionJobs} WHERE ${jobWhere})`))
+        .returning({ runId: productPostcheckRuns.runId });
+      if (completed.length !== 1) return { status: "superseded", logs: [] } satisfies ProductPostcheckCommitResult;
+      const logs = values.length ? await tx.insert(engineVersionErrorLogs).values(values).returning() as VersionErrorLog[] : [];
+      return { status: "stored", logs } satisfies ProductPostcheckCommitResult;
     });
-    if (result.status === "stored") appendBugRegisterEntries(enrichedPayloads);
+    if (result.status === "stored") appendBugRegisterEntries(enriched);
     return result;
-  } catch (err) {
-    if (isLockTimeoutError(err)) return { status: "contention", logs: [] };
-    throw err;
+  } catch (error) {
+    if (isLockTimeoutError(error)) return { status: "contention", logs: [] };
+    throw error; // insert failure rolls back completion too
+  }
+}
+
+/** Actual server policy only; no preview, lease, model or client log payload. */
+export async function storeProductPostcheckPolicySkip(input: {
+  chatId: string; versionId: string; expectedFilesRevision: string;
+}): Promise<ProductPostcheckCommitResult> {
+  assertDbConfigured();
+  if (FEATURES.f2ProductPostcheck || !input.chatId.trim() || !input.versionId.trim() || !input.expectedFilesRevision.trim()) {
+    return { status: "superseded", logs: [] };
+  }
+  try {
+    return await db.transaction(async tx => {
+      await tx.execute(sql`SELECT set_config('lock_timeout', ${String(LEASE_LOCK_TIMEOUT_MS)}, true)`);
+      const versions = await tx.select({ chatId: engineVersions.chatId, filesRevision: engineVersions.filesRevision })
+        .from(engineVersions).where(eq(engineVersions.id, input.versionId)).for("update");
+      if (FEATURES.f2ProductPostcheck || versions[0]?.chatId !== input.chatId ||
+          versions[0]?.filesRevision !== input.expectedFilesRevision) return { status: "superseded", logs: [] } satisfies ProductPostcheckCommitResult;
+      const payload = { chatId: input.chatId, versionId: input.versionId, level: "info" as const,
+        category: "product_postcheck.summary", message: "Product Postcheck disabled by server policy.",
+        meta: { verdict: "allowed_skip", skippedReason: "feature_disabled", attestedFilesRevision: input.expectedFilesRevision } };
+      const value = { ...mapLogPayload(payload, new Date()), id: `product-postcheck-policy:${input.versionId}:${input.expectedFilesRevision}` };
+      const logs = await tx.insert(engineVersionErrorLogs).values(value).onConflictDoUpdate({
+        target: engineVersionErrorLogs.id, set: { meta: value.meta, created_at: value.created_at },
+      }).returning() as VersionErrorLog[];
+      if (logs.length !== 1) throw new Error("Server Product Postcheck policy receipt not stored");
+      return { status: "stored", logs } satisfies ProductPostcheckCommitResult;
+    });
+  } catch (error) {
+    if (isLockTimeoutError(error)) return { status: "contention", logs: [] };
+    throw error;
   }
 }
 
@@ -309,12 +348,19 @@ function currentRevisionErrorLogPredicate(versionId: string) {
       sql`COALESCE(${engineVersionErrorLogs.category}, '')`,
       `${PRUNE_EXEMPT_CATEGORY_PREFIXES[0]}%`,
     ),
-    sql`${engineVersionErrorLogs.meta}->>'attestedFilesRevision' IS NULL`,
-    sql`${engineVersionErrorLogs.meta}->>'attestedFilesRevision' = (
-      SELECT ${engineVersions.filesRevision}
-      FROM ${engineVersions}
-      WHERE ${engineVersions.id} = ${versionId}
-    )`,
+    and(
+      FEATURES.f2ProductPostcheck
+        ? sql`LOWER(TRIM(${engineVersionErrorLogs.meta}->>'skippedReason')) IS DISTINCT FROM 'feature_disabled'`
+        : undefined,
+      or(
+        sql`COALESCE(${engineVersionErrorLogs.meta}->>'attestedFilesRevision', ${engineVersionErrorLogs.meta}->>'filesRevision') IS NULL`,
+        sql`COALESCE(${engineVersionErrorLogs.meta}->>'attestedFilesRevision', ${engineVersionErrorLogs.meta}->>'filesRevision') = (
+          SELECT ${engineVersions.filesRevision}
+          FROM ${engineVersions}
+          WHERE ${engineVersions.id} = ${versionId}
+        )`,
+      ),
+    ),
   );
 }
 
@@ -329,8 +375,9 @@ export function productPostcheckLogMatchesCurrentFilesRevision(
 ): boolean {
   if (!meta || typeof meta !== "object" || Array.isArray(meta)) return true;
   const record = meta as Record<string, unknown>;
-  if (!Object.prototype.hasOwnProperty.call(record, "attestedFilesRevision")) return true;
-  const attested = record.attestedFilesRevision;
+  if (FEATURES.f2ProductPostcheck && typeof record.skippedReason === "string" &&
+      record.skippedReason.trim().toLowerCase() === "feature_disabled") return false;
+  const attested = record.attestedFilesRevision ?? record.filesRevision;
   if (attested == null) return true;
   return (
     typeof attested === "string" &&

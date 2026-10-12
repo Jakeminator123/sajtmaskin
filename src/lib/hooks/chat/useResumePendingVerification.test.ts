@@ -315,6 +315,19 @@ describe("useResumePendingVerification", () => {
     hasActivePostCheckMock.mockReturnValue(false);
   });
 
+  it("resumes feature-OFF through the server receipt without another product POST", async () => {
+    mockRoutes({ postcheck: { body: {
+      skipped: true,
+      skippedReason: "feature_disabled",
+      warnings: [],
+      productBlocked: false,
+      storageReceipt: { status: "stored", versionId: "ver_pending", filesRevision: "rev_n" },
+    } } });
+    renderHook(() => useResumePendingVerification({ chatId: "chat_1", versions: [pendingRow()], isStreaming: false }));
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+    expect(callsTo("/error-log")).toHaveLength(0);
+  });
+
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
@@ -388,14 +401,13 @@ describe("useResumePendingVerification", () => {
       versionId: "ver_pending",
       autoFix: true,
     });
-    // The postcheck result is persisted as error-log rows (incl. the
-    // `product_postcheck.summary` row the F3 trigger reads).
+    // Compatibility clients replay the server-stored result, not their own rows.
     const errorLogCalls = callsTo("/error-log");
     expect(errorLogCalls).toHaveLength(1);
     const persisted = JSON.parse(String(errorLogCalls[0][1].body)) as {
       logs: Array<{ category: string; meta?: { productBlocked?: boolean } }>;
     };
-    expect(persisted.logs.some((l) => l.category === "product_postcheck.summary")).toBe(true);
+    expect(persisted).toEqual({ logs: [], productPostcheckAttestation: currentAttestation });
     expect(JSON.parse(String(callsTo("/quality-gate")[0][1].body))).toEqual({
       versionId: "ver_pending",
     });
@@ -407,7 +419,7 @@ describe("useResumePendingVerification", () => {
     expect(callsTo("/quality-gate")).toHaveLength(1);
   });
 
-  it("still runs the gate on productBlocked and persists the blocking summary row", async () => {
+  it("still runs the gate on productBlocked and only replays the server's blocking result", async () => {
     mockRoutes({
       postcheck: {
         body: {
@@ -440,8 +452,7 @@ describe("useResumePendingVerification", () => {
     const persisted = JSON.parse(String(errorLogCalls[0][1].body)) as {
       logs: Array<{ category: string; meta?: { productBlocked?: boolean } }>;
     };
-    const summary = persisted.logs.find((l) => l.category === "product_postcheck.summary");
-    expect(summary?.meta?.productBlocked).toBe(true);
+    expect(persisted).toEqual({ logs: [], productPostcheckAttestation: currentAttestation });
   });
 
   it("survives a versions poll tick mid-chain (Bugbot HIGH: no cancellation)", async () => {
@@ -598,7 +609,7 @@ describe("useResumePendingVerification", () => {
     const persisted = JSON.parse(String(callsTo("/error-log")[0][1].body)) as {
       logs: Array<{ category: string }>;
     };
-    expect(persisted.logs.some((log) => log.category === "product_postcheck.summary")).toBe(true);
+    expect(persisted).toEqual({ logs: [], productPostcheckAttestation: currentAttestation });
     unmount();
     vi.useRealTimers();
   });
@@ -698,15 +709,12 @@ describe("useResumePendingVerification", () => {
           category: "post-check.product-postcheck-transport",
           meta: expect.objectContaining({ skippedReason: "transport_error" }),
         }),
-        expect.objectContaining({
-          category: "product_postcheck.summary",
-          meta: expect.objectContaining({ verdict: "pending" }),
-        }),
       ]),
     );
+    expect(persisted.logs.some((log) => log.category.startsWith("product_postcheck."))).toBe(false);
   });
 
-  it("persists superseded as an explicit verdict and does not start quality-gate", async () => {
+  it("does not write a superseded verdict or start quality-gate", async () => {
     mockRoutes({
       postcheck: {
         body: {
@@ -726,14 +734,10 @@ describe("useResumePendingVerification", () => {
       }),
     );
 
-    await waitFor(() => expect(callsTo("/error-log")).toHaveLength(1));
+    await waitFor(() => expect(callsTo("/product-postcheck")).toHaveLength(1));
+    await act(async () => { await Promise.resolve(); });
+    expect(callsTo("/error-log")).toHaveLength(0);
     expect(callsTo("/quality-gate")).toHaveLength(0);
-    const supersededBody = JSON.parse(String(callsTo("/error-log")[0][1].body)) as {
-      logs?: Array<{ category?: string; meta?: { verdict?: string } }>;
-    };
-    expect(
-      supersededBody.logs?.find((log) => log.category === "product_postcheck.summary")?.meta,
-    ).toEqual(expect.objectContaining({ verdict: "superseded" }));
   });
 
   it("does nothing while streaming", async () => {
@@ -988,12 +992,9 @@ describe("useResumePendingVerification", () => {
           category: "post-check.product-postcheck-transport",
           meta: expect.objectContaining({ skippedReason: "transport_error" }),
         }),
-        expect.objectContaining({
-          category: "product_postcheck.summary",
-          meta: expect.objectContaining({ verdict: "pending" }),
-        }),
       ]),
     );
+    expect(persisted.logs.some((log) => log.category.startsWith("product_postcheck."))).toBe(false);
   });
 
   it("import lane rehydrates a missing preview before the gate", async () => {

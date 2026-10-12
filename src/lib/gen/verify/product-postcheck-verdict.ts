@@ -44,12 +44,6 @@ const F3_RETRYABLE_VERDICTS: ReadonlySet<ProductPostcheckVerdict> = new Set([
   "superseded",
 ]);
 
-const UNATTESTED_WRITABLE_VERDICTS: ReadonlySet<ProductPostcheckVerdict> = new Set([
-  "pending",
-  "indeterminate",
-  "superseded",
-]);
-
 /**
  * Strictest durable domain for one filesRevision.
  * A later skip/`allowed_skip` must not erase `blocked` on the same revision.
@@ -324,31 +318,6 @@ export function interpretProductPostcheckSummaryRead(input: {
     return interpretProductPostcheckClaim(input.claim) ?? "pending";
   }
   return verdictFromSummaryMeta(input.meta) ?? "pending";
-}
-
-/**
- * Attestation still guards `passed`/`blocked` and non-config `allowed_skip`.
- * `allowed_skip` is an F3-release domain: writable unattested only when
- * `skippedReason` is `feature_disabled` (server-config). Infra skips need a
- * preview tuple. Other unattested writes are `pending`/`indeterminate`/`superseded`.
- */
-export function isUnattestedProductPostcheckVerdictWriteAllowed(
-  logs: readonly { category?: string | null; meta?: unknown }[],
-): boolean {
-  const productLogs = logs.filter((log) =>
-    typeof log.category === "string" && log.category.startsWith("product_postcheck."),
-  );
-  if (productLogs.length === 0) return false;
-  return productLogs.every((log) => {
-    if (log.category !== PRODUCT_POSTCHECK_SUMMARY_CATEGORY) return false;
-    const verdict = verdictFromSummaryMeta(log.meta);
-    if (verdict == null) return false;
-    if (UNATTESTED_WRITABLE_VERDICTS.has(verdict)) return true;
-    return (
-      verdict === "allowed_skip" &&
-      skippedReasonFromMeta(log.meta) === "feature_disabled"
-    );
-  });
 }
 
 /**
