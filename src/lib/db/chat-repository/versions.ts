@@ -9,6 +9,7 @@ import { and, eq, desc, sql } from "drizzle-orm";
 import type { Message, Version } from "./types";
 import { uuid, toRow, loadVersionById } from "./internal";
 import { promoteVersion, type PromoteVersionResult } from "./version-lifecycle";
+import { writeServerFinalizeBootstrap, type ServerFinalizeBootstrap } from "../services/server-repair-budget";
 
 const MAX_VERSION_INSERT_RETRIES = 3;
 
@@ -125,6 +126,8 @@ export async function addAssistantMessageAndCreateDraftVersion(
      * re-show the "thinking" panel after an F5 refresh.
      */
     thinking?: string | null;
+    /** Internal, trusted normal finalize only; persisted atomically with the new version. */
+    finalizeBootstrap?: ServerFinalizeBootstrap;
   } = {},
 ): Promise<{ message: Message; version: Version }> {
   const {
@@ -164,6 +167,10 @@ export async function addAssistantMessageAndCreateDraftVersion(
       editKind,
       selectedDossierEnvKeys,
     });
+    if (options.finalizeBootstrap) {
+      if (editKind != null) throw new Error("Only normal finalize may bootstrap afterchecks");
+      await writeServerFinalizeBootstrap(tx, chatId, version, options.finalizeBootstrap);
+    }
 
     const msgRows = await tx.select().from(engineMessages).where(eq(engineMessages.id, messageId)).limit(1);
     return {

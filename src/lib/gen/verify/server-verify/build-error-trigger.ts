@@ -20,7 +20,7 @@ import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 import "@/lib/logging/event-bus-subscribers";
 import "@/lib/logging/event-bus-error-log-sink";
 import type { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
-import { prepareServerRepairBudget, type ServerRepairBudgetSeed } from "@/lib/db/services/server-repair-budget";
+import { readServerRepairBudget } from "@/lib/db/services/server-repair-budget";
 import { REPAIR_LOOP_BUDGET_MS } from "@/lib/gen/defaults";
 import type { ServerVerifyFailedOutput } from "../server-verify-log-meta";
 import { resolveBackgroundRepairDeadlineEpochMs } from "../server-repair-policy";
@@ -116,7 +116,6 @@ export async function triggerBuildErrorRepair(params: {
   /** Fas 3 (RepairGate): finalize's ledger + scope — see triggerServerVerification. */
   repairLedger?: RepairLedger;
   repairScopeId?: string;
-  repairBudgetSeed?: ServerRepairBudgetSeed;
   /**
    * A3: kringgå `isAutoRepairBuildErrorEnabled()`-env-gaten. Sätts av den
    * MANUELLA deploy-repair-endpointen ("Publicera om med fix") — knappen ska
@@ -245,7 +244,7 @@ export async function triggerBuildErrorRepair(params: {
       return { started, repairAvailable, skippedReason };
     }
     if (!force && snapshot.filesRevision) {
-      await prepareServerRepairBudget({ chatId, versionId, runId, filesRevision: snapshot.filesRevision }, params.repairBudgetSeed);
+      await readServerRepairBudget({ chatId, versionId, runId, filesRevision: snapshot.filesRevision });
     }
     started = true;
     const codeFiles = snapshot.files;

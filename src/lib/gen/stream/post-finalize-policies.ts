@@ -14,7 +14,7 @@ import {
 } from "@/lib/gen/verify/quality-gate-checks";
 
 export function getPostFinalizePreviewStartContract(
-  finalized: FinalizeResult,
+  finalized: Pick<FinalizeResult, "preflight">,
 ): PreviewStartContract {
   return finalized.preflight.previewStart ?? {
     canStartPreview: false,
@@ -152,7 +152,7 @@ export type ServerVerifyDecision = {
  */
 export function resolvePostFinalizeServerVerifyDecision(params: {
   buildSpec: BuildSpec;
-  finalized: FinalizeResult;
+  finalized: { version: Pick<FinalizeResult["version"], "id">; preflight: FinalizeResult["preflight"] };
   repairPassIndex?: number;
 }): ServerVerifyDecision {
   const { buildSpec, finalized, repairPassIndex = 0 } = params;

@@ -26,8 +26,8 @@ const loadServerVerifyF3ReadinessContext = vi.hoisted(() => vi.fn());
 const evaluateServerOwnedF3Readiness = vi.hoisted(() => vi.fn());
 const persistF3ReadinessHold = vi.hoisted(() => vi.fn());
 const holdVersionForIntegrationMigration = vi.hoisted(() => vi.fn());
-const prepareServerRepairBudget = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/db/services/server-repair-budget", () => ({ prepareServerRepairBudget }));
+const readServerRepairBudget = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/db/services/server-repair-budget", () => ({ readServerRepairBudget }));
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   failVersionVerification,
@@ -94,7 +94,7 @@ function run() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  prepareServerRepairBudget.mockResolvedValue({ status: "history_unknown" });
+  readServerRepairBudget.mockResolvedValue({ status: "history_unknown" });
   isServerVerifyEligible.mockReturnValue(true);
   isLatestVersionForChat.mockResolvedValue(true);
   acquireVerifyLease.mockResolvedValue({ proceed: true, runId: "run-1" });
@@ -123,20 +123,18 @@ beforeEach(() => {
 });
 
 describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => {
-  it("awaits trusted automatic bootstrap on the actual revision before entering repair", async () => {
-    const seed = { scopeId: "original:root", history: { source: "observed_fixer_calls" as const, finalize: [], consumed: [] } };
+  it("reads persisted automatic bootstrap on the actual revision without seeding before repair", async () => {
     tryServerRepairLoop.mockResolvedValue({ reverifyCurrent: false, buildOriginated: true });
-    await triggerBuildErrorRepair({ chatId, versionId, buildError: { stage: "next-build", message: "boom" }, repairBudgetSeed: seed });
-    expect(prepareServerRepairBudget).toHaveBeenCalledWith({ chatId, versionId, runId: "run-1", filesRevision: "rev-a" }, seed);
-    expect(prepareServerRepairBudget.mock.invocationCallOrder[0]).toBeLessThan(tryServerRepairLoop.mock.invocationCallOrder[0]);
+    await triggerBuildErrorRepair({ chatId, versionId, buildError: { stage: "next-build", message: "boom" } });
+    expect(readServerRepairBudget).toHaveBeenCalledWith({ chatId, versionId, runId: "run-1", filesRevision: "rev-a" });
+    expect(readServerRepairBudget.mock.invocationCallOrder[0]).toBeLessThan(tryServerRepairLoop.mock.invocationCallOrder[0]);
     expect(tryServerRepairLoop).toHaveBeenCalledWith(expect.objectContaining({ repairAuthority: "automatic" }));
   });
 
   it("manual force never initializes/resets automatic capacity or grants future cron authority", async () => {
-    const seed = { scopeId: "new", history: { source: "observed_fixer_calls" as const, finalize: [], consumed: [] } };
     tryServerRepairLoop.mockResolvedValue({ reverifyCurrent: true, buildOriginated: true });
-    await triggerBuildErrorRepair({ chatId, versionId, force: true, buildError: { stage: "next-build", message: "boom" }, repairBudgetSeed: seed });
-    expect(prepareServerRepairBudget).not.toHaveBeenCalled();
+    await triggerBuildErrorRepair({ chatId, versionId, force: true, buildError: { stage: "next-build", message: "boom" } });
+    expect(readServerRepairBudget).not.toHaveBeenCalled();
     expect(tryServerRepairLoop).toHaveBeenCalledWith(expect.objectContaining({ repairAuthority: "manual" }));
     expect(triggerServerVerification).toHaveBeenCalledWith(expect.objectContaining({ repairAuthority: "manual" }));
     expect(triggerServerVerification.mock.calls[0][0]).not.toHaveProperty("repairBudgetSeed");

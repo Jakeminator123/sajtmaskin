@@ -1,27 +1,11 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rate-limit";
-import {
-  getPreferredVersion,
-  getLatestVersion,
-  updateVersionPreviewUrl,
-  type Version,
-} from "@/lib/db/chat-repository-pg";
-import { recordPreviewRuntimeOutcomeForVersion } from "@/lib/db/services/generation-telemetry";
-import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
+import { getPreferredVersion, getLatestVersion, type Version } from "@/lib/db/chat-repository-pg";
 import { getEngineChatByIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
-import { isTier2LivePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
-import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
 import { httpStatusForPreviewSessionFailure } from "@/lib/gen/preview/preview-errors";
-import { startPreviewSession } from "@/lib/gen/preview/preview-session";
-import {
-  isTier2PreviewConfigured,
-  TIER2_PREVIEW_SETUP_HINT,
-} from "@/lib/gen/preview/tier2-config";
-import { getVersionFiles, parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
-import { devLogAppend } from "@/lib/logging/dev-log";
-import { incIngressEvent } from "@/lib/observability/metrics";
-import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
+import { ensureVersionPreview, persistVersionPreviewOutcome } from "@/lib/gen/preview/ensure-version-preview";
+import { isTier2PreviewConfigured, TIER2_PREVIEW_SETUP_HINT } from "@/lib/gen/preview/tier2-config";
 
 const postBodySchema = z.object({
   versionId: z.string().min(1).optional(),
@@ -101,73 +85,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         versionRow = scoped.version;
       }
 
-      if (!parsed.data.forceRestart && !canExposeEnginePreview(versionRow)) {
-        return NextResponse.json(
-          {
-            ok: false,
-            code: "preview_blocked",
-            message: "Version cannot be previewed.",
-            retryable: false,
-          },
-          { status: 400 },
-        );
-      }
-
-      if (
-        !parsed.data.forceRestart &&
-        typeof versionRow.preview_url === "string" &&
-        versionRow.preview_url.trim() &&
-        isTier2LivePreviewUrl(versionRow.preview_url)
-      ) {
-        const trimmedPreviewUrl = versionRow.preview_url.trim();
-        const activeSession = await getActivePreviewSessionAsync(chatId);
-        if (activeSession?.versionId === versionRow.id && activeSession.previewUrl === trimmedPreviewUrl) {
-          // P19 ingress 1: preview-session short-circuit. Wrapped + try/catch so
-          // telemetry can never block the response — same posture as other
-          // observability call-sites in this route.
-          try {
-            incIngressEvent("preview_reused_url");
-          } catch {}
-          try {
-            devLogAppend("latest", {
-              type: "preview.reused-url",
-              chatId,
-              versionId: versionRow.id,
-              previewUrl: trimmedPreviewUrl.slice(0, 60),
-            });
-          } catch {}
-          return NextResponse.json({
-            ok: true,
-            previewUrl: trimmedPreviewUrl,
-            previewSessionId: activeSession.previewSessionId,
-            lifecycleToken: activeSession.lifecycleToken,
-            previewMode: "dev_only",
-            previewTier: 2,
-            startOutcome: "reused_url",
-          });
-        }
-      }
-
-      let files = (await getVersionFiles(versionRow.id)) ?? [];
-      if (files.length === 0 && versionRow.files_json?.trim()) {
-        const fromJson = parseCodeFilesFromFilesJson(versionRow.files_json);
-        if (fromJson?.length) files = fromJson;
-      }
-
-      if (files.length === 0) {
-        return NextResponse.json(
-          {
-            ok: false,
-            code: "no_files",
-            message: "No files in version for preview session.",
-            retryable: false,
-          },
-          { status: 400 },
-        );
-      }
-
-      const appProjectId =
-        typeof chat.project_id === "string" && chat.project_id.trim() ? chat.project_id.trim() : null;
       const persistedBuildSpec =
         chat.orchestration_snapshot &&
         typeof chat.orchestration_snapshot === "object" &&
@@ -186,113 +103,33 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           ? persistedBuildSpec.verificationPolicy
           : null;
 
-      const started = await startPreviewSession(files, {
-        chatId,
-        appProjectId,
+      const outcome = await ensureVersionPreview({
+        chat: { id: chatId, project_id: chat.project_id ?? null },
+        version: versionRow,
+        policy: { previewPolicy, verificationPolicy },
         forceRestart: parsed.data.forceRestart === true,
-        previewPolicy,
-        verificationPolicy,
-        versionIdForSession: versionRow.id,
-        filesRevisionForSession: versionRow.files_revision,
-        // F3 versions strip tier3-stub layer; F2 keeps it for boot.
-        lifecycleStage:
-          versionRow.lifecycle_stage === "integrations" ? "integrations" : "design",
-        // Dossier-env rehydrering: the keys the finalize run persisted on this
-        // version row, so a (force) restart rebuilds the same F2 mock-seeded
-        // `.env.local` as the first post-finalize boot. F2/design-only inside
-        // the env builder; F3 ignores them.
-        selectedDossierEnvKeys:
-          Array.isArray(versionRow.selected_dossier_env_keys) &&
-          versionRow.selected_dossier_env_keys.length > 0
-            ? versionRow.selected_dossier_env_keys
-            : undefined,
-        skipRepair: true,
-        // DB files are finalize-preflighted and include scaffold baseline.
-        skipProjectScaffold: true,
       });
-
-      if (!started.ok) {
-        const status = httpStatusForPreviewSessionFailure(started.error);
-        const retryable = status === 503 || status === 504;
-        const headers =
-          status === 503 || status === 504
-            ? new Headers({ "Retry-After": "5" })
-            : undefined;
-        return NextResponse.json(
-          {
-            ok: false,
-            stage: started.error.stage,
-            message: started.error.message,
-            ...(started.error.failureCode ? { failureCode: started.error.failureCode } : {}),
-            retryable,
-          },
-          { status, headers },
-        );
+      if (!outcome.ok) {
+        if (outcome.reason === "start_failed") {
+          const status = httpStatusForPreviewSessionFailure(outcome.error);
+          return NextResponse.json({
+            ok: false, stage: outcome.error.stage, message: outcome.error.message,
+            ...(outcome.error.failureCode ? { failureCode: outcome.error.failureCode } : {}),
+            retryable: status === 503 || status === 504,
+          }, { status, headers: status === 503 || status === 504 ? { "Retry-After": "5" } : undefined });
+        }
+        const failure = {
+          preview_blocked: { status: 400, message: "Version cannot be previewed.", retryable: false },
+          no_files: { status: 400, message: "No files in version for preview session.", retryable: false },
+          version_changed: { status: 409, message: "Version files changed. Try again.", retryable: true },
+        }[outcome.reason];
+        return NextResponse.json({ ok: false, code: outcome.reason,
+          message: failure.message, retryable: failure.retryable }, { status: failure.status });
       }
-
-      const sr = started.result;
-      if (sr.previewUrl.trim()) {
-        // Best-effort persist (prod-incident 2026-07-03): the preview session
-        // is already running — a contended engine_versions row (verify/lease
-        // holds the lock) must not 500 this route via statement_timeout. The
-        // lock-timeout mode never throws.
-        //
-        // M#pv2 (prod-incident chat 3120c05c v1): a preview session that
-        // *consistently* coincides with the verify lease used to skip the
-        // persist every time and leave `preview_url = null` forever. Bounded
-        // retry-after-release rides over the brief lease/verify row lock so the
-        // idempotent URL lands without blocking to statement_timeout.
-        //
-        // Scheduled via after() (2026-07 preview-lifecycle simplification):
-        // the write is idempotent bookkeeping — the response already carries
-        // `previewUrl` from the start result, so the user-visible response
-        // must never wait up to lockTimeout×retries (~7 s) on a version row
-        // that the verify lease happens to hold.
-        const persistVersionId = versionRow.id;
-        const persistPreviewUrl = sr.previewUrl;
-        after(async () => {
-          const persisted = await updateVersionPreviewUrl(persistVersionId, persistPreviewUrl, {
-            lockTimeoutMs: 2000,
-            maxRetries: 3,
-            retryDelayMs: 300,
-          });
-          if (!persisted) {
-            console.warn(
-              `[preview-session] previewUrl persist skipped (row contention or missing row) for ${chatId}/${persistVersionId} — session is running; next start re-persists.`,
-            );
-          }
-        });
+      const sr = outcome.result;
+      if (sr.bookkeepingRequired) {
+        after(() => persistVersionPreviewOutcome({ receipt: sr }).then(() => undefined));
       }
-
-      // M#pv1: the resume-verified path is a real runtime-ready receipt
-      // (preview-host /status reported running:true for this version's
-      // session). Stamp the honest preview_success=true — monotonic +
-      // best-effort inside the writer. Fresh/recreated boots have only
-      // queued the boot and stay pending; the heartbeat receipt path
-      // confirms those. Scheduled via after() (PR #377 runda 4) so the
-      // telemetry write never sits on the user-visible response path —
-      // same pattern as /preview-status and /preview-heartbeat.
-      if (sr.runtimeReady) {
-        const confirmedVersionId = versionRow.id;
-        after(async () => {
-          if (sr.filesRevision) {
-            await recordPreviewRuntimeOutcomeForVersion(confirmedVersionId, true, {
-              bootedFilesRevision: sr.filesRevision,
-            });
-          } else {
-            await recordPreviewRuntimeOutcomeForVersion(confirmedVersionId, true);
-          }
-        });
-      }
-
-      logPreviewLifecycleTelemetry({
-        kind: "preview_start_outcome",
-        chatId,
-        versionId: versionRow.id,
-        outcome: sr.startOutcome,
-        tier2Provider: sr.tier2Meta?.tier2Provider,
-      });
-
       return NextResponse.json({
         ok: true,
         previewUrl: sr.previewUrl,

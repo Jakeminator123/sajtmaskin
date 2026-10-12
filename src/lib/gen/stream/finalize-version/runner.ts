@@ -502,6 +502,15 @@ export async function finalizeAndSaveVersion(
     })),
     ...verifierBlockingFindings,
   ];
+  const verifierBlocked = effectiveVerifierBlockingFindings.length > 0;
+  const previewHasBuildBreakingFindings = hasBuildBreakingVerifierFindings(effectiveVerifierBlockingFindings);
+  const verifierGatesVerification = buildSpec?.previewPolicy === "fidelity3"
+    ? verifierBlocked : previewHasBuildBreakingFindings;
+  const scaffoldSelection =
+    orchestrationStreamMeta?.scaffoldSelection &&
+    typeof orchestrationStreamMeta.scaffoldSelection === "object"
+      ? (orchestrationStreamMeta.scaffoldSelection as Record<string, unknown>)
+      : null;
   Object.assign(finalizeStepTelemetry, fastPathStepTelemetry);
   recordPhaseDuration("syntax-validate", resolveStepDurationMs("validate_syntax"), {
     kind: latencyBudgetKind,
@@ -576,11 +585,24 @@ export async function finalizeAndSaveVersion(
         thinking: thinkingForPersist,
         // Null when empty — the column means "no dossier declared env keys".
         selectedDossierEnvKeys: selectedDossierEnvKeys.length > 0 ? selectedDossierEnvKeys : null,
+        // Only normal NEW typed finalize. Quick-edit uses its separate writer
+        // (edit_kind=quick_edit); versions.ts also rejects that actual DB provenance.
+        finalizeBootstrap: !targetVersionId && repairPassIndex === 0 && generationInput && buildSpec ? {
+          source: "trusted_new_finalize",
+          scopeId: repairScopeId,
+          buildSpec,
+          finalize: repairLedger.exportInvocations(chatId, repairScopeId),
+          verifierGatesVerification,
+          previewHasBuildBreakingFindings,
+          willRunQualityGate,
+          qualityGatePlanned,
+          preflight: { preflightIssues, preflightFileCount, previewBlockingReason,
+            previewStart: preflightResult.previewStart,
+            finalizedPreviewFileCount: finalizedFilesForPreview.length,
+            scaffoldRetry, routePlan, scaffoldSelection },
+        } : undefined,
       });
   let version = initialVersion;
-  if (!targetVersionId && repairPassIndex === 0) {
-    repairLedger.markKnownFinalize(version.id, chatId, repairScopeId);
-  }
   const finalizeRunId = repairPassIndex > 0 ? `repair-${repairPassIndex}` : undefined;
   // Nu finns versionen — knyt resten av körningens LLM-anrop (verifier,
   // RepairGate) till den, och efterstämpla de som redan hunnit köra utan
@@ -671,12 +693,6 @@ export async function finalizeAndSaveVersion(
     buildIntent,
   });
 
-  const scaffoldSelection =
-    orchestrationStreamMeta?.scaffoldSelection &&
-    typeof orchestrationStreamMeta.scaffoldSelection === "object"
-      ? (orchestrationStreamMeta.scaffoldSelection as Record<string, unknown>)
-      : null;
-
   const {
     preflightErrors,
     preflightWarnings,
@@ -725,11 +741,6 @@ export async function finalizeAndSaveVersion(
   // `isBuildBreakingFinding` (`should-start-preview.ts`) — may gate
   // verification. F3 (integrations) stays strict: every verifier blocking
   // finding gates the row.
-  const verifierBlocked = effectiveVerifierBlockingFindings.length > 0;
-  const verifierGatesVerification =
-    buildSpec?.previewPolicy === "fidelity3"
-      ? verifierBlocked
-      : hasBuildBreakingVerifierFindings(effectiveVerifierBlockingFindings);
   const hasCurrentPreflightBlockers =
     preflightErrors.length > 0 || syntaxResult.status === "failed";
   const hasVerificationBlockingErrors =

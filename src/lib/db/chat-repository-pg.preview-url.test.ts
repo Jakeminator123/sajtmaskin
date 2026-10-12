@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 
 // M#pv2 (prod-incident chat 3120c05c v1): updateVersionPreviewUrl's best-effort
 // write used to skip the persist on the FIRST row-lock contention against the
@@ -117,5 +119,77 @@ describe("updateVersionPreviewUrl bounded retry under verify-lease contention (M
 
     expect(ok).toBe(true);
     expect(transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateVersionPreviewUrl atomic revision/holder fence", () => {
+  const dialect = new PgDialect();
+  let statements: Array<{ sql: string; params: unknown[] }>;
+  let rows: number;
+  beforeEach(() => {
+    transaction.mockReset();
+    plainUpdate.mockReset();
+    statements = [];
+    rows = 1;
+    transaction.mockImplementation(async (run: (tx: unknown) => Promise<boolean>) => run({
+      execute: async (query: SQL) => { statements.push(dialect.sqlToQuery(query)); },
+      update: () => ({ set: () => ({ where: async (query: SQL) => {
+        statements.push(dialect.sqlToQuery(query));
+        return { rowCount: rows };
+      } }) }),
+    }));
+  });
+
+  it("locks before the separate guarded statement; same holder AND revision are required", async () => {
+    expect(await updateVersionPreviewUrl("version", "https://preview", {
+      holderRunId: "holder", expectedFilesRevision: "rev", lockTimeoutMs: 2000,
+    })).toBe(true);
+    expect(statements).toHaveLength(3);
+    expect(statements[1].sql.toLowerCase()).toContain("for update");
+    const where = statements[2];
+    expect(where.sql).toContain("files_revision");
+    expect(where.sql).toContain("EXISTS");
+    expect(where.sql).toContain("lease_expires_at > now()");
+    expect(where.params).toEqual(expect.arrayContaining(["version", "holder", "rev"]));
+    expect(plainUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each(["stale revision", "lost/expired holder"])("%s no-op returns false without retry", async () => {
+    rows = 0;
+    expect(await updateVersionPreviewUrl("version", "https://preview", {
+      holderRunId: "holder", expectedFilesRevision: "rev", lockTimeoutMs: 2000, maxRetries: 3,
+    })).toBe(false);
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(statements[2].params).toEqual(expect.arrayContaining(["holder", "rev"]));
+  });
+
+  it("also fences the ordinary awaited path with lock-then-second-statement", async () => {
+    expect(await updateVersionPreviewUrl("version", "https://preview", {
+      holderRunId: "holder", expectedFilesRevision: "rev",
+    })).toBe(true);
+    expect(statements[1].sql.toLowerCase()).toContain("for update");
+    expect(statements[2].params).toEqual(expect.arrayContaining(["holder", "rev"]));
+    expect(plainUpdate).not.toHaveBeenCalled();
+  });
+
+  it("revision-only HTTP bookkeeping remains atomically revision-bound", async () => {
+    await updateVersionPreviewUrl("version", "https://preview", { expectedFilesRevision: "rev" });
+    expect(statements[2].sql).toContain("files_revision");
+    expect(statements[2].sql).not.toContain("engine_version_jobs");
+  });
+
+  it.each([{ holderRunId: "" }, { expectedFilesRevision: " " }])("empty fence %j never degrades to plain write", async (options) => {
+    expect(await updateVersionPreviewUrl("version", "https://preview", options)).toBe(false);
+    expect(transaction).not.toHaveBeenCalled();
+    expect(plainUpdate).not.toHaveBeenCalled();
+  });
+
+  it("keeps bounded lock-timeout retry with fences", async () => {
+    transaction.mockRejectedValueOnce(lockTimeoutError());
+    expect(await updateVersionPreviewUrl("version", "https://preview", {
+      holderRunId: "holder", expectedFilesRevision: "rev", lockTimeoutMs: 2000, maxRetries: 1, retryDelayMs: 1,
+    })).toBe(true);
+    expect(transaction).toHaveBeenCalledTimes(2);
+    expect(statements[2].params).toEqual(expect.arrayContaining(["holder", "rev"]));
   });
 });

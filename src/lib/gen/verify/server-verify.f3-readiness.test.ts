@@ -37,8 +37,7 @@ const runAutoFix = vi.hoisted(() => vi.fn());
 const runDeterministicImportRepair = vi.hoisted(() => vi.fn());
 const runRepairLoop = vi.hoisted(() => vi.fn());
 const readServerRepairBudget = vi.hoisted(() => vi.fn());
-const prepareServerRepairBudget = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/db/services/server-repair-budget", () => ({ readServerRepairBudget, prepareServerRepairBudget }));
+vi.mock("@/lib/db/services/server-repair-budget", () => ({ readServerRepairBudget }));
 
 vi.mock("@/lib/db/client", () => ({ dbConfigured: true, db: {}, pool: null }));
 vi.mock("@/lib/db/chat-repository-pg", () => ({
@@ -177,7 +176,6 @@ beforeEach(() => {
     expect(target).toMatchObject({ chatId, versionId, runId: "run-l1", filesRevision: expect.any(String) });
     return { status: "ready", snapshot: { scopeId: `${versionId}:original`, finalize: [], consumed: [] } };
   });
-  prepareServerRepairBudget.mockReset().mockImplementation((target) => readServerRepairBudget(target));
   promoteVersion.mockReset().mockResolvedValue({ id: versionId });
   failVersionVerification.mockReset().mockResolvedValue(null);
   resetVersionVerificationToPending.mockReset().mockResolvedValue({ id: versionId });

@@ -47,7 +47,7 @@ import * as projectExport from "@/lib/gen/export/build-exportable-project";
 import * as previewGate from "./preview-quality-gate";
 import { triggerServerVerification } from "./server-verify/verify-run";
 
-describe("server verification automatic bootstrap", () => {
+describe("server verification persisted bootstrap readback", () => {
   afterEach(() => { vi.restoreAllMocks(); verificationLease.inflight.clear(); });
 
   it.each(["known", "missing", "manual"])("awaits %s history under the actual lease before the deterministic gate", async (mode) => {
@@ -63,14 +63,19 @@ describe("server verification automatic bootstrap", () => {
     vi.spyOn(projectExport, "chatUsesVerbatimRepo").mockResolvedValue(false);
     vi.spyOn(projectExport, "buildExportableProject").mockResolvedValue(files);
     const gate = vi.spyOn(previewGate, "runQualityGateOnExportable").mockResolvedValue(null);
-    const prepare = vi.spyOn(repairBudget, "prepareServerRepairBudget").mockResolvedValue({ status: "history_unknown" });
-    const seed = { scopeId: "original:root", history: { source: "observed_fixer_calls" as const, finalize: [], consumed: [] } };
-    await triggerServerVerification({ chatId: "c", versionId: "v", repairBudgetSeed: mode === "known" ? seed : undefined,
+    const read = vi.spyOn(repairBudget, "readServerRepairBudget").mockResolvedValue(mode === "known"
+      ? { status: "ready", snapshot: { scopeId: "original:root", finalize: [], consumed: [],
+        startPolicy: { previewPolicy: "fidelity2", verificationPolicy: "standard",
+          serverVerify: { run: false, reason: "design_preview_skip_verify" },
+          preview: { canStartPreview: true, hasBuildBreakingFindings: false },
+          postChecks: { willRunQualityGate: true, qualityGatePlanned: true } } } }
+      : { status: "history_unknown" });
+    await triggerServerVerification({ chatId: "c", versionId: "v",
       repairAuthority: mode === "manual" ? "manual" : "automatic" });
-    if (mode === "manual") expect(prepare).not.toHaveBeenCalled();
+    if (mode === "manual") expect(read).not.toHaveBeenCalled();
     else {
-      expect(prepare).toHaveBeenCalledWith({ chatId: "c", versionId: "v", runId: "run", filesRevision: "actual-db-revision" }, mode === "known" ? seed : undefined);
-      expect(prepare.mock.invocationCallOrder[0]).toBeLessThan(gate.mock.invocationCallOrder[0]);
+      expect(read).toHaveBeenCalledWith({ chatId: "c", versionId: "v", runId: "run", filesRevision: "actual-db-revision" });
+      expect(read.mock.invocationCallOrder[0]).toBeLessThan(gate.mock.invocationCallOrder[0]);
     }
     expect(gate).toHaveBeenCalledTimes(1);
     expect(promotion).not.toHaveBeenCalled();

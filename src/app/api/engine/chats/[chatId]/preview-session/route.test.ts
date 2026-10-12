@@ -11,7 +11,7 @@ const logPreviewLifecycleTelemetry = vi.hoisted(() => vi.fn());
 const httpStatusForPreviewSessionFailure = vi.hoisted(() => vi.fn(() => 500));
 const startPreviewSession = vi.hoisted(() => vi.fn());
 const isTier2PreviewConfigured = vi.hoisted(() => vi.fn(() => true));
-const getVersionFiles = vi.hoisted(() => vi.fn());
+const getVersionFilesSnapshot = vi.hoisted(() => vi.fn());
 const parseCodeFilesFromFilesJson = vi.hoisted(() => vi.fn(() => []));
 const getActivePreviewSessionAsync = vi.hoisted(() => vi.fn());
 const recordPreviewRuntimeOutcomeForVersion = vi.hoisted(() =>
@@ -99,7 +99,7 @@ vi.mock("@/lib/gen/preview/tier2-config", () => ({
 }));
 
 vi.mock("@/lib/gen/version-manager", () => ({
-  getVersionFiles,
+  getVersionFilesSnapshot,
   parseCodeFilesFromFilesJson,
 }));
 
@@ -133,9 +133,10 @@ describe("POST preview-session (engine)", () => {
         files_json: "{\"app/page.tsx\":\"export default function Page(){return null;}\"}",
       },
     });
-    getVersionFiles.mockResolvedValue([
-      { path: "app/page.tsx", content: "export default function Page(){return null;}" },
-    ]);
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "export default function Page(){return null;}" }],
+      filesJson: "[]", filesRevision: null,
+    });
     getActivePreviewSessionAsync.mockResolvedValue(null);
     startPreviewSession.mockResolvedValue({
       ok: true,
@@ -451,8 +452,8 @@ describe("POST preview-session (engine)", () => {
     expect(res.status).toBe(200);
     // Scheduled via after() — must NOT run before the response resolved…
     expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
-    // Two after() callbacks: previewUrl persist + the runtime-ready stamp.
-    expect(afterCallbacks.value.length).toBe(2);
+    // One shared after() bookkeeping function owns URL + runtime-ready stamp.
+    expect(afterCallbacks.value.length).toBe(1);
     // …and stamps with the exact version binding when after() runs.
     await runAfterCallbacks();
     expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("ver_1", true, {
@@ -510,5 +511,33 @@ describe("POST preview-session (engine)", () => {
     expect(body.message).toBe("provider unavailable");
     expect(body.retryable).toBe(true);
     expect(updateVersionPreviewUrl).not.toHaveBeenCalled();
+  });
+  it("does not reuse a URL whose active session serves an older revision", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({ version: {
+      id: "ver_1", preview_url: "https://preview.example/chat_1", files_revision: "rev_new", files_json: "[]",
+    } });
+    isTier2LivePreviewUrl.mockReturnValue(true);
+    getActivePreviewSessionAsync.mockResolvedValue({
+      versionId: "ver_1", previewUrl: "https://preview.example/chat_1",
+      previewSessionId: "ps_old", lifecycleToken: "life_old", filesRevision: "rev_old",
+    });
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "new" }], filesJson: "[]", filesRevision: "rev_new",
+    });
+    const response = await POST(new Request("http://localhost", {
+      method: "POST", body: JSON.stringify({ versionId: "ver_1" }),
+    }), { params: Promise.resolve({ chatId: "chat_1" }) });
+    expect(response.status).toBe(200);
+    expect(startPreviewSession).toHaveBeenCalledWith(expect.any(Array),
+      expect.objectContaining({ filesRevisionForSession: "rev_new" }));
+  });
+
+  it("rejects another tenant before the shared preview service runs", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue(null);
+    const response = await POST(new Request("http://localhost", { method: "POST" }),
+      { params: Promise.resolve({ chatId: "chat_1" }) });
+    expect(response.status).toBe(404);
+    expect(startPreviewSession).not.toHaveBeenCalled();
+    expect(getVersionFilesSnapshot).not.toHaveBeenCalled();
   });
 });

@@ -81,13 +81,27 @@ verifierad med READY och ACK för alla tre roller. Den befintliga chatten
 
 ## Körbord — samordnaren är enda redaktör
 
-**Aktuell skrivrätt: samordnaren, planuppdatering och lokal Git-checkpoint.**
+**Aktuell skrivrätt: samordnaren, endast plan/checkpoint; produktkod fryst.**
 A2.2, B2.2 och C1.1 är lokalt klara och slutgranskade utan kvarvarande fynd.
 C1.2b är slutgranskat på `1c12697d…` + delta, utan kvarvarande fynd.
 286-resultatbasen återanvänds där oförändrad; senaste looprättningen har
 29 berörda tester samt typecheck/diff PASS. Ingen summering av överlappande tester.
-1, 2 och 3 inväntar paket. C1.3a:s sju produktfiler är avgränsade readonly;
-skrivmandat ges efter lokal checkpoint. Ingen cron eller runtimeacceptans ännu.
+Lokal checkpoint är `a9f209e95f3f8f68bf4a1c08c6cc88d20c579270`; arbetsytan var
+ren efter commit, origin/preview oförändrad på `b5b7474e…`. Inget pushat.
+C1.3a är lokalt implementerat och produktgranskat utan fynd, med åtta stabila
+produkthashar. 74 finalize-tester, typecheck och diff-check PASS; tidigare
+oförändrade riktade resultat återanvänds utan överlappande totalsummering.
+19 äldre A1/A2-testfixturfel är rättade; 3:s slutliga testreview är utan fynd.
+Jakob godkände uttryckligen 2026-10-12: "Ja, ersätt och ta bort gamla
+startvägen". Okänd/äldre historik får inte nya automatiska betalda försök;
+manuell reparation finns kvar. C1.3a är ännu inte committat.
+C1.3b är lokalt klar: 71 riktade tester, typecheck utan cache, diff och
+verifieringsplan med --no-fetch PASS. 2 har släppt skrivfönstret; 3:s review av
+fem produktfiler och fem tester är utan fynd, tio hashvärden stabila.
+Produktnetto −1 rad, routes 481→205 rader.
+Nästa paket för 1 är tre befintliga owners för LiveReview-holderreservation
+och ren productclaim-lookup; ingen route/koordinator inkopplas i grundpaketet.
+Ingen cron, aktivering, live-DB-ändring eller runtimeacceptans ännu.
 Lokal gren är `codex/llm-legacy-cleanup`.
 Samordnaren sparar granskade och verifierade uppgiftsfiler i lokal checkpoint
 enligt Jakobs commitmandat. Inga orelaterade filer får stageas. Den tidigare
@@ -100,7 +114,7 @@ Rätt till en aktivitet är inte rätt att själv ta nästa.
 | A2 | [Gemensam kandidat och eval](aktiviteter/A2-projektkandidat-och-eval.md) | 1 | A1 | lokalt klar, 339 tester; slutlig review utan kvarvarande fynd |
 | B1 | [Legacy-rensning](aktiviteter/B1-legacy-rensning.md) | 2 | registrering | lokalt klar för säkra delen, review utan fynd |
 | B2 | [Ägare och dokumentation](aktiviteter/B2-agare-och-dokumentation.md) | 2 | berörda kodpaket | lokalt klar, netto −408 rader i B2.2; review utan fynd |
-| C1 | [Serverägd efterkontroll](aktiviteter/C1-serveragd-efterkontroll.md) | 1, granskning 3 | A1 + A2 | C1.1–2b lokalt verifierade/granskade; C1.3a atomicbootstrap står näst |
+| C1 | [Serverägd efterkontroll](aktiviteter/C1-serveragd-efterkontroll.md) | 1 + 2, granskning 3 | A1 + A2 | C1.1–2b committade; C1.3a–b verifierade/slutgranskade, checkpoint förbereds |
 | D1 | [Integration och leverans](aktiviteter/D1-integration-och-leverans.md) | samordnare + 3 | föregående paket | lokal checkpoint för klara paket; slutlig integration/leverans återstår |
 
 Tilldelning: `PAKET <ID/del> | HEAD <sha> | skrivytor <paths> | mål <en mening>`.

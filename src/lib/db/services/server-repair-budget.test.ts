@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getTableName, type SQL, type Table } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
+import { db } from "@/lib/db/client";
 
 const state = vi.hoisted(() => ({
   logs: [] as Array<{ id: string; category: string; meta: Record<string, unknown>; version_id: string }>,
@@ -13,6 +14,7 @@ const state = vi.hoisted(() => ({
   tail: Promise.resolve(),
 }));
 vi.mock("./version-errors", () => ({ SERVER_REPAIR_BUDGET_LOG_CATEGORY: "server-repair:budget" }));
+vi.mock("@/lib/gen/verify/server-verify", () => ({ isServerVerifyEligible: () => true }));
 vi.mock("@/lib/db/client", () => ({
   dbConfigured: true,
   db: { transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
@@ -48,11 +50,26 @@ vi.mock("@/lib/db/client", () => ({
   } },
 }));
 
-import { initializeServerRepairBudget, prepareServerRepairBudget, readServerRepairBudget, recordServerRepairBudgetOutcome, reserveServerRepairBudget, type ServerRepairBudgetHistory } from "./server-repair-budget";
+import { writeServerFinalizeBootstrap, readServerRepairBudget, recordServerRepairBudgetOutcome, reserveServerRepairBudget, type ServerFinalizeBootstrap } from "./server-repair-budget";
 const target = { chatId: "c1", versionId: "v1", filesRevision: "rev1", runId: "run1", scopeId: "v1:server-repair" };
 const primary = { passIndex: 0, slot: "primary" as const, contentHash: "a".repeat(16), diagnosticFingerprint: "b".repeat(16), requiredFiles: ["src/a.ts"] };
 const known = { source: "observed_fixer_calls" as const, finalize: [], consumed: [] };
-const initialize = () => initializeServerRepairBudget(target, { ...known, consumed: [] });
+const initialize = (finalize: ServerFinalizeBootstrap["finalize"] = []) => db.transaction((tx) => writeServerFinalizeBootstrap(tx,
+  state.version.chatId, { id: state.version.id, chat_id: state.version.chatId, files_revision: state.version.filesRevision, edit_kind: null }, {
+    source: "trusted_new_finalize", scopeId: target.scopeId, finalize,
+    buildSpec: { buildIntent: "website", generationMode: "init", changeScope: "redesign", scaffoldId: null,
+      routePlanSummary: "", stylePack: "clean", qualityTarget: "standard", previewPolicy: "fidelity2",
+      verificationPolicy: "standard", contextPolicy: "normal", referenceCategories: [], forbiddenPatterns: [],
+      tokenBudgets: { scaffoldChars: 0, refsChars: 0, systemContextChars: 0 } },
+    verifierGatesVerification: false, previewHasBuildBreakingFindings: false,
+    willRunQualityGate: true, qualityGatePlanned: true,
+    preflight: { preflightIssues: [], preflightFileCount: 1, finalizedPreviewFileCount: 1, previewBlockingReason: null,
+      scaffoldRetry: null, routePlan: null, scaffoldSelection: null,
+      previewStart: { canStartPreview: true, primaryPreviewTarget: "preview", shimBlocked: false, requiresEnvConfig: false,
+        hasCriticalInstallRisk: false, hasCriticalCodeFailure: false, compatibilityPreviewAllowed: false, blockingCategories: [],
+        issueCounts: { code_structure_failure: 0, dependency_install_failure: 0, env_config_missing: 0,
+          shim_preview_failure: 0, non_blocking_quality_warning: 0 } } },
+  }));
 
 beforeEach(() => {
   state.logs = []; state.locks = []; state.predicates = []; state.failInsert = false;
@@ -64,8 +81,9 @@ beforeEach(() => {
 describe("durable server repair budget receipts", () => {
   it("requires explicit known actual-call history; absence never grants a free slot", async () => {
     expect(await reserveServerRepairBudget(target, primary)).toEqual({ status: "history_unknown" });
-    expect(await initializeServerRepairBudget(target)).toEqual({ status: "history_unknown" });
-    expect(await initialize()).toMatchObject({ status: "initialized", receiptId: expect.stringMatching(/^server-repair-budget:/) });
+    expect(await readServerRepairBudget(target)).toEqual({ status: "history_unknown" });
+    await initialize();
+    expect(state.logs[0].id).toMatch(/^server-repair-budget:/);
     expect(await reserveServerRepairBudget(target, primary)).toMatchObject({ status: "reserved" });
     expect(state.locks.slice(0, 2)).toEqual(["engine_versions:update", "engine_version_jobs:update"]);
     const lease = new PgDialect().sqlToQuery(state.predicates[1] as SQL);
@@ -75,6 +93,7 @@ describe("durable server repair budget receipts", () => {
   });
 
   it.each(["chat", "version", "revision", "run", "expired", "released"])("rejects stale %s before writing a receipt", async (stale) => {
+    await initialize();
     const request = { ...target };
     if (stale === "chat") request.chatId = "other";
     if (stale === "version") request.versionId = "other";
@@ -82,10 +101,10 @@ describe("durable server repair budget receipts", () => {
     if (stale === "run") request.runId = "other";
     if (stale === "expired") state.lease.expiresAt = Date.now() - 1;
     if (stale === "released") state.lease.status = "done";
-    expect(await initializeServerRepairBudget(request, { ...known, consumed: [] })).toEqual({
+    expect(await reserveServerRepairBudget(request, primary)).toEqual({
       status: ["chat", "version", "revision"].includes(stale) ? "stale_target" : "lease_unavailable",
     });
-    expect(state.logs).toEqual([]);
+    expect(state.logs).toHaveLength(1);
   });
 
   it("serializes duplicate concurrent reservations and never reopens a slot after process death/takeover", async () => {
@@ -106,9 +125,11 @@ describe("durable server repair budget receipts", () => {
     await reserveServerRepairBudget(target, primary);
     state.version.filesRevision = "rev2";
     const next = { ...target, filesRevision: "rev2" };
-    expect(await initializeServerRepairBudget(next, { ...known, consumed: [] })).toMatchObject({ status: "initialized" });
+    expect(await readServerRepairBudget(next)).toMatchObject({ status: "ready" });
     expect(await reserveServerRepairBudget(next, primary)).toEqual({ status: "duplicate" });
-    expect(await initializeServerRepairBudget({ ...next, scopeId: "new" }, { ...known, consumed: [] })).toEqual({ status: "scope_mismatch" });
+    expect(await reserveServerRepairBudget({ ...next, scopeId: "new" }, primary)).toEqual({ status: "scope_mismatch" });
+    await expect(initialize()).rejects.toThrow("Finalize start receipt not stored");
+    expect(state.logs).toHaveLength(2);
   });
 
   it("preserves configured loop passes and one separate primary/retry slot per pass", async () => {
@@ -128,8 +149,11 @@ describe("durable server repair budget receipts", () => {
     expect(await reserveServerRepairBudget(target, { ...primary, contentHash: "0".repeat(16), slot: "retry", diagnosticFingerprint: "c".repeat(16) })).toEqual({ status: "duplicate" });
   });
 
-  it("seeds actual consumed slots without deriving payment counts from ledger attempts", async () => {
-    expect((await initializeServerRepairBudget(target, { ...known, consumed: [{ ...primary, outcome: "aborted" }] })).status).toBe("initialized");
+  it("starts with no consumed slots and derives them only from actual reservation/outcome receipts", async () => {
+    await initialize();
+    expect(state.logs[0].meta.history).toEqual(known);
+    await reserveServerRepairBudget(target, primary);
+    await recordServerRepairBudgetOutcome(target, primary, "aborted");
     expect(await reserveServerRepairBudget(target, primary)).toEqual({ status: "duplicate" });
     expect((await reserveServerRepairBudget(target, { ...primary, slot: "retry" })).status).toBe("reserved");
   });
@@ -142,9 +166,11 @@ describe("durable server repair budget receipts", () => {
     { ...known, consumed: [{ ...primary, requiredFiles: undefined, outcome: "aborted" }] },
     { ...known, consumed: [{ ...primary, outcome: "invalid" }] },
     { ...known, consumed: [{ ...primary, requiredFiles: [" src/a.ts "], outcome: "aborted" }] },
-  ])("rejects corrupt or unproven seeds (%j)", async (seed) => {
-    expect(await initializeServerRepairBudget(target, seed as ServerRepairBudgetHistory)).toEqual({ status: "history_unknown" });
-    expect(state.logs).toEqual([]);
+  ])("rejects corrupt or unproven stored histories (%j)", async (history) => {
+    await initialize();
+    state.logs[0].meta.history = history;
+    expect(await reserveServerRepairBudget(target, primary)).toEqual({ status: "history_unknown" });
+    expect(state.logs).toHaveLength(1);
   });
 
   it.each(["id", "category", "meta", "scope"])("rejects forged/corrupt initialized history by %s", async (field) => {
@@ -168,7 +194,7 @@ describe("durable server repair budget receipts", () => {
 
   it("never reports reserved if receipt persistence fails", async () => {
     state.failInsert = true;
-    expect(await initialize()).toEqual({ status: "unavailable" });
+    await expect(initialize()).rejects.toThrow("receipt write unavailable");
     expect(state.logs).toEqual([]);
     state.failInsert = false;
     await initialize();
@@ -243,10 +269,11 @@ describe("durable server repair budget receipts", () => {
     expect(state.logs).toHaveLength(3);
   });
 
-  it("retains unknown seeded invocations without pretending their payment count is ledger attempts", async () => {
-    expect((await initializeServerRepairBudget(target, { ...known, consumed: [{ ...primary, outcome: "unknown" }] })).status).toBe("initialized");
+  it("retains a reserved invocation with unknown outcome without pretending its payment count is ledger attempts", async () => {
+    await initialize();
+    await reserveServerRepairBudget(target, primary);
     expect(await reserveServerRepairBudget(target, { ...primary, slot: "retry" })).toEqual({ status: "outcome_unknown" });
-    expect(await recordServerRepairBudgetOutcome(target, primary, "aborted")).toEqual({ status: "reservation_missing" });
+    expect(await recordServerRepairBudgetOutcome(target, { ...primary, passIndex: 1 }, "aborted")).toEqual({ status: "reservation_missing" });
   });
 
   it.each(["id", "run", "revision", "identity", "outcome"])("rejects forged/corrupt outcome receipts by %s", async (field) => {
@@ -264,7 +291,7 @@ describe("durable server repair budget receipts", () => {
 
   it("dedupes finalize A without consuming any of the separate server-loop capacity for B", async () => {
     const finalize = [{ contentHash: primary.contentHash, diagnosticFingerprint: primary.diagnosticFingerprint, requiredFiles: primary.requiredFiles, outcome: "success" as const }];
-    await initializeServerRepairBudget(target, { ...known, finalize });
+    await initialize(finalize);
     expect(await reserveServerRepairBudget(target, primary)).toEqual({ status: "duplicate" });
     for (let passIndex = 0; passIndex < SERVER_REPAIR_MAX_PASSES; passIndex++) {
       const attempt = { ...primary, passIndex, contentHash: passIndex.toString(16).padStart(16, "0"), requiredFiles: ["src/b.ts"] };
@@ -285,7 +312,7 @@ describe("durable server repair budget receipts", () => {
     await recordServerRepairBudgetOutcome(target, primary, "aborted");
     state.lease.runId = "run2"; state.version.filesRevision = "rev2";
     const next = { ...target, runId: "run2", filesRevision: "rev2" };
-    expect(await prepareServerRepairBudget(next, { scopeId: "fresh", history: known })).toMatchObject({
+    expect(await readServerRepairBudget(next)).toMatchObject({
       status: "ready", snapshot: { scopeId: target.scopeId, consumed: [{ ...primary, outcome: "aborted" }] },
     });
     expect(await readServerRepairBudget(target)).toEqual({ status: "stale_target" });
@@ -293,17 +320,27 @@ describe("durable server repair budget receipts", () => {
     expect(state.logs).toHaveLength(3);
   });
 
-  it("never invents empty history during readback, nor erases corrupt receipts with a known seed", async () => {
-    expect(await prepareServerRepairBudget(target)).toEqual({ status: "history_unknown" });
+  it("never invents empty history during readback, nor erases corrupt receipts", async () => {
+    expect(await readServerRepairBudget(target)).toEqual({ status: "history_unknown" });
     expect(state.logs).toEqual([]);
-    expect((await prepareServerRepairBudget(target, { scopeId: target.scopeId, history: known })).status).toBe("ready");
+    await initialize();
+    expect((await readServerRepairBudget(target)).status).toBe("ready");
     state.logs[0].meta.history = { ...known, finalize: [{ ...primary, outcome: "invalid" }] };
-    expect(await prepareServerRepairBudget(target, { scopeId: target.scopeId, history: known })).toEqual({ status: "history_unknown" });
+    expect(await readServerRepairBudget(target)).toEqual({ status: "history_unknown" });
+    await expect(initialize()).rejects.toThrow("Finalize start receipt not stored");
   });
 
   it("retains unknown finalize outcomes as a payment stop without consuming fake loop slots", async () => {
-    await initializeServerRepairBudget(target, { ...known, finalize: [{ ...primary, outcome: "unknown" }] });
+    await initialize([{ ...primary, outcome: "unknown" }]);
     expect(await reserveServerRepairBudget(target, { ...primary, requiredFiles: ["src/b.ts"] })).toEqual({ status: "outcome_unknown" });
     expect(await readServerRepairBudget(target)).toMatchObject({ status: "ready", snapshot: { consumed: [] } });
+  });
+
+  it("rejects old/unknown start intent instead of reconstructing an empty automatic budget", async () => {
+    await initialize();
+    delete state.logs[0].meta.startPolicy;
+    expect(await readServerRepairBudget(target)).toEqual({ status: "history_unknown" });
+    expect(await reserveServerRepairBudget(target, primary)).toEqual({ status: "history_unknown" });
+    expect(state.logs).toHaveLength(1);
   });
 });

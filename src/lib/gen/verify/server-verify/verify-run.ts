@@ -6,7 +6,7 @@ import {
   resetVersionVerificationToPending,
   updateVersionFiles,
 } from "@/lib/db/chat-repository-pg";
-import { prepareServerRepairBudget, type ServerRepairBudgetSeed } from "@/lib/db/services/server-repair-budget";
+import { readServerRepairBudget } from "@/lib/db/services/server-repair-budget";
 import { holdVersionForIntegrationMigration } from "@/lib/db/chat-repository/version-lifecycle";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
@@ -139,7 +139,6 @@ export async function triggerServerVerification(params: {
   repairLedger?: RepairLedger;
   /** Fas 3: finalize's `repairScopeId` — must accompany `repairLedger` so ledger keys collide across lanes. */
   repairScopeId?: string;
-  repairBudgetSeed?: ServerRepairBudgetSeed;
   repairAuthority?: "automatic" | "manual";
   onRepairAvailable?: (payload: {
     versionId: string;
@@ -200,10 +199,9 @@ export async function triggerServerVerification(params: {
     }
     let snapshot = await getVersionFilesSnapshot(versionId);
     if (!snapshot || snapshot.files.length === 0) return;
-    // Await bootstrap under the first lease, not only when a paid repair starts.
-    // Persist -> post-finalize remains a C1.3 gap; missing history is not recreated here.
+    // Read only the atomic creation receipt. Missing history is never seeded here.
     if (params.repairAuthority !== "manual" && snapshot.filesRevision) {
-      await prepareServerRepairBudget({ chatId, versionId, runId, filesRevision: snapshot.filesRevision }, params.repairBudgetSeed);
+      await readServerRepairBudget({ chatId, versionId, runId, filesRevision: snapshot.filesRevision });
     }
     let codeFiles = snapshot.files;
     // #260 / P2 #5: carry the exact files_json the repair will be based on so a

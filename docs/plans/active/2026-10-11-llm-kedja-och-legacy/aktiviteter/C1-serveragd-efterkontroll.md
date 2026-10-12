@@ -136,6 +136,30 @@ produktfilernas granskning återanvänd. Loop/aborttest/outcometest SHA-prefix:
 89355E8DCA0E3A4C / FA2A295A70C67B6D / A7AB98256DCB5139.
 Inget nytt checkpoint-/outputlager; saknad återställbar kandidat stoppar betalning.
 
+C1.3a tilldelat 1 på `a9f209e95f3f8f68bf4a1c08c6cc88d20c579270`.
+Skrivytor: chat-repository/versions.ts, reservationsservice, llm-repair-gate,
+finalize-runner, server-verify verify-run/build-error-trigger och provider
+generation-stream-post-finalize, plus riktade tester och nytt transaktionstest.
+Åttonde filen post-finalize-policies.ts får enbart smalare inputtyper till
+de faktiskt använda fälten (version.id/preflight); policylogiken ska vara
+oförändrad. Detta låter samma resolver användas med verkligt DB-ID i
+transaktionen utan fabricerat FinalizeResult, cast eller duplicerad policy.
+Ta bort eftercommit-markering, seed-export, prepare-init och seedtrådning när
+de ersätts; ingen parallell bootstrapägare. Typad startavsikt från befintligt
+beslutat byggunderlag följer kvittot, inte gissning ur lös metadata eller nya
+policytabeller. Ingen full koordinator/cron/klientflytt i detta paket.
+C1.3a:s första delpatch och transaktionstest är införda: 16 isolerade tester
+PASS, diff-check PASS. Typecheck har 22 diagnostiker i detta mellantillstånd:
+gamla caller-/test-API:n återstår och bootstrap-preflight saknar ett
+previewBlockingReason-fält. Detta är inte leveransklar kod.
+Caller-patchen nekades av säkerhetskontrollen med motiveringen att byte från
+legacy-init till krav på durabelt kvitto kan störa äldre körvägar utan
+uttryckligt ägargodkännande/verifiering. Jakob godkände därefter uttryckligen
+lokal ersättning och borttagning: "Ja, ersätt och ta bort gamla startvägen".
+Godkänd konsekvens: äldre/okänd historik får inga nya automatiska betalda försök;
+uttrycklig manuell reparation ska finnas kvar. 1 fortsätter inom samma åtta
+produktfiler och riktade tester; ingen push, aktivering eller live-DB-ändring.
+
 C1.3-designbeslut efter readonly-review: startkvitto ska ingå i samma befintliga
 transaktion som ny version/assistentmeddelande, inte bara await efter commit.
 Kvittoskrivningsfel rullar tillbaka; verkligt DB-genererat files_revision används.
@@ -154,3 +178,70 @@ Readonly plattformskontroll bekräftar projekt sajtmaskin med Node 22.x.
 MCP-svaret visar inte abonnemang, cron- eller faktisk funktionsduration;
 schemats stöd och verklig tidsgräns måste verifieras före aktivering. Manifestets
 950 sekunder är inte i sig driftbevis. Ingen providerinställning har ändrats.
+
+C1.3a slutresultat: 74 finalize-tester, typecheck och diff-check PASS; tidigare
+oförändrade riktade resultat återanvänds utan överlappande totalsummering.
+19 äldre A1/A2-fixturfel rättades genom att ersätta oanvänd testparser och gamla
+lookup-/shim-förväntningar med nuvarande kandidatkontrakt. Åtta produktfiler
+är granskade utan fynd och oförändrade sedan review; 3 granskar testdeltat.
+Produkthashprefix: versions 71695B737ACCDC85; budget AEEE7878382333A4;
+gate D24C9AF4A3E856B4; runner 5D773A6C9CF54EFB; policies E1F1E495B6378685;
+verify-run 5E8804FBA71CCA6C; build-error FE620857998DF3A5;
+post-finalize 35D1D15201D46E0C. Rollbackbeviset använder mockad transaktion,
+inte verklig PostgreSQL. Ingen runtimeacceptans eller ny commit ännu.
+
+C1.3b tilldelas 2: endast validate-images/route.ts, preview-session/route.ts,
+nya gen/verify/version-image-validation.ts och gen/preview/ensure-version-preview.ts,
+samt db/chat-repository/preview-url.ts och riktade tester. Flytta befintlig
+orkestrering till gemensamma smala funktioner; HTTP behåller auth/tenant,
+inputvalidering, rate-limit och responsmappning. Inga hjälpare acquire/release.
+Image använder befintlig snapshot/CAS/holder och ny auktoritativ revision;
+importer får inte muteras. Preview tar explicit typad policy och bevarar
+dossier-env/lifecycle/session. HTTP kan schemalägga befintlig bokföring med
+after; serverkoordinatorn ska kunna invänta samma persist-funktion.
+Preview-URL-writern behöver atomisk expectedFilesRevision/holder-fence med
+befintlig versionslåsägare, inte kontroll följd av ofencad skrivning.
+Behåll bounded contention-retry och gamla callers där kontraktet är oförändrat.
+Ingen ny DB-struktur, faktisk DB-skrivning, koordinator eller cron i delpaketet.
+
+Runtimeinventering 2: ingen färdig lokal fullkedjeharness med browser och
+DB/provider-dubblar. Befintlig Vitest kan testa verkliga entrypoints med dubblar
+för klient borta, dublett/takeover och N→N+1. Den bevisar kontrollflöde/fences,
+inte verklig SQL-atomicitet, tenant/auth eller plattformens processlivstid.
+Verklig leasekonkurrens har scripts/db/version-lease-ownership.postgres.test.ts;
+befintlig browserharness scripts/e2e/run-project-persistence.mjs är CI-only och
+kräver disponibel Postgres. Godkänd testmiljö återstår före runtimeacceptans.
+
+C1.3a slutlig testreview utan fynd: åtta stabila testhashar och tidigare åtta
+produktblobs oförändrade. Testhashprefix: bootstrap 4B8E56E33B392A43;
+budget 13D0F59AE1130F50; gate E9F24D6D825BD6A9; finalize 5BC919239F2DFDBE;
+verify 8CD9FCC7CC7767D6; F3 EA1D36215F974A5F; build-error AB7A679390AD423B;
+post-finalize 27781C642E3636AD. 1:s slutrapport bekräftar typecheck/diff PASS.
+
+C1.3b lokalt klar/fryst: 71 riktade tester, typecheck utan incremental-cache,
+diff-check och verifieringsplan --no-fetch PASS. Första plan-fetch nekades före
+FETCH_HEAD-skrivning; planbeviset är därför bundet till lokal origin/preview.
+Fem produktfiler netto −1 rad; routes 481→205. Tester +426, totalt +425.
+19 andra WIP-filer hashoförändrade. 3 granskar produkterna och testerna.
+Produktens kombinerade SHA-256: E93B2F5F31A3B4F13B26B82EF357011E8B2B2E91C273E330F1772714C1DDDECE.
+Testernas: 6FF2CAF9EF1BA40B4D9BDCE309E2A433B00E2306861D3C144DB948657EE2C2DB.
+Inget verkligt DB-/runtimebevis hävdas.
+
+C1.3c designreview kräver två skydd före produktkontrollsflytten: ren
+busy/settled-lookup innan nytt arbete; versionslease → omläsning → productclaim,
+så lease-nekande inte lämnar claim upptagen. Betald LiveReview-reservation måste
+atomiskt kontrollera holder/revision samtidigt som försöksräknaren ökas.
+En senare resultatfence räcker inte. Förbered därför ett litet grundpaket i
+live-review-runs.ts, live-review-session.ts och product-postcheck-runs.ts, med
+riktade tester. Befintliga direktcallers behålls tills routepaketet ansluts;
+en uttryckligen medskickad men felaktig held-kontext får aldrig degradera till
+ofencad reservation. Inga reserverade försök återbetalas.
+Efter grundpaketet: produkt-route/core + atomisk canonical-resultat/claim-owner,
+sedan QG-core och held-serververify. Klientens error-log-POST ska bara replaya
+serverlagrat releasebevis. Renew-fel stoppar; deadline reserverar persist/release-
+tid och får inte starta betalt arbete genom ett åttasekundersgolv efter timeout.
+
+C1.3b slutreview utan konkreta fynd: 10/10 scopehashar stabila. Granskaren
+bekräftar import/followup/okänd-provenance-skydd, CAS/readback, previewidentitet,
+await/after-paritet och atomisk writer. Slutrapporten från 2 bekräftar 71 tester,
+typecheck utan cache, diff och plan PASS. Kod/testbevis, inte live konkurrens.

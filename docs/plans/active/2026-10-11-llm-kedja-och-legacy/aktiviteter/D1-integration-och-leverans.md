@@ -36,3 +36,9 @@ A1/A2, den säkra B1/B2-delen och C1.1–2b är paketgranskade och riktat
 verifierade för en lokal checkpoint. C1:s atomicbootstrap, gemensamma serverägare,
 cron och klientavveckling återstår. Lokal checkpoint är inte leveransgodkännande
 eller runtimeacceptans; inget fullbygge eller betalt modelltest har körts.
+Checkpoint `a9f209e95f3f8f68bf4a1c08c6cc88d20c579270` skapad lokalt;
+ren arbetsyta verifierad direkt efter commit. Nuvarande checkpoint ovanpå
+arkivsnapshoten ändrar 66 filer; hela initiativet mot `b5b7474e…` är 89 filer,
++3372/−2333 inklusive planer och tester. Det är inte ett mått på produktkodens
+netto eller latency/kostnad. Färsk verifieringsplan, docs:check och docs:links
+PASS; Node/Volta 22.23.1. Fullprofilen planeras men är inte exekverad lokalt.

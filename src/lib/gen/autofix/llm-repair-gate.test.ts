@@ -231,19 +231,16 @@ describe("runLlmRepairGate ledger", () => {
     runLlmFixer.mockResolvedValue({ fixedContent: "fixed", fixedFiles: [], missingFiles: [], incompleteFiles: [], partial: false, success: true, durationMs: 1 });
     await runLlmRepairGate(params);
     await runLlmRepairGate(params);
-    expect(ledger.exportFinalizeSeed("v", "c", params.scopeId)).toBeUndefined();
-    ledger.markKnownFinalize("v", "c", params.scopeId);
-    const seed = ledger.exportFinalizeSeed("v", "c", params.scopeId)!;
-    expect(seed.history.consumed).toEqual([]);
-    expect(seed.history.finalize).toEqual([expect.objectContaining({ requiredFiles: ["a.ts"], outcome: "success" })]);
-    expect(ledger.exportFinalizeSeed("other", "c", params.scopeId)).toBeUndefined();
-    const hydrated = RepairLedger.hydrate("c", params.scopeId, seed.history.finalize);
+    const calls = ledger.exportInvocations("c", params.scopeId);
+    expect(calls).toEqual([expect.objectContaining({ requiredFiles: ["a.ts"], outcome: "success" })]);
+    expect(ledger.exportInvocations("other", params.scopeId)).toEqual([]);
+    const hydrated = RepairLedger.hydrate("c", params.scopeId, calls);
     expect((await runLlmRepairGate({ ...params, ledger: hydrated })).deduped).toBe(true);
-    expect(hydrated.exportFinalizeSeed("v", "c", params.scopeId)).toBeUndefined();
+    expect(hydrated.exportInvocations("c", params.scopeId)).toEqual([]);
     expect(runLlmFixer).toHaveBeenCalledTimes(1);
     expect((await runLlmRepairGate({ ...params, content: "B", ledger: hydrated })).deduped).toBe(false);
     ledger.clear();
-    expect(ledger.exportFinalizeSeed("v", "c", params.scopeId)).toBeUndefined();
+    expect(ledger.exportInvocations("c", params.scopeId)).toEqual([]);
   });
 
   it("reserves strictly after dedupe and before invoking, then durably completes before returning", async () => {
@@ -265,8 +262,7 @@ describe("runLlmRepairGate ledger", () => {
     runLlmFixer.mockResolvedValue({ fixedContent: "fixed", fixedFiles: [], missingFiles: [], incompleteFiles: [], partial: false, success: true, durationMs: 1 });
     await expect(runLlmRepairGate({ content: "A", errors: ["boom"], chatId: "c", scopeId: "s", timeoutMs: 1_000, ledger, repairBudget: hooks })).rejects.toBe(failure);
     expect(runLlmFixer).toHaveBeenCalledTimes(stage === "reservation" ? 0 : 1);
-    ledger.markKnownFinalize("v", "c", "s");
-    expect(ledger.exportFinalizeSeed("v", "c", "s")!.history.finalize).toHaveLength(stage === "reservation" ? 0 : 1);
+    expect(ledger.exportInvocations("c", "s")).toHaveLength(stage === "reservation" ? 0 : 1);
   });
 
   it("restores aborted/unknown identities and records thrown fixer invocations as error", async () => {
@@ -274,8 +270,7 @@ describe("runLlmRepairGate ledger", () => {
     runLlmFixer.mockRejectedValueOnce(new Error("model failed"));
     const params = { content: "A", errors: ["boom"], chatId: "c", scopeId: "s", timeoutMs: 1_000, ledger };
     await expect(runLlmRepairGate(params)).rejects.toThrow("model failed");
-    ledger.markKnownFinalize("v", "c", "s");
-    const call = ledger.exportFinalizeSeed("v", "c", "s")!.history.finalize[0];
+    const call = ledger.exportInvocations("c", "s")[0];
     expect(call.outcome).toBe("error");
     runLlmFixer.mockResolvedValue({ fixedContent: "fixed", fixedFiles: [], missingFiles: [], incompleteFiles: [], partial: false, success: true, durationMs: 1 });
     const unknown = RepairLedger.hydrate("c", "s", [{ ...call, outcome: "unknown" }]);

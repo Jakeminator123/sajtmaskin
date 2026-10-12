@@ -52,7 +52,6 @@ export type RepairBudgetHooks = {
 export class RepairLedger {
   private records = new Map<string, RepairLedgerRecord>();
   private invocations: Array<RepairLedgerInvocation & { scopeId: string; chatId: string }> = [];
-  private knownFinalize: { versionId: string; chatId: string; scopeId: string } | null = null;
 
   observeInvocation(record: RepairLedgerRecord): RepairLedgerInvocation {
     const observation = { contentHash: record.contentHash, diagnosticFingerprint: record.diagnosticFingerprint,
@@ -61,17 +60,10 @@ export class RepairLedger {
     return observation;
   }
 
-  /** Runner may mark only a newly created version, never a replacement ledger after restart. */
-  markKnownFinalize(versionId: string, chatId: string, scopeId: string): void {
-    this.knownFinalize = { versionId, chatId, scopeId };
-  }
-
-  exportFinalizeSeed(versionId: string, chatId: string, scopeId: string) {
-    const origin = this.knownFinalize;
-    if (!origin || origin.versionId !== versionId || origin.chatId !== chatId || origin.scopeId !== scopeId) return undefined;
-    return { scopeId, history: { source: "observed_fixer_calls" as const, consumed: [],
-      finalize: this.invocations.filter((call) => call.chatId === chatId && call.scopeId === scopeId)
-        .map(({ contentHash, diagnosticFingerprint, requiredFiles, outcome }) => ({ contentHash, diagnosticFingerprint, requiredFiles: [...requiredFiles], outcome })) } };
+  /** Observations only. Exporting/hydrating a ledger grants no bootstrap authority. */
+  exportInvocations(chatId: string, scopeId: string): RepairLedgerInvocation[] {
+    return this.invocations.filter((call) => call.chatId === chatId && call.scopeId === scopeId)
+      .map(({ contentHash, diagnosticFingerprint, requiredFiles, outcome }) => ({ contentHash, diagnosticFingerprint, requiredFiles: [...requiredFiles], outcome }));
   }
 
   static hydrate(chatId: string, scopeId: string, calls: RepairLedgerInvocation[]): RepairLedger {
@@ -171,7 +163,6 @@ export class RepairLedger {
   clear(): void {
     this.records.clear();
     this.invocations = [];
-    this.knownFinalize = null;
   }
 }
 
