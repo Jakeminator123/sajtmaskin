@@ -191,3 +191,25 @@ verifierades som `0` lokalt och i Vercels tre mål. Nytt modellprov är inte utf
 Körkvitto och skärmbild ligger under den här uppgiftens lokala visualiseringsmapp:
 `manual-pipeline-result.json` och `manual-pipeline-generated.png`. Root har återställt
 Nexts automatiskt tillagda block i AGENTS.md; det ingår inte i produktändringen.
+
+### Testkonto och fungerande lokal inloggning — 2026-10-12
+
+Jakob gav separat mandat att skapa ett lättanvänt testkonto med cirka 1 000 credits.
+`pipeline-test@local.test` skapades i den verifierade DEV-databasen genom befintliga
+kontoägare, med hashat lösenord, verifierad mejl och **1 000 credits**. Vanligt konto,
+inte admin eller env-whitelistat gratis-/superadminkonto. Krediterna lades till med
+den atomiska, idempotenta `createTransaction`-ägaren: bonuskvitto
+`3Zmx4W4CcpkKrXlnH4S1o`, konto `D5kcurIdM53raamLN2t8a`. Lösenordet ligger endast i
+uppgiftens lokala credentialfil/chatt, inte i spårad dokumentation eller produktkod.
+
+Endast arbetscheckoutens ignorerade `.env.local` har lokal app-URL 3100. Vår
+testserver startades om med process-override för denna URL och de befintliga små
+tokenbudgetarna. Huvudcheckoutens app-URL 3000 och Vercels app-konfiguration behölls.
+Normal login med faktisk Origin 3100 gav **200**; `/api/auth/me` bekräftade autentisering,
+mejlstatus och saldo 1 000. Genereringsroutens icke-genererande OPTIONS gav **204**,
+så föregående origin-fel är rättat i testuppsättningen utan att ändra origin-guarden.
+Ingen ny modellbeställning skickades vid konto-/loginverifieringen.
+
+Schemaläggningen ligger kvar på `0`. Ingen produktkod, migration, PROD-data, push
+eller deploy ändrades. DEV delas med Preview enligt den befintliga DB-ägaren;
+kontot ska därför benämnas utvecklingskonto, inte en separat lokal databas.
