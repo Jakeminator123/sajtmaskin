@@ -173,6 +173,14 @@ Det lokala arbetet är klart. Nästa eventuella uppdrag är separat beslut om
 schemaläggning och publicering med befintliga Buggpass-/CI-/runtimegrindar.
 Planen ligger kvar i active eftersom ingenting är mergat eller publicerat.
 
+Ett separat godkänt DEV-modellprov 2026-10-12 gav fungerande desktop/mobil-preview,
+produktkontroll och Spara/återöppning utan nya anrop: $0.221461, cirka 2,33 SEK,
+0 debiterade credits. Kvalitetsgrind och LiveReview var av via befintlig env/grant;
+de är inte runtimeaccepterade. Brief-kostnaden saknar versionens billingbindning;
+avstämningsavvikelsen och exakta kvitton finns i [D1](aktiviteter/D1-integration-och-leverans.md).
+Testcredentials är sparade som separata operatörs-env lokalt och krypterat i Vercels
+tre miljöer. Schemaläggningen förblir `0`; ingen push eller aktivering.
+
 | ID | Aktivitet | Utförare | Beroende | Status |
 |---|---|---|---|---|
 | A1 | [Typat byggunderlag](aktiviteter/A1-typat-byggunderlag.md) | 1 | registrering | lokalt klar, review utan fynd; runtime ej verifierad |

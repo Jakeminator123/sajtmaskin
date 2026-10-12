@@ -189,6 +189,8 @@
     "OPENCLAW_GATEWAY_URL",
     "OPENCLAW_MODEL_ROUTING_ENABLED",
     "PEXELS_API_KEY",
+    "PIPELINE_TEST_ACCOUNT_EMAIL",
+    "PIPELINE_TEST_ACCOUNT_PASSWORD",
     "POSTGRES_CONNECT_TIMEOUT_MS",
     "POSTGRES_POOL_IDLE_TIMEOUT_MS",
     "POSTGRES_POOL_MAX",
@@ -789,6 +791,18 @@
       "classification": "local_only",
       "recommendedVercelTargets": [],
       "notes": "D-ID server-API-nyckel (API_USER:API_PASSWORD) för credits-saldot i last-generated-usersite.py. Appens avatar använder de publika NEXT_PUBLIC_AVATAR_*-client-nycklarna, så den här hör bara lokalt."
+    },
+    {
+      "key": "PIPELINE_TEST_ACCOUNT_EMAIL",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Operator-only reusable pipeline-test login, stored encrypted in Vercel and in ignored local env files. Not consumed by app authentication or account bootstrap; grants no admin or free-billing privilege. Current account exists in DEV/Preview only; storing this key for Production does not provision a Production account. Separate from privileged TEST_USER_EMAIL."
+    },
+    {
+      "key": "PIPELINE_TEST_ACCOUNT_PASSWORD",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Operator-only pipeline-test password; keep encrypted in Vercel and out of tracked files and NEXT_PUBLIC variables. Not consumed by app authentication or account bootstrap. Saving this secret does not create an account, change its password, grant privileges or activate scheduling. Separate from privileged TEST_USER_PASSWORD."
     },
     {
       "key": "TEST_USER_EMAIL",

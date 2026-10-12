@@ -19,6 +19,16 @@
 
 ---
 
+## Återanvändbart pipelinetestkonto
+
+Återanvändbart pipelinetestkonto: `PIPELINE_TEST_ACCOUNT_EMAIL` och
+`PIPELINE_TEST_ACCOUNT_PASSWORD` är operatörs-/testvariabler, inte appberoenden.
+De sparas i ignorerad `.env.local` och krypterat i Vercels tre miljöer, aldrig
+som `NEXT_PUBLIC_*` eller i Git. Kontot finns i DEV, som även används av Preview;
+env-värden i Production skapar inget konto där. Variablerna ger inga admin- eller
+gratisprivilegier och ska inte ersättas med de privilegierade `TEST_USER_*`.
+De aktiverar inte schemaläggning eller automatiska tester.
+
 ## Måste i praktiken (normal drift)
 
 Utan dessa brukar kärnan inte vara användbar i **preview + production**:

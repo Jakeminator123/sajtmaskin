@@ -105,7 +105,8 @@ push; befintlig paketreview får inte presenteras som ett sådant kvitto.
 
 ## Förberett enda manuellt runtimeprov — 2026-10-12
 
-Status: ett faktiskt testanrop genomfört, stoppat före modellstart; se resultat nedan.
+Status: tidigare origin-stopp följt av ett separat godkänt enda modellprov med
+DEV-testkontot; aktuellt resultat och bevisgränser nedan.
 Kodkandidat `e5e5b7d7258dc8aa2a2d2876c75514149863b43c`.
 Schemaläggningsflaggan ligger kvar på `0` lokalt och i Vercel; inget cron-anrop ingår.
 Provet kör den lokala kandidatens vanliga generationsväg och gemensamma servercore.
@@ -199,8 +200,8 @@ Jakob gav separat mandat att skapa ett lättanvänt testkonto med cirka 1 000 cr
 kontoägare, med hashat lösenord, verifierad mejl och **1 000 credits**. Vanligt konto,
 inte admin eller env-whitelistat gratis-/superadminkonto. Krediterna lades till med
 den atomiska, idempotenta `createTransaction`-ägaren: bonuskvitto
-`3Zmx4W4CcpkKrXlnH4S1o`, konto `D5kcurIdM53raamLN2t8a`. Lösenordet ligger endast i
-uppgiftens lokala credentialfil/chatt, inte i spårad dokumentation eller produktkod.
+`3Zmx4W4CcpkKrXlnH4S1o`, konto `D5kcurIdM53raamLN2t8a`. Lösenordet ligger i ignorerade
+lokala env-filer och krypterade Vercel-env, inte i spårad dokumentation eller produktkod.
 
 Endast arbetscheckoutens ignorerade `.env.local` har lokal app-URL 3100. Vår
 testserver startades om med process-override för denna URL och de befintliga små
@@ -213,3 +214,51 @@ Ingen ny modellbeställning skickades vid konto-/loginverifieringen.
 Schemaläggningen ligger kvar på `0`. Ingen produktkod, migration, PROD-data, push
 eller deploy ändrades. DEV delas med Preview enligt den befintliga DB-ägaren;
 kontot ska därför benämnas utvecklingskonto, inte en separat lokal databas.
+
+### Aktuellt enda modellprov med testkontot — 2026-10-12 20:28 svensk tid
+
+Separat godkänt prov på `a44362c2cce46b2cd7dd8e4a9230fcb26afd60d7`:
+en generations-POST, HTTP 200, Låg/pro, båda bildjobben av. Chat
+`62b1cb53-79b7-4e54-8cfa-89408c34e2fd`, projekt `LRFSqYHm0QSqdpO_vpMF4`,
+version `7d13aea9-f0c9-49b4-a1a9-2539dbabda62`, revision
+`cda8b352691af9497fec9a2249cae959`. Inget ytterligare modellprov eller repair.
+
+Verklig preview visas både direkt och i builderns iframe. Desktop och mobil
+är visuellt kontrollerade; mobilen har ingen horisontell overflow. "Se menyn"
+scrollar till `#meny` på båda. Serverns revisionsbundna produktclaim är
+`passed`, med en advisory: "Till sidans början" saknar target `#top`.
+Versionsprojektionen är `done`, utan preview-/verifieringsblockering.
+Spara gav HTTP 200; återöppning visar samma version/revision/preview utan nya
+usage-rader. Testdriverns första breda POST-spärr blockerade vanlig preview-session;
+en efterföljande återöppningskontroll tillät den och passerade utan ny Spara eller LLM.
+
+Bevisgräns: kvalitetsgrinden hoppades över av den **befintliga**
+`SAJTMASKIN_DISABLE_QUALITY_GATE`-inställningen; LiveReview av `grant_off`.
+F2-verifiern hoppades över enligt designpolicyn. Ingen av dessa inställningar
+ändrades för provet. Detta är därför preview-/produkt-/persistensbevis, inte
+full kvalitetsgrind-, LiveReview-, F3-, bild- eller schemalagd återstartsacceptans.
+
+Faktisk registrerad modellkostnad: fyra `llm_usage`-rader, **221 461 microUSD
+= $0.221461**, cirka **2,33 SEK** med billingradens kurs 10,5 SEK/USD.
+Brief 33 172, embeddings 4 + 3, codegen 188 282 microUSD; alla `ok=true`.
+Kontots första gratisgenerering tillämpades: **0 credits**, saldo kvar **1 000**.
+Avstämningsavvikelse: brief-raden saknar chat/version-bindning; versionens
+billingrad omfattar bara övriga tre anrop, $0.188289 / 1,98 SEK. Totalen ovan
+inkluderar brief och är alltså inte den underräknade billingtotalen. Detta
+behöver rättas/verifieras separat innan full kostnadsavräkning kan accepteras.
+VM/hostingkostnad ingår inte i tokenkostnaden.
+
+Återanvändbara credentials sparades efter Jakobs mandat i båda ignorerade
+lokala `.env.local` och krypterat i Vercels Development/Preview/Production som
+`PIPELINE_TEST_ACCOUNT_EMAIL` / `PIPELINE_TEST_ACCOUNT_PASSWORD`. Återläsning
+bekräftade matchande värden och mål. Dessa operatörsvariabler skapar inget
+PROD-konto, ger inga särskilda privilegier och aktiverar inget. Env-ägaren
+och genererad hemlighetsfri dokumentation uppdaterades; inga lösenord i Git.
+Schemaläggningsflaggan förblir `0`; ingen push, deploy eller PROD-dataändring.
+Env-policy-paritet: 8 tester PASS; `docs:check`, `docs:links`, diffkontroll
+och verifieringsplan `--no-fetch` PASS. Ingen produktkod ändrades för provet.
+
+Lokala bevis i uppgiftens visualiseringsmapp: `manual-pipeline-test-account-result.json`,
+`manual-pipeline-save-reopen-result.json`, `manual-pipeline-normal-reopen-result.json`
+samt `manual-pipeline-preview-{desktop,mobile}.png`. Browserdrivrutinen har ett
+exklusivt engångskvitto som förhindrar återinskickning av samma modellprov.

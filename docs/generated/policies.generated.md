@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:9d9047be20e42126 -->
+<!-- source-fingerprint: config/env-policy.json sha256:c81dee0f1d3f89d5 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:6fdc4794d0a6a606 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:ed83b142db793efe -->
 
@@ -97,6 +97,8 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `OPENCLAW_GATEWAY_TOKEN`                             | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `OPENCLAW_GATEWAY_URL`                               | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `OPENCLAW_MODEL_ROUTING_ENABLED`                     | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
+| `PIPELINE_TEST_ACCOUNT_EMAIL`                        | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
+| `PIPELINE_TEST_ACCOUNT_PASSWORD`                     | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `POSTGRES_CONNECT_TIMEOUT_MS`                        | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `POSTGRES_POOL_IDLE_TIMEOUT_MS`                      | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `POSTGRES_POOL_MAX`                                  | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
