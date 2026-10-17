@@ -145,7 +145,7 @@ describe("useVersionStatus — Finding A (poll until stable)", () => {
     expect(result.current.status?.degradations).toEqual([]);
   });
 
-  it("hard-stops immediately on a failed projection (no grace polls)", async () => {
+  it("rechecks a failed projection on a slow cadence and stops after the window", async () => {
     const failed = vs({
       phase: "failed",
       done: false,
@@ -157,7 +157,14 @@ describe("useVersionStatus — Finding A (poll until stable)", () => {
     const fetchMock = sequenceFetch([failed]);
     vi.stubGlobal("fetch", fetchMock);
 
-    const { result } = renderStatus();
+    const { result } = renderHook(() =>
+      useVersionStatus({
+        chatId: "c1",
+        versionId: "v1",
+        pollIntervalMs: POLL,
+        maxFailedRecheckMs: 40_000,
+      }),
+    );
 
     await act(async () => {
       await flushMicrotasks();
@@ -165,11 +172,55 @@ describe("useVersionStatus — Finding A (poll until stable)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.current.status?.phase).toBe("failed");
 
-    // A failed version must never be grace-polled — no further fetches.
+    // Not the normal 1 s cadence: the next recheck waits 15 s.
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(POLL * 10);
+      await vi.advanceTimersByTimeAsync(14_000);
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // Rechecks at 15 s, 30 s and 45 s; the 45 s one is past the window and stops.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(31_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(result.current.status?.phase).toBe("failed");
+    expect(result.current.error).toBeNull();
+  });
+
+  it("surfaces a later promotion of the same version after a failed gate", async () => {
+    const failed = vs({ phase: "failed", done: false, verifierOutcome: "failed", eventCount: 3 });
+    const promoted = vs({ phase: "done", done: true, verifierOutcome: "passed", eventCount: 9 });
+    const fetchMock = sequenceFetch([failed, failed, promoted, promoted]);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderStatus();
+
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(result.current.status?.phase).toBe("failed");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(result.current.status?.phase).toBe("done");
+
+    // Back on the normal cadence: one stable confirmation, then stop.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL * 20);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(result.current.status?.done).toBe(true);
   });
 
   it("stops at the safety cap when eventCount never settles", async () => {
@@ -409,7 +460,7 @@ describe("useVersionStatus — perpetual-spinner client backstop", () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    // `failed` hard-stops immediately; the cap is irrelevant and no error is set.
+    // `failed` has its own slow recheck; the non-terminal cap never trips.
     await act(async () => {
       await vi.advanceTimersByTimeAsync(POLL * 5);
     });

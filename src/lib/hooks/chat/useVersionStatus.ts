@@ -28,7 +28,8 @@ import type { VersionStatus } from "@/lib/logging/event-bus-types";
  * product-postcheck flow runs *after* finalize and can emit a late
  * `version.degraded`, so stopping on the first `done` would miss it and
  * render a degraded version as solid green (Finding A, område 6-3). A
- * `failed` phase still stops immediately.
+ * `failed` phase is rechecked slowly for a bounded window, because a server
+ * repair can still promote the same version.
  *
  * Område 6-3 punkt 1: the PRIMARY guarantee against a missed late
  * degradation is now deterministic — the client bumps `refreshNonce`
@@ -57,6 +58,18 @@ const DEFAULT_POLL_INTERVAL_MS = 4_000;
  * code into the client bundle; the value just needs to exceed the server budget.
  */
 const DEFAULT_MAX_NON_TERMINAL_POLL_MS = 15 * 60_000;
+
+/**
+ * A `failed` projection is not always final: gate-fail → server repair →
+ * accept → promoted happens inside the same version, and nothing on the client
+ * triggers a refetch when it lands. `/version-status` upgrades that stale bus
+ * `failed` only when the DB row is both `passed` and `promoted` (M#flap1 in
+ * `reconcileTerminalDbState`), so rechecking can surface the authoritative
+ * outcome but never paint a failed version green. Window covers the static
+ * verify/repair route budget (950 s); cadence is deliberately slow.
+ */
+const DEFAULT_MAX_FAILED_RECHECK_MS = 16 * 60_000;
+const FAILED_RECHECK_INTERVAL_MS = 15_000;
 
 type FetchResponseOk = { ok: true; versionId: string; status: VersionStatus };
 type FetchResponseErr = { ok: false; error: string };
@@ -96,6 +109,11 @@ export function useVersionStatus(params: {
    * polling (see `DEFAULT_MAX_NON_TERMINAL_POLL_MS`). Mainly for tests.
    */
   maxNonTerminalMs?: number;
+  /**
+   * How long a `failed` projection keeps being rechecked before polling stops
+   * (see `DEFAULT_MAX_FAILED_RECHECK_MS`). Mainly for tests.
+   */
+  maxFailedRecheckMs?: number;
 }): FetchState {
   const {
     chatId,
@@ -103,6 +121,7 @@ export function useVersionStatus(params: {
     pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
     refreshNonce = 0,
     maxNonTerminalMs = DEFAULT_MAX_NON_TERMINAL_POLL_MS,
+    maxFailedRecheckMs = DEFAULT_MAX_FAILED_RECHECK_MS,
   } = params;
   const [state, setState] = useState<FetchState>({
     status: null,
@@ -121,6 +140,8 @@ export function useVersionStatus(params: {
   // drives the client-side perpetual-spinner backstop. `null` = not yet in a
   // tracked non-terminal window (reset per key and whenever `done` is reached).
   const nonTerminalStartRef = useRef<number | null>(null);
+  // Wall-clock timestamp of the first `failed` poll for the current key.
+  const failedStartRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!chatId || !versionId) {
@@ -133,6 +154,7 @@ export function useVersionStatus(params: {
     // Fresh stability tracking for each (chat, version, refresh) key.
     prevEventCountRef.current = null;
     nonTerminalStartRef.current = null;
+    failedStartRef.current = null;
     let cancelled = false;
     queueMicrotask(() => {
       if (!cancelled && lastKeyRef.current === key) {
@@ -183,11 +205,17 @@ export function useVersionStatus(params: {
     // version (the false-green the område 6/7 invariant forbids). So we
     // stop only once the projection is STABLE (`done` + `eventCount`
     // unchanged vs the previous fetch) — guaranteeing a late degradation,
-    // which bumps `eventCount`, is observed first. `failed` is an
-    // immediate hard-stop: a failed version must never be grace-polled
-    // into looking green.
+    // which bumps `eventCount`, is observed first. `failed` is rechecked
+    // slowly for a bounded window (see `DEFAULT_MAX_FAILED_RECHECK_MS`):
+    // only the server's M#flap1 reconcile can turn it into `done`.
     const shouldStopPolling = (s: VersionStatus | null): boolean => {
-      if (s?.phase === "failed") return true;
+      if (s?.phase === "failed") {
+        prevEventCountRef.current = s.eventCount ?? null;
+        const now = Date.now();
+        failedStartRef.current ??= now;
+        return now - failedStartRef.current > maxFailedRecheckMs;
+      }
+      failedStartRef.current = null;
       // Terminal-neutral supersede (2026-07): the row was replaced by a newer
       // version — nothing more will ever arrive for it. Hard-stop like failed.
       if (s?.phase === "superseded") return true;
@@ -278,7 +306,9 @@ export function useVersionStatus(params: {
 
     const nextDelayMs = (outcome: FetchOutcome) =>
       outcome.ok
-        ? pollIntervalMs
+        ? outcome.status?.phase === "failed"
+          ? Math.max(pollIntervalMs, FAILED_RECHECK_INTERVAL_MS)
+          : pollIntervalMs
         : Math.max(
             pollBackoffDelayMs(pollIntervalMs, consecutiveErrors),
             outcome.retryAfterMs ?? 0,
@@ -362,7 +392,7 @@ export function useVersionStatus(params: {
         document.removeEventListener("visibilitychange", handleVisibilityChange);
       }
     };
-  }, [chatId, versionId, pollIntervalMs, refreshNonce, maxNonTerminalMs]);
+  }, [chatId, versionId, pollIntervalMs, refreshNonce, maxNonTerminalMs, maxFailedRecheckMs]);
 
   if (!chatId || !versionId) {
     return { status: null, loading: false, error: null };
