@@ -5,14 +5,21 @@ Produktens kanoniska URL-lista ägs av
 Publik indexerbar yta: [`/exempel`](https://sajtmaskin.se/exempel). Facit är
 live GitHub + live HTTP/Vercel, inte äldre revival-handoffs.
 
-## Live 2026-09-18
+## Live 2026-10-18
 
-Alla fem är **rekonstruktioner**. De är inte kundcase, inte verifierade
-verksamheter och inte exakt output från nuvarande Sajtmaskin. De ska förbli
-`noindex` / `Disallow: /`.
+Inget exempel är kundcase eller exakt output från nuvarande Sajtmaskin.
+Byråflöde, Springa, Palma, Paddlelines och Glass är **rekonstruktioner**, inte
+verifierade verksamheter, och ska förbli `noindex` / `Disallow: /`.
+DG97, Kontorshotellkartan, Persona Royale, Scout Gaming och Nexus OS är egna
+live-projekt och koncept; deras indexering styrs i respektive repo.
 
 | Exempel | Repo | Live-URL |
 |---|---|---|
+| DG97 Kontorsguiden | `Jakeminator123/dg-97` | https://www.dg97.org |
+| Kontorshotellkartan | `Jakeminator123/kontorshotellkartan` | https://kontorshotellkartan.se |
+| Persona Royale | `Jakeminator123/persona-royale-casino` | https://persona-royale-casino.vercel.app |
+| Scout Gaming | `jakeminator0/sajtmaskin-casino` | https://sajtmaskin-casino-f440ccf7.vercel.app |
+| Nexus OS | `jakeminator0/futuristic-dashboard` | https://futuristic-dashboard-five-indol.vercel.app |
 | Byråflöde | `Jakeminator123/byraflode-showcase` | https://byraflode-showcase.vercel.app |
 | Springa | `Jakeminator123/springa-showcase` | https://springa-showcase.vercel.app |
 | Palma | `Jakeminator123/palma-showcase` | https://palma-showcase.vercel.app |

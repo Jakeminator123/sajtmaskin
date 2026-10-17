@@ -27,7 +27,7 @@ vi.mock("next/image", () => ({
 }));
 
 describe("ExempelContent", () => {
-  it("renders one H1, a reconstruction disclosure and five real showcase cards", () => {
+  it("renders one H1, a reconstruction disclosure and all ten showcase cards", () => {
     const { container } = render(<ExempelContent />);
 
     const headings = screen.getAllByRole("heading", { level: 1 });

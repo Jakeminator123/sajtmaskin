@@ -7,13 +7,13 @@ import { publicIndexRobots } from "@/lib/public-canonical-url";
 export const metadata: Metadata = {
   title: "Exempel på hemsidor",
   description:
-    "Se fem Sajtmaskin-exempel: Byråflöde, Springa, Palma, Paddlelines och Glass. Rekonstruktioner som visar visuella riktningar — inte kundomdömen eller riktiga verksamheter.",
+    "Se tio Sajtmaskin-exempel: DG97 Kontorsguiden, Kontorshotellkartan, Persona Royale, Scout Gaming, Nexus OS, Byråflöde, Springa, Palma, Paddlelines och Glass. Rekonstruktioner som visar visuella riktningar — inte kundomdömen eller riktiga verksamheter.",
   alternates: { canonical: EXEMPEL_CANONICAL_URL },
   robots: publicIndexRobots(),
   openGraph: {
     title: "Exempel på hemsidor",
     description:
-      "Fem demonstrationsprojekt som visar visuella riktningar och användningsfall. Inte kundcase.",
+      "Tio demonstrationsprojekt och rekonstruktioner som visar visuella riktningar och användningsfall. Inte kundcase.",
     url: EXEMPEL_CANONICAL_URL,
     type: "website",
     locale: "sv_SE",
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
         url: "/exempel/og.webp",
         width: 1200,
         height: 630,
-        alt: "Sajtmaskin-exempel: fem rekonstruktioner av hemsideidéer.",
+        alt: "Sajtmaskin-exempel: rekonstruktioner av hemsideidéer.",
       },
     ],
   },
