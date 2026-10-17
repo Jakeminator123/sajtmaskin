@@ -14,8 +14,7 @@ startkontext; övriga regler/skills laddas först när beskrivning, glob eller
 explicit kommando matchar uppgiften. Läs aldrig hela docs-, regel- eller
 backloggstacken som rutin.
 
-Codex och Cursor följer samma arbetsregler: öppna checkouten, en skrivande
-session per checkout. Worktree skapas när Jakob ber om det.
+Codex och Cursor följer samma arbetsregler, ägda av `git.mdc` och `pr-workflow`.
 
 ## Vad märker jag lokalt?
 

@@ -5,15 +5,15 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { writeHookResponse } from "../../.cursor/hooks/hook-io.mjs";
+import { cheapShellDecision } from "../../.cursor/hooks/worktree-force-guard.mjs";
 import {
-  cheapShellDecision,
+  commandWords,
+  expandSegments,
   invokesGit,
   isAmbiguousGitCommand,
   nestedShellPayloads,
   resolveAliasesFor,
-  shellSegments,
-  shellTokens,
-} from "../../.cursor/hooks/worktree-force-guard.mjs";
+} from "./git-command-ambiguity.mjs";
 import { collectImpact, loadWorkflowInputs, parseGitNameStatus } from "./path-impact.mjs";
 
 function deny(reason) {
@@ -174,16 +174,16 @@ export function commandWorkingDirectory(command, fallback) {
   return cwd;
 }
 
+/**
+ * @param {string} command
+ * @param {{ aliases?: Map<string, string> | Set<string> | null }} [options]
+ */
 export function isCommitCommand(command, { aliases = new Set() } = {}) {
   if (typeof command !== "string") return false;
   if (isAmbiguousGitCommand(command, aliases)) return true;
+  // `expandSegments` already includes nested-shell and `$(…)` payloads.
   const segmentCommits = (segment) => {
-    if (
-      nestedShellPayloads(segment).some((payload) => shellSegments(payload).some(segmentCommits))
-    ) {
-      return true;
-    }
-    const tokens = shellTokens(segment);
+    const tokens = commandWords(segment).map((word) => word.text);
     const gitIndex = invokesGit(tokens);
     const args = gitIndex >= 0 ? tokens.slice(gitIndex + 1) : tokens;
     const hasCommit = args.some((token) => /^commit$/iu.test(token));
@@ -194,7 +194,7 @@ export function isCommitCommand(command, { aliases = new Set() } = {}) {
     const dequotedExecutable = segment.replace(/["'\\]/gu, "");
     return gitIndex >= 0 || /\bgit(?:\.exe)?\b/iu.test(dequotedExecutable);
   };
-  return shellSegments(command).some(segmentCommits);
+  return expandSegments(command).some(segmentCommits);
 }
 
 export function includesTrackedChanges(command) {
@@ -208,7 +208,7 @@ export function includesTrackedChanges(command) {
  * @param {{
  *   git?: (args: string[], cwd?: string) => string[],
  *   env?: Record<string, string | undefined>,
- *   aliases?: Set<string> | null,
+ *   aliases?: Map<string, string> | Set<string> | null,
  *   cwd?: string,
  * }} [options] `aliases` omitted means "resolve lazily"; an explicit value
  *   (including `null`, i.e. inspection failed) is used as given.

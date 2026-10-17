@@ -32,10 +32,7 @@ projektion → mental modell → historik. Git är arkivet; inga backupdocs. Pol
 - Kör `npm run hooks:install` vid färsk clone eller workflowändring; främmande
   hookkonflikt är ett stopp.
 - Före push: `npm run verify:pr -- --plan` + riktat. CI: tung eller light.
-- Branch, commit, push, PR och merge kräver mandat enligt `git.mdc`; force-pusha
-  aldrig master eller en delad remote-branch.
-- Merga bara med uttryckligt eller förhandsvillkorat mandat; kodjobb saknar
-  mergemandat.
+- Branch, commit, push, PR, merge, force-push och radering: mandat och förbud i `git.mdc`.
 - Svara kort på svenska när användaren gör det; skilj bevis från antagande.
 - Pausa vid dataförlust, security/cross-tenant, oklar owner eller stort scope.
 
