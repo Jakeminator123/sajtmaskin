@@ -136,6 +136,10 @@ vi.mock("./thinking-spinner", () => ({
   ThinkingSpinner: () => <div>Bygger förslaget</div>,
 }));
 
+function fetchCallsTo(fetchMock: ReturnType<typeof vi.fn>, url: string): unknown[][] {
+  return fetchMock.mock.calls.filter((call) => String(call[0]).includes(url));
+}
+
 describe("KostnadsfriPage — F1 wait then one build", () => {
   beforeEach(() => {
     fixtures.completeWith = "f1";
@@ -190,7 +194,13 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
       expect(screen.getByText("Ett konto behövs för att bygga hemsidan")).toBeTruthy();
     });
     expect(projects.createProject).not.toHaveBeenCalled();
-    expect(globalThis.fetch).not.toHaveBeenCalled();
+    const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
+    expect(fetchCallsTo(fetchMock, "/api/prompts")).toHaveLength(0);
+    expect(
+      fetchCallsTo(fetchMock, "/api/analytics").map(
+        (call) => JSON.parse(String((call[1] as RequestInit).body)).path,
+      ),
+    ).toEqual(["/kostnadsfri/zax-2-0-ab/wizard", "/kostnadsfri/zax-2-0-ab/konto"]);
   });
 
   it("startar inte bygget efter tyst 3s — skip ger exakt ett init-bygge", async () => {
@@ -281,7 +291,7 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
     fireEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchCallsTo(fetchMock, "/api/prompts")).toHaveLength(2);
     });
     expect(projects.createProject).toHaveBeenCalledTimes(1);
     expect(useOpenClawStore.getState().campaignScript?.projectId).toBe("proj-a");

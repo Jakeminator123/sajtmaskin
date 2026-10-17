@@ -194,11 +194,13 @@ export function VersionHistory({
             <h3 className="truncate font-semibold">Versionshistorik</h3>
             <p className="text-muted-foreground mt-1 text-xs">
               {versions.length} version{versions.length !== 1 ? "er" : ""}
-              {pinnedCount > 0 ? ` • ${pinnedCount} pinned` : ""}
+              {pinnedCount > 0 ? ` • ${pinnedCount} ${pinnedCount === 1 ? "fäst" : "fästa"}` : ""}
             </p>
-            <p className="text-muted-foreground text-xs">
-              Pinned versions är skrivskyddade snapshots. Avpinna för att kunna redigera.
-            </p>
+            {pinnedCount > 0 && (
+              <p className="text-muted-foreground text-xs">
+                Fästa versioner är skrivskyddade. Lossa en version för att kunna redigera den.
+              </p>
+            )}
           </div>
           {canToggleCollapse && (
             <Button
@@ -592,9 +594,9 @@ export function VersionHistory({
                           <Badge
                             variant="secondary"
                             className="px-1.5 py-0 text-[10px]"
-                            title="Pinnad version — visas alltid överst i listan tills du unpinnar."
+                            title="Fäst version — visas alltid överst i listan tills du lossar den."
                           >
-                            Pinned
+                            Fäst
                           </Badge>
                         )}
                         {internalVersionId && (() => {
@@ -780,8 +782,8 @@ export function VersionHistory({
                         size="icon-sm"
                         onClick={(e) => handleTogglePin(e, version)}
                         disabled={isPinning}
-                        title={isPinned ? "Unpin version" : "Pin version"}
-                        aria-label={isPinned ? "Unpin version" : "Pin version"}
+                        title={isPinned ? "Lossa version" : "Fäst version"}
+                        aria-label={isPinned ? "Lossa version" : "Fäst version"}
                         className="h-7 w-7"
                       >
                         {isPinning ? (

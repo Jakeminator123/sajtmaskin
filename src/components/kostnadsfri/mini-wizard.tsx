@@ -92,7 +92,7 @@ const PURPOSE_OPTIONS = WIZARD_PURPOSES.map((purpose) => ({
 
 const VIBE_OPTIONS = WIZARD_VIBES.map((vibe) => ({
   id: vibe.id,
-  label: vibe.label,
+  label: vibe.uiLabel,
   icon: VIBE_EMOJIS[vibe.id],
 }));
 
@@ -113,11 +113,28 @@ const TOTAL_STEPS = 3;
 
 interface MiniWizardProps {
   companyData: KostnadsfriCompanyData;
+  /** Svar från ett tidigare varv, så kunden inte möter ett tomt formulär igen. */
+  initialData?: MiniWizardData | null;
   onComplete: (data: MiniWizardData) => void;
   error?: string | null;
 }
 
-export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) {
+type CustomColors = { primary: string; secondary: string; accent: string };
+
+function restorePalette(data: MiniWizardData | null | undefined): {
+  palette: ColorPalette | null;
+  custom: CustomColors | null;
+} {
+  if (!data) return { palette: PREDEFINED_PALETTES[0], custom: null };
+  const named = PREDEFINED_PALETTES.find((palette) => palette.name === data.paletteName) ?? null;
+  const { colorPrimary: primary, colorSecondary: secondary, colorAccent: accent } = data;
+  if (!primary || !secondary || !accent) return { palette: named, custom: null };
+  const matchesNamed =
+    named?.primary === primary && named.secondary === secondary && named.accent === accent;
+  return { palette: named, custom: matchesNamed ? null : { primary, secondary, accent } };
+}
+
+export function MiniWizard({ companyData, initialData, onComplete, error }: MiniWizardProps) {
   const [step, setStep] = useState(1);
   const [showIntro, setShowIntro] = useState(false);
   const introPanelId = useId();
@@ -127,27 +144,26 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
 
   // Step 1: About — förifyllt från kampanjrad + profil, allt går att rätta
   const prefill = prefillMiniWizardFromCompanyData(companyData);
-  const [companyName, setCompanyName] = useState(prefill.companyName);
-  const [industry, setIndustry] = useState(prefill.industry);
-  const [website, setWebsite] = useState(prefill.website);
-  const [location, setLocation] = useState(prefill.location);
-  const [description, setDescription] = useState(prefill.description);
+  const [companyName, setCompanyName] = useState(initialData?.companyName ?? prefill.companyName);
+  const [industry, setIndustry] = useState<string>(initialData?.industry ?? prefill.industry);
+  const [website, setWebsite] = useState(initialData?.website ?? prefill.website);
+  const [location, setLocation] = useState(initialData?.location ?? prefill.location);
+  const [description, setDescription] = useState(initialData?.description ?? prefill.description);
+  const descriptionFromRegistry =
+    Boolean(prefill.description) && description === prefill.description;
 
   // Step 2: Goals
-  const [purposes, setPurposes] = useState<string[]>([]);
-  const [targetAudience, setTargetAudience] = useState("");
-  const [usp, setUsp] = useState("");
+  const [purposes, setPurposes] = useState<string[]>(initialData?.purposes ?? []);
+  const [targetAudience, setTargetAudience] = useState(initialData?.targetAudience ?? "");
+  const [usp, setUsp] = useState(initialData?.usp ?? "");
 
   // Step 3: Design
-  const [selectedVibe, setSelectedVibe] = useState("modern");
+  const [selectedVibe, setSelectedVibe] = useState(initialData?.designVibe || "modern");
+  const [initialPalette] = useState(() => restorePalette(initialData));
   const [selectedPalette, setSelectedPalette] = useState<ColorPalette | null>(
-    PREDEFINED_PALETTES[0],
+    initialPalette.palette,
   );
-  const [customColors, setCustomColors] = useState<{
-    primary: string;
-    secondary: string;
-    accent: string;
-  } | null>(null);
+  const [customColors, setCustomColors] = useState<CustomColors | null>(initialPalette.custom);
 
   // ── Step validation ──────────────────────────────────────────
 
@@ -401,8 +417,15 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Beskriv vad ni gör och vad som gör er unika..."
                   rows={3}
+                  aria-describedby={descriptionFromRegistry ? `${descriptionId}-hint` : undefined}
                   className={INPUT_CLASS + " resize-none"}
                 />
+                {descriptionFromRegistry ? (
+                  <p id={`${descriptionId}-hint`} className="mt-1.5 text-xs text-muted-foreground">
+                    Hämtat från bolagsregistret. Skriv gärna om med egna ord, så blir texterna på
+                    sajten mer som ni.
+                  </p>
+                ) : null}
               </div>
             </div>
           )}
