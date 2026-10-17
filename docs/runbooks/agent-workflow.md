@@ -3,7 +3,6 @@
 Gemensam körordning för Codex och Cursor:
 [PR-workflow](../../.agents/skills/pr-workflow/SKILL.md).
 Maskinpolicy: [agent-workflow.json](../../config/agent-workflow.json).
-Jobba i den öppna checkouten; worktrees och roller är uttryckliga tillval.
 
 | Uppgift | Operativ owner |
 | --- | --- |
@@ -23,7 +22,6 @@ Light betyder explicit klassificering, inte en utförd fullsvit. Bara den
 allowlistade Dependabot-vägen använder native auto-merge. PR-head-kod får
 inte skrivtoken eller produktionshemligheter.
 
-Produktion kräver separat promote-PR, produktionsvarning och extra bekräftelse.
 Preview/Development delar DEV; Production använder PROD enligt
 [DB-targets](../../config/db-targets.json). Merge, CI och deploy applicerar
 inte DB-schema. [DB-apply](db-migrations.md) kräver eget mandat.

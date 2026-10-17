@@ -62,6 +62,8 @@ rapportens `runtimeStatus`.
 ## 4. Leverera: direkt preview eller PR
 
 Direktpreview: kör riktade kontroller enligt § 3 och commit:a exakta paths.
+En committad diff som CI klassar `safe-docs-only` behöver inget bugpass-kvitto
+([runbooken](../../../docs/runbooks/buggpass.md)); plan, bas och SHA-bekräftelse gäller.
 Orelaterade ostageade Markdown-planer får ligga kvar enligt runbooken;
 granskning, leveransplan och push gäller committad HEAD, inte andras WIP.
 Kör `npm run bugpass -- --base <preview-SHA>` för prompt/schema. Starta en
@@ -149,14 +151,9 @@ inte squashad commithistorik.
 
 När Jakob ger ett uttryckligt eller förhandsvillkorat mergemandat: följ
 `pr-merge.mdc` och använd `gh pr merge --squash --match-head-commit` med den
-granskade headen när native villkor är uppfyllda. Bara den allowlistade
-Dependabot-vägen får aktivera native auto-merge. Använd aldrig `--admin` och
-merga inte på eget bevåg. Innan en promote-PR
-mergas till master: varna att det går till produktion och vänta på extra
-bekräftelse i samma chatt. Den mergen är manuell. `preview` är en delad
-remote-gren, inte trunk och inte builder-ytan.
+granskade headen när native villkor är uppfyllda. Grind, `--admin`-förbud,
+Dependabot-undantaget och master-bekräftelsen ägs av `pr-merge.mdc`.
 
 Efter merge: kör först `npm run tidy` och kräv att ytan rapporteras som `FRI`.
-Först då: `npm run worktree:remove -- <sökväg>`. Rör aldrig `BRA` eller
-`rescue/*`. Lämna huvudcheckouten på `preview` efteråt — inte på `master` —
+Först då: `npm run worktree:remove -- <sökväg>`. Lämna huvudcheckouten på `preview` efteråt — inte på `master` —
 så nästa chatt ärver leveransbasen.
