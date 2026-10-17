@@ -332,7 +332,7 @@ def render(ctx: BackofficeContext) -> None:
             st.caption("Inga rader.")
             continue
         df = pd.DataFrame(rows)
-        st.dataframe(_truncate_cols(df), hide_index=True, use_container_width=True)
+        st.dataframe(_truncate_cols(df), hide_index=True, width="stretch")
         st.download_button(
             f"⬇ {kind}.csv",
             data=df.to_csv(index=False).encode("utf-8"),

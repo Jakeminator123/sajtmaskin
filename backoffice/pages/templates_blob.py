@@ -162,7 +162,7 @@ def render(ctx: BackofficeContext) -> None:
         st.write("")
         # on_click callback runs before widgets instantiate on the rerun, so it can
         # safely update the text_input's session_state key.
-        st.button("Bläddra…", use_container_width=True, on_click=_on_browse_click)
+        st.button("Bläddra…", width="stretch", on_click=_on_browse_click)
 
     browse_msg = st.session_state.pop("mallar_blob_browse_msg", None)
     if browse_msg:
@@ -188,7 +188,7 @@ def render(ctx: BackofficeContext) -> None:
     st.divider()
     col_scan, col_upload = st.columns(2)
     with col_scan:
-        if st.button("Skanna (dry-run)", use_container_width=True):
+        if st.button("Skanna (dry-run)", width="stretch"):
             with st.spinner("Skannar mappen…"):
                 res = _run_uploader(repo_root, source, upload=False)
             if res.get("ok"):
@@ -200,7 +200,7 @@ def render(ctx: BackofficeContext) -> None:
                     st.code(res["output"], language="text")
 
     with col_upload:
-        if st.button("Ladda upp saknade + uppdatera katalog", type="primary", use_container_width=True):
+        if st.button("Ladda upp saknade + uppdatera katalog", type="primary", width="stretch"):
             with st.spinner("Laddar upp till Blob och regenererar katalog… (kan ta en stund)"):
                 res = _run_uploader(repo_root, source, upload=True)
             if res.get("ok"):

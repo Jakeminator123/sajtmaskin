@@ -28,7 +28,7 @@ def indexing_steps(*, new_scaffold: bool) -> list[dict[str, Any]]:
     """npm commands that publish match indexes to Blob. No design-pattern step.
 
     Always a full ``--require-blob`` rebuild, also after delete: uploading the
-    local cache instead (``embeddings:push``) would overwrite Blob with a stale
+    local cache instead (``embeddings:promote``) would overwrite Blob with a stale
     file whenever ``embeddings:sync`` had failed, breaking Auto-match for
     scaffolds that were never touched.
     """

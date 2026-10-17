@@ -592,7 +592,7 @@ def _prune_scaffold_embeddings(ctx: BackofficeContext, scaffold_id: str) -> int:
     """Remove the deleted scaffold's vector from the local scaffold-embeddings cache.
 
     Variant prune already covers ``variant-embeddings.json``. Auto-match reads
-    ``scaffold-embeddings.json`` separately — without this, ``embeddings:push
+    ``scaffold-embeddings.json`` separately — without this, ``embeddings:promote
     --only=scaffold`` would republish the raderade id. No-op when the cache is
     missing. Does not upload; the index gate publishes fail-closed.
 
@@ -627,14 +627,14 @@ def _prune_scaffold_embeddings(ctx: BackofficeContext, scaffold_id: str) -> int:
 def _push_variant_embeddings_to_blob(ctx: BackofficeContext) -> None:
     """Best-effort: upload pruned local variant-embeddings JSON to Vercel Blob.
 
-    Uses ``npm run embeddings:push -- --only=variant``. No-op when the command
+    Uses ``npm run embeddings:promote -- --only=variant``. No-op when the command
     fails (missing token, offline) so deletes never block on Blob.
     """
     import subprocess
 
     try:
         subprocess.run(
-            resolve_command(("npm", "run", "embeddings:push", "--", "--only=variant")),
+            resolve_command(("npm", "run", "embeddings:promote", "--", "--only=variant")),
             cwd=str(ctx.repo_root),
             check=False,
             capture_output=True,
