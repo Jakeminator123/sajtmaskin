@@ -191,6 +191,8 @@ google-services.json
 # README:n committas så konventionen är synlig för agenter på andra maskiner.
 .cursor/kedja/*
 !.cursor/kedja/README.md
+# Delad agentinkorg (npm run inbox) — självrensande, per maskin, delas av alla worktrees.
+.cursor/inbox.md
 
 # Logs
 *.log
