@@ -153,7 +153,7 @@ export function isPlainBranchName(name) {
   return (
     typeof name === "string" &&
     /^[A-Za-z0-9][A-Za-z0-9._/-]*$/u.test(name) &&
-    !name.includes("..") &&
+    !name.includes("..") && // traversal-substring-allow: git check-ref-format förbjuder ".." var som helst i ett refnamn
     !name.includes("//") &&
     !name.startsWith("refs/") &&
     !name.endsWith("/") &&
