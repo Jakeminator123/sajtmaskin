@@ -271,11 +271,11 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@ai-sdk/react": "3.0.303",
+    "@ai-sdk/react": "3.0.309",
     "@playwright/test": "^1.58.2",
     "@testing-library/react": "^16.3.3",
     "@types/canvas-confetti": "^1.9.0",
-    "@types/google.maps": "^3.66.5",
+    "@types/google.maps": "^3.66.6",
     "@types/ms": "^2.1.0",
     "@types/node": "^22.20.1",
     "@types/pg": "^8.20.4",
@@ -296,7 +296,7 @@
     "knip": "5.88.1",
     "nodemon": "^3.1.14",
     "playwright": "^1.58.2",
-    "prettier": "^3.9.9",
+    "prettier": "^3.9.10",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tsx": "^4.20.5",
     "vitest": "^4.1.11"
