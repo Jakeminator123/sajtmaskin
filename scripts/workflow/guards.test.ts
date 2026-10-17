@@ -7,9 +7,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   cheapShellDecision,
   decide as decideWorktree,
+  forcePushDenial,
   isImmutableBranchName,
-  mayResolveToGit,
-  resolveAliasesFor,
 } from "../../.cursor/hooks/worktree-force-guard.mjs";
 import {
   commandWorkingDirectory,
@@ -18,6 +17,11 @@ import {
   includesTrackedChanges,
   isCommitCommand,
 } from "./commit-guard.mjs";
+import {
+  isAmbiguousGitCommand,
+  mayResolveToGit,
+  resolveAliasesFor,
+} from "./git-command-ambiguity.mjs";
 
 /**
  * Ägarbeslut 2026-09-11: protected-path-träffar ger `allow` med
@@ -666,12 +670,6 @@ describe("read-only git with expanded arguments", () => {
     "git push $remote",
     "git commit -m $msg",
     "git ${cmd} -1",
-    // git INSIDE a substitution is a different shape: the hook does not parse
-    // `$(…)` payloads and stays conservative there.
-    'Write-Host "$(git rev-list --count $base..HEAD)"',
-    // A pwsh script block puts a keyword and `{` before `git`, so `invokesGit`
-    // does not bind it. Known limitation; write the git line on its own.
-    'foreach ($b in $branches) { git log -1 --format="%h %s" $b }',
   ])("still denies when the git invocation itself is dynamic: %s", (command) => {
     expect(decideWorktree(command, { aliases: new Set() }).permission).toBe("deny");
   });
@@ -686,6 +684,86 @@ describe("read-only git with expanded arguments", () => {
     "echo `git push --force`",
   ])("denies git hidden inside a substitution: %s", (command) => {
     expect(decideWorktree(command, { aliases: new Set() }).permission).toBe("deny");
+  });
+});
+
+describe("shared ambiguity check: only protected writes fail closed", () => {
+  // Observed false positives 2026-10-17: PowerShell assignment/loop/redirect
+  // syntax put words before `git`, and a `$` anywhere in the segment counted as
+  // expansion, so the read-only exception never applied.
+  it.each([
+    'foreach ($b in "a","b") { $n = git rev-list --count "origin/preview..$b" 2>$null; "$b $n" }',
+    `node --input-type=module -e "import { decide } from './.cursor/hooks/worktree-force-guard.mjs'; for (const c of JSON.parse(process.argv[1])) console.log(decide(c).permission)" $json`,
+    'git branch -a --format="%(refname:short)" | Select-String "x"; foreach ($b in "a") { $n = git rev-list --count "origin/preview..$b" 2>$null; "$b ahead=$n" }',
+    "git log $sha",
+    "git diff $a $b",
+    `foreach ($b in 'x') { git rev-list --count "origin/preview..$b" }`,
+    "$h = git rev-parse HEAD",
+    'Write-Host "$(git rev-list --count $base..HEAD)"',
+    'foreach ($b in $branches) { git log -1 --format="%h %s" $b }',
+    "$branches | ForEach-Object { git log -1 $_ }",
+    `node -e "console.log('git commit ' + process.argv[1])" $x`,
+    "git add $file",
+  ])("allows read-only or non-git commands with variables: %s", (command) => {
+    expect(isAmbiguousGitCommand(command, new Set())).toBe(false);
+    expect(decideWorktree(command, { aliases: new Set() })).toEqual({ permission: "allow" });
+    expect(decideCommitCommand(command, { aliases: new Set() })).toEqual({ permission: "allow" });
+  });
+
+  it.each([
+    "$c='commit'; git $c -m x",
+    "git -c alias.x=commit x",
+    "& $git commit -m x",
+    "git -C $dir commit -m x",
+    "git push $remote",
+    "git checkout $b",
+  ])("still treats expansion that can reach a protected write as ambiguous: %s", (command) => {
+    expect(isAmbiguousGitCommand(command, new Set())).toBe(true);
+    expect(decideWorktree(command, { aliases: new Set() }).permission).toBe("deny");
+    expect(decideCommitCommand(command, { aliases: new Set() }).permission).toBe("deny");
+  });
+
+  it.each([
+    'iex "git push --force"',
+    'pwsh -c "git push --force origin preview"',
+    "$x = 1; git push --force origin master",
+    "$n = git push --force origin master",
+    "Write-Host (git push --force)",
+    'echo "$(git log; git push --force)"',
+    "if (git push --force) { }",
+  ])("denies force-push in nested, PowerShell or expanding command lines: %s", (command) => {
+    expect(decideWorktree(command, { aliases: new Set() })).toEqual(forcePushDenial());
+    expect(decideCommitCommand(command, { aliases: new Set() })).toEqual(forcePushDenial());
+  });
+
+  it.each(["Invoke-Expression 'git commit -m x'", "echo (git commit -m x)", "$r = git commit -m x"])(
+    "recognizes commits in iex, subexpressions and assignments: %s",
+    (command) => {
+      expect(isCommitCommand(command)).toBe(true);
+    },
+  );
+
+  it("denies only aliases whose resolved expansion can write", () => {
+    const aliases = new Map([
+      ["ci", "commit -a"],
+      ["pf", "push --force"],
+      ["sh", "!git push origin HEAD"],
+      ["st", "status -sb"],
+    ]);
+    for (const command of ["git ci -m x", "git pf", "git sh"]) {
+      expect(decideWorktree(command, { aliases }).permission, command).toBe("deny");
+      expect(decideCommitCommand(command, { aliases }).permission, command).toBe("deny");
+    }
+    expect(decideWorktree("git st", { aliases })).toEqual({ permission: "allow" });
+    expect(decideCommitCommand("git st", { aliases })).toEqual({ permission: "allow" });
+  });
+
+  it("points remote branch deletion at the canonical tidy wrapper", () => {
+    const denial = forcePushDenial();
+    for (const text of [denial.user_message, denial.agent_message]) {
+      expect(text).toContain("npm run tidy -- --delete-remote <branch> --apply");
+      expect(text).toContain("delete_branch_on_merge");
+    }
   });
 });
 

@@ -20,10 +20,16 @@
  *
  * Säkerhetsmodell:
  *   - Dry-run som DEFAULT. Inget ändras utan `--apply`.
- *   - Rör ALDRIG remote. GitHub-städ är `deleteBranchOnMerge` (påslaget) plus
- *     ditt eget beslut; den här filen rapporterar bara vad som ligger kvar där.
- *     En robot som raderar omergade brancher tar förr eller senare något du
- *     ville ha.
+ *   - Rör aldrig remote av sig själv. GitHub-städ är `deleteBranchOnMerge`
+ *     (påslaget) plus ditt eget beslut; standardkörningen rapporterar bara vad
+ *     som ligger kvar där. En robot som raderar omergade brancher tar förr eller
+ *     senare något du ville ha.
+ *   - Enda remote-skrivningen är uttrycklig: `--delete-remote <branch>[,...]`.
+ *     Den nekar skyddade namn och öppen PR (gh-fel = nej), kräver bevis i form
+ *     av `archive/<branch>`-tagg på exakt remote-tip (skapas om den saknas) eller
+ *     en mergad PR med samma head, läser om tipet direkt före delete och raderar
+ *     med vanlig push utan force. Pre-push-hooken får beviset via
+ *     `SAJTMASKIN_PROVEN_REMOTE_DELETE_BRANCH/SHA` och jämför mot live-tipet.
  *   - Skyddade branchnamn från config/agent-workflow.json hoppas alltid över,
  *     och en lokal branch
  *     raderas bara när BÅDA gäller: dess remote är borta OCH innehållet är
@@ -38,8 +44,10 @@
  * Användning:
  *   npm run tidy         # rapport (dry-run)
  *   npm run tidy:apply   # utför lokalt städ
+ *   npm run tidy -- --delete-remote <branch>[,<branch>...]           # dry-run
+ *   npm run tidy -- --delete-remote <branch>[,<branch>...] --apply   # arkivera + radera
  */
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -84,9 +92,10 @@ export const PROTECTED_BRANCH_PATTERN_FLOORS = Object.freeze([
   "archive/*",
 ]);
 
-const configuredProtectedBranchPatterns = JSON.parse(
+const workflowPolicy = JSON.parse(
   fs.readFileSync(path.join(DEFAULT_ROOT, "config/agent-workflow.json"), "utf8"),
-).protectedBranchPatterns;
+);
+const configuredProtectedBranchPatterns = workflowPolicy.protectedBranchPatterns;
 if (
   !Array.isArray(configuredProtectedBranchPatterns) ||
   configuredProtectedBranchPatterns.some(
@@ -110,6 +119,294 @@ function branchPatternRegex(pattern) {
 /** @param {string} name */
 export function isProtectedBranch(name) {
   return PROTECTED_BRANCH_PATTERNS.some((pattern) => branchPatternRegex(pattern).test(name));
+}
+
+/**
+ * Remote-delete nekar dessutom policyns trunk, leveransgren och oföränderliga
+ * remote-mönster. Samma golv som ovan: konfigurationen kan bara lägga till.
+ */
+export const REMOTE_DELETE_REFUSED_PATTERNS = Object.freeze([
+  ...new Set(
+    [
+      ...PROTECTED_BRANCH_PATTERNS,
+      workflowPolicy.trunk,
+      workflowPolicy.deliveryBranch,
+      ...(Array.isArray(workflowPolicy.immutableRemoteBranchPatterns)
+        ? workflowPolicy.immutableRemoteBranchPatterns
+        : []),
+    ].filter((pattern) => typeof pattern === "string" && pattern.length > 0),
+  ),
+]);
+
+/** @param {string} name */
+export function isRemoteDeleteRefused(name) {
+  return REMOTE_DELETE_REFUSED_PATTERNS.some((pattern) => branchPatternRegex(pattern).test(name));
+}
+
+/**
+ * Konservativt branchnamn: inga flaggor, refspec-tecken, `..` eller fullständiga
+ * refs. Det som inte passar nekas hellre än tolkas.
+ *
+ * @param {string} name
+ */
+export function isPlainBranchName(name) {
+  return (
+    typeof name === "string" &&
+    /^[A-Za-z0-9][A-Za-z0-9._/-]*$/u.test(name) &&
+    !name.includes("..") &&
+    !name.includes("//") &&
+    !name.startsWith("refs/") &&
+    !name.endsWith("/") &&
+    !name.endsWith(".") &&
+    !name.endsWith(".lock")
+  );
+}
+
+/**
+ * `--delete-remote a,b`, `--delete-remote=a,b` och upprepade flaggor.
+ * `null` = läget är inte begärt; tom lista = flaggan saknar värde.
+ *
+ * @param {string[]} argv
+ * @returns {string[] | null}
+ */
+export function parseDeleteRemoteArgs(argv) {
+  let found = false;
+  const branches = [];
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    let value;
+    if (arg === "--delete-remote") {
+      found = true;
+      const next = argv[i + 1];
+      if (next !== undefined && !next.startsWith("--")) {
+        value = next;
+        i += 1;
+      }
+    } else if (arg.startsWith("--delete-remote=")) {
+      found = true;
+      value = arg.slice("--delete-remote=".length);
+    }
+    if (value) branches.push(...value.split(",").map((b) => b.trim()).filter(Boolean));
+  }
+  return found ? [...new Set(branches)] : null;
+}
+
+const SHA_RE = /^[0-9a-f]{40}$/u;
+
+/**
+ * Parsa `git ls-remote`-utdata till ref → sha. En annoterad tagg ger även en
+ * `^{}`-rad med den peelade commiten; den vinner över tagg-objektets sha.
+ *
+ * @param {string} output
+ * @returns {Map<string, string>}
+ */
+export function parseLsRemote(output) {
+  const refs = new Map();
+  const peeled = new Map();
+  for (const line of String(output ?? "").split(/\r?\n/u)) {
+    if (!line.trim()) continue;
+    const [sha, ref] = line.trim().split(/\s+/u);
+    if (!SHA_RE.test(sha ?? "") || !ref) throw new Error(`ogiltig ls-remote-rad: ${line}`);
+    if (ref.endsWith("^{}")) peeled.set(ref.slice(0, -3), sha);
+    else refs.set(ref, sha);
+  }
+  for (const [ref, sha] of peeled) refs.set(ref, sha);
+  return refs;
+}
+
+/** @typedef {{ status: number | null, stdout: string, stderr: string }} RunResult */
+/** @typedef {(cmd: "git" | "gh", args: string[], opts?: { env?: Record<string, string> }) => RunResult} Runner */
+
+/** @param {string} root @returns {Runner} */
+export function createRunner(root) {
+  return (cmd, args, { env } = {}) => {
+    const res = spawnSync(cmd, args, {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      env: env ? { ...process.env, ...env } : process.env,
+    });
+    return {
+      status: res.error ? null : res.status,
+      stdout: res.stdout ?? "",
+      stderr: res.stderr || res.error?.message || "",
+    };
+  };
+}
+
+export const archiveTagFor = (branch) => `archive/${branch}`;
+
+/**
+ * Planera EN remote-delete. Läser bara (ls-remote + gh); skriver ingenting.
+ *
+ * Ordning är med flit: namnskydd → existens → öppen PR (gh-fel = nej) → bevis.
+ * Bevis är antingen `archive/<branch>` på exakt tip, eller en mergad PR med
+ * samma branch och head-SHA. Saknas båda planeras en ny archive-tagg. En
+ * archive-tagg som pekar på något annat är alltid stopp.
+ *
+ * @param {{ branch: string, run: Runner }} input
+ */
+export function planRemoteDelete({ branch, run }) {
+  const refuse = (reason) => ({ branch, action: "refuse", reason });
+  if (!isPlainBranchName(branch)) return refuse("ogiltigt branchnamn");
+  if (isRemoteDeleteRefused(branch)) return refuse("skyddad/oföränderlig branch enligt policy");
+
+  const tag = archiveTagFor(branch);
+  const headRef = `refs/heads/${branch}`;
+  const tagRef = `refs/tags/${tag}`;
+  const ls = run("git", ["ls-remote", "origin", headRef, tagRef, `${tagRef}^{}`]);
+  if (ls.status !== 0) return refuse(`git ls-remote misslyckades: ${ls.stderr.trim()}`);
+  let refs;
+  try {
+    refs = parseLsRemote(ls.stdout);
+  } catch (err) {
+    return refuse(String(err?.message ?? err));
+  }
+  const tip = refs.get(headRef);
+  if (!tip) return { branch, action: "absent", reason: "finns inte på origin" };
+
+  const gh = run("gh", [
+    "pr",
+    "list",
+    "--state",
+    "all",
+    "--head",
+    branch,
+    "--limit",
+    "1000",
+    "--json",
+    "headRefName,headRefOid,state,mergedAt",
+  ]);
+  if (gh.status !== 0) return refuse(`gh svarade inte (${gh.stderr.trim() || "okänt fel"}) — nekar`);
+  let lifecycle;
+  try {
+    const rows = JSON.parse(gh.stdout);
+    lifecycle = parsePrLifecycle(
+      Array.isArray(rows) ? rows.filter((row) => row?.headRefName === branch) : rows,
+    );
+  } catch {
+    return refuse("gh gav ett oläsbart svar — nekar");
+  }
+  if (lifecycle.openHeads.has(branch)) return refuse("har en ÖPPEN PR");
+
+  const tagSha = refs.get(tagRef) ?? null;
+  if (tagSha && tagSha !== tip) {
+    return refuse(`${tag} pekar på ${tagSha}, inte på remote-tip ${tip}`);
+  }
+  if (tagSha) return { branch, action: "delete", tip, tag, proof: "archive", createTag: false };
+  if (isExactMergedPr(lifecycle, branch, tip)) {
+    return { branch, action: "delete", tip, tag, proof: "merged-pr", createTag: false };
+  }
+  return { branch, action: "delete", tip, tag, proof: "archive", createTag: true };
+}
+
+/**
+ * Utför en planerad remote-delete. Tagg-pushen är en vanlig push av en ny ref;
+ * delete är `git push origin --delete` utan force och utan `--no-verify`, så
+ * pre-push-hooken jämför beviset mot remote-tipet git själv ser vid push.
+ *
+ * @param {{ plan: ReturnType<typeof planRemoteDelete>, run: Runner }} input
+ * @returns {{ ok: boolean, reason: string }}
+ */
+export function applyRemoteDelete({ plan, run }) {
+  const { branch, tip, tag } = plan;
+  const headRef = `refs/heads/${branch}`;
+  const fail = (reason) => ({ ok: false, reason });
+  if (plan.createTag) {
+    const fetched = run("git", [
+      "fetch",
+      "--quiet",
+      "origin",
+      `+${headRef}:refs/remotes/origin/${branch}`,
+    ]);
+    if (fetched.status !== 0) return fail(`kunde inte hämta ${branch}: ${fetched.stderr.trim()}`);
+    const tagPush = run("git", ["push", "origin", `${tip}:refs/tags/${tag}`]);
+    if (tagPush.status !== 0) return fail(`kunde inte pusha ${tag}: ${tagPush.stderr.trim()}`);
+    const tagCheck = run("git", ["ls-remote", "origin", `refs/tags/${tag}`]);
+    let tagSha = null;
+    try {
+      tagSha = tagCheck.status === 0 ? parseLsRemote(tagCheck.stdout).get(`refs/tags/${tag}`) : null;
+    } catch {
+      tagSha = null;
+    }
+    if (tagSha !== tip) return fail(`${tag} kunde inte verifieras på origin efter push`);
+  }
+
+  const reread = run("git", ["ls-remote", "origin", headRef]);
+  if (reread.status !== 0) return fail(`git ls-remote misslyckades: ${reread.stderr.trim()}`);
+  let liveTip;
+  try {
+    liveTip = parseLsRemote(reread.stdout).get(headRef) ?? null;
+  } catch (err) {
+    return fail(String(err?.message ?? err));
+  }
+  if (liveTip !== tip) {
+    return fail(`remote-tip ändrades (${tip} → ${liveTip ?? "borta"}); branchen bevaras`);
+  }
+
+  const del = run("git", ["push", "origin", "--delete", headRef], {
+    env: {
+      SAJTMASKIN_PROVEN_REMOTE_DELETE_BRANCH: branch,
+      SAJTMASKIN_PROVEN_REMOTE_DELETE_SHA: tip,
+    },
+  });
+  if (del.status !== 0) return fail(`git push --delete misslyckades: ${del.stderr.trim()}`);
+  return { ok: true, reason: "raderad" };
+}
+
+/**
+ * @param {{ branches: string[], apply?: boolean, run: Runner, log?: (s: string) => void }} input
+ * @returns {{ ok: boolean, results: { branch: string, outcome: string, reason: string, tip?: string, tag?: string }[] }}
+ */
+export function runDeleteRemote({ branches, apply = false, run, log = (s) => console.log(s) }) {
+  const results = [];
+  if (branches.length === 0) {
+    log("[tidy] --delete-remote kräver minst ett branchnamn: --delete-remote <branch>[,<branch>...]");
+    return { ok: false, results };
+  }
+  for (const branch of branches) {
+    const plan = planRemoteDelete({ branch, run });
+    if (plan.action === "refuse") {
+      log(`[tidy] NEKAR remote-delete ${branch}: ${plan.reason}`);
+      results.push({ branch, outcome: "refused", reason: plan.reason });
+      continue;
+    }
+    if (plan.action === "absent") {
+      log(`[tidy] remote-delete ${branch}: ${plan.reason} — inget att göra`);
+      results.push({ branch, outcome: "absent", reason: plan.reason });
+      continue;
+    }
+    const proof =
+      plan.proof === "merged-pr"
+        ? `mergad PR med head ${plan.tip}`
+        : plan.createTag
+          ? `${plan.tag} saknas — ${apply ? "skapar" : "skulle skapa"} och pusha den på ${plan.tip}`
+          : `${plan.tag} pekar redan på ${plan.tip}`;
+    log(`[tidy] remote-delete ${branch}: tip ${plan.tip}, ingen öppen PR, bevis: ${proof}`);
+    if (!apply) {
+      log(
+        `[tidy] skulle radera origin/${branch} @ ${plan.tip} (dry-run, vanlig push --delete, ingen force)`,
+      );
+      results.push({ branch, outcome: "planned", reason: proof, tip: plan.tip, tag: plan.tag });
+      continue;
+    }
+    const outcome = applyRemoteDelete({ plan, run });
+    if (!outcome.ok) {
+      log(`[tidy] STOPP remote-delete ${branch}: ${outcome.reason}`);
+      results.push({ branch, outcome: "failed", reason: outcome.reason, tip: plan.tip });
+      continue;
+    }
+    log(
+      `[tidy] raderade origin/${branch} @ ${plan.tip}` +
+        (plan.proof === "archive" ? ` (bevarad som tagg ${plan.tag})` : " (mergad PR-head)"),
+    );
+    results.push({ branch, outcome: "deleted", reason: proof, tip: plan.tip, tag: plan.tag });
+  }
+  const ok = results.every((r) => r.outcome !== "refused" && r.outcome !== "failed");
+  if (!apply && results.some((r) => r.outcome === "planned")) {
+    log("[tidy] klart (dry-run). Kör om med --apply för att arkivera och radera.");
+  }
+  return { ok, results };
 }
 
 /**
@@ -630,7 +927,7 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
       );
       for (const s of stale) log(`         ${s}`);
       log(
-        "         Rapport, inget mer. Radera själv efter en titt, gärna med archive/*-tagg först.",
+        "         Rapport, inget mer. Radera efter en titt med: npm run tidy -- --delete-remote <branch> --apply",
       );
     }
   }
@@ -645,5 +942,17 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
 }
 
 if (process.argv[1] && process.argv[1].endsWith("tidy.mjs")) {
-  runTidy({ apply: process.argv.includes("--apply"), fetch: !process.argv.includes("--no-fetch") });
+  const argv = process.argv.slice(2);
+  const apply = argv.includes("--apply");
+  const deleteRemote = parseDeleteRemoteArgs(argv);
+  if (deleteRemote !== null) {
+    const { ok } = runDeleteRemote({
+      branches: deleteRemote,
+      apply,
+      run: createRunner(DEFAULT_ROOT),
+    });
+    if (!ok) process.exitCode = 1;
+  } else {
+    runTidy({ apply, fetch: !argv.includes("--no-fetch") });
+  }
 }
