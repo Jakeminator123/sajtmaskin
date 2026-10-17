@@ -116,7 +116,7 @@ describe("runLlmFixer merge behavior", () => {
       }),
     );
     const prompt = streamTextMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
-    expect(prompt).toContain("1. app/page.tsx:4:7 Expected \"as\" but found \"{\"");
+    expect(prompt).toContain('1. app/page.tsx:4:7 Expected "as" but found "{"');
     expect(prompt).toContain("Additional repair context (may explain the root cause):");
     expect(prompt).toContain("- [build] app/page.tsx:4 Build failed near unexpected token");
     expect(prompt).toContain("Files that likely need edits first:");
@@ -149,6 +149,32 @@ describe("runLlmFixer merge behavior", () => {
           openai: { reasoningEffort: "none" },
         },
       }),
+    );
+  });
+
+  it("uses low, not none, for GPT-6.1 Sol when the manifest left effort unset", async () => {
+    streamTextMock.mockReturnValue({
+      text: Promise.resolve(
+        [
+          '```tsx file="app/page.tsx"',
+          "export default function Page(){ return <main />; }",
+          "```",
+        ].join("\n"),
+      ),
+    });
+
+    await runLlmFixer(
+      [
+        '```tsx file="app/page.tsx"',
+        "export default function Page(){ return <div>broken</div> }",
+        "```",
+      ].join("\n"),
+      ["app/page.tsx:1:1 broken"],
+      { model: "gpt-6.1-sol", thinking: false },
+    );
+
+    expect(streamTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({ providerOptions: { openai: { reasoningEffort: "low" } } }),
     );
   });
 

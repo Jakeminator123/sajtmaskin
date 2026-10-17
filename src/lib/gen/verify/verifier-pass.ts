@@ -13,6 +13,10 @@ import { isBuildBreakingImportFindingId } from "@/lib/gen/preview/should-start-p
 import { isTier3SdkModule } from "@/lib/integrations/tier3-sdk-deny";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import type { CanonicalModelId } from "@/lib/models/catalog";
+import {
+  clampOpenAIReasoningEffort,
+  resolveOpenAIReasoningEffort,
+} from "@/lib/models/openai-capabilities";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { incVerifierBlocking, recordPhaseDuration } from "@/lib/observability/metrics";
 
@@ -517,7 +521,7 @@ type JsonObject = { [key: string]: JsonValue | undefined };
 type ProviderOptionsRecord = Record<string, JsonObject>;
 
 /**
- * Honor the phase manifest when thinking is off. GPT-5.6 Responses defaults
+ * Honor the phase manifest when thinking is off. The Responses API defaults an
  * omitted `reasoningEffort` to medium and silently re-enables hidden
  * reasoning — same trap as llm-fixer.ts. Never send `reasoningSummary` here
  * (verifier has no thinking stream).
@@ -540,19 +544,13 @@ export function resolveVerifierProviderOptions(params: {
   if (thinking) {
     return {
       openai: {
-        reasoningEffort: reasoningEffort ?? "low",
+        reasoningEffort: clampOpenAIReasoningEffort(modelId, reasoningEffort ?? "low"),
         ...(reasoningMode ? { reasoningMode } : {}),
       },
     };
   }
-  if (modelId.startsWith("gpt-5.6-")) {
-    return {
-      openai: {
-        reasoningEffort: reasoningEffort ?? "none",
-      },
-    };
-  }
-  return undefined;
+  const effort = resolveOpenAIReasoningEffort(modelId, reasoningEffort);
+  return effort ? { openai: { reasoningEffort: effort } } : undefined;
 }
 
 export function isVerifierPassEnabled(): boolean {

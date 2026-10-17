@@ -1,5 +1,9 @@
 import { generateText } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
+import {
+  workloadOpenAIProviderOptions,
+  workloadResponsesReasoning,
+} from "@/lib/ai-models/workload-reasoning";
 import OpenAI from "openai";
 import { scrapeWebsite } from "@/lib/webscraper";
 import {
@@ -265,6 +269,7 @@ export async function runWebsiteAudit(input: {
         response = await openai.responses.create(
           {
             model: responsesModel,
+            ...workloadResponsesReasoning(run.workloadId, responsesModel),
             input: [{ role: "user", content: promptContent }],
             tools: tools.length > 0 ? tools : undefined,
             text: {
@@ -384,6 +389,7 @@ export async function runWebsiteAudit(input: {
           model: createDirectModel(usedModel),
           messages: promptMessages,
           maxOutputTokens: 16000,
+          ...workloadOpenAIProviderOptions(run.workloadId, usedModel),
         });
         const candidateText = candidateResult.text || "";
         if (candidateText.trim().length === 0) {

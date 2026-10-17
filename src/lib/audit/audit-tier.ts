@@ -29,11 +29,15 @@ export { AUDIT_ADVANCED_ONLY_FIELDS, type AuditAdvancedOnlyField };
 
 export type AuditSchemaKind = "core" | "full";
 
+/** Manifest workload that owns the run's models and reasoning effort. */
+export type AuditWorkloadId = "audit_structured" | "audit_structured_public";
+
 export type ResolvedAuditRun = {
   mode: AuditMode;
   promptKind: AuditPromptKind;
   maxPages: number;
   allowWebSearch: boolean;
+  workloadId: AuditWorkloadId;
   primaryModel: string;
   modelCandidates: readonly string[];
   schema: typeof AUDIT_AI_SCHEMA | typeof AUDIT_AI_SCHEMA_BASIC;
@@ -86,6 +90,7 @@ export function resolveAuditRun(input: {
       promptKind: "public",
       maxPages: 4,
       allowWebSearch: false,
+      workloadId: "audit_structured_public",
       primaryModel: AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL,
       modelCandidates: PUBLIC_AUDIT_MODEL_CANDIDATES,
       schema: AUDIT_AI_SCHEMA,
@@ -100,6 +105,7 @@ export function resolveAuditRun(input: {
       promptKind: "product",
       maxPages: 4,
       allowWebSearch: true,
+      workloadId: "audit_structured",
       primaryModel: AUDIT_STRUCTURED_DEFAULT_MODEL,
       modelCandidates: AUDIT_MODEL_CANDIDATES,
       schema: AUDIT_AI_SCHEMA,
@@ -113,6 +119,7 @@ export function resolveAuditRun(input: {
     promptKind: "product",
     maxPages: 2,
     allowWebSearch: false,
+    workloadId: "audit_structured_public",
     primaryModel: AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL,
     modelCandidates: PUBLIC_AUDIT_MODEL_CANDIDATES,
     schema: AUDIT_AI_SCHEMA_BASIC,

@@ -1435,10 +1435,26 @@ describe("resolveVerifierProviderOptions", () => {
     });
   });
 
-  it("omits OpenAI providerOptions for non-5.6 models when thinking is off", () => {
+  it("falls back to the model minimum, never `none`, on GPT-6.1 Sol", () => {
+    expect(resolveVerifierProviderOptions({ modelId: "gpt-6.1-sol", thinking: false })).toEqual({
+      openai: { reasoningEffort: "low" },
+    });
     expect(
       resolveVerifierProviderOptions({
-        modelId: "gpt-5.3-codex",
+        modelId: "gpt-6.1-sol",
+        thinking: false,
+        reasoningEffort: "none",
+      }),
+    ).toEqual({ openai: { reasoningEffort: "low" } });
+    expect(resolveVerifierProviderOptions({ modelId: "gpt-6-luna", thinking: false })).toEqual({
+      openai: { reasoningEffort: "none" },
+    });
+  });
+
+  it("omits OpenAI providerOptions for unregistered models when thinking is off", () => {
+    expect(
+      resolveVerifierProviderOptions({
+        modelId: "gpt-5.4",
         thinking: false,
         reasoningEffort: "low",
       }),

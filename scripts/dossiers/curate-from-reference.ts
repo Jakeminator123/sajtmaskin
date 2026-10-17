@@ -609,10 +609,10 @@ ${sourcesBlock}`;
         },
       },
     },
-    // Reasoning models (the gpt-5 family) reject a custom temperature with a
-    // HTTP 400, so the rule lives with its canonical owner instead of a fourth
-    // copy: getTemperatureConfig returns {} for those ids and {temperature}
-    // for classic ones. Relevant since the manifest default is a gpt-5 id.
+    // Reasoning models (gpt-5 and later, o-series) reject a custom temperature
+    // with a HTTP 400, so the rule lives with its canonical owner instead of a
+    // fourth copy: getTemperatureConfig returns {} for those ids and
+    // {temperature} for classic ones. The manifest default is a reasoning id.
     ...getTemperatureConfig(args.model, 0.2),
   });
 

@@ -78,10 +78,19 @@ describe("prompt-assist-pre-send", () => {
     expect(parsePromptAssistResponse('{"text":"En vanlig rättning"}')).toBe("En vanlig rättning");
   });
 
-  it("caps provider output and forces GPT-5.6 off thinking", () => {
+  it("caps provider output and runs registered models at their lowest effort", () => {
+    expect(buildPromptAssistModelOptions("openai/gpt-6-luna")).toEqual({
+      maxOutputTokens: PROMPT_REWRITE_MAX_OUTPUT_TOKENS,
+      providerOptions: { openai: { reasoningEffort: "none" } },
+    });
     expect(buildPromptAssistModelOptions("openai/gpt-5.6-terra")).toEqual({
       maxOutputTokens: PROMPT_REWRITE_MAX_OUTPUT_TOKENS,
       providerOptions: { openai: { reasoningEffort: "none" } },
+    });
+    // GPT-6.1 Sol rejects `none`; an operator override to it must not 400.
+    expect(buildPromptAssistModelOptions("openai/gpt-6.1-sol")).toEqual({
+      maxOutputTokens: PROMPT_REWRITE_MAX_OUTPUT_TOKENS,
+      providerOptions: { openai: { reasoningEffort: "low" } },
     });
   });
 });

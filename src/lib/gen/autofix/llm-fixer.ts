@@ -11,6 +11,10 @@ import {
   type RecurringFailurePattern,
 } from "./fixer-prompt";
 import { canonicalModelIdToOwnModelId } from "@/lib/models/catalog";
+import {
+  clampOpenAIReasoningEffort,
+  resolveOpenAIReasoningEffort,
+} from "@/lib/models/openai-capabilities";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 
@@ -273,23 +277,24 @@ export async function runLlmFixer(
     } else if (resolvedThinking) {
       providerOptions = {
         openai: {
-          reasoningEffort: options?.reasoningEffort ?? "medium",
+          reasoningEffort: clampOpenAIReasoningEffort(
+            resolvedModelId,
+            options?.reasoningEffort ?? "medium",
+          ),
           ...(options?.reasoningMode ? { reasoningMode: options.reasoningMode } : {}),
         },
       };
-    } else if (resolvedModelId.startsWith("gpt-5.6-")) {
-      // GPT-5.6 goes through Responses API; omitting reasoningEffort defaults to
-      // medium and quietly re-enables thinking despite thinking:false in the
-      // phase manifest. Honor the manifest's EXPLICIT effort when one is
-      // provided (ägarbeslut 2026-09-01: fixern ska få resonera — Premium
-      // pinnar sol med hög effort utan thinking-stream), and keep the
-      // fail-closed "none" only when the manifest left effort unset so an
-      // unpinned tier never silently re-enables hidden reasoning.
-      providerOptions = {
-        openai: {
-          reasoningEffort: options?.reasoningEffort ?? "none",
-        },
-      };
+    } else {
+      // Registered models go through the Responses API, where an omitted
+      // reasoningEffort defaults to medium and quietly re-enables thinking
+      // despite thinking:false in the phase manifest. Honor the manifest's
+      // EXPLICIT effort (ägarbeslut 2026-09-01: fixern ska få resonera) and
+      // fall back to the model's lowest effort only when it was left unset —
+      // `none` on GPT-5.6/GPT-6 Luna, `low` on GPT-6.1 Sol.
+      const effort = resolveOpenAIReasoningEffort(resolvedModelId, options?.reasoningEffort);
+      if (effort) {
+        providerOptions = { openai: { reasoningEffort: effort } };
+      }
     }
 
     resolvedModelIdForUsage = resolvedModelId;
