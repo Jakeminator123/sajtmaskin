@@ -3,16 +3,22 @@
 ## Profiler, etiketter och stegen Låg / Mellan / Hög
 
 - **En axel, en byggmodell.** Intern nyckel `pro` = **Låg**, `max` = **Mellan**,
-  `premium` = **Hög**. Alla tre kör **`gpt-5.6-sol`** som byggmodell
+  `premium` = **Hög**. Alla tre kör **`gpt-6.1-sol`** som byggmodell
   (`buildProfiles.defaults`). Skillnaden är `phaseRouting.thinkingByTier`:
   generator-effort **medium → high → xhigh**, alltid `reasoningMode: "standard"`.
   `codex` är en **dold** kompatibilitetsprofil som speglar Mellan och syns inte
   i UI. `anthropic` är orörd (Opus 4.8 i alla faser).
-- **Sidofaser på 5.6-syskon.** Låg: Terra fixer + deploy-assistant, Luna
-  verifier. Mellan/Hög: Sol fixer, Terra verifier. Hög-fixern är
+- **Sidofaser (sedan 2026-10-17).** GPT-6.1 Sol tar fixer, deploy-assistant
+  och Mellan/Hög-verifiern; Låg-verifiern kör `gpt-6-luna`. Det finns ingen
+  GPT-6 Terra, och Sol har lägre outputpris än GPT-5.6 Terra. Hög-fixern är
   `thinking: false` men `reasoningEffort: "high"`. Alla OpenAI-verifiers kör
   `thinking: false` / `low` — den tidigare Sol/high-verifierm passade 26 s p50
   med ~90 % reasoning för en ~200-token-dom.
+- **Effort per modell.** GPT-6.1 Sol (och Astra) saknar `none`; GPT-6 Luna och
+  GPT-5.6 har det. [`openai-capabilities.ts`](../../src/lib/models/openai-capabilities.ts)
+  klampar varje begärd effort till modellens intervall, och avstängt
+  resonemang betyder modellens lägsta nivå (`low` på Sol, `none` på Luna) i
+  stället för OpenAI:s tysta `medium`.
 - **`reasoningMode: "pro"` är inte längre default.** Prod `llm_usage`
   28 jul–1 sep 2026 visade att Premiums Responses `reasoning.mode: pro` blåste
   upp fakturerad input ~6× (142k vs 22k p50, ~40 % cache-träff). OpenAI:s
@@ -21,14 +27,15 @@
   `thinkingByTier`-default.
 - **2026-08-19 medium-beslutet är ersatt.** Då sänktes bara Låg-generatorn till
   medium medan plannern stod kvar på high och Mellan/Hög körde andra modeller.
-  Stegen 2026-09-02 är en enda effort-axel på Sol + billigare syskon på
-  sidofaserna. Lagom(codex, medium) hade krympt till ~4–5k content-tokens.
+  Stegen 2026-09-02 är en enda effort-axel på Sol; sidofaserna ändrades
+  2026-10-17 (se ovan). Lagom(codex, medium) hade krympt till ~4–5k content-tokens.
 - **`thinking` i SSE:** [`src/lib/gen/engine.ts`](../../src/lib/gen/engine.ts)
   skickar fasens `reasoningEffort`, `reasoningSummary: "detailed"` och valfria
-  `reasoningMode` när thinking är på. **Alla** OpenAI-modeller går via
-  Responses API — i `@ai-sdk/openai` v3 är default-anropet `openai(id)` samma
-  sak som `openai.responses(id)`; den explicita `.responses()`-grenen för
-  GPT-5.6 är hängslen för `reasoningMode`.
+  `reasoningMode` när thinking är på, och modellens lägsta effort när det är
+  av. **Alla** OpenAI-modeller går via Responses API — i `@ai-sdk/openai` v3
+  är default-anropet `openai(id)` samma sak som `openai.responses(id)`; den
+  explicita `.responses()`-grenen för registrerade GPT-6/GPT-5.6-modeller
+  låser det för verktygsanrop och `reasoningMode`.
 - **Synligt resonemang:** OpenAI exponerar aldrig rå chain-of-thought.
   `reasoningSummary: "detailed"` beställer modellens omfattande sammanfattning
   (AI SDK: `auto` = kort, `detailed` = rik; mappas 1:1 till Responses
@@ -42,8 +49,10 @@
    intern nyckel `pro` / `max` / `premium` / `anthropic`). `codex` finns bara
    som dolt kompatibilitetsval. Äldre `fast` normaliseras till `premium`.
 2. `canonicalModelIdToOwnModelId` i [`src/lib/models/catalog.ts`](../../src/lib/models/catalog.ts)
-   mappar profilen till en **konkret modellsträng** (`gpt-5.6-sol` eller
+   mappar profilen till en **konkret modellsträng** (`gpt-6.1-sol` eller
    `claude-opus-4.8`). Delad Sol-byggmodell reverse-mappar till `max` (Mellan).
+   Det gäller både `gpt-6.1-sol` och `gpt-5.6-sol` i äldre rader; OpenAI-deprecerade
+   `gpt-5.3-codex` och `gpt-4.1` aliasas till `gpt-6.1-sol`.
 3. [`src/lib/gen/engine.ts`](../../src/lib/gen/engine.ts) anropar `streamText` med modellen från [`getOpenAIModel`](../../src/lib/gen/models.ts) (namnet är historiskt — även Anthropic går här).
 
 ## Standardmodeller och env
