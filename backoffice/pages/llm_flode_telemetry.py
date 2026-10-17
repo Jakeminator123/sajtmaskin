@@ -134,7 +134,7 @@ def _render_llm_fixer_aborted(run_dirs: list[Path]) -> None:
                 "requiredFilesCount": e.get("requiredFilesCount", "—"),
             }
         )
-    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
 
 def _render_site_aborted(run_dirs: list[Path]) -> None:
@@ -178,7 +178,7 @@ def _render_site_aborted(run_dirs: list[Path]) -> None:
             {"Reason": r, "Antal": c, "Andel": _pct(c, len(events))}
             for r, c in sorted(reason_counts.items(), key=lambda x: -x[1])
         ]
-        st.dataframe(pd.DataFrame(reason_rows), hide_index=True, use_container_width=True)
+        st.dataframe(pd.DataFrame(reason_rows), hide_index=True, width="stretch")
 
     rows = []
     for e in events:
@@ -194,7 +194,7 @@ def _render_site_aborted(run_dirs: list[Path]) -> None:
                 "elapsedMs": format_ms(_rnum(e.get("elapsedMs"))),
             }
         )
-    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
     if versionless:
         st.warning(
@@ -247,7 +247,7 @@ def _render_dossier_verbatim_restored(run_dirs: list[Path]) -> None:
                 "Reasons": reasons[:80] or "—",
             }
         )
-    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
 
 def _render_llm_fixer_partial_response(run_dirs: list[Path]) -> None:
@@ -287,7 +287,7 @@ def _render_llm_fixer_partial_response(run_dirs: list[Path]) -> None:
                 "totalFixedFilesAttempted": attempted,
             }
         )
-    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
 
 def _render_llm_repair_gate_deduped(run_dirs: list[Path]) -> None:
@@ -323,7 +323,7 @@ def _render_llm_repair_gate_deduped(run_dirs: list[Path]) -> None:
                 "Required files": ", ".join(event.get("requiredFiles") or []),
             }
         )
-    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
 
 def _warm_pass_status(block: Any) -> str:
@@ -349,7 +349,7 @@ def _render_warm_pass_block(events: list[dict[str, Any]], key: str, title: str) 
         {"Status": status, "Antal": count, "Andel": _pct(count, len(events))}
         for status, count in sorted(counts.items(), key=lambda kv: -kv[1])
     ]
-    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
     flagged = [
         e for e in events
@@ -410,7 +410,7 @@ def _render_warm_passes(run_dirs: list[Path]) -> None:
             diff_rows.append(
                 {"Kategori": "warmTscSkipped=false/null", "Snitt durationMs": format_ms(sum(durations_not) / len(durations_not)), "Antal": len(durations_not)}
             )
-        st.dataframe(pd.DataFrame(diff_rows), hide_index=True, use_container_width=True)
+        st.dataframe(pd.DataFrame(diff_rows), hide_index=True, width="stretch")
 
 
 def _render_f2_f3_time(run_dirs: list[Path]) -> None:
@@ -475,7 +475,7 @@ def _render_f2_f3_time(run_dirs: list[Path]) -> None:
             }
         )
     if rows:
-        st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+        st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
     detail_rows = []
     for event in sorted(lifecycle_events, key=lambda e: str(e.get("_ts", "")), reverse=True)[:100]:
@@ -493,7 +493,7 @@ def _render_f2_f3_time(run_dirs: list[Path]) -> None:
             }
         )
     st.markdown("**Senaste preview-lifecycle-events**")
-    st.dataframe(pd.DataFrame(detail_rows), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(detail_rows), hide_index=True, width="stretch")
 
 
 def _render_image_replaced(run_dirs: list[Path]) -> None:
@@ -543,7 +543,7 @@ def _render_image_replaced(run_dirs: list[Path]) -> None:
                 else "—",
             }
         )
-    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
 
 def _render_prompt_size(ctx: BackofficeContext) -> None:
@@ -650,7 +650,7 @@ def _render_prompt_size(ctx: BackofficeContext) -> None:
             )
         if rows:
             st.markdown("**Topp dynamic blocks (största först)**")
-            st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+            st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
     st.caption(f"Källfil: `{snapshot.get('dumpPath', '?')}`")
 
@@ -679,7 +679,7 @@ def _render_dossier_stubs(run_dirs: list[Path]) -> None:
                     "stubFile": e.get("stubFile", "—"),
                 }
             )
-        st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+        st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
     else:
         st.info(
             "`dossier_stub_created` är ännu inte ett standalone devLog-event. "
@@ -741,7 +741,7 @@ def _render_degradations(run_dirs: list[Path]) -> None:
                 "versionId": (ev.get("versionId") or "")[:12],
             }
         )
-    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
 
 # ---------------------------------------------------------------------------

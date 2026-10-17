@@ -162,7 +162,7 @@ def render(ctx: BackofficeContext) -> None:
         if st.button(
             "🔍 Kör DRY-RUN",
             type="secondary",
-            use_container_width=True,
+            width="stretch",
             disabled=scope_incomplete or binding is None,
         ):
             # Belt-and-suspenders: never run a broadened command even if the
@@ -192,7 +192,7 @@ def render(ctx: BackofficeContext) -> None:
         if st.button(
             "🗑 KÖR APPLY",
             type="primary",
-            use_container_width=True,
+            width="stretch",
             disabled=not preview_ready or not confirm,
             help=(
                 "Aktiveras först efter en lyckad DRY-RUN och bekräftelse-checkbox. "
@@ -335,7 +335,7 @@ def _render_result(title: str, result: dict[str, Any]) -> None:
         per_user = summary.get("summary") or []
         if per_user:
             st.write("**Per användare:**")
-            st.dataframe(per_user, use_container_width=True, hide_index=True)
+            st.dataframe(per_user, width="stretch", hide_index=True)
         meta_cols = st.columns(3)
         meta_cols[0].metric("Mode", summary.get("mode") or "-")
         meta_cols[1].metric("Keep N", summary.get("keep") or 0)

@@ -190,7 +190,7 @@ def _render_payload(payload: dict[str, Any]) -> None:
                     "Fel": s.get("error") or "",
                 }
             )
-        st.dataframe(pd.DataFrame(probe_rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(probe_rows), width="stretch", hide_index=True)
         st.caption(f"Probe-nyckel: `{probe.get('key', '?')}` (TTL 30s, raderas direkt)")
 
     st.divider()
@@ -213,7 +213,7 @@ def _render_payload(payload: dict[str, Any]) -> None:
             }
         )
     df = pd.DataFrame(rows)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(df, width="stretch", hide_index=True)
     st.caption(
         "**🔒 env** = pattern prefixad med denna miljös key-prefix (siffran "
         "avser bara denna miljö). **🌐 global** = pattern saknar miljöprefix "
@@ -261,4 +261,4 @@ def _render_history(ctx: BackofficeContext) -> None:
         st.line_chart(df["probe_round_trip_ms"])
 
     with st.expander("Rådata (sista 200 snapshots)"):
-        st.dataframe(df.reset_index(), use_container_width=True, hide_index=True)
+        st.dataframe(df.reset_index(), width="stretch", hide_index=True)

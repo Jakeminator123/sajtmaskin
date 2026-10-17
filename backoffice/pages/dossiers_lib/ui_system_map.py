@@ -313,7 +313,7 @@ def _section_system_map(dossiers: list[dict[str, Any]]) -> None:
         st.info("Inga dossierer matchar filtren.")
         return
 
-    st.graphviz_chart(build_system_map_dot(filtered), use_container_width=True)
+    st.graphviz_chart(build_system_map_dot(filtered), width="stretch")
 
     table_rows = []
     for row in filtered:

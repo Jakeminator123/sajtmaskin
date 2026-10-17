@@ -4,6 +4,8 @@
  *
  * This is intentionally a real HTTP check — the whole point of the Tailark OSS
  * switch is that gated `tailark.com` returned 401 and silently yielded null.
+ * Opt-in so the hermetic `test:ci` suite never depends on the network:
+ * `$env:SAJTMASKIN_LIVE_TESTS='1'; npx vitest run src/lib/shadcn/tailark-oss.live.test.ts`
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -22,7 +24,7 @@ const SEED = JSON.parse(
 
 const FETCH_MS = 8_000;
 
-describe("tailark-oss live connectivity", () => {
+describe.skipIf(process.env.SAJTMASKIN_LIVE_TESTS !== "1")("tailark-oss live connectivity", () => {
   it(
     "reaches seeded Mist items over the configured Radix OSS URL",
     async () => {

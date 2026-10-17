@@ -354,13 +354,13 @@ def _section_health() -> None:
             skipped = res.get("skipped", [])
             if drifts:
                 st.error(f"{len(drifts)} SDK-versionsdrift(er) hittades:")
-                st.dataframe(drifts, use_container_width=True, hide_index=True)
+                st.dataframe(drifts, width="stretch", hide_index=True)
             if unreadable:
                 st.error(
                     f"{len(unreadable)} pinnad SDK installerad men versionen kunde inte läsas "
                     "(kan ej verifiera — fail-closed):"
                 )
-                st.dataframe(unreadable, use_container_width=True, hide_index=True)
+                st.dataframe(unreadable, width="stretch", hide_index=True)
             if not drifts and not unreadable:
                 if checked:
                     st.success(
@@ -374,7 +374,7 @@ def _section_health() -> None:
                     )
             if checked:
                 st.caption("Kontrollerade pins:")
-                st.dataframe(checked, use_container_width=True, hide_index=True)
+                st.dataframe(checked, width="stretch", hide_index=True)
             if skipped:
                 st.caption("Överhoppade (okänd/ej installerad SDK):")
-                st.dataframe(skipped, use_container_width=True, hide_index=True)
+                st.dataframe(skipped, width="stretch", hide_index=True)

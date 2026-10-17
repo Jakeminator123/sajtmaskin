@@ -1,12 +1,19 @@
 # Playwright (repo-root)
 
-`e2e/` innehåller Playwright-tester som körs **utanför** den vanliga Vitest-sviten. Idag finns bara ett aktivt spår: en valfri deploy-API-smoke.
+`e2e/` innehåller Playwright-tester som körs **utanför** den vanliga Vitest-sviten. Idag finns två aktiva spår: en blockerande projektpersistens-E2E och en valfri deploy-API-smoke. CI-roller: [`docs/testing.md`](../docs/testing.md).
+
+## Aktivt: projektpersistens (blockerande i CI)
+
+- **Kommando:** `npm run test:e2e:project-persistence` ([`scripts/e2e/run-project-persistence.mjs`](../scripts/e2e/run-project-persistence.mjs), config `playwright.project-persistence.config.ts`). `npm run test:e2e:project-persistence:list` är bara discovery.
+- **Spec:** [`project-persistence.spec.ts`](project-persistence.spec.ts) — riktig UI/API/DB-persistens i Chromium mot en efemär, nätverksisolerad Postgres-container (kräver Docker). Ingen delad databas och inga providercredentials.
+- **CI:** eget jobb `quality-project-persistence` i tung profil; required via `quality`-aggregatet. Det ingår inte i `quality-core`.
 
 ## Aktivt: deploy-API-smoke (opt-in)
 
 - **Kommando:** `npm run test:deploy-smoke:e2e` (config `playwright.deploy-smoke.config.ts`, `testDir: ./e2e/deploy`).
 - **Spec:** [`deploy/deploy-api-precheck.smoke.spec.ts`](deploy/deploy-api-precheck.smoke.spec.ts) — anropar din körda Sajtmaskin (`POST /api/v0/deployments`, `precheckOnly: true`). Inga riktiga Vercel-anrop, inga credits.
 - **Utan `SAJTMASKIN_E2E_*`:** testet **skippas** (lämpligt för CI utan auth-fixtures).
+- **CI:** bara discovery (`npm run test:e2e:contract`, `--list`) körs, blockerande i `quality-core`.
 
 | Miljövariabel | Vad den gör |
 |---|---|
