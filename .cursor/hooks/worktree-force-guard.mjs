@@ -242,6 +242,9 @@ export function cheapShellDecision(command) {
   if (SHELL_EXPANSION.test(expandable)) return null;
   if (/(?:^|\s)-c\s+['"]?alias\.[^\s=]+=/iu.test(command)) return null;
   if (verdicts.includes("heavy")) return null;
+  // Expansion-free lines can still run hidden git (`"git push -f" | iex`,
+  // `GIT_SSH_COMMAND="git push -f" git fetch`). Pure check; no alias lookup.
+  if (isAmbiguousGitCommand(command, new Set())) return null;
   return { permission: "allow" };
 }
 

@@ -758,6 +758,45 @@ describe("shared ambiguity check: only protected writes fail closed", () => {
     expect(decideCommitCommand("git st", { aliases })).toEqual({ permission: "allow" });
   });
 
+  // Review of PR #1598 (base deny → head allow): code assembled at run time or
+  // handed to git through its environment/options was never inspected.
+  it.each([
+    '$cmd = "git push --force origin master"; iex $cmd',
+    '$cmd = "git push --force origin master"; Invoke-Expression $cmd',
+    '$cmd = "git commit -m x"; iex $cmd',
+    '$env:GIT_PAGER = "git push --force origin master"; git log',
+    '$c = "git push --force origin master"; git fetch --upload-pack=$c origin',
+    "${var} = git push --force origin master",
+    'cmd="git push -f"; eval "$cmd"',
+    'cmd="git push -f"; eval $cmd',
+    'cmd="git push -f"; $cmd',
+    'export GIT_PAGER="git push -f"; git log',
+    'GIT_SSH_COMMAND="git push -f" git fetch',
+    '"git push --force" | iex',
+    '$cmd = "git push -f"; & $cmd',
+    "& (Get-Command git) push --force",
+    '$cmd = "git push -f"; pwsh -c $cmd',
+    'git -c core.pager="git push --force" log',
+    "Invoke-Command -ScriptBlock { git push --force }",
+    'iex ("git push " + $flags)',
+  ])("denies hidden git in dynamic code, env or exec options: %s", (command) => {
+    expect(decideWorktree(command, { aliases: new Set() }).permission).toBe("deny");
+    expect(decideCommitCommand(command, { aliases: new Set() }).permission).toBe("deny");
+  });
+
+  it("recognizes a commit behind a brace-variable assignment", () => {
+    expect(isCommitCommand("${var} = git commit -m x")).toBe(true);
+    expect(cheapShellDecision("${var} = git commit -m x")).toBeNull();
+  });
+
+  it.each(["GIT_PAGER=cat git log -1", "git fetch --upload-pack=git-upload-pack origin"])(
+    "keeps literal git env/option values allowed: %s",
+    (command) => {
+      expect(decideWorktree(command, { aliases: new Set() })).toEqual({ permission: "allow" });
+      expect(decideCommitCommand(command, { aliases: new Set() })).toEqual({ permission: "allow" });
+    },
+  );
+
   it("points remote branch deletion at the canonical tidy wrapper", () => {
     const denial = forcePushDenial();
     for (const text of [denial.user_message, denial.agent_message]) {
