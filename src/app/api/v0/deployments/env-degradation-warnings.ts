@@ -20,6 +20,9 @@ export type EnvDegradationWarning = {
   message: string;
 };
 
+/** Keys whose middleware degrades to open routes instead of a banner when missing. */
+const OPEN_ROUTES_WITHOUT_KEY = new Set(["CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"]);
+
 function buildIntegrationNameByKey(
   detectedIntegrations: DetectedIntegration[],
 ): Map<string, string> {
@@ -60,11 +63,14 @@ export function buildEnvDegradationWarnings(params: {
 
   const featureRuntimeWarnings: EnvDegradationWarning[] = params.featureRuntimeKeys.map((key) => {
     const integration = nameByKey.get(key) ?? unknownIntegrationLabel;
+    const openRoutes = OPEN_ROUTES_WITHOUT_KEY.has(key)
+      ? " Skyddade sidor är öppna för alla tills dess."
+      : "";
     return {
       key,
       integration,
       reason: "feature-runtime",
-      message: `${key} är inte konfigurerad — ${integration} visar en infoskylt för besökaren tills du fyller i ett värde under Miljövariabler.`,
+      message: `${key} är inte konfigurerad — ${integration} visar en infoskylt för besökaren tills du fyller i ett värde under Miljövariabler.${openRoutes}`,
     };
   });
 

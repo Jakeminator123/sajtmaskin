@@ -5,7 +5,9 @@ type DossierRegistry = typeof import("@/lib/gen/dossiers/registry");
 /**
  * Test-only registry wrapper for `vi.mock("@/lib/gen/dossiers/registry")`.
  * No shipped dossier declares `build` env keys, so the F3 missing-env block
- * is only reachable through a patched manifest.
+ * is only reachable through a patched manifest. Registry-internal derivations
+ * (`getF3RequiredCapabilities`, `getCapabilityMap`, provider catalog defaults)
+ * still read the unpatched entries.
  */
 export function withBuildEnforcedDossier(
   actual: DossierRegistry,
