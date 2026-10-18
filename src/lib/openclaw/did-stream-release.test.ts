@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DID_STREAM_RELEASE_BACKOFF_MS,
   DID_STREAM_RELEASE_TIMEOUT_MS,
+  appendPendingRelease,
   releaseDidStream,
   type DidStreamIdentity,
 } from "./did-stream-release";
@@ -134,5 +135,43 @@ describe("releaseDidStream", () => {
     });
     await vi.advanceTimersByTimeAsync(DID_STREAM_RELEASE_TIMEOUT_MS);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("settles a hanging pagehide attempt at the deadline without aborting keepalive", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn(
+      (_url: string, _init?: RequestInit) => new Promise<Response>(() => {}),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const pending = releaseDidStream(STREAM, "client-key", { retry: false });
+    const seen = pending.then((outcome) => outcome);
+    await vi.advanceTimersByTimeAsync(DID_STREAM_RELEASE_TIMEOUT_MS);
+
+    await expect(seen).resolves.toEqual({ ok: false, reason: "network" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(init?.keepalive).toBe(true);
+    expect(init?.signal).toBeUndefined();
+  });
+});
+
+describe("appendPendingRelease", () => {
+  it("does not let a release that never settles block the queue past the deadline", async () => {
+    vi.useFakeTimers();
+    const pendingRef = { current: Promise.resolve() };
+    let settled = false;
+    const queued = appendPendingRelease(pendingRef, new Promise(() => {}));
+    const seen = queued.then(() => {
+      settled = true;
+    });
+
+    await vi.advanceTimersByTimeAsync(DID_STREAM_RELEASE_TIMEOUT_MS - 1);
+    expect(settled).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await seen;
+    expect(settled).toBe(true);
+    await expect(pendingRef.current).resolves.toBeUndefined();
   });
 });

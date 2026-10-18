@@ -463,11 +463,6 @@ export function DidOpenClawBridge({
     const generation = ++connectionGenerationRef.current;
     setLastError(null);
     setConnection("connecting");
-    // Vänta in ett pågående släpp innan en ny plats begärs — annars tävlar
-    // retryn mot sin egen föregångare om den sista av kontots två platser.
-    await pendingDisconnectRef.current;
-    if (generation !== connectionGenerationRef.current || releaseBlockedRef.current) return;
-
     // Ett fullt D-ID-konto kan ge en ansluten agent som aldrig levererar någon
     // MediaStream. Utan deadline fastnar ytan i "Förbered D-ID-klienten...".
     clearConnectDeadline();
@@ -479,6 +474,15 @@ export function DidOpenClawBridge({
       releaseActiveSession();
       setConnection("offline");
     }, DID_CONNECT_TIMEOUT_MS);
+    // Vänta in ett pågående släpp innan en ny plats begärs — annars tävlar
+    // retryn mot sin egen föregångare om den sista av kontots två platser.
+    await pendingDisconnectRef.current;
+    if (generation !== connectionGenerationRef.current) return;
+    if (releaseBlockedRef.current) {
+      clearConnectDeadline();
+      setConnection("error");
+      return;
+    }
 
     let sdkConnectStarted = false;
     try {
@@ -544,7 +548,11 @@ export function DidOpenClawBridge({
 
   ensureConnectedRef.current = ensureConnected;
   restartAfterBfcacheRef.current = () => {
-    if (testMode || releaseBlockedRef.current) return;
+    if (testMode) return;
+    if (releaseBlockedRef.current) {
+      setConnection("error");
+      return;
+    }
     const generation = ++connectionGenerationRef.current;
     clearConnectDeadline();
     const agent = agentRef.current;
@@ -555,9 +563,30 @@ export function DidOpenClawBridge({
     setAvatarReady(false);
     setConnection("idle");
     void (async () => {
-      await queueDisconnect(agent);
-      if (generation !== connectionGenerationRef.current || releaseBlockedRef.current) return;
-      await ensureConnectedRef.current();
+      try {
+        await queueDisconnect(agent);
+        if (generation !== connectionGenerationRef.current) return;
+        if (releaseBlockedRef.current) {
+          setConnection("error");
+          return;
+        }
+        await ensureConnectedRef.current();
+      } catch {
+        const genNow = connectionGenerationRef.current;
+        if (genNow === generation || genNow === generation + 1) {
+          clearConnectDeadline();
+          setConnection("error");
+        }
+        return;
+      }
+      const genNow = connectionGenerationRef.current;
+      const state = connectionStateRef.current;
+      const stalled =
+        state === "idle" ||
+        (state === "connecting" && connectDeadlineRef.current === null);
+      if (stalled && (genNow === generation || genNow === generation + 1)) {
+        setConnection("error");
+      }
     })();
   };
 

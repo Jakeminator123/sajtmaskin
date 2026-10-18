@@ -227,6 +227,108 @@ describe("D-ID stream release on unload", () => {
     expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterRestart);
   });
 
+  it("does not let a hanging pagehide release block reconnect past the timeout", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const agent = fakeAgent();
+    const next = fakeAgent();
+    sdkMock.createAgentManager.mockResolvedValueOnce(agent).mockResolvedValueOnce(next);
+    const { useDidAvatar } = await loadHook();
+    const { DID_STREAM_RELEASE_TIMEOUT_MS } = await import("./did-stream-release");
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+
+    await waitFor(() => expect(result.current.connectionState).toBe("connected"));
+    act(() => lastCallbacks().onStreamCreated?.(STREAM_PAYLOAD));
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(() => new Promise(() => {}));
+
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    let reconnect!: Promise<void>;
+    act(() => {
+      reconnect = result.current.reconnect();
+    });
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DID_STREAM_RELEASE_TIMEOUT_MS);
+      await reconnect;
+    });
+
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(2);
+    expect(next.connect).toHaveBeenCalledTimes(1);
+    expect(result.current.connectionState).toBe("connected");
+  });
+
+  it("starts a new session after the release timeout when bfcache restores a hanging pagehide", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const agent = fakeAgent();
+    const next = fakeAgent();
+    sdkMock.createAgentManager.mockResolvedValueOnce(agent).mockResolvedValueOnce(next);
+    const { useDidAvatar } = await loadHook();
+    const { DID_STREAM_RELEASE_TIMEOUT_MS } = await import("./did-stream-release");
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+
+    await waitFor(() => expect(result.current.connectionState).toBe("connected"));
+    act(() => lastCallbacks().onStreamCreated?.(STREAM_PAYLOAD));
+    act(() => lastCallbacks().onSrcObjectReady?.({} as MediaStream));
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(() => new Promise(() => {}));
+
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    act(() => {
+      dispatchPageShow(true);
+    });
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1);
+    expect(result.current.connectionState).not.toBe("connecting");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DID_STREAM_RELEASE_TIMEOUT_MS);
+    });
+
+    await waitFor(() => expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(2));
+    expect(next.connect).toHaveBeenCalledTimes(1);
+    expect(result.current.connectionState).toBe("connected");
+  });
+
+  it("enters error when bfcache restart cannot connect after a hanging release", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const agent = fakeAgent();
+    const retry = fakeAgent();
+    sdkMock.createAgentManager
+      .mockResolvedValueOnce(agent)
+      .mockRejectedValueOnce(new Error("sdk down"))
+      .mockResolvedValueOnce(retry);
+    const { useDidAvatar } = await loadHook();
+    const { DID_STREAM_RELEASE_TIMEOUT_MS } = await import("./did-stream-release");
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+
+    await waitFor(() => expect(result.current.connectionState).toBe("connected"));
+    act(() => lastCallbacks().onStreamCreated?.(STREAM_PAYLOAD));
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(() => new Promise(() => {}));
+
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    act(() => {
+      dispatchPageShow(true);
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DID_STREAM_RELEASE_TIMEOUT_MS);
+    });
+
+    await waitFor(() => expect(result.current.connectionState).toBe("error"));
+    expect(result.current.releaseBlocked).toBe(false);
+
+    await act(async () => {
+      await result.current.reconnect();
+    });
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(3);
+    expect(retry.connect).toHaveBeenCalledTimes(1);
+    expect(result.current.connectionState).toBe("connected");
+  });
+
   it("releases a stream created after pagehide and does not accept the stale connect", async () => {
     const created = deferred<ReturnType<typeof fakeAgent>>();
     const agent = fakeAgent();
