@@ -1,9 +1,11 @@
 /**
  * Runtime owner for the public Sajtmaskin proof/showcase surface (`/exempel`).
  *
- * The five sites are reconstructions of earlier examples. They are not verified
- * customer cases and must not be described as live businesses or as exact
- * current Sajtmaskin output.
+ * Byråflöde, Springa, Palma, Paddlelines and Glass are reconstructions of
+ * earlier examples and must not be described as live businesses. DG97,
+ * Kontorshotellkartan, Persona Royale, Scout Gaming and Nexus OS are own live
+ * projects and concepts. None is a verified customer case or exact current
+ * Sajtmaskin output.
  *
  * Glass must only link to the umber alias. The bare glass-showcase host
  * without `-umber` is an unrelated wedding site and must never be referenced.
