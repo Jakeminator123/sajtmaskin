@@ -66,6 +66,17 @@ Därför finns samma paket inte i auto-merge-allowlisten — en Dependabot-patch
 
 Samma paket är dessutom **uteslutna ur Dependabots grupperingar** (`exclude-patterns` i `npm-production-patch` och `npm-low-risk-minor` i [`.github/dependabot.yml`](../.github/dependabot.yml)) så att deras bumpar kommer som **isolerade PR:ar** i stället för att dra en "ren" grupp-PR röd. Annars skapar Dependabot varje vecka en grupp-PR som alltid går rött på parity-testet — motsatsen till låg risk (t.ex. #401 där `lucide-react`-minorn låg i `npm-low-risk-minor`-gruppen).
 
+## Playwright — två spår
+
+`playwright` och `@playwright/test` måste ha exakt samma version; annars laddar
+CLI:t en annan Playwright-instans än testfilerna och testupptäckten kraschar.
+Dependabot-gruppen `playwright-test-runner` bumpar dem tillsammans.
+
+`playwright-core` är ett produktionsberoende som driver `@sparticuz/chromium`
+och är därför exakt-pinnat. Det bumpas bara tillsammans med en Sparticuz-version
+på samma Chromium-major; se kommentaren i
+[`src/lib/capture/browser.ts`](../src/lib/capture/browser.ts).
+
 ## Manuell månadsrutin
 
 En gång i månaden (eller vid behov), kör en riktad uppgraderingsomgång:
