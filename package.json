@@ -302,6 +302,9 @@
     "vitest": "^4.1.11"
   },
   "overrides": {
+    "@hookform/resolvers": {
+      "ajv-formats": "$ajv-formats"
+    },
     "@vercel/fun": "1.3.0",
     "@vercel/node": {
       "path-to-regexp": "6.3.0",
