@@ -303,6 +303,13 @@ const NAME_CAPTURE = String.raw`(?:["'«»“”]([^"'«»“”\n]{1,60})["'«�
 
 const EXPLICIT_NAMED_PAGE_PATTERNS: RegExp[] = [
   new RegExp(String.raw`(?:ny\s+)?(?:sida|page|route)\s+som\s+ska\s+heta\s+${NAME_CAPTURE}`, "giu"),
+  // Other Swedish phrasings need an add/new marker before the noun: "sidan som
+  // heter Om oss" points at an existing page and must not plan a second route.
+  new RegExp(
+    String.raw`(?:(?:lägg\s+till|skapa|gör|bygg)\s+(?:(?:en|ytterligare\s+en)\s+)?(?:ny\s+)?|ny\s+)` +
+      String.raw`(?:sida|route)\s+(?:som\s+heter|som\s+(?:skall|får|bör)\s+heta|kallad|döpt\s+till|med\s+namnet)\s+${NAME_CAPTURE}`,
+    "giu",
+  ),
   new RegExp(
     String.raw`(?:create|add|make)\s+(?:a\s+)?(?:new\s+)?(?:page|route)\s+(?:called|named)\s+${NAME_CAPTURE}`,
     "giu",
