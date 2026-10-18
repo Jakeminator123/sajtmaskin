@@ -140,7 +140,7 @@ describe("releaseDidStream", () => {
   it("settles a hanging pagehide attempt at the deadline without aborting keepalive", async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn(
-      () => new Promise<Response>(() => {}),
+      (_url: string, _init?: RequestInit) => new Promise<Response>(() => {}),
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -150,9 +150,9 @@ describe("releaseDidStream", () => {
 
     await expect(seen).resolves.toEqual({ ok: false, reason: "network" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
-    expect(init.keepalive).toBe(true);
-    expect(init.signal).toBeUndefined();
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(init?.keepalive).toBe(true);
+    expect(init?.signal).toBeUndefined();
   });
 });
 
