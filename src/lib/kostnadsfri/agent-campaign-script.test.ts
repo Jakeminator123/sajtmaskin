@@ -143,11 +143,24 @@ describe("rådgivningskvot", () => {
 
 describe("kampanjcopy", () => {
   it("anpassar inledningen efter tilltalsnamn", () => {
-    expect(buildKostnadsfriHandoffIntro({ companyName: "Zax Frisör", contactFirstName: "Jan" })).toContain(
-      "Välkommen Jan och Zax Frisör.",
-    );
-    expect(buildKostnadsfriHandoffIntro({ companyName: "Zax Frisör" })).toContain("Välkommen Zax Frisör.");
-    expect(buildKostnadsfriHandoffIntro({ companyName: "Zax Frisör" })).not.toContain(" och ");
+    expect(
+      buildKostnadsfriHandoffIntro({ companyName: "Zax Frisör", contactFirstName: "Jan" }, 1),
+    ).toContain("Välkommen Jan och Zax Frisör.");
+    for (const count of [0, 1, 3]) {
+      const intro = buildKostnadsfriHandoffIntro({ companyName: "Zax Frisör" }, count);
+      expect(intro).toContain("Välkommen Zax Frisör.");
+      expect(intro).not.toContain(" och ");
+    }
+  });
+
+  it("lovar bara frågor när det finns frågor", () => {
+    const none = buildKostnadsfriHandoffIntro({ companyName: "Zax" }, 0);
+    expect(none).not.toMatch(/fråg/);
+    expect(none).toContain("«Fortsätt»");
+    expect(buildKostnadsfriHandoffIntro({ companyName: "Zax" }, 1)).toContain("en kort fråga");
+    expect(buildKostnadsfriHandoffIntro({ companyName: "Zax" }, 2)).toContain("två korta frågor");
+    expect(buildKostnadsfriHandoffIntro({ companyName: "Zax" }, 3)).toContain("tre korta frågor");
+    expect(campaignCopyBundleForTests()).not.toMatch(/knapphändig/);
   });
 
   it("säger rådgivning/hjälp och aldrig generering eller ombyggnad", () => {
@@ -200,7 +213,24 @@ describe("kostnadsfriCampaignManuscriptLines", () => {
     expect(lines[0]).toBe("[KAMPANJ-MANUS]");
     expect(block).toContain("Uppföljningsdirektiv");
     expect(block).toContain("Rådgivningskvot");
+    expect(block).toContain("utan markdown");
+    expect(block).toContain("Lova inte att något från chatten läggs in i sajten");
     expect(block.toLowerCase()).not.toMatch(/generering|ombyggnad/);
+  });
+
+  it("lovar inte chattinnehåll i sajten efter att bygget startat", () => {
+    const block = kostnadsfriCampaignManuscriptLines({
+      brief: { stage: "handoff", companyName: "Zax" },
+      campaign: {
+        followupsSkipped: false,
+        followupsCompleted: true,
+        remaining: 4,
+        buildStarted: true,
+        projectId: "proj-1",
+      },
+    }).join("\n");
+    expect(block).toContain("utan markdown");
+    expect(block).not.toContain("Lova inte att något från chatten");
   });
 });
 

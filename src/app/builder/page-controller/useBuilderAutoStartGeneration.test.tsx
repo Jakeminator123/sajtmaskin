@@ -77,6 +77,64 @@ describe("useBuilderAutoStartGeneration", () => {
     expect(requestCreateChat).toHaveBeenCalledTimes(1);
   });
 
+  it("still auto-starts when the controller re-renders inside the 500 ms window", () => {
+    const requestCreateChat = vi.fn();
+    const { rerender } = renderHook(
+      (props: HookProps) => useBuilderAutoStartGeneration(props),
+      { initialProps: baseProps({ promptActions: { requestCreateChat } }) },
+    );
+    const hydrated = () =>
+      baseProps({
+        resolvedPrompt: "Bygg en sajt",
+        promptId: null,
+        promptActions: { requestCreateChat },
+      });
+
+    rerender(hydrated());
+    for (let tick = 0; tick < 5; tick += 1) {
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+      rerender(hydrated());
+    }
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(requestCreateChat).toHaveBeenCalledTimes(1);
+    expect(requestCreateChat).toHaveBeenCalledWith("Bygg en sajt");
+  });
+
+  it("calls the latest promptActions, not the one captured when the timer was armed", () => {
+    const stale = vi.fn();
+    const fresh = vi.fn();
+    const { rerender } = renderHook(
+      (props: HookProps) => useBuilderAutoStartGeneration(props),
+      { initialProps: baseProps({ promptActions: { requestCreateChat: stale } }) },
+    );
+
+    rerender(
+      baseProps({
+        resolvedPrompt: "Bygg en sajt",
+        promptId: null,
+        promptActions: { requestCreateChat: stale },
+      }),
+    );
+    rerender(
+      baseProps({
+        resolvedPrompt: "Bygg en sajt",
+        promptId: null,
+        promptActions: { requestCreateChat: fresh },
+      }),
+    );
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(stale).not.toHaveBeenCalled();
+    expect(fresh).toHaveBeenCalledTimes(1);
+  });
+
   it("does not auto-start when hydration never had a promptId", () => {
     const requestCreateChat = vi.fn();
     renderHook(() =>

@@ -244,12 +244,19 @@ export function getIndustryPalettes(industry: string): ColorPalette[] {
   return [...combined, ...remaining];
 }
 
+export function findPaletteByName(name: string | null | undefined): ColorPalette | null {
+  if (!name) return null;
+  return [...INDUSTRY_PALETTES, ...PREDEFINED_PALETTES].find((p) => p.name === name) ?? null;
+}
+
 interface ColorPalettePickerProps {
   selectedPalette: ColorPalette | null;
   onSelect: (palette: ColorPalette) => void;
   customColors?: { primary: string; secondary: string; accent: string };
   onCustomColorChange?: (type: "primary" | "secondary" | "accent", color: string) => void;
   industry?: string; // Optional industry to filter/recommend palettes
+  /** Open the custom editor on mount, e.g. when restoring saved custom colors. */
+  defaultShowCustom?: boolean;
 }
 
 export function ColorPalettePicker({
@@ -258,8 +265,9 @@ export function ColorPalettePicker({
   customColors,
   onCustomColorChange,
   industry,
+  defaultShowCustom = false,
 }: ColorPalettePickerProps) {
-  const [showCustom, setShowCustom] = useState(false);
+  const [showCustom, setShowCustom] = useState(defaultShowCustom);
 
   const handleColorChange = (type: "primary" | "secondary" | "accent", color: string) => {
     if (onCustomColorChange) {

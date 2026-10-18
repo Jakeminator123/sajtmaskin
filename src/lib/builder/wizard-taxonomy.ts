@@ -132,16 +132,19 @@ export type WizardVibeId = (typeof WIZARD_VIBE_IDS)[number];
 
 export type WizardVibe = {
   id: WizardVibeId;
+  /** Goes into the generation prompt; the style-pack resolver scores these English cues. */
   label: string;
+  /** What the customer sees and the avatar says. */
+  uiLabel: string;
 };
 
 export const WIZARD_VIBES: readonly WizardVibe[] = [
-  { id: "modern", label: "Modern & Clean" },
-  { id: "playful", label: "Playful & Fun" },
-  { id: "brutalist", label: "Brutalist" },
-  { id: "luxury", label: "Luxury" },
-  { id: "tech", label: "Futuristic" },
-  { id: "minimal", label: "Minimal" },
+  { id: "modern", label: "Modern & Clean", uiLabel: "Modern och stilren" },
+  { id: "playful", label: "Playful & Fun", uiLabel: "Lekfull" },
+  { id: "brutalist", label: "Brutalist", uiLabel: "Brutalistisk" },
+  { id: "luxury", label: "Luxury", uiLabel: "Lyxig" },
+  { id: "tech", label: "Futuristic", uiLabel: "Futuristisk" },
+  { id: "minimal", label: "Minimal", uiLabel: "Minimalistisk" },
 ];
 
 function labelsFrom<T extends { id: string; label: string }>(
@@ -165,6 +168,9 @@ export const WIZARD_INDUSTRY_LABELS: Record<WizardIndustryId, string> =
 export const WIZARD_PURPOSE_LABELS: Record<WizardPurposeId, string> =
   labelsFrom(WIZARD_PURPOSES);
 export const WIZARD_VIBE_LABELS: Record<WizardVibeId, string> = labelsFrom(WIZARD_VIBES);
+const WIZARD_VIBE_UI_LABELS: Record<WizardVibeId, string> = labelsFrom(
+  WIZARD_VIBES.map((vibe) => ({ id: vibe.id, label: vibe.uiLabel })),
+);
 
 const INDUSTRY_ID_SET = new Set<string>(WIZARD_INDUSTRY_IDS);
 
@@ -252,4 +258,8 @@ export function wizardPurposeLabel(id: string, fallback = id): string {
 
 export function wizardVibeLabel(id: string, fallback = id): string {
   return ownStringLabel(WIZARD_VIBE_LABELS, id) ?? fallback;
+}
+
+export function wizardVibeUiLabel(id: string, fallback = id): string {
+  return ownStringLabel(WIZARD_VIBE_UI_LABELS, id) ?? fallback;
 }
