@@ -389,3 +389,32 @@ describe("detectIntegrationsFromVersionFiles + env stub filter", () => {
     expect(detected.find((d) => d.provider === "stripe")).toBeDefined();
   });
 });
+
+describe("detectIntegrationsFromVersionFiles — Auth0 registry detection", () => {
+  it.each([
+    [
+      "runtime import",
+      {
+        name: "lib/auth0.ts",
+        content:
+          'import { Auth0Client } from "@auth0/nextjs-auth0/server"; export const auth0 = new Auth0Client();',
+      },
+    ],
+    [
+      "environment contract",
+      {
+        name: "app/api/auth/route.ts",
+        content: "export const issuer = process.env.AUTH0_ISSUER_BASE_URL;",
+      },
+    ],
+  ])("detects Auth0 from %s through the canonical registry", (_label, file) => {
+    const detected = detectIntegrationsFromVersionFiles([file]);
+    expect(detected).toContainEqual(
+      expect.objectContaining({
+        key: "auth0",
+        provider: "auth0",
+        envVars: expect.arrayContaining(["AUTH0_SECRET", "AUTH0_CLIENT_ID"]),
+      }),
+    );
+  });
+});

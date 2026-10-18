@@ -12,6 +12,14 @@ function file(path: string, content: string, language: string): CodeFile {
 }
 
 describe("buildGitHubExportPlan", () => {
+  it.each(["public/logo.png", "public/fonts/site.woff2"])("decodes persisted imported envelopes for %s without mutating sources", (path) => {
+    const bytes = Buffer.from([137, 80, 78, 71, 0, 255]);
+    const files = [{ path, content: `base64:${bytes.toString("base64")}` }];
+    const before = JSON.stringify(files);
+    expect(buildGitHubExportPlan(files).files.find((entry) => entry.path === path)?.content).toEqual(bytes);
+    expect(JSON.stringify(files)).toBe(before);
+    expect(buildGitHubExportPlan([{ path: "README.md", content: "base64:YWJj" }]).files.find((entry) => entry.path === "README.md")?.content).toBe("base64:YWJj");
+  });
   it("preserves binary media bytes in the managed tree plan", () => {
     const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
     const plan = buildGitHubExportPlan([

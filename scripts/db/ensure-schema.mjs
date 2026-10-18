@@ -3,17 +3,11 @@
  * "Make THIS database's schema match the repo" — one idempotent command, plus
  * the loud guard that makes a stale local schema impossible to miss.
  *
- * Why this exists: the local/dev DB *is* migrated automatically, but only on the
- * `npm run dev` -> `predev` -> `db:init` path. Three ways it silently did not
- * happen, all of which left dev running against a schema the code no longer
- * matches (e.g. dev missing `add-llm-usage.sql` while prod had it):
- *
- *   1. `db:init:soft` swallows a mid-run failure — the one-line WARN scrolls
- *      away behind Next.js output and dev boots on the old schema anyway.
- *   2. `SKIP_PREDEV=1` / running `node scripts/dev/next-runner.mjs dev`
- *      directly (the documented fast path) skips migrations entirely.
- *   3. Ledger recording is warn-only, so `db:migrate:check` can report BEHIND
- *      even after the SQL itself applied.
+ * Dev/cloud start use --check-only: startup is not a migrations mandate.
+ * Explicit db:ensure applies pending files to an initialized dev database;
+ * use explicit db:init for a fresh throwaway database. Git posthooks no longer
+ * execute this script. The runner/ledger remain separate owners: a status
+ * warning must never silently authorize data repair or historical backfill.
  *
  * Modes:
  *   (default)      check -> apply pending via `npm run db:migrate` -> re-verify

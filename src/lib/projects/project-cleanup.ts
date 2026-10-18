@@ -212,6 +212,7 @@ export async function canCreateProject(
   userId: string | null,
   sessionId: string | null,
   isPaidUser: boolean = false,
+  database: Pick<typeof db, "select"> = db,
 ): Promise<{ allowed: boolean; reason?: string; limit: number; current: number }> {
   if (userId) {
     // Authenticated user
@@ -219,7 +220,7 @@ export async function canCreateProject(
       ? CLEANUP_CONFIG.MAX_USER_PROJECTS_PAID
       : CLEANUP_CONFIG.MAX_USER_PROJECTS_FREE;
 
-    const [{ count }] = await db
+    const [{ count }] = await database
       .select({ count: sql<number>`count(*)` })
       .from(appProjects)
       .where(eq(appProjects.user_id, userId));
@@ -241,7 +242,7 @@ export async function canCreateProject(
   } else if (sessionId) {
     // Anonymous session
     const limit = CLEANUP_CONFIG.MAX_ANONYMOUS_PROJECTS_PER_SESSION;
-    const [{ count }] = await db
+    const [{ count }] = await database
       .select({ count: sql<number>`count(*)` })
       .from(appProjects)
       .where(eq(appProjects.session_id, sessionId));

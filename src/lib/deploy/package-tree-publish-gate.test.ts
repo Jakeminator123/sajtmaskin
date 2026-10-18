@@ -188,4 +188,16 @@ describe("resolvePackageTreePublishGate", () => {
     });
     expect(gate).toEqual({ allowed: true });
   });
+  it("uses the transformed publish tree without rebinding a saved preview fallback receipt", () => {
+    const files = [
+      { path: "package.json", content: JSON.stringify({ dependencies: { next: "15.5.4", react: "19.0.0" } }) },
+      { path: "yarn.lock", content: '"next@15.5.4":\n  version "15.5.4"\nreact@19.0.0:\n  version "19.0.0"\n' },
+    ];
+    const publishFiles = files.slice(0, 1);
+    expect(dependencyFingerprintFromFiles(files)).not.toBe(dependencyFingerprintFromFiles(publishFiles));
+    expect(resolvePackageTreePublishGate({ files, publishFiles, errorLogs: [{
+      category: "preview:install-peer-fallback",
+      meta: { kind: "fallback", usedFallback: true, dependencyFingerprint: dependencyFingerprintFromFiles(files) },
+    }] })).toMatchObject({ allowed: false, code: DEPLOY_INSTALL_PEER_FALLBACK });
+  });
 });

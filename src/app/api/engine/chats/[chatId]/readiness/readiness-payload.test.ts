@@ -184,6 +184,21 @@ describe("resolveDeployTypecheckAdvisoryGate + buildTypecheckAdvisoryBlocker (F2
 });
 
 describe("buildPackageTreePublishBlocker", () => {
+  it("does not claim a proven install failure for unresolved peer choices", () => {
+    const item = buildPackageTreePublishBlocker({
+      allowed: false,
+      code: DEPLOY_PACKAGE_TREE_ERESOLVE,
+      message: "Supply an in-range lockfile or exact matching pair.",
+      conflict: {
+        code: "next_react_peer_resolution_required",
+        nextRange: "^13.0.0", reactRange: "18.0.0", nextMajor: 13, reactMajor: 18,
+        peers: {}, message: "Unresolved choices", repairOptions: [],
+      },
+    });
+    expect(item?.severity).toBe("blocker");
+    expect(item?.title).toContain("verifieras");
+    expect(item?.title).not.toContain("kan inte installeras");
+  });
   it("blocks the incident Next/React ERESOLVE tree", () => {
     const item = buildPackageTreePublishBlocker({
       allowed: false,

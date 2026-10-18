@@ -11,14 +11,14 @@ import { createVerificationToken, getUserByEmail } from "@/lib/db/services/users
 import { sendVerificationEmail } from "@/lib/email/send";
 import { withRateLimit } from "@/lib/rate-limit";
 import { URLS } from "@/lib/config";
-import { sanitizeKostnadsfriAuthReturnTo } from "@/lib/kostnadsfri/auth-return";
+import { sanitizeAuthReturnTo } from "@/lib/auth/auth-return";
 
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "auth:resend-verification", async () => {
     try {
       const body = await req.json().catch(() => null);
       const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
-      const safeReturnTo = sanitizeKostnadsfriAuthReturnTo(
+      const safeReturnTo = sanitizeAuthReturnTo(
         typeof body?.returnTo === "string" ? body.returnTo : null,
         URLS.baseUrl,
       );

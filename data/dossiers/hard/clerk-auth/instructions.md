@@ -1,62 +1,10 @@
 # When to use
 
-Use this dossier when the brief declares the `auth` capability — the site needs real user accounts (login, signup, password reset, gated content). Clerk is the CAPABILITY DEFAULT; the `supabase-auth` sibling wins only on an explicit Supabase ask. Triggers (Swedish + English): `auth`, `login`, `sign in`, `sign up`, `register`, `account`, `inloggning`, `registrering`, `logga in`, `konto`, `medlem`, `medlemssida`, `gated`, `protected route`, `dashboard requires login`.
-
-Best fit:
-
-- A SaaS landing page with a "Sign in" / "Get started" CTA that opens Clerk's hosted modal.
-- A protected `/dashboard` (or `/app`) area that requires an authenticated user.
-- A community / membership site where the public landing is open but `/medlem` is gated.
-
-Do not use for:
-
-- A pure marketing site with no logged-in surface (do not mount `<ClerkProvider>` "just in case" — it adds ~50KB to the client bundle).
-- Custom OAuth flows where you control the IdP yourself (use `next-auth` / Auth.js with the `credentials` provider instead).
-- B2B SSO with self-served SAML config (Clerk supports it but the setup is multi-step and beyond a generic dossier).
+Use for real accounts and protected app routes.
 
 # How to integrate
 
-The dossier ships three files. Drop each one in unchanged unless explicitly overridden:
-
-1. **`components/middleware.ts` → `middleware.ts` at the project root** (verbatim). This dossier intentionally keeps the backward-compatible Next.js middleware convention; Next.js 16 still runs it on the Edge runtime, while a future `proxy.ts` migration must also remove/merge old generated middleware instead of creating both files. Keep it at the project root, not under `app/`. The `matcher` syntax is load-bearing — paraphrasing the regex breaks session resolution on dynamic routes. The file key-gates itself: with missing or placeholder keys (e.g. `pk_test_placeholder`) it returns `NextResponse.next()` instead of invoking Clerk, so an unconfigured preview never 500s.
-2. **`components/clerk-provider-shell.tsx` → `components/clerk-provider-shell.tsx`** (verbatim). Wrap the entire `<body>…</body>` of `app/layout.tsx` in `<ClerkProviderShell>`. The shell adds an unconfigured-state fallback so the app does not crash when keys are missing in development.
-3. **`components/auth-buttons.tsx` → `components/auth-buttons.tsx`** (verbatim). Use `<AuthButtons />` in the site header / nav; adapt labels via the `signInLabel`/`signUpLabel` props or wrap it in your own component. The file is verbatim because its key-gate is load-bearing (mock: visual): with missing/placeholder keys the same buttons render but open an honest "Inloggning i demoläge"-dialog instead of mounting Clerk components without a provider (which would crash), and no fake session is ever created.
-
-Minimal `app/layout.tsx`:
-
-```tsx
-import { ClerkProviderShell } from "@/components/clerk-provider-shell";
-import { AuthButtons } from "@/components/auth-buttons";
-import "./globals.css";
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="sv">
-      <body>
-        <ClerkProviderShell>
-          <header className="flex items-center justify-between border-b px-4 py-3">
-            <a href="/" className="font-semibold">Min sajt</a>
-            <AuthButtons />
-          </header>
-          {children}
-        </ClerkProviderShell>
-      </body>
-    </html>
-  );
-}
-```
-
-To gate a route (e.g. `/dashboard`), redirect unauthenticated users from the server component:
-
-```tsx
-import { auth } from "@clerk/nextjs/server";
-
-export default async function DashboardPage() {
-  const { isAuthenticated, redirectToSignIn, userId } = await auth();
-  if (!isAuthenticated) return redirectToSignIn();
-  return <main className="p-6">Welcome, {userId}.</main>;
-}
-```
+Keep middleware security verbatim; edit `protectedRoutes` and mount the provider shell and buttons.
 
 # UX rules
 
@@ -68,11 +16,7 @@ export default async function DashboardPage() {
 
 # Avoid
 
-- Do not put `CLERK_SECRET_KEY` in a `NEXT_PUBLIC_*` variable. The secret key grants full backend access to your Clerk instance — exposing it in the client bundle is a critical leak.
-- Do not move the dossier's backward-compatible `middleware.ts` inside `app/`, and do not add a parallel `proxy.ts` without migrating the existing network-boundary logic. The shipped file belongs at the project root.
-- Do not call `auth()` inside a Client Component — it only works in Server Components, Route Handlers, and middleware. From the client, use the `useUser()` / `useAuth()` hooks instead.
-- Do not wrap `<ClerkProvider>` around individual pages. Mount it once in the root layout; mounting per-page resets the session on every navigation.
-- Do not invent your own "remember me" or "session refresh" logic. Clerk handles token refresh transparently via the middleware.
+Never expose the secret or client-gate protected data; retain `auth.protect()`.
 
 # Verification
 

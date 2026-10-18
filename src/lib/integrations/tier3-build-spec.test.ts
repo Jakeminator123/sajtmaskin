@@ -169,6 +169,25 @@ describe("resolveIntegrationIdentityKey generic-provider guard (Codex P1 on #506
 });
 
 describe("deriveTier3BuildSpec", () => {
+  it("resolves by canonical providerKey instead of the human display label", () => {
+    const spec = deriveTier3BuildSpec({
+      ...emptyContracts,
+      integrations: [
+        {
+          kind: "database",
+          providerKey: "postgres",
+          dossierCapability: "database",
+          selectionSource: "explicit",
+          provider: "Postgres / DATABASE_URL",
+          name: "Postgres",
+          reason: "Explicit provider",
+          status: "chosen",
+        },
+      ],
+    });
+    expect(spec.requirements).toHaveLength(1);
+    expect(spec.requirements[0]).toMatchObject({ provider: "postgres" });
+  });
   it("returns no requirements when contracts are empty", () => {
     expect(deriveTier3BuildSpec(emptyContracts)).toEqual({ requirements: [] });
   });

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import streamlit as st
+from backoffice.shared_lib.validation import _provider_setup_url_format_is_valid
 
 from .io import _ensure_capability_map_current, _load_json
 from .labels import class_hint, class_label, mock_label
@@ -48,6 +49,16 @@ def _join_or_dash(values: list[str]) -> str:
     return ", ".join(values) if values else "—"
 
 
+def verification_date_label(status: Any) -> str:
+    """Use verification wording only for accepted (including legacy) rows."""
+    normalized = str(status or "accepted").strip().lower()
+    return (
+        "Senast verifierad"
+        if normalized == "accepted"
+        else "Katalogdatum (ej acceptansbevis)"
+    )
+
+
 def _env_contract(row: dict[str, Any]) -> str:
     labels = {
         "build": "B",
@@ -66,6 +77,50 @@ def _file_roles(row: dict[str, Any]) -> str:
     return ", ".join(
         f"{role}: {count}" for role, count in sorted(row["file_roles"].items())
     ) or "—"
+
+
+def configuration_guidance_lines(
+    manifest: dict[str, Any],
+) -> tuple[list[str], list[str]]:
+    """Format guidance metadata without deriving readiness/completion state."""
+    input_lines: list[str] = []
+    for raw in manifest.get("configInputs") or []:
+        if not isinstance(raw, dict):
+            continue
+        input_lines.append(
+            f"`{raw.get('id', '?')}` — {raw.get('label', '?')} "
+            f"(`{raw.get('target', '?')}`: `{raw.get('binding', '?')}`) — "
+            f"{raw.get('purpose', '')}"
+        )
+
+    setup_lines: list[str] = []
+    for index, raw in enumerate(manifest.get("providerSetup") or [], start=1):
+        if not isinstance(raw, dict):
+            continue
+        references = raw.get("references")
+        references = references if isinstance(references, dict) else {}
+        reference_parts: list[str] = []
+        env_keys = [str(value) for value in references.get("envVarKeys") or []]
+        config_ids = [str(value) for value in references.get("configInputIds") or []]
+        if env_keys:
+            reference_parts.append("env: " + ", ".join(f"`{key}`" for key in env_keys))
+        if config_ids:
+            reference_parts.append(
+                "kodvärden: " + ", ".join(f"`{item_id}`" for item_id in config_ids)
+            )
+        suffix = f" ({'; '.join(reference_parts)})" if reference_parts else ""
+        setup_lines.append(
+            f"{index}. **{raw.get('title', '?')}** — "
+            f"{raw.get('instruction', '')}{suffix}"
+        )
+    return input_lines, setup_lines
+
+
+def safe_provider_setup_url(value: Any) -> str | None:
+    """Raw disk metadata may precede validation; never interpolate it in Markdown."""
+    if not isinstance(value, str) or not _provider_setup_url_format_is_valid(value):
+        return None
+    return value
 
 
 def _render_system_map_row_detail(
@@ -96,7 +151,8 @@ def _render_system_map_row_detail(
         )
         st.markdown(
             f"**Verifiering:** {row['verification_status']} · "
-            f"**Senast verifierad:** {row['last_verified'] or '—'}"
+            f"**{verification_date_label(row['verification_status'])}:** "
+            f"{row['last_verified'] or '—'}"
         )
     st.markdown(f"**Env-kontrakt:** {_env_contract(row)}")
     st.markdown(f"**Filroller:** {_file_roles(row)}")
@@ -128,6 +184,17 @@ def _render_system_map_row_detail(
             for f in files
         ]
         st.markdown("**Filer:**\n" + "\n".join(lines))
+
+    config_input_lines, provider_setup_lines = configuration_guidance_lines(chosen)
+    if config_input_lines:
+        st.markdown("**Projektvärden i kod (vägledning):**\n- " + "\n- ".join(config_input_lines))
+    if provider_setup_lines:
+        st.markdown("**Leverantörsinställning (ordnad vägledning):**\n" + "\n".join(provider_setup_lines))
+        for index, step in enumerate(chosen.get("providerSetup") or [], start=1):
+            if isinstance(step, dict):
+                setup_url = safe_provider_setup_url(step.get("setupUrl"))
+                if setup_url:
+                    st.link_button(f"Öppna leverantörens inställning (steg {index})", setup_url)
 
     if chosen.get("sourceRepoUrl"):
         st.caption(f"Källa: {chosen['sourceRepoUrl']}")
@@ -246,7 +313,7 @@ def _section_system_map(dossiers: list[dict[str, Any]]) -> None:
         st.info("Inga dossierer matchar filtren.")
         return
 
-    st.graphviz_chart(build_system_map_dot(filtered), use_container_width=True)
+    st.graphviz_chart(build_system_map_dot(filtered), width="stretch")
 
     table_rows = []
     for row in filtered:
@@ -271,7 +338,7 @@ def _section_system_map(dossiers: list[dict[str, Any]]) -> None:
                 "Filroller": _file_roles(row),
                 "Dependencies": _join_or_dash(row["dependencies"]),
                 "Verifiering": row["verification_status"],
-                "Senast verifierad": row["last_verified"],
+                "Katalogdatum": row["last_verified"],
                 "Livscykelnotis": row["summary_sv"],
             }
         )
@@ -281,7 +348,8 @@ def _section_system_map(dossiers: list[dict[str, Any]]) -> None:
     st.markdown("**Rad → detalj → handling**")
     st.caption(
         "Öppna en rad för alla fält, filer, env-nycklar och verifieringsstatus "
-        "— och Redigera/Byt capability/Radera direkt härifrån via samma "
+        "— Katalogdatum är acceptansdatum bara för `accepted`, annars import-/kureringsdatum — "
+        "och Redigera/Byt capability/Radera direkt härifrån via samma "
         "validerade flöden som Redigera-tabben, med byggblocket redan valt."
     )
     groups_full = projection.get("groups") if isinstance(projection.get("groups"), dict) else {}

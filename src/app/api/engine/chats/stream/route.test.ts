@@ -259,7 +259,6 @@ vi.mock("@/lib/gen/plan/review", () => ({
   })),
   buildPlanSummaryMessage: vi.fn(),
   buildPlanUiPart: vi.fn(),
-  enrichPlanArtifactForReview: vi.fn(),
 }));
 
 vi.mock("@/lib/gen/system-prompt", () => ({

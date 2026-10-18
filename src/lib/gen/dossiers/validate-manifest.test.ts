@@ -19,6 +19,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import setupUrlCases from "./__fixtures__/provider-setup-urls.json";
 
 import {
   findDuplicateDefaults,
@@ -88,6 +89,369 @@ describe("validateDossierManifest — happy path", () => {
       expect(result.data.capability).toBe("payments");
       expect(result.warnings).toEqual([]);
     }
+  });
+});
+
+describe("validateDossierManifest — project configuration guidance", () => {
+  const configurationMetadata = {
+    envVars: [
+      {
+        key: "EXAMPLE_SECRET_KEY",
+        required: true,
+        purpose: "Authenticates server-side requests to the example provider.",
+      },
+    ],
+    configInputs: [
+      {
+        id: "price-id",
+        label: "Price id",
+        target: "component-prop" as const,
+        binding: "priceId",
+        purpose: "Selects the provider price that the project checkout should purchase.",
+      },
+    ],
+    providerSetup: [
+      {
+        id: "create-price",
+        title: "Create the checkout price",
+        instruction: "Create a price in the provider dashboard and copy its id into the project.",
+        setupUrl: "https://example.com/dashboard/prices",
+        references: {
+          envVarKeys: ["EXAMPLE_SECRET_KEY"],
+          configInputIds: ["price-id"],
+        },
+      },
+    ],
+  };
+
+  it("accepts ordered hard-only guidance that references canonical env and code inputs", () => {
+    const result = validateDossierManifest(
+      { ...VALID_HARD_MANIFEST, ...configurationMetadata },
+      { expectedId: "example-dossier", class: "hard" },
+    );
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.data.configInputs?.[0]?.binding).toBe("priceId");
+      expect(result.data.providerSetup?.[0]?.references?.configInputIds).toEqual(["price-id"]);
+    }
+  });
+
+  it("keeps legacy hard manifests valid when both optional guidance fields are omitted", () => {
+    expect(
+      validateDossierManifest(VALID_HARD_MANIFEST, {
+        expectedId: "example-dossier",
+        class: "hard",
+      }).valid,
+    ).toBe(true);
+  });
+
+  it.each(["configInputs", "providerSetup"] as const)(
+    "bounds %s before guidance can expand prompt context",
+    (field) => {
+      const entries = Array.from({ length: 9 }, (_, index) => ({
+        ...configurationMetadata[field][0],
+        id: `entry-${index}`,
+      }));
+      const result = validateDossierManifest(
+        { ...VALID_HARD_MANIFEST, ...configurationMetadata, [field]: entries },
+        { expectedId: "example-dossier", class: "hard" },
+      );
+      expect(result.valid).toBe(false);
+      if (!result.valid)
+        expect(result.errors.join("\n")).toContain("must NOT have more than 8 items");
+    },
+  );
+
+  it.each(["configInputs", "providerSetup"])(
+    "forbids hard-provider metadata %s on soft manifests even when the array is empty",
+    (field) => {
+      const result = validateDossierManifest(
+        { ...VALID_MANIFEST, [field]: [] },
+        { expectedId: "example-dossier", class: "soft" },
+      );
+      expect(result.valid).toBe(false);
+      if (!result.valid) expect(result.errors.join("\n")).toContain("soft manifests must not");
+    },
+  );
+
+  it("rejects duplicate config and provider-step ids", () => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_HARD_MANIFEST,
+        ...configurationMetadata,
+        configInputs: [
+          configurationMetadata.configInputs[0],
+          { ...configurationMetadata.configInputs[0], label: "Duplicate price id" },
+        ],
+        providerSetup: [
+          configurationMetadata.providerSetup[0],
+          { ...configurationMetadata.providerSetup[0], title: "Duplicate setup step" },
+        ],
+      },
+      { expectedId: "example-dossier", class: "hard" },
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.errors.join("\n")).toContain('duplicate configInputs id "price-id"');
+      expect(result.errors.join("\n")).toContain('duplicate providerSetup id "create-price"');
+    }
+  });
+
+  it("rejects setup references that do not exist in envVars or configInputs", () => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_HARD_MANIFEST,
+        ...configurationMetadata,
+        providerSetup: [
+          {
+            ...configurationMetadata.providerSetup[0],
+            references: {
+              envVarKeys: ["MISSING_KEY"],
+              configInputIds: ["missing-input"],
+            },
+          },
+        ],
+      },
+      { expectedId: "example-dossier", class: "hard" },
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.errors.join("\n")).toContain('unknown envVars.key "MISSING_KEY"');
+      expect(result.errors.join("\n")).toContain('unknown configInputs.id "missing-input"');
+    }
+  });
+
+  it.each([
+    "https://",
+    "https://...",
+    "https://example.com/) [other](javascript:alert)",
+    "https://example.com/\nnext",
+    "https://user:secret@example.com/setup",
+    `https://example.com/${"a".repeat(2048)}`,
+  ])("rejects malformed or unsafe provider setup links: %s", (setupUrl) => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_HARD_MANIFEST,
+        ...configurationMetadata,
+        providerSetup: [{ ...configurationMetadata.providerSetup[0], setupUrl }],
+      },
+      { expectedId: "example-dossier", class: "hard" },
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it.each(setupUrlCases.valid)("accepts canonical provider DNS URL: %s", (setupUrl) => {
+    expect(
+      validateDossierManifest(
+        {
+          ...VALID_HARD_MANIFEST,
+          ...configurationMetadata,
+          providerSetup: [{ ...configurationMetadata.providerSetup[0], setupUrl }],
+        },
+        { expectedId: "example-dossier", class: "hard" },
+      ).valid,
+    ).toBe(true);
+  });
+
+  it.each(setupUrlCases.invalid)("rejects noncanonical provider DNS URL: %s", (setupUrl) => {
+    expect(
+      validateDossierManifest(
+        {
+          ...VALID_HARD_MANIFEST,
+          ...configurationMetadata,
+          providerSetup: [{ ...configurationMetadata.providerSetup[0], setupUrl }],
+        },
+        { expectedId: "example-dossier", class: "hard" },
+      ).valid,
+    ).toBe(false);
+  });
+
+  it.each([
+    {
+      configInputs: [
+        {
+          ...configurationMetadata.configInputs[0],
+          required: true,
+        },
+      ],
+    },
+    {
+      providerSetup: [
+        {
+          ...configurationMetadata.providerSetup[0],
+          completed: true,
+        },
+      ],
+    },
+    {
+      configInputs: [
+        {
+          ...configurationMetadata.configInputs[0],
+          target: "env",
+        },
+      ],
+    },
+  ])("rejects readiness or env ownership fields outside envVars: %j", (override) => {
+    const result = validateDossierManifest(
+      { ...VALID_HARD_MANIFEST, ...configurationMetadata, ...override },
+      { expectedId: "example-dossier", class: "hard" },
+    );
+    expect(result.valid).toBe(false);
+  });
+});
+
+describe("validateDossierManifest — canonical file paths", () => {
+  it.each([
+    "../outside.ts",
+    "/absolute.ts",
+    "C:/absolute.ts",
+    "components\\windows.ts",
+    "components/NUL.ts",
+    "components/bad?.ts",
+    "components/trailing./file.ts",
+    "components/foo bar.ts",
+    "components/caf\u00e9.ts",
+    "components/\u180efoo.ts",
+    "server/foo.ts",
+    "components/node_modules/x.ts",
+    `components/lib/${"a".repeat(194)}.ts`,
+    "CONIN$",
+    "components/conout$",
+    "CONIN$.txt",
+    "APP/LAYOUT.TSX",
+  ])("rejects unsafe or scaffold-reserved path %s", (path) => {
+    const result = validateDossierManifest(
+      { ...VALID_MANIFEST, files: [{ path, role: "shared" }] },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.errors.join("\n")).toContain("path");
+  });
+
+  it.each([
+    " components/foo.ts",
+    "components/foo.ts ",
+    "components/ nested/foo.ts",
+    "components/nested /foo.ts",
+    "\u00a0components/foo.ts",
+    "components/foo.ts\u00a0",
+    "components/\u00a0nested/foo.ts",
+    "components/nested\u00a0/foo.ts",
+    "\ufeffcomponents/foo.ts",
+    "components/foo.ts\ufeff",
+    "components/\ufeffnested/foo.ts",
+    "components/nested\ufeff/foo.ts",
+    "\u2009components/foo.ts",
+    "components/nested\u3000/foo.ts",
+  ])("rejects a manifest path with segment-boundary whitespace %j", (path) => {
+    const result = validateDossierManifest(
+      { ...VALID_MANIFEST, files: [{ path, role: "shared" }] },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.errors.join("\n")).toContain("path");
+  });
+
+  it("accepts legitimate app, component and Next.js catch-all paths", () => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_MANIFEST,
+        files: [
+          { path: "app/statistik/page.tsx", role: "client" },
+          { path: "components/legal/notice.tsx", role: "client" },
+          { path: "app/docs/[...slug]/page.tsx", role: "server" },
+          { path: "app/docs/[[...optional]]/page.tsx", role: "server" },
+          { path: "app/(marketing)/page.tsx", role: "client" },
+          { path: "app/@modal/default.tsx", role: "client" },
+        ],
+      },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects intra-manifest mapping, case and Unicode aliases", () => {
+    for (const files of [
+      [
+        { path: "components/api/chat/route.ts", role: "server" },
+        { path: "app/api/chat/route.ts", role: "server" },
+      ],
+      [
+        { path: "components/Foo.ts", role: "shared" },
+        { path: "components/foo.ts", role: "shared" },
+      ],
+    ]) {
+      const result = validateDossierManifest(
+        { ...VALID_MANIFEST, files },
+        { expectedId: "example-dossier", class: "soft" },
+      );
+      expect(result.valid).toBe(false);
+      if (!result.valid) expect(result.errors.join("\n")).toContain("collides");
+    }
+  });
+
+  it.each([
+    ["components/api/chat/route.ts", "components/api/Chat/route.ts"],
+    ["components/api/chat", "components/api/Chat/route.ts"],
+  ])("rejects portable source-path collision %s and %s before output mapping", (first, second) => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_MANIFEST,
+        files: [
+          { path: first, role: "server" },
+          { path: second, role: "server" },
+        ],
+      },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.errors.join("\n")).toContain("source path");
+  });
+
+  it("allows source-path prefix siblings without a slash boundary", () => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_MANIFEST,
+        files: [
+          { path: "components/api/chat", role: "server" },
+          { path: "components/api/Chatty/route.ts", role: "server" },
+        ],
+      },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it.each([
+    ["components/cache", "components/cache/item.ts"],
+    ["components/Cache", "components/cache/item.ts"],
+  ])("rejects intra-manifest file/directory claims %s and %s", (parent, child) => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_MANIFEST,
+        files: [
+          { path: parent, role: "shared" },
+          { path: child, role: "shared" },
+        ],
+      },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.errors.join("\n")).toContain("file/directory");
+  });
+
+  it("allows path-prefix siblings that do not share a slash boundary", () => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_MANIFEST,
+        files: [
+          { path: "components/cache", role: "shared" },
+          { path: "components/cache-item/file.ts", role: "shared" },
+        ],
+      },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(true);
   });
 });
 

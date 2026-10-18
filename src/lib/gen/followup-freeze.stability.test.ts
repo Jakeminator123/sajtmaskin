@@ -81,6 +81,30 @@ function makeFollowUpInput(overrides: Partial<OrchestrationInput> = {}): Orchest
 }
 
 describe("5-3 freeze-enforcement — resolveOrchestrationBase (integration)", () => {
+  it.each([
+    ["landing-page", "website", "dashboard", "app", false, "landing-page", "website"],
+    ["auth-pages", "website", "dashboard", "app", false, "auth-pages", "website"],
+    ["auth-pages", "website", "auth-pages", "app", false, "auth-pages", "website"],
+    ["auth-pages", "app", "landing-page", "website", false, "auth-pages", "app"],
+    ["landing-page", "app", "dashboard", "app", false, "app-shell", "app"],
+    ["app-shell", "app", "landing-page", "website", false, "app-shell", "app"],
+    ["landing-page", "website", "dashboard", "app", true, "dashboard", "app"],
+    ["landing-page", null, "dashboard", "app", false, "app-shell", "app"],
+  ] as const)(
+    "keeps prior intent %s/%s while frozen (requested %s/%s, unlock=%s)",
+    async (frozenId, priorIntent, requestedId, requestedIntent, unlocked, expectedId, expectedIntent) => {
+      const base = await resolveOrchestrationBase(makeFollowUpInput({
+        buildIntent: requestedIntent,
+        scaffoldId: requestedId,
+        persistedScaffoldId: frozenId,
+        ignorePersistedScaffoldForMatch: unlocked,
+        followUpContract: makeContract({ scaffoldId: frozenId, ...{ buildIntent: priorIntent } }),
+      }));
+      expect(base.resolvedScaffold?.id).toBe(expectedId);
+      expect(base.buildSpec.buildIntent).toBe(expectedIntent);
+    },
+  );
+
   it("clamps a neutral follow-up's manual scaffold swap back to the frozen contract scaffold (closes orchestrate manual-bypass)", async () => {
     const base = await resolveOrchestrationBase(
       makeFollowUpInput({ scaffoldMode: "manual", scaffoldId: OTHER_SCAFFOLD_ID }),

@@ -3,7 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useOpenClawChat } from "./useOpenClawChat";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
-import { resetArmedHandshakeWakesForTests } from "@/lib/openclaw/debug/armed-continuation";
+import {
+  hasArmedHandshakeWoken,
+  resetArmedHandshakeWakesForTests,
+} from "@/lib/openclaw/debug/armed-continuation";
+import {
+  OPENCLAW_DISPATCH_HEADER,
+  OPENCLAW_DISPATCH_NOT_STARTED,
+  OPENCLAW_DISPATCH_STARTED,
+} from "@/lib/openclaw/gateway-response";
 
 const ARMING_TEXT = "kör 5 follow-ups och buggranska sajten";
 const PREVIEW_REPRO_PHRASE =
@@ -39,10 +47,10 @@ function deltaPayload(content: string): string {
   });
 }
 
-function sseResponse(text: string): Response {
+function sseResponse(text: string, headers: Record<string, string> = {}): Response {
   return new Response(sseBody(deltaPayload(text), "[DONE]"), {
     status: 200,
-    headers: { "content-type": "text/event-stream" },
+    headers: { "content-type": "text/event-stream", ...headers },
   });
 }
 
@@ -278,11 +286,11 @@ describe("useOpenClawChat — arming consent", () => {
     );
   });
 
-  it("does not wake again when a later hunt-only reply arrives", async () => {
+  it("treats an unknown dispatch receipt as settled and does not wake again", async () => {
     const fetchFn = vi
       .fn()
       .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY))
-      .mockResolvedValueOnce(sseResponse(FILL_REPLY))
+      .mockResolvedValueOnce(sseResponse(FILL_REPLY, { [OPENCLAW_DISPATCH_HEADER]: "unknown" }))
       .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY));
     vi.stubGlobal("fetch", fetchFn);
 
@@ -299,6 +307,126 @@ describe("useOpenClawChat — arming consent", () => {
 
     expect(fetchFn).toHaveBeenCalledTimes(3);
     expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(3);
+  });
+
+  it("releases a pre-dispatch rejection for a later independent trigger without auto-retry", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY))
+      .mockResolvedValueOnce(
+        new Response("", {
+          status: 503,
+          headers: { [OPENCLAW_DISPATCH_HEADER]: OPENCLAW_DISPATCH_NOT_STARTED },
+        }),
+      )
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY))
+      .mockResolvedValueOnce(
+        sseResponse(FILL_REPLY, { [OPENCLAW_DISPATCH_HEADER]: OPENCLAW_DISPATCH_STARTED }),
+      );
+    vi.stubGlobal("fetch", fetchFn);
+
+    const { result } = renderHook(() => useOpenClawChat());
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+
+    const createdAt = useOpenClawStore.getState().armedMandate?.createdAt;
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(createdAt).toBeDefined();
+    expect(hasArmedHandshakeWoken(createdAt!)).toBe(false);
+
+    await act(async () => {
+      await result.current.send("ny oberoende granskningstrigger");
+    });
+
+    expect(fetchFn).toHaveBeenCalledTimes(4);
+    expect(useOpenClawStore.getState().armedMandate?.createdAt).toBe(createdAt);
+    expect(hasArmedHandshakeWoken(createdAt!)).toBe(true);
+  });
+
+  it("releases a wake when fetch throws synchronously before dispatch", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY))
+      .mockImplementationOnce(() => {
+        throw new TypeError("fetch setup failed");
+      });
+    vi.stubGlobal("fetch", fetchFn);
+
+    const { result } = renderHook(() => useOpenClawChat());
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+
+    const createdAt = useOpenClawStore.getState().armedMandate?.createdAt;
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(createdAt).toBeDefined();
+    expect(hasArmedHandshakeWoken(createdAt!)).toBe(false);
+  });
+
+  it("settles an uncertain async fetch failure so a later reply cannot double-wake", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY))
+      .mockRejectedValueOnce(new TypeError("connection closed after send"))
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY));
+    vi.stubGlobal("fetch", fetchFn);
+
+    const { result } = renderHook(() => useOpenClawChat());
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+
+    const createdAt = useOpenClawStore.getState().armedMandate?.createdAt;
+    expect(createdAt).toBeDefined();
+    expect(hasArmedHandshakeWoken(createdAt!)).toBe(true);
+
+    await act(async () => {
+      await result.current.send("fortsätt granskningen");
+    });
+    expect(fetchFn).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps an explicit started wake settled after a streamed gateway error", async () => {
+    const startedErrorResponse = new Response(
+      sseBody(
+        JSON.stringify({
+          error: {
+            message: "upstream failed after dispatch",
+            type: "upstream_error",
+          },
+        }),
+      ),
+      {
+        status: 200,
+        headers: {
+          "content-type": "text/event-stream",
+          [OPENCLAW_DISPATCH_HEADER]: OPENCLAW_DISPATCH_STARTED,
+        },
+      },
+    );
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY))
+      .mockResolvedValueOnce(startedErrorResponse)
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY));
+    vi.stubGlobal("fetch", fetchFn);
+
+    const { result } = renderHook(() => useOpenClawChat());
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+
+    const createdAt = useOpenClawStore.getState().armedMandate?.createdAt;
+    expect(createdAt).toBeDefined();
+    expect(hasArmedHandshakeWoken(createdAt!)).toBe(true);
+
+    await act(async () => {
+      await result.current.send("senare hunt-trigger");
+    });
+
+    expect(fetchFn).toHaveBeenCalledTimes(3);
+    expect(hasArmedHandshakeWoken(createdAt!)).toBe(true);
   });
 
   it("does not wake after a complete hunt block followed by a gateway error envelope", async () => {

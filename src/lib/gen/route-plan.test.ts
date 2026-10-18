@@ -188,6 +188,21 @@ describe("buildRoutePlan", () => {
     expect(plan.routes.some((r) => r.path === "/cart")).toBe(false);
   });
 
+  it("still plans an explicitly requested ecommerce /om page without a baseline stub", () => {
+    const ecommerce = getScaffoldById("ecommerce")!;
+    const init = buildRoutePlan({
+      ...websiteBase, resolvedScaffold: ecommerce,
+      prompt: "Skapa en webbshop med en separat sida om oss på /om.",
+    });
+    expect(init.routes.some((route) => route.path === "/om")).toBe(true);
+    const followUp = buildRoutePlan({
+      ...websiteBase, resolvedScaffold: ecommerce,
+      prompt: "Lägg till en separat sida om oss på /om.",
+      generationMode: "followUp", existingRoutePaths: ["/", "/products"],
+    });
+    expect(followUp.routes.map((route) => route.path)).toEqual(expect.arrayContaining(["/", "/products", "/om"]));
+  });
+
   it("follow-up keeps existing routes and does not add scaffold defaults by default", () => {
     const ecommerceScaffold = getScaffoldById("ecommerce");
     expect(ecommerceScaffold).not.toBeNull();

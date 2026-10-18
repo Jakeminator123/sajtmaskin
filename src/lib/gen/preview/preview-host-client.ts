@@ -109,6 +109,13 @@ function readMutationRevisionFromHostBody(body: Record<string, unknown>): number
     : null;
 }
 
+function readInstallAttemptRevisionFromHostBody(body: Record<string, unknown>): number | null {
+  const revision = body.installAttemptRevision;
+  return typeof revision === "number" && Number.isSafeInteger(revision) && revision > 0
+    ? revision
+    : null;
+}
+
 function readPreviewSessionIdFromHostBody(body: Record<string, unknown>): string | null {
   return nonEmptyString(body.previewSessionId) ?? nonEmptyString(body.sandboxId);
 }
@@ -179,6 +186,8 @@ export type PreviewHostStatusResult = {
   lifecycleToken: string | null;
   /** Host-authoritative ordering receipt; null for an older host. */
   mutationRevision: number | null;
+  /** Monotonic per-session install/boot attempt; null for an older host. */
+  installAttemptRevision: number | null;
   /**
    * `waitForReady` verdict for this exact session/version, or `null` when the
    * host omitted it (older preview-host deploy — callers then fall back to the
@@ -358,6 +367,7 @@ export async function fetchPreviewHostStatus(
       primaryUrl: url,
       lifecycleToken: hostLifecycleToken,
       mutationRevision: readMutationRevisionFromHostBody(body),
+      installAttemptRevision: readInstallAttemptRevisionFromHostBody(body),
       readinessState: readReadinessStateFromHostBody(body),
       httpReady: body.httpReady === true,
       readinessError: nonEmptyString(body.readinessError),
@@ -398,6 +408,7 @@ export type PreviewHostReadinessVerdict = Pick<
   | "httpReady"
   | "lifecycleToken"
   | "mutationRevision"
+  | "installAttemptRevision"
   | "usedLegacyPeerDeps"
   | "peerConflictDetected"
   | "installKind"
@@ -450,6 +461,7 @@ export async function fetchPreviewHostReadinessVerdict(
       versionId: hostVersionId,
       lifecycleToken,
       mutationRevision: readMutationRevisionFromHostBody(body),
+      installAttemptRevision: readInstallAttemptRevisionFromHostBody(body),
       readinessState: readReadinessStateFromHostBody(body),
       httpReady: typeof body.httpReady === "boolean" ? body.httpReady : null,
       readinessError: nonEmptyString(body.readinessError),

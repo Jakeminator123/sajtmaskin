@@ -214,6 +214,38 @@ describe("useOpenClawChat — kampanjrådgivning", () => {
     expect(remaining()).toBe(KOSTNADSFRI_ADVICE_ROUND_LIMIT);
   });
 
+  it("bränner inte kvoten när synlig text följs av ett gateway-fel", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            sseBody(
+              deltaPayload("Här är ett råd."),
+              JSON.stringify({
+                error: {
+                  message: "upstream failed after a partial response",
+                  type: "upstream_error",
+                },
+              }),
+              "[DONE]",
+            ),
+            {
+              status: 200,
+              headers: { "content-type": "text/event-stream" },
+            },
+          ),
+      ),
+    );
+    const { result } = renderHook(() => useOpenClawChat());
+
+    await act(async () => {
+      await result.current.send("runda 1");
+    });
+
+    expect(remaining()).toBe(KOSTNADSFRI_ADVICE_ROUND_LIMIT);
+  });
+
   it("bränner inte kvoten för armed continuation även vid lyckat svar", async () => {
     const { result } = renderHook(() => useOpenClawChat());
 

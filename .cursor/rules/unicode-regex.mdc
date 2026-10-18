@@ -1,5 +1,5 @@
 ---
-description: "Regex mot mänsklig text ska vara Unicode-medveten. Undvik JS ASCII word-boundaries."
+description: "Regex mot mänsklig text: använd Unicode-gränser; ASCII är OK för kodtoken."
 globs:
   - src/lib/gen/**
   - src/lib/providers/own-engine/**
@@ -10,27 +10,10 @@ globs:
 alwaysApply: false
 ---
 
-# Unicode-medveten regex
+# Regex mot mänsklig text
 
-Regex mot mänsklig text ska inte använda JavaScripts ASCII-baserade `\b` eller `\w`. Svenska ord som `ändra`, `öka`, `naturmiljö` kan annars missa tyst.
+JavaScripts `\b`/`\w` kan missa svenska ord. Använd `uWordRegex`/`uWord`
+från `src/lib/utils/unicode-word-boundary.ts` för ordmatchning i mänsklig text.
+ASCII-gränser är OK för filnamn, URL-paths, enum/config-värden och kodtoken.
 
-## Använd
-
-```ts
-import { uWordRegex, uWord } from "@/lib/utils/unicode-word-boundary";
-
-const rx = uWordRegex("ändra|byt|justera", "iu");
-const source = uWord("lägg\\s+till|ta\\s+bort");
-```
-
-Inline: använd `(?<![\p{L}\p{N}_])... (?![\p{L}\p{N}_])` med `u`-flagga.
-
-## När `\b` är OK
-
-Filnamn, URL-paths, enum-värden, config-nycklar och kod-tokenisering där ord är ASCII.
-
-## Check
-
-```powershell
-node scripts/dev/check-unicode-regex.mjs
-```
+`node scripts/dev/check-unicode-regex.mjs` körs även i preflight.

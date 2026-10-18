@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "db-perf-indexes-audit-line.schema.json",
   "title": "DB Perf-Indexes Audit Log Line",
-  "description": "En rad i NDJSON-loggen `data/observability/db-perf-indexes-runs.ndjson` (en JSON per körning av `scripts/db/add-performance-indexes.mjs`). Skrivs både vid CLI-körning, predev auto-applicering, och via backoffice-knappen. Source of truth: scripts/db/add-performance-indexes.mjs (audit-block i `run()`).",
+  "description": "En rad i NDJSON-loggen `data/observability/db-perf-indexes-runs.ndjson` (en JSON per uttrycklig körning av `scripts/db/add-performance-indexes.mjs` från CLI eller backoffice-knapp). Dev-start och CI-push applicerar inte index automatiskt; historiska auto-kvitton kan finnas kvar. Source of truth: scripts/db/add-performance-indexes.mjs (audit-block i `run()`).",
   "type": "object",
   "required": [
     "timestamp",

@@ -19,9 +19,10 @@
 
 - [ ] `npm run verify:pr -- --plan`
 - [ ] Oberoende readonly review på aktuell head-SHA
+- [ ] Nödvändiga ownerbeslut för säkerhet/betalning/databas/CI-behörigheter är registrerade i GitHub-review eller PR-kommentar
 - [ ] Alla P0/P1 är fixade eller verifierbart avfärdade
 - [ ] Backoffice-/schema-/dokumentföljder ovan är uppdaterade eller uttryckligen ej träffade
-- [ ] Övriga required GitHub-checks (`quality`, Backoffice, schema, build) är gröna för aktuell head-SHA före sign-off
+- [ ] Required GitHub-checks (`quality`, Backoffice, schema, build, dossier-acceptance) är gröna för aktuell head-SHA
 
 Körda riktade kontroller:
 
@@ -32,10 +33,6 @@ Körda riktade kontroller:
 - Kvarvarande risk:
 - Återställning/rollback:
 
-> Lämna som draft medan arbete, CI-fixar eller reviewtriage återstår. PR mot
-> `preview` mergas när required checks är gröna och fynden triagerade. Bara PR
-> mot `master` (promote) har `review-window`: när alla andra checks och
-> reviewfynd är klara, posta först
-> `merge:ready — head-sha: <40 hex>, base-sha: <40 hex>, …` som kommentar och
-> sätt sedan labeln. `review-window` blir grön först efter sin betrodda
-> live-validering; båda SHA:na måste fortfarande vara aktuella.
+> Lämna som draft medan arbete, CI-fixar eller reviewtriage återstår. GitHubs
+> ruleset, required checks, reviews och trådstatus äger mergebarheten.
+> Mandat, `--admin`-förbud och promote-bekräftelse: `.cursor/rules/pr-merge.mdc`.

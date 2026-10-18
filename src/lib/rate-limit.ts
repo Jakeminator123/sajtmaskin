@@ -2,8 +2,7 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { REDIS_KEY_PREFIX } from "./config";
 
-const _resolvedRestUrl =
-  process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || "";
+const _resolvedRestUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || "";
 const _resolvedRestToken =
   process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || "";
 const _redisNamespace = REDIS_KEY_PREFIX.replace(/:$/, "");
@@ -33,8 +32,9 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "auth:resend-verification": { maxRequests: 6, windowMs: 60 * 60 * 1000 },
   "contact:submit": { maxRequests: 10, windowMs: 10 * 60 * 1000 },
   "audit:create": { maxRequests: 4, windowMs: 10 * 60 * 1000 },
-  // Public /analys lead magnet: 1 full scrape+LLM run per IP per 24h.
-  "analys:public": { maxRequests: 1, windowMs: 24 * 60 * 60 * 1000 },
+  // Cheap abuse guard. The delivered-report quota is owned separately by
+  // public-analys-quota so failed/duplicate runs do not spend the daily use.
+  "analys:public:attempt": { maxRequests: 3, windowMs: 10 * 60 * 1000 },
   "analyze:website": { maxRequests: 10, windowMs: 60 * 1000 },
   "analyze:presentation": { maxRequests: 8, windowMs: 60 * 1000 },
   "wizard:quick-scrape": { maxRequests: 20, windowMs: 60 * 1000 },
@@ -134,7 +134,9 @@ function isProductionRuntime(): boolean {
 }
 
 function allowMemoryRateLimitFallback(): boolean {
-  return !isProductionRuntime() || isTruthyEnv(process.env.SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD);
+  return (
+    !isProductionRuntime() || isTruthyEnv(process.env.SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD)
+  );
 }
 
 function trustForwardedForHeader(): boolean {
@@ -169,16 +171,14 @@ function getRedis(): { redis: Redis; cacheKey: string } | null {
 function getLimiter(
   endpoint: string,
   limits: RateLimitConfig,
-):
-  | { mode: "upstash"; limiter: Ratelimit }
-  | { mode: "memory" }
-  | { mode: "unconfigured" } {
+  timeoutMs?: number,
+): { mode: "upstash"; limiter: Ratelimit } | { mode: "memory" } | { mode: "unconfigured" } {
   const redisConnection = getRedis();
   if (!redisConnection) {
     return allowMemoryRateLimitFallback() ? { mode: "memory" } : { mode: "unconfigured" };
   }
 
-  const key = `${redisConnection.cacheKey}:${endpoint}:${limits.maxRequests}:${limits.windowMs}`;
+  const key = `${redisConnection.cacheKey}:${endpoint}:${limits.maxRequests}:${limits.windowMs}:${timeoutMs ?? "default"}`;
   const cached = _cachedLimiters.get(key);
   if (cached) return { mode: "upstash", limiter: cached };
 
@@ -189,6 +189,7 @@ function getLimiter(
       `${Math.max(1, Math.floor(limits.windowMs / 1000))} s`,
     ),
     prefix: `sajtmaskin:${_redisNamespace}:ratelimit:${endpoint}`,
+    ...(timeoutMs ? { timeout: timeoutMs } : {}),
   });
   _cachedLimiters.set(key, limiter);
   return { mode: "upstash", limiter };
@@ -199,10 +200,7 @@ function getLimiter(
  * guest/session identifiers are client-controlled (cookie / x-session-id
  * header) and would let callers rotate themselves into fresh buckets.
  */
-export function getClientId(
-  request: Request,
-  identity?: { userId?: string },
-): string {
+export function getClientId(request: Request, identity?: { userId?: string }): string {
   const userId = identity?.userId?.trim();
   if (userId) return `user:${userId}`;
 
@@ -285,17 +283,58 @@ export async function withRateLimit(
   request: Request,
   endpoint: string,
   handler: () => Promise<Response>,
-  options?: { userId?: string },
+  options?: {
+    userId?: string;
+    failClosedOnTimeout?: boolean;
+    rateLimitErrorCode?: string;
+  },
 ): Promise<Response> {
   const clientId = getClientId(request, options);
   const limits = RATE_LIMITS[endpoint] || RATE_LIMITS["default"];
-  const limiter = getLimiter(endpoint, limits);
+  let limiter: ReturnType<typeof getLimiter>;
+  try {
+    limiter = getLimiter(endpoint, limits, options?.failClosedOnTimeout ? 2_000 : undefined);
+  } catch (error) {
+    if (!options?.failClosedOnTimeout) throw error;
+    console.error(`[RateLimit] Failed to configure distributed limiter for ${endpoint}:`, error);
+    return new Response(JSON.stringify({ error: "Rate limiting is temporarily unavailable" }), {
+      status: 503,
+      headers: {
+        "Content-Type": "application/json",
+        "X-RateLimit-Mode": "unavailable",
+      },
+    });
+  }
   const rateLimitMode = limiter.mode;
 
   let result: { allowed: boolean; remaining: number; resetAt: number };
 
   if (limiter.mode === "upstash") {
-    const { success, remaining, reset } = await limiter.limiter.limit(clientId);
+    let distributedResult: Awaited<ReturnType<Ratelimit["limit"]>>;
+    try {
+      distributedResult = await limiter.limiter.limit(clientId);
+    } catch (error) {
+      if (!options?.failClosedOnTimeout) throw error;
+      console.error(`[RateLimit] Distributed limiter failed for ${endpoint}:`, error);
+      return new Response(JSON.stringify({ error: "Rate limiting is temporarily unavailable" }), {
+        status: 503,
+        headers: {
+          "Content-Type": "application/json",
+          "X-RateLimit-Mode": rateLimitMode,
+        },
+      });
+    }
+
+    const { success, remaining, reset, reason } = distributedResult;
+    if (reason === "timeout" && options?.failClosedOnTimeout) {
+      return new Response(JSON.stringify({ error: "Rate limiting is temporarily unavailable" }), {
+        status: 503,
+        headers: {
+          "Content-Type": "application/json",
+          "X-RateLimit-Mode": rateLimitMode,
+        },
+      });
+    }
     result = {
       allowed: success,
       remaining: Math.max(0, Number(remaining ?? 0)),
@@ -323,6 +362,7 @@ export async function withRateLimit(
       JSON.stringify({
         error: "Too many requests",
         retryAfter: Math.ceil((result.resetAt - Date.now()) / 1000),
+        ...(options?.rateLimitErrorCode ? { code: options.rateLimitErrorCode } : {}),
       }),
       {
         status: 429,

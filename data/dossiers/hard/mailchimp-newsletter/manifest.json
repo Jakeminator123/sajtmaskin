@@ -52,6 +52,7 @@
       "import": "@/components/newsletter-form"
     }
   ],
+  "promptInstructionMode": "selected-sections",
   "lastVerified": "2026-04-21",
   "sourceRepoUrl": "https://mailchimp.com/developer/marketing/api/list-members/"
 }

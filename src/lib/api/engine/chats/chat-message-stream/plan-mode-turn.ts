@@ -2,8 +2,6 @@
  * Plan-mode turn of the follow-up stream handler. Extracted verbatim from
  * `chat-message-stream-post.ts`.
  */
-import type { BuildIntent } from "@/lib/builder/build-intent";
-import { isAppScaffold } from "@/lib/builder/build-intent";
 import type { FollowUpCapabilityDetection } from "@/lib/builder/follow-up-capability-detection";
 import type { orchestratePromptMessage } from "@/lib/builder/prompt-orchestration";
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
@@ -78,7 +76,6 @@ export async function runPlanModeTurn(params: {
     message,
     optimizedMessage,
     followUpIntentMessage,
-    metaBuildIntent,
     metaScaffoldMode,
     parsedMeta,
     resolvedImageGenerations,
@@ -106,24 +103,13 @@ export async function runPlanModeTurn(params: {
   } = params;
   await chatRepo.addMessage(engineChat.id, "user", message);
 
-  let planEngineIntent: BuildIntent =
-    metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
-      ? (metaBuildIntent as BuildIntent)
-      : "website";
-  if (
-    planEngineIntent === "website" &&
-    parsedMeta.scaffoldMode === "manual" &&
-    isAppScaffold(parsedMeta.scaffoldId)
-  ) {
-    planEngineIntent = "app";
-  }
   const planOrchestrationStartedAt = Date.now();
   const planOrchestration = await prepareGenerationContext(
     buildFollowUpOrchestrationInput({
       mode: "plan",
       optimizedMessage,
       message: followUpIntentMessage,
-      buildIntent: planEngineIntent,
+      buildIntent: parsedMeta.buildIntent,
       parsedMeta,
       resolvedImageGenerations,
       designReferences,

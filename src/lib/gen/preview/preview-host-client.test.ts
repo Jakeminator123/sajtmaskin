@@ -529,6 +529,7 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
       previewSessionId: "ps_1",
       lifecycleToken: "life-status",
       mutationRevision: null,
+      installAttemptRevision: null,
       previewUrl: "https://live.example",
       versionId: "v3",
     });
@@ -539,6 +540,7 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
       primaryUrl: "https://live.example",
       lifecycleToken: "life-status",
       mutationRevision: null,
+      installAttemptRevision: null,
       readinessState: null,
       httpReady: false,
       readinessError: null,
@@ -565,6 +567,7 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
       previewSessionId: "ps_legacy",
       lifecycleToken: null,
       mutationRevision: null,
+      installAttemptRevision: null,
     });
   });
 
@@ -654,6 +657,7 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
       primaryUrl: "https://live.example",
       lifecycleToken: null,
       mutationRevision: null,
+      installAttemptRevision: null,
       readinessState: null,
       httpReady: false,
       readinessError: null,
@@ -698,6 +702,21 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
     const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
     expect(result?.installKind).toBe("strict_pass");
     expect(result?.dependencyFingerprint).toBe(fingerprint);
+  });
+
+  it("surfaces the host install-attempt revision", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      previewSessionId: "ps_1",
+      previewUrl: "https://live.example",
+      versionId: "v3",
+      installAttemptRevision: 4,
+    });
+
+    const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
+    expect(result?.installAttemptRevision).toBe(4);
   });
 
   it("surfaces readinessState=ready + httpReady from the host body", async () => {

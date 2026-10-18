@@ -6,9 +6,11 @@ import {
   decideArmedContinuation,
   decideArmedHandshakeWake,
   hasArmedHandshakeWoken,
-  markArmedHandshakeWoken,
   observeBuilderTurn,
+  releaseArmedHandshakeWake,
+  reserveArmedHandshakeWake,
   resetArmedHandshakeWakesForTests,
+  settleArmedHandshakeWake,
   CONTINUATION_MAX_WAIT_MS,
   CONTINUATION_NO_VERSION_MS,
   CONTINUATION_QUIET_MS,
@@ -504,9 +506,31 @@ describe("decideArmedHandshakeWake", () => {
   it("does not wake twice for the same mandate", () => {
     const createdAt = NOW - 1000;
     expect(hasArmedHandshakeWoken(createdAt)).toBe(false);
-    markArmedHandshakeWoken(createdAt);
+    const reservation = reserveArmedHandshakeWake(createdAt);
+    expect(reservation).not.toBeNull();
     expect(hasArmedHandshakeWoken(createdAt)).toBe(true);
+    expect(reserveArmedHandshakeWake(createdAt)).toBeNull();
     expect(decideWake({ alreadyWoken: true })).toEqual({ kind: "idle" });
+  });
+
+  it("releases only its own pending reservation", () => {
+    const createdAt = NOW - 1000;
+    const first = reserveArmedHandshakeWake(createdAt)!;
+    expect(releaseArmedHandshakeWake(first)).toBe(true);
+    expect(hasArmedHandshakeWoken(createdAt)).toBe(false);
+
+    const replacement = reserveArmedHandshakeWake(createdAt)!;
+    expect(releaseArmedHandshakeWake(first)).toBe(false);
+    expect(settleArmedHandshakeWake(first)).toBe(false);
+    expect(hasArmedHandshakeWoken(createdAt)).toBe(true);
+    expect(settleArmedHandshakeWake(replacement)).toBe(true);
+  });
+
+  it("cannot release a settled reservation", () => {
+    const reservation = reserveArmedHandshakeWake(NOW - 1000)!;
+    expect(settleArmedHandshakeWake(reservation)).toBe(true);
+    expect(releaseArmedHandshakeWake(reservation)).toBe(false);
+    expect(hasArmedHandshakeWoken(reservation.createdAt)).toBe(true);
   });
 
   it("does not wake without an active followups mandate", () => {

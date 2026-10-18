@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/auth";
 import { getProjectByIdForOwner, getProjectData } from "@/lib/db/services/projects";
 import { sanitizeProjectPath } from "@/lib/utils/path-utils";
 import JSZip from "jszip";
+import { importedFileContentForExport } from "@/lib/import/extract-imported-archive";
 
 /**
  * GET /api/projects/[id]/download
@@ -51,10 +52,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Convert v0 file format
     const files = rawFiles
       .filter(
-        (f): f is { name: string; content: string } =>
+        (f): f is { name: string; content: string; language?: unknown } =>
           f !== null && typeof f === "object" && "name" in f && "content" in f,
       )
-      .map((f) => ({ path: f.name, content: f.content }));
+      .map((f) => ({ path: f.name, content: f.content, language: typeof f.language === "string" ? f.language : undefined }));
 
     if (!files || files.length === 0) {
       return NextResponse.json(
@@ -93,7 +94,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       ) {
         continue;
       }
-      zip.file(file.path, file.content);
+      zip.file(file.path, importedFileContentForExport(file.path, file.content, file.language));
     }
 
     // Generate ZIP as ArrayBuffer (compatible with NextResponse)

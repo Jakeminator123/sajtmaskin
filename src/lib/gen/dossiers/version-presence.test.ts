@@ -1,7 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { resolveExistingDossierCorePlan } from "../contract/provider-compatibility";
 import { SCAFFOLD_BASELINE_FILE_PATHS } from "../export/project-scaffold";
 import { getAllScaffolds } from "../scaffolds/registry";
+import * as dossierRegistry from "./registry";
+import type { DossierEntry } from "./types";
+import {
+  capturePreservedDossierVerbatimSnapshot,
+  restorePreservedDossierVerbatimFiles,
+} from "./verbatim-policy";
 import {
   resolveCapabilitiesPresentInVersion,
   resolveDossierIdsPresentInVersion,
@@ -19,6 +26,23 @@ import {
  * declared by exactly one dossier in the pool.
  */
 describe("resolveDossierIdsPresentInVersion", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function syntheticDossier(id: string, path: string): DossierEntry {
+    return {
+      class: "soft",
+      id,
+      label: id,
+      capability: id,
+      codeFidelity: "verbatim",
+      complexity: "simple",
+      defaultForCapability: false,
+      summary: "Synthetic dossier used for portable presence ownership tests.",
+      files: [{ path, role: "shared" }],
+      lastVerified: "2026-01-01",
+    };
+  }
+
   it("detects openai-chat from its built chat route", () => {
     const ids = resolveDossierIdsPresentInVersion([
       "app/page.tsx",
@@ -59,6 +83,30 @@ describe("resolveDossierIdsPresentInVersion", () => {
     ).toEqual([]);
   });
 
+  it("does not treat case aliases as two distinctive dossier declarations", () => {
+    const synthetic = [
+      syntheticDossier("portable-one", "components/Foo.ts"),
+      syntheticDossier("portable-two", "components/foo.ts"),
+    ];
+    vi.spyOn(dossierRegistry, "getAllDossiers").mockReturnValue(synthetic);
+    expect(resolveDossierIdsPresentInVersion(["components/Foo.ts"])).toEqual([]);
+  });
+
+  it("does not treat a case alias of a scaffold baseline path as distinctive", () => {
+    vi.spyOn(dossierRegistry, "getAllDossiers").mockReturnValue([
+      syntheticDossier("baseline-alias", "lib/UTILS.ts"),
+    ]);
+    expect(resolveDossierIdsPresentInVersion(["lib/UTILS.ts"])).toEqual([]);
+  });
+
+  it("still requires exact canonical casing for functional file presence", () => {
+    vi.spyOn(dossierRegistry, "getAllDossiers").mockReturnValue([
+      syntheticDossier("linux-casing", "components/Foo.ts"),
+    ]);
+    expect(resolveDossierIdsPresentInVersion(["components/foo.ts"])).toEqual([]);
+    expect(resolveDossierIdsPresentInVersion(["components/Foo.ts"])).toEqual(["linux-casing"]);
+  });
+
   // Relaxed matching (review round 2, impact 5): the user edited/renamed a
   // REWRITABLE client component (checkout-button.tsx absorbed into a custom
   // pricing card), but the verbatim server route is untouched. Evidence must
@@ -78,6 +126,60 @@ describe("resolveDossierIdsPresentInVersion", () => {
   it("matches openai-chat from its chat route alone after etapp 4", () => {
     const ids = resolveDossierIdsPresentInVersion(["app/api/chat/route.ts"]);
     expect(ids).toContain("openai-chat");
+  });
+
+  it("does not treat Clerk route-policy configuration alone as functional presence", () => {
+    expect(resolveDossierIdsPresentInVersion(["lib/clerk/protected-routes.ts"])).not.toContain(
+      "clerk-auth",
+    );
+  });
+
+  it("preserves the older three-file Clerk core without seeding the new route-policy helper", () => {
+    const previousFiles = [
+      {
+        path: "middleware.ts",
+        content: "older Clerk middleware bytes",
+        language: "ts" as const,
+      },
+      {
+        path: "components/auth-buttons.tsx",
+        content: "older Clerk auth button bytes",
+        language: "tsx" as const,
+      },
+      {
+        path: "components/clerk-provider-shell.tsx",
+        content: "older Clerk provider shell bytes",
+        language: "tsx" as const,
+      },
+    ];
+    const corePlan = resolveExistingDossierCorePlan({
+      contracts: [],
+      projectFiles: previousFiles,
+      projectProviderEvidence: [
+        {
+          kind: "auth",
+          providerKey: "clerk",
+          dossierCapability: "auth",
+          packageRoot: "@clerk/nextjs",
+        },
+      ],
+    });
+
+    expect(corePlan.preservedDossiers.map((dossier) => dossier.id)).toEqual(["clerk-auth"]);
+
+    const snapshot = capturePreservedDossierVerbatimSnapshot({
+      previousFiles,
+      preservedDossiers: corePlan.preservedDossiers,
+    });
+    const restored = restorePreservedDossierVerbatimFiles({
+      files: previousFiles.map((file) => ({ ...file, content: `generated ${file.path}` })),
+      snapshot,
+    });
+
+    expect(restored.files).toEqual(previousFiles);
+    expect(restored.files.some((file) => file.path === "lib/clerk/protected-routes.ts")).toBe(
+      false,
+    );
   });
 
   it("does NOT match a dossier from a shared helper file alone", () => {
@@ -126,12 +228,23 @@ describe("resolveDossierIdsPresentInVersion", () => {
     expect(ids).toContain("gallery-lightbox");
   });
 
-  it("normalizes leading ./ and / in file paths", () => {
-    const ids = resolveDossierIdsPresentInVersion([
-      "./app/api/chat/route.ts",
-    ]);
-    expect(ids).toContain("openai-chat");
+  it("requires the literal canonical output path for functional presence", () => {
+    expect(resolveDossierIdsPresentInVersion(["app/api/chat/route.ts"])).toContain(
+      "openai-chat",
+    );
   });
+
+  it.each([
+    " app/api/chat/route.ts ",
+    "app//api/chat/route.ts",
+    "./app/api/chat/route.ts",
+    "/app/api/chat/route.ts",
+    "app\\api\\chat\\route.ts",
+    "App/api/chat/route.ts",
+  ])("does not treat non-canonical persisted spelling %j as functional presence", (path) => {
+    expect(resolveDossierIdsPresentInVersion([path])).not.toContain("openai-chat");
+  });
+
 });
 
 describe("resolveDossiersPresentInVersion", () => {
@@ -208,6 +321,15 @@ describe("resolveSelectedDossiersWithVersionPresence", () => {
       configuredEnvKeys: new Set<string>(),
     });
     expect(selected.map((s) => s.entry.id)).toEqual(["openai-chat"]);
+  });
+
+  it("does not propagate a non-canonical persisted path into selected dossiers", () => {
+    const selected = resolveSelectedDossiersWithVersionPresence({
+      snapshot: null,
+      versionFiles: [{ path: "./app/api/chat/route.ts" }],
+      configuredEnvKeys: new Set<string>(),
+    });
+    expect(selected).toEqual([]);
   });
 
   // auth-merge regression (2026-07-22): after `supabase-auth`→`auth` the

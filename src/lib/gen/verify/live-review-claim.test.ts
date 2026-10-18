@@ -4,6 +4,7 @@ import {
   LIVE_REVIEW_MAX_MODEL_ATTEMPTS,
   decideLiveReviewClaim,
   liveReviewExpiresAt,
+  liveReviewResultFromRow,
   pickPreviousLiveReviewRun,
   skippedLiveReviewResult,
   type LiveReviewRunRow,
@@ -154,5 +155,56 @@ describe("decideLiveReviewClaim", () => {
       kind: "cost_capped",
       result: skippedLiveReviewResult("review_error"),
     });
+  });
+});
+
+describe("liveReviewResultFromRow", () => {
+  it("hydratiserar completed från kolumn-URL:er utan att mutera JSON-resultatet", () => {
+    const result = {
+      status: "completed" as const,
+      decision: {
+        verdict: "pass" as const,
+        confidence: 1,
+        rationale: "ok",
+        reasoning: "",
+        issues: [],
+      },
+      durationMs: 1,
+      modelId: "test",
+      screenshots: {
+        desktopUrl: "https://stale.example/desktop.jpg",
+        mobileUrl: "https://stale.example/mobile.jpg",
+      },
+    };
+    const source = row({
+      status: "completed",
+      result,
+      desktopUrl: "https://canonical.example/desktop.jpg",
+      mobileUrl: null,
+    });
+
+    expect(liveReviewResultFromRow(source)).toEqual({
+      ...result,
+      screenshots: {
+        desktopUrl: "https://canonical.example/desktop.jpg",
+        mobileUrl: null,
+      },
+    });
+    expect(liveReviewResultFromRow(source)).not.toBe(result);
+    expect(result.screenshots.desktopUrl).toBe("https://stale.example/desktop.jpg");
+  });
+
+  it("lämnar skipped-resultatet oförändrat utan screenshots", () => {
+    const result = skippedLiveReviewResult("no_screenshots");
+    const hydrated = liveReviewResultFromRow(
+      row({
+        status: "skipped",
+        result,
+        desktopUrl: "https://canonical.example/desktop.jpg",
+      }),
+    );
+
+    expect(hydrated).toBe(result);
+    expect(hydrated).not.toHaveProperty("screenshots");
   });
 });

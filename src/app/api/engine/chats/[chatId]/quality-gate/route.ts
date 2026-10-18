@@ -786,16 +786,10 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
               };
             }),
         ];
-        if (logs.length > 0 && dbConfigured) {
-          await createEngineVersionErrorLogs(logs, {
-            lockTimeoutMs: QUALITY_GATE_ERROR_LOG_LOCK_TIMEOUT_MS,
-          }).catch((err) => {
-            console.warn("[quality-gate] Failed to persist error logs:", err);
-          });
-        }
         let promotionBlocked = false;
         let promoteError = false;
         let promoteGuardUnavailable = false;
+        let integrationMigrationRequired = false;
         let promotionSucceeded = false;
         // Promote when the gate passed OR when it is an F2 typecheck-only
         // advisory (render-first). Both still pay the finalize promote-guard
@@ -881,7 +875,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             // failure (DB error, or a race that re-flagged the signal between the
             // two reads) — not a verifier block. Leave the row at "verifying" and
             // surface a soft error so the client can retry instead of going red.
-            if (!promoted) {
+            if (promoted === "integration_migration_required") {
+              integrationMigrationRequired = true;
+            } else if (!promoted) {
               promoteError = true;
             } else {
               promotionSucceeded = true;
@@ -943,6 +939,51 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         } else {
           await failVersionVerification(internalVersionId, verificationSummary, qgRunId).catch((err) => {
             console.warn("[quality-gate] Failed to mark version failed:", err);
+          });
+        }
+
+        if (integrationMigrationRequired) {
+          if (dbConfigured) {
+            await createEngineVersionErrorLogs(
+              [
+                {
+                  chatId,
+                  versionId: internalVersionId,
+                  level: "warning",
+                  category: "quality-gate:integration-migration-required",
+                  message:
+                    "Build checks passed, but an integration migration requires explicit review before promotion.",
+                  meta: {
+                    code: "integration_migration_required",
+                    retryable: false,
+                    serverOwned: false,
+                  },
+                },
+              ],
+              { lockTimeoutMs: QUALITY_GATE_ERROR_LOG_LOCK_TIMEOUT_MS },
+            ).catch((err) => {
+              console.warn("[quality-gate] Failed to persist integration hold log:", err);
+            });
+          }
+          return NextResponse.json(
+            {
+              error:
+                "Versionen innehåller ett providerbyte som måste granskas innan den kan markeras klar.",
+              code: "integration_migration_required",
+              retryable: false,
+              passed: false,
+              vmGatePassed: gateResult.passed,
+              promoted: false,
+            },
+            { status: 409 },
+          );
+        }
+
+        if (logs.length > 0 && dbConfigured) {
+          await createEngineVersionErrorLogs(logs, {
+            lockTimeoutMs: QUALITY_GATE_ERROR_LOG_LOCK_TIMEOUT_MS,
+          }).catch((err) => {
+            console.warn("[quality-gate] Failed to persist error logs:", err);
           });
         }
 

@@ -26,6 +26,42 @@ function receipt(
   };
 }
 
+function orderedReceipt(
+  kind: "fallback" | "strict_pass",
+  dependencyFingerprint: string,
+  lifecycleToken: string,
+  mutationRevision: number | null,
+  installAttemptRevision?: number,
+) {
+  return {
+    category: INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY,
+    meta: {
+      kind,
+      usedFallback: kind === "fallback",
+      dependencyFingerprint,
+      lifecycleToken,
+      mutationRevision,
+      ...(installAttemptRevision !== undefined ? { installAttemptRevision } : {}),
+    },
+  };
+}
+
+function legacyLifecycleReceipt(
+  kind: "fallback" | "strict_pass",
+  dependencyFingerprint: string,
+  lifecycleToken: string,
+) {
+  return {
+    category: INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY,
+    meta: {
+      kind,
+      usedFallback: kind === "fallback",
+      dependencyFingerprint,
+      lifecycleToken,
+    },
+  };
+}
+
 const PACKAGE_A = JSON.stringify({
   dependencies: { next: "14.2.25", react: "^19.1.0", "react-dom": "^19.1.0" },
 });
@@ -161,6 +197,169 @@ describe("installPeerFallbackReceiptBlocksPublish", () => {
       installPeerFallbackReceiptBlocksPublish(
         [receipt(false, "rev-b", "strict_pass"), receipt(true, "rev-a", "fallback")],
         { filesRevision: "rev-b", files: filesTreeACopyEdit },
+      ),
+    ).toBe(true);
+  });
+
+  it("uses host mutation order when same-lifecycle acknowledgements arrive stale", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          orderedReceipt("fallback", fingerprint, "life-1", 2),
+          orderedReceipt("strict_pass", fingerprint, "life-1", 3),
+          orderedReceipt("fallback", fingerprint, "life-1", 1),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(false);
+  });
+
+  it("uses install-attempt order when recovery boots share one mutation revision", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          orderedReceipt("fallback", fingerprint, "life-1", 7, 2),
+          orderedReceipt("strict_pass", fingerprint, "life-1", 7, 3),
+          orderedReceipt("fallback", fingerprint, "life-1", 7, 1),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(false);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          orderedReceipt("strict_pass", fingerprint, "life-1", 7, 2),
+          orderedReceipt("fallback", fingerprint, "life-1", 7, 3),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(true);
+  });
+
+  it("uses the chat-global mutation order across lifecycle tokens", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          orderedReceipt("strict_pass", fingerprint, "life-old", 2),
+          orderedReceipt("fallback", fingerprint, "life-new", 3),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(true);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          orderedReceipt("fallback", fingerprint, "life-old", 2),
+          orderedReceipt("strict_pass", fingerprint, "life-new", 3),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(false);
+  });
+
+  it("uses newest-first order for lifecycle-token-only legacy receipts", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          legacyLifecycleReceipt("strict_pass", fingerprint, "life-1"),
+          legacyLifecycleReceipt("fallback", fingerprint, "life-1"),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(false);
+  });
+
+  it("uses newest-first order across lifecycle-token-only legacy receipts", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          legacyLifecycleReceipt("strict_pass", fingerprint, "life-new"),
+          legacyLifecycleReceipt("fallback", fingerprint, "life-old"),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(false);
+  });
+
+  it("does not let a lifecycle-token-only strict receipt clear an ordered fallback", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          legacyLifecycleReceipt("strict_pass", fingerprint, "life-new"),
+          orderedReceipt("fallback", fingerprint, "life-old", 1),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(true);
+  });
+
+  it("fails closed when an unordered strict receipt follows an ordered fallback", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          receipt(false, "rev-a", "strict_pass", fingerprint),
+          orderedReceipt("fallback", fingerprint, "life-1", 1),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(true);
+  });
+
+  it("does not ignore a newer legacy fallback beside an ordered same-mutation strict pass", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          orderedReceipt("fallback", fingerprint, "life-1", 7),
+          orderedReceipt("strict_pass", fingerprint, "life-1", 7, 1),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(true);
+  });
+
+  it("orders recovery attempts for a mutation-less persisted lifecycle", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          orderedReceipt("strict_pass", fingerprint, "life-legacy", null, 1),
+          orderedReceipt("fallback", fingerprint, "life-legacy", null, 2),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(true);
+  });
+
+  it("does not let ordered strict clear incomparable unordered fallback evidence", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          orderedReceipt("strict_pass", fingerprint, "life-1", 7, 2),
+          orderedReceipt("fallback", fingerprint, "life-1", 7),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(true);
+  });
+
+  it("fails closed across incomparable mutation-less lifecycles", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          orderedReceipt("strict_pass", fingerprint, "life-old", null, 2),
+          orderedReceipt("fallback", fingerprint, "life-new", null, 1),
+        ],
+        { dependencyFingerprint: fingerprint },
       ),
     ).toBe(true);
   });

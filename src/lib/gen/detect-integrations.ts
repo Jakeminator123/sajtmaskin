@@ -110,6 +110,11 @@ const DETECTION_PIPELINE: DetectionRule[] = [
   },
   {
     source: "registry",
+    pattern: /(?:@auth0\/nextjs-auth0|AUTH0_)/i,
+    registryProvider: "auth0",
+  },
+  {
+    source: "registry",
     pattern: /(?:resend|RESEND_)/i,
     registryProvider: "resend",
   },

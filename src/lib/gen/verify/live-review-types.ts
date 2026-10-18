@@ -86,7 +86,14 @@ export type LiveReviewSkipReason =
   | "review_error";
 
 export type LiveReviewResult =
-  | { status: "completed"; decision: ReviewDecision; durationMs: number; modelId: string }
+  | {
+      status: "completed";
+      decision: ReviewDecision;
+      durationMs: number;
+      modelId: string;
+      /** Transient read projection; durable ownership stays in DB URL columns. */
+      screenshots?: LiveReviewScreenshotSet | null;
+    }
   | { status: "skipped"; reason: LiveReviewSkipReason; detail?: string };
 
 export const SAFE_FALLBACK_DECISION: ReviewDecision = {

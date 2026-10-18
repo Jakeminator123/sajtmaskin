@@ -9,6 +9,22 @@ Egna detaljfiler behålls **bara** om kod/contract eller `*.stability.test.ts`
 
 ## Levererade initiativ
 
+**Dossierkärna och flödesförenkling (2026-10-05):** levererad till `preview` via
+[#1548](https://github.com/Jakeminator123/sajtmaskin/pull/1548),
+[#1549](https://github.com/Jakeminator123/sajtmaskin/pull/1549),
+[#1550](https://github.com/Jakeminator123/sajtmaskin/pull/1550),
+[#1551](https://github.com/Jakeminator123/sajtmaskin/pull/1551),
+[#1555](https://github.com/Jakeminator123/sajtmaskin/pull/1555) och
+[#1558](https://github.com/Jakeminator123/sajtmaskin/pull/1558), sist på
+`59a1208099c3c0c55c212cb27407f38eec3c73dc`. Slutpaketets fyra testshards
+passerade 13 163 standardtester; 126 isolerade DB-tester, 54 stabilitetstester,
+21/21 keyless dossierbyggen och exakt Vercel-deployment var gröna.
+PR-CI: 4:10; dossiermatris: 6:24. Stabil semantik finns i
+[`dossierkontraktet`](../../contracts/dossier-system.md), genomförandeplanen i Git.
+Kvar utanför leveransen: dokumenterad DEV↔PROD-drift, credentialerad
+live-provideracceptans och de separata scaffold-/testreformerna. Ingen
+masterpromotion, DB-apply eller förnyat acceptance-datum gjordes.
+
 | Initiativ                                                     | Levererat                                                                                                                                                                                                                                                                                                                                                                                                        | Kvar                                                                                                                        |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | **ImpactWin / Impact Gaming-incident** (2026-09-18) | Tre fel åtgärdade och mergade till `preview`: motstridig kostnadsfri-brief [#1485](https://github.com/Jakeminator123/sajtmaskin/pull/1485), repair-timeout [#1486](https://github.com/Jakeminator123/sajtmaskin/pull/1486) och inkompatibelt importpaket [#1487](https://github.com/Jakeminator123/sajtmaskin/pull/1487). Incidentunderlag finns i historiken för [#1492](https://github.com/Jakeminator123/sajtmaskin/pull/1492). | Ändringarna är inte promoverade till `master`; ta med dem i separat releasegranskning. Inget aktivt incidentspår. |

@@ -7,6 +7,7 @@ import { join, resolve } from "node:path";
 
 import {
   clearDossierRegistryCache,
+  findDossierPoolOutputConflicts,
   getAllDossiers,
   getCapabilityMap,
   getDossierProviderCatalog,
@@ -14,6 +15,7 @@ import {
   isSafeDossierPath,
   resolveDossierProvider,
 } from "./registry";
+import type { DossierEntry } from "./types";
 import { INTEGRATION_PROVIDERS } from "../agent-tools";
 import { integrationRegistry } from "../../integrations/registry";
 
@@ -102,10 +104,10 @@ describe("isSafeDossierPath", () => {
   // substrängen `..` men är inte traversal — en substring-check tappade
   // dem tyst. Segment-checken ska släppa igenom dem.
   it("accepts literal catch-all directory names ([...slug])", () => {
-    expect(isSafeDossierPath("hard", "stripe-checkout", "files/app/docs/[...slug]/page.tsx")).toBe(
+    expect(isSafeDossierPath("hard", "stripe-checkout", "app/docs/[...slug]/page.tsx")).toBe(
       true,
     );
-    expect(isSafeDossierPath("hard", "stripe-checkout", "files/app/[[...slug]]/page.tsx")).toBe(
+    expect(isSafeDossierPath("hard", "stripe-checkout", "app/[[...slug]]/page.tsx")).toBe(
       true,
     );
   });
@@ -115,7 +117,7 @@ describe("isSafeDossierPath", () => {
     expect(isSafeDossierPath("hard", "stripe-checkout", "components/../../../etc")).toBe(false);
     // Traversal gömd EFTER en legitim catch-all-katalog ska fortfarande stoppas.
     expect(
-      isSafeDossierPath("hard", "stripe-checkout", "files/app/[...slug]/../../../etc/passwd"),
+      isSafeDossierPath("hard", "stripe-checkout", "app/[...slug]/../../../etc/passwd"),
     ).toBe(false);
   });
 
@@ -218,5 +220,51 @@ describe("getAllDossiers deterministic ordering", () => {
     const softIds = all.filter((d) => d.class === "soft").map((d) => d.id);
     expect(hardIds).toEqual([...hardIds].sort());
     expect(softIds).toEqual([...softIds].sort());
+  });
+});
+
+describe("pool output-path diagnostics", () => {
+  function entry(id: string, capability: string, path: string): DossierEntry {
+    return {
+      class: "hard",
+      id,
+      label: id,
+      capability,
+      providers: [id],
+      codeFidelity: "verbatim",
+      complexity: "simple",
+      defaultForCapability: false,
+      summary: "Synthetic dossier used to test portable output ownership.",
+      files: [{ path, role: "shared" }],
+      lastVerified: "2026-01-01",
+    };
+  }
+
+  it("diagnoses divergent case-folded aliases across co-selectable capabilities", () => {
+    const dossiers = [
+      entry("one", "alpha", "components/Foo.ts"),
+      entry("two", "beta", "components/foo.ts"),
+    ];
+    const conflicts = findDossierPoolOutputConflicts(dossiers, () => "byte-identical");
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]?.claims.map((claim) => claim.dossierId)).toEqual(["one", "two"]);
+  });
+
+  it("exempts mutually exclusive capability siblings and exact-path byte-identical helpers", () => {
+    const siblings = [
+      entry("one", "auth", "components/Auth.ts"),
+      entry("two", "auth", "components/auth.ts"),
+    ];
+    expect(findDossierPoolOutputConflicts(siblings, (_klass, id) => id)).toEqual([]);
+
+    const helpers = [
+      entry("one", "payments", "components/shared.ts"),
+      entry("two", "contact-form", "components/shared.ts"),
+    ];
+    expect(findDossierPoolOutputConflicts(helpers, () => "byte-identical")).toEqual([]);
+  });
+
+  it("keeps the current runtime pool free of co-selectable divergent conflicts", () => {
+    expect(findDossierPoolOutputConflicts(getAllDossiers())).toEqual([]);
   });
 });

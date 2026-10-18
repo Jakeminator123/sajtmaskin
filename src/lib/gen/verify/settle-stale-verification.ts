@@ -12,7 +12,11 @@ import {
   type Version,
 } from "@/lib/db/chat-repository-pg";
 import { REPAIR_ABORTED_SUMMARY } from "./repair-abort-copy";
-import { isFreshVersionLease, isTimedOutVerificationState } from "./stale-verification";
+import {
+  isCurrentIntegrationMigrationHold,
+  isFreshVersionLease,
+  isTimedOutVerificationState,
+} from "./stale-verification";
 
 const GENERIC_TIMEOUT_SUMMARY =
   "Automatisk verifiering tog för lång tid. Starta en ny förfining eller försök igen.";
@@ -84,7 +88,9 @@ export async function settleStaleVerificationIfNeeded(
      *     sweep can retry. NEVER terminal-fail a green gate on a retryable null.
      * Omitted → the green branch stays a pure no-op (previous behaviour).
      */
-    promoteReconciledVersion?: () => Promise<Version | "guard_denied" | null>;
+    promoteReconciledVersion?: () => Promise<
+      Version | "guard_denied" | "integration_migration_required" | null
+    >;
     /**
      * Bugbot medium (#518, 4th iteration): the green reconciliation applies ONLY
      * to the chat-head version. A stale `verifying` row that is no longer head is
@@ -101,6 +107,9 @@ export async function settleStaleVerificationIfNeeded(
     resolveIsHeadVersion?: () => Promise<boolean> | boolean;
   },
 ): Promise<{ version: Version; failed: boolean }> {
+  if (isCurrentIntegrationMigrationHold(version)) {
+    return { version, failed: false };
+  }
   // Design previews (F2) intentionally rest at `pending` — server-verify is
   // skipped and only the event bus records the skipped verifier. Never fail such
   // a row by age alone (Codex + Vercel #337 P1): that would turn a valid,
@@ -185,7 +194,11 @@ export async function settleStaleVerificationIfNeeded(
         // the guarded, lease-gated `promoteVersionIfUnleased` (promote-guard +
         // no-active-lease + still-`verifying`), so this can never false-green a
         // blocked/leased/already-settled row.
-        let reconciled: Version | "guard_denied" | null = null;
+        let reconciled:
+          | Version
+          | "guard_denied"
+          | "integration_migration_required"
+          | null = null;
         if (opts?.promoteReconciledVersion) {
           try {
             reconciled = await opts.promoteReconciledVersion();
@@ -194,8 +207,15 @@ export async function settleStaleVerificationIfNeeded(
           }
         }
         // A real promoted Version → terminal done direction.
-        if (reconciled && reconciled !== "guard_denied") {
+        if (
+          reconciled &&
+          reconciled !== "guard_denied" &&
+          reconciled !== "integration_migration_required"
+        ) {
           return { version: reconciled, failed: false };
+        }
+        if (reconciled === "integration_migration_required") {
+          return { version, failed: false };
         }
         // Codex P1b (round 2): an EXPLICIT guard denial means the promote-guard's
         // telemetry is a FRESHER truth than the stale gate log — the row is

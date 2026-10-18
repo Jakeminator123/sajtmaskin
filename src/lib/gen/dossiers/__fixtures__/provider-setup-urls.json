@@ -1,0 +1,36 @@
+{
+  "valid": [
+    "https://dashboard.stripe.com/products",
+    "https://docs.example.co.uk/setup?view=account#keys"
+  ],
+  "invalid": [
+    "https://xn--bcher-kva.example/setup",
+    "https://xn--a.example/setup",
+    "https://exa%mple.com/setup",
+    "https://%65xample.com/setup",
+    "https://例え.テスト/setup",
+    "https://foo_bar.example/setup",
+    "https://example..com/setup",
+    "https://-example.com/setup",
+    "https://example-.com/setup",
+    "https://example.com./setup",
+    "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com/setup",
+    "https://256.1.1.1/setup",
+    "https://1.2.3.999/setup",
+    "https://2130706433/setup",
+    "https://0x7f000001/setup",
+    "https://0177.0.0.1/setup",
+    "https://01.2.3.4/setup",
+    "https://127.0.0.1/setup",
+    "https://[::1]/setup",
+    "https://user:secret@example.com/setup",
+    "https://example.com:99999/setup",
+    "https://",
+    "https://...",
+    "https://example.com/) [other](javascript:alert)",
+    "https://example.com/\nnext",
+    "https://example.com/\u0000next",
+    "https://example.com/a\uFEFFb",
+    "https://example.com/a\u0085b"
+  ]
+}

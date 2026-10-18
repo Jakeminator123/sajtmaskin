@@ -25,12 +25,16 @@ const emitBusEvent = vi.hoisted(() => vi.fn());
 const loadServerVerifyF3ReadinessContext = vi.hoisted(() => vi.fn());
 const evaluateServerOwnedF3Readiness = vi.hoisted(() => vi.fn());
 const persistF3ReadinessHold = vi.hoisted(() => vi.fn());
+const holdVersionForIntegrationMigration = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   failVersionVerification,
   failVersionVerificationIfUnleased,
   getRunningVersionLease,
   getVersionById,
+}));
+vi.mock("@/lib/db/chat-repository/version-lifecycle", () => ({
+  holdVersionForIntegrationMigration,
 }));
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFilesSnapshot }));
 vi.mock("./repair-execution", () => ({ tryServerRepairLoop }));
@@ -70,6 +74,10 @@ function snapshot(filesJson: string) {
     files: [{ path: "app/page.tsx", content: "x", language: "tsx" }],
     filesJson,
     lifecycleStage: "design",
+    filesRevision: "rev-a",
+    verificationState: "failed",
+    parentVersionId: null,
+    editKind: null,
   };
 }
 
@@ -108,9 +116,37 @@ beforeEach(() => {
     spec: { requirements: [] },
   });
   persistF3ReadinessHold.mockResolvedValue(undefined);
+  holdVersionForIntegrationMigration.mockResolvedValue("applied");
 });
 
 describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => {
+  it("durably holds a before-first F3 migration decision and skips the repair loop", async () => {
+    getVersionFilesSnapshot.mockResolvedValue({
+      ...snapshot(BASE_FILES_JSON),
+      lifecycleStage: "integrations",
+    });
+    evaluateServerOwnedF3Readiness.mockResolvedValue({
+      ready: false,
+      ok: false,
+      reason: "integration_migration_required",
+      retryable: false,
+    });
+
+    const result = await run();
+
+    expect(holdVersionForIntegrationMigration).toHaveBeenCalledWith(
+      versionId,
+      expect.objectContaining({
+        filesJson: BASE_FILES_JSON,
+        editKind: null,
+        orchestrationSnapshot: null,
+      }),
+      "run-1",
+    );
+    expect(result.skippedReason).toBe("f3_readiness_hold");
+    expect(tryServerRepairLoop).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+  });
   it("failar versionen när repair-loopen kraschar och filerna står kvar", async () => {
     tryServerRepairLoop.mockRejectedValue(new Error("repair exploded"));
 
@@ -172,7 +208,10 @@ describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => 
 
   it("lämnar ett lyckat utfall orört", async () => {
     tryServerRepairLoop.mockResolvedValue({
-      supersededByUserEdit: false,
+      reverifyCurrent: false,
+      contextCasMiss: false,
+      integrationMigrationHoldApplied: false,
+      integrationMigrationStop: null,
       buildOriginated: true,
     });
 
@@ -180,6 +219,42 @@ describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => 
 
     expect(failVersionVerification).not.toHaveBeenCalled();
     expect(outcome.started).toBe(true);
+  });
+
+  it("maps an applied after-repair migration hold to the existing readiness hold outcome", async () => {
+    tryServerRepairLoop.mockResolvedValue({
+      reverifyCurrent: false,
+      contextCasMiss: false,
+      integrationMigrationHoldApplied: true,
+      integrationMigrationStop: "applied",
+      buildOriginated: true,
+    });
+
+    const outcome = await run();
+
+    expect(outcome).toEqual({
+      started: false,
+      repairAvailable: false,
+      skippedReason: "f3_readiness_hold",
+    });
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(triggerServerVerification).not.toHaveBeenCalled();
+  });
+
+  it("maps an unavailable stopped migration hold without reporting an ordinary repair failure", async () => {
+    tryServerRepairLoop.mockResolvedValue({
+      reverifyCurrent: false,
+      contextCasMiss: false,
+      integrationMigrationHoldApplied: false,
+      integrationMigrationStop: "unavailable",
+      buildOriginated: true,
+    });
+
+    const outcome = await run();
+
+    expect(outcome.skippedReason).toBe("f3_readiness_hold");
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(triggerServerVerification).not.toHaveBeenCalled();
   });
 
   it("L1: F3-readiness-hold startar ingen repair och promoverar inte", async () => {

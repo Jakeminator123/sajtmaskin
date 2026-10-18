@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 const getKostnadsfriPageBySlug = vi.hoisted(() => vi.fn());
 const backfillKostnadsfriPageProfile = vi.hoisted(() => vi.fn(async () => true));
 const markKostnadsfriProfileLookupSettled = vi.hoisted(() => vi.fn(async () => true));
+const getAcceptedKostnadsfriMailEvent = vi.hoisted(() => vi.fn());
 const recordPageView = vi.hoisted(() => vi.fn(async () => undefined));
 const verifyPassword = vi.hoisted(() => vi.fn(() => false));
 const isKostnadsfriLookupConfigured = vi.hoisted(() => vi.fn(() => false));
@@ -13,6 +14,7 @@ vi.mock("@/lib/db/services/kostnadsfri", () => ({
   getKostnadsfriPageBySlug,
   backfillKostnadsfriPageProfile,
   markKostnadsfriProfileLookupSettled,
+  getAcceptedKostnadsfriMailEvent,
 }));
 
 vi.mock("@/lib/db/services/analytics", () => ({
@@ -80,10 +82,15 @@ const LOOKUP_HIT = {
   profile: { city: "Kista", businessDescription: "Bolaget skall bedriva frisörverksamhet." },
 };
 
-function verifyRequest(slug: string, password: string, forwardedFor?: string) {
+function verifyRequest(
+  slug: string,
+  password: string,
+  forwardedFor?: string,
+  extra: Record<string, unknown> = {},
+) {
   return new NextRequest(`http://localhost/api/kostnadsfri/${slug}/verify`, {
     method: "POST",
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ password, ...extra }),
     headers: {
       "content-type": "application/json",
       "x-real-ip": "10.0.0.1",
@@ -139,6 +146,30 @@ describe("kostnadsfri verify route", () => {
       "10.0.0.1",
       undefined,
     );
+  });
+
+  it("signs only a server-verified accepted mail correlation into the campaign receipt", async () => {
+    const messageId = "c".repeat(32);
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(pageRow());
+    getAcceptedKostnadsfriMailEvent.mockResolvedValueOnce({
+      message_id: messageId,
+      slug: "zax-2-0-ab",
+      variant: "animated",
+      outcome: "accepted",
+    });
+
+    const res = await POST(
+      verifyRequest("zax-2-0-ab", "rätt", "10.9.0.20", {
+        mailId: messageId,
+        variant: "rent",
+      }),
+      { params: Promise.resolve({ slug: "zax-2-0-ab" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(getAcceptedKostnadsfriMailEvent).toHaveBeenCalledWith(messageId, "zax-2-0-ab");
+    expect(res.headers.get("set-cookie")).toContain("sajtmaskin_kostnadsfri_campaign=");
   });
 
   it("returns the host session and expires an HTTPS parent-domain leftover", async () => {

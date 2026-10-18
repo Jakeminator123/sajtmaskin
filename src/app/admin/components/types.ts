@@ -41,6 +41,24 @@ export interface KostnadsfriAdminPayload {
   configured: boolean;
   /** True when the period exceeded the server's row cap — counts are a lower bound. */
   truncated: boolean;
+  registry: { available: boolean; complete: boolean; checkedAt: string; returned: number };
+  analytics: { available: boolean; complete: boolean; windowDays: number; checkedAt: string };
+  generationStatus: { available: boolean; checkedAt: string };
+  mailStats: {
+    available: boolean;
+    total: number | null;
+    accepted: number | null;
+    delivered: number | null;
+    replied: number | null;
+    byVariant: {
+      variant: "text" | "animated";
+      total: number;
+      accepted: number;
+      firstAccepted: number;
+      delivered: number;
+      replied: number;
+    }[];
+  };
   pages: {
     slug: string;
     companyName: string;
@@ -56,6 +74,12 @@ export interface KostnadsfriAdminPayload {
     sentAt: string | null;
     /** Who registered the send, e.g. `python-utskick`. */
     source: string | null;
+    mailType: "text" | "animated" | "unregistered";
+    generation: {
+      state: "unknown" | "not-started" | "in-progress" | "succeeded" | "failed";
+      completedAt: string | null;
+      siteId: string | null;
+    };
   }[];
   stats: {
     slug: string;

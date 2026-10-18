@@ -14,6 +14,8 @@ vi.mock("./system-prompt", async (importOriginal) => {
 import { finalizeOrchestrationPrompts, resolveOrchestrationBase } from "./orchestrate";
 import type { InferredCapabilities } from "./capability-inference";
 import { SCAFFOLD_OFF_BASELINE_ID } from "./scaffolds/types";
+import { getVariantsForScaffold } from "./scaffold-variants/registry";
+import { pickScaffoldVariant } from "./scaffold-variants/matcher";
 
 const noCapabilities: InferredCapabilities = {
   needsMotion: false,
@@ -36,6 +38,43 @@ const noCapabilities: InferredCapabilities = {
 };
 
 describe("resolveOrchestrationBase scaffoldMode off (builder Scaffold: Av)", () => {
+  it("keeps template + off truly scaffold-less rather than reactivating a fallback", async () => {
+    const base = await resolveOrchestrationBase({
+      prompt: "Bygg en kategorimall",
+      buildIntent: "template",
+      scaffoldMode: "off",
+      embeddingScaffoldMatch: false,
+      capabilities: noCapabilities,
+      generationMode: "init",
+    });
+    expect(base.resolvedScaffold).toBeNull();
+    expect(base.scaffoldSelection?.selectionMethod).toBe("off");
+    expect(base.scaffoldSelection?.selectedScaffold).toBeNull();
+  });
+
+  it.each(["website", "app"] as const)(
+    "keeps projekt-bas-app for off/%s without imposing app-shell",
+    async (buildIntent) => {
+      const base = await resolveOrchestrationBase({
+        prompt: "Bygg en enkel start",
+        buildIntent,
+        scaffoldMode: "off",
+        embeddingScaffoldMatch: false,
+        capabilities: noCapabilities,
+        generationMode: "init",
+      });
+      expect(base.resolvedScaffold?.id).toBe(SCAFFOLD_OFF_BASELINE_ID);
+      expect(base.buildSpec.buildIntent).toBe(buildIntent);
+      const variants = getVariantsForScaffold(base.resolvedScaffold!.id);
+      expect(variants.map((variant) => variant.id).sort()).toEqual(["neutral-core", "warm-tool"]);
+      for (const variant of variants) {
+        expect(pickScaffoldVariant({
+          scaffoldId: base.resolvedScaffold!.id, prompt: variant.keywords.join(" "),
+          styleKeywords: variant.keywords, generationMode: "init",
+        })?.id).toBe(variant.id);
+      }
+    },
+  );
   it("resolves projekt-bas-app for freeform off, not null", async () => {
     const base = await resolveOrchestrationBase({
       prompt: "Bygg en enkel todo-app",

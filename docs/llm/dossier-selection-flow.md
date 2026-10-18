@@ -1,6 +1,6 @@
 # Dossier — urvalsflöde och prompt-injection
 
-**Källtruth:** `src/lib/gen/dossiers/select.ts` + `src/lib/gen/system-prompt/`. **Schema:** `docs/schemas/strict/dossier.schema.json`. **Operativ guide:** [`dossier-cheatsheet.md`](dossier-cheatsheet.md). **Uppdaterad:** 2026-08-05.
+**Källtruth:** `src/lib/gen/dossiers/select.ts`, `src/lib/gen/contract/provider-compatibility.ts` + `src/lib/gen/system-prompt/`. **Schema:** `docs/schemas/strict/dossier.schema.json`. **Operativ guide:** [`dossier-cheatsheet.md`](dossier-cheatsheet.md). **Uppdaterad:** 2026-10-04.
 
 Den här filen visar **hur** en dossier väljs och **var** den landar i prompten — komplement till [`dossier-system.md`](../contracts/dossier-system.md) som beskriver **vad** systemet är.
 
@@ -40,6 +40,17 @@ Brief deklarerar requestedCapabilities: ["payments", "auth", ...]
        configured: true|false
                 │
                 ▼
+      Jämför PlanContracts providerKey
+      + dossierCapability mot manifest.providers
+      + projektets AST-/filbevis
+                │
+       ┌────────┼─────────┐
+       ▼        ▼         ▼
+    kompatibel context-  blockerad
+    dossier     only      migration/olöst
+       │        │
+       │        └─ ingen felaktig dossier injiceras
+       ▼
        Ladda instructions.md;
        rendera enligt promptInstructionMode
                 │
@@ -48,6 +59,20 @@ Brief deklarerar requestedCapabilities: ["payments", "auth", ...]
 ```
 
 **Inga embeddings. Ingen fuzzy matching. Ingen domain-veto. Inga caps.** Det brief säger är det som injiceras.
+
+Providerintention är ett separat, typat kontrakt. Prioritet per capability är
+current explicit → inherited explicit/unresolved → entydigt aktuellt
+projektbevis → entydigt `legacy-preserved` → dossier-default. Ett current explicit val ersätter syskonet; ett
+negativt val utan ersättare blir `unresolved` och kan inte återuppväcka defaulten
+i pending/finalize. Defaultkontrakt för övriga hard-dossiers härleds från den
+valda dossierns kanoniska `providers`, inte en ny parallell tabell.
+`legacy-preserved` används bara för att transportera ett äldre, entydigt valt
+providerkontrakt genom plan- och codegen-vägen; det märks inte om som ett
+användar-explicit val och tvetydiga etiketter gissas inte.
+Kända metodval följer samma request-local beslut: Prisma får inte false-grönt
+byteforkas utan faktisk Prisma-kod, och befintlig Stripe Elements-kod får inte
+överlagras med hosted Checkout. Känd dossierlös provider i generisk F3 betyder
+bara att byggsteget får starta; det är inte en accepted/live-status.
 
 ## Två klasser (path-encoded)
 
@@ -103,7 +128,7 @@ Renderingen styrs av manifestets `promptInstructionMode`:
 | Läge | Vad codegen-prompten får |
 |---|---|
 | `compact` eller utelämnat (default) | Manifest-härledd sammanfattning av capability, mock, env, dependencies och exports; brödtexten i `instructions.md` injiceras inte. |
-| `selected-sections` | De avgränsade H1-sektionerna **When to use**, **How to integrate** och **Avoid**; kodblock tas bort. Varje sektion kapas för sig vid `SELECTED_SECTION_CHAR_CAP` (480) — **inte** en delad budget — så «Avoid» inte svälts av en lång tidigare rubrik (Codex #254 P2). Bland kopplade (hard) körs läget bara av `postgres-drizzle` och `supabase-auth`; flera soft-dossiers kör det också. |
+| `selected-sections` | De avgränsade H1-sektionerna **When to use**, **How to integrate** och **Avoid**; kodblock tas bort. Varje sektion kapas för sig vid `SELECTED_SECTION_CHAR_CAP` (480) — **inte** en delad budget — så «Avoid» inte svälts av en lång tidigare rubrik (Codex #254 P2). För katalogens kopplade dossiers är detta normalpolicyn; `openai-chat` behåller defaultläget `compact`. Den aktuella inventeringen ägs av respektive canonical manifest, inte av antal i denna dokumentation. |
 | `full` | Hela `instructions.md`; används bara när manifestet uttryckligen väljer det eller för det äldre beyond-dossier-3D-undantaget. |
 
 Författarkontraktet kräver H1-rubrikerna **When to use** och **How to
@@ -132,7 +157,7 @@ SAJTMASKIN_DOSSIER_PIPELINE=false  # av (explicit opt-out)
 SAJTMASKIN_DOSSIER_PIPELINE=true   # på (kod-default i alla miljöer)
 ```
 
-**Nuvarande deploy-status (sedan 2026-04-23):** explicit satt till `true` på alla tre Vercel-miljöer — pipelinen är aktiv överallt. För att stänga av den i en specifik miljö, sätt den till `false` eller `0`.
+Kodens default och opt-out-kontrakt ägs av `src/lib/config.ts`. Aktuella deployvärden är driftstate och ska verifieras via env-audit, inte bevaras som ett odaterat sanningspåstående här. För att stänga av pipelinen i en specifik miljö, sätt värdet till `false` eller `0`.
 
 Hela `## Available Dossiers`-blocket försvinner från system-prompten. Inget annat påverkas. Sätt `false` om dossier-pool blir ohälsosam (t.ex. många unconfigured-dossiers spam:ar prompten).
 

@@ -191,6 +191,13 @@ export function useVersionStatus(params: {
       // Terminal-neutral supersede (2026-07): the row was replaced by a newer
       // version — nothing more will ever arrive for it. Hard-stop like failed.
       if (s?.phase === "superseded") return true;
+      if (
+        s?.phase === "blocked" &&
+        s.verificationBlocked === true &&
+        s.lastBuildError?.failureCode === "integration_migration_required"
+      ) {
+        return true;
+      }
 
       const prev = prevEventCountRef.current;
       const current = s?.eventCount ?? null;

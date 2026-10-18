@@ -607,26 +607,22 @@ function sortViolations(violations: RouteContractViolation[]): RouteContractViol
  *
  * SM-042 (resolved 2026-08-14 with SM-048): the owner picked direction (1),
  * "make the nav mirror the plan". The formerly drifting routes (/pipeline,
- * /tasks, /forgot-password, /users, /categories, /om) are now declared in
+ * /tasks, /forgot-password, /users, /categories) are now declared in
  * their contracts, the route-plan file filter in `finalize-merge.ts` drops
  * their files when the plan omits them, and `syncNavItemsFromRoutePlan`
  * rewrites each scaffold's `navSurface` to match the plan.
  *
- * SM-043 (owner decision pending): ecommerce's /cart is declared in the
- * contract but has neither a starter file (CartDrawer replaced the page)
- * nor a link, and #977 already removed it from the plan defaults. Either
- * reintroduce a real cart page + link or delete the contract entry. Do not
- * add a file just to silence the gate. Remove the exception together with
- * the decision.
+ * SM-043 (owner decision 2026-10-05): preserve declared /cart with a real
+ * local demo page and navSurface link, sharing state/controls with the drawer.
+ * The plan still owns delivery; /cart is not a new required/default route.
+ * Its exception is removed together with that implementation, not suppressed.
+ * The former ecommerce /om stub is now a home section (#om) so /cart fits
+ * the unchanged four-page baseline budget; explicit /om remains plannable.
  */
-const KNOWN_ROUTE_CONTRACT_VIOLATIONS: RouteContractViolation[] = sortViolations([
-  // SM-043 — /cart is contract junk: declared without its page file (and
-  // without links; not planned since #977).
-  { scaffoldId: "ecommerce", kind: "declared-route-without-file", path: "/cart" },
-]);
+const KNOWN_ROUTE_CONTRACT_VIOLATIONS: RouteContractViolation[] = sortViolations([]);
 
 describe("route contract ↔ scaffold links gate", () => {
-  it("matches the documented SM-043 exception list exactly — no new drift, no silently fixed entries", () => {
+  it("matches the known exception list exactly — no new drift, no silently fixed entries", () => {
     const actual = sortViolations(
       getAllScaffolds().flatMap((scaffold) => collectRouteContractViolations(scaffold)),
     );

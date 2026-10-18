@@ -1,104 +1,54 @@
 ---
-description: "Kanonisk PR-grind. Läs efter skapad PR, vid review/sign-off och före merge."
+description: "PR-grind: GitHubs status, reviews och rulesets äger mergebarhet."
 alwaysApply: false
 ---
 
-# PR-grind
+# PR och merge
 
-ChatGPT-webbens draft→ready-väg: `subagent-models.mdc`.
+Körordning: `.agents/skills/pr-workflow/SKILL.md`. Canonical lokala checknamn
+finns i `config/agent-workflow.json`; GitHubs live rulesets avgör vilka checks,
+reviews och trådar som blockerar merge.
 
-Mergeable betyder bara konfliktfri. Merga endast med uttryckligt mergeuppdrag.
-Bakgrund: `docs/runbooks/pr-merge-gate.md`.
+## Vanlig PR till preview
 
-## Extra bekräftelse till master
+Direktpush är en separat leveransväg, inte en PR-merge: följ
+`npm run preview:prepare` och den SHA-bundna mänskliga bekräftelsen i
+PR-skillen. Proceduren heter **Buggpass**; Codex, Cursor Bugbot eller annan
+oberoende granskare kan utföra den. Ett produktnamn är inget eget krav.
 
-Innan `merge:execute`: varna att det går till master/produktion, namnge PR:n
-och vänta på bekräftelse i samma chatt efter varningen. «kör på» räcker inte.
+1. Håll PR:n draft medan arbete eller kända fynd återstår. Draft→ready startar
+   den fulla CI-profilen; lokalt körs plan och riktade kontroller, inte samma
+   fulla profil en gång till.
+2. Läs GitHubs merge box, required GitHub-checks, reviews, kommentarer och deployment
+   för aktuell head. Ny head gör äldre resultat stale; strict/up-to-date-ruleset
+   binder merge till aktuell integrationsbas.
+3. Vanlig kod kräver relevant oberoende review. Säkerhet, betalning, databas och
+   CI-behörigheter kräver riktad review och nödvändigt ownerbeslut registrerat
+   som GitHub-review eller PR-kommentar. Requested changes, olösta trådar,
+   security/cross-tenant-risk, false-green och brutet kontrakt är stopp.
+4. Merge kräver uttryckligt mandat. Ett villkorat mandat i förväg gäller när de
+   angivna native villkoren senare är uppfyllda och behöver inte efterfrågas
+   igen; ett vanligt koduppdrag är inte mergemandat.
+5. En agent som utför en vanlig manuell preview-merge använder
+   `gh pr merge --squash --match-head-commit <granskad head>`; ny head kräver
+   ny review. Bara Dependabot-vägen använder native auto-merge. Aldrig
+   `--admin`. Kontrollera efteråt att push-CI och deployment startade.
 
-Körordning ägs av `.agents/skills/pr-workflow/SKILL.md`; checknamn, väntetider
-och protected globs ägs av `config/agent-workflow.json`, inte av denna prosa.
+Dependabot-undantaget ägs av `.github/workflows/dependabot-automerge.yml` och
+`config/dependabot-automerge.json`: endast allowlistade npm-patchar med en ren
+manifest-/lockdiff får native auto-merge. Major/minor, corepaket, scripts,
+livscykelinstall, främmande tarballs och blandade filer stannar för manuell
+review.
 
-## Hårda stopp
+## Produktion och databas
 
-- Draft, fel base, konflikt, röd/pending required check eller requested changes.
-- `do-not-merge`, `agent:needs-human`, `risk:4` eller `risk:5`.
-- Adminspärrad Godnatt-evaluation: aldrig ready, merge, auto-merge eller close
-  före adminbeslut.
-- P0/P1, security/cross-tenant, secretläcka, false-green eller brutet kontrakt.
-- Head- eller base-SHA ändrad efter review/sign-off.
+`master` uppdateras endast genom separat promote-PR. Visa produktionsvarning
+och invänta en ny uttrycklig bekräftelse i samma chatt; native auto-merge används
+inte. Ancestry-synk använder dedikerad preview-PR och kommandot
+`gh pr merge --merge --match-head-commit <granskad head>` så att både ancestry
+och exakt granskad head bevaras.
 
-P2/nits blockerar inte när de är fixade, loggade eller konkret avfärdade.
-PR:er från `EmaCodeHero` mergas aldrig av en agent; ägaren beslutar per PR.
-
-## Författaren efter varje head-SHA
-
-1. Pusha aktuell diff och skapa/uppdatera PR:n. Arbete kvar = draft.
-2. Kräv gröna required GitHub-checks på head-SHA och färsk readonly Sol-review
-   enligt `subagent-models.mdc`; protected kräver färskt pass.
-3. Läs alla botytor, inte bara checks: inline comments, reviews, PR-kommentarer,
-   check-run summary/text och annotations.
-4. Triagera varje konkret fynd: **fixat**, **loggat** i rätt canonical tracker
-   eller verifierbart **avfärdat**. Efter ny commit: kör om berört riktat och
-   invänta nya required checks.
-
-En full PR AI-/Codex-review av aktuell SHA kan vara oberoende pass. Usage-limit
-är inget fynd; använd lokal Sol-review. `review-window` kräver trusted botkvitto
-eller kontobevis: `COMMENTED` review + separat receipt från samma betrodda aktör,
-head och review-ID samt föregående `github-actions[bot]`-request med tillåten
-nyckel-/kvotorsak. Undantag: live REST-author `dependabot[bot]`/`Bot`. Utan
-giltigt kvitto/överlämning stoppas merge; självattestering ger inte grönt.
-
-Protected paths avgörs endast av `config/agent-workflow.json` och visas av
-`npm run verify:pr -- --plan`. Risk ≥ 3 (CI/runtime/security/false-green) kräver
-samma behandling även om filen ännu inte finns i listan.
-
-## Ready-signal
-
-När övriga required checks (`quality`, Backoffice, schema, build), Vercel och
-review är klara, P0/P1 = 0 och head innehåller aktuell base-tip — medan
-`review-window` fortfarande väntar på slutbeviset:
-
-1. Kommentera först:
-   `merge:ready — head-sha: <40 hex>, base-sha: <40 hex>, at: <UTC>, bugkoll: <källa>, triage: <utfall>, P0/P1: 0`
-2. Sätt därefter labeln `merge:ready`.
-3. Den betrodda default-branch-controllern validerar båda SHA:na, signerarens
-   identitet och ordningen mot GitHubs live-tillstånd. Först då blir den
-   head-bundna required checken `review-window` grön. Ny commit, flyttad
-   master/base, borttagen label eller senare botfynd ogiltigförklarar signalen;
-   uppdatera, granska, kommentera och labela om i samma ordning.
-
-Mergaren sätter aldrig författarens label åt den. Avsaknad av label betyder
-att författaren inte är klar.
-
-## Slutligt mergekommando
-
-När `review-window` är grön för exakt head/base gör en betrodd människa den
-sista kontrollen. Allt nedan ska vara sant:
-
-- inte draft; korrekt base; mergeable;
-- alla `requiredChecks` i `config/agent-workflow.json` gröna;
-- Vercel-deployment är lyckad eller saknas;
-- `review-window` grönt för aktuell head-SHA; saknat kvitto blockerar inte;
-- inga blockerande labels, reviews, trådar eller otriagerade fynd;
-- giltig `merge:ready`-kommentar + label på oförändrad head- och base-SHA;
-- PR-body beskriver diff, verifiering och kvarvarande risk.
-
-En verifierad mänsklig `OWNER`, `MEMBER` eller `COLLABORATOR` postar därefter
-exakt en ny PR-kommentar:
-
-`merge:execute — head-sha: <40 hex>, base-sha: <40 hex>, at: <UTC>, bugkoll: <källa>, triage: <utfall>, P0/P1: 0`
-
-PR-författarskap ger inte mergebehörighet. Agenten postar kommandot först efter
-människans uttryckliga mergeuppdrag och gör ingen separat API-/webbmerge.
-Default-branch-controllern hämtar kommentaren igen, kräver att den är oredigerad
-och strikt senare än all evidens, läser live head/base/checks/reviews/
-kommentarer i ett settle-fönster och squash-mergar med expected head-SHA.
-
-`--admin` och manuell webbmerge är inte normalvägen och får aldrig passera en
-röd/väntande grind. Serialisera merges och hämta master efter varje. Inte
-`NEEDS_HUMAN` bara för saknad native strict. Röd post-merge-dispatch återkörs
-på master; merga aldrig samma PR igen.
-
-## Väntan
-
-Använd engångskontroll eller bakgrundsbevakning, inga blockerande watch-loopar.
+Preview och Development delar DEV; Production använder PROD enligt
+`config/db-targets.json`. Kodmerge, CI och deploy ger aldrig mandat att
+applicera schema, migrationer eller ändra produktionsdata. DB-apply kräver ett
+eget uttryckligt uppdrag. En kodrevert återställer inte dataeffekter.

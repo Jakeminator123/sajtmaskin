@@ -5,12 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import {
-  LayoutDashboard,
-  Workflow,
-  ListTodo,
-  Settings,
-} from "lucide-react";
+import { LayoutDashboard, Workflow, ListTodo, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -24,9 +19,16 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-full w-(--sidebar-width) flex-col border-r border-border bg-card">
+    <aside className="border-border bg-card flex h-full w-(--sidebar-width) flex-col border-r">
       <div className="flex h-16 items-center px-6">
         <span className="text-lg font-bold tracking-tight">Arbetsyta</span>
+      </div>
+
+      <div className="space-y-1 px-6 pb-4">
+        <p className="text-sm font-medium">Demodata — inte ansluten</p>
+        <p className="text-muted-foreground text-xs">
+          Mätetal, arbetsköer och aktivitet är exempel.
+        </p>
       </div>
 
       <Separator />
@@ -59,13 +61,11 @@ export function AppSidebar() {
 
       <div className="flex items-center gap-3 p-4">
         <Avatar className="h-8 w-8">
-          <AvatarFallback className="bg-primary/20 text-primary text-xs">
-            JD
-          </AvatarFallback>
+          <AvatarFallback className="bg-primary/20 text-primary text-xs">JD</AvatarFallback>
         </Avatar>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">Teammedlem</p>
-          <p className="text-xs text-muted-foreground truncate">team@example.com</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium">Demoanvändare — ingen session</p>
+          <p className="text-muted-foreground truncate text-xs">team@example.com</p>
         </div>
       </div>
     </aside>

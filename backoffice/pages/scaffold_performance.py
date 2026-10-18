@@ -205,7 +205,7 @@ def render(ctx: BackofficeContext) -> None:
 
     df = _build_dataframe(payload.scaffolds)
     st.subheader("Per-scaffold")
-    st.dataframe(df, hide_index=True, use_container_width=True)
+    st.dataframe(df, hide_index=True, width="stretch")
 
     st.divider()
     _render_decision_section(payload)

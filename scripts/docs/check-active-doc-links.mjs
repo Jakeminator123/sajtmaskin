@@ -77,12 +77,20 @@ export function resolveLocalTarget(sourcePath, rawTarget) {
 export async function checkActiveDocLinks({
   trackedPaths,
   readTrackedFile,
+  deletedPaths,
 } = {}) {
   const tracked = trackedPaths ??
     execFileSync("git", ["ls-files", "-z"], { cwd: REPO_ROOT, encoding: "utf8" })
       .split("\0")
       .filter(Boolean);
-  const trackedSet = new Set(tracked);
+  const deleted = new Set(deletedPaths ?? (trackedPaths ? [] :
+    execFileSync("git", ["diff", "--name-only", "--diff-filter=D", "-z", "HEAD"], {
+      cwd: REPO_ROOT, encoding: "utf8",
+    }).split("\0").filter(Boolean)));
+  // The index still lists an unstaged deleted YAML/script. It must not make
+  // a router link look valid merely because the deletion is not staged yet.
+  const existingTracked = tracked.filter((path) => !deleted.has(path));
+  const trackedSet = new Set(existingTracked);
   const trackedTopLevel = new Set(tracked.map((path) => path.split("/", 1)[0]));
   const read = readTrackedFile ?? ((path) => readFile(resolve(REPO_ROOT, path), "utf8"));
   const failures = [];
@@ -119,7 +127,7 @@ export async function checkActiveDocLinks({
       const lookupPath = path.replace(/\/+$/, "");
       const exists =
         trackedSet.has(lookupPath) ||
-        tracked.some((candidate) => candidate.startsWith(`${lookupPath}/`));
+        existingTracked.some((candidate) => candidate.startsWith(`${lookupPath}/`));
       if (!exists) failures.push({ sourcePath, target: rawTarget, resolvedPath: path, reason: "missing" });
     }
   }

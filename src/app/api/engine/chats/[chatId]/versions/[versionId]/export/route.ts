@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { importedFileContentForExport } from "@/lib/import/extract-imported-archive";
 import { put } from "@vercel/blob";
 import { withRateLimit } from "@/lib/rate-limit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
@@ -65,7 +66,7 @@ export async function POST(
         const JSZip = (await import("jszip")).default;
         const zip = new JSZip();
         for (const file of completeProject) {
-          zip.file(file.path, file.content);
+          zip.file(file.path, importedFileContentForExport(file.path, file.content, file.language));
         }
 
         const buffer = await zip.generateAsync({ type: "nodebuffer" });

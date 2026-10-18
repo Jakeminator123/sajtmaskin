@@ -116,7 +116,8 @@ def _section_list(dossiers: list[dict[str, Any]]) -> None:
             "Kodtrohet": d.get("codeFidelity"),
             "Komplexitet": d.get("complexity"),
             "Nycklar": len(d.get("envVars") or []),
-            "Senast verifierad": d.get("lastVerified"),
+            "Verifiering": d.get("verificationStatus") or "accepted",
+            "Katalogdatum": d.get("lastVerified"),
             # Bara för sortering/gruppering — visas inte som egen kolumn.
             "_class": d["_class"],
             "_enforcement": _summarize_enforcement(d),
@@ -131,8 +132,9 @@ def _section_list(dossiers: list[dict[str, Any]]) -> None:
         "**Kräver integrationsbygge** = den riktiga integrationen byggs i ett eget "
         "steg (byggnödvändig nyckel eller serverfil) — det följer *inte* av "
         "Kopplad/Fristående, och ett Kopplat byggblock kan mycket väl vara "
-        "klart redan i designläget. Leverantörssyskon = flera byggblock under "
-        "samma funktion."
+        "tillgängligt utan ett separat integrationsbygge. Leverantörssyskon = flera "
+        "byggblock under samma funktion. **Katalogdatum** är acceptansdatum bara för "
+        "`accepted`; för `unverified` är det import-/kureringsdatum, inte acceptansbevis."
     )
 
     groups = _load_group_view()
@@ -352,13 +354,13 @@ def _section_health() -> None:
             skipped = res.get("skipped", [])
             if drifts:
                 st.error(f"{len(drifts)} SDK-versionsdrift(er) hittades:")
-                st.dataframe(drifts, use_container_width=True, hide_index=True)
+                st.dataframe(drifts, width="stretch", hide_index=True)
             if unreadable:
                 st.error(
                     f"{len(unreadable)} pinnad SDK installerad men versionen kunde inte läsas "
                     "(kan ej verifiera — fail-closed):"
                 )
-                st.dataframe(unreadable, use_container_width=True, hide_index=True)
+                st.dataframe(unreadable, width="stretch", hide_index=True)
             if not drifts and not unreadable:
                 if checked:
                     st.success(
@@ -372,7 +374,7 @@ def _section_health() -> None:
                     )
             if checked:
                 st.caption("Kontrollerade pins:")
-                st.dataframe(checked, use_container_width=True, hide_index=True)
+                st.dataframe(checked, width="stretch", hide_index=True)
             if skipped:
                 st.caption("Överhoppade (okänd/ej installerad SDK):")
-                st.dataframe(skipped, use_container_width=True, hide_index=True)
+                st.dataframe(skipped, width="stretch", hide_index=True)

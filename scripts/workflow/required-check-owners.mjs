@@ -1,10 +1,8 @@
 /**
  * Dependency-free owner map for required PR-head checks.
  *
- * CI trust roots (`trusted-review-window.mjs`, `merge-ready-freshness.mjs`)
- * run after `actions/checkout` without `npm install`. This module may only
- * import `node:*` or relative files that themselves stay dependency-free.
- * Do not import `check-contract.mjs` (ajv / js-yaml) from here.
+ * The map keeps locally published required-check identities unique. GitHubs
+ * live ruleset owns whether they are required for merge.
  */
 
 export const REQUIRED_CHECK_OWNERS = Object.freeze({

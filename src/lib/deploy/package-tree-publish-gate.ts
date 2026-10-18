@@ -58,11 +58,13 @@ export function resolveInstallPeerFallbackGate(
 /** File tree first, then fingerprint-bound fallback receipt, then latest-gate advisory. */
 export function resolvePackageTreePublishGate(params: {
   files: ReadonlyArray<{ path: string; content: string }>;
+  /** Effective publish tree for peer proof; saved files still bind the preview fallback receipt. */
+  publishFiles?: ReadonlyArray<{ path: string; content: string }>;
   latestGateAdvisoryChecks?: readonly string[];
   errorLogs?: readonly InstallPeerFallbackReceiptLog[];
   filesRevision?: string | null;
 }): PackageTreePublishGateResult {
-  const fileGate = resolvePackageTreeFileGate(params.files);
+  const fileGate = resolvePackageTreeFileGate(params.publishFiles ?? params.files);
   if (!fileGate.allowed) return fileGate;
   if (
     installPeerFallbackReceiptBlocksPublish(params.errorLogs ?? [], {

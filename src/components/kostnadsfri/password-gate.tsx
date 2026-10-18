@@ -47,10 +47,17 @@ export function PasswordGate({ slug, companyName, onSuccess }: PasswordGateProps
       setError(null);
 
       try {
+        const query = new URLSearchParams(window.location.search);
+        const mailId = query.get("mail_id");
+        const variant = query.get("variant");
         const response = await fetch(`/api/kostnadsfri/${slug}/verify`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password: password.trim() }),
+          body: JSON.stringify({
+            password: password.trim(),
+            ...(mailId && /^[a-f0-9]{32}$/.test(mailId) ? { mailId } : {}),
+            ...(variant === "rent" || variant === "animated" ? { variant } : {}),
+          }),
         });
 
         const data = await response.json();

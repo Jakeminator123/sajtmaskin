@@ -35,10 +35,12 @@ from backoffice.pages.scaffold_lifecycle import (
     _dead_source_template_ids,
     _dead_source_template_ids_message,
     _slugify,
-    _source_template_ids_integrity_error,
     _validate_variant_payload,
     _variant_payload,
     _variant_template_reference_errors,
+)
+from backoffice.pages.scaffold_lifecycle_lib.variants import (
+    _source_template_ids_integrity_error,
 )
 from backoffice.shared import (
     BackofficeContext,

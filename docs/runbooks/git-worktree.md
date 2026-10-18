@@ -6,7 +6,9 @@ Kanonisk kortregel: [`.cursor/rules/agent-worktree.mdc`](../../.cursor/rules/age
 
 ## När
 
-Flera agenter som ska skriva samtidigt, eller när Jakob ber om en isolerad yta.
+När Jakob ber om en isolerad yta, exempelvis för parallella skribenter.
+Codex och Cursor arbetar annars i den öppna checkouten, en skrivande session
+åt gången. Andra agenter får läsa samma checkout.
 
 ## Skapa
 
@@ -29,14 +31,24 @@ vägrar ytor inuti checkouten (`.cursor/worktrees` inkluderat). Behöver du
 tester i worktreet:
 
 ```powershell
+Set-Location ..\sajtmaskin-<kort>
 npm ci
+npm run hooks:install
 ```
+
+Kör repokommandon i den nya checkouten med dess Node-pin. I Codex används
+appens worktree-funktion för apphanterade ytor; skapa inte en andra manuell
+worktree för samma uppdrag.
 
 `npm run worktree:link` junctionar mot huvudcheckoutens `node_modules`. Det
 är snabbare men **sabbar Vitest** (fork-workers och `chdir` på Windows).
 Använd det inte.
 
-## Ta bort
+## Ta bort och hantera Windows-lås
+
+Apphanterade Codex-worktrees arkiveras genom appens worktree-funktion efter
+terminal PR och verifierad remote-status. Kommandona nedan gäller manuella
+repo-worktrees. Rör inte en annan aktiv agents yta.
 
 Aldrig rå `git worktree remove` — den kan följa en gammal junction och tömma
 huvudcheckoutens `node_modules`.
@@ -49,11 +61,11 @@ npm run worktree:remove -- ..\sajtmaskin-<kort>
 Wrappern kopplar loss ev. länkar först. `--force` kräver
 `SAJTMASKIN_DISCARD_REASON` och att ingen PR är öppen.
 
-## Codex
+En befintlig app-isolerad checkout följer samma arbetsregler. En långlivad
+worktree som behöver skyddas använder git-configen
+`sajtmaskin.protectedWorktree`.
 
-Codex-projektet pekar på repo-roten, men huvudcheckouten är läs- och testankare.
-Codex skriver i ett eget worktree från färsk `origin/preview` (eller
-`origin/master` när påståendet gäller produktion) — se
-[`.codex/README.md`](../../.codex/README.md). En långlivad worktree som verkligen
-behövs skyddas med git-configen `sajtmaskin.protectedWorktree`, inte med ett
-särskilt Codex-branchnamn.
+På Windows: om katalogen eller `.git` är låst, identifiera processen med
+exekverbarsökväg, kommando, parent och starttid. Stäng bara den terminal,
+dev-server eller editor som faktiskt håller den berörda ytan och som får
+stängas. Döda inte alla `node.exe` och flytta inte en aktiv checkout.

@@ -73,10 +73,10 @@ export function BuilderPreviewTools({
   onDossierCountsChange,
   activeVersionMeta,
 }: BuilderPreviewToolsProps) {
-  // Klustret växer inte fram i headern förrän det finns en preview att styra.
-  // Kodvyn räknas också: där är previewUrl inte det som visas, men användaren
-  // måste kunna ta sig tillbaka.
-  const hasSurface = Boolean(previewUrl) || surface.viewMode !== "preview";
+  // Sparad kod kan öppnas även utan en aktiv preview-session. Behåll också
+  // kontrollerna i kod-/registervyn så att användaren kan ta sig tillbaka.
+  const hasSurface =
+    Boolean(previewUrl) || surface.canShowCode || surface.viewMode !== "preview";
   if (!hasSurface) return null;
 
   const showF3Trigger =

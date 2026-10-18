@@ -9,6 +9,7 @@ import type { BuildSpecContextPolicy } from "../build-spec";
 import type { InferredCapabilities } from "../capability-inference";
 import type { RoutePlan } from "../route-plan";
 import { buildFileContext } from "../context/file-context-builder";
+import { resolveScaffoldRouteDelivery } from "./route-delivery";
 
 export type ScaffoldSerializeMode = "structural" | "inspirational";
 
@@ -44,6 +45,8 @@ export function resolveScaffoldSerializeMode(input: {
 }
 
 export interface ScaffoldSerializeOptions {
+  /** The materializer filters starter routes only on init, never established follow-ups. */
+  generationMode?: "init" | "followUp";
   maxChars?: number;
   contextPolicy?: BuildSpecContextPolicy;
   forceFullDump?: boolean;
@@ -417,6 +420,15 @@ export function serializeScaffoldForPrompt(
   mode: ScaffoldSerializeMode = "structural",
   options: ScaffoldSerializeOptions = {},
 ): string {
+  // Share the materializer's existing init-only delivery policy before any
+  // file tree, summary, import example or FileContract is rendered. Clone the
+  // view, not the manifest: the registry stays intact for later turns.
+  const routeDelivery = options.generationMode === "followUp"
+    ? null
+    : resolveScaffoldRouteDelivery(scaffold.routeContract, options.routePlan);
+  if (routeDelivery) {
+    scaffold = { ...scaffold, files: scaffold.files.filter((file) => !routeDelivery.classifyDrop(file.path)) };
+  }
   const maxChars = Math.max(4_000, options.maxChars ?? DEFAULT_LIGHTWEIGHT_SCAFFOLD_CHARS);
   const hints = scaffold.promptHints.length > 0
     ? `\n\n## Scaffold Hints\n\n${scaffold.promptHints.map((h) => `- ${h}`).join("\n")}`

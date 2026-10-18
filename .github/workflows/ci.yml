@@ -5,31 +5,37 @@ on:
     branches: [master, preview]
   pull_request:
     branches: [master, preview]
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    # Draft blocks merge already; changing to draft must not cancel/restart
+    # an otherwise valid same-head run. Ready still upgrades deferred checks.
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch: {}
 
 concurrency:
   group: ci-${{ github.ref }}
-  # Nya commits ska avbryta en stale PR-körning, men aldrig en master-körning
-  # som kan befinna sig mitt i en prod-migration. En körande master-run avbryts
-  # aldrig; GitHubs vanliga single-pending-beteende behålls för kön.
+  # Nya commits ska avbryta en stale PR-körning. Trusted push/dispatch-körningar
+  # är read-only mot live-DB och får slutföra sina observationskvitton; GitHubs
+  # vanliga single-pending-beteende behålls för kön.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# PR-head kod far aldrig ett skrivtoken. Betrodda check-runs publiceras av den
-# separata pull_request_target-controllern med snava, explicita rattigheter.
+# PR-head-kod får bara läsbehörighet. Skrivande Dependabot-automation körs
+# separat med betrodd kod från default-branchen.
 permissions:
   contents: read
   pull-requests: read
 
 jobs:
-  # En enda fail-closed klassificerare äger vilka PR-diffar som får ta den
+  # En enda fail-closed klassificerare äger vilka PR-/preview-diffar som får ta den
   # lätta profilen. Den återanvänder samma path-impactmotor som lokal verify:pr.
   # Saknat/fallerat scope-resultat tolkas som FULL körning av alla konsumenter.
   scope:
+    permissions:
+      contents: read
+      actions: read
     runs-on: ubuntu-latest
     outputs:
       run_heavy: ${{ steps.classify.outputs.run_heavy }}
       safe_docs_only: ${{ steps.classify.outputs.safe_docs_only }}
+      run_preview_host: ${{ steps.classify.outputs.run_preview_host }}
       high_risk: ${{ steps.classify.outputs.high_risk }}
       reason: ${{ steps.classify.outputs.reason }}
 
@@ -52,6 +58,8 @@ jobs:
           SAJTMASKIN_PR_DRAFT: ${{ github.event.pull_request.draft }}
           SAJTMASKIN_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           SAJTMASKIN_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SAJTMASKIN_PUSH_BASE_SHA: ${{ github.event.before }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/workflow/ci-scope.mjs
 
   quality-core:
@@ -142,13 +150,6 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # `POSTGRES_URL` sätts medvetet BARA på de två DB-stegen nedan, aldrig på
-      # jobbnivå: standard-sviten körs utan databas, och flera tester verifierar
-      # att appen degraderar snyggt när den saknas. En jobbnivå-variabel hade
-      # ändrat förutsättningen för dem tyst.
-      - name: Test
-        run: npm run test:ci
-
       # Applicerar schema + alla migrationer i MIGRATION_ORDER, inklusive
       # add-files-revision.sql, mot den efemära databasen.
       - name: Initiera testdatabasen
@@ -174,9 +175,8 @@ jobs:
 
       # Deterministic stability contracts (C2): every current `*.stability.test.*`
       # file is hermetic (no network/DB/wall-clock). Hard-gate them here so a
-      # regression reddens the required `quality` check. The broad `stability`
-      # job stays `continue-on-error` for the glossary check and future flaky
-      # additions that must be classified before they can block.
+      # regression reddens the required `quality` check. Discovery requires
+      # the real stability-config file set to equal this reviewed blocking set.
       - name: Deterministic stability contracts (blocking)
         # Run even if test:ci failed so a contract regression is never masked/skipped.
         if: ${{ !cancelled() }}
@@ -186,10 +186,45 @@ jobs:
       # — men detta jobb gjorde det inte, så en commit kunde bli CI-grön och
       # ändå fälla prod-deployen (hänt: #368). Kör samma sanity-checks här så
       # den tunga profilen fångar det före merge.
-      # route-timeouts:check dubblas medvetet (billig, redan grön ovan).
+      # Äger route-timeouts:check i heavy/fallback; light kör den i contracts.
       - name: Preflight parity with Vercel prebuild (blocking)
         if: ${{ !cancelled() }}
         run: npm run preflight:common
+
+  # Same complete suite as test:ci, split by Vitest across four isolated
+  # runners. No path selection or cached test result: every heavy head runs
+  # all four parts. quality requires the whole matrix to succeed.
+  quality-tests:
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false') }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Ensure embeddings (sync + verify)
+        run: npm run embeddings:ensure
+
+      # No POSTGRES_URL here: database and deterministic stability contracts
+      # retain their separate blocking lanes in quality-core.
+      - name: Test shard (blocking)
+        run: npm run test:ci -- --shard=${{ matrix.shard }}/4
 
   # Avtal, genererade projektioner och dokumentation körs parallellt med
   # runtime/test-lanen ovan. Det gör huvudgrinden snabbare utan att någon kontroll
@@ -226,8 +261,14 @@ jobs:
         run: npm run baseline-deps:tree
 
       - name: Validate scaffold manifests
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' }}
         run: npm run scaffolds:validate
+
+      # Heavy/fallback already materializes embeddings in every test runner and
+      # runs all scaffold tests in the four full shards. Keep the real validator.
+      - name: Validate scaffold client list (heavy/fallback)
+        if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false') }}
+        run: npm run scaffolds:client-list:check
 
       - name: Validate dossier manifests
         if: ${{ !cancelled() }}
@@ -247,21 +288,15 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run workflow:contract
 
-      - name: Setup Python
+      - name: Verify every test file has an intentional runner (blocking)
         if: ${{ !cancelled() }}
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
+        run: npm run test:discovery:check
 
-      - name: Run Agent Bridge unit tests
-        if: ${{ !cancelled() }}
-        run: npm run test:agent-bridge
-
-      # Scope-logiken får aldrig kunna hoppa över sina egna regressionstester.
-      # Denna lilla lane ligger därför i det alltid körande kontraktsjobbet.
+      # Heavy/fallback kör dessa i hela test:ci via alla fyra shards. Endast
+      # ett lyckat, uttryckligt lightbeslut använder den riktade körningen.
       - name: Validate workflow and CI scope decisions
-        if: ${{ !cancelled() }}
-        run: npx vitest run scripts/workflow/workflow.test.ts scripts/workflow/ci-scope.test.ts
+        if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' }}
+        run: npm run test:workflow
 
       - name: Verify generated contract docs
         if: ${{ !cancelled() }}
@@ -285,6 +320,13 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run check:terms:contract
 
+      # Preserve the separate advisory prose scan after removing duplicate
+      # stability execution. No second checkout/install or path filter needed.
+      - name: Ordlista-check (warn-only, grandmaster C2)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: npm run check:terms
+
       - name: Verify agent context budget
         if: ${{ !cancelled() }}
         run: npm run check:agent-context
@@ -294,7 +336,8 @@ jobs:
         run: npm run compat:v0-chat-boundary:check
 
       - name: Verify route maxDuration ↔ manifest sync
-        if: ${{ !cancelled() }}
+        # Heavy/fallback täcks av quality-core:s oförändrade preflight:common.
+        if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' }}
         run: npm run route-timeouts:check
 
       # Dessa är repo-/arbetsflödeskontrakt, inte produktionsbyggets ansvar.
@@ -306,8 +349,38 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run canvas:check
 
+  # Real UI/API/DB persistence, with no shared DB or provider credentials.
+  # Only setup may download packages/images. Runtime joins its own network-none
+  # Postgres namespace after dropping privileges; no host-network fallback.
+  quality-project-persistence:
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Prepare locked browser and disposable database image
+        run: |
+          node node_modules/@playwright/test/cli.js install --with-deps chromium
+          IMAGE=$(node --input-type=module -e 'import { POSTGRES_IMAGE } from "./scripts/e2e/project-persistence-env.mjs"; console.log(POSTGRES_IMAGE)')
+          docker pull "$IMAGE"
+      - name: Real isolated project persistence (blocking)
+        run: npm run test:e2e:project-persistence
+
   quality:
-    needs: [scope, quality-core, quality-contracts, preview-host-guards, dead-code]
+    needs: [scope, quality-core, quality-tests, quality-contracts, quality-project-persistence, preview-host-guards, dead-code]
     # Kör efter failed/skipped dependencies för att publicera grinden, men låt
     # en stale concurrency-cancelled PR-run dö i stället för att leva vidare.
     if: ${{ !cancelled() }}
@@ -318,6 +391,8 @@ jobs:
           SCOPE_RESULT: ${{ needs.scope.result }}
           RUN_HEAVY: ${{ needs.scope.outputs.run_heavy }}
           CORE_RESULT: ${{ needs['quality-core'].result }}
+          TESTS_RESULT: ${{ needs['quality-tests'].result }}
+          PERSISTENCE_RESULT: ${{ needs['quality-project-persistence'].result }}
           CONTRACTS_RESULT: ${{ needs['quality-contracts'].result }}
           PREVIEW_HOST_RESULT: ${{ needs['preview-host-guards'].result }}
           DEAD_CODE_RESULT: ${{ needs['dead-code'].result }}
@@ -328,18 +403,26 @@ jobs:
             EXPECT_HEAVY=false
           fi
           if [ "$CONTRACTS_RESULT" != "success" ] || [ "$PREVIEW_HOST_RESULT" != "success" ] || [ "$DEAD_CODE_RESULT" != "success" ]; then
-            echo "::error::scope=${SCOPE_RESULT}/${RUN_HEAVY}, quality-core=${CORE_RESULT}, quality-contracts=${CONTRACTS_RESULT}, preview-host-guards=${PREVIEW_HOST_RESULT}, dead-code=${DEAD_CODE_RESULT}"
+            echo "::error::scope=${SCOPE_RESULT}/${RUN_HEAVY}, quality-core=${CORE_RESULT}, quality-tests=${TESTS_RESULT}, quality-contracts=${CONTRACTS_RESULT}, preview-host-guards=${PREVIEW_HOST_RESULT}, dead-code=${DEAD_CODE_RESULT}"
             exit 1
           fi
-          if [ "$EXPECT_HEAVY" = "true" ] && [ "$CORE_RESULT" != "success" ]; then
-            echo "::error::Full CI kravdes men quality-core=${CORE_RESULT} (scope=${SCOPE_RESULT}/${RUN_HEAVY})"
+          if [ "$EXPECT_HEAVY" = "true" ] && { [ "$CORE_RESULT" != "success" ] || [ "$TESTS_RESULT" != "success" ] || [ "$PERSISTENCE_RESULT" != "success" ]; }; then
+            echo "::error::Full CI kravdes men quality-core=${CORE_RESULT}, quality-tests=${TESTS_RESULT}, persistence=${PERSISTENCE_RESULT} (scope=${SCOPE_RESULT}/${RUN_HEAVY})"
             exit 1
           fi
           if [ "$EXPECT_HEAVY" = "false" ] && [ "$CORE_RESULT" != "skipped" ] && [ "$CORE_RESULT" != "success" ]; then
             echo "::error::Latt CI tillat men quality-core fick ovantat resultat ${CORE_RESULT}"
             exit 1
           fi
-          echo "✓ quality aggregate green (heavy=${EXPECT_HEAVY}, core=${CORE_RESULT})"
+          if [ "$EXPECT_HEAVY" = "false" ] && [ "$TESTS_RESULT" != "skipped" ] && [ "$TESTS_RESULT" != "success" ]; then
+            echo "::error::Latt CI tillat men quality-tests fick ovantat resultat ${TESTS_RESULT}"
+            exit 1
+          fi
+          if [ "$EXPECT_HEAVY" = "false" ] && [ "$PERSISTENCE_RESULT" != "skipped" ] && [ "$PERSISTENCE_RESULT" != "success" ]; then
+            echo "::error::Latt CI tillat men project-persistence fick ovantat resultat ${PERSISTENCE_RESULT}"
+            exit 1
+          fi
+          echo "✓ quality aggregate green (heavy=${EXPECT_HEAVY}, core=${CORE_RESULT}, tests=${TESTS_RESULT}, persistence=${PERSISTENCE_RESULT})"
 
   # Produktionsbygge (2026-07-29). `next build` kördes INGENSTANS före merge:
   # preview-deployer är avstängda i `vercel.json` (`deploymentEnabled` bara för
@@ -457,8 +540,7 @@ jobs:
   # låser att avsett schema (src/lib/db/schema.ts) == applicerat (db-init.mjs /
   # add-performance-indexes.mjs / migrations/*.sql). Kräver inga DB-creds. På full profil
   # finns ingen continue-on-error → ett rött resultat blockerar push/PR/merge.
-  # Deterministiska `*.stability.test.*` blockerar via quality-core ovan; jobbet
-  # `stability` nedan förblir warn-only.
+  # Deterministiska `*.stability.test.*` blockerar separat via quality-core ovan.
   schema-drift:
     needs: scope
     if: ${{ !cancelled() }}
@@ -492,78 +574,6 @@ jobs:
         if: ${{ env.RUN_HEAVY == 'true' }}
         run: npm run db:schema-drift
 
-  # Warn-only stabilitets-lane (grandmaster S1). Avsiktligt icke-blockerande:
-  # continue-on-error gör att ett rött stabilitets-resultat aldrig blockerar
-  # merge medan lanen stabiliseras. S4:s db:schema-drift-gate körs blockerande i det
-  # separata schema-drift-jobbet ovan; här ligger den bredare (flaky) vitest-lanen
-  # warn-only. Detta är platsen där C2 (ordlista-check) lägger sitt CI-steg.
-  # Icke-required: trigger-nivå-paths skulle skippa hela jobbet (OK här).
-  # Jobben delar dock `on:` med required quality/build/schema-drift, så ett
-  # workflow-nivå-paths skulle tysta även dem. Skip här är bara tidsvinst —
-  # inte en grind.
-  stability:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - name: Detect stability-relevant changes
-        id: filter
-        uses: dorny/paths-filter@v4
-        with:
-          filters: |
-            stability:
-              - '.github/workflows/ci.yml'
-              - '.node-version'
-              - '**/*.stability.test.ts'
-              - '**/*.stability.test.tsx'
-              - 'vitest.stability.config.ts'
-              - 'vitest.config.ts'
-              - 'src/lib/logging/**'
-              - 'src/lib/gen/**'
-              - 'src/lib/builder/**'
-              - 'src/lib/db/**'
-              - 'scripts/db/**'
-            terms:
-              - 'scripts/dev/check-term-coverage.mjs'
-              - 'scripts/docs/**'
-              - 'docs/architecture/glossary.md'
-              - 'config/naming-dictionary.json'
-              - 'docs/**/*.md'
-              - 'docs/**/*.mdx'
-
-      - name: Setup Node.js
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.stability == 'true' || steps.filter.outputs.terms == 'true' }}
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .node-version
-          cache: npm
-
-      - name: Install dependencies
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.stability == 'true' }}
-        run: npm ci
-
-      - name: Stability lane (warn-only)
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.stability == 'true' }}
-        run: npm run test:stability
-
-      # Grandmaster C2: light ordlista-check. Warn-first by design - the script always
-      # exits 0 and this whole job is continue-on-error, so it never blocks push/PR/merge.
-      # if: !cancelled() so it still runs even if an earlier step (the flaky stability
-      # lane) failed - step-level gating defaults to success(), which job-level
-      # continue-on-error does NOT override. Skips only on an actual run cancellation.
-      - name: Ordlista-check (warn-only, grandmaster C2)
-        if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || steps.filter.outputs.terms == 'true') }}
-        run: npm run check:terms
-
-      - name: Skip stability tests (no relevant changes)
-        if: ${{ github.event_name != 'workflow_dispatch' && steps.filter.outputs.stability != 'true' }}
-        run: echo "No stability-related files changed; skipping install and tests."
-
   # Preview-host runtime-guards (A#13/A#28). `preview-host/` är ett fristående
   # Node-paket med egen `package.json` och spårad lockfile; `npm ci` gör grinden
   # reproducerbar mot exakt committat dependency-träd. Guard-testerna är
@@ -576,43 +586,38 @@ jobs:
   # Next-källåsen (HMR-path mot installerad `next`) körs inte här — jobbet har
   # ingen `next`. Den lanen sitter i `quality` (`REQUIRE_NEXT_CONTRACT=1`).
   preview-host-guards:
+    needs: scope
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
+    env:
+      RUN_PREVIEW_HOST: ${{ needs.scope.result != 'success' || needs.scope.outputs.run_preview_host != 'false' }}
 
     steps:
+      - name: Report skipped preview-host scope
+        if: ${{ env.RUN_PREVIEW_HOST == 'false' }}
+        run: echo "No preview-host, shared-config or unknown paths changed; skipping install and tests."
+
       - name: Checkout
+        if: ${{ env.RUN_PREVIEW_HOST == 'true' }}
         uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - name: Detect preview-host-relevant changes
-        id: filter
-        uses: dorny/paths-filter@v4
-        with:
-          filters: |
-            preview_host:
-              - '.github/workflows/ci.yml'
-              - '.node-version'
-              - 'preview-host/**'
-
       - name: Setup Node.js
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.preview_host == 'true' }}
+        if: ${{ env.RUN_PREVIEW_HOST == 'true' }}
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
 
       - name: Install preview-host dependencies
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.preview_host == 'true' }}
+        if: ${{ env.RUN_PREVIEW_HOST == 'true' }}
         working-directory: preview-host
         run: npm ci --no-audit --no-fund
 
       - name: Preview-host runtime guards (blocking)
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.preview_host == 'true' }}
+        if: ${{ env.RUN_PREVIEW_HOST == 'true' }}
         working-directory: preview-host
         run: npm run check && npm run test:guards && npm run test:patch
-
-      - name: Skip preview-host guards (no relevant changes)
-        if: ${{ github.event_name != 'workflow_dispatch' && steps.filter.outputs.preview_host != 'true' }}
-        run: echo "No preview-host files changed; skipping install and tests."
 
   # Dead-code / orphan-file-hygien (självgående städ-enforcement). knip är tunat i
   # knip.json så FILES-kategorin har noll falska positiver: dynamiskt körda kataloger
@@ -666,28 +671,17 @@ jobs:
         if: ${{ env.RUN_HEAVY == 'true' }}
         run: npm run knip:files
 
-  # Auto-applicerar migrationer mot PRODUKTIONS-databasen vid push till master
-  # eller preview — så en migration ALDRIG kan bli deployad utan att köras
-  # (grundorsaken till att add-branded-site-domains.sql saknades i prod:
-  # migrationer körs INTE automatiskt vid Vercel-deploy). Preview använder
-  # samma prod-Postgres som Production (`config/db-targets.json`), så apply
-  # måste ske när koden landar på preview — inte först vid promote.
-  # Idempotent (`IF NOT EXISTS`) + bokför schema_migrations-ledgern, så varje
-  # re-run är en no-op.
+  # Read-only-vakt: PRODUKTIONS-databasen måste ha alla migrations i
+  # schema_migrations-ledgern. CI applicerar aldrig migrationer eller index mot
+  # någon live-databas; en röd gate kräver den explicita operatörsproceduren.
   #
   # SÄKERHET: prod-secret injiceras ALDRIG på pull_request (samma mönster som
-  # prod-migrations-applied / db-blob-sync-check) — bara trusted events (push
+  # db-blob-sync-check) — jobbet körs bara på trusted events (push
   # master|preview / manuell dispatch), så PR-kontrollerad kod aldrig ser
-  # prod-creds. Guard-steget SKIP:ar apply tyst om secret:en saknas (fork utan
-  # creds) så jobbet inte blir falskt rött där.
-  #
-  # Gate:as bakom quality, schema-drift, build och Backoffice så prod-schemat
-  # ALDRIG muteras för en trasig merge. Additiv migration parallellt med
-  # Vercels deploy är ofarligt; vill man ha helt race-fritt gate:ar man
-  # deployen bakom detta jobb separat.
-  prod-migrations-apply:
+  # prod-creds. Saknas secret på huvudrepot blir jobbet hårt rött; forks utan
+  # secrets varnar och skippar live-kontrollen.
+  prod-migrations-applied:
     if: ${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/preview') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
-    needs: [quality, schema-drift, build, backoffice-tests]
     runs-on: ubuntu-latest
 
     steps:
@@ -705,11 +699,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Fork-/no-secret-säkerhet: en fork (annat repo) saknar secret:en och SKIP:ar
-      # apply i stället för att falla rött. MEN på HUVUDREPOT ska en saknad secret
-      # falla HÅRT RÖTT — annars återuppstår exakt den false-green som orsakade den
-      # ursprungliga saknade migrationen (apply skippas tyst + check exit 0 = grönt
-      # utan att prod migrerats). Buggsvärm 2026-07-11: 3 oberoende träffar.
       - name: Detect prod credentials
         id: creds
         env:
@@ -718,125 +707,33 @@ jobs:
           if [ -n "$POSTGRES_URL_PROD" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.repository }}" = "Jakeminator123/sajtmaskin" ]; then
-            echo "::error::POSTGRES_URL_PROD saknas på huvudrepot — prod-migrationer kan inte auto-appliceras (false-green-risk). Sätt den: gh secret set POSTGRES_URL_PROD"
+            echo "::error::POSTGRES_URL_PROD saknas på huvudrepot — prod-ledgern kan inte verifieras (false-green-risk)."
             exit 1
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::POSTGRES_URL_PROD saknas — hoppar över auto-apply (fork/no-secret)."
+            echo "::warning::POSTGRES_URL_PROD saknas — hoppar över prod-ledgerkontrollen (fork/no-secret)."
           fi
 
-      # Dev/prod-identitetsguard: POSTGRES_URL_PROD MÅSTE peka på prod-Supabase
-      # (config/db-targets.json). Stoppar att prod-migrationer någonsin körs
-      # mot dev-databasen (eller ett okänt projekt) p.g.a. felkonfigurerad
-      # secret. Sanitiserad utskrift — aldrig credentials.
       - name: Verify prod DB identity (db-targets guard)
         if: steps.creds.outputs.present == 'true'
         run: node scripts/db/check-db-env-target.mjs --expect=prod
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
 
-      # Staging får inte kunna bryta produktionen. Preview och Production läser
-      # SAMMA prod-Postgres, men `master` kan ligga tiotals commits bakom — en
-      # migration som landar på preview träffar alltså den databas den GAMLA
-      # produktionskoden fortfarande läser. Additiv DDL är ofarlig där; allt som
-      # tar bort, byter typ eller byter namn bryter produktionen innan någon har
-      # promoverat. Den automatiska vägen begränsas därför till additivt, och
-      # resten kräver ett medvetet beslut (promote, eller db:migrate:prod med
-      # ägaren närvarande).
-      #
-      # Bara PENDING migrationer granskas — repot har redan applicerad brytande
-      # DDL i ledgern och den ska inte rödfärga varje push. Read-only (SELECT
-      # mot schema_migrations), därför inget DB_ALLOW_PROD_LIKE_WRITE.
-      #
-      # `master` gate:as inte: promoten ÄR det medvetna beslutet, och där byter
-      # kod och schema plats samtidigt.
-      - name: Additive-only gate for preview (prod DB is shared with production)
-        if: ${{ steps.creds.outputs.present == 'true' && github.ref == 'refs/heads/preview' }}
-        run: npm run db:migrate:additive-check
-        env:
-          POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
-          DB_SSL_REJECT_UNAUTHORIZED: "false"
-
-      - name: Apply pending migrations to production (idempotent)
-        if: steps.creds.outputs.present == 'true'
-        run: npx tsx scripts/db/run-migrations.ts
-        env:
-          POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
-          DB_ALLOW_PROD_LIKE_WRITE: "1"
-          DB_SSL_REJECT_UNAUTHORIZED: "false"
-
-      # Performance indexes are declared in add-performance-indexes.mjs (not in
-      # the SQL-migration ledger), so before this they only reached prod via the
-      # backoffice "Databashälsa"-button — a new hot-path index could silently
-      # never land in prod. Apply them here too: the script is idempotent
-      # (CREATE INDEX IF NOT EXISTS + dedupe-aware), so every run is a no-op once
-      # the indexes exist. Same prod-write guard (DB_ALLOW_PROD_LIKE_WRITE) as the
-      # migration step above.
-      - name: Apply performance indexes to production (idempotent)
-        if: steps.creds.outputs.present == 'true'
-        run: npm run db:perf-indexes -- --reason "auto:ci-${{ github.ref_name }}-push"
-        env:
-          POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
-          DB_ALLOW_PROD_LIKE_WRITE: "1"
-          DB_SSL_REJECT_UNAUTHORIZED: "false"
-
-  # Verifierar EFTER auto-apply att PRODUKTIONS-databasen har ALLA migrations
-  # applicerade (schema_migrations-ledgern == MIGRATION_ORDER). Read-only mot prod
-  # (bara SELECT). `needs: prod-migrations-apply` gör detta till en post-condition
-  # på apply-jobbet: rött = apply lyckades inte få prod i synk (ska aldrig hända
-  # när apply gått grönt) → kör `npm run db:migrate:prod` manuellt.
-  #
-  # SÄKERHET: prod-secret injiceras ALDRIG på pull_request (samma mönster som
-  # db-blob-sync-check) — jobbet körs bara på trusted events (push
-  # master|preview / manuell dispatch), så PR-kontrollerad kod aldrig ser
-  # prod-creds. Saknas secret (fork) SKIP:ar checken med exit 0.
-  prod-migrations-applied:
-    if: ${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/preview') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
-    needs: prod-migrations-apply
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .node-version
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
       - name: Prod migration-ledger gate (blocking)
+        if: steps.creds.outputs.present == 'true'
         run: node scripts/db/check-migrations-applied.mjs
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
           DB_SSL_REJECT_UNAUTHORIZED: "false"
 
-  # Live dev↔prod-synk i två steg (samma trusted-event-modell som apply-jobben
-  # ovan — prod-/dev-secrets injiceras ALDRIG på pull_request):
-  #
-  #   1. Auto-applicera migrationer + perf-index mot DEV-databasen. Prod får
-  #      sina via prod-migrations-apply; utan detta steg fick dev dem först
-  #      när någon råkade köra `npm run dev` lokalt, och databaserna gled
-  #      isär mellan varven.
-  #   2. `db:schema-parity` — jämför de två LEVANDE databaserna objekt för
-  #      objekt (tabeller, kolumner, index, constraints). Rött = verklig
-  #      drift som varken den statiska schema-drift-gaten eller ledger-
-  #      checkarna kan se (t.ex. en kolumn skapad direkt i Supabase-
-  #      dashboarden, eller en apply som bara halvlyckades).
-  #
-  # `needs: prod-migrations-apply` så pariteten alltid mäts EFTER att prod
-  # fått sina migrationer — annars vore varje merge med migration falskt röd.
-  # Körs på preview och master: preview delar prod-DB, så drift måste synas
+  # Read-only dev↔prod-paritet. Jobbet jämför de två levande databaserna men
+  # applicerar aldrig migrationer eller prestandaindex.
+  # Körs på preview och master: preview delar DEV, så DEV↔PROD-drift måste synas
   # när staging landar, inte först vid promote. Den schemalagda systern
   # (db-schema-parity.yml) fångar drift mellan pushar.
   db-schema-parity:
     if: ${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/preview') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
-    needs: prod-migrations-apply
     runs-on: ubuntu-latest
 
     steps:
@@ -854,7 +751,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Samma false-green-skydd som prod-migrations-apply: på huvudrepot är
+      # Samma false-green-skydd som ledger-vakten: på huvudrepot är
       # saknade secrets ett HÅRT fel; forkar utan secrets SKIP:ar i stället.
       - name: Detect dev + prod credentials
         id: creds
@@ -866,34 +763,25 @@ jobs:
           if [ -n "$POSTGRES_URL_DEV" ] && [ -n "$POSTGRES_URL_PROD" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.repository }}" = "Jakeminator123/sajtmaskin" ]; then
-            echo "::error::POSTGRES_URL_DEV och/eller POSTGRES_URL_PROD saknas på huvudrepot — dev-synk + schema-paritet kan inte verifieras (false-green-risk). Sätt dem: gh secret set POSTGRES_URL_DEV / POSTGRES_URL_PROD"
+            echo "::error::POSTGRES_URL_DEV och/eller POSTGRES_URL_PROD saknas på huvudrepot — schema-paritet kan inte verifieras (false-green-risk)."
             exit 1
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::DB-secrets saknas — hoppar över dev-synk + schema-paritet (fork/no-secret)."
+            echo "::warning::DB-secrets saknas — hoppar över schema-paritet (fork/no-secret)."
           fi
 
-      # Identitetsguard: POSTGRES_URL_DEV MÅSTE peka på dev-Supabase enligt
-      # config/db-targets.json — migrationssteget nedan skriver dit.
+      # Identitetsguarderna är read-only och körs före paritetskontrollen.
       - name: Verify dev DB identity (db-targets guard)
         if: steps.creds.outputs.present == 'true'
         run: node scripts/db/check-db-env-target.mjs --expect=dev
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL_DEV }}
 
-      - name: Apply pending migrations to dev (idempotent)
+      - name: Verify prod DB identity (db-targets guard)
         if: steps.creds.outputs.present == 'true'
-        run: npx tsx scripts/db/run-migrations.ts
+        run: node scripts/db/check-db-env-target.mjs --expect=prod
         env:
-          POSTGRES_URL: ${{ secrets.POSTGRES_URL_DEV }}
-          DB_SSL_REJECT_UNAUTHORIZED: "false"
-
-      - name: Apply performance indexes to dev (idempotent)
-        if: steps.creds.outputs.present == 'true'
-        run: npm run db:perf-indexes -- --reason "auto:ci-master-push-dev"
-        env:
-          POSTGRES_URL: ${{ secrets.POSTGRES_URL_DEV }}
-          DB_SSL_REJECT_UNAUTHORIZED: "false"
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
 
       # Själva paritetsgaten. --require: nu MÅSTE båda sidor gå att nå —
       # en tyst skip här vore exakt den false-green gaten finns för att stänga.

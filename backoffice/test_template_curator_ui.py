@@ -43,20 +43,11 @@ def _record(
 
 
 class CatalogUiHelpersTests(unittest.TestCase):
-    def test_committed_snapshot_has_all_five_expected_populations(self) -> None:
+    def test_ui_projects_every_catalog_population_count(self) -> None:
         snapshot = catalog.load_catalog(Path.cwd())
         self.assertEqual(
+            page._scope_counts(snapshot),
             {scope.value: count for scope, count in snapshot.scope_counts.items()},
-            {
-                "blob": 313,
-                "preview_fit": 278,
-                "gallery": 278,
-                "site_visible": 262,
-                # 68 sedan tomma mEefgKyVifq togs bort ur registret och dess
-                # två variantciteringar (#1087); 64 sedan fyra aldrig valbara
-                # id:n rensades som död konfig (INSP).
-                "variant_cited": 64,
-            },
         )
 
     def test_search_matches_id_title_and_category_case_insensitively(self) -> None:
@@ -267,18 +258,22 @@ class CuratorAppTests(unittest.TestCase):
         runner.assert_not_called()
         self.assertEqual(list(app.exception), [])
         metrics = {metric.label: metric.value for metric in app.metric}
-        self.assertEqual(metrics["Alla i Blob-manifestet"], "313")
-        self.assertEqual(metrics["Ryms i preview"], "278")
-        self.assertEqual(metrics["Finns i genererad gallerifil"], "278")
-        self.assertEqual(metrics["Synliga på sajten"], "262")
-        self.assertEqual(metrics["Citerade av varianter"], "64")
+        snapshot = catalog.load_catalog(Path.cwd())
+        for label, scope in {
+            "Alla i Blob-manifestet": catalog.CatalogScope.BLOB,
+            "Ryms i preview": catalog.CatalogScope.PREVIEW_FIT,
+            "Finns i genererad gallerifil": catalog.CatalogScope.GALLERY,
+            "Synliga på sajten": catalog.CatalogScope.SITE_VISIBLE,
+            "Citerade av varianter": catalog.CatalogScope.VARIANT_CITED,
+        }.items():
+            self.assertEqual(metrics[label], str(snapshot.scope_counts[scope]))
         self.assertEqual(len(app.multiselect), 1)
         analyze = next(
             button for button in app.button if button.label == "Analysera valda"
         )
         self.assertTrue(analyze.disabled)
 
-    def test_variant_cited_population_offers_all_64_templates(self) -> None:
+    def test_variant_cited_population_offers_canonical_ids_within_display_limit(self) -> None:
         from streamlit.testing.v1 import AppTest
 
         app = AppTest.from_function(_render_curator_for_apptest).run(timeout=10)
@@ -288,7 +283,14 @@ class CuratorAppTests(unittest.TestCase):
         population.select("Citerade av varianter")
         app.run(timeout=10)
         self.assertEqual(list(app.exception), [])
-        self.assertEqual(len(app.multiselect[0].options), 64)
+        snapshot = catalog.load_catalog(Path.cwd())
+        limit = next(widget.value for widget in app.number_input if widget.label == "Visa högst")
+        expected_ids = list(snapshot.variant_source_template_ids)[:limit]
+        self.assertTrue(expected_ids)
+        self.assertEqual(
+            [label.rsplit(" · ", 1)[-1] for label in app.multiselect[0].options],
+            expected_ids,
+        )
         app.multiselect[0].select(app.multiselect[0].options[0])
         app.run(timeout=10)
         analyze = next(

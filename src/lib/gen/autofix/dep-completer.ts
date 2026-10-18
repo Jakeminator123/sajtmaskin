@@ -252,7 +252,7 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "mapbox-gl": "^3",
   "react-map-gl": "^7",
   "three": "0.185.1",
-  "@react-three/fiber": "9.7.0",
+  "@react-three/fiber": "9.8.1",
   "@react-three/drei": "10.7.7",
   "@react-three/rapier": "2.2.0",
   "gsap": "^3",
@@ -275,7 +275,8 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "rehype-highlight": "^7",
   "chart.js": "^4",
   "react-chartjs-2": "^5",
-  "@visactor/react-vchart": "^2",
+  // 2.2.0 depends on @visactor/vutils-extension@2.2.0, which was never published.
+  "@visactor/react-vchart": "2.1.7",
   "d3": "^7",
   "visx": "^3",
   "mathjs": "^13",

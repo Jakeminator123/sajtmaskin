@@ -53,18 +53,69 @@ function lines(value) {
     .filter(Boolean);
 }
 
+/** Leveransgren för vanligt PR-arbete (preview.sajtmaskin.se), skild från trunk. */
+export const DEFAULT_DELIVERY_BRANCH = "preview";
+
 export function parseArgs(argv) {
-  const options = { plan: false, full: false, fetch: true, keepGoing: false, base: null };
+  const options = { plan: false, committed: false, full: false, fetch: true, keepGoing: false, base: null };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--plan") options.plan = true;
+    else if (arg === "--committed") options.committed = true;
     else if (arg === "--full") options.full = true;
     else if (arg === "--no-fetch") options.fetch = false;
     else if (arg === "--keep-going") options.keepGoing = true;
     else if (arg === "--base") options.base = argv[++i] ?? null;
     else throw new Error(`unknown argument: ${arg}`);
   }
+  if (options.committed && !options.plan) throw new Error("--committed is plan-only; tests run against the working tree.");
   return options;
+}
+
+/**
+ * Jämförelsebas för lokal verify:pr.
+ * Explicit `--base` vinner. Annars preview, oavsett lokal branch. Även en
+ * synkbranch måste innehålla färsk preview; rå master är inte en färdig synk.
+ * Produktens produktion granskas uttryckligen med --base origin/master.
+ */
+export function resolveVerificationBase({ explicitBase, branch: _branch, policy: _policy }) {
+  if (explicitBase) return explicitBase;
+  return `origin/${DEFAULT_DELIVERY_BRANCH}`;
+}
+
+/**
+ * Vilken remote-gren `git fetch origin <ref>` ska hämta för en given bas.
+ * Endast origin-tracking-refar hämtas, med hela branchnamnet. Lokala refs/SHA:n
+ * är uttryckliga snapshots och får aldrig tolkas som remote-branchnamn.
+ */
+export function resolveFetchRefForBase(base) {
+  const value = String(base ?? "").trim();
+  if (!value) return null;
+  const originMatch = /^(?:refs\/remotes\/)?origin\/([^\s\\]+)$/.exec(value);
+  if (originMatch) return originMatch[1];
+  return null;
+}
+
+/** Tydligt fel när lokal bas-ref saknas eller inte gått att verifiera efter fetch. */
+export function formatMissingBaseError(base) {
+  const fetchRef = resolveFetchRefForBase(base);
+  const remedy = fetchRef
+    ? `Hämta den (git fetch origin ${fetchRef})`
+    : "Kontrollera den lokala refen/SHA:n eller hämta dess remote-gren uttryckligen";
+  return `basen ${base} saknas lokalt. ${remedy} och försök igen.`;
+}
+
+/**
+ * @param {{ branch: string, base: string }} context
+ * @param {(args: string[], options?: Record<string, unknown>) => { status: number | null }} [gitCommand]
+ */
+export function assertFreshVerificationBase({ branch, base }, gitCommand = git) {
+  const ancestor = gitCommand(["merge-base", "--is-ancestor", base, "HEAD"], {
+    allowFailure: true,
+  });
+  if (ancestor.status !== 0) {
+    throw new Error(`${branch} innehåller inte färsk ${base}. Uppdatera branchen innan PR/push.`);
+  }
 }
 
 /**
@@ -168,9 +219,10 @@ export function formatImpactSummary({ branch, base, head, impact }) {
 /**
  * @param {string} base
  * @param {(args: string[], options?: Record<string, unknown>) => { stdout: string }} [gitCommand]
+ * @param {string | null} [head] Immutable delivery head for plan-only mode.
  */
-export function trackedPathsForBase(base, gitCommand = git) {
-  const result = gitCommand(["diff", "--name-status", "-z", "--diff-filter=ACDMRTUXB", base]);
+export function trackedPathsForBase(base, gitCommand = git, head = null) {
+  const result = gitCommand(["diff", "--name-status", "-z", "--diff-filter=ACDMRTUXB", base, ...(head ? [head] : [])]);
   return parseGitNameStatus(result.stdout);
 }
 
@@ -179,35 +231,44 @@ async function main() {
   const inputs = loadWorkflowInputs(REPO_ROOT);
   const { policy } = inputs;
 
-  if (options.fetch && !isCiRunner(process.env)) {
-    console.log(`[verify:pr] hämtar origin/${policy.trunk}…`);
-    const fetched = git(["fetch", "origin", policy.trunk, "--quiet"], { allowFailure: true });
-    if (fetched.status !== 0) {
-      throw new Error(
-        `kunde inte hämta färsk ${policy.trunk}: ${(fetched.stderr || "okänt fel").trim()}`,
-      );
-    }
-  }
-
   const branch = git(["branch", "--show-current"]).stdout.trim();
   const head = git(["rev-parse", "HEAD"]).stdout.trim();
   assertBranchSafety({ branch, head, policy });
 
-  const base = options.base ?? `origin/${policy.trunk}`;
-  git(["rev-parse", "--verify", base]);
-  const ancestor = git(["merge-base", "--is-ancestor", base, "HEAD"], { allowFailure: true });
-  if (ancestor.status !== 0) {
-    throw new Error(`${branch} innehåller inte färsk ${base}. Uppdatera branchen innan PR/push.`);
+  const base = resolveVerificationBase({
+    explicitBase: options.base,
+    branch,
+    policy,
+  });
+
+  if (options.fetch && !isCiRunner(process.env)) {
+    const fetchRef = resolveFetchRefForBase(base);
+    if (fetchRef) {
+      console.log(`[verify:pr] hämtar origin/${fetchRef}…`);
+      const fetched = git(["fetch", "origin", fetchRef, "--quiet"], { allowFailure: true });
+      if (fetched.status !== 0) {
+        throw new Error(
+          `kunde inte hämta färsk ${fetchRef}: ${(fetched.stderr || "okänt fel").trim()}`,
+        );
+      }
+    }
   }
 
-  const tracked = trackedPathsForBase(base);
-  const untracked = lines(git(["ls-files", "--others", "--exclude-standard"]).stdout);
+  const verified = git(["rev-parse", "--verify", base], { allowFailure: true });
+  if (verified.status !== 0) {
+    throw new Error(formatMissingBaseError(base));
+  }
+  assertFreshVerificationBase({ branch, base });
+
+  const tracked = trackedPathsForBase(base, git, options.committed ? head : null);
+  const untracked = options.committed ? [] : lines(git(["ls-files", "--others", "--exclude-standard"]).stdout);
   const impact = collectImpact({
     ...inputs,
     changedFiles: [...tracked, ...untracked],
     forceFull: options.full,
   });
   console.log(formatImpactSummary({ branch, base, head, impact }));
+  if (options.committed) console.log("[verify:pr] plan gäller endast committad HEAD; ocommittat arbete ingår inte i leveransen.");
   if (impact.files.length === 0) {
     console.log("[verify:pr] ingen diff mot base — klart.");
     return;
@@ -216,7 +277,7 @@ async function main() {
     resolveVerificationCommand(command, process.env),
   );
   if (executableCommands.includes("test:pr")) {
-    console.log("[verify:pr] lokal testprofil: test:ci → test:pr (50% workers, fail-fast)");
+    console.log("[verify:pr] lokal testprofil: test:ci → test:pr (4 workers, fail-fast)");
     printList("valfri lokal exekveringsprofil", executableCommands);
   }
   if (options.plan) return;

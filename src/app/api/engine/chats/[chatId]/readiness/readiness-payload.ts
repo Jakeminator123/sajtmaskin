@@ -152,7 +152,9 @@ export function buildPackageTreePublishBlocker(
   if (gate.code !== DEPLOY_PACKAGE_TREE_ERESOLVE) return null;
   return {
     id: "package-tree-eresolve-blocks-publish",
-    title: "Paketträdet kan inte installeras på Vercel.",
+    title: gate.conflict?.code === "next_react_peer_resolution_required"
+      ? "Paketträdets valda versioner behöver verifieras."
+      : "Paketträdet kan inte installeras på Vercel.",
     detail:
       gate.message ||
       "package.json har ett Next/React-par som npm vägrar (ERESOLVE). Preview kan ändå starta med --legacy-peer-deps. Publicera inte förrän trädet är sammanhängande.",

@@ -3,8 +3,8 @@
  * pekar på RÄTT Supabase-projekt för den avsedda miljön (dev/prod), enligt
  * den kanoniska mappningen i `config/db-targets.json`.
  *
- * Syfte: stoppa dev/prod-förvirring — t.ex. att CI:s prod-migrationer körs
- * mot dev-databasen, eller att en lokal `.env.local` råkar peka på prod.
+ * Syfte: stoppa dev/prod-förvirring — t.ex. att CI:s prod-ledgerkontroll läser
+ * dev-databasen, eller att en lokal `.env.local` råkar peka på prod.
  *
  * Användning:
  *   node scripts/db/check-db-env-target.mjs --expect=prod   # CI-prod-guard
@@ -181,6 +181,34 @@ export function checkDbEnvTarget({ expect, urlValue, targets }) {
   };
 }
 
+/**
+ * Vercel deployments must use the registered project, including fallback URLs.
+ * @param {Record<string, string | undefined>} [env]
+ */
+export function checkVercelDbEnvTargets(env = process.env, targets = loadDbTargets()) {
+  if (env.VERCEL !== "1")
+    return { ok: true, message: "Ej Vercel-build — ingen deployment-target att kontrollera" };
+  const expect = targets.vercelEnvironments?.[env.VERCEL_ENV];
+  if (expect !== "dev" && expect !== "prod") {
+    return { ok: false, message: "Vercel-miljön saknar mappning i config/db-targets.json" };
+  }
+  const configured = CONNECTION_KEYS.map((key) => ({
+    key,
+    value: normalizeDbUrlValue(env[key]),
+  })).filter(({ value }) => value);
+  if (configured.length === 0) return { ok: false, message: "Ingen databas-URL i Vercel-builden" };
+  for (const { key, value } of configured) {
+    const result = checkDbEnvTarget({ expect, urlValue: value, targets });
+    if (!result.ok || result.level !== "ok") {
+      return { ok: false, message: `${key}: ${result.message}` };
+    }
+  }
+  return {
+    ok: true,
+    message: `Vercel ${env.VERCEL_ENV} → ${expect}; alla databas-URL:er har rätt projekt`,
+  };
+}
+
 function parseArgs(argv) {
   const args = { expect: null };
   for (const arg of argv) {
@@ -213,6 +241,12 @@ function loadLocalEnvFiles(expect) {
 }
 
 function main() {
+  if (process.argv.includes("--vercel")) {
+    const result = checkVercelDbEnvTargets();
+    console[result.ok ? "log" : "error"](`[db-env-target] ${result.message}`);
+    process.exitCode = result.ok ? 0 : 1;
+    return;
+  }
   const { expect } = parseArgs(process.argv.slice(2));
   if (!expect) {
     console.error("[db-env-target] Ange --expect=dev eller --expect=prod");

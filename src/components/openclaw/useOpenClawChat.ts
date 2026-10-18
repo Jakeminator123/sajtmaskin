@@ -16,8 +16,12 @@ import { collectOpenClawClientContext } from "@/lib/openclaw/client-context";
 import {
   consumeGatewayStream,
   logOpenClawChatStreamEnd,
+  OPENCLAW_DISPATCH_HEADER,
+  OPENCLAW_DISPATCH_NOT_STARTED,
+  OPENCLAW_DISPATCH_STARTED,
   OPENCLAW_EMPTY_REPLY_COPY,
   type GatewayErrorDescription,
+  type OpenClawDispatchOutcome,
 } from "@/lib/openclaw/gateway-response";
 import {
   createArmedMandate,
@@ -28,7 +32,9 @@ import {
   buildArmedHandshakePrompt,
   decideArmedHandshakeWake,
   hasArmedHandshakeWoken,
-  markArmedHandshakeWoken,
+  releaseArmedHandshakeWake,
+  reserveArmedHandshakeWake,
+  settleArmedHandshakeWake,
 } from "@/lib/openclaw/debug/armed-continuation";
 import { parseOpenClawMessage } from "@/lib/openclaw/text-field-actions";
 import { readActiveBuilderTarget } from "@/lib/openclaw/builder-target";
@@ -52,6 +58,8 @@ export interface OpenClawSendOptions {
    * spend the invited customer's quota. Defaults to true.
    */
   countTowardCampaignQuota?: boolean;
+  /** Internal receipt for the armed-handshake reservation. */
+  onDispatchOutcome?: (outcome: OpenClawDispatchOutcome) => void;
 }
 
 export function useOpenClawChat() {
@@ -80,8 +88,18 @@ export function useOpenClawChat() {
 
   const send = useCallback(
     async (text: string, options?: OpenClawSendOptions) => {
+      let dispatchOutcome: OpenClawDispatchOutcome = "not-started";
+      let dispatchOutcomeReported = false;
+      const reportDispatchOutcome = () => {
+        if (dispatchOutcomeReported) return;
+        dispatchOutcomeReported = true;
+        options?.onDispatchOutcome?.(dispatchOutcome);
+      };
       const trimmed = text.trim();
-      if (!trimmed) return;
+      if (!trimmed) {
+        reportDispatchOutcome();
+        return;
+      }
 
       // Read the live values rather than the render-time ones: the continuation
       // loop calls `send` from a timer, and a closure that has not caught up
@@ -106,7 +124,10 @@ export function useOpenClawChat() {
         }
       }
 
-      if (streaming) return;
+      if (streaming) {
+        reportDispatchOutcome();
+        return;
+      }
 
       const clientContext = collectOpenClawClientContext();
       const campaignScript = useOpenClawStore.getState().campaignScript;
@@ -126,6 +147,7 @@ export function useOpenClawChat() {
           content: KOSTNADSFRI_ADVICE_EXHAUSTED_COPY,
           timestamp: Date.now(),
         });
+        reportDispatchOutcome();
         return;
       }
 
@@ -171,7 +193,7 @@ export function useOpenClawChat() {
       let accumulated = "";
       let streamSucceeded = false;
       try {
-        const res = await fetch("/api/openclaw/chat", {
+        const responsePromise = fetch("/api/openclaw/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -184,6 +206,17 @@ export function useOpenClawChat() {
           }),
           signal: abortRef.current.signal,
         });
+        // Once fetch returned a promise the browser may already have delivered
+        // the request. Only an explicit server receipt can narrow this again.
+        dispatchOutcome = "uncertain";
+        const res = await responsePromise;
+        const dispatchReceipt = res.headers.get(OPENCLAW_DISPATCH_HEADER);
+        dispatchOutcome =
+          dispatchReceipt === OPENCLAW_DISPATCH_NOT_STARTED
+            ? "not-started"
+            : dispatchReceipt === OPENCLAW_DISPATCH_STARTED
+              ? "started"
+              : "uncertain";
 
         if (!res.ok || !res.body) {
           const errText = await res.text().catch(() => "");
@@ -242,11 +275,15 @@ export function useOpenClawChat() {
         // model. Only `message` is safe here; `detail` names internal models
         // and subscriptions.
         if (gatewayError) {
+          const hasIncompleteAction =
+            parseOpenClawMessage(accumulated).hasIncompleteAction;
           updateAssistantMessage(
             placeholderId,
-            accumulated
-              ? `${accumulated}\n\n${gatewayError.message}`
-              : gatewayError.message,
+            hasIncompleteAction
+              ? `${gatewayError.message}\n\n${accumulated}`
+              : accumulated
+                ? `${accumulated}\n\n${gatewayError.message}`
+                : gatewayError.message,
           );
         } else if (!accumulated) {
           // Keep the fallback out of `accumulated`. A1's handshake wake
@@ -273,7 +310,7 @@ export function useOpenClawChat() {
         // Charge only after a stream that produced visible assistant text.
         // HTTP errors, abort, empty streams, error envelopes and a truncated
         // action-only body must not burn a campaign round.
-        if (shouldChargeQuota && parsedEnd.visibleContent.length > 0) {
+        if (shouldChargeQuota && streamSucceeded && parsedEnd.visibleContent.length > 0) {
           consumeCampaignAdviceRound();
         }
       } catch (e) {
@@ -301,6 +338,7 @@ export function useOpenClawChat() {
           activeAssistantIdRef.current = null;
         }
         abortRef.current = null;
+        reportDispatchOutcome();
       }
 
       // Path (b): a confirmation-only `start_bug_hunt` never sends or watches.
@@ -319,11 +357,30 @@ export function useOpenClawChat() {
           streamSucceeded,
         });
         if (decision.kind === "wake" && mandate) {
-          markArmedHandshakeWoken(mandate.createdAt);
-          await sendRef.current?.(buildArmedHandshakePrompt({ remaining: mandate.remaining }), {
-            allowArming: false,
-            countTowardCampaignQuota: false,
-          });
+          const reservation = reserveArmedHandshakeWake(mandate.createdAt);
+          const nestedSend = sendRef.current;
+          if (reservation && nestedSend) {
+            let receiptReported = false;
+            try {
+              await nestedSend(buildArmedHandshakePrompt({ remaining: mandate.remaining }), {
+                allowArming: false,
+                countTowardCampaignQuota: false,
+                onDispatchOutcome: (outcome) => {
+                  receiptReported = true;
+                  if (outcome === "not-started") {
+                    releaseArmedHandshakeWake(reservation);
+                  } else {
+                    settleArmedHandshakeWake(reservation);
+                  }
+                },
+              });
+            } finally {
+              // No receipt means an exceptional/unknown path, never safe retry.
+              if (!receiptReported) settleArmedHandshakeWake(reservation);
+            }
+          } else if (reservation) {
+            releaseArmedHandshakeWake(reservation);
+          }
         }
       }
     },

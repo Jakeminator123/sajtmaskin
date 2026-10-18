@@ -158,6 +158,8 @@ export async function runFinalizeFastPath(params: {
    * hittar inga skyddade filer).
    */
   selectedDossiers?: DossierEntry[];
+  /** Existing proven dossiers whose previous verbatim bytes are request-locally frozen. */
+  preservedDossiers?: DossierEntry[];
   /** Dossiers explicitly removed by this follow-up; their owned files are deleted after merge. */
   removedDossiers?: DossierEntry[];
   /** Stable id for repair-ledger dedupe within this finalize run. */
@@ -186,6 +188,7 @@ export async function runFinalizeFastPath(params: {
     qualityGateChecksIncludesTypecheck,
     qualityGatePlanned,
     selectedDossiers,
+    preservedDossiers,
     removedDossiers,
     repairScopeId,
   } = params;
@@ -449,6 +452,7 @@ export async function runFinalizeFastPath(params: {
     contentForVersion,
     onProgress,
     selectedDossiers,
+    preservedDossiers,
     removedDossiers,
     repairLedger,
     repairScopeId,

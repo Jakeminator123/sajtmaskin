@@ -43,7 +43,6 @@ function resolve(overrides: Partial<Parameters<typeof resolveDossierLifecycle>[0
   return resolveDossierLifecycle({
     entry: dossier(),
     configuredBySelection: false,
-    materialized: false,
     pending: false,
     realEnvKeys: new Set<string>(),
     requirements: [],
@@ -73,7 +72,7 @@ describe("resolveDossierLifecycle", () => {
     });
   });
 
-  it("marks a materialized keyless hard dossier self-contained once it is no longer pending", () => {
+  it("marks a keyless hard dossier self-contained once it is no longer pending", () => {
     const result = resolve({
       entry: dossier({
         class: "hard",
@@ -82,7 +81,6 @@ describe("resolveDossierLifecycle", () => {
         files: [{ path: "components/analytics.tsx", role: "client" }],
       }),
       configuredBySelection: true,
-      materialized: true,
     });
 
     expect(result.overviewStatus).toBe("self-contained");
@@ -125,7 +123,6 @@ describe("resolveDossierLifecycle", () => {
   it("marks detected code live only with real keys and server evidence", () => {
     const result = resolve({
       configuredBySelection: true,
-      materialized: true,
       realEnvKeys: new Set(["EXAMPLE_SECRET_KEY"]),
       requirements: [requirement()],
       versionFiles: [{ path: "app/api/example/route.ts", content: "export {}" }],
@@ -133,7 +130,6 @@ describe("resolveDossierLifecycle", () => {
 
     expect(result).toMatchObject({
       overviewStatus: "built-live",
-      materialized: true,
       configured: true,
       serverEvidenceSatisfied: true,
     });
@@ -142,35 +138,30 @@ describe("resolveDossierLifecycle", () => {
   it("preserves unknown file evidence instead of treating it as a known empty version", () => {
     const result = resolve({
       configuredBySelection: true,
-      materialized: null,
       realEnvKeys: new Set(["EXAMPLE_SECRET_KEY"]),
       requirements: null,
       versionFiles: null,
     });
 
     expect(result.overviewStatus).toBe("planned");
-    expect(result.materialized).toBeNull();
     expect(result.detected).toBeNull();
     expect(result.serverEvidenceSatisfied).toBeNull();
   });
 
   it("distinguishes a known empty version from unavailable evidence", () => {
     const result = resolve({
-      materialized: false,
       requirements: [],
       versionFiles: [],
     });
 
     expect(result.overviewStatus).toBe("planned");
-    expect(result.materialized).toBe(false);
     expect(result.detected).toBe(false);
     expect(result.serverEvidenceSatisfied).toBe(false);
   });
 
-  it("accepts model-built API evidence without claiming exact materialization", () => {
+  it("accepts canonical model-built API evidence", () => {
     const result = resolve({
       configuredBySelection: true,
-      materialized: false,
       realEnvKeys: new Set(["EXAMPLE_SECRET_KEY"]),
       requirements: [requirement()],
       versionFiles: [
@@ -183,10 +174,35 @@ describe("resolveDossierLifecycle", () => {
 
     expect(result).toMatchObject({
       overviewStatus: "built-live",
-      materialized: false,
       detected: true,
       serverEvidenceSatisfied: true,
     });
+  });
+
+  it.each([
+    " app/api/example/route.ts ",
+    "app/api//example/route.ts",
+    "app//api/example/route.ts",
+    "app/api/./example/route.ts",
+    "app/api/../example/route.ts",
+    "./app/api/example/route.ts",
+    "/app/api/example/route.ts",
+    "app\\api\\example\\route.ts",
+  ])("does not accept non-canonical server evidence at %j", (path) => {
+    const result = resolve({
+      configuredBySelection: true,
+      realEnvKeys: new Set(["EXAMPLE_SECRET_KEY"]),
+      requirements: [requirement()],
+      versionFiles: [
+        {
+          path,
+          content: "const key = process.env.EXAMPLE_SECRET_KEY; export { key };",
+        },
+      ],
+    });
+
+    expect(result.overviewStatus).toBe("built-demo");
+    expect(result.serverEvidenceSatisfied).toBe(false);
   });
 
   it("does not let partial manifest injection fall through to model-built evidence", () => {

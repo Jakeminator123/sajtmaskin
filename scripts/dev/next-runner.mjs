@@ -172,16 +172,13 @@ async function maybeRunErrorLogRagIndexer() {
 
 // ── Local schema guard ──
 //
-// `predev` already migrates the local DB (db:init applies every migration), but
-// that only covers `npm run dev`. SKIP_PREDEV=1 and running this file directly
-// skip it, and `db:init:soft` can swallow a mid-run failure — either way dev
-// boots against a stale schema with no visible signal. This read-only check
-// (one ledger SELECT) prints an unmissable block when the DB is behind and
+// Dev start never applies DB migrations. This read-only check prints an
+// unmissable block when the DB is behind and
 // stays completely silent when it is fine.
 //
 // Fire-and-forget on purpose: it must never delay startup, and it must never
 // run DDL from a background process — applying stays an explicit entry point
-// (`predev` / `npm run db:ensure`).
+// (`npm run db:ensure` for initialized dev; `db:init` for fresh throwaway DB).
 const SCHEMA_GUARD_PATH = resolve(__dirname, "..", "db", "ensure-schema.mjs");
 
 function startSchemaGuard() {

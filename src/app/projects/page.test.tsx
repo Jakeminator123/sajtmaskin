@@ -164,21 +164,62 @@ describe("ProjectsPage", () => {
     });
   });
 
-  it("does not paint a failed overview fetch as a confirmed draft", async () => {
-    getProjects.mockResolvedValue([project()]);
-    getProjectSite.mockRejectedValue(new Error("site overview failed"));
+  it("shows a failed overview only in All and retries that project into its segment", async () => {
+    getProjects.mockResolvedValue([project(), project({ id: "proj_draft", name: "Utkastet" })]);
+    let liveAttempts = 0;
+    getProjectSite.mockImplementation(async (id: string) => {
+      if (id === "proj_draft") {
+        return site({
+          projectId: "proj_draft",
+          state: "never_published",
+          address: { liveUrl: null, kind: "none" },
+        });
+      }
+      liveAttempts += 1;
+      if (liveAttempts === 1) throw new Error("site overview failed");
+      return site();
+    });
 
     render(<ProjectsPage />);
 
     expect(await screen.findByRole("heading", { name: "Live-sajten" })).toBeTruthy();
     const card = screen.getByRole("heading", { name: "Live-sajten" }).closest("article");
     expect(card).toBeTruthy();
-    expect(within(card!).getByText("Hämtar status")).toBeTruthy();
+    expect(within(card!).getByText("Status kunde inte hämtas")).toBeTruthy();
+    expect(within(card!).queryByText("Hämtar status")).toBeNull();
     expect(within(card!).queryByText("Utkast")).toBeNull();
-    expect(within(card!).getByRole("link", { name: /^Hantera sajt$/ })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Redigera" })).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "Öppna i byggaren" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "Fortsätt bygga" })).toBeNull();
+    const filters = within(screen.getByRole("group", { name: "Filtrera projekt" }));
+    expect(filters.getByRole("button", { name: /Alla/ }).textContent).toContain("2");
+    expect(filters.getByRole("button", { name: /Publicerade/ }).textContent).toContain("0");
+    expect(filters.getByRole("button", { name: /Utkast/ }).textContent).toContain("1");
+
+    fireEvent.click(filters.getByRole("button", { name: /Publicerade/ }));
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "Live-sajten" })).toBeNull();
+      expect(screen.queryByRole("heading", { name: "Utkastet" })).toBeNull();
+    });
+
+    fireEvent.click(filters.getByRole("button", { name: /Utkast/ }));
+    expect(screen.queryByRole("heading", { name: "Live-sajten" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Utkastet" })).toBeTruthy();
+
+    fireEvent.click(filters.getByRole("button", { name: /Alla/ }));
+    const failedCard = screen.getByRole("heading", { name: "Live-sajten" }).closest("article");
+    expect(failedCard).toBeTruthy();
+    fireEvent.click(within(failedCard!).getByRole("button", { name: "Försök igen" }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Publicerad").length).toBeGreaterThan(0);
+      expect(filters.getByRole("button", { name: /Publicerade/ }).textContent).toContain("1");
+    });
+    expect(getProjects).toHaveBeenCalledTimes(1);
+    expect(getProjectSite).toHaveBeenCalledTimes(3);
+    expect(getProjectSite).toHaveBeenNthCalledWith(1, "proj_live");
+    expect(getProjectSite).toHaveBeenNthCalledWith(2, "proj_draft");
+    expect(getProjectSite).toHaveBeenNthCalledWith(3, "proj_live");
+
+    fireEvent.click(filters.getByRole("button", { name: /Publicerade/ }));
+    expect(screen.getByRole("heading", { name: "Live-sajten" })).toBeTruthy();
   });
 
   it("still offers delete for a project in the grid", async () => {

@@ -8,7 +8,7 @@ const navItems = [
 
 export function MarketingHeader() {
   return (
-    <header className="sticky top-0 z-50 border-b border-border/70 bg-background/80 backdrop-blur-md">
+    <header className="border-border/70 bg-background/80 sticky top-0 z-50 border-b backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <a href="/" className="font-semibold tracking-tight">
           [Produktnamn]
@@ -16,11 +16,17 @@ export function MarketingHeader() {
 
         <nav className="hidden items-center gap-7 md:flex">
           {navItems.map((item) => (
-            <a key={item.href} href={item.href} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+            <a
+              key={item.href}
+              href={item.href}
+              className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+            >
               {item.label}
             </a>
           ))}
-          <Button size="sm" className="rounded-full">Starta gratis</Button>
+          <Button asChild size="sm" className="rounded-full">
+            <a href="#pricing">Se exempelpriser</a>
+          </Button>
         </nav>
       </div>
     </header>

@@ -760,6 +760,61 @@ describe("POST quality-gate", () => {
     expect(body.promotionBlocked).toBeUndefined();
   });
 
+  it("returns an actionable non-retryable hold when the primitive detects an integration migration", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    runQualityGateChecks.mockResolvedValue({
+      results: [{ check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 10 }],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: null,
+      jobStartedAt: "2026-04-13T10:00:00.000Z",
+      jobFinishedAt: "2026-04-13T10:00:00.010Z",
+    });
+    qualityGateAllPassed.mockReturnValue(true);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    isPreferredHeadVersion.mockResolvedValue(true);
+    assertPromoteAllowed.mockResolvedValue({ allowed: true });
+    promoteVersion.mockResolvedValue("integration_migration_required");
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    expect(res.status).toBe(409);
+    expect(res.headers.get("Retry-After")).toBeNull();
+    expect(await res.json()).toMatchObject({
+      code: "integration_migration_required",
+      retryable: false,
+      promoted: false,
+    });
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(createEngineVersionErrorLogs).not.toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          level: "info",
+          message: expect.stringContaining("Quality gate passed"),
+        }),
+      ]),
+    );
+  });
+
   it("M#vlane2/BB#299: retries a transient promote statement-timeout, then promotes without failing the version", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat-1" },

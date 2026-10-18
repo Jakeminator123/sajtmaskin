@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import JSZip from "jszip";
+import { importedFileContentForExport } from "@/lib/import/extract-imported-archive";
 import { extractContent } from "@/lib/backoffice/content-extractor";
 import { generateBackofficeFiles } from "@/lib/backoffice/template-generator";
 import { getCurrentUser } from "@/lib/auth/auth";
@@ -37,7 +38,7 @@ async function buildZipBufferFromEngineVersion(
   for (const file of completeProject) {
     const path = typeof file.path === "string" ? file.path.trim() : "";
     if (!path || typeof file.content !== "string") continue;
-    zip.file(path, file.content);
+    zip.file(path, importedFileContentForExport(path, file.content, file.language));
   }
   return zip.generateAsync({ type: "arraybuffer" });
 }
@@ -136,7 +137,7 @@ async function processDownload(
     const backoffice = generateBackofficeFiles(manifest, backofficePassword);
 
     for (const file of backoffice.files) {
-      zip.file(file.path, file.content);
+      zip.file(file.path, importedFileContentForExport(file.path, file.content));
     }
 
     zip.file(".env.example", backoffice.envExample);

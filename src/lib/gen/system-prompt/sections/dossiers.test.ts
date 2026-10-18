@@ -1,6 +1,80 @@
 import { describe, expect, it } from "vitest";
-import type { DossierSelectionResult } from "../../dossiers";
+import {
+  getAllDossiers,
+  getDossierInstructions,
+  type DossierSelectionResult,
+} from "../../dossiers";
 import { renderCapabilityModifyHintBlock, renderDossierBlocks } from "./dossiers";
+
+describe("renderDossierBlocks — configuration guidance", () => {
+  function selection(withInstructions = true): DossierSelectionResult {
+    const stripe = getAllDossiers().find((entry) => entry.id === "stripe-checkout")!;
+    return {
+      poolSize: 1,
+      byCapability: { payments: [stripe.id] },
+      selected: [
+        {
+          reason: "capability-match",
+          configured: false,
+          entry: {
+            ...stripe,
+            instructions: withInstructions
+              ? getDossierInstructions(stripe.class, stripe.id)
+              : undefined,
+            configInputs: [
+              {
+                id: "price-id",
+                label: "One-time price",
+                target: "component-prop",
+                binding: "priceId",
+                purpose:
+                  "Use an owner-supplied one-time Price for CheckoutButton; never invent a price id.",
+              },
+            ],
+            providerSetup: [
+              {
+                id: "account",
+                title: "Provider account",
+                instruction: "Choose the provider sandbox account.",
+                references: { envVarKeys: ["STRIPE_SECRET_KEY"] },
+              },
+              {
+                id: "price",
+                title: "Create Price",
+                instruction: "Create the one-time product price.",
+                references: { configInputIds: ["price-id"] },
+              },
+            ],
+          },
+        },
+      ],
+    };
+  }
+
+  it("surfaces code inputs separately from env keys and keeps provider steps ordered", () => {
+    const text = renderDossierBlocks(selection()).join("\n");
+    expect(text).toContain("Dossier Configuration Guidance");
+    expect(text).toContain("binding `priceId`");
+    expect(text).toContain("owner-supplied one-time Price");
+    expect(text).toContain("STRIPE_SECRET_KEY");
+    expect(text.indexOf("Provider account")).toBeLessThan(text.indexOf("Create Price"));
+    expect(text).toContain("not readiness or live acceptance evidence");
+    expect(text).toContain("UNCONFIGURED");
+  });
+
+  it("does not silently drop guidance when legacy instructions are unavailable", () => {
+    expect(renderDossierBlocks(selection(false)).join("\n")).toContain("binding `priceId`");
+  });
+
+  it("keeps the legacy prompt lean when metadata is absent", () => {
+    const selected = selection();
+    delete selected.selected[0].entry.configInputs;
+    delete selected.selected[0].entry.providerSetup;
+    expect(renderDossierBlocks(selected).join("\n")).not.toContain(
+      "Dossier Configuration Guidance",
+    );
+  });
+});
 
 // Plan 11 / open-question #12: when the follow-up was classified as
 // `capability-modify`, `renderCapabilityModifyHintBlock` is the dossier
@@ -15,9 +89,9 @@ describe("renderCapabilityModifyHintBlock — plan 11 bug 3", () => {
   });
 
   it("returns nothing when capabilityIds is empty (defensive)", () => {
-    expect(
-      renderCapabilityModifyHintBlock({ capabilityIds: [], references: ["pricken"] }),
-    ).toEqual([]);
+    expect(renderCapabilityModifyHintBlock({ capabilityIds: [], references: ["pricken"] })).toEqual(
+      [],
+    );
   });
 
   it("emits the modify-this directive with capability ids and reference tokens", () => {
@@ -259,9 +333,7 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
                 injectionMode: "verbatim",
               },
             ],
-            exposes: [
-              { name: "ChatPanel", type: "component", import: "@/components/chat-panel" },
-            ],
+            exposes: [{ name: "ChatPanel", type: "component", import: "@/components/chat-panel" }],
             lastVerified: "2026-04-20",
           },
         },
@@ -343,9 +415,7 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
               envVars: [],
               dependencies: [],
               files: [],
-              exposes: [
-                { name: "trackEvent", type: "function", import: "@/lib/analytics" },
-              ],
+              exposes: [{ name: "trackEvent", type: "function", import: "@/lib/analytics" }],
               lastVerified: "2026-04-30",
             },
           },
@@ -405,9 +475,7 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
   // promptInstructionMode: "selected-sections" — surface the do/don't rules
   // from instructions.md (When to use / How to integrate / Avoid) without the
   // whole file or the manifest-only compact fallback.
-  function selectedSectionsSelection(
-    instructions: string | undefined,
-  ): DossierSelectionResult {
+  function selectedSectionsSelection(instructions: string | undefined): DossierSelectionResult {
     return {
       poolSize: 1,
       byCapability: { "logo-cloud": ["logo-cloud"] },
@@ -488,6 +556,87 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
     const text = renderDossierBlocks(threeFiberSelection, { generationMode: "init" }).join("\n");
     expect(text).toContain("compact instructions");
     expect(text).not.toContain("key instructions");
+  });
+
+  const HARD_SELECTED_SECTION_MARKERS: Record<string, [string, string, string]> = {
+    "calcom-booking": ["appointment", "`<BookingCalendar />`", "full URLs"],
+    "clerk-auth": ["real accounts", "`protectedRoutes`", "`auth.protect()`"],
+    "mailchimp-newsletter": ["email capture", "MD5", "server route"],
+    "postgres-drizzle": ["relational data", "`getDb()`", "Prisma"],
+    "resend-contact-form": ["contact form", "`name`, `email`, and `message`", "server payload"],
+    "stripe-checkout": ["one-time payment", "`<CheckoutButton />`", "subscription"],
+    "supabase-auth": ["Supabase Auth", "`getUser()`", "`getSession()`"],
+    "vercel-analytics": ["Vercel dashboard", "`<AnalyticsProviders />`", "multiple"],
+    "vercel-blob-media": ["owner media", "`<MediaGallery />`", "unauthenticated upload"],
+    "visitor-counter": ["owner-visible", "`<VisitBeacon />`", "personal data"],
+  };
+
+  it.each(Object.entries(HARD_SELECTED_SECTION_MARKERS))(
+    "renders all three concise instruction sections for %s",
+    (id, markers) => {
+      const entry = getAllDossiers().find((candidate) => candidate.id === id)!;
+      expect(entry.promptInstructionMode).toBe("selected-sections");
+      const selection: DossierSelectionResult = {
+        poolSize: 1,
+        byCapability: { [entry.capability]: [entry.id] },
+        selected: [
+          {
+            reason: "capability-match",
+            configured: false,
+            entry: {
+              ...entry,
+              instructions: getDossierInstructions(entry.class, entry.id),
+            },
+          },
+        ],
+      };
+      const text = renderDossierBlocks(selection, { generationMode: "init" }).join("\n");
+      const start = text.indexOf(`### ${entry.label} (\`${entry.id}\`) — key instructions`);
+      expect(start).toBeGreaterThanOrEqual(0);
+      const tail = text.slice(start);
+      const nextH2 = tail.indexOf("\n## ");
+      const instructionBlock = nextH2 >= 0 ? tail.slice(0, nextH2) : tail;
+
+      expect(instructionBlock).toContain("#### When to use");
+      expect(instructionBlock).toContain("#### How to integrate");
+      expect(instructionBlock).toContain("#### Avoid");
+      for (const marker of markers) expect(instructionBlock).toContain(marker);
+      expect(instructionBlock.length).toBeLessThan(480);
+    },
+  );
+
+  it("keeps OpenAI on its existing compact instruction mode", () => {
+    const entry = getAllDossiers().find((candidate) => candidate.id === "openai-chat")!;
+    expect(entry.promptInstructionMode).toBeUndefined();
+    const selection: DossierSelectionResult = {
+      poolSize: 1,
+      byCapability: { [entry.capability]: [entry.id] },
+      selected: [
+        {
+          reason: "capability-match",
+          configured: false,
+          entry: {
+            ...entry,
+            instructions: getDossierInstructions(entry.class, entry.id),
+          },
+        },
+      ],
+    };
+    const text = renderDossierBlocks(selection, { generationMode: "init" }).join("\n");
+    expect(text).toContain("AI-chatt — OpenAI (`openai-chat`) — compact instructions");
+    expect(text).not.toContain("AI-chatt — OpenAI (`openai-chat`) — key instructions");
+  });
+
+  it("emits Clerk security core verbatim but not its rewritable route policy", () => {
+    const entry = getAllDossiers().find((candidate) => candidate.id === "clerk-auth")!;
+    const selection: DossierSelectionResult = {
+      poolSize: 1,
+      byCapability: { [entry.capability]: [entry.id] },
+      selected: [{ reason: "capability-match", configured: false, entry }],
+    };
+    const text = renderDossierBlocks(selection, { generationMode: "init" }).join("\n");
+    expect(text).toContain('file="middleware.ts"');
+    expect(text).not.toContain('file="lib/clerk/protected-routes.ts"');
   });
 
   it("never truncates inside a code fence and still reaches Avoid (Codex #254 P2)", () => {
@@ -571,13 +720,17 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
   }
 
   it("emits the mock-mode hint line for a hard dossier (mock: canned)", () => {
-    const text = renderDossierBlocks(hardMockSelection("canned"), { generationMode: "init" }).join("\n");
+    const text = renderDossierBlocks(hardMockSelection("canned"), { generationMode: "init" }).join(
+      "\n",
+    );
     expect(text).toContain("mock: canned");
     expect(text).toContain("without a real key");
   });
 
   it("emits the mock: success hint for a success-mode hard dossier", () => {
-    const text = renderDossierBlocks(hardMockSelection("success"), { generationMode: "init" }).join("\n");
+    const text = renderDossierBlocks(hardMockSelection("success"), { generationMode: "init" }).join(
+      "\n",
+    );
     expect(text).toContain("mock: success");
   });
 
@@ -585,13 +738,17 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
     // Taxonomy 2026-07-22: stripe-checkout/clerk-auth/supabase-auth/
     // paddle-billing/ably-realtime render the full surface; the action opens
     // an honest demo notice instead of performing the real operation.
-    const text = renderDossierBlocks(hardMockSelection("visual"), { generationMode: "init" }).join("\n");
+    const text = renderDossierBlocks(hardMockSelection("visual"), { generationMode: "init" }).join(
+      "\n",
+    );
     expect(text).toContain("mock: visual — render the full interactive surface");
     expect(text).toContain("Never fabricate sessions, charges or live transport");
   });
 
   it("falls back to mock: none when the manifest omits mock", () => {
-    const text = renderDossierBlocks(hardMockSelection(undefined), { generationMode: "init" }).join("\n");
+    const text = renderDossierBlocks(hardMockSelection(undefined), { generationMode: "init" }).join(
+      "\n",
+    );
     expect(text).toContain("mock: none");
   });
 
@@ -657,8 +814,27 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
       ],
     };
 
-    expect(() => renderDossierBlocks(selection)).toThrow(
-      "verbatim-missing missing-hard-dossier",
-    );
+    expect(() => renderDossierBlocks(selection)).toThrow("verbatim-missing missing-hard-dossier");
+  });
+
+  it("fails before prompt construction for divergent selected output aliases", () => {
+    const authEntries = getAllDossiers()
+      .filter((entry) => ["clerk-auth", "supabase-auth"].includes(entry.id))
+      .map((entry) => ({
+        reason: "capability-match" as const,
+        configured: false,
+        entry: {
+          ...entry,
+          instructions: getDossierInstructions(entry.class, entry.id),
+        },
+      }));
+    expect(authEntries).toHaveLength(2);
+    expect(() =>
+      renderDossierBlocks({
+        poolSize: 2,
+        byCapability: { auth: authEntries.map((selection) => selection.entry.id) },
+        selected: authEntries,
+      }),
+    ).toThrow(/selected-output-conflict.*middleware\.ts/);
   });
 });

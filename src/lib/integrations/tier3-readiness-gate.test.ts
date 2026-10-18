@@ -12,7 +12,22 @@ const getEngineVersionErrorLogsForCategories = vi.hoisted(() => vi.fn());
 const getRunningProductPostcheckClaimForVersion = vi.hoisted(() => vi.fn());
 const getVersionById = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/gen/version-manager", () => ({ getVersionFiles }));
+vi.mock("@/lib/gen/version-manager", () => ({
+  getVersionFiles,
+  isStoredCodeFileArray: (value: unknown) =>
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        entry &&
+        typeof entry === "object" &&
+        !Array.isArray(entry) &&
+        typeof (entry as { path?: unknown }).path === "string" &&
+        typeof (entry as { content?: unknown }).content === "string" &&
+        (!("language" in entry) || typeof (entry as { language?: unknown }).language === "string"),
+    )
+      ? value
+      : null,
+}));
 vi.mock("@/lib/gen/detect-integrations", () => ({ detectIntegrationsFromVersionFiles }));
 vi.mock("@/lib/projects/project-env-vars", () => ({
   getStoredProjectEnvVarMap,
@@ -217,6 +232,31 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       retryable: false,
     });
     // The block fires before any spec derivation.
+    expect(getVersionFiles).not.toHaveBeenCalled();
+  });
+
+  it("returns a known blocked postcheck verdict even when version files are unreadable", async () => {
+    getEngineVersionErrorLogsForCategories.mockResolvedValue([
+      {
+        category: "product_postcheck.summary",
+        meta: { verdict: "blocked", productBlocked: true },
+      },
+    ]);
+    getVersionFiles.mockRejectedValue(new Error("version storage unavailable"));
+
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: null,
+      projectId: "proj_1",
+    });
+
+    expect(result).toEqual({
+      ready: false,
+      ok: false,
+      reason: "product_postcheck_blocked",
+      verdict: "blocked",
+      retryable: false,
+    });
     expect(getVersionFiles).not.toHaveBeenCalled();
   });
 
@@ -428,6 +468,29 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       orchestrationSnapshot: null,
       projectId: "proj_1",
     });
+    expect(result).toEqual({
+      ready: false,
+      ok: false,
+      reason: "product_postcheck_pending",
+      verdict: "pending",
+      retryable: true,
+    });
+    expect(getVersionFiles).not.toHaveBeenCalled();
+  });
+
+  it("returns a known L6 running hold even when version files are unreadable", async () => {
+    getRunningProductPostcheckClaimForVersion.mockResolvedValue({
+      status: "running",
+      runId: "run_live",
+    });
+    getVersionFiles.mockRejectedValue(new Error("version storage unavailable"));
+
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: null,
+      projectId: "proj_1",
+    });
+
     expect(result).toEqual({
       ready: false,
       ok: false,

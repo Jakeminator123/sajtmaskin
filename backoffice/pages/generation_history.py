@@ -247,7 +247,7 @@ def _render_chat_detail(ctx: BackofficeContext, chat_id: str) -> None:
                 ]
             ),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
     else:
         st.caption("Inga versioner — chatten kan ha aborterat innan en version skapades.")
@@ -289,7 +289,7 @@ def _render_chat_detail(ctx: BackofficeContext, chat_id: str) -> None:
                 ]
             ),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
         st.caption(GATE_COLUMN_LEGEND)
 
@@ -310,7 +310,7 @@ def _render_chat_detail(ctx: BackofficeContext, chat_id: str) -> None:
                 ]
             ),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
     else:
         st.caption("Inga fel-/warning-rader för den här chatten.")
@@ -334,7 +334,7 @@ def _render_chat_detail(ctx: BackofficeContext, chat_id: str) -> None:
                 ]
             ),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
 
 
@@ -384,7 +384,7 @@ def render(ctx: BackofficeContext) -> None:
 
     st.subheader("Senaste genereringar")
     df = _recent_dataframe(rows)
-    st.dataframe(df.drop(columns=["chat_id"]), hide_index=True, use_container_width=True)
+    st.dataframe(df.drop(columns=["chat_id"]), hide_index=True, width="stretch")
     st.caption(GATE_COLUMN_LEGEND)
 
     st.divider()

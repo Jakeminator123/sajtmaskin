@@ -1,5 +1,5 @@
 ---
-description: "Chatten får inte fråga användaren om env-nycklar. Byggblock-panelen är den frivilliga nyckelytan (designläge + integrationsbygge)."
+description: "Design- och integrationsläge: demo först, nycklar i Byggblock, aldrig i chatten."
 globs:
   - src/lib/api/engine/chats/**
   - src/lib/providers/own-engine/**
@@ -17,58 +17,20 @@ globs:
 alwaysApply: false
 ---
 
-# Env-flöde: chatten är tyst, Byggblock är nyckelytan
+# Design, integrationer och nycklar
 
-Designläge (`lifecycleStage === "design"`, kodalias F2) får inte producera
-env-frågor **i chatten**. Tystnaden gäller env-trafik i chatten — inte frivillig
-konfiguration.
+Kod äger beteendet; [env-flödet](../../docs/contracts/env-flow.md) kartlägger
+owners. F2/F3 i filnamn och kod är alias för `design`/`integrations`.
 
-**Byggblock är den enda skrivytan** för dossier-nycklar i både designläge och
-integrationsbygge: maskerade write-only inputs på expanderade hard-dossier-rader,
-sparade till `POST /api/v0/projects/[projectId]/env-vars`. En sparad
-feature-runtime-nyckel flippar `built-demo` → `built-live` utan ny LLM-runda.
-Katalogklick stage:ar först; utan nyckel körs demo, och ingen generering
-startar förrän «Lägg till i sajten». Placeholders är alltid tillåtna för
-build-nycklar i integrationsbygget. 412 bara när en build-nyckel saknar
-placeholder i katalogen.
-
-Vid `finalize-design` `412` är `missingByIntegration` sanningen för *vilka*
-nycklar som saknas. `F3RequirementsSurface` listar dem inte igen — den öppnar
-rätt dossier i Byggblock.
-
-Designläget ska se ut som en riktig sajt: dossierns `mock` + `env-local.ts`
-renderar demo utan live-nycklar. Status ljuger inte: `planned` /
-`blocked-build` / `built-demo` / `built-live` / `self-contained`
-(`describeDossierStatus`). "Byggd" utan livenycklar heter "Demo".
-`built-demo` blockerar aldrig publicering.
-
-**Mute = noll integrationskod + synlig uppskjutning.** Mutade capabilities får
-inte tyst bjuda in frihandsbygge.
-
-1. **Noll integrationskod.** `renderF2ContractBlock` namnger de mutade
-   integrationerna och förbjuder egen `app/api/**`-route, SDK-import och
-   `process.env` för dem. Ytan ritas med lokalt `useState` och demo-toast.
-2. **Synlig uppskjutning.** Uppskjutna capabilities ackumuleras i
-   orchestration-snapshoten och visas med samma `planned`-ord som Byggblock.
-   De lämnar listan först vid filbevis eller när användaren tar bort dem.
-
-## Skyddslager
-
-1. Tool-gate: env-tools exponeras inte i designläge.
-2. SSE-filter: tool-events droppas i designläge.
-3. En env-yta: Byggblock-inputs. `ProjectEnvVarsPanel` är **borttagen**
-   (2026-07-22) — bara eventnamn lever kvar. Återinför den inte.
-4. Post-finalize-gate: detected integrations droppas i designläge.
-
-## Förbjudet
-
-- Fråga efter env-nycklar i chatten (tool-events, popups, "klistra in nyckel").
-- Låta designläget producera integrationskod för en mutad capability — eller
-  skjuta upp den utan att säga det.
-- Läsa `missingEnvKeys` som blocker i designläge (demo måste förbli publicerbart).
-- Auto-promotera till integrationsbygge baserat på prompt-keywords.
-- Emittera env-tool-events i designläge.
-- Returnera sparade env-VÄRDEN till klienten — bara `hasRealValue` / `configured`.
-- Låta feature-runtime-nycklar blockera integrationsbygget — bara `build`-nycklar ger 412.
-- Öppna "Svar krävs"-dialogen för `f3-continuation` — auto-fortsätt eller inline
-  quick-replies. Se `llm-pipeline.md` § F3-förslagsrunda.
+- Design bygger en demo. Mutade capabilities får varken integrationskod
+  eller env-tool-events och uppskjutna funktioner ska visas som planerade.
+- Integrationsbygge kräver ett explicit användarval; promptord får inte
+  automatiskt byta lifecycle stage.
+- Byggblock är enda env-editorn i båda lägena. Chatten frågar aldrig efter
+  nycklar. API:t returnerar konfigurationsstatus, aldrig sparade secretvärden.
+- Readiness och deploy använder samma lifecycle-bundna resolver:
+  `buildBlockingKeys` i integrationsläge, `designDeployBlockingKeys` i design.
+  Saknade feature-runtime-nycklar är advisory; demo ska förbli publicerbar.
+- Vid finalize-design 412 äger `missingByIntegration` listan över saknade
+  nycklar. `F3RequirementsSurface` öppnar rätt dossier i Byggblock och har
+  ingen egen env-editor.

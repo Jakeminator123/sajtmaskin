@@ -290,13 +290,11 @@ describe("selectDossiersForRequest — relevanceKeywords disambiguation (auth)",
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// Dependent capabilities: DEPENDENT_CAPABILITIES is empty since 2026-08-06
-// (subscriptions ⇒ auth-pin left with parked paddle-billing). Expansion is a
-// no-op; alias-normalization only. The ai-tool-calling/ai-chat dedup died
-// with etapp 4.
+// Capability normalization does not invent companion capabilities. Persisted
+// aliases still normalize and retain their dossier-specific pin.
 // ─────────────────────────────────────────────────────────────────────────
-describe("selectDossiersForRequest — dependent capabilities", () => {
-  it("selects nothing for the parked subscriptions capability (empty table)", () => {
+describe("selectDossiersForRequest — no implicit companion capabilities", () => {
+  it("selects nothing for the parked subscriptions capability", () => {
     const result = selectDossiersForRequest({
       requestedCapabilities: ["subscriptions"],
     });

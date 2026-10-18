@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SelectedDossier } from "@/lib/gen/dossiers/types";
+import type { PlanIntegrationContract } from "@/lib/gen/plan/schema";
+import type { ProjectProviderEvidence } from "@/lib/gen/contract/project-provider-evidence";
 
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
@@ -16,6 +18,9 @@ const readF3ApprovedFromSnapshot = vi.hoisted(() =>
 );
 const readMutedCapabilitiesFromSnapshot = vi.hoisted(() => vi.fn(() => [] as string[]));
 const readMutedDossierIdsFromSnapshot = vi.hoisted(() => vi.fn(() => [] as string[]));
+const readProviderContractsFromSnapshot = vi.hoisted(() =>
+  vi.fn(() => [] as PlanIntegrationContract[]),
+);
 const deriveTier3BuildSpecForVersion = vi.hoisted(() => vi.fn());
 const validateTier3Readiness = vi.hoisted(() => vi.fn());
 const mapProviderKeysToDossierCapabilities = vi.hoisted(() => vi.fn());
@@ -25,6 +30,9 @@ const mapProviderKeysToBackingDossierIds = vi.hoisted(() =>
 const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
 const readAllowPlaceholdersInF3 = vi.hoisted(() => vi.fn());
 const loadPlaceholderKeySet = vi.hoisted(() => vi.fn());
+const detectProjectProviderEvidence = vi.hoisted(() =>
+  vi.fn(() => [] as ProjectProviderEvidence[]),
+);
 
 vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _endpoint: string, handler: () => Promise<Response>) =>
@@ -85,6 +93,7 @@ vi.mock("@/lib/gen/orchestration-snapshot", () => ({
   readF3ApprovedFromSnapshot,
   readMutedCapabilitiesFromSnapshot,
   readMutedDossierIdsFromSnapshot,
+  readProviderContractsFromSnapshot,
 }));
 
 vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
@@ -104,6 +113,10 @@ vi.mock("@/lib/projects/project-env-vars", () => ({
 
 vi.mock("@/lib/gen/preview/env-local", () => ({
   loadPlaceholderKeySet,
+}));
+
+vi.mock("@/lib/gen/contract/project-provider-evidence", () => ({
+  detectProjectProviderEvidence,
 }));
 
 import { GET } from "./route";
@@ -231,6 +244,8 @@ describe("GET dossiers overview", () => {
     extractBriefSummaryFromSnapshot.mockReturnValue(null);
     readMutedCapabilitiesFromSnapshot.mockReturnValue([]);
     readMutedDossierIdsFromSnapshot.mockReturnValue([]);
+    readProviderContractsFromSnapshot.mockReturnValue([]);
+    detectProjectProviderEvidence.mockReturnValue([]);
     mapProviderKeysToDossierCapabilities.mockReturnValue([]);
     selectDossiersForRequest.mockReturnValue({ selected: [], poolSize: 0, byCapability: {} });
     // Version-presence union defaults to "no version files loaded" so existing
@@ -795,6 +810,45 @@ describe("GET dossiers overview", () => {
     // not enforce).
     const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
     expect(stripe?.status).toBe("planned");
+  });
+
+  it("uses actual method evidence before showing an incompatible dossier", async () => {
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([stripeDossier()]);
+    readProviderContractsFromSnapshot.mockReturnValue([
+      {
+        kind: "payment",
+        providerKey: "stripe",
+        dossierCapability: "payments",
+        selectionSource: "explicit",
+        provider: "Stripe",
+        name: "Stripe",
+        reason: "Explicit provider",
+        status: "chosen",
+      },
+    ]);
+    getVersionFiles.mockResolvedValue([
+      {
+        path: "package.json",
+        content: JSON.stringify({ dependencies: { "@stripe/stripe-js": "^5" } }),
+      },
+      {
+        path: "components/payment.tsx",
+        content: 'import { loadStripe } from "@stripe/stripe-js"; export { loadStripe };',
+      },
+    ]);
+    detectProjectProviderEvidence.mockReturnValue([
+      { providerKey: "stripe-elements", kind: "payment", packageRoot: "@stripe/stripe-js" },
+    ]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    // One call comes from pending-resolution; the overview's direct
+    // compatibility pass must use the same real evidence instead of omitting it.
+    expect(detectProjectProviderEvidence).toHaveBeenCalledTimes(2);
+    expect(body.dossiers.map((dossier) => dossier.id)).not.toContain("stripe-checkout");
   });
 
   it("does not re-resolve (single build-spec derivation) when nothing needs reconciling — empty case", async () => {

@@ -1,7 +1,8 @@
 # A2 — Gästpolicy och credits
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
-Status: pågår. Default G1 som 1 körning / 24h per IP via `analys:public`.
+Status: pågår. G1 räknar en levererad rapport per klient och Stockholmsdygn
+via `public-analys-quota`; `analys:public:attempt` begränsar försök till 3/10 min.
 Ingen credit-debitering. Inloggade Audits är oförändrade.
 
 ## Uppdrag
@@ -30,10 +31,11 @@ resultatcache på URL, så varje körning kostar scrape + LLM.
 
 ## Tre alternativ
 
-### Alt G1 — 1 × basic / IP / kalenderdygn
+### Alt G1 — 1 × levererad basic-rapport / klient / Stockholmsdygn
 
-Gäst får köra `audit.basic` en gång per IP och dygn. `audit.advanced`
-fortsätter kräva konto + credits.
+Gäst får en lyckad `audit.basic`-rapport per klient och Stockholmsdygn;
+bara ett serverbekräftat 200-svar förbrukar dygnskvoten. `audit.advanced`
+fortsätter kräva konto + credits. Ett separat försökstak bromsar missbruk.
 
 | Plus | Minus |
 |---|---|
@@ -41,10 +43,10 @@ fortsätter kräva konto + credits.
 | Taket är begripligt | IP-rotation, CGNAT, VPN |
 | Advanced förblir betald | Kräver durabel räknare (Redis/Upstash, inte process-minne) |
 
-Implementation (när vald): utöka `prepareCredits` *eller* en smal
-audit-grant bredvid den — inte en andra creditägare. Nollställ inte
-`AUDIT_COSTS`. Konsumera inte `free_generation_available`. In-flight-
-nyckel för gäst kan inte vara `user.id` (finns inte) — A3.
+Implementation: en smal leveranskvot i `public-analys-quota.ts` bredvid
+creditägaren. Nollställ inte `AUDIT_COSTS`. Konsumera inte
+`free_generation_available`. In-flight-nyckel för gäst kan inte vara
+`user.id` (finns inte) — A3.
 
 **Paketets default.** Full rapport i modal. PDF/spara/handoff = signup
 (A4).
@@ -83,7 +85,7 @@ B5 i masterplanen: ingen advanced för gäst.
 2. 402-vägen för inloggade med för lite saldo lämnas orörd.
 3. Testanvändare och `isTest` ändras inte i tysthet.
 4. Klientflaggor i `SiteAuditSection`: gäst får skicka basic utan
-   diamond-precheck; credit-chip för gäst visar «1 gratis analys / dygn»
+   diamond-precheck; credit-chip för gäst visar «1 gratis rapport / dygn»
    bara om det stämmer.
 5. Telemetri/logg: `requestId` finns redan. Skilj `guest_grant` från
    charged så kostnaden syns.
@@ -107,8 +109,9 @@ PR-bodyn: «G2 valt, prepareCredits orörd».
 ## Klart när
 
 - B1 är skrivet i PR-bodyn.
-- G1: gäst basic 1/IP/dygn grönt i test; andra anrop 401/402/429 enligt
-  kontrakt; inloggad 15/25 oförändrat.
+- G1: bara levererat 200-svar förbrukar 1/klient/Stockholmsdygn; parallella
+  reservationer, fel/retry och försökstakets 429 är gröna i test; inloggad
+  15/25 är oförändrat.
 - G2: 401 kvar, dokumenterat.
 - `src/lib/credits/server.test.ts` + audit-routetester uppdaterade.
 - A3:s tak är på plats i samma eller omedelbart följande PR. G1 utan A3

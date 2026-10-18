@@ -8,7 +8,11 @@ import type {
   ServerRepairSummary,
   ToolIntegrationSummary,
 } from "./types";
-import type { LiveReviewResult, LiveReviewSkipReason } from "@/lib/gen/verify/live-review-types";
+import type {
+  LiveReviewResult,
+  LiveReviewScreenshotSet,
+  LiveReviewSkipReason,
+} from "@/lib/gen/verify/live-review-types";
 import { parseReviewDecision } from "@/lib/gen/verify/live-review-types";
 
 export function resolveToolLabels(tool: Partial<ToolUIPart> & { type?: string }) {
@@ -387,7 +391,47 @@ function getServerRepairSummary(output: unknown): ServerRepairSummary | null {
   };
 }
 
-export function getLiveReviewResult(output: unknown): LiveReviewResult | null {
+export type LiveReviewChatResult = LiveReviewResult & {
+  screenshots?: LiveReviewScreenshotSet | null;
+};
+
+function isHttpScreenshotUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function readScreenshotUrl(value: unknown): string | null {
+  return typeof value === "string" && isHttpScreenshotUrl(value) ? value : null;
+}
+
+/** Public current-viewport JPEG URLs only. Previous-revision shots stay off the chat. */
+export function parseLiveReviewScreenshots(value: unknown): LiveReviewScreenshotSet | null {
+  if (!value || typeof value !== "object") return null;
+  const obj = value as Record<string, unknown>;
+  const desktopUrl = readScreenshotUrl(obj.desktopUrl);
+  const mobileUrl = readScreenshotUrl(obj.mobileUrl);
+  if (!desktopUrl && !mobileUrl) return null;
+  return { desktopUrl, mobileUrl };
+}
+
+function screenshotsFromLiveReviewOutput(
+  obj: Record<string, unknown>,
+  nested: Record<string, unknown>,
+): LiveReviewScreenshotSet | null {
+  const fromDedicated = parseLiveReviewScreenshots(nested.screenshots ?? obj.screenshots);
+  if (fromDedicated) return fromDedicated;
+  const postcheck =
+    obj.productPostcheck && typeof obj.productPostcheck === "object"
+      ? (obj.productPostcheck as Record<string, unknown>)
+      : null;
+  return parseLiveReviewScreenshots(postcheck?.screenshots);
+}
+
+export function getLiveReviewResult(output: unknown): LiveReviewChatResult | null {
   if (!output || typeof output !== "object") return null;
   const obj = output as Record<string, unknown>;
   const fromPostcheck =
@@ -413,6 +457,7 @@ export function getLiveReviewResult(output: unknown): LiveReviewResult | null {
       decision: parseReviewDecision(nested.decision),
       durationMs: typeof nested.durationMs === "number" ? nested.durationMs : 0,
       modelId: typeof nested.modelId === "string" ? nested.modelId : "",
+      screenshots: screenshotsFromLiveReviewOutput(obj, nested),
     };
   }
   return null;

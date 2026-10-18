@@ -3,13 +3,18 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Clock, Trash2 } from "lucide-react";
+import { Clock, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProjectThumbnail } from "@/components/projects/project-thumbnail";
 import { ProjectCardSiteMeta } from "@/components/projects/project-card-site-meta";
 import { ProjectCardActions } from "@/components/projects/project-card-actions";
 import type { Project, ProjectSite } from "@/lib/projects/project-client";
-import { projectCardMode, projectCardPrimaryHref } from "@/lib/projects/project-card-mode";
+import {
+  PROJECT_SITE_LOAD_ERROR,
+  projectCardMode,
+  projectCardPrimaryHref,
+  type ProjectCardSiteValue,
+} from "@/lib/projects/project-card-mode";
 import { publishStateLabel, SITE_STATE_TONE_CLASS } from "@/lib/projects/site-labels";
 import { cn } from "@/lib/utils";
 
@@ -44,6 +49,7 @@ function cardBorderClass(mode: ReturnType<typeof projectCardMode>) {
     case "progress":
       return "border-amber-500/25 hover:border-amber-500/40";
     case "problem":
+    case "unavailable":
       return "border-red-500/25 hover:border-red-500/40";
     default:
       return "border-gray-800 hover:border-gray-700";
@@ -54,18 +60,29 @@ export function ProjectCard({
   project,
   site,
   onDelete,
+  onRetrySite,
 }: {
   project: Project;
-  site: ProjectSite | null | undefined;
+  site: ProjectCardSiteValue;
   onDelete: (id: string, name: string) => void;
+  onRetrySite: (id: string) => void;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
   const mode = projectCardMode(site);
+  const resolvedSite: ProjectSite | null | undefined =
+    site === PROJECT_SITE_LOAD_ERROR ? undefined : site;
   const primaryHref = projectCardPrimaryHref(project.id, mode);
-  const state = site ? publishStateLabel(site.state) : null;
+  const state = resolvedSite ? publishStateLabel(resolvedSite.state) : null;
   const statusLabel =
-    state?.label ?? (mode === "legacy" ? "Utkast" : mode === "loading" ? "Hämtar status" : null);
-  const statusTone = state?.tone ?? "idle";
+    state?.label ??
+    (mode === "legacy"
+      ? "Utkast"
+      : mode === "loading"
+        ? "Hämtar status"
+        : mode === "unavailable"
+          ? "Status kunde inte hämtas"
+          : null);
+  const statusTone = state?.tone ?? (mode === "unavailable" ? "problem" : "idle");
   const hasImageThumbnail =
     typeof project.thumbnail_path === "string" &&
     (project.thumbnail_path.startsWith("http") || project.thumbnail_path.startsWith("/")) &&
@@ -85,7 +102,7 @@ export function ProjectCard({
         aria-label={
           mode === "live" || mode === "progress" || mode === "problem"
             ? `Hantera sajten ${project.name}`
-            : mode === "loading"
+            : mode === "loading" || mode === "unavailable"
               ? `Öppna projektet ${project.name}`
               : `Öppna ${project.name} i byggaren`
         }
@@ -141,8 +158,19 @@ export function ProjectCard({
           <p className="mt-2 line-clamp-2 text-sm text-gray-500">{project.description}</p>
         ) : null}
 
-        <ProjectCardSiteMeta projectId={project.id} site={site} />
-        <ProjectCardActions projectId={project.id} site={site} />
+        <ProjectCardSiteMeta projectId={project.id} site={resolvedSite} />
+        {mode === "unavailable" ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-4 w-full gap-2"
+            onClick={() => onRetrySite(project.id)}
+          >
+            <RefreshCw className="h-4 w-4" />
+            Försök igen
+          </Button>
+        ) : null}
+        <ProjectCardActions projectId={project.id} site={resolvedSite} />
 
         <div className="mt-auto flex items-center gap-1 pt-3 text-xs text-gray-600">
           <Clock className="h-3 w-3" />

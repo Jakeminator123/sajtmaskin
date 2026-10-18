@@ -1,0 +1,134 @@
+import { createHash } from "node:crypto";
+
+export const MAX_REVIEW_ROUNDS = 3;
+export const MAX_DEFERRED_IMPACT = 2;
+export class StaleReviewContextError extends Error {}
+export const validOwnerExtraRound = (reason) => typeof reason === "string" && reason.trim().length >= 20;
+
+// A new owner task may follow a completed review before preview moves. This is
+// explicit, preserves the chain and never resets an unresolved fix loop.
+export function reviewRound(previous, { newCycle, ownerExtraRound, head } = {}) {
+  if (!newCycle) return nextRound(previous, ownerExtraRound);
+  if (!validOwnerExtraRound(newCycle) || !previous || previous.head === head || ownerExtraRound ||
+      reviewStatus(previous.review, previous.decisions) !== "clear")
+    throw new Error("A new review cycle needs a distinct head, a completed clear review and an explicit new-task reference; unresolved/deferred findings cannot reset the limit.");
+  return 1;
+}
+
+function validateRoundLink(receipt, previous) {
+  if (previous.rootBase !== receipt.rootBase || reviewRound(previous, receipt) !== receipt.round)
+    throw new Error("Invalid review round chain.");
+  if (receipt.newCycle && (receipt.fullReview !== true || !receipt.previousChainContext))
+    throw new Error("A new review cycle requires full review with preserved history.");
+}
+
+// Scores are reviewer estimates, not measured probabilities or a CI pass rate.
+export function validateFinding(finding) {
+  if (!finding || !/^F[1-9][0-9]*$/.test(finding.id) ||
+      !["P0", "P1", "P2"].includes(finding.priority) ||
+      !Number.isInteger(finding.confidencePercent) || finding.confidencePercent < 0 || finding.confidencePercent > 100 ||
+      !Number.isInteger(finding.impactScore) || finding.impactScore < 1 || finding.impactScore > 5 ||
+      typeof finding.file !== "string" || !finding.file.trim() ||
+      !Number.isInteger(finding.line) || finding.line < 1 ||
+      typeof finding.description !== "string" || !finding.description.trim()) {
+    throw new Error("Invalid Buggpass finding (id, confidence %, impact 1–5, location and explanation required).");
+  }
+}
+
+export function reviewDigest(review) {
+  return createHash("sha256").update(JSON.stringify(review)).digest("hex");
+}
+
+export function followUpDigest(previous) {
+  return previous ? reviewDigest({ base: previous.base, head: previous.head, rootBase: previous.rootBase,
+    review: previous.review, decisions: previous.decisions, previousContext: previous.previousContext ?? null }) : null;
+}
+
+export function validateCachedContext(receipt, previous) {
+  if (previous && receipt.previousContext !== followUpDigest(previous)) {
+    throw new StaleReviewContextError("Cached review did not cover these previous findings/decisions; fresh review required, not a green cache hit.");
+  }
+}
+
+// Current evidence from every round, without trusting an obsolete descendant's
+// conclusions. A full review can reconcile it without rewriting older receipts.
+export function reviewHistory(receipt, readReview, seen = new Set()) {
+  if (!receipt) return [];
+  const key = `${receipt.base}:${receipt.head}`;
+  if (seen.has(key)) throw new Error("Invalid/cyclic review chain.");
+  nextRound({ round: receipt.round - 1 }, receipt.ownerExtraRound);
+  seen.add(key);
+  let history = [];
+  if (receipt.previous) {
+    const previous = readReview(receipt.previous.base, receipt.previous.head);
+    validateRoundLink(receipt, previous);
+    history = reviewHistory(previous, readReview, seen);
+  } else if (receipt.round !== 1 || receipt.newCycle) throw new Error("Missing previous review in follow-up chain.");
+  return [...history, { base: receipt.base, head: receipt.head, rootBase: receipt.rootBase, round: receipt.round,
+    review: receipt.review, decisions: receipt.decisions, previousContext: receipt.previousContext ?? null,
+    previousChainContext: receipt.previousChainContext ?? null, fullReview: receipt.fullReview ?? false,
+    ...(receipt.newCycle ? { newCycle: receipt.newCycle } : {}) }];
+}
+
+export function validateReviewChain(receipt, readReview, seen = new Set()) {
+  const key = `${receipt.base}:${receipt.head}`;
+  if (seen.has(key)) throw new Error("Invalid/cyclic review chain.");
+  nextRound({ round: receipt.round - 1 }, receipt.ownerExtraRound);
+  seen.add(key);
+  if (receipt.previous) {
+    const previous = readReview(receipt.previous.base, receipt.previous.head);
+    validateRoundLink(receipt, previous);
+    if (receipt.fullReview === true && receipt.previousChainContext) {
+      if (receipt.previousChainContext !== reviewDigest(reviewHistory(previous, readReview, seen)))
+        throw new StaleReviewContextError("Earlier review evidence changed; fresh review required.");
+    } else validateReviewChain(previous, readReview, seen);
+    validateCachedContext(receipt, previous);
+  } else if (receipt.round !== 1 || receipt.newCycle) throw new Error("Missing previous review in follow-up chain.");
+}
+
+export function validateDecision(review, decision) {
+  const finding = review.findings.find((item) => item.id === decision?.findingId);
+  if (!finding || decision.reviewDigest !== reviewDigest(review) ||
+      !["accept", "reject", "defer"].includes(decision.action) ||
+      typeof decision.reason !== "string" || decision.reason.trim().length < 20) {
+    throw new Error("Decision needs a current finding, exact review digest and a concrete reason/evidence (20+ characters).");
+  }
+  if (decision.action === "defer" && (finding.priority !== "P2" || finding.impactScore > MAX_DEFERRED_IMPACT ||
+      typeof decision.followUp !== "string" || !decision.followUp.trim())) {
+    throw new Error("Only low-impact P2 findings may be deferred, with a traceable follow-up.");
+  }
+}
+
+export function reviewStatus(review, decisions = []) {
+  if (review.complete !== true) return "incomplete";
+  const byId = new Map();
+  for (const decision of decisions) {
+    validateDecision(review, decision);
+    if (byId.has(decision.findingId)) throw new Error("Duplicate decision for finding.");
+    byId.set(decision.findingId, decision);
+  }
+  if (review.findings.some((finding) => !byId.has(finding.id))) return "needs-triage";
+  if ([...byId.values()].some((decision) => decision.action === "accept")) return "needs-fix";
+  return [...byId.values()].some((decision) => decision.action === "defer") ? "acceptable-with-follow-up" : "clear";
+}
+
+export function nextRound(previous, ownerExtraRound = "") {
+  const round = previous ? previous.round + 1 : 1;
+  if (!Number.isInteger(round) || round < 1 ||
+      (round > MAX_REVIEW_ROUNDS && !(round === MAX_REVIEW_ROUNDS + 1 && validOwnerExtraRound(ownerExtraRound)))) {
+    throw new Error("Three review rounds reached: return remaining findings to the owner; no endless model loop.");
+  }
+  return round;
+}
+
+export function formatReview(receipt) {
+  const review = receipt.review;
+  const lines = [`Buggpass ${receipt.base.slice(0, 12)}..${receipt.head.slice(0, 12)} · round ${receipt.round}/${MAX_REVIEW_ROUNDS}${receipt.ownerExtraRound ? " + one owner-approved extra round" : ""}${receipt.newCycle ? " · new owner task (history preserved)" : ""}`,
+    `Status: ${reviewStatus(review, receipt.decisions)}. ${review.summary}`];
+  for (const finding of review.findings) {
+    const decision = receipt.decisions.find((item) => item.findingId === finding.id);
+    lines.push(`${finding.id}: ${finding.confidencePercent}% confidence · impact ${finding.impactScore}/5 · ${finding.priority} · ${finding.file}:${finding.line}`,
+      `  ${finding.description}${decision ? ` [${decision.action}: ${decision.reason}]` : " [author must triage]"}`);
+  }
+  return lines.join("\n");
+}

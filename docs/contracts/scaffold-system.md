@@ -109,6 +109,15 @@ gamla repo-cache-/template-library-mappen.
 
 ### STEG 1 — Prompt-bearbetning (`prompt-orchestration.ts`)
 
+Request-meta normaliseras före promptbearbetning, prematch och Deep Brief via
+`parse-chat-request-meta.ts` och den befintliga ägaren `build-intent.ts`:
+`category` → `template`, `audit`/`kostnadsfri` → `website`; annars kan ett manuellt
+`dashboard`/`app-shell`-val promovera `website` till `app`. Samma effektiva intent
+går till planläge och codegen. Metodöverstyrning och manuellt/explicit intent
+klampar även prematchens scaffold; implicit Auto-promotion har kvar sin befintliga
+signal-/follow-up-grind. Orkestreringsgränsen tillämpar samma metodregel även på
+direkta anrop.
+
 Klassificerar `PromptType` och väljer `PromptStrategy` (`direct` / `summarize` / `phase_plan_build_refine` / `preserved`). Output: budgeterad `finalMessage`. Scope: bara prompttext, ingen scaffold-logik.
 
 ### STEG 2 — Deep Brief (`site-brief-generation.ts`)
@@ -119,7 +128,7 @@ Strukturerat objekt: projectTitle, brandName, oneSentencePitch, pages[], visualD
 
 ```
 scaffoldMode?
-├─ "off"     → projekt-bas-app (fritext/init; importerade repo:n förblir scaffold-lösa)
+├─ "off"     → projekt-bas-app för website/app-init; template-init → null
 ├─ "manual"  → getScaffoldById(scaffoldId)
 ├─ persisted → getScaffoldById(persistedScaffoldId)  [follow-up]
 └─ "auto"    → matchScaffoldAuto(prompt, buildIntent, options)
@@ -130,7 +139,17 @@ scaffoldMode?
 
 `projekt-bas-app` är den tionde registrerade scaffolden men är uttryckligen
 utesluten ur Auto-matchning. Den används bara som tunn bas för `off` i
-fritext/init, medan importerade repo-flöden fortfarande kör utan scaffold.
+website/app-init, utan att påtvinga app-intent eller app-shell. Template + off
+förblir scaffold-löst; importerade repo-flöden kör alltid utan scaffold även om
+request/lagrad metadata innehåller ett gammalt scaffoldval. Vanlig follow-up
+behåller däremot en redan etablerad scaffold enligt befintlig freeze.
+
+Delta-brief och slutbygge använder samma follow-up-freezeägare. Med aktivt
+scaffoldlås bevaras också snapshotens registrerade build-intent, men bara när
+det är en giltig enum som stöds av den faktiskt frysta scaffolden. Saknad eller
+inkompatibel legacy-metadata gissas inte. Manuellt val frigör inte låset;
+befintlig unlock-signal gäller fortsatt. Importerade projekt återaktiverar
+aldrig en scaffold genom denna metadata.
 
 | Meta-fält                 | Värden                                                                             |
 | ------------------------- | ---------------------------------------------------------------------------------- |
@@ -168,7 +187,9 @@ Binder scaffold + routes + validering till `OrchestrationContract { scaffoldToRo
 
 Mode bestäms mekaniskt i `resolve-base.ts` via `resolveScaffoldSerializeMode()` (`serialize.ts`). Auto, Scaffold: Av och manuella `landing-page` / `base-nextjs` stannar inspirational på vanlig init. Manuell `saas-landing`, `ecommerce`, app och editorial blir structural även när contextPolicy är `normal`. Tvinga inte `heavy` bara för att låsa struktur. `detectScaffoldMode()` med kreativa nyckelord anropas inte i production. Structural-texten säger att Route Plan-utvalda/required sidor ska behållas — inte declared-only rutter som `/categories` eller `/om`.
 
-`selectCriticalScaffoldFiles()` prioriterar baserat på kritiska patterns + route-relevans + capability-relevans. Rangordningen i `CRITICAL_PATH_PATTERNS` sätter nästlade route-filer (`app/blog/page.tsx`, nästlad `layout.tsx`) **över** generiska `components/**`, och statiska routes över dynamiska (`[slug]`) — route-sidor är `llm-owned`/`mustEmit`, så en struken sida blir en sida modellen aldrig skriver.
+På init använder serialiseringens filinventering, summary, importexempel och FileContracts samma rena `resolveScaffoldRouteDelivery()` (`scaffolds/route-delivery.ts`) som materialiseringen. Route Plan avgör vilka kontraktsägda routes som levereras, inklusive delivery groups och dynamiska descendants; shared-filer behålls. Saknat/tomt kontrakt eller saknad/tom plan lämnar filerna ofiltrerade. Befintligt `resolvedMode` styr init-gränsen, så ett persisted scaffold-id utan tidigare filer räknas inte som etablerad follow-up. På follow-up behålls scaffold-contextens routes, liksom materialiseringens befintliga previous-files-gräns; detta inför ingen borttagningspolicy för tidigare eller LLM-emitterade oplanerade routes.
+
+`selectCriticalScaffoldFiles()` prioriterar de levererade filerna baserat på kritiska patterns + route-relevans + capability-relevans. Rangordningen i `CRITICAL_PATH_PATTERNS` sätter nästlade route-filer (`app/blog/page.tsx`, nästlad `layout.tsx`) **över** generiska `components/**`, och statiska routes över dynamiska (`[slug]`) — route-sidor är `llm-owned`/`mustEmit`, så en struken sida blir en sida modellen aldrig skriver.
 
 **Scaffold Contract V2 (2026-04-29):** varje vald kritisk fil renderas via `(role, serialization)`. Defaults härleds från path så befintliga manifest fungerar oförändrade. Manifest kan overrida via valfria fält på `ScaffoldFile` (`role`, `serialization`, `maxPromptChars`). Resultat: `app/page.tsx` renderas som `FileContract` (inte halv TSX), shared `components/*` som `FileContract`-signatur (imports + exports + struktur), medan små `layout.tsx`/`globals.css`/config-filer kan vara kompletta source-fences. Stora `full`-filer faller tillbaka till FileContract så `## Critical Scaffold Files` håller 6k-capen. Se [`docs/schemas/scaffold-contract.md`](../schemas/scaffold-contract.md) för fullständig policy-tabell.
 
@@ -330,7 +351,27 @@ request-specifika komponenter och blocks kommer separat i `## UI Recipes`.
 
 ### Embedding-driven variant pick
 
-`pickScaffoldVariantAsync()` embeddar prompten via OpenAI och cosine-söker mot
+Sync- och async-matchern delar ett explicit förval före keyword- och embeddingval:
+en enda positiv kommandomening med exakt variant-id eller label inom den redan
+valda scaffolden, exempelvis `Använd variant "hero-fullbleed-bg".` eller
+`Choose style variant "Full-bleed Hero".`. `Variant: hero-fullbleed-bg` och
+`Stilvariant: hero-fullbleed-bg` accepteras också; skiftläge ignoreras. Kommandot
+börjar prompten eller följer en avslutad mening och radbrytning; en radbrytning
+inne i `Use\nvariant …` kapar inte föregående kontext. Punkter i exempelvis
+`t.ex.`, `e.g.`, `...` och listnummer är inte meningsgränser; semikolon behåller
+också föregående satskontext. Kvittot får
+`source: "explicit"` och null för score, runner-up och margin. Ett explicit val
+läser inget embeddingartefakt och anropar ingen embeddingprovider.
+
+Negation, beskrivande omnämnanden, flera variantomnämnanden och okända eller
+andra scaffolds identiteter ger inget explicit val. Då gäller befintlig
+keyword-/embedding-/hash-fallback; detta är inte en global negativ vetopolicy.
+Byggval och accepterad follow-up-lock behåller sina befintliga prioriteter.
+Finalizern läser endast kanonisk `rawPrompt` för explicita kommandon, aldrig
+brief eller wrappertext. Saknad raw-prompt och legacy-contextens fallback ger
+inget explicit val. Direkta matcheranrop utan `rawPrompt` använder sin `prompt`.
+
+Utan explicit förval embeddar `pickScaffoldVariantAsync()` prompten via OpenAI och cosine-söker mot
 precomputed variant-embeddings. **Source of truth:** Vercel Blob
 (`embeddings/variant-embeddings.json`). Lokal fil under
 `config/scaffold-variants/_index/` är bara cache. Public URL finns i

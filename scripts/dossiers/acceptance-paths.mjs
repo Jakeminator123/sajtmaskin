@@ -1,13 +1,13 @@
 /**
  * Direct materialization dependencies for dossier acceptance builds.
  *
- * `buildDossierAcceptanceProject` overlays dossier files on the landing-page
- * scaffold, then `buildCompleteProject` fills the export baseline and copies
+ * `buildDossierAcceptanceProject` overlays dossier files on its selected
+ * existing acceptance scaffold, then `buildCompleteProject` fills the export baseline and copies
  * host `src/components/ui/*` sources that the generated files import.
  * Changing anything listed here can change install / typecheck / production
  * build of a materialized site. Variants under `config/scaffold-variants/`
- * and non-landing scaffolds are a separate visual subsystem and are not
- * imported by the acceptance materializer.
+ * remain a separate visual subsystem and are not imported by the acceptance
+ * materializer.
  */
 export const DOSSIER_ACCEPTANCE_PATH_CONTRACT = Object.freeze([
   {
@@ -23,6 +23,18 @@ export const DOSSIER_ACCEPTANCE_PATH_CONTRACT = Object.freeze([
     reason: "Materializer, matrix discovery and this path-scope contract drive the workflow.",
   },
   {
+    pattern: "scripts/workflow/ci-scope.mjs",
+    reason: "Shared PR/push diff discovery controls whether acceptance is executed.",
+  },
+  {
+    pattern: "scripts/workflow/path-impact.mjs",
+    reason: "Shared rename parsing and path matching control acceptance scope.",
+  },
+  {
+    pattern: "scripts/workflow/push-baseline.mjs",
+    reason: "Previous successful push evidence gates incremental acceptance scope.",
+  },
+  {
     pattern: "src/lib/gen/dossiers/**",
     reason: "Acceptance project builder, registry and output-path mapping assemble the site.",
   },
@@ -32,7 +44,19 @@ export const DOSSIER_ACCEPTANCE_PATH_CONTRACT = Object.freeze([
   },
   {
     pattern: "src/lib/gen/scaffolds/landing-page/**",
-    reason: "Acceptance hardcodes the common landing-page scaffold as the starting file set.",
+    reason: "Default acceptance fixture for every dossier without an explicit existing-scaffold mapping.",
+  },
+  {
+    pattern: "src/lib/gen/scaffolds/ecommerce/**",
+    reason: "Existing scaffold fixture used by the stripe-checkout acceptance project.",
+  },
+  {
+    pattern: "src/lib/gen/scaffolds/dashboard/**",
+    reason: "Existing scaffold fixture used by the postgres-drizzle acceptance project.",
+  },
+  {
+    pattern: "src/lib/gen/scaffolds/blog/**",
+    reason: "Existing scaffold fixture used by the mailchimp-newsletter acceptance project.",
   },
   {
     pattern: "src/lib/gen/scaffolds/load-scaffold-files.ts",

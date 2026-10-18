@@ -179,7 +179,6 @@ google-services.json
 .cursor/bugs/*
 !.cursor/bugs/README.md
 .cursor/handoffs/*
-!.cursor/handoffs/README.md
 # Lokal swarm-rapportyta via /automat (audit-only, lokalt per-maskin — du plockar fynd manuellt).
 # README:n committas så konventionen är synlig för agenter på andra maskiner.
 .cursor/swarms/*
@@ -287,7 +286,7 @@ UTLÅTANDE_DEEP_BREEF.txt
 .cursor/openclaw-bridge/
 sajtmaskin.zip
 
-# Agent Bridge v1 (local identity + mailbox state; never commit)
+# Retired Agent Bridge private state; never commit old local credentials/mailboxes
 .agent-bridge/config.local.json
 .agent-bridge/latest-response.md
 .agent-bridge/state.json

@@ -72,6 +72,44 @@ describe("runRepairLoop — non-promoted outcome is never silent (M#sr0)", () =>
     validateGeneratedCode.mockClear();
   });
 
+  it.each([
+    { stage: "deterministic", maxLlmPasses: 2, stopCall: 1, expectedLlmCalls: 0 },
+    { stage: "mid", maxLlmPasses: 2, stopCall: 2, expectedLlmCalls: 1 },
+    { stage: "final", maxLlmPasses: 1, stopCall: 2, expectedLlmCalls: 1 },
+  ])(
+    "honors a caller terminal stop at the $stage promotion attempt",
+    async ({ maxLlmPasses, stopCall, expectedLlmCalls }) => {
+      runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
+      let calls = 0;
+      const result = await runRepairLoop<{ reason: string }>({
+        initialContent: validPage,
+        failedOutputs: [gateFailure],
+        contextLines: [],
+        maxLlmPasses,
+        llmTimeoutMs: 1_000,
+        enableTargetedRepair: false,
+        onAttemptPromotion: async () => {
+          calls += 1;
+          return calls === stopCall
+            ? {
+                promoted: false,
+                stop: true,
+                payload: { reason: "integration_migration_required" },
+              }
+            : { promoted: false };
+        },
+      });
+
+      expect(result).toMatchObject({
+        promoted: false,
+        stopped: true,
+        payload: { reason: "integration_migration_required" },
+      });
+      expect(runLlmFixer).toHaveBeenCalledTimes(expectedLlmCalls);
+      expect(calls).toBe(stopCall);
+    },
+  );
+
   it("sets earlyStopReason=no_improvement when the gate never passes (was null)", async () => {
     // The fixer 'succeeds' (returns changed, syntactically valid content) but
     // the quality gate keeps failing, so the version is never promoted. The

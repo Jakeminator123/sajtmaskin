@@ -5,8 +5,9 @@ alwaysApply: false
 
 # Worktrees (valfritt)
 
-Default: jobba i den öppna checkouten. Skapa worktree bara vid parallellt
-arbete eller när Jakob ber om det.
+Codex och Cursor följer samma regel: jobba i den öppna checkouten.
+En skrivande session per checkout; andra agenter får läsa. Skapa en extra
+worktree när Jakob ber om det. Parallella skribenter behöver separata ytor.
 
 Placering: **bredvid** repo-roten, aldrig under `.cursor/`.
 
@@ -27,12 +28,6 @@ Ta bort med `npm run worktree:remove -- <sökväg>`, aldrig rå `git worktree re
 (junction-fälla mot huvudcheckoutens `node_modules`). Recept:
 [`docs/runbooks/git-worktree.md`](../../docs/runbooks/git-worktree.md).
 
-## Codex
-
-Det sparade Codex-projektet pekar på repo-roten, men huvudcheckouten förblir
-en läs-, test- och kontrollankare. Codex skriver i ett app-isolerat eller
-namngivet worktree från färsk `origin/preview` (eller `origin/master` när
-påståendet gäller produktion). Se
-[`.codex/README.md`](../../.codex/README.md). En långlivad worktree som
-verkligen behövs skyddas med Git-config `sajtmaskin.protectedWorktree`, inte
-med ett särskilt Codex-branchnamn.
+En befintlig app-isolerad checkout följer samma regler. Behåll arbetsytan
+tills PR:n är terminal. En långlivad worktree som behöver skyddas använder
+Git-config `sajtmaskin.protectedWorktree`.

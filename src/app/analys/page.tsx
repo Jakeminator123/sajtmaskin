@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { publicPageAlternates } from "@/lib/public-canonical-url";
 import { AnalysContent } from "./analys-content";
 
@@ -11,5 +12,9 @@ export const metadata: Metadata = {
 };
 
 export default function AnalysPage() {
-  return <AnalysContent />;
+  return (
+    <Suspense fallback={null}>
+      <AnalysContent />
+    </Suspense>
+  );
 }

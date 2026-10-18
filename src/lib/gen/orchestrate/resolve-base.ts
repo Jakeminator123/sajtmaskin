@@ -4,7 +4,11 @@
  * from `src/lib/gen/orchestrate.ts` (structural split, no behavior change).
  */
 import { detectCapabilityRemoval } from "@/lib/builder/follow-up-capability-removal";
-import { isAppScaffold, type BuildIntent } from "@/lib/builder/build-intent";
+import {
+  resolveBuildIntentForMethod,
+  resolveBuildIntentWithScaffold,
+  type BuildIntent,
+} from "@/lib/builder/build-intent";
 import { buildScaffoldQueryContext } from "./scaffold-query-context";
 import type { ScaffoldManifest } from "../scaffolds/types";
 import { SCAFFOLD_OFF_BASELINE_ID } from "../scaffolds/types";
@@ -33,7 +37,13 @@ import {
 import { resolveDossierCapabilitiesFromInferredCapabilities } from "../capability-dossier-bridge";
 import { buildRoutePlan, collectExplicitRouteRemovals, normalizeRoutePath } from "../route-plan";
 import type { PlannedRoute } from "../route-plan";
-import { inferPreGenerationContracts } from "../contract/pre-generation-contracts";
+import {
+  inferPreGenerationContracts,
+  resolveProviderSwitchRemovedCapabilities,
+} from "../contract/pre-generation-contracts";
+import { buildDossierIntegrationPlan } from "../contract/provider-compatibility";
+import { detectProjectProviderEvidence } from "../contract/project-provider-evidence";
+import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
 import { buildOrchestrationContract } from "../orchestration-contract";
 import { deriveBuildSpec } from "../build-spec";
 import { isTargetedRepairPrompt } from "../build-spec/prompt-patterns";
@@ -64,6 +74,7 @@ import {
   enforceFollowUpCapabilityFloor,
   enforceFollowUpRouteFreeze,
   enforceFollowUpScaffoldFreeze,
+  resolveFollowUpFrozenBuildIntent,
   scopeF3DossierCapabilities,
 } from "./follow-up-freeze";
 import type { OrchestrationBase, OrchestrationInput } from "./types";
@@ -96,7 +107,7 @@ export async function resolveOrchestrationBase(
     prompt,
     routePlanPrompt,
     buildSpecPrompt,
-    buildIntent,
+    buildIntent: requestedBuildIntent,
     scaffoldMode = "auto",
     scaffoldId = null,
     brief: inputBrief = null,
@@ -116,6 +127,7 @@ export async function resolveOrchestrationBase(
   // via the auto-match + updateChatScaffoldId path).
   const importedRepoMode = input.importedRepoMode === true;
   const effectiveScaffoldMode = importedRepoMode ? "off" : scaffoldMode;
+  const buildIntent = resolveBuildIntentForMethod(input.buildMethod, requestedBuildIntent);
 
   let resolvedScaffold: ScaffoldManifest | null = null;
   let scaffoldSelection: ScaffoldSelectionMeta = {
@@ -159,8 +171,17 @@ export async function resolveOrchestrationBase(
     resolvedMode === "followUp"
       ? detectCapabilityRemoval(capabilityRemovalPrompt)
       : { removedCapabilities: [], readdedCapabilities: [], matchedKeywords: [] };
-  const removedCapabilities = capabilityRemoval.removedCapabilities;
   const readdedCapabilities = capabilityRemoval.readdedCapabilities;
+  const providerSwitchRemovedCapabilities =
+    resolvedMode === "followUp"
+      ? resolveProviderSwitchRemovedCapabilities(capabilityRemovalPrompt)
+      : [];
+  const removedCapabilities = Array.from(
+    new Set([
+      ...capabilityRemoval.removedCapabilities,
+      ...providerSwitchRemovedCapabilities,
+    ]),
+  ).filter((capability) => !readdedCapabilities.includes(capability));
   const capabilities = suppressRemovedInferredCapabilities(
     inferredCapabilities,
     removedCapabilities,
@@ -198,6 +219,7 @@ export async function resolveOrchestrationBase(
       ]),
     ),
     removedCapabilities,
+    input.followUpContract?.inheritedProviderContracts ?? [],
   );
   const capabilityRemovalHint = buildCapabilityRemovalHint(
     removedCapabilities,
@@ -264,7 +286,7 @@ export async function resolveOrchestrationBase(
       topCandidates: [{ id: effectivePersistedScaffoldId, score: 1, source: "keyword" }],
     };
   } else if (effectiveScaffoldMode === "off") {
-    resolvedScaffold = getScaffoldById(SCAFFOLD_OFF_BASELINE_ID);
+    resolvedScaffold = buildIntent === "template" ? null : getScaffoldById(SCAFFOLD_OFF_BASELINE_ID);
     scaffoldSelection = {
       ...scaffoldSelection,
       selectedScaffold: resolvedScaffold?.id ?? null,
@@ -399,17 +421,27 @@ export async function resolveOrchestrationBase(
   });
   const intentPromotionBlockedForFollowUp =
     intentPromotionDecision.blockedForFollowUp;
-  const intentPromoted = intentPromotionDecision.promoted;
-  // Intentional Byggval exception documented in the glossary: a manually
-  // pinned app scaffold wins over a conflicting website target. Production
-  // callers already normalize this pair via `resolveBuildIntentWithScaffold`,
-  // but keep the orchestration boundary honest for direct/manipulated input.
+  const promotionCandidate = intentPromotionDecision.promoted ? "app" : buildIntent;
+  // Manual app selection has the existing Byggval exception, but entry-method
+  // precedence must survive both manual and implicit auto promotion. Production
+  // callers normalize before brief/prematch; direct calls use the same owner here.
+  const frozenBuildIntent = resolveFollowUpFrozenBuildIntent({
+    resolvedMode,
+    ignorePersistedScaffoldForMatch,
+    contractScaffoldId: importedRepoMode ? null : input.followUpContract?.scaffoldId ?? null,
+    resolvedScaffoldId: resolvedScaffold?.id ?? null,
+    contractBuildIntent: input.followUpContract?.buildIntent,
+    allowedBuildIntents: resolvedScaffold?.allowedBuildIntents ?? [],
+  });
+  const effectiveBuildIntent = frozenBuildIntent ?? resolveBuildIntentWithScaffold(
+    input.buildMethod,
+    promotionCandidate,
+    effectiveScaffoldMode,
+    resolvedScaffold?.id,
+  );
+  const intentPromoted = intentPromotionDecision.promoted && effectiveBuildIntent === "app";
   const intentPromotedByManualScaffold =
-    buildIntent === "website" &&
-    scaffoldMode === "manual" &&
-    isAppScaffold(resolvedScaffold?.id);
-  const effectiveBuildIntent: BuildIntent =
-    intentPromoted || intentPromotedByManualScaffold ? "app" : buildIntent;
+    !intentPromoted && buildIntent === "website" && effectiveBuildIntent === "app";
 
   // Final server-side truth: manual ids, persisted ids, follow-up freeze and
   // auto selection all converge here, after website→app promotion has resolved
@@ -607,78 +639,58 @@ export async function resolveOrchestrationBase(
   // (The third `retainedCapabilities` argument left 2026-08-06 with the
   // parked paddle-billing dossier — it only fed the subscriptions→payments
   // residue-sweep, which is gone.)
+  const projectProviderEvidence = detectProjectProviderEvidence(
+    input.previousFiles ?? [],
+    getPreGenerationContractsConfigFromManifest().providerRules,
+  );
   const preGenerationContracts = filterRemovedCapabilitiesFromContracts(
     inferPreGenerationContracts({
       prompt: input.contractsPrompt ?? prompt,
       buildIntent: effectiveBuildIntent,
       brief,
       capabilities,
+      inheritedIntegrations: input.followUpContract?.inheritedProviderContracts,
+      projectProviderEvidence,
     }),
-    removedCapabilities,
+    capabilityRemoval.removedCapabilities,
   );
-  const rawBuildSpec = deriveBuildSpec({
-    prompt: buildSpecPrompt ?? prompt,
-    buildIntent: effectiveBuildIntent,
-    generationMode: resolvedMode,
-    resolvedScaffold,
-    routePlan,
-    preGenerationContracts,
-    promptStrategyMeta,
-    capabilities,
-    brief,
-    isFirstCodeGeneration: input.isFirstCodeGeneration,
-    existingShellRoutePaths,
-    scaffoldUnlockedForMatch: ignorePersistedScaffoldForMatch,
-    previewPolicyOverride:
-      input.lifecycleStage === "integrations" ? "fidelity3" : undefined,
-    // Q5a (2026-04-21): scale token budgets based on the resolved
-    // model's input context window. Was implemented in build-spec but
-    // never wired — 1M-window models silently used 200k-baseline budgets.
-    modelContextWindowTokens: getModelContextWindowTokens(input.engineModelId),
-    // Byggval (init controls): strukturerat komplexitetsval → quality-golv
-    // och context-bias i deriveBuildSpec.
-    complexityHint: input.complexityHint ?? null,
-  });
-  const buildSpec = inheritQualityTargetFromPriorVersion(
-    input.chatId,
-    rawBuildSpec,
-    input.priorQualityTarget,
-  );
-  const orchestrationContract = buildOrchestrationContract({
-    resolvedScaffold,
-    routePlan,
-    buildSpec,
-  });
-  let scaffoldContext: string | undefined;
-  let resolvedSerializeMode: "inspirational" | "structural" | null = null;
-  if (resolvedScaffold) {
-    resolvedSerializeMode = resolveScaffoldSerializeMode({
-      generationMode: resolvedMode,
-      contextPolicy: buildSpec.contextPolicy,
-      scaffoldMode: effectiveScaffoldMode,
-      scaffoldId: resolvedScaffold.id,
-      siteKind: resolvedScaffold.siteKind,
-    });
-    const scaffoldBudgetChars =
-      buildSpec.tokenBudgets.scaffoldChars ??
-      estimateCharsForTokens(buildSpec.tokenBudgets.scaffoldTokens ?? 6_250);
-    const promptScaffoldBudgetChars =
-      resolvedSerializeMode === "inspirational"
-        ? Math.min(scaffoldBudgetChars, 10_000)
-        : scaffoldBudgetChars;
-    scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, resolvedSerializeMode, {
-      maxChars: promptScaffoldBudgetChars,
-      contextPolicy: buildSpec.contextPolicy,
-      routePlan,
-      capabilities,
-    });
-  }
+  const deriveCurrentBuildSpec = () =>
+    inheritQualityTargetFromPriorVersion(
+      input.chatId,
+      deriveBuildSpec({
+        prompt: buildSpecPrompt ?? prompt,
+        buildIntent: effectiveBuildIntent,
+        generationMode: resolvedMode,
+        resolvedScaffold,
+        routePlan,
+        preGenerationContracts,
+        promptStrategyMeta,
+        capabilities,
+        brief,
+        isFirstCodeGeneration: input.isFirstCodeGeneration,
+        existingShellRoutePaths,
+        scaffoldUnlockedForMatch: ignorePersistedScaffoldForMatch,
+        previewPolicyOverride:
+          input.lifecycleStage === "integrations" ? "fidelity3" : undefined,
+        // Q5a (2026-04-21): scale token budgets based on the resolved
+        // model's input context window. Was implemented in build-spec but
+        // never wired — 1M-window models silently used 200k-baseline budgets.
+        modelContextWindowTokens: getModelContextWindowTokens(input.engineModelId),
+        // Byggval (init controls): strukturerat komplexitetsval → quality-golv
+        // och context-bias in deriveBuildSpec.
+        complexityHint: input.complexityHint ?? null,
+      }),
+      input.priorQualityTarget,
+    );
+  let buildSpec = deriveCurrentBuildSpec();
+  let contractsChangedAfterBuildSpec = false;
 
   // Deterministic dossier selection: brief.requestedCapabilities -> exact
   // dossier per capability. No embeddings, no fuzzy match, no caps. The
   // pipeline is gated by FEATURES.useDossierPipeline so it can be disabled
   // per environment if the dossier pool is unhealthy.
   let dossierSelection: DossierSelectionResult | null = null;
+  let dossierIntegrationDecisions: OrchestrationBase["dossierIntegrationDecisions"] = [];
   let dossierRequestedCapabilities: string[] = [];
   let mutedCapabilities: string[] = [];
   let mutedDossierIds: string[] = [];
@@ -773,9 +785,8 @@ export async function resolveOrchestrationBase(
       // wanted NOW: (a) capabilities the CURRENT message infers, (b) providers
       // the user explicitly APPROVED, and (c) integrations with real FILE
       // EVIDENCE in the parent/base version (already built — safe to keep). The
-      // allowed set is dependency-expanded via the same helper as selection
-      // (`DEPENDENT_CAPABILITIES` is empty since 2026-08-06; the expansion
-      // also alias-normalizes and dedupes overlapping picks). Speculative
+      // allowed set is alias-normalized and deduped via the same compatibility
+      // helper as selection; no implicit companion capabilities are added.
       // brief/floor capabilities with no evidence, ask, or approval are
       // dropped. F2/design rounds are untouched (can-only-grow stays). See
       // docs/architecture/llm-pipeline.md.
@@ -863,6 +874,18 @@ export async function resolveOrchestrationBase(
         // project's stored env keys, not the platform process.env.
         configuredEnvKeys: input.configuredEnvKeys,
       });
+      const integrationPlan = buildDossierIntegrationPlan({
+        contracts: preGenerationContracts.contracts,
+        dossierSelection,
+        projectFiles: input.previousFiles ?? [],
+        projectProviderEvidence,
+      });
+      contractsChangedAfterBuildSpec =
+        integrationPlan.contracts.integrations.length !==
+        preGenerationContracts.contracts.integrations.length;
+      preGenerationContracts.contracts = integrationPlan.contracts;
+      dossierSelection = integrationPlan.dossierSelection;
+      dossierIntegrationDecisions = integrationPlan.decisions;
       if (dossierSelection.selected.length > 0) {
         console.info("[orchestrate] dossiers_selected", {
           count: dossierSelection.selected.length,
@@ -881,6 +904,38 @@ export async function resolveOrchestrationBase(
       );
       dossierSelection = null;
     }
+  }
+
+  if (contractsChangedAfterBuildSpec) buildSpec = deriveCurrentBuildSpec();
+  const orchestrationContract = buildOrchestrationContract({
+    resolvedScaffold,
+    routePlan,
+    buildSpec,
+  });
+  let scaffoldContext: string | undefined;
+  let resolvedSerializeMode: "inspirational" | "structural" | null = null;
+  if (resolvedScaffold) {
+    resolvedSerializeMode = resolveScaffoldSerializeMode({
+      generationMode: resolvedMode,
+      contextPolicy: buildSpec.contextPolicy,
+      scaffoldMode: effectiveScaffoldMode,
+      scaffoldId: resolvedScaffold.id,
+      siteKind: resolvedScaffold.siteKind,
+    });
+    const scaffoldBudgetChars =
+      buildSpec.tokenBudgets.scaffoldChars ??
+      estimateCharsForTokens(buildSpec.tokenBudgets.scaffoldTokens ?? 6_250);
+    const promptScaffoldBudgetChars =
+      resolvedSerializeMode === "inspirational"
+        ? Math.min(scaffoldBudgetChars, 10_000)
+        : scaffoldBudgetChars;
+    scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, resolvedSerializeMode, {
+      generationMode: resolvedMode,
+      maxChars: promptScaffoldBudgetChars,
+      contextPolicy: buildSpec.contextPolicy,
+      routePlan,
+      capabilities,
+    });
   }
 
   return {
@@ -906,6 +961,7 @@ export async function resolveOrchestrationBase(
     f3ApprovedCapabilities,
     f3ApprovedProviders,
     dossierSelection,
+    dossierIntegrationDecisions,
     requestedCapabilityTiers: input.requestedCapabilityTiers,
     scaffoldVariantId: resolvedMode === "followUp" ? input.persistedVariantId ?? null : null,
     capabilityModifyHint: input.capabilityModifyHint ?? null,

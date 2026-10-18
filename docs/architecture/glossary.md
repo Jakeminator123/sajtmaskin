@@ -91,13 +91,9 @@ respektive kod, manifest eller policy. Aktuella inventarier finns i
 | Internt `@sajtmaskin`-register | Sajtmaskins kuraterade, självbärande shadcn-kompatibla registry-källa. |
 | Registry Discovery | Läs-only sökning över shadcn-register (officiella + community) via HTTP (`registry-service`), inte program-API:t. |
 | Beskriv-flöde | Fritext blir registry-sökfrågor, verkliga Registry Discovery-träffar, LLM-rankning och valbara kandidater; modellen får inte hitta på registry-poster. |
-| Scout (agentroll) | Opt-in via `/scout`: läser och föreslår. Inte Agent Bridge-identiteten SCOUT-01. |
-| Builder (agentroll) | Opt-in via `/builder`: skriver och lämnar PR. Inte Agent Bridge-identiteten BUILD-01. |
-| Steward (agentroll) | Opt-in via `/steward`: landar redo PR:er och städar (`tidy`). Inte MERGE-01. |
-| Agent Bridge | Repo-bundet mailbox-protokoll (`/bridge`) mellan Cursor-agenter och ChatGPT-coachen via GitHub issue #1468. Inte OpenClaw-bridge. |
-| Control Bridge | Mailbox-issuen #1468 för Agent Bridge. |
-| BRYGG-01 (bryggagent) | Agent Bridge-identiteten (`brygg`) som v1 aktiverar. Driven av #1468: läser uppgift, utför, rapporterar, väntar. Kommando `/bryggagent`. |
-| MERGE-01 / BUILD-01 / SCOUT-01 | Fasta Agent Bridge-identiteter (`merge` / `builder` / `scout`), definierade men **parkerade** i v1. Låsta i lokal config; agenten får inte byta själv. |
+| Scout (agentroll) | Opt-in via `/scout`: läser och föreslår. |
+| Builder (agentroll) | Opt-in via `/builder`: skriver och lämnar PR. |
+| Steward (agentroll) | Opt-in via `/steward`: landar redo PR:er och städar (`tidy`). |
 
 ## Auktoritetsordning
 
@@ -202,7 +198,7 @@ persisterade token- eller kluster-id:n utifrån ordlistan.
 | Briefing-lagret som «halvfärdigt» / `promptAssist` som toppnyckel | Funktionen är komplett. Manifestets enda toppnyckel för lagret är `briefing`. |
 | Polish / Skriv om / Förbättra / prompt rewrite | Död väg (borttagen 2026-04-21). Inte samma sak som `Prompt-assist` (2026-08-19): den rättar utkastet i rutan och behåller naturligt språk. |
 | `deploy-assistant` som aktiv fas | Konfigurerad i `phaseRouting` och ModelTraceOverlay; ingen runtime-anropare |
-| `Scaffold: Av` / scaffold off | `ScaffoldMode: "off"` → `projekt-bas-app` i vanlig own-engine-init; **inte** scaffold-löst Importerat repo-läge |
+| `Scaffold: Av` / scaffold off | `ScaffoldMode: "off"` → `projekt-bas-app` för website/app-init; template-init förblir scaffold-löst. **Inte** Importerat repo-läge, som alltid saknar scaffold. |
 | syntetisk scaffold | Undvik som nulägesbegrepp. `projekt-bas-app` är en riktig registrerad Scaffold; variant-template inspiration är ett separat inspirationslager |
 | addendum (ospecificerat) | `Källpaket` för samlingen av valbara ingredienser; `Variant-template-addendum` när `config/variant-template-addenda.json` avses |
 | variant template / template snapshot | Precisera till `sourceTemplateIds`, `Variant-template inspiration` eller `Template (v0-mall)` beroende på om kandidatpool, inspiration eller helprojekt avses |
@@ -211,7 +207,8 @@ persisterade token- eller kluster-id:n utifrån ordlistan.
 | `hasRealBuildIntegrations` som "har externa integrationer" | Kostnadssignal: `true` = «Bygg integrationer» tar LLM-vägen (planerad dossier saknas i versionen, eller integrationen har ett verkligt buildkrav). |
 | `previewPending` som previewstatus | `/preview-status` äger previewstatusen. |
 | `canPin` som versionsegenskap | Legacy v0-fält. Own-engine-versioner har `canPin: false` och pin-försök svarar 409 |
-| `self-contained` som "fungerar utan externa tjänster" | «Inget separat integrationsbygge krävs». |
+| `self-contained` som "fungerar utan externa tjänster" | **Ingår direkt** — inget separat integrationsbygge krävs; ordet är inte live- eller providerbevis. |
+| `built-live` som liveacceptans | **Konfigurerad** — den deklarerade projekt-/kodevidensen är uppfylld; ett externt provideranrop är inte liveverifierat. |
 | `filesRevision` som versionsidentitet | `versionId` = radens identitet, `filesRevision` = innehållets. |
 | Stewart / stewart | `Steward` (agentroll) |
 | Herde / mergare / merge-agent | `Steward` (agentroll) |
@@ -225,7 +222,7 @@ persisterade token- eller kluster-id:n utifrån ordlistan.
 - **Codex repo-agent:** arbetar i repot och läser `AGENTS.md` samt `.codex/`.
 - **GitHub/Vercel-bot:** review- eller deploysignal, inte produktens Verifier.
 - **Sajtmaskins produktmodell:** runtimeval i `config/ai_models/manifest.json`.
-- **Extern coach/LLM:** har bara den kontext användaren uttryckligen ger den.
+- **Extern chatt/LLM:** har bara den kontext användaren uttryckligen ger den.
 
 Dessa modellplan delar inte automatiskt sluggar eller routing.
 

@@ -4,8 +4,13 @@ import yaml from "js-yaml";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { dirname as posixDirname, join as posixJoin, normalize as posixNormalize } from "node:path/posix";
+import {
+  dirname as posixDirname,
+  join as posixJoin,
+  normalize as posixNormalize,
+} from "node:path/posix";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 import { SAFE_DOCS_COMMANDS } from "./ci-scope.mjs";
 import { PATH_GROUP_FLOORS } from "./path-impact.mjs";
 import {
@@ -18,21 +23,47 @@ export { requiredCheckOwnerSpec };
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
+/** @param {{ name: string, source: string }[]} workflows */
+export function evaluateRetiredApiReviewWorkflows(workflows) {
+  return workflows
+    .filter(
+      ({ name, source }) =>
+        name === "pr-ai-review.yml" || /scripts\/pr-review\/(?:run|receipt)\.mjs/u.test(source),
+    )
+    .map(
+      ({ name }) =>
+        `${name}: automatic API PR review is retired; do not duplicate local/external review`,
+    );
+}
+
 // Avsiktlig konstitutionell duplicering. Den redigerbara policyn får lägga till
 // skydd, men får inte kunna sänka sin egen verifiering och sedan godkänna sig
 // själv. Att ändra golvet kräver därför en synlig kod- och teständring under
 // scripts/workflow/.
 export const POLICY_FLOORS = Object.freeze({
   retiredBugIdsSha256: "6cb7f4b94e167f05471dd6c08ae928672927a41a972856992ca2a1cbd54b5634",
-  // Required PR-head checks and the workflow file that may publish them.
-  // `review-window` is owned by the trusted default-branch controller, not a
-  // PR-head job, and is filtered out before this map is consulted.
+  // Canonical required PR-head checks and the workflow that may publish them.
+  // GitHubs live ruleset is mergeägare; denna karta hindrar namnspoofing.
   requiredCheckOwners: REQUIRED_CHECK_OWNERS,
-  requiredChecks: Object.freeze([...Object.keys(REQUIRED_CHECK_OWNERS), "review-window"]),
-  manualMergePathPrefixes: [
+  requiredChecks: Object.freeze([...Object.keys(REQUIRED_CHECK_OWNERS)]),
+  dependabotAutoMerge: Object.freeze({
+    allowedFiles: Object.freeze(["package-lock.json", "package.json"]),
+    allowedPackages: Object.freeze([
+      "@radix-ui/*",
+      "ajv",
+      "date-fns",
+      "dotenv",
+      "nanoid",
+      "prettier",
+      "swr",
+      "tailwind-merge",
+      "zustand",
+    ]),
+  }),
+  ownerReviewPathPrefixes: [
+    ".cursor/rules/pr-merge.mdc",
     ".github/workflows/",
     "scripts/ci/",
-    "scripts/pr-review/",
     "scripts/workflow/check-contract.mjs",
     "scripts/workflow/required-check-owners.mjs",
     "scripts/workflow/ci-scope.mjs",
@@ -49,7 +80,7 @@ export const POLICY_FLOORS = Object.freeze({
     deploymentCheckNames: ["Vercel"],
   },
   verificationProfiles: {
-    always: ["workflow:contract"],
+    always: ["workflow:contract", "test:discovery:check"],
     docs: ["docs:check", "docs:links", "docs:test"],
     controlPlane: ["control-plane:check"],
     agent: ["check:agent-context"],
@@ -115,8 +146,7 @@ function json(root, path) {
 }
 
 const TRUSTED_CONTROLLER_ENTRIES = Object.freeze([
-  "scripts/ci/trusted-review-window.mjs",
-  "scripts/ci/merge-ready-freshness.mjs",
+  "scripts/ci/dependabot-automerge.mjs",
 ]);
 
 function normalizeRepoRelative(value) {
@@ -153,7 +183,7 @@ export function collectEsmSpecifiers(source) {
 /**
  * Fail-closed: every import reachable from a CI trust-root entry must be
  * `node:*` or a relative file. Bare package specifiers (ajv, js-yaml, …)
- * break merge-ready-freshness, which runs without `npm install`.
+ * break the trusted Dependabot controller, which runs without `npm install`.
  *
  * @param {Record<string, string | null | undefined>} fileSources
  * @param {readonly string[]} entryRelPaths
@@ -238,12 +268,37 @@ function workflowEvents(document) {
   return new Set();
 }
 
-function grantsWrite(permission) {
+function grantsWrite(permission, capabilities = null) {
   if (typeof permission === "string") return permission.toLowerCase() === "write-all";
   if (!permission || typeof permission !== "object") return false;
-  return Object.values(permission).some(
-    (value) => typeof value === "string" && value.toLowerCase() === "write",
+  return Object.entries(permission).some(
+    ([capability, value]) =>
+      (!capabilities || capabilities.includes(capability)) &&
+      typeof value === "string" && value.toLowerCase() === "write",
   );
+}
+
+export function evaluateTrustedControllerPermissions(source) {
+  let document;
+  try {
+    document = yaml.load(source);
+  } catch {
+    return ["trusted controller permissions must be valid YAML"];
+  }
+  const errors = [];
+  if (document?.permissions === undefined || document?.permissions === null) {
+    errors.push("trusted controller must declare explicit permissions");
+  }
+  const expected = { contents: "read", "pull-requests": "read" };
+  if (!isDeepStrictEqual(document?.permissions, expected)) {
+    errors.push("Dependabot controller GITHUB_TOKEN permissions must be exactly contents/pull-requests read");
+  }
+  for (const [jobName, job] of Object.entries(document?.jobs ?? {})) {
+    if (job?.permissions !== undefined) {
+      errors.push(`trusted controller job ${jobName} must not override workflow permissions`);
+    }
+  }
+  return errors;
 }
 
 export function evaluatePrHeadWorkflowPermissions(workflowSources) {
@@ -290,16 +345,13 @@ export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POL
   const coreNames = new Set(
     (policy.requiredChecks ?? [])
       .map((name) => String(name).trim().toLowerCase())
-      .filter((name) => name && name !== "review-window"),
+      .filter(Boolean),
   );
   const reviewPatterns = (policy.review?.qualifyingCheckPatterns ?? [])
     .map((pattern) => String(pattern).trim().toLowerCase())
     .filter(Boolean);
   const canonicalCoreCounts = new Map([...coreNames].map((name) => [name, 0]));
   for (const workflow of workflowSources) {
-    if (/^review-window\.ya?ml$/iu.test(workflow.name)) {
-      errors.push(`${workflow.name} is retired; the default-branch controller owns review-window`);
-    }
     let document;
     try {
       document = yaml.load(workflow.source);
@@ -315,9 +367,6 @@ export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POL
       }
       const identities = new Set([String(jobId).trim().toLowerCase(), publishedName.toLowerCase()]);
       for (const identity of identities) {
-        if (identity === "review-window") {
-          errors.push(`${workflow.name} job ${jobId} may not use reserved identity review-window`);
-        }
         if (coreNames.has(identity)) {
           const owner = ownerWorkflowForRequiredCheck(identity, policy);
           if (workflow.name !== owner) {
@@ -340,7 +389,9 @@ export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POL
   for (const [name, count] of canonicalCoreCounts) {
     if (count !== 1) {
       const owner = ownerWorkflowForRequiredCheck(name, policy);
-      errors.push(`${owner || "canonical CI workflow"} must publish ${name} exactly once (found ${count})`);
+      errors.push(
+        `${owner || "canonical CI workflow"} must publish ${name} exactly once (found ${count})`,
+      );
     }
   }
   return errors;
@@ -379,29 +430,21 @@ function hasExactExpression(actual, expected) {
 
 const TRUSTED_MASTER_PUSH_OR_DISPATCH =
   "${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}";
-/** Preview uses the same prod Postgres as Production (`config/db-targets.json`). */
+/** Trusted delivery pushes check PROD compatibility; runtime Preview targets DEV. */
 const TRUSTED_PROD_DB_PUSH_OR_DISPATCH =
   "${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/preview') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}";
 const REJECT_NON_MASTER_DISPATCH =
   "${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/master' }}";
-// Oberoende från controllerns GATE_PR_ACTIONS: workflow-jobbet måste filtrera
-// innan GitHub placerar körningen i cancel-in-progress-gruppen. Annars kan ett
-// no-op-event avbryta den riktiga gate-körningen utan att publicera ett avslut.
-const TRUSTED_REVIEW_GATE_JOB_IF =
-  "github.event_name == 'pull_request_target' && " +
-  "( github.event.action == 'opened' || github.event.action == 'reopened' || " +
-  "github.event.action == 'synchronize' || github.event.action == 'ready_for_review' ) || " +
-  "( github.event_name == 'issue_comment' && github.event.action == 'created' && " +
-  "github.event.issue.pull_request != null && " +
-  "contains(fromJSON('[\"OWNER\",\"MEMBER\",\"COLLABORATOR\"]'), github.event.comment.author_association) && " +
-  "github.event.comment.body == 'review-window:refresh' ) || " +
-  "( github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' )";
-const TRUSTED_REVIEW_GATE_CONCURRENCY =
-  "trusted-review-window-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}";
+const CREDENTIALS_PRESENT = "steps.creds.outputs.present == 'true'";
+const TRUSTED_MASTER_CREDENTIALS_PRESENT =
+  "${{ steps.creds.outputs.present == 'true' && github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}";
+const TRUSTED_SCHEDULE_OR_MASTER_DISPATCH =
+  "${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') }}";
 // Oberoende golv: ci-scope får inte krympa sin egen allowlist och sedan använda
 // samma krympta lista som bevis för att light-lanen täcker allt den lovar.
 const SAFE_DOCS_COMMAND_FLOOR = Object.freeze([
   "workflow:contract",
+  "test:discovery:check",
   "docs:check",
   "docs:links",
   "docs:test",
@@ -414,6 +457,7 @@ const DB_BLOB_PR_PATH_FLOOR = Object.freeze([
   "scripts/db/**/*.py",
 ]);
 const E2E_CONTRACT_SCRIPT = "playwright test -c playwright.deploy-smoke.config.ts --list";
+const TEST_DISCOVERY_SCRIPT = "node scripts/workflow/test-discovery.mjs";
 // Explicit allowlist: every current `*.stability.test.*` is deterministic
 // (no network/DB/wall-clock). A new file must be added here — there is no
 // silent warn-only path — so C2 cannot regress by exclusion.
@@ -434,8 +478,14 @@ function hasExactStringSet(actual, expected) {
 }
 
 const DOSSIER_ACCEPTANCE_MATRIX_IF =
-  "${{ !cancelled() && needs.scope.result == 'success' && (github.event_name != 'pull_request' || needs.scope.outputs.run_matrix == 'true') }}";
+  "${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_matrix == 'true' }}";
 const DOSSIER_ACCEPTANCE_BUILD_IF = "${{ !cancelled() && needs.discover.result == 'success' }}";
+
+function hasPushBaselineReader(scope) {
+  return isDeepStrictEqual(scope?.permissions, { contents: "read", actions: "read" }) &&
+    scope.steps?.some((step) =>
+      hasExactExpression(step.env?.GITHUB_TOKEN, "${{ github.token }}"));
+}
 
 export function evaluateDossierAcceptanceWorkflow(source) {
   const errors = [];
@@ -456,30 +506,49 @@ export function evaluateDossierAcceptanceWorkflow(source) {
   } else if (pullRequest && typeof pullRequest === "object" && pullRequest.paths) {
     errors.push("dossier-acceptance must not path-filter the pull_request trigger");
   }
+  if (!hasExactStringSet(document?.on?.push?.branches, ["preview"]) ||
+      document?.on?.push?.paths || document?.on?.push?.["paths-ignore"]) {
+    errors.push("dossier-acceptance must run on every preview push");
+  }
   const requiredTypes = [
     "opened",
     "synchronize",
     "reopened",
     "ready_for_review",
-    "converted_to_draft",
   ];
-  if (pullRequest && typeof pullRequest === "object" && !includesEvery(pullRequest.types, requiredTypes)) {
-    errors.push("dossier-acceptance pull_request events must rerun when draft readiness changes");
+  if (
+    pullRequest &&
+    typeof pullRequest === "object" &&
+    !includesEvery(pullRequest.types, requiredTypes)
+  ) {
+    errors.push("dossier-acceptance must run on new heads and ready_for_review");
+  }
+  if (values(pullRequest?.types).includes("converted_to_draft")) {
+    errors.push("dossier-acceptance must not restart unchanged work on converted_to_draft");
   }
 
   const scope = document?.jobs?.scope;
   if (
     !scope ||
     !scope.outputs?.run_matrix ||
-    !scope.steps?.some((step) => step.run === "node scripts/dossiers/acceptance-scope.mjs")
+    !hasPushBaselineReader(scope) ||
+    !scope.steps?.some((step) => step.run === "node scripts/dossiers/acceptance-scope.mjs") ||
+    !scope.steps?.some((step) =>
+      hasExactExpression(step.env?.SAJTMASKIN_PUSH_BASE_SHA, "${{ github.event.before }}"),
+    )
   ) {
     errors.push("dossier-acceptance scope must publish fail-closed run_matrix");
   }
 
   for (const jobName of ["discover", "dependency-registry"]) {
     const job = document?.jobs?.[jobName];
-    if (!values(job?.needs).includes("scope") || !hasExactExpression(job?.if, DOSSIER_ACCEPTANCE_MATRIX_IF)) {
-      errors.push(`${jobName} may run the expensive dossier matrix only after a successful in-scope decision`);
+    if (
+      !values(job?.needs).includes("scope") ||
+      !hasExactExpression(job?.if, DOSSIER_ACCEPTANCE_MATRIX_IF)
+    ) {
+      errors.push(
+        `${jobName} may run the expensive dossier matrix only after a successful in-scope decision`,
+      );
     }
   }
 
@@ -491,8 +560,13 @@ export function evaluateDossierAcceptanceWorkflow(source) {
     errors.push("keyless-production-build may run only after a successful in-scope discover job");
   }
 
-  if (!hasExactExpression(document?.jobs?.["verification-evidence"]?.if, "github.event_name != 'pull_request'")) {
-    errors.push("verification-evidence must stay off pull-request runs");
+  if (
+    !hasExactExpression(
+      document?.jobs?.["verification-evidence"]?.if,
+      "github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'",
+    )
+  ) {
+    errors.push("verification-evidence must only run on schedule/workflow_dispatch, not PR/push");
   }
 
   const aggregate = document?.jobs?.["dossier-acceptance"];
@@ -504,7 +578,9 @@ export function evaluateDossierAcceptanceWorkflow(source) {
     "keyless-production-build",
   ];
   if (!includesEvery(aggregate?.needs, aggregateNeeds)) {
-    errors.push("dossier-acceptance must aggregate scope, discover, evidence, registry and keyless builds");
+    errors.push(
+      "dossier-acceptance must aggregate scope, discover, evidence, registry and keyless builds",
+    );
   }
   if (!hasExactExpression(aggregate?.if, "${{ !cancelled() }}")) {
     errors.push(
@@ -512,42 +588,6 @@ export function evaluateDossierAcceptanceWorkflow(source) {
     );
   }
 
-  return errors;
-}
-
-export function evaluateTrustedReviewWindowGate(source) {
-  let document;
-  try {
-    document = yaml.load(source);
-  } catch (error) {
-    return [
-      `merge-ready freshness is not valid YAML: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    ];
-  }
-
-  const gate = document?.jobs?.["trusted-review-window"];
-  const errors = [];
-  if (document?.concurrency !== undefined) {
-    errors.push(
-      "merge-ready freshness must not use workflow-level concurrency across independent controller jobs",
-    );
-  }
-  if (!hasExactExpression(gate?.if, TRUSTED_REVIEW_GATE_JOB_IF)) {
-    errors.push(
-      "trusted review-window job may enter gate concurrency only for opened, reopened, synchronize, ready_for_review and a trusted gate-only refresh",
-    );
-  }
-  if (!hasExactExpression(gate?.concurrency?.group, TRUSTED_REVIEW_GATE_CONCURRENCY)) {
-    errors.push("trusted review-window concurrency must remain isolated per pull request");
-  }
-  if (gate?.concurrency?.["cancel-in-progress"] !== true) {
-    errors.push("trusted review-window must still cancel stale runs for a newer real gate event");
-  }
-  if (!gate?.steps?.some((step) => step.run === "node scripts/ci/trusted-review-window.mjs gate")) {
-    errors.push("trusted review-window gate job must invoke the default-branch controller");
-  }
   return errors;
 }
 
@@ -570,14 +610,16 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     "synchronize",
     "reopened",
     "ready_for_review",
-    "converted_to_draft",
   ];
   if (!includesEvery(pullRequest?.types, requiredTypes)) {
-    errors.push("CI pull_request events must rerun scope when draft readiness changes");
+    errors.push("CI must run on new heads and upgrade deferred checks on ready_for_review");
+  }
+  if (values(pullRequest?.types).includes("converted_to_draft")) {
+    errors.push("CI must not restart unchanged work on converted_to_draft");
   }
 
   if (!hasExactExpression(document?.concurrency?.group, "ci-${{ github.ref }}")) {
-    errors.push("CI concurrency must serialize runs per ref, including master migrations");
+    errors.push("CI concurrency must serialize read-only trusted observations per ref");
   }
   if (
     !hasExactExpression(
@@ -585,17 +627,30 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
       "${{ github.event_name == 'pull_request' }}",
     )
   ) {
-    errors.push("CI may cancel stale PR runs but must never cancel a running master migration");
+    errors.push("CI may cancel stale PR runs but must let trusted observations finish");
   }
 
   const scope = document?.jobs?.scope;
   if (
     !scope ||
-    !scope.outputs?.run_heavy ||
-    !scope.outputs?.safe_docs_only ||
+    !hasExactExpression(scope.outputs?.run_heavy, "${{ steps.classify.outputs.run_heavy }}") ||
+    !hasPushBaselineReader(scope) ||
+    !hasExactExpression(
+      scope.outputs?.safe_docs_only,
+      "${{ steps.classify.outputs.safe_docs_only }}",
+    ) ||
+    !hasExactExpression(
+      scope.outputs?.run_preview_host,
+      "${{ steps.classify.outputs.run_preview_host }}",
+    ) ||
+    !hasExactExpression(scope.outputs?.high_risk, "${{ steps.classify.outputs.high_risk }}") ||
+    !hasExactExpression(scope.outputs?.reason, "${{ steps.classify.outputs.reason }}") ||
     !scope.steps?.some((step) => step.run === "node scripts/workflow/ci-scope.mjs") ||
     !scope.steps?.some((step) =>
       hasExactExpression(step.env?.SAJTMASKIN_PR_ACTION, "${{ github.event.action }}"),
+    ) ||
+    !scope.steps?.some((step) =>
+      hasExactExpression(step.env?.SAJTMASKIN_PUSH_BASE_SHA, "${{ github.event.before }}"),
     )
   ) {
     errors.push("CI scope job must publish fail-closed profile and draft-action outputs");
@@ -611,6 +666,31 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   ) {
     errors.push("quality-core may defer work only on an explicit successful light scope");
   }
+  const qualityTests = document?.jobs?.["quality-tests"];
+  const shardCommand = "npm run test:ci -- --shard=${{ matrix.shard }}/4";
+  const shardStep = qualityTests?.steps?.find((step) => step.run === shardCommand);
+  if (
+    !values(qualityTests?.needs).includes("scope") ||
+    !hasExactExpression(qualityTests?.if, qualityCore?.if) ||
+    !hasExactStringSet(qualityTests?.strategy?.matrix?.shard, ["1", "2", "3", "4"]) ||
+    qualityTests?.strategy?.matrix?.include !== undefined ||
+    qualityTests?.strategy?.matrix?.exclude !== undefined ||
+    qualityTests?.strategy?.["fail-fast"] !== false ||
+    qualityTests?.strategy?.["max-parallel"] !== 4 ||
+    qualityTests?.["continue-on-error"] !== undefined ||
+    !shardStep ||
+    shardStep.if !== undefined ||
+    shardStep["continue-on-error"] !== undefined ||
+    packageScripts?.["test:ci"] !== "vitest run"
+  ) {
+    errors.push("quality-tests must run all four blocking native Vitest shards on heavy scope");
+  }
+  if (packageScripts?.["test:workflow"] !== "vitest run scripts/workflow scripts/dev/install-git-hooks.test.ts scripts/dossiers/dossier-acceptance-workflow.test.ts --environment node --maxWorkers=4 --bail=1") {
+    errors.push("test:workflow must execute the complete targeted Node workflow lane with four workers");
+  }
+  if (qualityCore?.steps?.some((step) => step.run === "npm run test:ci")) {
+    errors.push("quality-core must not duplicate the complete sharded test suite");
+  }
   const e2eContract = qualityCore?.steps?.find((step) => step.run === "npm run test:e2e:contract");
   if (
     !e2eContract ||
@@ -622,22 +702,51 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   if (packageScripts?.["test:e2e:contract"] !== E2E_CONTRACT_SCRIPT) {
     errors.push("test:e2e:contract must retain its exact Playwright discovery command");
   }
+  if (packageScripts?.["test:discovery:check"] !== TEST_DISCOVERY_SCRIPT) {
+    errors.push("test:discovery:check must execute the canonical discovery guard");
+  }
 
-  const blockingStability = qualityCore?.steps?.find(
-    (step) => step.run === "npm run test:stability:blocking",
-  );
+  const persistence = document?.jobs?.["quality-project-persistence"];
+  const persistenceRun = persistence?.steps?.find((step) => step.run === "npm run test:e2e:project-persistence");
   if (
+    !values(persistence?.needs).includes("scope") ||
+    !hasExactExpression(persistence?.if, qualityCore?.if) ||
+    persistence?.["runs-on"] !== "ubuntu-24.04" ||
+    persistence?.["continue-on-error"] !== undefined ||
+    persistence?.services !== undefined ||
+    persistence?.permissions !== undefined ||
+    JSON.stringify(persistence ?? {}).includes("secrets.") ||
+    !persistenceRun || persistenceRun.if !== undefined ||
+    persistenceRun["continue-on-error"] !== undefined ||
+    !persistence?.steps?.some((step) => step.run === "npm ci") ||
+    packageScripts?.["test:e2e:project-persistence"] !== "node scripts/e2e/run-project-persistence.mjs" ||
+    packageScripts?.["test:e2e:project-persistence:list"] !== "playwright test -c playwright.project-persistence.config.ts --list"
+  ) {
+    errors.push("heavy project-persistence must run the real isolated CI launcher, without shared services, secrets or permission changes");
+  }
+
+  const blockingStabilityOwners = Object.entries(document?.jobs ?? {}).flatMap(
+    ([jobName, job]) => (job?.steps ?? [])
+      .filter((step) => step.run === "npm run test:stability:blocking")
+      .map((step) => ({ jobName, step })),
+  );
+  const blockingStability = blockingStabilityOwners[0]?.step;
+  if (
+    blockingStabilityOwners.length !== 1 ||
+    blockingStabilityOwners[0]?.jobName !== "quality-core" ||
     !blockingStability ||
     Object.hasOwn(blockingStability, "continue-on-error") ||
     !hasExactExpression(blockingStability.if, "${{ !cancelled() }}")
   ) {
-    errors.push("heavy quality-core must block on deterministic stability contracts");
+    errors.push("heavy quality-core must be the single blocking owner of deterministic stability contracts");
   }
   if (packageScripts?.["test:stability:blocking"] !== BLOCKING_STABILITY_SCRIPT) {
     errors.push("test:stability:blocking must run the explicit deterministic stability subset");
   }
-  if (document?.jobs?.stability?.["continue-on-error"] !== true) {
-    errors.push("broad stability job must remain warn-only");
+  if (document?.jobs?.stability !== undefined || Object.values(document?.jobs ?? {}).some(
+    (job) => job?.steps?.some((step) => step.run === "npm run test:stability"),
+  )) {
+    errors.push("CI must not duplicate the fully covered blocking stability lane");
   }
 
   const qualityContracts = document?.jobs?.["quality-contracts"];
@@ -646,6 +755,73 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     !hasExactExpression(qualityContracts?.if, "${{ !cancelled() }}")
   ) {
     errors.push("quality-contracts must run after every non-cancelled scope result");
+  }
+  // Heavy/fallback owns these checks through the complete suite and preflight.
+  // The complementary light lane must remain blocking, never silently omitted.
+  const lightOnly =
+    "${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' }}";
+  for (const command of [
+    "npm run test:workflow",
+    "npm run route-timeouts:check",
+    "npm run scaffolds:validate",
+  ]) {
+    const steps = qualityContracts?.steps?.filter((step) => step.run === command) ?? [];
+    if (
+      steps.length !== 1 ||
+      !hasExactExpression(steps[0].if, lightOnly) ||
+      steps[0]["continue-on-error"] !== undefined ||
+      qualityContracts?.["continue-on-error"] !== undefined
+    ) {
+      errors.push(`quality-contracts must run exactly one blocking light-only ${command}`);
+    }
+  }
+  const heavyOnly =
+    "${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false') }}";
+  const scaffoldChecks = qualityContracts?.steps?.filter(
+    (step) => step.run === "npm run scaffolds:client-list:check",
+  ) ?? [];
+  if (
+    scaffoldChecks.length !== 1 || !hasExactExpression(scaffoldChecks[0].if, heavyOnly) ||
+    scaffoldChecks[0]["continue-on-error"] !== undefined ||
+    packageScripts?.["scaffolds:client-list:check"] !== "node --import tsx scripts/scaffolds/generate-client-list.ts --check"
+  ) {
+    errors.push("heavy/fallback contracts must retain exactly one blocking scaffold client-list validator");
+  }
+  for (const jobName of ["quality-core", "quality-tests"]) {
+    const jobSteps = document?.jobs?.[jobName]?.steps ?? [];
+    const steps = jobSteps.filter(
+      (step) => step.run === "npm run embeddings:ensure",
+    );
+    const consumerIndex = jobSteps.findIndex((step) => step.run === (
+      jobName === "quality-core" ? "npm run typecheck" : "npm run test:ci -- --shard=${{ matrix.shard }}/4"
+    ));
+    if (
+      steps.length !== 1 || steps[0].if !== undefined || steps[0]["continue-on-error"] !== undefined ||
+      consumerIndex < 0 || jobSteps.indexOf(steps[0]) >= consumerIndex
+    ) {
+      errors.push(`${jobName} must retain blocking embeddings materialization before tests`);
+    }
+  }
+  const advisoryTerms = qualityContracts?.steps?.filter(
+    (step) => step.run === "npm run check:terms",
+  ) ?? [];
+  if (
+    advisoryTerms.length !== 1 || !hasExactExpression(advisoryTerms[0].if, "${{ !cancelled() }}") ||
+    advisoryTerms[0]["continue-on-error"] !== true
+  ) {
+    errors.push("quality-contracts must preserve exactly one nonblocking advisory terminology scan");
+  }
+  const preflight = qualityCore?.steps?.filter((step) => step.run === "npm run preflight:common") ?? [];
+  if (
+    preflight.length !== 1 ||
+    !hasExactExpression(preflight[0].if, "${{ !cancelled() }}") ||
+    preflight[0]["continue-on-error"] !== undefined ||
+    qualityCore?.["continue-on-error"] !== undefined ||
+    !String(packageScripts?.["preflight:common"] ?? "").split(/\s*&&\s*/u).includes("npm run route-timeouts:check") ||
+    !String(packageScripts?.prebuild ?? "").split(/\s*&&\s*/u).includes("npm run preflight:common") ||
+    packageScripts?.["route-timeouts:check"] !== "node scripts/ai-models/sync-route-timeouts.mjs --check"
+  ) {
+    errors.push("heavy quality-core and Vercel prebuild must retain the blocking preflight route check");
   }
   if (
     SAFE_DOCS_COMMANDS.length !== SAFE_DOCS_COMMAND_FLOOR.length ||
@@ -697,17 +873,62 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   const qualityNeeds = [
     "scope",
     "quality-core",
+    "quality-tests",
     "quality-contracts",
+    "quality-project-persistence",
     "preview-host-guards",
     "dead-code",
   ];
   if (!includesEvery(document?.jobs?.quality?.needs, qualityNeeds)) {
-    errors.push("quality must aggregate scope, core, contracts, preview-host and dead-code");
+    errors.push("quality must aggregate scope, core, all test shards, contracts, project-persistence, preview-host and dead-code");
+  }
+  const aggregate = document?.jobs?.quality?.steps?.find(
+    (step) => step.name === "Aggregate required quality result",
+  );
+  const aggregateBindings = {
+    SCOPE_RESULT: "${{ needs.scope.result }}",
+    RUN_HEAVY: "${{ needs.scope.outputs.run_heavy }}",
+    CORE_RESULT: "${{ needs['quality-core'].result }}",
+    TESTS_RESULT: "${{ needs['quality-tests'].result }}",
+    PERSISTENCE_RESULT: "${{ needs['quality-project-persistence'].result }}",
+    CONTRACTS_RESULT: "${{ needs['quality-contracts'].result }}",
+    PREVIEW_HOST_RESULT: "${{ needs['preview-host-guards'].result }}",
+    DEAD_CODE_RESULT: "${{ needs['dead-code'].result }}",
+  };
+  for (const [name, expression] of Object.entries(aggregateBindings)) {
+    if (!hasExactExpression(aggregate?.env?.[name], expression)) {
+      errors.push(`quality must bind ${name} to ${expression}`);
+    }
   }
   if (!hasExactExpression(document?.jobs?.quality?.if, "${{ !cancelled() }}")) {
     errors.push(
       "quality must publish after failed/skipped dependencies without surviving cancellation",
     );
+  }
+
+  const previewHost = document?.jobs?.["preview-host-guards"];
+  const previewHostFallback =
+    "${{ needs.scope.result != 'success' || needs.scope.outputs.run_preview_host != 'false' }}";
+  if (
+    !values(previewHost?.needs).includes("scope") ||
+    !hasExactExpression(previewHost?.if, "${{ !cancelled() }}") ||
+    !hasExactExpression(previewHost?.env?.RUN_PREVIEW_HOST, previewHostFallback)
+  ) {
+    errors.push("preview-host must consume the shared fail-closed CI scope");
+  }
+  const previewHostReceipt = previewHost?.steps?.find(
+    (step) => step.name === "Report skipped preview-host scope",
+  );
+  if (!hasExactExpression(previewHostReceipt?.if, "${{ env.RUN_PREVIEW_HOST == 'false' }}")) {
+    errors.push("preview-host must publish an explicit successful skip receipt");
+  }
+  const unguardedPreviewHost = (previewHost?.steps ?? []).filter(
+    (step) =>
+      step.name !== "Report skipped preview-host scope" &&
+      !hasExactExpression(step.if, "${{ env.RUN_PREVIEW_HOST == 'true' }}"),
+  );
+  if (unguardedPreviewHost.length > 0) {
+    errors.push("preview-host has test or setup steps outside the shared scope guard");
   }
 
   const deadCode = document?.jobs?.["dead-code"];
@@ -717,48 +938,79 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     errors.push("heavy dead-code must retain advisory knip and a blocking orphan-file gate");
   }
 
-  for (const jobName of ["prod-migrations-apply", "prod-migrations-applied", "db-schema-parity"]) {
+  if (document?.jobs?.["prod-migrations-apply"] !== undefined) {
+    errors.push("CI must not contain an automatic prod-migrations-apply job");
+  }
+
+  for (const jobName of ["prod-migrations-applied", "db-schema-parity"]) {
     if (!hasExactExpression(document?.jobs?.[jobName]?.if, TRUSTED_PROD_DB_PUSH_OR_DISPATCH)) {
       errors.push(
         `${jobName} may receive live credentials only on trusted master or preview events`,
       );
     }
-  }
-  if (
-    !includesEvery(document?.jobs?.["prod-migrations-apply"]?.needs, [
-      "quality",
-      "schema-drift",
-      "build",
-      "backoffice-tests",
-    ])
-  ) {
-    errors.push("prod migrations must wait for every blocking CI lane");
+    if (document?.jobs?.[jobName]?.needs !== undefined) {
+      errors.push(`${jobName} must remain an independent read-only observation job`);
+    }
   }
 
-  // Preview delar prod-Postgres med Production, men `master` kan ligga långt
-  // bakom. Den automatiska preview-applyn får därför bara släppa additiv DDL —
-  // annars kan staging bryta produktionen före promote. Grinden måste ligga
-  // FÖRE apply och får aldrig vara continue-on-error.
-  const applySteps = document?.jobs?.["prod-migrations-apply"]?.steps ?? [];
-  const additiveIndex = applySteps.findIndex(
-    (step) => step.run === "npm run db:migrate:additive-check",
+  const prodLedger = document?.jobs?.["prod-migrations-applied"];
+  errors.push(
+    ...evaluateReadOnlyLiveDbJob({
+      job: prodLedger,
+      label: "prod migration ledger",
+      credentialNames: ["POSTGRES_URL_PROD"],
+      expectedSteps: [
+        {
+          run: "node scripts/db/check-db-env-target.mjs --expect=prod",
+          env: { POSTGRES_URL: "${{ secrets.POSTGRES_URL_PROD }}" },
+        },
+        {
+          run: "node scripts/db/check-migrations-applied.mjs",
+          env: {
+            POSTGRES_URL: "${{ secrets.POSTGRES_URL_PROD }}",
+            DB_SSL_REJECT_UNAUTHORIZED: "false",
+          },
+        },
+      ],
+    }),
   );
-  const runMigrationsIndex = applySteps.findIndex(
-    (step) => step.run === "npx tsx scripts/db/run-migrations.ts",
+
+  const parity = document?.jobs?.["db-schema-parity"];
+  errors.push(
+    ...evaluateReadOnlyLiveDbJob({
+      job: parity,
+      label: "CI schema parity",
+      credentialNames: ["POSTGRES_URL_DEV", "POSTGRES_URL_PROD"],
+      expectedSteps: [
+        {
+          run: "node scripts/db/check-db-env-target.mjs --expect=dev",
+          env: { POSTGRES_URL: "${{ secrets.POSTGRES_URL_DEV }}" },
+        },
+        {
+          run: "node scripts/db/check-db-env-target.mjs --expect=prod",
+          env: { POSTGRES_URL: "${{ secrets.POSTGRES_URL_PROD }}" },
+        },
+        {
+          run: "npm run db:schema-parity -- --require",
+          env: {
+            POSTGRES_URL_DEV: "${{ secrets.POSTGRES_URL_DEV }}",
+            POSTGRES_URL_PROD: "${{ secrets.POSTGRES_URL_PROD }}",
+          },
+        },
+      ],
+    }),
   );
-  if (
-    additiveIndex === -1 ||
-    runMigrationsIndex === -1 ||
-    additiveIndex > runMigrationsIndex ||
-    !hasExactExpression(
-      applySteps[additiveIndex]?.if,
-      "${{ steps.creds.outputs.present == 'true' && github.ref == 'refs/heads/preview' }}",
-    ) ||
-    Object.hasOwn(applySteps[additiveIndex] ?? {}, "continue-on-error")
-  ) {
-    errors.push(
-      "preview apply must be blocked by the additive-only migration gate before running migrations",
-    );
+
+  for (const [jobName, job] of Object.entries(document?.jobs ?? {})) {
+    if (
+      containsLiveDbSecretExpression(job) &&
+      !["prod-migrations-applied", "db-schema-parity"].includes(jobName)
+    ) {
+      errors.push(`live DB secrets must stay inside the two read-only CI jobs, found ${jobName}`);
+    }
+    if (containsSecretExpression(job) && containsForbiddenLiveDbWrite(job)) {
+      errors.push(`${jobName} must not combine repo secrets with a live DB write command`);
+    }
   }
 
   return errors;
@@ -766,6 +1018,129 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
 
 function containsSecretExpression(value) {
   return /\bsecrets\s*(?:\.|\[)/u.test(JSON.stringify(value ?? null));
+}
+
+function containsLiveDbSecretExpression(value) {
+  return /POSTGRES_URL(?:_DEV|_PROD)?[^}]*\bsecrets\s*(?:\.|\[)/iu.test(
+    JSON.stringify(value ?? null),
+  );
+}
+
+function containsForbiddenLiveDbWrite(value) {
+  const serialized = JSON.stringify(value ?? null);
+  if (/DB_ALLOW_PROD_LIKE_WRITE/iu.test(serialized)) return true;
+
+  for (const step of value?.steps ?? []) {
+    for (const line of String(step?.run ?? "").split(/\r?\n/u)) {
+      const command = line.trim().toLowerCase();
+      if (/scripts[\\/]db[\\/]run-migrations(?:\.ts)?\b/u.test(command)) return true;
+      if (/\bnpm\s+run\s+db:migrate(?:\s|$|--)/u.test(command)) return true;
+      if (/\bnpm\s+run\s+db:init(?:\s|$|--)/u.test(command)) return true;
+      if (/\bnpm\s+run\s+db:ensure\b/u.test(command) && !/--check-only\b/u.test(command)) {
+        return true;
+      }
+      if (/\bnpm\s+run\s+db:perf/u.test(command)) return true;
+      if (/\bnpm\s+run\s+db:push(?:\s|$|--)/u.test(command)) return true;
+    }
+  }
+  return false;
+}
+
+function hasExactEnv(actual, expected) {
+  const actualEntries = Object.entries(actual ?? {}).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+  const expectedEntries = Object.entries(expected ?? {}).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+  return JSON.stringify(actualEntries) === JSON.stringify(expectedEntries);
+}
+
+function isFailClosedCredentialDetector(step, credentialNames, expectedIf) {
+  if (
+    step?.id !== "creds" ||
+    Object.hasOwn(step ?? {}, "continue-on-error") ||
+    (expectedIf === undefined
+      ? step?.if !== undefined
+      : !hasExactExpression(step?.if, expectedIf)) ||
+    !hasExactEnv(
+      step?.env,
+      Object.fromEntries(credentialNames.map((name) => [name, `\${{ secrets.${name} }}`])),
+    )
+  ) {
+    return false;
+  }
+
+  const lines = String(step.run ?? "")
+    .trim()
+    .split(/\r?\n/u)
+    .map((line) => line.trim());
+  const presentCondition = credentialNames.map((name) => `[ -n "$${name}" ]`).join(" && ");
+  return (
+    lines.length === 9 &&
+    lines[0] === `if ${presentCondition}; then` &&
+    lines[1] === 'echo "present=true" >> "$GITHUB_OUTPUT"' &&
+    lines[2] === 'elif [ "${{ github.repository }}" = "Jakeminator123/sajtmaskin" ]; then' &&
+    lines[3]?.startsWith('echo "::error::') &&
+    lines[3]?.endsWith('"') &&
+    lines[4] === "exit 1" &&
+    lines[5] === "else" &&
+    lines[6] === 'echo "present=false" >> "$GITHUB_OUTPUT"' &&
+    lines[7]?.startsWith('echo "::warning::') &&
+    lines[7]?.endsWith('"') &&
+    lines[8] === "fi"
+  );
+}
+
+function evaluateReadOnlyLiveDbJob({ job, label, credentialNames, expectedSteps, credentialIf }) {
+  const errors = [];
+  if (!job) return [`${label} job is missing`];
+  if (Object.hasOwn(job, "continue-on-error")) {
+    errors.push(`${label} must remain blocking`);
+  }
+  if (containsSecretExpression({ ...job, steps: [] })) {
+    errors.push(`${label} secrets must stay on individually guarded steps`);
+  }
+  if (containsForbiddenLiveDbWrite(job)) {
+    errors.push(`${label} must remain read-only`);
+  }
+
+  const steps = job.steps ?? [];
+  const checkout = steps.find((step) => step.uses === "actions/checkout@v7");
+  if (!checkout || checkout?.with?.["persist-credentials"] !== false) {
+    errors.push(`${label} must checkout without persisted credentials`);
+  }
+
+  const detector = steps.find((step) => step.id === "creds");
+  if (!isFailClosedCredentialDetector(detector, credentialNames, credentialIf)) {
+    errors.push(`${label} must hard-fail missing credentials on the main repository`);
+  }
+
+  let previousIndex = steps.indexOf(detector);
+  const expectedSecretSteps = new Set(detector ? [detector] : []);
+  for (const expected of expectedSteps) {
+    const index = steps.findIndex((step) => step.run === expected.run);
+    const step = steps[index];
+    if (
+      index <= previousIndex ||
+      !hasExactExpression(step?.if, CREDENTIALS_PRESENT) ||
+      Object.hasOwn(step ?? {}, "continue-on-error") ||
+      !hasExactEnv(step?.env, expected.env)
+    ) {
+      errors.push(`${label} must run '${expected.run}' as an ordered blocking read-only step`);
+    }
+    if (step) expectedSecretSteps.add(step);
+    previousIndex = index;
+  }
+
+  const actualSecretSteps = steps.filter(containsSecretExpression);
+  if (
+    actualSecretSteps.length !== expectedSecretSteps.size ||
+    actualSecretSteps.some((step) => !expectedSecretSteps.has(step))
+  ) {
+    errors.push(`${label} may expose secrets only to its credential guard and allowlisted reads`);
+  }
+  return errors;
 }
 
 function hasFailingManualRefRejection(document) {
@@ -823,11 +1198,11 @@ export function evaluateSecretWorkflowDispatches(dbBlobSource, dbParitySource) {
 
   const blobEvents = blob?.on;
   if (
-    !hasExactStringSet(blobEvents?.pull_request?.branches, ["master"]) ||
+    !hasExactStringSet(blobEvents?.pull_request?.branches, ["preview", "master"]) ||
     !hasExactStringSet(blobEvents?.pull_request?.paths, DB_BLOB_PR_PATH_FLOOR) ||
     blobEvents?.pull_request?.["paths-ignore"] !== undefined
   ) {
-    errors.push("DB/Blob PR trigger must use the exact executable-input path allowlist");
+    errors.push("DB/Blob PR trigger must cover preview/master with the exact input path allowlist");
   }
   if (
     !hasExactStringSet(blobEvents?.push?.branches, ["master"]) ||
@@ -877,6 +1252,35 @@ export function evaluateSecretWorkflowDispatches(dbBlobSource, dbParitySource) {
   ) {
     errors.push("DB/Blob PR smoke must execute every allowlisted Python input without secrets");
   }
+  const blobDetector = blobJob?.steps?.find((step) => step.id === "creds");
+  const blobLive = blobJob?.steps?.find(
+    (step) =>
+      step.run === "python scripts/db/pydatabastest.py --ci" && containsSecretExpression(step),
+  );
+  if (
+    !isFailClosedCredentialDetector(
+      blobDetector,
+      ["POSTGRES_URL_DEV", "POSTGRES_URL_PROD", "BLOB_READ_WRITE_TOKEN"],
+      TRUSTED_MASTER_PUSH_OR_DISPATCH,
+    )
+  ) {
+    errors.push(
+      "DB/Blob live verification must hard-fail missing credentials on the main repository",
+    );
+  }
+  if (
+    !blobLive ||
+    !hasExactExpression(blobLive.if, TRUSTED_MASTER_CREDENTIALS_PRESENT) ||
+    Object.hasOwn(blobLive, "continue-on-error") ||
+    !hasExactEnv(blobLive.env, {
+      POSTGRES_URL_DEV: "${{ secrets.POSTGRES_URL_DEV }}",
+      POSTGRES_URL_PROD: "${{ secrets.POSTGRES_URL_PROD }}",
+      BLOB_READ_WRITE_TOKEN: "${{ secrets.BLOB_READ_WRITE_TOKEN }}",
+      DB_SSL_REJECT_UNAUTHORIZED: "false",
+    })
+  ) {
+    errors.push("DB/Blob live verification must be an exact blocking read-only guarded step");
+  }
   let blobSecretSteps = 0;
   for (const [jobName, job] of Object.entries(blob?.jobs ?? {})) {
     if (jobName !== "db-blob-sync" && containsSecretExpression(job)) {
@@ -885,27 +1289,51 @@ export function evaluateSecretWorkflowDispatches(dbBlobSource, dbParitySource) {
     for (const step of job?.steps ?? []) {
       if (!containsSecretExpression(step)) continue;
       blobSecretSteps += 1;
-      if (
-        jobName !== "db-blob-sync" ||
-        !hasExactExpression(step.if, TRUSTED_MASTER_PUSH_OR_DISPATCH) ||
-        Object.hasOwn(step, "continue-on-error")
-      ) {
+      if (jobName !== "db-blob-sync" || ![blobDetector, blobLive].includes(step)) {
         errors.push(
-          "every DB/Blob secret-bearing step must block and require trusted master explicitly",
+          "DB/Blob secrets may only reach the credential guard and exact live read-only gate",
         );
       }
     }
   }
-  if (blobSecretSteps === 0) {
-    errors.push("DB/Blob workflow lost its guarded live verification step");
+  if (blobSecretSteps !== 2) {
+    errors.push("DB/Blob workflow must retain exactly two guarded secret-bearing steps");
   }
 
-  const parityJob = parity?.jobs?.["db-schema-parity-scheduled"];
-  const trustedParityJob =
-    "${{ github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}";
-  if (!hasExactExpression(parityJob?.if, trustedParityJob)) {
-    errors.push("scheduled schema parity must exclude non-master manual refs before checkout");
+  const parityEvents = parity?.on;
+  if (
+    !Array.isArray(parityEvents?.schedule) ||
+    !Object.hasOwn(parityEvents ?? {}, "workflow_dispatch")
+  ) {
+    errors.push("schema-parity workflow must retain both schedule and manual dispatch triggers");
   }
+  const parityJob = parity?.jobs?.["db-schema-parity-scheduled"];
+  if (!hasExactExpression(parityJob?.if, TRUSTED_SCHEDULE_OR_MASTER_DISPATCH)) {
+    errors.push("scheduled schema parity must allow cron but exclude non-master manual refs");
+  }
+  const parityCheckout = parityJob?.steps?.find((step) => step.uses === "actions/checkout@v7");
+  if (
+    parityCheckout?.with?.ref !== "master" ||
+    parityCheckout?.with?.["persist-credentials"] !== false
+  ) {
+    errors.push("scheduled schema parity must checkout exact master without persisted credentials");
+  }
+  errors.push(
+    ...evaluateReadOnlyLiveDbJob({
+      job: parityJob,
+      label: "scheduled schema parity",
+      credentialNames: ["POSTGRES_URL_DEV", "POSTGRES_URL_PROD"],
+      expectedSteps: [
+        {
+          run: "npm run db:schema-parity -- --require",
+          env: {
+            POSTGRES_URL_DEV: "${{ secrets.POSTGRES_URL_DEV }}",
+            POSTGRES_URL_PROD: "${{ secrets.POSTGRES_URL_PROD }}",
+          },
+        },
+      ],
+    }),
+  );
   let paritySecretSteps = 0;
   for (const [jobName, job] of Object.entries(parity?.jobs ?? {})) {
     if (!containsSecretExpression(job)) continue;
@@ -913,9 +1341,12 @@ export function evaluateSecretWorkflowDispatches(dbBlobSource, dbParitySource) {
     if (jobName !== "db-schema-parity-scheduled") {
       errors.push("schema-parity secrets must stay inside the master-guarded job");
     }
+    if (containsForbiddenLiveDbWrite(job)) {
+      errors.push("scheduled schema parity must not contain live DB write commands");
+    }
   }
-  if (paritySecretSteps === 0) {
-    errors.push("schema-parity workflow lost its guarded live verification step");
+  if (paritySecretSteps !== 2) {
+    errors.push("schema-parity workflow must retain its exact credential guard and live read");
   }
 
   return errors;
@@ -932,16 +1363,20 @@ export function evaluatePolicyFloors(policy) {
 
   requireValues("requiredChecks", policy.requiredChecks, POLICY_FLOORS.requiredChecks);
   const ownerFile = (owner) =>
-    typeof owner === "string" ? owner : String(owner?.path ?? "").split("/").at(-1);
+    typeof owner === "string"
+      ? owner
+      : String(owner?.path ?? "")
+          .split("/")
+          .at(-1);
   for (const [check, floorOwner] of Object.entries(POLICY_FLOORS.requiredCheckOwners)) {
     if (ownerFile(policy.requiredCheckOwners?.[check]) !== ownerFile(floorOwner)) {
       errors.push(`requiredCheckOwners security floor missing: ${check}=${ownerFile(floorOwner)}`);
     }
   }
   requireValues(
-    "manualMergePathPrefixes",
-    policy.manualMergePathPrefixes,
-    POLICY_FLOORS.manualMergePathPrefixes,
+    "ownerReviewPathPrefixes",
+    policy.ownerReviewPathPrefixes,
+    POLICY_FLOORS.ownerReviewPathPrefixes,
   );
   if (
     policy.review?.requiredCheckWorkflow?.path !==
@@ -1041,7 +1476,6 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   }
   errors.push(...evaluatePolicyFloors(policy));
   for (const check of policy.requiredChecks ?? []) {
-    if (check === "review-window") continue;
     if (!policy.requiredCheckOwners?.[check]) {
       errors.push(`required check ${check} missing requiredCheckOwners entry`);
     }
@@ -1050,19 +1484,18 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     if (!(policy.requiredChecks ?? []).includes(check)) {
       errors.push(`requiredCheckOwners has unused check ${check}`);
     }
-    const file = typeof owner === "string" ? owner : String(owner?.path ?? "").split("/").at(-1);
+    const file =
+      typeof owner === "string"
+        ? owner
+        : String(owner?.path ?? "")
+            .split("/")
+            .at(-1);
     if (!file || !existsSync(resolve(root, ".github/workflows", file))) {
       errors.push(`requiredCheckOwners ${check} points at missing workflow ${file}`);
     }
   }
   if (typeof policy.directMaster?.allowed !== "boolean") {
     errors.push("directMaster.allowed must be a boolean");
-  }
-  if (policy.review.maxBotWaitSeconds < policy.review.minHeadAgeSeconds) {
-    errors.push("max bot wait must not be shorter than the current-head review window");
-  }
-  if (policy.review.maxSignoffWaitSeconds < policy.review.maxBotWaitSeconds) {
-    errors.push("max sign-off wait must not be shorter than the bot wait deadline");
   }
   const ciBranchError = evaluateCiBranch(policy, env);
   if (ciBranchError) errors.push(ciBranchError);
@@ -1092,46 +1525,17 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   const backlogValidator = read(root, "scripts/dev/check-bug-backlog.mjs");
   errors.push(...evaluateRetiredBugIdFloor(backlogValidator));
 
-  const prAiReview = read(root, ".github/workflows/pr-ai-review.yml");
-  const prAiReviewer = read(root, "scripts/pr-review/run.mjs");
-  const prAiAutomation = read(root, "scripts/pr-review/automation.mjs");
-  const prAiReceipt = read(root, "scripts/pr-review/receipt.mjs");
-  if (
-    !prAiReview.includes("checks: write") ||
-    !prAiReview.includes("id: review") ||
-    !prAiReview.includes("if: steps.review.outcome == 'success'") ||
-    !prAiReview.includes("run: node scripts/pr-review/receipt.mjs") ||
-    !prAiReviewer.includes("writeReviewRunResult(env.PR_REVIEW_RESULT_PATH, result)") ||
-    !prAiAutomation.includes('kind: "receipt-recovery"') ||
-    !prAiAutomation.includes("verifiedCurrentReview") ||
-    !prAiAutomation.includes("resolutionLedger") ||
-    !prAiAutomation.includes("snapshot?.headSha === review.commitId") ||
-    !prAiReceipt.includes('TRUSTED_REVIEW_CHECK_NAME = "trusted-pr-ai-review"') ||
-    !prAiReceipt.includes("publishedReview?.reviewId === reviewId") ||
-    !prAiReceipt.includes("runResult.review.headSha !== currentHeadSha") ||
-    !prAiReceipt.includes('path: "/check-runs"')
-  ) {
-    errors.push(
-      "trusted PR AI receipt must require a successful qualifying review of the live PR head",
-    );
-  }
+  // Historical reviews live in GitHub/Git, not a second executable reviewer.
+  const retiredReviewer = resolve(root, "scripts/pr-review");
+  if (existsSync(retiredReviewer) && readdirSync(retiredReviewer).some((name) => /\.(?:mjs|ts)$/u.test(name)))
+    errors.push("retired API reviewer source must not return; use independent Buggpass");
+  if (json(root, "config/ai_models/manifest.json").workloads.some((item) => item.id === "github_pr_reviewer"))
+    errors.push("retired github_pr_reviewer workload must not remain in the active model manifest");
 
-  const freshness = read(root, ".github/workflows/merge-ready-freshness.yml");
-  errors.push(...evaluateTrustedReviewWindowGate(freshness));
-  if (!freshness.includes("pull_request_target:")) {
-    errors.push("merge-ready freshness must use trusted pull_request_target");
-  }
-  if (!freshness.includes("ref: ${{ github.event.repository.default_branch }}")) {
-    errors.push("merge-ready freshness must checkout trusted default branch");
-  }
-  if (/sender\.login != 'github-actions\[bot\]'/.test(freshness)) {
-    errors.push("merge-ready freshness must not ignore PR AI findings from github-actions[bot]");
-  }
-  const freshnessValidator = read(root, "scripts/ci/merge-ready-freshness.mjs");
-  const trustedReviewWindow = read(root, "scripts/ci/trusted-review-window.mjs");
   const workflowSources = readdirSync(resolve(root, ".github/workflows"))
     .filter((name) => /\.ya?ml$/u.test(name))
     .map((name) => ({ name, source: read(root, `.github/workflows/${name}`) }));
+  errors.push(...evaluateRetiredApiReviewWorkflows(workflowSources));
   errors.push(...evaluateReservedWorkflowCheckNames(workflowSources, policy));
   errors.push(...evaluatePrHeadWorkflowPermissions(workflowSources));
   for (const workflow of workflowSources) {
@@ -1143,12 +1547,33 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     }
     if (events.has("pull_request_review") || events.has("pull_request_review_comment")) {
       errors.push(
-        `${workflow.name} must not listen to PR-ref review events; final merge re-reads reviews from trusted issue_comment code`,
+        `${workflow.name} must not run PR-head code from review events`,
       );
     }
   }
   const dependabotWorkflow =
-    workflowSources.find(({ name }) => name === "dependabot-safe-classify.yml")?.source ?? "";
+    workflowSources.find(({ name }) => name === "dependabot-automerge.yml")?.source ?? "";
+  const dependabotDisarmIndex = dependabotWorkflow.indexOf(
+    "Disarm previous request before validating a new head",
+  );
+  const dependabotValidateIndex = dependabotWorkflow.indexOf(
+    "Validate patch contents without executing PR code",
+  );
+  const dependabotPolicy = json(root, "config/dependabot-automerge.json");
+  if (
+    dependabotPolicy.schemaVersion !== 1 ||
+    dependabotPolicy.baseBranch !== policy.deliveryBranch ||
+    !isDeepStrictEqual(
+      [...(dependabotPolicy.allowedFiles ?? [])].sort(),
+      [...POLICY_FLOORS.dependabotAutoMerge.allowedFiles].sort(),
+    ) ||
+    !isDeepStrictEqual(
+      [...(dependabotPolicy.allowedPackages ?? [])].sort(),
+      [...POLICY_FLOORS.dependabotAutoMerge.allowedPackages].sort(),
+    )
+  ) {
+    errors.push("Dependabot auto-merge policy differs from the reviewed allowlist floor");
+  }
   let dependabotEvents = new Set();
   try {
     dependabotEvents = workflowEvents(yaml.load(dependabotWorkflow));
@@ -1157,128 +1582,51 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   }
   if (
     !dependabotEvents.has("pull_request_target") ||
+    !dependabotEvents.has("workflow_run") ||
+    dependabotEvents.size !== 2 ||
     dependabotEvents.has("pull_request") ||
-    dependabotWorkflow.includes("actions/checkout") ||
-    dependabotWorkflow.includes("gh pr merge") ||
-    dependabotWorkflow.includes("DEPENDABOT_AUTOMERGE_ENABLED") ||
+    !dependabotWorkflow.includes("ref: ${{ github.event.repository.default_branch }}") ||
+    !dependabotWorkflow.includes("persist-credentials: false") ||
+    !dependabotWorkflow.includes("auto_merge_enabled") ||
+    !dependabotWorkflow.includes("node scripts/ci/dependabot-automerge.mjs") ||
+    !dependabotWorkflow.includes("secrets.DEPENDABOT_AUTOMERGE_TOKEN") ||
+    dependabotWorkflow.includes("secrets.GITHUB_TOKEN") ||
+    !dependabotWorkflow.includes(
+      "DEPENDABOT_AUTOMERGE_TOKEN saknas; controllern skriver inget.",
+    ) ||
+    !dependabotWorkflow.includes("github.event.action == 'synchronize'") ||
+    !dependabotWorkflow.includes("github.actor != 'dependabot[bot]'") ||
+    !dependabotWorkflow.includes("workflows: [CI]") ||
+    !dependabotWorkflow.includes("queue: max") ||
+    !dependabotWorkflow.includes("cancel-in-progress: false") ||
+    !dependabotWorkflow.includes("github.event.workflow_run.conclusion == 'success'") ||
+    !dependabotWorkflow.includes("listPullRequestsAssociatedWithCommit") ||
+    !dependabotWorkflow.includes("pr.head.sha === expectedHead") ||
+    !dependabotWorkflow.includes('"$current_base" != "$BASE_SHA"') ||
+    dependabotDisarmIndex < 0 ||
+    dependabotValidateIndex < 0 ||
+    dependabotDisarmIndex > dependabotValidateIndex ||
+    !dependabotWorkflow.includes("gh pr merge \"$PR_URL\" --auto --merge --match-head-commit \"$HEAD_SHA\"") ||
+    !dependabotWorkflow.includes("gh pr merge \"$PR_URL\" --disable-auto") ||
     !dependabotWorkflow.includes("if: always()") ||
-    !dependabotWorkflow.includes("steps.meta.outcome == 'success'") ||
-    !dependabotWorkflow.includes("--force") ||
-    !dependabotWorkflow.includes('--remove-label "dependabot-patch-safe"') ||
+    !dependabotWorkflow.includes("steps.auth.outputs.available == 'true'") ||
+    !dependabotWorkflow.includes("steps.validate.outcome == 'success'") ||
+    dependabotWorkflow.includes("gh label create") ||
+    dependabotWorkflow.includes("gh pr edit") ||
     !dependabotWorkflow.includes("github.event.pull_request.user.login == 'dependabot[bot]'") ||
     !dependabotWorkflow.includes(
       "github.event.pull_request.head.repo.full_name == github.repository",
     )
   ) {
     errors.push(
-      "Dependabot classifier must run default-branch code, never checkout PR-head or merge",
-    );
-  }
-  let privilegedEvents = [];
-  try {
-    privilegedEvents = [...workflowEvents(yaml.load(freshness))];
-  } catch {
-    // Den generella YAML-valideringen ovan rapporterar det exakta parse-felet.
-  }
-  if (
-    privilegedEvents.length !== 4 ||
-    !["pull_request_target", "issue_comment", "push", "workflow_dispatch"].every((event) =>
-      privilegedEvents.includes(event),
-    )
-  ) {
-    errors.push(
-      "write-capable merge-ready workflow may only use default-branch pull_request_target, issue_comment, master push and gate-only workflow_dispatch events",
-    );
-  }
-  if (
-    !freshnessValidator.includes(
-      'TRUSTED_SIGNOFF_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"])',
-    ) ||
-    !freshnessValidator.includes('type !== "user"') ||
-    !freshnessValidator.includes("export function validateMergeReadySignoff")
-  ) {
-    errors.push("merge-ready sign-off must be human-authored and identity-bound");
-  }
-  if (
-    !freshness.includes("actions: read") ||
-    !freshness.includes("checks: write") ||
-    !freshness.includes("node scripts/ci/trusted-review-window.mjs gate") ||
-    !freshness.includes("review-window:refresh") ||
-    !freshness.includes("GATE_REFRESH") ||
-    !freshness.includes("node scripts/ci/trusted-review-window.mjs invalidate-base") ||
-    !trustedReviewWindow.includes('const CHECK_NAME = "review-window"') ||
-    !trustedReviewWindow.includes(
-      'const EXTERNAL_ID_PREFIX = "sajtmaskin-trusted-review-window:v1:"',
-    ) ||
-    !trustedReviewWindow.includes("head_sha: headSha") ||
-    !trustedReviewWindow.includes('conclusion: "action_required"') ||
-    !trustedReviewWindow.includes("validateMergeReadySignoff") ||
-    !trustedReviewWindow.includes("latestInvalidatingFindingEpoch") ||
-    !trustedReviewWindow.includes("validateTrustedPrAiEvidence") ||
-    !trustedReviewWindow.includes("/actions/runs?check_suite_id=") ||
-    !trustedReviewWindow.includes("job.check_run_url") ||
-    !trustedReviewWindow.includes("fullDatabaseId") ||
-    !trustedReviewWindow.includes("updatedAt") ||
-    !trustedReviewWindow.includes('endsWith("[bot]")') ||
-    !trustedReviewWindow.includes("review.updated_at") ||
-    !trustedReviewWindow.includes("policy.review.requiredCheckWorkflow") ||
-    !trustedReviewWindow.includes("requiredCheckOwnerSpec") ||
-    !trustedReviewWindow.includes('from "../workflow/required-check-owners.mjs"') ||
-    !trustedReviewWindow.includes("latest owned required-check workflow/job") ||
-    !trustedReviewWindow.includes("check kommer från annan workflow än dess deklarerade ägare") ||
-    !trustedReviewWindow.includes(
-      "äldre eller avbruten owned workflow-run ersatt av en senare run på samma head",
-    ) ||
-    !trustedReviewWindow.includes("sameRepoEmptyAssociation") ||
-    !trustedReviewWindow.includes('reason: "gate_refresh"') ||
-    !trustedReviewWindow.includes("run.provenance?.workflowRun?.created_at") ||
-    !trustedReviewWindow.includes("manualMergeFiles") ||
-    !trustedReviewWindow.includes("policy.requiredChecks.filter") ||
-    !trustedReviewWindow.includes("policy.review.maxSignoffWaitSeconds") ||
-    !trustedReviewWindow.includes("export function shouldRunTrustedGate") ||
-    !trustedReviewWindow.includes("export function isIntegrityGateFailure")
-  ) {
-    errors.push(
-      "trusted default-branch controller must publish the head-bound required review-window",
-    );
-  }
-  if (/\bcheck-contract\.mjs\b/u.test(trustedReviewWindow)) {
-    errors.push(
-      "trusted default-branch controller must not import check-contract; that module pulls npm packages",
+      "Dependabot auto-merge must run trusted default-branch code, validate content and use native auto-merge",
     );
   }
   errors.push(...evaluateTrustedControllerImportGraph(root));
-  if (
-    !trustedReviewWindow.includes("new Set(policy.review.deploymentCheckNames ?? [])") ||
-    !trustedReviewWindow.includes("deploymentPending === 0") ||
-    !trustedReviewWindow.includes("deploymentFailed === 0")
-  ) {
-    errors.push(
-      "trusted review-window must block exact present deployment failures or pending runs",
-    );
-  }
-  if (
-    !freshness.includes("node scripts/ci/trusted-review-window.mjs merge") ||
-    !freshness.includes("group: trusted-master-merge") ||
-    !freshness.includes("actions: write") ||
-    !freshness.includes("contents: write") ||
-    !freshness.includes("COMMENT_ID: ${{ github.event.comment.id }}") ||
-    !freshnessValidator.includes("validateMergeExecuteMandate") ||
-    !freshnessValidator.includes("TRUSTED_SIGNOFF_ASSOCIATIONS.has(association)") ||
-    !trustedReviewWindow.includes("mergeEvidenceFingerprint") ||
-    !trustedReviewWindow.includes("const second = await readAndValidate()") ||
-    !trustedReviewWindow.includes("const final = await readAndValidate()") ||
-    !trustedReviewWindow.includes('body: { sha: expectedHeadSha, merge_method: "squash" }') ||
-    !trustedReviewWindow.includes("/compare/${liveBaseSha}...${expectedHeadSha}") ||
-    !trustedReviewWindow.includes(
-      "await invalidateForBasePush({ client, baseSha: mergedBaseSha })",
-    ) ||
-    !trustedReviewWindow.includes('for (const workflow of ["ci.yml", "db-blob-sync-check.yml"])') ||
-    !trustedReviewWindow.includes("POST_MERGE_VERIFICATION_FAILED")
-  ) {
-    errors.push(
-      "final merge must require a trusted exact mandate, stable double live evidence and expected-head squash CAS",
-    );
+  errors.push(...evaluateTrustedControllerPermissions(dependabotWorkflow));
+  const codeowners = read(root, ".github/CODEOWNERS");
+  if (!codeowners.includes("/config/control-plane/schema-registry.json @Jakeminator123")) {
+    errors.push("CODEOWNERS must cover the owner-reviewed control-plane schema registry");
   }
 
   const ci = read(root, ".github/workflows/ci.yml");
@@ -1299,11 +1647,8 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   if (checkoutCount === 0 || nonPersistingCheckoutCount !== checkoutCount) {
     errors.push("every PR-head CI checkout must disable persisted GitHub credentials");
   }
-  const allWorkflowJobs = `${ci}\n${freshness}\n${dossierAcceptance}`;
+  const allWorkflowJobs = `${ci}\n${dossierAcceptance}`;
   for (const check of policy.requiredChecks) {
-    // `review-window` is a policy-owned check run published by the trusted
-    // default-branch controller above, not a PR-head workflow job.
-    if (check === "review-window") continue;
     if (!new RegExp(`^  ${escapeRegExp(check)}:`, "m").test(allWorkflowJobs)) {
       errors.push(`required check has no workflow job: ${check}`);
     }
@@ -1331,7 +1676,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   if (!/force-push/i.test(gitRule)) errors.push("git.mdc must explicitly forbid force-push");
   const mergeRule = read(root, ".cursor/rules/pr-merge.mdc");
   if (!mergeRule.includes("config/agent-workflow.json")) {
-    errors.push("pr-merge.mdc must route checks and timing to config/agent-workflow.json");
+    errors.push("pr-merge.mdc must route canonical checks to config/agent-workflow.json");
   }
   const agentEntry = read(root, "AGENTS.md");
   const workflowRule = read(root, ".cursor/rules/workflow.mdc");
@@ -1520,7 +1865,7 @@ function main() {
     return;
   }
   console.log(
-    `[workflow-contract] OK — trunk=${policy.trunk}, review=${policy.review.minHeadAgeSeconds}s, checks=${policy.requiredChecks.join(",")}`,
+    `[workflow-contract] OK — trunk=${policy.trunk}, checks=${policy.requiredChecks.join(",")}`,
   );
 }
 

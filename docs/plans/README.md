@@ -1,10 +1,10 @@
 # Plans
 
-**[`active/README.md`](./active/README.md) är den enda aktiva planytan** — ett koncentrat (1–2 sidor) som router till varje aktivt spår och destillerar öppna P1/P2. Resten är historik.
+**Börja i [`active/README.md`](./active/README.md)** — den aktiva routern till pågående spår och öppna frågor. Stora pågående initiativ får ha länkade detaljplaner under `active/<initiativ>/`; dessa är inte historik bara för att de ligger utanför indexet.
 
 | Mapp | Vad |
 |---|---|
-| [`active/`](./active/README.md) | Koncentratet (enda aktiva ytan). |
+| [`active/`](./active/README.md) | Aktiv router och detaljplaner som fortfarande styr pågående initiativ. |
 | [`archived/`](./archived/) | Vilande, parkerade, skrotade planer. Filnamn bevarade så länkar/historik resolvar. |
 | [`avklarat/`](./avklarat/README.md) | Implementerat och mergat — historik. |
 

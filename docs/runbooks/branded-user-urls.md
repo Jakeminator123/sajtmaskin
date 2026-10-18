@@ -175,8 +175,10 @@ Detta är enhetsbevis, inte HTTPS-bevis på en kundtestdeployment.
 
 ## A4 dry-run (ingen `--apply`)
 
-Preview-DB är samma Postgres som produktion. Kopiera inte `.env.local` till
-ett worktree för att “bara kolla”. `--apply` ska kasta innan DB-skrivning.
+Preview använder DEV enligt [`config/db-targets.json`](../../config/db-targets.json),
+inte produktion. DEV är också en delad, använd databas. Kopiera inte `.env.local`
+till ett worktree för att “bara kolla”. Verifiera alltid läsmålet; `--apply` ska
+kasta innan DB-skrivning.
 
 Lokalt, utan prod-DB:
 

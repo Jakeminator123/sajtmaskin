@@ -89,6 +89,8 @@ export interface ScaffoldVariant {
 
 export interface PickScaffoldVariantInput {
   prompt: string;
+  /** Only this source may carry explicit directives; absent means prompt for direct callers. */
+  rawPrompt?: string;
   scaffoldId?: ScaffoldId | null;
   styleKeywords?: string[];
   toneKeywords?: string[];
@@ -97,7 +99,7 @@ export interface PickScaffoldVariantInput {
 }
 
 export type VariantSelectionSource =
-  "style-choice" | "follow-up-lock" | "hint-fallback" | "keyword" | "embedding" | "hash";
+  "style-choice" | "follow-up-lock" | "hint-fallback" | "explicit" | "keyword" | "embedding" | "hash";
 
 /** Compact, JSON-safe receipt for the variant decision. */
 export interface VariantSelection {

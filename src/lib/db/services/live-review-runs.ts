@@ -10,6 +10,7 @@ import {
   RETRYABLE_LIVE_REVIEW_SKIP_REASONS,
   decideLiveReviewClaim,
   liveReviewExpiresAt,
+  liveReviewResultFromRow,
   pickPreviousLiveReviewRun,
   skippedLiveReviewResult,
   type LiveReviewClaimDecision,
@@ -105,10 +106,11 @@ async function applyExistingDecision(
       .returning();
     if (updated[0]) return { kind: "acquired", row: mapRow(updated[0]) };
     const raced = await selectRun(existing.versionId, existing.filesRevision);
-    if (raced?.result && raced.status !== "running") {
+    const racedResult = raced ? liveReviewResultFromRow(raced) : null;
+    if (raced && racedResult && raced.status !== "running") {
       return raced.modelAttempts >= LIVE_REVIEW_MAX_MODEL_ATTEMPTS
-        ? { kind: "cost_capped", result: raced.result, row: raced }
-        : { kind: "cached", result: raced.result, row: raced };
+        ? { kind: "cost_capped", result: racedResult, row: raced }
+        : { kind: "cached", result: racedResult, row: raced };
     }
     return { kind: "in_flight", row: raced ?? existing };
   }
@@ -165,7 +167,8 @@ export async function waitForLiveReviewRun(input: {
     const row = dbConfigured
       ? await selectRun(input.versionId, input.filesRevision).catch(() => null)
       : null;
-    if (row && row.status !== "running" && row.result) return row.result;
+    const result = row ? liveReviewResultFromRow(row) : null;
+    if (row && row.status !== "running" && result) return result;
     await new Promise((resolve) => setTimeout(resolve, 400));
   }
   return skippedLiveReviewResult("claim_busy");
@@ -182,13 +185,19 @@ export async function completeLiveReviewRun(input: {
   if (!dbConfigured) return false;
   const now = new Date();
   const skipReason = input.result.status === "skipped" ? input.result.reason : null;
+  // Screenshot URLs have dedicated columns. Strip any transient read projection
+  // defensively so callers can never create a second durable owner in JSON.
+  const persistedResult = { ...input.result } as LiveReviewResult & {
+    screenshots?: LiveReviewScreenshotSet | null;
+  };
+  delete persistedResult.screenshots;
   try {
     const updated = await db
       .update(liveReviewRuns)
       .set({
         status: input.result.status === "completed" ? "completed" : "skipped",
         skipReason,
-        result: input.result,
+        result: persistedResult,
         desktopUrl: input.screenshots?.desktopUrl ?? null,
         mobileUrl: input.screenshots?.mobileUrl ?? null,
         desktopBlobPath: input.desktopBlobPath ?? null,

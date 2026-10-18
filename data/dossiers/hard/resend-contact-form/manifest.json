@@ -36,7 +36,7 @@
     {
       "path": "components/contact-form.tsx",
       "role": "client",
-      "injectionMode": "verbatim"
+      "injectionMode": "rewritable"
     },
     {
       "path": "components/integration-config-notice.tsx",
@@ -61,6 +61,7 @@
       "import": "@/components/integration-config-notice"
     }
   ],
+  "promptInstructionMode": "selected-sections",
   "lastVerified": "2026-04-21",
   "sourceRepoUrl": "https://github.com/resend/resend-node"
 }

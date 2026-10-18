@@ -5,8 +5,13 @@ import {
   getVersionById,
 } from "@/lib/db/chat-repository-pg";
 import type { RepairProvenance } from "@/lib/db/repair-files-payload";
+import { holdVersionForIntegrationMigration } from "@/lib/db/chat-repository/version-lifecycle";
 import { REPAIR_ABORTED_SUMMARY } from "@/lib/gen/verify/repair-abort-copy";
-import { isFreshVersionLease } from "@/lib/gen/verify/stale-verification";
+import {
+  isCurrentIntegrationMigrationHold,
+  isFreshVersionLease,
+  isNonTerminalVerificationState,
+} from "@/lib/gen/verify/stale-verification";
 import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 // Side-effect imports: wire default subscribers (devLog-mirror + DB
@@ -34,6 +39,8 @@ import {
   resolveSnapshotFilesRevision,
 } from "./f3-readiness";
 import { triggerServerVerification } from "./verify-run";
+
+const REVERIFY_CURRENT_CONTEXT = Symbol("reverify-current-context");
 
 /**
  * Resolves whether the post-VM build-error auto-repair loop is enabled
@@ -216,7 +223,8 @@ export async function triggerBuildErrorRepair(params: {
   // A3-utfall: sätts när loopen faktiskt körs / hoppas över inuti try/finally.
   let started = false;
   let skippedReason: BuildErrorRepairOutcome["skippedReason"];
-  let supersededByUserEdit = false;
+  let reverifyCurrent = false;
+  let reverifyFromContextCasMiss = false;
   // #260 Codex P2: this loop is always build-originated; carry that into the
   // post-supersede re-verify so the current files' gate keeps `build`.
   let reverifyForceBuildCheck = false;
@@ -240,6 +248,7 @@ export async function triggerBuildErrorRepair(params: {
     baseFilesJsonForRecovery = baseFilesJson;
     const previewPolicy =
       snapshot.lifecycleStage === "integrations" ? "fidelity3" : "fidelity2";
+    const actualFilesRevision = snapshot.filesRevision;
     const filesRevision = resolveSnapshotFilesRevision({
       filesRevision: snapshot.filesRevision,
       filesJson: baseFilesJson,
@@ -274,13 +283,45 @@ export async function triggerBuildErrorRepair(params: {
         projectId: loaded.projectId,
       });
       if (!readiness.ready) {
-        await persistF3ReadinessHold({
-          chatId,
-          versionId,
-          filesRevision,
-          result: readiness,
-          at: "before_first_gate",
-        });
+        if (readiness.reason === "integration_migration_required") {
+          const holdResult = await holdVersionForIntegrationMigration(
+            versionId,
+            {
+              verificationState: snapshot.verificationState,
+              filesRevision: actualFilesRevision,
+              filesJson: baseFilesJson,
+              editKind: snapshot.editKind,
+              orchestrationSnapshot: loaded.orchestrationSnapshot,
+            },
+            runId,
+          );
+          if (holdResult === "applied") {
+            await persistF3ReadinessHold({
+              chatId,
+              versionId,
+              filesRevision,
+              result: readiness,
+              at: "before_first_gate",
+            });
+          } else if (holdResult === "cas_miss") {
+            const current = await getVersionById(versionId).catch(() => null);
+            reverifyCurrent = Boolean(
+              current &&
+                !isCurrentIntegrationMigrationHold(current) &&
+                isNonTerminalVerificationState(current.verification_state),
+            );
+            reverifyFromContextCasMiss = reverifyCurrent;
+            if (reverifyCurrent) throw REVERIFY_CURRENT_CONTEXT;
+          }
+        } else {
+          await persistF3ReadinessHold({
+            chatId,
+            versionId,
+            filesRevision,
+            result: readiness,
+            at: "before_first_gate",
+          });
+        }
         skippedReason = "f3_readiness_hold";
         started = false;
         return { started, repairAvailable, skippedReason };
@@ -308,6 +349,8 @@ export async function triggerBuildErrorRepair(params: {
       versionId,
       codeFiles,
       baseFilesJson,
+      baseFilesRevision: actualFilesRevision,
+      baseEditKind: snapshot.editKind,
       previewPolicy,
       f3Readiness,
       failedOutputs: [failedOutput],
@@ -334,35 +377,44 @@ export async function triggerBuildErrorRepair(params: {
       repairScopeId,
       repairProvenance,
     });
-    supersededByUserEdit = repairOutcome.supersededByUserEdit;
+    reverifyCurrent = repairOutcome.reverifyCurrent;
+    reverifyFromContextCasMiss = repairOutcome.contextCasMiss;
     reverifyForceBuildCheck = repairOutcome.buildOriginated;
-  } catch (err) {
-    console.error("[server-verify] build-error repair failed:", err);
-    // #260 Codex P2 / Bugbot: if a concurrent user edit advanced files_json past
-    // this run's snapshot, don't leave B stuck in `repairing` with no recovery —
-    // schedule the post-finally re-verify of B (build kept in the gate) instead
-    // of swallowing the error and stranding the row.
-    let staleAfterError = false;
-    if (baseFilesJsonForRecovery !== null) {
-      const current = await getVersionFilesSnapshot(versionId).catch(() => null);
-      if (current && current.filesJson !== baseFilesJsonForRecovery) {
-        staleAfterError = true;
-      }
+    if (repairOutcome.integrationMigrationStop && !repairOutcome.reverifyCurrent) {
+      skippedReason = "f3_readiness_hold";
+      started = false;
     }
-    if (staleAfterError) {
-      supersededByUserEdit = true;
-      reverifyForceBuildCheck = true;
-    } else if (started) {
-      // `tryServerRepairLoop` already moved the row to `repairing`; the lease is
-      // released in `finally` and nothing else settles it, so a non-stale crash
-      // left the version stuck there until the readiness watchdog's much later
-      // age cutoff. Mirror `triggerServerVerification`'s catch and resolve the
-      // row to a terminal state on this run's own lease.
-      await failVersionVerification(
-        versionId,
-        "Server verification could not complete.",
-        runId,
-      ).catch(() => null);
+  } catch (err) {
+    if (err === REVERIFY_CURRENT_CONTEXT) {
+      // Re-entry happens after the current lease is released below.
+    } else {
+      console.error("[server-verify] build-error repair failed:", err);
+      // #260 Codex P2 / Bugbot: if a concurrent user edit advanced files_json past
+      // this run's snapshot, don't leave B stuck in `repairing` with no recovery —
+      // schedule the post-finally re-verify of B (build kept in the gate) instead
+      // of swallowing the error and stranding the row.
+      let staleAfterError = false;
+      if (baseFilesJsonForRecovery !== null) {
+        const current = await getVersionFilesSnapshot(versionId).catch(() => null);
+        if (current && current.filesJson !== baseFilesJsonForRecovery) {
+          staleAfterError = true;
+        }
+      }
+      if (staleAfterError) {
+        reverifyCurrent = true;
+        reverifyForceBuildCheck = true;
+      } else if (started) {
+        // `tryServerRepairLoop` already moved the row to `repairing`; the lease is
+        // released in `finally` and nothing else settles it, so a non-stale crash
+        // left the version stuck there until the readiness watchdog's much later
+        // age cutoff. Mirror `triggerServerVerification`'s catch and resolve the
+        // row to a terminal state on this run's own lease.
+        await failVersionVerification(
+          versionId,
+          "Server verification could not complete.",
+          runId,
+        ).catch(() => null);
+      }
     }
   } finally {
     await releaseVerifyLease(versionId, runId);
@@ -374,7 +426,7 @@ export async function triggerBuildErrorRepair(params: {
   // NOT fail the version. Re-verify the CURRENT files (B) on a fresh lease (run
   // AFTER releasing this run's lease) so B reaches an honest terminal state
   // instead of lingering in `repairing`. See triggerServerVerification.
-  if (supersededByUserEdit) {
+  if (reverifyCurrent) {
     await triggerServerVerification({
       chatId,
       versionId,
@@ -382,6 +434,7 @@ export async function triggerBuildErrorRepair(params: {
       forceBuildCheck: reverifyForceBuildCheck,
       repairLedger,
       repairScopeId,
+      contextRetryUsed: reverifyFromContextCasMiss,
     });
   }
 

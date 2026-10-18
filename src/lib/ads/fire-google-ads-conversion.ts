@@ -17,6 +17,12 @@ declare global {
   interface Window {
     dataLayer?: unknown[];
     gtag?: GtagFn;
+    sajtmaskinAdsTagLoaded?: boolean;
+    /** Document-local fallback only; survives module reload, not navigation reload. */
+    sajtmaskinAdsTransientState?: {
+      pending: Set<GoogleAdsConversionEvent>;
+      claimed: Set<GoogleAdsConversionEvent>;
+    };
   }
 }
 
@@ -46,13 +52,19 @@ function storageGet(storage: Storage | null, key: string): string | null {
   }
 }
 
-function storageSet(storage: Storage | null, key: string, value: string): void {
-  if (!storage) return;
+function storageSet(storage: Storage | null, key: string, value: string): boolean {
+  if (!storage) return false;
   try {
     storage.setItem(key, value);
+    return true;
   } catch {
-    /* ignore quota / blocked storage */
+    return false;
   }
+}
+
+function transientAdsState() {
+  if (typeof window === "undefined") return undefined;
+  return window.sajtmaskinAdsTransientState ??= { pending: new Set(), claimed: new Set() };
 }
 
 function storageRemove(storage: Storage | null, key: string): void {
@@ -104,16 +116,18 @@ export function dispatchCookieConsentChange(value: "accepted" | "declined"): voi
 }
 
 export function isGoogleAdsClaimed(event: GoogleAdsConversionEvent): boolean {
-  return storageGet(adsStorage(event), claimedKey(event)) === "1";
+  return storageGet(adsStorage(event), claimedKey(event)) === "1" ||
+    (typeof window !== "undefined" && window.sajtmaskinAdsTransientState?.claimed.has(event) === true);
 }
 
 export function isGoogleAdsPending(event: GoogleAdsConversionEvent): boolean {
-  return storageGet(adsStorage(event), pendingKey(event)) === "1";
+  return !isGoogleAdsClaimed(event) && (storageGet(adsStorage(event), pendingKey(event)) === "1" ||
+    (typeof window !== "undefined" && window.sajtmaskinAdsTransientState?.pending.has(event) === true));
 }
 
 export function noteGoogleAdsConversion(event: GoogleAdsConversionEvent): void {
   if (isGoogleAdsClaimed(event)) return;
-  storageSet(adsStorage(event), pendingKey(event), "1");
+  if (!storageSet(adsStorage(event), pendingKey(event), "1")) transientAdsState()?.pending.add(event);
   fireGoogleAdsConversion(event);
 }
 
@@ -124,12 +138,14 @@ function canSendGoogleAdsConversion(event: GoogleAdsConversionEvent): boolean {
   if (!hasAcceptedCookieConsent()) return false;
   if (isAdminAppPath(window.location.pathname)) return false;
   if (typeof window.gtag !== "function") return false;
+  if (window.sajtmaskinAdsTagLoaded !== true) return false;
   return true;
 }
 
-/** No-op unless the account tag, event label, consent and `window.gtag` are all present. */
+/** Only submit after actual tag load; a local gtag queue shim is not sufficient. */
 export function fireGoogleAdsConversion(event: GoogleAdsConversionEvent): boolean {
   if (isGoogleAdsClaimed(event)) {
+    if (typeof window !== "undefined") window.sajtmaskinAdsTransientState?.pending.delete(event);
     storageRemove(adsStorage(event), pendingKey(event));
     return false;
   }
@@ -139,9 +155,14 @@ export function fireGoogleAdsConversion(event: GoogleAdsConversionEvent): boolea
   if (!sendTo || typeof window.gtag !== "function") return false;
 
   const storage = adsStorage(event);
-  storageSet(storage, claimedKey(event), "1");
+  try {
+    window.gtag("event", "conversion", { send_to: sendTo });
+  } catch {
+    return false;
+  }
+  if (!storageSet(storage, claimedKey(event), "1")) transientAdsState()?.claimed.add(event);
+  window.sajtmaskinAdsTransientState?.pending.delete(event);
   storageRemove(storage, pendingKey(event));
-  window.gtag("event", "conversion", { send_to: sendTo });
   return true;
 }
 

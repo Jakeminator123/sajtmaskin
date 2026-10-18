@@ -71,28 +71,29 @@ export function decideLiveReviewClaim(
   existing: LiveReviewRunRow,
   now: Date = new Date(),
 ): LiveReviewClaimDecision {
+  const result = liveReviewResultFromRow(existing);
   if (
     existing.modelAttempts >= LIVE_REVIEW_MAX_MODEL_ATTEMPTS &&
-    existing.result
+    result
   ) {
-    return { kind: "cost_capped", result: existing.result };
+    return { kind: "cost_capped", result };
   }
-  if (existing.status === "completed" && existing.result?.status === "completed") {
-    return { kind: "cached", result: existing.result };
+  if (existing.status === "completed" && result?.status === "completed") {
+    return { kind: "cached", result };
   }
   if (
     existing.status === "skipped" &&
-    existing.result &&
-    isRetryableLiveReviewSkip(existing.result) &&
+    result &&
+    isRetryableLiveReviewSkip(result) &&
     existing.modelAttempts < LIVE_REVIEW_MAX_MODEL_ATTEMPTS
   ) {
     return { kind: "takeover" };
   }
-  if (existing.status === "skipped" && existing.result) {
-    return { kind: "cached", result: existing.result };
+  if (existing.status === "skipped" && result) {
+    return { kind: "cached", result };
   }
-  if (existing.status === "completed" && existing.result) {
-    return { kind: "cached", result: existing.result };
+  if (existing.status === "completed" && result) {
+    return { kind: "cached", result };
   }
   if (existing.status === "running") {
     if (!isLiveReviewClaimLeaseStale(existing.claimedAt, now)) {
@@ -101,8 +102,8 @@ export function decideLiveReviewClaim(
     // Lease longer than postcheck maxDuration: a stale row is a dead handler.
     // Reuse remaining paid slots; do not leave the revision permanently busy.
     if (existing.modelAttempts >= LIVE_REVIEW_MAX_MODEL_ATTEMPTS) {
-      return existing.result
-        ? { kind: "cost_capped", result: existing.result }
+      return result
+        ? { kind: "cost_capped", result }
         : { kind: "takeover" };
     }
     return { kind: "takeover" };
@@ -123,7 +124,14 @@ export function pickPreviousLiveReviewRun<
 }
 
 export function liveReviewResultFromRow(row: LiveReviewRunRow): LiveReviewResult | null {
-  return row.result;
+  if (row.result?.status !== "completed") return row.result;
+  return {
+    ...row.result,
+    screenshots:
+      row.desktopUrl || row.mobileUrl
+        ? { desktopUrl: row.desktopUrl, mobileUrl: row.mobileUrl }
+        : null,
+  };
 }
 
 export function skippedLiveReviewResult(

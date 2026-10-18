@@ -71,11 +71,15 @@ export type RepairErrorManifest = RepairErrorManifestEntry[];
 
 export type RepairAttemptResult<TPayload = unknown> = {
   promoted: boolean;
+  /** Caller-owned terminal/no-op outcome: stop without another LLM or gate attempt. */
+  stop?: true;
   payload?: TPayload;
 };
 
 export type RunRepairLoopResult<TPayload = unknown> = {
   promoted: boolean;
+  /** The caller explicitly stopped the loop after a promotion attempt. */
+  stopped?: true;
   method: RepairMethod | null;
   payload?: TPayload;
   llmPasses: number;
@@ -720,6 +724,20 @@ export async function runRepairLoop<TPayload = unknown>(
 
   if (syntaxResult.valid) {
     const deterministic = await params.onAttemptPromotion(content, "deterministic");
+    if (deterministic.stop) {
+      return {
+        promoted: false,
+        stopped: true,
+        method: "deterministic",
+        payload: deterministic.payload,
+        llmPasses: 0,
+        earlyStopReason: null,
+        remainingErrors: syntaxResult.errors.length,
+        improvedSyntax: false,
+        noContext: false,
+        errorManifest,
+      };
+    }
     if (deterministic.promoted) {
       if (importRepair.fixed) {
         // Proof signal for prod analysis: the gate passed after deterministic
@@ -1182,6 +1200,22 @@ export async function runRepairLoop<TPayload = unknown>(
       const midPromote = await params.onAttemptPromotion(content, "llm", {
         verifyDeadlineEpochMs: midGate.verifyDeadlineEpochMs,
       });
+      if (midPromote.stop) {
+        return {
+          promoted: false,
+          stopped: true,
+          method: "llm",
+          payload: midPromote.payload,
+          llmPasses,
+          earlyStopReason: null,
+          remainingErrors: 0,
+          improvedSyntax: 0 < initialSyntaxErrorCount,
+          noContext: false,
+          errorManifest: groupedAfterFix.errorManifest,
+          introducedBlockers,
+          unresolvedBlockers,
+        };
+      }
       if (midPromote.promoted) {
         logRepairLoopOutcomeBestEffort({
           chatId: params.chatId,
@@ -1267,16 +1301,19 @@ export async function runRepairLoop<TPayload = unknown>(
       const promoted = await params.onAttemptPromotion(bestContent, "llm", {
         verifyDeadlineEpochMs: finalGate.verifyDeadlineEpochMs,
       });
-      logRepairLoopOutcomeBestEffort({
-        chatId: params.chatId,
-        failedOutputs: params.failedOutputs,
-        method: "llm",
-        result: promoted.promoted ? "fixed" : "still-failing",
-        llmPasses,
-        model: params.fixerModel,
-      });
+      if (!promoted.stop) {
+        logRepairLoopOutcomeBestEffort({
+          chatId: params.chatId,
+          failedOutputs: params.failedOutputs,
+          method: "llm",
+          result: promoted.promoted ? "fixed" : "still-failing",
+          llmPasses,
+          model: params.fixerModel,
+        });
+      }
       return {
         promoted: promoted.promoted,
+        stopped: promoted.stop,
         method: "llm",
         payload: promoted.payload,
         llmPasses,
@@ -1289,7 +1326,7 @@ export async function runRepairLoop<TPayload = unknown>(
         // converged — report `null` (a gate-class second pass may have set a
         // transient `no_improvement` before the final gate promoted; that must
         // not leak out as the outcome of a SUCCESSFUL repair).
-        earlyStopReason: promoted.promoted
+        earlyStopReason: promoted.stop || promoted.promoted
           ? null
           : resolveNonPromotedEarlyStopReason({
               earlyStopReason,

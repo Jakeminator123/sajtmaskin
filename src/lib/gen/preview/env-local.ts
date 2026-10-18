@@ -419,6 +419,8 @@ export async function buildPreviewEnvLocalContents(params: {
   appProjectId?: string | null;
   /** Raw `.env.local` from generated files, if any. */
   generatedEnvLocal?: string | null;
+  /** Set false when preparing a brand-new project that cannot have stored env values yet. */
+  includeStoredProjectEnvVars?: boolean;
   /** Lifecycle stage controls whether tier-3 stubs are included. */
   lifecycleStage?: PreviewLifecycleStage;
   /**

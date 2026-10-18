@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -14,10 +15,11 @@ import {
   evaluateRetiredBugIdFloor,
   evaluateSecretWorkflowDispatches,
   evaluateTrustedControllerImportGraph,
-  evaluateTrustedReviewWindowGate,
+  evaluateTrustedControllerPermissions,
   evaluateWorkflowContract,
 } from "./check-contract.mjs";
 import {
+  PATH_GROUP_FLOORS,
   collectImpact,
   expandBraces,
   loadWorkflowInputs,
@@ -26,11 +28,15 @@ import {
   pathMatchesPattern,
 } from "./path-impact.mjs";
 import {
+  DEFAULT_DELIVERY_BRANCH,
   assertBranchSafety,
   classifyProcessResult,
   executeVerificationCommands,
+  formatMissingBaseError,
   isCiRunner,
   parseArgs,
+  resolveFetchRefForBase,
+  resolveVerificationBase,
   resolveVerificationCommand,
   runNpm,
   trackedPathsForBase,
@@ -88,6 +94,38 @@ describe("agent workflow path matching", () => {
 
 describe("agent workflow impact", () => {
   const inputs = loadWorkflowInputs();
+
+  it("does not expose the retired coach mailbox as executable tooling", () => {
+    for (const path of [
+      "scripts/agent_bridge.py",
+      "scripts/test_agent_bridge.py",
+      ".agent-bridge/config.example.json",
+      ".cursor/commands/bridge.md",
+      ".cursor/commands/bryggagent.md",
+      "docs/agent-bridge/README.md",
+      "docs/agent-bridge/protocol.md",
+      "docs/agent-bridge/roles/brygg.md",
+      "docs/agent-bridge/roles/builder.md",
+      "docs/agent-bridge/roles/merge.md",
+      "docs/agent-bridge/roles/scout.md",
+    ]) {
+      expect(existsSync(path)).toBe(false);
+    }
+    const scripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
+    expect(scripts).not.toHaveProperty("test:agent-bridge");
+    const ci = readFileSync(".github/workflows/ci.yml", "utf8");
+    expect(ci).not.toContain("test:agent-bridge");
+    expect(ci).toContain("npm run test:workflow");
+    expect(scripts["test:workflow"]).toContain("vitest run scripts/workflow");
+    for (const pattern of [
+      ".agent-bridge/**",
+      "scripts/agent_bridge.py",
+      "scripts/test_agent_bridge.py",
+    ]) {
+      expect(inputs.policy.pathGroups.agent).not.toContain(pattern);
+      expect(PATH_GROUP_FLOORS.agent).not.toContain(pattern);
+    }
+  });
 
   it("keeps workstation cleanup out of the PR verification profile", () => {
     expect(inputs.policy.verificationProfiles.full).not.toEqual(
@@ -398,6 +436,23 @@ describe("agent workflow impact", () => {
     }
   });
 
+  it("routes an unknown path through every separately owned test harness", () => {
+    const impact = collectImpact({ ...inputs, changedFiles: ["new-zone/value.custom"] });
+
+    expect(impact.unclassifiedFiles).toEqual(["new-zone/value.custom"]);
+    expect(impact.commands).toEqual(
+      expect.arrayContaining([
+        "test:discovery:check",
+        "test:ci",
+        "backoffice:test",
+        "db:blob-sync-unit",
+        "observability:test",
+        "preview-host:verify",
+        "test:e2e:contract",
+      ]),
+    );
+  });
+
   it("keeps ordinary documentation changes on the docs-only plan", () => {
     const impact = collectImpact({ ...inputs, changedFiles: ["docs/example-guide.md"] });
     expect(impact.commands).toEqual(
@@ -487,6 +542,84 @@ describe("local base freshness", () => {
       "config/agent-workflow.json",
       "docs/agent-workflow.json",
     ]);
+  });
+  it("plans the exact committed head without silently including working-tree changes", () => {
+    const calls: string[][] = [];
+    const git = (args: string[]) => { calls.push(args); return { stdout: "M\0scripts/workflow/bugpass.mjs\0" }; };
+    expect(trackedPathsForBase("a".repeat(40), git, "b".repeat(40))).toEqual(["scripts/workflow/bugpass.mjs"]);
+    expect(calls[0].slice(-2)).toEqual(["a".repeat(40), "b".repeat(40)]);
+    expect(parseArgs(["--plan", "--committed"]).committed).toBe(true);
+    expect(() => parseArgs(["--committed"])).toThrow(/plan-only/);
+  });
+});
+
+describe("verify:pr base resolution", () => {
+  const policy = { trunk: "master" };
+
+  it("defaultar vanligt arbete till leveransgrenen preview, inte trunk", () => {
+    expect(DEFAULT_DELIVERY_BRANCH).toBe("preview");
+    expect(resolveVerificationBase({ explicitBase: null, branch: "fix/example", policy })).toBe(
+      "origin/preview",
+    );
+  });
+
+  it("låter explicit --base vinna, inklusive origin/master för produktionsgranskning", () => {
+    expect(
+      resolveVerificationBase({
+        explicitBase: "origin/master",
+        branch: "fix/example",
+        policy,
+      }),
+    ).toBe("origin/master");
+    expect(
+      resolveVerificationBase({
+        explicitBase: "origin/preview",
+        branch: "fix/example",
+        policy,
+      }),
+    ).toBe("origin/preview");
+  });
+
+  it("byter inte tyst till produktionsbas bara för att den lokala branchen heter master", () => {
+    expect(resolveVerificationBase({ explicitBase: null, branch: "master", policy })).toBe(
+      "origin/preview",
+    );
+  });
+
+  it("respekterar en explicit lokal snapshot", () => {
+    expect(
+      resolveVerificationBase({
+        explicitBase: "HEAD~1",
+        branch: "fix/x",
+        policy,
+      }),
+    ).toBe("HEAD~1");
+  });
+
+  it("hämtar den bas som faktiskt valts — origin/preview ska inte fetcha master", () => {
+    expect(resolveFetchRefForBase("origin/preview")).toBe("preview");
+    expect(resolveFetchRefForBase("origin/master")).toBe("master");
+    expect(resolveFetchRefForBase("origin/release/2026-10")).toBe("release/2026-10");
+    expect(resolveFetchRefForBase("refs/remotes/origin/release/x")).toBe("release/x");
+    expect(resolveFetchRefForBase("preview")).toBeNull();
+    expect(resolveFetchRefForBase("HEAD~1")).toBeNull();
+    expect(resolveFetchRefForBase("local-tag")).toBeNull();
+    expect(resolveFetchRefForBase("refs/heads/local-branch")).toBeNull();
+    expect(resolveFetchRefForBase("upstream/main")).toBeNull();
+    expect(resolveFetchRefForBase("abcdef1")).toBeNull();
+    expect(resolveFetchRefForBase("")).toBeNull();
+  });
+
+  it("beskriver saknad lokal bas-ref med rätt fetch-mål", () => {
+    expect(formatMissingBaseError("origin/preview")).toContain("git fetch origin preview");
+    expect(formatMissingBaseError("origin/preview")).not.toContain("git fetch origin master");
+    expect(formatMissingBaseError("origin/master")).toContain("git fetch origin master");
+    expect(formatMissingBaseError("HEAD~1")).not.toContain("git fetch origin HEAD~1");
+  });
+
+  it("läser --base ur parseArgs", () => {
+    expect(parseArgs(["--base", "origin/preview"]).base).toBe("origin/preview");
+    expect(parseArgs([]).base).toBeNull();
   });
 });
 
@@ -587,11 +720,31 @@ describe("verify:pr command execution", () => {
 });
 
 describe("agent workflow repository contract", () => {
+  it("keeps GITHUB_TOKEN read-only in the trusted Dependabot controller", () => {
+    const source = readFileSync(".github/workflows/dependabot-automerge.yml", "utf8");
+    expect(evaluateTrustedControllerPermissions(source)).toEqual([]);
+    for (const permission of [
+      "write-all",
+      "{ contents: write }",
+      "{ actions: 'write' }",
+      "{ contents: read, actions: write }",
+    ]) {
+      expect(evaluateTrustedControllerPermissions(
+        `permissions: ${permission}\njobs: {}\n`,
+      )).not.toEqual([]);
+      expect(evaluateTrustedControllerPermissions(
+        `permissions: { contents: read }\njobs:\n  gate:\n    permissions: ${permission}\n`,
+      )).not.toEqual([]);
+    }
+    expect(evaluateTrustedControllerPermissions("jobs: {}\n")).not.toEqual([]);
+    expect(evaluateTrustedControllerPermissions("permissions: [\n")).not.toEqual([]);
+  });
+
   it("keeps policy, CI, hooks, routers and registries in sync", () => {
     expect(evaluateWorkflowContract().errors).toEqual([]);
   });
 
-  it("keeps CI scope fail-closed and live credentials on trusted master or preview", () => {
+  it("keeps CI scope fail-closed and live database jobs strictly read-only", () => {
     const source = readFileSync(".github/workflows/ci.yml", "utf8");
     const packageScripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
     expect(evaluateCiScopeWorkflow(source, packageScripts)).toEqual([]);
@@ -602,17 +755,17 @@ describe("agent workflow repository contract", () => {
     };
 
     const weakened = [
-      replaceOnce("ready_for_review, ", ""),
+      replaceOnce("reopened, ready_for_review", "reopened"),
       replaceOnce(
         "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
         "cancel-in-progress: true",
       ),
       replaceOnce("group: ci-${{ github.ref }}", "group: ci-${{ github.run_id }}"),
-      replaceOnce("github.ref == 'refs/heads/master'", "github.ref == 'refs/heads/feature'"),
       replaceOnce(
-        "needs: [quality, schema-drift, build, backoffice-tests]",
-        "needs: [quality, schema-drift]",
+        "run_preview_host: ${{ steps.classify.outputs.run_preview_host }}",
+        "run_preview_host: ${{ steps.classify.outputs.safe_docs_only }}",
       ),
+      replaceOnce("github.ref == 'refs/heads/master'", "github.ref == 'refs/heads/feature'"),
       replaceOnce(
         "needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false'",
         "needs.scope.outputs.run_heavy == 'true'",
@@ -643,12 +796,38 @@ describe("agent workflow repository contract", () => {
         "      - name: Orphan-file gate (blocking)\n        if: ${{ env.RUN_HEAVY == 'true' }}\n        run: npm run knip:files",
         "      - name: Orphan-file gate (blocking)\n        run: npm run knip:files",
       ),
-      // Preview delar prod-DB: utan den additiva grinden kan staging bryta
-      // produktionen före promote.
-      replaceOnce("run: npm run db:migrate:additive-check", "run: echo additive-check-skipped"),
       replaceOnce(
-        "        if: ${{ steps.creds.outputs.present == 'true' && github.ref == 'refs/heads/preview' }}\n        run: npm run db:migrate:additive-check",
-        "        if: ${{ steps.creds.outputs.present == 'true' }}\n        run: npm run db:migrate:additive-check\n        continue-on-error: true",
+        "  prod-migrations-applied:\n",
+        "  prod-migrations-apply:\n    runs-on: ubuntu-latest\n    steps: []\n\n  prod-migrations-applied:\n",
+      ),
+      replaceOnce(
+        "  prod-migrations-applied:\n    if:",
+        "  prod-migrations-applied:\n    needs: prod-migrations-apply\n    if:",
+      ),
+      replaceOnce(
+        '            echo "::error::POSTGRES_URL_PROD saknas på huvudrepot — prod-ledgern kan inte verifieras (false-green-risk)."\n            exit 1',
+        '            echo "::warning::prod-ledgern verifierades inte"\n            exit 0',
+      ),
+      replaceOnce(
+        "run: node scripts/db/check-db-env-target.mjs --expect=prod",
+        "run: node scripts/db/check-db-env-target.mjs --expect=dev",
+      ),
+      replaceOnce(
+        "run: node scripts/db/check-migrations-applied.mjs",
+        "run: npx tsx scripts/db/run-migrations.ts",
+      ),
+      replaceOnce(
+        '          DB_SSL_REJECT_UNAUTHORIZED: "false"\n\n  # Read-only dev↔prod-paritet.',
+        '          DB_SSL_REJECT_UNAUTHORIZED: "false"\n          DB_ALLOW_PROD_LIKE_WRITE: "1"\n\n  # Read-only dev↔prod-paritet.',
+      ),
+      ...[
+        "npx tsx scripts/db/run-migrations.ts",
+        "npm run db:init",
+        "npm run db:ensure",
+        "npm run db:perf-indexes",
+        "npm run db:push",
+      ].map((command) =>
+        replaceOnce("run: npm run db:schema-parity -- --require", `run: ${command}`),
       ),
     ];
     for (const candidate of weakened) {
@@ -665,7 +844,7 @@ describe("agent workflow repository contract", () => {
         replaceOnce("run: npm run test:stability:blocking", "run: npm run test:followup-contract"),
         packageScripts,
       ),
-    ).toContain("heavy quality-core must block on deterministic stability contracts");
+    ).toContain("heavy quality-core must be the single blocking owner of deterministic stability contracts");
     expect(
       evaluateCiScopeWorkflow(source, {
         ...packageScripts,
@@ -675,72 +854,35 @@ describe("agent workflow repository contract", () => {
     expect(
       evaluateCiScopeWorkflow(
         replaceOnce(
-          "  stability:\n    runs-on: ubuntu-latest\n    continue-on-error: true\n",
-          "  stability:\n    runs-on: ubuntu-latest\n",
+          "        continue-on-error: true\n        run: npm run check:terms",
+          "        run: npm run check:terms",
         ),
         packageScripts,
       ),
-    ).toContain("broad stability job must remain warn-only");
-  });
-
-  it("keeps no-op review events outside trusted gate concurrency", () => {
-    const source = readFileSync(".github/workflows/merge-ready-freshness.yml", "utf8");
-    expect(evaluateTrustedReviewWindowGate(source)).toEqual([]);
-
-    const mutations = [
-      source.replace(
-        "        github.event.action == 'ready_for_review'\n",
-        "        github.event.action == 'ready_for_review' ||\n" +
-          "        github.event.action == 'edited'\n",
-      ),
-      source.replace(
-        "      github.event_name == 'pull_request_target' &&\n",
-        "      (github.event_name == 'pull_request_target' || " +
-          "github.event_name == 'issue_comment') &&\n",
-      ),
-      source.replace(
-        "      group: trusted-review-window-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}\n",
-        "      group: trusted-review-window\n",
-      ),
-      source.replace(
-        "\npermissions:\n",
-        "\nconcurrency:\n  group: merge-ready-freshness-global\n  cancel-in-progress: true\n\npermissions:\n",
-      ),
-    ];
-
-    for (const candidate of mutations) {
-      expect(candidate).not.toBe(source);
-      expect(evaluateTrustedReviewWindowGate(candidate).length).toBeGreaterThan(0);
-    }
+    ).toContain("quality-contracts must preserve exactly one nonblocking advisory terminology scan");
   });
 
   it("keeps the trusted controller import graph free of npm packages", () => {
-    expect(collectEsmSpecifiers(readFileSync("scripts/ci/trusted-review-window.mjs", "utf8"))).toEqual(
+    expect(
+      collectEsmSpecifiers(readFileSync("scripts/ci/dependabot-automerge.mjs", "utf8")),
+    ).toEqual(
       expect.arrayContaining([
-        "node:crypto",
         "node:fs",
         "node:path",
         "node:url",
-        "./merge-ready-freshness.mjs",
-        "../workflow/required-check-owners.mjs",
-        "../pr-review/core.mjs",
-        "../pr-review/account-fallback.mjs",
+        "node:util",
       ]),
     );
     expect(evaluateTrustedControllerImportGraph()).toEqual([]);
     expect(
       evaluateDependencyFreeImportGraph(
         {
-          "scripts/ci/trusted-review-window.mjs":
+          "scripts/ci/dependabot-automerge.mjs":
             'import { requiredCheckOwnerSpec } from "../workflow/check-contract.mjs";\n',
-          "scripts/ci/merge-ready-freshness.mjs": "",
           "scripts/workflow/check-contract.mjs":
             'import Ajv2020 from "ajv/dist/2020.js";\nimport yaml from "js-yaml";\n',
         },
-        [
-          "scripts/ci/trusted-review-window.mjs",
-          "scripts/ci/merge-ready-freshness.mjs",
-        ],
+        ["scripts/ci/dependabot-automerge.mjs"],
       ),
     ).toEqual(
       expect.arrayContaining([
@@ -748,6 +890,17 @@ describe("agent workflow repository contract", () => {
         "scripts/workflow/check-contract.mjs imports non-node package 'js-yaml'",
       ]),
     );
+  });
+
+  it("runs secretless DB/Blob Python PR validation on preview and master", () => {
+    const blob = readFileSync(".github/workflows/db-blob-sync-check.yml", "utf8");
+    const parity = readFileSync(".github/workflows/db-schema-parity.yml", "utf8");
+    expect(blob).toContain("  pull_request:\n    branches: [preview, master]");
+    for (const branches of ["master", "preview", "preview, master, feature"]) {
+      const candidate = blob.replace("branches: [preview, master]", `branches: [${branches}]`);
+      expect(candidate).not.toBe(blob);
+      expect(evaluateSecretWorkflowDispatches(candidate, parity).length).toBeGreaterThan(0);
+    }
   });
 
   it("scopes DB/Blob PR smoke to its exact executable inputs", () => {
@@ -778,13 +931,25 @@ describe("agent workflow repository contract", () => {
         "        run: python scripts/db/pydatabastest.py --ci\n        env:",
         "        run: python scripts/db/pydatabastest.py --ci\n        continue-on-error: true\n        env:",
       ),
+      replaceOnce(
+        '            echo "::error::POSTGRES_URL_DEV, POSTGRES_URL_PROD och/eller BLOB_READ_WRITE_TOKEN saknas på huvudrepot — live-gaten kan inte verifieras (false-green-risk)."\n            exit 1',
+        '            echo "::warning::live-gaten verifierades inte"\n            exit 0',
+      ),
+      replaceOnce(
+        "if: ${{ steps.creds.outputs.present == 'true' && github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}",
+        "if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}",
+      ),
+      replaceOnce(
+        "          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}\n        run: |",
+        "        run: |",
+      ),
     ];
     for (const candidate of weakened) {
       expect(evaluateSecretWorkflowDispatches(candidate, parity).length).toBeGreaterThan(0);
     }
   });
 
-  it("rejects secret-bearing manual workflow runs outside master", () => {
+  it("rejects unsafe manual refs and pins scheduled parity to master read-only code", () => {
     const blob = readFileSync(".github/workflows/db-blob-sync-check.yml", "utf8");
     const parity = readFileSync(".github/workflows/db-schema-parity.yml", "utf8");
     expect(evaluateSecretWorkflowDispatches(blob, parity)).toEqual([]);
@@ -839,8 +1004,42 @@ describe("agent workflow repository contract", () => {
         blob,
         replaceOnce(
           parity,
-          "if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}",
+          "if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') }}",
           "if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}",
+        ),
+      ],
+      [
+        blob,
+        replaceOnce(
+          parity,
+          "if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') }}",
+          "if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}",
+        ),
+      ],
+      [blob, replaceOnce(parity, "  schedule:\n", "  push:\n")],
+      [blob, replaceOnce(parity, "          ref: master", "          ref: preview")],
+      [
+        blob,
+        replaceOnce(
+          parity,
+          '            echo "::error::POSTGRES_URL_DEV och/eller POSTGRES_URL_PROD saknas på huvudrepot — schema-paritet kan inte verifieras. Sätt dem: gh secret set POSTGRES_URL_DEV / POSTGRES_URL_PROD"\n            exit 1',
+          '            echo "::warning::schema-paritet verifierades inte"\n            exit 0',
+        ),
+      ],
+      [
+        blob,
+        replaceOnce(
+          parity,
+          "run: npm run db:schema-parity -- --require",
+          "run: npx tsx scripts/db/run-migrations.ts",
+        ),
+      ],
+      [
+        blob,
+        replaceOnce(
+          parity,
+          "          POSTGRES_URL_PROD: ${{ secrets.POSTGRES_URL_PROD }}\n",
+          '          POSTGRES_URL_PROD: ${{ secrets.POSTGRES_URL_PROD }}\n          DB_ALLOW_PROD_LIKE_WRITE: "1"\n',
         ),
       ],
       [
@@ -860,18 +1059,79 @@ describe("agent workflow repository contract", () => {
   });
 
   it("runs write-capable Dependabot automation only from trusted default-branch code", () => {
-    const source = readFileSync(".github/workflows/dependabot-safe-classify.yml", "utf8");
+    const source = readFileSync(".github/workflows/dependabot-automerge.yml", "utf8");
+    const ci = readFileSync(".github/workflows/ci.yml", "utf8");
     expect(source).toContain("pull_request_target:");
+    expect(source).toContain("workflow_run:");
+    expect(source).toContain("workflows: [CI]");
+    expect(source).toContain("queue: max");
+    expect(source).toContain("cancel-in-progress: false");
     expect(source).not.toMatch(/^  pull_request:\s*$/mu);
-    expect(source).not.toContain("actions/checkout");
-    expect(source).not.toContain("gh pr merge");
-    expect(source).not.toContain("DEPENDABOT_AUTOMERGE_ENABLED");
+    expect(source).toContain("ref: ${{ github.event.repository.default_branch }}");
+    expect(source).toContain("persist-credentials: false");
+    expect(source).toContain("auto_merge_enabled");
+    expect(source).toContain("node scripts/ci/dependabot-automerge.mjs");
+    expect(source).toContain("secrets.DEPENDABOT_AUTOMERGE_TOKEN");
+    expect(source).not.toContain("secrets.GITHUB_TOKEN");
+    expect(source).toContain("DEPENDABOT_AUTOMERGE_TOKEN saknas; controllern skriver inget");
+    expect(source).toContain("github.event.action == 'synchronize'");
+    expect(source).toContain("github.actor != 'dependabot[bot]'");
+    expect(source).toContain("pr.head.sha === expectedHead");
+    expect(source).toContain('"$current_base" != "$BASE_SHA"');
+    expect(source.indexOf("Disarm previous request before validating a new head"))
+      .toBeLessThan(source.indexOf("Validate patch contents without executing PR code"));
+    expect(source).toContain('gh pr merge "$PR_URL" --auto --merge --match-head-commit "$HEAD_SHA"');
+    expect(source).not.toContain("--squash");
+    expect(source).toContain('gh pr merge "$PR_URL" --disable-auto');
+    expect(ci).toContain("  push:\n    branches: [master, preview]");
     expect(source).toContain("github.event.pull_request.user.login == 'dependabot[bot]'");
     expect(source).toContain("github.event.pull_request.head.repo.full_name == github.repository");
     expect(source).toContain("if: always()");
-    expect(source).toContain("steps.meta.outcome == 'success'");
-    expect(source).toContain("--force");
-    expect(source).toContain('--remove-label "dependabot-patch-safe"');
+    expect(source).toContain("steps.auth.outputs.available == 'true'");
+    expect(source).toContain("steps.validate.outcome == 'success'");
+    expect(source).not.toContain("gh label create");
+    expect(source).not.toContain("gh pr edit");
+    expect(readFileSync(".github/CODEOWNERS", "utf8")).toContain(
+      "/config/control-plane/schema-registry.json @Jakeminator123",
+    );
+  });
+
+  it("selects only the current open same-repository Dependabot PR for workflow_run", async () => {
+    const yaml = createRequire(import.meta.url)("js-yaml") as { load: (source: string) => unknown };
+    const document = yaml.load(readFileSync(".github/workflows/dependabot-automerge.yml", "utf8")) as {
+      jobs: { classify: { steps: Array<{ id?: string; with?: { script?: string } }> } };
+    };
+    const script = document.jobs.classify.steps.find((step) => step.id === "pr")!.with!.script!;
+    const runSelector = new Function("context", "github", "core", `return (async () => { ${script} })()`);
+    const head = "a".repeat(40);
+    const valid = {
+      number: 42, state: "open", user: { login: "dependabot[bot]" },
+      base: { ref: "preview", sha: "b".repeat(40) },
+      head: { sha: head, repo: { full_name: "Jakeminator123/sajtmaskin" } },
+      html_url: "https://github.com/Jakeminator123/sajtmaskin/pull/42", draft: false,
+    };
+    const select = async (pr: typeof valid, candidates = [pr]) => {
+      const outputs: Record<string, unknown> = {};
+      await runSelector(
+        { repo: { owner: "Jakeminator123", repo: "sajtmaskin" }, payload: { workflow_run: { head_sha: head } } },
+        { rest: {
+          repos: { listPullRequestsAssociatedWithCommit: async () => ({ data: candidates }) },
+          pulls: { get: async () => ({ data: pr }) },
+        } },
+        { setOutput: (key: string, value: unknown) => { outputs[key] = value; } },
+      );
+      return outputs;
+    };
+    expect(await select(valid)).toMatchObject({ number: 42, head, base: valid.base.sha });
+    for (const pr of [
+      { ...valid, state: "closed" },
+      { ...valid, user: { login: "someone" } },
+      { ...valid, base: { ...valid.base, ref: "master" } },
+      { ...valid, head: { ...valid.head, sha: "c".repeat(40) } },
+      { ...valid, head: { ...valid.head, repo: { full_name: "fork/sajtmaskin" } } },
+    ]) expect(await select(pr)).toEqual({});
+    expect(await select(valid, [])).toEqual({});
+    expect(await select(valid, [valid, valid])).toEqual({});
   });
 
   it.each([
@@ -904,19 +1164,16 @@ describe("agent workflow repository contract", () => {
   });
 
   it.each([
-    ["review-window.yaml", "on: push\njobs: {}\n"],
-    ["other.yml", "on: push\njobs:\n  review-window:\n    runs-on: ubuntu-latest\n"],
-    [
-      "other.yml",
-      "on: push\njobs:\n  fake:\n    name: review-window\n    runs-on: ubuntu-latest\n",
-    ],
     ["other.yml", "on: push\njobs:\n  quality:\n    name: harmless\n    runs-on: ubuntu-latest\n"],
     [
       "other.yml",
       "on: push\njobs:\n  dossier-acceptance:\n    name: harmless\n    runs-on: ubuntu-latest\n",
     ],
     ["other.yml", "on: push\njobs:\n  fake:\n    name: build\n    runs-on: ubuntu-latest\n"],
-    ["other.yml", "on: push\njobs:\n  fake:\n    name: dossier-acceptance\n    runs-on: ubuntu-latest\n"],
+    [
+      "other.yml",
+      "on: push\njobs:\n  fake:\n    name: dossier-acceptance\n    runs-on: ubuntu-latest\n",
+    ],
     [
       "other.yml",
       "on: push\njobs:\n  fake:\n    name: trusted-pr-ai-review\n    runs-on: ubuntu-latest\n",
@@ -925,7 +1182,7 @@ describe("agent workflow repository contract", () => {
       "other.yml",
       "on: pull_request\njobs:\n  fake:\n    name: ${{ matrix.check }}\n    runs-on: ubuntu-latest\n",
     ],
-  ])("reserves the native review-window identity: %s", (name, source) => {
+  ])("reserves canonical check and review identities: %s", (name, source) => {
     expect(evaluateReservedWorkflowCheckNames([{ name, source }]).length).toBeGreaterThan(0);
   });
 
@@ -961,8 +1218,8 @@ describe("agent workflow repository contract", () => {
     expect(
       evaluateDossierAcceptanceWorkflow(
         source.replace(
-          "    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]\n",
-          "    paths: [\"data/dossiers/**\"]\n",
+          "    types: [opened, synchronize, reopened, ready_for_review]\n",
+          '    paths: ["data/dossiers/**"]\n',
         ),
       ).length,
     ).toBeGreaterThan(0);
@@ -971,27 +1228,34 @@ describe("agent workflow repository contract", () => {
   it("keeps an independent security floor below the editable policy", () => {
     const policy = loadWorkflowInputs().policy;
     expect(evaluatePolicyFloors(policy)).toEqual([]);
-    expect(policy.manualMergePathPrefixes).toContain("scripts/workflow/check-contract.mjs");
-    expect(policy.manualMergePathPrefixes).toContain("scripts/workflow/required-check-owners.mjs");
+    expect(policy.ownerReviewPathPrefixes).toContain("scripts/workflow/check-contract.mjs");
+    expect(policy.ownerReviewPathPrefixes).toContain(".cursor/rules/pr-merge.mdc");
+    expect(evaluatePolicyFloors({
+      ...structuredClone(policy),
+      ownerReviewPathPrefixes: policy.ownerReviewPathPrefixes.filter(
+        (candidate: string) => candidate !== ".cursor/rules/pr-merge.mdc",
+      ),
+    })).toContain("ownerReviewPathPrefixes security floor missing: .cursor/rules/pr-merge.mdc");
+    expect(policy.ownerReviewPathPrefixes).toContain("scripts/workflow/required-check-owners.mjs");
     expect(
       evaluatePolicyFloors({
         ...structuredClone(policy),
-        manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+        ownerReviewPathPrefixes: policy.ownerReviewPathPrefixes.filter(
           (candidate: string) => candidate !== "scripts/workflow/check-contract.mjs",
         ),
       }),
     ).toContain(
-      "manualMergePathPrefixes security floor missing: scripts/workflow/check-contract.mjs",
+      "ownerReviewPathPrefixes security floor missing: scripts/workflow/check-contract.mjs",
     );
     expect(
       evaluatePolicyFloors({
         ...structuredClone(policy),
-        manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+        ownerReviewPathPrefixes: policy.ownerReviewPathPrefixes.filter(
           (candidate: string) => candidate !== "scripts/workflow/required-check-owners.mjs",
         ),
       }),
     ).toContain(
-      "manualMergePathPrefixes security floor missing: scripts/workflow/required-check-owners.mjs",
+      "ownerReviewPathPrefixes security floor missing: scripts/workflow/required-check-owners.mjs",
     );
 
     const weakened = [
@@ -1007,9 +1271,9 @@ describe("agent workflow repository contract", () => {
           "dossier-acceptance": "ci.yml",
         },
       },
-      ...policy.manualMergePathPrefixes.map((prefix: string) => ({
+      ...policy.ownerReviewPathPrefixes.map((prefix: string) => ({
         ...structuredClone(policy),
-        manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+        ownerReviewPathPrefixes: policy.ownerReviewPathPrefixes.filter(
           (candidate: string) => candidate !== prefix,
         ),
       })),

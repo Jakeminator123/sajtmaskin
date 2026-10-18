@@ -1,77 +1,24 @@
 ---
-description: "Lokal MCP/Git/Vercel/Supabase/shadcn. Läs vid MCP-fel, Vercel-loggar, Supabase-introspektion eller ny worktree."
+description: "Cursor MCP-felsökning: läs faktisk konfiguration och kör doctor."
 alwaysApply: false
 ---
 
-# Lokal tooling (MCP / Git / Vercel / Supabase)
+# Lokal Cursor-tooling
 
-IDE-lokal setup, inte own-engine-runtime.
+Kör `npm run doctor` för projekt-MCP, secretfält, dubbla skill-rötter,
+plugins och RTK-hook. Rapporten observerar konfiguration, inte OAuth/UI-status.
 
-## MCP-filer
+`.cursor/mcp.json` är en valfri, gitignorerad projektfil; den finns inte
+automatiskt i ett nytt worktree. `.cursor/mcp.json.example` är en mall och
+bevisar inte att servrar är anslutna. Global `%USERPROFILE%\.cursor\mcp.json`
+kan ge ytterligare servrar. Läs servernamn och konfiguration utan att skriva
+ut tokenvärden; lägg aldrig tokens i den spårade mallen.
 
-Cursor läser **`.cursor/mcp.json`**. Den är gitignorerad (når aldrig det
-publika repot) men **läsbar** för agenten sedan 2026-09-11 — den är enda
-beskrivningen av verktygsläget. Lägg aldrig en token i den: `npm run doctor`
-varnar, och `beforeReadFile`-hooken **nekar** en Read av filen så länge den
-bär ett secret-format fält. Mallen är
-[`.cursor/mcp.json.example`](../mcp.json.example) — kanonisk serverlista.
+Projektfilen kan seedas från mallen med `npm run worktree:setup -- <sökväg>`
+när Cursor-MCP faktiskt behövs. Plugins styrs separat i `.cursor/settings.json`.
+Codex använder sina egna anslutna verktyg; Cursor-filerna beskriver inte dem.
 
-| Plats | Roll |
-|---|---|
-| `.cursor/mcp.json` | Live-fil. Ignorerad. Den Cursor faktiskt läser. |
-| `.cursor/mcp.json.example` | Spårad mall. Ingen secret. Kanonisk serverlista. |
-| `%USERPROFILE%\.cursor\mcp.json` | **Valfri** global fallback. Överlever inte en Cursor-ominstallation — verifiera med `Test-Path` innan du litar på den. |
-
-Worktree får `mcp.json` via `npm run worktree:setup` från mallen, inte från
-huvudcheckoutens live-fil. Saknas den globala fallbacken är setup enda vägen.
-Omsync: `pwsh -File scripts/cursor/sync-mcp-json.ps1 -AllWorktrees`.
-Jämför nycklar mot mallen om något driver isär.
-
-## Servrar
-
-Kanonisk lista = nycklarna i mallen. URL:er/`project_ref` står där och i
-`config/db-targets.json`.
-
-| Server | När |
-|---|---|
-| `vercel` | Deploy/loggar för **denna** app |
-| `user-vercel` | Fallback vid 403 / andra projekt |
-| `supabase` | **DEV**-schema/SQL, read-only |
-| `supabase-prod` | **PROD**-schema/rader, read-only |
-| `shadcn` | Registry (`scripts/cursor/shadcn-mcp.cmd`) |
-| `openclaw-docs` | Extern OpenClaw-produkt, inte Sajtmaskins OpenClaw-lager |
-| `context7` | Lib-docs via Context7 |
-| `openai-docs` | OpenAI-docs |
-| `v0` | v0 chat-API. Legacy |
-
-Sajtmaskins OpenClaw (`armedContinuation`, `<openclaw-action>`) bor i
-`src/lib/openclaw/` + [`openclaw-bridge.mdc`](openclaw-bridge.mdc).
-
-- OAuth: Settings → Tools & MCP (grön). Reload efter `mcp.json`-ändring.
-- `plugin-vercel-vercel` 403 → `vercel` / `user-vercel`.
-- Appens `VERCEL_PROJECT_ID` ≠ användarsajters `vercel_project_id`.
-- Ingen destruktiv SQL via MCP. `supabase` = dev, `supabase-prod` = prod.
-  Svara aldrig om prod utifrån dev. Identitet: `config/db-targets.json`.
-- `public.schema_migrations` deny-by-default (SM-057). `rls_disabled_in_public`
-  där är regression. `rls_enabled_no_policy` (INFO) på samma tabell är avsett.
-
-## Plugins ≠ MCP-servrar
-
-`.cursor/settings.json` styr **plugins**, inte serverlistan ovan. Sedan
-2026-09-11: `docs-canvas` och `supabase` på, `vercel` **av** (51 skills,
-~6 200 tokens/session; åtkomsten går via `vercel`/`user-vercel` ovan). Ingen
-Linear. Läs filen innan du påstår vad som är aktivt — den här raden åldras.
-
-## Den här maskinen
-
-- Vercel-projekt: lokal `.vercel/repo.json` (gitignorerad).
-- GitHub: `Jakeminator123` via `gh`. Terminal: pwsh 7 — `bash-och-pwsh.mdc`.
-- Worktrees: `agent-worktree.mdc`. shadcn: `components.json`.
-
-Felsök: reload → MCP-login → `worktree:setup` om `mcp.json` saknas →
-`user-vercel` vid 403 → ny pwsh-session om `ssh`/`gh` saknas.
-
-**Efter en Cursor-ominstallation** är servrarna typiskt kvar i JSON men
-avstängda i UI:t, och OAuth-tokens är borta. Settings → Tools & MCP: slå på de
-servrar du behöver och autentisera plugins. En avstängd server syns inte som
-fel — dess verktyg saknas bara tyst.
+Vid databasfrågor: verifiera dev/prod-identitet mot `config/db-targets.json`
+och faktisk anslutning. Behåll read-only-parametrarna i Supabase-mallen.
+Vercel-identitet ägs lokalt av `.vercel/repo.json`; appens projekt är skilt
+från användarsajternas projekt.

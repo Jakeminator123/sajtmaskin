@@ -1,12 +1,15 @@
-import { execFileSync } from "node:child_process";
+// @vitest-environment node
+import { execFileSync, spawnSync } from "node:child_process";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { describe, expect, it } from "vitest";
+import { decide } from "../../.cursor/hooks/heredoc-guard.mjs";
 
 /**
- * Kör hooken som Cursor kör den — som ett eget nodeanrop med JSON på stdin —
- * i stället för att importera `decide`. Det är kontraktet som gäller: en hook
- * som svarar fel, eller inte svarar alls, läses som kraschad.
+ * Beslutsfallen kör den riktiga decide() utan en process per assertion.
+ * Separata CLI-prov behåller kontraktet som Cursor använder: stdin → stdout,
+ * plattformsval, direktstart, trasig input och importsäkerhet.
  */
 const HOOK = resolve(process.cwd(), ".cursor/hooks/heredoc-guard.mjs");
 
@@ -20,13 +23,17 @@ function ask(
   platform = "win32",
   shell = "",
 ): { permission: string; agent_message?: string } {
+  return decide(command, { platform, shell });
+}
+
+function askCli(command: string, platform: string, shell: string, hook = HOOK) {
   // `SHELL` is pinned too, so the runner's own login shell never decides the
   // verdict — a CI box with SHELL=/bin/zsh must behave like a laptop with pwsh.
   // Default is empty: that is what pwsh on Windows actually exports (verified).
   const env: NodeJS.ProcessEnv = { ...process.env, SAJTMASKIN_SHELL_PLATFORM: platform };
   if (shell) env.SHELL = shell;
   else delete env.SHELL;
-  const stdout = execFileSync(process.execPath, [HOOK], {
+  const stdout = execFileSync(process.execPath, [hook], {
     input: JSON.stringify({ command }),
     encoding: "utf8",
     env,
@@ -37,6 +44,42 @@ function ask(
 const COMMIT_HEREDOC = ['git commit -m "$(cat <<\'EOF\'', "rubrik", "", "brodtext", "EOF", ')"'].join("\n");
 
 describe("heredoc-guard hook", () => {
+  it.each([
+    ["win32", "", "deny", ".cursor/hooks/heredoc-guard.mjs"],
+    ["linux", "/bin/bash", "allow", HOOK],
+    ["win32", "/usr/bin/bash", "allow", HOOK],
+    ["linux", "/usr/bin/pwsh", "deny", HOOK],
+  ])("CLI preserves %s / %s → %s", (platform, shell, permission, hook) => {
+    const verdict = askCli(COMMIT_HEREDOC, platform, shell, hook);
+    expect(verdict).toEqual(decide(COMMIT_HEREDOC, { platform, shell }));
+    expect(verdict.permission).toBe(permission);
+  });
+
+  it("imports by file URL without reading stdin or writing a hook response", () => {
+    const script = [
+      'import fs from "node:fs";',
+      'import { syncBuiltinESMExports } from "node:module";',
+      "const originalRead = fs.readFileSync;",
+      "let readStdin = false;",
+      "fs.readFileSync = (...args) => {",
+      '  if (args[0] === 0) { readStdin = true; return ""; }',
+      "  return originalRead(...args);",
+      "};",
+      "syncBuiltinESMExports();",
+      "await import(process.argv[1]);",
+      "if (readStdin) process.exitCode = 1;",
+    ].join("\n");
+    const result = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", script, pathToFileURL(HOOK).href],
+      { input: "", encoding: "utf8" },
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("");
+  });
+
   it("denies the commit-message heredoc that pwsh cannot parse", () => {
     const verdict = ask(COMMIT_HEREDOC);
     expect(verdict.permission).toBe("deny");

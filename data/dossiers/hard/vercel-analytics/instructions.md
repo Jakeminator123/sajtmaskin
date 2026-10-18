@@ -1,25 +1,10 @@
 # When to use
 
-Use this dossier when the brief declares the `analytics` capability and the site will be deployed on Vercel. Vercel Analytics is the lowest-effort way to capture page views and Core Web Vitals without configuring a third-party tracker.
-
-Best fit:
-
-- Marketing sites and landings deployed on Vercel where the team wants page-view counts and LCP/FID/CLS without setting up Google Analytics.
-- Early-stage SaaS where Web Vitals matter for SEO and the team has not yet picked a behavioural analytics tool.
-- Replacing legacy Google Tag Manager for sites where the only metric being read is page views.
-
-Do not use it for:
-
-- Behavioural analytics with funnels, cohorts, session recording (use PostHog or Amplitude — separate dossier).
-- Server-side conversion tracking (use a backend integration with the actual ad network).
-- Sites deployed outside Vercel (the auto-injection of the project token only works on Vercel infrastructure; on other hosts the script silently no-ops).
+Use when the Vercel dashboard is the requested analytics surface.
 
 # How to integrate
 
-1. Mount `<AnalyticsProviders />` once, inside the root `app/layout.tsx`, **inside `<body>`** but typically as the last child so it does not affect SSR painting.
-2. No env vars are needed — Vercel injects `VERCEL_ANALYTICS_ID` at runtime when the project is deployed.
-3. Locally (`next dev`) and on non-Vercel hosts the components self-disable; nothing to switch off manually.
-4. View metrics in the Vercel dashboard under the project → Analytics + Speed Insights tabs.
+Mount `<AnalyticsProviders />` once in the root layout.
 
 # UX rules
 
@@ -29,10 +14,7 @@ Do not use it for:
 
 # Avoid
 
-- Do not paraphrase `components/analytics-providers.tsx`. The `<Analytics />` and `<SpeedInsights />` imports + the `"use client"` directive must stay byte-exact for the bundler to treeshake correctly and for Vercel to detect the integration.
-- Do not mount `<AnalyticsProviders />` inside individual pages — it must live in the root layout once. Multiple mounts double-count page views.
-- Do not wrap it in a Suspense boundary; the components are already lazy on the client side.
-- Do not pass any props — the API surface is intentionally empty.
+Do not mount multiple copies or claim owner-visible in-site statistics.
 
 # Verification
 

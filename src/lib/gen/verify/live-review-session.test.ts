@@ -228,6 +228,52 @@ describe("beginLiveReviewSession", () => {
 });
 
 describe("finishLiveReviewSession", () => {
+  it("cache och cost-cap returnerar hydrerat resultat utan capture eller critic", async () => {
+    const hydrated: LiveReviewResult = {
+      ...completed,
+      screenshots: {
+        desktopUrl: "https://blob.example/cached-desktop.jpg",
+        mobileUrl: null,
+      },
+    };
+
+    for (const kind of ["cached", "cost_capped"] as const) {
+      const attachReview = vi.fn();
+      const session = await beginLiveReviewSession(
+        {
+          chatId: "chat_1",
+          versionId: "v1",
+          filesRevision: "rev_a",
+          userId: "user_1",
+          grant: GRANT,
+        },
+        {
+          flagEnabled: true,
+          editEnabled: true,
+          claimRun: async () => ({ kind, result: hydrated, row: acquired().row }),
+        },
+      );
+
+      expect(session.captureEnabled).toBe(false);
+      await expect(
+        finishLiveReviewSession(
+          session,
+          {
+            skipped: false,
+            findings: [],
+            screenshots: null,
+            domSummary: null,
+            filesJson: "[]",
+            userRequest: "x",
+            briefSummary: "",
+          },
+          { attachReview },
+        ),
+      ).resolves.toEqual(hydrated);
+      expect(attachReview).not.toHaveBeenCalled();
+    }
+  });
+
   it("in-flight väntar och startar inte ny review", async () => {
     const attachReview = vi.fn();
     const waitForRun = vi.fn(async () => completed);

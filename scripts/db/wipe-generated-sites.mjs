@@ -21,7 +21,8 @@
  *   - users (accounts, diamonds/credits, github login + export token)
  *   - transactions (Stripe ledger)
  *   - domain_orders (purchased domains — real money)
- *   - kostnadsfri_pages (lead flow)
+ *   - kostnadsfri_pages / kostnadsfri_mail_events /
+ *     kostnadsfri_campaign_entitlements (lead and send history)
  *   - user_integrations (per Jake's decision: keep)
  *   - media_library (user-owned media metadata)
  *   - prompt_logs (analytics; intentionally survives project deletion)
@@ -162,6 +163,8 @@ const REPORT_TABLES = {
     "transactions",
     "domain_orders",
     "kostnadsfri_pages",
+    "kostnadsfri_mail_events",
+    "kostnadsfri_campaign_entitlements",
     "user_integrations",
     "media_library",
     "prompt_logs",

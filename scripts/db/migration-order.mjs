@@ -152,6 +152,9 @@ export const MIGRATION_ORDER = [
   // "sist"-posterna ovan (parity + ledger-härdning), som bara rör äldre tabeller
   // respektive ledgern själv.
   "add-kostnadsfri-sent.sql",
+  // Per-message history and a nullable, signed correlation on the existing
+  // campaign entitlement. No historical rows are inferred or rewritten.
+  "add-kostnadsfri-mail-events.sql",
   // SM-013: durable template-init reservation. Fristående CREATE — inga
   // FK-beroenden. claim_key är PRIMARY KEY (inserten är låset);
   // operation_id är credit-idempotensnyckeln.

@@ -2,7 +2,8 @@
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
 Hör ihop med: [`A2-gastpolicy-credits.md`](A2-gastpolicy-credits.md)
-Status: inte startad. Bygg inte en gästväg utan det här taket.
+Status: levererad. `analys:public:attempt` är försökstaket och
+`public-analys-quota` äger kvoten för levererade rapporter.
 
 ## Uppdrag
 
@@ -23,35 +24,29 @@ Nuvarande skydd är dimensionerat för **inloggade, betalda** anrop — och
 | SSRF + max 4 sidor | [`webscraper.ts`](../../../../../src/lib/webscraper.ts) + [`ssrf-guard.ts`](../../../../../src/lib/ssrf-guard.ts). Behålls. |
 | Ingen URL-resultatcache | Varje släppt anrop = scrape + LLM. |
 
-4 LLM-anrop / 10 min / IP är för löst för en gratismagnet och för tajt
-som enda tak om många inloggade delar NAT. Gäst utan durabel dagsräknare
-kan rotera IP.
+Den betalda vägens `audit:create` är inte gästvägens enda skydd. Gästvägen
+har ett separat kort försökstak och en durabel leveranskvot; processlokal
+in-flight är bara best effort.
 
 `getClientId` får **inte** ta cookie / `x-session-id` som identitet —
 kommentaren i `rate-limit.ts` säger varför.
 
 ## Uppgift
 
-1. **Ny nyckel** t.ex. `audit:public` (namn fritt, inte återanvänd
-   `audit:create` som enda gästtak). Föresatt default vid G1:
-   1 req / 24 h / IP, plus ev. kort burst-tak (t.ex. 2 / 10 min) mot
-   parallella klick.
-2. **Behåll** `audit:create` för inloggade. Skicka `userId` in i
-   `withRateLimit` när `prepareCredits` har en user, så bucketen blir
-   `user:…` i stället för delad NAT-IP.
-3. **In-flight för gäst:** nyckel utan user-id, t.ex.
-   `ip:canonicalKey`. Process-lokal `Map` får vara *best effort* mot
-   dubbelklick men **inte** enda kostnadsskydd. Om G1: durabel räknare
-   (samma Redis som rate-limit) är A2:s grant — den här aktiviteten
-   kopplar den till 429/409.
-4. 429-svar ska vara begripligt på svenska i den publika ytan (nu:
-   `"Too many requests"`). Inte ett nytt i18n-system; en sträng i
-   befintligt JSON-fel.
-5. SSRF, `MAX_PAGES`, `validateAndNormalizeUrl` orörda. Blockera inte
+1. **Försökstak:** `analys:public:attempt` tillåter 3 försök / 10 min
+   och fail-close:ar vid limiterfel.
+2. **Leveranskvot:** `public-analys-quota` reserverar per klient och
+   Stockholmsdygn. Bara ett serverbekräftat 200-svar committar kvoten;
+   fel släpper reservationen.
+3. **Behåll** `audit:create` för den separata inloggade audit-vägen.
+4. **In-flight för gäst:** process-lokal `Map` är *best effort* mot
+   samma URL samtidigt men **inte** enda kostnadsskydd.
+5. 409/429-svar ska skilja på pågående URL, upptagen/brukad dygnskvot och
+   försökstak så klienten inte visar fel återkoppling.
+6. SSRF, `MAX_PAGES`, `validateAndNormalizeUrl` orörda. Blockera inte
    publika sajter hårdare «för säkerhets skull» utan repro.
-6. Tester: gäst slår taket; inloggad på samma IP kan fortfarande köra
-   betald audit (skilda nycklar); ogiltig URL räknas inte som grant
-   (handler validerar URL **före** credits redan i dag).
+7. Tester: parallell reservation, fel/retry, Redisfel, 409 och separata
+   429-koder. Ogiltig URL valideras före försökstak och leveranskvot.
 
 ## Inte den här aktiviteten
 
@@ -64,10 +59,10 @@ kommentaren i `rate-limit.ts` säger varför.
 
 ## Klart när
 
-- Gästvägen (om G1) har durabelt dygnstak + synlig 429.
-- Inloggad väg har oförändrat eller bättre tak (`user:`-id).
+- Gästvägen har durabel leveranskvot + separat försökstak och synliga felkoder.
+- Inloggad väg är oförändrad.
 - In-flight påstår inte kluster-garanti om den fortfarande är en `Map`.
-- `route.test.ts` täcker 409-release (finns) plus nya 429/gästfall.
+- `route.test.ts` täcker release vid motorfel, 409 och separata 429/gästfall.
 - A2 utan det här taket mergas inte.
 
 ## Stopp

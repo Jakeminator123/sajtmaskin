@@ -4,14 +4,15 @@ name: DB schema parity (scheduled)
 # Supabase) objekt för objekt — tabeller, kolumner, index, constraints — via
 # `npm run db:schema-parity` (scripts/db/check-schema-parity.mjs). Read-only.
 #
-# Push-vägen täcks redan av `db-schema-parity`-jobbet i ci.yml (som dessutom
-# auto-applicerar migrationer mot dev). Det här workflowet finns för driften
+# Push-vägen täcks redan av det read-only `db-schema-parity`-jobbet i ci.yml.
+# Det här workflowet finns för driften
 # DÄREMELLAN: en kolumn skapad direkt i Supabase-dashboarden, eller manuell
 # DDL, syns annars först vid nästa master-push. Rött = verklig skillnad; fixen
 # är en migration i src/lib/db/migrations/ + MIGRATION_ORDER (aldrig mer
 # dashboard-DDL), alternativt att objektet tas bort.
 #
-# SÄKERHET: secret-jobbet kräver exakt master-ref och schedule/manuell dispatch.
+# SÄKERHET: cron kör alltid den uttryckligen utcheckade master-refen även när
+# repots default branch är preview. Manuell dispatch kräver fortfarande master.
 # En manuell feature-ref nekas i ett separat rött jobb innan någon checkout eller
 # secret-injektion kan ske (samma modell som db-blob-sync-check.yml).
 
@@ -35,13 +36,14 @@ jobs:
           exit 1
 
   db-schema-parity-scheduled:
-    if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') }}
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
+          ref: master
           persist-credentials: false
 
       - name: Setup Node.js

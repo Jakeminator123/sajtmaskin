@@ -417,6 +417,44 @@ describe("useVersionStatus — perpetual-spinner client backstop", () => {
     expect(result.current.error).toBeNull();
     expect(result.current.status?.phase).toBe("failed");
   });
+
+  it("stops immediately on the typed integration-migration blocked projection only", async () => {
+    const blocked = vs({
+      phase: "blocked",
+      done: false,
+      verificationBlocked: true,
+      lastBuildError: {
+        stage: "promotion",
+        message: "Providerbyte kräver ett uttryckligt beslut.",
+        failureCode: "integration_migration_required",
+      },
+    });
+    const fetchMock = sequenceFetch([blocked]);
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderHook(() =>
+      useVersionStatus({
+        chatId: "c1",
+        versionId: "v1",
+        pollIntervalMs: POLL,
+      }),
+    );
+    await act(async () => flushMicrotasks());
+    await act(async () => vi.advanceTimersByTimeAsync(POLL * 5));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps polling an ordinary blocked projection", async () => {
+    const blocked = vs({ phase: "blocked", done: false, verificationBlocked: true });
+    const fetchMock = sequenceFetch([blocked]);
+    vi.stubGlobal("fetch", fetchMock);
+    renderHook(() =>
+      useVersionStatus({ chatId: "c1", versionId: "v1", pollIntervalMs: POLL }),
+    );
+    await act(async () => flushMicrotasks());
+    await act(async () => vi.advanceTimersByTimeAsync(POLL));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });
 
 /**

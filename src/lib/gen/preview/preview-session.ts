@@ -1,8 +1,5 @@
 import type { CodeFile } from "../parser";
-import type {
-  BuildSpecPreviewPolicy,
-  BuildSpecVerificationPolicy,
-} from "../build-spec";
+import type { BuildSpecPreviewPolicy, BuildSpecVerificationPolicy } from "../build-spec";
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
 import {
   buildPreviewEnvLocalContents,
@@ -30,6 +27,7 @@ import { PLACEHOLDER_API_ROUTE } from "../export/project-scaffold";
 import { collectRequiredUiComponents } from "../export/project-scaffold-ui-reader";
 import { repairGeneratedFiles } from "../autofix/repair-generated-files";
 import { applyPreviewOnlyRulesToFiles } from "./preview-only-files";
+import { validateFilesJson } from "../../../../preview-host/src/files-contract.js";
 
 type RuntimeFile = {
   name: string;
@@ -84,8 +82,25 @@ export interface PreviewSessionError {
 }
 
 type StartPreviewSessionOutcome =
-  | { ok: true; result: PreviewSessionResult }
-  | { ok: false; error: PreviewSessionError };
+  { ok: true; result: PreviewSessionResult } | { ok: false; error: PreviewSessionError };
+
+function validatePreviewHostFilesJson(filesJson: Record<string, string>): Record<string, string> {
+  const validated = validateFilesJson(filesJson, "filesJson");
+  if (!validated) throw new Error("Invalid filesJson: preview requires a file set");
+  return validated;
+}
+
+function previewHostFilesContractFailure(error: unknown): StartPreviewSessionOutcome {
+  return {
+    ok: false,
+    error: {
+      stage: "preview-start",
+      message: `Previewfilpaketet kan inte skickas till preview-host: ${
+        error instanceof Error ? error.message : "ogiltigt filpaket"
+      }`,
+    },
+  };
+}
 
 /** Own-engine stream + `/preview-session` bootstrap can call `startPreviewSession` at the same time for the same chat+version — share one in-flight promise so we do not spawn two Fly preview sessions. */
 const inflightPreviewSessionByChatVersion = new Map<string, Promise<StartPreviewSessionOutcome>>();
@@ -351,10 +366,7 @@ async function tryFollowUpPatchLane(params: {
     // a mismatch — otherwise the app would record a version the host never
     // acknowledged and resume/`/status` would disagree with reality. Let the
     // full update re-pin it instead.
-    return fallBackToUpdate(
-      "host_version_not_recorded",
-      `host=${patched.hostVersionId ?? "none"}`,
-    );
+    return fallBackToUpdate("host_version_not_recorded", `host=${patched.hostVersionId ?? "none"}`);
   }
 
   const stored = await touchPreviewSessionAsync({
@@ -401,6 +413,8 @@ async function tryFollowUpPatchLane(params: {
 export type StartPreviewSessionOptions = {
   /** When set, decrypted `projectEnvVars` merge into preview `.env.local` (after placeholders). */
   appProjectId?: string | null;
+  /** Exact transient env body prepared by import preflight; never persisted in files_json. */
+  preparedEnvLocalContents?: string;
   chatId?: string | null;
   previewMode?: PreviewSessionMode;
   previewPolicy?: BuildSpecPreviewPolicy | null;
@@ -467,9 +481,10 @@ export async function startPreviewSession(
     typeof options?.versionIdForSession === "string" && options.versionIdForSession.trim()
       ? options.versionIdForSession.trim()
       : null;
-  const dedupeKey = cid && vid
-    ? `${cid}:${vid}:${options?.forceRestart === true ? "force-restart" : "default"}`
-    : null;
+  const dedupeKey =
+    cid && vid
+      ? `${cid}:${vid}:${options?.forceRestart === true ? "force-restart" : "default"}`
+      : null;
   if (dedupeKey) {
     const existing = inflightPreviewSessionByChatVersion.get(dedupeKey);
     if (existing) return existing;
@@ -499,8 +514,7 @@ async function runStartPreviewSession(
       : null;
   const hostVersionId = vid;
   const filesRevision =
-    typeof options?.filesRevisionForSession === "string" &&
-    options.filesRevisionForSession.trim()
+    typeof options?.filesRevisionForSession === "string" && options.filesRevisionForSession.trim()
       ? options.filesRevisionForSession.trim()
       : null;
 
@@ -544,7 +558,8 @@ async function runStartPreviewSession(
             ok: false,
             error: {
               stage: "preview-start",
-              message: "Preview session lifecycle was superseded before its resume receipt was stored.",
+              message:
+                "Preview session lifecycle was superseded before its resume receipt was stored.",
             },
           };
         }
@@ -590,25 +605,22 @@ async function runStartPreviewSession(
   if (cid && vid && options?.forceRestart !== true) {
     const sess = await getActivePreviewSessionAsync(cid);
     const sessionContentMismatch =
-      sess?.versionId !== vid ||
-      Boolean(filesRevision && sess.filesRevision !== filesRevision);
+      sess?.versionId !== vid || Boolean(filesRevision && sess.filesRevision !== filesRevision);
     if (sess?.previewSessionId && sessionContentMismatch) {
       const skipRepairForUpdate = options?.skipRepair === true;
       const skipScaffoldForUpdate = options?.skipProjectScaffold === true;
       let updateFiles: CodeFile[];
       try {
-        updateFiles = skipRepairForUpdate
-          ? previewFiles
-          : repairGeneratedFiles(previewFiles).files;
+        updateFiles = skipRepairForUpdate ? previewFiles : repairGeneratedFiles(previewFiles).files;
       } catch {
         updateFiles = previewFiles;
       }
       const runtimeForUpdate: RuntimeFile[] = skipScaffoldForUpdate
         ? updateFiles.map((f) => ({ name: f.path, content: f.content }))
-        : buildCompleteProject(
-            updateFiles,
-            collectRequiredUiComponents(updateFiles),
-          ).map((f) => ({ name: f.path, content: f.content }));
+        : buildCompleteProject(updateFiles, collectRequiredUiComponents(updateFiles)).map((f) => ({
+            name: f.path,
+            content: f.content,
+          }));
       // Same placeholder parity as the fresh-start branch below: a session
       // update replaces the workspace files wholesale, so a verbatim fileset
       // (imported repos / finalize-preflighted files) must keep the injected
@@ -617,8 +629,7 @@ async function runStartPreviewSession(
       if (skipScaffoldForUpdate) {
         const hasPlaceholderForUpdate = runtimeForUpdate.some(
           (f) =>
-            f.name === "app/api/placeholder/route.ts" ||
-            f.name === "app/api/placeholder/route.js",
+            f.name === "app/api/placeholder/route.ts" || f.name === "app/api/placeholder/route.js",
         );
         if (!hasPlaceholderForUpdate) {
           runtimeForUpdate.push({
@@ -639,20 +650,27 @@ async function runStartPreviewSession(
       // placeholder values override the user's real env-panel values in the
       // VM. Only a genuinely model-emitted file counts as generated.
       if (isPipelineAuthoredEnvLocal(priorEnvLocal)) priorEnvLocal = null;
-      const envBody = await buildPreviewEnvLocalContents({
-        appProjectId: options?.appProjectId ?? null,
-        generatedEnvLocal: priorEnvLocal,
-        lifecycleStage: options?.lifecycleStage,
-        selectedDossierEnvKeys: options?.selectedDossierEnvKeys,
-        // Scope placeholder catalogs to keys this project actually uses
-        // (.env.local is already spliced out; env artifacts are excluded
-        // from the scan inside the builder).
-        scopePlaceholdersToFiles: runtimeForUpdate,
-      });
+      const envBody =
+        options?.preparedEnvLocalContents ??
+        (await buildPreviewEnvLocalContents({
+          appProjectId: options?.appProjectId ?? null,
+          generatedEnvLocal: priorEnvLocal,
+          lifecycleStage: options?.lifecycleStage,
+          selectedDossierEnvKeys: options?.selectedDossierEnvKeys,
+          // Scope placeholder catalogs to keys this project actually uses
+          // (.env.local is already spliced out; env artifacts are excluded
+          // from the scan inside the builder).
+          scopePlaceholdersToFiles: runtimeForUpdate,
+        }));
       runtimeForUpdate.push({ name: envLocalPath, content: envBody });
-      const updatePayload = Object.fromEntries(
-        runtimeForUpdate.map((f) => [f.name, f.content]),
-      );
+      let updatePayload: Record<string, string>;
+      try {
+        updatePayload = validatePreviewHostFilesJson(
+          Object.fromEntries(runtimeForUpdate.map((f) => [f.name, f.content])),
+        );
+      } catch (error) {
+        return previewHostFilesContractFailure(error);
+      }
       // Fast Edit Lane first: push only what actually differs from the live VM
       // and skip the Next dev restart. Any doubt -> `null` -> the full update
       // below (unchanged behaviour).
@@ -692,7 +710,8 @@ async function runStartPreviewSession(
             ok: false,
             error: {
               stage: "preview-start",
-              message: "Preview session lifecycle was superseded before its update receipt was stored.",
+              message:
+                "Preview session lifecycle was superseded before its update receipt was stored.",
             },
           };
         }
@@ -752,10 +771,9 @@ async function runStartPreviewSession(
 
   const runtimeFiles: RuntimeFile[] = skipProjectScaffold
     ? filesForProject.map((f) => ({ name: f.path, content: f.content }))
-    : buildCompleteProject(
-        filesForProject,
-        collectRequiredUiComponents(filesForProject),
-      ).map((f) => ({ name: f.path, content: f.content }));
+    : buildCompleteProject(filesForProject, collectRequiredUiComponents(filesForProject)).map(
+        (f) => ({ name: f.path, content: f.content }),
+      );
 
   if (skipProjectScaffold) {
     const hasPlaceholder = runtimeFiles.some(
@@ -777,14 +795,16 @@ async function runStartPreviewSession(
   // own placeholder dump masquerade as the model-emitted "generated" layer
   // (it would override user env-panel values in the VM).
   if (isPipelineAuthoredEnvLocal(priorEnvLocal)) priorEnvLocal = null;
-  const envBody = await buildPreviewEnvLocalContents({
-    appProjectId: options?.appProjectId ?? null,
-    generatedEnvLocal: priorEnvLocal,
-    lifecycleStage: options?.lifecycleStage,
-    selectedDossierEnvKeys: options?.selectedDossierEnvKeys,
-    // Same catalog scoping as the update path above.
-    scopePlaceholdersToFiles: runtimeFiles,
-  });
+  const envBody =
+    options?.preparedEnvLocalContents ??
+    (await buildPreviewEnvLocalContents({
+      appProjectId: options?.appProjectId ?? null,
+      generatedEnvLocal: priorEnvLocal,
+      lifecycleStage: options?.lifecycleStage,
+      selectedDossierEnvKeys: options?.selectedDossierEnvKeys,
+      // Same catalog scoping as the update path above.
+      scopePlaceholdersToFiles: runtimeFiles,
+    }));
   runtimeFiles.push({ name: envLocalPath, content: envBody });
 
   const hostUrl = getPreviewHostBaseUrl();
@@ -807,7 +827,14 @@ async function runStartPreviewSession(
     };
   }
 
-  const filesJson = Object.fromEntries(runtimeFiles.map((f) => [f.name, f.content]));
+  let filesJson: Record<string, string>;
+  try {
+    filesJson = validatePreviewHostFilesJson(
+      Object.fromEntries(runtimeFiles.map((f) => [f.name, f.content])),
+    );
+  } catch (error) {
+    return previewHostFilesContractFailure(error);
+  }
   const pointerBeforeStart = await getActivePreviewSessionAsync(cid);
   const started = await startPreviewHostSession({
     chatId: cid,

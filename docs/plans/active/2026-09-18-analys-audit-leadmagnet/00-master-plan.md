@@ -57,7 +57,8 @@ Levererat i det här spåret:
 | Del | Var |
 |---|---|
 | Publik yta `/analys`, `noindex`, egen H1 | [`src/app/analys/`](../../../../src/app/analys/) |
-| Gästväg utan konto/credits, 1 körning/IP/24h | [`src/app/api/analys/route.ts`](../../../../src/app/api/analys/route.ts), `analys:public` i [`rate-limit.ts`](../../../../src/lib/rate-limit.ts) |
+| Gästväg utan konto/credits, 1 levererad rapport/klient/Stockholmsdygn | [`src/app/api/analys/route.ts`](../../../../src/app/api/analys/route.ts), [`public-analys-quota.ts`](../../../../src/lib/audit/public-analys-quota.ts) |
+| Separat missbrukstak, 3 försök/10 min | `analys:public:attempt` i [`rate-limit.ts`](../../../../src/lib/rate-limit.ts) |
 | Delad motor, billig modell på gratisvägen | [`run-website-audit.ts`](../../../../src/lib/audit/run-website-audit.ts), `audit_structured_public` i [`manifest.json`](../../../../config/ai_models/manifest.json) |
 | Publik projektion (inget internt payload till gäst) | [`public-report.ts`](../../../../src/lib/audit/public-report.ts) |
 | Ärlig copy i audit-entry | [`entry-modal.tsx`](../../../../src/components/modals/entry-modal.tsx) |
@@ -160,13 +161,13 @@ Jakob sa ja till paketet nedan; det är byggt i #1471. Raderna står kvar som
 kontrakt för vad ytan lovar, inte som ett val som återstår.
 
 1. Egen sida `/analys` (inte elfte SEO-landning, inte rewrite mot `/`).
-2. Gäst: **1 × basic / IP / kalenderdygn**. Advanced kräver inloggning
-   och credits. Full rapport i modal. Signup för PDF, spara och
-   builder-handoff.
+2. Gäst: **1 × levererad basic-rapport / klient / Stockholmsdygn**.
+   Advanced kräver inloggning och credits. Full rapport i modal. Signup
+   för PDF, spara och builder-handoff.
 3. `noindex` + inte i sitemap förrän copy och API säger samma sak.
    Index är ett separat ja efter A2+A4.
-4. Ny rate-limit-nyckel för gästvägen. Befintlig `audit:create` behålls
-   för inloggade; skicka `userId` när det finns.
+4. Egen leveranskvot för gästvägen och `analys:public:attempt` som separat
+   missbrukstak. Befintlig `audit:create` behålls för inloggade.
 5. Rätta «helt gratis» oavsett om gästpolicyn landar i samma PR.
 
 **Säkrare avvikelse:** signup-wall före körning (nuvarande 401). Då är
@@ -176,7 +177,7 @@ kontrakt för vad ytan lovar, inte som ett val som återstår.
 
 | # | Fråga | Alternativ | Default i paketet | Läge |
 |---|---|---|---|---|
-| B1 | Gästpolicy | 1× basic/IP/dygn · signup-wall · preview-scores + signup för PDF | 1× basic/IP/dygn, signup för PDF/spara/handoff | Valt och byggt |
+| B1 | Gästpolicy | 1× levererad basic-rapport/klient/Stockholmsdygn · signup-wall · preview-scores + signup för PDF | 1× levererad basic-rapport/klient/Stockholmsdygn, signup för PDF/spara/handoff | Valt och byggt |
 | B2 | Indexera `/analys` | `noindex` först · `index` + sitemap när ready | `noindex` tills A2+A4 är sanna | **Öppet** |
 | B3 | Nav/footer | Länka `/analys` · vänta | Länka när sidan inte längre ljuger | Valt och byggt |
 | B4 | Partner `?mode=audit` | Kvar på `/` · peka mot `/analys` | Kvar på `/` i fas 1 | **Öppet** |
@@ -245,7 +246,7 @@ rapporten i browsern.
 
 | Beslut | Varför |
 |---|---|
-| Validering och SSRF-förkontroll **före** rate limit | En felstavning eller en probe ska inte bränna gästens enda dygnskörning |
+| Validering och SSRF-förkontroll **före** rate limit | En felstavning eller en probe ska inte förbruka försökstaket |
 | Publik projektion (`toPublicAnalysReport`) | Gäst får aldrig `site_content`, `template_data`, `color_theme`, budget, konkurrensdata eller kostnad — annars är `/analys` ett gratis scraping-/promptAPI |
 | Cap på strängar och listor | En fientlig målsajt ska inte kunna blåsa upp svaret |
 | `Cache-Control: no-store` + `X-Robots-Tag: noindex` | Gästrapporten är per anropare och ska inte mellanlagras eller indexeras |
@@ -267,7 +268,7 @@ rapporten i browsern.
 ## Checklista
 
 - [x] Jakob ja / ja med avvikelse / nej till defaultpaketet
-- [x] B1 (1× basic/IP/24h, signup för PDF/spara/bygge), B3 (nav/footer länkad)
+- [x] B1 (1× levererad basic-rapport/klient/Stockholmsdygn, signup för PDF/spara/bygge), B3 (nav/footer länkad)
 - [x] B5 (advanced för gäst: nej), B6 (startsidans audit-sektion)
 - [ ] B2 (index/sitemap) och B4 (partner `?mode=audit`) kvarstår
 - [x] A4 copy — entry-modalen lovar inte längre avgiftsfri audit

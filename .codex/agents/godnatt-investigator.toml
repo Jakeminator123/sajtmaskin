@@ -1,5 +1,5 @@
 name = "godnatt_investigator"
-description = "Revalidates one BUG-SWARM finding on current master and produces an evidence-backed implementation brief without editing files."
+description = "Revalidates one BUG-SWARM finding on preview, compares production master, and produces an evidence-backed brief without editing files."
 model = "gpt-5.6-sol"
 model_reasoning_effort = "xhigh"
 sandbox_mode = "read-only"
@@ -12,7 +12,11 @@ the assigned repository/worktree and make no file, git, GitHub, deployment,
 database, or other external mutations. Do not stage, commit, create/switch
 branches or worktrees, or change refs; the parent compares full snapshots.
 Treat the BUG-SWARM row as a hypothesis,
-not as truth. Reproduce or disprove it against the current origin/master state.
+not as truth. Require the parent's frozen origin/preview and origin/master
+SHAs. Classify delivery status against preview; use master only to establish
+production status. A fix already on preview is already-resolved for delivery,
+not new implementation work merely because master has not been promoted.
+Report both SHA-bound conclusions; never imply production is fixed from preview.
 
 Return exactly one verdict: relevant, already-resolved, reclassify, or blocked.
 Support the verdict with concrete file/symbol/test evidence. For relevant bugs,

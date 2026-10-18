@@ -37,7 +37,8 @@ export interface BuildFollowUpOrchestrationInputParams {
     | "colorModeHint"
     | "complexityHint"
     | "buildIntentExplicit"
-  >;
+  > &
+    Partial<Pick<ParsedChatRequestMeta, "buildMethod">>;
   resolvedImageGenerations: boolean;
   designReferences: OrchestrationInput["designReferences"];
   /**
@@ -206,6 +207,7 @@ export function buildFollowUpOrchestrationInput(
     capabilitiesPrompt: params.message,
     scaffoldMatchPrompt: params.message,
     buildIntent: params.buildIntent,
+    buildMethod: params.parsedMeta.buildMethod,
     // Imported repos never get a scaffold matched/pinned onto them — the
     // repo is the project. resolve-base additionally neutralizes any
     // persisted scaffold id when `importedRepoMode` is set.
@@ -233,6 +235,7 @@ export function buildFollowUpOrchestrationInput(
     existingRoutePaths: params.existingRoutePaths,
     existingShellRoutePaths: params.existingShellRoutePaths,
     previousFilePaths: params.previousFilePaths ?? [],
+    previousFiles: params.previousFiles,
     capabilities: params.hasFollowUpBase ? inferCapabilities(params.message) : undefined,
     requestedDossierCapabilities: (() => {
       const merged = Array.from(

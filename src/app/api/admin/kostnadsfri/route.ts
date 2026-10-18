@@ -4,12 +4,18 @@ import { requireAdminAccess } from "@/lib/auth/admin";
 import { hashPassword, verifyPassword } from "@/lib/auth/auth";
 import {
   createKostnadsfriPage,
+  getKostnadsfriGenerationBySlug,
+  getKostnadsfriMailEventStats,
   getKostnadsfriPageBySlug,
   getKostnadsfriVisitStats,
   listKostnadsfriPages,
 } from "@/lib/db/services/kostnadsfri";
 import { hasKostnadsfriPasswordSecret, isPageAccessible } from "@/lib/kostnadsfri";
 import { buildKostnadsfriInvite, KostnadsfriInviteError } from "@/lib/kostnadsfri/invite";
+import {
+  mailTypeFromSource,
+  UNKNOWN_KOSTNADSFRI_GENERATION,
+} from "@/lib/kostnadsfri/mail-register-contract";
 
 /**
  * Admin view of the kostnadsfri mail-link flow.
@@ -72,9 +78,12 @@ export async function GET(req: NextRequest) {
   const days = Number.isFinite(rawDays) && rawDays >= 1 && rawDays <= 3650 ? rawDays : 90;
 
   try {
-    const [rows, visits] = await Promise.all([
+    const checkedAt = new Date().toISOString();
+    const [rows, visits, generations, mailStats] = await Promise.all([
       listKostnadsfriPages(),
-      getKostnadsfriVisitStats(days),
+      getKostnadsfriVisitStats(days).catch(() => null),
+      getKostnadsfriGenerationBySlug().catch(() => null),
+      getKostnadsfriMailEventStats().catch(() => null),
     ]);
 
     const pages = rows.map((page) => {
@@ -92,6 +101,12 @@ export async function GET(req: NextRequest) {
         consumedAt: page.consumed_at,
         sentAt: page.sent_at,
         source: page.source,
+        mailType: mailTypeFromSource(page.source),
+        generation:
+          generations?.get(page.slug) ??
+          (generations
+            ? { state: "not-started" as const, completedAt: null, siteId: null }
+            : { ...UNKNOWN_KOSTNADSFRI_GENERATION }),
       };
     });
 
@@ -100,9 +115,20 @@ export async function GET(req: NextRequest) {
       days,
       configured: hasKostnadsfriPasswordSecret(),
       pages,
-      stats: visits.perSlug,
-      recent: visits.recent,
-      truncated: visits.truncated,
+      stats: visits?.perSlug ?? [],
+      recent: visits?.recent ?? [],
+      truncated: visits?.truncated ?? false,
+      registry: { available: true, complete: true, checkedAt, returned: pages.length },
+      analytics: {
+        available: visits !== null,
+        complete: visits !== null && !visits.truncated,
+        windowDays: days,
+        checkedAt,
+      },
+      generationStatus: { available: generations !== null, checkedAt },
+      mailStats: mailStats
+        ? { available: true, ...mailStats }
+        : { available: false, total: null, accepted: null, delivered: null, replied: null, byVariant: [] },
     });
   } catch (error) {
     console.error("[API/admin/kostnadsfri] Failed to load:", error);

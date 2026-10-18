@@ -111,10 +111,9 @@ export const CURATE_STAGE_PATH_PREFIX = "STAGE_PATH=";
  * Always clears `defaultForCapability` so a picked capability cannot land as a
  * duplicate Standardval; the curator promotes defaults later in Redigera.
  */
-export function applyCuratorCapabilityChoice<T extends { capability?: string; defaultForCapability?: boolean }>(
-  manifest: T,
-  capability: string,
-): T {
+export function applyCuratorCapabilityChoice<
+  T extends { capability?: string; defaultForCapability?: boolean },
+>(manifest: T, capability: string): T {
   const trimmed = capability.trim();
   if (
     !trimmed ||
@@ -273,6 +272,20 @@ interface DraftManifest {
   mock?: "canned" | "seed" | "success" | "visual" | "none";
   summary: string;
   envVars?: { key: string; required: boolean; purpose: string; setupUrl?: string }[];
+  configInputs?: {
+    id: string;
+    label: string;
+    target: "component-prop" | "code-config";
+    binding: string;
+    purpose: string;
+  }[];
+  providerSetup?: {
+    id: string;
+    title: string;
+    instruction: string;
+    setupUrl?: string;
+    references?: { envVarKeys?: string[]; configInputIds?: string[] };
+  }[];
   dependencies?: string[];
   files?: {
     path: string;
@@ -360,7 +373,7 @@ function commitCurationStage(stage: string, args: Args): void {
  * occasional id-typos don't cause rejection (caller already sets this again
  * after curation — we do it here so the `id` regex + match check pass).
  */
-function assertCurationOutput(
+export function assertCurationOutput(
   value: unknown,
   expectedId: string,
   klass: "hard" | "soft",
@@ -411,7 +424,11 @@ ${args.class === "hard" ? '  "providers": ["<canonical kebab-case provider id, e
   "mock": "canned" | "seed" | "success" | "visual" | "none",
   "summary": "<1-3 sentences: what it does + when to use it>",
 ${curationEnvSchemaLine(args.class)}  "dependencies": ["..."],
-  "files": [{"path":"components/<...>","role":"client|server|shared","injectionMode":"verbatim|rewritable"}],
+${
+  args.class === "hard"
+    ? '  "configInputs": [{"id":"price-id","label":"Price id","target":"component-prop|code-config","binding":"priceId","purpose":"non-env project code value"}],\n  "providerSetup": [{"id":"create-price","title":"Create a price","instruction":"ordered provider-side instruction","references":{"envVarKeys":["EXISTING_ENV_KEY"],"configInputIds":["price-id"]}}],\n'
+    : ""
+}  "files": [{"path":"components/<...>","role":"client|server|shared","injectionMode":"verbatim|rewritable"}],
   "exposes": [{"name":"X","type":"component","import":"@/components/x"}],
   "lastVerified": "${today}",
   "verificationStatus": "unverified",
@@ -419,10 +436,13 @@ ${curationEnvSchemaLine(args.class)}  "dependencies": ["..."],
 }
 
 Rules:
+- providerSetup.setupUrl: include only an exact official HTTPS URL confirmed by the source; omit unknown URLs and placeholders.
 - Class is "${args.class}" (already decided): ${CURATION_CLASS_RULE}
 - providers: REQUIRED and non-empty for hard dossiers; list the canonical external provider identities implemented by the shipped code. OMIT the property entirely for soft dossiers. Never copy a legacy or guessed provider label without confirming it from the source SDK/API.
 - codeFidelity: "verbatim" for integration glue (auth callbacks, webhooks, SDK init, api-routes); "rewritable" for UI components.
 - ${curationEnvRule(args.class)}
+- configInputs (hard only): optional NON-ENV project code values such as a price id passed via a component prop or exported code config. Never duplicate envVars and never add required, enforcement, configured, status, completed or default values.
+- providerSetup (hard only): optional ordered provider-side instructions. References must name existing envVars.key/configInputs.id values. Guidance only — never claim that a step is complete or accepted. OMIT both metadata fields for soft dossiers.
 - mock (hard dossiers): ${CURATION_MOCK_RULE} CI requires EVERY hard dossier to have mock != "none" unless the capability is on the documented exception list, so prefer a real mock mode. Omit for soft dossiers.
 - files: list only files that should be injected into the user's project. Strip the upstream's "src/" prefix; output paths should start with "components/".
 - summary: write it for an LLM that needs to decide *when* to use this dossier. No marketing language.
@@ -510,6 +530,45 @@ ${sourcesBlock}`;
                       required: { type: "boolean" },
                       purpose: { type: "string" },
                       setupUrl: { type: "string" },
+                    },
+                  },
+                },
+                configInputs: {
+                  type: "array",
+                  maxItems: 8,
+                  items: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["id", "label", "target", "binding", "purpose"],
+                    properties: {
+                      id: { type: "string" },
+                      label: { type: "string" },
+                      target: { type: "string", enum: ["component-prop", "code-config"] },
+                      binding: { type: "string" },
+                      purpose: { type: "string" },
+                    },
+                  },
+                },
+                providerSetup: {
+                  type: "array",
+                  maxItems: 8,
+                  items: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["id", "title", "instruction"],
+                    properties: {
+                      id: { type: "string" },
+                      title: { type: "string" },
+                      instruction: { type: "string" },
+                      setupUrl: { type: "string", maxLength: 2048, pattern: "^https://" },
+                      references: {
+                        type: "object",
+                        additionalProperties: false,
+                        properties: {
+                          envVarKeys: { type: "array", items: { type: "string" } },
+                          configInputIds: { type: "array", items: { type: "string" } },
+                        },
+                      },
                     },
                   },
                 },

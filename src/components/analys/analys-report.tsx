@@ -8,7 +8,8 @@ import type { PublicAnalysReport, PublicImprovement } from "@/lib/audit/public-r
 type AnalysReportProps = {
   report: PublicAnalysReport;
   auditedUrl: string | null;
-  onNeedAccount: () => void;
+  onPdf: () => void;
+  onBuild: () => void;
 };
 
 const PRIMARY_SCORE_KEYS = ["seo", "content", "ux", "mobile"] as const;
@@ -58,7 +59,7 @@ function scoreWord(value: number | undefined): string {
   return "svagt";
 }
 
-export function AnalysReport({ report, auditedUrl, onNeedAccount }: AnalysReportProps) {
+export function AnalysReport({ report, auditedUrl, onPdf, onBuild }: AnalysReportProps) {
   const scores = report.audit_scores;
   const improvements = report.improvements ?? [];
   const summaryLine =
@@ -239,15 +240,15 @@ export function AnalysReport({ report, auditedUrl, onNeedAccount }: AnalysReport
           <div>
             <p className="text-foreground text-sm font-medium">Vill ni ha rapporten och en ny sida?</p>
             <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-              PDF, sparad historik och bygge kräver konto. Analysen ovan är fri att läsa.
+              PDF och bygge kräver konto. Analysen ovan är fri att läsa.
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button type="button" variant="outline" onClick={onNeedAccount}>
+            <Button type="button" variant="outline" onClick={onPdf}>
               <FileDown className="mr-2 h-4 w-4" />
               Hämta som PDF
             </Button>
-            <Button type="button" onClick={onNeedAccount}>
+            <Button type="button" onClick={onBuild}>
               Bygg en bättre version
             </Button>
           </div>

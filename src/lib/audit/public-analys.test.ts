@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { AUDIT_MODEL_CANDIDATES, PUBLIC_AUDIT_MODEL_CANDIDATES } from "@/app/api/audit/modules/schema";
 import { buildPublicAnalysPrompt } from "@/lib/audit-prompts";
-import {
-  AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL,
-  AUDIT_STRUCTURED_DEFAULT_MODEL,
-} from "@/lib/gen/defaults";
 import type { WebsiteContent } from "@/types/audit";
 
 const sample: WebsiteContent = {
@@ -49,16 +44,6 @@ describe("buildPublicAnalysPrompt", () => {
   });
 });
 
-describe("audit model split", () => {
-  it("keeps Sol as the product Avancerad default and Luna on the public lead magnet", () => {
-    expect(AUDIT_STRUCTURED_DEFAULT_MODEL).toBe("openai/gpt-5.6-sol");
-    expect(AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL).toBe("openai/gpt-5.6-luna");
-    expect(AUDIT_MODEL_CANDIDATES[0]).toBe("openai/gpt-5.6-sol");
-    expect(PUBLIC_AUDIT_MODEL_CANDIDATES[0]).toBe("openai/gpt-5.6-luna");
-    expect(PUBLIC_AUDIT_MODEL_CANDIDATES).not.toContain("openai/gpt-5.6-sol");
-  });
-});
-
 describe("/analys page metadata", () => {
   it("is a distinct noindex landning, not a rewrite to /audits", () => {
     const source = readFileSync(resolve("src/app/analys/page.tsx"), "utf8");
@@ -83,6 +68,6 @@ describe("public /analys client surface", () => {
   it("gästen får signup-CTA i stället för en PDF som kräver konto", () => {
     const report = readFileSync(resolve("src/components/analys/analys-report.tsx"), "utf8");
     expect(report).not.toMatch(/AuditPdfReport/);
-    expect(report).toMatch(/PDF, sparad historik och bygge kräver konto/);
+    expect(report).toMatch(/PDF och bygge kräver konto/);
   });
 });

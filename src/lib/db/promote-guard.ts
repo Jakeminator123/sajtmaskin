@@ -26,6 +26,16 @@ import {
 } from "./services/generation-telemetry";
 import { shortRevision } from "@/lib/gen/verify/content-revision";
 import { incContentRevisionMismatch } from "@/lib/observability/metrics";
+import {
+  readPromotionRemovalScopeFromSnapshot,
+  readProviderContractsFromSnapshot,
+} from "@/lib/gen/orchestration-snapshot";
+import { detectProjectProviderEvidence } from "@/lib/gen/contract/project-provider-evidence";
+import { resolveExistingDossierCorePlan } from "@/lib/gen/contract/provider-compatibility";
+import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
+import { parseStoredCodeFilesJson } from "@/lib/gen/stored-code-files";
+import { resolveDossiersPresentInVersion } from "@/lib/gen/dossiers/version-presence";
+import { capabilityForIntegrationKind } from "@/lib/gen/capability-removal";
 
 /**
  * Finalize quality-gate results that must block promotion. `preflight_passed`
@@ -75,6 +85,8 @@ export type PromoteGuardDecision =
        */
       staleSignal?: string | null;
       staleSignalBlocking?: boolean;
+      /** Stable denial code for an inspected integration/removal hold. */
+      code?: "integration_migration_required";
     };
 
 /**
@@ -109,7 +121,254 @@ export type PromoteGuardOptions = {
    * content the verdict actually describes, never re-stamp the receipt.
    */
   promotedFilesJson?: string | null;
+  migrationContext?: {
+    currentFilesJson: string;
+    candidateFilesJson?: string | null;
+    orchestrationSnapshot: unknown;
+  };
 };
+
+export function normalizeContractIntegrationsToken(snapshot: unknown): unknown {
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return null;
+  return (snapshot as Record<string, unknown>).contractIntegrations ?? null;
+}
+
+/** A restored version is evaluated against its immutable files, not later chat intent. */
+export function scopePromotionSnapshotForVersion(
+  snapshot: unknown,
+  editKind: unknown,
+): unknown {
+  return editKind === "restore" ? null : snapshot;
+}
+
+function removalResidualReason(params: {
+  candidate: NonNullable<ReturnType<typeof parseStoredCodeFilesJson>>;
+  removedCapabilities: ReadonlySet<string>;
+  removedDossierIds: ReadonlySet<string>;
+  rules: ReturnType<typeof getPreGenerationContractsConfigFromManifest>["providerRules"];
+}): string | null {
+  const present = resolveDossiersPresentInVersion(params.candidate);
+  for (const selected of present) {
+    if (params.removedDossierIds.has(selected.entry.id.toLowerCase())) {
+      return `removed dossier ${selected.entry.id} remains in candidate files`;
+    }
+    if (params.removedCapabilities.has(selected.entry.capability.toLowerCase())) {
+      return `removed capability ${selected.entry.capability} remains in candidate files`;
+    }
+  }
+
+  const evidence = detectProjectProviderEvidence(params.candidate, params.rules);
+  for (const item of evidence) {
+    const exactCapability =
+      item.dossierCapability?.toLowerCase() ?? capabilityForIntegrationKind(item.kind);
+    if (exactCapability) {
+      if (params.removedCapabilities.has(exactCapability)) {
+        return `provider ${item.providerKey} still proves removed capability ${exactCapability}`;
+      }
+      continue;
+    }
+    const possibleCapabilities = new Set(
+      params.rules
+        .filter(
+          (rule) =>
+            rule.providerKey.toLowerCase() === item.providerKey.toLowerCase() &&
+            typeof rule.dossierCapability === "string",
+        )
+        .map((rule) => rule.dossierCapability!.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    const overlapping = [...possibleCapabilities].filter((capability) =>
+      params.removedCapabilities.has(capability),
+    );
+    if (overlapping.length > 0) {
+      return `provider ${item.providerKey} ambiguously overlaps removed capability ${overlapping.join(", ")}`;
+    }
+  }
+  return null;
+}
+
+function providersByCapability(
+  evidence: ReturnType<typeof detectProjectProviderEvidence>,
+  removedCapabilities: ReadonlySet<string>,
+): Map<string, Set<string>> {
+  const result = new Map<string, Set<string>>();
+  for (const item of evidence) {
+    const capability =
+      item.dossierCapability?.trim().toLowerCase() ??
+      capabilityForIntegrationKind(item.kind);
+    if (!capability || removedCapabilities.has(capability)) continue;
+    const providers = result.get(capability) ?? new Set<string>();
+    providers.add(item.providerKey.trim().toLowerCase());
+    result.set(capability, providers);
+  }
+  return result;
+}
+
+function sameStringSet(left: ReadonlySet<string>, right: ReadonlySet<string>): boolean {
+  return left.size === right.size && [...left].every((value) => right.has(value));
+}
+
+function inspectMigrationContext(
+  context: NonNullable<PromoteGuardOptions["migrationContext"]>,
+): PromoteGuardDecision | null {
+  if (
+    context.orchestrationSnapshot !== null &&
+    context.orchestrationSnapshot !== undefined &&
+    (typeof context.orchestrationSnapshot !== "object" ||
+      Array.isArray(context.orchestrationSnapshot))
+  ) {
+    return {
+      allowed: false,
+      indeterminate: true,
+      reason: "orchestration snapshot unavailable for integration migration inspection",
+    };
+  }
+  const snapshot =
+    context.orchestrationSnapshot &&
+    typeof context.orchestrationSnapshot === "object" &&
+    !Array.isArray(context.orchestrationSnapshot)
+      ? (context.orchestrationSnapshot as Record<string, unknown>)
+      : null;
+  const current = parseStoredCodeFilesJson(context.currentFilesJson);
+  const candidate = parseStoredCodeFilesJson(
+    context.candidateFilesJson ?? context.currentFilesJson,
+  );
+  if (!current?.length || !candidate?.length) {
+    return {
+      allowed: false,
+      indeterminate: true,
+      reason: "promotion files unavailable for integration migration inspection",
+    };
+  }
+  try {
+    const removalScope = readPromotionRemovalScopeFromSnapshot(snapshot);
+    if (!removalScope) {
+      return {
+        allowed: false,
+        indeterminate: true,
+        reason: "removal metadata unavailable for integration migration inspection",
+      };
+    }
+    const removedCapabilities = new Set(removalScope.removedCapabilities);
+    const removedDossierIds = new Set(removalScope.removedDossierIds);
+    const contracts = readProviderContractsFromSnapshot(snapshot);
+    const rawContracts = normalizeContractIntegrationsToken(snapshot);
+    if (
+      rawContracts !== null &&
+      (!Array.isArray(rawContracts) || rawContracts.length !== contracts.length)
+    ) {
+      return {
+        allowed: false,
+        indeterminate: true,
+        reason: "provider contracts unavailable for integration migration inspection",
+      };
+    }
+    const rules = getPreGenerationContractsConfigFromManifest().providerRules;
+    const residual = removalResidualReason({
+      candidate,
+      removedCapabilities,
+      removedDossierIds,
+      rules,
+    });
+    if (residual) {
+      return {
+        allowed: false,
+        indeterminate: true,
+        code: "integration_migration_required",
+        reason: `integration removal requires review before promotion: ${residual}`,
+      };
+    }
+    const currentEvidence = detectProjectProviderEvidence(current, rules);
+    const candidateEvidence = detectProjectProviderEvidence(candidate, rules);
+    const currentPlan = resolveExistingDossierCorePlan({
+      contracts,
+      projectFiles: current,
+      projectProviderEvidence: currentEvidence,
+      removedCapabilities,
+      removedDossierIds,
+    });
+    const candidatePlan =
+      context.candidateFilesJson === context.currentFilesJson
+        ? currentPlan
+        : resolveExistingDossierCorePlan({
+            contracts,
+            projectFiles: candidate,
+            projectProviderEvidence: candidateEvidence,
+            removedCapabilities,
+            removedDossierIds,
+          });
+    for (const plan of currentPlan === candidatePlan ? [currentPlan] : [currentPlan, candidatePlan]) {
+      if (plan.migrationRequired) {
+        return {
+          allowed: false,
+          indeterminate: true,
+          code: "integration_migration_required",
+          reason: "integration migration requires review before promotion",
+        };
+      }
+    }
+
+    if (currentPlan !== candidatePlan) {
+      // A restore scopes out newer chat intent, but it does not authorize a
+      // repair to replace or erase provider code. Compare only positive,
+      // package+runtime evidence and the existing protected-core authority.
+      // Explicit removal sets are already applied to both sides above.
+      const currentProviders = providersByCapability(currentEvidence, removedCapabilities);
+      const candidateProviders = providersByCapability(candidateEvidence, removedCapabilities);
+      for (const capability of new Set([
+        ...currentProviders.keys(),
+        ...candidateProviders.keys(),
+      ])) {
+        const current = currentProviders.get(capability) ?? new Set<string>();
+        const candidate = candidateProviders.get(capability) ?? new Set<string>();
+        if (candidate.size > 1) {
+          return {
+            allowed: false,
+            indeterminate: true,
+            code: "integration_migration_required",
+            reason: `multiple provider implementations are present for ${capability} during repair`,
+          };
+        }
+        // Adding the first positive package+runtime proof is evidence recovery,
+        // not a provider migration. Once a provider is positively proven,
+        // replacing or erasing it remains a migration hold.
+        if (current.size === 0) continue;
+        if (!sameStringSet(current, candidate)) {
+          return {
+            allowed: false,
+            indeterminate: true,
+            code: "integration_migration_required",
+            reason: `provider evidence changed for ${capability} during repair`,
+          };
+        }
+      }
+
+      const candidatePreservedIds = new Set(
+        candidatePlan.preservedDossiers.map((entry) => entry.id.toLowerCase()),
+      );
+      const removedProtectedCore = currentPlan.preservedDossiers.find(
+        (entry) => !candidatePreservedIds.has(entry.id.toLowerCase()),
+      );
+      if (removedProtectedCore) {
+        return {
+          allowed: false,
+          indeterminate: true,
+          code: "integration_migration_required",
+          reason: `protected integration core ${removedProtectedCore.id} changed or disappeared during repair`,
+        };
+      }
+    }
+  } catch (error) {
+    return {
+      allowed: false,
+      indeterminate: true,
+      reason: `integration migration inspection unavailable: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    };
+  }
+  return null;
+}
 
 function normalizeSignal(raw: string | null | QualityGateSignal): QualityGateSignal {
   if (raw === null || typeof raw === "string") {
@@ -190,6 +449,11 @@ export async function assertPromoteAllowed(
       signal: signal.result,
       reason: `finalize quality gate = ${signal.result}`,
     };
+  }
+
+  if (opts?.migrationContext) {
+    const migrationDecision = inspectMigrationContext(opts.migrationContext);
+    if (migrationDecision) return migrationDecision;
   }
 
   return { allowed: true };

@@ -22,6 +22,11 @@ import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context
 import { buildOpenClawReviewContext } from "@/lib/openclaw/review-context";
 import { buildOpenClawPreviewLogBlock } from "@/lib/openclaw/preview-log-context";
 import { postOpenClawChatCompletion } from "@/lib/openclaw/gateway-client";
+import {
+  OPENCLAW_DISPATCH_HEADER,
+  OPENCLAW_DISPATCH_NOT_STARTED,
+  OPENCLAW_DISPATCH_STARTED,
+} from "@/lib/openclaw/gateway-response";
 import { resolveOpenClawModelRoute } from "@/lib/openclaw/model-routing";
 import { validateOpenClawChatMessages } from "@/lib/openclaw/message-validation";
 import {
@@ -172,7 +177,8 @@ async function buildOpenClawDebugFindingsBlock(
 }
 
 export async function POST(req: NextRequest) {
-  return withRateLimit(req, "openclaw:chat", async () => {
+  let gatewayDispatched = false;
+  const response = await withRateLimit(req, "openclaw:chat", async () => {
     const surface = getOpenClawSurfaceStatus();
     const gatewayUrl = OPENCLAW.gatewayUrl;
     const gatewayToken = OPENCLAW.gatewayToken;
@@ -410,6 +416,10 @@ export async function POST(req: NextRequest) {
     });
 
     try {
+      // From this point a thrown request is delivery-uncertain. Set the marker
+      // before invoking the gateway so no post-send failure can be mislabeled
+      // as safe to retry.
+      gatewayDispatched = true;
       const { response: upstream, route: effectiveRoute } = await postOpenClawChatCompletion({
         gatewayUrl,
         gatewayToken,
@@ -450,4 +460,9 @@ export async function POST(req: NextRequest) {
       );
     }
   });
+  response.headers.set(
+    OPENCLAW_DISPATCH_HEADER,
+    gatewayDispatched ? OPENCLAW_DISPATCH_STARTED : OPENCLAW_DISPATCH_NOT_STARTED,
+  );
+  return response;
 }

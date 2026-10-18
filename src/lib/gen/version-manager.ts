@@ -5,12 +5,18 @@ import {
   getVersionById,
   type Version,
 } from "@/lib/db/chat-repository-pg";
-import type { EngineVersionVerificationState } from "@/lib/db/engine-version-lifecycle";
+import type {
+  EngineVersionReleaseState,
+  EngineVersionVerificationState,
+} from "@/lib/db/engine-version-lifecycle";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { incIngressEvent } from "@/lib/observability/metrics";
 import { parseCodeProject, type CodeFile } from "./parser";
 import { extractStructuralElements } from "./context/structural-elements";
 import { applyKnownImageReplacementsToFiles } from "@/lib/utils/image-validator";
+import { parseStoredCodeFilesJson } from "./stored-code-files";
+
+export { isStoredCodeFileArray } from "./stored-code-files";
 
 /**
  * Extracts files from raw assistant content using the CodeProject parser.
@@ -23,12 +29,7 @@ export function parseFilesFromContent(content: string): string {
 
 /** Parse `versions.files_json` into code files (e.g. preview bootstrap when markdown parse yields nothing). */
 export function parseCodeFilesFromFilesJson(filesJson: string): CodeFile[] | null {
-  try {
-    const parsed = JSON.parse(filesJson);
-    return Array.isArray(parsed) ? (parsed as CodeFile[]) : null;
-  } catch {
-    return null;
-  }
+  return parseStoredCodeFilesJson(filesJson);
 }
 
 function parseStoredVersionFiles(
@@ -36,8 +37,7 @@ function parseStoredVersionFiles(
   context: { versionId?: string; chatId?: string },
 ): CodeFile[] | null {
   try {
-    const parsed = JSON.parse(filesJson);
-    return Array.isArray(parsed) ? (parsed as CodeFile[]) : null;
+    return parseStoredCodeFilesJson(filesJson);
   } catch (error) {
     console.error("[version-manager] Failed to parse stored version files", {
       versionId: context.versionId ?? null,
@@ -79,6 +79,12 @@ export async function getVersionFilesSnapshot(
   filesRevision: string | null;
   /** Same `getVersionById` row as `files` / `filesRevision` (L5 CAS). */
   verificationState: EngineVersionVerificationState;
+  /** Release state read atomically with files and verification state. */
+  releaseState: EngineVersionReleaseState;
+  /** Verification summary read atomically for durable-hold recognition/CAS. */
+  verificationSummary: string | null;
+  /** Immutable edit provenance read from the same row for promotion/hold CAS. */
+  editKind: string | null;
   /** F3 lineage — the F2 parent whose Product Postcheck guards promotion. */
   parentVersionId: string | null;
 } | null> {
@@ -95,6 +101,9 @@ export async function getVersionFilesSnapshot(
     lifecycleStage: version.lifecycle_stage,
     filesRevision: version.files_revision ?? null,
     verificationState: version.verification_state,
+    releaseState: version.release_state,
+    verificationSummary: version.verification_summary ?? null,
+    editKind: version.edit_kind ?? null,
     parentVersionId: version.parent_version_id ?? null,
   };
 }

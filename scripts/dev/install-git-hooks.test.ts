@@ -1,4 +1,12 @@
-import { chmodSync, existsSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+// @vitest-environment node
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -8,7 +16,9 @@ import {
   HOOK_MARKER,
   HOOK_VERSION,
   MANAGED_HOOKS,
+  RETIRED_DB_HOOKS,
   decideHookInstall,
+  decideHookRetirement,
   renderHookScript,
 } from "./install-git-hooks.mjs";
 
@@ -101,9 +111,7 @@ const FAKE_GIT = [
   "",
 ].join("\n");
 
-// Skyddar dev/prod-symmetrin: prod migreras av CI vid push till master eller
-// preview, dev av dessa hooks när den grenen dras hem. Går de sönder tyst är
-// vi tillbaka i "kör mot ett schema koden lämnat bakom sig".
+// Git-operationer får rapportera drift, aldrig ge ett implicit migrationsmandat.
 describe("renderHookScript", () => {
   it("hittar Git Bash på Windows när git är installerat", () => {
     if (process.platform === "win32" && spawnSync("git", ["--version"]).status === 0) {
@@ -112,68 +120,23 @@ describe("renderHookScript", () => {
   });
 
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(17);
+    expect(HOOK_VERSION).toBe(23);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
     }
   });
 
-  it("kör schema-synken soft och tyst — en hook får aldrig avbryta git", () => {
-    const script = renderHookScript("post-merge");
-    expect(script).toContain("scripts/db/ensure-schema.mjs --soft --quiet-ok");
-    expect(script.trimEnd().endsWith("exit 0")).toBe(true);
-  });
-
-  it("hoppar över schema-synken tills worktree:setup har gett node_modules", () => {
-    const script = renderHookScript("post-merge");
-    expect(script).toContain("[ -f node_modules/pg/package.json ] || exit 0");
-    expect(script).toContain("[ -f node_modules/dotenv/package.json ] || exit 0");
-    expect(script.indexOf("[ -f node_modules/pg/package.json ] || exit 0")).toBeLessThan(
-      script.indexOf("scripts/db/ensure-schema.mjs --soft --quiet-ok"),
-    );
-  });
-
-  it("har en exakt escape hatch och står bara över vid sann CI-signal", () => {
-    const script = renderHookScript("post-merge");
-    expect(script).toContain('[ "$SAJTMASKIN_SKIP_DB_HOOKS" = "1" ]');
-    expect(script).toContain('[ "${CI:-}" = "true" ]');
-    expect(script).not.toContain('[ -n "$CI" ]');
-  });
-
-  // resolveHooksDir hedrar `git config core.hooksPath` utan `--local`, alltså
-  // även en GLOBAL katalog — och den delas med alla andra repon på maskinen.
-  // Utan den här grinden hade hooken kört `node scripts/db/ensure-schema.mjs`
-  // där och spytt module-not-found i orelaterade projekt.
-  it("är en no-op i repon som saknar skriptet (global core.hooksPath)", () => {
-    for (const hook of ["post-merge", "post-checkout", "post-rewrite"] as const) {
-      expect(renderHookScript(hook)).toContain("[ -f scripts/db/ensure-schema.mjs ] || exit 0");
+  it("bara pre-push kör repo-kod; pensionerade DB-posthooks är passiva", () => {
+    expect(MANAGED_HOOKS).toEqual(["pre-push"]);
+    expect(RETIRED_DB_HOOKS).toEqual(["post-merge", "post-checkout", "post-rewrite"]);
+    for (const hook of RETIRED_DB_HOOKS) {
+      const script = renderHookScript(hook);
+      expect(script).toContain(`${hook}: retired`);
+      expect(script).not.toContain("node");
+      expect(script).not.toContain("scripts/db");
+      expect(script.trimEnd().endsWith("exit 0")).toBe(true);
     }
-  });
-
-  it("post-checkout kör bara vid grenbyten, inte vid fil-utcheckning", () => {
-    // Utan grinden skulle varje `git checkout -- <fil>` kosta en DB-rundtur.
-    const script = renderHookScript("post-checkout");
-    expect(script).toContain('if [ "$3" != "1" ]; then exit 0; fi');
-  });
-
-  it("post-merge har ingen grenflagga att titta på", () => {
-    expect(renderHookScript("post-merge")).not.toContain('"$3"');
-  });
-
-  // `git pull --rebase` kör aldrig post-merge, och rebase med merge-backenden
-  // (default sedan git 2.26) ger inget pålitligt post-checkout. Utan
-  // post-rewrite är rebase-pull en blind fläck — den vanligaste vägen hem för
-  // den som har pull.rebase=true.
-  it("post-rewrite kör bara för rebase, inte för commit --amend", () => {
-    const script = renderHookScript("post-rewrite");
-    expect(script).toContain('if [ "$1" != "rebase" ]; then exit 0; fi');
-    expect(script).toContain("scripts/db/ensure-schema.mjs --soft --quiet-ok");
-  });
-
-  it("varje hook har sin egen grind — ingen ärver en annans", () => {
-    expect(renderHookScript("post-rewrite")).not.toContain('"$3"');
-    expect(renderHookScript("post-checkout")).not.toContain('"$1" != "rebase"');
   });
 
   it("pre-push kör verify:pr --plan och låter dess exitkod stoppa pushen", () => {
@@ -217,6 +180,192 @@ describe("renderHookScript", () => {
       script.indexOf("npm run verify:pr"),
     );
   });
+
+  itWithPosixShell(
+    "preview kräver aktuellt kvitto och bekräftelse även med CI/skip; stoppar delete/force",
+    () => {
+      const root = mkdtempSync(join(tmpdir(), "sajtmaskin-preview-hook-"));
+      const bin = join(root, "bin");
+      const scriptDir = join(root, "scripts/workflow");
+      const cache = join(root, "node_modules/.cache/sajtmaskin-preview");
+      mkdirSync(join(root, "scripts/dev"), { recursive: true });
+      mkdirSync(scriptDir, { recursive: true });
+      mkdirSync(cache, { recursive: true });
+      mkdirSync(bin);
+      mkdirSync(join(root, "config"));
+      mkdirSync(join(root, ".cursor/rules"), { recursive: true });
+      writeFileSync(join(root, "AGENTS.md"), "Review repository contracts.\n");
+      writeFileSync(join(root, ".cursor/rules/workflow.mdc"), "Original review policy.\n");
+      writeFileSync(join(root, "config/agent-workflow.json"), "{}");
+      writeFileSync(join(root, "scripts/dev/install-git-hooks.mjs"), "marker");
+      for (const file of ["bugpass.mjs", "bugpass-state.mjs", "preview-push.mjs", "path-impact.mjs"])
+        writeFileSync(join(scriptDir, file), readFileSync(`scripts/workflow/${file}`));
+      mkdirSync(join(root, "docs/plans/active"), { recursive: true });
+      writeFileSync(join(root, "docs/plans/active/README.md"), "Committed plan index\n");
+      writeFileSync(join(root, ".gitignore"), "node_modules/\npre-push\n");
+      const gitEnv: NodeJS.ProcessEnv = { ...process.env };
+      for (const key of Object.keys(gitEnv)) if (key.startsWith("GIT_")) delete gitEnv[key];
+      const fixtureGit = (...args: string[]) => {
+        const result = spawnSync("git", ["-c", `safe.directory=${root}`, "-c", "user.name=Test",
+          "-c", "user.email=test@example.invalid", "-c", `core.hooksPath=${root}/no-hooks`, ...args],
+        { cwd: root, env: gitEnv, encoding: "utf8" });
+        if (result.status !== 0) throw new Error(result.stderr);
+        return result.stdout.trim();
+      };
+      fixtureGit("init", "--quiet");
+      fixtureGit("add", ".");
+      fixtureGit("commit", "--quiet", "-m", "base");
+      const base = fixtureGit("rev-parse", "HEAD");
+      writeFileSync(join(root, "fixture.txt"), "change");
+      fixtureGit("add", "fixture.txt");
+      fixtureGit("commit", "--quiet", "-m", "head");
+      const head = fixtureGit("rev-parse", "HEAD"), zero = "0".repeat(40);
+      const hook = join(root, "pre-push");
+      writeFileSync(hook, renderHookScript("pre-push"));
+      const env = { ...gitEnv, GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "safe.directory", GIT_CONFIG_VALUE_0: root,
+        CI: "true", SAJTMASKIN_SKIP_VERIFY_HOOKS: "1", SAJTMASKIN_PREVIEW_WRAPPER_HEAD: "" };
+      const run = (extra = {}, local = head, remote = base, otherRef = "") => runHookSync(hook, {
+        cwd: root, input: `refs/heads/fix/x ${local} refs/heads/preview ${remote}\n${otherRef}`,
+        env: { ...env, ...extra }, encoding: "utf8", testBin: bin,
+      });
+      expect(run().status).toBe(1);
+      const confirmed = { SAJTMASKIN_PREVIEW_WRAPPER_HEAD: head };
+      expect(run(confirmed).status).toBe(1); // Missing receipt.
+      const bugCache = join(root, "node_modules/.cache/sajtmaskin-bugpass");
+      const cli = (...args: string[]) => spawnSync(process.execPath, ["scripts/workflow/bugpass.mjs", "--base", base, ...args],
+        { cwd: root, env, encoding: "utf8", timeout: POSIX_HOOK_CHILD_TIMEOUT_MS });
+      expect(cli().status).toBe(0);
+      const request = JSON.parse(readFileSync(join(bugCache, `${base}-${head}.request.json`), "utf8"));
+      // Both entry instructions and review policies invalidate reusable proof.
+      const readContract = () => spawnSync(process.execPath, ["--input-type=module", "-e",
+        'import { reviewContract } from "./scripts/workflow/bugpass.mjs"; console.log(reviewContract());'],
+        { cwd: root, env, encoding: "utf8" }).stdout.trim();
+      for (const policy of ["AGENTS.md", ".cursor/rules/workflow.mdc"]) {
+        const path = join(root, policy), original = readFileSync(path, "utf8");
+        writeFileSync(path, `${original}Changed review criterion.\n`);
+        expect(readContract()).not.toBe(request.contract);
+        writeFileSync(path, original);
+      }
+      expect(readContract()).toBe(request.contract);
+      const resultPath = join(bugCache, "fixture-result.json"), reviewerPath = join(bugCache, "fixture-reviewer.json");
+      const finding = { id: "F1", priority: "P2", confidencePercent: 80, impactScore: 2, file: "fixture.txt", line: 1, description: "Fixture finding" };
+      const result = { base, head, requestId: request.requestId, complete: true, summary: "Synthetic integration fixture only", findings: [finding] };
+      writeFileSync(reviewerPath, JSON.stringify({ provider: "test", reference: "synthetic-fixture", model: "fixture", reasoning: "high", independent: true }));
+      for (const invalid of [{ ...result, head: base }, { ...result, complete: false }, { ...result, requestId: "a".repeat(64) }]) {
+        writeFileSync(resultPath, JSON.stringify(invalid));
+        expect(cli("--import", resultPath, "--reviewer", reviewerPath).status).toBe(1);
+      }
+      writeFileSync(resultPath, JSON.stringify(result));
+      expect(cli("--import", resultPath, "--reviewer", reviewerPath).status).toBe(2); // Imported but needs triage.
+      expect(run(confirmed).status).toBe(1);
+      expect(cli("--triage", head, "F1", "accept", "Fixture reproduced; a fix is still necessary.").status).toBe(2);
+      expect(run(confirmed).status).toBe(1);
+      expect(cli("--triage", head, "F1", "reject", "Fixture evidence proves this scenario cannot occur.").status).toBe(0);
+      expect(cli("--import", resultPath, "--reviewer", reviewerPath).status).toBe(1); // Cannot erase triage by overwriting.
+      const proofResult = spawnSync(process.execPath, ["--input-type=module", "-e",
+        'import { readyReview, reviewProof } from "./scripts/workflow/bugpass.mjs"; console.log(reviewProof(readyReview(process.argv[1], process.argv[2])));', base, head],
+        { cwd: root, env, encoding: "utf8" });
+      expect(proofResult.status, proofResult.stderr).toBe(0);
+      writeFileSync(join(cache, `${head}.json`), JSON.stringify({
+        version: 4, base, head, verification: "verify:pr:plan", plannedAt: new Date().toISOString(), reviewProof: proofResult.stdout.trim(),
+      }));
+      const accepted = run(confirmed);
+      expect(accepted.status, accepted.stderr).toBe(0);
+      expect(run({ SAJTMASKIN_PREVIEW_PUSH_CONFIRM: head }).status).toBe(1); // Old raw-push signal is not the wrapper.
+      const withoutSkip = run({ ...confirmed, CI: "false", GITHUB_ACTIONS: "false", SAJTMASKIN_SKIP_VERIFY_HOOKS: "0" });
+      expect(withoutSkip.status, withoutSkip.stderr).toBe(0); // No generic npm plan rerun (fixture has no package.json).
+      const mixed = run({ ...confirmed, CI: "false", GITHUB_ACTIONS: "false", SAJTMASKIN_SKIP_VERIFY_HOOKS: "0" }, head, base,
+        `refs/heads/fix/x ${head} refs/heads/fix/x ${base}\n`);
+      expect(mixed.status).not.toBe(0);
+      expect(mixed.stdout).toContain("Planerar diffen"); // Other refs still require the generic plan.
+      expect(run(confirmed, head, "c".repeat(40)).status).toBe(1);
+      expect(run(confirmed, zero).status).toBe(1);
+      expect(run(confirmed, head, zero).status).toBe(1);
+      expect(run({ ...confirmed, SAJTMASKIN_BREAK_GLASS: "1",
+        SAJTMASKIN_BREAK_GLASS_REASON: "must never allow force" }, head, "d".repeat(40)).status).toBe(1);
+      writeFileSync(join(root, "docs/plans/active/README.md"), "Other agent's unfinished index\n");
+      writeFileSync(join(root, "docs/plans/active/other plan.md"), "Other agent's untracked plan\n");
+      expect(run(confirmed).status).toBe(0); // WIP is not part of the exact reviewed head.
+
+      // Exercise Git's real pre-push invocation and publication to a disposable
+      // LOCAL bare remote. No GitHub writes or model requests occur in this test.
+      const remote = mkdtempSync(join(tmpdir(), "sajtmaskin-preview-remote-"));
+      fixtureGit("init", "--bare", "--quiet", remote);
+      fixtureGit("push", remote, `${base}:refs/heads/preview`);
+      chmodSync(hook, 0o755);
+      const pushed = spawnSync("git", ["-c", `core.hooksPath=${root.replaceAll("\\", "/")}`, "push", remote, `${head}:refs/heads/preview`],
+        { cwd: root, env: { ...env, ...confirmed }, encoding: "utf8", timeout: POSIX_HOOK_CHILD_TIMEOUT_MS });
+      expect(pushed.status, pushed.stderr).toBe(0);
+      expect(fixtureGit("ls-remote", remote, "refs/heads/preview")).toContain(head);
+      expect(fixtureGit("show", `${head}:docs/plans/active/README.md`)).toBe("Committed plan index");
+      expect(fixtureGit("ls-tree", "-r", "--name-only", head)).not.toContain("other plan.md");
+      expect(cli("--triage", head, "F1", "accept", "New evidence makes the accepted issue unresolved.").status).toBe(2);
+      expect(run(confirmed).status).toBe(1); // Old preparation cannot bypass changed triage.
+      writeFileSync(join(root, "fixture.txt"), "fixed");
+      fixtureGit("add", "fixture.txt");
+      fixtureGit("commit", "--quiet", "-m", "fix");
+      const nextHead = fixtureGit("rev-parse", "HEAD");
+      expect(run(confirmed).status).toBe(1); // Changed checkout invalidates old proof.
+      expect(cli().status).toBe(0);
+      const followUp = JSON.parse(readFileSync(join(bugCache, `${base}-${nextHead}.request.json`), "utf8"));
+      expect(followUp).toMatchObject({ round: 2, previous: { base, head } });
+      expect(readFileSync(join(bugCache, `${base}-${nextHead}.prompt.txt`), "utf8")).toContain("New evidence makes the accepted issue unresolved.");
+      const latestFinding = { ...finding, description: "Unique finding from the review being superseded." };
+      writeFileSync(resultPath, JSON.stringify({ ...result, head: nextHead, requestId: followUp.requestId, findings: [latestFinding] }));
+      expect(cli("--import", resultPath, "--reviewer", reviewerPath).status).toBe(2);
+      expect(cli("--triage", nextHead, "F1", "accept", "This newer finding is confirmed and must survive renewal.").status).toBe(2);
+      expect(cli("--triage", head, "F1", "accept", "Ancestor decision changed while the latest head is still checked out.").status).toBe(2);
+      expect(cli().status).toBe(0);
+      const renewed = JSON.parse(readFileSync(join(bugCache, `${base}-${nextHead}.request.json`), "utf8"));
+      expect(renewed).toMatchObject({ round: 2, fullReview: true });
+      expect(renewed.renewalContext).toMatch(/^[a-f0-9]{64}$/);
+      const renewedPrompt = readFileSync(join(bugCache, `${base}-${nextHead}.prompt.txt`), "utf8");
+      expect(renewedPrompt).toContain(latestFinding.description);
+      expect(renewedPrompt).toContain("This newer finding is confirmed and must survive renewal.");
+      writeFileSync(resultPath, JSON.stringify({ ...result, head: nextHead, requestId: renewed.requestId, findings: [] }));
+      const omitted = cli("--import", resultPath, "--reviewer", reviewerPath);
+      expect(omitted.status).toBe(1);
+      expect(omitted.stderr).toContain("cannot drop unresolved finding");
+      writeFileSync(resultPath, JSON.stringify({ ...result, head: nextHead, requestId: renewed.requestId, findings: [latestFinding] }));
+      expect(cli("--import", resultPath, "--reviewer", reviewerPath).status).toBe(2);
+      expect(cli("--triage", nextHead, "F1", "accept", "Still confirmed after renewing the same-head review.").status).toBe(2);
+      expect(cli().status).toBe(2); // Reuse must not start a duplicate renewal or erase the finding.
+      expect(cli("--triage", head, "F1", "accept", "Changed ancestor evidence must be rechecked on the current head.").status).toBe(2);
+      writeFileSync(join(root, "fixture.txt"), "third fix");
+      fixtureGit("add", "fixture.txt");
+      fixtureGit("commit", "--quiet", "-m", "fix after changed ancestor triage");
+      const thirdHead = fixtureGit("rev-parse", "HEAD");
+      const recovered = cli();
+      expect(recovered.status, recovered.stderr).toBe(0); // No checkout/renewal of the old head required.
+      const fresh = JSON.parse(readFileSync(join(bugCache, `${base}-${thirdHead}.request.json`), "utf8"));
+      expect(fresh).toMatchObject({ round: 3, fullReview: true, previous: { base, head: nextHead } });
+      const fullPrompt = readFileSync(join(bugCache, `${base}-${thirdHead}.prompt.txt`), "utf8");
+      expect(fullPrompt).toContain(`diff ${base}..${thirdHead}`);
+      expect(fullPrompt).toContain("Changed ancestor evidence must be rechecked on the current head.");
+      writeFileSync(resultPath, JSON.stringify({ ...result, head: thirdHead, requestId: fresh.requestId, findings: [] }));
+      expect(cli("--import", resultPath, "--reviewer", reviewerPath).status).toBe(0);
+      expect(cli().status).toBe(0); // Reuses the same reconciled review; no extra round.
+      writeFileSync(join(root, "fixture.txt"), "fourth fix");
+      fixtureGit("add", "fixture.txt");
+      fixtureGit("commit", "--quiet", "-m", "fourth fix");
+      expect(cli().stderr).toContain("Three review rounds");
+      expect(cli("--owner-extra-round", "yes").status).toBe(1);
+      const fourth = cli("--owner-extra-round", "Explicit owner approval in the integration test fixture, for one fourth round only.");
+      expect(fourth.status, fourth.stderr).toBe(0);
+      const fourthHead = fixtureGit("rev-parse", "HEAD");
+      const approved = JSON.parse(readFileSync(join(bugCache, `${base}-${fourthHead}.request.json`), "utf8"));
+      expect(approved).toMatchObject({ round: 4, previous: { base, head: thirdHead } });
+      writeFileSync(resultPath, JSON.stringify({ ...result, head: fourthHead, requestId: approved.requestId, findings: [] }));
+      expect(cli("--import", resultPath, "--reviewer", reviewerPath).status).toBe(0);
+      expect(cli().status).toBe(0);
+      writeFileSync(join(root, "fixture.txt"), "fifth fix");
+      fixtureGit("add", "fixture.txt");
+      fixtureGit("commit", "--quiet", "-m", "fifth fix");
+      expect(cli().status).toBe(1);
+      expect(cli("--owner-extra-round", approved.ownerExtraRound).status).toBe(1);
+    },
+    60_000,
+  );
 
   itWithPosixShell(
     "avbryter en hängd hook-child med ett tydligt timeoutfel",
@@ -427,7 +576,23 @@ describe("renderHookScript", () => {
         testBin: bin,
       });
       expect(rejected.status).toBe(1);
-      expect(rejected.stderr).toContain("remote-delete kraver exakt terminal PR/head-bevis");
+      expect(rejected.stderr).toContain("remote-delete kraver bevis bundet till exakt remote-tip");
+      expect(rejected.stderr).toContain("npm run tidy -- --delete-remote fix/merged --apply");
+
+      const wrongSha = runHookSync(hook, {
+        cwd: root,
+        input: deleteLine,
+        env: {
+          ...process.env,
+          PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
+          HOOK_GIT_HEAD: "a".repeat(40),
+          SAJTMASKIN_PROVEN_REMOTE_DELETE_BRANCH: "fix/merged",
+          SAJTMASKIN_PROVEN_REMOTE_DELETE_SHA: "c".repeat(40),
+        },
+        encoding: "utf8",
+        testBin: bin,
+      });
+      expect(wrongSha.status).toBe(1);
 
       const accepted = runHookSync(hook, {
         cwd: root,
@@ -596,7 +761,7 @@ describe("renderHookScript", () => {
 });
 
 describe("decideHookInstall", () => {
-  const desired = renderHookScript("post-merge");
+  const desired = renderHookScript("pre-push");
 
   it("skriver när hooken saknas", () => {
     expect(decideHookInstall({ existing: null, desired }).action).toBe("write");
@@ -606,9 +771,33 @@ describe("decideHookInstall", () => {
     expect(decideHookInstall({ existing: desired, desired }).action).toBe("skip");
   });
 
-  it("skriver om vår egen hook när den är inaktuell", () => {
-    const outdated = desired.replace(`v${HOOK_VERSION}`, "v0");
-    expect(decideHookInstall({ existing: outdated, desired }).action).toBe("write");
+  it("uppgraderar exakt känd v19/v20/v21/v22, men bevarar äldre lokala tillägg", () => {
+    const v22 = desired.replace(`v${HOOK_VERSION}`, "v22")
+      .replace(
+        "  # bevisat exakt tip (mergad PR-head eller archive/<branch>-tagg). Ett vanligt\n  # git push --delete far aldrig kunna radera en annan agents oppna branch.",
+        "  # bevisat exakt terminal PR/head. Ett vanligt git push --delete far aldrig\n  # kunna radera en annan agents oppna branch.",
+      )
+      .replace(
+        "remote-delete kraver bevis bundet till exakt remote-tip.",
+        "remote-delete kraver exakt terminal PR/head-bevis.",
+      )
+      .replace(
+        '"[hooks] Kor: npm run tidy -- --delete-remote ${delete_branch} --apply"',
+        '"[hooks] Lat GitHub deleteBranchOnMerge eller den kanoniska cleanup-wrappern aga delete."',
+      );
+    const v21 = v22.replace("v22", "v21")
+      .replace("  # och aktuellt review-/plankvitto fran wrappern. CI/skip far inte kringga detta.", "  # och plan-kvitto fran wrappern. CI/skip far inte kringga detta.");
+    const v20 = v22.replace("v22", "v20")
+      .replace("  # och aktuellt review-/plankvitto fran wrappern. CI/skip far inte kringga detta.", "  # och aktuellt lokalt Buggpass + verifiering. CI/skip far inte kringga detta.")
+      .replace("    # Exakt base/head-plan finns redan; kor inte samma plan igen nedan.\n    continue\n", "");
+    // Reconstruct v19; the installer's frozen SHA-256 proves full-file identity.
+    const outdated = v22.replace("v22", "v19")
+      .replace(/\n  # Direkt preview:[\s\S]+?\n  fi\n/, "\n");
+    for (const body of [outdated, v20, v21, v22].flatMap((value) => [value, value.replace(/\n/g, "\r\n")])) {
+      expect(decideHookInstall({ existing: body, desired }).action).toBe("write");
+      expect(decideHookInstall({ existing: body + "echo local-security-check\n", desired }).action).toBe("conflict");
+    }
+    expect(decideHookInstall({ existing: desired.replace(`v${HOOK_VERSION}`, "v0"), desired }).action).toBe("conflict");
   });
 
   it("låter inte en gammal worktree nedgradera en nyare delad hook", () => {
@@ -619,7 +808,7 @@ describe("decideHookInstall", () => {
   });
 
   it("failar stängt när samma managed version har annat innehåll", () => {
-    const altered = desired.replace("--soft --quiet-ok", "--soft");
+    const altered = desired.replace('exit "$status"', "exit 0");
     const decision = decideHookInstall({ existing: altered, desired });
     expect(decision.action).toBe("conflict");
     expect(decision.reason).toContain("oväntat annat innehåll");
@@ -638,5 +827,157 @@ describe("decideHookInstall", () => {
     expect(
       decideHookInstall({ existing: "#!/bin/sh\necho foreign\n", desired: prePush }).action,
     ).toBe("conflict");
+  });
+});
+
+describe("retire managed DB hooks", () => {
+  // Frozen canonical v17 body from preview eafca9ec. Test data only:
+  // it is never executed and production code contains only full-file hashes.
+  const oldHook = (name: string, version = 17) => {
+    const guards: Record<string, string> = {
+      "post-checkout":
+        '# Bara grenbyten (arg 3 = 1), inte fil-utcheckningar.\nif [ "$3" != "1" ]; then exit 0; fi\n',
+      "post-rewrite":
+        '# Bara rebase (git pull --rebase), inte commit --amend.\nif [ "$1" != "rebase" ]; then exit 0; fi\n',
+    };
+    return `#!/bin/sh
+# ${HOOK_MARKER} v${version} (${name}: db-schema-sync)
+#
+# Genererad av scripts/dev/install-git-hooks.mjs — redigera inte för hand.
+# Kör 'npm run hooks:install' for att uppgradera, ta bort filen for att sluta.
+#
+# Håller dev-databasen i kapp med migrationerna i repot. Tyst när allt är i
+# synk. Avbryter aldrig git-kommandot.
+
+# Escape hatch och CI: hookarna finns för lokal utveckling. Exakta värden gör
+# att CI=false eller SAJTMASKIN_SKIP_DB_HOOKS=0 inte hoppar över av misstag.
+if [ "$SAJTMASKIN_SKIP_DB_HOOKS" = "1" ] || [ "\${GITHUB_ACTIONS:-}" = "true" ] || [ "\${CI:-}" = "true" ]; then exit 0; fi
+
+# Kör bara i ett repo som faktiskt har skriptet. Har utvecklaren en GLOBAL
+# core.hooksPath delas katalogen med alla andra repon, och dar vore det har
+# bara ett module-not-found-brus.
+[ -f scripts/db/ensure-schema.mjs ] || exit 0
+${guards[name] ?? ""}
+# Saknas node är det inget fel värt att larma om i en git-hook.
+command -v node >/dev/null 2>&1 || exit 0
+
+# En ny worktree har de spårade skripten före worktree:setup har installerat
+# dependencies. Försök inte importera pg/dotenv i det mellanläget.
+[ -f node_modules/pg/package.json ] || exit 0
+[ -f node_modules/dotenv/package.json ] || exit 0
+
+node scripts/db/ensure-schema.mjs --soft --quiet-ok
+exit 0
+`;
+  };
+
+  it("nekar modifierade äldre DB-hookkroppar även med korrekt managed header", () => {
+    for (const hookName of RETIRED_DB_HOOKS) {
+      for (const legacy of [oldHook(hookName), ...[18, 19, 20].map((version) => renderHookScript(hookName).replace(`v${HOOK_VERSION}`, `v${version}`))]) {
+        for (const existing of [
+          legacy + "echo local-custom-hook\n",
+          "echo local-custom-hook\n" + legacy,
+          legacy.replace("exit 0", "echo local-custom-hook; exit 0"),
+          legacy.replace("\n", "\r\n"),
+          legacy.trimEnd(),
+        ]) {
+          expect(decideHookRetirement({ hookName, existing }).action).toBe("conflict");
+        }
+      }
+    }
+  });
+
+  it("retirer bara exakt kända fulla bodies, inte främmande eller framtida hooks", () => {
+    for (const hookName of RETIRED_DB_HOOKS) {
+      expect(decideHookRetirement({ hookName, existing: null }).action).toBe("retire");
+      expect(decideHookRetirement({ hookName, existing: renderHookScript(hookName) }).action).toBe(
+        "skip",
+      );
+      expect(decideHookRetirement({ hookName, existing: oldHook(hookName) }).action).toBe("retire");
+      for (const legacy of [oldHook(hookName), ...[18, 19, 20].map((version) => renderHookScript(hookName).replace(`v${HOOK_VERSION}`, `v${version}`))]) {
+        expect(decideHookRetirement({ hookName, existing: legacy }).action).toBe("retire");
+        expect(
+          decideHookRetirement({ hookName, existing: legacy.replace(/\n/g, "\r\n") }).action,
+        ).toBe("retire");
+      }
+      for (const existing of [
+        "",
+        "#!/bin/sh\necho foreign\n",
+        `#!/bin/sh\n# example ${HOOK_MARKER}\n`,
+        `#!/bin/sh\n# ${HOOK_MARKER} v17 (${hookName}: db-schema-sync)\nnode scripts/db/ensure-schema.mjs --soft --quiet-ok\n`,
+        oldHook(hookName, 16),
+        oldHook(hookName, HOOK_VERSION + 1),
+        oldHook(hookName, HOOK_VERSION),
+        renderHookScript(hookName) + "node unexpected.mjs\n",
+        oldHook("pre-push"),
+      ]) {
+        expect(decideHookRetirement({ hookName, existing }).action).toBe("conflict");
+      }
+    }
+    expect(
+      decideHookRetirement({ hookName: "pre-push", existing: oldHook("pre-push") }).action,
+    ).toBe("conflict");
+  });
+
+  it("uppgraderar verkliga isolerade hooks och bevarar återställningskopior", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "sajtmaskin-hook-retirement-test-"));
+    expect(spawnSync("git", ["init", fixture], { encoding: "utf8" }).status).toBe(0);
+    const hooksDir = join(fixture, ".git", "hooks");
+    expect(spawnSync("git", ["config", "core.hooksPath", hooksDir], { cwd: fixture }).status).toBe(
+      0,
+    );
+    for (const hook of RETIRED_DB_HOOKS) writeFileSync(join(hooksDir, hook), oldHook(hook));
+    const result = spawnSync(process.execPath, [resolve("scripts/dev/install-git-hooks.mjs")], {
+      cwd: fixture,
+      encoding: "utf8",
+      timeout: 10_000,
+    });
+    expect(result.status).toBe(0);
+    expect(readFileSync(join(hooksDir, "pre-push"), "utf8")).toBe(renderHookScript("pre-push"));
+    for (const hook of RETIRED_DB_HOOKS) {
+      expect(readFileSync(join(hooksDir, hook), "utf8")).toBe(renderHookScript(hook));
+      const line = result.stdout.split("\n").find((value) => value.includes(`${hook} pensionerad`));
+      const recoveryPath = line?.split("Återställningskopia: ")[1]?.trim();
+      expect(recoveryPath).toBeTruthy();
+      expect(readFileSync(recoveryPath!, "utf8")).toBe(oldHook(hook));
+    }
+  });
+
+  it("passiva tombstones hindrar äldre installerare från att återinföra aktiva DB-hooks", () => {
+    for (const hookName of RETIRED_DB_HOOKS) {
+      // The legacy installer compares managed version before writing. A
+      // missing file would be written; a passive newer header must conflict.
+      expect(decideHookInstall({ existing: null, desired: oldHook(hookName) }).action).toBe(
+        "write",
+      );
+      expect(
+        decideHookInstall({ existing: renderHookScript(hookName), desired: oldHook(hookName) })
+          .action,
+      ).toBe("conflict");
+    }
+  });
+
+  it.each([
+    "#!/bin/sh\necho foreign\n",
+    oldHook("post-checkout") + "echo local-custom-hook\n",
+    renderHookScript("post-checkout").replace(`v${HOOK_VERSION}`, "v18") + "echo local-custom-hook\n",
+  ])("främmande eller modifierad hook stoppar hela installationen (%#)", (foreign) => {
+    const fixture = mkdtempSync(join(tmpdir(), "sajtmaskin-hook-conflict-test-"));
+    expect(spawnSync("git", ["init", fixture]).status).toBe(0);
+    const hooksDir = join(fixture, ".git", "hooks");
+    expect(spawnSync("git", ["config", "core.hooksPath", hooksDir], { cwd: fixture }).status).toBe(
+      0,
+    );
+    writeFileSync(join(hooksDir, "post-checkout"), foreign);
+    writeFileSync(join(hooksDir, "post-merge"), oldHook("post-merge"));
+    const result = spawnSync(process.execPath, [resolve("scripts/dev/install-git-hooks.mjs")], {
+      cwd: fixture,
+      encoding: "utf8",
+      timeout: 10_000,
+    });
+    expect(result.status).toBe(1);
+    expect(readFileSync(join(hooksDir, "post-checkout"), "utf8")).toBe(foreign);
+    expect(readFileSync(join(hooksDir, "post-merge"), "utf8")).toBe(oldHook("post-merge"));
+    expect(existsSync(join(hooksDir, "pre-push"))).toBe(false);
   });
 });

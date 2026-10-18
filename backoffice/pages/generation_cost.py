@@ -347,7 +347,7 @@ def render(ctx: BackofficeContext) -> None:
         st.subheader("Per fas")
         phase_df = _build_phase_df(payload.by_phase, rate)
         if not phase_df.empty:
-            st.dataframe(phase_df, hide_index=True, use_container_width=True)
+            st.dataframe(phase_df, hide_index=True, width="stretch")
 
     st.subheader("Per modell")
     model_df = _build_model_df(payload.by_model, rate)
@@ -356,14 +356,14 @@ def render(ctx: BackofficeContext) -> None:
             f"Ingen token-data i `{payload.source_table}` de senaste {payload.window_days} dagarna."
         )
     else:
-        st.dataframe(model_df, hide_index=True, use_container_width=True)
+        st.dataframe(model_df, hide_index=True, width="stretch")
 
     st.subheader("Per dag")
     day_df = _build_day_df(payload.by_day, rate)
     if day_df.empty:
         st.caption("Ingen dagsuppdelad data att visa.")
     else:
-        st.dataframe(day_df, hide_index=True, use_container_width=True)
+        st.dataframe(day_df, hide_index=True, width="stretch")
         chart_df = pd.DataFrame(payload.by_day)
         if not chart_df.empty:
             daily = chart_df.groupby("day", as_index=True)["totalUsd"].sum().sort_index()

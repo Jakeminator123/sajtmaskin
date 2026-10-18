@@ -45,4 +45,29 @@ describe("GET /api/auth/verify-email", () => {
 
     expect(response.headers.get("location")).toBe("https://example.test/?verified=success");
   });
+
+  it("preserves analys resume and appends verified via query parameters", async () => {
+    const response = await GET(
+      new NextRequest(
+        "https://example.test/api/auth/verify-email?token=tok&returnTo=%2Fanalys%3Fresume%3Dpdf",
+      ),
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "https://example.test/analys?resume=pdf&verified=success",
+    );
+  });
+
+  it("preserves analys resume on verification errors", async () => {
+    getUserByVerificationToken.mockResolvedValueOnce(null);
+    const response = await GET(
+      new NextRequest(
+        "https://example.test/api/auth/verify-email?token=expired&returnTo=%2Fanalys%3Fresume%3Dbuild",
+      ),
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "https://example.test/analys?resume=build&verified=error&reason=invalid_or_expired",
+    );
+  });
 });

@@ -44,6 +44,8 @@ describe("dossier strict-schema ownership", () => {
     expect(schema.additionalProperties).toBe(false);
     expect(schema.properties).toHaveProperty("capability");
     expect(schema.properties).toHaveProperty("promptInstructionMode");
+    expect(schema.properties).toHaveProperty("configInputs");
+    expect(schema.properties).toHaveProperty("providerSetup");
   });
 
   it("points Backoffice at the same canonical schema", () => {

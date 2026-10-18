@@ -48,9 +48,11 @@ ska inte få en parallell utskicks- eller leadpipeline.
 `/analys` är **främst en inbound lead magnet** riktad till mottagaren:
 någon matar in sin egen URL och läser sin egen rapport.
 
-Den publika vägen är takad till **1 körning per IP och dygn**
-([`rate-limit.ts`](../../../../src/lib/rate-limit.ts), `analys:public`).
-Den är alltså **ingen batchmotor**. Ett pilotprov på ~20 leads per arm kan
+Den publika vägen är takad till **1 levererad rapport per klient och
+Stockholmsdygn** via
+[`public-analys-quota.ts`](../../../../src/lib/audit/public-analys-quota.ts).
+Ett separat missbrukstak (`analys:public:attempt`) tillåter 3 försök/10 min.
+Vägen är alltså **ingen batchmotor**. Ett pilotprov på ~20 leads per arm kan
 inte matas genom den publika endpointen.
 
 Så här får den användas i spåren:

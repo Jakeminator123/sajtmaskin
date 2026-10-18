@@ -1,7 +1,8 @@
 /** @vitest-environment jsdom */
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Project, ProjectSite } from "@/lib/projects/project-client";
+import { PROJECT_SITE_LOAD_ERROR } from "@/lib/projects/project-card-mode";
 import { ProjectCard } from "./project-card";
 
 vi.mock("next/image", () => ({
@@ -41,7 +42,9 @@ function site(overrides: Partial<ProjectSite> = {}): ProjectSite {
 
 describe("ProjectCard", () => {
   it("renders a live site as a management card without hover-only actions", () => {
-    render(<ProjectCard project={project()} site={site()} onDelete={vi.fn()} />);
+    render(
+      <ProjectCard project={project()} site={site()} onDelete={vi.fn()} onRetrySite={vi.fn()} />,
+    );
 
     expect(screen.getByRole("heading", { name: "Butiken" })).toBeTruthy();
     expect(screen.getAllByText("Publicerad").length).toBeGreaterThan(0);
@@ -70,6 +73,7 @@ describe("ProjectCard", () => {
           address: { liveUrl: null, kind: "none" },
         })}
         onDelete={vi.fn()}
+        onRetrySite={vi.fn()}
       />,
     );
 
@@ -92,6 +96,7 @@ describe("ProjectCard", () => {
         project={project({ id: "proj_old", name: "Gammalt projekt" })}
         site={null}
         onDelete={vi.fn()}
+        onRetrySite={vi.fn()}
       />,
     );
 
@@ -110,7 +115,12 @@ describe("ProjectCard", () => {
 
   it("keeps manage and edit visible while the overview is still loading", () => {
     render(
-      <ProjectCard project={project({ name: "Laddar" })} site={undefined} onDelete={vi.fn()} />,
+      <ProjectCard
+        project={project({ name: "Laddar" })}
+        site={undefined}
+        onDelete={vi.fn()}
+        onRetrySite={vi.fn()}
+      />,
     );
 
     expect(screen.getByText("Hämtar status")).toBeTruthy();
@@ -123,6 +133,26 @@ describe("ProjectCard", () => {
     expect(screen.queryByRole("link", { name: "Fortsätt bygga" })).toBeNull();
   });
 
+  it("shows an explicit fetch error and retries only this project", () => {
+    const onRetrySite = vi.fn();
+    render(
+      <ProjectCard
+        project={project({ id: "proj_error", name: "Statusfel" })}
+        site={PROJECT_SITE_LOAD_ERROR}
+        onDelete={vi.fn()}
+        onRetrySite={onRetrySite}
+      />,
+    );
+
+    expect(screen.getByText("Status kunde inte hämtas")).toBeTruthy();
+    expect(screen.queryByText("Hämtar status")).toBeNull();
+    expect(screen.queryByText("Utkast")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Försök igen" }));
+    expect(onRetrySite).toHaveBeenCalledTimes(1);
+    expect(onRetrySite).toHaveBeenCalledWith("proj_error");
+  });
+
   it("surfaces an in-flight or failed publish instead of a generic draft", () => {
     const { rerender } = render(
       <ProjectCard
@@ -133,6 +163,7 @@ describe("ProjectCard", () => {
           address: { liveUrl: null, kind: "none" },
         })}
         onDelete={vi.fn()}
+        onRetrySite={vi.fn()}
       />,
     );
 
@@ -150,6 +181,7 @@ describe("ProjectCard", () => {
           address: { liveUrl: null, kind: "none" },
         })}
         onDelete={vi.fn()}
+        onRetrySite={vi.fn()}
       />,
     );
 

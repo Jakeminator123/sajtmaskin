@@ -489,6 +489,12 @@ def _validate_manifest(
     env_vars = data.get("envVars") or []
     if dossier_class == "soft" and isinstance(env_vars, list) and env_vars:
         errors.append("soft manifests must not declare non-empty envVars")
+    config_inputs = data.get("configInputs")
+    provider_setup = data.get("providerSetup")
+    if dossier_class == "soft" and "configInputs" in data:
+        errors.append("soft manifests must not declare configInputs")
+    if dossier_class == "soft" and "providerSetup" in data:
+        errors.append("soft manifests must not declare providerSetup")
     if isinstance(env_vars, list):
         for idx, ev in enumerate(env_vars):
             if not isinstance(ev, dict):
@@ -501,6 +507,55 @@ def _validate_manifest(
                     f"envVars[{idx}].enforcement must be one of "
                     f"{sorted(_facade()._ALLOWED_ENFORCEMENT)} (got {enforcement!r})"
                 )
+    env_var_keys = {
+        str(env.get("key"))
+        for env in env_vars
+        if isinstance(env, dict) and isinstance(env.get("key"), str)
+    }
+    config_input_ids: set[str] = set()
+    if isinstance(config_inputs, list):
+        for idx, item in enumerate(config_inputs):
+            if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+                continue
+            item_id = str(item["id"])
+            if item_id in config_input_ids:
+                errors.append(
+                    f'configInputs[{idx}].id duplicate configInputs id "{item_id}"'
+                )
+            else:
+                config_input_ids.add(item_id)
+    provider_setup_ids: set[str] = set()
+    if isinstance(provider_setup, list):
+        for idx, step in enumerate(provider_setup):
+            if not isinstance(step, dict):
+                continue
+            step_id = step.get("id")
+            if isinstance(step_id, str):
+                if step_id in provider_setup_ids:
+                    errors.append(
+                        f'providerSetup[{idx}].id duplicate providerSetup id "{step_id}"'
+                    )
+                else:
+                    provider_setup_ids.add(step_id)
+            references = step.get("references")
+            if not isinstance(references, dict):
+                continue
+            env_references = references.get("envVarKeys")
+            if isinstance(env_references, list):
+                for key in env_references:
+                    if isinstance(key, str) and key not in env_var_keys:
+                        errors.append(
+                            f'providerSetup[{idx}].references.envVarKeys '
+                            f'unknown envVars.key "{key}"'
+                        )
+            input_references = references.get("configInputIds")
+            if isinstance(input_references, list):
+                for item_id in input_references:
+                    if isinstance(item_id, str) and item_id not in config_input_ids:
+                        errors.append(
+                            f'providerSetup[{idx}].references.configInputIds '
+                            f'unknown configInputs.id "{item_id}"'
+                        )
     return errors
 
 

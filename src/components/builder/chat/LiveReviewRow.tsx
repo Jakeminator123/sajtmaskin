@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { fillChatInput } from "@/lib/builder/fill-chat-input";
-import type { LiveReviewResult, ReviewDecision, ReviewVerdict } from "@/lib/gen/verify/live-review-types";
+import type { ReviewDecision, ReviewVerdict } from "@/lib/gen/verify/live-review-types";
 import { cn } from "@/lib/utils";
+import type { LiveReviewChatResult } from "./tooling/output-parsers";
 
 const VERDICT_LABEL: Record<ReviewVerdict, string> = {
   pass: "Godkänd",
@@ -36,7 +39,60 @@ export function reasoningAddsDetail(rationale: string, reasoning: string | undef
   return true;
 }
 
-export function LiveReviewRow({ result }: { result: LiveReviewResult }) {
+function LiveReviewScreenshots({
+  screenshots,
+}: {
+  screenshots: LiveReviewChatResult["screenshots"];
+}) {
+  const items = [
+    screenshots?.desktopUrl
+      ? { label: "Desktop", src: screenshots.desktopUrl }
+      : null,
+    screenshots?.mobileUrl ? { label: "Mobil", src: screenshots.mobileUrl } : null,
+  ].filter((item): item is { label: string; src: string } => item !== null);
+  const [open, setOpen] = useState(false);
+  const [failed, setFailed] = useState<Record<string, true>>({});
+  const visible = items.filter((item) => !failed[item.src]);
+
+  if (visible.length === 0) return null;
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} data-testid="live-review-screenshots">
+      <CollapsibleTrigger className="text-muted-foreground hover:text-foreground text-[11px] underline-offset-4 hover:underline">
+        Skärmdumpar
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        {open ? (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {visible.map((item) => (
+              <figure
+                key={item.src}
+                className="min-w-0"
+                data-testid={`live-review-thumb-${item.label.toLowerCase()}`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- Vercel Blob JPEGs; same convention as other builder chat thumbs */}
+                <img
+                  src={item.src}
+                  alt={`${item.label}-skärmdump av previewn`}
+                  loading="lazy"
+                  className="border-border bg-background h-20 w-full rounded-sm border object-cover object-top"
+                  onError={() =>
+                    setFailed((current) => ({ ...current, [item.src]: true }))
+                  }
+                />
+                <figcaption className="text-muted-foreground mt-1 text-[10px]">
+                  {item.label}
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        ) : null}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+export function LiveReviewRow({ result }: { result: LiveReviewChatResult }) {
   if (result.status === "skipped") {
     return null;
   }
@@ -64,6 +120,7 @@ export function LiveReviewRow({ result }: { result: LiveReviewResult }) {
           </ReasoningContent>
         </Reasoning>
       ) : null}
+      <LiveReviewScreenshots screenshots={result.screenshots} />
       {suggestions.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {suggestions.map((issue, index) => {

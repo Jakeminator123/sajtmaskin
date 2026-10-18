@@ -14,8 +14,8 @@
  *      `undefined-jsx-symbol` (verifier-scan FALSE POSITIVE — the file is
  *      valid; fixed in checkUndefinedJsxSymbols, asserted here end-to-end)
  *
- * Fixtures are minimized excerpts of the REAL persisted v8 files
- * (docs/plans/active/stort-framsteg/version-4a29c7b4.zip). Expected after
+ * Fixtures are minimized inline excerpts of the REAL persisted prod files
+ * for version `4a29c7b4`. Expected after
  * the wave-1 fixes: 0 residual TS2304/TS2552 for the known set in F3, 0
  * `undefined-jsx-symbol`, and the tier-3 gate still blocking Stripe/Resend
  * in F2.

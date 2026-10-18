@@ -114,10 +114,10 @@ Plocka ut `chatId`, `versionId`, `projectId`, `model`, `scaffoldId`, `previewUrl
 `created_at` och telemetri-blocket. Spara `created_at` — det blir tidsfönstret för Vercel.
 (Hoppa över detta steg om användaren gav `chatId`.)
 
-> **Prod-DB ≠ Production-deploy.** Vercel Preview och Production delar prod-databasen
-> (`config/db-targets.json`), och `latest-site.mjs` sorterar bara på tid — den filtrerar
-> inte på vilken deploy som skapade raden. Den «senaste sajten» kan alltså komma från
-> `preview.sajtmaskin.se`. Bekräfta miljön innan du kallar den en produktionskörning:
+> **Prod-DB ≠ bevis på Production-deploy.** Preview/Development använder DEV,
+> Production använder PROD (`config/db-targets.json`). Äldre preview-rader kan
+> finnas kvar i PROD från det tidigare delade upplägget. `latest-site.mjs` sorterar
+> bara på tid, inte ursprungsdeploy. Bekräfta miljön innan du kallar den produktion:
 > matcha `deployments`-radens `url`/`vercel_project_id` eller `created_at` mot rätt
 > deploy i steg 3. Går det inte: skriv **«miljö ej bekräftad»** i rapporten i stället
 > för «produktion». Vid tveksamhet: be om `chatId` och hoppa över gissningen.

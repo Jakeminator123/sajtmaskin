@@ -141,14 +141,14 @@ export function checkMcpSecrets(rawServers) {
       };
 }
 
-/** The live MCP file drifts silently behind the tracked template. */
+/** Optional project configuration; template differences are not connection failures. */
 export function checkMcp({ live, template }) {
   if (!live) {
     return {
-      level: "warn",
+      level: "info",
       area: "mcp",
-      message: ".cursor/mcp.json saknas — Cursor får inga projektservrar",
-      fix: "npm run worktree:setup, eller kopiera .cursor/mcp.json.example",
+      message: ".cursor/mcp.json saknas (valfri projektfil); globala Cursor-servrar och Codex-verktyg kontrolleras inte",
+      fix: "Om projekt-MCP behövs: npm run worktree:setup -- <sökväg>. Mallen bevisar inte anslutningsstatus.",
     };
   }
   const missing = template.filter((name) => !live.includes(name));
@@ -160,17 +160,17 @@ export function checkMcp({ live, template }) {
   if (missing.length > 0) parts.push(`saknas lokalt: ${missing.join(", ")}`);
   if (extra.length > 0) parts.push(`bara lokalt: ${extra.join(", ")}`);
   return {
-    level: "note",
+    level: "info",
     area: "mcp",
     message: `mcp.json avviker från mallen (${parts.join(" · ")})`,
-    fix: "Avsiktligt? Uppdatera .cursor/mcp.json.example i samma ändring.",
+    fix: "Lokala serverval får skilja sig från mallen; verifiera bara de servrar du vill använda.",
   };
 }
 
 /**
- * Every skill description ships in the prompt. Two roots holding the same skill
- * names pay for it twice, and the repo's own command mirrors pay for commands
- * that are already loaded from `.cursor/commands`.
+ * Equal skill names can duplicate context, but this inventory does not compare
+ * content or prove which roots the current session loads. Verify both before
+ * removing legacy roots or command mirrors.
  */
 export function checkSkillDuplication({ cursorSkills, agentSkills, commandMirrors }) {
   const findings = [];
@@ -179,8 +179,8 @@ export function checkSkillDuplication({ cursorSkills, agentSkills, commandMirror
     findings.push({
       level: "warn",
       area: "skills",
-      message: `${overlap.length} skills finns i både ~/.cursor/skills-cursor och ~/.agents/skills — beskrivningarna laddas två gånger`,
-      fix: "Flytta undan ~/.agents om du inte kör Codex CLI lokalt",
+      message: `${overlap.length} skillnamn finns i både ~/.cursor/skills-cursor och ~/.agents/skills — möjlig dubbelladdning; innehåll och sessionsstatus inte jämförda`,
+      fix: "Behåll den delade ~/.agents/skills-roten. Jämför innehåll och referenser; avveckla bara verifierade legacy-dubbletter i ~/.cursor/skills-cursor med uttryckligt mandat.",
     });
   }
   if (commandMirrors.length > 0) {
@@ -188,7 +188,7 @@ export function checkSkillDuplication({ cursorSkills, agentSkills, commandMirror
       level: "warn",
       area: "skills",
       message: `${commandMirrors.length} source-command-speglingar dubblerar .cursor/commands`,
-      fix: "Remove-Item -Recurse -Force .agents/skills/source-command-*",
+      fix: "Jämför speglingarnas innehåll och referenser mot .cursor/commands; ta bara bort verifierade oanvända speglingar med uttryckligt mandat.",
     });
   }
   if (findings.length === 0) {
