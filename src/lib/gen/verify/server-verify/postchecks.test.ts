@@ -363,4 +363,12 @@ describe("ONE generation/cron postchecks core", () => {
     expect(buildRepair.repairBuildErrorUnderLease).toHaveBeenCalledTimes(1);
     expect(budget.settleServerResumeAttempt).toHaveBeenCalledWith(expect.objectContaining({ runId: "holder" }), 1, "terminal");
   });
+  it.each(["diagnostic_only", "gate_unconfigured"])("a resume tick on a dead boot still holds when repair is not allowed (%s)", async lane => {
+    if (lane === "diagnostic_only") policy.serverVerify.diagnosticOnly = true;
+    else vi.mocked(gate.isQualityGateConfigured).mockReturnValue(false);
+    vi.mocked(probes.readProductPostcheckPreviewProbe).mockImplementation(async () => failedProbe(OVERLAY, false));
+    expect(await runVersionPostchecks({ ...input, entry: "resume" })).toMatchObject({ kind: "stop", reason: "runtime_hold" });
+    expect(budget.reserveServerResumeAttempt).not.toHaveBeenCalled();
+    expect(buildRepair.repairBuildErrorUnderLease).not.toHaveBeenCalled();
+  });
 });

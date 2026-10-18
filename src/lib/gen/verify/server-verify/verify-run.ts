@@ -304,6 +304,7 @@ export async function runVersionPostchecks(input: VersionPostchecksInput): Promi
     if (savedPreviewBlocks && (target.imported || (paid.status === "ready" && paid.snapshot.filesRevision === revision))) {
       return stop("preview_blocked", false);
     }
+    const canRepairPreviewBuild = !target.imported && policy.serverVerify.diagnosticOnly !== true && isQualityGateConfigured();
     const current = async (): Promise<boolean> => {
       if (expired() || !(await renewVersionLease(input.versionId, runId)) || expired()) return false;
       const fresh = await getServerPostcheckTarget(input.chatId, input.versionId);
@@ -326,7 +327,7 @@ export async function runVersionPostchecks(input: VersionPostchecksInput): Promi
           // A dead boot with a real build error goes on to a reserved attempt, where
           // the restarted preview reaches the repair loop instead of holding forever.
           if (probe.versionId === input.versionId && probe.filesRevision === revision && !probe.running && probe.readinessState &&
-              !repairableReadinessError(probe)) {
+              !(canRepairPreviewBuild && repairableReadinessError(probe))) {
             return await hold(probe.readinessState === "starting" ? "starting" : "runtime_hold");
           }
           if (probe.versionId === input.versionId && probe.filesRevision === revision && probe.previewSessionId) {
@@ -411,7 +412,7 @@ export async function runVersionPostchecks(input: VersionPostchecksInput): Promi
               const observed = ready.ok ? ready.probe : ready.lastProbe;
               if (observed?.readinessState === "starting") return await hold("starting");
               const lateBuildError = repairableReadinessError(observed);
-              if (lateBuildError && !target.imported && policy.serverVerify.diagnosticOnly !== true && isQualityGateConfigured()) {
+              if (lateBuildError && canRepairPreviewBuild) {
                 // Same repair as an immediate start failure: the boot was accepted, then compilation failed.
                 const buildError = { stage: "preview-start" as const, message: lateBuildError };
                 notify(input.notifications?.buildError, buildError);
