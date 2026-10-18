@@ -99,6 +99,7 @@ const GOOGLE_ADS_HOSTS = [
   "https://www.googleadservices.com",
   "https://googleads.g.doubleclick.net",
   "https://www.google.com",
+  "https://www.google.se",
 ] as const;
 
 function isAvatarRoute(pathname: string): boolean {

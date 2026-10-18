@@ -417,6 +417,7 @@ describe("proxy CSP — first-party third-party egress allowlist", () => {
       "https://www.googleadservices.com",
       "https://googleads.g.doubleclick.net",
       "https://www.google.com",
+      "https://www.google.se",
     ];
 
     for (const host of hosts) {
