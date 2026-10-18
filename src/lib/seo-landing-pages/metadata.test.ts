@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PUBLIC_CANONICAL_ORIGIN } from "@/lib/public-canonical-url";
-import { createSeoLandingMetadata, seoLandingMetadataFromEntry } from "./metadata";
+import {
+  DEFAULT_PUBLIC_OG_IMAGE,
+  createSeoLandingMetadata,
+  seoLandingMetadataFromEntry,
+} from "./metadata";
 import { SEO_LANDING_CTA_HREF, SEO_LANDING_PAGES } from "./registry";
 
 describe("SEO landing metadata", () => {
@@ -32,11 +36,13 @@ describe("SEO landing metadata", () => {
         type: "website",
         locale: "sv_SE",
         siteName: "Sajtmaskin",
+        images: [DEFAULT_PUBLIC_OG_IMAGE],
       });
       expect(metadata.twitter).toEqual({
         card: "summary_large_image",
         title: metadata.title,
         description: metadata.description,
+        images: [DEFAULT_PUBLIC_OG_IMAGE.url],
       });
     }
   });

@@ -147,6 +147,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/pricing",
+        destination: "/priser",
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {
