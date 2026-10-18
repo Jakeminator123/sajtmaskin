@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   getReadyRelatedSeoLandingSlugs,
   getSeoLandingEntry,
+  getSeoLandingIndustryLinks,
   SEO_LANDING_CTA_HREF,
   type SeoLandingSlug,
 } from "@/lib/seo-landing-pages/registry";
@@ -86,7 +87,7 @@ const MISTAKES = [
   "Löften om pris, domän eller export som produkten inte håller",
 ] as const;
 
-const FAQS = [
+export const FAQS = [
   {
     q: "Räcker en one-pager för ett företag?",
     a: "Ja, i början. Startsida med erbjudande, bevis och kontakt räcker långt. Lägg till undersidor när innehållet faktiskt finns — hellre fem tydliga sidor än femton halvtomma.",
@@ -382,7 +383,7 @@ export function HemsidaTillForetagContent() {
                 Kostnaden är bygge plus underhåll. Preview under arbetet är inte en publicerad sajt.
                 Utan egen domän får den publicerade sidan en Vercel-adress; koppling av en domän ni
                 redan äger kan vara stängd i vissa miljöer. Aktuella Sajtmaskin-paket finns på{" "}
-                <Link href="/#priser" className="text-foreground underline-offset-4 hover:underline">
+                <Link href="/priser" className="text-foreground underline-offset-4 hover:underline">
                   prissidan
                 </Link>
                 .
@@ -409,6 +410,29 @@ export function HemsidaTillForetagContent() {
                   </div>
                 ))}
               </dl>
+            </div>
+          </section>
+
+          <section className="border-t border-border/15 px-6 py-12">
+            <div className="mx-auto max-w-6xl">
+              <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">
+                Branscher
+              </p>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                Egna sidor för vanliga svenska småföretag — inte kopierad text med bytt rubrik.
+              </p>
+              <ul className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
+                {getSeoLandingIndustryLinks().map((link) => (
+                  <li key={link.slug}>
+                    <Link
+                      href={link.href}
+                      className="text-sm text-foreground/90 underline-offset-4 hover:text-foreground hover:underline"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
           </section>
 

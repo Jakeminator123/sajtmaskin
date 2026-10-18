@@ -8,7 +8,7 @@ type LandingExamplesProps = {
 
 export function LandingExamples({ onPickExample, onBrowseTemplates }: LandingExamplesProps) {
   return (
-    <section className="border-t border-border/15 px-6 py-16 md:py-20" aria-labelledby="landing-examples-heading">
+    <section className="[content-visibility:auto] [contain-intrinsic-size:auto_420px] border-t border-border/15 px-6 py-16 md:py-20" aria-labelledby="landing-examples-heading">
       <div className="mx-auto max-w-5xl">
         <div className="mb-10 text-center">
           <p className="mb-3 text-xs font-medium tracking-widest text-primary uppercase">

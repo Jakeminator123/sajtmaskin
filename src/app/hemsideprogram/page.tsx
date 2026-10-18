@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createSeoLandingMetadata } from "@/lib/seo-landing-pages/metadata";
-import { HemsideprogramContent } from "./hemsideprogram-content";
+import { SeoLandingJsonLd } from "@/lib/seo-landing-pages/structured-data";
+import { FAQS, HemsideprogramContent } from "./hemsideprogram-content";
 
 /**
  * Category SEO landing: compare website-tool types, not a ranked brand list.
@@ -11,5 +12,10 @@ import { HemsideprogramContent } from "./hemsideprogram-content";
 export const metadata: Metadata = createSeoLandingMetadata("hemsideprogram");
 
 export default function HemsideprogramPage() {
-  return <HemsideprogramContent />;
+  return (
+    <>
+      <SeoLandingJsonLd slug="hemsideprogram" faqs={FAQS} />
+      <HemsideprogramContent />
+    </>
+  );
 }

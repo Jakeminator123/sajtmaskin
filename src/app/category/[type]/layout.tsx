@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { publicPageAlternates } from "@/lib/public-canonical-url";
+import { publicIndexRobots, publicPageAlternates } from "@/lib/public-canonical-url";
 import { V0_CATEGORIES } from "@/lib/templates/template-data";
 
 export async function generateMetadata({
@@ -14,6 +14,7 @@ export async function generateMetadata({
     title: category?.title ?? "Templates",
     description: category?.description,
     alternates: publicPageAlternates(`/category/${type}`),
+    robots: { ...publicIndexRobots(), index: false },
   };
 }
 

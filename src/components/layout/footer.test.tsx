@@ -34,4 +34,36 @@ describe("Footer", () => {
       "/hemsideprogram",
     );
   });
+
+  it("exposes a Jämför section into the comparison landings", () => {
+    render(<Footer />);
+
+    expect(screen.getByRole("heading", { name: "Jämför" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Wix-alternativ" }).getAttribute("href")).toBe(
+      "/wix-alternativ",
+    );
+    expect(screen.getByRole("link", { name: "WordPress-alternativ" }).getAttribute("href")).toBe(
+      "/wordpress-alternativ",
+    );
+    expect(screen.getByRole("link", { name: "Lovable-alternativ" }).getAttribute("href")).toBe(
+      "/lovable-alternativ",
+    );
+    expect(screen.getByRole("link", { name: "AI-hemsidebyggare" }).getAttribute("href")).toBe(
+      "/ai-hemsidebyggare",
+    );
+  });
+
+  it("exposes a Branscher section and the published blog", () => {
+    render(<Footer />);
+
+    expect(screen.getByRole("heading", { name: "Branscher" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Frisör" }).getAttribute("href")).toBe("/hemsida-frisor");
+    expect(screen.getByRole("link", { name: "Hantverkare" }).getAttribute("href")).toBe(
+      "/hemsida-hantverkare",
+    );
+    expect(screen.getByRole("link", { name: "Blogg" }).getAttribute("href")).toBe("/blogg");
+    const hrefs = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
+    expect(hrefs.filter((href) => href === "/wix-alternativ")).toHaveLength(1);
+    expect(hrefs.filter((href) => href === "/hemsida-frisor")).toHaveLength(1);
+  });
 });

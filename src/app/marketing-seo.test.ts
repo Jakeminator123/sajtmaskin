@@ -52,14 +52,14 @@ describe("homepage search metadata", () => {
   });
 });
 
-describe("unpublished blog indexing", () => {
+describe("published blog indexing", () => {
   it.each(["production", "preview", "development", undefined])(
-    "keeps the empty blog noindex in %s",
+    "indexes the blog listing when posts exist in %s",
     async (environment) => {
       vi.stubEnv("VERCEL_ENV", environment);
       const { metadata } = await import("./blogg/page");
       expect(metadata.robots).toEqual({
-        index: false,
+        index: environment === "production",
         follow: environment === "production",
       });
       expect(metadata.alternates).toEqual({ canonical: "https://sajtmaskin.se/blogg" });

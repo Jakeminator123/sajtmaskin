@@ -74,7 +74,7 @@ const SCOPES = [
   },
 ] as const;
 
-const FAQS = [
+export const FAQS = [
   {
     q: "Varför varierar offerter så mycket?",
     a: "Omfattning, vem som skriver innehållet, hur många varv ni ändrar, och om integrationer ska vara på riktigt. En offert utan de delarna är inte jämförbar.",
@@ -277,7 +277,7 @@ export function VadKostarEnHemsidaContent() {
                 Engångs: design, första copy, setup. Löpande: domän, hosting, innehåll och att
                 någon faktiskt ändrar sidan. I Sajtmaskin är credits engångsköp, inte en
                 prenumeration. Publicering debiterar credits. Aktuella paket finns på{" "}
-                <Link href="/#priser" className="text-foreground underline-offset-4 hover:underline">
+                <Link href="/priser" className="text-foreground underline-offset-4 hover:underline">
                   prissidan
                 </Link>
                 .
