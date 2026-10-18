@@ -139,6 +139,43 @@ describe("DidOpenClawBridge speak fence after deadline", () => {
     expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps its own new stream when it reconnects after an established connection drops", async () => {
+    const first = fakeAgent();
+    const second = fakeAgent();
+    sdkMock.createAgentManager.mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+    const DidOpenClawBridge = await loadBridge();
+    render(<DidOpenClawBridge />);
+    const statusText = () => screen.getByTestId("avatar-bridge-status").textContent ?? "";
+
+    fireEvent.click(screen.getByTestId("avatar-bridge-connect"));
+    await waitFor(() => expect(first.connect).toHaveBeenCalledTimes(1));
+    const firstCallbacks = sdkMock.createAgentManager.mock.calls[0]![1].callbacks;
+    act(() => firstCallbacks.onSrcObjectReady({} as MediaStream));
+    act(() => firstCallbacks.onStreamCreated({
+      stream_id: "strm_first", session_id: "sess_first", agent_id: "v2_agt_test",
+    }));
+    act(() => firstCallbacks.onConnectionStateChange("disconnected"));
+    await waitFor(() => expect(statusText()).not.toContain("Ansluten"));
+
+    fireEvent.click(screen.getByTestId("avatar-bridge-connect"));
+    await waitFor(() => expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(second.connect).toHaveBeenCalledTimes(1));
+    expect(first.disconnect).toHaveBeenCalled();
+    // The previous session's stream is released and no longer counts as the new connection's video.
+    await waitFor(() => expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls
+      .some((call) => String(call[0]).endsWith("/streams/strm_first"))).toBe(true));
+    expect(screen.getByText("Förbered D-ID-klienten...")).toBeTruthy();
+
+    const secondCallbacks = sdkMock.createAgentManager.mock.calls[1]![1].callbacks;
+    act(() => secondCallbacks.onStreamCreated({
+      stream_id: "strm_second", session_id: "sess_second", agent_id: "v2_agt_test",
+    }));
+    const releasedUrls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.map((call) => String(call[0]));
+    expect(releasedUrls.some((url) => url.endsWith("/streams/strm_second"))).toBe(false);
+    act(() => secondCallbacks.onConnectionStateChange("connected"));
+    await waitFor(() => expect(statusText()).toContain("Ansluten"));
+  });
+
   it("starts a fresh session when pageshow restores a released stream from bfcache", async () => {
     const agent = fakeAgent();
     sdkMock.createAgentManager.mockResolvedValue(agent);

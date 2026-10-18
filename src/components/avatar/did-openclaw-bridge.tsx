@@ -196,6 +196,8 @@ export function DidOpenClawBridge({
   // generation så en sen SDK-resolve inte kan återuppliva en fence:ad session,
   // och alla släpp köas så en retry aldrig startar före föregående release.
   const connectionGenerationRef = useRef(0);
+  // En managers callbacks är låsta till generationen som skapade den.
+  const agentGenerationRef = useRef(0);
   const pendingDisconnectRef = useRef<Promise<void>>(Promise.resolve());
   const pendingConnectRef = useRef<{ agent: DidAgentManager; promise: Promise<void> } | null>(null);
   const releaseBlockedRef = useRef(false);
@@ -363,7 +365,23 @@ export function DidOpenClawBridge({
   const initAgent = useCallback(async (generation: number) => {
     if (testMode) return null;
     if (!AVATAR_ENABLED || !AGENT_ID || !CLIENT_KEY) return null;
-    if (agentRef.current) return agentRef.current;
+    if (agentRef.current) {
+      if (agentGenerationRef.current === generation) return agentRef.current;
+      // Efter ett avbrott ligger managern kvar, men dess callbacks hör till den
+      // gamla generationen och skulle släppa den nya anslutningens egen ström.
+      // Förra sessionens ström måste också bort, annars räknar deadlinen och
+      // avbrottsvakterna den gamla MediaStreamen som den nya anslutningens.
+      const stale = agentRef.current;
+      const staleStream = didStreamRef.current;
+      agentRef.current = null;
+      streamRef.current = null;
+      didStreamRef.current = null;
+      if (videoRef.current) videoRef.current.srcObject = null;
+      setAvatarReady(false);
+      enqueueRelease(staleStream);
+      await queueDisconnect(stale);
+      if (generation !== connectionGenerationRef.current) return null;
+    }
 
     const did = await loadDidSdk();
     if (generation !== connectionGenerationRef.current) return null;
@@ -443,6 +461,7 @@ export function DidOpenClawBridge({
       return null;
     }
     agentRef.current = agent;
+    agentGenerationRef.current = generation;
     return agent;
   }, [clearConnectDeadline, enqueueRelease, loadDidSdk, queueDisconnect, setConnection, syncVideoPlayback, testMode]);
 
