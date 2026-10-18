@@ -102,6 +102,15 @@ describe("auth token security", () => {
     claimUnclaimedSessionProjects.mockResolvedValue(["proj_1"]);
   });
 
+  it("jämför lösenordshashar utan att godkänna ett avvikande eller avhugget hash", () => {
+    const password = "hemligt-lösen";
+    const stored = auth.hashPassword(password);
+    expect(auth.verifyPassword(password, stored)).toBe(true);
+    expect(auth.verifyPassword(`${password}!`, stored)).toBe(false);
+    expect(auth.verifyPassword(password, stored.slice(0, -2))).toBe(false);
+    expect(auth.verifyPassword(password, "inte-en-hash")).toBe(false);
+  });
+
   it("creates and verifies JWT tokens", () => {
     const token = auth.createToken("user_1", "user@example.com");
     const payload = auth.verifyToken(token);

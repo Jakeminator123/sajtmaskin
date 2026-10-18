@@ -10,6 +10,7 @@ import {
   extractCompanyData,
   generatePassword,
   hasKostnadsfriPasswordSecret,
+  verifyDeterministicPassword,
   KostnadsfriIndustryConflictError,
   type MiniWizardData,
 } from "./index";
@@ -21,6 +22,8 @@ afterEach(() => {
 
 describe("generatePassword", () => {
   it("requires a configured secret instead of falling back to a predictable seed", () => {
+    delete process.env.KOSTNADSFRI_PASSWORD_SEED;
+    delete process.env.KOSTNADSFRI_API_KEY;
     expect(hasKostnadsfriPasswordSecret()).toBe(false);
     expect(() => generatePassword("acme-ab")).toThrow(/KOSTNADSFRI_PASSWORD_SEED/);
   });
@@ -31,6 +34,16 @@ describe("generatePassword", () => {
     expect(hasKostnadsfriPasswordSecret()).toBe(true);
     expect(generatePassword("acme-ab")).toBe(generatePassword("acme-ab"));
     expect(generatePassword("acme-ab")).not.toBe(generatePassword("other-ab"));
+  });
+
+  it("godkänner bara det härledda lösenordet, även när prefixet stämmer", () => {
+    process.env.KOSTNADSFRI_PASSWORD_SEED = "test-seed";
+    const password = generatePassword("acme-ab");
+
+    expect(verifyDeterministicPassword("acme-ab", password)).toBe(true);
+    expect(verifyDeterministicPassword("acme-ab", `${password.slice(0, 7)}x`)).toBe(false);
+    expect(verifyDeterministicPassword("acme-ab", password.slice(0, 4))).toBe(false);
+    expect(verifyDeterministicPassword("other-ab", password)).toBe(false);
   });
 });
 

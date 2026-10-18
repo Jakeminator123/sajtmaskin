@@ -55,7 +55,10 @@ export function verifyPassword(password: string, storedHash: string): boolean {
   const [salt, hash] = storedHash.split(":");
   if (!salt || !hash) return false;
   const testHash = crypto.scryptSync(password, salt, 64).toString("hex");
-  return hash === testHash;
+  const actual = Buffer.from(testHash);
+  const expected = Buffer.from(hash);
+  if (actual.length !== expected.length) return false;
+  return crypto.timingSafeEqual(actual, expected);
 }
 
 // JWT configuration - use centralized secrets
