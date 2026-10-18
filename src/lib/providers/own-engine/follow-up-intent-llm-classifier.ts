@@ -16,6 +16,7 @@
 import { z } from "zod";
 import { generateObject } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
+import { resolveWorkloadReasoningEffort } from "@/lib/ai-models/workload-reasoning";
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import {
@@ -25,7 +26,7 @@ import {
 
 const MATCH_CLASSIFIER_WORKLOAD_ID = "match_classifier";
 /** Used only if the manifest workload is missing a defaultModel. */
-const FALLBACK_MODEL = "openai/gpt-5-mini";
+const FALLBACK_MODEL = "openai/gpt-6-luna";
 const DEFAULT_TIMEOUT_MS = 4000;
 /** Follow-ups are short; cap input so a pasted wall of text stays cheap. */
 const MAX_PROMPT_CHARS = 2000;
@@ -106,7 +107,13 @@ export async function llmClassifyFollowUpIntent(
       // failures, so don't burn latency retrying non-transient errors.
       maxRetries: 1,
       abortSignal: controller.signal,
-      providerOptions: { openai: { reasoningEffort: "low" } },
+      // Manifest effort (`none` on GPT-6 Luna); overrides to older ids keep `low`.
+      providerOptions: {
+        openai: {
+          reasoningEffort:
+            resolveWorkloadReasoningEffort(MATCH_CLASSIFIER_WORKLOAD_ID, modelId) ?? "low",
+        },
+      },
     });
 
     recordLlmUsage({

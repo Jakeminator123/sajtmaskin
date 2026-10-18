@@ -195,12 +195,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Open the overlay URL after apply",
     )
 
-    parser.add_argument("--premium-model", default="gpt-5.6-sol")
-    parser.add_argument("--pro-model", default="gpt-5.3-codex")
-    parser.add_argument("--max-model", default="gpt-5.4")
-    parser.add_argument("--codex-model", default="gpt-5.3-codex")
+    parser.add_argument("--premium-model", default="gpt-6.1-sol")
+    parser.add_argument("--pro-model", default="gpt-6.1-sol")
+    parser.add_argument("--max-model", default="gpt-6.1-sol")
+    parser.add_argument("--codex-model", default="gpt-6.1-sol")
     parser.add_argument("--anthropic-model", default="claude-opus-4.8")
-    parser.add_argument("--assist-model", default="openai/gpt-5.6-sol")
+    parser.add_argument("--assist-model", default="openai/gpt-6.1-sol")
 
     return parser
 

@@ -20,7 +20,7 @@
  *   --only=<id>       Curate only this variant id (e.g. friendly-saas).
  *   --limit=<N>       Curate at most N variants.
  *   --force           Overwrite existing signaturePatterns.
- *   --model=<id>      Override LLM (default: gpt-5.4).
+ *   --model=<id>      Override LLM (default: gpt-6.1-sol).
  *
  * Usage:
  *   npx tsx scripts/scaffolds/auto-curate-variant-patterns.ts --dry-run --only=friendly-saas
@@ -41,7 +41,7 @@ import { z } from "zod";
 
 const WORKSPACE_ROOT = process.cwd();
 const VARIANTS_ROOT = resolve(WORKSPACE_ROOT, "config", "scaffold-variants");
-const DEFAULT_MODEL = "gpt-5.4";
+const DEFAULT_MODEL = "gpt-6.1-sol";
 
 interface CliArgs {
   dryRun: boolean;

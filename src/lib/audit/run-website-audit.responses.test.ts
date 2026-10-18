@@ -421,7 +421,9 @@ describe("runWebsiteAudit Responses fallback", () => {
     if (!result.ok) throw new Error("expected success");
 
     expect(result.usedModel).toBe(candidates[1]);
-    expect(result.result.cost).toEqual({ tokens: 450, usd: 0.0015, sek: 0.02 });
+    // GPT-6 Luna (100 in / 50 out) + GPT-5.6 Luna (200 in / 100 out) at the
+    // shared pricing.json rates: $0.000035 + $0.00016.
+    expect(result.result.cost).toEqual({ tokens: 450, usd: 0.0002, sek: 0 });
     expect(result.result.scrape_summary?.web_search_calls).toBe(3);
     expect(responsesCreate).toHaveBeenCalledTimes(2);
   });

@@ -160,12 +160,13 @@ describe("POST /api/wizard/competitors", () => {
       marketInsight: "Tydlig lokal konkurrens",
     });
     expect(braveWebSearch).toHaveBeenCalledWith("Sajtstudio Webb Stockholm konkurrenter", 8);
-    expect(createDirectModel).toHaveBeenCalledWith("openai/gpt-5-mini");
+    expect(createDirectModel).toHaveBeenCalledWith("openai/gpt-6-luna");
     expect(generateText).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "model",
         prompt: expect.stringContaining("https://konkurrent.example"),
         abortSignal: expect.any(AbortSignal),
+        providerOptions: { openai: { reasoningEffort: "none" } },
       }),
     );
     expect(authorizeWizardRun).toHaveBeenCalledWith(expect.any(Request), WIZARD_RUN_ID);
