@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createSeoLandingMetadata } from "@/lib/seo-landing-pages/metadata";
-import { WordpressAlternativContent } from "./wordpress-alternativ-content";
+import { SeoLandingJsonLd } from "@/lib/seo-landing-pages/structured-data";
+import { FAQS, WordpressAlternativContent } from "./wordpress-alternativ-content";
 
 /**
  * WordPress comparison SEO landing: ecosystem vs ops, no security scare-copy.
@@ -11,5 +12,10 @@ import { WordpressAlternativContent } from "./wordpress-alternativ-content";
 export const metadata: Metadata = createSeoLandingMetadata("wordpress-alternativ");
 
 export default function WordpressAlternativPage() {
-  return <WordpressAlternativContent />;
+  return (
+    <>
+      <SeoLandingJsonLd slug="wordpress-alternativ" faqs={FAQS} />
+      <WordpressAlternativContent />
+    </>
+  );
 }

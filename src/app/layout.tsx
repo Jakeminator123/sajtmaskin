@@ -7,7 +7,7 @@ import "@/styles/landing-v2.css";
 import { AnalyticsTracker } from "@/components/layout/analytics-tracker";
 import { CookieBanner } from "@/components/layout/cookie-banner";
 import { GoogleAdsTag } from "@/components/layout/google-ads-tag";
-import { OrganizationJsonLd, SoftwareApplicationJsonLd } from "@/components/layout/json-ld";
+import { OrganizationJsonLd } from "@/components/layout/json-ld";
 import { ThemeProvider } from "next-themes";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -48,11 +48,11 @@ const spaceGrotesk = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: {
-    default: "Sajtmaskin – AI-driven webbplatsgenerering",
+    default: "Skapa hemsida med AI | Sajtmaskin",
     template: "%s | Sajtmaskin",
   },
   description:
-    "Skapa professionella webbplatser på minuter med AI. En tjänst från Pretty Good B.V.",
+    "Skapa en professionell hemsida med AI. Beskriv ditt företag, anpassa utkastet och publicera. Börja utan kreditkort.",
   metadataBase: new URL(PUBLIC_CANONICAL_ORIGIN),
   icons: {
     icon: "/icon.svg",
@@ -93,13 +93,12 @@ export default async function RootLayout({
             <p>
               <strong>Sajtmaskin</strong>
             </p>
-            <p>AI-driven webbplatsgenerering. Skapa professionella webbplatser på minuter med AI. En tjänst från Pretty Good B.V.</p>
+            <p>Skapa en professionell hemsida med AI. Beskriv ditt företag, anpassa utkastet och publicera. En tjänst från Pretty Good B.V.</p>
             <p>JavaScript krävs för att använda Sajtmaskin. Aktivera JavaScript i din webbläsare och ladda om sidan.</p>
           </div>
         </noscript>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} nonce={nonce}>
           <OrganizationJsonLd />
-          <SoftwareApplicationJsonLd />
           <AnalyticsTracker />
           <GoogleAdsTag nonce={nonce} />
           <Analytics />

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SoftwareApplicationJsonLd } from "@/components/layout/json-ld";
 import { publicCanonicalPath, publicPageAlternates } from "@/lib/public-canonical-url";
 import HomePageClient from "./home-page-client";
 
@@ -36,6 +37,7 @@ export default function HomePage() {
         type="image/webp"
         fetchPriority="high"
       />
+      <SoftwareApplicationJsonLd />
       <HomePageClient />
     </>
   );

@@ -154,9 +154,9 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
   },
   {
     slug: "ai-hemsidebyggare",
-    title: "AI-hemsidebyggare – funktioner, val och exempel",
+    title: "AI-hemsidebyggare – jämför funktioner, ägarskap och pris",
     description:
-      "AI-hemsidebyggare: vad du ska jämföra innan du väljer verktyg. Kriterier för redigering, ägarskap, publicering och pris — inte en ranking.",
+      "AI-hemsidebyggare: jämför redigering, ägarskap, publicering och pris innan du väljer verktyg. Kriterier, inte en ranking.",
     plannedH1: "AI-hemsidebyggare – vad ska du jämföra innan du väljer?",
     intent: "Produktkategori och valkriterier",
     relatedSlugs: ["skapa-hemsida-med-ai", "hemsideprogram", "lovable-alternativ"],
@@ -187,10 +187,10 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
   },
   {
     slug: "hemsida-utan-kod",
-    title: "Skapa hemsida utan kod – vad du kan göra själv",
+    title: "Hemsida utan kod – gör det själv utan programmering",
     description:
-      "Skapa hemsida utan kod: vad du kan göra själv utan programmering, hur du ändrar med vanliga meningar, och när kod fortfarande behövs.",
-    plannedH1: "Skapa hemsida utan kod – vad kan du göra själv?",
+      "Hemsida utan kod: vad du kan göra själv utan programmering, hur du styr med vanliga meningar, och när kod fortfarande behövs.",
+    plannedH1: "Hemsida utan kod – vad kan du göra själv?",
     intent: "No-code: göra det själv utan programmering",
     relatedSlugs: ["skapa-hemsida", "skapa-hemsida-med-ai", "hemsideprogram"],
     status: "ready",

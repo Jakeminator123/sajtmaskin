@@ -52,7 +52,7 @@ export function LandingFooter() {
                 </a>
               </li>
               <li>
-                <Link href="/#priser" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/priser" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Priser
                 </Link>
               </li>

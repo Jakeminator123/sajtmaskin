@@ -26,11 +26,11 @@ domarfasen; den återberättar inte push-, PR- eller mergegrinden.
 
 ## Worktree recipe
 
-`worktree:setup` refuses a path that git does not already know, so the order is fixed:
+`worktree:setup` refuses a path that git does not already know, so the order is fixed. `<worktrees>` is `%USERPROFILE%\.cursor\worktrees\sajtmaskin` (placement per `agent-worktree.mdc`); keep the `sajtmaskin-kedja-` name prefix, `kedja:clean` matches on it:
 
 ```powershell
-git worktree add ..\sajtmaskin-kedja-<slug>-a -b fix/kedja-<slug>-a origin/master
-npm run worktree:setup -- ..\sajtmaskin-kedja-<slug>-a
+git worktree add <worktrees>\sajtmaskin-kedja-<slug>-a -b fix/kedja-<slug>-a origin/master
+npm run worktree:setup -- <worktrees>\sajtmaskin-kedja-<slug>-a
 ```
 
 - **Always pass an explicit, frozen base.** Omit it and git bases the candidate on the main checkout's HEAD at that moment, so every candidate silently inherits whatever the owner has committed locally but not pushed. All candidates must start from the **same** published ref, or the judging round compares diffs against different baselines. Resolve it once (`git rev-parse origin/<base>`) and reuse that SHA for every candidate.
@@ -202,16 +202,16 @@ The lesson generalises: when the fix direction is "make X stop happening", the c
 ## Report format
 
 ```markdown
-| Steg       | Utfall                                                                                            |
-| ---------- | ------------------------------------------------------------------------------------------------- |
-| Acceptans  | `npx vitest run …` — rött före, grönt efter                                                       |
-| Rotorsak   | <one sentence + fil:rad>                                                                          |
-| Kandidat a | <ansats> · grön · 12 rader · **vinnare** · `..\sajtmaskin-kedja-<slug>-a` på `fix/kedja-<slug>-a` |
-| Kandidat b | <ansats> · röd i steg 2 av domen (bröt <test>) · worktree riven, diff kvar                        |
-| Utfört av  | repro: <roll/modell> · fix a/b: <roll/modell> · dom: orkestratorn maskinellt                      |
-| Bugbot     | <findings, or "inga fynd">                                                                        |
-| Diffar     | `.cursor/kedja/<YYYY-MM-DD_HHMM>/kandidat-*.diff` (även utslagna)                                 |
-| Ligger i   | `..\sajtmaskin-kedja-<slug>-a` på `fix/kedja-<slug>-a`, committad; ange push-/PR-status           |
+| Steg       | Utfall                                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------------------------- |
+| Acceptans  | `npx vitest run …` — rött före, grönt efter                                                                |
+| Rotorsak   | <one sentence + fil:rad>                                                                                   |
+| Kandidat a | <ansats> · grön · 12 rader · **vinnare** · `<worktrees>\sajtmaskin-kedja-<slug>-a` på `fix/kedja-<slug>-a` |
+| Kandidat b | <ansats> · röd i steg 2 av domen (bröt <test>) · worktree riven, diff kvar                                 |
+| Utfört av  | repro: <roll/modell> · fix a/b: <roll/modell> · dom: orkestratorn maskinellt                               |
+| Bugbot     | <findings, or "inga fynd">                                                                                 |
+| Diffar     | `.cursor/kedja/<YYYY-MM-DD_HHMM>/kandidat-*.diff` (även utslagna)                                          |
+| Ligger i   | `<worktrees>\sajtmaskin-kedja-<slug>-a` på `fix/kedja-<slug>-a`, committad; ange push-/PR-status           |
 ```
 
 Every row that names a worktree must give the **absolute or repo-relative disk

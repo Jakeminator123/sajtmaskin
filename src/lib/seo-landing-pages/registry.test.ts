@@ -42,6 +42,7 @@ const RESERVED_PRODUCT_FIRST_SEGMENTS = [
   "logg",
   "new",
   "om",
+  "priser",
   "privacy",
   "projects",
   "r",

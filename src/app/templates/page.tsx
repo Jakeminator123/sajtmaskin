@@ -7,9 +7,9 @@ import { publicPageAlternates } from "@/lib/public-canonical-url";
 import { Wand2 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Templates",
+  title: "Hemsidemallar",
   description:
-    "Bläddra bland professionella templates. Färdiga webbplatser för alla branscher och behov.",
+    "Bläddra bland hemsidemallar. Färdiga startpunkter för olika branscher — anpassa med AI.",
   alternates: publicPageAlternates("/templates"),
 };
 

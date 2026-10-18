@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowLeft, ArrowRight, ChevronDown } from "lucide-react";
+import { FaqPageJsonLd } from "@/components/layout/json-ld";
 import { Button } from "@/components/ui/button";
 import { getSeoLandingHubLinks } from "@/lib/seo-landing-pages/registry";
 
@@ -65,6 +66,7 @@ function FaqItem({ q, a, id }: { q: string; a: string; id: string }) {
 export default function FAQPage() {
   return (
     <main className="bg-background min-h-screen px-6 py-10 md:py-16">
+      <FaqPageJsonLd items={faqs} />
       <div className="mx-auto max-w-5xl">
         <div className="mb-10 flex items-center justify-between gap-4">
           <Button variant="ghost" className="border-border/20 bg-background/50 border" asChild>

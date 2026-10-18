@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createSeoLandingMetadata } from "@/lib/seo-landing-pages/metadata";
-import { LovableAlternativContent } from "./lovable-alternativ-content";
+import { SeoLandingJsonLd } from "@/lib/seo-landing-pages/structured-data";
+import { FAQS, LovableAlternativContent } from "./lovable-alternativ-content";
 
 /**
  * Lovable comparison SEO landing: build-goal framing, product moves fast.
@@ -11,5 +12,10 @@ import { LovableAlternativContent } from "./lovable-alternativ-content";
 export const metadata: Metadata = createSeoLandingMetadata("lovable-alternativ");
 
 export default function LovableAlternativPage() {
-  return <LovableAlternativContent />;
+  return (
+    <>
+      <SeoLandingJsonLd slug="lovable-alternativ" faqs={FAQS} />
+      <LovableAlternativContent />
+    </>
+  );
 }
