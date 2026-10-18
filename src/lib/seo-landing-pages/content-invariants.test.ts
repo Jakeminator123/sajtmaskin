@@ -17,8 +17,21 @@ const CROWNING_PATTERNS = [
   /bästa (?:AI-)?hemsidebyggaren/i,
 ];
 
+const LIB_DIR = join(process.cwd(), "src/lib/seo-landing-pages");
+
 function pageSource(slug: string, file: `${string}.tsx`) {
   return readFileSync(join(APP_DIR, slug, file), "utf8");
+}
+
+function resolvedContent(slug: string) {
+  const content = pageSource(slug, `${slug}-content.tsx`);
+  if (content.includes("IndustryLandingContent")) {
+    return `${content}\n${readFileSync(join(LIB_DIR, "industry-landing.tsx"), "utf8")}`;
+  }
+  if (content.includes("ComparisonLandingContent")) {
+    return `${content}\n${readFileSync(join(LIB_DIR, "comparison-landing.tsx"), "utf8")}`;
+  }
+  return content;
 }
 
 describe("SEO landing content invariants", () => {
@@ -27,7 +40,7 @@ describe("SEO landing content invariants", () => {
       if (page.status !== "ready") continue;
 
       const pageTsx = pageSource(page.slug, "page.tsx");
-      const content = pageSource(page.slug, `${page.slug}-content.tsx`);
+      const content = resolvedContent(page.slug);
 
       expect(pageTsx).toContain(`createSeoLandingMetadata("${page.slug}")`);
       expect(content.match(/<h1\b/g) ?? []).toHaveLength(1);
@@ -47,7 +60,7 @@ describe("SEO landing content invariants", () => {
   it("keeps ready copy free of stale placeholders, volatile prices and crowning claims", () => {
     for (const page of SEO_LANDING_PAGES) {
       if (page.status !== "ready") continue;
-      const content = pageSource(page.slug, `${page.slug}-content.tsx`);
+      const content = resolvedContent(page.slug);
 
       for (const pattern of SEO_LANDING_STALE_COPY_PATTERNS) {
         expect(content, `${page.slug} stale copy ${pattern}`).not.toMatch(pattern);

@@ -213,10 +213,18 @@ describe("lanyard mobile interactions", () => {
       "utf8",
     );
 
-    expect(fallback).toContain("lanyardTextureToCss");
+    expect(fallback).toContain("object-cover");
     expect(fallback).toContain("LanyardBrandFace");
+    expect(fallback).toContain("/branding/lanyard-card-static.webp");
+    expect(fallback).toContain("width={CARD_WIDTH}");
+    expect(fallback).toContain("height={CARD_HEIGHT}");
+    expect(fallback).toContain("const CARD_WIDTH = 360");
+    expect(fallback).toContain("const CARD_HEIGHT = 480");
+    expect(fallback).not.toContain("/branding/lanyard-card.png");
+    expect(fallback).not.toContain("decoding");
     expect(experience).toContain("LanyardBrandFace");
     expect(hero).toContain("preloadReturningLanyard");
+    expect(hero).toContain('import { LanyardExperience } from "@/components/landing-v2/lanyard-experience"');
     expect(experience).toContain("onReady");
     expect(experience).toContain("-translate-y-[120%]");
     const stageClass = hero.match(/data-lanyard-stage[\s\S]*?className="([^"]+)"/)?.[1] ?? "";
@@ -224,7 +232,8 @@ describe("lanyard mobile interactions", () => {
     expect(stageClass).toContain("overflow-visible");
     expect(stageClass).toContain("w-screen");
     expect(stageClass).toContain("max-w-none");
-    expect(stageClass).toContain("h-[min(56vh,620px)]");
+    expect(stageClass).toContain("h-[min(32vh,260px)]");
+    expect(stageClass).toContain("md:h-[min(64vh,720px)]");
     expect(stageClass).not.toContain("-translate-x-1/2");
     expect(stageClass).not.toContain("max-w-[440px]");
     expect(stageClass).not.toContain("max-w-[min(100%,580px)]");
@@ -239,6 +248,8 @@ describe("lanyard mobile interactions", () => {
 
     expect(page).not.toContain("Välkommen,");
     expect(page).not.toContain("heroPrefix");
+    expect(page).toContain('rel="preload"');
+    expect(page).toContain("/branding/lanyard-card-static.webp");
     expect(card).toContain("resolveLanyardCardBackIdentity");
     expect(card).toContain("createNamedCardBackTexture");
   });

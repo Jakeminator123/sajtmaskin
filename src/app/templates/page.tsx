@@ -7,9 +7,9 @@ import { publicPageAlternates } from "@/lib/public-canonical-url";
 import { Wand2 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Templates",
+  title: "Hemsidemallar",
   description:
-    "Bläddra bland professionella templates. Färdiga webbplatser för alla branscher och behov.",
+    "Bläddra bland hemsidemallar. Färdiga startpunkter för olika branscher — anpassa med AI.",
   alternates: publicPageAlternates("/templates"),
 };
 
@@ -24,11 +24,11 @@ export default function TemplatesPage() {
           {/* Hero */}
           <div className="mb-12 text-center">
             <h1 className="text-foreground mb-4 text-4xl font-semibold tracking-tight">
-              Templates
+              Hemsidemallar
             </h1>
-            <p className="text-muted-foreground mx-auto max-w-xl text-lg leading-relaxed">
-              Välj en template och skapa din professionella webbplats på minuter med AI.
-              Alla templates är anpassningsbara — de importeras som kompletta projekt med sin egen kodstruktur.
+            <p className="text-foreground/80 mx-auto max-w-xl text-lg leading-relaxed">
+              Välj en mall och skapa din professionella webbplats på minuter med AI.
+              Alla mallar är anpassningsbara — de importeras som kompletta projekt med sin egen kodstruktur.
             </p>
           </div>
 
@@ -37,7 +37,7 @@ export default function TemplatesPage() {
 
           {/* CTA */}
           <div className="mt-16 text-center">
-            <p className="text-muted-foreground mb-4 text-sm">
+            <p className="text-foreground/80 mb-4 text-sm">
               Hittar du inte vad du söker? Beskriv din idé och låt AI skapa en unik design.
               Eller läs{" "}
               <Link href="/skapa-hemsida-med-ai" className="text-foreground underline-offset-4 hover:underline">

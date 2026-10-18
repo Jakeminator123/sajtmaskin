@@ -13,6 +13,7 @@ import {
   noteBuilderStartFromLocation,
   noteGoogleAdsConversion,
   subscribeCookieConsent,
+  syncGoogleAdsConsent,
 } from "./fire-google-ads-conversion";
 
 function acceptConsent() {
@@ -20,6 +21,7 @@ function acceptConsent() {
 }
 
 function enableAds() {
+  vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_ENABLED", "1");
   vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_ID", "AW-123456789");
   window.sajtmaskinAdsTagLoaded = true;
   vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_BUILDER_START_LABEL", "builder_lbl");
@@ -45,7 +47,9 @@ describe("fireGoogleAdsConversion", () => {
     window.gtag = undefined;
   });
 
-  it("no-ops when the account tag is unset", () => {
+  it("no-ops when the kill-switch is off", () => {
+    vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_ENABLED", "0");
+    window.sajtmaskinAdsTagLoaded = true;
     acceptConsent();
     const gtag = vi.fn();
     window.gtag = gtag;
@@ -171,6 +175,39 @@ describe("fireGoogleAdsConversion", () => {
     expect(fireGoogleAdsConversion("first_generation")).toBe(false);
     expect(gtag).toHaveBeenCalledTimes(1);
     expect(localStorage.getItem("sajtmaskin:ads:claimed:first_generation")).toBe("1");
+  });
+
+  it("sends first_site_generated without send_to when the conversion label is unset", () => {
+    enableAds();
+    vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL", "");
+    acceptConsent();
+    const gtag = vi.fn();
+    window.gtag = gtag;
+    noteGoogleAdsConversion("first_generation");
+    expect(gtag).toHaveBeenCalledTimes(1);
+    expect(gtag).toHaveBeenCalledWith("event", "first_site_generated");
+    expect(isGoogleAdsClaimed("first_generation")).toBe(true);
+  });
+
+  it("updates Consent Mode to granted after cookie accept", () => {
+    enableAds();
+    const gtag = vi.fn();
+    window.gtag = gtag;
+    syncGoogleAdsConsent();
+    expect(gtag).toHaveBeenCalledWith("consent", "update", {
+      ad_storage: "denied",
+      ad_user_data: "denied",
+      ad_personalization: "denied",
+      analytics_storage: "denied",
+    });
+    acceptConsent();
+    dispatchCookieConsentChange("accepted");
+    expect(gtag).toHaveBeenCalledWith("consent", "update", {
+      ad_storage: "granted",
+      ad_user_data: "granted",
+      ad_personalization: "granted",
+      analytics_storage: "granted",
+    });
   });
 
   it("does not fire on /admin even with consent and gtag", () => {

@@ -4,26 +4,26 @@ import dynamic from "next/dynamic"
 import { ArrowUp, Mic, Video, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { VoiceRecorder } from "@/components/forms/voice-recorder"
+
+const VoiceRecorder = dynamic(
+  () => import("@/components/forms/voice-recorder").then((m) => m.VoiceRecorder),
+  { ssr: false },
+)
 import {
   categories,
   homepageHeroCopy,
   longestSiteType,
 } from "@/components/landing-v2/landing-chat-data"
 import { preloadReturningLanyard } from "@/components/landing-v2/lanyard-consent"
+import { LanyardExperience } from "@/components/landing-v2/lanyard-experience"
 import type { ChatAreaProps, LandingController } from "@/components/landing-v2/use-landing-controller"
 
 if (typeof window !== "undefined") {
   preloadReturningLanyard()
 }
 
-// Cookie-samtycke som flippar till det fysikdrivna 3D-nyckelbandet.
-// Laddas endast i webbläsaren (ingen SSR). Stagen är tom tills kortet är
-// redo; återbesökare får då drop-in-entrén i LanyardExperience.
-const LanyardExperience = dynamic(
-  () => import("@/components/landing-v2/lanyard-experience").then((m) => m.LanyardExperience),
-  { ssr: false },
-)
+// Statiska kortet SSR:as i HTML (LCP). 3D-chunken (Three/Rapier) laddas
+// bara på kapabel desktop, efter idle eller cookie-klick.
 
 export type LandingHeroProps = Pick<
   LandingController,
@@ -66,7 +66,7 @@ export function LandingHero({
     <section className="relative flex min-h-[calc(100vh-57px)] flex-col items-center justify-start overflow-x-visible pt-0 pb-8 supports-[height:100svh]:min-h-[calc(100svh-57px)] md:pt-0 md:pb-12">
       <div
         data-lanyard-stage
-        className="pointer-events-auto relative z-0 mb-6 h-[min(56vh,620px)] w-screen max-w-none shrink-0 overflow-visible sm:h-[min(60vh,680px)] md:h-[min(64vh,720px)]"
+        className="pointer-events-auto relative z-0 mb-4 h-[min(32vh,260px)] w-screen max-w-none shrink-0 overflow-visible sm:mb-6 sm:h-[min(48vh,520px)] md:h-[min(64vh,720px)]"
       >
         <LanyardExperience className="h-full w-full overflow-visible" />
       </div>
@@ -74,7 +74,7 @@ export function LandingHero({
       <div className="flex w-full flex-col items-center px-6">
       <div className="cursor-default">
         <h1
-          className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl text-foreground mb-3 text-center font-(--font-heading) tracking-tight text-balance animate-rise leading-[1.15] md:mb-4 md:leading-[1.1]"
+          className="text-4xl md:text-5xl lg:text-6xl text-foreground mb-3 text-center [font-family:ui-sans-serif,system-ui,sans-serif] tracking-tight text-balance animate-rise leading-[1.15] md:mb-4 md:font-(--font-heading) md:leading-[1.1]"
           style={{ animationDelay: "0.3s" }}
         >
           {homepageHeroCopy.h1}

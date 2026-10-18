@@ -4,13 +4,14 @@
  * LanyardExperience — kombinerar cookie-samtycke och det fysikdrivna 3D-kortet
  * till EN sammanhängande fysisk pryl.
  *
- * Vid första besöket hänger kortet stort och mitt i vyn i sitt nyckelband, med
- * cookie-samtycket på FRAMSIDAN. När besökaren klickar på ett val sparas
- * samtycket och EXAKT samma kort roterar 180° runt sin egen lodräta axel (så
- * att den varumärkta baksidan kommer fram), åker samtidigt bakåt i djupled och
- * krymper — fortfarande hängande i samma snodd. När rotationen är klar lämnas
- * över till det riktiga 3D-nyckelbandet som redan ligger stilla i exakt samma
- * pose (ingen extra gungning), så bytet blir osynligt.
+ * Vid första besöket på kapabel desktop hänger kortet stort och mitt i vyn i
+ * sitt nyckelband, med cookie-samtycket på FRAMSIDAN. När besökaren klickar
+ * på ett val sparas samtycket och EXAKT samma kort roterar 180° runt sin
+ * egen lodräta axel (så att den varumärkta baksidan kommer fram), åker
+ * samtidigt bakåt i djupled och krymper — fortfarande hängande i samma snodd.
+ * 3D-chunken startar vid klicket (inte under LCP). Mobil, reduced-motion och
+ * Save-Data hoppar över Three/Rapier och visar ett statiskt WebP-kort plus
+ * en kompakt cookie-banner som inte kan bli LCP.
  *
  * Har besökaren redan valt tidigare hoppas cookie-steget över. Då monteras
  * 3D-kortet direkt men OVANFÖR stagen; först när fysiken rapporterar sin
@@ -18,7 +19,17 @@
  * en avsiktlig entré i stället för ett stillbildskort som byter pose.
  */
 
-import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react"
+import {
+  Component,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type AnimationEvent,
+  type ReactNode,
+  type TransitionEvent,
+} from "react"
 import { createPortal } from "react-dom"
 import dynamic from "next/dynamic"
 import { Cookie } from "lucide-react"
@@ -30,6 +41,7 @@ import {
 import { dispatchCookieConsentChange } from "@/lib/ads/fire-google-ads-conversion"
 import {
   readLanyardStaticOnly,
+  scheduleWhenIdle,
   usePrefersReducedMotion,
   useSaveData,
 } from "@/components/landing-v2/landing-hooks"
@@ -38,6 +50,7 @@ import {
   LanyardBrandFace,
   StaticLanyardFallback,
 } from "@/components/landing-v2/lanyard-static-fallback"
+import { CompactCookieBanner } from "@/components/layout/cookie-banner"
 
 // Platshållaren täcker cookie-flippens överlämning om 3D-chunken inte hunnit
 // in vid reveal. I drop-in-läget står wrappern ovanför stagen tills onReady,
@@ -47,8 +60,9 @@ const LanyardCard = dynamic(
   { ssr: false, loading: () => <StaticLanyardFallback /> },
 )
 
-const FLIP_MS_DESKTOP = 1550
+export const FLIP_MS_DESKTOP = 1550
 const FLIP_MS_MOBILE = 1150
+export const FLIP_END_FALLBACK_MS = 400
 /** Om fysiken aldrig rapporterar redo (t.ex. pausad tabb) visas kortet ändå. */
 const DROP_IN_FALLBACK_MS = 6000
 const DROP_IN_HIDDEN_CLASS = "-translate-y-[120%] pointer-events-none"
@@ -103,78 +117,121 @@ class LanyardErrorBoundary extends Component<
   }
 }
 
-function initialPhase(): Phase {
-  if (typeof window === "undefined") return "checking"
-  return readStoredCookieConsent() ? "reveal" : "intro"
+function subscribeCookieConsent() {
+  return () => {}
+}
+
+function readClientCookieConsent(): "yes" | "no" {
+  return readStoredCookieConsent() ? "yes" : "no"
+}
+
+function readServerCookieConsent(): "ssr" {
+  return "ssr"
 }
 
 export function LanyardExperience({ className = "" }: { className?: string }) {
   const reducedMotion = usePrefersReducedMotion()
   const saveData = useSaveData()
-  // Hookarna är SSR-säkra (false tills effect). Experience är client-only
-  // och får inte montera WebGL en tick för reduced-motion / save-data.
   const staticOnly = reducedMotion || saveData || readLanyardStaticOnly()
-  // Experience laddas med ssr:false, så första render är klient.
-  // Läs samtycke synkront — "checking" lämnade annars hero-ytan tom en tick.
-  const [phase, setPhase] = useState<Phase>(initialPhase)
-  // Sattes samtycke redan innan sidan laddades? Då får kortet gunga till liv.
-  // Kommer vi via cookie-flippen ska det i stället ligga helt stilla.
-  const [autoSwing] = useState(() => initialPhase() === "reveal")
-  // Återbesök: kortet börjar ovanför stagen och glider ner när fysiken är
-  // redo. Cookie-flippen använder i stället opacity-överlämningen nedan.
-  const dropIn = autoSwing && !staticOnly
-  const [dropped, setDropped] = useState(false)
-  const handleReady = useCallback(() => setDropped(true), [])
+  // SSR snapshot is "ssr" so the WebP card is in the first HTML (LCP). After
+  // hydration the client snapshot reads localStorage without a mismatch warning.
+  const storedConsent = useSyncExternalStore(
+    subscribeCookieConsent,
+    readClientCookieConsent,
+    readServerCookieConsent,
+  )
+  const [acceptedThisVisit, setAcceptedThisVisit] = useState(false)
+  const [flipPlaying, setFlipPlaying] = useState(false)
+  const phase: Phase = flipPlaying
+    ? "intro"
+    : acceptedThisVisit || storedConsent === "yes"
+      ? "reveal"
+      : storedConsent === "ssr"
+        ? "checking"
+        : "intro"
+  const autoSwing = storedConsent === "yes" && !acceptedThisVisit && !flipPlaying
+  const [loadPhysics, setLoadPhysics] = useState(false)
+  const [physicsReady, setPhysicsReady] = useState(false)
+  const dropIn = autoSwing && loadPhysics && !staticOnly
+  const handleReady = useCallback(() => setPhysicsReady(true), [])
 
   useEffect(() => {
-    if (!dropIn || dropped) return
-    const timer = window.setTimeout(() => setDropped(true), DROP_IN_FALLBACK_MS)
+    if (staticOnly || phase !== "reveal" || !autoSwing) return
+    return scheduleWhenIdle(() => setLoadPhysics(true))
+  }, [staticOnly, phase, autoSwing])
+
+  useEffect(() => {
+    if (!dropIn || physicsReady) return
+    const timer = window.setTimeout(() => setPhysicsReady(true), DROP_IN_FALLBACK_MS)
     return () => window.clearTimeout(timer)
-  }, [dropIn, dropped])
+  }, [dropIn, physicsReady])
 
   const handleDone = useCallback(() => {
-    setPhase("reveal")
+    setFlipPlaying(false)
+    setAcceptedThisVisit(true)
   }, [])
+
+  const handleStartHandoff = useCallback(() => {
+    setFlipPlaying(true)
+    if (!staticOnly) setLoadPhysics(true)
+  }, [staticOnly])
+
+  const showPhysics = loadPhysics && !staticOnly
+  const showStatic = !showPhysics || !physicsReady
 
   return (
     <div className={`relative h-full w-full ${className}`}>
-      {/* 3D-kortet monteras redan under cookie-steget (osynligt) så att
-          fysiken och texturen hunnit ladda — överlämningen blir sömlös
-          utan en tom lucka där inget kort syns. Reduced-motion / save-data
-          hoppar över 3D-chunken helt och visar den statiska fallbacken. */}
-      {phase === "reveal" && staticOnly && <StaticLanyardFallback />}
-      {phase !== "checking" && !staticOnly && (
+      {showStatic && <StaticLanyardFallback />}
+      {showPhysics && (
         <div
           data-testid="lanyard-stage-3d"
           className={`h-full w-full will-change-transform ${
             dropIn
-              ? dropped
+              ? physicsReady
                 ? DROP_IN_SHOWN_CLASS
                 : DROP_IN_HIDDEN_CLASS
               : `transition-opacity duration-300 ${
-                  phase === "reveal" ? "opacity-100" : "pointer-events-none opacity-0"
+                  physicsReady ? "opacity-100" : "pointer-events-none opacity-0"
                 }`
           }`}
         >
-          <LanyardErrorBoundary onFailed={dropIn ? handleReady : undefined}>
+          <LanyardErrorBoundary onFailed={handleReady}>
             <LanyardCard
               className="h-full"
               autoSwing={autoSwing}
-              onReady={dropIn ? handleReady : undefined}
+              onReady={handleReady}
             />
           </LanyardErrorBoundary>
         </div>
       )}
-      {phase === "intro" && <CookieFlipCard onDone={handleDone} />}
+      {phase === "intro" && staticOnly && (
+        <CompactCookieBanner delayMs={800} onConsent={handleDone} />
+      )}
+      {phase === "intro" && !staticOnly && (
+        <CookieFlipCard onDone={handleDone} onStartHandoff={handleStartHandoff} />
+      )}
     </div>
   )
 }
 
-function CookieFlipCard({ onDone }: { onDone: () => void }) {
+function CookieFlipCard({
+  onDone,
+  onStartHandoff,
+}: {
+  onDone: () => void
+  onStartHandoff?: () => void
+}) {
   const [leaving, setLeaving] = useState(false)
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
   const { mobile, reducedMotion } = useExperienceMode()
   const dialogRef = useRef<HTMLDivElement>(null)
+  const finishedRef = useRef(false)
+
+  const finish = useCallback(() => {
+    if (finishedRef.current) return
+    finishedRef.current = true
+    onDone()
+  }, [onDone])
 
   useEffect(() => {
     setPortalTarget(document.body)
@@ -265,6 +322,12 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
   // Mobil: kortare, snabbare flygbana. Reduced motion: bara en mjuk uttoning.
   const flipMs = reducedMotion ? 350 : mobile ? FLIP_MS_MOBILE : FLIP_MS_DESKTOP
 
+  useEffect(() => {
+    if (!leaving) return
+    const timer = window.setTimeout(finish, flipMs + FLIP_END_FALLBACK_MS)
+    return () => window.clearTimeout(timer)
+  }, [leaving, flipMs, finish])
+
   const choose = useCallback(
     (value: "accepted" | "declined") => {
       if (leaving) return
@@ -277,11 +340,22 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
         /* localStorage kan vara blockerat — fortsätt ändå med animationen. */
       }
       dispatchCookieConsentChange(value)
+      onStartHandoff?.()
       setLeaving(true)
-      window.setTimeout(onDone, flipMs - 60)
     },
-    [leaving, onDone, flipMs],
+    [leaving, onStartHandoff],
   )
+
+  const onFlipAnimationEnd = (event: AnimationEvent<HTMLDivElement>) => {
+    if (!leaving || event.target !== event.currentTarget) return
+    finish()
+  }
+
+  const onFlipTransitionEnd = (event: TransitionEvent<HTMLDivElement>) => {
+    if (!leaving || event.target !== event.currentTarget) return
+    if (event.propertyName !== "transform") return
+    finish()
+  }
 
   const dialog = (
     <div
@@ -318,7 +392,9 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
         }
       `}</style>
       <div
+        data-testid="cookie-flip-motion"
         className="flex flex-col items-center"
+        onAnimationEnd={onFlipAnimationEnd}
         style={{
           perspective: "1600px",
           transformStyle: "preserve-3d",
@@ -348,9 +424,11 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
         {/* Kortet — roterar 180° runt sin egen axel för att visa baksidan. */}
         <div className="mt-1" style={{ perspective: "1400px" }}>
           <div
+            data-testid="cookie-flip-card"
             className={`relative aspect-[3/4] [transform-style:preserve-3d] ${
               mobile ? "w-[min(78vw,300px)]" : "w-[min(84vw,340px)]"
             }`}
+            onTransitionEnd={onFlipTransitionEnd}
             style={{
               transition: `transform ${flipMs}ms cubic-bezier(0.34, 1.2, 0.4, 1)`,
               transform: leaving && !reducedMotion ? "rotateY(180deg)" : "rotateY(0deg)",

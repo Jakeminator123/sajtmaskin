@@ -26,7 +26,8 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/components/forms/voice-recorder", () => ({
   VoiceRecorder: () => null,
 }));
-vi.mock("@/components/landing-v2/lanyard-consent", () => ({
+vi.mock("@/components/landing-v2/lanyard-consent", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/landing-v2/lanyard-consent")>()),
   preloadReturningLanyard: () => {},
 }));
 vi.mock("sonner", () => ({ toast: { message: vi.fn(), error: vi.fn() } }));
