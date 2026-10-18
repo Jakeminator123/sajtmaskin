@@ -11,6 +11,7 @@ import { expireCookieSetOptions } from "@/lib/auth/host-cookies";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { recordPageView } from "@/lib/db/services/analytics";
 import { findOrCreateKostnadsfriCampaignUser } from "@/lib/db/services/kostnadsfri-account";
+import { getKostnadsfriBoundProjectIdForOwner } from "@/lib/db/services/kostnadsfri-campaign";
 import { updateUserLastLogin } from "@/lib/db/services/users";
 import {
   backfillKostnadsfriPageProfile,
@@ -168,23 +169,26 @@ async function signInCampaignAccount(
   request: NextRequest,
   slug: string,
   companyName: string,
-): Promise<CampaignAccountStatus> {
+): Promise<{ account: CampaignAccountStatus; userId: string | null }> {
+  const secure = new URL(request.url).protocol === "https:";
+  let current: Awaited<ReturnType<typeof getCurrentUser>> = null;
   try {
-    const current = await getCurrentUser(request);
-    if (current && !isCampaignAccountProvider(current.provider)) return "existing";
+    current = await getCurrentUser(request);
+    if (current && !isCampaignAccountProvider(current.provider)) {
+      return { account: "existing", userId: current.id };
+    }
 
     const campaignUser = await findOrCreateKostnadsfriCampaignUser({
       email: kostnadsfriCampaignEmail(slug),
       companyName,
     });
-    const secure = new URL(request.url).protocol === "https:";
     if (!isUnclaimedCampaignAccount(campaignUser)) {
       if (!isCampaignAccountProvider(campaignUser.provider)) {
         console.warn("[API/kostnadsfri/verify] Campaign address is held by a non-campaign account");
       }
       // Another invitation's campaign session must not build on this one.
       if (current) await clearAuthCookie({ secure });
-      return "claimed";
+      return { account: "claimed", userId: null };
     }
 
     await setAuthCookie(createToken(campaignUser.id, campaignUser.email), { secure });
@@ -196,11 +200,16 @@ async function signInCampaignAccount(
         console.error(`[API/kostnadsfri/verify] Failed to stamp campaign login (${kind})`);
       }
     });
-    return "campaign";
+    return { account: "campaign", userId: campaignUser.id };
   } catch (error) {
     const kind = error instanceof Error ? error.name : typeof error;
     console.error(`[API/kostnadsfri/verify] Campaign account unavailable (${kind})`);
-    return "unavailable";
+    // Same rule as a claimed invitation: another invitation's campaign session
+    // must not stay active and receive this invitation's build.
+    if (current && isCampaignAccountProvider(current.provider) && current.email !== kostnadsfriCampaignEmail(slug)) {
+      await clearAuthCookie({ secure }).catch(() => {});
+    }
+    return { account: "unavailable", userId: null };
   }
 }
 
@@ -229,8 +238,16 @@ async function verifyInvitation(
         ? await getAcceptedKostnadsfriMailEvent(mailId, slug).catch(() => null)
         : null;
       recordVerified(request, slug, session.sessionId);
-      const account = await signInCampaignAccount(request, slug, companyData.companyName);
-      const response = NextResponse.json({ success: true, companyData, account });
+      const { account, userId } = await signInCampaignAccount(request, slug, companyData.companyName);
+      const boundProjectId = userId
+        ? await getKostnadsfriBoundProjectIdForOwner(slug, userId).catch(() => null)
+        : null;
+      const response = NextResponse.json({
+        success: true,
+        companyData,
+        account,
+        ...(boundProjectId ? { boundProjectId } : {}),
+      });
       const secure = new URL(request.url).protocol === "https:";
       const claimCookie = campaignClaimCookieName(secure);
       const claimTicket = readCampaignClaimTicket(request.cookies.get(claimCookie)?.value);
