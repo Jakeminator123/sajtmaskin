@@ -61,13 +61,27 @@ function wait(ms: number): Promise<void> {
   });
 }
 
-export async function releaseDidStream(
+function withDeadline<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(fallback);
+      },
+    );
+  });
+}
+
+async function runReleaseAttempts(
   stream: DidStreamIdentity,
-  clientKey: string | undefined,
-  options?: DidStreamReleaseOptions,
+  clientKey: string,
+  retry: boolean,
 ): Promise<DidStreamReleaseOutcome> {
-  if (!clientKey) return { ok: true, status: 0 };
-  const retry = options?.retry !== false;
   const deadline = Date.now() + DID_STREAM_RELEASE_TIMEOUT_MS;
   let backoff = DID_STREAM_RELEASE_BACKOFF_MS;
   let last: DidStreamReleaseOutcome = { ok: false, reason: "network" };
@@ -106,13 +120,33 @@ export async function releaseDidStream(
   return last;
 }
 
+export function releaseDidStream(
+  stream: DidStreamIdentity,
+  clientKey: string | undefined,
+  options?: DidStreamReleaseOptions,
+): Promise<DidStreamReleaseOutcome> {
+  if (!clientKey) return Promise.resolve({ ok: true, status: 0 });
+  const retry = options?.retry !== false;
+  const attempt = runReleaseAttempts(stream, clientKey, retry);
+  if (retry) return attempt;
+  return withDeadline(attempt, DID_STREAM_RELEASE_TIMEOUT_MS, {
+    ok: false,
+    reason: "network",
+  });
+}
+
 export function appendPendingRelease(
   pendingRef: { current: Promise<void> },
   release: Promise<unknown>,
 ): Promise<void> {
+  const bounded = withDeadline(
+    release.then(() => undefined, () => undefined),
+    DID_STREAM_RELEASE_TIMEOUT_MS,
+    undefined,
+  );
   const queued = pendingRef.current.then(
-    () => release.then(() => undefined, () => undefined),
-    () => release.then(() => undefined, () => undefined),
+    () => bounded,
+    () => bounded,
   );
   const settled = queued.then(() => undefined, () => undefined);
   pendingRef.current = settled;

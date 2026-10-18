@@ -174,6 +174,85 @@ describe("DidOpenClawBridge speak fence after deadline", () => {
     expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterRestart);
   });
 
+  it("starts a new session after the release timeout when bfcache restores a hanging pagehide", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const agent = fakeAgent();
+    const next = fakeAgent();
+    sdkMock.createAgentManager.mockResolvedValueOnce(agent).mockResolvedValueOnce(next);
+    const DidOpenClawBridge = await loadBridge();
+    const { DID_STREAM_RELEASE_TIMEOUT_MS } = await import("@/lib/openclaw/did-stream-release");
+    render(<DidOpenClawBridge />);
+
+    fireEvent.click(screen.getByTestId("avatar-bridge-connect"));
+    await waitFor(() => expect(agent.connect).toHaveBeenCalledTimes(1));
+    const callbacks = sdkMock.createAgentManager.mock.calls[0]![1].callbacks;
+    act(() => callbacks.onStreamCreated({
+      stream_id: "strm_abc", session_id: "sess_xyz", agent_id: "v2_agt_test",
+    }));
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(() => new Promise(() => {}));
+
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    const show = new Event("pageshow");
+    Object.defineProperty(show, "persisted", { value: true });
+    act(() => {
+      window.dispatchEvent(show);
+    });
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DID_STREAM_RELEASE_TIMEOUT_MS);
+    });
+
+    await waitFor(() => expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(2));
+    expect(next.connect).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("avatar-bridge-status").textContent).toContain("Ansluten");
+  });
+
+  it("enters error when bfcache restart cannot connect after a hanging release", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const agent = fakeAgent();
+    const retry = fakeAgent();
+    sdkMock.createAgentManager
+      .mockResolvedValueOnce(agent)
+      .mockRejectedValueOnce(new Error("sdk down"))
+      .mockResolvedValueOnce(retry);
+    const DidOpenClawBridge = await loadBridge();
+    const { DID_STREAM_RELEASE_TIMEOUT_MS } = await import("@/lib/openclaw/did-stream-release");
+    render(<DidOpenClawBridge />);
+
+    fireEvent.click(screen.getByTestId("avatar-bridge-connect"));
+    await waitFor(() => expect(agent.connect).toHaveBeenCalledTimes(1));
+    const callbacks = sdkMock.createAgentManager.mock.calls[0]![1].callbacks;
+    act(() => callbacks.onStreamCreated({
+      stream_id: "strm_abc", session_id: "sess_xyz", agent_id: "v2_agt_test",
+    }));
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(() => new Promise(() => {}));
+
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    const show = new Event("pageshow");
+    Object.defineProperty(show, "persisted", { value: true });
+    act(() => {
+      window.dispatchEvent(show);
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DID_STREAM_RELEASE_TIMEOUT_MS);
+    });
+
+    await waitFor(() => expect(screen.getByTestId("avatar-bridge-status").textContent).toContain("Fel"));
+    const button = screen.getByTestId("avatar-bridge-connect");
+    expect(button.hasAttribute("disabled")).toBe(false);
+
+    fireEvent.click(button);
+    await waitFor(() => expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(3));
+    expect(retry.connect).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.getByTestId("avatar-bridge-status").textContent).toContain("Ansluten"));
+  });
+
   it("does not start a second session while the first connect is still in flight", async () => {
     const created = deferred<ReturnType<typeof fakeAgent>>();
     const agent = fakeAgent();

@@ -283,9 +283,6 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     // passera tillståndskontrollen ovan innan någon av dem hunnit markera
     // "connecting".
     updateConnectionState("connecting");
-    // Vänta in ett pågående släpp innan en ny plats begärs.
-    await pendingDisconnectRef.current;
-    if (generation !== connectionGenerationRef.current || releaseBlockedRef.current) return;
     // Deadlinen löper från första försöket till att videon faktiskt är framme,
     // inte bara till att connect() resolvar: ett fullt D-ID-konto kan ge en
     // ansluten agent som aldrig levererar någon MediaStream.
@@ -311,6 +308,14 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
       setAvatarReady(false);
       updateConnectionState("error");
     }, DID_CONNECT_TIMEOUT_MS);
+    // Vänta in ett pågående släpp innan en ny plats begärs.
+    await pendingDisconnectRef.current;
+    if (generation !== connectionGenerationRef.current) return;
+    if (releaseBlockedRef.current) {
+      clearConnectDeadline();
+      updateConnectionState("error");
+      return;
+    }
 
     let sdkConnectStarted = false;
     try {
@@ -448,13 +453,30 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     setAvatarReady(false);
     updateConnectionState("idle");
     void (async () => {
-      await queueDisconnect(agent);
-      if (generation !== connectionGenerationRef.current) return;
-      if (releaseBlockedRef.current) {
-        updateConnectionState("error");
+      try {
+        await queueDisconnect(agent);
+        if (generation !== connectionGenerationRef.current) return;
+        if (releaseBlockedRef.current) {
+          updateConnectionState("error");
+          return;
+        }
+        await connect();
+      } catch {
+        const genNow = connectionGenerationRef.current;
+        if (genNow === generation || genNow === generation + 1) {
+          clearConnectDeadline();
+          updateConnectionState("error");
+        }
         return;
       }
-      await connect();
+      const genNow = connectionGenerationRef.current;
+      const state = connectionStateRef.current;
+      const stalled =
+        state === "idle" ||
+        (state === "connecting" && connectDeadlineRef.current === null);
+      if (stalled && (genNow === generation || genNow === generation + 1)) {
+        updateConnectionState("error");
+      }
     })();
   };
 
