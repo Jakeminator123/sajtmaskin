@@ -292,6 +292,43 @@ describe("buildRoutePlan", () => {
     expect(plan.routes.some((r) => r.path === "/bilder")).toBe(true);
   });
 
+  it.each([
+    ["Lägg till en ny sida som heter Våra hundar och länka den i menyn", "Våra hundar", "/vara-hundar"],
+    ['Skapa en sida kallad "Galleri"', "Galleri", "/galleri"],
+    ["Gör en ny sida döpt till Recensioner", "Recensioner", "/recensioner"],
+    ["Jag vill ha en ny sida som heter Event, tack", "Event", "/event"],
+    ["Kan du lägga till en sida som heter Kampanjer", "Kampanjer", "/kampanjer"],
+    ["Skulle du kunna bygga en sida kallad Butik", "Butik", "/butik"],
+    ["Vill du göra en ny sida döpt till Nyheter", "Nyheter", "/nyheter"],
+  ])("extracts the Swedish named-page phrasing %s", (prompt, name, path) => {
+    expect(extractExplicitNamedPages(prompt)).toEqual([{ name, path }]);
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt,
+      generationMode: "followUp",
+      existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.some((r) => r.path === path)).toBe(true);
+  });
+
+  it("does not plan a route when the phrasing points at an existing page or describes form fields", () => {
+    for (const prompt of [
+      "Ändra texten på sidan som heter Om oss",
+      "Byt bild på sidan kallad Tjänster",
+      "Lägg till en sida med namnet och e-post för medlemmar",
+      "Skapa en inloggningssida med fält för användarnamn och lösenord",
+    ]) {
+      expect(extractExplicitNamedPages(prompt)).toEqual([]);
+      const plan = buildRoutePlan({
+        ...websiteBase,
+        prompt,
+        generationMode: "followUp",
+        existingRoutePaths: ["/"],
+      });
+      expect(plan.routes.map((r) => r.path)).toEqual(["/"]);
+    }
+  });
+
   it("does not treat copy-edit ska heta as a new page", () => {
     for (const prompt of [
       'Rubriken ska heta "Välkommen"',
