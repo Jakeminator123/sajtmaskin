@@ -45,7 +45,13 @@ const COPY_FINDING_IDS = new Set([
 
 const LAYOUT_PATHS = new Set(["app/layout.tsx", "src/app/layout.tsx"]);
 const SEO_PUBLISH_COPY_WORKLOAD_ID = "seo_publish_copy";
-const TIMEOUT_MS = 20_000;
+const TIMEOUT_MS = 30_000;
+/**
+ * The reply itself is ~100 tokens, but reasoning tokens count toward the cap on
+ * GPT-6.1 Sol (which has no `none` effort); a tight cap truncates the object and
+ * the pass silently degrades to `llm_error`.
+ */
+const MAX_OUTPUT_TOKENS = 4_000;
 /** Enough of the site to describe it; far short of the whole project. */
 const MAX_CONTEXT_CHARS = 6_000;
 
@@ -145,7 +151,7 @@ export async function improveSeoCopyWithLlm(
       ]
         .filter(Boolean)
         .join("\n"),
-      maxOutputTokens: 400,
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
       maxRetries: 1,
       abortSignal: controller.signal,
       ...workloadOpenAIProviderOptions(SEO_PUBLISH_COPY_WORKLOAD_ID, options.modelId),

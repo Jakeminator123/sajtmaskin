@@ -39,11 +39,12 @@ class SharedManifestParityTests(unittest.TestCase):
         thinking = phase_thinking_defaults(manifest)
 
         self.assertEqual(
-            BUILD_PROFILE_ORDER, ("pro", "max", "premium", "codex", "anthropic")
+            BUILD_PROFILE_ORDER, ("pro", "max", "premium", "ultra", "codex", "anthropic")
         )
         self.assertEqual(TIER_LABELS_SV["pro"], "Låg (pro)")
         self.assertEqual(TIER_LABELS_SV["max"], "Mellan (max)")
         self.assertEqual(TIER_LABELS_SV["premium"], "Hög (premium)")
+        self.assertEqual(TIER_LABELS_SV["ultra"], "Extra hög (ultra)")
         self.assertEqual(TIER_LABELS_SV["codex"], "Kod Max (codex, dold)")
         for tier in BUILD_PROFILE_ORDER:
             self.assertIn(tier, build_defaults)

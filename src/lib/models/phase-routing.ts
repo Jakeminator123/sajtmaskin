@@ -18,11 +18,11 @@ import {
  *
  * Tier ladder: Låg (`pro`), Mellan (`max`) and Hög (`premium`) all build
  * with GPT-6.1 Sol; they differ by generator effort (medium/high/xhigh,
- * always `reasoningMode: "standard"`) and by fixer effort. Sol also takes the
- * side phases, except Låg's verifier which runs on GPT-6 Luna.
+ * always `reasoningMode: "standard"`) and by fixer effort. Extra hög (`ultra`)
+ * builds planner and generator with GPT-6 Astra. Sol takes every side phase.
  * Fixers run without a thinking stream but honor the manifest effort.
- * `codex` mirrors Mellan and is hidden from the UI. Anthropic keeps a single
- * model across phases. The concrete values live in the manifest, not here.
+ * `codex` mirrors Mellan; it and Anthropic (one model across phases) are hidden
+ * from the UI. The concrete values live in the manifest, not here.
  */
 const SELECTED_BUILD_MODEL_REF = "selected_build_model";
 

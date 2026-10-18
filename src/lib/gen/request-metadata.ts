@@ -346,12 +346,16 @@ export function extractBriefFromMeta(meta: unknown): Record<string, unknown> | n
   return meta.brief;
 }
 
+/**
+ * Byggval "Färg: Auto" is stored as `off` and means "no preference". It must
+ * reach the prompt as absent, not as a preset named "off" that reads like
+ * "colors off".
+ */
 export function extractDesignThemePresetFromMeta(meta: unknown): string | null {
   if (!isRecord(meta)) return null;
-  const direct = asTrimmedString(meta.designTheme);
-  if (direct) return direct;
-  const alias = asTrimmedString(meta.designThemePreset);
-  return alias || null;
+  const value = asTrimmedString(meta.designTheme) || asTrimmedString(meta.designThemePreset);
+  if (!value || value.toLowerCase() === "off") return null;
+  return value;
 }
 
 export function extractPaletteStateFromMeta(meta: unknown): PaletteState | null {

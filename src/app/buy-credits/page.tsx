@@ -474,6 +474,12 @@ function BuyCreditsContent() {
                         color: "text-brand-teal",
                       },
                       {
+                        label: `Generering (${MODEL_LABELS.ultra})`,
+                        cost: breakdown.generateUltra,
+                        icon: Wand2,
+                        color: "text-brand-teal",
+                      },
+                      {
                         label: `Förfining (${MODEL_LABELS.pro})`,
                         cost: breakdown.refinePro,
                         icon: Zap,
@@ -488,6 +494,12 @@ function BuyCreditsContent() {
                       {
                         label: `Förfining (${MODEL_LABELS.premium})`,
                         cost: breakdown.refinePremium,
+                        icon: Zap,
+                        color: "text-brand-amber",
+                      },
+                      {
+                        label: `Förfining (${MODEL_LABELS.ultra})`,
+                        cost: breakdown.refineUltra,
                         icon: Zap,
                         color: "text-brand-amber",
                       },

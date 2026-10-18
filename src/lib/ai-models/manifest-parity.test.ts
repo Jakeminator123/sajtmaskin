@@ -108,6 +108,7 @@ describe("config/ai_models/manifest.json parity", () => {
       max: "gpt-6.1-sol",
       codex: "gpt-6.1-sol",
       anthropic: "claude-opus-4.8",
+      ultra: "gpt-6-astra",
     });
     expect(getBuildProfileDefaultOwnEngineModel("premium")).toBe(m.buildProfiles.defaults.premium);
     expect(getBuildProfileDefaultOwnEngineModel("pro")).toBe(m.buildProfiles.defaults.pro);
@@ -116,6 +117,7 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(getBuildProfileDefaultOwnEngineModel("anthropic")).toBe(
       m.buildProfiles.defaults.anthropic,
     );
+    expect(getBuildProfileDefaultOwnEngineModel("ultra")).toBe(m.buildProfiles.defaults.ultra);
     expect(DEFAULT_OWN_MODEL_ID).toBe(m.buildProfiles.defaults.max);
   });
 
@@ -126,6 +128,7 @@ describe("config/ai_models/manifest.json parity", () => {
       "SAJTMASKIN_MODEL_MAX",
       "SAJTMASKIN_MODEL_CODEX",
       "SAJTMASKIN_MODEL_ANTHROPIC",
+      "SAJTMASKIN_MODEL_ULTRA",
     ] as const;
     if (keys.some((k) => process.env[k]?.trim())) return;
     expect(canonicalModelIdToOwnModelId("premium")).toBe(
@@ -138,6 +141,9 @@ describe("config/ai_models/manifest.json parity", () => {
     );
     expect(canonicalModelIdToOwnModelId("anthropic")).toBe(
       getBuildProfileDefaultOwnEngineModel("anthropic"),
+    );
+    expect(canonicalModelIdToOwnModelId("ultra")).toBe(
+      getBuildProfileDefaultOwnEngineModel("ultra"),
     );
   });
 

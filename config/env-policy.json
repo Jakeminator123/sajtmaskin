@@ -233,6 +233,7 @@
     "SAJTMASKIN_MODEL_PREMIUM",
     "SAJTMASKIN_MODEL_MAX",
     "SAJTMASKIN_MODEL_PRO",
+    "SAJTMASKIN_MODEL_ULTRA",
     "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
     "SAJTMASKIN_MAX_PROMPT_HANDOFF_CHARS",
     "SAJTMASKIN_MAX_SYSTEM_LENGTH",
@@ -420,7 +421,13 @@
       "key": "SAJTMASKIN_MODEL_ANTHROPIC",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Optional Anthropic profile override used by capability routing and legacy fallback paths."
+      "notes": "Optional Anthropic profile override used by capability routing and legacy fallback paths. Leave unset so the manifest default (Claude Opus 4.8) applies in every environment."
+    },
+    {
+      "key": "SAJTMASKIN_MODEL_ULTRA",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Optional override for the Extra hög (ultra) profile model used by own-engine model resolution. Default is the manifest's GPT-6 Astra."
     },
     {
       "key": "SAJTMASKIN_ASSIST_MODEL",

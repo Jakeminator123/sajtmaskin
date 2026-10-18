@@ -53,15 +53,17 @@
       "pro": "gpt-6.1-sol",
       "max": "gpt-6.1-sol",
       "codex": "gpt-6.1-sol",
-      "anthropic": "claude-opus-4.8"
+      "anthropic": "claude-opus-4.8",
+      "ultra": "gpt-6-astra"
     },
-    "notes": "Tier ladder 2026-09-02 (ägarbeslut): pro = «Låg», max = «Mellan», premium = «Hög». Alla tre kör GPT-6.1 Sol som byggmodell (sedan 2026-10-17, tidigare GPT-5.6 Sol); skillnaden ligger i phaseRouting.thinkingByTier (generatorns reasoningEffort medium → high → xhigh, alltid reasoningMode standard) och i fixerns effort. Låg kör verifiern på GPT-6 Luna. Det finns ingen GPT-6 Terra; Terra-arbete flyttades till Sol, som har lägre outputpris. `codex` är en dold kompatibilitetsprofil (samma routing som max) som inte visas i UI. `anthropic` är orörd.",
+    "notes": "Tier ladder 2026-09-02 (ägarbeslut): pro = «Låg», max = «Mellan», premium = «Hög». Alla tre kör GPT-6.1 Sol som byggmodell (sedan 2026-10-17, tidigare GPT-5.6 Sol); skillnaden ligger i phaseRouting.thinkingByTier (generatorns reasoningEffort medium → high → xhigh, alltid reasoningMode standard) och i fixerns effort. `ultra` = «Extra hög» (ägarbeslut 2026-10-18) bygger planner och generator med GPT-6 Astra på high; fixer, verifier, deploy-assistant och Deep Brief stannar på GPT-6.1 Sol så att bara kodgenereringen bär Astras pris. Mellan är standardnivån sedan 2026-10-18. Det finns ingen GPT-6 Terra; Terra-arbete flyttades till Sol, som har lägre outputpris. `codex` är en dold kompatibilitetsprofil (samma routing som max) som inte visas i UI. `anthropic` är dold i reglaget sedan 2026-10-18 men bygger fortfarande med Opus 4.8 för sparade val.",
     "envKeys": {
       "premium": "SAJTMASKIN_MODEL_PREMIUM",
       "pro": "SAJTMASKIN_MODEL_PRO",
       "max": "SAJTMASKIN_MODEL_MAX",
       "codex": "SAJTMASKIN_MODEL_CODEX",
-      "anthropic": "SAJTMASKIN_MODEL_ANTHROPIC"
+      "anthropic": "SAJTMASKIN_MODEL_ANTHROPIC",
+      "ultra": "SAJTMASKIN_MODEL_ULTRA"
     }
   },
   "qualityToOwnEngineModel": {
@@ -133,7 +135,7 @@
         "planner": "selected_build_model",
         "generator": "selected_build_model",
         "fixer": "gpt-6.1-sol",
-        "verifier": "gpt-6-luna",
+        "verifier": "gpt-6.1-sol",
         "deploy-assistant": "gpt-6.1-sol"
       },
       "max": {
@@ -156,6 +158,13 @@
         "fixer": "selected_build_model",
         "verifier": "selected_build_model",
         "deploy-assistant": "claude-opus-4.8"
+      },
+      "ultra": {
+        "planner": "selected_build_model",
+        "generator": "selected_build_model",
+        "fixer": "gpt-6.1-sol",
+        "verifier": "gpt-6.1-sol",
+        "deploy-assistant": "gpt-6.1-sol"
       }
     },
     "thinkingByTier": {
@@ -276,9 +285,33 @@
           "thinking": false,
           "reasoningEffort": "medium"
         }
+      },
+      "ultra": {
+        "planner": {
+          "thinking": true,
+          "reasoningEffort": "high",
+          "reasoningMode": "standard"
+        },
+        "generator": {
+          "thinking": true,
+          "reasoningEffort": "high",
+          "reasoningMode": "standard"
+        },
+        "fixer": {
+          "thinking": false,
+          "reasoningEffort": "high"
+        },
+        "verifier": {
+          "thinking": false,
+          "reasoningEffort": "low"
+        },
+        "deploy-assistant": {
+          "thinking": false,
+          "reasoningEffort": "medium"
+        }
       }
     },
-    "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override. Tier ladder (owner decision 2026-09-02): pro=«Låg», max=«Mellan», premium=«Hög» all build with GPT-6.1 Sol (since 2026-10-17); the tiers differ by generator reasoningEffort (medium / high / xhigh) and fixer effort. GPT-6.1 Sol also takes fixer, deploy-assistant and the Mellan/Hög verifier; Låg's verifier runs on GPT-6 Luna. GPT-6.1 Sol has no `none` effort, so callers clamp every requested effort to the model's range (src/lib/models/openai-capabilities.ts). reasoningMode is always `standard`: prod llm_usage (28 jul–1 sep 2026) showed Premium's `pro` mode inflating billed input ~6x (142k vs 22k p50, 40% cache) for identical prompts — OpenAI's reasoning guide confirms pro mode «aggregates the model work performed» and bills all of it. Verifiers run without a thinking stream at low effort: the previous Sol/high verifier spent 26 s p50 with 90% of its output being reasoning for a ~200-token verdict. Fixers keep thinking:false but honor the manifest effort (llm-fixer.ts passes it for registered GPT-5.6/GPT-6 models). `codex` is a hidden compatibility tier that mirrors Mellan. Persisted `fast` selections are accepted only as a compatibility alias and canonicalized to `premium`. The persisted chat.model remains the tier build model so repair and background verification can recover the tier; generated-version telemetry records the resolved phase model."
+    "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override. Tier ladder (owner decision 2026-09-02): pro=«Låg», max=«Mellan», premium=«Hög» all build with GPT-6.1 Sol (since 2026-10-17); the tiers differ by generator reasoningEffort (medium / high / xhigh) and fixer effort. ultra=«Extra hög» (2026-10-18) builds planner and generator with GPT-6 Astra at high; its fixer, verifier and deploy-assistant stay on GPT-6.1 Sol. GPT-6.1 Sol also takes fixer, deploy-assistant and every tier's verifier (Låg moved off GPT-6 Luna 2026-10-18 so no tier reviews code below the former Terra level). GPT-6.1 Sol has no `none` effort, so callers clamp every requested effort to the model's range (src/lib/models/openai-capabilities.ts). reasoningMode is always `standard`: prod llm_usage (28 jul–1 sep 2026) showed Premium's `pro` mode inflating billed input ~6x (142k vs 22k p50, 40% cache) for identical prompts — OpenAI's reasoning guide confirms pro mode «aggregates the model work performed» and bills all of it. Verifiers run without a thinking stream at low effort: the previous Sol/high verifier spent 26 s p50 with 90% of its output being reasoning for a ~200-token verdict. Fixers keep thinking:false but honor the manifest effort (llm-fixer.ts passes it for registered GPT-5.6/GPT-6 models). `codex` is a hidden compatibility tier that mirrors Mellan. Persisted `fast` selections are accepted only as a compatibility alias and canonicalized to `premium`. The persisted chat.model remains the tier build model so repair and background verification can recover the tier; generated-version telemetry records the resolved phase model."
   },
   "perTierBriefing": {
     "premium": {
@@ -295,6 +328,9 @@
     },
     "anthropic": {
       "briefingModel": "anthropic/claude-opus-4.8"
+    },
+    "ultra": {
+      "briefingModel": "openai/gpt-6.1-sol"
     }
   },
   "repairPolicies": {
@@ -900,7 +936,8 @@
         "pro": "SAJTMASKIN_MODEL_PRO",
         "max": "SAJTMASKIN_MODEL_MAX",
         "codex": "SAJTMASKIN_MODEL_CODEX",
-        "anthropic": "SAJTMASKIN_MODEL_ANTHROPIC"
+        "anthropic": "SAJTMASKIN_MODEL_ANTHROPIC",
+        "ultra": "SAJTMASKIN_MODEL_ULTRA"
       },
       "tokenBudget": {
         "envKey": "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
@@ -1237,8 +1274,9 @@
       "provider": "openai_direct",
       "codeEntry": ["src/lib/seo/llm-copy.ts", "src/lib/seo/index.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "openai/gpt-6-luna",
-      "reasoningEffort": "none"
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium",
+      "notes": "GPT-6.1 Sol medium since 2026-10-18 (owner decision): title and description are the customer-visible search snippet, and the pass runs at most once per publish. Reasoning tokens count toward maxOutputTokens, so llm-copy.ts reserves headroom for them. Site creation has no separate SEO model: the Deep Brief and the build model write metadata."
     },
     {
       "id": "live_review",
