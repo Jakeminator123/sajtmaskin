@@ -172,11 +172,18 @@ export function KostnadsfriPage({
   const handlePasswordSuccess = useCallback(async (
     data: KostnadsfriCompanyData,
     account: CampaignAccountStatus,
+    boundProjectId: string | null,
   ) => {
     clearCampaignClaimPendingIfSlugDiffers(slug);
     // Verify set (campaign) or cleared (claimed) the auth cookie; refresh the
     // store before the next phase so «Fortsätt» does not read a stale session.
+    // An unavailable lookup may also have cleared another invitation's session;
+    // the store only matters once the build starts, so that refresh need not block.
     if (account === "campaign" || account === "claimed") await fetchUser();
+    else if (account === "unavailable") void fetchUser();
+    // A revisit from a fresh session builds into the project the invitation is
+    // already bound to; a new project would be rejected by that binding.
+    if (boundProjectId) persistBoundCampaignProjectId(boundProjectId, { slug });
     setAccountNotice(
       account === "claimed"
         ? "Inbjudan är redan sparad till ett konto. Logga in med det kontot för att fortsätta."

@@ -17,6 +17,9 @@ vi.mock("@/lib/db/services/kostnadsfri-account", () => ({
   findOrCreateKostnadsfriCampaignUser,
   transferKostnadsfriCampaignAccount,
 }));
+vi.mock("@/lib/db/services/kostnadsfri-campaign", () => ({
+  getKostnadsfriBoundProjectIdForOwner: vi.fn(async () => null),
+}));
 vi.mock("@/lib/db/services/users", () => ({
   updateUserLastLogin: vi.fn(async () => undefined),
 }));
