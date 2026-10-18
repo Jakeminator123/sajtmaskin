@@ -70,6 +70,10 @@ export async function releaseDidStream(
   let last: DidStreamReleaseOutcome = { ok: false, reason: "network" };
 
   for (let attempt = 1; attempt <= DID_STREAM_RELEASE_MAX_ATTEMPTS; attempt += 1) {
+    const controller = retry ? new AbortController() : null;
+    const abortTimer = controller
+      ? setTimeout(() => controller.abort(), Math.max(1, deadline - Date.now()))
+      : undefined;
     try {
       const response = await fetch(releaseUrl(stream), {
         method: "DELETE",
@@ -79,6 +83,7 @@ export async function releaseDidStream(
         },
         body: JSON.stringify({ session_id: stream.sessionId }),
         keepalive: true,
+        ...(controller ? { signal: controller.signal } : {}),
       });
       if (response.ok) return { ok: true, status: response.status };
       last = { ok: false, status: response.status };
@@ -86,6 +91,8 @@ export async function releaseDidStream(
     } catch {
       last = { ok: false, reason: "network" };
       if (!retry) return last;
+    } finally {
+      if (abortTimer !== undefined) clearTimeout(abortTimer);
     }
     const remaining = deadline - Date.now();
     if (remaining <= 0 || attempt === DID_STREAM_RELEASE_MAX_ATTEMPTS) return last;

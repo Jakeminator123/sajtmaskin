@@ -87,6 +87,26 @@ describe("releaseDidStream", () => {
     expect(fetchMock.mock.calls.length).toBe(calls);
   });
 
+  it("aborts a stalled request at the deadline so a reconnect is not blocked", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("aborted", "AbortError")),
+          );
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const pending = releaseDidStream(STREAM, "client-key");
+    const seen = pending.then((outcome) => outcome);
+    await vi.advanceTimersByTimeAsync(DID_STREAM_RELEASE_TIMEOUT_MS + 1);
+
+    await expect(seen).resolves.toEqual({ ok: false, reason: "network" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("gives up on repeated 503 responses when the deadline passes", async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 503 }));
