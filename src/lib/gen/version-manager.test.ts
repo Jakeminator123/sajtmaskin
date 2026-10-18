@@ -23,6 +23,7 @@ import {
   resolveFollowUpPreviousFiles,
 } from "./version-manager";
 import type { CodeFile } from "./parser";
+import * as pureFileMerge from "./version-file-merge";
 
 const getPreferredVersionMock = vi.mocked(getPreferredVersion);
 const getLatestVersionMock = vi.mocked(getLatestVersion);
@@ -34,6 +35,11 @@ const file = (path: string, content: string): CodeFile => ({
   path,
   content,
   language: "tsx",
+});
+
+it("re-exports the pure merge owner without duplicating its functions", () => {
+  expect(mergePackageJsonContent).toBe(pureFileMerge.mergePackageJsonContent);
+  expect(mergeVersionFilesWithWarnings).toBe(pureFileMerge.mergeVersionFilesWithWarnings);
 });
 
 describe("mergePackageJsonContent", () => {

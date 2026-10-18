@@ -53,6 +53,8 @@ export interface GenerationSource {
 }
 
 export interface GenerationInputPackage extends OrchestrationBase {
+  /** Post-processing policy, not prompt/hash input. Legacy packages omit it (= off). */
+  materializeImages?: boolean;
   /** User-turn text that shaped orchestration/system assembly for this run. */
   userPrompt: string;
   /** User's original message before prompt-assist wrapping/optimization. */
@@ -90,6 +92,22 @@ export interface GenerationInputPackage extends OrchestrationBase {
   /** SHA-256 of deterministic inputs for lineage tracking. */
   lineageHash: string;
 }
+
+/** The decided inputs needed after generation; no prompts or source receipts. */
+export type GenerationFinalizeInput = Pick<
+  GenerationInputPackage,
+  | "buildSpec"
+  | "routePlan"
+  | "orchestrationContract"
+  | "resolvedScaffold"
+  | "lineageHash"
+  | "materializeImages"
+  | "variantId"
+  | "dossierSelection"
+  | "preGenerationContracts"
+  | "removedCapabilities"
+  | "removedDossierIds"
+>;
 
 /**
  * Compute a stable hash over the deterministic inputs that shaped generation.
@@ -149,6 +167,7 @@ export function computeLineageHash(pkg: {
  */
 export function serializePackageForDump(pkg: GenerationInputPackage): Record<string, unknown> {
   return {
+    materializeImages: pkg.materializeImages === true,
     lineageHash: pkg.lineageHash,
     userPrompt: pkg.userPrompt,
     rawPrompt: pkg.rawPrompt,

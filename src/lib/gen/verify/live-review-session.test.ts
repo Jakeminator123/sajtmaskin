@@ -5,12 +5,12 @@ vi.mock("@/lib/db/services/live-review-grants", () => ({
   readLiveReviewGrant: vi.fn(),
   writeLiveReviewGrant: vi.fn(),
 }));
-vi.mock("@/lib/db/services/live-review-runs", () => ({
+vi.mock("@/lib/db/services/live-review-runs", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/db/services/live-review-runs")>(),
   claimLiveReviewRun: vi.fn(),
   completeLiveReviewRun: vi.fn(),
   abandonLiveReviewRun: vi.fn(),
   beginPaidLiveReviewAttempt: vi.fn(),
-  incrementLiveReviewModelAttempts: vi.fn(),
   deletePreviousLiveReviewBlobs: vi.fn(),
   deleteLiveReviewScreenshotUrls: vi.fn(),
   purgeExpiredLiveReviewBlobs: vi.fn(),
@@ -18,12 +18,14 @@ vi.mock("@/lib/db/services/live-review-runs", () => ({
 }));
 vi.mock("@/lib/config", () => ({ OPENCLAW: { editEnabled: true } }));
 
-import { skippedLiveReviewResult } from "./live-review-claim";
-import { beginLiveReviewSession, finishLiveReviewSession } from "./live-review-session";
-import type { ClaimedLiveReview } from "@/lib/db/services/live-review-runs";
+import { LIVE_REVIEW_MAX_MODEL_ATTEMPTS, skippedLiveReviewResult } from "./live-review-claim";
+import { beginLiveReviewSession, finishLiveReviewSession, type LiveReviewSession } from "./live-review-session";
+import type { ClaimedLiveReview, LiveReviewHeldContext } from "@/lib/db/services/live-review-runs";
 import type { LiveReviewResult } from "./live-review-types";
 
+const FUTURE = Date.now() + 900_000;
 const GRANT = { powersOn: true, granted: ["live_review"] as const };
+const HELD = { chatId: "chat_1", versionId: "v1", filesRevision: "rev_a", holderRunId: "holder_1" };
 type AcquiredLiveReview = Extract<ClaimedLiveReview, { kind: "acquired" }>;
 
 const completed: LiveReviewResult = {
@@ -67,10 +69,34 @@ function acquired(
 }
 
 describe("beginLiveReviewSession", () => {
+  it("preserves explicit held context for the later atomic model reservation", async () => {
+    const session = await beginLiveReviewSession({
+        deadlineAt: FUTURE,
+      chatId: "chat_1", versionId: "v1", filesRevision: "rev_a", userId: "user_1", grant: GRANT, held: HELD,
+    }, { flagEnabled: true, editEnabled: true, claimRun: async () => acquired(), purgeExpired: async () => 0 });
+    expect(session.held).toBe(HELD);
+    expect(session.captureEnabled).toBe(true);
+  });
+
+  it.each([undefined, null, {}, { ...HELD, holderRunId: " " }, { ...HELD, versionId: "other" }, { ...HELD, filesRevision: "rev_b" }])(
+    "rejects malformed/mismatched explicit held context (%j) before a claim or capture", async (held) => {
+      const claimRun = vi.fn();
+      const session = await beginLiveReviewSession({
+        deadlineAt: FUTURE,
+        chatId: "chat_1", versionId: "v1", filesRevision: "rev_a", userId: "user_1", grant: GRANT,
+        held: held as LiveReviewHeldContext,
+      }, { flagEnabled: true, editEnabled: true, claimRun });
+      expect(session.captureEnabled).toBe(false);
+      expect(session.earlyResult).toEqual(skippedLiveReviewResult("preview_superseded"));
+      expect(Object.prototype.hasOwnProperty.call(session, "held")).toBe(true);
+      expect(claimRun).not.toHaveBeenCalled();
+    },
+  );
   it("flagga av: ingen capture, ingen claim", async () => {
     const claimRun = vi.fn();
     const session = await beginLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         chatId: "chat_1",
         versionId: "v1",
         filesRevision: "rev_a",
@@ -89,6 +115,7 @@ describe("beginLiveReviewSession", () => {
     const claimRun = vi.fn();
     const session = await beginLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         chatId: "chat_1",
         versionId: "v1",
         filesRevision: "rev_a",
@@ -107,6 +134,7 @@ describe("beginLiveReviewSession", () => {
     const readGrant = vi.fn();
     const session = await beginLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         chatId: "chat_1",
         versionId: "v1",
         filesRevision: "rev_a",
@@ -130,6 +158,7 @@ describe("beginLiveReviewSession", () => {
   it("förfalskad grant i request räknas inte — bara persistad grant", async () => {
     const session = await beginLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         chatId: "chat_1",
         versionId: "v1",
         filesRevision: "rev_a",
@@ -144,6 +173,7 @@ describe("beginLiveReviewSession", () => {
   it("OC_EDIT av: edit_off även med persistad grant", async () => {
     const session = await beginLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         chatId: "chat_1",
         versionId: "v1",
         filesRevision: "rev_a",
@@ -159,6 +189,7 @@ describe("beginLiveReviewSession", () => {
     const claimRun = vi.fn();
     const session = await beginLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         chatId: "chat_1",
         versionId: "v1",
         filesRevision: "  ",
@@ -174,6 +205,7 @@ describe("beginLiveReviewSession", () => {
   it("cache och in-flight stänger av ny capture", async () => {
     const cached = await beginLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         chatId: "chat_1",
         versionId: "v1",
         filesRevision: "rev_a",
@@ -191,6 +223,7 @@ describe("beginLiveReviewSession", () => {
 
     const busy = await beginLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         chatId: "chat_1",
         versionId: "v1",
         filesRevision: "rev_a",
@@ -214,6 +247,7 @@ describe("beginLiveReviewSession", () => {
     });
     const session = await beginLiveReviewSession(
       {
+        held: { ...HELD, filesRevision: "rev_b" }, deadlineAt: FUTURE,
         chatId: "chat_1",
         versionId: "v1",
         filesRevision: "rev_b",
@@ -228,6 +262,74 @@ describe("beginLiveReviewSession", () => {
 });
 
 describe("finishLiveReviewSession", () => {
+  const heldSession = (): LiveReviewSession => ({
+        deadlineAt: FUTURE,
+    captureEnabled: true, allowed: true, claim: acquired(), earlyResult: null,
+    chatId: HELD.chatId, versionId: HELD.versionId, filesRevision: HELD.filesRevision, userId: "user_1", held: HELD,
+  });
+  const heldInput = { skipped: false, findings: [], screenshots: null, domSummary: null,
+    filesJson: "[]", userRequest: "x", briefSummary: "" };
+
+  it("passes the exact versionsholder to reservation before starting the critic", async () => {
+    const session = heldSession();
+    const beginPaidAttempt = vi.fn(async () => 1);
+    const attachReview = vi.fn(async () => completed);
+    await expect(finishLiveReviewSession(session, heldInput, {
+      beginPaidAttempt, attachReview, completeRun: async () => true, deletePreviousBlobs: async () => 0,
+    })).resolves.toEqual(completed);
+    expect(beginPaidAttempt).toHaveBeenCalledWith({
+      id: session.claim!.row.id, claimedAt: session.claim!.row.claimedAt, held: HELD, deadlineAt: FUTURE,
+    });
+    expect(beginPaidAttempt.mock.invocationCallOrder[0]).toBeLessThan(attachReview.mock.invocationCallOrder[0]);
+    expect(attachReview).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([undefined, null, {}, { ...HELD, holderRunId: "" }, { ...HELD, chatId: "other" }, { ...HELD, filesRevision: "rev_b" }])(
+    "never falls back to an unheld reservation for malformed explicit context (%j)", async (held) => {
+      const beginPaidAttempt = vi.fn(async () => 1);
+      const attachReview = vi.fn();
+      const abandonRun = vi.fn();
+      await expect(finishLiveReviewSession({ ...heldSession(), held: held as LiveReviewHeldContext }, heldInput, {
+        beginPaidAttempt, attachReview, abandonRun, deleteScreenshotUrls: async () => {},
+      })).resolves.toEqual(skippedLiveReviewResult("preview_superseded"));
+      expect(beginPaidAttempt).not.toHaveBeenCalled();
+      expect(attachReview).not.toHaveBeenCalled();
+      expect(abandonRun).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects a mismatched LR claim even when session and held target agree", async () => {
+    const beginPaidAttempt = vi.fn(async () => 1);
+    const attachReview = vi.fn();
+    await expect(finishLiveReviewSession({ ...heldSession(), claim: acquired({ row: { filesRevision: "rev_b" } }) }, heldInput, {
+      beginPaidAttempt, attachReview, deleteScreenshotUrls: async () => {},
+    })).resolves.toEqual(skippedLiveReviewResult("preview_superseded"));
+    expect(beginPaidAttempt).not.toHaveBeenCalled();
+    expect(attachReview).not.toHaveBeenCalled();
+  });
+
+  it("keeps the existing cap and does not buy a model for an already capped held claim", async () => {
+    const beginPaidAttempt = vi.fn();
+    const attachReview = vi.fn();
+    await expect(finishLiveReviewSession({ ...heldSession(), claim: acquired({ row: { modelAttempts: LIVE_REVIEW_MAX_MODEL_ATTEMPTS } }) }, heldInput, {
+      beginPaidAttempt, attachReview, completeRun: async () => true,
+    })).resolves.toEqual(skippedLiveReviewResult("cost_capped"));
+    expect(beginPaidAttempt).not.toHaveBeenCalled();
+    expect(attachReview).not.toHaveBeenCalled();
+  });
+
+  it("does not refund a held reservation when the critic subsequently returns a nonpaid skip", async () => {
+    const beginPaidAttempt = vi.fn(async () => 1);
+    const abandonRun = vi.fn();
+    const completeRun = vi.fn();
+    await expect(finishLiveReviewSession(heldSession(), { ...heldInput, skipped: true }, {
+      beginPaidAttempt, abandonRun, completeRun, deleteScreenshotUrls: async () => {},
+      attachReview: async () => skippedLiveReviewResult("postcheck_skipped"),
+    })).resolves.toEqual(skippedLiveReviewResult("postcheck_skipped"));
+    expect(beginPaidAttempt).toHaveBeenCalledTimes(1);
+    expect(abandonRun).not.toHaveBeenCalled();
+    expect(completeRun).not.toHaveBeenCalled();
+  });
   it("cache och cost-cap returnerar hydrerat resultat utan capture eller critic", async () => {
     const hydrated: LiveReviewResult = {
       ...completed,
@@ -241,6 +343,7 @@ describe("finishLiveReviewSession", () => {
       const attachReview = vi.fn();
       const session = await beginLiveReviewSession(
         {
+        held: HELD, deadlineAt: FUTURE,
           chatId: "chat_1",
           versionId: "v1",
           filesRevision: "rev_a",
@@ -279,6 +382,7 @@ describe("finishLiveReviewSession", () => {
     const waitForRun = vi.fn(async () => completed);
     const result = await finishLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         captureEnabled: false,
         allowed: true,
         claim: { kind: "in_flight", row: acquired().row },
@@ -310,9 +414,10 @@ describe("finishLiveReviewSession", () => {
     const beginPaidAttempt = vi.fn(async () => 1);
     const result = await finishLiveReviewSession(
       {
+        held: { ...HELD, filesRevision: "rev_b" }, deadlineAt: FUTURE,
         captureEnabled: true,
         allowed: true,
-        claim: acquired(),
+        claim: acquired({ row: { filesRevision: "rev_b" } }),
         earlyResult: null,
         chatId: "chat_1",
         versionId: "v1",
@@ -363,6 +468,7 @@ describe("finishLiveReviewSession", () => {
 
     const finishingN = finishLiveReviewSession(
       {
+        held: { ...HELD, filesRevision: "rev_n" }, deadlineAt: FUTURE,
         captureEnabled: true,
         allowed: true,
         claim: acquired({ row: { filesRevision: "rev_n" } }),
@@ -405,7 +511,7 @@ describe("finishLiveReviewSession", () => {
     expect(deleteScreenshotUrls).not.toHaveBeenCalledWith(
       expect.objectContaining({ desktopUrl: "https://blob.example/n-plus-1.jpg" }),
     );
-    expect(abandonRun).toHaveBeenCalledWith("lr_1", expect.any(Date));
+    expect(abandonRun).not.toHaveBeenCalled();
   });
 
   it("raderar inte N+1-blobs när målet supersedas direkt efter N:s complete", async () => {
@@ -421,6 +527,7 @@ describe("finishLiveReviewSession", () => {
 
     const result = await finishLiveReviewSession(
       {
+        held: { ...HELD, filesRevision: "rev_n" }, deadlineAt: FUTURE,
         captureEnabled: true,
         allowed: true,
         claim: acquired({ row: { filesRevision: "rev_n" } }),
@@ -453,15 +560,16 @@ describe("finishLiveReviewSession", () => {
     expect(deletePreviousBlobs).not.toHaveBeenCalled();
   });
 
-  it("raderar inte föregående par om complete misslyckas — överger claimen", async () => {
+  it.each(["false", "throw"] as const)("bevarar reservationen när complete misslyckas med %s", async (failure) => {
     const deletePreviousBlobs = vi.fn(async () => 1);
     const abandonRun = vi.fn(async () => {});
     const deleteScreenshotUrls = vi.fn(async () => {});
     const result = await finishLiveReviewSession(
       {
+        held: { ...HELD, filesRevision: "rev_b" }, deadlineAt: FUTURE,
         captureEnabled: true,
         allowed: true,
-        claim: acquired(),
+        claim: acquired({ row: { filesRevision: "rev_b" } }),
         earlyResult: null,
         chatId: "chat_1",
         versionId: "v1",
@@ -480,7 +588,10 @@ describe("finishLiveReviewSession", () => {
       {
         attachReview: async () => completed,
         beginPaidAttempt: async () => 1,
-        completeRun: async () => false,
+        completeRun: async () => {
+          if (failure === "throw") throw new Error("offline persistence failure");
+          return false;
+        },
         deletePreviousBlobs,
         abandonRun,
         deleteScreenshotUrls,
@@ -488,11 +599,11 @@ describe("finishLiveReviewSession", () => {
     );
     expect(result.status).toBe("completed");
     expect(deletePreviousBlobs).not.toHaveBeenCalled();
-    expect(abandonRun).toHaveBeenCalledWith("lr_1", expect.any(Date));
+    expect(abandonRun).not.toHaveBeenCalled();
     expect(deleteScreenshotUrls).toHaveBeenCalled();
   });
 
-  it("raderar redan uppladdade JPEG när claim överges", async () => {
+  it("raderar egna JPEG men behåller reservationen även vid ett skipped-resultat", async () => {
     const deleteScreenshotUrls = vi.fn(async () => {});
     const abandonRun = vi.fn(async () => {});
     const screenshots = {
@@ -501,9 +612,10 @@ describe("finishLiveReviewSession", () => {
     };
     const result = await finishLiveReviewSession(
       {
+        held: { ...HELD, filesRevision: "rev_b" }, deadlineAt: FUTURE,
         captureEnabled: true,
         allowed: true,
-        claim: acquired(),
+        claim: acquired({ row: { filesRevision: "rev_b" } }),
         earlyResult: null,
         chatId: "chat_1",
         versionId: "v1",
@@ -528,7 +640,7 @@ describe("finishLiveReviewSession", () => {
     );
     expect(result).toEqual(skippedLiveReviewResult("postcheck_skipped"));
     expect(deleteScreenshotUrls).toHaveBeenCalledWith(screenshots);
-    expect(abandonRun).toHaveBeenCalledWith("lr_1", expect.any(Date));
+    expect(abandonRun).not.toHaveBeenCalled();
   });
 
   it("startar inte critic om leasen redan tagits över", async () => {
@@ -538,6 +650,7 @@ describe("finishLiveReviewSession", () => {
     const screenshots = { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null };
     const result = await finishLiveReviewSession(
       {
+        held: HELD, deadlineAt: FUTURE,
         captureEnabled: true,
         allowed: true,
         claim: acquired(),
@@ -567,5 +680,64 @@ describe("finishLiveReviewSession", () => {
     expect(attachReview).not.toHaveBeenCalled();
     expect(waitForRun).toHaveBeenCalled();
     expect(deleteScreenshotUrls).toHaveBeenCalledWith(screenshots);
+  });
+});
+
+describe("LiveReview reservation survives handler restart", () => {
+  const input = {
+    skipped: false, findings: [],
+    screenshots: { desktopUrl: "https://blob.example/current.jpg", mobileUrl: null },
+    domSummary: null, filesJson: "[]", userRequest: "x", briefSummary: "",
+  };
+  const session = (modelAttempts: number) => ({
+        held: HELD, deadlineAt: FUTURE,
+    captureEnabled: true, allowed: true, claim: acquired({ row: { modelAttempts } }),
+    earlyResult: null, chatId: "chat_1", versionId: "v1", filesRevision: "rev_a", userId: "user_1",
+  });
+
+  it("allows only the remaining slot after failed completion and then caps a restarted handler", async () => {
+    let reserved = 0;
+    const beginPaidAttempt = vi.fn(async () => reserved < 2 ? ++reserved : null);
+    const attachReview = vi.fn(async () => completed);
+    const completeRun = vi.fn(async () => false);
+    // A destructive abandon would reproduce the bug by reopening all slots.
+    const abandonRun = vi.fn(async () => { reserved = 0; });
+    const deps = { beginPaidAttempt, attachReview, completeRun, abandonRun, deleteScreenshotUrls: vi.fn(async () => {}) };
+
+    await finishLiveReviewSession(session(reserved), input, deps);
+    expect(reserved).toBe(1);
+    await finishLiveReviewSession(session(reserved), input, deps);
+    expect(reserved).toBe(2);
+    const capped = await finishLiveReviewSession(session(reserved), input, deps);
+    expect(capped).toEqual(skippedLiveReviewResult("cost_capped"));
+    expect(attachReview).toHaveBeenCalledTimes(2);
+    expect(beginPaidAttempt).toHaveBeenCalledTimes(2);
+    expect(abandonRun).not.toHaveBeenCalled();
+  });
+
+  it.each([0, 1])("abandons a superseded pre-call claim only when its prior reserved count is zero (%s)", async (reserved) => {
+    const abandonRun = vi.fn(async () => {});
+    const beginPaidAttempt = vi.fn();
+    const attachReview = vi.fn();
+    const deleteScreenshotUrls = vi.fn(async () => {});
+    const result = await finishLiveReviewSession(session(reserved), { ...input, isTargetCurrent: async () => false }, {
+      abandonRun, beginPaidAttempt, attachReview, deleteScreenshotUrls,
+    });
+    expect(result).toEqual(skippedLiveReviewResult("preview_superseded"));
+    expect(abandonRun).toHaveBeenCalledTimes(reserved === 0 ? 1 : 0);
+    expect(deleteScreenshotUrls).toHaveBeenCalledWith(input.screenshots);
+    expect(beginPaidAttempt).not.toHaveBeenCalled();
+    expect(attachReview).not.toHaveBeenCalled();
+  });
+
+  it("does not start a critic after a thrown reservation failure", async () => {
+    const attachReview = vi.fn();
+    const abandonRun = vi.fn();
+    await expect(finishLiveReviewSession(session(0), input, {
+      beginPaidAttempt: vi.fn(async () => { throw new Error("reservation unavailable"); }),
+      attachReview, abandonRun,
+    })).rejects.toThrow("reservation unavailable");
+    expect(attachReview).not.toHaveBeenCalled();
+    expect(abandonRun).not.toHaveBeenCalled();
   });
 });

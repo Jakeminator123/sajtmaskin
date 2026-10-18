@@ -4,6 +4,7 @@ const attachVersionToPendingUsageAsync = vi.hoisted(() => vi.fn());
 const getLlmUsageContext = vi.hoisted(() => vi.fn(() => ({ claimKey: "claim_1" })));
 const establishGenerationBilling = vi.hoisted(() => vi.fn());
 const settleGenerationBilling = vi.hoisted(() => vi.fn());
+const reattributeGenerationBillingUsage = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/observability/llm-usage", () => ({
   attachVersionToPendingUsageAsync,
@@ -12,6 +13,7 @@ vi.mock("@/lib/observability/llm-usage", () => ({
 vi.mock("@/lib/db/services/generation-billing", () => ({
   establishGenerationBilling,
   settleGenerationBilling,
+  reattributeGenerationBillingUsage,
 }));
 vi.mock("@/lib/db/services/transactions", () => ({
   InsufficientCreditsError: class InsufficientCreditsError extends Error {
@@ -48,6 +50,7 @@ beforeEach(() => {
   attachVersionToPendingUsageAsync.mockResolvedValue(undefined);
   establishGenerationBilling.mockResolvedValue(undefined);
   settleGenerationBilling.mockResolvedValue(undefined);
+  reattributeGenerationBillingUsage.mockReset().mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -58,6 +61,45 @@ afterEach(() => {
 });
 
 describe("createCommitCreditsOnce", () => {
+  it("persists and attaches the separate brief receipt before settling, exactly once", async () => {
+    const check = creditCheck();
+    const commit = createCommitCreditsOnce(check as never, { briefUsageClaimKey: " brief-claim " });
+    await commit({ chatId: "chat_1", versionId: "version_1" });
+    await commit({ chatId: "chat_1", versionId: "version_1" });
+    expect(establishGenerationBilling).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ versionId: "version_1", claimKey: "claim_1", claimKeys: ["brief-claim"] }));
+    expect(reattributeGenerationBillingUsage).toHaveBeenCalledExactlyOnceWith({ chatId: "chat_1", versionId: "version_1", claimKeys: ["claim_1", "brief-claim"] });
+    expect(establishGenerationBilling.mock.invocationCallOrder[0]).toBeLessThan(reattributeGenerationBillingUsage.mock.invocationCallOrder[0]!);
+    expect(attachVersionToPendingUsageAsync.mock.invocationCallOrder[0]).toBeLessThan(reattributeGenerationBillingUsage.mock.invocationCallOrder[0]!);
+    expect(reattributeGenerationBillingUsage.mock.invocationCallOrder[0]).toBeLessThan(settleGenerationBilling.mock.invocationCallOrder[0]!);
+    expect(check.commit).not.toHaveBeenCalled();
+  });
+
+  it("does not settle a partial bill if the separate brief attachment fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    reattributeGenerationBillingUsage.mockRejectedValue(new Error("brief attachment unavailable"));
+    await createCommitCreditsOnce(creditCheck() as never, { briefUsageClaimKey: "brief-claim" })({ chatId: "chat_1", versionId: "version_1" });
+    expect(establishGenerationBilling).toHaveBeenCalledOnce();
+    expect(establishGenerationBilling).toHaveBeenCalledWith(expect.objectContaining({ claimKeys: ["brief-claim"] }));
+    expect(settleGenerationBilling).not.toHaveBeenCalled();
+  });
+
+  it("keeps cache-hit/legacy generations and targetless work on the existing billing path", async () => {
+    await createCommitCreditsOnce(creditCheck() as never)({ chatId: "chat_1", versionId: "version_1" });
+    await createCommitCreditsOnce(creditCheck() as never, { briefUsageClaimKey: "brief-claim" })();
+    expect(reattributeGenerationBillingUsage).not.toHaveBeenCalled();
+  });
+
+  it("retries the atomic marker with both receipts and never leaves a generation-only marker on failure", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    establishGenerationBilling.mockRejectedValue(new Error("marker write failed"));
+    await expect(createCommitCreditsOnce(creditCheck() as never, { briefUsageClaimKey: "brief-claim" })({ chatId: "chat_1", versionId: "version_1" })).rejects.toThrow("marker write failed");
+    expect(establishGenerationBilling).toHaveBeenCalledTimes(3);
+    for (const [input] of establishGenerationBilling.mock.calls) expect(input).toMatchObject({ claimKey: "claim_1", claimKeys: ["brief-claim"] });
+    expect(attachVersionToPendingUsageAsync).not.toHaveBeenCalled();
+    expect(reattributeGenerationBillingUsage).not.toHaveBeenCalled();
+    expect(settleGenerationBilling).not.toHaveBeenCalled();
+  });
+
   it("uses usage settlement instead of the fixed debit for a finalized version", async () => {
     const check = creditCheck();
     const commit = createCommitCreditsOnce(check as never);

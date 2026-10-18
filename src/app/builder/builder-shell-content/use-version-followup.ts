@@ -37,6 +37,15 @@ export function useShellVersionFollowup(vm: BuilderViewModel) {
         ) ?? null
       : null;
   }, [vm.activeVersionId, vm.effectiveVersionsList]);
+  const preferredVersionSummary = useMemo(() => {
+    if (!vm.latestVersionId) return null;
+    return (
+      vm.effectiveVersionsList.find(
+        (version) =>
+          version.versionId === vm.latestVersionId || version.id === vm.latestVersionId,
+      ) ?? null
+    );
+  }, [vm.latestVersionId, vm.effectiveVersionsList]);
   const activeVersionIsLatest =
     !vm.activeVersionId || !vm.latestVersionId || vm.activeVersionId === vm.latestVersionId;
   // OMTAG-06 / område 6-1: version status now flows from the canonical
@@ -49,7 +58,9 @@ export function useShellVersionFollowup(vm: BuilderViewModel) {
   const { status: activeVersionBusStatus } = useVersionStatus({
     chatId: vm.chatId,
     versionId: vm.activeVersionId,
-    refreshNonce: vm.versionStatusNonce,
+    // The existing /versions poll observes late server completion, including
+    // after this status hook has stopped polling. Reopen/reconnect needs no job.
+    refreshNonce: `${vm.versionStatusNonce}:${JSON.stringify(activeVersionSummary?.busStatus ?? null)}:${activeVersionSummary?.verificationState ?? ""}:${activeVersionSummary?.releaseState ?? ""}`,
   });
   const { status: preferredVersionBusStatus } = useVersionStatus({
     chatId: vm.chatId,
@@ -57,7 +68,7 @@ export function useShellVersionFollowup(vm: BuilderViewModel) {
       vm.latestVersionId && vm.latestVersionId !== vm.activeVersionId
         ? vm.latestVersionId
         : null,
-    refreshNonce: vm.versionStatusNonce,
+    refreshNonce: `${vm.versionStatusNonce}:${JSON.stringify(preferredVersionSummary?.busStatus ?? null)}:${preferredVersionSummary?.verificationState ?? ""}:${preferredVersionSummary?.releaseState ?? ""}`,
   });
   const pipelineWorkActive = usePipelineWorkActive();
   const f3FinalizeActive = useF3FinalizeActive();
@@ -74,15 +85,6 @@ export function useShellVersionFollowup(vm: BuilderViewModel) {
   // that decision in the chat composer. Labels prefer human-readable version
   // numbers and fall back to a shortened id. Distinguish older-selection vs
   // newer-but-rejected — never hide the banner in the rejected case.
-  const preferredVersionSummary = useMemo(() => {
-    if (!vm.latestVersionId) return null;
-    return (
-      vm.effectiveVersionsList.find(
-        (version) =>
-          version.versionId === vm.latestVersionId || version.id === vm.latestVersionId,
-      ) ?? null
-    );
-  }, [vm.latestVersionId, vm.effectiveVersionsList]);
   const preferredVersionStatus = useMemo(() => {
     if (!vm.latestVersionId || vm.latestVersionId === vm.activeVersionId) {
       return activeVersionStatus;
@@ -194,9 +196,8 @@ export function useShellVersionFollowup(vm: BuilderViewModel) {
   // Byggblock-panelen (PreviewPanelDossiers) refetchar sin "inkopplade"-lista
   // på versionId-byte + popover-open + env-var-sparning, men INTE när en ny
   // version landar medan popovern redan är öppen (t.ex. mitt i en generation).
-  // `versionStatusNonce` bumpas när en generations post-check-flöde är klart
-  // (`runPostGenerationChecks`), så vi speglar den ändringen som ett fönster-
-  // event i stället för att tråda nonce genom hela preview-panel-kedjan.
+  // Explicit generation/user refreshes are mirrored as a window event
+  // rather than threading a nonce through the entire preview-panel chain.
   const isFirstVersionStatusNonceRef = useRef(true);
   useEffect(() => {
     if (isFirstVersionStatusNonceRef.current) {

@@ -26,7 +26,7 @@ Båda länkas via mall-`id`. Alla tre filerna **genereras** — se §5. Klientko
   → createDraftVersion(..., editKind: "imported_repo")
   → startPreviewSession(files, { skipRepair: true, skipProjectScaffold: true })
   → preview-host (Fly VM): skriv filer → npm/pnpm/yarn install → npm run dev
-  → browser-resume (useResumePendingVerification, import lane): RenderGate verbatim
+  → server-resume (kräver separat schemaläggning, se §4c): RenderGate verbatim
     → basversionen settlar Verifierad / Verifierad-med-varningar / failed (se §4c)
 ```
 
@@ -50,14 +50,14 @@ Båda länkas via mall-`id`. Alla tre filerna **genereras** — se §5. Klientko
 | LLM vid init          | Nej                                               | Ja                                    |
 | Repair/scaffold-merge | Hoppas över (`skipRepair`, `skipProjectScaffold`) | Körs (`buildCompleteProject`)         |
 | Provenance            | `editKind: "imported_repo"`                       | normal                                |
-| Init-verifiering      | Browser-resume **import lane** (§4c)              | Klientens post-checks → RenderGate    |
+| Init-verifiering      | Server-resume **import lane** (§4c)               | Serverns efterkontroll → RenderGate  |
 
 **Vid follow-up-redigering** av en importerad mall gäller **imported repo mode** (detekteras via `edit_kind="imported_repo"` i chattens versionshistorik, `chatHasImportedRepoVersion`):
 
 - **Orchestration:** ingen scaffold matchas eller pinnas (`scaffoldMode: "off"`, persisted/contract-scaffoldId neutraliseras), och systemprompten renderar blocket `## Imported Template Project (verbatim repo)` som instruerar LLM:en att respektera repots struktur, versioner och `package.json`.
 - **Delta-brief (`clear-redesign`):** briefen genereras fortfarande (uttrycklig ombyggnadssignal), men scaffold-/variant-pre-matchen hoppas över (2026-08-18) — utan fixen seedade keyword-`matchScaffold` briefen med en Sajtmaskin-scaffolds varianthintar, fel stack för det importerade repot (`delta-brief-phase.ts`).
 - **Importerad projektkontext:** före första preview sparas ett versionsbundet importunderlag. Vid follow-up härleds aktuell struktur från den valda föregående versionens filer och är alltid auktoritativ; underlaget får aldrig återställa senare ändringar. Se [Importerat repo-läge](glossary.md#importerat-repo-läge).
-- **Finalize:** `buildCompleteProject` + den mekaniska fixer-passen **hoppas över** — inga scaffold-filer injiceras, inga baseline-force-pins (`next`/`react`/`react-dom`/`lucide-react`), mallens lockfil förblir konsistent med dess `package.json`. Merged-syntax, degeneracy och home-route-gaten (render-safety) körs fortfarande; project-sanity-fel nedgraderas till varningar — **även i klientens post-checks** (`buildPostCheckBaseline` speglar samma downgrade via versionshistorikens `editKind`, annars fastnar versionen i draft/pending på mallens stock-filer).
+- **Finalize:** `buildCompleteProject` + den mekaniska fixer-passen **hoppas över** — inga scaffold-filer injiceras, inga baseline-force-pins (`next`/`react`/`react-dom`/`lucide-react`), mallens lockfil förblir konsistent med dess `package.json`. Merged-syntax, degeneracy och home-route-gaten (render-safety) körs fortfarande; project-sanity-fel nedgraderas till varningar. Efterkontrollen är serverägd och behåller importens verbatim-kontrakt; det finns ingen separat klientbaslinje.
 - **Dependency completion (undantag från verbatim, 2026-07-31):** `completeProjectDependencies` (`dep-completer.ts`) skannar hela projektets imports och pinnar saknade **kända** paket in i mallens egna `package.json` (aldrig ändrade versioner, aldrig okända paket). Bakgrund: en follow-up som introducerar en ny import (t.ex. `@clerk/nextjs`) utan att emittera `package.json` lämnade manifestet orört → preview-hostens dependency-fingerprint (package.json + lockfiler) oförändrat → install skippades → runtime-500 (prod chat `0d52e5c9`). Lockfilen blir då out-of-sync med manifestet, vilket preview-hostens `--no-frozen-lockfile`-fallback hanterar.
 - **Export/nedladdning/verify/repair/quality-gate:** `buildExportableProject(..., { verbatimRepo: true })` — samma verbatim-filer överallt, så RenderGate testar exakt det projekt preview-VM:en kör.
 
@@ -79,24 +79,28 @@ Före 2026-08-18 hade den importerade basversionen **ingen** verifieringslivscyk
 previewn och stannade där — och browser-resume-lanen exkluderade `imported_repo`
 uttryckligen, så raden visade "Ej verifierad" för alltid.
 
-Nu äger **importlanen** i `useResumePendingVerification` basversionens verifiering:
+Nu äger **serverns importlane** i
+[runVersionPostchecks](../../src/lib/gen/verify/server-verify/verify-run.ts)
+basversionens verifiering:
 
-- Kandidat: senaste raden med `editKind="imported_repo"`, `draft`/`pending`,
-  ålder ≥ 90 s (bara preview-bootens försprång — ingen ursprunglig lane finns
-  att racea) och ≤ 24 h. En för ung kandidat självschemaläggs: hooken sätter en
-  timer till exakt gränsöppningen, eftersom SWR håller deep-equal
-  `/versions`-payloads referensstabila och effekten annars aldrig re-körs i en
-  tyst importchatt.
-- Kedja: ev. preview-rehydrering → **runtime-grind** (`GET /preview-status`:
-  bara `running`/`build_error` går vidare; `starting` håller, `stopped`/`missing`
-  bootas om och håller — en kall boot-sida får aldrig DOM-postcheckas till en
-  falsk `productBlocked`) → `product-postcheck` → `POST /quality-gate`.
-  **Ingen** bildvalidering — `autoFix` muterar filer och importen är ett
-  verbatim-kontrakt.
+- Kandidaten måste vara chattens verkliga senaste version och klara den
+  befintliga minåldern, återstartsbudgeten och lease-kontrollen. Urval och
+  bestående budget ägs av [versions.ts](../../src/lib/db/chat-repository/versions.ts)
+  respektive [server-repair-budget.ts](../../src/lib/db/services/server-repair-budget.ts),
+  inte av en timer i browsern.
+- Kedja: previewpersistens → bekräftad versions-/revisionsbunden runtime →
+  produktkontroll → RenderGate under samma versionslås. `starting` är väntan,
+  inte ett produktfel. **Ingen** bildmutation eller automatisk LiveReview;
+  importen är ett verbatim-kontrakt.
 - Gaten kör verbatim-exporten (§4) och F2:s typecheck-lane. Utfall:
   ren typecheck → promotad ("Verifierad"); advisory-säkra typfel → promotad
   med varningar; render-risk-koder/installfel → `failed` med diagnostik.
 - `quick_edit`/`restore`-rader är fortsatt exkluderade (avsiktliga utkast).
+
+Den autentiserade [resume-routen](../../src/app/api/engine/postchecks/route.ts)
+är inte schemalagd i `vercel.json`. Periodisk importverifiering/återstart kräver
+separat godkänd schemaläggning och runtimeprov före leverans; en återöppnad
+builder är inte längre dess motor.
 
 Versionshistoriken markerar raden med badgen **"Importerad"**
 (`version-history-view.tsx`), och välkomstmeddelandet i chatten säger att

@@ -7,6 +7,10 @@ const returningRows = vi.hoisted(() => ({ value: [] as Array<{ id: string }> }))
 vi.mock("@/lib/db/client", () => ({
   dbConfigured: true,
   db: {
+    select: () => ({ from: () => ({ where: (where: unknown) => {
+      updateWhere.value = where;
+      return { limit: () => Promise.resolve(returningRows.value) };
+    } }) }),
     update: () => ({
       set: () => ({
         where: (where: unknown) => {
@@ -22,7 +26,7 @@ vi.mock("@/lib/db/client", () => ({
 
 vi.mock("./shared", () => ({ assertDbConfigured: vi.fn() }));
 
-import { attachVersionToUnassignedLlmUsage } from "./llm-usage";
+import { attachVersionToUnassignedLlmUsage, hasRecordedBriefUsageClaim } from "./llm-usage";
 
 function renderWhere(): { sql: string; params: unknown[] } {
   const query = new PgDialect().sqlToQuery(updateWhere.value as never);
@@ -72,5 +76,20 @@ describe("attachVersionToUnassignedLlmUsage", () => {
     expect(sql).toContain("->> 'claimkey'");
     expect(params).toContain("parallel-a");
     expect(params).not.toContain("parallel-b");
+  });
+});
+
+describe("hasRecordedBriefUsageClaim", () => {
+  it("requires an actual fresh brief row for the exact owner and request, not merely a drained write", async () => {
+    returningRows.value = [];
+    await expect(hasRecordedBriefUsageClaim("owner-1", "brief-claim")).resolves.toBe(false);
+    const { sql, params } = renderWhere();
+    expect(params).toEqual(expect.arrayContaining(["owner-1", "brief", "brief-claim"]));
+    expect(sql).toContain('"llm_usage"."user_id"');
+    expect(sql).toContain("->> 'claimkey'");
+    expect(sql).toContain('"llm_usage"."chat_id" is null');
+    expect(sql).toContain('"llm_usage"."version_id" is null');
+    returningRows.value = [{ id: "brief-row" }];
+    await expect(hasRecordedBriefUsageClaim("owner-1", "brief-claim")).resolves.toBe(true);
   });
 });

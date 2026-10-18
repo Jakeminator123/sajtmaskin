@@ -8,6 +8,7 @@
 
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { BuildSpec } from "@/lib/gen/build-spec";
+import type { GenerationFinalizeInput } from "@/lib/gen/generation-input-package";
 import type { CodeFile } from "@/lib/gen/parser";
 import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
@@ -64,6 +65,8 @@ export interface FinalizeParams {
   resolvedTier?: CanonicalModelId;
   originalPrompt?: string;
   buildIntent?: BuildIntent;
+  /** Decided orchestration inputs; older saved/repair calls may omit this. */
+  generationInput?: GenerationFinalizeInput;
   buildSpec?: BuildSpec | null;
   routePlan?: RoutePlan | null;
   orchestrationContract?: OrchestrationContract | null;

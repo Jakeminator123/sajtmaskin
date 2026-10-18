@@ -4,12 +4,23 @@ import {
   shouldTriggerPostFinalizeServerVerify,
 } from "@/lib/gen/stream/post-finalize-policies";
 import type { BuildSpec } from "@/lib/gen/build-spec";
+import type { VersionPostchecksInput } from "@/lib/gen/verify/server-verify/verify-run";
+import type { VersionPreviewReceipt } from "@/lib/gen/preview/ensure-version-preview";
+const emitBusEvent = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/logging/event-bus", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/logging/event-bus")>();
+  return { ...actual, emit: (input: Parameters<typeof actual.emit>[0]) => {
+    emitBusEvent(input);
+    return actual.emit(input);
+  } };
+});
 import { runOwnEngineStreamPostFinalize } from "./generation-stream-post-finalize";
 
 const createEngineVersionErrorLogsMock = vi.hoisted(() =>
   vi.fn<(payloads: unknown[]) => Promise<void>>(async () => undefined),
 );
 const isServerVerifyEligible = vi.hoisted(() => vi.fn());
+const runVersionPostchecksMock = vi.hoisted(() => vi.fn(async (_input: unknown): Promise<unknown> => ({ kind: "stop", reason: "starting", retryable: true })));
 const getChat = vi.hoisted(() => vi.fn());
 const updateVersionPreviewUrl = vi.hoisted(() => vi.fn());
 const parseCodeProjectMock = vi.hoisted(() =>
@@ -95,6 +106,7 @@ vi.mock("@/lib/gen/preview/tier2-config", () => ({
 }));
 
 vi.mock("@/lib/gen/verify/server-verify", () => ({
+  runVersionPostchecks: runVersionPostchecksMock,
   isServerVerifyEligible,
   triggerServerVerification: vi.fn(),
   triggerBuildErrorRepair: vi.fn(() => Promise.resolve()),
@@ -169,6 +181,23 @@ const billingOrderBuildSpec: BuildSpec = {
   },
 };
 
+function storedPolicyForTest(): Parameters<NonNullable<NonNullable<VersionPostchecksInput["notifications"]>["policy"]>>[0] {
+  return { previewPolicy: "fidelity2", verificationPolicy: "standard",
+    serverVerify: { run: false, reason: "design_preview_skip_verify" },
+    preview: { canStartPreview: true, hasBuildBreakingFindings: false },
+    postChecks: { willRunQualityGate: true, qualityGatePlanned: true, materializeImages: false } };
+}
+function notifyCorePreview(overrides: Partial<VersionPreviewReceipt>) {
+  const input = runVersionPostchecksMock.mock.calls.at(-1)?.[0] as VersionPostchecksInput;
+  input.notifications?.previewReady?.({ versionId: input.versionId, filesRevision: "rev_1",
+    previewUrl: "https://preview.example", previewSessionId: "ps_1", lifecycleToken: "life_1",
+    previewMode: "dev_only", fidelityTier: 2, runtimeReady: false, startOutcome: "recreated",
+    bookkeepingRequired: true, ...overrides });
+}
+beforeEach(() => {
+  runVersionPostchecksMock.mockReset().mockResolvedValue({ kind: "stop", reason: "starting", retryable: true });
+  afterMock.mockReset(); formatSSEEventMock.mockClear();
+});
 describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
   beforeEach(() => {
     getChat.mockReset();
@@ -201,6 +230,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits,
       buildSpec: billingOrderBuildSpec,
       onDoneEmitted,
@@ -221,6 +251,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         accumulatedContent: "prefix",
         toolSignaledProviders: new Set(),
         engineStartedAt: Date.now(),
+        requestDeadlineEpochMs: 1_700_000_900_000,
         commitCredits: async () => {
           throw new Error("marker unavailable");
         },
@@ -248,6 +279,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: `prefix ${marker}`,
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -301,6 +333,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now() - 250,
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -323,26 +356,12 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       },
     });
 
-    expect(startPreviewSessionMock).toHaveBeenCalledWith(
-      [],
-      expect.objectContaining({
-        appProjectId: "proj_1",
-        chatId: "chat_1",
-        previewPolicy: "fidelity3",
-        verificationPolicy: "strict",
-        versionIdForSession: "ver_1",
-      }),
-    );
-    expect(logPreviewLifecycleTelemetryMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: "preview_start_outcome",
-        chatId: "chat_1",
-        versionId: "ver_1",
-        outcome: "recreated",
-        previewPolicy: "fidelity3",
-        verificationPolicy: "strict",
-      }),
-    );
+    // Runtime start/readback/persistence are proven at the actual core and preview owner.
+    notifyCorePreview({ runtimeReady: false, startOutcome: "recreated" });
+    expect(runVersionPostchecksMock).toHaveBeenCalledWith(expect.objectContaining({
+      chatId: "chat_1", versionId: "ver_1", entry: "initial", deadlineEpochMs: 1_700_000_900_000,
+    }));
+    expect(startPreviewSessionMock).not.toHaveBeenCalled();
     // Queued boot (runtimeReady:false) → the URL handoff is logged under the
     // honest `preview_url_handoff` kind; the runtime-up `preview_ready` event
     // must NOT be written for a boot that is only queued (M#pv1, PR #377 r4).
@@ -363,7 +382,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
     expect(logPreviewLifecycleTelemetryMock).not.toHaveBeenCalledWith(
       expect.objectContaining({ kind: "preview_ready" }),
     );
-    expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://preview.example");
+    expect(updateVersionPreviewUrl).not.toHaveBeenCalled();
   });
 
   it("logs preview_ready (runtime-up) and runtimeConfirmed:true SSE only for a resume-verified session", async () => {
@@ -390,6 +409,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -411,6 +431,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         },
       },
     });
+    notifyCorePreview({ runtimeReady: true, startOutcome: "resumed" });
 
     expect(logPreviewLifecycleTelemetryMock).toHaveBeenCalledWith(
       expect.objectContaining({ kind: "preview_ready", versionId: "ver_1" }),
@@ -449,6 +470,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -470,6 +492,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         },
       },
     });
+    notifyCorePreview({ runtimeReady: false });
 
     // The client's URL handoff must survive: the SSE is still emitted with
     // the previewUrl — only the honest boot-state flag differs.
@@ -487,64 +510,24 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
   // the stream closed — the un-awaited UPDATE died and the version row kept
   // `preview_url = NULL` despite a successful preview-ready. The write must
   // complete before runOwnEngineStreamPostFinalize resolves.
-  it("awaits previewUrl persistence before resolving (serverless freeze safety)", async () => {
-    shouldStartOwnEnginePreview.mockReturnValue(true);
-    isTier2PreviewConfigured.mockReturnValue(true);
-    getChat.mockResolvedValue({ project_id: "proj_1" });
-    startPreviewSessionMock.mockResolvedValue({
-      ok: true,
-      result: {
-        previewUrl: "https://preview.example",
-        previewSessionId: "ps_1",
-        previewMode: "dev_only",
-        fidelityTier: 2,
-        startOutcome: "resumed",
-        tier2Meta: { tier2Provider: "preview_host" },
-      },
-    });
-    let persisted = false;
-    updateVersionPreviewUrl.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          setTimeout(() => {
-            persisted = true;
-            resolve(true);
-          }, 20);
-        }),
-    );
-
+  it("tracks server completion until fenced persistence settles (actual persist await is proven in core tests)", async () => {
+    let finish!: () => void; let persisted = false;
+    runVersionPostchecksMock.mockImplementationOnce(() => new Promise(resolve => {
+      finish = () => { persisted = true; resolve({ kind: "stop", reason: "starting", retryable: true }); };
+    }));
     await runOwnEngineStreamPostFinalize({
-      sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
-      chatId: "chat_1",
-      finalized: finalized as never,
-      accumulatedContent: "prefix",
-      toolSignaledProviders: new Set(),
-      engineStartedAt: Date.now(),
-      commitCredits: async () => {},
-      buildSpec: {
-        buildIntent: "website",
-        generationMode: "followUp",
-        changeScope: "copy",
-        scaffoldId: null,
-        routePlanSummary: "prompt:one-page:/",
-        stylePack: "brand-led",
-        qualityTarget: "standard",
-        previewPolicy: "fidelity2",
-        verificationPolicy: "standard",
-        contextPolicy: "light",
-        referenceCategories: [],
-        forbiddenPatterns: [],
-        tokenBudgets: {
-          scaffoldChars: 36_000,
-          refsChars: 12_000,
-          systemContextChars: 48_000,
-        },
-      },
+      sse: { enc: new TextEncoder(), safeEnqueue: () => {} }, chatId: "chat_1", finalized: finalized as never,
+      accumulatedContent: "prefix", toolSignaledProviders: new Set(), engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000, commitCredits: async () => {}, buildSpec: billingOrderBuildSpec,
     });
-
-    expect(persisted).toBe(true);
+    expect(persisted).toBe(false);
+    const pending = afterMock.mock.calls[0][0]; let done = false;
+    void pending.then(() => { done = true; });
+    await Promise.resolve(); expect(done).toBe(false);
+    finish(); await pending;
+    expect(persisted).toBe(true); expect(done).toBe(true);
+    expect(updateVersionPreviewUrl).not.toHaveBeenCalled();
   });
-
   it("does not throw when previewUrl persistence fails", async () => {
     shouldStartOwnEnginePreview.mockReturnValue(true);
     isTier2PreviewConfigured.mockReturnValue(true);
@@ -562,6 +545,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
     });
     updateVersionPreviewUrl.mockRejectedValue(new Error("db down"));
 
+    runVersionPostchecksMock.mockResolvedValueOnce({ kind: "stop", reason: "preview_persist_failed", retryable: true });
     await expect(
       runOwnEngineStreamPostFinalize({
         sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
@@ -570,6 +554,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         accumulatedContent: "prefix",
         toolSignaledProviders: new Set(),
         engineStartedAt: Date.now(),
+        requestDeadlineEpochMs: 1_700_000_900_000,
         commitCredits: async () => {},
         buildSpec: {
           buildIntent: "website",
@@ -592,6 +577,8 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         },
       }),
     ).resolves.toBeUndefined();
+    await expect(afterMock.mock.calls[0][0]).resolves.toMatchObject({ kind: "stop", reason: "preview_persist_failed" });
+    expect(updateVersionPreviewUrl).not.toHaveBeenCalled();
   });
 
   it("F2-mute layer 4: drops detected-integrations SSE in fidelity2 (design)", async () => {
@@ -619,6 +606,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "import Stripe from 'stripe'",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -672,6 +660,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "import Stripe from 'stripe'",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -721,6 +710,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -772,6 +762,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -839,6 +830,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -931,6 +923,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -985,6 +978,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -1036,6 +1030,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -1499,6 +1494,10 @@ describe("runOwnEngineStreamPostFinalize server verify policy logging", () => {
   });
 
   it("logs when background verify is skipped for a low-risk standard flow", async () => {
+    runVersionPostchecksMock.mockImplementationOnce(async input => {
+      (input as VersionPostchecksInput).notifications?.policy?.(storedPolicyForTest());
+      return { kind: "stop", reason: "starting", retryable: true };
+    });
     await runOwnEngineStreamPostFinalize({
       sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
       chatId: "chat_1",
@@ -1506,6 +1505,7 @@ describe("runOwnEngineStreamPostFinalize server verify policy logging", () => {
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: {
         buildIntent: "website",
@@ -1573,6 +1573,7 @@ describe("runOwnEngineStreamPostFinalize preview_success runtime outcome (M#pv1)
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: previewBuildSpec as never,
     });
@@ -1589,25 +1590,12 @@ describe("runOwnEngineStreamPostFinalize preview_success runtime outcome (M#pv1)
     startPreviewSessionMock.mockReset();
   });
 
-  it("stamps preview_success=true only when the runtime is confirmed ready", async () => {
-    startPreviewSessionMock.mockResolvedValue({
-      ok: true,
-      result: {
-        previewUrl: "https://preview.example",
-        previewSessionId: "ps_1",
-        previewMode: "dev_only",
-        fidelityTier: 2,
-        startOutcome: "resumed",
-        runtimeReady: true,
-        tier2Meta: { tier2Provider: "preview_host" },
-      },
-    });
-
+  it("forwards confirmed runtime true without a duplicate wrapper stamp (actual core/helper stamping is retained)", async () => {
     await runPreview();
-
-    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("ver_1", true);
+    notifyCorePreview({ runtimeReady: true, startOutcome: "resumed" });
+    expect(formatSSEEventMock).toHaveBeenCalledWith("preview-ready", expect.objectContaining({ runtimeConfirmed: true }));
+    expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
   });
-
   it("leaves preview_success PENDING (no stamp) for a freshly-queued boot", async () => {
     startPreviewSessionMock.mockResolvedValue({
       ok: true,
@@ -1623,62 +1611,28 @@ describe("runOwnEngineStreamPostFinalize preview_success runtime outcome (M#pv1)
     });
 
     await runPreview();
+    notifyCorePreview({ runtimeReady: false });
 
     // No runtime-ready receipt yet → must NOT claim success (or failure).
+    expect(formatSSEEventMock).toHaveBeenCalledWith("preview-ready", expect.objectContaining({ runtimeConfirmed: false }));
     expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
   });
 
-  it("stamps preview_success=false when the preview session fails to start", async () => {
-    startPreviewSessionMock.mockResolvedValue({
-      ok: false,
-      error: { stage: "preview-start", message: "host unreachable" },
-    });
-
+  it("forwards build failure without a shadow wrapper telemetry writer (actual held core stamps false)", async () => {
     await runPreview();
-
-    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("ver_1", false);
+    const error = { stage: "preview-start" as const, message: "preview failed" };
+    (runVersionPostchecksMock.mock.calls[0][0] as VersionPostchecksInput).notifications?.buildError?.(error);
+    expect(formatSSEEventMock).toHaveBeenCalledWith("build-error", error);
+    expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
   });
-
-  it("registers the readiness poll as an after() callback and does not start it eagerly", async () => {
-    afterMock.mockReset();
-    afterMock.mockImplementation(() => {});
-    pollAndApplyPreviewReadinessOutcomeMock.mockClear();
-    startPreviewSessionMock.mockResolvedValue({
-      ok: true,
-      result: {
-        previewUrl: "https://preview.example",
-        previewSessionId: "ps_1",
-        filesRevision: "rev_1",
-        lifecycleToken: "life_1",
-        previewMode: "dev_only",
-        fidelityTier: 2,
-        startOutcome: "recreated",
-        runtimeReady: false,
-        tier2Meta: { tier2Provider: "preview_host" },
-      },
-    });
-
+  it("registers ONE tracked core promise and no detached readiness callback (actual late readiness is awaited in core)", async () => {
     await runPreview();
-
-    const scheduled = afterMock.mock.calls
-      .map((call) => call[0] as unknown)
-      .find((arg): arg is () => Promise<unknown> => typeof arg === "function");
-    if (!scheduled) {
-      throw new Error("expected after() to receive a callback");
-    }
+    expect(afterMock).toHaveBeenCalledTimes(1);
+    expect(afterMock.mock.calls[0][0]).toBeInstanceOf(Promise);
+    expect(afterMock.mock.calls.some(([pending]) => typeof pending === "function")).toBe(false);
     expect(pollAndApplyPreviewReadinessOutcomeMock).not.toHaveBeenCalled();
-
-    await scheduled();
-
-    expect(pollAndApplyPreviewReadinessOutcomeMock).toHaveBeenCalledWith({
-      chatId: "chat_1",
-      versionId: "ver_1",
-      previewSessionId: "ps_1",
-      bootedFilesRevision: "rev_1",
-      expectedLifecycleToken: "life_1",
-    });
+    await expect(afterMock.mock.calls[0][0]).resolves.toMatchObject({ kind: "stop", reason: "starting" });
   });
-
   it("does not start the readiness poll when after() throws", async () => {
     afterMock.mockReset();
     afterMock.mockImplementation(() => {
@@ -1739,6 +1693,7 @@ describe("runOwnEngineStreamPostFinalize keeps background jobs alive for lease r
       accumulatedContent: "prefix",
       toolSignaledProviders: new Set(),
       engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000,
       commitCredits: async () => {},
       buildSpec: buildSpec as never,
     });
@@ -1767,12 +1722,30 @@ describe("runOwnEngineStreamPostFinalize keeps background jobs alive for lease r
 
     await run(verifyBuildSpec);
 
-    expect(serverVerify.triggerServerVerification).toHaveBeenCalledTimes(1);
+    expect(serverVerify.runVersionPostchecks).toHaveBeenCalledTimes(1);
     expect(afterMock).toHaveBeenCalledTimes(1);
-    await expect(afterMock.mock.calls[0][0]).resolves.toBeUndefined();
+    await expect(afterMock.mock.calls[0][0]).resolves.toMatchObject({ kind: "stop", reason: "starting" });
   });
 
-  it("registers the build-error repair with after() when the preview fails to start", async () => {
+  it("DB-hydrated authority replaces in-memory forwarding; never seed/regenerate bootstrap after commit", async () => {
+    const serverVerify = await import("@/lib/gen/verify/server-verify");
+    const { RepairLedger } = await import("@/lib/gen/autofix/llm-repair-gate");
+    const ledger = new RepairLedger();
+    const exportInvocations = vi.spyOn(ledger, "exportInvocations");
+    const runWithLedger = () => runOwnEngineStreamPostFinalize({ sse: { enc: new TextEncoder(), safeEnqueue: () => {} }, chatId: "chat_1",
+      finalized: { ...finalized, repairLedger: ledger, repairScopeId: "original:root" } as never,
+      accumulatedContent: "prefix", toolSignaledProviders: new Set(), engineStartedAt: Date.now(),
+      requestDeadlineEpochMs: 1_700_000_900_000, commitCredits: async () => {}, buildSpec: verifyBuildSpec as never });
+    await runWithLedger();
+    const request = vi.mocked(serverVerify.runVersionPostchecks).mock.calls[0][0];
+    expect(request).not.toHaveProperty("repairBudgetSeed");
+    expect(request).not.toHaveProperty("repairLedger");
+    expect(request).not.toHaveProperty("repairScopeId");
+    expect(request).toMatchObject({ chatId: "chat_1", versionId: "ver_1", entry: "initial", deadlineEpochMs: 1_700_000_900_000 });
+    expect(exportInvocations).not.toHaveBeenCalled();
+  });
+
+  it("registers ONE core for build-error repair, not a parallel legacy dispatcher", async () => {
     const serverVerify = await import("@/lib/gen/verify/server-verify");
     shouldStartOwnEnginePreview.mockReturnValue(true);
     isTier2PreviewConfigured.mockReturnValue(true);
@@ -1783,15 +1756,78 @@ describe("runOwnEngineStreamPostFinalize keeps background jobs alive for lease r
 
     await run({ ...verifyBuildSpec, previewPolicy: "fidelity2" });
 
-    expect(serverVerify.triggerBuildErrorRepair).toHaveBeenCalledTimes(1);
+    expect(serverVerify.runVersionPostchecks).toHaveBeenCalledTimes(1);
+    expect(serverVerify.triggerBuildErrorRepair).not.toHaveBeenCalled();
     expect(afterMock).toHaveBeenCalledTimes(1);
-    await expect(afterMock.mock.calls[0][0]).resolves.toBeUndefined();
+    await expect(afterMock.mock.calls[0][0]).resolves.toMatchObject({ kind: "stop", reason: "starting" });
   });
 
   // Counter-test. The cheapest wrong way to stop a dropped job is to make the
   // call unconditional — but `after()` throws outside a request scope (scripts,
   // tests, cron). The job must still run there, and post-finalize must not
   // throw, otherwise this fix trades a stranded lease for a broken script.
+  function verifierDoneEmits() {
+    return emitBusEvent.mock.calls
+      .map((call) => call[0] as { t?: string; outcome?: string; reason?: string; blocked?: boolean })
+      .filter((event) => event.t === "version.verifier.done");
+  }
+
+  it("keeps F2 verify-skip non-terminal until planned postchecks settle", async () => {
+    emitBusEvent.mockClear();
+    let release!: (outcome: { kind: "stop"; reason: string; retryable: boolean }) => void;
+    const gate = new Promise<{ kind: "stop"; reason: string; retryable: boolean }>((resolve) => { release = resolve; });
+    runVersionPostchecksMock.mockImplementation(async (input) => {
+      const request = input as VersionPostchecksInput;
+      request.notifications?.policy?.(storedPolicyForTest());
+      return gate as never;
+    });
+    await run({ ...verifyBuildSpec, previewPolicy: "fidelity2" });
+    expect(verifierDoneEmits()).toEqual([
+      expect.objectContaining({ outcome: "pending", reason: "postchecks_pending", blocked: false }),
+    ]);
+    release({ kind: "stop", reason: "starting", retryable: true });
+    await runVersionPostchecksMock.mock.results[0]?.value;
+    expect(verifierDoneEmits()).toEqual([
+      expect.objectContaining({ outcome: "pending", reason: "postchecks_pending", blocked: false }),
+    ]);
+  });
+
+  it("emits terminal skipped only after a settled F2 postcheck outcome", async () => {
+    emitBusEvent.mockClear();
+    runVersionPostchecksMock.mockImplementation(async (input) => {
+      const request = input as VersionPostchecksInput;
+      request.notifications?.policy?.({
+        ...storedPolicyForTest(),
+        postChecks: { willRunQualityGate: false, qualityGatePlanned: false, materializeImages: true },
+      });
+      return { kind: "continue", filesRevision: "rev_1", vmGatePassed: false, promoted: false, advisory: false };
+    });
+    await run({ ...verifyBuildSpec, previewPolicy: "fidelity2" });
+    await runVersionPostchecksMock.mock.results[0]?.value;
+    expect(verifierDoneEmits()).toEqual([
+      expect.objectContaining({ outcome: "pending", reason: "postchecks_pending" }),
+      expect.objectContaining({ outcome: "skipped", reason: "design_preview_skip_verify", blocked: false }),
+    ]);
+  });
+
+  it("still emits terminal skipped immediately when no postcheck work remains", async () => {
+    emitBusEvent.mockClear();
+    runVersionPostchecksMock.mockImplementation(async (input) => {
+      const request = input as VersionPostchecksInput;
+      request.notifications?.policy?.({
+        ...storedPolicyForTest(),
+        preview: { canStartPreview: false, hasBuildBreakingFindings: false },
+        postChecks: { willRunQualityGate: false, qualityGatePlanned: false, materializeImages: false },
+      });
+      return { kind: "stop", reason: "preview_blocked", retryable: false };
+    });
+    await run({ ...verifyBuildSpec, previewPolicy: "fidelity2" });
+    await runVersionPostchecksMock.mock.results[0]?.value;
+    expect(verifierDoneEmits()).toEqual([
+      expect.objectContaining({ outcome: "skipped", reason: "design_preview_skip_verify" }),
+    ]);
+  });
+
   it("still runs the job when after() is unavailable (no request scope)", async () => {
     const serverVerify = await import("@/lib/gen/verify/server-verify");
     afterMock.mockImplementation(() => {
@@ -1800,6 +1836,6 @@ describe("runOwnEngineStreamPostFinalize keeps background jobs alive for lease r
 
     await expect(run(verifyBuildSpec)).resolves.toBeUndefined();
 
-    expect(serverVerify.triggerServerVerification).toHaveBeenCalledTimes(1);
+    expect(serverVerify.runVersionPostchecks).toHaveBeenCalledTimes(1);
   });
 });

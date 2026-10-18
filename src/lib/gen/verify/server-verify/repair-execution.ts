@@ -34,6 +34,7 @@ import "@/lib/logging/event-bus-subscribers";
 import "@/lib/logging/event-bus-error-log-sink";
 import { resolveSameSignalGateChecks } from "../quality-gate-checks";
 import { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
+import { readServerRepairBudget, type ServerRepairBudgetSnapshot, type ServerRepairBudgetTarget } from "@/lib/db/services/server-repair-budget";
 import {
   maybeAnalyzeVisualQAForPassedExportable,
   shouldPromoteAfterRepair,
@@ -79,12 +80,12 @@ import {
  * Outcome of a server-repair loop run. `reverifyCurrent` is set when the
  * repair no-op'd because a concurrent user edit advanced `files_json` past the
  * snapshot the repair was based on (#260 Codex P2 `stale_base`). The caller MUST
- * then re-verify the CURRENT files on a fresh lease so the user's newer edit B
- * reaches an honest terminal state instead of lingering in `repairing` (where
- * the readiness watchdog could fail it). Every other outcome already left the
- * row terminal (`repair_available` / `failed`).
+ * return supersession to the chain coordinator rather than releasing/re-entering
+ * from this helper. A lost lease/budget returns typed STOP, never a product failure.
  */
 interface ServerRepairLoopOutcome {
+  /** Lost/unproven ownership is not a product failure and must not be terminalized. */
+  stop?: { reason: "lease_lost" | "repair_budget_unavailable" | "time_budget_exceeded"; retryable: true };
   /** Re-run the current row after the old repair context was superseded. */
   reverifyCurrent: boolean;
   /** Re-entry came from a full decision-context race, not a user file edit. */
@@ -102,6 +103,9 @@ interface ServerRepairLoopOutcome {
    */
   buildOriginated: boolean;
 }
+
+class RepairLeaseLost extends Error {}
+class RepairDeadlineExceeded extends Error {}
 
 export async function tryServerRepairLoop(params: {
   chatId: string;
@@ -151,6 +155,8 @@ export async function tryServerRepairLoop(params: {
   /** Fas 3 (RepairGate): shared ledger + scope for cross-lane dedupe. */
   repairLedger?: RepairLedger;
   repairScopeId?: string;
+  /** Manual authority is request-local; it never initializes automatic capacity. */
+  repairAuthority?: "automatic" | "manual";
   /**
    * L1: F3 snapshot context so post-repair readiness re-runs against the
    * repaired files before the post-repair gate / persist.
@@ -188,11 +194,47 @@ export async function tryServerRepairLoop(params: {
     f3Readiness = null,
     repairProvenance,
   } = params;
-  // Fas 3: without a finalize handover, use a fresh per-run ledger + a
-  // version-bound scope (mirrors runner.ts's `{base}:{pass}` pattern) so the
-  // loop still dedupes identical retries within this repair run.
-  const repairLedger = params.repairLedger ?? new RepairLedger();
-  const repairScopeId = params.repairScopeId ?? `${versionId}:server-repair`;
+  const checkRepairDeadline = (deadline = repairDeadlineEpochMs) => {
+    if (deadline !== undefined && Date.now() >= deadline) {
+      throw new RepairDeadlineExceeded("Repair time budget exhausted");
+    }
+  };
+  const boundedLlmTimeout = (phaseCapMs: number) => {
+    if (repairDeadlineEpochMs === undefined) return phaseCapMs;
+    const remainingMs = repairDeadlineEpochMs - Date.now();
+    if (remainingMs <= 0) throw new RepairDeadlineExceeded("Repair time budget exhausted");
+    return Math.min(phaseCapMs, remainingMs);
+  };
+  const renewHeldLease = async () => {
+    if (runId && await renewVersionLease(versionId, runId).catch(() => false) !== true) {
+      throw new RepairLeaseLost("Repair lease lost or unavailable");
+    }
+    checkRepairDeadline();
+  };
+  let repairLedger: RepairLedger;
+  let repairScopeId: string;
+  let serverRepairBudget: { target: ServerRepairBudgetTarget; consumed: ServerRepairBudgetSnapshot["consumed"] } | undefined;
+  if (params.repairAuthority === "manual") {
+    repairLedger = params.repairLedger ?? new RepairLedger();
+    repairScopeId = params.repairScopeId ?? `${versionId}:server-repair`;
+  } else {
+    // No synthetic revision, fresh ledger or caller-provided scope can authorize automatic payment.
+    if (!runId || !suppliedBaseFilesRevision) return {
+      stop: { reason: "repair_budget_unavailable", retryable: true }, reverifyCurrent: false,
+      contextCasMiss: false, buildOriginated: params.forceBuildGate === true || params.firstFailureCheck === "build" ||
+        params.failedOutputs.some((output) => output.check === "build"), integrationMigrationHoldApplied: false,
+    };
+    const target = { chatId, versionId, runId, filesRevision: suppliedBaseFilesRevision };
+    const budget = await readServerRepairBudget(target).catch(() => null);
+    if (!budget || budget.status !== "ready") return {
+      stop: { reason: "repair_budget_unavailable", retryable: true }, reverifyCurrent: false,
+      contextCasMiss: false, buildOriginated: params.forceBuildGate === true || params.firstFailureCheck === "build" ||
+        params.failedOutputs.some((output) => output.check === "build"), integrationMigrationHoldApplied: false,
+    };
+    repairScopeId = budget.snapshot.scopeId;
+    repairLedger = RepairLedger.hydrate(chatId, repairScopeId, [...budget.snapshot.finalize, ...budget.snapshot.consumed]);
+    serverRepairBudget = { target: { ...target, scopeId: repairScopeId }, consumed: budget.snapshot.consumed };
+  }
   const verifyContext = {
     verifyLaneDurationMs,
     firstFailureCheck,
@@ -259,7 +301,7 @@ export async function tryServerRepairLoop(params: {
     // renew-before-save fires. Since renewVersionLease refuses expired leases,
     // a slow gate could otherwise expire the lease and no-op a valid
     // saveRepairedFiles. Renew here so the gate window is covered too.
-    if (runId) await renewVersionLease(versionId, runId).catch(() => {});
+    await renewHeldLease();
     // Terminal persist block: a prior pass already lacked a protected path
     // (emitted-and-dropped or never mentioned). Returning false alone lets
     // the loop retry; refuse every subsequent persist in this run so the
@@ -446,6 +488,9 @@ export async function tryServerRepairLoop(params: {
     const exportableForGate = await buildExportableProject(repairedFiles, {
       verbatimRepo: repairVerbatimRepo,
     });
+    const verifyDeadlineEpochMs = repairDeadlineEpochMs === undefined ? options?.verifyDeadlineEpochMs
+      : Math.min(repairDeadlineEpochMs, options?.verifyDeadlineEpochMs ?? Infinity);
+    checkRepairDeadline(verifyDeadlineEpochMs);
     const decision = await withRepairPhaseSignal(
       { chatId, versionId, phase: "preview_verify" },
       () =>
@@ -463,7 +508,7 @@ export async function tryServerRepairLoop(params: {
             buildOriginated,
             previewPolicy,
           }),
-          verifyDeadlineEpochMs: options?.verifyDeadlineEpochMs,
+          verifyDeadlineEpochMs,
         }),
     );
     const visualQA = maybeAnalyzeVisualQAForPassedExportable({
@@ -503,7 +548,7 @@ export async function tryServerRepairLoop(params: {
       // past the TTL. Renew re-extends it while we still own it (run_id +
       // status='running'); if another run took over, saveRepairedFiles's
       // lease-conditioned write no-ops, so we never clobber a newer repair.
-      if (runId) await renewVersionLease(versionId, runId).catch(() => {});
+      await renewHeldLease();
       const saveResult = await saveRepairedFiles(
         versionId,
         filesJson,
@@ -629,7 +674,9 @@ export async function tryServerRepairLoop(params: {
     return false;
   };
 
-  const loopResult = await runRepairLoop({
+  let loopResult: Awaited<ReturnType<typeof runRepairLoop<{ reason: string; holdResult: string | null }>>>;
+  try {
+  loopResult = await runRepairLoop({
     initialContent,
     chatId,
     previewPolicy,
@@ -638,8 +685,9 @@ export async function tryServerRepairLoop(params: {
     contextLines: repairLogContext.contextLines,
     // Global budget (manifest `repairPolicies.serverRepairPasses`, default 2).
     maxLlmPasses: SERVER_REPAIR_MAX_PASSES,
-    llmTimeoutMs: LLM_FIXER_TIMEOUT_MS,
-    llmRetryTimeoutMs: LLM_FIXER_RETRY_TIMEOUT_MS,
+    // Resolve remaining time at each attempt, including an intra-pass retry.
+    get llmTimeoutMs() { return boundedLlmTimeout(LLM_FIXER_TIMEOUT_MS); },
+    get llmRetryTimeoutMs() { return boundedLlmTimeout(LLM_FIXER_RETRY_TIMEOUT_MS); },
     // A3: bunden till anroparens route-maxDuration för synkron deploy-repair;
     // undefined för bakgrundskörning (obundet, dagens beteende).
     repairDeadlineEpochMs,
@@ -652,8 +700,9 @@ export async function tryServerRepairLoop(params: {
     repairLedger,
     repairScopeId,
     shouldAbortSuperseded,
+    serverRepairBudget,
     onBeforePass: async () => {
-      if (runId) await renewVersionLease(versionId, runId).catch(() => {});
+      await renewHeldLease();
     },
     onPhaseSignal: (event) =>
       recordRepairPhaseSignal({
@@ -668,7 +717,17 @@ export async function tryServerRepairLoop(params: {
       }),
     onAttemptPromotion: tryPromoteAfterGate,
   });
+  } catch (error) {
+    if (!(error instanceof RepairLeaseLost) && !(error instanceof RepairDeadlineExceeded)) throw error;
+    return { stop: { reason: error instanceof RepairDeadlineExceeded ? "time_budget_exceeded" : "lease_lost", retryable: true }, reverifyCurrent: false,
+      contextCasMiss: false, buildOriginated, integrationMigrationHoldApplied: false };
+  }
 
+  if (!loopResult.promoted && !loopResult.stopped && repairDeadlineEpochMs !== undefined &&
+      (Date.now() >= repairDeadlineEpochMs || loopResult.earlyStopReason === "time_budget_exceeded")) {
+    return { stop: { reason: "time_budget_exceeded", retryable: true }, reverifyCurrent: false,
+      contextCasMiss: false, buildOriginated, integrationMigrationHoldApplied: false };
+  }
   if (loopResult.stopped) {
     return {
       reverifyCurrent,

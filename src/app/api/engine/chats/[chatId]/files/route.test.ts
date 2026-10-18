@@ -234,164 +234,70 @@ describe("PUT/PATCH /files under an active version lease (P1 files_json false-gr
   });
 });
 
-describe("GET /files heal-persist (M#files1 write-on-read)", () => {
-  const originalFiles = [{ path: "src/app/page.tsx", content: "before", language: "tsx" }];
-  const repairedFiles = [{ path: "src/app/page.tsx", content: "after", language: "tsx" }];
-
+describe("GET /files reads persisted snapshots only", () => {
+  const files = [
+    { path: "app/page.tsx", content: 'export default function Page() { return <img src="https://remote.example/image.png"> }', language: "tsx" },
+    { path: "env.example", content: "EXAMPLE=1", language: "text" },
+  ];
   beforeEach(() => {
-    shouldUseV0Fallback.mockReturnValue(false);
-    getEngineVersionForChatByIdForRequest.mockReset();
-    getEngineChatByIdForRequest.mockReset();
-    getVersionFiles.mockReset();
-    updateVersionFiles.mockReset();
-    repairGeneratedFiles.mockReset();
+    vi.clearAllMocks();
     getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
     getEngineVersionForChatByIdForRequest.mockResolvedValue({ version: { id: "ver_1" } });
-    getVersionFiles.mockResolvedValue(originalFiles);
+    getVersionFiles.mockResolvedValue(files);
+    getLatestVersionFiles.mockResolvedValue(files);
+    getPreferredVersion.mockResolvedValue({ id: "ver_1" });
+    repairGeneratedFiles.mockImplementation(() => { throw new Error("GET must not heal"); });
+    materializeImagesInTextFiles.mockRejectedValue(new Error("GET must not upload"));
   });
 
-  function getReq() {
-    return GET(
-      new Request("https://example.com/api/engine/chats/chat_1/files?versionId=ver_1"),
-      { params: Promise.resolve({ chatId: "chat_1" }) },
-    );
-  }
-
-  it("does NOT persist when the repair is a no-op (avoids write-on-read storm)", async () => {
-    repairGeneratedFiles.mockReturnValue({ files: originalFiles, fixes: [] });
-    const res = await getReq();
+  it.each(["", "&materialize=1"])("returns the unchanged selected snapshot with legacy query %s", async (query) => {
+    const res = await GET(new Request("http://localhost/api/engine/chats/chat_1/files?versionId=ver_1" + query), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
     expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ versionId: "ver_1", files: files.map(f => ({
+      name: f.path, content: f.content, language: f.language,
+    })) });
+    expect(repairGeneratedFiles).not.toHaveBeenCalled();
+    expect(materializeImagesInTextFiles).not.toHaveBeenCalled();
     expect(updateVersionFiles).not.toHaveBeenCalled();
   });
 
-  it("persists a real heal fail-fast (bounded lockTimeoutMs) on the read path", async () => {
-    repairGeneratedFiles.mockReturnValue({
-      files: repairedFiles,
-      fixes: [{ fixer: "x", category: "mechanical" }],
+  it("reads without mutation even with Blob configured and an aborted request", async () => {
+    vi.stubEnv("BLOB_READ_WRITE_TOKEN", "mock-token");
+    try {
+      const controller = new AbortController();
+      controller.abort();
+      const res = await GET(new Request("http://localhost/api/engine/chats/chat_1/files?versionId=ver_1&materialize=1", {
+        signal: controller.signal,
+      }), { params: Promise.resolve({ chatId: "chat_1" }) });
+      expect(res.status).toBe(200);
+      expect((await res.json()).files[0].content).toBe(files[0].content);
+      expect(updateVersionFiles).not.toHaveBeenCalled();
+      expect(materializeImagesInTextFiles).not.toHaveBeenCalled();
+      expect(repairGeneratedFiles).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("preserves tenant guards and refuses an unscoped version", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue(null);
+    const res = await GET(new Request("http://localhost/api/engine/chats/chat_1/files?versionId=foreign&materialize=1"), {
+      params: Promise.resolve({ chatId: "chat_1" }),
     });
-    updateVersionFiles.mockResolvedValue(true);
-    const res = await getReq();
-    const body = (await res.json()) as { files: Array<{ content: string }> };
+    expect(res.status).toBe(404);
+    expect(getVersionFiles).not.toHaveBeenCalled();
+    expect(updateVersionFiles).not.toHaveBeenCalled();
+  });
+
+  it("reads the preferred snapshot when no version was requested", async () => {
+    const res = await GET(new Request("http://localhost/api/engine/chats/chat_1/files"), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
     expect(res.status).toBe(200);
-    expect(body.files[0]?.content).toBe("after");
-    // Heal-persist is fail-fast: passes a bounded lock timeout, never a raw write.
-    expect(updateVersionFiles).toHaveBeenCalledWith("ver_1", JSON.stringify(repairedFiles), {
-      lockTimeoutMs: expect.any(Number),
-    });
-  });
-
-  it("still returns 200 with repaired files when the heal-persist throws (best-effort)", async () => {
-    repairGeneratedFiles.mockReturnValue({
-      files: repairedFiles,
-      fixes: [{ fixer: "x", category: "mechanical" }],
-    });
-    updateVersionFiles.mockRejectedValue(new Error("lock timeout / statement_timeout"));
-    const res = await getReq();
-    const body = (await res.json()) as { files: Array<{ content: string }> };
-    expect(res.status).toBe(200);
-    expect(body.files[0]?.content).toBe("after");
-  });
-});
-
-describe("GET /files?materialize=1 — replaced vs persisted", () => {
-  const originalFiles = [
-    { path: "src/app/page.tsx", content: '<img src="https://example.com/a.png" />', language: "tsx" },
-  ];
-  const materializedFiles = [
-    { name: "src/app/page.tsx", content: '<img src="https://blob.example/a.png" />' },
-  ];
-
-  beforeEach(() => {
-    shouldUseV0Fallback.mockReturnValue(false);
-    getEngineChatByIdForRequest.mockReset();
-    getEngineVersionForChatByIdForRequest.mockReset();
-    getVersionFiles.mockReset();
-    updateVersionFiles.mockReset();
-    materializeImagesInTextFiles.mockReset();
-    repairGeneratedFiles.mockReset();
-    repairGeneratedFiles.mockImplementation((files: unknown) => ({ files, fixes: [] }));
-    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
-    getVersionFiles.mockResolvedValue(originalFiles);
-    process.env.BLOB_READ_WRITE_TOKEN = "blob-token";
-  });
-
-  function materializeReq(signal?: AbortSignal) {
-    return GET(
-      new Request(
-        "https://example.com/api/engine/chats/chat_1/files?versionId=ver_1&materialize=1",
-        signal ? { signal } : undefined,
-      ),
-      { params: Promise.resolve({ chatId: "chat_1" }) },
-    );
-  }
-
-  it("reports persisted=true and the new filesRevision when the write lands", async () => {
-    getEngineVersionForChatByIdForRequest
-      .mockResolvedValueOnce({ version: { id: "ver_1", files_revision: "rev_old" } })
-      .mockResolvedValueOnce({ version: { id: "ver_1", files_revision: "rev_old" } })
-      .mockResolvedValueOnce({ version: { id: "ver_1", files_revision: "rev_new" } });
-    materializeImagesInTextFiles.mockResolvedValue({
-      files: materializedFiles,
-      strategyUsed: "blob",
-      warnings: [],
-      summary: { scannedFiles: 1, foundUrls: 1, uploaded: 1, replaced: 1, skipped: 0, totalBytesUploaded: 10 },
-      assets: [],
-    });
-    updateVersionFiles.mockResolvedValue(true);
-
-    const res = await materializeReq();
-    const body = (await res.json()) as {
-      imageMaterialization?: { replaced?: number; persisted?: boolean; filesRevision?: string };
-    };
-    expect(res.status).toBe(200);
-    expect(body.imageMaterialization).toEqual(
-      expect.objectContaining({
-        replaced: 1,
-        persisted: true,
-        filesRevision: "rev_new",
-      }),
-    );
-    expect(updateVersionFiles).toHaveBeenCalledTimes(1);
-  });
-
-  it("keeps replaced>0 with persisted=false when files_json write is skipped", async () => {
-    getEngineVersionForChatByIdForRequest.mockResolvedValue({
-      version: { id: "ver_1", files_revision: "rev_old" },
-    });
-    materializeImagesInTextFiles.mockResolvedValue({
-      files: materializedFiles,
-      strategyUsed: "blob",
-      warnings: [],
-      summary: { scannedFiles: 1, foundUrls: 1, uploaded: 1, replaced: 1, skipped: 0, totalBytesUploaded: 10 },
-      assets: [],
-    });
-    updateVersionFiles.mockResolvedValue(false);
-
-    const res = await materializeReq();
-    const body = (await res.json()) as {
-      imageMaterialization?: { replaced?: number; persisted?: boolean; filesRevision?: string | null };
-    };
-    expect(body.imageMaterialization).toEqual(
-      expect.objectContaining({
-        replaced: 1,
-        persisted: false,
-        filesRevision: "rev_old",
-      }),
-    );
-  });
-
-  it("does not persist when the request is already aborted", async () => {
-    getEngineVersionForChatByIdForRequest.mockResolvedValue({
-      version: { id: "ver_1", files_revision: "rev_old" },
-    });
-    const res = await materializeReq(AbortSignal.abort());
-    const body = (await res.json()) as {
-      imageMaterialization?: { persisted?: boolean; replaced?: number; reason?: string };
-    };
-    expect(body.imageMaterialization).toEqual(
-      expect.objectContaining({ persisted: true, replaced: 0, reason: "aborted" }),
-    );
-    expect(materializeImagesInTextFiles).not.toHaveBeenCalled();
+    expect((await res.json()).versionId).toBe("ver_1");
+    expect(getLatestVersionFiles).toHaveBeenCalledWith("chat_1");
     expect(updateVersionFiles).not.toHaveBeenCalled();
   });
 });

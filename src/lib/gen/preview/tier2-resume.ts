@@ -14,9 +14,11 @@ import type { PreviewSessionEntry } from "./session-store";
  */
 export async function tryResumeTier2Runtime(
   entry: PreviewSessionEntry,
+  options?: { previewDeadlineEpochMs?: number },
 ): Promise<PreviewHostStatusResult | null> {
   return fetchPreviewHostStatus(entry.previewSessionId, {
     expectedVersionId: entry.versionId,
     expectedLifecycleToken: entry.lifecycleToken ?? null,
+    ...(options?.previewDeadlineEpochMs !== undefined ? { previewDeadlineEpochMs: options.previewDeadlineEpochMs } : {}),
   });
 }

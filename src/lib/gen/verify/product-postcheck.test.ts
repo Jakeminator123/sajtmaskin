@@ -44,6 +44,7 @@ import {
   CRAWL_DEADLINE_MS,
   isAllowedProductPostcheckUrl,
   isMeaningfulCtaHref,
+  hasHtmlFragmentTarget,
   isProductPostcheckAttestation,
   isHydrationConsoleError,
   extractServerCtaBaseline,
@@ -143,6 +144,27 @@ describe("isMeaningfulCtaHref", () => {
     for (const href of ["#kontakt", "#/about", "/om-oss", "https://example.com/x"]) {
       expect(isMeaningfulCtaHref(href), href).toBe(true);
     }
+  });
+});
+
+describe("hasHtmlFragmentTarget", () => {
+  it.each(["#top", "#TOP", "#Top", "#%74op"])("accepts the native document-top destination %s without an id", (href) => {
+    const doc = document.implementation.createHTMLDocument();
+    expect(hasHtmlFragmentTarget(href, doc)).toBe(true);
+  });
+
+  it("accepts exact ids, decoded ids and legacy named anchors while retaining real missing-target warnings", () => {
+    const doc = document.implementation.createHTMLDocument();
+    doc.body.innerHTML = '<section id="meny"></section><section id="vår meny"></section><a name="kontakt"></a><input name="not-an-anchor" />';
+    for (const href of ["#meny", "#v%C3%A5r%20meny", "#kontakt"]) expect(hasHtmlFragmentTarget(href, doc), href).toBe(true);
+    for (const href of ["#missing", "#not-an-anchor", "#top-missing", "#%ZZ"]) expect(hasHtmlFragmentTarget(href, doc), href).toBe(false);
+  });
+
+  it("runs the exact serialized helper used in the real browser probe", () => {
+    const probe = new Function(`return (${hasHtmlFragmentTarget.toString()});`)() as typeof hasHtmlFragmentTarget;
+    const doc = document.implementation.createHTMLDocument();
+    expect(probe("#top", doc)).toBe(true);
+    expect(probe("#missing", doc)).toBe(false);
   });
 });
 

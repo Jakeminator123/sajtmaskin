@@ -16,7 +16,19 @@ const getPreviewHostBaseUrl = vi.hoisted(() => vi.fn((): string | null => null))
 const waitForProductPostcheckPreviewRunning = vi.hoisted(() => vi.fn());
 const readProductPostcheckPreviewProbe = vi.hoisted(() => vi.fn());
 const claimProductPostcheckRun = vi.hoisted(() => vi.fn());
-const completeProductPostcheckRun = vi.hoisted(() => vi.fn());
+const commitProductPostcheckResult = vi.hoisted(() => vi.fn());
+const storeProductPostcheckPolicySkip = vi.hoisted(() => vi.fn());
+const lookupProductPostcheckRun = vi.hoisted(() => vi.fn());
+const acquireVersionLease = vi.hoisted(() => vi.fn());
+const renewVersionLease = vi.hoisted(() => vi.fn());
+const releaseVersionLease = vi.hoisted(() => vi.fn());
+const leaseTableExists = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/db/chat-repository-pg", () => ({
+  acquireVersionLease, renewVersionLease, releaseVersionLease, leaseTableExists,
+  getVersionById: async () => { const value = await getVersion(); return value ? { chat_id: "chat_1", ...value.version } : null; },
+  getChat: async () => ({ id: "chat_1", messages: [], ...(await getVersion())?.chat }),
+}));
+vi.mock("@/lib/db/services/version-errors", () => ({ commitProductPostcheckResult, storeProductPostcheckPolicySkip }));
 const readProductPostcheckVerdictForVersion = vi.hoisted(() => vi.fn());
 const resolveUserRequestForVersion = vi.hoisted(() =>
   vi.fn(() => ({ text: "", source: "empty" as "empty" | "version_message_id" | "version_created_at" | "latest_user_fallback" })),
@@ -28,7 +40,10 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 
 vi.mock("@/lib/tenant", () => ({
-  getEngineVersionForChatByIdForRequest: getVersion,
+  getEngineVersionForChatByIdForRequest: async (...args: unknown[]) => {
+    const value = await getVersion(...args);
+    return value ? { ...value, chat: { id: "chat_1", messages: [], ...value.chat }, version: { chat_id: "chat_1", ...value.version } } : null;
+  },
   getRequestUserId,
 }));
 
@@ -82,6 +97,8 @@ vi.mock("@/lib/gen/verify/product-postcheck-preview-wait", async (importOriginal
 vi.mock("@/lib/db/services/live-review-runs", () => ({
   abandonLiveReviewRun,
   deleteLiveReviewScreenshotUrls,
+  isLiveReviewHeldContext: (value: unknown) => Boolean(value && typeof value === "object" &&
+    ["chatId", "versionId", "filesRevision", "holderRunId"].every(key => typeof (value as Record<string, unknown>)[key] === "string")),
 }));
 
 vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
@@ -92,7 +109,7 @@ vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
 // time, and `test:ci` has no POSTGRES_URL (DB steps are a later job).
 vi.mock("@/lib/db/services/product-postcheck-runs", () => ({
   claimProductPostcheckRun,
-  completeProductPostcheckRun,
+  lookupProductPostcheckRun,
   mapProductPostcheckResultToStatus: (result: {
     skipped: boolean;
     skippedReason: string | null;
@@ -197,6 +214,7 @@ describe("POST product-postcheck", () => {
       previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
       versionId: "v1",
       filesRevision: "rev_n",
+      mutationRevision: 1,
       createdAt: 1,
       lastUsedAt: 1,
     });
@@ -234,30 +252,42 @@ describe("POST product-postcheck", () => {
       claimGeneration: 1,
       owner: "user_1",
     });
-    completeProductPostcheckRun.mockResolvedValue(true);
+    commitProductPostcheckResult.mockResolvedValue({ status: "stored", logs: [] });
+    storeProductPostcheckPolicySkip.mockResolvedValue({ status: "stored", logs: [{ id: "server_policy" }] });
+    lookupProductPostcheckRun.mockResolvedValue({ kind: "unclaimed" });
+    acquireVersionLease.mockResolvedValue({ runId: "holder_test" });
+    renewVersionLease.mockResolvedValue(true);
+    releaseVersionLease.mockResolvedValue(undefined);
+    leaseTableExists.mockResolvedValue("exists");
+    getVersion.mockResolvedValue({ chat: { id: "chat_1", messages: [] },
+      version: { id: "v1", chat_id: "chat_1", files_revision: "rev_n", files_json: "[]" } });
   });
 
-  it("feature flag off => skipped utan DB/Playwright-körning", async () => {
+  it("feature flag off => auth + canonical server receipt, no Playwright/critic/claim", async () => {
     const res = await POST(req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
     const body = await res.json();
     expect(body.skipped).toBe(true);
     expect(body.skippedReason).toBe("feature_disabled");
-    expect(getVersion).not.toHaveBeenCalled();
+    expect(getVersion).toHaveBeenCalled();
+    expect(storeProductPostcheckPolicySkip).toHaveBeenCalledWith({ chatId: "chat_1", versionId: "v1", expectedFilesRevision: "rev_n" });
+    expect(body.storageReceipt).toEqual({ status: "stored", versionId: "v1", filesRevision: "rev_n" });
+    expect(beginLiveReviewSession).not.toHaveBeenCalled();
+    expect(claimProductPostcheckRun).not.toHaveBeenCalled();
     expect(runProductPostcheck).not.toHaveBeenCalled();
   });
 
   it("feature flag off + null previewUrl => ingen degraded-emit (default-OFF prod tyst)", async () => {
     // The client calls this route unconditionally. `feature_disabled` returns
-    // before version-scope, so a default-OFF deployment must do no DB read and
+    // after auth and the canonical version receipt. Default-OFF must still
     // emit nothing — otherwise every version would show "degraded" (false-RED).
     const res = await POST(req({ versionId: "v1", previewUrl: null }), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
     const body = await res.json();
     expect(body.skippedReason).toBe("feature_disabled");
-    expect(getVersion).not.toHaveBeenCalled();
+    expect(getVersion).toHaveBeenCalled();
     expect(emitBusEvent).not.toHaveBeenCalled();
   });
 
@@ -426,7 +456,8 @@ describe("POST product-postcheck", () => {
       liveReviewAllowed: false,
     });
     const { timeoutMs } = runProductPostcheck.mock.calls[0][0] as { timeoutMs: number };
-    expect(timeoutMs).toBeGreaterThan(270_000);
+    expect(timeoutMs).toBeGreaterThan(260_000);
+    expect(timeoutMs).toBeLessThanOrEqual(270_000);
     expect(timeoutMs).toBeLessThanOrEqual(280_000);
   });
 
@@ -600,6 +631,7 @@ describe("POST product-postcheck", () => {
     ];
     getVersion.mockResolvedValue({
       version: {
+        chat_id: "chat_1",
         id: "v1",
         version_number: 1,
         files_json: "[]",
@@ -714,6 +746,7 @@ describe("POST product-postcheck", () => {
     getVersion
       .mockResolvedValueOnce({
         version: {
+        chat_id: "chat_1",
           id: "v1",
           version_number: 1,
           files_json: "{\"app/page.tsx\":\"N\"}",
@@ -723,6 +756,7 @@ describe("POST product-postcheck", () => {
       })
       .mockResolvedValue({
         version: {
+        chat_id: "chat_1",
           id: "v1",
           version_number: 1,
           files_json: "{\"app/page.tsx\":\"N+1\"}",
@@ -764,13 +798,9 @@ describe("POST product-postcheck", () => {
     );
     const body = await res.json();
 
-    expect(runProductPostcheck).toHaveBeenCalledWith(
-      expect.objectContaining({
-        previewSessionId: "ps_n",
-        lifecycleToken: "life_n",
-        filesRevision: "rev_n",
-      }),
-    );
+    // The canonical reread detects this race before Chromium now; N is never
+    // captured, so there are no newly created JPEGs to discard.
+    expect(runProductPostcheck).not.toHaveBeenCalled();
     expect(body).toEqual(
       expect.objectContaining({
         skipped: true,
@@ -780,10 +810,7 @@ describe("POST product-postcheck", () => {
       }),
     );
     expect(finishLiveReviewSession).not.toHaveBeenCalled();
-    expect(deleteLiveReviewScreenshotUrls).toHaveBeenCalledWith({
-      desktopUrl: "https://blob.example/n.jpg",
-      mobileUrl: null,
-    });
+    expect(commitProductPostcheckResult).not.toHaveBeenCalled();
     expect(emitBusEvent).not.toHaveBeenCalled();
     expect(emitBusEvent).not.toHaveBeenCalledWith(
       expect.objectContaining({ kind: "product_postcheck_blocked" }),
@@ -1006,8 +1033,8 @@ describe("POST product-postcheck", () => {
     expect(body.skippedReason).toBe("preview_not_ready");
     expect(body.attestation).toBeNull();
     expect(body.productBlocked).toBe(false);
-    expect(completeProductPostcheckRun).toHaveBeenCalledWith(
-      expect.objectContaining({ status: "superseded" }),
+    expect(commitProductPostcheckResult).toHaveBeenCalledWith(
+      expect.objectContaining({ result: expect.objectContaining({ skippedReason: "preview_not_ready", attestation: null }) }),
     );
     expect(emitBusEvent).not.toHaveBeenCalled();
   });

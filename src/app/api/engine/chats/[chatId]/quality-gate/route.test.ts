@@ -1,8 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getRequestUserId = vi.hoisted(() => vi.fn());
 const getVersionFiles = vi.hoisted(() => vi.fn());
+const getVersionFilesSnapshot = vi.hoisted(() => vi.fn());
+const getChat = vi.hoisted(() => vi.fn());
+const automaticRepair = vi.hoisted(() => vi.fn());
 const isPreferredHeadVersion = vi.hoisted(() => vi.fn());
 const getVersionById = vi.hoisted(() => vi.fn());
 const checkTier3ReadinessForVersion = vi.hoisted(() => vi.fn());
@@ -68,9 +71,21 @@ vi.mock("@/lib/db/client", () => ({
 
 vi.mock("@/lib/gen/version-manager", () => ({
   getVersionFiles,
+  getVersionFilesSnapshot,
 }));
 
+vi.mock("@/lib/logging/event-bus-subscribers", () => ({}));
+vi.mock("@/lib/logging/event-bus-error-log-sink", () => ({}));
+vi.mock("@/lib/gen/verify/server-verify/repair-execution", () => ({ tryServerRepairLoop: automaticRepair }));
+
 vi.mock("@/lib/db/chat-repository-pg", () => ({
+  getPreferredVersion: async (chatId: string) => {
+    const scoped = await getEngineVersionForChatByIdForRequest.mock.results.at(-1)?.value;
+    const versionId = scoped?.version.id;
+    return await isPreferredHeadVersion(chatId, versionId) ? { id: versionId } : { id: "newer-version" };
+  },
+  getLatestVersion: vi.fn(),
+  getChat,
   failVersionVerification,
   isPreferredHeadVersion,
   getVersionById,
@@ -127,12 +142,18 @@ vi.mock("@/lib/gen/verify/preview-quality-gate", () => ({
   isQualityGateDisabledByEnv,
   maybeAnalyzeVisualQAForPassedExportable,
   runQualityGateChecks,
+  runQualityGateOnExportable: async (input: { chatId: string; versionId: string; exportable: unknown; checks: unknown }) => {
+    if (!isQualityGateConfigured()) return null;
+    return runQualityGateChecks({ chatId: input.chatId, versionId: input.versionId,
+      files: exportableToQualityGateFiles(input.exportable), checks: input.checks });
+  },
   qualityGateAllPassed,
 }));
 
 vi.mock("@/lib/gen/verify/server-verify-log-meta", () => ({
   buildServerVerifyQualityGateMeta,
   compactVisualQAForQualityGateLog,
+  collectLintAdvisories: (results: { check: string; advisory?: boolean }[]) => results.filter((r) => r.check === "lint" && r.advisory === true),
 }));
 
 import { POST } from "./route";
@@ -144,6 +165,16 @@ import {
 describe("POST quality-gate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getChat.mockReset().mockImplementation(async () => (await getEngineVersionForChatByIdForRequest.mock.results.at(-1)?.value)?.chat);
+    getVersionFiles.mockReset().mockResolvedValue([{ path: "app/page.tsx", content: "export default function Page() { return null; }", language: "tsx" }]);
+    getVersionFilesSnapshot.mockReset().mockImplementation(async (versionId: string) => {
+      const files = await getVersionFiles(versionId);
+      if (!files) return null;
+      const scoped = await getEngineVersionForChatByIdForRequest.mock.results.at(-1)?.value;
+      return { files, filesJson: JSON.stringify(files), filesRevision: scoped?.version.files_revision ?? "rev-current",
+        lifecycleStage: scoped?.version.lifecycle_stage ?? "design", parentVersionId: scoped?.version.parent_version_id ?? null,
+        editKind: scoped?.version.edit_kind ?? null, verificationState: "pending", releaseState: "draft", verificationSummary: null };
+    });
     getRequestUserId.mockResolvedValue("user-1");
     isPreferredHeadVersion.mockResolvedValue(true);
     getVersionById.mockResolvedValue({ id: "ver-f2", chat_id: "chat-1" });
@@ -165,6 +196,51 @@ describe("POST quality-gate", () => {
     maybeAnalyzeVisualQAForPassedExportable.mockReturnValue(undefined);
     describeQualityGateVerification.mockReturnValue("Automatic verification passed.");
     isQualityGateDisabledByEnv.mockReturnValue(false);
+  });
+  afterEach(() => expect(automaticRepair).not.toHaveBeenCalled());
+
+  it("maps a null helper result to 501/pending, not a product failure", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({ chat: { id: "chat-1" }, version: { id: "ver-1" } });
+    buildExportableProject.mockImplementation(async (files) => files);
+    isQualityGateConfigured.mockReset().mockReturnValueOnce(true).mockReturnValueOnce(false);
+    const res = await POST(new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ versionId: "ver-1" }),
+    }), { params: Promise.resolve({ chatId: "chat-1" }) });
+    expect(res.status).toBe(501);
+    expect(await res.json()).toMatchObject({ code: "quality_gate_disabled" });
+    expect(resetVersionVerificationToPending).toHaveBeenCalledWith("ver-1", undefined, "run-1");
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(runQualityGateChecks).not.toHaveBeenCalled();
+  });
+
+  it("uses lifecycle, parent, raw revision and chat context read after lease, not the tenant pre-read", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({ chat: { id: "chat-1", project_id: "old-project" },
+      version: { id: "ver-1", lifecycle_stage: "design", parent_version_id: "old-parent", files_revision: "old" } });
+    const files = [{ path: "app/page.tsx", content: "canonical", language: "tsx" }];
+    getVersionFilesSnapshot.mockResolvedValue({ files, filesJson: JSON.stringify(files, null, 2), filesRevision: "canonical-revision",
+      lifecycleStage: "integrations", parentVersionId: "canonical-parent", editKind: null,
+      verificationState: "pending", releaseState: "draft", verificationSummary: null });
+    getChat.mockResolvedValue({ project_id: "new-project", orchestration_snapshot: { canonical: true } });
+    buildExportableProject.mockImplementation(async (inputFiles) => inputFiles);
+    exportableToQualityGateFiles.mockReturnValue([{ name: "app/page.tsx", content: "canonical" }]);
+    isQualityGateConfigured.mockReset().mockReturnValue(true);
+    runQualityGateChecks.mockResolvedValue({ results: [{ check: "build", passed: true, exitCode: 0, output: "" }],
+      verifyLaneDurationMs: 1, firstFailureCheck: null, jobStartedAt: null, jobFinishedAt: null });
+    qualityGateAllPassed.mockReturnValue(true);
+    const res = await POST(new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ versionId: "ver-1" }),
+    }), { params: Promise.resolve({ chatId: "chat-1" }) });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ passed: true, promoted: true });
+    expect(getVersionFilesSnapshot.mock.invocationCallOrder[0]).toBeGreaterThan(acquireVersionLease.mock.invocationCallOrder[0]);
+    expect(getChat.mock.invocationCallOrder[0]).toBeGreaterThan(acquireVersionLease.mock.invocationCallOrder[0]);
+    expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith(expect.objectContaining({
+      preloadedFiles: files, filesRevision: "canonical-revision", parentVersionId: "canonical-parent",
+      projectId: "new-project", orchestrationSnapshot: { canonical: true },
+    }));
+    expect(runQualityGateChecks.mock.calls[0][0].checks).toEqual([...INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS]);
+    expect(getVersionFilesSnapshot).toHaveBeenCalledTimes(1);
   });
 
   it("rejects guests before reading version state or starting verifier work", async () => {
@@ -1654,7 +1730,7 @@ describe("POST quality-gate", () => {
       chatId: "chat-1",
       parentVersionId: "ver-f2",
       requireF2Parent: true,
-      filesRevision: null,
+      filesRevision: "rev-current",
       productPostcheckVersionId: "ver-f2",
       orchestrationSnapshot: { selectedDossierIds: ["openai-chat"] },
       projectId: "project-1",

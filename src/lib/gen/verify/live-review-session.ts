@@ -7,9 +7,11 @@ import {
   completeLiveReviewRun,
   deleteLiveReviewScreenshotUrls,
   deletePreviousLiveReviewBlobs,
+  isLiveReviewHeldContext,
   purgeExpiredLiveReviewBlobs,
   waitForLiveReviewRun,
   type ClaimedLiveReview,
+  type LiveReviewHeldContext,
 } from "@/lib/db/services/live-review-runs";
 import {
   isLiveReviewAutoGrantEnabled,
@@ -17,8 +19,7 @@ import {
   resolveLiveReviewAccess,
   type LiveReviewGrantRecord,
 } from "@/lib/openclaw/live-review-access";
-import { LIVE_REVIEW_MAX_MODEL_ATTEMPTS } from "./live-review-claim";
-import { skippedLiveReviewResult } from "./live-review-claim";
+import { LIVE_REVIEW_CLAIM_WAIT_MS, LIVE_REVIEW_MAX_MODEL_ATTEMPTS, skippedLiveReviewResult } from "./live-review-claim";
 import { maybeAttachLiveReview } from "./live-review";
 import type {
   LiveReviewResult,
@@ -42,6 +43,8 @@ export interface LiveReviewSession {
   versionId: string;
   filesRevision: string | null;
   userId: string;
+  held: LiveReviewHeldContext;
+  deadlineAt: number;
 }
 
 export interface LiveReviewSessionDeps {
@@ -67,6 +70,8 @@ export async function beginLiveReviewSession(
     filesRevision: string | null | undefined;
     userId: string;
     grant?: LiveReviewGrantRecord | null;
+    held: LiveReviewHeldContext;
+    deadlineAt: number;
   },
   deps: LiveReviewSessionDeps = {},
 ): Promise<LiveReviewSession> {
@@ -94,12 +99,22 @@ export async function beginLiveReviewSession(
     versionId: input.versionId,
     filesRevision: input.filesRevision?.trim() || null,
     userId: input.userId,
+    held: input.held,
+    deadlineAt: input.deadlineAt,
   };
   if (!access.allow) {
     return { ...base, earlyResult: skippedLiveReviewResult(access.reason) };
   }
   if (!base.filesRevision) {
     return { ...base, earlyResult: skippedLiveReviewResult("missing_revision") };
+  }
+  if (
+    !isLiveReviewHeldContext(input.held) ||
+    input.held.chatId !== base.chatId || input.held.versionId !== base.versionId ||
+    input.held.filesRevision !== base.filesRevision ||
+    !Number.isFinite(input.deadlineAt) || Date.now() >= input.deadlineAt
+  ) {
+    return { ...base, earlyResult: skippedLiveReviewResult("preview_superseded") };
   }
 
   void (deps.purgeExpired ?? purgeExpiredLiveReviewBlobs)();
@@ -152,6 +167,7 @@ export async function finishLiveReviewSession(
     return (deps.waitForRun ?? waitForLiveReviewRun)({
       versionId: session.versionId,
       filesRevision: session.filesRevision,
+      timeoutMs: Number.isFinite(session.deadlineAt) ? Math.max(0, Math.min(LIVE_REVIEW_CLAIM_WAIT_MS, session.deadlineAt - Date.now())) : 0,
     });
   }
 
@@ -161,16 +177,27 @@ export async function finishLiveReviewSession(
 
   const acquiredClaim = session.claim;
   const targetIsCurrent = async () =>
-    input.isTargetCurrent ? input.isTargetCurrent().catch(() => false) : true;
+    Number.isFinite(session.deadlineAt) && Date.now() < session.deadlineAt &&
+    (input.isTargetCurrent ? input.isTargetCurrent().catch(() => false) : true);
   const discardSuperseded = async () => {
     await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
-    await (deps.abandonRun ?? abandonLiveReviewRun)(
-      acquiredClaim.row.id,
-      acquiredClaim.row.claimedAt,
-    );
     return skippedLiveReviewResult("preview_superseded");
   };
-  if (!(await targetIsCurrent())) return discardSuperseded();
+  if (
+    !isLiveReviewHeldContext(session.held) ||
+    session.held.chatId !== session.chatId || session.held.versionId !== session.versionId ||
+    session.held.filesRevision !== session.filesRevision ||
+    session.held.chatId !== acquiredClaim.row.chatId ||
+    session.held.versionId !== acquiredClaim.row.versionId ||
+    session.held.filesRevision !== acquiredClaim.row.filesRevision
+  ) return discardSuperseded();
+  if (!(await targetIsCurrent())) {
+    const discarded = await discardSuperseded();
+    if (acquiredClaim.row.modelAttempts === 0) {
+      await (deps.abandonRun ?? abandonLiveReviewRun)(acquiredClaim.row.id, acquiredClaim.row.claimedAt);
+    }
+    return discarded;
+  }
 
   if (session.claim.row.modelAttempts >= LIVE_REVIEW_MAX_MODEL_ATTEMPTS) {
     const capped = skippedLiveReviewResult("cost_capped");
@@ -185,6 +212,8 @@ export async function finishLiveReviewSession(
   const attempts = await (deps.beginPaidAttempt ?? beginPaidLiveReviewAttempt)({
     id: session.claim.row.id,
     claimedAt: session.claim.row.claimedAt,
+    held: session.held,
+    deadlineAt: session.deadlineAt,
   });
   if (attempts == null) {
     await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
@@ -192,6 +221,7 @@ export async function finishLiveReviewSession(
       return (deps.waitForRun ?? waitForLiveReviewRun)({
         versionId: session.versionId,
         filesRevision: session.filesRevision,
+        timeoutMs: Number.isFinite(session.deadlineAt) ? Math.max(0, Math.min(LIVE_REVIEW_CLAIM_WAIT_MS, session.deadlineAt - Date.now())) : 0,
       });
     }
     return skippedLiveReviewResult("claim_busy");
@@ -212,6 +242,8 @@ export async function finishLiveReviewSession(
     userRequestSource: input.userRequestSource,
     briefSummary: input.briefSummary,
     filesRevision: session.filesRevision,
+    deadlineAt: session.deadlineAt,
+    isTargetCurrent: targetIsCurrent,
   });
 
   // The critic may be slow enough for N+1 to commit while N is in flight.
@@ -228,10 +260,7 @@ export async function finishLiveReviewSession(
         result.reason === "cost_capped"));
   if (!paid) {
     await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
-    await (deps.abandonRun ?? abandonLiveReviewRun)(
-      session.claim.row.id,
-      session.claim.row.claimedAt,
-    );
+    // Even a skipped result cannot prove that a reserved model call was free.
     return result;
   }
 
@@ -240,14 +269,11 @@ export async function finishLiveReviewSession(
     result,
     screenshots: input.screenshots,
     modelAttempts: attempts,
-  });
+  }).catch(() => false);
 
   if (!persisted) {
     await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
-    await (deps.abandonRun ?? abandonLiveReviewRun)(
-      session.claim.row.id,
-      session.claim.row.claimedAt,
-    );
+    // Keep the claim and its reserved count for a bounded lease takeover.
     return result;
   }
 

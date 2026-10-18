@@ -354,8 +354,11 @@ export async function waitForProductPostcheckPreviewRunning(
 export async function readProductPostcheckPreviewProbe(params: {
   chatId: string;
   expectedVersionId: string;
+  deadlineEpochMs?: number;
 }): Promise<ProductPostcheckPreviewProbe> {
+  if (params.deadlineEpochMs !== undefined && Date.now() >= params.deadlineEpochMs) throw new Error("Preview time budget exhausted");
   const session = await getActivePreviewSessionAsync(params.chatId);
+  if (params.deadlineEpochMs !== undefined && Date.now() >= params.deadlineEpochMs) throw new Error("Preview time budget exhausted");
   if (!session) {
     return {
       running: false,
@@ -383,6 +386,7 @@ export async function readProductPostcheckPreviewProbe(params: {
     const verdict = await fetchPreviewHostReadinessVerdict(previewSessionId, {
       expectedVersionId: params.expectedVersionId,
       expectedLifecycleToken: session.lifecycleToken?.trim() || null,
+      ...(params.deadlineEpochMs !== undefined ? { previewDeadlineEpochMs: params.deadlineEpochMs } : {}),
     });
     if (verdict) {
       readinessState = verdict.readinessState;

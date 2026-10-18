@@ -6,8 +6,6 @@ import { parseCodeProject, serializeCodeProject, type CodeFile } from "../parser
 import { runAutoFix } from "../autofix/pipeline";
 import { DEFAULT_MODEL } from "../models";
 import { DB_ENV_VARS, resolveConfiguredDbEnv } from "@/lib/db/env";
-import { buildCompleteProject } from "../export/project-scaffold";
-import { collectRequiredUiComponents } from "../export/project-scaffold-ui-reader";
 import { runFinalizePreflight } from "../stream/finalize-preflight";
 import { parseSSEBuffer } from "../stream/sse-parser";
 import { classifyProviderError } from "@/lib/providers/own-engine/provider-error-messages";
@@ -782,15 +780,10 @@ async function evaluatePrompt(
   // outer autofix in finalize-version.ts but without the surrounding pipeline.
   const { fixedContent } = await runAutoFix(content);
   const rawProject = parseCodeProject(content);
-  const project = parseCodeProject(fixedContent);
-  // Dynamic import keeps runner.test.ts able to import pure helpers
-  // without pulling the finalize stack (and its database side imports)
-  // into the test process.
-  const { mergeGeneratedProjectFiles } = await import("../stream/finalize-merge");
-  const mergeResult = mergeGeneratedProjectFiles({
+  const { prepareGeneratedProjectCandidate } = await import("../stream/finalize-merge");
+  const mergeResult = prepareGeneratedProjectCandidate({
     chatId: `eval_${evalPrompt.id}`,
-    originalFilesJson: JSON.stringify(project.files),
-    generatedFiles: project.files,
+    contentForVersion: fixedContent,
     resolvedScaffold: generationInput.resolvedScaffold,
     // B05: scope refuseDossierStubs to the eval's selected dossiers so eval
     // green/red parity matches the production streaming finalize path.
@@ -820,12 +813,6 @@ async function evaluatePrompt(
       language?: string;
     }>
   ).map((file) => ({ ...file, language: file.language || "tsx" }));
-  const completeProjectFiles = buildCompleteProject(
-    mergedFiles,
-    collectRequiredUiComponents(mergedFiles),
-    projectEnvLocalOptions,
-  );
-  const seoIssues = runSeoPreflightChecks(completeProjectFiles);
   const preflight = await runFinalizePreflight({
     chatId: `eval_${evalPrompt.id}`,
     model,
@@ -838,9 +825,11 @@ async function evaluatePrompt(
   });
 
   const sources = deriveEvalCheckSources({
-    rawFiles: project.files,
+    rawFiles: mergeResult.generatedFiles,
     preflightFilesJson: preflight.filesJson,
   });
+  const completeProjectFiles = sources.canonicalRuntimeFiles;
+  const seoIssues = runSeoPreflightChecks(completeProjectFiles);
 
   if (sources.droppedProtectedPaths.length > 0) {
     // Telemetry-only. The protected-paths guard removed these LLM
@@ -941,7 +930,7 @@ async function evaluatePrompt(
       rawContent: content,
       fixedContent,
       rawFiles: rawProject.files,
-      fixedFiles: project.files,
+      fixedFiles: mergeResult.generatedFiles,
       mergedFiles,
       completeProjectFiles,
       sources,
