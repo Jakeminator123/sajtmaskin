@@ -48,7 +48,7 @@ const PACKAGE_JSON = `{
     "next": "16.3.8",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "radix-ui": "1.6.7",
+    "radix-ui": "1.8.1",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "tailwind-merge": "3.3.0",
