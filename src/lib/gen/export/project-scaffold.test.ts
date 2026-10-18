@@ -671,7 +671,7 @@ describe("buildCompleteProject", () => {
             "react-dom": "^19.0.0",
             three: "0.182.0",
             "@react-three/fiber": "9.7.0",
-            "@react-three/drei": "10.7.7",
+            "@react-three/drei": "10.7.9",
           },
         }),
         language: "json",
