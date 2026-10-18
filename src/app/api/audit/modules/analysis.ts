@@ -1,4 +1,5 @@
 import { omitAdvancedOnlyFields, type AuditSchemaKind } from "@/lib/audit/audit-tier";
+import { resolvePriceModel } from "@/lib/billing/model-cost";
 import type { AuditMode, AuditResult } from "@/types/audit";
 
 // Cost calculation (for logging/display only)
@@ -474,15 +475,17 @@ function estimateWordCountFromSiteContent(siteContent?: AuditResult["site_conten
 
 /**
  * Approximate USD per 1M tokens for cost display (provider list prices change;
- * figures are indicative, not billing truth).
+ * figures are indicative, not billing truth). OpenAI rates come from the shared
+ * `config/ai_models/pricing.json` table so a new model is never shown at
+ * another model's price.
  */
 function getPricingForModel(model: string): { input: number; output: number } {
   const m = model.toLowerCase();
-  if (m.includes("gpt-5.6-sol")) return { input: 4, output: 20 };
-  if (m.includes("gpt-5.6-terra")) return { input: 2, output: 12 };
-  if (m.includes("gpt-5.6-luna")) return { input: 0.2, output: 1.2 };
-  if (m.includes("gpt-5.5")) return { input: 5, output: 30 };
-  if (m.includes("gpt-5.2")) return { input: 1.25, output: 10 };
+  const priced = resolvePriceModel(m);
+  if (priced?.value.provider === "openai") {
+    const { input, output } = priced.value.tiers.standard;
+    if (input !== null && output !== null) return { input, output };
+  }
   if (m.includes("opus")) return { input: 15, output: 75 };
   if (m.includes("sonnet")) return { input: 3, output: 15 };
   if (m.includes("claude")) return { input: 3, output: 15 };
