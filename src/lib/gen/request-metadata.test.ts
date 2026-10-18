@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildUserPromptContent,
   extractComplexityHintFromMeta,
+  extractDesignThemePresetFromMeta,
   extractPageCountHintFromMeta,
   extractStyleKeywordsHintFromMeta,
   isVideoRequestAttachment,
@@ -259,5 +260,19 @@ describe("extractStyleKeywordsHintFromMeta (Byggval)", () => {
   it("returns empty array for malformed meta", () => {
     expect(extractStyleKeywordsHintFromMeta({ styleKeywordsHint: "warm" })).toEqual([]);
     expect(extractStyleKeywordsHintFromMeta(null)).toEqual([]);
+  });
+});
+
+describe("extractDesignThemePresetFromMeta (Byggval Färg)", () => {
+  it("passes a chosen color cluster through", () => {
+    expect(extractDesignThemePresetFromMeta({ designTheme: "blue" })).toBe("blue");
+    expect(extractDesignThemePresetFromMeta({ designThemePreset: " teal " })).toBe("teal");
+  });
+
+  it("treats Färg Auto (stored as off) as no preference", () => {
+    expect(extractDesignThemePresetFromMeta({ designTheme: "off" })).toBeNull();
+    expect(extractDesignThemePresetFromMeta({ designThemePreset: "OFF" })).toBeNull();
+    expect(extractDesignThemePresetFromMeta({})).toBeNull();
+    expect(extractDesignThemePresetFromMeta(null)).toBeNull();
   });
 });

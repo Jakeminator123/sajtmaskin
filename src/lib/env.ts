@@ -209,6 +209,7 @@ export const serverSchema = z.object({
   SAJTMASKIN_MODEL_MAX: z.string().optional(),
   SAJTMASKIN_MODEL_CODEX: z.string().optional(),
   SAJTMASKIN_MODEL_ANTHROPIC: z.string().optional(),
+  SAJTMASKIN_MODEL_ULTRA: z.string().optional(),
   SAJTMASKIN_ASSIST_MODEL: z.string().optional(),
   SAJTMASKIN_PROMPT_REWRITE_MODEL: z.string().optional(),
   SAJTMASKIN_VERIFIER_PASS: z.string().optional(),

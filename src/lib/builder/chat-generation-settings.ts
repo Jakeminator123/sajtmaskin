@@ -3,7 +3,7 @@ import {
   MODEL_TIER_OPTIONS,
 } from "@/lib/builder/defaults";
 import type { ModelTier } from "@/lib/validations/chat-schemas";
-import { canonicalizeModelId } from "@/lib/models/catalog";
+import { canonicalizeModelId, DEFAULT_MODEL_ID } from "@/lib/models/catalog";
 
 export type ChatGenerationSettings = {
   modelTier: ModelTier;
@@ -25,9 +25,15 @@ export function readChatGenerationSettings(chatId: string): ChatGenerationSettin
     const parsed = JSON.parse(raw) as Partial<ChatGenerationSettings> | null;
     if (!parsed || typeof parsed !== "object") return null;
     const canonicalModelTier = canonicalizeModelId(parsed.modelTier);
-    if (!canonicalModelTier || !MODEL_TIER_SET.has(canonicalModelTier as ModelTier)) return null;
+    if (!canonicalModelTier) return null;
+    // A chat saved on a tier that is no longer in the slider (codex, anthropic)
+    // must open on the default tier. Returning null would keep whatever the
+    // slider showed for the previous chat, and the save effect would then
+    // persist that onto this chat.
     return {
-      modelTier: canonicalModelTier as ModelTier,
+      modelTier: MODEL_TIER_SET.has(canonicalModelTier as ModelTier)
+        ? (canonicalModelTier as ModelTier)
+        : (DEFAULT_MODEL_ID as ModelTier),
       imageGenerations:
         typeof parsed.imageGenerations === "boolean"
           ? parsed.imageGenerations

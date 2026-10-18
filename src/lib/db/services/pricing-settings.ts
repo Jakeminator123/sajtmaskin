@@ -45,6 +45,7 @@ const modelTierPricesSchema = z
     max: creditPriceSchema,
     codex: creditPriceSchema,
     anthropic: creditPriceSchema,
+    ultra: creditPriceSchema,
   })
   .partial();
 
@@ -77,6 +78,7 @@ const modelTierPricesPatchSchema = z
     max: creditPriceSchema.nullable(),
     codex: creditPriceSchema.nullable(),
     anthropic: creditPriceSchema.nullable(),
+    ultra: creditPriceSchema.nullable(),
   })
   .partial();
 

@@ -30,7 +30,7 @@ const numericEnvSettingSchema = z.object({
   max: z.number(),
 });
 
-const _buildProfileIdSchema = z.enum(["premium", "pro", "max", "codex", "anthropic"]);
+const _buildProfileIdSchema = z.enum(["premium", "pro", "max", "codex", "anthropic", "ultra"]);
 const _generationPhaseSchema = z.enum([
   "planner",
   "generator",
@@ -48,6 +48,7 @@ const buildProfilesSchema = z.object({
     max: z.string(),
     codex: z.string(),
     anthropic: z.string(),
+    ultra: z.string(),
   }),
   envKeys: z.object({
     premium: z.string(),
@@ -55,6 +56,7 @@ const buildProfilesSchema = z.object({
     max: z.string(),
     codex: z.string(),
     anthropic: z.string(),
+    ultra: z.string(),
   }),
 });
 
@@ -112,6 +114,7 @@ const phaseRoutingSchema = z.object({
     max: phaseRoutingTierSchema,
     codex: phaseRoutingTierSchema,
     anthropic: phaseRoutingTierSchema,
+    ultra: phaseRoutingTierSchema,
   }),
   thinkingByTier: z
     .object({
@@ -120,6 +123,7 @@ const phaseRoutingSchema = z.object({
       max: phaseThinkingTierSchema,
       codex: phaseThinkingTierSchema,
       anthropic: phaseThinkingTierSchema,
+      ultra: phaseThinkingTierSchema,
     })
     .optional(),
   notes: z.string().optional(),
@@ -275,6 +279,7 @@ function tierKeyedSchema<T extends z.ZodTypeAny>(inner: T) {
     max: inner,
     codex: inner,
     anthropic: inner,
+    ultra: inner,
   });
 }
 
@@ -395,6 +400,13 @@ const DEFAULT_PHASE_THINKING_BY_TIER: Record<BuildProfileId, PhaseThinkingTierFr
     generator: { thinking: true, reasoningEffort: "high" },
     fixer: { thinking: false, reasoningEffort: "medium" },
     verifier: { thinking: false, reasoningEffort: "medium" },
+    "deploy-assistant": { thinking: false, reasoningEffort: "medium" },
+  },
+  ultra: {
+    planner: { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
+    generator: { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
+    fixer: { thinking: false, reasoningEffort: "high" },
+    verifier: { thinking: false, reasoningEffort: "low" },
     "deploy-assistant": { thinking: false, reasoningEffort: "medium" },
   },
 };

@@ -20,6 +20,7 @@ const _inverted = Object.entries(QUALITY_TO_MODEL).reduce(
 export const MODEL_TIER_TO_QUALITY: Partial<Record<string, QualityLevel>> = {
   ..._inverted,
   premium: "premium",
+  ultra: "premium",
   fast: "premium",
   codex: "max",
   max: "max",

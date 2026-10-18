@@ -19,6 +19,14 @@ describe("CREDIT_COST_BREAKDOWN (documented UI fallback)", () => {
     expect(CREDIT_COST_BREAKDOWN.generateMax).toBe(
       getCreditCost("prompt.create", { modelId: "max" }),
     );
+    expect(CREDIT_COST_BREAKDOWN.generateUltra).toBe(
+      getCreditCost("prompt.create", { modelId: "ultra" }),
+    );
+    expect(CREDIT_COST_BREAKDOWN.generateUltra).toBe(50);
+    expect(CREDIT_COST_BREAKDOWN.refineUltra).toBe(
+      getCreditCost("prompt.refine", { modelId: "ultra" }),
+    );
+    expect(CREDIT_COST_BREAKDOWN.refineUltra).toBe(30);
     expect(CREDIT_COST_BREAKDOWN.refinePremium).toBe(
       getCreditCost("prompt.refine", { modelId: "premium" }),
     );
