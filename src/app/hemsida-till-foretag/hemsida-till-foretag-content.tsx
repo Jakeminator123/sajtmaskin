@@ -87,7 +87,7 @@ const MISTAKES = [
   "Löften om pris, domän eller export som produkten inte håller",
 ] as const;
 
-const FAQS = [
+export const FAQS = [
   {
     q: "Räcker en one-pager för ett företag?",
     a: "Ja, i början. Startsida med erbjudande, bevis och kontakt räcker långt. Lägg till undersidor när innehållet faktiskt finns — hellre fem tydliga sidor än femton halvtomma.",
@@ -383,7 +383,7 @@ export function HemsidaTillForetagContent() {
                 Kostnaden är bygge plus underhåll. Preview under arbetet är inte en publicerad sajt.
                 Utan egen domän får den publicerade sidan en Vercel-adress; koppling av en domän ni
                 redan äger kan vara stängd i vissa miljöer. Aktuella Sajtmaskin-paket finns på{" "}
-                <Link href="/#priser" className="text-foreground underline-offset-4 hover:underline">
+                <Link href="/priser" className="text-foreground underline-offset-4 hover:underline">
                   prissidan
                 </Link>
                 .

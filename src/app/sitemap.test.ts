@@ -6,7 +6,7 @@ import {
   SEO_LANDING_SLUGS,
   getIndexableSeoLandingRelPaths,
 } from "@/lib/seo-landing-pages/registry";
-import sitemap, { SITEMAP_CATEGORY_SLUGS, STATIC_SITEMAP_REL_PATHS } from "./sitemap";
+import sitemap, { NOINDEX_CATEGORY_SLUGS, STATIC_SITEMAP_REL_PATHS } from "./sitemap";
 
 const PRIVATE_SITEMAP_REL_PATHS = [
   "/builder",
@@ -30,6 +30,7 @@ describe("marketing sitemap", () => {
         "/faq",
         "/templates",
         "/teknik",
+        "/priser",
         "/terms",
         "/privacy",
       ]),
@@ -75,14 +76,16 @@ describe("marketing sitemap", () => {
     }
   });
 
-  it("keeps public static and category routes on sajtmaskin.se", () => {
+  it("keeps public static routes on sajtmaskin.se and omits thin category indexes", () => {
     const urls = sitemap().map((entry) => entry.url);
     expect(urls).toContain(PUBLIC_CANONICAL_ORIGIN);
+    expect(urls).toContain(publicCanonicalPath("/priser"));
     for (const path of STATIC_SITEMAP_REL_PATHS) {
       expect(urls).toContain(publicCanonicalPath(path));
     }
-    for (const slug of SITEMAP_CATEGORY_SLUGS) {
-      expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/category/${slug}`);
+    expect(NOINDEX_CATEGORY_SLUGS).toHaveLength(9);
+    for (const slug of NOINDEX_CATEGORY_SLUGS) {
+      expect(urls).not.toContain(`${PUBLIC_CANONICAL_ORIGIN}/category/${slug}`);
     }
     expect(urls.every((url) => url.startsWith(`${PUBLIC_CANONICAL_ORIGIN}`))).toBe(true);
     expect(new Set(urls).size).toBe(urls.length);

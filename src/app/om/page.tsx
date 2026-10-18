@@ -6,7 +6,7 @@ import { publicPageAlternates } from "@/lib/public-canonical-url";
 export const metadata: Metadata = {
   title: "Om oss",
   description:
-    "Om Sajtmaskin — AI-driven webbplattform för svenska företag. Pretty Good B.V.",
+    "Om Sajtmaskin — svensk AI-hemsidebyggare för småföretag. Drivs av Pretty Good B.V.",
   alternates: publicPageAlternates("/om"),
 };
 

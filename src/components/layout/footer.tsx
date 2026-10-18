@@ -9,7 +9,7 @@ const productLinks = [
   { label: "Skapa", href: "/" },
   { label: "Analys", href: "/analys" },
   { label: "Templates", href: "/templates" },
-  { label: "Priser", href: "/buy-credits" },
+  { label: "Priser", href: "/priser" },
 ];
 
 const companyLinks = [

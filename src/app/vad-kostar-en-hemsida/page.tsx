@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createSeoLandingMetadata } from "@/lib/seo-landing-pages/metadata";
-import { VadKostarEnHemsidaContent } from "./vad-kostar-en-hemsida-content";
+import { SeoLandingJsonLd } from "@/lib/seo-landing-pages/structured-data";
+import { FAQS, VadKostarEnHemsidaContent } from "./vad-kostar-en-hemsida-content";
 
 /**
  * Cost SEO landing: cost drivers and scopes, never invented SEK tags.
@@ -11,5 +12,10 @@ import { VadKostarEnHemsidaContent } from "./vad-kostar-en-hemsida-content";
 export const metadata: Metadata = createSeoLandingMetadata("vad-kostar-en-hemsida");
 
 export default function VadKostarEnHemsidaPage() {
-  return <VadKostarEnHemsidaContent />;
+  return (
+    <>
+      <SeoLandingJsonLd slug="vad-kostar-en-hemsida" faqs={FAQS} />
+      <VadKostarEnHemsidaContent />
+    </>
+  );
 }
