@@ -161,7 +161,7 @@ describe("GenerationSummary — varning efter avbruten ström", () => {
     expect(prose.textContent).not.toContain(CODE_MARKER);
   });
 
-  it("lämnar text där en fence följer efter markören som kod", () => {
+  it("lämnar text där kod följer efter markören som kod", () => {
     expect(splitTrailingStreamWarning("Text\n\nVarning: x\n```tsx\ncode")).toEqual({
       body: "Text\n\nVarning: x\n```tsx\ncode",
       warning: null,
@@ -170,5 +170,25 @@ describe("GenerationSummary — varning efter avbruten ström", () => {
       body: "",
       warning: `Varning: ${WARNING}`,
     });
+  });
+
+  it("visar inte kod som följer på modellens egen Varning-rad utan fence", () => {
+    const content = ["Klart.", "Varning: tänk på bildrätter.", 'tsx file="app/page.tsx"', CODE_MARKER].join("\n\n");
+
+    render(<GenerationSummary content={content} />);
+
+    const prose = screen.getByTestId("generation-summary-prose");
+    expect(prose.textContent).toContain("Varning: tänk på bildrätter.");
+    expect(prose.textContent).not.toContain(CODE_MARKER);
+  });
+
+  it("hittar den tillagda varningen även när svaret börjar med Varning:", () => {
+    const streamed = ["Varning: modellen inleder så.", '```tsx file="app/page.tsx"', CODE_MARKER].join("\n\n");
+
+    render(<GenerationSummary content={appendStreamWarning(streamed, `rad ett\nrad två`)} />);
+
+    const prose = screen.getByTestId("generation-summary-prose");
+    expect(prose.textContent).toContain("Varning: rad ett rad två");
+    expect(prose.textContent).not.toContain(CODE_MARKER);
   });
 });
