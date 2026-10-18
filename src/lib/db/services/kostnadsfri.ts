@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gt, inArray, isNull, like, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
+  engineChats,
   engineGenerationLogs,
   engineVersions,
   generationBillings,
@@ -774,8 +775,46 @@ export async function getKostnadsfriGenerationBySlug(
           .where(inArray(engineVersions.id, effectiveVersionIds))
       : [];
   const versionById = new Map(versions.map((version) => [version.id, version]));
+
+  // Admin/test builders bypass the campaign credit path, so their entitlement
+  // never gets a bound chat or settlement marker. The entitlement's own
+  // project still proves whether a site was generated.
+  const unboundProjectIds = entitlements
+    .filter(
+      (row) => !row.initial_chat_id && !row.initial_version_id && !markerByEntitlement.has(row.id),
+    )
+    .map((row) => row.project_id);
+  const projectChats =
+    unboundProjectIds.length > 0
+      ? await db
+          .select({
+            id: engineChats.id,
+            projectId: engineChats.projectId,
+            createdAt: engineChats.createdAt,
+          })
+          .from(engineChats)
+          .where(inArray(engineChats.projectId, unboundProjectIds))
+      : [];
+  const projectVersions =
+    projectChats.length > 0
+      ? await db
+          .select({
+            id: engineVersions.id,
+            chatId: engineVersions.chatId,
+            createdAt: engineVersions.createdAt,
+          })
+          .from(engineVersions)
+          .where(
+            inArray(
+              engineVersions.chatId,
+              projectChats.map((chat) => chat.id),
+            ),
+          )
+      : [];
+  const unboundByProject = resolveUnboundCampaignGeneration(projectChats, projectVersions);
+
   const chatIds = entitlements
-    .map((row) => row.initial_chat_id)
+    .map((row) => row.initial_chat_id ?? unboundByProject.get(row.project_id)?.chatId ?? null)
     .filter((value): value is string => Boolean(value));
   const logs =
     chatIds.length > 0
@@ -795,22 +834,58 @@ export async function getKostnadsfriGenerationBySlug(
   const result = new Map<string, KostnadsfriGeneration>();
   for (const row of entitlements) {
     const marker = markerByEntitlement.get(row.id);
-    const versionId = row.initial_version_id ?? marker?.versionId ?? null;
+    const unbound = row.initial_chat_id ? undefined : unboundByProject.get(row.project_id);
+    const chatId = row.initial_chat_id ?? unbound?.chatId ?? null;
+    const versionId = row.initial_version_id ?? marker?.versionId ?? unbound?.version?.id ?? null;
     const completedAt = versionId
-      ? (versionById.get(versionId)?.createdAt ?? row.initial_claimed_at ?? marker?.createdAt ?? null)
+      ? (versionById.get(versionId)?.createdAt ??
+        unbound?.version?.createdAt ??
+        row.initial_claimed_at ??
+        marker?.createdAt ??
+        null)
       : null;
     result.set(
       row.invitation_slug,
       resolveKostnadsfriGenerationProjection({
         projectId: row.project_id,
-        initialChatId: row.initial_chat_id,
+        initialChatId: chatId,
         initialVersionId: versionId,
         completedAt,
-        latestGenerationSucceeded: row.initial_chat_id
-          ? (latestLog.get(row.initial_chat_id)?.success ?? null)
-          : null,
+        latestGenerationSucceeded: chatId ? (latestLog.get(chatId)?.success ?? null) : null,
       }),
     );
+  }
+  return result;
+}
+
+type ProjectChatRow = { id: string; projectId: string | null; createdAt: Date | string };
+type ProjectVersionRow = { id: string; chatId: string; createdAt: Date | string };
+
+/** Earliest version per project, else its earliest chat (generation started, no version yet). */
+function resolveUnboundCampaignGeneration(
+  chats: readonly ProjectChatRow[],
+  versions: readonly ProjectVersionRow[],
+): Map<string, { chatId: string; version: ProjectVersionRow | null }> {
+  const time = (value: Date | string) => new Date(value).getTime();
+  const projectByChat = new Map<string, string>();
+  const result = new Map<string, { chatId: string; version: ProjectVersionRow | null }>();
+  const firstChatAt = new Map<string, number>();
+  for (const chat of chats) {
+    if (!chat.projectId) continue;
+    projectByChat.set(chat.id, chat.projectId);
+    const at = time(chat.createdAt);
+    if (!result.has(chat.projectId) || at < (firstChatAt.get(chat.projectId) ?? Infinity)) {
+      result.set(chat.projectId, { chatId: chat.id, version: null });
+      firstChatAt.set(chat.projectId, at);
+    }
+  }
+  for (const version of versions) {
+    const projectId = projectByChat.get(version.chatId);
+    if (!projectId) continue;
+    const current = result.get(projectId);
+    if (!current?.version || time(version.createdAt) < time(current.version.createdAt)) {
+      result.set(projectId, { chatId: version.chatId, version });
+    }
   }
   return result;
 }
