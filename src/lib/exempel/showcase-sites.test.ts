@@ -12,8 +12,13 @@ import {
 const FORBIDDEN_GLASS_ALIAS = "https://glass-showcase.vercel.app";
 
 describe("showcase site catalog", () => {
-  it("lists exactly the five live reconstructions in the public order", () => {
+  it("lists all ten live showcase sites in the public order", () => {
     expect(SHOWCASE_SITES.map((site) => [site.id, site.href])).toEqual([
+      ["dg97", "https://www.dg97.org"],
+      ["kontorshotellkartan", "https://kontorshotellkartan.se"],
+      ["persona-royale", "https://persona-royale-casino.vercel.app"],
+      ["sajtmaskin-casino", "https://sajtmaskin-casino-f440ccf7.vercel.app"],
+      ["futuristic-dashboard", "https://futuristic-dashboard-five-indol.vercel.app"],
       ["byraflode", "https://byraflode-showcase.vercel.app"],
       ["springa", "https://springa-showcase.vercel.app"],
       ["palma", "https://palma-showcase.vercel.app"],
@@ -34,8 +39,13 @@ describe("showcase site catalog", () => {
     }
   });
 
-  it("keeps the homepage strip to three featured examples", () => {
+  it("keeps the homepage strip to the eight featured examples", () => {
     expect(HOME_SHOWCASE_SITES.map((site) => site.id)).toEqual([
+      "dg97",
+      "kontorshotellkartan",
+      "persona-royale",
+      "sajtmaskin-casino",
+      "futuristic-dashboard",
       "byraflode",
       "springa",
       "palma",
@@ -45,6 +55,7 @@ describe("showcase site catalog", () => {
   it("uses locally committed screenshots and a reconstruction disclosure", () => {
     for (const site of SHOWCASE_SITES) {
       expect(site.screenshotSrc).toBe(`/exempel/${site.id}.webp`);
+      expect(site.highlight.trim().length).toBeGreaterThan(0);
       expect(site.summary.toLowerCase()).not.toMatch(/kundcase|kundomdöme|%\s*$|procent/);
     }
     expect(EXEMPEL_PATH).toBe("/exempel");
