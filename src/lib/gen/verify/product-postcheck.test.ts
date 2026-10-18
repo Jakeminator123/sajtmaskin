@@ -2377,13 +2377,22 @@ describe("outputFileTracingIncludes för browser-routes", () => {
   const routesThatLaunchChromium = [
     "/api/projects/*/thumbnail",
     "/api/inspector-capture",
+    "/api/inspector-element-map",
     "/api/engine/chats/*/product-postcheck",
+    // runVersionPostchecks kör produktkontrollen inne i genererings- och cron-funktionerna.
+    "/api/engine/chats/stream",
+    "/api/engine/chats/*/stream",
+    "/api/engine/postchecks",
   ];
 
   it("ger varje Chromium-route en egen spårningspost", () => {
     const config = readFileSync(path.join(process.cwd(), "next.config.ts"), "utf8");
     for (const route of routesThatLaunchChromium) {
-      expect(config).toContain(`"${route}"`);
+      const start = config.indexOf(`"${route}": [`);
+      expect(start, route).toBeGreaterThan(-1);
+      const entry = config.slice(start, config.indexOf("]", start));
+      expect(entry, route).toContain("./node_modules/playwright-core/browsers.json");
+      expect(entry, route).toContain("./node_modules/@sparticuz/chromium/bin/**");
     }
   });
 });
