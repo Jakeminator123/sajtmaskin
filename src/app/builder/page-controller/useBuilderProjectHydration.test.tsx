@@ -109,7 +109,52 @@ describe("useBuilderProjectHydration new entry", () => {
     );
 
     expect(createProject).not.toHaveBeenCalled();
-    expect(router.replace).not.toHaveBeenCalled();
     expect(setAppProjectId).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith(
+      "/builder?project=proj_1&promptId=prompt_1&buildMethod=freeform",
+    );
+  });
+
+  it("keeps gclid when consuming new=1 from a project handoff URL", () => {
+    const router = { replace: vi.fn() };
+    const setter = () => vi.fn() as never;
+
+    renderHook(() =>
+      useBuilderProjectHydration({
+        appProjectId: null,
+        chatId: null,
+        chatIdParam: null,
+        entryKind: "project-restore",
+        forceNew: true,
+        hasEntryParams: false,
+        isAuthLoading: false,
+        paletteState: getDefaultPaletteState(),
+        projectParam: "proj_1",
+        autoProjectInitRef: ref(false),
+        lastPaletteSavedRef: ref<string | null>(null),
+        lastProjectIdRef: ref<string | null>(null),
+        paletteLoadedRef: ref(false),
+        router,
+        searchParams: new URLSearchParams(
+          "project=proj_1&buildMethod=freeform&new=1&gclid=KeepMe",
+        ) as never,
+        setAppProjectId: setter(),
+        setAppProjectName: setter(),
+        setAuthModalReason: setter(),
+        setClearedPreviewVersionId: setter(),
+        setEntryIntentActive: setter(),
+        setPaletteState: setter(),
+        setServerProjectChatId: setter(),
+        setServerProjectDemoUrl: setter(),
+        setServerProjectMessages: setter(),
+        setServerProjectPreviewOverrideUrl: setter(),
+        setServerProjectPreviewOverrideVersionId: setter(),
+      }),
+    );
+
+    expect(createProject).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith(
+      "/builder?project=proj_1&buildMethod=freeform&gclid=KeepMe",
+    );
   });
 });

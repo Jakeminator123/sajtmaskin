@@ -206,7 +206,7 @@ och skickar händelser efter cookie-samtycke `accepted`.
 |---|---|
 | Auto-tagging | På (`gclid`) |
 | Tag | Koddefault `AW-18458823435`. Override: `NEXT_PUBLIC_GOOGLE_ADS_ID`. Kill-switch: `NEXT_PUBLIC_GOOGLE_ADS_ENABLED=0`. QA på preview/localhost: `=1` |
-| Primär konvertering | `builder_start` — `/builder?new=1`. SEO-CTA (`SEO_LANDING_CTA_HREF`), startsidans `startBuild`, wizard/audit-handoff, templates/`/category` och `/exempel` sätter `new=1`. send_to `AW-18458823435/yesaCIbf1fscEIuW7eFE`. sessionStorage-dedup så refresh inte dubbelräknar |
+| Primär konvertering | `builder_start` — `/builder?new=1`. SEO-CTA (`SEO_LANDING_CTA_HREF`), startsidans `startBuild`, wizard/audit-handoff, templates/`/category` och `/exempel` sätter `new=1`. Efter att händelsen noterats tas `new` bort från URL:en (samma som blank builder-init) så en senare session inte räknas om. send_to `AW-18458823435/yesaCIbf1fscEIuW7eFE`. sessionStorage-dedup så refresh inte dubbelräknar |
 | Sekundär | `account_created` — efter lyckad **ny** e-postregistrering och första Google-signup (`signup=1`). Inte login. Inte GitHub (GitHub OAuth skapar inget konto). send_to `AW-18458823435/R5rICIPf1fscEIuW7eFE` |
 | Tertiär | `first_site_generated` — första lyckade generation som ger `versionId` i den här webbläsaren (init eller follow-up). Ingen Ads-conversion-label ännu: skickas som `gtag('event','first_site_generated')` utan `send_to`. Sätt `NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL` när labeln skapats i Ads |
 | Värde | Inte satt i v1; vi mäter händelser, inte kr/konvertering |

@@ -98,4 +98,21 @@ describe("ads click param passthrough", () => {
     stop();
     link.remove();
   });
+
+  it("rewrites href on auxclick/middle-mousedown so a new tab still gets gclid", () => {
+    window.history.replaceState({}, "", "/?gclid=MiddleClick");
+    const navigate = vi.fn();
+    const stop = bindAdsClickParamPassthrough(navigate);
+    const link = document.createElement("a");
+    link.setAttribute("href", "/builder?new=1");
+    document.body.append(link);
+    link.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 1 }));
+    expect(link.getAttribute("href")).toBe("/builder?new=1&gclid=MiddleClick");
+    link.setAttribute("href", "/builder?new=1");
+    link.dispatchEvent(new MouseEvent("auxclick", { bubbles: true, cancelable: true, button: 1 }));
+    expect(link.getAttribute("href")).toBe("/builder?new=1&gclid=MiddleClick");
+    expect(navigate).not.toHaveBeenCalled();
+    stop();
+    link.remove();
+  });
 });

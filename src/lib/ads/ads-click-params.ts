@@ -129,10 +129,21 @@ export function toBuilderStartHref(
   return `/builder?${params.toString()}`;
 }
 
+function isModifiedBuilderClick(event: MouseEvent): boolean {
+  return (
+    event.type !== "click" ||
+    event.button !== 0 ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  );
+}
+
 export function bindAdsClickParamPassthrough(navigate: (href: string) => void): () => void {
   if (typeof document === "undefined") return () => {};
   captureAdsClickParamsFromLocation();
-  const onClick = (event: MouseEvent) => {
+  const decorate = (event: MouseEvent) => {
     if (!(event.target instanceof Element)) return;
     const anchor = event.target.closest("a");
     if (!anchor) return;
@@ -140,9 +151,7 @@ export function bindAdsClickParamPassthrough(navigate: (href: string) => void): 
     if (!raw || !isInternalBuilderHref(raw)) return;
     const next = appendAdsClickParams(raw);
     if (next === raw) return;
-    const modifiedClick =
-      event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
-    if (modifiedClick) {
+    if (isModifiedBuilderClick(event)) {
       anchor.setAttribute("href", next);
       return;
     }
@@ -151,6 +160,16 @@ export function bindAdsClickParamPassthrough(navigate: (href: string) => void): 
     event.stopPropagation();
     navigate(next);
   };
-  document.addEventListener("click", onClick, true);
-  return () => document.removeEventListener("click", onClick, true);
+  const onMiddleMouseDown = (event: MouseEvent) => {
+    if (event.button !== 1) return;
+    decorate(event);
+  };
+  document.addEventListener("click", decorate, true);
+  document.addEventListener("auxclick", decorate, true);
+  document.addEventListener("mousedown", onMiddleMouseDown, true);
+  return () => {
+    document.removeEventListener("click", decorate, true);
+    document.removeEventListener("auxclick", decorate, true);
+    document.removeEventListener("mousedown", onMiddleMouseDown, true);
+  };
 }
