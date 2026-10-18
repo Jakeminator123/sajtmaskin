@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const failVersionVerification = vi.hoisted(() => vi.fn());
 const failVersionVerificationIfUnleased = vi.hoisted(() => vi.fn());
+const resetVersionVerificationToPending = vi.hoisted(() => vi.fn());
 const getRunningVersionLease = vi.hoisted(() => vi.fn());
 const getVersionById = vi.hoisted(() => vi.fn());
 const getVersionFilesSnapshot = vi.hoisted(() => vi.fn());
@@ -32,6 +33,7 @@ vi.mock("@/lib/db/services/server-repair-budget", () => ({ readServerRepairBudge
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   failVersionVerification,
   failVersionVerificationIfUnleased,
+  resetVersionVerificationToPending,
   getRunningVersionLease,
   getVersionById,
 }));
@@ -101,6 +103,7 @@ beforeEach(() => {
   releaseVerifyLease.mockResolvedValue(undefined);
   failVersionVerification.mockResolvedValue(undefined);
   failVersionVerificationIfUnleased.mockResolvedValue(null);
+  resetVersionVerificationToPending.mockResolvedValue({ id: versionId });
   getRunningVersionLease.mockResolvedValue(null);
   getVersionById.mockResolvedValue({
     id: versionId,
@@ -123,12 +126,30 @@ beforeEach(() => {
 });
 
 describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => {
+  it.each(["lease_lost", "time_budget_exceeded"] as const)(
+    "leaves repairing when %s cannot be reset under the lost holder",
+    async (reason) => {
+      resetVersionVerificationToPending.mockResolvedValue(null);
+      tryServerRepairLoop.mockResolvedValue({ stop: { reason, retryable: true }, reverifyCurrent: false });
+      const outcome = await repairBuildErrorUnderLease({ chatId, versionId, holderRunId: "existing-holder",
+        snapshot: snapshot(BASE_FILES_JSON) as never, force: true,
+        buildError: { stage: "next-build", message: "boom" } });
+      expect(outcome.verification).toEqual({ kind: "stop", reason, retryable: true });
+      expect(failVersionVerification).not.toHaveBeenCalled();
+      expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith(versionId, expect.any(String), {
+        verificationState: "repairing", filesRevision: "rev-a",
+      });
+    },
+  );
+
   it("held build-error repair returns lease STOP without wrapper acquisition/release or terminal failure", async () => {
     tryServerRepairLoop.mockResolvedValue({ stop: { reason: "lease_lost", retryable: true }, reverifyCurrent: false });
     const outcome = await repairBuildErrorUnderLease({ chatId, versionId, holderRunId: "existing-holder",
       snapshot: snapshot(BASE_FILES_JSON) as never, force: true, contextRetryUsed: true,
       buildError: { stage: "next-build", message: "boom" } });
     expect(outcome.verification).toEqual({ kind: "stop", reason: "lease_lost", retryable: true });
+    expect(resetVersionVerificationToPending).toHaveBeenCalledWith(versionId, expect.any(String), "existing-holder");
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
     expect(tryServerRepairLoop).toHaveBeenCalledWith(expect.objectContaining({
       runId: "existing-holder", baseFilesJson: BASE_FILES_JSON, baseFilesRevision: "rev-a",
       forceBuildGate: true, repairAuthority: "manual", contextRetryUsed: true,
@@ -151,6 +172,8 @@ describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => 
     expect(tryServerRepairLoop).toHaveBeenCalledWith(expect.objectContaining({ repairAuthority: "manual" }));
     expect(triggerServerVerification).not.toHaveBeenCalled();
     expect(result.verification).toEqual({ kind: "superseded", cause: "files", forceBuildCheck: true, contextRetryUsed: false });
+    expect(resetVersionVerificationToPending).toHaveBeenCalledWith(versionId, expect.any(String), "run-1");
+    expect(failVersionVerification).not.toHaveBeenCalled();
   });
 
   it("durably holds a before-first F3 migration decision and skips the repair loop", async () => {
@@ -208,6 +231,7 @@ describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => 
     expect(failVersionVerification).not.toHaveBeenCalled();
     expect(triggerServerVerification).not.toHaveBeenCalled();
     expect(result.verification).toEqual({ kind: "superseded", cause: "files", forceBuildCheck: true, contextRetryUsed: false });
+    expect(resetVersionVerificationToPending).toHaveBeenCalledWith(versionId, expect.any(String), "run-1");
   });
 
   it("failar inte en version som aldrig nådde repair-loopen", async () => {

@@ -1,6 +1,7 @@
 import {
   failVersionVerification,
   failVersionVerificationIfUnleased,
+  resetVersionVerificationToPending,
   getRunningVersionLease,
   getVersionById,
 } from "@/lib/db/chat-repository-pg";
@@ -223,6 +224,17 @@ export async function triggerBuildErrorRepair(params: BuildErrorRepairInput): Pr
   }
 }
 
+const REPAIR_INTERRUPTED_SUMMARY = "Server repair stopped before it could finish. Retry shortly.";
+
+async function releaseRepairingRow(versionId: string, runId: string, filesRevision: string | null): Promise<void> {
+  const pending = await resetVersionVerificationToPending(versionId, REPAIR_INTERRUPTED_SUMMARY, runId).catch(() => null);
+  if (pending) return;
+  await failVersionVerificationIfUnleased(versionId, REPAIR_INTERRUPTED_SUMMARY, {
+    verificationState: "repairing",
+    filesRevision,
+  }).catch(() => null);
+}
+
 /** Preview/build-error path under an existing lease; no fresh paid scope or re-entry. */
 export async function repairBuildErrorUnderLease(
   params: BuildErrorRepairInput & Pick<HeldVersionVerificationInput, "holderRunId" | "snapshot">,
@@ -409,6 +421,9 @@ export async function repairBuildErrorUnderLease(
     });
     if (repairOutcome.stop) {
       verification = { kind: "stop", ...repairOutcome.stop };
+      if (repairOutcome.stop.reason === "lease_lost" || repairOutcome.stop.reason === "time_budget_exceeded") {
+        await releaseRepairingRow(versionId, runId, params.snapshot.filesRevision);
+      }
       return { started, repairAvailable, skippedReason };
     }
     reverifyCurrent = repairOutcome.reverifyCurrent;
@@ -454,9 +469,12 @@ export async function repairBuildErrorUnderLease(
   return { started, repairAvailable, skippedReason };
   };
   const result = await execute();
-  if (reverifyCurrent) verification = { kind: "superseded",
-    cause: reverifyFromContextCasMiss ? "context" : "files", forceBuildCheck: true,
-    contextRetryUsed: params.contextRetryUsed === true || reverifyFromContextCasMiss };
+  if (reverifyCurrent) {
+    verification = { kind: "superseded",
+      cause: reverifyFromContextCasMiss ? "context" : "files", forceBuildCheck: true,
+      contextRetryUsed: params.contextRetryUsed === true || reverifyFromContextCasMiss };
+    await resetVersionVerificationToPending(versionId, "Repair stopped because the version files changed.", runId).catch(() => null);
+  }
   else if (result.skippedReason === "not_latest") verification = {
     kind: "superseded", cause: "newer_version", forceBuildCheck: true, contextRetryUsed: false };
   else if (result.skippedReason && result.skippedReason !== "f3_readiness_hold") verification = { kind: "stop", reason: result.skippedReason,
