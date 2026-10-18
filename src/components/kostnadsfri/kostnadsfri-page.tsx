@@ -28,6 +28,7 @@ import {
 import {
   kostnadsfriAuthReturnPath,
 } from "@/lib/kostnadsfri/auth-return";
+import { kostnadsfriEventPath } from "@/lib/kostnadsfri/analytics-paths";
 import {
   clearPendingInitBuild,
   persistPendingInitBuild,
@@ -59,6 +60,17 @@ declare global {
 
 type Phase = "password" | "wizard" | "followup" | "auth" | "thinking" | "done";
 
+type ClientFunnelStep = "wizard" | "konto";
+
+function reportFunnelStep(slug: string, step: ClientFunnelStep): void {
+  void fetch("/api/analytics", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: kostnadsfriEventPath(slug, step) }),
+    keepalive: true,
+  }).catch(() => {});
+}
+
 interface KostnadsfriPageProps {
   slug: string;
   companyName: string;
@@ -83,6 +95,7 @@ export function KostnadsfriPage({
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const initStartedRef = useRef(false);
   const createdProjectIdRef = useRef<string | null>(null);
+  const reportedStepsRef = useRef(new Set<ClientFunnelStep>());
   const campaignScript = useOpenClawStore((state) => state.campaignScript);
   const activeCompanyName = companyData?.companyName ?? wizardData?.companyName ?? companyName;
   const activeOpenclawConfig = useMemo(
@@ -126,6 +139,14 @@ export function KostnadsfriPage({
   useEffect(() => {
     void fetchUser();
   }, [fetchUser]);
+
+  useEffect(() => {
+    const step: ClientFunnelStep | null =
+      phase === "followup" ? "wizard" : phase === "auth" ? "konto" : null;
+    if (!step || reportedStepsRef.current.has(step)) return;
+    reportedStepsRef.current.add(step);
+    reportFunnelStep(slug, step);
+  }, [phase, slug]);
 
   useEffect(() => {
     const pending = readPendingInitBuild(slug);
@@ -415,7 +436,12 @@ export function KostnadsfriPage({
       )}
 
       {phase === "wizard" && companyData && (
-        <MiniWizard companyData={companyData} onComplete={handleWizardComplete} error={error} />
+        <MiniWizard
+          companyData={companyData}
+          initialData={wizardData}
+          onComplete={handleWizardComplete}
+          error={error}
+        />
       )}
 
       {phase === "followup" && followupSession && (

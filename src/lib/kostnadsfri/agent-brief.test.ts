@@ -78,7 +78,7 @@ describe("buildKostnadsfriAgentBrief", () => {
     expect(brief.purposeLabels).toEqual(["Bokningar", "Leads"]);
     expect(brief.targetAudience).toBe("Boende i Kista och norra Stockholm");
     expect(brief.usp).toBe("Drop-in på kvällar");
-    expect(brief.vibeLabel).toBe("Luxury");
+    expect(brief.vibeLabel).toBe("Lyxig");
     expect(brief.paletteName).toBe("Ocean");
   });
 

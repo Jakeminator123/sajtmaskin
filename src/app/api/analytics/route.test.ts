@@ -26,6 +26,11 @@ vi.mock("@/lib/db/services/analytics", () => ({
   recordPageView: vi.fn(),
 }));
 
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return { ...actual, after: (cb: () => unknown) => void cb() };
+});
+
 const { POST } = await import("./route");
 
 describe("POST /api/analytics", () => {
@@ -61,6 +66,29 @@ describe("POST /api/analytics", () => {
       expect(res.status).toBe(400);
     }
     expect(recordPageView).not.toHaveBeenCalled();
+  });
+
+  it("accepts the client-reported kostnadsfri wizard diagnostic", async () => {
+    const { recordPageView } = await import("@/lib/db/services/analytics");
+    const res = await POST(
+      new NextRequest("http://localhost/api/analytics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: "/kostnadsfri/ikea-ab/wizard" }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    await vi.waitFor(() =>
+      expect(recordPageView).toHaveBeenCalledWith(
+        "/kostnadsfri/ikea-ab/wizard",
+        "sess_1",
+        undefined,
+        "unknown",
+        undefined,
+        undefined,
+      ),
+    );
   });
 
   it("returns 429 when the pageview bucket is exhausted", async () => {
