@@ -234,6 +234,23 @@ describe("fireGoogleAdsConversion", () => {
     expect(gtag).toHaveBeenCalledTimes(1);
   });
 
+  it("does not double-count builder_start on refresh when new=1 stays in the URL", () => {
+    enableAds();
+    acceptConsent();
+    const gtag = vi.fn();
+    window.gtag = gtag;
+    noteBuilderStartFromLocation(
+      "/builder",
+      "?project=proj_1&buildMethod=freeform&buildIntent=website&new=1",
+    );
+    noteBuilderStartFromLocation(
+      "/builder",
+      "?project=proj_1&buildMethod=freeform&buildIntent=website&new=1",
+    );
+    expect(gtag).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem("sajtmaskin:ads:claimed:builder_start")).toBe("1");
+  });
+
   it("notes account_created from signup=1", () => {
     enableAds();
     acceptConsent();

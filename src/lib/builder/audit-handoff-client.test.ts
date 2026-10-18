@@ -55,7 +55,7 @@ describe("createAuditBuildHandoff", () => {
     expect(result).toEqual({
       projectId: "project_1",
       promptId: "prompt_1",
-      href: "/builder?project=project_1&source=audit&promptId=prompt_1&buildMethod=audit&buildIntent=website",
+      href: "/builder?project=project_1&source=audit&promptId=prompt_1&buildMethod=audit&buildIntent=website&new=1",
     });
   });
   it.each(["network", "500", "malformed"])(

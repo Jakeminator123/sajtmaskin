@@ -1,3 +1,4 @@
+import { toBuilderStartHref } from "@/lib/ads/ads-click-params";
 import { resolveBuildIntentForMethod, type BuildIntent } from "@/lib/builder/build-intent";
 import { buildAuditDisplayPrompt, serializeAuditHandoffIdentity, type AuditHandoffPayload } from "@/lib/builder/audit-handoff";
 import { useAuthStore } from "@/lib/auth/auth-store";
@@ -94,6 +95,6 @@ export async function createAuditBuildHandoff(
   return {
     projectId: data.projectId,
     promptId: data.promptId,
-    href: `/builder?${params.toString()}`,
+    href: toBuilderStartHref(params),
   };
 }

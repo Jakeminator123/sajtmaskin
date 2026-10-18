@@ -14,6 +14,8 @@ const CONSENT_DEFAULT_DENIED = {
   ad_personalization: "denied",
   analytics_storage: "denied",
   wait_for_update: 500,
+  url_passthrough: true,
+  ads_data_redaction: true,
 } as const;
 
 declare global {

@@ -206,11 +206,12 @@ och skickar händelser efter cookie-samtycke `accepted`.
 |---|---|
 | Auto-tagging | På (`gclid`) |
 | Tag | Koddefault `AW-18458823435`. Override: `NEXT_PUBLIC_GOOGLE_ADS_ID`. Kill-switch: `NEXT_PUBLIC_GOOGLE_ADS_ENABLED=0`. QA på preview/localhost: `=1` |
-| Primär konvertering | `builder_start` — landning på `/builder?new=1` (`SEO_LANDING_CTA_HREF`). send_to `AW-18458823435/yesaCIbf1fscEIuW7eFE`. sessionStorage-dedup så refresh inte dubbelräknar |
+| Primär konvertering | `builder_start` — `/builder?new=1`. SEO-CTA (`SEO_LANDING_CTA_HREF`), startsidans `startBuild`, wizard/audit-handoff, templates/`/category` och `/exempel` sätter `new=1`. send_to `AW-18458823435/yesaCIbf1fscEIuW7eFE`. sessionStorage-dedup så refresh inte dubbelräknar |
 | Sekundär | `account_created` — efter lyckad **ny** e-postregistrering och första Google-signup (`signup=1`). Inte login. Inte GitHub (GitHub OAuth skapar inget konto). send_to `AW-18458823435/R5rICIPf1fscEIuW7eFE` |
 | Tertiär | `first_site_generated` — första lyckade generation som ger `versionId` i den här webbläsaren (init eller follow-up). Ingen Ads-conversion-label ännu: skickas som `gtag('event','first_site_generated')` utan `send_to`. Sätt `NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL` när labeln skapats i Ads |
 | Värde | Inte satt i v1; vi mäter händelser, inte kr/konvertering |
-| Samtycke | Consent Mode v2 default denied. `accepted` i cookie-bannern → granted. Declined = taggen ligger kvar cookieless, inga conversion-events |
+| Samtycke | Consent Mode v2 default denied + `url_passthrough`/`ads_data_redaction`. `accepted` i cookie-bannern → granted. Declined = taggen ligger kvar cookieless, inga conversion-events |
+| Klick-id | `gclid`/`wbraid`/`gbraid` och `utm_*` från landnings-URL sparas i sessionStorage (inte cookies) och läggs på `/builder` vid CTA/navigering. Next.js client-routing tar inte Google url_passthrough åt oss |
 | CSP | `src/proxy.ts` allowlistar `www.googletagmanager.com`, `www.googleadservices.com`, `googleads.g.doubleclick.net`, `www.google.com`, `www.google.se` |
 | Admin | Taggen laddas inte på `/admin` |
 | Preview/localhost | Av tills `NEXT_PUBLIC_GOOGLE_ADS_ENABLED=1` |

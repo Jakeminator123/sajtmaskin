@@ -1,8 +1,11 @@
 import { StrictMode } from "react";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-const state = vi.hoisted(() => ({ pathname: "/" }));
-vi.mock("next/navigation", () => ({ usePathname: () => state.pathname }));
+const state = vi.hoisted(() => ({ pathname: "/", routerPush: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => state.pathname,
+  useRouter: () => ({ push: state.routerPush }),
+}));
 const script = () => document.getElementById("sajtmaskin-google-ads")!;
 const isArgumentsObject = (entry: unknown) =>
   Object.prototype.toString.call(entry) === "[object Arguments]";
@@ -27,6 +30,7 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     window.sajtmaskinAdsConsentDefaulted = false;
     window.sajtmaskinAdsJsQueued = false;
     state.pathname = "/";
+    state.routerPush.mockReset();
     window.history.replaceState({}, "", "/");
     vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_ENABLED", "1");
     vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_ID", "AW-123456789");
@@ -186,7 +190,11 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     expect(commands()[0]).toEqual([
       "consent",
       "default",
-      expect.objectContaining({ ad_storage: "denied" }),
+      expect.objectContaining({
+        ad_storage: "denied",
+        url_passthrough: true,
+        ads_data_redaction: true,
+      }),
     ]);
     expect(commands().some((entry) => entry[0] === "consent" && entry[1] === "update")).toBe(false);
     await act(async () => {
