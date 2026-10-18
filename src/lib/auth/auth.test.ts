@@ -103,7 +103,7 @@ describe("auth token security", () => {
   });
 
   it("jämför lösenordshashar utan att godkänna ett avvikande eller avhugget hash", () => {
-    const password = "hemligt-lösen";
+    const password = crypto.randomBytes(12).toString("base64url");
     const stored = auth.hashPassword(password);
     expect(auth.verifyPassword(password, stored)).toBe(true);
     expect(auth.verifyPassword(`${password}!`, stored)).toBe(false);

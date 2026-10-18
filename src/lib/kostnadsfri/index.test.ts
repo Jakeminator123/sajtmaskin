@@ -29,7 +29,7 @@ describe("generatePassword", () => {
   });
 
   it("derives deterministic passwords from the configured seed", () => {
-    process.env.KOSTNADSFRI_PASSWORD_SEED = "test-seed";
+    process.env.KOSTNADSFRI_PASSWORD_SEED = globalThis.crypto.randomUUID();
 
     expect(hasKostnadsfriPasswordSecret()).toBe(true);
     expect(generatePassword("acme-ab")).toBe(generatePassword("acme-ab"));
@@ -37,7 +37,7 @@ describe("generatePassword", () => {
   });
 
   it("godkänner bara det härledda lösenordet, även när prefixet stämmer", () => {
-    process.env.KOSTNADSFRI_PASSWORD_SEED = "test-seed";
+    process.env.KOSTNADSFRI_PASSWORD_SEED = globalThis.crypto.randomUUID();
     const password = generatePassword("acme-ab");
 
     expect(verifyDeterministicPassword("acme-ab", password)).toBe(true);
