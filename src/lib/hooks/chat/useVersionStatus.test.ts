@@ -145,7 +145,7 @@ describe("useVersionStatus — Finding A (poll until stable)", () => {
     expect(result.current.status?.degradations).toEqual([]);
   });
 
-  it("hard-stops immediately on a failed projection (no grace polls)", async () => {
+  it("rechecks a failed projection on a slow cadence and stops after the window", async () => {
     const failed = vs({
       phase: "failed",
       done: false,
@@ -157,7 +157,14 @@ describe("useVersionStatus — Finding A (poll until stable)", () => {
     const fetchMock = sequenceFetch([failed]);
     vi.stubGlobal("fetch", fetchMock);
 
-    const { result } = renderStatus();
+    const { result } = renderHook(() =>
+      useVersionStatus({
+        chatId: "c1",
+        versionId: "v1",
+        pollIntervalMs: POLL,
+        maxFailedRecheckMs: 40_000,
+      }),
+    );
 
     await act(async () => {
       await flushMicrotasks();
@@ -165,11 +172,55 @@ describe("useVersionStatus — Finding A (poll until stable)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.current.status?.phase).toBe("failed");
 
-    // A failed version must never be grace-polled — no further fetches.
+    // Not the normal 1 s cadence: the next recheck waits 15 s.
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(POLL * 10);
+      await vi.advanceTimersByTimeAsync(14_000);
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // Rechecks at 15 s, 30 s and 45 s; the 45 s one is past the window and stops.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(31_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(result.current.status?.phase).toBe("failed");
+    expect(result.current.error).toBeNull();
+  });
+
+  it("surfaces a later promotion of the same version after a failed gate", async () => {
+    const failed = vs({ phase: "failed", done: false, verifierOutcome: "failed", eventCount: 3 });
+    const promoted = vs({ phase: "done", done: true, verifierOutcome: "passed", eventCount: 9 });
+    const fetchMock = sequenceFetch([failed, failed, promoted, promoted]);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderStatus();
+
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(result.current.status?.phase).toBe("failed");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(result.current.status?.phase).toBe("done");
+
+    // Back on the normal cadence: one stable confirmation, then stop.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL * 20);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(result.current.status?.done).toBe(true);
   });
 
   it("stops at the safety cap when eventCount never settles", async () => {
@@ -409,7 +460,7 @@ describe("useVersionStatus — perpetual-spinner client backstop", () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    // `failed` hard-stops immediately; the cap is irrelevant and no error is set.
+    // `failed` has its own slow recheck; the non-terminal cap never trips.
     await act(async () => {
       await vi.advanceTimersByTimeAsync(POLL * 5);
     });
@@ -454,6 +505,261 @@ describe("useVersionStatus — perpetual-spinner client backstop", () => {
     await act(async () => flushMicrotasks());
     await act(async () => vi.advanceTimersByTimeAsync(POLL));
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+/**
+ * The 15-minute non-terminal cap and the 16-minute `failed` recheck are
+ * separate clocks. A transport failure while `failed` is open must not
+ * restart the failed window or arm the older cap, or a repair that lands
+ * just after 15 minutes is never fetched. A version that never reaches
+ * `failed` still stops at 15 minutes.
+ */
+describe("useVersionStatus — failed window vs non-terminal cap", () => {
+  const MINUTE = 60_000;
+
+  function ok(status: VersionStatus) {
+    return {
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: async () => ({ ok: true, versionId: "v1", status }),
+    } as unknown as Response;
+  }
+
+  function degraded503() {
+    return {
+      ok: false,
+      status: 503,
+      headers: new Headers({ "Retry-After": "3" }),
+      json: async () => ({
+        ok: false,
+        error: "Databasen svarar inte just nu. Försöker igen om en stund.",
+        code: "db_unavailable",
+        retryable: true,
+      }),
+    } as unknown as Response;
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("fetches a later done after verifying, failed, and a 503 past 15 minutes", async () => {
+    const verifying = vs({ phase: "verifying", done: false, eventCount: 1 });
+    const failed = vs({
+      phase: "failed",
+      done: false,
+      verifierOutcome: "failed",
+      eventCount: 2,
+    });
+    const promoted = vs({
+      phase: "done",
+      done: true,
+      verifierOutcome: "passed",
+      eventCount: 8,
+    });
+
+    const origin = Date.now();
+    let served503 = false;
+    const fetchMock = vi.fn(async () => {
+      const elapsed = Date.now() - origin;
+      if (elapsed < 10 * MINUTE) return ok(verifying);
+      if (elapsed <= 15 * MINUTE) return ok(failed);
+      if (!served503) {
+        served503 = true;
+        return degraded503();
+      }
+      return ok(promoted);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() =>
+      useVersionStatus({
+        chatId: "c1",
+        versionId: "v1",
+        pollIntervalMs: MINUTE,
+      }),
+    );
+
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(result.current.status?.phase).toBe("verifying");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9 * MINUTE);
+    });
+    expect(result.current.status?.phase).toBe("verifying");
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(MINUTE);
+    });
+    expect(result.current.status?.phase).toBe("failed");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5 * MINUTE);
+    });
+    expect(served503).toBe(false);
+    expect(result.current.status?.phase).toBe("failed");
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(MINUTE);
+    });
+    expect(served503).toBe(true);
+    expect(result.current.error).toContain("Databasen svarar inte");
+    const callsAt503 = fetchMock.mock.calls.length;
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(MINUTE);
+    });
+    expect(fetchMock.mock.calls.length).toBe(callsAt503 + 1);
+    expect(result.current.status?.phase).toBe("done");
+    expect(result.current.status?.done).toBe(true);
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(MINUTE);
+    });
+    const callsAtStable = fetchMock.mock.calls.length;
+    expect(callsAtStable).toBe(callsAt503 + 2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5 * MINUTE);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(callsAtStable);
+    expect(result.current.status?.done).toBe(true);
+  });
+
+  it("still stops at 15 minutes when the projection never becomes failed", async () => {
+    const verifying = vs({ phase: "verifying", done: false, eventCount: 1 });
+    const fetchMock = sequenceFetch([verifying]);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() =>
+      useVersionStatus({
+        chatId: "c1",
+        versionId: "v1",
+        pollIntervalMs: MINUTE,
+      }),
+    );
+
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(result.current.status?.phase).toBe("verifying");
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15 * MINUTE);
+    });
+    expect(result.current.error).toBeNull();
+    expect(result.current.status?.phase).toBe("verifying");
+    const callsInsideCap = fetchMock.mock.calls.length;
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(MINUTE);
+    });
+    expect(fetchMock.mock.calls.length).toBe(callsInsideCap + 1);
+    expect(result.current.error).toBe("verification_status_timeout");
+    expect(result.current.status?.phase).toBe("verifying");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5 * MINUTE);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(callsInsideCap + 1);
+  });
+
+  it("keeps the failed phase visible when a 503 lands inside the recheck window", async () => {
+    const failed = vs({
+      phase: "failed",
+      done: false,
+      verifierOutcome: "failed",
+      eventCount: 3,
+    });
+    let call = 0;
+    const fetchMock = vi.fn(async () => {
+      call += 1;
+      return call === 1 ? ok(failed) : degraded503();
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() =>
+      useVersionStatus({
+        chatId: "c1",
+        versionId: "v1",
+        pollIntervalMs: POLL,
+      }),
+    );
+
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(result.current.status?.phase).toBe("failed");
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.current.status?.phase).toBe("failed");
+    expect(result.current.error).toContain("Databasen svarar inte");
+  });
+
+  it("stops past the 16-minute failed window on a 503 and keeps the failed phase", async () => {
+    const failed = vs({
+      phase: "failed",
+      done: false,
+      verifierOutcome: "failed",
+      eventCount: 4,
+    });
+    let call = 0;
+    const fetchMock = vi.fn(async () => {
+      call += 1;
+      return call === 1 ? ok(failed) : degraded503();
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() =>
+      useVersionStatus({
+        chatId: "c1",
+        versionId: "v1",
+        pollIntervalMs: 17 * MINUTE,
+      }),
+    );
+
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.current.status?.phase).toBe("failed");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(16 * MINUTE);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(MINUTE);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.current.status?.phase).toBe("failed");
+    expect(result.current.error).toContain("Databasen svarar inte");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20 * MINUTE);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.current.status?.phase).toBe("failed");
   });
 });
 
