@@ -394,7 +394,7 @@ def _render_usage_section(ctx: BackofficeContext, entries: list[dict[str, Any]])
     metrics[2].metric("Katalog utan events", unused_display)
     metrics[3].metric("Drift (okänt id)", len(drift))
 
-    st.dataframe(joined, use_container_width=True, hide_index=True)
+    st.dataframe(joined, width="stretch", hide_index=True)
 
     if none_row:
         st.warning(
@@ -428,7 +428,7 @@ def _render_usage_section(ctx: BackofficeContext, entries: list[dict[str, Any]])
                 }
                 for row in drift
             ],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -572,6 +572,6 @@ def render(ctx: BackofficeContext) -> None:
                     "telemetryCounter": e.get("telemetryCounter"),
                 }
             )
-        st.dataframe(rows, use_container_width=True, hide_index=True)
+        st.dataframe(rows, width="stretch", hide_index=True)
 
     _render_usage_section(ctx, entries)

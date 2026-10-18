@@ -171,7 +171,7 @@ def render(ctx: BackofficeContext) -> None:
             else:
                 filtered = error_df
             st.caption(f"{len(filtered)} av {len(error_df)} rader visas.")
-            st.dataframe(filtered, use_container_width=True, hide_index=True, height=400)
+            st.dataframe(filtered, width="stretch", hide_index=True, height=400)
 
     # ── Follow-up tuning ────────────────────────────────────────────────
     st.subheader("Follow-up tuning (hårdkodat)")
@@ -186,5 +186,5 @@ def render(ctx: BackofficeContext) -> None:
         {"Konstant": "FOLLOW_UP_TUNING.lightContextMaxFilesManyFiles", "Beskrivning": "Max filer med innehåll (>14 filer, light)", "Värde": "4"},
         {"Konstant": "FOLLOW_UP_TUNING.lightContextMaxFilesFewFiles", "Beskrivning": "Max filer med innehåll (<=14 filer, light)", "Värde": "6"},
     ]
-    st.dataframe(tuning_constants, use_container_width=True, hide_index=True)
+    st.dataframe(tuning_constants, width="stretch", hide_index=True)
 

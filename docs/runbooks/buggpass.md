@@ -6,6 +6,10 @@ granskningen och hanterar resultatet; hooken kontrollerar bara att ett aktuellt
 resultat finns. Ingen WSL-installation, versionslåst CLI eller extra API-nyckel
 krävs av repots verktyg. Granskarens vanliga modellkvot gäller; besparing är inte mätt.
 
+Undantag: klassar CI:s befintliga klassare (`ci-scope.mjs`) den committade
+diffen som `safe-docs-only` hoppar `preview:prepare`/`preview:push` över steg
+2–5; plan, aktuell bas och SHA-bekräftelse krävs ändå.
+
 ## Direktpreview: hela arbetsflödet
 
 1. Hämta preview, frys dess fulla SHA och kör relevanta riktade kontroller enligt

@@ -198,7 +198,7 @@ def render(ctx: BackofficeContext) -> None:
                     }
                     for f in matrix.get("faults", [])
                 ],
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
 
@@ -218,7 +218,7 @@ def render(ctx: BackofficeContext) -> None:
         top = counter.most_common(20)
         st.dataframe(
             [{"fault": k, "count": v} for k, v in top],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
         st.caption(f"Total rader analyserade: {len(rows)}")
@@ -226,4 +226,4 @@ def render(ctx: BackofficeContext) -> None:
     st.divider()
     st.subheader("De 50 senaste rådata-raderna")
     if rows:
-        st.dataframe(rows[-50:], use_container_width=True, hide_index=True)
+        st.dataframe(rows[-50:], width="stretch", hide_index=True)

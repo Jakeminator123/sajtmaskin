@@ -6,20 +6,27 @@ Repots tester körs med [Vitest](https://vitest.dev). Den fulla sviten
 högrisk-PR:ar och `master`. Bevisat safe docs och vanliga drafts får i stället
 ett explicit light-kvitto; required checknamn publiceras fortfarande för varje
 PR-head. Godnatt-buggs egna skripttester (`npm run test:godnatt-bugg`) är
-on-demand och ingår inte i `test:ci`, CI eller `verify:pr`. Ovanpå den finns två
-smalare testlanes och ett separat E2E-discoverykontrakt:
+on-demand och ingår inte i `test:ci`, CI eller `verify:pr`. Ovanpå den finns
+smalare lanes:
 
-| Lane                      | Kommando                          | Filnamn                          | Blockerar merge?                     |
-| ------------------------- | --------------------------------- | -------------------------------- | ------------------------------------ |
-| Full svit                 | `npm run test:ci`                 | `*.test.ts(x)`                   | **Ja i tung profil** (`quality`)     |
-| E2E-kontrakt              | `npm run test:e2e:contract`       | `e2e/**/*.smoke.spec.ts`         | **Ja i tung profil** (`quality`)     |
-| Deterministisk stabilitet | `npm run test:stability:blocking` | allowlist i `check-contract.mjs` | **Ja i tung profil** (`quality`)     |
-| Bred stabilitets-lane     | `npm run test:stability`          | `*.stability.test.ts(x)`         | Nej — warn-only (`stability`-jobbet) |
-| DB-backad                 | `npm run test:postgres`           | `*.postgres.test.ts`             | **Ja** (steg i `quality`)            |
+| Lane                      | Kommando                               | Filnamn                            | Blockerar merge?                                                  |
+| ------------------------- | -------------------------------------- | ---------------------------------- | ----------------------------------------------------------------- |
+| Full svit                 | `npm run test:ci`                      | `*.test.ts(x)`                     | **Ja i tung profil** (`quality-tests`, fyra shards → `quality`)   |
+| E2E-kontrakt              | `npm run test:e2e:contract`            | `e2e/deploy/**/*.smoke.spec.ts`    | **Ja i tung profil** (`quality-core` → `quality`)                 |
+| Projektpersistens-E2E     | `npm run test:e2e:project-persistence` | `e2e/project-persistence.spec.ts`  | **Ja i tung profil** (`quality-project-persistence` → `quality`)  |
+| Deterministisk stabilitet | `npm run test:stability:blocking`      | allowlist i `check-contract.mjs`   | **Ja i tung profil** (`quality-core` → `quality`)                 |
+| Bred stabilitets-lane     | `npm run test:stability`               | `*.stability.test.ts(x)`           | Nej — bara lokalt, inget CI-jobb                                  |
+| DB-backad                 | `npm run test:postgres`                | `*.postgres.test.ts`               | **Ja i tung profil** (`quality-core` → `quality`)                 |
 
 Den fulla sviten körs **utan databas**, med flit — se `test:postgres` nedan.
 E2E-kontraktet kör Playwrights `--list`: det kompilerar och discoverar sviten
-utan browser eller nätverk. Själva deploy-smoken är fortsatt separat.
+utan browser eller nätverk. Själva deploy-smoken är fortsatt separat och opt-in.
+Projektpersistens-E2E kör riktig UI/API/DB-persistens i Chromium mot en efemär,
+nätverksisolerad Postgres, utan delad databas eller providercredentials.
+
+Live-tester med riktiga nätverksanrop (`*.live.test.ts`) skippas om inte
+`SAJTMASKIN_LIVE_TESTS=1` är satt, så `test:ci` förblir hermetisk. Kör dem uttryckligen:
+`$env:SAJTMASKIN_LIVE_TESTS='1'; npx vitest run src/lib/shadcn/tailark-oss.live.test.ts`.
 
 ## Vilka CI-jobb blockerar faktiskt merge
 
@@ -33,18 +40,26 @@ körning otillräcklig när integrationsbasen har flyttat sig.
 | Jobb                          | Failar hårt?                                                                         | Required (blockerar merge)?                                  |
 | ----------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
 | `quality`                     | Ja                                                                                   | **Ja**                                                       |
+| `quality-core`, `quality-tests`, `quality-project-persistence` | Ja (körs i tung profil)                                   | **Ja i tung profil, via `quality`-aggregatet**               |
+| `quality-contracts`           | Ja                                                                                   | **Ja, via `quality`-aggregatet**                             |
 | `backoffice-tests`            | Ja                                                                                   | **Ja**                                                       |
 | `schema-drift`                | Ja                                                                                   | **Ja**                                                       |
 | `build`                       | Ja                                                                                   | **Ja** — tillagd i rulesetet 2026-07-30 (#660)               |
 | `dossier-acceptance`          | Ja, med explicit grönt no-op-kvitto utanför dossier-scope                           | **Ja**                                                       |
 | `preview-host-guards`         | Ja                                                                                   | **Ja, via `quality`-aggregatet**                             |
 | `dead-code` (orphan-filgrind) | Ja                                                                                   | **Ja, via `quality`-aggregatet**                             |
-| `db-blob-sync`                | Ja                                                                                   | Nej — och på PR körs den utan credentials (ren script-smoke) |
-| `stability`                   | Nej (`continue-on-error`)                                                            | Nej — den deterministiska subseten blockerar via `quality`   |
 
-`db-blob-sync` är fortsatt en separat, icke-required hård kontroll. Preview-host och
-orphan-filgrinden är däremot transitivt blockerande eftersom den required checken
-`quality` inte blir grön om något av jobben är rött.
+Delstegen är transitivt blockerande eftersom den required checken `quality` inte
+blir grön om något av jobben är rött; i lätt profil får `quality-core`,
+`quality-tests` och `quality-project-persistence` vara `skipped`. Det finns inget
+separat `stability`-jobb — `workflow:contract` förbjuder att CI dubblerar den
+blockerande stability-allowlisten.
+
+`db-blob-sync` ligger inte i `ci.yml` utan i eget workflow,
+[`db-blob-sync-check.yml`](../.github/workflows/db-blob-sync-check.yml). Det är en
+hård men icke-required kontroll: på PR körs den bara när workflowets egna
+Python-inputs ändras och då utan credentials (ren script-smoke); live-gaten mot
+DB och Blob körs bara på push/dispatch till `master`.
 
 ## Build-grinden
 
@@ -59,7 +74,7 @@ env-hanteringen, inte ett skäl att ge jobbet credentials.
 
 ## `test:stability` — stabilitets-lane
 
-En liten, snabb lane som låser **större buggar och UX-invarianter** — inte en bred
+En liten, snabb lokal lane som låser **större buggar och UX-invarianter** — inte en bred
 regressionssvit. Den kör två saker, i ordning:
 
 1. `npm run db:schema-drift` — deterministisk, nyckelfri (kräver ingen DB) gate som låser att
@@ -71,16 +86,17 @@ Lanen kör grönt även med **noll** stabilitetstester (`--passWithNoTests`). Te
 in efter hand (t.ex. aktivitet S2/S3) och varje fall ska peka på sin källa (se
 [`delivery-bias.md`](delivery-bias.md)).
 
-## Två CI-lägen: hård gate vs warn-only
+## Stabilitet och DB-grindar i CI
 
-`db:schema-drift` och den bredare vitest-stabilitets-lanen har **olika** blockerings-status i CI
-(grandmaster S4):
+Den breda `test:stability`-lanen har inget eget CI-jobb. Dess två delar täcks i stället
+av blockerande grindar (grandmaster S4):
 
 | Del                                                                  | CI-jobb                                                                                            | Trigger                                                                | Blockerande?                                       | Varför                                                                                                                                                                                                                                          |
 | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `db:schema-drift`                                                    | `schema-drift`                                                                                     | push + PR mot `master`                                                 | **Ja** — hård gate                                 | Deterministisk, nyckelfri, billig → trygg att blockera                                                                                                                                                                                          |
+| `db:schema-drift`                                                    | `schema-drift`                                                                                     | push + PR mot `preview`/`master`, tung profil                          | **Ja** — hård gate                                 | Deterministisk, nyckelfri, billig → trygg att blockera                                                                                                                                                                                          |
 | Deterministisk `*.stability.test.*`-allowlist                        | `quality` (`quality-core`-steget `test:stability:blocking`)                                        | tung profil (ready/runtime/högrisk/`master`)                           | **Ja** — hård gate                                 | Alla nuvarande stability-filer är hermetiska (ingen nätverk/DB/väggklocka); allowlisten ägs av `scripts/workflow/check-contract.mjs`                                                                                                            |
-| Bredare stabilitets-lane (`*.stability.test.ts(x)` + ordlista-check) | `stability`                                                                                        | push + PR mot `master`                                                 | **Nej** — warn-only                                | Jobbet förblir `continue-on-error` så en ny oklassificerad/flaky fil inte kan blockera innan den tas in i allowlisten                                                                                                                           |
+| Stability-discovery = allowlist                                      | `quality` (`quality-contracts`-steget `test:discovery:check`)                                      | varje PR-head och push                                                 | **Ja** — hård gate                                 | En ny `*.stability.test.ts(x)` som inte finns i allowlisten fäller grinden, så ingen stability-fil kan hamna utanför den blockerande mängden                                                                                                    |
+| Ordlista-check (`check:terms`)                                       | `quality` (`quality-contracts`-steget, `continue-on-error`)                                        | varje PR-head och push                                                 | **Nej** — rådgivande                               | Bred prosascanning; terminologi-ownership blockerar separat via `check:terms:contract`                                                                                                                                                          |
 | Integrationsbas + checkproveniens | GitHubs strict required checks | Native ruleset mot aktuell PR-head och bas | **Ja** | Ny head eller flyttad bas kräver nya giltiga resultat; ingen separat tidsgrind eller custom check används. |
 | Prod-migrationer (`scripts/db/migrate-prod.mjs`)                     | Endast explicit CLI                                                                                | Separat ägarauktoriserad DB-plan; aldrig generell CI push/dispatch     | Ingen automatisk apply-lane                        | Preview/Development delar DEV; Production har PROD. Direkt/session-mode för DDL/lås, kompatibilitet och rollback granskas separat. Se [DB-runbook](runbooks/db-migrations.md).                                                                                               |
 | Additiv-bara-grind (`scripts/db/check-additive-migrations.mjs`)      | Explicit read-only riskkontroll                                                                    | Före en separat planerad live-apply                                    | Inte ett apply-mandat                              | Granskar pending SQL; additivt är inte ett bevis på ofarligt/låsfritt beteende. Promote är inte en atomisk schema-/kodväxling.                                                                                                                  |
@@ -91,20 +107,16 @@ in efter hand (t.ex. aktivitet S2/S3) och varje fall ska peka på sin källa (se
 - Det blockerande `schema-drift`-jobbet kör enbart `npm run db:schema-drift` (utan `continue-on-error`).
   Ett rött resultat stoppar push/PR/merge → fångar t.ex. tabell/index som finns i `schema.ts`
   men saknas i `db-init.mjs` (tyst drift på nya miljöer).
-- Det `stability`-jobbet är medvetet `continue-on-error` (warn-only) — kör hela `npm run test:stability`
-  plus ordlista-checken. Ett rött resultat där blockerar inte merge. Den deterministiska
-  allowlisten körs separat som `test:stability:blocking` i `quality-core` och blockerar.
+- `npm run test:stability` (schema-drift + hela stability-configen) körs bara lokalt.
+  `workflow:contract` förbjuder ett CI-jobb som dubblerar den blockerande allowlisten.
 
-| Körläge | Kommando / trigger                                | Blockerande?                           |
-| ------- | ------------------------------------------------- | -------------------------------------- |
-| Lokalt  | `npm run test:stability:blocking`                 | —                                      |
-| Lokalt  | `npm run test:stability` (innan commit, sekunder) | —                                      |
-| PR      | jobbet `schema-drift` på `pull_request`           | **Ja** — hård gate (bara schema-drift) |
-| PR      | `test:stability:blocking` i `quality-core`        | **Ja** — hård gate (allowlist)         |
-| PR      | jobbet `stability` på `pull_request`              | **Nej** — warn-only (bred lane)        |
-| Push    | jobbet `schema-drift` på push till `master`       | **Ja** — hård gate (bara schema-drift) |
-| Push    | `test:stability:blocking` i `quality-core`        | **Ja** — hård gate (allowlist)         |
-| Push    | jobbet `stability` på push till `master`          | **Nej** — warn-only (bred lane)        |
+| Körläge | Kommando / trigger                                       | Blockerande?                           |
+| ------- | -------------------------------------------------------- | -------------------------------------- |
+| Lokalt  | `npm run test:stability:blocking`                        | —                                      |
+| Lokalt  | `npm run test:stability` (innan commit, sekunder)        | —                                      |
+| PR/push | jobbet `schema-drift` (tung profil)                      | **Ja** — hård gate (bara schema-drift) |
+| PR/push | `test:stability:blocking` i `quality-core` (tung profil) | **Ja** — hård gate (allowlist)         |
+| PR/push | `test:discovery:check` i `quality-contracts`             | **Ja** — discovery måste = allowlist   |
 
 ## Dokumentations- och kontraktsgates
 
@@ -190,7 +202,9 @@ npm run test:postgres    # kräver en dev-POSTGRES_URL, annars skippas den
 ## Skriva en stabilitetstest
 
 - Namnge filen `<namn>.stability.test.ts` (eller `.tsx`) så plockas den upp av lanen.
-- Filen körs **bara** av `test:stability`. Den blockerande sviten (`test:ci`) exkluderar
-  `*.stability.test.ts(x)` i [`vitest.config.ts`](../vitest.config.ts), så ett flaky
-  stability-case kan aldrig fälla `quality`-grinden medan lanen är warn-only.
+- `test:ci` exkluderar `*.stability.test.ts(x)` i [`vitest.config.ts`](../vitest.config.ts).
+  Filen måste i stället läggas till i allowlisten (`BLOCKING_STABILITY_TESTS` i
+  `scripts/workflow/check-contract.mjs` och `test:stability:blocking` i `package.json`) —
+  annars fäller `test:discovery:check` grinden. Den blockerar därefter i `quality-core`, så
+  bara hermetiska, deterministiska fall hör hemma här.
 - Lägg bara till tester enligt disciplinen i [`delivery-bias.md`](delivery-bias.md).

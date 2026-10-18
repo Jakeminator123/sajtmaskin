@@ -64,9 +64,8 @@ sökväg här, den ruttnar. Cursor öppnar den med File → Open Folder
 Codex och Cursor följer samma arbetssätt, ägt av `AGENTS.md`,
 `pr-workflow` och `.cursor/rules/`. Den här filen beskriver Codex-lagret.
 
-- **Arbetsyta:** jobba i den öppna checkouten. En skrivande session per
-  checkout; andra agenter får läsa. Worktree skapas när Jakob ber om det,
-  enligt [agent-worktree.mdc](../.cursor/rules/agent-worktree.mdc).
+- **Arbetsyta:** enligt `git.mdc`; worktree-detaljer i
+  [agent-worktree.mdc](../.cursor/rules/agent-worktree.mdc).
 - **Bas:** följ `pr-workflow` § 1.2 — `origin/preview` för vanligt
   utvecklingsarbete, `origin/master` bara när påståendet gäller produktion.
 - **Handoff/branchbyte:** kontrollera lokala ändringar och vem som skriver i

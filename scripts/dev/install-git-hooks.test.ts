@@ -120,7 +120,7 @@ describe("renderHookScript", () => {
   });
 
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(22);
+    expect(HOOK_VERSION).toBe(23);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
@@ -576,7 +576,23 @@ describe("renderHookScript", () => {
         testBin: bin,
       });
       expect(rejected.status).toBe(1);
-      expect(rejected.stderr).toContain("remote-delete kraver exakt terminal PR/head-bevis");
+      expect(rejected.stderr).toContain("remote-delete kraver bevis bundet till exakt remote-tip");
+      expect(rejected.stderr).toContain("npm run tidy -- --delete-remote fix/merged --apply");
+
+      const wrongSha = runHookSync(hook, {
+        cwd: root,
+        input: deleteLine,
+        env: {
+          ...process.env,
+          PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
+          HOOK_GIT_HEAD: "a".repeat(40),
+          SAJTMASKIN_PROVEN_REMOTE_DELETE_BRANCH: "fix/merged",
+          SAJTMASKIN_PROVEN_REMOTE_DELETE_SHA: "c".repeat(40),
+        },
+        encoding: "utf8",
+        testBin: bin,
+      });
+      expect(wrongSha.status).toBe(1);
 
       const accepted = runHookSync(hook, {
         cwd: root,
@@ -755,16 +771,29 @@ describe("decideHookInstall", () => {
     expect(decideHookInstall({ existing: desired, desired }).action).toBe("skip");
   });
 
-  it("uppgraderar exakt känd v19/v20/v21, men bevarar äldre lokala tillägg", () => {
-    const v21 = desired.replace(`v${HOOK_VERSION}`, "v21")
+  it("uppgraderar exakt känd v19/v20/v21/v22, men bevarar äldre lokala tillägg", () => {
+    const v22 = desired.replace(`v${HOOK_VERSION}`, "v22")
+      .replace(
+        "  # bevisat exakt tip (mergad PR-head eller archive/<branch>-tagg). Ett vanligt\n  # git push --delete far aldrig kunna radera en annan agents oppna branch.",
+        "  # bevisat exakt terminal PR/head. Ett vanligt git push --delete far aldrig\n  # kunna radera en annan agents oppna branch.",
+      )
+      .replace(
+        "remote-delete kraver bevis bundet till exakt remote-tip.",
+        "remote-delete kraver exakt terminal PR/head-bevis.",
+      )
+      .replace(
+        '"[hooks] Kor: npm run tidy -- --delete-remote ${delete_branch} --apply"',
+        '"[hooks] Lat GitHub deleteBranchOnMerge eller den kanoniska cleanup-wrappern aga delete."',
+      );
+    const v21 = v22.replace("v22", "v21")
       .replace("  # och aktuellt review-/plankvitto fran wrappern. CI/skip far inte kringga detta.", "  # och plan-kvitto fran wrappern. CI/skip far inte kringga detta.");
-    const v20 = desired.replace(`v${HOOK_VERSION}`, "v20")
+    const v20 = v22.replace("v22", "v20")
       .replace("  # och aktuellt review-/plankvitto fran wrappern. CI/skip far inte kringga detta.", "  # och aktuellt lokalt Buggpass + verifiering. CI/skip far inte kringga detta.")
       .replace("    # Exakt base/head-plan finns redan; kor inte samma plan igen nedan.\n    continue\n", "");
     // Reconstruct v19; the installer's frozen SHA-256 proves full-file identity.
-    const outdated = desired.replace(`v${HOOK_VERSION}`, "v19")
+    const outdated = v22.replace("v22", "v19")
       .replace(/\n  # Direkt preview:[\s\S]+?\n  fi\n/, "\n");
-    for (const body of [outdated, v20, v21].flatMap((value) => [value, value.replace(/\n/g, "\r\n")])) {
+    for (const body of [outdated, v20, v21, v22].flatMap((value) => [value, value.replace(/\n/g, "\r\n")])) {
       expect(decideHookInstall({ existing: body, desired }).action).toBe("write");
       expect(decideHookInstall({ existing: body + "echo local-security-check\n", desired }).action).toBe("conflict");
     }

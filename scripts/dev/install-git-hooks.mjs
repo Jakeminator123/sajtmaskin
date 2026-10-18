@@ -31,7 +31,7 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 22;
+export const HOOK_VERSION = 23;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
@@ -185,14 +185,14 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   # Ny branch och branch-delete ar inte non-fast-forward. Alla uppdateringar av
   # en befintlig ref maste bevisa att remote-tip ar ancestor till local-tip.
   # Remote-delete ags av GitHub deleteBranchOnMerge eller en wrapper som redan
-  # bevisat exakt terminal PR/head. Ett vanligt git push --delete far aldrig
-  # kunna radera en annan agents oppna branch.
+  # bevisat exakt tip (mergad PR-head eller archive/<branch>-tagg). Ett vanligt
+  # git push --delete far aldrig kunna radera en annan agents oppna branch.
   if [ "$local_sha" = "$ZERO_SHA" ]; then
     delete_branch=\${remote_ref#refs/heads/}
     if [ "\${SAJTMASKIN_PROVEN_REMOTE_DELETE_BRANCH:-}" != "$delete_branch" ] || \
        [ "\${SAJTMASKIN_PROVEN_REMOTE_DELETE_SHA:-}" != "$remote_sha" ]; then
-      echo "[hooks] Push stoppad: remote-delete kraver exakt terminal PR/head-bevis." >&2
-      echo "[hooks] Lat GitHub deleteBranchOnMerge eller den kanoniska cleanup-wrappern aga delete." >&2
+      echo "[hooks] Push stoppad: remote-delete kraver bevis bundet till exakt remote-tip." >&2
+      echo "[hooks] Kor: npm run tidy -- --delete-remote \${delete_branch} --apply" >&2
       exit 1
     fi
     continue
@@ -318,7 +318,7 @@ export function decideHookRetirement({ hookName, existing }) {
   if (existing === null || existing === undefined)
     return { action: "retire", reason: "saknas; installera passivt nedgraderingsskydd" };
   if (existing === renderHookScript(hookName)) return { action: "skip", reason: "redan passiv" };
-  const legacyPassive = [18, 19, 20, 21].flatMap((version) => {
+  const legacyPassive = [18, 19, 20, 21, 22].flatMap((version) => {
     const body = `#!/bin/sh\n# ${HOOK_MARKER} v${version} (${hookName}: retired)\nexit 0\n`;
     return [body, body.replace(/\n/g, "\r\n")];
   });
@@ -368,9 +368,11 @@ export function decideHookInstall({ existing, desired }) {
       reason: `managed hook v${existingVersion} har oväntat annat innehåll`,
     };
   }
-  // Canonical v19, v20 and v21 (74c788c7); LF and CRLF. A version marker alone
-  // must never authorize deleting local additions or a third-party delegate.
+  // Canonical v19, v20, v21 (74c788c7) and v22; LF and CRLF. A version marker
+  // alone must never authorize deleting local additions or a third-party delegate.
   const knownPriorHashes = [
+    "f7be73bd080af0f130b27b13c63c22d7e937877fe291528ccdce51fbf8c6eab1",
+    "85f09c53ffc9d39216f0056ebeedc1eaaff40adc2667768027dfc1b222d47dd2",
     "e685af891d6563c8fd40eaf68b2fb42cdd899e59285bcac775492ac2e21fe35a",
     "44950a176799c331ab03e77b06cd6c9096103471b53d8f4854a4246c8e4ed373",
     "f0a367369244d9bee8f3159450d8f2f600cd362c99b77bed3e0affb795cde73a",
