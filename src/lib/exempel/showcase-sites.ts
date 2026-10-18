@@ -63,8 +63,7 @@ export const SHOWCASE_SITES: readonly ShowcaseSite[] = [
     highlight: "Stockholm · Interaktiv karta & filter",
     href: "https://kontorshotellkartan.se",
     screenshotSrc: "/exempel/kontorshotellkartan.webp",
-    screenshotAlt:
-      "Kontorshotellkartan: mörk kartsajt för att jämföra kontorshotell i Stockholm.",
+    screenshotAlt: "Kontorshotellkartan: mörk kartsajt för att jämföra kontorshotell i Stockholm.",
     summary:
       "Interaktiv kart- och katalogvy över kontorshotell i Stockholm med områdesfilter, sid-vid-sida-jämförelse och samlad visningsförfrågan.",
     featuredOnHome: true,
@@ -89,8 +88,7 @@ export const SHOWCASE_SITES: readonly ShowcaseSite[] = [
     highlight: "Spelmatris · 3D-vy & arkadläge",
     href: "https://sajtmaskin-casino-f440ccf7.vercel.app",
     screenshotSrc: "/exempel/sajtmaskin-casino.webp",
-    screenshotAlt:
-      "Scout Gaming: mörk spellobby med neonaccenter, nivåmatris och lokalt minispel.",
+    screenshotAlt: "Scout Gaming: mörk spellobby med neonaccenter, nivåmatris och lokalt minispel.",
     summary:
       "Atmosfärisk spellobby med neonaccenter, nivåindelad spelmatris, visuell bordsförhandsvisning och ett lokalt arkadminispel i webbläsaren.",
     featuredOnHome: true,
@@ -173,4 +171,4 @@ export const SHOWCASE_SITES: readonly ShowcaseSite[] = [
 export const HOME_SHOWCASE_SITES = SHOWCASE_SITES.filter((site) => site.featuredOnHome);
 
 export const EXEMPEL_DISCLOSURE =
-  "Byråflöde, Springa, Palma, Paddlelines och Glass är rekonstruktioner av påhittade verksamheter. De övriga fem är egna projekt, verksamheter och koncept som vi själva har byggt. Exemplen är inte kundomdömen och inte exakt output från nuvarande Sajtmaskin.";
+  "Byråflöde, Springa, Palma, Paddlelines och Glass är rekonstruktioner av tidigare exempel, inte riktiga verksamheter. De övriga fem är egna projekt, verksamheter och koncept som vi själva har byggt. Exemplen är inte kundomdömen och inte exakt output från nuvarande Sajtmaskin.";
