@@ -36,7 +36,7 @@ describe("Permissions-Policy", () => {
     const proxy = readFileSync(resolve(process.cwd(), "src/proxy.ts"), "utf8");
 
     expect(originSource).toContain(`export const DID_AVATAR_EMBED_ORIGIN = "${DID_ORIGIN}"`);
-    expect(policySource).toContain("DID_AVATAR_EMBED_ORIGIN");
+    expect(policySource).toContain("DID_AVATAR_MEDIA_ORIGINS");
     expect(policySource).toContain("PERMISSIONS_POLICY");
     expect(embedSource).toContain("buildDidAgentShareUrl");
     expect(embedSource).toContain('allow="camera; microphone; autoplay; clipboard-write"');
@@ -48,7 +48,9 @@ describe("Permissions-Policy", () => {
     );
 
     for (const name of ["camera", "microphone", "autoplay"] as const) {
-      expect(feature(PERMISSIONS_POLICY, name)).toBe(`${name}=(self "${DID_ORIGIN}")`);
+      expect(feature(PERMISSIONS_POLICY, name)).toBe(
+        `${name}=(self "${DID_ORIGIN}" "https://agent.d-id.com")`,
+      );
     }
     expect(feature(PERMISSIONS_POLICY, "fullscreen")).toBe("fullscreen=(self)");
     expect(feature(PERMISSIONS_POLICY, "geolocation")).toBe("geolocation=()");
