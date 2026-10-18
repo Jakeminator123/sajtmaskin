@@ -54,6 +54,8 @@ export type ProductPostcheckPreviewProbe = {
   readinessState: "starting" | "ready" | "failed" | null;
   /** Host traffic gate. `null` when the host omitted the field. */
   httpReady: boolean | null;
+  /** Host verdict text when `readinessState` is `failed`. */
+  readinessError?: string | null;
 };
 
 export type ProductPostcheckPreviewWaitResult =
@@ -378,6 +380,7 @@ export async function readProductPostcheckPreviewProbe(params: {
   let running = false;
   let readinessState: ProductPostcheckPreviewProbe["readinessState"] = null;
   let httpReady: boolean | null = null;
+  let readinessError: string | null = null;
   let versionId = sessionVersionId;
   let lifecycleToken = session.lifecycleToken?.trim() || null;
   let mutationRevision = session.mutationRevision ?? null;
@@ -391,6 +394,7 @@ export async function readProductPostcheckPreviewProbe(params: {
     if (verdict) {
       readinessState = verdict.readinessState;
       httpReady = verdict.httpReady;
+      readinessError = verdict.readinessError ?? null;
       versionId = verdict.versionId?.trim() || sessionVersionId;
       running =
         verdict.running === true && versionId === params.expectedVersionId;
@@ -413,5 +417,6 @@ export async function readProductPostcheckPreviewProbe(params: {
     previewUrl: session.previewUrl?.trim() || null,
     readinessState,
     httpReady,
+    readinessError,
   };
 }

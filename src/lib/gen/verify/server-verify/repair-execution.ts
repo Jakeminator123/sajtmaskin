@@ -69,7 +69,7 @@ import {
 } from "../server-verify-log-meta";
 import { resolvePostRepairFinalize } from "../server-repair-policy";
 import { recordRepairPhaseSignal, withRepairPhaseSignal } from "../repair-phase-signal";
-import { isLatestVersionForChat } from "./lease";
+import { isRepairTargetHead } from "./lease";
 import {
   evaluateServerOwnedF3Readiness,
   persistF3ReadinessHold,
@@ -522,7 +522,7 @@ export async function tryServerRepairLoop(params: {
     const postRepairLintAdvisories = collectLintAdvisories(decision.results);
     let promoted = false;
     if (decision.promote) {
-      if (!(await isLatestVersionForChat(chatId, versionId))) {
+      if (!(await isRepairTargetHead(chatId, versionId))) {
         await markVersionSupersededByRepair(versionId, null, runId).catch(() => null);
         await createEngineVersionErrorLogs([
           {
@@ -662,7 +662,7 @@ export async function tryServerRepairLoop(params: {
   let supersededKind: "newer_version" | "files_advanced" | null = null;
   const shouldAbortSuperseded = async (): Promise<boolean> => {
     if (supersededKind) return true;
-    if (!(await isLatestVersionForChat(chatId, versionId))) {
+    if (!(await isRepairTargetHead(chatId, versionId))) {
       supersededKind = "newer_version";
       return true;
     }

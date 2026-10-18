@@ -17,7 +17,7 @@ const getVersionFilesSnapshot = vi.hoisted(() => vi.fn());
 const buildExportableProject = vi.hoisted(() => vi.fn());
 const chatUsesVerbatimRepo = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
-const isLatestVersionForChat = vi.hoisted(() => vi.fn());
+const isRepairTargetHead = vi.hoisted(() => vi.fn());
 const readServerRepairBudget = vi.hoisted(() => vi.fn());
 const hydrateRepairLedger = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/db/services/server-repair-budget", () => ({ readServerRepairBudget }));
@@ -60,7 +60,7 @@ vi.mock("../repair-loop", () => ({
   buildGroupedRepairErrorContext: () => ({ errorManifest: [], contextLines: [] }),
   buildRepairErrorContextLines: () => [],
 }));
-vi.mock("./lease", () => ({ isLatestVersionForChat }));
+vi.mock("./lease", () => ({ isRepairTargetHead }));
 vi.mock("./f3-readiness", () => ({
   evaluateServerOwnedF3Readiness: vi.fn(),
   persistF3ReadinessHold: vi.fn(),
@@ -104,7 +104,7 @@ describe("tryServerRepairLoop threads verifyDeadlineEpochMs (C4)", () => {
     buildExportableProject.mockReset().mockImplementation(async (files: typeof projectFiles) => files);
     chatUsesVerbatimRepo.mockReset().mockResolvedValue(false);
     createEngineVersionErrorLogs.mockReset().mockResolvedValue(undefined);
-    isLatestVersionForChat.mockReset().mockResolvedValue(true);
+    isRepairTargetHead.mockReset().mockResolvedValue(true);
     shouldPromoteAfterRepair.mockReset().mockResolvedValue({
       promote: false,
       results: [],

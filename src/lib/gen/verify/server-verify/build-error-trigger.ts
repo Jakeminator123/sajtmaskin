@@ -28,7 +28,7 @@ import { resolveBackgroundRepairDeadlineEpochMs } from "../server-repair-policy"
 import {
   acquireVerifyLease,
   inflight,
-  isLatestVersionForChat,
+  isRepairTargetHead,
   isServerVerifyEligible,
   releaseVerifyLease,
 } from "./lease";
@@ -268,7 +268,7 @@ export async function repairBuildErrorUnderLease(
   let baseFilesJsonForRecovery: string | null = null;
   const execute = async (): Promise<BuildErrorRepairOutcome> => {
   try {
-    if (!(await isLatestVersionForChat(chatId, versionId))) {
+    if (!(await isRepairTargetHead(chatId, versionId))) {
       skippedReason = "not_latest";
       return { started, repairAvailable, skippedReason };
     }

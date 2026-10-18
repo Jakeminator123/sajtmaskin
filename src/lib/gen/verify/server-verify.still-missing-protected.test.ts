@@ -16,7 +16,7 @@ const getVersionFilesSnapshot = vi.hoisted(() => vi.fn());
 const shouldPromoteAfterRepair = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const runRepairLoop = vi.hoisted(() => vi.fn());
-const isLatestVersionForChat = vi.hoisted(() => vi.fn());
+const isRepairTargetHead = vi.hoisted(() => vi.fn());
 const buildExportableProject = vi.hoisted(() => vi.fn());
 const chatUsesVerbatimRepo = vi.hoisted(() => vi.fn());
 const readServerRepairBudget = vi.hoisted(() => vi.fn());
@@ -61,7 +61,7 @@ vi.mock("./repair-loop", () => ({
   buildRepairErrorContextLines: () => [],
 }));
 vi.mock("./server-verify/lease", () => ({
-  isLatestVersionForChat,
+  isRepairTargetHead,
 }));
 vi.mock("@/lib/models/catalog", () => ({
   DEFAULT_MODEL_ID: "pro",
@@ -147,7 +147,7 @@ beforeEach(() => {
   });
   createEngineVersionErrorLogs.mockReset().mockResolvedValue(undefined);
   runRepairLoop.mockReset();
-  isLatestVersionForChat.mockReset().mockResolvedValue(true);
+  isRepairTargetHead.mockReset().mockResolvedValue(true);
   buildExportableProject.mockReset().mockImplementation(async (files: typeof pageFile[]) => files);
   chatUsesVerbatimRepo.mockReset().mockResolvedValue(false);
 });
