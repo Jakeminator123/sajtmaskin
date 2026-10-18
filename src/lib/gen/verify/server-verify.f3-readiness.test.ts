@@ -176,7 +176,7 @@ beforeEach(() => {
   // A pre-existing trusted bootstrap is read under this run's real lease/revision.
   readServerRepairBudget.mockReset().mockImplementation(async (target: { chatId: string; versionId: string; runId: string; filesRevision: string }) => {
     expect(target).toMatchObject({ chatId, versionId, runId: "run-l1", filesRevision: expect.any(String) });
-    return { status: "ready", snapshot: { scopeId: `${versionId}:original`, finalize: [], consumed: [] } };
+    return { status: "ready", snapshot: { scopeId: `${versionId}:original`, filesRevision: target.filesRevision, finalize: [], consumed: [] } };
   });
   promoteVersion.mockReset().mockResolvedValue({ id: versionId });
   failVersionVerification.mockReset().mockResolvedValue(null);

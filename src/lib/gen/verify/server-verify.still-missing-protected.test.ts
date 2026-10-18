@@ -121,7 +121,7 @@ beforeEach(() => {
   // Existing authenticated bootstrap, not a newly invented empty ledger.
   readServerRepairBudget.mockReset().mockImplementation(async (target: { chatId: string; versionId: string; runId: string; filesRevision: string }) => {
     expect(target).toMatchObject({ runId: "run-protected", filesRevision: "rev-protected" });
-    return { status: "ready", snapshot: { scopeId: `${target.versionId}:original`, finalize: [], consumed: [] } };
+    return { status: "ready", snapshot: { scopeId: `${target.versionId}:original`, filesRevision: target.filesRevision, finalize: [], consumed: [] } };
   });
   failVersionVerification.mockReset().mockResolvedValue(null);
   saveRepairedFiles.mockReset().mockResolvedValue({

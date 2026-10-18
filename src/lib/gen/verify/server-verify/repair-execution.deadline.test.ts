@@ -173,7 +173,7 @@ describe("tryServerRepairLoop threads verifyDeadlineEpochMs (C4)", () => {
   it("hydrates authenticated history with its original scope and retains occupied slots", async () => {
     const identity = { contentHash: "a".repeat(16), diagnosticFingerprint: "b".repeat(16), requiredFiles: ["app/page.tsx"], outcome: "success" as const };
     const consumed = [{ ...identity, passIndex: 0, slot: "primary" as const }];
-    readServerRepairBudget.mockResolvedValue({ status: "ready", snapshot: { scopeId: "original:root", finalize: [identity], consumed } });
+    readServerRepairBudget.mockResolvedValue({ status: "ready", snapshot: { scopeId: "original:root", filesRevision: "actual-db-revision", finalize: [identity], consumed } });
     runRepairLoop.mockResolvedValue({ stopped: true });
     await tryServerRepairLoop({ chatId: "chat-c4", versionId: "ver-c4", codeFiles: projectFiles, baseFilesJson: JSON.stringify(projectFiles),
       baseFilesRevision: "actual-db-revision", runId: "run2", repairScopeId: "caller-must-not-replace-scope",

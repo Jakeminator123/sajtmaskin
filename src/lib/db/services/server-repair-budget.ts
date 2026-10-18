@@ -46,7 +46,7 @@ type StartPolicy = Pick<BuildSpec, "previewPolicy" | "verificationPolicy"> & {
   // A server-verify skip (normal F2) is NOT a skip of image/product/QG work.
   postChecks: { willRunQualityGate: boolean; qualityGatePlanned: boolean; materializeImages?: boolean };
 };
-export type ServerRepairBudgetSnapshot = { scopeId: string; startPolicy: StartPolicy; finalize: RepairLedgerInvocation[]; consumed: Attempt[] };
+export type ServerRepairBudgetSnapshot = { scopeId: string; filesRevision: string; startPolicy: StartPolicy; finalize: RepairLedgerInvocation[]; consumed: Attempt[] };
 export type ServerRepairBudgetTarget = {
   chatId: string;
   versionId: string;
@@ -269,7 +269,7 @@ async function transact(target: ServerRepairBudgetTarget, slot?: Slot, outcome?:
       const { rows } = locked;
       const budget = readBudget(rows, target);
       if (!budget) return { status: "history_unknown" };
-      if (readOnly) return { status: "ready", snapshot: { scopeId: budget.init.scopeId, startPolicy: { ...budget.init.startPolicy,
+      if (readOnly) return { status: "ready", snapshot: { scopeId: budget.init.scopeId, filesRevision: budget.init.filesRevision, startPolicy: { ...budget.init.startPolicy,
         postChecks: { ...budget.init.startPolicy.postChecks, materializeImages: budget.init.startPolicy.postChecks.materializeImages === true } }, finalize: budget.init.history.finalize,
         consumed: budget.used.map(({ passIndex, slot, contentHash, diagnosticFingerprint, requiredFiles, outcome }) =>
           ({ passIndex, slot, contentHash, diagnosticFingerprint, requiredFiles, outcome })).sort((a, b) => a.passIndex - b.passIndex || (a.slot === "retry" ? 1 : -1)) } };
@@ -368,7 +368,9 @@ export function isServerPostcheckResumeDue(version: BudgetVersion, rows: Receipt
       !text(version.filesRevision) || typeof imported !== "boolean") return false;
   const target = { chatId: version.chatId, versionId: version.id, filesRevision: version.filesRevision, runId: "" };
   const paid = readBudget(rows, { ...target, scopeId: "read" });
-  if (!imported && paid && (!paid.init.startPolicy.preview.canStartPreview || paid.init.startPolicy.preview.hasBuildBreakingFindings)) return false;
+  const savedPreviewBlocks = !!paid && paid.init.filesRevision === version.filesRevision &&
+    (!paid.init.startPolicy.preview.canStartPreview || paid.init.startPolicy.preview.hasBuildBreakingFindings);
+  if (!imported && savedPreviewBlocks) return false;
   const state = resumeStateFromRows(rows, target, version, imported);
   return !!state && resumeSnapshot(state, target, version, now).disposition === "eligible";
 }

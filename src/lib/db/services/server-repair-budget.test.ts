@@ -141,6 +141,22 @@ describe("durable non-paid resume control", () => {
     expect(state.writes).toBe(writes); expect(control()).toBeUndefined();
   });
 
+  it("ignores a stale preview block after the files revision moves and keeps consumed repair history", async () => {
+    await initialize();
+    await reserveServerRepairBudget(target, primary);
+    const policy = state.logs[0].meta.startPolicy as { preview: { canStartPreview: boolean } };
+    policy.preview.canStartPreview = false;
+    expect(isServerPostcheckResumeDue(state.version, state.logs, false, NOW)).toBe(false);
+    state.version.filesRevision = "rev2";
+    const paid = JSON.stringify(state.logs);
+    expect(isServerPostcheckResumeDue(state.version, state.logs, false, NOW)).toBe(true);
+    expect(await readServerRepairBudget({ ...target, filesRevision: "rev2" })).toMatchObject({
+      status: "ready",
+      snapshot: { filesRevision: "rev1", consumed: [{ passIndex: 0, slot: "primary", outcome: "unknown" }] },
+    });
+    expect(JSON.stringify(state.logs)).toBe(paid);
+  });
+
   it("unknown takeovers and due/backoff/terminal hints use the existing receipt parser, never a fresh budget", async () => {
     await initialize(); await reserveServerResumeAttempt(target);
     expect(isServerPostcheckResumeDue(state.version, state.logs, false, NOW)).toBe(false);

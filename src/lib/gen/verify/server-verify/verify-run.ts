@@ -276,7 +276,7 @@ export async function runVersionPostchecks(input: VersionPostchecksInput): Promi
     revision = snapshot.filesRevision;
     const paid = await readServerRepairBudget(budgetTarget());
     if (expired()) return stop("postchecks_deadline");
-    if (!target.imported && paid.status !== "ready") return stop("history_unknown", false);
+    if (!target.imported && paid.status !== "ready") return stop("history_unknown", true);
     // Import has a separate, non-paid, non-mutating F2 control contract.
     if (target.imported && snapshot.lifecycleStage !== "design") return stop("import_stage", false);
     const policy = target.imported ? {
@@ -285,8 +285,11 @@ export async function runVersionPostchecks(input: VersionPostchecksInput): Promi
       postChecks: { materializeImages: false, willRunQualityGate: true, qualityGatePlanned: true },
       serverVerify: { run: false, reason: "import_postchecks_resume", diagnosticOnly: false },
     } : paid.status === "ready" ? paid.snapshot.startPolicy : null;
-    if (!policy) return stop("history_unknown", false);
-    if (!policy.preview.canStartPreview || policy.preview.hasBuildBreakingFindings) return stop("preview_blocked", false);
+    if (!policy) return stop("history_unknown", true);
+    const savedPreviewBlocks = !policy.preview.canStartPreview || policy.preview.hasBuildBreakingFindings;
+    if (savedPreviewBlocks && (target.imported || (paid.status === "ready" && paid.snapshot.filesRevision === revision))) {
+      return stop("preview_blocked", false);
+    }
     const current = async (): Promise<boolean> => {
       if (expired() || !(await renewVersionLease(input.versionId, runId)) || expired()) return false;
       const fresh = await getServerPostcheckTarget(input.chatId, input.versionId);

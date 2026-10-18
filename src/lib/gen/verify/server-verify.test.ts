@@ -79,7 +79,7 @@ describe("server verification persisted bootstrap readback", () => {
     vi.spyOn(projectExport, "buildExportableProject").mockResolvedValue(files);
     const gate = vi.spyOn(previewGate, "runQualityGateOnExportable").mockResolvedValue(null);
     const read = vi.spyOn(repairBudget, "readServerRepairBudget").mockResolvedValue(mode === "known"
-      ? { status: "ready", snapshot: { scopeId: "original:root", finalize: [], consumed: [],
+      ? { status: "ready", snapshot: { scopeId: "original:root", filesRevision: "actual-db-revision", finalize: [], consumed: [],
         startPolicy: { previewPolicy: "fidelity2", verificationPolicy: "standard",
           serverVerify: { run: false, reason: "design_preview_skip_verify" },
           preview: { canStartPreview: true, hasBuildBreakingFindings: false },

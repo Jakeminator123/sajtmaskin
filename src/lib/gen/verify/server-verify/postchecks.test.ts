@@ -62,7 +62,7 @@ describe("ONE generation/cron postchecks core", () => {
     vi.spyOn(repo, "failVersionVerification").mockResolvedValue(null as never);
     vi.spyOn(repo, "promoteVersion").mockResolvedValue(null as never);
     vi.spyOn(budget, "readServerRepairBudget").mockImplementation(async () => ({ status: "ready", snapshot: {
-      scopeId: "original", startPolicy: policy, finalize: [], consumed: [] } }));
+      scopeId: "original", filesRevision: "r1", startPolicy: policy, finalize: [], consumed: [] } }));
     vi.spyOn(budget, "readServerResumeControl").mockResolvedValue({ status: "resume_control", snapshot: { disposition: "eligible" } } as never);
     vi.spyOn(budget, "reserveServerResumeAttempt").mockImplementation(async () => { order.push("reserve"); return { status: "resume_reserved", attemptId: 1 } as never; });
     vi.spyOn(budget, "settleServerResumeAttempt").mockResolvedValue({ status: "resume_settled" } as never);
@@ -189,6 +189,22 @@ describe("ONE generation/cron postchecks core", () => {
     expect((await runVersionPostchecks(input)).kind).toBe("stop");
     expect(images.prepareVersionImages).not.toHaveBeenCalled(); expect(preview.ensureVersionPreview).not.toHaveBeenCalled();
     expect(budget.reserveServerResumeAttempt).not.toHaveBeenCalled(); expect(gate.runQualityGateOnExportable).not.toHaveBeenCalled();
+  });
+  it("applies a saved preview block only while the receipt revision is current", async () => {
+    policy.preview.hasBuildBreakingFindings = true;
+    expect(await runVersionPostchecks(input)).toMatchObject({ kind: "stop", reason: "preview_blocked", retryable: false });
+    expect(images.prepareVersionImages).not.toHaveBeenCalled();
+    vi.mocked(budget.readServerRepairBudget).mockImplementation(async () => ({ status: "ready", snapshot: {
+      scopeId: "original", filesRevision: "stale-finalize", startPolicy: policy, finalize: [], consumed: [
+        { passIndex: 0, slot: "primary", contentHash: "a".repeat(16), diagnosticFingerprint: "b".repeat(16), requiredFiles: ["app/page.tsx"], outcome: "success" },
+      ] } }));
+    expect((await runVersionPostchecks(input)).kind).toBe("continue");
+    expect(images.prepareVersionImages).toHaveBeenCalled();
+  });
+  it("missing repair history stops without becoming terminal", async () => {
+    vi.mocked(budget.readServerRepairBudget).mockResolvedValue({ status: "history_unknown" });
+    expect(await runVersionPostchecks(input)).toMatchObject({ kind: "stop", reason: "history_unknown", retryable: true });
+    expect(images.prepareVersionImages).not.toHaveBeenCalled();
   });
   it("preserves the old unconfigured-preview guard before any lease, image/Blob or model work", async () => {
     vi.mocked(tier2.isTier2PreviewConfigured).mockReturnValue(false);
