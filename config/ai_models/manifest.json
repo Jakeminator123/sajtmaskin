@@ -1091,8 +1091,9 @@
         "src/app/api/wizard/competitors/route.ts"
       ],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "openai/gpt-6-luna",
-      "reasoningEffort": "none"
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "low",
+      "notes": "GPT-6.1 Sol low since 2026-10-18 (owner decision): follow-up questions and the competitor list are visible to the customer in the wizard. Sol has no `none`, and reasoning tokens count toward maxOutputTokens, so the routes reserve headroom and run with maxDuration 40 s (enrich) / 35 s (competitors)."
     },
     {
       "id": "audit_structured",
@@ -1170,8 +1171,9 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/wizard/company-lookup/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "openai/gpt-6-luna",
-      "reasoningEffort": "none"
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "low",
+      "notes": "GPT-6.1 Sol low since 2026-10-18, same as the other wizard workloads. The fallback has no web-search tool, so it can only answer from model knowledge; reasoning tokens count toward maxOutputTokens."
     },
     {
       "id": "domain_suggestions",

@@ -27,7 +27,7 @@ import { isWizardAbortError, raceWizardDeadline } from "@/lib/wizard/route-deadl
 
 export const runtime = "nodejs";
 /** Keep as a numeric literal — Next bakes `maxDuration` at build time. Do not raise without p95/p99. */
-export const maxDuration = 25;
+export const maxDuration = 35;
 
 const WIZARD_WORKLOAD_ID = "wizard_enrich_competitors";
 const COMPETITORS_MODEL =
@@ -232,7 +232,7 @@ Returnera BARA JSON (inget annat):
 
 - Bara JSON, inget annat`,
                 maxRetries: 1,
-                maxOutputTokens: 600,
+                maxOutputTokens: 2_400,
                 abortSignal: deadline.signal,
                 ...workloadOpenAIProviderOptions(WIZARD_WORKLOAD_ID, COMPETITORS_MODEL),
               }),

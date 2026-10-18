@@ -5,12 +5,12 @@
  * the request with a 504 and no terminal telemetry. Abort a little earlier
  * so the route can emit a content-free terminal event.
  *
- * Do not raise the exported route `maxDuration` literals without p95/p99
- * from those events.
+ * Sized for GPT-6.1 Sol at low effort. Do not raise the exported route
+ * `maxDuration` literals further without p95/p99 from those events.
  */
 
-export const WIZARD_COMPETITORS_MAX_DURATION_S = 25;
-export const WIZARD_ENRICH_MAX_DURATION_S = 30;
+export const WIZARD_COMPETITORS_MAX_DURATION_S = 35;
+export const WIZARD_ENRICH_MAX_DURATION_S = 40;
 export const WIZARD_ROUTE_ABORT_HEADROOM_MS = 2_000;
 
 export type WizardRouteDeadline = {

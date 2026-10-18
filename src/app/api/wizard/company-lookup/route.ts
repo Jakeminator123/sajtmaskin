@@ -21,7 +21,7 @@ import { safeFetch } from "@/lib/ssrf-guard";
 import { ALLABOLAG_BASE, resolveAllabolagCompanyUrl } from "./allabolag-url";
 
 export const runtime = "nodejs";
-export const maxDuration = 25;
+export const maxDuration = 35;
 
 const ALLABOLAG_PAGE_MAX_BYTES = 1_500_000;
 
@@ -161,7 +161,7 @@ Returnera BARA JSON (inget annat):
 Om du inte hittar företaget: {"found":false}
 Bara JSON, inget annat.`,
     maxRetries: 1,
-    maxOutputTokens: 350,
+    maxOutputTokens: 1_500,
     ...workloadOpenAIProviderOptions("company_lookup", modelId),
   });
 

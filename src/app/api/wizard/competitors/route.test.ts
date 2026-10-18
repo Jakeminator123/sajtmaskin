@@ -160,13 +160,14 @@ describe("POST /api/wizard/competitors", () => {
       marketInsight: "Tydlig lokal konkurrens",
     });
     expect(braveWebSearch).toHaveBeenCalledWith("Sajtstudio Webb Stockholm konkurrenter", 8);
-    expect(createDirectModel).toHaveBeenCalledWith("openai/gpt-6-luna");
+    expect(createDirectModel).toHaveBeenCalledWith("openai/gpt-6.1-sol");
     expect(generateText).toHaveBeenCalledWith(
       expect.objectContaining({
+        maxOutputTokens: 2_400,
         model: "model",
         prompt: expect.stringContaining("https://konkurrent.example"),
         abortSignal: expect.any(AbortSignal),
-        providerOptions: { openai: { reasoningEffort: "none" } },
+        providerOptions: { openai: { reasoningEffort: "low" } },
       }),
     );
     expect(authorizeWizardRun).toHaveBeenCalledWith(expect.any(Request), WIZARD_RUN_ID);
@@ -179,11 +180,11 @@ describe("POST /api/wizard/competitors", () => {
     );
   });
 
-  it("keeps the 25s route budget and emits a terminal event on validation failure", async () => {
+  it("keeps the 35s route budget and emits a terminal event on validation failure", async () => {
     const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "route.ts"), "utf8");
-    expect(maxDuration).toBe(25);
+    expect(maxDuration).toBe(35);
     expect(maxDuration).toBe(WIZARD_COMPETITORS_MAX_DURATION_S);
-    expect(source.match(/export const maxDuration = 25;/g)).toHaveLength(1);
+    expect(source.match(/export const maxDuration = 35;/g)).toHaveLength(1);
 
     await POST(makeRequest({ companyName: "Sajtstudio" }));
     expect(emitWizardRouteTerminal).toHaveBeenCalledWith(
