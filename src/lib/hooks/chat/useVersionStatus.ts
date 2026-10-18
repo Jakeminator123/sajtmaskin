@@ -144,6 +144,10 @@ export function useVersionStatus(params: {
   // Wall-clock timestamp of the first `failed` poll for the current key.
   // Survives a later transport failure (`null`); only a real other phase clears it.
   const failedStartRef = useRef<number | null>(null);
+  // Latest `failed` projection for this key. State is not cleared on key
+  // change, so a transport error must restore this snapshot rather than the
+  // status still sitting in state.
+  const lastFailedStatusRef = useRef<VersionStatus | null>(null);
 
   useEffect(() => {
     if (!chatId || !versionId) {
@@ -157,6 +161,7 @@ export function useVersionStatus(params: {
     prevEventCountRef.current = null;
     nonTerminalStartRef.current = null;
     failedStartRef.current = null;
+    lastFailedStatusRef.current = null;
     let cancelled = false;
     queueMicrotask(() => {
       if (!cancelled && lastKeyRef.current === key) {
@@ -216,6 +221,7 @@ export function useVersionStatus(params: {
         prevEventCountRef.current = s.eventCount ?? null;
         const now = Date.now();
         failedStartRef.current ??= now;
+        lastFailedStatusRef.current = s;
         // The failed window owns the watch, so the earlier non-terminal clock
         // must not stay armed underneath it.
         nonTerminalStartRef.current = null;
@@ -225,6 +231,10 @@ export function useVersionStatus(params: {
       // window here — or applying the 15-minute cap — stops the recheck
       // before a repair can land.
       if (s == null && failedStartRef.current !== null) {
+        const lastFailed = lastFailedStatusRef.current;
+        if (lastFailed && !cancelled && lastKeyRef.current === key) {
+          setState((prev) => ({ ...prev, status: lastFailed }));
+        }
         return Date.now() - failedStartRef.current > maxFailedRecheckMs;
       }
       // A real phase that leaves `failed` (verifying, repairing, done, …)
@@ -233,6 +243,7 @@ export function useVersionStatus(params: {
         nonTerminalStartRef.current = null;
       }
       failedStartRef.current = null;
+      lastFailedStatusRef.current = null;
       // Terminal-neutral supersede (2026-07): the row was replaced by a newer
       // version — nothing more will ever arrive for it. Hard-stop like failed.
       if (s?.phase === "superseded") return true;

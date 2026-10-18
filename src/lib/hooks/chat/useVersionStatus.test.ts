@@ -678,6 +678,89 @@ describe("useVersionStatus — failed window vs non-terminal cap", () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(callsInsideCap + 1);
   });
+
+  it("keeps the failed phase visible when a 503 lands inside the recheck window", async () => {
+    const failed = vs({
+      phase: "failed",
+      done: false,
+      verifierOutcome: "failed",
+      eventCount: 3,
+    });
+    let call = 0;
+    const fetchMock = vi.fn(async () => {
+      call += 1;
+      return call === 1 ? ok(failed) : degraded503();
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() =>
+      useVersionStatus({
+        chatId: "c1",
+        versionId: "v1",
+        pollIntervalMs: POLL,
+      }),
+    );
+
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(result.current.status?.phase).toBe("failed");
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.current.status?.phase).toBe("failed");
+    expect(result.current.error).toContain("Databasen svarar inte");
+  });
+
+  it("stops past the 16-minute failed window on a 503 and keeps the failed phase", async () => {
+    const failed = vs({
+      phase: "failed",
+      done: false,
+      verifierOutcome: "failed",
+      eventCount: 4,
+    });
+    let call = 0;
+    const fetchMock = vi.fn(async () => {
+      call += 1;
+      return call === 1 ? ok(failed) : degraded503();
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() =>
+      useVersionStatus({
+        chatId: "c1",
+        versionId: "v1",
+        pollIntervalMs: 17 * MINUTE,
+      }),
+    );
+
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.current.status?.phase).toBe("failed");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(16 * MINUTE);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(MINUTE);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.current.status?.phase).toBe("failed");
+    expect(result.current.error).toContain("Databasen svarar inte");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20 * MINUTE);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.current.status?.phase).toBe("failed");
+  });
 });
 
 /**
