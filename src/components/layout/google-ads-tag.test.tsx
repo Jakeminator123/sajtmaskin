@@ -20,8 +20,11 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     window.dataLayer = [];
     window.sajtmaskinAdsTagLoaded = false;
     window.sajtmaskinAdsConfiguredIds = [];
+    window.sajtmaskinAdsConsentDefaulted = false;
+    window.sajtmaskinAdsJsQueued = false;
     state.pathname = "/";
     window.history.replaceState({}, "", "/");
+    vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_ENABLED", "1");
     vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_ID", "AW-123456789");
     vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_ACCOUNT_CREATED_LABEL", "account_lbl");
     localStorage.setItem("cookie-consent", "accepted");
@@ -95,9 +98,14 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     const retry = retryLoader.loadGoogleAdsTag("AW-123456789");
     script().dispatchEvent(new Event("load"));
     expect(await retry).toBe(true);
-    for (const command of ["js", "config"]) {
+    for (const command of ["consent", "js", "config"]) {
       expect(window.dataLayer?.filter((entry) => Array.isArray(entry) && entry[0] === command)).toHaveLength(1);
     }
+    expect(window.dataLayer?.[0]).toEqual([
+      "consent",
+      "default",
+      expect.objectContaining({ ad_storage: "denied", ad_user_data: "denied" }),
+    ]);
   });
 
   it("does not let a stale loader timeout clear a successfully replaced tag", async () => {
@@ -143,7 +151,7 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     render(<GoogleAdsTag />);
     expect(document.getElementById("sajtmaskin-google-ads")).toBeNull();
   });
-  it("does not retry a pending event whose label is unset after tag load", async () => {
+  it("sends first_site_generated without send_to when that conversion label is unset", async () => {
     vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL", "");
     const { GoogleAdsTag } = await import("./google-ads-tag");
     const ads = await import("@/lib/ads/fire-google-ads-conversion");
@@ -154,6 +162,27 @@ describe("GoogleAdsTag real loader (no external network)", () => {
       script().dispatchEvent(new Event("load"));
     });
     expect(conversions()).toHaveLength(0);
+    expect(
+      window.dataLayer?.filter(
+        (entry) => Array.isArray(entry) && entry[0] === "event" && entry[1] === "first_site_generated",
+      ),
+    ).toHaveLength(1);
     expect(timers.mock.calls.filter((call) => call[1] === 1_000)).toHaveLength(0);
+  });
+
+  it("injects the tag with Consent Mode default denied before cookie accept", async () => {
+    localStorage.removeItem("cookie-consent");
+    const { GoogleAdsTag } = await import("./google-ads-tag");
+    render(<GoogleAdsTag />);
+    expect(script()).not.toBeNull();
+    expect(window.dataLayer?.[0]).toEqual([
+      "consent",
+      "default",
+      expect.objectContaining({ ad_storage: "denied" }),
+    ]);
+    await act(async () => {
+      script().dispatchEvent(new Event("load"));
+    });
+    expect(conversions()).toHaveLength(0);
   });
 });
