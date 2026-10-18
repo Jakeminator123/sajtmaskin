@@ -109,7 +109,7 @@ describe("useInitBrief — A2: flödesstatus går via window-event, inte toast",
       vi.unstubAllGlobals();
     }
 
-    expect(statuses[0]).toBe("Skapar brief innan own-engine startar…");
+    expect(statuses[0]).toBe("Planerar sajten…");
     expect(statuses.at(-1)).toBeNull();
     expect(statuses).toHaveLength(2);
     expect(toast.loading).not.toHaveBeenCalled();

@@ -96,6 +96,7 @@ export const PURPOSE_OPTIONS: PurposeOption[] = WIZARD_PURPOSES.map((purpose) =>
 export type VibeOption = {
   id: string;
   label: string;
+  uiLabel: string;
   icon: LucideIcon;
 };
 
@@ -111,6 +112,7 @@ const VIBE_ICONS: Record<WizardVibeId, LucideIcon> = {
 export const VIBE_OPTIONS: VibeOption[] = WIZARD_VIBES.map((vibe) => ({
   id: vibe.id,
   label: vibe.label,
+  uiLabel: vibe.uiLabel,
   icon: VIBE_ICONS[vibe.id],
 }));
 
