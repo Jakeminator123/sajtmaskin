@@ -33,14 +33,17 @@ export type PricingContext = {
 };
 
 // ─── Prompt costs by model tier ───────────────────────────────────
-// Base rate: 1 credit ≈ 3 SEK
+// Base rate: 1 credit ≈ 3 SEK.
+// Extra hög (ultra) is an admission gate, not the charged price. Settlement
+// uses actual tokens × Astra rates ($10/$50 per 1M) × 2× markup. 50/30 keeps
+// roughly the same headroom as Mellan (10/6) given Astra's 5× token price.
 const PROMPT_CREATE_COSTS: Record<ModelTier, number> = {
   premium: 10,
   pro: 7,
   max: 10,
   codex: 10,
   anthropic: 10,
-  ultra: 20,
+  ultra: 50,
 };
 
 const PROMPT_REFINE_COSTS: Record<ModelTier, number> = {
@@ -49,7 +52,7 @@ const PROMPT_REFINE_COSTS: Record<ModelTier, number> = {
   max: 6,
   codex: 6,
   anthropic: 6,
-  ultra: 12,
+  ultra: 30,
 };
 
 /** Fullt upplöst prislista — ett tal per debiterbar åtgärd. */

@@ -58,6 +58,7 @@ Requests över 272k input debiteras 2× input / 1,5× output.
 | ------------------------------------------------------------------------------- | -------------------------------------- | ---------- |
 | `buildProfiles.defaults.pro` / `.max` / `.premium` / `.codex`                   | `gpt-6.1-sol`                          | medel      |
 | `buildProfiles.defaults.ultra` (Extra hög)                                      | `gpt-6-astra`                          | hög        |
+| Extra hög förhandsgrind (skapa / förfina)                                       | 50 / 30 krediter                       | grind      |
 | `qualityToOwnEngineModel.*`                                                     | `gpt-6.1-sol`                          | medel      |
 | `phaseRouting` fixer, deploy-assistant, verifier (alla OpenAI-nivåer)           | `gpt-6.1-sol`                          | medel      |
 | `perTierBriefing` pro / max / premium / codex / ultra + `briefing.defaults.*`   | `openai/gpt-6.1-sol`                   | medel      |
