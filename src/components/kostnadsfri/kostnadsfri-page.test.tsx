@@ -3,7 +3,11 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { KostnadsfriCompanyData, MiniWizardData } from "@/lib/kostnadsfri";
-import type { CampaignAccountStatus } from "@/lib/kostnadsfri/campaign-account";
+import {
+  readCampaignClaimPending,
+  writeCampaignClaimPending,
+  type CampaignAccountStatus,
+} from "@/lib/kostnadsfri/campaign-account";
 import {
   clearCampaignScriptStorageForTests,
   emptyCampaignScript,
@@ -186,6 +190,23 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
     clearCampaignScriptStorageForTests();
     clearPendingInitBuildStorageForTests();
     delete window.__SITEMASKIN_CONTEXT;
+    writeCampaignClaimPending(null);
+  });
+
+  it("raderar sparflaggan när lösenordet gäller en annan inbjudan", () => {
+    writeCampaignClaimPending({ slug: "annan-inbjudan", campaignUserId: "user_a" });
+    render(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+    fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));
+    expect(readCampaignClaimPending()).toBeNull();
+  });
+
+  it("behåller sparflaggan när samma inbjudan verifieras igen", async () => {
+    const pending = { slug: "zax-2-0-ab", campaignUserId: "user_a" };
+    writeCampaignClaimPending(pending);
+    render(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+    fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));
+    expect(await screen.findByRole("button", { name: "Klara wizarden" })).toBeTruthy();
+    expect(readCampaignClaimPending()).toEqual(pending);
   });
 
   it("kräver inloggning före projekt och prompt", async () => {

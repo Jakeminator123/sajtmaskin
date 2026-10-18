@@ -8,29 +8,13 @@ import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { currentBuilderReturnTo } from "@/lib/builder/pending-builder-draft";
 import {
-  CAMPAIGN_CLAIM_PENDING_STORAGE_KEY,
   isCampaignAccountProvider,
   isUnclaimedCampaignAccount,
+  readCampaignClaimPending,
+  writeCampaignClaimPending,
 } from "@/lib/kostnadsfri/campaign-account";
 
-function readClaimPending(): boolean {
-  try {
-    return window.localStorage.getItem(CAMPAIGN_CLAIM_PENDING_STORAGE_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function writeClaimPending(pending: boolean): void {
-  try {
-    if (pending) window.localStorage.setItem(CAMPAIGN_CLAIM_PENDING_STORAGE_KEY, "1");
-    else window.localStorage.removeItem(CAMPAIGN_CLAIM_PENDING_STORAGE_KEY);
-  } catch {
-    // Privat läge utan storage: sparandet slutförs inte automatiskt, banner finns kvar.
-  }
-}
-
-type ClaimResult = { ok: boolean; status: number; error?: string };
+type ClaimResult = { ok: boolean; status: number; error?: string; slug?: string };
 
 async function postClaim(action: "start" | "complete"): Promise<ClaimResult> {
   const response = await fetch("/api/kostnadsfri/claim", {
@@ -38,8 +22,8 @@ async function postClaim(action: "start" | "complete"): Promise<ClaimResult> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action }),
   });
-  const data = (await response.json().catch(() => null)) as { error?: string } | null;
-  return { ok: response.ok, status: response.status, error: data?.error };
+  const data = (await response.json().catch(() => null)) as { error?: string; slug?: string } | null;
+  return { ok: response.ok, status: response.status, error: data?.error, slug: data?.slug };
 }
 
 function isTransientClaimFailure(status: number): boolean {
@@ -66,12 +50,12 @@ export function CampaignAccountBanner() {
 
   useEffect(() => {
     if (!user || isCampaignAccountProvider(user.provider) || completingRef.current) return;
-    if (!readClaimPending()) return;
+    if (!readCampaignClaimPending()) return;
     completingRef.current = true;
     void (async () => {
       const result = await postClaim("complete").catch(() => ({ ok: false, status: 0 }) as ClaimResult);
       if (result.ok) {
-        writeClaimPending(false);
+        writeCampaignClaimPending(null);
         toast.success("Kontot är sparat. Sajten finns nu på ditt konto.");
         void mutate(() => true);
         void fetchUser();
@@ -86,7 +70,7 @@ export function CampaignAccountBanner() {
         });
         return;
       }
-      writeClaimPending(false);
+      writeCampaignClaimPending(null);
       toast.error(result.error ?? "Kontot kunde inte sparas.");
     })();
   }, [user, fetchUser, mutate, completeAttempt]);
@@ -103,8 +87,10 @@ export function CampaignAccountBanner() {
         return;
       }
       // Den som redan registrerat sig och verifierat mejlet ska bara logga in.
-      setAuthMode(readClaimPending() ? "login" : "register");
-      writeClaimPending(true);
+      setAuthMode(readCampaignClaimPending() ? "login" : "register");
+      if (result.slug && user?.id) {
+        writeCampaignClaimPending({ slug: result.slug, campaignUserId: user.id });
+      }
       setAuthOpen(true);
     } catch {
       setError("Kunde inte ansluta. Försök igen.");

@@ -11,8 +11,56 @@ export const KOSTNADSFRI_CAMPAIGN_PROVIDER = "kostnadsfri";
 export const KOSTNADSFRI_CAMPAIGN_CLAIMED_PROVIDER = "kostnadsfri_claimed";
 export const CAMPAIGN_ACCOUNT_UNCLAIMED_CODE = "campaign_account_unclaimed";
 
-/** Webbläsarflagga för att kunden bett om att spara kontot. Ägs av bannern i buildern. */
+/** Pågående «Spara kontot» i den här webbläsaren, bundet till inbjudans slug. */
 export const CAMPAIGN_CLAIM_PENDING_STORAGE_KEY = "sajtmaskin:kampanjkonto-spara";
+
+export type CampaignClaimPending = { slug: string; campaignUserId: string };
+
+function pendingStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+export function readCampaignClaimPending(): CampaignClaimPending | null {
+  const storage = pendingStorage();
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(CAMPAIGN_CLAIM_PENDING_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<CampaignClaimPending>;
+    if (
+      typeof parsed.slug === "string" &&
+      parsed.slug &&
+      typeof parsed.campaignUserId === "string" &&
+      parsed.campaignUserId
+    ) {
+      return { slug: parsed.slug, campaignUserId: parsed.campaignUserId };
+    }
+  } catch {
+    // Ogiltig flagga räknas som ingen sparbegäran.
+  }
+  storage.removeItem(CAMPAIGN_CLAIM_PENDING_STORAGE_KEY);
+  return null;
+}
+
+export function writeCampaignClaimPending(pending: CampaignClaimPending | null): void {
+  const storage = pendingStorage();
+  if (!storage) return;
+  try {
+    if (!pending) storage.removeItem(CAMPAIGN_CLAIM_PENDING_STORAGE_KEY);
+    else storage.setItem(CAMPAIGN_CLAIM_PENDING_STORAGE_KEY, JSON.stringify(pending));
+  } catch {
+    // Privat läge utan storage: serverns biljett avgör fortfarande complete.
+  }
+}
+
+export function clearCampaignClaimPendingIfSlugDiffers(slug: string): void {
+  const pending = readCampaignClaimPending();
+  if (pending && pending.slug !== slug) writeCampaignClaimPending(null);
+}
 
 /**
  * Vad lösenordssteget gjorde med inloggningen:

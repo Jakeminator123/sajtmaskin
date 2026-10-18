@@ -46,9 +46,9 @@ export function verifyKostnadsfriCampaignReceipt(
   return readVerifiedKostnadsfriCampaignReceipt(receipt, expected) !== null;
 }
 
-export function readVerifiedKostnadsfriCampaignReceipt(
+function parseSignedReceipt(
   receipt: string | null | undefined,
-  expected: { slug: string; sessionId: string; now?: Date },
+  now: Date,
 ): CampaignReceiptPayload | null {
   if (!receipt) return null;
   const [encoded, signature, extra] = receipt.split(".");
@@ -66,10 +66,12 @@ export function readVerifiedKostnadsfriCampaignReceipt(
     const payload = JSON.parse(
       Buffer.from(encoded, "base64url").toString("utf8"),
     ) as Partial<CampaignReceiptPayload>;
-    const nowSeconds = Math.floor((expected.now ?? new Date()).getTime() / 1000);
+    const nowSeconds = Math.floor(now.getTime() / 1000);
     const valid =
-      payload.slug === expected.slug &&
-      payload.sessionId === expected.sessionId &&
+      typeof payload.slug === "string" &&
+      payload.slug.length > 0 &&
+      typeof payload.sessionId === "string" &&
+      payload.sessionId.length > 0 &&
       typeof payload.expiresAt === "number" &&
       payload.expiresAt >= nowSeconds &&
       (payload.mailMessageId === undefined || /^[a-f0-9]{32}$/.test(payload.mailMessageId)) &&
@@ -80,6 +82,25 @@ export function readVerifiedKostnadsfriCampaignReceipt(
   } catch {
     return null;
   }
+}
+
+/** Aktuell inbjudan i den här webbläsaren, oavsett vilken anonym session som skrev kvittot. */
+export function readSignedKostnadsfriCampaignReceipt(
+  receipt: string | null | undefined,
+  now: Date = new Date(),
+): CampaignReceiptPayload | null {
+  return parseSignedReceipt(receipt, now);
+}
+
+export function readVerifiedKostnadsfriCampaignReceipt(
+  receipt: string | null | undefined,
+  expected: { slug: string; sessionId: string; now?: Date },
+): CampaignReceiptPayload | null {
+  const payload = parseSignedReceipt(receipt, expected.now ?? new Date());
+  if (!payload || payload.slug !== expected.slug || payload.sessionId !== expected.sessionId) {
+    return null;
+  }
+  return payload;
 }
 
 export function readKostnadsfriCampaignReceipt(request: Request): string | null {

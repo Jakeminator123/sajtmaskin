@@ -7,6 +7,7 @@ import {
   setAuthCookie,
   verifyPassword,
 } from "@/lib/auth/auth";
+import { expireCookieSetOptions } from "@/lib/auth/host-cookies";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { recordPageView } from "@/lib/db/services/analytics";
 import { findOrCreateKostnadsfriCampaignUser } from "@/lib/db/services/kostnadsfri-account";
@@ -31,7 +32,11 @@ import {
   isUnclaimedCampaignAccount,
   type CampaignAccountStatus,
 } from "@/lib/kostnadsfri/campaign-account";
-import { kostnadsfriCampaignEmail } from "@/lib/kostnadsfri/campaign-account-ticket";
+import {
+  campaignClaimCookieName,
+  kostnadsfriCampaignEmail,
+  readCampaignClaimTicket,
+} from "@/lib/kostnadsfri/campaign-account-ticket";
 import {
   createKostnadsfriCampaignReceipt,
   KOSTNADSFRI_CAMPAIGN_COOKIE,
@@ -226,6 +231,16 @@ async function verifyInvitation(
       recordVerified(request, slug, session.sessionId);
       const account = await signInCampaignAccount(request, slug, companyData.companyName);
       const response = NextResponse.json({ success: true, companyData, account });
+      const secure = new URL(request.url).protocol === "https:";
+      const claimCookie = campaignClaimCookieName(secure);
+      const claimTicket = readCampaignClaimTicket(request.cookies.get(claimCookie)?.value);
+      if (request.cookies.get(claimCookie)?.value && claimTicket?.slug !== slug) {
+        response.cookies.set({
+          name: claimCookie,
+          value: "",
+          ...expireCookieSetOptions(secure),
+        });
+      }
       response.cookies.set({
         name: KOSTNADSFRI_CAMPAIGN_COOKIE,
         value: createKostnadsfriCampaignReceipt({
@@ -238,7 +253,7 @@ async function verifyInvitation(
               : null,
         }),
         httpOnly: true,
-        secure: new URL(request.url).protocol === "https:",
+        secure,
         sameSite: "lax",
         path: "/",
         maxAge: KOSTNADSFRI_CAMPAIGN_RECEIPT_MAX_AGE,

@@ -18,8 +18,13 @@ import {
   CAMPAIGN_CLAIM_MAX_AGE,
   campaignClaimCookieName,
   createCampaignClaimTicket,
+  kostnadsfriCampaignEmail,
   readCampaignClaimTicket,
 } from "@/lib/kostnadsfri/campaign-account-ticket";
+import {
+  KOSTNADSFRI_CAMPAIGN_COOKIE,
+  readSignedKostnadsfriCampaignReceipt,
+} from "@/lib/kostnadsfri/campaign-receipt";
 import { withRateLimit } from "@/lib/rate-limit";
 
 /**
@@ -84,10 +89,23 @@ export async function POST(request: NextRequest) {
             { status: 409 },
           );
         }
-        const response = NextResponse.json({ success: true });
+        const receipt = readSignedKostnadsfriCampaignReceipt(
+          request.cookies.get(KOSTNADSFRI_CAMPAIGN_COOKIE)?.value,
+        );
+        if (!receipt || user.email !== kostnadsfriCampaignEmail(receipt.slug)) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Öppna inbjudan igen och tryck Spara kontot.",
+              code: "campaign_session_mismatch",
+            },
+            { status: 409 },
+          );
+        }
+        const response = NextResponse.json({ success: true, slug: receipt.slug });
         response.cookies.set({
           name: campaignClaimCookieName(secure),
-          value: createCampaignClaimTicket(user.id),
+          value: createCampaignClaimTicket(user.id, receipt.slug),
           httpOnly: true,
           secure,
           sameSite: "lax",
@@ -106,13 +124,18 @@ export async function POST(request: NextRequest) {
       const ticket = readCampaignClaimTicket(
         request.cookies.get(campaignClaimCookieName(secure))?.value,
       );
-      if (!ticket) {
+      const receipt = readSignedKostnadsfriCampaignReceipt(
+        request.cookies.get(KOSTNADSFRI_CAMPAIGN_COOKIE)?.value,
+      );
+      if (!ticket || !receipt || ticket.slug !== receipt.slug) {
         return withExpiredTicket(
           NextResponse.json(
             {
               success: false,
-              error: "Sparandet hann gå ut. Öppna länken från mejlet igen och tryck Spara kontot.",
-              code: "ticket_invalid",
+              error: ticket
+                ? "Sparandet gäller inte den här inbjudan. Öppna länken och tryck Spara kontot igen."
+                : "Sparandet hann gå ut. Öppna länken från mejlet igen och tryck Spara kontot.",
+              code: ticket ? "ticket_stale" : "ticket_invalid",
             },
             { status: 400 },
           ),

@@ -29,7 +29,10 @@ import {
   kostnadsfriAuthReturnPath,
 } from "@/lib/kostnadsfri/auth-return";
 import { kostnadsfriEventPath } from "@/lib/kostnadsfri/analytics-paths";
-import type { CampaignAccountStatus } from "@/lib/kostnadsfri/campaign-account";
+import {
+  clearCampaignClaimPendingIfSlugDiffers,
+  type CampaignAccountStatus,
+} from "@/lib/kostnadsfri/campaign-account";
 import {
   clearPendingInitBuild,
   persistPendingInitBuild,
@@ -170,6 +173,7 @@ export function KostnadsfriPage({
     data: KostnadsfriCompanyData,
     account: CampaignAccountStatus,
   ) => {
+    clearCampaignClaimPendingIfSlugDiffers(slug);
     // Verify set (campaign) or cleared (claimed) the auth cookie; refresh the
     // store before the next phase so «Fortsätt» does not read a stale session.
     if (account === "campaign" || account === "claimed") await fetchUser();

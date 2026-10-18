@@ -7,6 +7,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { writeCampaignClaimPending } from "@/lib/kostnadsfri/campaign-account";
 
 export interface AuthUser {
   id: string;
@@ -74,8 +75,8 @@ export const useAuthStore = create<AuthState>()(
 
       // Logout
       logout: () => {
+        writeCampaignClaimPending(null);
         set({ user: null, isLoading: false });
-        // Call logout API
         fetch("/api/auth/logout", { method: "POST" }).catch(console.error);
       },
 

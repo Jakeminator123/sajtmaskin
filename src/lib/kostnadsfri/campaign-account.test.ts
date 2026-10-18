@@ -51,12 +51,15 @@ describe("campaign claim ticket", () => {
   const now = new Date("2026-10-17T12:00:00Z");
 
   it("round-trips the campaign user id", () => {
-    const ticket = createCampaignClaimTicket("user_campaign", now);
-    expect(readCampaignClaimTicket(ticket, now)).toEqual({ campaignUserId: "user_campaign" });
+    const ticket = createCampaignClaimTicket("user_campaign", "inbjudan-a", now);
+    expect(readCampaignClaimTicket(ticket, now)).toEqual({
+      campaignUserId: "user_campaign",
+      slug: "inbjudan-a",
+    });
   });
 
   it("rejects tampering, extra segments and expiry", () => {
-    const ticket = createCampaignClaimTicket("user_campaign", now);
+    const ticket = createCampaignClaimTicket("user_campaign", "inbjudan-a", now);
     const [encoded, signature] = ticket.split(".");
     const forged = Buffer.from(
       JSON.stringify({ campaignUserId: "someone_else", expiresAt: 9_999_999_999 }),

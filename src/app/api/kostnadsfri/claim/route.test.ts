@@ -19,8 +19,27 @@ import {
 import {
   CAMPAIGN_CLAIM_COOKIE_HOST,
   createCampaignClaimTicket,
+  kostnadsfriCampaignEmail,
 } from "@/lib/kostnadsfri/campaign-account-ticket";
+import {
+  KOSTNADSFRI_CAMPAIGN_COOKIE,
+  createKostnadsfriCampaignReceipt,
+} from "@/lib/kostnadsfri/campaign-receipt";
 import { POST } from "./route";
+
+const SLUG = "inbjudan-a";
+
+function receiptCookie(slug: string): string {
+  const receipt = createKostnadsfriCampaignReceipt({
+    slug,
+    sessionId: "sess_aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+  });
+  return `${KOSTNADSFRI_CAMPAIGN_COOKIE}=${receipt}`;
+}
+
+function claimCookies(slug: string, ticket: string): string {
+  return `${receiptCookie(slug)}; ${CAMPAIGN_CLAIM_COOKIE_HOST}=${ticket}`;
+}
 
 function claimRequest(body: unknown, cookie?: string): NextRequest {
   return new NextRequest("https://sajtmaskin.se/api/kostnadsfri/claim", {
@@ -33,7 +52,11 @@ function claimRequest(body: unknown, cookie?: string): NextRequest {
   });
 }
 
-const campaignUser = { id: "user_campaign", provider: "kostnadsfri" };
+const campaignUser = {
+  id: "user_campaign",
+  provider: "kostnadsfri",
+  email: kostnadsfriCampaignEmail(SLUG),
+};
 const ownUser = { id: "user_own", provider: "email" };
 
 beforeEach(() => {
@@ -49,7 +72,7 @@ afterEach(() => {
 describe("POST /api/kostnadsfri/claim", () => {
   it("starts only from an unsaved campaign account and sets a host-only ticket", async () => {
     getCurrentUser.mockResolvedValue(campaignUser);
-    const response = await POST(claimRequest({ action: "start" }));
+    const response = await POST(claimRequest({ action: "start" }, receiptCookie(SLUG)));
     expect(response.status).toBe(200);
     const setCookie = response.headers.get("set-cookie") ?? "";
     expect(setCookie).toContain(`${CAMPAIGN_CLAIM_COOKIE_HOST}=`);
@@ -68,9 +91,9 @@ describe("POST /api/kostnadsfri/claim", () => {
 
   it("does not complete while still signed in as a campaign account", async () => {
     getCurrentUser.mockResolvedValue(campaignUser);
-    const ticket = createCampaignClaimTicket("user_campaign");
+    const ticket = createCampaignClaimTicket("user_campaign", SLUG);
     const response = await POST(
-      claimRequest({ action: "complete" }, `${CAMPAIGN_CLAIM_COOKIE_HOST}=${ticket}`),
+      claimRequest({ action: "complete" }, claimCookies(SLUG, ticket)),
     );
     expect(response.status).toBe(409);
     expect(transferKostnadsfriCampaignAccount).not.toHaveBeenCalled();
@@ -88,11 +111,11 @@ describe("POST /api/kostnadsfri/claim", () => {
   it("moves the ticket's campaign account to the caller, ignoring ids in the body", async () => {
     getCurrentUser.mockResolvedValue(ownUser);
     transferKostnadsfriCampaignAccount.mockResolvedValue({ status: "transferred", projects: 1 });
-    const ticket = createCampaignClaimTicket("user_campaign");
+    const ticket = createCampaignClaimTicket("user_campaign", SLUG);
     const response = await POST(
       claimRequest(
         { action: "complete", campaignUserId: "victim" },
-        `${CAMPAIGN_CLAIM_COOKIE_HOST}=${ticket}`,
+        claimCookies(SLUG, ticket),
       ),
     );
 
@@ -111,9 +134,9 @@ describe("POST /api/kostnadsfri/claim", () => {
     const held = await acquireUserGenerationLock("user_campaign");
     expect(held.status).toBe("acquired");
     if (held.status !== "acquired") return;
-    const ticket = createCampaignClaimTicket("user_campaign");
+    const ticket = createCampaignClaimTicket("user_campaign", SLUG);
     const duringGeneration = await POST(
-      claimRequest({ action: "complete" }, `${CAMPAIGN_CLAIM_COOKIE_HOST}=${ticket}`),
+      claimRequest({ action: "complete" }, claimCookies(SLUG, ticket)),
     );
 
     expect(duringGeneration.status).toBe(503);
@@ -126,7 +149,7 @@ describe("POST /api/kostnadsfri/claim", () => {
     await releaseChatGenerationLock(held.lock);
     transferKostnadsfriCampaignAccount.mockResolvedValue({ status: "transferred", projects: 1 });
     const afterSettlement = await POST(
-      claimRequest({ action: "complete" }, `${CAMPAIGN_CLAIM_COOKIE_HOST}=${ticket}`),
+      claimRequest({ action: "complete" }, claimCookies(SLUG, ticket)),
     );
     expect(afterSettlement.status).toBe(200);
     expect(transferKostnadsfriCampaignAccount).toHaveBeenCalledTimes(1);
@@ -139,9 +162,9 @@ describe("POST /api/kostnadsfri/claim", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("VERCEL_ENV", "production");
     getCurrentUser.mockResolvedValue(ownUser);
-    const ticket = createCampaignClaimTicket("user_campaign");
+    const ticket = createCampaignClaimTicket("user_campaign", SLUG);
     const response = await POST(
-      claimRequest({ action: "complete" }, `${CAMPAIGN_CLAIM_COOKIE_HOST}=${ticket}`),
+      claimRequest({ action: "complete" }, claimCookies(SLUG, ticket)),
     );
 
     expect(response.status).toBe(503);
@@ -153,9 +176,9 @@ describe("POST /api/kostnadsfri/claim", () => {
   it("reports an invitation that someone already saved", async () => {
     getCurrentUser.mockResolvedValue(ownUser);
     transferKostnadsfriCampaignAccount.mockResolvedValue({ status: "already_claimed" });
-    const ticket = createCampaignClaimTicket("user_campaign");
+    const ticket = createCampaignClaimTicket("user_campaign", SLUG);
     const response = await POST(
-      claimRequest({ action: "complete" }, `${CAMPAIGN_CLAIM_COOKIE_HOST}=${ticket}`),
+      claimRequest({ action: "complete" }, claimCookies(SLUG, ticket)),
     );
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({ code: "already_claimed" });

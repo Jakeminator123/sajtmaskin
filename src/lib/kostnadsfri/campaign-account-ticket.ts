@@ -30,7 +30,7 @@ export function campaignClaimCookieName(secure: boolean): string {
   return secure ? CAMPAIGN_CLAIM_COOKIE_HOST : CAMPAIGN_CLAIM_COOKIE_LEGACY;
 }
 
-type ClaimTicketPayload = { campaignUserId: string; expiresAt: number };
+type ClaimTicketPayload = { campaignUserId: string; slug: string; expiresAt: number };
 
 function sign(encoded: string): string {
   const secret = SECRETS.jwtSecret;
@@ -38,9 +38,14 @@ function sign(encoded: string): string {
   return createHmac("sha256", secret).update(`kostnadsfri-claim-v1:${encoded}`).digest("base64url");
 }
 
-export function createCampaignClaimTicket(campaignUserId: string, now: Date = new Date()): string {
+export function createCampaignClaimTicket(
+  campaignUserId: string,
+  slug: string,
+  now: Date = new Date(),
+): string {
   const payload: ClaimTicketPayload = {
     campaignUserId,
+    slug,
     expiresAt: Math.floor(now.getTime() / 1000) + CAMPAIGN_CLAIM_MAX_AGE,
   };
   const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
@@ -50,7 +55,7 @@ export function createCampaignClaimTicket(campaignUserId: string, now: Date = ne
 export function readCampaignClaimTicket(
   ticket: string | null | undefined,
   now: Date = new Date(),
-): { campaignUserId: string } | null {
+): { campaignUserId: string; slug: string } | null {
   if (!ticket) return null;
   const [encoded, signature, extra] = ticket.split(".");
   if (!encoded || !signature || extra !== undefined) return null;
@@ -64,12 +69,14 @@ export function readCampaignClaimTicket(
     if (
       typeof payload.campaignUserId !== "string" ||
       !payload.campaignUserId ||
+      typeof payload.slug !== "string" ||
+      !payload.slug ||
       typeof payload.expiresAt !== "number" ||
       payload.expiresAt < Math.floor(now.getTime() / 1000)
     ) {
       return null;
     }
-    return { campaignUserId: payload.campaignUserId };
+    return { campaignUserId: payload.campaignUserId, slug: payload.slug };
   } catch {
     return null;
   }

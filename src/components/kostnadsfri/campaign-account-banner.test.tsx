@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CAMPAIGN_CLAIM_PENDING_STORAGE_KEY } from "@/lib/kostnadsfri/campaign-account";
+import {
+  readCampaignClaimPending,
+  writeCampaignClaimPending,
+} from "@/lib/kostnadsfri/campaign-account";
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 const store = vi.hoisted(() => ({
@@ -26,12 +29,12 @@ function respond(status: number, body: unknown = {}) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
 }
 
-function pendingFlag() {
-  return window.localStorage.getItem(CAMPAIGN_CLAIM_PENDING_STORAGE_KEY);
+function pendingStillSet(): boolean {
+  return readCampaignClaimPending() !== null;
 }
 
 beforeEach(() => {
-  window.localStorage.setItem(CAMPAIGN_CLAIM_PENDING_STORAGE_KEY, "1");
+  writeCampaignClaimPending({ slug: "inbjudan-a", campaignUserId: "user_campaign" });
 });
 
 afterEach(() => {
@@ -67,13 +70,13 @@ describe("CampaignAccountBanner — slutför sparandet", () => {
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
     expect(toast.error.mock.calls[0]?.[0]).toBe(message);
-    expect(pendingFlag()).toBe("1");
+    expect(pendingStillSet()).toBe(true);
     const [, options] = toast.error.mock.calls[0] as [string, { action: { onClick: () => void } }];
     act(() => options.action.onClick());
 
     await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(pendingFlag()).toBeNull();
+    expect(pendingStillSet()).toBe(false);
     expect(store.fetchUser).toHaveBeenCalled();
   });
 
@@ -88,6 +91,6 @@ describe("CampaignAccountBanner — slutför sparandet", () => {
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith("Inbjudan är redan sparad till ett konto."),
     );
-    expect(pendingFlag()).toBeNull();
+    expect(pendingStillSet()).toBe(false);
   });
 });
