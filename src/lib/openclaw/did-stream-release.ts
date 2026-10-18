@@ -135,15 +135,24 @@ export function releaseDidStream(
   });
 }
 
+/**
+ * Släppkön väntas in före varje ny anslutning, så inget steg i den får vänta
+ * obegränsat — inte heller SDK:ns `disconnect()` eller en pågående `connect()`,
+ * som båda kan bli hängande.
+ */
+export function settleWithinReleaseTimeout(promise: Promise<unknown>): Promise<void> {
+  return withDeadline(
+    promise.then(() => undefined, () => undefined),
+    DID_STREAM_RELEASE_TIMEOUT_MS,
+    undefined,
+  );
+}
+
 export function appendPendingRelease(
   pendingRef: { current: Promise<void> },
   release: Promise<unknown>,
 ): Promise<void> {
-  const bounded = withDeadline(
-    release.then(() => undefined, () => undefined),
-    DID_STREAM_RELEASE_TIMEOUT_MS,
-    undefined,
-  );
+  const bounded = settleWithinReleaseTimeout(release);
   const queued = pendingRef.current.then(
     () => bounded,
     () => bounded,
