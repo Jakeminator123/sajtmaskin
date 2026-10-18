@@ -11,6 +11,7 @@ import {
   isPortalMutationMethod,
   isTrustedPortalOriginHeader,
 } from "@/lib/security/origin-guard";
+import { PERMISSIONS_POLICY } from "@/lib/security/permissions-policy";
 
 // ---------------------------------------------------------------------------
 // Path sets
@@ -248,10 +249,14 @@ function addSecurityHeaders(
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
+  response.headers.set("Permissions-Policy", PERMISSIONS_POLICY);
   if (hostname && isDuplicatePublicAliasHost(hostname)) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
   }
 
+  // Keep CSP report-only unless CSP_ENFORCE=true. Enforcing needs a clean
+  // report window: nonce + GTM/Ads/Mixpanel/Maps/D-ID/Vercel Live still
+  // show inspector issues. Do not flip this in a perf PR.
   const policy = buildCspPolicy(pathname, nonce);
   if (enforceCsp) {
     response.headers.set("Content-Security-Policy", policy);

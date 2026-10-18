@@ -30,6 +30,13 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <>
+      <link
+        rel="preload"
+        as="image"
+        href="/branding/lanyard-card-static.webp"
+        type="image/webp"
+        fetchPriority="high"
+      />
       <SoftwareApplicationJsonLd />
       <HomePageClient />
     </>

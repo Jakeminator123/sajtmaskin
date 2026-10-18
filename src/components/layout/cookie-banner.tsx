@@ -1,14 +1,16 @@
 "use client";
 
 /**
- * Kompakt cookie-banner för alla rutter UTOM landningssidan.
+ * Kompakt cookie-banner för alla rutter UTOM landningssidan i desktop-läge.
  *
- * På "/" äger LanyardExperience samtycket (fullskärmskortet med flip-
- * animationen). Direktbesök till t.ex. /privacy, /faq, /teknik eller
- * /builder passerar aldrig landningssidan, så utan den här bannern skulle
- * de aldrig få någon samtyckesyta alls (Bugbot high + pr-ai-review
- * F-c429fecc1255 på #1026). Bannern läser/skriver samma localStorage-
- * nycklar som lanyard-flödet, så ett val på ett ställe gäller överallt.
+ * På "/" i desktop äger LanyardExperience samtycket (fullskärmskortet med
+ * flip-animationen). Mobil / reduced-motion / Save-Data på "/" använder
+ * samma kompakta kort så cookietexten inte blir LCP. Direktbesök till t.ex.
+ * /privacy, /faq, /teknik eller /builder passerar aldrig landningssidan, så
+ * utan den här bannern skulle de aldrig få någon samtyckesyta alls
+ * (Bugbot high + pr-ai-review F-c429fecc1255 på #1026). Bannern
+ * läser/skriver samma localStorage-nycklar som lanyard-flödet, så ett val
+ * på ett ställe gäller överallt.
  *
  * Ritas som ett litet icke-blockerande kort nere till vänster — den täcker
  * aldrig sidan och kräver inget fokuslås (den är inte modal).
@@ -18,47 +20,52 @@ import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Cookie } from "lucide-react";
 import { dispatchCookieConsentChange } from "@/lib/ads/fire-google-ads-conversion";
-
-const CONSENT_KEY = "cookie-consent";
-const CONSENT_DATE_KEY = "cookie-consent-date";
+import {
+  LANYARD_CONSENT_DATE_KEY,
+  LANYARD_CONSENT_KEY,
+  readStoredCookieConsent,
+} from "@/components/landing-v2/lanyard-consent";
 
 export function CookieBanner() {
   const pathname = usePathname();
-  // Landningssidan äger samtycket via LanyardExperience. `key` nollställer
-  // synlighetstillståndet vid varje ruttbyte, så ett kvarhängande "visas"
-  // från en tidigare sida aldrig överlever en navigation där samtycke
-  // hunnit sparas (t.ex. via lanyard-kortet på "/").
+  // Landningssidan äger samtycket via LanyardExperience (flip-kort på
+  // desktop, kompakt kort på mobil). `key` nollställer synlighetstillståndet
+  // vid varje ruttbyte.
   if (pathname === "/") return null;
-  return <CookieBannerInner key={pathname} />;
+  return <CompactCookieBanner key={pathname} />;
 }
 
-function CookieBannerInner() {
+export function CompactCookieBanner({
+  delayMs = 800,
+  onConsent,
+}: {
+  delayMs?: number;
+  onConsent?: (value: "accepted" | "declined") => void;
+}) {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    let consent: string | null = null;
-    try {
-      consent = localStorage.getItem(CONSENT_KEY);
-    } catch {
-      consent = null;
-    }
-    if (consent) return;
-    const timer = setTimeout(() => setIsVisible(true), 800);
+    if (readStoredCookieConsent()) return;
+    const timer = setTimeout(() => setIsVisible(true), delayMs);
     return () => clearTimeout(timer);
-  }, []);
+  }, [delayMs]);
 
-  const persistConsent = useCallback((value: "accepted" | "declined") => {
-    try {
-      localStorage.setItem(CONSENT_KEY, value);
-      if (value === "accepted") {
-        localStorage.setItem(CONSENT_DATE_KEY, new Date().toISOString());
+  const persistConsent = useCallback(
+    (value: "accepted" | "declined") => {
+      try {
+        localStorage.setItem(LANYARD_CONSENT_KEY, value);
+        if (value === "accepted") {
+          localStorage.setItem(LANYARD_CONSENT_DATE_KEY, new Date().toISOString());
+        }
+      } catch {
+        /* localStorage kan vara blockerat — dölj bannern ändå. */
       }
-    } catch {
-      /* localStorage kan vara blockerat — dölj bannern ändå. */
-    }
-    dispatchCookieConsentChange(value);
-    setIsVisible(false);
-  }, []);
+      dispatchCookieConsentChange(value);
+      setIsVisible(false);
+      onConsent?.(value);
+    },
+    [onConsent],
+  );
 
   if (!isVisible) return null;
 

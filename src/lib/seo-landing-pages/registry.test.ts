@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   SEO_LANDING_CTA_HREF,
+  SEO_LANDING_FOOTER_COMPARE_LINKS,
   SEO_LANDING_FOOTER_GUIDE_LINKS,
   SEO_LANDING_HUB_SLUGS,
   SEO_LANDING_PAGES,
@@ -14,6 +15,7 @@ import {
   getPlaceholderSeoLandingRelPaths,
   getReadyRelatedSeoLandingSlugs,
   getSeoLandingEntry,
+  getSeoLandingCompareLinks,
   getSeoLandingHubLinks,
   getSeoLandingIndustryLinks,
   SEO_INDUSTRY_SLUGS,
@@ -245,6 +247,22 @@ describe("SEO landing registry", () => {
     }
   });
 
+  it("exposes comparison landings for the footer Jämför section", () => {
+    expect(SEO_LANDING_FOOTER_COMPARE_LINKS.map((link) => link.slug)).toEqual([
+      "ai-hemsidebyggare",
+      "wix-alternativ",
+      "wordpress-alternativ",
+      "lovable-alternativ",
+    ]);
+    const links = getSeoLandingCompareLinks();
+    expect(links.map((link) => link.slug)).toEqual(
+      SEO_LANDING_FOOTER_COMPARE_LINKS.map((link) => link.slug),
+    );
+    expect(links.find((link) => link.slug === "wix-alternativ")?.href).toBe("/wix-alternativ");
+    const hrefs = links.map((link) => link.href);
+    expect(new Set(hrefs).size).toBe(hrefs.length);
+  });
+
   it("exposes a ready industry set for the footer Branscher section", () => {
     expect(SEO_INDUSTRY_SLUGS).toHaveLength(10);
     const links = getSeoLandingIndustryLinks();
@@ -253,6 +271,10 @@ describe("SEO landing registry", () => {
       expect(getSeoLandingEntry(link.slug).status).toBe("ready");
       expect(link.href).toBe(`/${link.slug}`);
       expect(link.label.length).toBeGreaterThan(0);
+    }
+    const compareHrefs = new Set(getSeoLandingCompareLinks().map((link) => link.href));
+    for (const link of links) {
+      expect(compareHrefs.has(link.href)).toBe(false);
     }
   });
 

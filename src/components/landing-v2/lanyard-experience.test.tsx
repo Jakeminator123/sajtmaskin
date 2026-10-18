@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { LanyardExperience } from "./lanyard-experience";
+import {
+  FLIP_END_FALLBACK_MS,
+  FLIP_MS_DESKTOP,
+  LanyardExperience,
+} from "./lanyard-experience";
 
 let physicsStubThrows = false;
 
@@ -16,10 +20,18 @@ vi.mock("next/dynamic", () => ({
 const CONSENT_KEY = "cookie-consent";
 const CONSENT_DATE_KEY = "cookie-consent-date";
 
-function stubMatchMedia(reducedMotion: boolean): typeof window.matchMedia {
+function stubMatchMedia(
+  options: boolean | { reducedMotion?: boolean; narrow?: boolean } = false,
+): typeof window.matchMedia {
+  const reducedMotion = typeof options === "boolean" ? options : Boolean(options.reducedMotion);
+  const narrow = typeof options === "boolean" ? false : Boolean(options.narrow);
   const original = window.matchMedia;
   window.matchMedia = ((query: string) => ({
-    matches: query.includes("prefers-reduced-motion") ? reducedMotion : false,
+    matches: query.includes("prefers-reduced-motion")
+      ? reducedMotion
+      : query.includes("max-width")
+        ? narrow
+        : false,
     media: query,
     onchange: null,
     addListener: () => {},
@@ -70,11 +82,11 @@ describe("LanyardExperience", () => {
     restoreConnection = undefined;
   });
 
-  it("uses the welcome card as the cookie dialog for a first-time visitor", () => {
+  it("uses the welcome card as the cookie dialog for a first-time desktop visitor", async () => {
     originalMatchMedia = stubMatchMedia(false);
     render(<LanyardExperience />);
 
-    const dialog = screen.getByRole("dialog", { name: "Cookie-inställningar" });
+    const dialog = await waitFor(() => screen.getByRole("dialog", { name: "Cookie-inställningar" }));
     expect(dialog).toBeTruthy();
     expect(dialog.className).toContain("bg-[#05070a]");
     expect(dialog.className).toContain("z-[200]");
@@ -83,13 +95,14 @@ describe("LanyardExperience", () => {
     expect(dialog.className).not.toContain("bg-background ");
     expect(screen.getByRole("button", { name: "Acceptera alla" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Endast nödvändiga" })).toBeTruthy();
+    expect(screen.queryByTestId("lanyard-stage-3d")).toBeNull();
+    expect(screen.queryByTestId("lanyard-physics")).toBeNull();
   });
 
   it.each([
     ["Acceptera alla", "accepted", true],
     ["Endast nödvändiga", "declined", false],
   ] as const)("persists %s from the welcome card", (buttonName, value, storesDate) => {
-    vi.useFakeTimers();
     originalMatchMedia = stubMatchMedia(false);
     render(<LanyardExperience />);
 
@@ -97,6 +110,27 @@ describe("LanyardExperience", () => {
 
     expect(localStorage.getItem(CONSENT_KEY)).toBe(value);
     expect(Boolean(localStorage.getItem(CONSENT_DATE_KEY))).toBe(storesDate);
+  });
+
+  it("uses a compact cookie banner on a narrow viewport so it cannot become LCP", () => {
+    vi.useFakeTimers();
+    originalMatchMedia = stubMatchMedia({ narrow: true });
+    render(<LanyardExperience />);
+
+    expect(screen.queryByRole("dialog", { name: "Cookie-inställningar" })).toBeNull();
+    expect(screen.getByTestId("lanyard-static")).toBeTruthy();
+    expect(screen.queryByTestId("lanyard-physics")).toBeNull();
+
+    act(() => {
+      vi.advanceTimersByTime(800);
+    });
+
+    const dialog = screen.getByRole("dialog", { name: "Cookie-inställningar" });
+    expect(dialog.className).toContain("bottom-4");
+    expect(dialog.className).toContain("z-[80]");
+    expect(dialog.className).not.toContain("bg-[#05070a]");
+    expect(dialog.className).not.toContain("z-[200]");
+    expect(screen.queryByTestId("lanyard-physics")).toBeNull();
   });
 
   it("shows the static card for a returning visitor who prefers reduced motion", async () => {
@@ -126,20 +160,22 @@ describe("LanyardExperience", () => {
     localStorage.setItem(CONSENT_KEY, "accepted");
     originalMatchMedia = stubMatchMedia(false);
     render(<LanyardExperience />);
+    expect(screen.getByTestId("lanyard-static")).toBeTruthy();
     await waitFor(() => {
       expect(screen.getByTestId("lanyard-physics")).toBeTruthy();
     });
+    fireEvent.click(screen.getByTestId("lanyard-physics"));
     expect(screen.queryByTestId("lanyard-static")).toBeNull();
   });
 
-  it("parks the returning-visitor card above the stage until physics is ready, then drops it in", () => {
+  it("parks the returning-visitor card above the stage until physics is ready, then drops it in", async () => {
     localStorage.setItem(CONSENT_KEY, "accepted");
     originalMatchMedia = stubMatchMedia(false);
     render(<LanyardExperience />);
     expect(screen.queryByRole("dialog", { name: "Cookie-inställningar" })).toBeNull();
-    expect(screen.queryByTestId("lanyard-static")).toBeNull();
+    expect(screen.getByTestId("lanyard-static")).toBeTruthy();
 
-    const stage = screen.getByTestId("lanyard-stage-3d");
+    const stage = await waitFor(() => screen.getByTestId("lanyard-stage-3d"));
     expect(stage.className).toContain("-translate-y-[120%]");
     expect(stage.className).toContain("pointer-events-none");
 
@@ -147,6 +183,7 @@ describe("LanyardExperience", () => {
     expect(stage.className).toContain("translate-y-0");
     expect(stage.className).toContain("transition-transform");
     expect(stage.className).not.toContain("pointer-events-none");
+    expect(screen.queryByTestId("lanyard-static")).toBeNull();
   });
 
   it("drops the card in anyway if physics never reports ready", () => {
@@ -154,6 +191,9 @@ describe("LanyardExperience", () => {
     localStorage.setItem(CONSENT_KEY, "accepted");
     originalMatchMedia = stubMatchMedia(false);
     render(<LanyardExperience />);
+    act(() => {
+      vi.advanceTimersByTime(0);
+    });
     const stage = screen.getByTestId("lanyard-stage-3d");
     expect(stage.className).toContain("-translate-y-[120%]");
     act(() => {
@@ -162,14 +202,14 @@ describe("LanyardExperience", () => {
     expect(stage.className).toContain("translate-y-0");
   });
 
-  it("releases the static fallback immediately when the 3D card fails before ready", () => {
+  it("releases the static fallback immediately when the 3D card fails before ready", async () => {
     physicsStubThrows = true;
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       localStorage.setItem(CONSENT_KEY, "accepted");
       originalMatchMedia = stubMatchMedia(false);
       render(<LanyardExperience />);
-      const stage = screen.getByTestId("lanyard-stage-3d");
+      const stage = await waitFor(() => screen.getByTestId("lanyard-stage-3d"));
       expect(screen.getByTestId("lanyard-static")).toBeTruthy();
       expect(stage.className).toContain("translate-y-0");
       expect(stage.className).not.toContain("-translate-y-[120%]");
@@ -179,11 +219,67 @@ describe("LanyardExperience", () => {
     }
   });
 
-  it("keeps the first-visit handoff on the opacity path, not the drop-in", () => {
+  it("starts the physics chunk on cookie accept, not before", async () => {
     originalMatchMedia = stubMatchMedia(false);
     render(<LanyardExperience />);
+    expect(screen.queryByTestId("lanyard-physics")).toBeNull();
+    fireEvent.click(await waitFor(() => screen.getByRole("button", { name: "Acceptera alla" })));
+    await waitFor(() => {
+      expect(screen.getByTestId("lanyard-physics")).toBeTruthy();
+    });
     const stage = screen.getByTestId("lanyard-stage-3d");
     expect(stage.className).not.toContain("-translate-y-[120%]");
-    expect(stage.className).toContain("opacity-0");
+  });
+
+  it("saves consent immediately and keeps the cookie card until the flip ends", async () => {
+    originalMatchMedia = stubMatchMedia(false);
+    render(<LanyardExperience />);
+    fireEvent.click(await waitFor(() => screen.getByRole("button", { name: "Acceptera alla" })));
+
+    expect(localStorage.getItem(CONSENT_KEY)).toBe("accepted");
+    expect(screen.getByRole("dialog", { name: "Cookie-inställningar" })).toBeTruthy();
+    expect(screen.getByTestId("cookie-flip-motion").style.animation).toContain("lanyard-fly-back");
+
+    fireEvent.transitionEnd(screen.getByTestId("cookie-flip-card"), { propertyName: "color" });
+    expect(screen.getByRole("dialog", { name: "Cookie-inställningar" })).toBeTruthy();
+
+    const motion = screen.getByTestId("cookie-flip-motion");
+    act(() => {
+      // jsdom saknar AnimationEvent, så React lyssnar på webkit-prefixet.
+      motion.dispatchEvent(new Event("animationend", { bubbles: true }));
+      motion.dispatchEvent(new Event("webkitAnimationEnd", { bubbles: true }));
+    });
+    expect(screen.queryByRole("dialog", { name: "Cookie-inställningar" })).toBeNull();
+  });
+
+  it("unmounts the cookie card from the card flip transition", async () => {
+    originalMatchMedia = stubMatchMedia(false);
+    render(<LanyardExperience />);
+    fireEvent.click(await waitFor(() => screen.getByRole("button", { name: "Endast nödvändiga" })));
+
+    expect(localStorage.getItem(CONSENT_KEY)).toBe("declined");
+    fireEvent.transitionEnd(screen.getByTestId("cookie-flip-card"), { propertyName: "transform" });
+    expect(screen.queryByRole("dialog", { name: "Cookie-inställningar" })).toBeNull();
+  });
+
+  it("unmounts the cookie card on a timeout when the flip animation does not run", async () => {
+    originalMatchMedia = stubMatchMedia(false);
+    render(<LanyardExperience />);
+    const accept = await waitFor(() => screen.getByRole("button", { name: "Acceptera alla" }));
+    vi.useFakeTimers();
+    fireEvent.click(accept);
+
+    expect(localStorage.getItem(CONSENT_KEY)).toBe("accepted");
+    expect(screen.getByRole("dialog", { name: "Cookie-inställningar" })).toBeTruthy();
+
+    act(() => {
+      vi.advanceTimersByTime(FLIP_MS_DESKTOP);
+    });
+    expect(screen.getByRole("dialog", { name: "Cookie-inställningar" })).toBeTruthy();
+
+    act(() => {
+      vi.advanceTimersByTime(FLIP_END_FALLBACK_MS);
+    });
+    expect(screen.queryByRole("dialog", { name: "Cookie-inställningar" })).toBeNull();
   });
 });
