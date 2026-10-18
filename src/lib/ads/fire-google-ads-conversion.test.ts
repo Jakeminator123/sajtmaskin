@@ -234,6 +234,74 @@ describe("fireGoogleAdsConversion", () => {
     expect(gtag).toHaveBeenCalledTimes(1);
   });
 
+  it("strips only new from the URL and does not recount the same project later", () => {
+    enableAds();
+    acceptConsent();
+    const gtag = vi.fn();
+    window.gtag = gtag;
+    const state = { idx: 1 };
+    window.history.replaceState(
+      state,
+      "",
+      "/builder?project=proj_1&buildMethod=freeform&new=1&gclid=KeepMe",
+    );
+    noteBuilderStartFromLocation("/builder");
+    expect(gtag).toHaveBeenCalledTimes(1);
+    expect(`${window.location.pathname}${window.location.search}`).toBe(
+      "/builder?project=proj_1&buildMethod=freeform&gclid=KeepMe",
+    );
+    expect(window.history.state).toEqual(state);
+
+    sessionStorage.clear();
+    delete window.sajtmaskinAdsTransientState;
+    window.history.replaceState(
+      {},
+      "",
+      "/builder?project=proj_1&buildMethod=freeform&new=1&gclid=KeepMe",
+    );
+    noteBuilderStartFromLocation("/builder");
+    expect(gtag).toHaveBeenCalledTimes(1);
+    expect(window.location.search).toBe("?project=proj_1&buildMethod=freeform&gclid=KeepMe");
+
+    window.history.replaceState({}, "", "/builder?project=proj_2&new=1");
+    noteBuilderStartFromLocation("/builder");
+    expect(gtag).toHaveBeenCalledTimes(2);
+    expect(window.location.search).toBe("?project=proj_2");
+  });
+
+  it("still counts a later blank /builder?new=1 after the flag was stripped", () => {
+    enableAds();
+    acceptConsent();
+    const gtag = vi.fn();
+    window.gtag = gtag;
+    window.history.replaceState({}, "", "/builder?new=1");
+    noteBuilderStartFromLocation("/builder");
+    expect(gtag).toHaveBeenCalledTimes(1);
+    expect(window.location.search).toBe("");
+    sessionStorage.clear();
+    delete window.sajtmaskinAdsTransientState;
+    window.history.replaceState({}, "", "/builder?new=1");
+    noteBuilderStartFromLocation("/builder");
+    expect(gtag).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not double-count builder_start on refresh when new=1 stays in the URL", () => {
+    enableAds();
+    acceptConsent();
+    const gtag = vi.fn();
+    window.gtag = gtag;
+    noteBuilderStartFromLocation(
+      "/builder",
+      "?project=proj_1&buildMethod=freeform&buildIntent=website&new=1",
+    );
+    noteBuilderStartFromLocation(
+      "/builder",
+      "?project=proj_1&buildMethod=freeform&buildIntent=website&new=1",
+    );
+    expect(gtag).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem("sajtmaskin:ads:claimed:builder_start")).toBe("1");
+  });
+
   it("notes account_created from signup=1", () => {
     enableAds();
     acceptConsent();

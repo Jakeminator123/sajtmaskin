@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  bindAdsClickParamPassthrough,
+  captureAdsClickParamsFromLocation,
+} from "@/lib/ads/ads-click-params";
 import {
   flushPendingGoogleAdsConversions,
   hasAcceptedCookieConsent,
@@ -32,11 +36,20 @@ function subscribeConsent(onStoreChange: () => void): () => void {
 
 export function GoogleAdsTag({ nonce }: { nonce?: string }) {
   const pathname = usePathname();
+  const router = useRouter();
   const consentAccepted = useSyncExternalStore(
     subscribeConsent,
     hasAcceptedCookieConsent,
     getServerCookieConsentSnapshot,
   );
+
+  useEffect(() => {
+    if (isAdminAppPath(pathname)) return;
+    captureAdsClickParamsFromLocation();
+    return bindAdsClickParamPassthrough((href) => {
+      router.push(href);
+    });
+  }, [pathname, router]);
 
   useEffect(() => {
     const config = getGoogleAdsConfig();

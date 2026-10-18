@@ -210,13 +210,61 @@ export function noteAccountCreatedFromLocation(search: string = window.location.
   noteAccountCreatedIfSignup(params.get("signup"));
 }
 
+const BUILDER_START_HANDOFFS_KEY = `${STORAGE_PREFIX}builder-start-handoffs`;
+const MAX_BUILDER_START_HANDOFFS = 40;
+
+function builderStartHandoffId(params: URLSearchParams): string | null {
+  const project = params.get("project")?.trim();
+  if (project) return `project:${project}`;
+  const promptId = params.get("promptId")?.trim();
+  if (promptId) return `prompt:${promptId}`;
+  return null;
+}
+
+function readBuilderStartHandoffs(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(BUILDER_START_HANDOFFS_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberBuilderStartHandoff(id: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const next = [id, ...readBuilderStartHandoffs().filter((item) => item !== id)].slice(
+      0,
+      MAX_BUILDER_START_HANDOFFS,
+    );
+    window.localStorage.setItem(BUILDER_START_HANDOFFS_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore quota / blocked storage */
+  }
+}
+
+function stripNotedBuilderStartParam(): void {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (url.pathname !== "/builder" || url.searchParams.get("new") !== "1") return;
+  url.searchParams.delete("new");
+  const next = `${url.pathname}${url.search}${url.hash}`;
+  window.history.replaceState(window.history.state, "", next);
+}
+
 export function noteBuilderStartFromLocation(
   pathname: string,
   search: string = window.location.search,
 ): void {
   if (pathname !== "/builder") return;
   const params = new URLSearchParams(search.startsWith("?") || search.length === 0 ? search : `?${search}`);
-  if (params.get("new") === "1") {
+  if (params.get("new") !== "1") return;
+  const handoffId = builderStartHandoffId(params);
+  if (!handoffId || !readBuilderStartHandoffs().includes(handoffId)) {
     noteGoogleAdsConversion("builder_start");
+    if (handoffId) rememberBuilderStartHandoff(handoffId);
   }
+  stripNotedBuilderStartParam();
 }

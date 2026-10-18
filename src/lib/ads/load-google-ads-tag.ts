@@ -50,6 +50,8 @@ export function ensureGoogleAdsConsentDefault(): void {
     if (hasAcceptedCookieConsent()) {
       syncGoogleAdsConsent();
     }
+    gtag("set", "url_passthrough", true);
+    gtag("set", "ads_data_redaction", true);
   }
   if (!window.sajtmaskinAdsJsQueued) {
     gtag("js", new Date());

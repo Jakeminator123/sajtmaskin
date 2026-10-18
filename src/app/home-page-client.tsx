@@ -19,6 +19,7 @@ import type { AuditResult } from "@/types/audit";
 import { extractAuditHandoffPayload } from "@/lib/builder/audit-handoff";
 import { createAuditBuildHandoff } from "@/lib/builder/audit-handoff-client";
 import { toast } from "sonner";
+import { toBuilderStartHref } from "@/lib/ads/ads-click-params";
 import { noteAccountCreatedIfSignup } from "@/lib/ads/fire-google-ads-conversion";
 import { createProject } from "@/lib/projects/project-client";
 import { trackHomepageEvent } from "@/components/landing-v2/landing-analytics";
@@ -302,7 +303,7 @@ function RootLandingContent() {
         params.set("promptId", data.promptId);
         params.set("buildMethod", "wizard");
         params.set("buildIntent", intent);
-        router.push(`/builder?${params.toString()}`);
+        router.push(toBuilderStartHref(params));
       } catch (error) {
         console.error("[RootLanding] Wizard handoff failed:", error);
         toast.error(

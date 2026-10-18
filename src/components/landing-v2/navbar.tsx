@@ -6,6 +6,7 @@ import { LogOut, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { toBuilderStartHref } from "@/lib/ads/ads-click-params";
 import { AnimatedLogo } from "./animated-logo";
 
 interface NavbarProps {
@@ -43,7 +44,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
 
   const handlePrimaryClick = () => {
     if (isInitialized && isAuthenticated) {
-      router.push("/builder?new=1");
+      router.push(toBuilderStartHref());
       return;
     }
     onRegisterClick?.();

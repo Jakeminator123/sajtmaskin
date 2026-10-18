@@ -34,4 +34,15 @@ describe("deriveBuilderEntryState", () => {
     expect(entry.entryKind).toBe("project-restore");
     expect(entry.forceNew).toBe(false);
   });
+
+  it("counts a homepage handoff with project + new=1 without losing prompt hydration", () => {
+    const entry = deriveBuilderEntryState(
+      params("project=proj_1&promptId=prompt_1&buildMethod=freeform&new=1"),
+    );
+
+    expect(entry.entryKind).toBe("prompt-handoff");
+    expect(entry.forceNew).toBe(true);
+    expect(entry.shouldFetchPromptHandoff).toBe(true);
+    expect(entry.projectParam).toBe("proj_1");
+  });
 });

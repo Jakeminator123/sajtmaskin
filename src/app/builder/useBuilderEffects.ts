@@ -147,6 +147,7 @@ export function useBuilderEffects({
           applyAppProjectId(appProjectId, { chatId: data.chatId });
         } else {
           const params = new URLSearchParams(searchParams.toString());
+          params.delete("new");
           params.set("chatId", data.chatId);
           router.replace(`/builder?${params.toString()}`);
         }
