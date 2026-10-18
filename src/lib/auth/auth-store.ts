@@ -16,7 +16,8 @@ export interface AuthUser {
   diamonds: number;
   freeGenerationAvailable?: boolean;
   emailVerified?: boolean;
-  provider: "google" | "email" | "anonymous";
+  /** `kostnadsfri*`: kampanjkonto från en inbjudningslänk (lib/kostnadsfri/campaign-account). */
+  provider: "google" | "email" | "anonymous" | "kostnadsfri" | "kostnadsfri_claimed";
   github_token: string | null;
   github_username: string | null;
 }

@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { KostnadsfriCompanyData, MiniWizardData } from "@/lib/kostnadsfri";
+import type { CampaignAccountStatus } from "@/lib/kostnadsfri/campaign-account";
 import {
   clearCampaignScriptStorageForTests,
   emptyCampaignScript,
@@ -58,7 +59,13 @@ const fixtures = vi.hoisted(() => {
     colorSecondary: null,
     colorAccent: null,
   };
-  return { companyData, wizardData, f1Wizard, completeWith: "f1" as "f1" | "preview" };
+  return {
+    companyData,
+    wizardData,
+    f1Wizard,
+    completeWith: "f1" as "f1" | "preview",
+    account: "unavailable" as CampaignAccountStatus,
+  };
 });
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
@@ -102,9 +109,9 @@ vi.mock("./password-gate", () => ({
   PasswordGate: ({
     onSuccess,
   }: {
-    onSuccess: (data: KostnadsfriCompanyData) => void;
+    onSuccess: (data: KostnadsfriCompanyData, account: CampaignAccountStatus) => void;
   }) => (
-    <button type="button" onClick={() => onSuccess(fixtures.companyData)}>
+    <button type="button" onClick={() => onSuccess(fixtures.companyData, fixtures.account)}>
       Öppna wizard
     </button>
   ),
@@ -143,6 +150,7 @@ function fetchCallsTo(fetchMock: ReturnType<typeof vi.fn>, url: string): unknown
 describe("KostnadsfriPage — F1 wait then one build", () => {
   beforeEach(() => {
     fixtures.completeWith = "f1";
+    fixtures.account = "unavailable";
     auth.isAuthenticated = true;
     auth.isInitialized = true;
     auth.fetchUser.mockReset();
@@ -201,6 +209,55 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
         (call) => JSON.parse(String((call[1] as RequestInit).body)).path,
       ),
     ).toEqual(["/kostnadsfri/zax-2-0-ab/wizard", "/kostnadsfri/zax-2-0-ab/konto"]);
+  });
+
+  it("bygger direkt med kampanjkontot som lösenordet loggade in", async () => {
+    auth.isAuthenticated = false;
+    fixtures.account = "campaign";
+    // The mount refresh still sees no session; only the refresh after the
+    // password step picks up the campaign cookie.
+    auth.fetchUser.mockResolvedValueOnce(undefined).mockImplementationOnce(async () => {
+      auth.isAuthenticated = true;
+    });
+    render(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+    await waitFor(() => expect(auth.fetchUser).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Klara wizarden" })).toBeTruthy();
+    });
+    expect(auth.fetchUser).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByRole("button", { name: "Klara wizarden" }));
+
+    await act(async () => {
+      useOpenClawStore.getState().continueCampaignFollowups();
+    });
+
+    await waitFor(() => {
+      expect(projects.createProject).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByText("Ett konto behövs för att bygga hemsidan")).toBeNull();
+  });
+
+  it("visar att inbjudan redan är sparad till ett annat konto", async () => {
+    auth.isAuthenticated = false;
+    fixtures.account = "claimed";
+    render(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+    fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Klara wizarden" }));
+
+    await act(async () => {
+      useOpenClawStore.getState().continueCampaignFollowups();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          "Inbjudan är redan sparad till ett konto. Logga in med det kontot för att fortsätta.",
+        ),
+      ).toBeTruthy();
+    });
+    expect(auth.fetchUser).toHaveBeenCalledTimes(1);
+    expect(projects.createProject).not.toHaveBeenCalled();
   });
 
   it("startar inte bygget efter tyst 3s — skip ger exakt ett init-bygge", async () => {

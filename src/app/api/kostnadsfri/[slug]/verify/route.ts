@@ -1,8 +1,10 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { verifyPassword } from "@/lib/auth/auth";
+import { createToken, getCurrentUser, setAuthCookie, verifyPassword } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { recordPageView } from "@/lib/db/services/analytics";
+import { findOrCreateKostnadsfriCampaignUser } from "@/lib/db/services/kostnadsfri-account";
+import { updateUserLastLogin } from "@/lib/db/services/users";
 import {
   backfillKostnadsfriPageProfile,
   getKostnadsfriPageBySlug,
@@ -19,6 +21,12 @@ import {
 } from "@/lib/kostnadsfri";
 import { kostnadsfriEventPath } from "@/lib/kostnadsfri/analytics-paths";
 import {
+  isCampaignAccountProvider,
+  isUnclaimedCampaignAccount,
+  type CampaignAccountStatus,
+} from "@/lib/kostnadsfri/campaign-account";
+import { kostnadsfriCampaignEmail } from "@/lib/kostnadsfri/campaign-account-ticket";
+import {
   createKostnadsfriCampaignReceipt,
   KOSTNADSFRI_CAMPAIGN_COOKIE,
   KOSTNADSFRI_CAMPAIGN_RECEIPT_MAX_AGE,
@@ -28,6 +36,7 @@ import {
   isKostnadsfriLookupConfigured,
   lookupKostnadsfriProfile,
 } from "@/lib/kostnadsfri/profile-lookup";
+import { withRateLimit } from "@/lib/rate-limit";
 
 /**
  * POST /api/kostnadsfri/[slug]/verify — Verify password for a kostnadsfri page
@@ -37,7 +46,11 @@ import {
  * 2. No DB record: verifies against deterministic password (HMAC) + derives company name from slug
  *
  * This means ANY slug works without pre-creation.
- * Rate-limited to 5 attempts per hour per IP.
+ * Rate-limited per IP via the shared limiter (`kostnadsfri:verify`).
+ *
+ * Kampanjkonto (ägarbeslut 2026-10-17): ett korrekt lösenord loggar in i sidans
+ * kampanjkonto, utom när besökaren redan är inloggad med ett eget konto eller
+ * inbjudan redan sparats till ett konto (`account` i svaret).
  *
  * A successful verification is recorded as a `page_views` row at
  * `/kostnadsfri/<slug>/verifierad` so the admin console can see which invited
@@ -135,32 +148,61 @@ const verifySchema = z.object({
   variant: z.enum(["rent", "animated"]).optional(),
 });
 
-// Simple in-memory rate limiting for password attempts
-const attemptStore = new Map<string, { count: number; resetAt: number }>();
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 60 * 60 * 1000; // 1 hour
+/**
+ * Loggar in sidans kampanjkonto när besökaren inte redan har ett eget konto.
+ * Ett befintligt vanligt konto loggas aldrig in via länklösenordet, och ett
+ * sparat kampanjkonto nås bara med kundens egna inloggning.
+ */
+async function signInCampaignAccount(
+  request: NextRequest,
+  slug: string,
+  companyName: string,
+): Promise<CampaignAccountStatus> {
+  try {
+    const current = await getCurrentUser(request);
+    if (current && !isCampaignAccountProvider(current.provider)) return "existing";
 
-function checkAttemptLimit(key: string): boolean {
-  const now = Date.now();
-  const entry = attemptStore.get(key);
+    const campaignUser = await findOrCreateKostnadsfriCampaignUser({
+      email: kostnadsfriCampaignEmail(slug),
+      companyName,
+    });
+    if (!isUnclaimedCampaignAccount(campaignUser)) {
+      if (!isCampaignAccountProvider(campaignUser.provider)) {
+        console.warn("[API/kostnadsfri/verify] Campaign address is held by a non-campaign account");
+      }
+      return "claimed";
+    }
 
-  if (!entry || now > entry.resetAt) {
-    attemptStore.set(key, { count: 1, resetAt: now + WINDOW_MS });
-    return true;
+    await setAuthCookie(createToken(campaignUser.id, campaignUser.email), {
+      secure: new URL(request.url).protocol === "https:",
+    });
+    after(async () => {
+      try {
+        await updateUserLastLogin(campaignUser.id);
+      } catch (error) {
+        const kind = error instanceof Error ? error.name : typeof error;
+        console.error(`[API/kostnadsfri/verify] Failed to stamp campaign login (${kind})`);
+      }
+    });
+    return "campaign";
+  } catch (error) {
+    const kind = error instanceof Error ? error.name : typeof error;
+    console.error(`[API/kostnadsfri/verify] Campaign account unavailable (${kind})`);
+    return "unavailable";
   }
-
-  if (entry.count >= MAX_ATTEMPTS) {
-    return false;
-  }
-
-  entry.count++;
-  return true;
 }
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
+  return withRateLimit(request, "kostnadsfri:verify", () => verifyInvitation(request, params));
+}
+
+async function verifyInvitation(
+  request: NextRequest,
+  params: Promise<{ slug: string }>,
+): Promise<Response> {
   try {
     const { slug } = await params;
     const session = ensureSessionIdFromRequest(request);
@@ -175,7 +217,8 @@ export async function POST(
         ? await getAcceptedKostnadsfriMailEvent(mailId, slug).catch(() => null)
         : null;
       recordVerified(request, slug, session.sessionId);
-      const response = NextResponse.json({ success: true, companyData });
+      const account = await signInCampaignAccount(request, slug, companyData.companyName);
+      const response = NextResponse.json({ success: true, companyData, account });
       response.cookies.set({
         name: KOSTNADSFRI_CAMPAIGN_COOKIE,
         value: createKostnadsfriCampaignReceipt({
@@ -199,17 +242,6 @@ export async function POST(
       }
       return response;
     };
-
-    // Rate limit by IP + slug
-    const ip = request.headers.get("x-forwarded-for") || "unknown";
-    const rateLimitKey = `${ip}:${slug}`;
-
-    if (!checkAttemptLimit(rateLimitKey)) {
-      return NextResponse.json(
-        { success: false, error: "För många försök. Vänta en stund och försök igen." },
-        { status: 429 },
-      );
-    }
 
     // Parse body
     const body = await request.json().catch(() => ({}));

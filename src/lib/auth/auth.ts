@@ -317,7 +317,8 @@ export async function registerUser(
 
   // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(normalizedEmail)) {
+  // `.invalid` is reserved for campaign accounts (lib/kostnadsfri/campaign-account).
+  if (!emailRegex.test(normalizedEmail) || normalizedEmail.endsWith(".invalid")) {
     return { error: "Ogiltig e-postadress" };
   }
 

@@ -13,6 +13,7 @@ import {
 } from "@/components/builder/readiness/F3RequirementsSurface";
 import { TipCard } from "@/components/builder/shell/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
+import { CampaignAccountBanner } from "@/components/kostnadsfri/campaign-account-banner";
 import { currentBuilderReturnTo } from "@/lib/builder/pending-builder-draft";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { requestF3Rebuild } from "@/lib/builder/project-env-events";
@@ -237,6 +238,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         enableThinking={vm.enableThinking}
         canUseDeepBrief={!vm.chatId}
       />
+
+      <CampaignAccountBanner />
 
       {/* Mobile tab bar (visible < lg) */}
       <div className="border-border bg-background flex border-b lg:hidden" role="tablist" aria-label="Byggarvyer">

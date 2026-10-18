@@ -9,6 +9,30 @@ const recordPageView = vi.hoisted(() => vi.fn(async () => undefined));
 const verifyPassword = vi.hoisted(() => vi.fn(() => false));
 const isKostnadsfriLookupConfigured = vi.hoisted(() => vi.fn(() => false));
 const lookupKostnadsfriProfile = vi.hoisted(() => vi.fn());
+const getCurrentUser = vi.hoisted(() => vi.fn(async (): Promise<unknown> => null));
+const setAuthCookie = vi.hoisted(() => vi.fn(async () => undefined));
+const createToken = vi.hoisted(() => vi.fn(() => "campaign-token"));
+const CAMPAIGN_USER = vi.hoisted(() => ({
+  id: "user_campaign",
+  email: "kostnadsfri+zax-2-0-ab@kampanj.sajtmaskin.invalid",
+  provider: "kostnadsfri",
+}));
+const findOrCreateKostnadsfriCampaignUser = vi.hoisted(() =>
+  vi.fn(async (): Promise<unknown> => CAMPAIGN_USER),
+);
+
+vi.mock("@/lib/db/services/kostnadsfri-account", () => ({
+  findOrCreateKostnadsfriCampaignUser,
+}));
+
+vi.mock("@/lib/db/services/users", () => ({
+  updateUserLastLogin: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/lib/rate-limit", () => ({
+  withRateLimit: (_request: unknown, _endpoint: string, handler: () => Promise<Response>) =>
+    handler(),
+}));
 
 vi.mock("@/lib/db/services/kostnadsfri", () => ({
   getKostnadsfriPageBySlug,
@@ -22,6 +46,9 @@ vi.mock("@/lib/db/services/analytics", () => ({
 }));
 
 vi.mock("@/lib/auth/auth", () => ({
+  createToken,
+  getCurrentUser,
+  setAuthCookie,
   verifyPassword,
 }));
 
@@ -49,6 +76,8 @@ afterEach(() => {
   vi.clearAllMocks();
   verifyPassword.mockReturnValue(false);
   isKostnadsfriLookupConfigured.mockReturnValue(false);
+  getCurrentUser.mockResolvedValue(null);
+  findOrCreateKostnadsfriCampaignUser.mockResolvedValue(CAMPAIGN_USER);
   delete process.env.KOSTNADSFRI_PASSWORD_SEED;
   delete process.env.KOSTNADSFRI_API_KEY;
 });
@@ -94,8 +123,6 @@ function verifyRequest(
     headers: {
       "content-type": "application/json",
       "x-real-ip": "10.0.0.1",
-      // Rate-limitern nycklar på x-forwarded-for + slug (5/timme, in-memory).
-      // Tester som delar slug måste därför skilja sig här.
       ...(forwardedFor ? { "x-forwarded-for": forwardedFor } : {}),
       cookie: `sajtmaskin_session=${SESSION_ID}`,
     },
@@ -412,5 +439,82 @@ describe("kostnadsfri verify route — profilfallback", () => {
     expect(body.companyData.profile).toEqual({ city: "Kista", orgNumber: "559599-5639" });
     expect(lookupKostnadsfriProfile).not.toHaveBeenCalled();
     expect(backfillKostnadsfriPageProfile).not.toHaveBeenCalled();
+  });
+});
+
+// Ägarbeslut 2026-10-17 «Kostnadsfri / kampanjkonto».
+describe("kostnadsfri verify route — kampanjkonto", () => {
+  const params = { params: Promise.resolve({ slug: "zax-2-0-ab" }) };
+
+  function verifyOverHttps(password: string) {
+    return new NextRequest("https://sajtmaskin.se/api/kostnadsfri/zax-2-0-ab/verify", {
+      method: "POST",
+      body: JSON.stringify({ password }),
+      headers: { "content-type": "application/json", "x-real-ip": "10.0.0.3" },
+    });
+  }
+
+  it("loggar in en utloggad besökare i sidans kampanjkonto", async () => {
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+
+    const res = await POST(verifyOverHttps("rätt"), params);
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ success: true, account: "campaign" });
+    expect(findOrCreateKostnadsfriCampaignUser).toHaveBeenCalledWith({
+      email: CAMPAIGN_USER.email,
+      companyName: "Zax 2.0 AB",
+    });
+    expect(createToken).toHaveBeenCalledWith(CAMPAIGN_USER.id, CAMPAIGN_USER.email);
+    expect(setAuthCookie).toHaveBeenCalledWith("campaign-token", { secure: true });
+  });
+
+  it("behåller besökarens eget konto och rör inte kampanjkontot", async () => {
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+    getCurrentUser.mockResolvedValue({ id: "user_own", provider: "google" });
+
+    const res = await POST(verifyOverHttps("rätt"), params);
+
+    await expect(res.json()).resolves.toMatchObject({ success: true, account: "existing" });
+    expect(findOrCreateKostnadsfriCampaignUser).not.toHaveBeenCalled();
+    expect(setAuthCookie).not.toHaveBeenCalled();
+  });
+
+  it.each(["kostnadsfri_claimed", "email"])(
+    "loggar inte in när adressen ägs av provider %s",
+    async (provider) => {
+      verifyPassword.mockReturnValue(true);
+      getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+      findOrCreateKostnadsfriCampaignUser.mockResolvedValue({ ...CAMPAIGN_USER, provider });
+
+      const res = await POST(verifyOverHttps("rätt"), params);
+
+      await expect(res.json()).resolves.toMatchObject({ success: true, account: "claimed" });
+      expect(setAuthCookie).not.toHaveBeenCalled();
+    },
+  );
+
+  it("verifierar inbjudan även när kontot inte kan skapas", async () => {
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+    findOrCreateKostnadsfriCampaignUser.mockRejectedValue(new Error("db down"));
+
+    const res = await POST(verifyOverHttps("rätt"), params);
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ success: true, account: "unavailable" });
+    expect(setAuthCookie).not.toHaveBeenCalled();
+  });
+
+  it("skapar inget konto vid fel lösenord", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+
+    const res = await POST(verifyOverHttps("fel"), params);
+
+    expect(res.status).toBe(401);
+    expect(findOrCreateKostnadsfriCampaignUser).not.toHaveBeenCalled();
+    expect(setAuthCookie).not.toHaveBeenCalled();
   });
 });

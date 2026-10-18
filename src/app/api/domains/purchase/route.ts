@@ -37,6 +37,10 @@ import {
   getDomainOrderById,
   PENDING_ORDER_TTL_MS,
 } from "@/lib/db/services/domain-orders";
+import {
+  campaignAccountBlockedBody,
+  isCampaignAccountProvider,
+} from "@/lib/kostnadsfri/campaign-account";
 
 export const maxDuration = 20;
 
@@ -90,6 +94,9 @@ export async function POST(req: NextRequest) {
     const user = await getCurrentUser(req);
     if (!user) {
       return NextResponse.json({ error: "Du måste vara inloggad." }, { status: 401 });
+    }
+    if (isCampaignAccountProvider(user.provider)) {
+      return NextResponse.json(campaignAccountBlockedBody("domain"), { status: 403 });
     }
 
     if (!FEATURES.useDomainPurchase || !stripe) {

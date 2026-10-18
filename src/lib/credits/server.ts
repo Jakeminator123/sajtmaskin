@@ -10,6 +10,10 @@ import {
   type KostnadsfriCampaignRequestedPhase,
 } from "@/lib/db/services/kostnadsfri-campaign";
 import {
+  campaignAccountBlockedBody,
+  isCampaignAccountProvider,
+} from "@/lib/kostnadsfri/campaign-account";
+import {
   getActionLabel,
   getCreditCost,
   getCreditDescription,
@@ -21,6 +25,12 @@ import {
 const VERSION_SETTLED_GENERATION_ACTIONS = new Set<CreditAction>([
   "prompt.create",
   "prompt.refine",
+]);
+
+/** Hosting a site needs a saved account (kampanjkonto, ägarbeslut 2026-10-17). */
+const CAMPAIGN_ACCOUNT_BLOCKED_ACTIONS = new Set<CreditAction>([
+  "deploy.preview",
+  "deploy.production",
 ]);
 
 const AUTH_REQUIRED_MESSAGES: Partial<Record<CreditAction, string>> = {
@@ -192,6 +202,18 @@ export async function prepareCredits(
   } = {},
 ): Promise<PreparedCredits> {
   const evaluation = await evaluateCredits(req, action, context, options);
+
+  if (
+    evaluation.user &&
+    CAMPAIGN_ACCOUNT_BLOCKED_ACTIONS.has(action) &&
+    isCampaignAccountProvider(evaluation.user.provider)
+  ) {
+    return {
+      ok: false,
+      cost: evaluation.cost,
+      response: NextResponse.json(campaignAccountBlockedBody("publish"), { status: 403 }),
+    };
+  }
 
   if (!evaluation.allowed) {
     const status = evaluation.failureType === "auth" ? 401 : 402;

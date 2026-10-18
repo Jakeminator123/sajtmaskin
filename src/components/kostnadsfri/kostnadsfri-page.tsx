@@ -29,6 +29,7 @@ import {
   kostnadsfriAuthReturnPath,
 } from "@/lib/kostnadsfri/auth-return";
 import { kostnadsfriEventPath } from "@/lib/kostnadsfri/analytics-paths";
+import type { CampaignAccountStatus } from "@/lib/kostnadsfri/campaign-account";
 import {
   clearPendingInitBuild,
   persistPendingInitBuild,
@@ -46,10 +47,14 @@ declare global {
 
 /**
  * KostnadsfriPage — Client component that orchestrates the full flow:
- * 1. PasswordGate (verify password -> get company data)
+ * 1. PasswordGate (verify password -> get company data). The verify route also
+ *    signs in the page's campaign account unless the visitor already has an
+ *    own account (ägarbeslut 2026-10-17), so most visitors never see step 4.
  * 2. MiniWizard (3-step wizard with pre-filled data)
  * 3. Follow-up wait (skip / answer / Fortsätt — no silent 3s build)
- * 4. Account (login/register) — answers persist across Google / e-post
+ * 4. Account (login/register) — only when the invitation is already saved to an
+ *    account or the campaign account could not be created; answers persist
+ *    across Google / e-post
  * 5. ThinkingSpinner + one init-build after a confirmed account, then /builder
  *
  * The landing-page visit is recorded by the global AnalyticsTracker; the
@@ -92,6 +97,7 @@ export function KostnadsfriPage({
   const [wizardData, setWizardData] = useState<MiniWizardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [verifiedNotice, setVerifiedNotice] = useState<string | null>(null);
+  const [accountNotice, setAccountNotice] = useState<string | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const initStartedRef = useRef(false);
   const createdProjectIdRef = useRef<string | null>(null);
@@ -160,7 +166,18 @@ export function KostnadsfriPage({
     }
   }, [slug, wizardData]);
 
-  const handlePasswordSuccess = useCallback((data: KostnadsfriCompanyData) => {
+  const handlePasswordSuccess = useCallback(async (
+    data: KostnadsfriCompanyData,
+    account: CampaignAccountStatus,
+  ) => {
+    // The auth cookie is already set; refresh the store before the next phase
+    // so «Fortsätt» does not read a stale logged-out state.
+    if (account === "campaign") await fetchUser();
+    setAccountNotice(
+      account === "claimed"
+        ? "Inbjudan är redan sparad till ett konto. Logga in med det kontot för att fortsätta."
+        : null,
+    );
     setCompanyData(data);
     setError(null);
     if (wizardData) {
@@ -174,7 +191,7 @@ export function KostnadsfriPage({
       return;
     }
     setPhase("wizard");
-  }, [slug, wizardData]);
+  }, [fetchUser, slug, wizardData]);
 
   const persistReadyHandoff = useCallback(
     (nextWizardData: MiniWizardData) => {
@@ -472,6 +489,11 @@ export function KostnadsfriPage({
             Era svar är sparade. Logga in eller skapa ett konto — första bygget och en
             ändringsrunda ingår i inbjudan.
           </p>
+          {accountNotice ? (
+            <p role="status" className="text-foreground mt-4 text-sm">
+              {accountNotice}
+            </p>
+          ) : null}
           {verifiedNotice ? (
             <p role="status" className="text-primary mt-4 text-sm">
               {verifiedNotice}

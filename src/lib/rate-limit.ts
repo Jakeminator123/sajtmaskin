@@ -30,6 +30,10 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "auth:login": { maxRequests: 20, windowMs: 15 * 60 * 1000 },
   "auth:admin-handoff": { maxRequests: 10, windowMs: 60 * 1000 },
   "auth:resend-verification": { maxRequests: 6, windowMs: 60 * 60 * 1000 },
+  // The invitation password logs into the page's campaign account, so it is a
+  // credential: durable per-IP bucket across instances.
+  "kostnadsfri:verify": { maxRequests: 10, windowMs: 15 * 60 * 1000 },
+  "kostnadsfri:claim": { maxRequests: 10, windowMs: 15 * 60 * 1000 },
   "contact:submit": { maxRequests: 10, windowMs: 10 * 60 * 1000 },
   "audit:create": { maxRequests: 4, windowMs: 10 * 60 * 1000 },
   // Cheap abuse guard. The delivered-report quota is owned separately by

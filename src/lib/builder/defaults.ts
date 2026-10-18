@@ -69,6 +69,12 @@ export const MODEL_TIER_OPTIONS: ModelTierOption[] = SELECTABLE_MODEL_IDS.map((v
 /** Default build tier for new chats */
 export const DEFAULT_MODEL_TIER: ModelTier = DEFAULT_MODEL_ID;
 
+/**
+ * Kampanjbygget från en kostnadsfri-länk startar på Mellan: init + en
+ * uppföljning ingår i inbjudan oavsett nivå, och det är kundens första intryck.
+ */
+export const KOSTNADSFRI_MODEL_TIER: ModelTier = "max";
+
 /** Default scaffold selection for new chats — off means no scaffold unless user picks one */
 export const DEFAULT_SCAFFOLD_MODE: ScaffoldMode = "auto";
 export const DEFAULT_SCAFFOLD_ID: string | null = null;

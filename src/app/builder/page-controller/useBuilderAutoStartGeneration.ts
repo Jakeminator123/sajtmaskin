@@ -3,7 +3,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useRef } from "react";
 import type { BuildMethod } from "@/lib/builder/build-intent";
-import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
+import { KOSTNADSFRI_MODEL_TIER } from "@/lib/builder/defaults";
 import {
   MAX_PAGE_COUNT_CHOICE,
   getCurrentInitBuildChoices,
@@ -80,7 +80,7 @@ export function useBuilderAutoStartGeneration({
     }
     if (autoGenerateTriggeredRef.current) return;
 
-    setSelectedModelTier(DEFAULT_MODEL_TIER);
+    setSelectedModelTier(KOSTNADSFRI_MODEL_TIER);
 
     // Bara när inget val redan uttalats (0 = auto). Ett faktiskt byggval äger
     // sitt eget tal och ska inte skrivas över av kampanjstandarden.
