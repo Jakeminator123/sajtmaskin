@@ -308,7 +308,7 @@ const EXPLICIT_NAMED_PAGE_PATTERNS: RegExp[] = [
   // "med namnet" is left out on purpose: it usually describes a form field
   // ("en sida med namnet och e-post"), not a page title.
   new RegExp(
-    String.raw`(?:(?:lägg\s+till|skapa|gör|bygg)\s+(?:(?:en|ytterligare\s+en)\s+)?(?:ny\s+)?|ny\s+)` +
+    String.raw`(?:(?:lägga?\s+till|skapa|göra?|bygga?)\s+(?:(?:en|ytterligare\s+en)\s+)?(?:ny\s+)?|ny\s+)` +
       String.raw`(?:sida|route)\s+(?:som\s+heter|som\s+(?:skall|får|bör)\s+heta|kallad|döpt\s+till)\s+${NAME_CAPTURE}`,
     "giu",
   ),

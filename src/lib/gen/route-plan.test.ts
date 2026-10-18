@@ -297,6 +297,9 @@ describe("buildRoutePlan", () => {
     ['Skapa en sida kallad "Galleri"', "Galleri", "/galleri"],
     ["Gör en ny sida döpt till Recensioner", "Recensioner", "/recensioner"],
     ["Jag vill ha en ny sida som heter Event, tack", "Event", "/event"],
+    ["Kan du lägga till en sida som heter Kampanjer", "Kampanjer", "/kampanjer"],
+    ["Skulle du kunna bygga en sida kallad Butik", "Butik", "/butik"],
+    ["Vill du göra en ny sida döpt till Nyheter", "Nyheter", "/nyheter"],
   ])("extracts the Swedish named-page phrasing %s", (prompt, name, path) => {
     expect(extractExplicitNamedPages(prompt)).toEqual([{ name, path }]);
     const plan = buildRoutePlan({
