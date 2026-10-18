@@ -1,5 +1,6 @@
 import { streamText, type ModelMessage, type ToolSet } from "ai";
 
+import { aliasRetiredModelId } from "@/lib/models/catalog";
 import {
   clampOpenAIReasoningEffort,
   minimumOpenAIReasoningEffort,
@@ -102,15 +103,14 @@ export function generateCode(
     usagePhase,
   } = options;
   const resolvedThinking = thinking ?? defaultThinkingEnabled;
-
-  const model = getOpenAIModel(modelId ?? DEFAULT_MODEL);
+  const resolvedId = aliasRetiredModelId(modelId ?? DEFAULT_MODEL);
+  const model = getOpenAIModel(resolvedId);
 
   const messages = [
     ...(chatHistory ?? []),
     { role: "user" as const, content: buildUserPromptContent(prompt, referenceAttachments) },
   ];
 
-  const resolvedId = modelId ?? DEFAULT_MODEL;
   const anthropic = isAnthropicModel(resolvedId);
   const internalAbortController = abortSignal ? null : new AbortController();
   const resolvedAbortSignal = abortSignal ?? internalAbortController!.signal;

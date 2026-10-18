@@ -12,7 +12,7 @@ import { resolvePostGenerationVerifierConfig } from "@/lib/gen/verify/post-gener
 import { isBuildBreakingImportFindingId } from "@/lib/gen/preview/should-start-preview";
 import { isTier3SdkModule } from "@/lib/integrations/tier3-sdk-deny";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
-import type { CanonicalModelId } from "@/lib/models/catalog";
+import { aliasRetiredModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import {
   clampOpenAIReasoningEffort,
   resolveOpenAIReasoningEffort,
@@ -532,7 +532,8 @@ export function resolveVerifierProviderOptions(params: {
   reasoningEffort?: ReasoningEffort;
   reasoningMode?: ReasoningMode;
 }): ProviderOptionsRecord | undefined {
-  const { modelId, thinking, reasoningEffort, reasoningMode } = params;
+  const modelId = aliasRetiredModelId(params.modelId);
+  const { thinking, reasoningEffort, reasoningMode } = params;
   if (isAnthropicModel(modelId)) {
     return {
       anthropic: {
@@ -1452,7 +1453,7 @@ export async function runVerifierPass(
   }
 
   const cfg = resolvePostGenerationVerifierConfig();
-  const modelId = resolvePhaseModel(opts.resolvedTier, "verifier").modelId;
+  const modelId = aliasRetiredModelId(resolvePhaseModel(opts.resolvedTier, "verifier").modelId);
   const thinkingConfig = resolvePhaseThinking(opts.resolvedTier, "verifier");
 
   const snippet = buildVerifierPromptSnippetFromFiles(files, cfg.snippetCharsPerFile);

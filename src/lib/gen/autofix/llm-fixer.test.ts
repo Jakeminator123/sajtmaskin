@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 const streamTextMock = vi.hoisted(() => vi.fn());
 const getOpenAIModelMock = vi.hoisted(() => vi.fn(() => ({ id: "mock-model" })));
 const devLogAppendMock = vi.hoisted(() => vi.fn());
+const recordLlmUsageMock = vi.hoisted(() => vi.fn());
 
 vi.mock("ai", () => ({
   streamText: streamTextMock,
@@ -17,6 +18,10 @@ vi.mock("@/lib/logging/dev-log", () => ({
   devLogAppend: devLogAppendMock,
 }));
 
+vi.mock("@/lib/observability/llm-usage", () => ({
+  recordLlmUsage: recordLlmUsageMock,
+}));
+
 import { fixerFeasibleMaxOutputTokens, runLlmFixer } from "./llm-fixer";
 import { AUTOFIX_MAX_OUTPUT_TOKENS, LLM_FIXER_TIMEOUT_MS } from "../defaults";
 
@@ -25,6 +30,7 @@ describe("runLlmFixer merge behavior", () => {
     streamTextMock.mockReset();
     getOpenAIModelMock.mockClear();
     devLogAppendMock.mockReset();
+    recordLlmUsageMock.mockReset();
   });
 
   it("merges fixed files deterministically by parsed path", async () => {
@@ -250,11 +256,44 @@ describe("runLlmFixer merge behavior", () => {
         "```",
       ].join("\n"),
       ["app/page.tsx:1:1 broken"],
-      { model: "gpt-5.3-codex", thinking: false },
+      { model: "gpt-5.4", thinking: false },
     );
 
     const call = streamTextMock.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(call.providerOptions).toBeUndefined();
+  });
+
+  it("aliases gpt-5.3-codex and clamps none to Sol's low before usage", async () => {
+    streamTextMock.mockReturnValue({
+      text: Promise.resolve(
+        [
+          '```tsx file="app/page.tsx"',
+          "export default function Page(){ return <main />; }",
+          "```",
+        ].join("\n"),
+      ),
+      usage: Promise.resolve({ inputTokens: 3, outputTokens: 4 }),
+    });
+
+    await runLlmFixer(
+      [
+        '```tsx file="app/page.tsx"',
+        "export default function Page(){ return <div>broken</div> }",
+        "```",
+      ].join("\n"),
+      ["app/page.tsx:1:1 broken"],
+      { model: "gpt-5.3-codex", thinking: false, reasoningEffort: "none" },
+    );
+
+    expect(getOpenAIModelMock).toHaveBeenCalledWith("gpt-6.1-sol");
+    expect(streamTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerOptions: { openai: { reasoningEffort: "low" } },
+      }),
+    );
+    expect(recordLlmUsageMock).toHaveBeenCalledWith(
+      expect.objectContaining({ phase: "fixer", model: "gpt-6.1-sol" }),
+    );
   });
 
   it("rejects a copied // ... unchanged stub so merge keeps the original file", async () => {

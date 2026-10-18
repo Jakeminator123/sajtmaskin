@@ -1451,6 +1451,16 @@ describe("resolveVerifierProviderOptions", () => {
     });
   });
 
+  it("aliases gpt-5.3-codex and clamps none to Sol's low", () => {
+    expect(
+      resolveVerifierProviderOptions({
+        modelId: "gpt-5.3-codex",
+        thinking: false,
+        reasoningEffort: "none",
+      }),
+    ).toEqual({ openai: { reasoningEffort: "low" } });
+  });
+
   it("omits OpenAI providerOptions for unregistered models when thinking is off", () => {
     expect(
       resolveVerifierProviderOptions({

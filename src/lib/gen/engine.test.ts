@@ -152,6 +152,27 @@ describe("generateCode providerOptions", () => {
     });
   });
 
+  it("aliases a retired model before clamping none and logging usage", async () => {
+    const { generateCode } = await loadEngineModule();
+
+    generateCode({
+      prompt: "Build this",
+      systemPrompt: "System",
+      model: "gpt-5.3-codex",
+      thinking: true,
+      reasoningEffort: "none",
+    });
+
+    expect(getOpenAIModelMock).toHaveBeenCalledWith("gpt-6.1-sol");
+    expect(streamTextMock.mock.calls[0][0].providerOptions).toEqual({
+      openai: { reasoningEffort: "low", reasoningSummary: "detailed" },
+    });
+    expect(createCodeGenSSEStreamMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ usageModelId: "gpt-6.1-sol" }),
+    );
+  });
+
   it("clamps an effort GPT-6.1 Sol does not accept when thinking is enabled", async () => {
     const { generateCode } = await loadEngineModule();
 
