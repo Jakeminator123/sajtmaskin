@@ -82,6 +82,10 @@ export function readLanyardStaticOnly(): boolean {
   return readPrefersReducedMotion() || readSaveDataPreference() || readNarrowViewport()
 }
 
+export function readHowItWorksStaticOnly(reducedMotion: boolean, saveData: boolean): boolean {
+  return reducedMotion || saveData || readLanyardStaticOnly()
+}
+
 /** Run `callback` on idle (or on the next macrotask when IdleCallback is missing). */
 export function scheduleWhenIdle(
   callback: () => void,

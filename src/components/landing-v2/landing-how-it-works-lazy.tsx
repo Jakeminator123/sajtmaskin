@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import type { landingJourneySteps } from "@/components/landing-v2/landing-chat-data"
 import { HowItWorksFallback } from "@/components/landing-v2/landing-how-it-works-fallback"
 import {
-  readLanyardStaticOnly,
+  readHowItWorksStaticOnly,
   usePrefersReducedMotion,
   useSaveData,
 } from "@/components/landing-v2/landing-hooks"
@@ -25,7 +25,7 @@ type Steps = typeof landingJourneySteps
 export function HowItWorksLazy({ steps }: { steps: Steps }) {
   const reduceMotion = usePrefersReducedMotion()
   const saveData = useSaveData()
-  const staticOnly = reduceMotion || saveData || readLanyardStaticOnly()
+  const staticOnly = readHowItWorksStaticOnly(reduceMotion, saveData)
   const ref = useRef<HTMLDivElement>(null)
   const [showScene, setShowScene] = useState(false)
 
