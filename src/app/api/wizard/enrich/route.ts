@@ -31,7 +31,7 @@ import { isWizardAbortError, raceWizardDeadline } from "@/lib/wizard/route-deadl
 
 export const runtime = "nodejs";
 /** Keep as a numeric literal — Next bakes `maxDuration` at build time. Do not raise without p95/p99. */
-export const maxDuration = 30;
+export const maxDuration = 40;
 
 // ── Request schema ──────────────────────────────────────────────────
 
@@ -500,7 +500,7 @@ ${suggestionRule}
                 model: createDirectModel(ENRICH_MODEL),
                 prompt,
                 maxRetries: 1,
-                maxOutputTokens: mode === "final_check" ? 520 : 420,
+                maxOutputTokens: mode === "final_check" ? 2_000 : 1_600,
                 abortSignal: deadline.signal,
                 ...workloadOpenAIProviderOptions(WIZARD_WORKLOAD_ID, ENRICH_MODEL),
               }),

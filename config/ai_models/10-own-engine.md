@@ -1,15 +1,19 @@
 # Own engine (byggprofiler)
 
-## Profiler, etiketter och stegen Låg / Mellan / Hög
+## Profiler, etiketter och stegen Låg / Mellan / Hög / Extra hög
 
-- **En axel, en byggmodell.** Intern nyckel `pro` = **Låg**, `max` = **Mellan**,
-  `premium` = **Hög**. Alla tre kör **`gpt-6.1-sol`** som byggmodell
+- **En axel, en byggmodell.** Intern nyckel `pro` = **Låg**, `max` = **Mellan**
+  (standard), `premium` = **Hög**. Alla tre kör **`gpt-6.1-sol`** som byggmodell
   (`buildProfiles.defaults`). Skillnaden är `phaseRouting.thinkingByTier`:
   generator-effort **medium → high → xhigh**, alltid `reasoningMode: "standard"`.
-  `codex` är en **dold** kompatibilitetsprofil som speglar Mellan och syns inte
-  i UI. `anthropic` är orörd (Opus 4.8 i alla faser).
+  `ultra` = **Extra hög** bygger med **`gpt-6-astra`** på `high`; dess fixer,
+  verifier och deploy-assistant kör Sol. `codex` är en **dold**
+  kompatibilitetsprofil som speglar Mellan. `anthropic` (Opus 4.8 i alla faser)
+  finns kvar i routningen men är dold i reglaget; sparade chattar på dolda
+  nivåer öppnas på standardnivån.
 - **Sidofaser (sedan 2026-10-17).** GPT-6.1 Sol tar fixer, deploy-assistant
-  och Mellan/Hög-verifiern; Låg-verifiern kör `gpt-6-luna`. Det finns ingen
+  och verifiern på alla OpenAI-nivåer (Låg-verifiern gick från `gpt-6-luna`
+  till Sol 2026-10-18). Det finns ingen
   GPT-6 Terra, och Sol har lägre outputpris än GPT-5.6 Terra. Hög-fixern är
   `thinking: false` men `reasoningEffort: "high"`. Alla OpenAI-verifiers kör
   `thinking: false` / `low` — den tidigare Sol/high-verifierm passade 26 s p50
@@ -45,9 +49,9 @@
 
 ## Flöde
 
-1. Användaren väljer **byggprofil** i UI (Låg / Mellan / Hög / Anthropic;
-   intern nyckel `pro` / `max` / `premium` / `anthropic`). `codex` finns bara
-   som dolt kompatibilitetsval. Äldre `fast` normaliseras till `premium`.
+1. Användaren väljer **byggprofil** i UI (Låg / Mellan / Hög / Extra hög;
+   intern nyckel `pro` / `max` / `premium` / `ultra`). `codex` och `anthropic`
+   finns bara som dolda val. Äldre `fast` normaliseras till `premium`.
 2. `canonicalModelIdToOwnModelId` i [`src/lib/models/catalog.ts`](../../src/lib/models/catalog.ts)
    mappar profilen till en **konkret modellsträng** (`gpt-6.1-sol` eller
    `claude-opus-4.8`). Delad Sol-byggmodell reverse-mappar till `max` (Mellan).

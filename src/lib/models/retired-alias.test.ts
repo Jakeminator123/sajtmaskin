@@ -42,6 +42,8 @@ describe("retired cheap model → shared Sol / Mellan", () => {
       // instead of the first tier that happens to share the model.
       expect(ownModelIdToCanonicalModelId("gpt-5.6-sol")).toBe("max");
       expect(ownModelIdToCanonicalModelId("gpt-6.1-sol")).toBe("max");
+      // Astra is built only by Extra hög, so it maps back to that tier.
+      expect(ownModelIdToCanonicalModelId("gpt-6-astra")).toBe("ultra");
       // Terra/Luna are side-phase siblings, not a persisted build-tier id.
       expect(ownModelIdToCanonicalModelId("gpt-5.6-terra")).toBeNull();
       expect(ownModelIdToCanonicalModelId("gpt-5.6-luna")).toBeNull();

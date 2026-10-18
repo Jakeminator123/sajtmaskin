@@ -52,12 +52,13 @@ const MODEL_TIER_HINTS: Partial<Record<ModelTier, string>> = {
   max: "rekommenderad",
   premium: "mest genomarbetad",
   anthropic: "jämför",
+  ultra: "starkast",
 };
 
 /**
- * Builder-selectable tiers in slider order (Låg → Mellan → Hög → Anthropic).
+ * Builder-selectable tiers in slider order (Låg → Mellan → Hög → Extra hög).
  * Labels/descriptions come from the catalog so UI, pricing and backoffice
- * cannot drift apart. `codex` is intentionally not offered (hidden tier).
+ * cannot drift apart. `codex` and `anthropic` are not offered (hidden tiers).
  */
 export const MODEL_TIER_OPTIONS: ModelTierOption[] = SELECTABLE_MODEL_IDS.map((value) => ({
   value,

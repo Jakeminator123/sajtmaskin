@@ -188,7 +188,7 @@ def _render_generator_chain(
 
     st.markdown("### Byggprofiler (own-engine, den som skriver sajtens kod)")
     profile_inputs: dict[str, str] = {}
-    cols = st.columns(5, gap="small")
+    cols = st.columns(len(BUILD_PROFILE_ORDER), gap="small")
     for col, key in zip(cols, BUILD_PROFILE_ORDER):
         with col:
             profile_inputs[key] = st.text_input(

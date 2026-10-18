@@ -5,8 +5,8 @@
 > Source: `src/**/*.{ts,tsx}#resolvePhaseModel-literals`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: config/ai_models/manifest.json#full-manifest sha256:73bd16aa0c7f0091 -->
-<!-- source-fingerprint: config/ai_models/manifest.json#model-summary sha256:78224d27949af08e -->
+<!-- source-fingerprint: config/ai_models/manifest.json#full-manifest sha256:b067e7d7967e638a -->
+<!-- source-fingerprint: config/ai_models/manifest.json#model-summary sha256:ac8596cfe6bd1d51 -->
 <!-- source-fingerprint: src/**/*.{ts,tsx}#resolvePhaseModel-literals sha256:c3fa26a9212483b9 -->
 
 # Models
@@ -23,6 +23,7 @@ Canonical owner: committed AI-model manifest. Validator/runtime consumer: `getAi
 | `max`       | `gpt-6.1-sol`     | `SAJTMASKIN_MODEL_MAX`       |
 | `premium`   | `gpt-6.1-sol`     | `SAJTMASKIN_MODEL_PREMIUM`   |
 | `pro`       | `gpt-6.1-sol`     | `SAJTMASKIN_MODEL_PRO`       |
+| `ultra`     | `gpt-6-astra`     | `SAJTMASKIN_MODEL_ULTRA`     |
 
 ## Quality mapping
 
@@ -52,10 +53,10 @@ This is **not** the Prompt-assist button in the chat input — that one is the `
 A runtime caller is a non-test `src/` call to `resolvePhaseModel` or `resolvePhaseThinking` with this phase as a string literal.
 `src/lib/models/phase-routing.ts` is excluded because it resolves and summarizes routing; it does not invoke a phase.
 
-| Phase              | `anthropic`            | `codex`                | `max`                  | `premium`              | `pro`                  | Runtime caller                                                                                                                                                                              |
-| ------------------ | ---------------------- | ---------------------- | ---------------------- | ---------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `deploy-assistant` | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `gpt-6.1-sol`          | No                                                                                                                                                                                          |
-| `fixer`            | `selected_build_model` | `gpt-6.1-sol`          | `gpt-6.1-sol`          | `gpt-6.1-sol`          | `gpt-6.1-sol`          | Yes (`src/app/api/engine/chats/[chatId]/repair/route.ts`, `src/lib/gen/autofix/llm-repair-gate.ts`, `src/lib/gen/verify/server-verify/repair-execution.ts`)                                 |
-| `generator`        | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `selected_build_model` | Yes (`src/lib/api/engine/chats/chat-message-stream/codegen-turn.ts`, `src/lib/api/engine/chats/create-chat-stream-post.ts`, `src/lib/own-engine/session/own-engine-pipeline-generation.ts`) |
-| `planner`          | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `selected_build_model` | Yes (`src/lib/own-engine/session/own-engine-plan-mode.ts`, `src/lib/providers/own-engine/plan-mode-response.ts`)                                                                            |
-| `verifier`         | `selected_build_model` | `gpt-6.1-sol`          | `gpt-6.1-sol`          | `gpt-6.1-sol`          | `gpt-6-luna`           | Yes (`src/lib/gen/verify/verifier-pass.ts`)                                                                                                                                                 |
+| Phase              | `anthropic`            | `codex`                | `max`                  | `premium`              | `pro`                  | `ultra`                | Runtime caller                                                                                                                                                                              |
+| ------------------ | ---------------------- | ---------------------- | ---------------------- | ---------------------- | ---------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deploy-assistant` | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `gpt-6.1-sol`          | `gpt-6.1-sol`          | No                                                                                                                                                                                          |
+| `fixer`            | `selected_build_model` | `gpt-6.1-sol`          | `gpt-6.1-sol`          | `gpt-6.1-sol`          | `gpt-6.1-sol`          | `gpt-6.1-sol`          | Yes (`src/app/api/engine/chats/[chatId]/repair/route.ts`, `src/lib/gen/autofix/llm-repair-gate.ts`, `src/lib/gen/verify/server-verify/repair-execution.ts`)                                 |
+| `generator`        | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `selected_build_model` | `selected_build_model` | Yes (`src/lib/api/engine/chats/chat-message-stream/codegen-turn.ts`, `src/lib/api/engine/chats/create-chat-stream-post.ts`, `src/lib/own-engine/session/own-engine-pipeline-generation.ts`) |
+| `planner`          | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `selected_build_model` | `selected_build_model` | Yes (`src/lib/own-engine/session/own-engine-plan-mode.ts`, `src/lib/providers/own-engine/plan-mode-response.ts`)                                                                            |
+| `verifier`         | `selected_build_model` | `gpt-6.1-sol`          | `gpt-6.1-sol`          | `gpt-6.1-sol`          | `gpt-6.1-sol`          | `gpt-6.1-sol`          | Yes (`src/lib/gen/verify/verifier-pass.ts`)                                                                                                                                                 |

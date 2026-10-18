@@ -15,18 +15,18 @@ import {
 import { getBuildProfileEnvKey } from "@/lib/gen/defaults";
 
 /** Internal canonical IDs for the builder's own model profiles. */
-export const CANONICAL_MODEL_IDS = ["premium", "pro", "max", "codex", "anthropic"] as const;
+export const CANONICAL_MODEL_IDS = ["premium", "pro", "max", "codex", "anthropic", "ultra"] as const;
 
 export type CanonicalModelId = (typeof CANONICAL_MODEL_IDS)[number];
 
-export const DEFAULT_MODEL_ID: CanonicalModelId = "pro";
+export const DEFAULT_MODEL_ID: CanonicalModelId = "max";
 
 /**
  * Concrete model IDs for the own engine.
  *
- * GPT-6.1 Sol is the build model for Låg/Mellan/Hög; GPT-6 Luna takes Låg's
- * verifier per `phaseRouting`. The GPT-5.6 family and older full-size IDs
- * remain for persisted chat/version rows and environment overrides.
+ * GPT-6.1 Sol is the build model for Låg/Mellan/Hög; GPT-6 Astra builds Extra
+ * hög. The GPT-5.6 family and older full-size IDs remain for persisted
+ * chat/version rows and environment overrides.
  * GPT-5.3 Codex and GPT-4.1 are deprecated by OpenAI and alias to GPT-6.1 Sol
  * via {@link aliasRetiredModelId}.
  *
@@ -37,6 +37,7 @@ export const DEFAULT_MODEL_ID: CanonicalModelId = "pro";
  */
 export const OWN_MODEL_IDS = [
   "gpt-6.1-sol",
+  "gpt-6-astra",
   "gpt-6-luna",
   "gpt-5.6-sol",
   "gpt-5.6-terra",
@@ -201,9 +202,10 @@ export function resolveChatModelTier(
 /**
  * User-facing labels for the builder profiles.
  *
- * Tier ladder (2026-09-02): `pro` = Låg, `max` = Mellan, `premium` = Hög. The
- * internal ids are kept for persisted chats/URL params; only the labels and the
- * manifest routing changed. `codex` is a hidden compatibility tier.
+ * Tier ladder (2026-09-02): `pro` = Låg, `max` = Mellan, `premium` = Hög;
+ * `ultra` = Extra hög (2026-10-18). The internal ids are kept for persisted
+ * chats/URL params; only the labels and the manifest routing changed. `codex`
+ * is a hidden compatibility tier.
  */
 export const MODEL_LABELS: Record<CanonicalModelId, string> = {
   premium: "Hög",
@@ -211,14 +213,15 @@ export const MODEL_LABELS: Record<CanonicalModelId, string> = {
   max: "Mellan",
   codex: "Kod Max",
   anthropic: "Anthropic",
+  ultra: "Extra hög",
 };
 
 /**
  * Tiers the builder UI offers, in slider order (cheapest/fastest first).
- * `codex` is intentionally absent: persisted selections still resolve, but the
- * tier is no longer a user choice.
+ * `codex` and `anthropic` are intentionally absent: persisted selections still
+ * resolve and build with their own routing, but they are not a user choice.
  */
-export const SELECTABLE_MODEL_IDS = ["pro", "max", "premium", "anthropic"] as const satisfies readonly CanonicalModelId[];
+export const SELECTABLE_MODEL_IDS = ["pro", "max", "premium", "ultra"] as const satisfies readonly CanonicalModelId[];
 
 export type SelectableModelId = (typeof SELECTABLE_MODEL_IDS)[number];
 
@@ -233,17 +236,19 @@ export const MODEL_TIER_DESCRIPTIONS: Record<CanonicalModelId, string> = {
   premium: "Mest genomarbetat. GPT-6.1 Sol med maximalt resonemang – tar längre tid.",
   codex: "Dold kompatibilitetsprofil (samma som Mellan).",
   anthropic: "Claude Opus 4.8 i alla faser.",
+  ultra: "Starkast och dyrast. GPT-6 Astra med högt resonemang – tar längst tid.",
 };
 
 export const BUILD_PROFILE_IDS: Record<
   CanonicalModelId,
-  "premium" | "pro" | "max" | "codex" | "anthropic"
+  "premium" | "pro" | "max" | "codex" | "anthropic" | "ultra"
 > = {
   premium: "premium",
   pro: "pro",
   max: "max",
   codex: "codex",
   anthropic: "anthropic",
+  ultra: "ultra",
 };
 
 export type BuildProfileId = (typeof BUILD_PROFILE_IDS)[CanonicalModelId];
@@ -289,6 +294,9 @@ export function canonicalModelIdToOwnModelId(modelId: CanonicalModelId): OwnMode
     anthropic:
       process.env[getBuildProfileEnvKey("anthropic")]?.trim() ||
       getBuildProfileDefaultOwnEngineModel("anthropic"),
+    ultra:
+      process.env[getBuildProfileEnvKey("ultra")]?.trim() ||
+      getBuildProfileDefaultOwnEngineModel("ultra"),
   };
   const raw = tierMap[modelId] ?? getBuildProfileDefaultOwnEngineModel("pro");
   return aliasRetiredModelId(raw) as OwnModelId;

@@ -38,6 +38,7 @@ const repairPolicies = getRepairPoliciesFromManifest();
 //   SAJTMASKIN_MODEL_PRO=gpt-6.1-sol
 //   SAJTMASKIN_MODEL_MAX=gpt-6.1-sol
 //   SAJTMASKIN_MODEL_CODEX=gpt-6.1-sol
+//   SAJTMASKIN_MODEL_ULTRA=gpt-6-astra
 //
 //   # ── Briefing / Deep Brief (provider/model, se config/ai_models) ─
 //   SAJTMASKIN_ASSIST_MODEL=openai/gpt-6.1-sol

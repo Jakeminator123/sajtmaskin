@@ -48,12 +48,12 @@
       "properties": {
         "defaults": {
           "type": "object",
-          "required": ["premium", "pro", "max", "codex", "anthropic"],
+          "required": ["premium", "pro", "max", "codex", "anthropic", "ultra"],
           "additionalProperties": { "type": "string" }
         },
         "envKeys": {
           "type": "object",
-          "required": ["premium", "pro", "max", "codex", "anthropic"],
+          "required": ["premium", "pro", "max", "codex", "anthropic", "ultra"],
           "additionalProperties": { "type": "string" }
         }
       }
@@ -116,24 +116,26 @@
       "properties": {
         "defaultByTier": {
           "type": "object",
-          "required": ["premium", "pro", "max", "codex", "anthropic"],
+          "required": ["premium", "pro", "max", "codex", "anthropic", "ultra"],
           "properties": {
             "premium": { "$ref": "#/$defs/phaseRoutingTier" },
             "pro": { "$ref": "#/$defs/phaseRoutingTier" },
             "max": { "$ref": "#/$defs/phaseRoutingTier" },
             "codex": { "$ref": "#/$defs/phaseRoutingTier" },
-            "anthropic": { "$ref": "#/$defs/phaseRoutingTier" }
+            "anthropic": { "$ref": "#/$defs/phaseRoutingTier" },
+            "ultra": { "$ref": "#/$defs/phaseRoutingTier" }
           }
         },
         "thinkingByTier": {
           "type": "object",
-          "required": ["premium", "pro", "max", "codex", "anthropic"],
+          "required": ["premium", "pro", "max", "codex", "anthropic", "ultra"],
           "properties": {
             "premium": { "$ref": "#/$defs/phaseThinkingTier" },
             "pro": { "$ref": "#/$defs/phaseThinkingTier" },
             "max": { "$ref": "#/$defs/phaseThinkingTier" },
             "codex": { "$ref": "#/$defs/phaseThinkingTier" },
-            "anthropic": { "$ref": "#/$defs/phaseThinkingTier" }
+            "anthropic": { "$ref": "#/$defs/phaseThinkingTier" },
+            "ultra": { "$ref": "#/$defs/phaseThinkingTier" }
           }
         },
         "notes": { "type": "string" }
@@ -169,13 +171,14 @@
     "perTierBriefing": {
       "type": "object",
       "description": "Runtime-wired per-tier auto-brief model defaults. Explicit Deep Brief selection (legacy wire field promptAssistModel) and the selected provider's auto-brief env override take precedence; global briefing defaults are the compatibility fallback.",
-      "required": ["premium", "pro", "max", "codex", "anthropic"],
+      "required": ["premium", "pro", "max", "codex", "anthropic", "ultra"],
       "properties": {
         "premium": { "$ref": "#/$defs/perTierBriefingEntry" },
         "pro": { "$ref": "#/$defs/perTierBriefingEntry" },
         "max": { "$ref": "#/$defs/perTierBriefingEntry" },
         "codex": { "$ref": "#/$defs/perTierBriefingEntry" },
-        "anthropic": { "$ref": "#/$defs/perTierBriefingEntry" }
+        "anthropic": { "$ref": "#/$defs/perTierBriefingEntry" },
+        "ultra": { "$ref": "#/$defs/perTierBriefingEntry" }
       }
     },
     "promptOrchestration": {

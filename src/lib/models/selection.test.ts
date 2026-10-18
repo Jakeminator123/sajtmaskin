@@ -32,8 +32,8 @@ describe("resolveModelSelection", () => {
   it("returns DEFAULT_MODEL_ID when all inputs are null/undefined", () => {
     const result = resolveModelSelection({});
     expect(result).toEqual({
-      modelId: "pro",
-      modelTier: "pro",
+      modelId: "max",
+      modelTier: "max",
     });
   });
 
