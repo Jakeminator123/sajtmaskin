@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { assertClean, reviewPrompt, reviewSchema, validateReview, validateReviewer, reviewProof, reviewContext, renewalHistory, validateRenewalFindings } from "./bugpass.mjs";
-import { requireConfirmation, validatePrepared, preparePreview, publishPrepared } from "./preview-push.mjs";
+import { requireConfirmation, validatePrepared, preparePreview, publishPrepared, safeDocsOnly } from "./preview-push.mjs";
 import { validateDecision, reviewDigest, reviewStatus, nextRound, reviewRound, reviewHistory, followUpDigest, validateCachedContext, validateReviewChain } from "./bugpass-state.mjs";
 
 const base = "a".repeat(40), head = "b".repeat(40), requestId = "c".repeat(64), contract = "d".repeat(64);
@@ -128,6 +128,28 @@ describe("light pre-push gate", () => {
     calls.length = 0;
     expect(() => preparePreview(base, head, { ...actions, reviewProof: () => { throw Error("missing review"); } })).toThrow();
     expect(calls).toEqual([]);
+  });
+  it("lets only a safe-docs-only diff prepare without a Buggpass receipt", async () => {
+    const scope = (...files: string[]) => safeDocsOnly(base, head, { gitCommand: (_cmd: string, args: string[]) =>
+      ({ status: 0, stdout: args[0] === "diff" ? files.map((file) => `M\0${file}\0`).join("") : "" }) });
+    expect(await scope("docs/runbooks/buggpass.md")).toBe(true);
+    expect(await scope("docs/runbooks/buggpass.md", "scripts/workflow/preview-push.mjs")).toBe(false);
+    expect(await scope("AGENTS.md")).toBe(false);
+    expect(await safeDocsOnly(base, head, { gitCommand: () => { throw Error("git failed"); } })).toBe(false);
+
+    const calls: string[] = [];
+    const actions = { docsOnly: true, reviewProof: () => { calls.push("review"); throw Error("no receipt"); },
+      plan: () => { calls.push("plan"); }, readState: () => ({ base, head }) };
+    const docsReceipt = preparePreview(base, head, actions);
+    expect(docsReceipt).toMatchObject({ version: 4, review: "safe-docs-only", reviewProof: null });
+    expect(calls).toEqual(["plan"]);
+    expect(() => validatePrepared(docsReceipt, base, head, null)).not.toThrow();
+    expect(() => validatePrepared(docsReceipt, base, head, proof)).toThrow();
+    expect(() => validatePrepared(docsReceipt, base, head, undefined)).toThrow();
+    expect(() => validatePrepared(prepared, base, head, null)).toThrow();
+    expect(() => validatePrepared({ ...docsReceipt, base: head }, base, head, null)).toThrow();
+    expect(() => preparePreview(base, head, { ...actions, readState: () => ({ base, head: base }) })).toThrow();
+    expect(() => preparePreview(base, head, { ...actions, docsOnly: false })).toThrow("no receipt");
   });
   it("requires exact human confirmation", () => {
     for (const value of [undefined, "yes", "1", head.slice(0, 12), base]) expect(() => requireConfirmation(value, head)).toThrow(/Är du säker/);
