@@ -11,7 +11,8 @@ Inget exempel är kundcase eller exakt output från nuvarande Sajtmaskin.
 Byråflöde, Springa, Palma, Paddlelines och Glass är **rekonstruktioner**, inte
 verifierade verksamheter, och ska förbli `noindex` / `Disallow: /`.
 DG97, Kontorshotellkartan, Persona Royale, Scout Gaming och Nexus OS är egna
-live-projekt och koncept; deras indexering styrs i respektive repo.
+live-projekt, verksamheter och koncept (DG97 drivs av Pretty Good AB); deras
+indexering styrs i respektive repo.
 
 | Exempel | Repo | Live-URL |
 |---|---|---|

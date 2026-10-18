@@ -24,7 +24,7 @@ export function LandingExempelStrip() {
             </h2>
             <p className="mt-2.5 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
               Från kontorsguider och interaktiva kartor till mörka produktkoncept,
-              spellobbyer och kontrollpaneler. Rekonstruktioner och demoprojekt
+              spellobbyer och kontrollpaneler. Egna projekt och rekonstruktioner
               som visar hur olika en sajt kan kännas — inte kundcase.
             </p>
           </div>

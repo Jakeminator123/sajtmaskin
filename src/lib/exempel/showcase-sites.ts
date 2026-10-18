@@ -4,8 +4,8 @@
  * Byråflöde, Springa, Palma, Paddlelines and Glass are reconstructions of
  * earlier examples and must not be described as live businesses. DG97,
  * Kontorshotellkartan, Persona Royale, Scout Gaming and Nexus OS are own live
- * projects and concepts. None is a verified customer case or exact current
- * Sajtmaskin output.
+ * projects, businesses and concepts; DG97 is operated by Pretty Good AB. None
+ * is a customer testimonial or exact current Sajtmaskin output.
  *
  * Glass must only link to the umber alias. The bare glass-showcase host
  * without `-umber` is an unrelated wedding site and must never be referenced.
@@ -173,4 +173,4 @@ export const SHOWCASE_SITES: readonly ShowcaseSite[] = [
 export const HOME_SHOWCASE_SITES = SHOWCASE_SITES.filter((site) => site.featuredOnHome);
 
 export const EXEMPEL_DISCLOSURE =
-  "Exemplen är demonstrations- och rekonstruktionsprojekt. De visar visuella riktningar och användningsfall; de är inte kundomdömen eller riktiga verksamheter.";
+  "Byråflöde, Springa, Palma, Paddlelines och Glass är rekonstruktioner av påhittade verksamheter. De övriga fem är egna projekt, verksamheter och koncept som vi själva har byggt. Exemplen är inte kundomdömen och inte exakt output från nuvarande Sajtmaskin.";

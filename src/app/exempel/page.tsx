@@ -7,13 +7,13 @@ import { publicIndexRobots } from "@/lib/public-canonical-url";
 export const metadata: Metadata = {
   title: "Exempel på hemsidor",
   description:
-    "Se tio Sajtmaskin-exempel: DG97 Kontorsguiden, Kontorshotellkartan, Persona Royale, Scout Gaming, Nexus OS, Byråflöde, Springa, Palma, Paddlelines och Glass. Rekonstruktioner som visar visuella riktningar — inte kundomdömen eller riktiga verksamheter.",
+    "Se tio Sajtmaskin-exempel: DG97 Kontorsguiden, Kontorshotellkartan, Persona Royale, Scout Gaming, Nexus OS, Byråflöde, Springa, Palma, Paddlelines och Glass. Egna projekt och rekonstruktioner som visar visuella riktningar — inte kundomdömen.",
   alternates: { canonical: EXEMPEL_CANONICAL_URL },
   robots: publicIndexRobots(),
   openGraph: {
     title: "Exempel på hemsidor",
     description:
-      "Tio demonstrationsprojekt och rekonstruktioner som visar visuella riktningar och användningsfall. Inte kundcase.",
+      "Tio egna projekt och rekonstruktioner som visar visuella riktningar och användningsfall. Inte kundcase.",
     url: EXEMPEL_CANONICAL_URL,
     type: "website",
     locale: "sv_SE",
