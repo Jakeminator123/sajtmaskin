@@ -69,6 +69,7 @@ const fixtures = vi.hoisted(() => {
     f1Wizard,
     completeWith: "f1" as "f1" | "preview",
     account: "unavailable" as CampaignAccountStatus,
+    boundProjectId: null as string | null,
   };
 });
 
@@ -113,9 +114,16 @@ vi.mock("./password-gate", () => ({
   PasswordGate: ({
     onSuccess,
   }: {
-    onSuccess: (data: KostnadsfriCompanyData, account: CampaignAccountStatus) => void;
+    onSuccess: (
+      data: KostnadsfriCompanyData,
+      account: CampaignAccountStatus,
+      boundProjectId: string | null,
+    ) => void;
   }) => (
-    <button type="button" onClick={() => onSuccess(fixtures.companyData, fixtures.account)}>
+    <button
+      type="button"
+      onClick={() => onSuccess(fixtures.companyData, fixtures.account, fixtures.boundProjectId)}
+    >
       Öppna wizard
     </button>
   ),
@@ -155,6 +163,7 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
   beforeEach(() => {
     fixtures.completeWith = "f1";
     fixtures.account = "unavailable";
+    fixtures.boundProjectId = null;
     auth.isAuthenticated = true;
     auth.isInitialized = true;
     auth.fetchUser.mockReset();
@@ -419,6 +428,34 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
     });
     expect(projects.createProject).toHaveBeenCalledTimes(1);
     expect(useOpenClawStore.getState().campaignScript?.projectId).toBe("proj-a");
+  });
+
+  it("bygger i projektet inbjudan redan är bunden till vid återbesök från en ny session", async () => {
+    fixtures.account = "campaign";
+    fixtures.boundProjectId = "proj-original";
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ promptId: "prompt_revisit" }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+    fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Klara wizarden" }));
+
+    await act(async () => {
+      useOpenClawStore.getState().continueCampaignFollowups();
+    });
+
+    await waitFor(() => {
+      expect(router.push).toHaveBeenCalled();
+    });
+    expect(projects.createProject).not.toHaveBeenCalled();
+    const [prompt] = fetchCallsTo(fetchMock as unknown as ReturnType<typeof vi.fn>, "/api/prompts");
+    expect(JSON.parse(String((prompt?.[1] as RequestInit).body))).toMatchObject({
+      projectId: "proj-original",
+      kostnadsfriSlug: "zax-2-0-ab",
+    });
   });
 
   it("återanvänder inte projectId från en annan kampanjslug", async () => {
