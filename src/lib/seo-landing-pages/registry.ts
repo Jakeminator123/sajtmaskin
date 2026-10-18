@@ -98,6 +98,21 @@ export const SEO_LANDING_FOOTER_GUIDE_LINKS = [
   label: string;
 }[];
 
+/**
+ * Comparison landings that were only one click away via /hemsideprogram.
+ * Footer "Jämför" lists these so crawlers and humans find them from every page.
+ * Keep this list to pages that exist on this branch — #1610 may add more slugs.
+ */
+export const SEO_LANDING_FOOTER_COMPARE_LINKS = [
+  { slug: "ai-hemsidebyggare", label: "AI-hemsidebyggare" },
+  { slug: "wix-alternativ", label: "Wix-alternativ" },
+  { slug: "wordpress-alternativ", label: "WordPress-alternativ" },
+  { slug: "lovable-alternativ", label: "Lovable-alternativ" },
+] as const satisfies readonly {
+  slug: SeoLandingSlug;
+  label: string;
+}[];
+
 export type SeoLandingPageEntry = {
   slug: SeoLandingSlug;
   title: string;
@@ -263,6 +278,20 @@ export function getSeoLandingHubLinks(): ReadonlyArray<{
       label: SEO_LANDING_HUB_LABELS[slug],
     }),
   );
+}
+
+export function getSeoLandingCompareLinks(): ReadonlyArray<{
+  slug: SeoLandingSlug;
+  href: `/${SeoLandingSlug}`;
+  label: string;
+}> {
+  return SEO_LANDING_FOOTER_COMPARE_LINKS.filter(
+    (link) => getSeoLandingEntry(link.slug).status === "ready",
+  ).map((link) => ({
+    slug: link.slug,
+    href: `/${link.slug}` as const,
+    label: link.label,
+  }));
 }
 
 /**

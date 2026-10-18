@@ -473,3 +473,16 @@ describe("proxy CSP — first-party third-party egress allowlist", () => {
     }
   });
 });
+
+describe("proxy Permissions-Policy", () => {
+  it("sends a restrictive Permissions-Policy on document responses", async () => {
+    const response = await proxy(new NextRequest("https://sajtmaskin.se/"));
+    const policy = response.headers.get("Permissions-Policy") ?? "";
+
+    expect(policy).toContain("camera=(self)");
+    expect(policy).toContain("microphone=(self)");
+    expect(policy).toContain("geolocation=()");
+    expect(policy).toContain("browsing-topics=()");
+    expect(policy).toContain("usb=()");
+  });
+});

@@ -162,11 +162,11 @@ export function TemplatesBrowser() {
                   <div>
                     <h2 className="text-foreground font-medium tracking-tight">{category.title}</h2>
                     {count > 0 && (
-                      <span className="text-muted-foreground text-xs">{count} templates</span>
+                      <span className="text-foreground/75 text-xs">{count} templates</span>
                     )}
                   </div>
                 </div>
-                <p className="text-muted-foreground mb-4 flex-1 text-sm leading-relaxed">
+                <p className="text-foreground/80 mb-4 flex-1 text-sm leading-relaxed">
                   {category.description}
                 </p>
                 <div className="text-primary flex items-center gap-1 text-sm font-medium opacity-0 transition-opacity group-hover:opacity-100">
@@ -182,7 +182,7 @@ export function TemplatesBrowser() {
             <Search className="h-5 w-5" />
           </div>
           <p className="text-foreground mb-1 text-sm font-medium">Inga träffar</p>
-          <p className="text-muted-foreground mb-5 text-sm">
+          <p className="text-foreground/80 mb-5 text-sm">
             Vi hittade ingen kategori eller template som matchar din sökning.
           </p>
           <button

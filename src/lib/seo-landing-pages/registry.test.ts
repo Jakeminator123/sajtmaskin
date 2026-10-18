@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   SEO_LANDING_CTA_HREF,
+  SEO_LANDING_FOOTER_COMPARE_LINKS,
   SEO_LANDING_FOOTER_GUIDE_LINKS,
   SEO_LANDING_HUB_SLUGS,
   SEO_LANDING_PAGES,
@@ -14,6 +15,7 @@ import {
   getPlaceholderSeoLandingRelPaths,
   getReadyRelatedSeoLandingSlugs,
   getSeoLandingEntry,
+  getSeoLandingCompareLinks,
   getSeoLandingHubLinks,
   indexableSeoLandingRelPathsFrom,
   isSeoLandingSlug,
@@ -256,6 +258,20 @@ describe("SEO landing registry", () => {
       expect(link.href).toBe(`/${link.slug}`);
       expect(link.label.length).toBeGreaterThan(0);
     }
+  });
+
+  it("exposes comparison landings for the footer Jämför section", () => {
+    expect(SEO_LANDING_FOOTER_COMPARE_LINKS.map((link) => link.slug)).toEqual([
+      "ai-hemsidebyggare",
+      "wix-alternativ",
+      "wordpress-alternativ",
+      "lovable-alternativ",
+    ]);
+    const links = getSeoLandingCompareLinks();
+    expect(links.map((link) => link.slug)).toEqual(
+      SEO_LANDING_FOOTER_COMPARE_LINKS.map((link) => link.slug),
+    );
+    expect(links.find((link) => link.slug === "wix-alternativ")?.href).toBe("/wix-alternativ");
   });
 
   it("filters related slugs to ready registry entries", () => {

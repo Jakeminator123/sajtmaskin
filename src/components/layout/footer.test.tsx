@@ -34,4 +34,22 @@ describe("Footer", () => {
       "/hemsideprogram",
     );
   });
+
+  it("exposes a Jämför section into the comparison landings", () => {
+    render(<Footer />);
+
+    expect(screen.getByRole("heading", { name: "Jämför" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Wix-alternativ" }).getAttribute("href")).toBe(
+      "/wix-alternativ",
+    );
+    expect(screen.getByRole("link", { name: "WordPress-alternativ" }).getAttribute("href")).toBe(
+      "/wordpress-alternativ",
+    );
+    expect(screen.getByRole("link", { name: "Lovable-alternativ" }).getAttribute("href")).toBe(
+      "/lovable-alternativ",
+    );
+    expect(screen.getByRole("link", { name: "AI-hemsidebyggare" }).getAttribute("href")).toBe(
+      "/ai-hemsidebyggare",
+    );
+  });
 });

@@ -73,7 +73,23 @@ describe("landing nav + footer links after /teknik move", () => {
     expect(screen.getByRole("link", { name: "Jämför hemsideprogram" }).getAttribute("href")).toBe(
       "/hemsideprogram",
     );
-    expect(screen.queryByRole("link", { name: /wix-alternativ/i })).toBeNull();
+  });
+
+  it("footer exposes a Jämför section into the comparison landings", () => {
+    render(<LandingFooter />);
+    expect(screen.getByRole("heading", { name: "Jämför" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "AI-hemsidebyggare" }).getAttribute("href")).toBe(
+      "/ai-hemsidebyggare",
+    );
+    expect(screen.getByRole("link", { name: "Wix-alternativ" }).getAttribute("href")).toBe(
+      "/wix-alternativ",
+    );
+    expect(screen.getByRole("link", { name: "WordPress-alternativ" }).getAttribute("href")).toBe(
+      "/wordpress-alternativ",
+    );
+    expect(screen.getByRole("link", { name: "Lovable-alternativ" }).getAttribute("href")).toBe(
+      "/lovable-alternativ",
+    );
   });
 
   it("keeps the four-hub constant for callers that still read the compact set", () => {

@@ -4,6 +4,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEv
 
 /* 3D tilt — DOM transform only, prefers-reduced-motion aware */
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)"
+const NARROW_VIEWPORT_QUERY = "(max-width: 767px)"
+/** Idle timeout before the physics chunk may start on a capable desktop. */
+const LANYARD_PHYSICS_IDLE_TIMEOUT_MS = 1800
 
 /** Synk läsning för client-only ytor som inte får vänta på en effect-tick. */
 export function readPrefersReducedMotion(): boolean {
@@ -64,9 +67,36 @@ export function readSaveDataPreference(): boolean {
   }
 }
 
+/** Sync snapshot: phone-sized viewports never download the physics chunk. */
+export function readNarrowViewport(): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    return window.matchMedia(NARROW_VIEWPORT_QUERY).matches
+  } catch {
+    return false
+  }
+}
+
 /** Client-only sync snapshot — covers the tick before motion/save-data hooks settle. */
 export function readLanyardStaticOnly(): boolean {
-  return readPrefersReducedMotion() || readSaveDataPreference()
+  return readPrefersReducedMotion() || readSaveDataPreference() || readNarrowViewport()
+}
+
+/** Run `callback` on idle (or on the next macrotask when IdleCallback is missing). */
+export function scheduleWhenIdle(
+  callback: () => void,
+  timeoutMs = LANYARD_PHYSICS_IDLE_TIMEOUT_MS,
+): () => void {
+  if (typeof window === "undefined") return () => {}
+  const ric = window.requestIdleCallback?.bind(window)
+  if (typeof ric === "function") {
+    const id = ric(() => {
+      callback()
+    }, { timeout: timeoutMs })
+    return () => window.cancelIdleCallback?.(id)
+  }
+  const timer = window.setTimeout(callback, 0)
+  return () => window.clearTimeout(timer)
 }
 
 /**

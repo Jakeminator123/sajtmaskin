@@ -161,7 +161,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
         {/* ━━━ HOW IT WORKS ━━━ */}
         <section
           id="hur-det-fungerar"
-          className="px-6 py-20 md:py-28 border-t border-border/15"
+          className="[content-visibility:auto] [contain-intrinsic-size:auto_720px] px-6 py-20 md:py-28 border-t border-border/15"
           onMouseEnter={preloadHowItWorksScene}
           onFocusCapture={preloadHowItWorksScene}
         >
@@ -181,7 +181,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
         </section>
 
         {/* ━━━ PRICING ━━━ */}
-        <section id="priser" className="overflow-visible border-t border-border/15 px-6 py-20 md:py-28">
+        <section id="priser" className="[content-visibility:auto] [contain-intrinsic-size:auto_900px] overflow-visible border-t border-border/15 px-6 py-20 md:py-28">
           <div className="mx-auto max-w-5xl">
             <h2 className="mb-4 text-center text-2xl text-foreground font-(--font-heading) tracking-tight text-balance md:text-4xl">
               Priser
@@ -203,7 +203,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
         </section>
 
         {/* ━━━ INTEGRATIONS SHOWCASE ━━━ */}
-        <section className="px-6 py-18 md:py-24 border-b border-border/15">
+        <section className="[content-visibility:auto] [contain-intrinsic-size:auto_640px] px-6 py-18 md:py-24 border-b border-border/15">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-10">
               <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">Funktioner</p>

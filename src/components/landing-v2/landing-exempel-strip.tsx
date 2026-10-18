@@ -5,7 +5,7 @@ import { EXEMPEL_PATH, HOME_SHOWCASE_SITES } from "@/lib/exempel/showcase-sites"
 
 export function LandingExempelStrip() {
   return (
-    <section className="border-t border-border/15 px-6 py-14 md:py-16" aria-labelledby="landing-exempel-heading">
+    <section className="[content-visibility:auto] [contain-intrinsic-size:auto_420px] border-t border-border/15 px-6 py-14 md:py-16" aria-labelledby="landing-exempel-heading">
       <div className="mx-auto max-w-5xl">
         <div className="mb-8 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
           <div>
