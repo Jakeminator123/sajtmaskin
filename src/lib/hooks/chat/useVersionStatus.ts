@@ -137,10 +137,12 @@ export function useVersionStatus(params: {
   // fetch yet for this key.
   const prevEventCountRef = useRef<number | null>(null);
   // Wall-clock timestamp of the first non-terminal poll for the current key —
-  // drives the client-side perpetual-spinner backstop. `null` = not yet in a
-  // tracked non-terminal window (reset per key and whenever `done` is reached).
+  // drives the client-side perpetual-spinner backstop. `null` = not in a
+  // tracked non-terminal window. Reset per key, while a `failed` recheck owns
+  // the watch, when a real phase leaves `failed`, and whenever `done` is reached.
   const nonTerminalStartRef = useRef<number | null>(null);
   // Wall-clock timestamp of the first `failed` poll for the current key.
+  // Survives a later transport failure (`null`); only a real other phase clears it.
   const failedStartRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -208,12 +210,27 @@ export function useVersionStatus(params: {
     // which bumps `eventCount`, is observed first. `failed` is rechecked
     // slowly for a bounded window (see `DEFAULT_MAX_FAILED_RECHECK_MS`):
     // only the server's M#flap1 reconcile can turn it into `done`.
+    // A transport failure during that window is not a phase change.
     const shouldStopPolling = (s: VersionStatus | null): boolean => {
       if (s?.phase === "failed") {
         prevEventCountRef.current = s.eventCount ?? null;
         const now = Date.now();
         failedStartRef.current ??= now;
+        // The failed window owns the watch, so the earlier non-terminal clock
+        // must not stay armed underneath it.
+        nonTerminalStartRef.current = null;
         return now - failedStartRef.current > maxFailedRecheckMs;
+      }
+      // `null` is a dropped response, not a phase. Restarting the failed
+      // window here — or applying the 15-minute cap — stops the recheck
+      // before a repair can land.
+      if (s == null && failedStartRef.current !== null) {
+        return Date.now() - failedStartRef.current > maxFailedRecheckMs;
+      }
+      // A real phase that leaves `failed` (verifying, repairing, done, …)
+      // is assessed from scratch.
+      if (failedStartRef.current !== null) {
+        nonTerminalStartRef.current = null;
       }
       failedStartRef.current = null;
       // Terminal-neutral supersede (2026-07): the row was replaced by a newer

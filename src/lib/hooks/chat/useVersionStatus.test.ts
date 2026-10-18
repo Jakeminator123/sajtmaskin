@@ -509,6 +509,178 @@ describe("useVersionStatus — perpetual-spinner client backstop", () => {
 });
 
 /**
+ * The 15-minute non-terminal cap and the 16-minute `failed` recheck are
+ * separate clocks. A transport failure while `failed` is open must not
+ * restart the failed window or arm the older cap, or a repair that lands
+ * just after 15 minutes is never fetched. A version that never reaches
+ * `failed` still stops at 15 minutes.
+ */
+describe("useVersionStatus — failed window vs non-terminal cap", () => {
+  const MINUTE = 60_000;
+
+  function ok(status: VersionStatus) {
+    return {
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: async () => ({ ok: true, versionId: "v1", status }),
+    } as unknown as Response;
+  }
+
+  function degraded503() {
+    return {
+      ok: false,
+      status: 503,
+      headers: new Headers({ "Retry-After": "3" }),
+      json: async () => ({
+        ok: false,
+        error: "Databasen svarar inte just nu. Försöker igen om en stund.",
+        code: "db_unavailable",
+        retryable: true,
+      }),
+    } as unknown as Response;
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("fetches a later done after verifying, failed, and a 503 past 15 minutes", async () => {
+    const verifying = vs({ phase: "verifying", done: false, eventCount: 1 });
+    const failed = vs({
+      phase: "failed",
+      done: false,
+      verifierOutcome: "failed",
+      eventCount: 2,
+    });
+    const promoted = vs({
+      phase: "done",
+      done: true,
+      verifierOutcome: "passed",
+      eventCount: 8,
+    });
+
+    const origin = Date.now();
+    let served503 = false;
+    const fetchMock = vi.fn(async () => {
+      const elapsed = Date.now() - origin;
+      if (elapsed < 10 * MINUTE) return ok(verifying);
+      if (elapsed <= 15 * MINUTE) return ok(failed);
+      if (!served503) {
+        served503 = true;
+        return degraded503();
+      }
+      return ok(promoted);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() =>
+      useVersionStatus({
+        chatId: "c1",
+        versionId: "v1",
+        pollIntervalMs: MINUTE,
+      }),
+    );
+
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(result.current.status?.phase).toBe("verifying");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9 * MINUTE);
+    });
+    expect(result.current.status?.phase).toBe("verifying");
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(MINUTE);
+    });
+    expect(result.current.status?.phase).toBe("failed");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5 * MINUTE);
+    });
+    expect(served503).toBe(false);
+    expect(result.current.status?.phase).toBe("failed");
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(MINUTE);
+    });
+    expect(served503).toBe(true);
+    expect(result.current.error).toContain("Databasen svarar inte");
+    const callsAt503 = fetchMock.mock.calls.length;
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(MINUTE);
+    });
+    expect(fetchMock.mock.calls.length).toBe(callsAt503 + 1);
+    expect(result.current.status?.phase).toBe("done");
+    expect(result.current.status?.done).toBe(true);
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(MINUTE);
+    });
+    const callsAtStable = fetchMock.mock.calls.length;
+    expect(callsAtStable).toBe(callsAt503 + 2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5 * MINUTE);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(callsAtStable);
+    expect(result.current.status?.done).toBe(true);
+  });
+
+  it("still stops at 15 minutes when the projection never becomes failed", async () => {
+    const verifying = vs({ phase: "verifying", done: false, eventCount: 1 });
+    const fetchMock = sequenceFetch([verifying]);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() =>
+      useVersionStatus({
+        chatId: "c1",
+        versionId: "v1",
+        pollIntervalMs: MINUTE,
+      }),
+    );
+
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(result.current.status?.phase).toBe("verifying");
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15 * MINUTE);
+    });
+    expect(result.current.error).toBeNull();
+    expect(result.current.status?.phase).toBe("verifying");
+    const callsInsideCap = fetchMock.mock.calls.length;
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(MINUTE);
+    });
+    expect(fetchMock.mock.calls.length).toBe(callsInsideCap + 1);
+    expect(result.current.error).toBe("verification_status_timeout");
+    expect(result.current.status?.phase).toBe("verifying");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5 * MINUTE);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(callsInsideCap + 1);
+  });
+});
+
+/**
  * A2 (builder runtime-robusthet) — the poll must stop amplifying an outage.
  *
  * The 2026-07-13 incident was self-inflicted: a redeploy starved the pg pool,
