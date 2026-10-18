@@ -20,6 +20,7 @@ import { buildKostnadsfriProfileFallback } from "@/lib/kostnadsfri/company-profi
 import { unsubscribedAtFromExtra } from "@/lib/kostnadsfri/unsubscribe";
 import { assertDbConfigured } from "./shared";
 import type { KostnadsfriPage } from "./shared";
+import { isAdminEmail } from "./users";
 import type { KostnadsfriGeneration } from "@/lib/kostnadsfri/mail-register-contract";
 import {
   mailTypeFromSource,
@@ -777,13 +778,32 @@ export async function getKostnadsfriGenerationBySlug(
   const versionById = new Map(versions.map((version) => [version.id, version]));
 
   // Admin/test builders bypass the campaign credit path, so their entitlement
-  // never gets a bound chat or settlement marker. The entitlement's own
-  // project still proves whether a site was generated.
-  const unboundProjectIds = entitlements
-    .filter(
-      (row) => !row.initial_chat_id && !row.initial_version_id && !markerByEntitlement.has(row.id),
-    )
-    .map((row) => row.project_id);
+  // never gets a bound chat or settlement marker. For them, chats the
+  // entitlement's project gained after redemption prove whether a site was
+  // generated. Real recipients keep the bound-chat projection only.
+  const unboundCandidates = entitlements.filter(
+    (row) =>
+      row.user_id &&
+      !row.initial_chat_id &&
+      !row.initial_version_id &&
+      !markerByEntitlement.has(row.id),
+  );
+  const ownerRows =
+    unboundCandidates.length > 0
+      ? await db
+          .select({ id: users.id, email: users.email })
+          .from(users)
+          .where(inArray(users.id, [...new Set(unboundCandidates.map((row) => row.user_id!))]))
+      : [];
+  const adminOwnerIds = new Set(
+    ownerRows.filter((owner) => isAdminEmail(owner.email)).map((owner) => owner.id),
+  );
+  const unboundSince = new Map(
+    unboundCandidates
+      .filter((row) => adminOwnerIds.has(row.user_id!))
+      .map((row) => [row.project_id, row.created_at] as const),
+  );
+  const unboundProjectIds = [...unboundSince.keys()];
   const projectChats =
     unboundProjectIds.length > 0
       ? await db
@@ -811,7 +831,11 @@ export async function getKostnadsfriGenerationBySlug(
             ),
           )
       : [];
-  const unboundByProject = resolveUnboundCampaignGeneration(projectChats, projectVersions);
+  const unboundByProject = resolveUnboundCampaignGeneration(
+    projectChats,
+    projectVersions,
+    unboundSince,
+  );
 
   const chatIds = entitlements
     .map((row) => row.initial_chat_id ?? unboundByProject.get(row.project_id)?.chatId ?? null)
@@ -861,10 +885,14 @@ export async function getKostnadsfriGenerationBySlug(
 type ProjectChatRow = { id: string; projectId: string | null; createdAt: Date | string };
 type ProjectVersionRow = { id: string; chatId: string; createdAt: Date | string };
 
-/** Earliest version per project, else its earliest chat (generation started, no version yet). */
+/**
+ * Earliest version per project, else its earliest chat (generation started,
+ * no version yet). Chats older than the project's entitlement are ignored.
+ */
 function resolveUnboundCampaignGeneration(
   chats: readonly ProjectChatRow[],
   versions: readonly ProjectVersionRow[],
+  sinceByProject: ReadonlyMap<string, Date | string>,
 ): Map<string, { chatId: string; version: ProjectVersionRow | null }> {
   const time = (value: Date | string) => new Date(value).getTime();
   const projectByChat = new Map<string, string>();
@@ -872,6 +900,8 @@ function resolveUnboundCampaignGeneration(
   const firstChatAt = new Map<string, number>();
   for (const chat of chats) {
     if (!chat.projectId) continue;
+    const since = sinceByProject.get(chat.projectId);
+    if (since === undefined || time(chat.createdAt) < time(since)) continue;
     projectByChat.set(chat.id, chat.projectId);
     const at = time(chat.createdAt);
     if (!result.has(chat.projectId) || at < (firstChatAt.get(chat.projectId) ?? Infinity)) {
