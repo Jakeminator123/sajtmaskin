@@ -17,6 +17,8 @@ import {
   getSeoLandingEntry,
   getSeoLandingCompareLinks,
   getSeoLandingHubLinks,
+  getSeoLandingIndustryLinks,
+  SEO_INDUSTRY_SLUGS,
   indexableSeoLandingRelPathsFrom,
   isSeoLandingSlug,
   readyRelatedSeoLandingSlugs,
@@ -113,32 +115,8 @@ describe("SEO landing registry", () => {
     const readySlugs = new Set(
       SEO_LANDING_PAGES.filter((page) => page.status === "ready").map((page) => page.slug),
     );
-    expect(readySlugs).toEqual(
-      new Set([
-        "skapa-hemsida",
-        "skapa-hemsida-med-ai",
-        "ai-hemsidebyggare",
-        "hemsida-till-foretag",
-        "hemsideprogram",
-        "hemsida-utan-kod",
-        "vad-kostar-en-hemsida",
-        "wix-alternativ",
-        "wordpress-alternativ",
-        "lovable-alternativ",
-      ]),
-    );
-    expect(getIndexableSeoLandingRelPaths()).toEqual([
-      "/skapa-hemsida",
-      "/skapa-hemsida-med-ai",
-      "/ai-hemsidebyggare",
-      "/hemsida-till-foretag",
-      "/hemsideprogram",
-      "/hemsida-utan-kod",
-      "/vad-kostar-en-hemsida",
-      "/wix-alternativ",
-      "/wordpress-alternativ",
-      "/lovable-alternativ",
-    ]);
+    expect(readySlugs).toEqual(new Set(SEO_LANDING_SLUGS));
+    expect(getIndexableSeoLandingRelPaths()).toEqual(SEO_LANDING_SLUGS.map((slug) => `/${slug}`));
     expect(getPlaceholderSeoLandingRelPaths()).toEqual(
       SEO_LANDING_PAGES.filter((page) => !readySlugs.has(page.slug)).map((page) => `/${page.slug}`),
     );
@@ -225,10 +203,18 @@ describe("SEO landing registry", () => {
       ]),
     );
     expect(getSeoLandingEntry("hemsideprogram").relatedSlugs).toEqual(
-      expect.arrayContaining(["wix-alternativ", "wordpress-alternativ"]),
+      expect.arrayContaining([
+        "wix-alternativ",
+        "wordpress-alternativ",
+        "squarespace-alternativ",
+        "one-com-alternativ",
+      ]),
     );
     expect(getSeoLandingEntry("ai-hemsidebyggare").relatedSlugs).toEqual(
-      expect.arrayContaining(["lovable-alternativ"]),
+      expect.arrayContaining(["lovable-alternativ", "one-com-alternativ"]),
+    );
+    expect(getSeoLandingEntry("hemsida-till-foretag").relatedSlugs).toEqual(
+      expect.arrayContaining(["hemsida-frisor", "hemsida-hantverkare", "hemsida-konsult"]),
     );
   });
 
@@ -273,6 +259,23 @@ describe("SEO landing registry", () => {
       SEO_LANDING_FOOTER_COMPARE_LINKS.map((link) => link.slug),
     );
     expect(links.find((link) => link.slug === "wix-alternativ")?.href).toBe("/wix-alternativ");
+    const hrefs = links.map((link) => link.href);
+    expect(new Set(hrefs).size).toBe(hrefs.length);
+  });
+
+  it("exposes a ready industry set for the footer Branscher section", () => {
+    expect(SEO_INDUSTRY_SLUGS).toHaveLength(10);
+    const links = getSeoLandingIndustryLinks();
+    expect(links.map((link) => link.slug)).toEqual([...SEO_INDUSTRY_SLUGS]);
+    for (const link of links) {
+      expect(getSeoLandingEntry(link.slug).status).toBe("ready");
+      expect(link.href).toBe(`/${link.slug}`);
+      expect(link.label.length).toBeGreaterThan(0);
+    }
+    const compareHrefs = new Set(getSeoLandingCompareLinks().map((link) => link.href));
+    for (const link of links) {
+      expect(compareHrefs.has(link.href)).toBe(false);
+    }
   });
 
   it("filters related slugs to ready registry entries", () => {

@@ -52,4 +52,18 @@ describe("Footer", () => {
       "/ai-hemsidebyggare",
     );
   });
+
+  it("exposes a Branscher section and the published blog", () => {
+    render(<Footer />);
+
+    expect(screen.getByRole("heading", { name: "Branscher" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Frisör" }).getAttribute("href")).toBe("/hemsida-frisor");
+    expect(screen.getByRole("link", { name: "Hantverkare" }).getAttribute("href")).toBe(
+      "/hemsida-hantverkare",
+    );
+    expect(screen.getByRole("link", { name: "Blogg" }).getAttribute("href")).toBe("/blogg");
+    const hrefs = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
+    expect(hrefs.filter((href) => href === "/wix-alternativ")).toHaveLength(1);
+    expect(hrefs.filter((href) => href === "/hemsida-frisor")).toHaveLength(1);
+  });
 });

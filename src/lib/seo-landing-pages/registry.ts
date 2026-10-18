@@ -56,6 +56,18 @@ export const SEO_LANDING_SLUGS = [
   "wix-alternativ",
   "wordpress-alternativ",
   "lovable-alternativ",
+  "squarespace-alternativ",
+  "one-com-alternativ",
+  "hemsida-frisor",
+  "hemsida-hantverkare",
+  "hemsida-stadfirma",
+  "hemsida-restaurang",
+  "hemsida-konsult",
+  "hemsida-fotograf",
+  "hemsida-personlig-tranare",
+  "hemsida-rormokare",
+  "hemsida-fastighetsskotsel",
+  "hemsida-skonhetssalong",
 ] as const;
 
 export type SeoLandingSlug = (typeof SEO_LANDING_SLUGS)[number];
@@ -101,7 +113,6 @@ export const SEO_LANDING_FOOTER_GUIDE_LINKS = [
 /**
  * Comparison landings that were only one click away via /hemsideprogram.
  * Footer "Jämför" lists these so crawlers and humans find them from every page.
- * Keep this list to pages that exist on this branch — #1610 may add more slugs.
  */
 export const SEO_LANDING_FOOTER_COMPARE_LINKS = [
   { slug: "ai-hemsidebyggare", label: "AI-hemsidebyggare" },
@@ -110,6 +121,51 @@ export const SEO_LANDING_FOOTER_COMPARE_LINKS = [
   { slug: "lovable-alternativ", label: "Lovable-alternativ" },
 ] as const satisfies readonly {
   slug: SeoLandingSlug;
+  label: string;
+}[];
+
+/**
+ * High-intent Swedish SMB verticals. Footer "Branscher" lists these —
+ * not the full SEO cluster.
+ */
+export const SEO_INDUSTRY_SLUGS = [
+  "hemsida-frisor",
+  "hemsida-hantverkare",
+  "hemsida-stadfirma",
+  "hemsida-restaurang",
+  "hemsida-konsult",
+  "hemsida-fotograf",
+  "hemsida-personlig-tranare",
+  "hemsida-rormokare",
+  "hemsida-fastighetsskotsel",
+  "hemsida-skonhetssalong",
+] as const satisfies readonly SeoLandingSlug[];
+
+export type SeoIndustrySlug = (typeof SEO_INDUSTRY_SLUGS)[number];
+
+export const SEO_COMPARISON_SLUGS = [
+  "wix-alternativ",
+  "wordpress-alternativ",
+  "lovable-alternativ",
+  "squarespace-alternativ",
+  "one-com-alternativ",
+] as const satisfies readonly SeoLandingSlug[];
+
+export type SeoComparisonSlug = (typeof SEO_COMPARISON_SLUGS)[number];
+
+export const SEO_LANDING_FOOTER_INDUSTRY_LINKS = [
+  { slug: "hemsida-frisor", label: "Frisör" },
+  { slug: "hemsida-hantverkare", label: "Hantverkare" },
+  { slug: "hemsida-stadfirma", label: "Städfirma" },
+  { slug: "hemsida-restaurang", label: "Restaurang" },
+  { slug: "hemsida-konsult", label: "Konsult" },
+  { slug: "hemsida-fotograf", label: "Fotograf" },
+  { slug: "hemsida-personlig-tranare", label: "Personlig tränare" },
+  { slug: "hemsida-rormokare", label: "Rörmokare" },
+  { slug: "hemsida-fastighetsskotsel", label: "Fastighetsskötsel" },
+  { slug: "hemsida-skonhetssalong", label: "Skönhetssalong" },
+] as const satisfies readonly {
+  slug: SeoIndustrySlug;
   label: string;
 }[];
 
@@ -137,6 +193,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
       "hemsida-till-foretag",
       "hemsideprogram",
       "vad-kostar-en-hemsida",
+      "hemsida-restaurang",
     ],
     status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
@@ -159,7 +216,12 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
       "AI-hemsidebyggare: jämför redigering, ägarskap, publicering och pris innan du väljer verktyg. Kriterier, inte en ranking.",
     plannedH1: "AI-hemsidebyggare – vad ska du jämföra innan du väljer?",
     intent: "Produktkategori och valkriterier",
-    relatedSlugs: ["skapa-hemsida-med-ai", "hemsideprogram", "lovable-alternativ"],
+    relatedSlugs: [
+      "skapa-hemsida-med-ai",
+      "hemsideprogram",
+      "lovable-alternativ",
+      "one-com-alternativ",
+    ],
     status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
@@ -170,7 +232,14 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
       "Hemsida till företag för förtroende och förfrågningar. Vad sidan behöver innehålla, hur leads fungerar och vanliga misstag att undvika.",
     plannedH1: "Hemsida till företag – bygg för förtroende och förfrågningar",
     intent: "B2B: affärsnytta, inte verktygskategori",
-    relatedSlugs: ["skapa-hemsida", "vad-kostar-en-hemsida", "hemsida-utan-kod"],
+    relatedSlugs: [
+      "skapa-hemsida",
+      "vad-kostar-en-hemsida",
+      "hemsida-utan-kod",
+      "hemsida-frisor",
+      "hemsida-hantverkare",
+      "hemsida-konsult",
+    ],
     status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
@@ -181,7 +250,14 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
       "Hemsideprogram: jämför CMS, drag-and-drop, AI-builder och kod. Välj arbetssätt efter tempo, kontroll, underhåll och hur ni tar med er sajt.",
     plannedH1: "Hemsideprogram – välj rätt sätt att bygga din webbplats",
     intent: "Jämför verktygstyper, inte ett enskilt varumärke",
-    relatedSlugs: ["ai-hemsidebyggare", "hemsida-utan-kod", "wordpress-alternativ", "wix-alternativ"],
+    relatedSlugs: [
+      "ai-hemsidebyggare",
+      "hemsida-utan-kod",
+      "wordpress-alternativ",
+      "wix-alternativ",
+      "squarespace-alternativ",
+      "one-com-alternativ",
+    ],
     status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
@@ -214,7 +290,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
       "Wix-alternativ: jämför arbetssätt, kontroll och publicering innan du byter. Canvas och inbyggda appar versus beskrivning till utkast. Skriven av Sajtmaskin.",
     plannedH1: "Wix-alternativ – jämför arbetssätt innan du byter",
     intent: "Saklig Wix-jämförelse",
-    relatedSlugs: ["hemsideprogram", "ai-hemsidebyggare", "skapa-hemsida"],
+    relatedSlugs: ["hemsideprogram", "ai-hemsidebyggare", "skapa-hemsida", "squarespace-alternativ"],
     status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
@@ -237,6 +313,138 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "Lovable-alternativ – välj verktyg efter vad du faktiskt ska bygga",
     intent: "Saklig Lovable-jämförelse utifrån byggmål",
     relatedSlugs: ["ai-hemsidebyggare", "skapa-hemsida-med-ai", "hemsideprogram"],
+    status: "ready",
+    ctaHref: SEO_LANDING_CTA_HREF,
+  },
+  {
+    slug: "squarespace-alternativ",
+    title: "Squarespace-alternativ – jämför arbetssätt med Sajtmaskin",
+    description:
+      "Squarespace-alternativ: mall och visuell design versus beskrivning till utkast. Jämför hosting, kontroll och betalmodell — utan konkurrentbelopp. Skriven av Sajtmaskin.",
+    plannedH1: "Squarespace-alternativ – när passar ett annat arbetssätt?",
+    intent: "Saklig Squarespace-jämförelse utifrån designmallar vs utkast",
+    relatedSlugs: ["hemsideprogram", "wix-alternativ", "one-com-alternativ"],
+    status: "ready",
+    ctaHref: SEO_LANDING_CTA_HREF,
+  },
+  {
+    slug: "one-com-alternativ",
+    title: "one.com-alternativ – jämför hemsideprogram och credits",
+    description:
+      "one.com-alternativ: domän och hosting i samma paket versus en AI-builder med credits. Jämför modell, inte hittepå-priser. Skriven av Sajtmaskin.",
+    plannedH1: "one.com-alternativ – välj efter domän, hosting och byggflöde",
+    intent: "Saklig one.com-jämförelse utifrån paket vs credits",
+    relatedSlugs: ["hemsideprogram", "ai-hemsidebyggare", "squarespace-alternativ"],
+    status: "ready",
+    ctaHref: SEO_LANDING_CTA_HREF,
+  },
+  {
+    slug: "hemsida-frisor",
+    title: "Hemsida för frisör – bokning, priser och förtroende",
+    description:
+      "Hemsida för frisör: vad salongssidan behöver för bokning, prislista, personal och lokal synlighet. Exempelsektioner, lokala SEO-tips och FAQ för frisörer.",
+    plannedH1: "Hemsida för frisör – så blir salongen lätt att boka",
+    intent: "Bransch: frisörsalong, bokning och lokal förtroendesida",
+    relatedSlugs: ["hemsida-till-foretag", "hemsida-skonhetssalong", "hemsida-personlig-tranare"],
+    status: "ready",
+    ctaHref: SEO_LANDING_CTA_HREF,
+  },
+  {
+    slug: "hemsida-hantverkare",
+    title: "Hemsida för hantverkare – offerter från rätt kunder",
+    description:
+      "Hemsida för hantverkare och snickare: visa jobb, område och hur en offert går till. Sektionsritning, lokal SEO utan tomma stadssidor och FAQ för byggfirmor.",
+    plannedH1: "Hemsida för hantverkare – få förfrågningar ni kan svara på",
+    intent: "Bransch: hantverkare och snickare, offert och referensjobb",
+    relatedSlugs: ["hemsida-till-foretag", "hemsida-rormokare", "hemsida-fastighetsskotsel"],
+    status: "ready",
+    ctaHref: SEO_LANDING_CTA_HREF,
+  },
+  {
+    slug: "hemsida-stadfirma",
+    title: "Hemsida för städfirma – tjänster, område och avtal",
+    description:
+      "Hemsida för städfirma: hemstäd, kontor och avtalskunder på en tydlig sida. Vad som ska med, lokala SEO-tips och FAQ för städbolag i Sverige.",
+    plannedH1: "Hemsida för städfirma – gör det enkelt att be om en tid",
+    intent: "Bransch: städfirma, hem- och kontorsstäd, avtalskunder",
+    relatedSlugs: ["hemsida-till-foretag", "hemsida-fastighetsskotsel", "hemsida-hantverkare"],
+    status: "ready",
+    ctaHref: SEO_LANDING_CTA_HREF,
+  },
+  {
+    slug: "hemsida-restaurang",
+    title: "Hemsida för restaurang – meny, öppettider och bord",
+    description:
+      "Hemsida för restaurang och café: meny som text, öppettider, boka bord och hitta hit. Praktiska sektioner, lokal SEO och FAQ för krogar.",
+    plannedH1: "Hemsida för restaurang – meny och tider som stämmer",
+    intent: "Bransch: restaurang och café, meny och bord",
+    relatedSlugs: ["hemsida-till-foretag", "skapa-hemsida", "hemsida-frisor"],
+    status: "ready",
+    ctaHref: SEO_LANDING_CTA_HREF,
+  },
+  {
+    slug: "hemsida-konsult",
+    title: "Hemsida för konsult – erbjudande som ger möten",
+    description:
+      "Hemsida för konsult: tydligt erbjudande, process och nästa steg. Vad en frilans- eller byråsajt behöver, SEO utan bluffcase och FAQ för rådgivare.",
+    plannedH1: "Hemsida för konsult – så förstår kunden vad du säljer",
+    intent: "Bransch: konsult och frilans, mötesbokning via sidan",
+    relatedSlugs: ["hemsida-till-foretag", "hemsida-fotograf", "skapa-hemsida-med-ai"],
+    status: "ready",
+    ctaHref: SEO_LANDING_CTA_HREF,
+  },
+  {
+    slug: "hemsida-fotograf",
+    title: "Hemsida för fotograf – portfolio som säljer jobb",
+    description:
+      "Hemsida för fotograf: portfolio, genrer och bokning utan att sidan blir ett extra Instagram. Sektioner, lokal SEO och FAQ för frilansfotografer.",
+    plannedH1: "Hemsida för fotograf – visa jobben, inte bara flödet",
+    intent: "Bransch: fotograf, portfolio och uppdragsförfrågan",
+    relatedSlugs: ["hemsida-till-foretag", "hemsida-konsult", "hemsida-personlig-tranare"],
+    status: "ready",
+    ctaHref: SEO_LANDING_CTA_HREF,
+  },
+  {
+    slug: "hemsida-personlig-tranare",
+    title: "Hemsida för personlig tränare – paket, tider och bokning",
+    description:
+      "Hemsida för personlig tränare: paket, plats och ärliga resultat. Vad PT-sidan behöver, lokal SEO och FAQ utan mirakellöften.",
+    plannedH1: "Hemsida för personlig tränare – gör nästa pass lätt att boka",
+    intent: "Bransch: personlig tränare, paket och träningstider",
+    relatedSlugs: ["hemsida-till-foretag", "hemsida-frisor", "hemsida-skonhetssalong"],
+    status: "ready",
+    ctaHref: SEO_LANDING_CTA_HREF,
+  },
+  {
+    slug: "hemsida-rormokare",
+    title: "Hemsida för rörmokare – jour, område och snabba samtal",
+    description:
+      "Hemsida för rörmokare och elektriker: journummer, område och tjänster som går att ringa från mobilen. Lokal SEO och FAQ för VVS- och elfirmor.",
+    plannedH1: "Hemsida för rörmokare – syns när kranen redan läcker",
+    intent: "Bransch: rörmokare och elektriker, jour och områdessida",
+    relatedSlugs: ["hemsida-till-foretag", "hemsida-hantverkare", "hemsida-fastighetsskotsel"],
+    status: "ready",
+    ctaHref: SEO_LANDING_CTA_HREF,
+  },
+  {
+    slug: "hemsida-fastighetsskotsel",
+    title: "Hemsida för fastighetsskötsel – avtal, jour och förtroende",
+    description:
+      "Hemsida för fastighetsskötsel: BRF, fastighetsägare och jour på en sida som tål upphandling. Sektioner, regional SEO och FAQ för skötselbolag.",
+    plannedH1: "Hemsida för fastighetsskötsel – för styrelser som jämför leverantörer",
+    intent: "Bransch: fastighetsskötsel, BRF-avtal och jour",
+    relatedSlugs: ["hemsida-till-foretag", "hemsida-stadfirma", "hemsida-hantverkare"],
+    status: "ready",
+    ctaHref: SEO_LANDING_CTA_HREF,
+  },
+  {
+    slug: "hemsida-skonhetssalong",
+    title: "Hemsida för skönhetssalong – behandlingar, priser och tider",
+    description:
+      "Hemsida för skönhetssalong och nagelbar: behandlingar, priser och bokning. Vad som skiljer mot en frisörsajt, lokal SEO och FAQ för naglar och hud.",
+    plannedH1: "Hemsida för skönhetssalong – behandlingar som går att boka",
+    intent: "Bransch: skönhetssalong och naglar, behandlingar och tider",
+    relatedSlugs: ["hemsida-till-foretag", "hemsida-frisor", "hemsida-personlig-tranare"],
     status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
@@ -292,6 +500,24 @@ export function getSeoLandingCompareLinks(): ReadonlyArray<{
     href: `/${link.slug}` as const,
     label: link.label,
   }));
+}
+
+export function getSeoLandingIndustryLinks(): ReadonlyArray<{
+  slug: SeoIndustrySlug;
+  href: `/${SeoIndustrySlug}`;
+  label: string;
+}> {
+  return SEO_LANDING_FOOTER_INDUSTRY_LINKS.filter(
+    (link) => getSeoLandingEntry(link.slug).status === "ready",
+  ).map((link) => ({
+    slug: link.slug,
+    href: `/${link.slug}` as const,
+    label: link.label,
+  }));
+}
+
+export function isSeoIndustrySlug(value: string): value is SeoIndustrySlug {
+  return (SEO_INDUSTRY_SLUGS as readonly string[]).includes(value);
 }
 
 /**

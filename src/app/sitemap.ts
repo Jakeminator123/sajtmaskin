@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { hasPublishedBlogPosts } from "@/lib/blog/posts";
+import { getIndexableBlogRelPaths } from "@/lib/blog/posts";
 import { publicCanonicalPath } from "@/lib/public-canonical-url";
 import { getIndexableSeoLandingRelPaths } from "@/lib/seo-landing-pages/registry";
 
@@ -13,7 +13,7 @@ import { getIndexableSeoLandingRelPaths } from "@/lib/seo-landing-pages/registry
  *   och sätt `status: "ready"` först när sidan har unikt indexerbart innehåll.
  *   Sitemap hämtar de sidorna automatiskt — lägg inte placeholders här.
  *
- * `/blogg` läggs till automatiskt när `PUBLISHED_BLOG_POSTS` inte är tom.
+ * `/blogg` och `/blogg/<slug>` läggs till när `PUBLISHED_BLOG_POSTS` inte är tom.
  * Tunna engelska `/category/*`-index ligger kvar som rutter men är noindex
  * och ska inte listas här.
  *
@@ -53,7 +53,7 @@ function sitemapEntry(path: string): MetadataRoute.Sitemap[number] {
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     ...STATIC_SITEMAP_REL_PATHS.map((path) => sitemapEntry(path)),
-    ...(hasPublishedBlogPosts() ? [sitemapEntry("/blogg")] : []),
+    ...getIndexableBlogRelPaths().map((path) => sitemapEntry(path)),
     ...getIndexableSeoLandingRelPaths().map((path) => sitemapEntry(path)),
   ];
 }

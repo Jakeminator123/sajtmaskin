@@ -95,6 +95,16 @@ describe("landing nav + footer links after /teknik move", () => {
     );
   });
 
+  it("footer exposes a Branscher section and the published blog", () => {
+    render(<LandingFooter />);
+    expect(screen.getByRole("heading", { name: "Branscher" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Frisör" }).getAttribute("href")).toBe("/hemsida-frisor");
+    expect(screen.getByRole("link", { name: "Blogg" }).getAttribute("href")).toBe("/blogg");
+    const hrefs = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
+    expect(hrefs.filter((href) => href === "/wix-alternativ")).toHaveLength(1);
+    expect(hrefs.filter((href) => href === "/hemsida-frisor")).toHaveLength(1);
+  });
+
   it("keeps the four-hub constant for callers that still read the compact set", () => {
     expect(SEO_LANDING_FOOTER_GUIDE_LINKS.map((link) => link.slug)).toEqual([
       "skapa-hemsida",
