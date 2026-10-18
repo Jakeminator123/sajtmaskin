@@ -1012,7 +1012,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                     domain: resolveAuditHandoffDomain(auditPayload),
                   },
                 ]
-              : undefined,
+              : wizardSnapshot
+                ? [{ type: "prompt-source", sourceKind: "kostnadsfri" }]
+                : undefined,
           );
           setLlmUsageContext({ chatId: engineChat.id });
           // Brief och scaffold-embeddings kördes innan chatten fanns — claima dem.

@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { createDirectModel } from "@/lib/builder/direct-model";
+import { workloadOpenAIProviderOptions } from "@/lib/ai-models/workload-reasoning";
 import { quickScrapeWebsite } from "@/lib/webscraper";
 import { withRateLimit } from "@/lib/rate-limit";
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
@@ -131,7 +132,7 @@ export async function POST(req: NextRequest) {
     const hasContent = contentForAnalysis?.textSummary && contentForAnalysis.textSummary.length > 20;
 
     const selectedModel =
-      getWorkloadDefaultModelFromManifest("analyze_website") ?? "openai/gpt-5-mini";
+      getWorkloadDefaultModelFromManifest("analyze_website") ?? "openai/gpt-6-luna";
 
     let userPrompt: string;
     let systemPrompt: string;
@@ -164,6 +165,7 @@ export async function POST(req: NextRequest) {
         { role: "user", content: userPrompt },
       ],
       temperature: 0.5,
+      ...workloadOpenAIProviderOptions("analyze_website", selectedModel),
     });
 
     const analysis = result.text?.trim();

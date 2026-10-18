@@ -47,7 +47,7 @@ Phase routing bär nu tre signaler per fas:
 
 - **modellval** via `phaseRouting.defaultByTier`
 - **thinking / reasoningEffort** via `phaseRouting.thinkingByTier`
-- **reasoningMode** (`standard` / `pro`, valfritt och GPT-5.6-specifikt) via
+- **reasoningMode** (`standard` / `pro`, valfritt, för GPT-5.6- och GPT-6-familjerna) via
   samma faspost. Default är `standard` på Låg/Mellan/Hög; `pro` är bara ett
   backoffice-val (inte längre Premium-default).
 

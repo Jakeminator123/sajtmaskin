@@ -44,7 +44,7 @@ export const F3_KICK_PROMPT =
 
 function hasPromptSourceMarker(
   message: Pick<ChatMessage, "uiParts">,
-  sourceKind: "autofix" | "f3-kick" | "audit",
+  sourceKind: "autofix" | "f3-kick" | "audit" | "kostnadsfri",
 ): boolean {
   return Boolean(
     message.uiParts?.some(
@@ -74,6 +74,14 @@ export function isAuditPromptMessage(
 ): boolean {
   if (message.role !== "user") return false;
   return hasPromptSourceMarker(message, "audit");
+}
+
+/** Kampanjens init-prompt är byggd av wizardsvaren, inte skriven av kunden. */
+export function isKostnadsfriPromptMessage(
+  message: Pick<ChatMessage, "role" | "uiParts">,
+): boolean {
+  if (message.role !== "user") return false;
+  return hasPromptSourceMarker(message, "kostnadsfri");
 }
 
 export function getAuditPromptDomain(

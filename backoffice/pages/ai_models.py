@@ -255,7 +255,7 @@ def _render_generator_chain(
                     if model_value == "selected_build_model"
                     else model_value
                 )
-                supports_reasoning_mode = resolved_model_value.startswith("gpt-5.6-")
+                supports_reasoning_mode = resolved_model_value.startswith(("gpt-5.6-", "gpt-6"))
                 with c2:
                     thinking_value = st.toggle(
                         "Thinking",

@@ -254,13 +254,13 @@ export function useVersionHistoryActions({
       });
       const data = (await res.json().catch(() => ({}))) as PinVersionResponse;
       if (!res.ok) {
-        throw new Error(data?.error || `Pin failed (HTTP ${res.status})`);
+        throw new Error(data?.error || `Kunde inte fästa versionen (HTTP ${res.status})`);
       }
-      toast.success(nextPinned ? "Version pinned" : "Version unpinned");
+      toast.success(nextPinned ? "Versionen är fäst" : "Versionen är lossad");
       await Promise.resolve(mutate());
     } catch (error) {
       console.error("Pin error:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to update pin");
+      toast.error(error instanceof Error ? error.message : "Kunde inte ändra fästningen");
     } finally {
       setPinningVersionId(null);
     }

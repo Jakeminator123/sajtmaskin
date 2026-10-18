@@ -210,21 +210,20 @@ describe("resolveServerAutoBriefPreferredModel", () => {
     delete process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC;
     try {
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "premium" })).toBe(
-        "openai/gpt-5.6-sol",
+        "openai/gpt-6.1-sol",
       );
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "max" })).toBe(
-        "openai/gpt-5.6-sol",
+        "openai/gpt-6.1-sol",
       );
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "anthropic" })).toBe(
         "anthropic/claude-opus-4.8",
       );
-      // `pro` är DEFAULT_MODEL_TIER och briefs på Terra; de övriga OpenAI-
-      // profilerna briefs på Sol.
+      // Alla OpenAI-profiler, även DEFAULT_MODEL_TIER `pro`, briefs på GPT-6.1 Sol.
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "pro" })).toBe(
-        "openai/gpt-5.6-terra",
+        "openai/gpt-6.1-sol",
       );
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "codex" })).toBe(
-        "openai/gpt-5.6-sol",
+        "openai/gpt-6.1-sol",
       );
     } finally {
       if (previousOpenAI === undefined) delete process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
@@ -310,6 +309,8 @@ describe("getTemperatureConfig (brief sampling, MB-2)", () => {
   it("still strips temperature for OpenAI reasoning models", () => {
     expect(getTemperatureConfig("openai/gpt-5.5", 0.2)).toEqual({});
     expect(getTemperatureConfig("openai/gpt-5.4", 0.2)).toEqual({});
+    expect(getTemperatureConfig("openai/gpt-6.1-sol", 0.2)).toEqual({});
+    expect(getTemperatureConfig("openai/gpt-6-luna", 0.2)).toEqual({});
   });
 
   it("keeps temperature for non-reasoning, non-Opus models (e.g. Haiku)", () => {
