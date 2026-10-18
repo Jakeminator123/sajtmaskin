@@ -26,7 +26,9 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type AnimationEvent,
   type ReactNode,
+  type TransitionEvent,
 } from "react"
 import { createPortal } from "react-dom"
 import dynamic from "next/dynamic"
@@ -58,8 +60,9 @@ const LanyardCard = dynamic(
   { ssr: false, loading: () => <StaticLanyardFallback /> },
 )
 
-const FLIP_MS_DESKTOP = 1550
+export const FLIP_MS_DESKTOP = 1550
 const FLIP_MS_MOBILE = 1150
+export const FLIP_END_FALLBACK_MS = 400
 /** Om fysiken aldrig rapporterar redo (t.ex. pausad tabb) visas kortet ändå. */
 const DROP_IN_FALLBACK_MS = 6000
 const DROP_IN_HIDDEN_CLASS = "-translate-y-[120%] pointer-events-none"
@@ -138,13 +141,15 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
     readServerCookieConsent,
   )
   const [acceptedThisVisit, setAcceptedThisVisit] = useState(false)
-  const phase: Phase =
-    acceptedThisVisit || storedConsent === "yes"
+  const [flipPlaying, setFlipPlaying] = useState(false)
+  const phase: Phase = flipPlaying
+    ? "intro"
+    : acceptedThisVisit || storedConsent === "yes"
       ? "reveal"
       : storedConsent === "ssr"
         ? "checking"
         : "intro"
-  const autoSwing = storedConsent === "yes" && !acceptedThisVisit
+  const autoSwing = storedConsent === "yes" && !acceptedThisVisit && !flipPlaying
   const [loadPhysics, setLoadPhysics] = useState(false)
   const [physicsReady, setPhysicsReady] = useState(false)
   const dropIn = autoSwing && loadPhysics && !staticOnly
@@ -162,11 +167,12 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
   }, [dropIn, physicsReady])
 
   const handleDone = useCallback(() => {
+    setFlipPlaying(false)
     setAcceptedThisVisit(true)
   }, [])
 
   const handleStartHandoff = useCallback(() => {
-    setAcceptedThisVisit(true)
+    setFlipPlaying(true)
     if (!staticOnly) setLoadPhysics(true)
   }, [staticOnly])
 
@@ -219,6 +225,13 @@ function CookieFlipCard({
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
   const { mobile, reducedMotion } = useExperienceMode()
   const dialogRef = useRef<HTMLDivElement>(null)
+  const finishedRef = useRef(false)
+
+  const finish = useCallback(() => {
+    if (finishedRef.current) return
+    finishedRef.current = true
+    onDone()
+  }, [onDone])
 
   useEffect(() => {
     setPortalTarget(document.body)
@@ -309,6 +322,12 @@ function CookieFlipCard({
   // Mobil: kortare, snabbare flygbana. Reduced motion: bara en mjuk uttoning.
   const flipMs = reducedMotion ? 350 : mobile ? FLIP_MS_MOBILE : FLIP_MS_DESKTOP
 
+  useEffect(() => {
+    if (!leaving) return
+    const timer = window.setTimeout(finish, flipMs + FLIP_END_FALLBACK_MS)
+    return () => window.clearTimeout(timer)
+  }, [leaving, flipMs, finish])
+
   const choose = useCallback(
     (value: "accepted" | "declined") => {
       if (leaving) return
@@ -323,10 +342,20 @@ function CookieFlipCard({
       dispatchCookieConsentChange(value)
       onStartHandoff?.()
       setLeaving(true)
-      window.setTimeout(onDone, flipMs - 60)
     },
-    [leaving, onDone, onStartHandoff, flipMs],
+    [leaving, onStartHandoff],
   )
+
+  const onFlipAnimationEnd = (event: AnimationEvent<HTMLDivElement>) => {
+    if (!leaving || event.target !== event.currentTarget) return
+    finish()
+  }
+
+  const onFlipTransitionEnd = (event: TransitionEvent<HTMLDivElement>) => {
+    if (!leaving || event.target !== event.currentTarget) return
+    if (event.propertyName !== "transform") return
+    finish()
+  }
 
   const dialog = (
     <div
@@ -363,7 +392,9 @@ function CookieFlipCard({
         }
       `}</style>
       <div
+        data-testid="cookie-flip-motion"
         className="flex flex-col items-center"
+        onAnimationEnd={onFlipAnimationEnd}
         style={{
           perspective: "1600px",
           transformStyle: "preserve-3d",
@@ -393,9 +424,11 @@ function CookieFlipCard({
         {/* Kortet — roterar 180° runt sin egen axel för att visa baksidan. */}
         <div className="mt-1" style={{ perspective: "1400px" }}>
           <div
+            data-testid="cookie-flip-card"
             className={`relative aspect-[3/4] [transform-style:preserve-3d] ${
               mobile ? "w-[min(78vw,300px)]" : "w-[min(84vw,340px)]"
             }`}
+            onTransitionEnd={onFlipTransitionEnd}
             style={{
               transition: `transform ${flipMs}ms cubic-bezier(0.34, 1.2, 0.4, 1)`,
               transform: leaving && !reducedMotion ? "rotateY(180deg)" : "rotateY(0deg)",

@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { LanyardExperience } from "./lanyard-experience";
+import {
+  FLIP_END_FALLBACK_MS,
+  FLIP_MS_DESKTOP,
+  LanyardExperience,
+} from "./lanyard-experience";
 
 let physicsStubThrows = false;
 
@@ -225,5 +229,57 @@ describe("LanyardExperience", () => {
     });
     const stage = screen.getByTestId("lanyard-stage-3d");
     expect(stage.className).not.toContain("-translate-y-[120%]");
+  });
+
+  it("saves consent immediately and keeps the cookie card until the flip ends", async () => {
+    originalMatchMedia = stubMatchMedia(false);
+    render(<LanyardExperience />);
+    fireEvent.click(await waitFor(() => screen.getByRole("button", { name: "Acceptera alla" })));
+
+    expect(localStorage.getItem(CONSENT_KEY)).toBe("accepted");
+    expect(screen.getByRole("dialog", { name: "Cookie-inställningar" })).toBeTruthy();
+    expect(screen.getByTestId("cookie-flip-motion").style.animation).toContain("lanyard-fly-back");
+
+    fireEvent.transitionEnd(screen.getByTestId("cookie-flip-card"), { propertyName: "color" });
+    expect(screen.getByRole("dialog", { name: "Cookie-inställningar" })).toBeTruthy();
+
+    const motion = screen.getByTestId("cookie-flip-motion");
+    act(() => {
+      // jsdom saknar AnimationEvent, så React lyssnar på webkit-prefixet.
+      motion.dispatchEvent(new Event("animationend", { bubbles: true }));
+      motion.dispatchEvent(new Event("webkitAnimationEnd", { bubbles: true }));
+    });
+    expect(screen.queryByRole("dialog", { name: "Cookie-inställningar" })).toBeNull();
+  });
+
+  it("unmounts the cookie card from the card flip transition", async () => {
+    originalMatchMedia = stubMatchMedia(false);
+    render(<LanyardExperience />);
+    fireEvent.click(await waitFor(() => screen.getByRole("button", { name: "Endast nödvändiga" })));
+
+    expect(localStorage.getItem(CONSENT_KEY)).toBe("declined");
+    fireEvent.transitionEnd(screen.getByTestId("cookie-flip-card"), { propertyName: "transform" });
+    expect(screen.queryByRole("dialog", { name: "Cookie-inställningar" })).toBeNull();
+  });
+
+  it("unmounts the cookie card on a timeout when the flip animation does not run", async () => {
+    originalMatchMedia = stubMatchMedia(false);
+    render(<LanyardExperience />);
+    const accept = await waitFor(() => screen.getByRole("button", { name: "Acceptera alla" }));
+    vi.useFakeTimers();
+    fireEvent.click(accept);
+
+    expect(localStorage.getItem(CONSENT_KEY)).toBe("accepted");
+    expect(screen.getByRole("dialog", { name: "Cookie-inställningar" })).toBeTruthy();
+
+    act(() => {
+      vi.advanceTimersByTime(FLIP_MS_DESKTOP);
+    });
+    expect(screen.getByRole("dialog", { name: "Cookie-inställningar" })).toBeTruthy();
+
+    act(() => {
+      vi.advanceTimersByTime(FLIP_END_FALLBACK_MS);
+    });
+    expect(screen.queryByRole("dialog", { name: "Cookie-inställningar" })).toBeNull();
   });
 });
