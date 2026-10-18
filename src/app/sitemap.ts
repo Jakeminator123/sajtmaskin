@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { hasPublishedBlogPosts } from "@/lib/blog/posts";
 import { publicCanonicalPath } from "@/lib/public-canonical-url";
 import { getIndexableSeoLandingRelPaths } from "@/lib/seo-landing-pages/registry";
 
@@ -12,8 +13,9 @@ import { getIndexableSeoLandingRelPaths } from "@/lib/seo-landing-pages/registry
  *   och sätt `status: "ready"` först när sidan har unikt indexerbart innehåll.
  *   Sitemap hämtar de sidorna automatiskt — lägg inte placeholders här.
  *
- * `/blogg` utelämnas tills riktiga inlägg finns. Ta då bort sidans noindex
- * och återställ sitemap-posten i samma ändring.
+ * `/blogg` läggs till automatiskt när `PUBLISHED_BLOG_POSTS` inte är tom.
+ * Tunna engelska `/category/*`-index ligger kvar som rutter men är noindex
+ * och ska inte listas här.
  *
  * Auth-gatingade eller noindex-ytor (`/buy-credits`, `/analys`, `/builder`, …)
  * hör inte här. `lastModified` utelämnas medvetet — körningstid är inte ett
@@ -26,11 +28,13 @@ export const STATIC_SITEMAP_REL_PATHS = [
   "/faq",
   "/om",
   "/exempel",
+  "/priser",
   "/terms",
   "/privacy",
 ] as const;
 
-export const SITEMAP_CATEGORY_SLUGS = [
+/** Thin English v0 category indexes. Keep the routes; never sitemap them. */
+export const NOINDEX_CATEGORY_SLUGS = [
   "ai",
   "animations",
   "components",
@@ -49,7 +53,7 @@ function sitemapEntry(path: string): MetadataRoute.Sitemap[number] {
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     ...STATIC_SITEMAP_REL_PATHS.map((path) => sitemapEntry(path)),
-    ...SITEMAP_CATEGORY_SLUGS.map((category) => sitemapEntry(`/category/${category}`)),
+    ...(hasPublishedBlogPosts() ? [sitemapEntry("/blogg")] : []),
     ...getIndexableSeoLandingRelPaths().map((path) => sitemapEntry(path)),
   ];
 }

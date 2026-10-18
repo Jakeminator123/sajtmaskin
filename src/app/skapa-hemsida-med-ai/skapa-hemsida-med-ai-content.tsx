@@ -107,7 +107,7 @@ const COMPARISON_ROWS = [
   },
 ] as const;
 
-const FAQS = [
+export const FAQS = [
   {
     q: "Kan AI skapa en hel hemsida?",
     a: "AI kan skapa en första version: struktur, layout och texter som en riktig sajt. Det är ett utkast att granska, inte ett löfte om att allt är klart för kunder samma sekund. Undersidor i första bygget är begränsade, och integrationer som betalning eller inloggning är demo tills du uttryckligen bygger dem.",
@@ -477,7 +477,7 @@ export function SkapaHemsidaMedAiContent() {
               </dl>
               <p className="mt-6 text-sm text-muted-foreground">
                 Mer om credits och paket finns på{" "}
-                <Link href="/#priser" className="text-foreground underline-offset-4 hover:underline">
+                <Link href="/priser" className="text-foreground underline-offset-4 hover:underline">
                   prissidan
                 </Link>
                 . Tekniken bakom sajterna finns på{" "}

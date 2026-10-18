@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Footer } from "@/components/layout/footer";
+import { hasPublishedBlogPosts } from "@/lib/blog/posts";
 import { publicIndexRobots, publicPageAlternates } from "@/lib/public-canonical-url";
 
 export const metadata: Metadata = {
@@ -8,8 +9,9 @@ export const metadata: Metadata = {
   description:
     "Artiklar om Sajtmaskin, webb bästa praxis och produktnyheter — första inlägg publiceras när redaktionen är igång.",
   alternates: publicPageAlternates("/blogg"),
-  // Restore indexing and the sitemap entry together when real posts are published.
-  robots: { ...publicIndexRobots(), index: false },
+  robots: hasPublishedBlogPosts()
+    ? publicIndexRobots()
+    : { ...publicIndexRobots(), index: false },
 };
 
 export default function BloggPage() {

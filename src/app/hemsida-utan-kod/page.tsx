@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createSeoLandingMetadata } from "@/lib/seo-landing-pages/metadata";
-import { HemsidaUtanKodContent } from "./hemsida-utan-kod-content";
+import { SeoLandingJsonLd } from "@/lib/seo-landing-pages/structured-data";
+import { FAQS, HemsidaUtanKodContent } from "./hemsida-utan-kod-content";
 
 /**
  * No-code SEO landing: what you can do without programming, and what you cannot skip.
@@ -11,5 +12,10 @@ import { HemsidaUtanKodContent } from "./hemsida-utan-kod-content";
 export const metadata: Metadata = createSeoLandingMetadata("hemsida-utan-kod");
 
 export default function HemsidaUtanKodPage() {
-  return <HemsidaUtanKodContent />;
+  return (
+    <>
+      <SeoLandingJsonLd slug="hemsida-utan-kod" faqs={FAQS} />
+      <HemsidaUtanKodContent />
+    </>
+  );
 }
