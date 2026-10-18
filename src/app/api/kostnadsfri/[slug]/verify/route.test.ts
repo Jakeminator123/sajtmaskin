@@ -11,6 +11,7 @@ const isKostnadsfriLookupConfigured = vi.hoisted(() => vi.fn(() => false));
 const lookupKostnadsfriProfile = vi.hoisted(() => vi.fn());
 const getCurrentUser = vi.hoisted(() => vi.fn(async (): Promise<unknown> => null));
 const setAuthCookie = vi.hoisted(() => vi.fn(async () => undefined));
+const clearAuthCookie = vi.hoisted(() => vi.fn(async () => undefined));
 const createToken = vi.hoisted(() => vi.fn(() => "campaign-token"));
 const CAMPAIGN_USER = vi.hoisted(() => ({
   id: "user_campaign",
@@ -46,6 +47,7 @@ vi.mock("@/lib/db/services/analytics", () => ({
 }));
 
 vi.mock("@/lib/auth/auth", () => ({
+  clearAuthCookie,
   createToken,
   getCurrentUser,
   setAuthCookie,
@@ -493,8 +495,25 @@ describe("kostnadsfri verify route — kampanjkonto", () => {
 
       await expect(res.json()).resolves.toMatchObject({ success: true, account: "claimed" });
       expect(setAuthCookie).not.toHaveBeenCalled();
+      expect(clearAuthCookie).not.toHaveBeenCalled();
     },
   );
+
+  it("loggar ut en annan inbjudans kampanjsession när den här redan är sparad", async () => {
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+    getCurrentUser.mockResolvedValue({ id: "user_other_campaign", provider: "kostnadsfri" });
+    findOrCreateKostnadsfriCampaignUser.mockResolvedValue({
+      ...CAMPAIGN_USER,
+      provider: "kostnadsfri_claimed",
+    });
+
+    const res = await POST(verifyOverHttps("rätt"), params);
+
+    await expect(res.json()).resolves.toMatchObject({ success: true, account: "claimed" });
+    expect(clearAuthCookie).toHaveBeenCalledWith({ secure: true });
+    expect(setAuthCookie).not.toHaveBeenCalled();
+  });
 
   it("verifierar inbjudan även när kontot inte kan skapas", async () => {
     verifyPassword.mockReturnValue(true);

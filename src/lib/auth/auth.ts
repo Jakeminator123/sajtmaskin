@@ -19,6 +19,7 @@ import {
 import type { User } from "@/lib/db/services/shared";
 import { isAdminEmailEdge } from "@/lib/auth/edge-auth";
 import { SECRETS, URLS, IS_PRODUCTION } from "@/lib/config";
+import { KOSTNADSFRI_CAMPAIGN_CLAIMED_PROVIDER } from "@/lib/kostnadsfri/campaign-account";
 import {
   AUTH_COOKIE_HOST_NAME,
   AUTH_COOKIE_LEGACY_NAME,
@@ -276,6 +277,14 @@ export function getTokenFromRequest(request: Request): string | null {
 /**
  * Get current authenticated user from request
  */
+/**
+ * A saved campaign account handed everything to the customer's own account;
+ * sessions issued before the save must not keep acting as it.
+ */
+function sessionUser(user: User | null): User | null {
+  return user?.provider === KOSTNADSFRI_CAMPAIGN_CLAIMED_PROVIDER ? null : user;
+}
+
 export async function getCurrentUser(request: Request): Promise<User | null> {
   const token = getTokenFromRequest(request);
   if (!token) return null;
@@ -283,8 +292,7 @@ export async function getCurrentUser(request: Request): Promise<User | null> {
   const payload = verifyToken(token);
   if (!payload) return null;
 
-  const user = await getUserById(payload.userId);
-  return user;
+  return sessionUser(await getUserById(payload.userId));
 }
 
 /**
@@ -302,7 +310,7 @@ export async function getCurrentUserFromCookies(): Promise<User | null> {
   const payload = verifyToken(token);
   if (!payload) return null;
 
-  return getUserById(payload.userId);
+  return sessionUser(await getUserById(payload.userId));
 }
 
 /**

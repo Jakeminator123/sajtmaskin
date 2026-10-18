@@ -30,14 +30,20 @@ function writeClaimPending(pending: boolean): void {
   }
 }
 
-async function postClaim(action: "start" | "complete"): Promise<{ ok: boolean; error?: string }> {
+type ClaimResult = { ok: boolean; status: number; error?: string };
+
+async function postClaim(action: "start" | "complete"): Promise<ClaimResult> {
   const response = await fetch("/api/kostnadsfri/claim", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action }),
   });
   const data = (await response.json().catch(() => null)) as { error?: string } | null;
-  return { ok: response.ok, error: data?.error };
+  return { ok: response.ok, status: response.status, error: data?.error };
+}
+
+function isTransientClaimFailure(status: number): boolean {
+  return status === 0 || status === 429 || status >= 500;
 }
 
 /**
@@ -55,6 +61,7 @@ export function CampaignAccountBanner() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const [completeAttempt, setCompleteAttempt] = useState(0);
   const completingRef = useRef(false);
 
   useEffect(() => {
@@ -62,22 +69,27 @@ export function CampaignAccountBanner() {
     if (!readClaimPending()) return;
     completingRef.current = true;
     void (async () => {
-      try {
-        const result = await postClaim("complete");
-        if (result.ok) {
-          toast.success("Kontot är sparat. Sajten finns nu på ditt konto.");
-          void mutate(() => true);
-          void fetchUser();
-        } else {
-          toast.error(result.error ?? "Kontot kunde inte sparas.");
-        }
-      } catch {
-        toast.error("Kontot kunde inte sparas.");
-      } finally {
+      const result = await postClaim("complete").catch(() => ({ ok: false, status: 0 }) as ClaimResult);
+      if (result.ok) {
         writeClaimPending(false);
+        toast.success("Kontot är sparat. Sajten finns nu på ditt konto.");
+        void mutate(() => true);
+        void fetchUser();
+        return;
       }
+      if (isTransientClaimFailure(result.status)) {
+        // The banner is gone once the customer's own account is signed in, so
+        // the pending flag (and the server ticket) is the only way to retry.
+        completingRef.current = false;
+        toast.error("Kontot kunde inte sparas just nu.", {
+          action: { label: "Försök igen", onClick: () => setCompleteAttempt((n) => n + 1) },
+        });
+        return;
+      }
+      writeClaimPending(false);
+      toast.error(result.error ?? "Kontot kunde inte sparas.");
     })();
-  }, [user, fetchUser, mutate]);
+  }, [user, fetchUser, mutate, completeAttempt]);
 
   if (!isUnclaimedCampaignAccount(user) || dismissed) return null;
 

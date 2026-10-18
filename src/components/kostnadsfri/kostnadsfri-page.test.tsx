@@ -238,10 +238,16 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
     expect(screen.queryByText("Ett konto behövs för att bygga hemsidan")).toBeNull();
   });
 
-  it("visar att inbjudan redan är sparad till ett annat konto", async () => {
-    auth.isAuthenticated = false;
+  it("bygger inte på en kvarlämnad session när inbjudan redan är sparad", async () => {
+    auth.isAuthenticated = true;
     fixtures.account = "claimed";
+    // Verify cleared the leftover campaign session; the refresh after the
+    // password step is what reports it.
+    auth.fetchUser.mockResolvedValueOnce(undefined).mockImplementationOnce(async () => {
+      auth.isAuthenticated = false;
+    });
     render(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+    await waitFor(() => expect(auth.fetchUser).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));
     fireEvent.click(await screen.findByRole("button", { name: "Klara wizarden" }));
 
@@ -256,7 +262,7 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
         ),
       ).toBeTruthy();
     });
-    expect(auth.fetchUser).toHaveBeenCalledTimes(1);
+    expect(auth.fetchUser).toHaveBeenCalledTimes(2);
     expect(projects.createProject).not.toHaveBeenCalled();
   });
 

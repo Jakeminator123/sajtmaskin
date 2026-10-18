@@ -1,6 +1,12 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { createToken, getCurrentUser, setAuthCookie, verifyPassword } from "@/lib/auth/auth";
+import {
+  clearAuthCookie,
+  createToken,
+  getCurrentUser,
+  setAuthCookie,
+  verifyPassword,
+} from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { recordPageView } from "@/lib/db/services/analytics";
 import { findOrCreateKostnadsfriCampaignUser } from "@/lib/db/services/kostnadsfri-account";
@@ -166,16 +172,17 @@ async function signInCampaignAccount(
       email: kostnadsfriCampaignEmail(slug),
       companyName,
     });
+    const secure = new URL(request.url).protocol === "https:";
     if (!isUnclaimedCampaignAccount(campaignUser)) {
       if (!isCampaignAccountProvider(campaignUser.provider)) {
         console.warn("[API/kostnadsfri/verify] Campaign address is held by a non-campaign account");
       }
+      // Another invitation's campaign session must not build on this one.
+      if (current) await clearAuthCookie({ secure });
       return "claimed";
     }
 
-    await setAuthCookie(createToken(campaignUser.id, campaignUser.email), {
-      secure: new URL(request.url).protocol === "https:",
-    });
+    await setAuthCookie(createToken(campaignUser.id, campaignUser.email), { secure });
     after(async () => {
       try {
         await updateUserLastLogin(campaignUser.id);

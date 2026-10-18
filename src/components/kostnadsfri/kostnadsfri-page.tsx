@@ -170,9 +170,9 @@ export function KostnadsfriPage({
     data: KostnadsfriCompanyData,
     account: CampaignAccountStatus,
   ) => {
-    // The auth cookie is already set; refresh the store before the next phase
-    // so «Fortsätt» does not read a stale logged-out state.
-    if (account === "campaign") await fetchUser();
+    // Verify set (campaign) or cleared (claimed) the auth cookie; refresh the
+    // store before the next phase so «Fortsätt» does not read a stale session.
+    if (account === "campaign" || account === "claimed") await fetchUser();
     setAccountNotice(
       account === "claimed"
         ? "Inbjudan är redan sparad till ett konto. Logga in med det kontot för att fortsätta."
