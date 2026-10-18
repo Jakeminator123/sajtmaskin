@@ -26,7 +26,7 @@ import {
   resolveWizardIndustryHint,
   wizardIndustryLabel,
   wizardPurposeLabel,
-  wizardVibeLabel,
+  wizardVibeUiLabel,
 } from "@/lib/builder/wizard-taxonomy";
 import type { KostnadsfriCompanyData, MiniWizardData } from "./index";
 
@@ -177,7 +177,7 @@ export function buildKostnadsfriAgentBrief(input: {
     if (usp) brief.usp = usp;
 
     const vibe = text(wizardData.designVibe, 40);
-    if (vibe) brief.vibeLabel = wizardVibeLabel(vibe);
+    if (vibe) brief.vibeLabel = wizardVibeUiLabel(vibe);
 
     const paletteName = text(wizardData.paletteName, 80);
     if (paletteName) brief.paletteName = paletteName;

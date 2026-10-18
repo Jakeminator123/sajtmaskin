@@ -827,7 +827,11 @@ export interface KostnadsfriSlugStats {
   uniqueVisitors: number;
   /** Successful password verifications. */
   verified: number;
-  /** Completed wizards (builder handoff created). */
+  /** Client-reported: wizard done, Sajtagenten step reached. Can be inflated. */
+  wizardDone: number;
+  /** Client-reported: login/register wall shown. Can be inflated. */
+  authShown: number;
+  /** Prompt handoff created after login, before the builder. */
   started: number;
   firstSeen: string;
   lastSeen: string;
@@ -898,6 +902,8 @@ export async function getKostnadsfriVisitStats(
         visits: 0,
         uniqueVisitors: 0,
         verified: 0,
+        wizardDone: 0,
+        authShown: 0,
         started: 0,
         firstSeen: at,
         lastSeen: at,
@@ -914,7 +920,11 @@ export async function getKostnadsfriVisitStats(
       entry.visitorKeys.add(row.session_id || row.ip_address || `row:${at}`);
     } else if (parsed.event === "verifierad") {
       entry.verified += 1;
-    } else {
+    } else if (parsed.event === "wizard") {
+      entry.wizardDone += 1;
+    } else if (parsed.event === "konto") {
+      entry.authShown += 1;
+    } else if (parsed.event === "skapad") {
       entry.started += 1;
     }
 

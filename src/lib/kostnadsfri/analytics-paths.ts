@@ -2,10 +2,12 @@
  * Kostnadsfri visit tracking — path conventions.
  *
  * Visits to `/kostnadsfri/<slug>` are already recorded by the global
- * `AnalyticsTracker` into `page_views`. The two later steps of the flow
- * (password verified, wizard completed) are recorded server-side into the same
- * table as synthetic paths so the admin console can show, per slug, how far
- * each invited company got — without a second event table.
+ * `AnalyticsTracker` into `page_views`. Later steps of the flow are recorded
+ * into the same table as synthetic paths so the admin console can show, per
+ * slug, how far each invited company got — without a second event table:
+ * `verifierad` (password verified) and `skapad` (prompt handoff created after
+ * login) server-side; `wizard` (wizard done, Sajtagenten step reached) and
+ * `konto` (login/register wall shown) client-reported.
  *
  * Client-safe: no Node imports (the flow page bundles this file).
  */
@@ -15,13 +17,15 @@ export const KOSTNADSFRI_PATH_PREFIX = "/kostnadsfri/";
 /** Invite-only offer page. Sibling of the slug prefix, not a funnel path. */
 export const KOSTNADSFRI_INFORMATION_PATH = "/kostnadsfri-information";
 
-export type KostnadsfriAnalyticsEvent = "besok" | "verifierad" | "skapad";
+export type KostnadsfriAnalyticsEvent = "besok" | "verifierad" | "wizard" | "konto" | "skapad";
 
 /** How a `/kostnadsfri/<slug>` visit relates to the send register. */
 export type KostnadsfriSlugKind = "utskick" | "ej_utskick" | "skrap";
 
 const EVENT_SEGMENTS: Record<Exclude<KostnadsfriAnalyticsEvent, "besok">, string> = {
   verifierad: "verifierad",
+  wizard: "wizard",
+  konto: "konto",
   skapad: "skapad",
 };
 
@@ -61,7 +65,9 @@ export function kostnadsfriEventPath(
  * `skapad` only by `POST /api/prompts` when the handoff row is created. A
  * browser beacon (or the page-view tracker on a 404 at that URL) must never
  * record them, or the admin funnel could be forged by anyone who knows the
- * path convention. Only `besok` is client-reported, like every other page view.
+ * path convention. `besok`, `wizard` and `konto` are client-reported like every
+ * other page view: diagnostics that can be inflated, so they must never gate
+ * anything.
  */
 export function isServerOnlyKostnadsfriPath(path: string): boolean {
   const event = parseKostnadsfriAnalyticsPath(path)?.event;
@@ -83,6 +89,8 @@ export function parseKostnadsfriAnalyticsPath(
   if (!slug || deeper.length > 0) return null;
   if (segment === undefined || segment === "") return { slug, event: "besok" };
   if (segment === EVENT_SEGMENTS.verifierad) return { slug, event: "verifierad" };
+  if (segment === EVENT_SEGMENTS.wizard) return { slug, event: "wizard" };
+  if (segment === EVENT_SEGMENTS.konto) return { slug, event: "konto" };
   if (segment === EVENT_SEGMENTS.skapad) return { slug, event: "skapad" };
   return null;
 }
