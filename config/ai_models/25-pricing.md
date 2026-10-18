@@ -5,36 +5,39 @@ Pris- och kapacitetsreferens för modellerna i `manifest.json`. **Detta är en
 filen. Verifiera alltid mot leverantörens pris-sida innan budgetbeslut.
 Kanonisk siffertabell för cost-scripts: [`pricing.json`](pricing.json).
 
-- **Senast verifierad:** 2026-09-02
+- **Senast verifierad:** 2026-10-17
 - **Källor:**
-  - OpenAI: <https://developers.openai.com/api/docs/models/gpt-5.6-sol> + pricing-sidan
+  - OpenAI: <https://developers.openai.com/api/docs/models/gpt-6.1-sol>, <https://developers.openai.com/api/docs/models/gpt-6-luna> + pricing-sidan
   - Anthropic: <https://platform.claude.com/docs/en/about-claude/models/whats-new-claude-4-8> + <https://www.anthropic.com/claude/opus>
 
 ## Policy (viktigt)
 
 | Regel                                                                         | Varför                                                                                      |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| **Låg / Mellan / Hög använder `gpt-5.6-sol`, inte ett separat `-pro`-modell-ID.** | Längre resonemang styrs med `reasoningEffort` (medium / high / xhigh) i `reasoningMode: "standard"`. |
+| **Låg / Mellan / Hög använder `gpt-6.1-sol`, inte ett separat `-pro`-modell-ID.** | Längre resonemang styrs med `reasoningEffort` (medium / high / xhigh) i `reasoningMode: "standard"`. |
 | **`reasoningMode: "pro"` är inte längre default.**                            | Valbart i backoffice. Prod `llm_usage` 28 jul–1 sep 2026 visade ~6× fakturerad input (142k vs 22k p50) när Premium körde pro-läge. |
-| **Alla GPT-5.6-effortnivåer är tillåtna.**                                    | `none`, `low`, `medium`, `high`, `xhigh`, `max` finns i schema, runtime och backoffice.     |
-| Små/utility-anrop hålls på `gpt-5-mini` / `gpt-5-nano` eller 5.6-syskon.      | Vision/live-review/wizard kör Terra/Luna/Sol. `gpt-5.4-mini` är pensionerad (alias → Sol). |
+| **GPT-6.1 Sol och GPT-6 Astra saknar `none`.**                                | Runtime klampar begärd effort per modell (`openai-capabilities.ts`); Luna och GPT-5.6 har hela `none` … `max`. |
+| Små/utility-anrop kör `gpt-6-luna` med `none` (audit Vanlig/publik: `low`).   | Vision/live-review kör `gpt-6.1-sol` på `low`. `gpt-5.4-mini`, `gpt-5.3-codex`, `gpt-4.1` och `gpt-4o-mini` aliasas till GPT-6. |
 
 ## OpenAI (per 1M tokens, standardnivå)
 
 | Modell            | Input  | Cached input | Output | Status                                                                 |
 | ----------------- | ------ | ------------ | ------ | ---------------------------------------------------------------------- |
-| `gpt-5.6-sol`     | $4.00  | $0.40        | $20.00 | **Byggmodell** för Låg/Mellan/Hög (kampanjpris t.o.m. 2026-11-21)      |
-| `gpt-5.6-terra`   | $2.00  | $0.20        | $12.00 | Sidofas (Låg fixer/deploy, Mellan/Hög verifier) + vision/brief Låg     |
-| `gpt-5.6-luna`    | $0.20  | $0.02        | $1.20  | Låg verifier + billig fallback                                         |
+| `gpt-6.1-sol`     | $2.00  | $0.10        | $10.00 | **Byggmodell** för Låg/Mellan/Hög + fixer, verifier, brief, vision     |
+| `gpt-6-luna`      | $0.10  | $0.01        | $0.50  | Låg verifier, korta hjälpanrop, audit Vanlig/publik                    |
+| `gpt-6-astra`     | $10.00 | $1.00        | $50.00 | Prissatt men inte routad (kräver ägarsatta fasta kundpriser först)     |
+| `gpt-5.6-sol`     | $4.00  | $0.40        | $20.00 | Tidigare byggmodell; audit Avancerad-reserv och persisterade rader     |
+| `gpt-5.6-terra`   | $2.00  | $0.20        | $12.00 | Persisterade rader / env-overrides (ingen GPT-6 Terra finns)           |
+| `gpt-5.6-luna`    | $0.20  | $0.02        | $1.20  | Audit Vanlig/publik-reserv och persisterade rader                      |
 | `gpt-5.5`         | $5.00  | $0.50        | $30.00 | Bara persisterade rader / env-overrides — inte en byggprofil-default   |
 | `gpt-5.4`         | $2.50  | $0.25        | $15.00 | Legacy (kvar för persisterad data)                                     |
-| `gpt-5.4-mini`    | $0.75  | $0.075       | $4.50  | Pensionerad; aliasas till `gpt-5.6-sol`                                |
+| `gpt-5.4-mini`    | $0.75  | $0.075       | $4.50  | Pensionerad; aliasas till `gpt-6.1-sol`                                |
 | `gpt-5.4-nano`    | $0.20  | $0.02        | $1.25  | (ej i bruk i manifest)                                                 |
-| `gpt-5.3-codex`   | ~$2.50 | ~$0.25       | ~$15   | Bara persisterade rader. Uppskattat (Codex credit-kort, `estimated`)   |
+| `gpt-5.3-codex`   | ~$2.50 | ~$0.25       | ~$15   | Deprecerad av OpenAI; aliasas till `gpt-6.1-sol`. Pris kvar för historik |
 | `gpt-5.5-pro`     | ~$15–30| –            | ~$90–180 | **Använd ej** (policy)                                               |
 
 `gpt-5.5` är ~2× `gpt-5.4` (in och ut) och lever kvar för gamla rader.
-Kontextfönster för GPT-5.6: **1 050 000** tokens, 128k max output.
+Kontextfönster för GPT-6.1 Sol, GPT-6 Luna och GPT-5.6: **1 050 000** tokens, 128k max output.
 Requests över 272k input debiteras 2× input / 1,5× output.
 
 ## Anthropic (per 1M tokens, standardnivå)
@@ -53,23 +56,21 @@ Requests över 272k input debiteras 2× input / 1,5× output.
 
 | Yta (manifest)                                                                  | Modell                                 | Prisklass  |
 | ------------------------------------------------------------------------------- | -------------------------------------- | ---------- |
-| `buildProfiles.defaults.pro` / `.max` / `.premium` / `.codex`                   | `gpt-5.6-sol`                          | hög (kampanj) |
-| `qualityToOwnEngineModel.*`                                                     | `gpt-5.6-sol`                          | hög (kampanj) |
-| `phaseRouting` Låg fixer/deploy; Mellan/Hög verifier                            | `gpt-5.6-terra`                        | medel      |
-| `phaseRouting` Låg verifier                                                     | `gpt-5.6-luna`                         | låg        |
-| `perTierBriefing.pro`                                                           | `openai/gpt-5.6-terra`                 | medel      |
-| `perTierBriefing` max / premium / codex + `briefing.defaults.*`                 | `openai/gpt-5.6-sol`                   | hög        |
-| `analyze_presentation_vision` / `backoffice_scaffold_wizard_persona` / `live_review` | `gpt-5.6-terra` (+ 5.6 visionModels) | medel      |
-| `backoffice_scaffold_wizard_guide`                                              | `gpt-5.6-luna`                         | låg        |
-| `backoffice_dossier_curation`                                                   | `gpt-5.6-sol`                          | hög        |
+| `buildProfiles.defaults.pro` / `.max` / `.premium` / `.codex`                   | `gpt-6.1-sol`                          | medel      |
+| `qualityToOwnEngineModel.*`                                                     | `gpt-6.1-sol`                          | medel      |
+| `phaseRouting` fixer, deploy-assistant; Mellan/Hög verifier                     | `gpt-6.1-sol`                          | medel      |
+| `phaseRouting` Låg verifier                                                     | `gpt-6-luna`                           | mycket låg |
+| `perTierBriefing` pro / max / premium / codex + `briefing.defaults.*`           | `openai/gpt-6.1-sol`                   | medel      |
+| `analyze_presentation_vision` / `backoffice_scaffold_wizard_persona` / `live_review` | `gpt-6.1-sol` (+ `gpt-6-luna` reserv) | medel      |
+| `backoffice_scaffold_wizard_guide`                                              | `gpt-6-luna`                           | mycket låg |
+| `backoffice_dossier_curation`                                                   | `gpt-6.1-sol`                          | medel      |
 | `phaseRouting.anthropic`                                                        | `claude-opus-4.8`                      | hög        |
-| `audit_structured` (inloggad produkt-audit)                                     | `openai/gpt-5.6-sol`                   | hög (kampanj) |
-| `audit_structured_public` (gratis `/analys`)                                    | `openai/gpt-5.6-luna`                  | låg |
-| `domain_suggestions`                                                            | `openai/gpt-5.2`                       | medel      |
-| utility (`project_analyze`, `wizard_*`, `inspector_ai_match`, `analyze_*`)      | `gpt-5-mini` / `gpt-5-nano`            | låg        |
+| `audit_structured` (inloggad Avancerad)                                         | `openai/gpt-6.1-sol` (reserv `gpt-5.6-sol`) | medel |
+| `audit_structured_public` (gratis `/analys` + betald Vanlig)                    | `openai/gpt-6-luna` (reserv `gpt-5.6-luna`) | mycket låg |
+| utility (`project_analyze`, `text_analyze`, `wizard_*`, `inspector_ai_match`, `analyze_*`, `domain_suggestions`, `company_lookup`, `seo_publish_copy`, `match_classifier`, `prompt_rewrite`) | `gpt-6-luna` | mycket låg |
 | embeddings                                                                      | `text-embedding-3-small`               | mycket låg |
 
-> **Budget-not:** Alla GPT-5.6-varianter har 1,05M-fönster. `modelBudgetScale()`
+> **Budget-not:** GPT-6.1 Sol, GPT-6 Luna och GPT-5.6 har 1,05M-fönster. `modelBudgetScale()`
 > klampar därför Premium till takvärdet 3.0×. Requests över 272k input debiteras
 > dessutom med 2× input och 1,5× output.
 > Justera `src/lib/models/context-window.ts` om du vill kapa det.
