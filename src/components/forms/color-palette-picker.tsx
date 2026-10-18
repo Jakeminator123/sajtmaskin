@@ -244,6 +244,11 @@ export function getIndustryPalettes(industry: string): ColorPalette[] {
   return [...combined, ...remaining];
 }
 
+export function findPaletteByName(name: string | null | undefined): ColorPalette | null {
+  if (!name) return null;
+  return [...INDUSTRY_PALETTES, ...PREDEFINED_PALETTES].find((p) => p.name === name) ?? null;
+}
+
 interface ColorPalettePickerProps {
   selectedPalette: ColorPalette | null;
   onSelect: (palette: ColorPalette) => void;

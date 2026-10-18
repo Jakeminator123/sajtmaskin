@@ -69,6 +69,15 @@ describe("MiniWizard — återställd palett", () => {
     );
   });
 
+  it("behåller en branschpalett även om branschen byttes efter valet", () => {
+    const onComplete = openDesignStep({ ...SAVED, industry: "consulting" });
+    fireEvent.click(screen.getByRole("button", { name: /Skapa webbplats/ }));
+
+    expect(onComplete).toHaveBeenCalledWith(
+      expect.objectContaining({ paletteName: "Café Brun", colorPrimary: "#78350F" }),
+    );
+  });
+
   it("visar återställda egna färger i stället för att gömma dem", () => {
     openDesignStep({ ...SAVED, colorPrimary: "#123456" });
 
