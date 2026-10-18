@@ -371,9 +371,9 @@ export function BuilderHeader(props: {
                     </TooltipTrigger>
                     <TooltipContent side="left" className="max-w-xs">
                       <p className="text-xs">
-                        Aktiverar provider-reasoning. Låg/Mellan/Hög kör GPT-5.6 Sol med
-                        medium/high/xhigh enligt fasinställningarna; reglaget vid chatten
-                        väljer väg.
+                        På: Låg/Mellan/Hög kör GPT-6.1 Sol med medium/high/xhigh enligt
+                        fasinställningarna; reglaget vid chatten väljer väg. Av: modellens
+                        lägsta resonemangsnivå.
                       </p>
                     </TooltipContent>
                   </Tooltip>

@@ -86,13 +86,15 @@ export interface KostnadsfriAdminPayload {
     visits: number;
     uniqueVisitors: number;
     verified: number;
+    wizardDone: number;
+    authShown: number;
     started: number;
     firstSeen: string;
     lastSeen: string;
   }[];
   recent: {
     slug: string;
-    event: "besok" | "verifierad" | "skapad";
+    event: "besok" | "verifierad" | "wizard" | "konto" | "skapad";
     at: string;
     userEmail: string | null;
     userId: string | null;

@@ -363,17 +363,25 @@ export function kostnadsfriSlugFromPathname(pathname: string): string | null {
   }
 }
 
-export function buildKostnadsfriHandoffIntro(brief: Pick<
-  KostnadsfriAgentBrief,
-  "contactFirstName" | "companyName"
->): string {
+const FOLLOWUP_COUNT_WORDS = ["", "en kort fråga", "två korta frågor", "tre korta frågor"];
+
+export function buildKostnadsfriHandoffIntro(
+  brief: Pick<KostnadsfriAgentBrief, "contactFirstName" | "companyName">,
+  questionCount: number,
+): string {
   const name = brief.contactFirstName?.trim();
   const company = brief.companyName.trim();
   const welcome = name && company ? `Välkommen ${name} och ${company}.` : `Välkommen ${company}.`;
+  const countWords = FOLLOWUP_COUNT_WORDS[Math.max(0, Math.min(questionCount, 3))];
+  if (!countWords) {
+    return (
+      `${welcome} Tack för era svar, nu har jag det jag behöver. ` +
+      `Tryck på «${KOSTNADSFRI_FOLLOWUP_CONTINUE_LABEL}» så bygger vi en första version av er sajt.`
+    );
+  }
   return (
-    `${welcome} Utifrån den relativt knapphändiga information jag har om er ` +
-    `skulle jag vilja ställa några uppföljningsfrågor så att sajten blir så bra som möjligt. ` +
-    `Du kan prata in svaren eller skriva dem i chatten under min skärmbild.`
+    `${welcome} Tack för era svar. Jag har ${countWords} så att sajten blir rätt. ` +
+    `Svara i chatten, prata in svaret eller hoppa över.`
   );
 }
 
@@ -605,14 +613,24 @@ export function kostnadsfriCampaignManuscriptLines(input: {
     );
   }
 
+  if (brief?.stage === "handoff" && !campaign?.buildStarted) {
+    lines.push(
+      "Lova inte att något från chatten läggs in i sajten. Bara svar på en öppen följdfråga " +
+        "följer med till bygget; annat kan kunden be om i buildern efter första versionen.",
+    );
+  }
+
   if (lines.length === 0) return [];
+  lines.push(
+    "Skriv ren text utan markdown, inga asterisker eller rubriker: avataren läser upp svaret.",
+  );
   return ["[KAMPANJ-MANUS]", ...lines, "[/KAMPANJ-MANUS]"];
 }
 
 export function campaignCopyBundleForTests(): string {
   return [
-    buildKostnadsfriHandoffIntro({ companyName: "Zax", contactFirstName: "Jan" }),
-    buildKostnadsfriHandoffIntro({ companyName: "Zax" }),
+    buildKostnadsfriHandoffIntro({ companyName: "Zax", contactFirstName: "Jan" }, 2),
+    buildKostnadsfriHandoffIntro({ companyName: "Zax" }, 0),
     KOSTNADSFRI_FOLLOWUP_SKIP_LABEL,
     KOSTNADSFRI_FOLLOWUP_CONTINUE_LABEL,
     KOSTNADSFRI_FOLLOWUP_SKIP_HINT,

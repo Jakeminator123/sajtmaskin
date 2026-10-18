@@ -12,16 +12,20 @@ Codex och Cursor arbetar annars i den öppna checkouten, en skrivande session
 
 ## Skapa
 
-Bredvid repo-roten, aldrig under `.cursor/`:
+Utanför huvudcheckouten, i `%USERPROFILE%\.cursor\worktrees\sajtmaskin\<kort>`
+(där Cursor lägger sina). Aldrig inuti repot och inte som syskon i
+projektmappen. `<worktree>` nedan är den sökvägen:
 
 ```powershell
 git fetch origin
-git worktree add ..\sajtmaskin-<kort> -b <branch> origin/preview
-npm run worktree:setup -- ..\sajtmaskin-<kort>
+git worktree add <worktree> -b <branch> origin/preview
+npm run worktree:setup -- <worktree>
 ```
 
 Vanligt utvecklingsarbete utgår från `origin/preview`. Använd `origin/master`
-bara när påståendet gäller produktion.
+bara när påståendet gäller produktion. Behövs bara en parallell yta mot
+`preview` utan ny branch: `git worktree add --detach <worktree> origin/preview`,
+så låses inte `preview` för huvudcheckouten.
 
 `worktree:setup` kopierar bara uttryckligt listade, icke-känsliga filer från
 `.worktreeinclude` (tom som default) och seedar `.cursor/mcp.json` från den
@@ -31,7 +35,7 @@ vägrar ytor inuti checkouten (`.cursor/worktrees` inkluderat). Behöver du
 tester i worktreet:
 
 ```powershell
-Set-Location ..\sajtmaskin-<kort>
+Set-Location <worktree>
 npm ci
 npm run hooks:install
 ```
@@ -55,7 +59,7 @@ huvudcheckoutens `node_modules`.
 
 ```powershell
 npm run tidy
-npm run worktree:remove -- ..\sajtmaskin-<kort>
+npm run worktree:remove -- <worktree>
 ```
 
 Wrappern kopplar loss ev. länkar först. `--force` kräver

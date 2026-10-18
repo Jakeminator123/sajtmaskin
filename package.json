@@ -45,6 +45,7 @@
     "clean:scratch:apply": "node scripts/dev/clean-scratch.mjs --apply",
     "tidy": "node scripts/dev/tidy.mjs",
     "tidy:apply": "node scripts/dev/tidy.mjs --apply",
+    "inbox": "node scripts/dev/agent-inbox.mjs",
     "doctor": "node scripts/dev/doctor.mjs",
     "doctor:soft": "node scripts/dev/doctor.mjs --quiet || echo [doctor] skipped",
     "dev:unlock": "node scripts/dev/unlock-dev.mjs",

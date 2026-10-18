@@ -13,13 +13,14 @@
  * the provider's docs when adding a new model.
  */
 
-import type { OwnModelId } from "@/lib/models/catalog";
+import { aliasRetiredModelId, type OwnModelId } from "@/lib/models/catalog";
 
 const MODEL_CONTEXT_WINDOWS: Partial<Record<OwnModelId, number>> = {
-  // OpenAI direct API (api.openai.com)
-  "gpt-4.1": 1_000_000,
+  // OpenAI direct API (api.openai.com). Deprecated ids (gpt-5.3-codex,
+  // gpt-4.1) are aliased to gpt-6.1-sol before they reach budget sizing.
+  "gpt-6.1-sol": 1_050_000,
+  "gpt-6-luna": 1_050_000,
   "gpt-5.2": 400_000,
-  "gpt-5.3-codex": 400_000,
   "gpt-5.6-sol": 1_050_000,
   "gpt-5.6-terra": 1_050_000,
   "gpt-5.6-luna": 1_050_000,
@@ -47,5 +48,5 @@ export function getModelContextWindowTokens(
   modelId: string | null | undefined,
 ): number | undefined {
   if (!modelId) return undefined;
-  return MODEL_CONTEXT_WINDOWS[modelId as OwnModelId];
+  return MODEL_CONTEXT_WINDOWS[aliasRetiredModelId(modelId) as OwnModelId];
 }

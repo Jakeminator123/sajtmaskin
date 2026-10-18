@@ -52,7 +52,7 @@ export function FollowupStep({
       <p className="mb-6 text-sm text-muted-foreground">
         {question
           ? `Fråga ${session.currentIndex + 1} av ${session.questionIds.length}. Svara här, i chatten, eller hoppa över.`
-          : "Inga extra frågor. Fortsätt när du vill — bygget startar inte av sig självt."}
+          : `Allt vi behöver finns. Tryck på «${KOSTNADSFRI_FOLLOWUP_CONTINUE_LABEL}» så bygger vi en första version av er sajt.`}
       </p>
       {error ? (
         <p role="alert" className="mb-4 text-sm text-red-400">
