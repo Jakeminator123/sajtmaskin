@@ -6,6 +6,7 @@ import {
   getCurrentInitBuildChoices,
   resetInitBuildChoices,
 } from "@/lib/builder/init-build-choices";
+import { appendStreamWarning } from "@/lib/builder/stream-warning";
 import { normalizePlanArtifact } from "@/lib/gen/plan/schema";
 import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
@@ -720,9 +721,7 @@ export function useCreateChat(
             m.id === assistantMessageId
               ? {
                   ...m,
-                  content: m.content?.trim()
-                    ? `${m.content}\n\nVarning: ${message}`
-                    : `Varning: ${message}`,
+                  content: appendStreamWarning(m.content, message),
                   isStreaming: false,
                 }
               : m,

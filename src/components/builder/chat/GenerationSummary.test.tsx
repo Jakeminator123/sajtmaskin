@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { appendStreamWarning, splitTrailingStreamWarning } from "@/lib/builder/stream-warning";
 import { GenerationSummary } from "./GenerationSummary";
 
 const CODE_MARKER = "const SECRET_MARKER_FROM_CODE = 1;";
@@ -140,5 +141,34 @@ describe("GenerationSummary — fence-balans (F9)", () => {
 
     expect(screen.getByText("2 filer")).toBeTruthy();
     expect(screen.getByTestId("generation-summary-prose").textContent).toBe("Klart.");
+  });
+});
+
+describe("GenerationSummary — varning efter avbruten ström", () => {
+  const WARNING = "Anslutningen bröts innan svaret var klart.";
+
+  it.each([
+    ["en oavslutad fence", '```tsx file="app/kontakt/page.tsx"'],
+    ["en stream-header utan fence", 'tsx file="app/kontakt/page.tsx"'],
+  ])("visar varningen i svarsrutan när strömmen bröts inne i %s", (_label, header) => {
+    const streamed = ["Här kommer sidorna.", completeBlock("app/page.tsx"), header, CODE_MARKER].join("\n\n");
+
+    render(<GenerationSummary content={appendStreamWarning(streamed, WARNING)} />);
+
+    const prose = screen.getByTestId("generation-summary-prose");
+    expect(prose.textContent).toContain("Här kommer sidorna.");
+    expect(prose.textContent).toContain(`Varning: ${WARNING}`);
+    expect(prose.textContent).not.toContain(CODE_MARKER);
+  });
+
+  it("lämnar text där en fence följer efter markören som kod", () => {
+    expect(splitTrailingStreamWarning("Text\n\nVarning: x\n```tsx\ncode")).toEqual({
+      body: "Text\n\nVarning: x\n```tsx\ncode",
+      warning: null,
+    });
+    expect(splitTrailingStreamWarning(appendStreamWarning("", WARNING))).toEqual({
+      body: "",
+      warning: `Varning: ${WARNING}`,
+    });
   });
 });
