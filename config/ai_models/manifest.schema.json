@@ -373,6 +373,11 @@
           "followUpModel": { "type": "string" },
           "fallbackModels": { "type": "array", "items": { "type": "string" } },
           "visionModels": { "type": "array", "items": { "type": "string" } },
+          "reasoningEffort": {
+            "type": "string",
+            "enum": ["none", "low", "medium", "high", "xhigh", "max"],
+            "description": "Requested OpenAI reasoning effort for this workload. Callers clamp it to what each model accepts (GPT-6.1 Sol has no `none`)."
+          },
           "envOverrides": { "type": "object", "additionalProperties": { "type": "string" } },
           "tokenBudget": {
             "type": "object",

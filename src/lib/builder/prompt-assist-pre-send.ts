@@ -5,9 +5,13 @@
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
 import { getTemperatureConfig } from "@/lib/builder/direct-model";
 import { aliasRetiredModelId } from "@/lib/models/catalog";
+import {
+  minimumOpenAIReasoningEffort,
+  type OpenAIReasoningEffort,
+} from "@/lib/models/openai-capabilities";
 
 export const PROMPT_REWRITE_WORKLOAD_ID = "prompt_rewrite";
-export const PROMPT_REWRITE_FALLBACK_MODEL = "openai/gpt-5.6-terra";
+export const PROMPT_REWRITE_FALLBACK_MODEL = "openai/gpt-6-luna";
 export const PROMPT_ASSIST_DRAFT_MAX_CHARS = 8_000;
 /**
  * A rewrite of the largest allowed draft is about 2k tokens in Swedish/English.
@@ -50,15 +54,15 @@ export function buildPromptAssistMessages(draft: string): {
 export function buildPromptAssistModelOptions(modelId: string): {
   maxOutputTokens: number;
   temperature?: number;
-  providerOptions?: { openai: { reasoningEffort: "none" } };
+  providerOptions?: { openai: { reasoningEffort: OpenAIReasoningEffort } };
 } {
   const resolved = aliasRetiredModelId(modelId);
+  // Lowest effort the model accepts: `none` on GPT-6 Luna, `low` on GPT-6.1 Sol.
+  const effort = minimumOpenAIReasoningEffort(resolved);
   return {
     maxOutputTokens: PROMPT_REWRITE_MAX_OUTPUT_TOKENS,
     ...getTemperatureConfig(resolved, 0.3),
-    ...(/gpt-5\.6/i.test(resolved)
-      ? { providerOptions: { openai: { reasoningEffort: "none" as const } } }
-      : {}),
+    ...(effort ? { providerOptions: { openai: { reasoningEffort: effort } } } : {}),
   };
 }
 

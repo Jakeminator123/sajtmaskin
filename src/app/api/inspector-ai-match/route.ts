@@ -2,18 +2,20 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
+import { workloadChatReasoningEffort } from "@/lib/ai-models/workload-reasoning";
+import { calculateModelCost } from "@/lib/billing/model-cost";
 import { INSPECTOR_AI_MATCH_DEFAULT_MODEL } from "@/lib/gen/defaults";
+import { isOpenAIReasoningModelId } from "@/lib/models/openai-capabilities";
 import { withRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const INSPECTOR_AI_MATCH_WORKLOAD_ID = "inspector_ai_match";
 const MODEL = INSPECTOR_AI_MATCH_DEFAULT_MODEL;
 const MAX_CODE_CHARS = 12_000;
 const MAX_FILES = 6;
-
-const INPUT_COST_PER_M = 0.15;
-const OUTPUT_COST_PER_M = 0.6;
+const MAX_OUTPUT_TOKENS = 300;
 
 function getDirectApiKey(): string | null {
   const key = process.env.OPENAI_API_KEY;
@@ -155,16 +157,26 @@ ${codeBlock}`;
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      temperature: 0.1,
-      max_tokens: 300,
+      // Reasoning models reject `max_tokens`, and a custom temperature unless
+      // effort is `none`; workload effort is `none` on GPT-6 Luna.
+      ...(isOpenAIReasoningModelId(clientConfig.modelId)
+        ? {
+            max_completion_tokens: MAX_OUTPUT_TOKENS,
+            ...workloadChatReasoningEffort(INSPECTOR_AI_MATCH_WORKLOAD_ID, clientConfig.modelId),
+          }
+        : { max_tokens: MAX_OUTPUT_TOKENS, temperature: 0.1 }),
     });
 
     const usage = completion.usage;
     const inputTokens = usage?.prompt_tokens ?? 0;
     const outputTokens = usage?.completion_tokens ?? 0;
     const costUsd =
-      (inputTokens / 1_000_000) * INPUT_COST_PER_M +
-      (outputTokens / 1_000_000) * OUTPUT_COST_PER_M;
+      calculateModelCost(clientConfig.modelId, {
+        inputTokens,
+        cachedInputTokens: usage?.prompt_tokens_details?.cached_tokens ?? 0,
+        cacheWriteTokens: 0,
+        outputTokens,
+      })?.costUsd ?? null;
 
     const raw = completion.choices[0]?.message?.content?.trim() || "";
 
@@ -196,10 +208,14 @@ ${codeBlock}`;
         output: outputTokens,
         total: inputTokens + outputTokens,
       },
-      cost: {
-        usd: Number(costUsd.toFixed(6)),
-        display: costUsd < 0.001 ? `$${(costUsd * 100).toFixed(4)}c` : `$${costUsd.toFixed(4)}`,
-      },
+      cost:
+        costUsd === null
+          ? null
+          : {
+              usd: Number(costUsd.toFixed(6)),
+              display:
+                costUsd < 0.001 ? `$${(costUsd * 100).toFixed(4)}c` : `$${costUsd.toFixed(4)}`,
+            },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "AI-matchning misslyckades";

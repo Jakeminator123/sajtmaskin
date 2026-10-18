@@ -107,7 +107,7 @@ export function useInitBrief(params: PromptAssistConfig) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), PROMPT_ASSIST_TIMEOUT_MS);
       try {
-        dispatchInitBriefStatus("Skapar brief innan own-engine startar…");
+        dispatchInitBriefStatus("Planerar sajten…");
 
         const buildChoices = briefBuildChoicesFromMeta(
           buildInitBuildChoicesMeta(getCurrentInitBuildChoices()),

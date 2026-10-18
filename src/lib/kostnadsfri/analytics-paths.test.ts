@@ -18,6 +18,16 @@ describe("kostnadsfri analytics paths", () => {
     expect(
       parseKostnadsfriAnalyticsPath(kostnadsfriEventPath("jakobs-foretag-ab", "verifierad")),
     ).toEqual({ slug: "jakobs-foretag-ab", event: "verifierad" });
+    expect(kostnadsfriEventPath("ikea-ab", "wizard")).toBe("/kostnadsfri/ikea-ab/wizard");
+    expect(kostnadsfriEventPath("ikea-ab", "konto")).toBe("/kostnadsfri/ikea-ab/konto");
+    expect(parseKostnadsfriAnalyticsPath(kostnadsfriEventPath("ikea-ab", "wizard"))).toEqual({
+      slug: "ikea-ab",
+      event: "wizard",
+    });
+    expect(parseKostnadsfriAnalyticsPath("/kostnadsfri/ikea-ab/konto/")).toEqual({
+      slug: "ikea-ab",
+      event: "konto",
+    });
     expect(parseKostnadsfriAnalyticsPath(kostnadsfriEventPath("ikea-ab", "skapad"))).toEqual({
       slug: "ikea-ab",
       event: "skapad",
@@ -31,11 +41,13 @@ describe("kostnadsfri analytics paths", () => {
     });
   });
 
-  it("marks the funnel events as server-only, the landing visit not", () => {
+  it("marks the server-authored funnel events as server-only, client diagnostics not", () => {
     expect(isServerOnlyKostnadsfriPath(kostnadsfriEventPath("ikea-ab", "verifierad"))).toBe(true);
     expect(isServerOnlyKostnadsfriPath("/kostnadsfri/ikea-ab/verifierad/")).toBe(true);
     expect(isServerOnlyKostnadsfriPath(kostnadsfriEventPath("ikea-ab", "skapad"))).toBe(true);
     expect(isServerOnlyKostnadsfriPath(kostnadsfriVisitPath("ikea-ab"))).toBe(false);
+    expect(isServerOnlyKostnadsfriPath(kostnadsfriEventPath("ikea-ab", "wizard"))).toBe(false);
+    expect(isServerOnlyKostnadsfriPath(kostnadsfriEventPath("ikea-ab", "konto"))).toBe(false);
     expect(isServerOnlyKostnadsfriPath("/builder")).toBe(false);
   });
 
@@ -65,6 +77,7 @@ describe("kostnadsfri analytics paths", () => {
     expect(parseKostnadsfriAnalyticsPath("/kostnadsfri/")).toBeNull();
     expect(parseKostnadsfriAnalyticsPath("/kostnadsfri/ikea-ab/okand")).toBeNull();
     expect(parseKostnadsfriAnalyticsPath("/kostnadsfri/ikea-ab/skapad/mer")).toBeNull();
+    expect(parseKostnadsfriAnalyticsPath("/kostnadsfri/ikea-ab/wizard/mer")).toBeNull();
     expect(parseKostnadsfriAnalyticsPath(KOSTNADSFRI_INFORMATION_PATH)).toBeNull();
   });
 });

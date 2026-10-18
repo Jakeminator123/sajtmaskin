@@ -213,6 +213,8 @@ const workloadSchema = z.object({
    * while Python read it, and the two surfaces would drift silently.
    */
   visionModels: z.array(z.string()).optional(),
+  /** Requested OpenAI effort; see {@link getWorkloadReasoningEffortFromManifest}. */
+  reasoningEffort: reasoningEffortSchema.optional(),
   envOverrides: z.record(z.string(), z.string()).optional(),
   tokenBudget: tokenBudgetSchema.optional(),
   notes: z.string().optional(),
@@ -361,8 +363,8 @@ let cached: AiModelsManifest | null = null;
 
 const DEFAULT_PHASE_THINKING_BY_TIER: Record<BuildProfileId, PhaseThinkingTierFromManifest> = {
   premium: {
-    planner: { thinking: true, reasoningEffort: "high", reasoningMode: "pro" },
-    generator: { thinking: true, reasoningEffort: "high", reasoningMode: "pro" },
+    planner: { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
+    generator: { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
     fixer: { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
     verifier: { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
     "deploy-assistant": { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
@@ -510,6 +512,17 @@ export function getWorkloadDefaultModelFromManifest(workloadId: string): string 
 
 export function getWorkloadFallbackModelsFromManifest(workloadId: string): readonly string[] {
   return getWorkloadByIdFromManifest(workloadId)?.fallbackModels ?? [];
+}
+
+/**
+ * Requested OpenAI reasoning effort for a workload. Raw value: callers must
+ * clamp it per model (`clampOpenAIReasoningEffort`) because one workload can
+ * fall back across models with different effort ranges.
+ */
+export function getWorkloadReasoningEffortFromManifest(
+  workloadId: string,
+): ReasoningEffortFromManifest | undefined {
+  return getWorkloadByIdFromManifest(workloadId)?.reasoningEffort;
 }
 
 /**

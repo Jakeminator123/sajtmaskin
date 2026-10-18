@@ -13,9 +13,9 @@
 
 Deep Brief använder **`provider/model`**-format, t.ex.:
 
-- `openai/gpt-5.6-sol` (default)
-- `openai/gpt-5.6-terra`
-- `openai/gpt-5.6-luna`
+- `openai/gpt-6.1-sol` (default)
+- `openai/gpt-6-luna`
+- `openai/gpt-5.6-sol` / `-terra` / `-luna` (kvar för sparade val och env)
 - `anthropic-direct/claude-opus-4-8` (direktlista med API-format i suffix)
 
 Tillåtna värden kommer från **`manifest.json` → `briefing.allowed`** via `getPromptAssistAllowedFromManifest()` i [`src/lib/ai-models/load-manifest.ts`](../../src/lib/ai-models/load-manifest.ts) och konsumeras av [`src/lib/builder/prompt-assist/`](../../src/lib/builder/prompt-assist/). Funktionsnamnet är legacy. Paritet säkerställs av `manifest-parity.test.ts`.
@@ -24,7 +24,7 @@ Tillåtna värden kommer från **`manifest.json` → `briefing.allowed`** via `g
 
 `PromptAssistProvider` i `src/lib/builder/prompt-assist/` är `"openai" | "anthropic"`. Tidigare hette OpenAI-grenen `"gateway"` — den etiketten är borttagen ur typen och all runtime-kod sedan Fas 1 världsklass. HTTP-schemat i `/api/ai/brief` accepterar fortfarande `"gateway"` i request-body under en övergångsperiod och normaliserar det till `"openai"` server-side.
 
-Anropet går till [`createDirectModel`](../../src/lib/builder/direct-model.ts), som använder **`OPENAI_API_KEY`** för `openai/*` och **`ANTHROPIC_API_KEY`** för `anthropic/*`. GPT-5.6 väljer AI SDK:s Responses-provider uttryckligen.
+Anropet går till [`createDirectModel`](../../src/lib/builder/direct-model.ts), som använder **`OPENAI_API_KEY`** för `openai/*` och **`ANTHROPIC_API_KEY`** för `anthropic/*`. Registrerade GPT-6- och GPT-5.6-modeller väljer AI SDK:s Responses-provider uttryckligen.
 
 ## Standard assist och requestModel
 
