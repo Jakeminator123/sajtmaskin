@@ -32,8 +32,8 @@ path-impactmotorn läser control-plane, Backoffice-kartan och
 | Pipeline/status          | typecheck + relevant Vitest + docs-/canvas-sync                            |
 | Stor flytt               | referenssökning + typecheck                                                |
 
-Kommandon: `package.json`. Före push: `npm run verify:pr -- --plan` visar ytor
-och CI-profil, inte testresultat. Kör och redovisa riktade kontroller lokalt.
+Kommandon: `package.json`. Planen visar ytor och CI-profil, inte testresultat.
+Kör och redovisa riktade kontroller lokalt.
 Full regression ägs av CI för ready runtime, högrisk, `master` och okänd diff.
 Safe docs (även preview-push) och låg-risk-drafts får explicit light-kvitto.
 För verifieringsmotorn: `test:workflow` + `workflow:contract`, typecheck och
