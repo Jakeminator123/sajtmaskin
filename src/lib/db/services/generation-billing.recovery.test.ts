@@ -107,7 +107,7 @@ describe("generation billing recovery", () => {
     expect(conflictSet).not.toHaveProperty("usage_started_at");
 
     const rendered = renderSql(conflictSet.claim_keys);
-    expect(rendered.sql).toContain("jsonb_agg(distinct receipt.value)");
+    expect(rendered.sql).toContain("jsonb_agg(distinct receipt.value order by receipt.value)");
     expect(rendered.sql).toContain("jsonb_array_elements_text");
     expect(rendered.params).toContain(JSON.stringify(["claim-a"]));
   });
@@ -116,7 +116,7 @@ describe("generation billing recovery", () => {
     await establishGenerationBilling({ chatId: "chat-1", versionId: "version-1", userId: "user-1", claimKey: "generation-claim", claimKeys: ["brief-claim", "generation-claim"] });
     expect(insertedValues[1]?.claim_keys).toEqual(["generation-claim", "brief-claim"]);
     const conflict = renderSql((conflictConfigs[0]?.set as Record<string, unknown>).claim_keys);
-    expect(conflict.sql).toContain("jsonb_agg(distinct receipt.value)");
+    expect(conflict.sql).toContain("jsonb_agg(distinct receipt.value order by receipt.value)");
     expect(conflict.params).toContain(JSON.stringify(["generation-claim", "brief-claim"]));
   });
 

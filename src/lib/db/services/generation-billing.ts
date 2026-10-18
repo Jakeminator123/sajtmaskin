@@ -201,7 +201,7 @@ export async function establishGenerationBilling(input: GenerationBillingTarget)
         status: "pending",
         claim_keys: claimKeys.length > 0
           ? sql`(
-              SELECT jsonb_agg(DISTINCT receipt.value)
+              SELECT jsonb_agg(DISTINCT receipt.value ORDER BY receipt.value)
               FROM jsonb_array_elements_text(
                 COALESCE(${generationBillings.claim_keys}, '[]'::jsonb)
                   || ${JSON.stringify(claimKeys)}::jsonb

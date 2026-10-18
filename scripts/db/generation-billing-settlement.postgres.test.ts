@@ -867,10 +867,10 @@ describe.skipIf(!target.url)("generationsdebitering mot riktig Postgres", () => 
       free_generation_applied: false,
       llm_calls: 1,
     });
-    expect(byVersion.get(firstVersionId)?.claim_keys).toEqual([
+    expect([...(byVersion.get(firstVersionId)?.claim_keys ?? [])].sort()).toEqual([
       `claim-${firstVersionId}`,
       `claim-extra-${firstVersionId}`,
-    ]);
+    ].sort());
     expect(byVersion.get(secondVersionId)?.claim_keys).toEqual([`claim-${secondVersionId}`]);
 
     const { rows: transactionRows } = await pool.query<{

@@ -169,7 +169,13 @@ describe.skipIf(!target.url)("product_postcheck_runs mot riktig Postgres", () =>
   });
 
   it("(d)(e)(f) takeover efter expiry bumpar generation; gammal CAS no-op; ny skriver", async () => {
-    const claimKey = key("def");
+    const filesJson = JSON.stringify([{ path: "app/page.tsx", content: "def" }]);
+    const revision = await pool.query<{ rev: string }>("select md5($1::text) as rev", [filesJson]);
+    const claimKey = { ...key("def"), filesRevision: revision.rows[0]!.rev };
+    await pool.query(
+      `insert into engine_versions (id, chat_id, version_number, files_json) values ($1, $2, 1, $3)`,
+      [claimKey.versionId, chatId, filesJson],
+    );
     const first = await claims.claimProductPostcheckRun({
       chatId,
       owner: "owner_old",
