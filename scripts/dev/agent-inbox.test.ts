@@ -1,8 +1,9 @@
 // @vitest-environment node
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -20,6 +21,7 @@ import {
 const tmpRoots: string[] = [];
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.parse("2026-10-17T17:00:00Z");
+const inboxScript = fileURLToPath(new URL("./agent-inbox.mjs", import.meta.url));
 
 afterEach(() => {
   for (const dir of tmpRoots.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
@@ -27,6 +29,29 @@ afterEach(() => {
 
 function git(args: string[], cwd: string) {
   execFileSync("git", args, { cwd, stdio: "ignore" });
+}
+
+function makeRepo() {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "agent-inbox-"));
+  tmpRoots.push(repo);
+  git(["init", "--quiet", "-b", "preview"], repo);
+  return repo;
+}
+
+function runCli(cwd: string, args: string[]) {
+  return new Promise<{ status: number | null; stderr: string }>((done, reject) => {
+    const child = spawn(process.execPath, [inboxScript, ...args], {
+      cwd,
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    let stderr = "";
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+    child.on("error", reject);
+    child.on("close", (status) => done({ status, stderr }));
+  });
 }
 
 /** A main checkout plus one linked worktree, like the real repo layout. */
@@ -111,5 +136,38 @@ describe("agent-inbox", () => {
     runInbox({ args: ["snart", "gammal"], cwd: main, now: NOW });
     runInbox({ cwd: main, now: NOW + (MAX_AGE_DAYS + 1) * DAY });
     expect(parseMessages(fs.readFileSync(inboxPath(main), "utf8"))).toHaveLength(0);
+  });
+
+  it("keeps all 16 messages from parallel writers", async () => {
+    const repo = makeRepo();
+    const results = await Promise.all(
+      Array.from({ length: 16 }, (_, index) => runCli(repo, [`msg-${index}`])),
+    );
+    const failed = results.filter((result) => result.status !== 0);
+    expect(failed.map((result) => result.stderr).join("\n")).toBe("");
+    const bodies = parseMessages(fs.readFileSync(inboxPath(repo), "utf8")).map((message) =>
+      message.line.split(" · ").at(-1),
+    );
+    expect(bodies).toHaveLength(16);
+    expect(new Set(bodies)).toEqual(
+      new Set(Array.from({ length: 16 }, (_, index) => `msg-${index}`)),
+    );
+  });
+
+  it("takes over a stale lock without dropping messages", () => {
+    const repo = makeRepo();
+    runInbox({ args: ["redan", "sparad"], cwd: repo, now: NOW });
+    const inbox = inboxPath(repo);
+    const lockPath = `${inbox}.lock`;
+    fs.closeSync(fs.openSync(lockPath, "wx"));
+    const past = new Date(Date.now() - 30_000);
+    fs.utimesSync(lockPath, past, past);
+    runInbox({ args: ["efter", "krasch"], cwd: repo, now: NOW + 60_000 });
+    expect(fs.existsSync(lockPath)).toBe(false);
+    expect(
+      parseMessages(fs.readFileSync(inbox, "utf8")).map((message) =>
+        message.line.split(" · ").at(-1),
+      ),
+    ).toEqual(["redan sparad", "efter krasch"]);
   });
 });

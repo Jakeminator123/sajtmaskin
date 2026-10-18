@@ -11,13 +11,27 @@
  * MAX_CHARS.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const MAX_MESSAGES = 20;
 export const MAX_AGE_DAYS = 3;
 export const MAX_CHARS = 280;
+
+const LOCK_TIMEOUT_MS = 5_000;
+const LOCK_STALE_MS = 5_000;
+const LOCK_RETRY_MS = 20;
 
 const HEADER = [
   "# Agentinkorg",
@@ -91,20 +105,112 @@ function originOf(cwd) {
   return `${top}@${branch || "detached"}`;
 }
 
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function lockIsStale(lockPath) {
+  try {
+    return Date.now() - statSync(lockPath).mtimeMs > LOCK_STALE_MS;
+  } catch (error) {
+    if (error?.code === "ENOENT") return false;
+    throw error;
+  }
+}
+
+function takeOverStaleLock(lockPath) {
+  try {
+    unlinkSync(lockPath);
+    return true;
+  } catch (error) {
+    if (error?.code === "ENOENT") return true;
+    if (error?.code === "EPERM" || error?.code === "EBUSY") return false;
+    throw error;
+  }
+}
+
+function acquireInboxLock(lockPath) {
+  mkdirSync(dirname(lockPath), { recursive: true });
+  const token = `${process.pid}:${Date.now()}:${Math.random()}`;
+  const deadline = Date.now() + LOCK_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    try {
+      const fd = openSync(lockPath, "wx");
+      try {
+        writeFileSync(fd, token, "utf8");
+      } catch (error) {
+        closeSync(fd);
+        try {
+          unlinkSync(lockPath);
+        } catch (cleanupError) {
+          if (cleanupError?.code !== "ENOENT") throw cleanupError;
+        }
+        throw error;
+      }
+      return { fd, token };
+    } catch (error) {
+      if (error?.code !== "EEXIST") throw error;
+    }
+    if (lockIsStale(lockPath) && takeOverStaleLock(lockPath)) continue;
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    sleepSync(Math.min(LOCK_RETRY_MS, remaining));
+  }
+  throw new Error(`Inkorgslåset släpptes inte i tid: ${lockPath}`);
+}
+
+function releaseInboxLock(lockPath, fd, token) {
+  closeSync(fd);
+  try {
+    if (readFileSync(lockPath, "utf8") === token) unlinkSync(lockPath);
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+}
+
+function withInboxLock(filePath, action) {
+  const lockPath = `${filePath}.lock`;
+  const lock = acquireInboxLock(lockPath);
+  try {
+    return action();
+  } finally {
+    releaseInboxLock(lockPath, lock.fd, lock.token);
+  }
+}
+
+function writeInboxFile(filePath, contents) {
+  const tmpPath = `${filePath}.tmp`;
+  writeFileSync(tmpPath, contents, "utf8");
+  try {
+    renameSync(tmpPath, filePath);
+  } catch (error) {
+    try {
+      unlinkSync(tmpPath);
+    } catch (cleanupError) {
+      if (cleanupError?.code !== "ENOENT") throw cleanupError;
+    }
+    if (error?.code !== "EPERM" && error?.code !== "EEXIST") throw error;
+    writeFileSync(filePath, contents, "utf8");
+  }
+}
+
 /** @param {{ args?: string[], cwd?: string, now?: number }} [options] */
 export function runInbox({ args = [], cwd = process.cwd(), now = Date.now() } = {}) {
   const path = inboxPath(cwd);
-  const before = existsSync(path) ? readFileSync(path, "utf8") : "";
-  let messages = prune(parseMessages(before), now);
   const text = args.join(" ").trim();
-  if (text)
-    messages = prune([...messages, formatMessage({ text, origin: originOf(cwd), now })], now);
-  const after = render(messages);
-  if (after !== before && (text || before)) {
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, after, "utf8");
-  }
-  return { path, messages, posted: Boolean(text) };
+  if (!text && !existsSync(path)) return { path, messages: [], posted: false };
+  const addition = text ? formatMessage({ text, origin: originOf(cwd), now }) : null;
+  return withInboxLock(path, () => {
+    const before = existsSync(path) ? readFileSync(path, "utf8") : "";
+    let messages = prune(parseMessages(before), now);
+    if (addition) messages = prune([...messages, addition], now);
+    const after = render(messages);
+    if (after !== before && (text || before)) {
+      mkdirSync(dirname(path), { recursive: true });
+      writeInboxFile(path, after);
+    }
+    return { path, messages, posted: Boolean(text) };
+  });
 }
 
 function main() {
