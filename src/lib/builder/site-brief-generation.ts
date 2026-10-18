@@ -536,7 +536,7 @@ export function validateBriefModelForHttp(
       status: 400,
       body: {
         error: "Invalid model for OpenAI brief",
-          setup: "Set model to a supported OpenAI Deep Brief model (e.g. openai/gpt-5.4).",
+          setup: "Set model to a supported OpenAI Deep Brief model (e.g. openai/gpt-6.1-sol).",
       },
     };
   }
