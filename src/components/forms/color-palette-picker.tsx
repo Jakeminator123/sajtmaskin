@@ -250,6 +250,8 @@ interface ColorPalettePickerProps {
   customColors?: { primary: string; secondary: string; accent: string };
   onCustomColorChange?: (type: "primary" | "secondary" | "accent", color: string) => void;
   industry?: string; // Optional industry to filter/recommend palettes
+  /** Open the custom editor on mount, e.g. when restoring saved custom colors. */
+  defaultShowCustom?: boolean;
 }
 
 export function ColorPalettePicker({
@@ -258,8 +260,9 @@ export function ColorPalettePicker({
   customColors,
   onCustomColorChange,
   industry,
+  defaultShowCustom = false,
 }: ColorPalettePickerProps) {
-  const [showCustom, setShowCustom] = useState(false);
+  const [showCustom, setShowCustom] = useState(defaultShowCustom);
 
   const handleColorChange = (type: "primary" | "secondary" | "accent", color: string) => {
     if (onCustomColorChange) {

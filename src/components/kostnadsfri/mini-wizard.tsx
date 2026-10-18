@@ -15,6 +15,7 @@ import {
 import {
   ColorPalettePicker,
   type ColorPalette,
+  getIndustryPalettes,
   PREDEFINED_PALETTES,
 } from "@/components/forms/color-palette-picker";
 import { LocationPicker } from "@/components/modals/location-picker";
@@ -126,7 +127,9 @@ function restorePalette(data: MiniWizardData | null | undefined): {
   custom: CustomColors | null;
 } {
   if (!data) return { palette: PREDEFINED_PALETTES[0], custom: null };
-  const named = PREDEFINED_PALETTES.find((palette) => palette.name === data.paletteName) ?? null;
+  const named =
+    getIndustryPalettes(data.industry).find((palette) => palette.name === data.paletteName) ??
+    null;
   const { colorPrimary: primary, colorSecondary: secondary, colorAccent: accent } = data;
   if (!primary || !secondary || !accent) return { palette: named, custom: null };
   const matchesNamed =
@@ -228,6 +231,12 @@ export function MiniWizard({ companyData, initialData, onComplete, error }: Mini
     },
     [],
   );
+
+  // Custom colors win over the named palette in `handleComplete`.
+  const handlePaletteSelect = useCallback((palette: ColorPalette) => {
+    setSelectedPalette(palette);
+    setCustomColors(null);
+  }, []);
 
   const togglePurpose = useCallback((id: string) => {
     setPurposes((prev) =>
@@ -545,10 +554,11 @@ export function MiniWizard({ companyData, initialData, onComplete, error }: Mini
                 <p className={LABEL_CLASS}>Färgpalett</p>
                 <ColorPalettePicker
                   selectedPalette={selectedPalette}
-                  onSelect={setSelectedPalette}
+                  onSelect={handlePaletteSelect}
                   customColors={customColors ?? undefined}
                   onCustomColorChange={handleCustomColorChange}
                   industry={industry}
+                  defaultShowCustom={Boolean(initialPalette.custom)}
                 />
               </div>
             </div>
