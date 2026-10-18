@@ -161,6 +161,10 @@ describe("DidOpenClawBridge speak fence after deadline", () => {
     await waitFor(() => expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(second.connect).toHaveBeenCalledTimes(1));
     expect(first.disconnect).toHaveBeenCalled();
+    // The previous session's stream is released and no longer counts as the new connection's video.
+    await waitFor(() => expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls
+      .some((call) => String(call[0]).endsWith("/streams/strm_first"))).toBe(true));
+    expect(screen.getByText("Förbered D-ID-klienten...")).toBeTruthy();
 
     const secondCallbacks = sdkMock.createAgentManager.mock.calls[1]![1].callbacks;
     act(() => secondCallbacks.onStreamCreated({

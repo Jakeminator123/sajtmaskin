@@ -369,8 +369,16 @@ export function DidOpenClawBridge({
       if (agentGenerationRef.current === generation) return agentRef.current;
       // Efter ett avbrott ligger managern kvar, men dess callbacks hör till den
       // gamla generationen och skulle släppa den nya anslutningens egen ström.
+      // Förra sessionens ström måste också bort, annars räknar deadlinen och
+      // avbrottsvakterna den gamla MediaStreamen som den nya anslutningens.
       const stale = agentRef.current;
+      const staleStream = didStreamRef.current;
       agentRef.current = null;
+      streamRef.current = null;
+      didStreamRef.current = null;
+      if (videoRef.current) videoRef.current.srcObject = null;
+      setAvatarReady(false);
+      enqueueRelease(staleStream);
       await queueDisconnect(stale);
       if (generation !== connectionGenerationRef.current) return null;
     }
