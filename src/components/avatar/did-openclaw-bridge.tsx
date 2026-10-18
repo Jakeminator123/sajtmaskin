@@ -200,6 +200,9 @@ export function DidOpenClawBridge({
   const releaseBlockedRef = useRef(false);
   const restartAfterBfcacheRef = useRef<() => void>(() => {});
   const ensureConnectedRef = useRef<() => Promise<void>>(async () => {});
+  const fencePageHideRef = useRef<
+    (stream: DidStreamIdentity | null, release: Promise<unknown> | null) => boolean
+  >(() => false);
 
   const [connectionState, setConnectionState] = useState<ConnectionState>(
     testMode ? "mock-ready" : "idle",
@@ -236,12 +239,8 @@ export function DidOpenClawBridge({
 
   useEffect(
     () => registerDidStreamRelease(() => didStreamRef.current, CLIENT_KEY, {
-      onHide(_stream, release) {
-        didStreamRef.current = null;
-        streamRef.current = null;
-        if (videoRef.current) videoRef.current.srcObject = null;
-        setAvatarReady(false);
-        appendPendingRelease(pendingDisconnectRef, release);
+      onHide(stream, release) {
+        return fencePageHideRef.current(stream, release);
       },
       onPersistedShow() {
         restartAfterBfcacheRef.current();
@@ -310,6 +309,24 @@ export function DidOpenClawBridge({
     return appendPendingRelease(pendingDisconnectRef, releaseDidStream(stream, CLIENT_KEY));
   }, []);
 
+  fencePageHideRef.current = (stream, release) => {
+    const agent = agentRef.current;
+    const state = connectionStateRef.current;
+    const active = Boolean(stream) || Boolean(agent)
+      || state === "connecting" || state === "connected" || state === "speaking";
+    if (!active) return false;
+    ++connectionGenerationRef.current;
+    clearConnectDeadline();
+    agentRef.current = null;
+    streamRef.current = null;
+    didStreamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setAvatarReady(false);
+    if (release) appendPendingRelease(pendingDisconnectRef, release);
+    void queueDisconnect(agent);
+    return true;
+  };
+
   /**
    * Deadline och retry delar en väg ut: fence:a generationen, nollställ refs
    * och lämna faktiskt tillbaka platsen. Att bara visa en status räcker inte —
@@ -356,7 +373,10 @@ export function DidOpenClawBridge({
       callbacks: {
         onStreamCreated(value: unknown) {
           const stream = toDidStreamIdentity(value);
-          if (agentRef.current !== createdAgent) {
+          if (
+            generation !== connectionGenerationRef.current ||
+            agentRef.current !== createdAgent
+          ) {
             if (stream) enqueueRelease(stream);
             return;
           }
@@ -370,14 +390,20 @@ export function DidOpenClawBridge({
           didStreamRef.current = stream;
         },
         onSrcObjectReady(value: MediaStream) {
-          if (agentRef.current !== createdAgent) return;
+          if (
+            generation !== connectionGenerationRef.current ||
+            agentRef.current !== createdAgent
+          ) return;
           clearConnectDeadline();
           streamRef.current = value;
           setAvatarReady(true);
           syncVideoPlayback();
         },
         onConnectionStateChange(state: string) {
-          if (agentRef.current !== createdAgent) return;
+          if (
+            generation !== connectionGenerationRef.current ||
+            agentRef.current !== createdAgent
+          ) return;
           if (state === "connected") {
             setConnection("connected");
           } else if (state === "failed") {
@@ -392,7 +418,10 @@ export function DidOpenClawBridge({
           }
         },
         onVideoStateChange(state: string) {
-          if (agentRef.current !== createdAgent) return;
+          if (
+            generation !== connectionGenerationRef.current ||
+            agentRef.current !== createdAgent
+          ) return;
           if (state === "STOP") {
             setConnection("connected");
           } else if (state === "speaking") {
@@ -426,17 +455,18 @@ export function DidOpenClawBridge({
     if (releaseBlockedRef.current) return;
     if (pendingConnectRef.current) return;
     if (
+      connectionStateRef.current === "connecting" ||
       connectionStateRef.current === "connected" ||
       connectionStateRef.current === "speaking"
     ) return;
 
     const generation = ++connectionGenerationRef.current;
     setLastError(null);
+    setConnection("connecting");
     // Vänta in ett pågående släpp innan en ny plats begärs — annars tävlar
     // retryn mot sin egen föregångare om den sista av kontots två platser.
     await pendingDisconnectRef.current;
     if (generation !== connectionGenerationRef.current || releaseBlockedRef.current) return;
-    setConnection("connecting");
 
     // Ett fullt D-ID-konto kan ge en ansluten agent som aldrig levererar någon
     // MediaStream. Utan deadline fastnar ytan i "Förbered D-ID-klienten...".
@@ -808,7 +838,7 @@ export function DidOpenClawBridge({
               <button
                 type="button"
                 onClick={() => void ensureConnected()}
-                disabled={releaseBlocked}
+                disabled={releaseBlocked || connectionState === "connecting"}
                 className="rounded-xl border border-border/30 bg-card/50 px-3 py-2 text-sm"
                 data-testid="avatar-bridge-connect"
               >

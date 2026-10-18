@@ -186,7 +186,10 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
       callbacks: {
         onStreamCreated(value: unknown) {
           const stream = toDidStreamIdentity(value);
-          if (agentRef.current !== createdAgent) {
+          if (
+            generation !== connectionGenerationRef.current ||
+            agentRef.current !== createdAgent
+          ) {
             // Ett inre SDK-retry kan skapa en stream efter att yttre connect()
             // redan rejectat. Släpp även sådana sena stream-id:n direkt.
             if (stream) enqueueRelease(stream);
@@ -202,7 +205,10 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
           didStreamRef.current = stream;
         },
         onSrcObjectReady(value: MediaStream) {
-          if (agentRef.current !== createdAgent) return;
+          if (
+            generation !== connectionGenerationRef.current ||
+            agentRef.current !== createdAgent
+          ) return;
           // Videon är framme — deadlinen har gjort sitt.
           clearConnectDeadline();
           streamRef.current = value;
@@ -210,7 +216,10 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
           syncVideoPlayback();
         },
         onConnectionStateChange(state: string) {
-          if (agentRef.current !== createdAgent) return;
+          if (
+            generation !== connectionGenerationRef.current ||
+            agentRef.current !== createdAgent
+          ) return;
           if (state === "connected") updateConnectionState("connected");
           else if (state === "failed") {
             // SDK:n kan rapportera failed och ändå fortsätta sitt interna
@@ -224,7 +233,10 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
           }
         },
         onVideoStateChange(state: string) {
-          if (agentRef.current !== createdAgent) return;
+          if (
+            generation !== connectionGenerationRef.current ||
+            agentRef.current !== createdAgent
+          ) return;
           if (state === "STOP") updateConnectionState("connected");
           else if (state === "speaking") updateConnectionState("speaking");
           syncVideoPlayback();
@@ -451,19 +463,29 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
   // egen timeout löper ut, och nästa besökare får 403.
   useEffect(
     () => registerDidStreamRelease(() => didStreamRef.current, CLIENT_KEY, {
-      onHide(_stream, release) {
-        didStreamRef.current = null;
+      onHide(stream, release) {
+        const agent = agentRef.current;
+        const state = connectionStateRef.current;
+        const active = Boolean(stream) || Boolean(agent)
+          || state === "connecting" || state === "connected" || state === "speaking";
+        if (!active) return false;
+        ++connectionGenerationRef.current;
+        clearConnectDeadline();
+        agentRef.current = null;
         streamRef.current = null;
+        didStreamRef.current = null;
         const video = videoNodeRef.current;
         if (video) video.srcObject = null;
         setAvatarReady(false);
-        appendPendingRelease(pendingDisconnectRef, release);
+        if (release) appendPendingRelease(pendingDisconnectRef, release);
+        void queueDisconnect(agent);
+        return true;
       },
       onPersistedShow() {
         restartAfterBfcacheRef.current();
       },
     }),
-    [],
+    [clearConnectDeadline, queueDisconnect],
   );
 
   useEffect(() => {

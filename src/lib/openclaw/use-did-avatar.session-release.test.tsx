@@ -227,6 +227,61 @@ describe("D-ID stream release on unload", () => {
     expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterRestart);
   });
 
+  it("releases a stream created after pagehide and does not accept the stale connect", async () => {
+    const created = deferred<ReturnType<typeof fakeAgent>>();
+    const agent = fakeAgent();
+    let callbacks: Callbacks | null = null;
+    sdkMock.createAgentManager.mockImplementation((_agentId, options) => {
+      callbacks = (options as { callbacks: Callbacks }).callbacks;
+      return created.promise.then(() => agent);
+    });
+    const { useDidAvatar } = await loadHook();
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+
+    await waitFor(() => expect(callbacks).toBeTruthy());
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    act(() => callbacks?.onStreamCreated?.(STREAM_PAYLOAD));
+
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]![0]).toContain("/streams/strm_abc");
+
+    await act(async () => {
+      created.resolve(agent);
+      await created.promise;
+    });
+    await waitFor(() => expect(agent.disconnect).toHaveBeenCalled());
+    expect(result.current.connectionState).not.toBe("connected");
+    expect(agent.connect).not.toHaveBeenCalled();
+  });
+
+  it("releases a later stream after pagehide already dropped the current agent", async () => {
+    const agent = fakeAgent();
+    sdkMock.createAgentManager.mockResolvedValue(agent);
+    const { useDidAvatar } = await loadHook();
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+
+    await waitFor(() => expect(result.current.connectionState).toBe("connected"));
+    act(() => lastCallbacks().onStreamCreated?.(STREAM_PAYLOAD));
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    await waitFor(() => expect(agent.disconnect).toHaveBeenCalledTimes(1));
+
+    act(() => lastCallbacks().onStreamCreated?.({
+      stream_id: "strm_late",
+      session_id: "sess_late",
+      agent_id: "v2_agt_test",
+    }));
+
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]![0]).toContain("/streams/strm_late");
+    expect(result.current.connectionState).not.toBe("connecting");
+  });
+
   it("does not open a new session when pageshow is not a bfcache restore", async () => {
     const agent = fakeAgent();
     sdkMock.createAgentManager.mockResolvedValue(agent);

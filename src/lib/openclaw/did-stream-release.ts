@@ -33,7 +33,10 @@ export interface DidStreamReleaseOptions {
 }
 
 export interface DidStreamReleaseHandlers {
-  onHide?: (stream: DidStreamIdentity, release: Promise<DidStreamReleaseOutcome>) => void;
+  onHide?: (
+    stream: DidStreamIdentity | null,
+    release: Promise<DidStreamReleaseOutcome> | null,
+  ) => boolean | void;
   onPersistedShow?: () => void;
 }
 
@@ -133,11 +136,10 @@ export function registerDidStreamRelease(
 
   const onPageHide = () => {
     const stream = getStream();
-    if (!stream) return;
-    releasedOnHide = true;
-    const release = releaseDidStream(stream, clientKey, { retry: false });
-    handlers?.onHide?.(stream, release);
-    void release;
+    const release = stream ? releaseDidStream(stream, clientKey, { retry: false }) : null;
+    if (release) void release;
+    const fenced = handlers?.onHide?.(stream, release);
+    if (stream || fenced) releasedOnHide = true;
   };
 
   const onPageShow = (event: Event) => {

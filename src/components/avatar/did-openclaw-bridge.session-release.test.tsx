@@ -174,6 +174,66 @@ describe("DidOpenClawBridge speak fence after deadline", () => {
     expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterRestart);
   });
 
+  it("does not start a second session while the first connect is still in flight", async () => {
+    const created = deferred<ReturnType<typeof fakeAgent>>();
+    const agent = fakeAgent();
+    sdkMock.createAgentManager.mockReturnValue(created.promise.then(() => agent));
+    const DidOpenClawBridge = await loadBridge();
+    render(<DidOpenClawBridge />);
+
+    fireEvent.click(screen.getByTestId("avatar-bridge-connect"));
+    await waitFor(() => expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1));
+    const button = screen.getByTestId("avatar-bridge-connect");
+    expect(screen.getByTestId("avatar-bridge-status").textContent).toContain("Ansluter");
+    expect(button.hasAttribute("disabled")).toBe(true);
+
+    fireEvent.click(button);
+    fireEvent.change(screen.getByTestId("avatar-bridge-input"), { target: { value: "hej" } });
+    fireEvent.click(screen.getByTestId("avatar-bridge-send"));
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      created.resolve(agent);
+      await created.promise;
+    });
+    await waitFor(() => expect(agent.connect).toHaveBeenCalledTimes(1));
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1);
+  });
+
+  it("releases a stream created after pagehide and ignores the stale connect", async () => {
+    const created = deferred<ReturnType<typeof fakeAgent>>();
+    const agent = fakeAgent();
+    let callbacks: { onStreamCreated: (value: unknown) => void } | null = null;
+    sdkMock.createAgentManager.mockImplementation((_agentId, options) => {
+      callbacks = options.callbacks;
+      return created.promise.then(() => agent);
+    });
+    const DidOpenClawBridge = await loadBridge();
+    render(<DidOpenClawBridge />);
+    fireEvent.click(screen.getByTestId("avatar-bridge-connect"));
+    await waitFor(() => expect(callbacks).toBeTruthy());
+
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    act(() => callbacks?.onStreamCreated({
+      stream_id: "strm_late",
+      session_id: "sess_late",
+      agent_id: "v2_agt_test",
+    }));
+
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+    expect(fetchMock.mock.calls.some((call) => String(call[0]).includes("/streams/strm_late"))).toBe(true);
+
+    await act(async () => {
+      created.resolve(agent);
+      await created.promise;
+    });
+    await waitFor(() => expect(agent.disconnect).toHaveBeenCalled());
+    expect(agent.connect).not.toHaveBeenCalled();
+    expect(screen.getByTestId("avatar-bridge-status").textContent).not.toContain("Ansluten");
+  });
+
   it("releases the first stream when SDK retries before the deadline", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const connecting = deferred<void>();
