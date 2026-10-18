@@ -43,9 +43,20 @@ afterEach(() => {
 
 describe("CampaignAccountBanner — slutför sparandet", () => {
   it.each([
-    ["nätverksfel", () => Promise.reject(new TypeError("Failed to fetch"))],
-    ["500", () => Promise.resolve(respond(500, { error: "Kontot kunde inte sparas just nu." }))],
-  ])("behåller sparandet och låter kunden försöka igen efter %s", async (_label, firstAttempt) => {
+    ["nätverksfel", () => Promise.reject(new TypeError("Failed to fetch")), "Kontot kunde inte sparas just nu."],
+    ["500", () => Promise.resolve(respond(500, { error: "Kontot kunde inte sparas just nu." })), "Kontot kunde inte sparas just nu."],
+    [
+      "pågående generering",
+      () =>
+        Promise.resolve(
+          respond(503, {
+            error: "En generering pågår fortfarande. Försök igen när den är klar.",
+            code: "generation_in_progress",
+          }),
+        ),
+      "En generering pågår fortfarande. Försök igen när den är klar.",
+    ],
+  ])("behåller sparandet och låter kunden försöka igen efter %s", async (_label, firstAttempt, message) => {
     const fetchMock = vi
       .fn()
       .mockImplementationOnce(firstAttempt)
@@ -55,6 +66,7 @@ describe("CampaignAccountBanner — slutför sparandet", () => {
     render(<CampaignAccountBanner />);
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+    expect(toast.error.mock.calls[0]?.[0]).toBe(message);
     expect(pendingFlag()).toBe("1");
     const [, options] = toast.error.mock.calls[0] as [string, { action: { onClick: () => void } }];
     act(() => options.action.onClick());

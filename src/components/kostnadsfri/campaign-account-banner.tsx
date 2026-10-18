@@ -81,7 +81,7 @@ export function CampaignAccountBanner() {
         // The banner is gone once the customer's own account is signed in, so
         // the pending flag (and the server ticket) is the only way to retry.
         completingRef.current = false;
-        toast.error("Kontot kunde inte sparas just nu.", {
+        toast.error(result.error ?? "Kontot kunde inte sparas just nu.", {
           action: { label: "Försök igen", onClick: () => setCompleteAttempt((n) => n + 1) },
         });
         return;

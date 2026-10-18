@@ -1,15 +1,21 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getCurrentUser = vi.hoisted(() => vi.fn());
 const transferKostnadsfriCampaignAccount = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/auth", () => ({ getCurrentUser }));
 vi.mock("@/lib/db/services/kostnadsfri-account", () => ({ transferKostnadsfriCampaignAccount }));
+vi.mock("@/lib/data/redis", () => ({ getRedis: () => null }));
 vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: unknown, _key: string, handler: () => Promise<Response>) => handler(),
 }));
 
+import {
+  acquireUserGenerationLock,
+  releaseChatGenerationLock,
+  resetChatGenerationLocksForTests,
+} from "@/lib/gen/stream/generation-lock";
 import {
   CAMPAIGN_CLAIM_COOKIE_HOST,
   createCampaignClaimTicket,
@@ -32,6 +38,12 @@ const ownUser = { id: "user_own", provider: "email" };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  resetChatGenerationLocksForTests();
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  resetChatGenerationLocksForTests();
 });
 
 describe("POST /api/kostnadsfri/claim", () => {
@@ -92,6 +104,50 @@ describe("POST /api/kostnadsfri/claim", () => {
     expect(response.headers.get("set-cookie")).toMatch(
       new RegExp(`${CAMPAIGN_CLAIM_COOKIE_HOST}=;.*Max-Age=0`, "i"),
     );
+  });
+
+  it("väntar med sparandet tills den pågående genereringen har avräknats", async () => {
+    getCurrentUser.mockResolvedValue(ownUser);
+    const held = await acquireUserGenerationLock("user_campaign");
+    expect(held.status).toBe("acquired");
+    if (held.status !== "acquired") return;
+    const ticket = createCampaignClaimTicket("user_campaign");
+    const duringGeneration = await POST(
+      claimRequest({ action: "complete" }, `${CAMPAIGN_CLAIM_COOKIE_HOST}=${ticket}`),
+    );
+
+    expect(duringGeneration.status).toBe(503);
+    await expect(duringGeneration.json()).resolves.toMatchObject({
+      code: "generation_in_progress",
+    });
+    expect(transferKostnadsfriCampaignAccount).not.toHaveBeenCalled();
+    expect(duringGeneration.headers.get("set-cookie") ?? "").not.toMatch(/Max-Age=0/i);
+
+    await releaseChatGenerationLock(held.lock);
+    transferKostnadsfriCampaignAccount.mockResolvedValue({ status: "transferred", projects: 1 });
+    const afterSettlement = await POST(
+      claimRequest({ action: "complete" }, `${CAMPAIGN_CLAIM_COOKIE_HOST}=${ticket}`),
+    );
+    expect(afterSettlement.status).toBe(200);
+    expect(transferKostnadsfriCampaignAccount).toHaveBeenCalledTimes(1);
+    const released = await acquireUserGenerationLock("user_campaign");
+    expect(released.status).toBe("acquired");
+    if (released.status === "acquired") await releaseChatGenerationLock(released.lock);
+  });
+
+  it("flyttar inte kontot när generationslåset inte kan läsas", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "production");
+    getCurrentUser.mockResolvedValue(ownUser);
+    const ticket = createCampaignClaimTicket("user_campaign");
+    const response = await POST(
+      claimRequest({ action: "complete" }, `${CAMPAIGN_CLAIM_COOKIE_HOST}=${ticket}`),
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({ code: "generation_lock_unavailable" });
+    expect(transferKostnadsfriCampaignAccount).not.toHaveBeenCalled();
+    expect(response.headers.get("set-cookie") ?? "").not.toMatch(/Max-Age=0/i);
   });
 
   it("reports an invitation that someone already saved", async () => {
