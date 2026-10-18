@@ -1,4 +1,7 @@
-import { readLanyardStaticOnly } from "@/components/landing-v2/landing-hooks";
+import {
+  readLanyardStaticOnly,
+  scheduleWhenIdle,
+} from "@/components/landing-v2/landing-hooks";
 
 export const LANYARD_CONSENT_KEY = "cookie-consent";
 export const LANYARD_CONSENT_DATE_KEY = "cookie-consent-date";
@@ -18,13 +21,14 @@ export function shouldPreloadLanyardCard(): boolean {
 }
 
 /**
- * Startar experience- och 3D-chunk parallellt för återbesökare så
- * hero-ytan inte väntar på en andra dynamisk import efter mount.
- * Reduced-motion / save-data hoppar över 3D-chunken — samma regel som
- * LanyardExperience.staticOnly.
+ * Startar experience-chunken för återbesökare. 3D/Rapier laddas bara på
+ * kapabel desktop, och först vid idle — samma regel som LanyardExperience.
+ * Mobil, reduced-motion och Save-Data hoppar över fysikchunken helt.
  */
 export function preloadReturningLanyard(): void {
   void import("@/components/landing-v2/lanyard-experience");
   if (!shouldPreloadLanyardCard()) return;
-  void import("@/components/landing-v2/lanyard-card");
+  scheduleWhenIdle(() => {
+    void import("@/components/landing-v2/lanyard-card");
+  });
 }

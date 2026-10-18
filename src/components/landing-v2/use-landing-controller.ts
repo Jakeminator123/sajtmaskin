@@ -9,6 +9,7 @@ import { resolveLandingRouteTarget } from "@/components/landing-v2/route-target"
 import { trackHomepageEvent } from "@/components/landing-v2/landing-analytics"
 import { categories, siteTypes } from "@/components/landing-v2/landing-chat-data"
 import {
+  readHowItWorksStaticOnly,
   use3DTilt,
   usePrefersReducedMotion,
   useRotatingText,
@@ -47,16 +48,13 @@ export function useLandingController({
   const rotatingType = useRotatingText(siteTypes)
   const headlineTilt = use3DTilt(10)
 
-  // Statiskt läge (reduced-motion / save-data / svagt nät) laddar aldrig WebGL-scenen,
-  // så hovern ska inte heller föhämta den tunga three.js-chunken på svaga nät.
   const reduceMotion = usePrefersReducedMotion()
   const saveData = useSaveData()
-  const staticOnly = reduceMotion || saveData
 
   const preloadHowItWorksScene = useCallback(() => {
-    if (staticOnly) return
+    if (readHowItWorksStaticOnly(reduceMotion, saveData)) return
     void import("./how-it-works-scene")
-  }, [staticOnly])
+  }, [reduceMotion, saveData])
 
   const pickCategory = useCallback(
     (id: string | null) => {

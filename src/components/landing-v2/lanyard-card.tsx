@@ -56,8 +56,8 @@ declare module "@react-three/fiber" {
   }
 }
 
-const CARD_TEXTURE = "/branding/lanyard-card.png"
-const CARD_BACK_TEXTURE = "/branding/lanyard-card-back.png"
+const CARD_TEXTURE = "/branding/lanyard-card.webp"
+const CARD_BACK_TEXTURE = "/branding/lanyard-card-back.webp"
 const ACCENT = "#2dd4bf"
 // Tre kortare, redan utspända repsegment håller hela visitkortet inom
 // kameran när fysiken har stabiliserats. De tidigare 1.0-segmenten startade

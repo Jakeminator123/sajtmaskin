@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import path from "path";
+import { PERMISSIONS_POLICY } from "./src/lib/security/permissions-policy";
 
 const nextConfig: NextConfig = {
   // Next 16 blocks /_next/* from any host that is not the listen hostname.
@@ -215,6 +216,10 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy-Report-Only",
             value: cspReportOnly,
+          },
+          {
+            key: "Permissions-Policy",
+            value: PERMISSIONS_POLICY,
           },
         ],
       },

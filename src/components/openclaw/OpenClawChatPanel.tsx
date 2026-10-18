@@ -115,6 +115,7 @@ function OpenClawAvatarStage({
   avatarExpanded,
   showLiveAvatar,
   connectionState,
+  releaseBlocked,
   videoRef,
   onToggleExpanded,
   onReconnect,
@@ -124,12 +125,19 @@ function OpenClawAvatarStage({
   avatarExpanded: boolean;
   showLiveAvatar: boolean;
   connectionState: DidConnectionState;
+  releaseBlocked: boolean;
   videoRef: RefCallback<HTMLVideoElement>;
   onToggleExpanded: () => void;
   onReconnect: () => void;
   onTextOnly: () => void;
 }) {
   const isError = connectionState === "error";
+  const statusText = releaseBlocked
+    ? "Avataranslutningen pausades"
+    : isError ? "Avataren kunde inte ansluta" : "Startar avataren...";
+  const helpText = releaseBlocked
+    ? "Använd textchatten. Ladda om sidan senare för ett nytt försök."
+    : "Textchatten fungerar under tiden.";
   // Takeover without a ready stream must stay a compact status row. The
   // portrait 4:5 box is only for live video; reserving ~46dvh while
   // connecting or in error crowds the transcript on short viewports.
@@ -150,15 +158,15 @@ function OpenClawAvatarStage({
           />
           <div className="min-w-0">
             <p className="text-xs font-medium text-slate-100">
-              {isError ? "Avataren kunde inte ansluta" : "Startar avataren..."}
+              {statusText}
             </p>
             <p className="truncate text-[10px] text-slate-400">
-              Textchatten fungerar under tiden.
+              {helpText}
             </p>
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-          {isError ? (
+          {isError && !releaseBlocked ? (
             <button
               type="button"
               onClick={onReconnect}
@@ -237,14 +245,14 @@ function OpenClawAvatarStage({
             />
             <div className="min-w-0">
               <p className="text-xs font-medium text-slate-100">
-                {isError ? "Avataren kunde inte ansluta" : "Startar avataren..."}
+                {statusText}
               </p>
               <p className="mt-1 text-[10px] text-slate-400">
-                Textchatten fungerar under tiden.
+                {helpText}
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-1.5">
-              {isError ? (
+              {isError && !releaseBlocked ? (
                 <button
                   type="button"
                   onClick={onReconnect}
@@ -822,6 +830,7 @@ export function OpenClawChatPanel({
             avatarExpanded={avatarExpanded}
             showLiveAvatar={showLiveAvatar}
             connectionState={avatar.connectionState}
+            releaseBlocked={avatar.releaseBlocked}
             videoRef={avatar.videoRef}
             onToggleExpanded={() => setAvatarExpanded((value) => !value)}
             onReconnect={() => void avatar.reconnect()}
