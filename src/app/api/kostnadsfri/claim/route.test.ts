@@ -16,6 +16,7 @@ import {
   releaseChatGenerationLock,
   resetChatGenerationLocksForTests,
 } from "@/lib/gen/stream/generation-lock";
+import { CAMPAIGN_CLAIM_MARKER_COOKIE } from "@/lib/kostnadsfri/campaign-account";
 import {
   CAMPAIGN_CLAIM_COOKIE_HOST,
   createCampaignClaimTicket,
@@ -74,10 +75,13 @@ describe("POST /api/kostnadsfri/claim", () => {
     getCurrentUser.mockResolvedValue(campaignUser);
     const response = await POST(claimRequest({ action: "start" }, receiptCookie(SLUG)));
     expect(response.status).toBe(200);
-    const setCookie = response.headers.get("set-cookie") ?? "";
-    expect(setCookie).toContain(`${CAMPAIGN_CLAIM_COOKIE_HOST}=`);
-    expect(setCookie.toLowerCase()).toContain("httponly");
-    expect(setCookie.toLowerCase()).toContain("secure");
+    const setCookies = response.headers.getSetCookie();
+    const ticket = setCookies.find((cookie) => cookie.startsWith(`${CAMPAIGN_CLAIM_COOKIE_HOST}=`));
+    const marker = setCookies.find((cookie) => cookie.startsWith(`${CAMPAIGN_CLAIM_MARKER_COOKIE}=`));
+    expect(ticket?.toLowerCase()).toContain("httponly");
+    expect(ticket?.toLowerCase()).toContain("secure");
+    expect(marker?.startsWith(`${CAMPAIGN_CLAIM_MARKER_COOKIE}=1`)).toBe(true);
+    expect(marker?.toLowerCase()).not.toContain("httponly");
 
     getCurrentUser.mockResolvedValue(ownUser);
     expect((await POST(claimRequest({ action: "start" }))).status).toBe(409);

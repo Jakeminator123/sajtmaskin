@@ -13,6 +13,12 @@ export const CAMPAIGN_ACCOUNT_UNCLAIMED_CODE = "campaign_account_unclaimed";
 
 /** Pågående «Spara kontot» i den här webbläsaren, bundet till inbjudans slug. */
 export const CAMPAIGN_CLAIM_PENDING_STORAGE_KEY = "sajtmaskin:kampanjkonto-spara";
+/**
+ * Läsbar markör som servern sätter tillsammans med biljetten. localStorage kan
+ * saknas; markören säger åt klienten att anropa `complete`, och biljetten är
+ * fortfarande det som ger rätt att flytta projekten.
+ */
+export const CAMPAIGN_CLAIM_MARKER_COOKIE = "sajtmaskin_kampanjkonto_spar";
 
 export type CampaignClaimPending = { slug: string; campaignUserId: string };
 
@@ -46,14 +52,32 @@ export function readCampaignClaimPending(): CampaignClaimPending | null {
   return null;
 }
 
+export function hasCampaignClaimMarker(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.cookie
+    .split(";")
+    .some((part) => part.trim().startsWith(`${CAMPAIGN_CLAIM_MARKER_COOKIE}=`));
+}
+
+export function clearCampaignClaimMarker(): void {
+  if (typeof document === "undefined") return;
+  document.cookie = `${CAMPAIGN_CLAIM_MARKER_COOKIE}=; Max-Age=0; path=/; SameSite=Lax`;
+}
+
+/** Finns en sparbegäran, antingen i localStorage eller i serverns markörcookie. */
+export function campaignClaimCanComplete(): boolean {
+  return readCampaignClaimPending() !== null || hasCampaignClaimMarker();
+}
+
 export function writeCampaignClaimPending(pending: CampaignClaimPending | null): void {
+  if (!pending) clearCampaignClaimMarker();
   const storage = pendingStorage();
   if (!storage) return;
   try {
     if (!pending) storage.removeItem(CAMPAIGN_CLAIM_PENDING_STORAGE_KEY);
     else storage.setItem(CAMPAIGN_CLAIM_PENDING_STORAGE_KEY, JSON.stringify(pending));
   } catch {
-    // Privat läge utan storage: serverns biljett avgör fortfarande complete.
+    // Saknas localStorage räcker serverns markörcookie för att anropa complete.
   }
 }
 

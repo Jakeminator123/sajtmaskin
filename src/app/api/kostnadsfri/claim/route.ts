@@ -11,6 +11,7 @@ import {
   releaseChatGenerationLock,
 } from "@/lib/gen/stream/generation-lock";
 import {
+  CAMPAIGN_CLAIM_MARKER_COOKIE,
   isCampaignAccountProvider,
   isUnclaimedCampaignAccount,
 } from "@/lib/kostnadsfri/campaign-account";
@@ -57,12 +58,25 @@ async function transferAfterGenerationSettles(input: {
   }
 }
 
+function claimMarkerCookie(secure: boolean, maxAge: number) {
+  return {
+    name: CAMPAIGN_CLAIM_MARKER_COOKIE,
+    value: maxAge > 0 ? "1" : "",
+    httpOnly: false,
+    secure,
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge,
+  };
+}
+
 function withExpiredTicket(response: NextResponse, secure: boolean): NextResponse {
   response.cookies.set({
     name: campaignClaimCookieName(secure),
     value: "",
     ...expireCookieSetOptions(secure),
   });
+  response.cookies.set(claimMarkerCookie(secure, 0));
   return response;
 }
 
@@ -112,6 +126,7 @@ export async function POST(request: NextRequest) {
           path: "/",
           maxAge: CAMPAIGN_CLAIM_MAX_AGE,
         });
+        response.cookies.set(claimMarkerCookie(secure, CAMPAIGN_CLAIM_MAX_AGE));
         return response;
       }
 

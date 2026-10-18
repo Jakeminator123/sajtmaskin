@@ -2,6 +2,7 @@
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  CAMPAIGN_CLAIM_MARKER_COOKIE,
   readCampaignClaimPending,
   writeCampaignClaimPending,
 } from "@/lib/kostnadsfri/campaign-account";
@@ -92,5 +93,28 @@ describe("CampaignAccountBanner — slutför sparandet", () => {
       expect(toast.error).toHaveBeenCalledWith("Inbjudan är redan sparad till ett konto."),
     );
     expect(pendingStillSet()).toBe(false);
+  });
+
+  it("behåller sparandet efter 401 så att inloggningen kan försöka igen", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(respond(401, { error: "Du måste vara inloggad." })));
+
+    render(<CampaignAccountBanner />);
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+    expect(pendingStillSet()).toBe(true);
+    expect(toast.error.mock.calls[0]?.[1]).toMatchObject({ action: { label: "Försök igen" } });
+  });
+
+  it("anropar complete från serverns markörcookie när localStorage saknas", async () => {
+    window.localStorage.clear();
+    document.cookie = `${CAMPAIGN_CLAIM_MARKER_COOKIE}=1; path=/`;
+    const fetchMock = vi.fn().mockResolvedValue(respond(200, { success: true, projects: 1 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<CampaignAccountBanner />);
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(document.cookie).not.toContain(CAMPAIGN_CLAIM_MARKER_COOKIE);
   });
 });

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { currentBuilderReturnTo } from "@/lib/builder/pending-builder-draft";
 import {
+  campaignClaimCanComplete,
   isCampaignAccountProvider,
   isUnclaimedCampaignAccount,
   readCampaignClaimPending,
@@ -27,7 +28,9 @@ async function postClaim(action: "start" | "complete"): Promise<ClaimResult> {
 }
 
 function isTransientClaimFailure(status: number): boolean {
-  return status === 0 || status === 429 || status >= 500;
+  // 401: butiken tror att kunden är inloggad men cookien hann inte med.
+  // Biljetten lever kvar, så sparandet ska gå att försöka igen.
+  return status === 0 || status === 401 || status === 429 || status >= 500;
 }
 
 /**
@@ -50,7 +53,7 @@ export function CampaignAccountBanner() {
 
   useEffect(() => {
     if (!user || isCampaignAccountProvider(user.provider) || completingRef.current) return;
-    if (!readCampaignClaimPending()) return;
+    if (!campaignClaimCanComplete()) return;
     completingRef.current = true;
     void (async () => {
       const result = await postClaim("complete").catch(() => ({ ok: false, status: 0 }) as ClaimResult);
