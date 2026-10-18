@@ -10,8 +10,10 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import type { LanguageModel } from "ai";
 import { aliasRetiredModelId } from "@/lib/models/catalog";
-
-const REASONING_MODEL_RE = /(^|\/)(o[1-9]|gpt-5)/;
+import {
+  getOpenAIModelCapabilities,
+  isOpenAIReasoningModelId,
+} from "@/lib/models/openai-capabilities";
 
 /**
  * Parse a "provider/model" string into provider and model ID.
@@ -44,13 +46,14 @@ export function createDirectModel(model: string): LanguageModel {
     throw new Error("OPENAI_API_KEY is required for OpenAI models.");
   }
   const openai = createOpenAI({ apiKey });
-  return modelId.startsWith("gpt-5.6-") ? openai.responses(modelId) : openai(modelId);
+  return getOpenAIModelCapabilities(modelId) ? openai.responses(modelId) : openai(modelId);
 }
 
 function isReasoningModel(model: string): boolean {
   const normalized = model.trim().toLowerCase();
+  const { modelId } = parseModelString(normalized);
   return (
-    REASONING_MODEL_RE.test(normalized) ||
+    isOpenAIReasoningModelId(modelId) ||
     normalized.includes("thinking") ||
     normalized.includes("reasoning")
   );

@@ -6,15 +6,17 @@
  * `reasoningSummary` is a UI/transport field, not part of siteBriefSchema.
  */
 
+import { isOpenAIReasoningModelId } from "@/lib/models/openai-capabilities";
+
 export const BRIEF_REASONING_SUMMARY_KEY = "reasoningSummary";
 
 /** AI SDK `providerOptions.openai.reasoningSummary` — maps 1:1 to Responses `reasoning.summary`. */
 export const OPENAI_REASONING_SUMMARY_DETAILED = "detailed" as const;
 
-const OPENAI_REASONING_MODEL_RE = /(^|\/)(o[1-9]|gpt-5)/;
-
 export function supportsOpenAIReasoningSummary(modelId: string): boolean {
-  return OPENAI_REASONING_MODEL_RE.test(modelId.trim().toLowerCase());
+  const normalized = modelId.trim().toLowerCase();
+  if (normalized.includes("/") && !normalized.startsWith("openai/")) return false;
+  return isOpenAIReasoningModelId(normalized);
 }
 
 export function openaiBriefReasoningProviderOptions(): {
