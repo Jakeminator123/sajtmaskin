@@ -99,6 +99,55 @@ describe("ads click param passthrough", () => {
     link.remove();
   });
 
+  it("keeps spaces in utm values and rejects whitespace in click ids", () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/?utm_term=hemsida+till+foretag&utm_source=google%0Aevil&gclid=bad+id&utm_campaign=ok",
+    );
+    expect(captureAdsClickParamsFromLocation()).toEqual({
+      utm_term: "hemsida till foretag",
+      utm_campaign: "ok",
+    });
+  });
+
+  it("drops overlong utm values", () => {
+    const longTerm = "a".repeat(201);
+    window.history.replaceState({}, "", `/?utm_term=${longTerm}`);
+    expect(captureAdsClickParamsFromLocation()).toEqual({});
+  });
+
+  it("reads click ids from a same-origin referrer on /builder when none are stored", () => {
+    window.history.replaceState({}, "", "/builder?new=1");
+    Object.defineProperty(document, "referrer", {
+      configurable: true,
+      get: () => `${window.location.origin}/hemsida-frisor?gclid=FromLanding&wbraid=wbRef&utm_term=skip`,
+    });
+    expect(captureAdsClickParamsFromLocation()).toEqual({
+      gclid: "FromLanding",
+      wbraid: "wbRef",
+    });
+    expect(JSON.parse(sessionStorage.getItem(ADS_CLICK_PARAMS_STORAGE_KEY) ?? "{}")).toEqual({
+      gclid: "FromLanding",
+      wbraid: "wbRef",
+    });
+  });
+
+  it("ignores a cross-origin referrer and a referrer click id when one is already stored", () => {
+    window.history.replaceState({}, "", "/builder?new=1");
+    Object.defineProperty(document, "referrer", {
+      configurable: true,
+      get: () => "https://ads.google.com/aclk?gclid=FromGoogle",
+    });
+    expect(captureAdsClickParamsFromLocation()).toEqual({});
+    sessionStorage.setItem(ADS_CLICK_PARAMS_STORAGE_KEY, JSON.stringify({ gclid: "Stored" }));
+    Object.defineProperty(document, "referrer", {
+      configurable: true,
+      get: () => `${window.location.origin}/landning?gclid=FromLanding`,
+    });
+    expect(captureAdsClickParamsFromLocation().gclid).toBe("Stored");
+  });
+
   it("rewrites href on auxclick/middle-mousedown so a new tab still gets gclid", () => {
     window.history.replaceState({}, "", "/?gclid=MiddleClick");
     const navigate = vi.fn();

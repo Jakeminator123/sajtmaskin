@@ -23,6 +23,8 @@ export type AdsClickParams = Partial<Record<AdsClickParamKey, string>>;
 
 const MAX_VALUE_LENGTH = 200;
 const KEY_SET = new Set<string>(ADS_CLICK_PARAM_KEYS);
+const CLICK_ID_KEYS = ["gclid", "wbraid", "gbraid"] as const;
+const CLICK_ID_KEY_SET = new Set<string>(CLICK_ID_KEYS);
 
 function sessionStore(): Storage | null {
   if (typeof window === "undefined") return null;
@@ -33,18 +35,22 @@ function sessionStore(): Storage | null {
   }
 }
 
-function sanitizeAdsClickValue(value: string | null | undefined): string | null {
+function sanitizeAdsClickValue(key: string, value: string | null | undefined): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   if (!trimmed || trimmed.length > MAX_VALUE_LENGTH) return null;
-  if (/[\s\r\n]/.test(trimmed)) return null;
+  if (CLICK_ID_KEY_SET.has(key)) {
+    if (/[\s\r\n]/.test(trimmed)) return null;
+    return trimmed;
+  }
+  if (/[\u0000-\u001F\u007F]/.test(trimmed)) return null;
   return trimmed;
 }
 
 function pickAdsClickParams(search: URLSearchParams): AdsClickParams {
   const picked: AdsClickParams = {};
   for (const key of ADS_CLICK_PARAM_KEYS) {
-    const value = sanitizeAdsClickValue(search.get(key));
+    const value = sanitizeAdsClickValue(key, search.get(key));
     if (value) picked[key] = value;
   }
   return picked;
@@ -53,7 +59,8 @@ function pickAdsClickParams(search: URLSearchParams): AdsClickParams {
 function isAdsClickParams(value: unknown): value is AdsClickParams {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   return Object.entries(value as Record<string, unknown>).every(
-    ([key, item]) => KEY_SET.has(key) && typeof item === "string" && sanitizeAdsClickValue(item) === item,
+    ([key, item]) =>
+      KEY_SET.has(key) && typeof item === "string" && sanitizeAdsClickValue(key, item) === item,
   );
 }
 
@@ -81,13 +88,43 @@ function writeStoredAdsClickParams(params: AdsClickParams): void {
   }
 }
 
+function hasStoredClickId(params: AdsClickParams): boolean {
+  return CLICK_ID_KEYS.some((key) => Boolean(params[key]));
+}
+
+function readSameOriginReferrerClickIds(): AdsClickParams {
+  if (typeof window === "undefined" || typeof document === "undefined") return {};
+  const referrer = document.referrer;
+  if (!referrer) return {};
+  let url: URL;
+  try {
+    url = new URL(referrer);
+  } catch {
+    return {};
+  }
+  if (url.origin !== window.location.origin) return {};
+  const picked: AdsClickParams = {};
+  for (const key of CLICK_ID_KEYS) {
+    const value = sanitizeAdsClickValue(key, url.searchParams.get(key));
+    if (value) picked[key] = value;
+  }
+  return picked;
+}
+
 export function captureAdsClickParamsFromLocation(
   search: string = typeof window === "undefined" ? "" : window.location.search,
 ): AdsClickParams {
   const incoming = pickAdsClickParams(
     new URLSearchParams(search.startsWith("?") || search.length === 0 ? search : `?${search}`),
   );
-  const merged = { ...readStoredAdsClickParams(), ...incoming };
+  let merged = { ...readStoredAdsClickParams(), ...incoming };
+  if (
+    typeof window !== "undefined" &&
+    window.location.pathname === "/builder" &&
+    !hasStoredClickId(merged)
+  ) {
+    merged = { ...merged, ...readSameOriginReferrerClickIds() };
+  }
   writeStoredAdsClickParams(merged);
   return merged;
 }
