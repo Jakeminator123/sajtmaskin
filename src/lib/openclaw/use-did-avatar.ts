@@ -8,6 +8,7 @@ import {
   type RefCallback,
 } from "react";
 import {
+  appendPendingRelease,
   registerDidStreamRelease,
   releaseDidStream,
   toDidStreamIdentity,
@@ -136,11 +137,17 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
           await safelyDisconnectAgent(agent);
         }
       });
-      pendingDisconnectRef.current = queued;
-      return queued;
+      const settled = queued.then(() => undefined, () => undefined);
+      pendingDisconnectRef.current = settled;
+      return settled;
     },
     [],
   );
+
+  const enqueueRelease = useCallback((stream: DidStreamIdentity | null) => {
+    if (!stream) return pendingDisconnectRef.current;
+    return appendPendingRelease(pendingDisconnectRef, releaseDidStream(stream, CLIENT_KEY));
+  }, []);
 
   const syncVideoPlayback = useCallback(() => {
     const video = videoNodeRef.current;
@@ -182,7 +189,7 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
           if (agentRef.current !== createdAgent) {
             // Ett inre SDK-retry kan skapa en stream efter att yttre connect()
             // redan rejectat. Släpp även sådana sena stream-id:n direkt.
-            if (stream) releaseDidStream(stream, CLIENT_KEY);
+            if (stream) enqueueRelease(stream);
             return;
           }
           if (!stream) return;
@@ -191,7 +198,7 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
             previous.streamId !== stream.streamId ||
             previous.sessionId !== stream.sessionId ||
             previous.agentId !== stream.agentId
-          )) releaseDidStream(previous, CLIENT_KEY);
+          )) enqueueRelease(previous);
           didStreamRef.current = stream;
         },
         onSrcObjectReady(value: MediaStream) {
@@ -238,6 +245,7 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     return agent;
   }, [
     clearConnectDeadline,
+    enqueueRelease,
     loadSdk,
     queueDisconnect,
     syncVideoPlayback,
@@ -286,7 +294,7 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
       agentRef.current = null;
       streamRef.current = null;
       didStreamRef.current = null;
-      if (stalledStream) releaseDidStream(stalledStream, CLIENT_KEY);
+      if (stalledStream) enqueueRelease(stalledStream);
       if (stalled) void queueDisconnect(stalled);
       setAvatarReady(false);
       updateConnectionState("error");
@@ -328,14 +336,14 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
           didStreamRef.current = null;
           agentRef.current = null;
           streamRef.current = null;
-          if (stream) releaseDidStream(stream, CLIENT_KEY);
+          if (stream) enqueueRelease(stream);
           void queueDisconnect(agent);
           setAvatarReady(false);
         }
         updateConnectionState("error");
       }
     }
-  }, [clearConnectDeadline, initAgent, queueDisconnect, updateConnectionState]);
+  }, [clearConnectDeadline, enqueueRelease, initAgent, queueDisconnect, updateConnectionState]);
 
   const speak = useCallback(async (text: string) => {
     const normalized = text.trim();
@@ -364,11 +372,11 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     didStreamRef.current = null;
     // pagehide läser didStreamRef, som nollas här. Släpp därför alltid; en
     // dubbel DELETE efter SDK:ns egen disconnect är ofarlig.
-    if (stream) releaseDidStream(stream, CLIENT_KEY);
+    enqueueRelease(stream);
     void queueDisconnect(agent);
     updateConnectionState("idle");
     setAvatarReady(false);
-  }, [clearConnectDeadline, queueDisconnect, updateConnectionState]);
+  }, [clearConnectDeadline, enqueueRelease, queueDisconnect, updateConnectionState]);
 
   const reconnect = useCallback(async () => {
     if (releaseBlockedRef.current) {
@@ -383,7 +391,7 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     streamRef.current = null;
     didStreamRef.current = null;
     setAvatarReady(false);
-    if (previousStream) releaseDidStream(previousStream, CLIENT_KEY);
+    enqueueRelease(previousStream);
     // Vänta in att den gamla strömmen är släppt innan en ny begärs. Med bara
     // två samtidiga platser skulle ett parallellt försök annars tävla mot sin
     // egen föregångare om den sista platsen. `previousAgent` kan redan vara
@@ -396,7 +404,7 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     }
     updateConnectionState("idle");
     await connect();
-  }, [clearConnectDeadline, connect, queueDisconnect, updateConnectionState]);
+  }, [clearConnectDeadline, connect, enqueueRelease, queueDisconnect, updateConnectionState]);
 
   useEffect(() => {
     if (enabled) {
@@ -411,11 +419,50 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     syncVideoPlayback();
   }, [avatarReady, syncVideoPlayback]);
 
+  const restartAfterBfcacheRef = useRef<() => void>(() => {});
+  restartAfterBfcacheRef.current = () => {
+    if (releaseBlockedRef.current) {
+      updateConnectionState("error");
+      return;
+    }
+    const generation = ++connectionGenerationRef.current;
+    clearConnectDeadline();
+    const agent = agentRef.current;
+    agentRef.current = null;
+    streamRef.current = null;
+    didStreamRef.current = null;
+    const video = videoNodeRef.current;
+    if (video) video.srcObject = null;
+    setAvatarReady(false);
+    updateConnectionState("idle");
+    void (async () => {
+      await queueDisconnect(agent);
+      if (generation !== connectionGenerationRef.current) return;
+      if (releaseBlockedRef.current) {
+        updateConnectionState("error");
+        return;
+      }
+      await connect();
+    })();
+  };
+
   // Stängd flik och omladdning kör ingen React-cleanup. Utan det här släppet
   // ockuperar den övergivna strömmen en av kontots två platser tills D-ID:s
   // egen timeout löper ut, och nästa besökare får 403.
   useEffect(
-    () => registerDidStreamRelease(() => didStreamRef.current, CLIENT_KEY),
+    () => registerDidStreamRelease(() => didStreamRef.current, CLIENT_KEY, {
+      onHide(_stream, release) {
+        didStreamRef.current = null;
+        streamRef.current = null;
+        const video = videoNodeRef.current;
+        if (video) video.srcObject = null;
+        setAvatarReady(false);
+        appendPendingRelease(pendingDisconnectRef, release);
+      },
+      onPersistedShow() {
+        restartAfterBfcacheRef.current();
+      },
+    }),
     [],
   );
 

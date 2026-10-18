@@ -139,6 +139,41 @@ describe("DidOpenClawBridge speak fence after deadline", () => {
     expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1);
   });
 
+  it("starts a fresh session when pageshow restores a released stream from bfcache", async () => {
+    const agent = fakeAgent();
+    sdkMock.createAgentManager.mockResolvedValue(agent);
+    const DidOpenClawBridge = await loadBridge();
+    render(<DidOpenClawBridge />);
+
+    fireEvent.click(screen.getByTestId("avatar-bridge-connect"));
+    await waitFor(() => expect(agent.connect).toHaveBeenCalledTimes(1));
+    const callbacks = sdkMock.createAgentManager.mock.calls[0]![1].callbacks;
+    act(() => callbacks.onSrcObjectReady({} as MediaStream));
+    await waitFor(() => expect(screen.queryByText("Förbered D-ID-klienten...")).toBeNull());
+
+    act(() => callbacks.onStreamCreated({
+      stream_id: "strm_abc", session_id: "sess_xyz", agent_id: "v2_agt_test",
+    }));
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+
+    const show = new Event("pageshow");
+    Object.defineProperty(show, "persisted", { value: true });
+    await act(async () => {
+      window.dispatchEvent(show);
+    });
+
+    expect(screen.getByText("Förbered D-ID-klienten...")).toBeTruthy();
+    await waitFor(() => expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(2));
+    const callsAfterRestart = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterRestart);
+  });
+
   it("releases the first stream when SDK retries before the deadline", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const connecting = deferred<void>();

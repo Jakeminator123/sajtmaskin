@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { collectOpenClawClientContext } from "@/lib/openclaw/client-context";
 import { DID_CONNECT_TIMEOUT_MS } from "@/lib/openclaw/use-did-avatar";
 import {
+  appendPendingRelease,
   registerDidStreamRelease,
   releaseDidStream,
   toDidStreamIdentity,
@@ -197,10 +198,17 @@ export function DidOpenClawBridge({
   const pendingDisconnectRef = useRef<Promise<void>>(Promise.resolve());
   const pendingConnectRef = useRef<{ agent: DidAgentManager; promise: Promise<void> } | null>(null);
   const releaseBlockedRef = useRef(false);
+  const restartAfterBfcacheRef = useRef<() => void>(() => {});
+  const ensureConnectedRef = useRef<() => Promise<void>>(async () => {});
 
   const [connectionState, setConnectionState] = useState<ConnectionState>(
     testMode ? "mock-ready" : "idle",
   );
+  const connectionStateRef = useRef(connectionState);
+  const setConnection = useCallback((state: ConnectionState) => {
+    connectionStateRef.current = state;
+    setConnectionState(state);
+  }, []);
   const [releaseBlocked, setReleaseBlocked] = useState(false);
   const [messages, setMessages] = useState<BridgeMessage[]>([
     {
@@ -227,7 +235,18 @@ export function DidOpenClawBridge({
   }, []);
 
   useEffect(
-    () => registerDidStreamRelease(() => didStreamRef.current, CLIENT_KEY),
+    () => registerDidStreamRelease(() => didStreamRef.current, CLIENT_KEY, {
+      onHide(_stream, release) {
+        didStreamRef.current = null;
+        streamRef.current = null;
+        if (videoRef.current) videoRef.current.srcObject = null;
+        setAvatarReady(false);
+        appendPendingRelease(pendingDisconnectRef, release);
+      },
+      onPersistedShow() {
+        restartAfterBfcacheRef.current();
+      },
+    }),
     [],
   );
 
@@ -279,11 +298,17 @@ export function DidOpenClawBridge({
           await safelyDisconnectAgent(agent);
         }
       });
-      pendingDisconnectRef.current = queued;
-      return queued;
+      const settled = queued.then(() => undefined, () => undefined);
+      pendingDisconnectRef.current = settled;
+      return settled;
     },
     [],
   );
+
+  const enqueueRelease = useCallback((stream: DidStreamIdentity | null) => {
+    if (!stream) return pendingDisconnectRef.current;
+    return appendPendingRelease(pendingDisconnectRef, releaseDidStream(stream, CLIENT_KEY));
+  }, []);
 
   /**
    * Deadline och retry delar en väg ut: fence:a generationen, nollställ refs
@@ -297,10 +322,10 @@ export function DidOpenClawBridge({
     agentRef.current = null;
     streamRef.current = null;
     didStreamRef.current = null;
-    if (activeStream) releaseDidStream(activeStream, CLIENT_KEY);
+    enqueueRelease(activeStream);
     if (activeAgent) void queueDisconnect(activeAgent);
     setAvatarReady(false);
-  }, [queueDisconnect]);
+  }, [enqueueRelease, queueDisconnect]);
 
   const syncVideoPlayback = useCallback(() => {
     const video = videoRef.current;
@@ -332,7 +357,7 @@ export function DidOpenClawBridge({
         onStreamCreated(value: unknown) {
           const stream = toDidStreamIdentity(value);
           if (agentRef.current !== createdAgent) {
-            if (stream) releaseDidStream(stream, CLIENT_KEY);
+            if (stream) enqueueRelease(stream);
             return;
           }
           if (!stream) return;
@@ -341,7 +366,7 @@ export function DidOpenClawBridge({
             previous.streamId !== stream.streamId ||
             previous.sessionId !== stream.sessionId ||
             previous.agentId !== stream.agentId
-          )) releaseDidStream(previous, CLIENT_KEY);
+          )) enqueueRelease(previous);
           didStreamRef.current = stream;
         },
         onSrcObjectReady(value: MediaStream) {
@@ -354,24 +379,24 @@ export function DidOpenClawBridge({
         onConnectionStateChange(state: string) {
           if (agentRef.current !== createdAgent) return;
           if (state === "connected") {
-            setConnectionState("connected");
+            setConnection("connected");
           } else if (state === "failed") {
             // SDK:n kan fortfarande starta en ny ström efter failed.
             if (connectDeadlineRef.current !== null && !streamRef.current) return;
-            setConnectionState("error");
+            setConnection("error");
             setLastError("D-ID-klienten kunde inte ansluta.");
           } else if (state === "disconnected" || state === "closed") {
             if (connectDeadlineRef.current !== null && !streamRef.current) return;
             clearConnectDeadline();
-            setConnectionState("idle");
+            setConnection("idle");
           }
         },
         onVideoStateChange(state: string) {
           if (agentRef.current !== createdAgent) return;
           if (state === "STOP") {
-            setConnectionState("connected");
+            setConnection("connected");
           } else if (state === "speaking") {
-            setConnectionState("speaking");
+            setConnection("speaking");
           }
           syncVideoPlayback();
         },
@@ -389,18 +414,21 @@ export function DidOpenClawBridge({
     }
     agentRef.current = agent;
     return agent;
-  }, [clearConnectDeadline, loadDidSdk, queueDisconnect, syncVideoPlayback, testMode]);
+  }, [clearConnectDeadline, enqueueRelease, loadDidSdk, queueDisconnect, setConnection, syncVideoPlayback, testMode]);
 
   const ensureConnected = useCallback(async () => {
     if (testMode) {
-      setConnectionState("mock-ready");
+      setConnection("mock-ready");
       setAvatarReady(true);
       return;
     }
     if (!AVATAR_ENABLED || !AGENT_ID || !CLIENT_KEY) return;
     if (releaseBlockedRef.current) return;
     if (pendingConnectRef.current) return;
-    if (connectionState === "connected" || connectionState === "speaking") return;
+    if (
+      connectionStateRef.current === "connected" ||
+      connectionStateRef.current === "speaking"
+    ) return;
 
     const generation = ++connectionGenerationRef.current;
     setLastError(null);
@@ -408,7 +436,7 @@ export function DidOpenClawBridge({
     // retryn mot sin egen föregångare om den sista av kontots två platser.
     await pendingDisconnectRef.current;
     if (generation !== connectionGenerationRef.current || releaseBlockedRef.current) return;
-    setConnectionState("connecting");
+    setConnection("connecting");
 
     // Ett fullt D-ID-konto kan ge en ansluten agent som aldrig levererar någon
     // MediaStream. Utan deadline fastnar ytan i "Förbered D-ID-klienten...".
@@ -419,7 +447,7 @@ export function DidOpenClawBridge({
       // Bara en levererad MediaStream räknas som framme avatar.
       if (streamRef.current) return;
       releaseActiveSession();
-      setConnectionState("offline");
+      setConnection("offline");
     }, DID_CONNECT_TIMEOUT_MS);
 
     let sdkConnectStarted = false;
@@ -428,7 +456,7 @@ export function DidOpenClawBridge({
       if (generation !== connectionGenerationRef.current) return;
       if (!agent) {
         clearConnectDeadline();
-        setConnectionState("error");
+        setConnection("error");
         setLastError("D-ID-klienten kunde inte initieras.");
         return;
       }
@@ -447,7 +475,7 @@ export function DidOpenClawBridge({
         await queueDisconnect(agent);
         return;
       }
-      setConnectionState("connected");
+      setConnection("connected");
     } catch (error) {
       if (generation !== connectionGenerationRef.current) return;
       clearConnectDeadline();
@@ -460,7 +488,7 @@ export function DidOpenClawBridge({
         didStreamRef.current = null;
         agentRef.current = null;
         streamRef.current = null;
-        if (stream) releaseDidStream(stream, CLIENT_KEY);
+        if (stream) enqueueRelease(stream);
         void queueDisconnect(agent);
         setAvatarReady(false);
         setLastError("Avataranslutningen pausades för att undvika dubbla strömmar. Använd textchatten. Ladda om sidan senare för ett nytt försök.");
@@ -468,20 +496,40 @@ export function DidOpenClawBridge({
       const outcome = handleAvatarConnectError(error, AGENT_ID);
       if (outcome.kind === "offline") {
         // Textchatten fortsätter även om avatarens SDK-försök ligger kvar.
-        setConnectionState("offline");
+        setConnection("offline");
       } else {
-        setConnectionState("error");
+        setConnection("error");
         if (!sdkConnectStarted) setLastError(outcome.message);
       }
     }
   }, [
     clearConnectDeadline,
-    connectionState,
+    enqueueRelease,
     initAgent,
     queueDisconnect,
     releaseActiveSession,
+    setConnection,
     testMode,
   ]);
+
+  ensureConnectedRef.current = ensureConnected;
+  restartAfterBfcacheRef.current = () => {
+    if (testMode || releaseBlockedRef.current) return;
+    const generation = ++connectionGenerationRef.current;
+    clearConnectDeadline();
+    const agent = agentRef.current;
+    agentRef.current = null;
+    streamRef.current = null;
+    didStreamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setAvatarReady(false);
+    setConnection("idle");
+    void (async () => {
+      await queueDisconnect(agent);
+      if (generation !== connectionGenerationRef.current || releaseBlockedRef.current) return;
+      await ensureConnectedRef.current();
+    })();
+  };
 
   const speakText = useCallback(
     async (text: string) => {
@@ -490,7 +538,7 @@ export function DidOpenClawBridge({
       setLastSpokenText(normalized);
 
       if (testMode) {
-        setConnectionState("mock-ready");
+        setConnection("mock-ready");
         return;
       }
 
@@ -503,15 +551,15 @@ export function DidOpenClawBridge({
       // "Anslut avatar" (state säger connected, men MediaStream saknas).
       const generation = connectionGenerationRef.current;
       try {
-        setConnectionState("speaking");
+        setConnection("speaking");
         await agent.speak({ type: "text", input: normalized });
       } catch {
         if (generation !== connectionGenerationRef.current) return;
         pendingSpeechRef.current = normalized;
-        if (agentRef.current === agent) setConnectionState("connected");
+        if (agentRef.current === agent) setConnection("connected");
       }
     },
-    [ensureConnected, testMode],
+    [ensureConnected, setConnection, testMode],
   );
 
   const sendMessage = useCallback(

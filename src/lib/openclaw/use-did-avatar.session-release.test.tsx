@@ -159,6 +159,94 @@ describe("D-ID stream release on unload", () => {
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
+  it("waits for the stream DELETE to finish before reconnect opens a new session", async () => {
+    const agent = fakeAgent();
+    sdkMock.createAgentManager.mockResolvedValue(agent);
+    const { useDidAvatar } = await loadHook();
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+
+    await waitFor(() => expect(result.current.connectionState).toBe("connected"));
+    act(() => lastCallbacks().onStreamCreated?.(STREAM_PAYLOAD));
+
+    let releaseFetch!: (value: Response) => void;
+    const releasePending = new Promise<Response>((resolve) => {
+      releaseFetch = resolve;
+    });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(() => releasePending);
+
+    let reconnect!: Promise<void>;
+    act(() => {
+      reconnect = result.current.reconnect();
+    });
+
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(agent.disconnect).not.toHaveBeenCalled();
+
+    await act(async () => {
+      releaseFetch(new Response(null, { status: 200 }));
+      await reconnect;
+    });
+
+    expect(agent.disconnect).toHaveBeenCalledTimes(1);
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(2);
+  });
+
+  function dispatchPageShow(persisted: boolean) {
+    const event = new Event("pageshow");
+    Object.defineProperty(event, "persisted", { value: persisted });
+    window.dispatchEvent(event);
+  }
+
+  it("starts a fresh session when pageshow restores a released stream from bfcache", async () => {
+    const agent = fakeAgent();
+    sdkMock.createAgentManager.mockResolvedValue(agent);
+    const { useDidAvatar } = await loadHook();
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+
+    await waitFor(() => expect(result.current.connectionState).toBe("connected"));
+    act(() => lastCallbacks().onStreamCreated?.(STREAM_PAYLOAD));
+    act(() => lastCallbacks().onSrcObjectReady?.({} as MediaStream));
+    expect(result.current.avatarReady).toBe(true);
+
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      dispatchPageShow(true);
+    });
+
+    expect(result.current.avatarReady).toBe(false);
+    await waitFor(() => expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(2));
+    const callsAfterRestart = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterRestart);
+  });
+
+  it("does not open a new session when pageshow is not a bfcache restore", async () => {
+    const agent = fakeAgent();
+    sdkMock.createAgentManager.mockResolvedValue(agent);
+    const { useDidAvatar } = await loadHook();
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+
+    await waitFor(() => expect(result.current.connectionState).toBe("connected"));
+    act(() => lastCallbacks().onStreamCreated?.(STREAM_PAYLOAD));
+
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    await act(async () => {
+      dispatchPageShow(false);
+    });
+
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1);
+    expect(result.current.connectionState).toBe("connected");
+  });
+
   it("stops listening for unload once the hook unmounts", async () => {
     const agent = {
       connect: vi.fn().mockResolvedValue(undefined),

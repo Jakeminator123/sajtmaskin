@@ -13,10 +13,28 @@
 
 const DID_API_BASE = "https://api.d-id.com";
 
+export const DID_STREAM_RELEASE_TIMEOUT_MS = 4_000;
+export const DID_STREAM_RELEASE_BACKOFF_MS = 200;
+const DID_STREAM_RELEASE_MAX_ATTEMPTS = 6;
+
 export interface DidStreamIdentity {
   streamId: string;
   sessionId: string;
   agentId: string;
+}
+
+export type DidStreamReleaseOutcome =
+  | { ok: true; status: number }
+  | { ok: false; status: number }
+  | { ok: false; reason: "network" };
+
+export interface DidStreamReleaseOptions {
+  retry?: boolean;
+}
+
+export interface DidStreamReleaseHandlers {
+  onHide?: (stream: DidStreamIdentity, release: Promise<DidStreamReleaseOutcome>) => void;
+  onPersistedShow?: () => void;
 }
 
 /** Plockar ut strömidentiteten ur SDK:ns `onStreamCreated`-payload. */
@@ -30,20 +48,30 @@ export function toDidStreamIdentity(value: unknown): DidStreamIdentity | null {
   return { streamId, sessionId, agentId };
 }
 
-/**
- * Best-effort-frigörning av en ström. Anropas på unload-vägen där
- * `agent.disconnect()` inte hinner klart. Misslyckas den faller vi tillbaka på
- * D-ID:s egen timeout, så den får aldrig kasta.
- */
-export function releaseDidStream(
+function releaseUrl(stream: DidStreamIdentity): string {
+  return `${DID_API_BASE}/agents/${encodeURIComponent(stream.agentId)}/streams/${encodeURIComponent(stream.streamId)}`;
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+export async function releaseDidStream(
   stream: DidStreamIdentity,
   clientKey: string | undefined,
-): void {
-  if (!clientKey) return;
-  try {
-    void fetch(
-      `${DID_API_BASE}/agents/${encodeURIComponent(stream.agentId)}/streams/${encodeURIComponent(stream.streamId)}`,
-      {
+  options?: DidStreamReleaseOptions,
+): Promise<DidStreamReleaseOutcome> {
+  if (!clientKey) return { ok: true, status: 0 };
+  const retry = options?.retry !== false;
+  const deadline = Date.now() + DID_STREAM_RELEASE_TIMEOUT_MS;
+  let backoff = DID_STREAM_RELEASE_BACKOFF_MS;
+  let last: DidStreamReleaseOutcome = { ok: false, reason: "network" };
+
+  for (let attempt = 1; attempt <= DID_STREAM_RELEASE_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(releaseUrl(stream), {
         method: "DELETE",
         headers: {
           Authorization: `Client-Key ${clientKey}`,
@@ -51,30 +79,70 @@ export function releaseDidStream(
         },
         body: JSON.stringify({ session_id: stream.sessionId }),
         keepalive: true,
-      },
-    ).catch(() => {});
-  } catch {
-    /* unload-vägen — ett misslyckat släpp faller tillbaka på D-ID:s timeout */
+      });
+      if (response.ok) return { ok: true, status: response.status };
+      last = { ok: false, status: response.status };
+      if (!retry || response.status < 500) return last;
+    } catch {
+      last = { ok: false, reason: "network" };
+      if (!retry) return last;
+    }
+    const remaining = deadline - Date.now();
+    if (remaining <= 0 || attempt === DID_STREAM_RELEASE_MAX_ATTEMPTS) return last;
+    await wait(Math.min(backoff, remaining));
+    backoff *= 2;
+    if (Date.now() >= deadline) return last;
   }
+  return last;
+}
+
+export function appendPendingRelease(
+  pendingRef: { current: Promise<void> },
+  release: Promise<unknown>,
+): Promise<void> {
+  const queued = pendingRef.current.then(
+    () => release.then(() => undefined, () => undefined),
+    () => release.then(() => undefined, () => undefined),
+  );
+  const settled = queued.then(() => undefined, () => undefined);
+  pendingRef.current = settled;
+  return settled;
 }
 
 /**
- * Registrerar en unload-handler som frigör strömmen.
- *
- * Bara `pagehide` — inte `visibilitychange`. Att byta flik ska inte klippa en
- * pågående konversation, och `pagehide` täcker både stängning och navigering.
+ * `pagehide` frigör strömmen och får inte vänta. `pageshow` med
+ * `persisted === true` betyder att bfcache återställde en sida vars ström
+ * redan släppts — då ska anroparen starta om i stället för att återanvända den.
+ * Inte `visibilitychange`: att byta flik ska inte klippa samtalet.
  */
 export function registerDidStreamRelease(
   getStream: () => DidStreamIdentity | null,
   clientKey: string | undefined,
+  handlers?: DidStreamReleaseHandlers,
 ): () => void {
   if (typeof window === "undefined") return () => {};
 
+  let releasedOnHide = false;
+
   const onPageHide = () => {
     const stream = getStream();
-    if (stream) releaseDidStream(stream, clientKey);
+    if (!stream) return;
+    releasedOnHide = true;
+    const release = releaseDidStream(stream, clientKey, { retry: false });
+    handlers?.onHide?.(stream, release);
+    void release;
+  };
+
+  const onPageShow = (event: Event) => {
+    if ((event as PageTransitionEvent).persisted !== true || !releasedOnHide) return;
+    releasedOnHide = false;
+    handlers?.onPersistedShow?.();
   };
 
   window.addEventListener("pagehide", onPageHide);
-  return () => window.removeEventListener("pagehide", onPageHide);
+  window.addEventListener("pageshow", onPageShow);
+  return () => {
+    window.removeEventListener("pagehide", onPageHide);
+    window.removeEventListener("pageshow", onPageShow);
+  };
 }
