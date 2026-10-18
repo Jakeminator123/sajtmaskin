@@ -169,7 +169,10 @@ function applyKostnadsfriCampaignTriggers(pathname: string) {
     store.open();
     store.setPanelPresentation("takeover");
     store.setAvatarMode(true);
-    seedAssistantMessage(KOSTNADSFRI_HANDOFF_INTRO_ID, buildKostnadsfriHandoffIntro(handoff.brief));
+    seedAssistantMessage(
+      KOSTNADSFRI_HANDOFF_INTRO_ID,
+      buildKostnadsfriHandoffIntro(handoff.brief, followups.length),
+    );
     const first = followups[0];
     if (first) {
       seedAssistantMessage(`oc-kampanj-foljd-${first.id}`, first.question);

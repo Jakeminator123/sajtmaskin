@@ -63,7 +63,7 @@ export function StepDesign({
                   selectedVibe === vibe.id ? "text-brand-teal/80" : "text-gray-400"
                 }`}
               >
-                {vibe.label}
+                {vibe.uiLabel}
               </span>
             </button>
           ))}
