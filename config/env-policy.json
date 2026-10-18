@@ -390,7 +390,7 @@
       "key": "SAJTMASKIN_MODEL_PREMIUM",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Optional override for the GPT-5.6 Sol Premium profile used by own-engine model resolution."
+      "notes": "Optional override for the Premium (Hög) profile model used by own-engine model resolution. Default is the manifest's GPT-6.1 Sol."
     },
     {
       "key": "SAJTMASKIN_MODEL_PRO",

@@ -18,69 +18,69 @@ const PHASES: GenerationPhase[] = [
 const OPENAI_TIERS = ["pro", "max", "premium", "codex"] as const;
 
 describe("resolvePhaseModel", () => {
-  it("Hög (premium): Sol on build phases; Sol fixer; Terra verifier", () => {
+  it("Hög (premium): GPT-6.1 Sol on every phase", () => {
     const planner = resolvePhaseModel("premium", "planner");
     const generator = resolvePhaseModel("premium", "generator");
     const fixer = resolvePhaseModel("premium", "fixer");
     const verifier = resolvePhaseModel("premium", "verifier");
     const deploy = resolvePhaseModel("premium", "deploy-assistant");
 
-    expect(planner.modelId).toBe("gpt-5.6-sol");
-    expect(generator.modelId).toBe("gpt-5.6-sol");
-    expect(fixer.modelId).toBe("gpt-5.6-sol");
+    expect(planner.modelId).toBe("gpt-6.1-sol");
+    expect(generator.modelId).toBe("gpt-6.1-sol");
+    expect(fixer.modelId).toBe("gpt-6.1-sol");
     expect(fixer.reason).toBe("manifest-phase-override");
-    expect(verifier.modelId).toBe("gpt-5.6-terra");
+    expect(verifier.modelId).toBe("gpt-6.1-sol");
     expect(verifier.reason).toBe("manifest-phase-override");
-    expect(deploy.modelId).toBe("gpt-5.6-sol");
+    expect(deploy.modelId).toBe("gpt-6.1-sol");
     expect(planner.reason).toBe("premium-tier-unified");
     expect(generator.reason).toBe("premium-tier-unified");
     expect(deploy.reason).toBe("premium-tier-unified");
   });
 
-  it("Låg (pro): Sol planner/generator; Terra fixer + deploy; Luna verifier", () => {
+  it("Låg (pro): GPT-6.1 Sol except the GPT-6 Luna verifier", () => {
     expect(resolvePhaseModel("pro", "planner")).toEqual({
       phase: "planner",
-      modelId: "gpt-5.6-sol",
+      modelId: "gpt-6.1-sol",
       reason: "full-tier",
     });
     expect(resolvePhaseModel("pro", "generator")).toEqual({
       phase: "generator",
-      modelId: "gpt-5.6-sol",
+      modelId: "gpt-6.1-sol",
       reason: "full-tier",
     });
     expect(resolvePhaseModel("pro", "fixer")).toEqual({
       phase: "fixer",
-      modelId: "gpt-5.6-terra",
+      modelId: "gpt-6.1-sol",
       reason: "manifest-phase-override",
     });
     expect(resolvePhaseModel("pro", "verifier")).toEqual({
       phase: "verifier",
-      modelId: "gpt-5.6-luna",
+      modelId: "gpt-6-luna",
       reason: "manifest-phase-override",
     });
     expect(resolvePhaseModel("pro", "deploy-assistant")).toEqual({
       phase: "deploy-assistant",
-      modelId: "gpt-5.6-terra",
+      modelId: "gpt-6.1-sol",
       reason: "manifest-phase-override",
     });
   });
 
-  it("Mellan (max): Sol planner/generator/fixer/deploy; Terra verifier", () => {
-    expect(resolvePhaseModel("max", "planner").modelId).toBe("gpt-5.6-sol");
-    expect(resolvePhaseModel("max", "generator").modelId).toBe("gpt-5.6-sol");
-    expect(resolvePhaseModel("max", "fixer").modelId).toBe("gpt-5.6-sol");
+  it("Mellan (max): GPT-6.1 Sol on every phase", () => {
+    expect(resolvePhaseModel("max", "planner").modelId).toBe("gpt-6.1-sol");
+    expect(resolvePhaseModel("max", "generator").modelId).toBe("gpt-6.1-sol");
+    expect(resolvePhaseModel("max", "fixer").modelId).toBe("gpt-6.1-sol");
     expect(resolvePhaseModel("max", "fixer").reason).toBe("manifest-phase-override");
-    expect(resolvePhaseModel("max", "verifier").modelId).toBe("gpt-5.6-terra");
-    expect(resolvePhaseModel("max", "deploy-assistant").modelId).toBe("gpt-5.6-sol");
+    expect(resolvePhaseModel("max", "verifier").modelId).toBe("gpt-6.1-sol");
+    expect(resolvePhaseModel("max", "deploy-assistant").modelId).toBe("gpt-6.1-sol");
     expect(resolvePhaseModel("max", "planner").reason).toBe("full-tier");
   });
 
   it("codex mirrors Mellan (hidden compatibility tier)", () => {
-    expect(resolvePhaseModel("codex", "planner").modelId).toBe("gpt-5.6-sol");
-    expect(resolvePhaseModel("codex", "generator").modelId).toBe("gpt-5.6-sol");
-    expect(resolvePhaseModel("codex", "fixer").modelId).toBe("gpt-5.6-sol");
-    expect(resolvePhaseModel("codex", "verifier").modelId).toBe("gpt-5.6-terra");
-    expect(resolvePhaseModel("codex", "deploy-assistant").modelId).toBe("gpt-5.6-sol");
+    expect(resolvePhaseModel("codex", "planner").modelId).toBe("gpt-6.1-sol");
+    expect(resolvePhaseModel("codex", "generator").modelId).toBe("gpt-6.1-sol");
+    expect(resolvePhaseModel("codex", "fixer").modelId).toBe("gpt-6.1-sol");
+    expect(resolvePhaseModel("codex", "verifier").modelId).toBe("gpt-6.1-sol");
+    expect(resolvePhaseModel("codex", "deploy-assistant").modelId).toBe("gpt-6.1-sol");
   });
 
   it("anthropic tier uses Claude Opus 4.8 across all phases (Sonnet retired)", () => {
@@ -96,11 +96,11 @@ describe("resolvePhaseModel", () => {
     expect(verifier.reason).toBe("anthropic-tier-unified");
   });
 
-  it("OpenAI build profiles all generate with GPT-5.6 Sol", () => {
-    expect(resolvePhaseModel("premium", "generator").modelId).toBe("gpt-5.6-sol");
-    expect(resolvePhaseModel("pro", "generator").modelId).toBe("gpt-5.6-sol");
-    expect(resolvePhaseModel("max", "generator").modelId).toBe("gpt-5.6-sol");
-    expect(resolvePhaseModel("codex", "generator").modelId).toBe("gpt-5.6-sol");
+  it("OpenAI build profiles all generate with GPT-6.1 Sol", () => {
+    expect(resolvePhaseModel("premium", "generator").modelId).toBe("gpt-6.1-sol");
+    expect(resolvePhaseModel("pro", "generator").modelId).toBe("gpt-6.1-sol");
+    expect(resolvePhaseModel("max", "generator").modelId).toBe("gpt-6.1-sol");
+    expect(resolvePhaseModel("codex", "generator").modelId).toBe("gpt-6.1-sol");
     expect(resolvePhaseModel("anthropic", "generator").modelId).toBe("claude-opus-4.8");
   });
 });
@@ -112,29 +112,29 @@ describe("getPhaseRoutingSummary", () => {
       expect(summary).toHaveProperty(phase);
       expect(typeof summary[phase]).toBe("string");
     }
-    expect(summary.planner).toBe("gpt-5.6-sol");
-    expect(summary.generator).toBe("gpt-5.6-sol");
-    expect(summary.fixer).toBe("gpt-5.6-sol");
-    expect(summary.verifier).toBe("gpt-5.6-terra");
-    expect(summary["deploy-assistant"]).toBe("gpt-5.6-sol");
+    expect(summary.planner).toBe("gpt-6.1-sol");
+    expect(summary.generator).toBe("gpt-6.1-sol");
+    expect(summary.fixer).toBe("gpt-6.1-sol");
+    expect(summary.verifier).toBe("gpt-6.1-sol");
+    expect(summary["deploy-assistant"]).toBe("gpt-6.1-sol");
   });
 
-  it("splits Låg (pro): Sol build, Terra fixer/deploy, Luna verifier", () => {
+  it("splits Låg (pro): Sol build/fixer/deploy, Luna verifier", () => {
     const summary = getPhaseRoutingSummary("pro");
-    expect(summary.planner).toBe("gpt-5.6-sol");
-    expect(summary.generator).toBe("gpt-5.6-sol");
-    expect(summary.fixer).toBe("gpt-5.6-terra");
-    expect(summary.verifier).toBe("gpt-5.6-luna");
-    expect(summary["deploy-assistant"]).toBe("gpt-5.6-terra");
+    expect(summary.planner).toBe("gpt-6.1-sol");
+    expect(summary.generator).toBe("gpt-6.1-sol");
+    expect(summary.fixer).toBe("gpt-6.1-sol");
+    expect(summary.verifier).toBe("gpt-6-luna");
+    expect(summary["deploy-assistant"]).toBe("gpt-6.1-sol");
   });
 
   it("Mellan and hidden Kod Max share the same resolved models", () => {
     expect(getPhaseRoutingSummary("max")).toEqual({
-      planner: "gpt-5.6-sol",
-      generator: "gpt-5.6-sol",
-      fixer: "gpt-5.6-sol",
-      verifier: "gpt-5.6-terra",
-      "deploy-assistant": "gpt-5.6-sol",
+      planner: "gpt-6.1-sol",
+      generator: "gpt-6.1-sol",
+      fixer: "gpt-6.1-sol",
+      verifier: "gpt-6.1-sol",
+      "deploy-assistant": "gpt-6.1-sol",
     });
     expect(getPhaseRoutingSummary("codex")).toEqual(getPhaseRoutingSummary("max"));
   });
@@ -189,7 +189,7 @@ describe("resolvePhaseThinking", () => {
     });
   });
 
-  it("omits GPT-5.6-only reasoning mode for a non-5.6 Premium env override", () => {
+  it("omits reasoning mode for a Premium env override to a model without it", () => {
     const previous = process.env.SAJTMASKIN_MODEL_PREMIUM;
     process.env.SAJTMASKIN_MODEL_PREMIUM = "gpt-5.5";
     try {

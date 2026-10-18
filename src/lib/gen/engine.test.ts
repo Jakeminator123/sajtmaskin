@@ -128,7 +128,68 @@ describe("generateCode providerOptions", () => {
     });
   });
 
-  it("omits providerOptions for OpenAI models when thinking is disabled", async () => {
+  it("runs registered OpenAI models at their lowest effort when thinking is disabled", async () => {
+    const { generateCode } = await loadEngineModule();
+
+    generateCode({
+      prompt: "Build this",
+      systemPrompt: "System",
+      model: "gpt-6.1-sol",
+      thinking: false,
+    });
+    generateCode({
+      prompt: "Build this",
+      systemPrompt: "System",
+      model: "gpt-6-luna",
+      thinking: false,
+    });
+
+    expect(streamTextMock.mock.calls[0][0].providerOptions).toEqual({
+      openai: { reasoningEffort: "low" },
+    });
+    expect(streamTextMock.mock.calls[1][0].providerOptions).toEqual({
+      openai: { reasoningEffort: "none" },
+    });
+  });
+
+  it("aliases a retired model before clamping none and logging usage", async () => {
+    const { generateCode } = await loadEngineModule();
+
+    generateCode({
+      prompt: "Build this",
+      systemPrompt: "System",
+      model: "gpt-5.3-codex",
+      thinking: true,
+      reasoningEffort: "none",
+    });
+
+    expect(getOpenAIModelMock).toHaveBeenCalledWith("gpt-6.1-sol");
+    expect(streamTextMock.mock.calls[0][0].providerOptions).toEqual({
+      openai: { reasoningEffort: "low", reasoningSummary: "detailed" },
+    });
+    expect(createCodeGenSSEStreamMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ usageModelId: "gpt-6.1-sol" }),
+    );
+  });
+
+  it("clamps an effort GPT-6.1 Sol does not accept when thinking is enabled", async () => {
+    const { generateCode } = await loadEngineModule();
+
+    generateCode({
+      prompt: "Build this",
+      systemPrompt: "System",
+      model: "gpt-6.1-sol",
+      thinking: true,
+      reasoningEffort: "none",
+    });
+
+    expect(streamTextMock.mock.calls[0][0].providerOptions).toEqual({
+      openai: { reasoningEffort: "low", reasoningSummary: "detailed" },
+    });
+  });
+
+  it("omits providerOptions for unregistered OpenAI models when thinking is disabled", async () => {
     const { generateCode } = await loadEngineModule();
 
     generateCode({
