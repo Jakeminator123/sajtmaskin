@@ -19,7 +19,7 @@ vi.mock("next/image", () => ({
 }));
 
 describe("LandingExempelStrip", () => {
-  it("shows three featured reconstructions and points at /exempel", () => {
+  it("shows featured reconstructions and points at /exempel", () => {
     const { container } = render(<LandingExempelStrip />);
 
     expect(screen.getByRole("heading", { level: 2 }).textContent).toMatch(/riktningar/i);
@@ -28,6 +28,7 @@ describe("LandingExempelStrip", () => {
     );
     for (const site of HOME_SHOWCASE_SITES) {
       expect(screen.getByText(site.name)).toBeTruthy();
+      expect(screen.getByText(site.highlight)).toBeTruthy();
     }
     expect(container.textContent).toMatch(/inte kundcase/i);
     expect(container.querySelector("iframe")).toBeNull();
