@@ -11,6 +11,7 @@ import {
   appendPendingRelease,
   registerDidStreamRelease,
   releaseDidStream,
+  settleWithinReleaseTimeout,
   toDidStreamIdentity,
   type DidStreamIdentity,
 } from "./did-stream-release";
@@ -62,7 +63,7 @@ type DidAgentManager = Awaited<ReturnType<DidClientSdk["createAgentManager"]>>;
 
 async function safelyDisconnectAgent(agent: DidAgentManager | null) {
   if (!agent?.disconnect) return;
-  await agent.disconnect().catch(() => {});
+  await settleWithinReleaseTimeout(agent.disconnect());
 }
 
 export function truncateForSpeech(text: string, maxSentences = 3): string {
@@ -133,7 +134,7 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
       const queued = pendingDisconnectRef.current.then(async () => {
         await safelyDisconnectAgent(agent);
         if (connecting) {
-          await connecting.catch(() => {});
+          await settleWithinReleaseTimeout(connecting);
           await safelyDisconnectAgent(agent);
         }
       });

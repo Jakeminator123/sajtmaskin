@@ -4,6 +4,7 @@ import {
   DID_STREAM_RELEASE_TIMEOUT_MS,
   appendPendingRelease,
   releaseDidStream,
+  settleWithinReleaseTimeout,
   type DidStreamIdentity,
 } from "./did-stream-release";
 
@@ -173,5 +174,26 @@ describe("appendPendingRelease", () => {
     await seen;
     expect(settled).toBe(true);
     await expect(pendingRef.current).resolves.toBeUndefined();
+  });
+});
+
+describe("settleWithinReleaseTimeout", () => {
+  it("resolves a promise that never settles at the release deadline", async () => {
+    vi.useFakeTimers();
+    let settled = false;
+    const seen = settleWithinReleaseTimeout(new Promise(() => {})).then(() => {
+      settled = true;
+    });
+
+    await vi.advanceTimersByTimeAsync(DID_STREAM_RELEASE_TIMEOUT_MS - 1);
+    expect(settled).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await seen;
+    expect(settled).toBe(true);
+  });
+
+  it("swallows a rejection instead of breaking the queue", async () => {
+    await expect(settleWithinReleaseTimeout(Promise.reject(new Error("boom")))).resolves.toBeUndefined();
   });
 });

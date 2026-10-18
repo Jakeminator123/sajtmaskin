@@ -592,6 +592,41 @@ describe("D-ID connect deadline", () => {
     expect(fresh.connect).toHaveBeenCalledTimes(1);
   });
 
+  it("does not let an SDK disconnect that never settles block a retry past the release timeout", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const stalled = fakeAgent({ disconnect: vi.fn().mockReturnValue(new Promise(() => {})) });
+    const fresh = fakeAgent();
+    sdkMock.createAgentManager
+      .mockResolvedValueOnce(stalled)
+      .mockResolvedValueOnce(fresh);
+    const { useDidAvatar, DID_CONNECT_TIMEOUT_MS } = await loadHook();
+    const { DID_STREAM_RELEASE_TIMEOUT_MS } = await import("./did-stream-release");
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+
+    await waitFor(() => expect(result.current.connectionState).toBe("connected"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DID_CONNECT_TIMEOUT_MS + 10);
+    });
+    await waitFor(() => expect(stalled.disconnect).toHaveBeenCalledTimes(1));
+
+    let retry!: Promise<void>;
+    act(() => {
+      retry = result.current.reconnect();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DID_STREAM_RELEASE_TIMEOUT_MS + 10);
+      await retry;
+    });
+
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(2);
+    expect(fresh.connect).toHaveBeenCalledTimes(1);
+  });
+
   it("quarantines an in-flight SDK connect and releases even streams created later", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const connecting = deferred<void>();

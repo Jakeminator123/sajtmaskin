@@ -8,6 +8,7 @@ import {
   appendPendingRelease,
   registerDidStreamRelease,
   releaseDidStream,
+  settleWithinReleaseTimeout,
   toDidStreamIdentity,
   type DidStreamIdentity,
 } from "@/lib/openclaw/did-stream-release";
@@ -68,7 +69,7 @@ type DidAgentManager = Awaited<ReturnType<DidClientSdk["createAgentManager"]>>;
 
 async function safelyDisconnectAgent(agent: DidAgentManager | null) {
   if (!agent?.disconnect) return;
-  await agent.disconnect().catch(() => {});
+  await settleWithinReleaseTimeout(agent.disconnect());
 }
 
 type SpeechRecognitionCtor = new () => {
@@ -293,7 +294,7 @@ export function DidOpenClawBridge({
       const queued = pendingDisconnectRef.current.then(async () => {
         await safelyDisconnectAgent(agent);
         if (connecting) {
-          await connecting.catch(() => {});
+          await settleWithinReleaseTimeout(connecting);
           await safelyDisconnectAgent(agent);
         }
       });
