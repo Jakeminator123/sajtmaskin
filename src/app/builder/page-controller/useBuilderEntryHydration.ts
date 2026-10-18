@@ -185,6 +185,7 @@ export function useBuilderEntryHydration({
           if (shouldClearPromptId) {
             const nextParams = new URLSearchParams(searchParams.toString());
             nextParams.delete("promptId");
+            nextParams.delete("new");
             const query = nextParams.toString();
             router.replace(query ? `/builder?${query}` : "/builder");
           }
@@ -347,6 +348,7 @@ export function useBuilderEntryHydration({
         if (restoredChatId && isActive) {
           setChatId(restoredChatId);
           const params = new URLSearchParams(searchParams.toString());
+          params.delete("new");
           params.set("project", projectParam!);
           params.set("chatId", restoredChatId);
           router.replace(`/builder?${params.toString()}`);
