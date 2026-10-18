@@ -33,13 +33,17 @@ export type PricingContext = {
 };
 
 // ─── Prompt costs by model tier ───────────────────────────────────
-// Base rate: 1 credit ≈ 3 SEK
+// Base rate: 1 credit ≈ 3 SEK.
+// Extra hög (ultra) is an admission gate, not the charged price. Settlement
+// uses actual tokens × Astra rates ($10/$50 per 1M) × 2× markup. 50/30 keeps
+// roughly the same headroom as Mellan (10/6) given Astra's 5× token price.
 const PROMPT_CREATE_COSTS: Record<ModelTier, number> = {
   premium: 10,
   pro: 7,
   max: 10,
   codex: 10,
   anthropic: 10,
+  ultra: 50,
 };
 
 const PROMPT_REFINE_COSTS: Record<ModelTier, number> = {
@@ -48,6 +52,7 @@ const PROMPT_REFINE_COSTS: Record<ModelTier, number> = {
   max: 6,
   codex: 6,
   anthropic: 6,
+  ultra: 30,
 };
 
 /** Fullt upplöst prislista — ett tal per debiterbar åtgärd. */
@@ -136,9 +141,11 @@ export const CREDIT_COST_BREAKDOWN = {
   generatePremium: DEFAULT_CREDIT_ACTION_PRICES.promptCreate.premium,
   generatePro: DEFAULT_CREDIT_ACTION_PRICES.promptCreate.pro,
   generateMax: DEFAULT_CREDIT_ACTION_PRICES.promptCreate.max,
+  generateUltra: DEFAULT_CREDIT_ACTION_PRICES.promptCreate.ultra,
   refinePremium: DEFAULT_CREDIT_ACTION_PRICES.promptRefine.premium,
   refinePro: DEFAULT_CREDIT_ACTION_PRICES.promptRefine.pro,
   refineMax: DEFAULT_CREDIT_ACTION_PRICES.promptRefine.max,
+  refineUltra: DEFAULT_CREDIT_ACTION_PRICES.promptRefine.ultra,
   wizard: DEFAULT_CREDIT_ACTION_PRICES.wizard,
   auditBasic: DEFAULT_CREDIT_ACTION_PRICES.auditBasic,
   auditAdvanced: DEFAULT_CREDIT_ACTION_PRICES.auditAdvanced,
@@ -149,16 +156,18 @@ export type CreditCostBreakdown = {
   generatePremium: number;
   generatePro: number;
   generateMax: number;
+  generateUltra: number;
   refinePremium: number;
   refinePro: number;
   refineMax: number;
+  refineUltra: number;
   wizard: number;
   auditBasic: number;
   auditAdvanced: number;
   deploy: number;
 };
 
-const MODEL_TIERS = ["premium", "pro", "max", "codex", "anthropic"] as const satisfies readonly ModelTier[];
+const MODEL_TIERS = ["premium", "pro", "max", "codex", "anthropic", "ultra"] as const satisfies readonly ModelTier[];
 
 /**
  * Fullt upplöst prislista: varje åtgärd/tier är det tal `getCreditCost` skulle
@@ -191,9 +200,11 @@ export function toCreditCostBreakdown(prices: CreditActionPrices): CreditCostBre
     generatePremium: prices.promptCreate.premium,
     generatePro: prices.promptCreate.pro,
     generateMax: prices.promptCreate.max,
+    generateUltra: prices.promptCreate.ultra,
     refinePremium: prices.promptRefine.premium,
     refinePro: prices.promptRefine.pro,
     refineMax: prices.promptRefine.max,
+    refineUltra: prices.promptRefine.ultra,
     wizard: prices.wizard,
     auditBasic: prices.auditBasic,
     auditAdvanced: prices.auditAdvanced,

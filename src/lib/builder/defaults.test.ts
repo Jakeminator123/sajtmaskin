@@ -10,12 +10,10 @@ describe("builder model options", () => {
     expect(MODEL_TIER_OPTIONS.some((option) => option.value === "premium")).toBe(true);
     expect(MODEL_TIER_OPTIONS.some((option) => (option.value as string) === "fast")).toBe(false);
     expect(MODEL_TIER_OPTIONS.some((option) => option.value === "codex")).toBe(false);
+    expect(MODEL_TIER_OPTIONS.some((option) => option.value === "anthropic")).toBe(false);
+    expect(MODEL_TIER_OPTIONS.at(-1)?.value).toBe("ultra");
     for (const option of MODEL_TIER_OPTIONS) {
-      if (option.value === "anthropic") {
-        expect(option.description).not.toContain("GPT-6.1 Sol");
-      } else {
-        expect(option.description).toContain("GPT-6.1 Sol");
-      }
+      expect(option.description).toContain(option.value === "ultra" ? "GPT-6 Astra" : "GPT-6.1 Sol");
     }
   });
 

@@ -295,7 +295,7 @@ export function useSendMessage(
           promptMeta.scaffoldId = effectiveScaffoldId;
         }
         if (appProjectId) promptMeta.appProjectId = appProjectId;
-        if (designThemePreset) promptMeta.designTheme = designThemePreset;
+        if (designThemePreset && designThemePreset !== "off") promptMeta.designTheme = designThemePreset;
         if (themeColors) promptMeta.themeColors = themeColors;
         if (paletteState?.selections?.length) promptMeta.palette = paletteState;
         if (initChoicesMeta?.pageCountHint) {

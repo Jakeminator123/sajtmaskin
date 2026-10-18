@@ -37,7 +37,7 @@ describe("resolvePhaseModel", () => {
     expect(deploy.reason).toBe("premium-tier-unified");
   });
 
-  it("Låg (pro): GPT-6.1 Sol except the GPT-6 Luna verifier", () => {
+  it("Låg (pro): GPT-6.1 Sol on every phase", () => {
     expect(resolvePhaseModel("pro", "planner")).toEqual({
       phase: "planner",
       modelId: "gpt-6.1-sol",
@@ -55,7 +55,7 @@ describe("resolvePhaseModel", () => {
     });
     expect(resolvePhaseModel("pro", "verifier")).toEqual({
       phase: "verifier",
-      modelId: "gpt-6-luna",
+      modelId: "gpt-6.1-sol",
       reason: "manifest-phase-override",
     });
     expect(resolvePhaseModel("pro", "deploy-assistant")).toEqual({
@@ -119,13 +119,23 @@ describe("getPhaseRoutingSummary", () => {
     expect(summary["deploy-assistant"]).toBe("gpt-6.1-sol");
   });
 
-  it("splits Låg (pro): Sol build/fixer/deploy, Luna verifier", () => {
+  it("keeps Låg (pro) on Sol for every phase, verifier included", () => {
     const summary = getPhaseRoutingSummary("pro");
     expect(summary.planner).toBe("gpt-6.1-sol");
     expect(summary.generator).toBe("gpt-6.1-sol");
     expect(summary.fixer).toBe("gpt-6.1-sol");
-    expect(summary.verifier).toBe("gpt-6-luna");
+    expect(summary.verifier).toBe("gpt-6.1-sol");
     expect(summary["deploy-assistant"]).toBe("gpt-6.1-sol");
+  });
+
+  it("Extra hög (ultra): GPT-6 Astra builds, Sol fixes and verifies", () => {
+    expect(getPhaseRoutingSummary("ultra")).toEqual({
+      planner: "gpt-6-astra",
+      generator: "gpt-6-astra",
+      fixer: "gpt-6.1-sol",
+      verifier: "gpt-6.1-sol",
+      "deploy-assistant": "gpt-6.1-sol",
+    });
   });
 
   it("Mellan and hidden Kod Max share the same resolved models", () => {

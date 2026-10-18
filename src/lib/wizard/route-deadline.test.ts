@@ -22,13 +22,13 @@ describe("wizard route deadline", () => {
     const enrich = createWizardRouteDeadline(WIZARD_ENRICH_MAX_DURATION_S);
     pending.push(competitors, enrich);
 
-    expect(WIZARD_COMPETITORS_MAX_DURATION_S).toBe(25);
-    expect(WIZARD_ENRICH_MAX_DURATION_S).toBe(30);
+    expect(WIZARD_COMPETITORS_MAX_DURATION_S).toBe(35);
+    expect(WIZARD_ENRICH_MAX_DURATION_S).toBe(40);
     expect(WIZARD_ROUTE_ABORT_HEADROOM_MS).toBe(2_000);
-    expect(competitors.budgetMs).toBe(25_000);
-    expect(competitors.abortAtMs).toBe(23_000);
-    expect(enrich.budgetMs).toBe(30_000);
-    expect(enrich.abortAtMs).toBe(28_000);
+    expect(competitors.budgetMs).toBe(35_000);
+    expect(competitors.abortAtMs).toBe(33_000);
+    expect(enrich.budgetMs).toBe(40_000);
+    expect(enrich.abortAtMs).toBe(38_000);
     expect(competitors.signal.aborted).toBe(false);
   });
 

@@ -187,11 +187,11 @@ describe("POST /api/wizard/enrich", () => {
     );
   });
 
-  it("keeps the 30s route budget and emits a terminal event on validation failure", async () => {
+  it("keeps the 40s route budget and emits a terminal event on validation failure", async () => {
     const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "route.ts"), "utf8");
-    expect(maxDuration).toBe(30);
+    expect(maxDuration).toBe(40);
     expect(maxDuration).toBe(WIZARD_ENRICH_MAX_DURATION_S);
-    expect(source.match(/export const maxDuration = 30;/g)).toHaveLength(1);
+    expect(source.match(/export const maxDuration = 40;/g)).toHaveLength(1);
 
     await POST(makeRequest({ step: 9, data: {} }));
     expect(emitWizardRouteTerminal).toHaveBeenCalledWith(

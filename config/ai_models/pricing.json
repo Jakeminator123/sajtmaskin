@@ -35,7 +35,7 @@
     "Tiers: standard = default sync API. batch = Batch API (~50% off, async). flex = Flex processing (cheaper, slower). priority = Priority processing (premium latency).",
     "Codex-suffixed models (gpt-5.3-codex) are NOT on the public per-token pricing page and are billed via the Codex credit rate card; the value here is an ESTIMATE flagged with estimated:true.",
     "Regional processing (data residency) endpoints add a 10% uplift for models released on/after 2026-03-05 — not modeled here.",
-    "GPT-6 Astra is priced so cost tooling and settlement can price it if it is routed to, but no build profile or workload uses it yet."
+    "GPT-6 Astra is the Extra hög (ultra) build model. Admission gates are 50 credits to create and 30 to refine; settlement still uses these per-token rates."
   ],
   "models": {
     "gpt-6.1-sol": {

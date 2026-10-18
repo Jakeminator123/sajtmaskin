@@ -41,14 +41,15 @@ MODEL_LABELS = {
     "selected_build_model": "Följ vald byggprofil (`selected_build_model`)",
 }
 
-# Slider order (cheapest first). `codex` is a hidden compatibility profile.
-BUILD_PROFILE_ORDER = ("pro", "max", "premium", "codex", "anthropic")
+# Tier order (cheapest first). `codex` and `anthropic` are hidden from the builder slider.
+BUILD_PROFILE_ORDER = ("pro", "max", "premium", "ultra", "codex", "anthropic")
 TIER_LABELS_SV = {
     "pro": "Låg (pro)",
     "max": "Mellan (max)",
     "premium": "Hög (premium)",
+    "ultra": "Extra hög (ultra)",
     "codex": "Kod Max (codex, dold)",
-    "anthropic": "Anthropic",
+    "anthropic": "Anthropic (dold)",
 }
 PHASE_ORDER = (
     "planner",
@@ -62,6 +63,7 @@ REASONING_MODE_OPTIONS = ("standard", "pro")
 AVAILABLE_PHASE_MODELS = (
     "selected_build_model",
     "gpt-6.1-sol",
+    "gpt-6-astra",
     "gpt-6-luna",
     "gpt-5.6-sol",
     "gpt-5.6-terra",
@@ -114,6 +116,13 @@ DEFAULT_PHASE_THINKING_BY_TIER: dict[str, dict[str, dict[str, Any]]] = {
         "generator": {"thinking": True, "reasoningEffort": "high"},
         "fixer": {"thinking": False, "reasoningEffort": "medium"},
         "verifier": {"thinking": False, "reasoningEffort": "medium"},
+        "deploy-assistant": {"thinking": False, "reasoningEffort": "medium"},
+    },
+    "ultra": {
+        "planner": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},
+        "generator": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},
+        "fixer": {"thinking": False, "reasoningEffort": "high"},
+        "verifier": {"thinking": False, "reasoningEffort": "low"},
         "deploy-assistant": {"thinking": False, "reasoningEffort": "medium"},
     },
 }
