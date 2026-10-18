@@ -370,12 +370,6 @@ export async function runVerifierPhase(params: {
         lineageHash: null, // not threaded into runFinalizeFastPath today
       });
     }
-    onProgress?.("verifier", {
-      phase: "done",
-      durationMs: Date.now() - verifierStartedAt,
-      blockingCount: verifierBlockingFindings.length,
-      qualityCount: findings.quality.length,
-    });
     stepTelemetry = createFinalizeStepTelemetry(verifierStartedAt, "done", {
       trigger: reason,
       blockingCount: verifierBlockingFindings.length,
@@ -663,6 +657,12 @@ export async function runVerifierPhase(params: {
         findingsAfter: verifierBlockingFindings.length,
       });
     }
+    onProgress?.("verifier", {
+      phase: "done",
+      durationMs: Date.now() - verifierStartedAt,
+      blockingCount: verifierBlockingFindings.length,
+      qualityCount: findings.quality.length,
+    });
   } catch (verifierErr) {
     console.warn("[verifier-pass] Verification unavailable:", verifierErr);
     if (verifierBlockingFindings.length === 0) verifierBlockingFindings = [verifierLlmUnavailableFinding()];

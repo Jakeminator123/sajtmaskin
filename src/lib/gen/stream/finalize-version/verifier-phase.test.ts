@@ -154,6 +154,37 @@ describe("runVerifierPhase deterministic import pre-fix", () => {
     );
   });
 
+  it("emits verifier done only after the confirmation pass, with that pass's blocking count", async () => {
+    const confirmed = {
+      id: "navigation-placeholder-actions",
+      detail: "app/page.tsx: hero CTA href is empty",
+    };
+    const progressEvents: Array<{ step: string; data: Record<string, unknown> }> = [];
+    runVerifierPass
+      .mockResolvedValueOnce({
+        blocking: [undefinedJsxFinding("app/page.tsx", "Link")],
+        quality: [{ id: "duplicate_alt", detail: "repeated" }],
+        llmAvailability: "completed",
+      })
+      .mockImplementationOnce(async () => {
+        expect(progressEvents.some((event) => event.data.phase === "done")).toBe(false);
+        return { blocking: [confirmed], quality: [], llmAvailability: "completed" };
+      });
+    const result = await runVerifierPhase({
+      ...baseParams(PAGE_WITHOUT_IMPORTS),
+      onProgress: (step, data) => progressEvents.push({ step, data }),
+    });
+    expect(runVerifierPass).toHaveBeenCalledTimes(2);
+    expect(result.verifierBlockingFindings).toEqual([confirmed]);
+    expect(progressEvents.filter((event) => event.data.phase === "done")).toEqual([
+      expect.objectContaining({
+        step: "verifier",
+        data: expect.objectContaining({ phase: "done", blockingCount: 1, qualityCount: 1 }),
+      }),
+    ]);
+    expect(progressEvents.at(-1)?.data.phase).toBe("done");
+  });
+
   it("routes only the residue to the LLM gate when some findings are not import-solvable", async () => {
     runVerifierPass
       .mockResolvedValueOnce({
@@ -865,7 +896,11 @@ describe("runVerifierPhase verifier-fixer RAG honesty (prod incident 2026-07-09)
         severity: "blocking",
       }),
     });
-    expect(verifierPhases.at(-1)).toBe("fix-failed");
+    expect(verifierPhases).toContain("fix-failed");
+    expect(verifierPhases.at(-1)).toBe("done");
+    expect(progressEvents.filter((event) => event.data.phase === "done")).toEqual([
+      expect.objectContaining({ step: "verifier", data: expect.objectContaining({ phase: "done", blockingCount: 1 }) }),
+    ]);
     expect(verifierPhases).not.toContain("fixed");
     expect(verifierPhases).not.toContain("fix-partial");
     expect(verifierPhases).not.toContain("error");
@@ -917,7 +952,11 @@ describe("runVerifierPhase verifier-fixer RAG honesty (prod incident 2026-07-09)
         severity: "advisory",
       }),
     });
-    expect(verifierPhases.at(-1)).toBe("fix-failed");
+    expect(verifierPhases).toContain("fix-failed");
+    expect(verifierPhases.at(-1)).toBe("done");
+    expect(progressEvents.filter((event) => event.data.phase === "done")).toEqual([
+      expect.objectContaining({ step: "verifier", data: expect.objectContaining({ phase: "done", blockingCount: 1 }) }),
+    ]);
     expect(verifierPhases).not.toContain("fixed");
     expect(verifierPhases).not.toContain("fix-partial");
     expect(verifierPhases).not.toContain("error");
