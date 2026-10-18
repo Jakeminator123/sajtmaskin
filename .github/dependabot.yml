@@ -26,6 +26,16 @@ updates:
       prefix-development: "chore"
       include: "scope"
     groups:
+      # Must stay first: Dependabot assigns a package to the first matching
+      # group. `playwright` and `@playwright/test` need the same version, or the
+      # CLI loads a different Playwright instance than the test files.
+      # `playwright-core` is deliberately absent and exact-pinned: it drives the
+      # `@sparticuz/chromium` binary in production and must move with it
+      # (src/lib/capture/browser.ts).
+      playwright-test-runner:
+        patterns:
+          - "playwright"
+          - "@playwright/test"
       npm-production-patch:
         dependency-type: "production"
         update-types:
