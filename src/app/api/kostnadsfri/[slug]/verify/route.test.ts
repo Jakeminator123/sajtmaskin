@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const getKostnadsfriPageBySlug = vi.hoisted(() => vi.fn());
@@ -80,6 +80,11 @@ afterEach(() => {
   isKostnadsfriLookupConfigured.mockReturnValue(false);
   getCurrentUser.mockResolvedValue(null);
   findOrCreateKostnadsfriCampaignUser.mockResolvedValue(CAMPAIGN_USER);
+  delete process.env.KOSTNADSFRI_PASSWORD_SEED;
+  delete process.env.KOSTNADSFRI_API_KEY;
+});
+
+beforeEach(() => {
   delete process.env.KOSTNADSFRI_PASSWORD_SEED;
   delete process.env.KOSTNADSFRI_API_KEY;
 });
