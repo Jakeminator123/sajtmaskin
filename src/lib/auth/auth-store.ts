@@ -7,6 +7,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { writeCampaignClaimPending } from "@/lib/kostnadsfri/campaign-account";
 
 export interface AuthUser {
   id: string;
@@ -16,7 +17,8 @@ export interface AuthUser {
   diamonds: number;
   freeGenerationAvailable?: boolean;
   emailVerified?: boolean;
-  provider: "google" | "email" | "anonymous";
+  /** `kostnadsfri*`: kampanjkonto från en inbjudningslänk (lib/kostnadsfri/campaign-account). */
+  provider: "google" | "email" | "anonymous" | "kostnadsfri" | "kostnadsfri_claimed";
   github_token: string | null;
   github_username: string | null;
 }
@@ -73,8 +75,8 @@ export const useAuthStore = create<AuthState>()(
 
       // Logout
       logout: () => {
+        writeCampaignClaimPending(null);
         set({ user: null, isLoading: false });
-        // Call logout API
         fetch("/api/auth/logout", { method: "POST" }).catch(console.error);
       },
 

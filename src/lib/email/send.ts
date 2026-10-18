@@ -50,6 +50,10 @@ export async function sendVerificationEmail(
   token: string,
   options: VerificationEmailOptions = {},
 ): Promise<SendEmailResult> {
+  // Kampanjkonton bär en `.invalid`-adress (RFC 2606) som aldrig kan ta emot post.
+  if (to.trim().toLowerCase().endsWith(".invalid")) {
+    return { success: false, deliveryMode: "failed", error: "Recipient cannot receive email" };
+  }
   const resend = getResend();
   const baseUrl = (options.baseUrl || URLS.baseUrl).replace(/\/+$/, "");
   const displayName = options.name || to;
