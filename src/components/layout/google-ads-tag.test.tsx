@@ -107,6 +107,7 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     script().dispatchEvent(new Event("load"));
     expect(await retry).toBe(true);
     expect(commands().filter((entry) => entry[0] === "consent")).toHaveLength(2);
+    expect(commands().filter((entry) => entry[0] === "set")).toHaveLength(2);
     expect(commands().filter((entry) => entry[0] === "js")).toHaveLength(1);
     expect(commands().filter((entry) => entry[0] === "config")).toHaveLength(1);
     expect(window.dataLayer?.every(isArgumentsObject)).toBe(true);
@@ -115,7 +116,11 @@ describe("GoogleAdsTag real loader (no external network)", () => {
       "default",
       expect.objectContaining({ ad_storage: "denied", ad_user_data: "denied" }),
     ]);
-    expect(commands()[1]).toEqual([
+    expect(commands()[0][2]).not.toHaveProperty("url_passthrough");
+    expect(commands()[0][2]).not.toHaveProperty("ads_data_redaction");
+    expect(commands()[1]).toEqual(["set", "url_passthrough", true]);
+    expect(commands()[2]).toEqual(["set", "ads_data_redaction", true]);
+    expect(commands()[3]).toEqual([
       "consent",
       "update",
       expect.objectContaining({ ad_storage: "granted" }),
@@ -190,12 +195,13 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     expect(commands()[0]).toEqual([
       "consent",
       "default",
-      expect.objectContaining({
-        ad_storage: "denied",
-        url_passthrough: true,
-        ads_data_redaction: true,
-      }),
+      expect.objectContaining({ ad_storage: "denied" }),
     ]);
+    expect(commands()[0][2]).not.toHaveProperty("url_passthrough");
+    expect(commands()[0][2]).not.toHaveProperty("ads_data_redaction");
+    expect(commands()[1]).toEqual(["set", "url_passthrough", true]);
+    expect(commands()[2]).toEqual(["set", "ads_data_redaction", true]);
+    expect(window.dataLayer?.every(isArgumentsObject)).toBe(true);
     expect(commands().some((entry) => entry[0] === "consent" && entry[1] === "update")).toBe(false);
     await act(async () => {
       script().dispatchEvent(new Event("load"));
@@ -208,15 +214,26 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     void loader.loadGoogleAdsTag("AW-123456789");
     const cmds = commands();
     const defaultIdx = cmds.findIndex((entry) => entry[0] === "consent" && entry[1] === "default");
+    const passthroughIdx = cmds.findIndex(
+      (entry) => entry[0] === "set" && entry[1] === "url_passthrough" && entry[2] === true,
+    );
+    const redactionIdx = cmds.findIndex(
+      (entry) => entry[0] === "set" && entry[1] === "ads_data_redaction" && entry[2] === true,
+    );
     const grantedIdx = cmds.findIndex(
       (entry) =>
         entry[0] === "consent" &&
         entry[1] === "update" &&
         (entry[2] as { ad_storage?: string } | undefined)?.ad_storage === "granted",
     );
+    const jsIdx = cmds.findIndex((entry) => entry[0] === "js");
     const configIdx = cmds.findIndex((entry) => entry[0] === "config");
     expect(defaultIdx).toBe(0);
-    expect(grantedIdx).toBeGreaterThan(defaultIdx);
-    expect(configIdx).toBeGreaterThan(grantedIdx);
+    expect(passthroughIdx).toBeGreaterThan(defaultIdx);
+    expect(redactionIdx).toBeGreaterThan(passthroughIdx);
+    expect(grantedIdx).toBeGreaterThan(redactionIdx);
+    expect(jsIdx).toBeGreaterThan(grantedIdx);
+    expect(configIdx).toBeGreaterThan(jsIdx);
+    expect(window.dataLayer?.every(isArgumentsObject)).toBe(true);
   });
 });

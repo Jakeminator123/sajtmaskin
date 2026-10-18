@@ -210,7 +210,7 @@ och skickar händelser efter cookie-samtycke `accepted`.
 | Sekundär | `account_created` — efter lyckad **ny** e-postregistrering och första Google-signup (`signup=1`). Inte login. Inte GitHub (GitHub OAuth skapar inget konto). send_to `AW-18458823435/R5rICIPf1fscEIuW7eFE` |
 | Tertiär | `first_site_generated` — första lyckade generation som ger `versionId` i den här webbläsaren (init eller follow-up). Ingen Ads-conversion-label ännu: skickas som `gtag('event','first_site_generated')` utan `send_to`. Sätt `NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL` när labeln skapats i Ads |
 | Värde | Inte satt i v1; vi mäter händelser, inte kr/konvertering |
-| Samtycke | Consent Mode v2 default denied + `url_passthrough`/`ads_data_redaction`. `accepted` i cookie-bannern → granted. Declined = taggen ligger kvar cookieless, inga conversion-events |
+| Samtycke | Consent Mode v2 default denied. Därefter `gtag('set','url_passthrough',true)` och `gtag('set','ads_data_redaction',true)`, sedan granted för återbesökare, sedan `js`/`config`. `accepted` i cookie-bannern → granted. Declined = taggen ligger kvar cookieless, inga conversion-events |
 | Klick-id | `gclid`/`wbraid`/`gbraid` och `utm_*` från landnings-URL sparas i sessionStorage (inte cookies) och läggs på `/builder` vid CTA/navigering. Next.js client-routing tar inte Google url_passthrough åt oss |
 | CSP | `src/proxy.ts` allowlistar `www.googletagmanager.com`, `www.googleadservices.com`, `googleads.g.doubleclick.net`, `www.google.com`, `www.google.se` |
 | Admin | Taggen laddas inte på `/admin` |
