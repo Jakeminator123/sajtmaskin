@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   getReadyRelatedSeoLandingSlugs,
   getSeoLandingEntry,
+  getSeoLandingIndustryLinks,
   SEO_LANDING_CTA_HREF,
   type SeoLandingSlug,
 } from "@/lib/seo-landing-pages/registry";
@@ -409,6 +410,29 @@ export function HemsidaTillForetagContent() {
                   </div>
                 ))}
               </dl>
+            </div>
+          </section>
+
+          <section className="border-t border-border/15 px-6 py-12">
+            <div className="mx-auto max-w-6xl">
+              <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">
+                Branscher
+              </p>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                Egna sidor för vanliga svenska småföretag — inte kopierad text med bytt rubrik.
+              </p>
+              <ul className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
+                {getSeoLandingIndustryLinks().map((link) => (
+                  <li key={link.slug}>
+                    <Link
+                      href={link.href}
+                      className="text-sm text-foreground/90 underline-offset-4 hover:text-foreground hover:underline"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
           </section>
 
