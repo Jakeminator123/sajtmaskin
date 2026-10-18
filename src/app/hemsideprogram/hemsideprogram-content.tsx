@@ -101,7 +101,7 @@ const WHEN_OTHER = [
   "Ni redan trivs i en visuell drag-and-drop-editor och inte behöver lämna den",
 ] as const;
 
-const FAQS = [
+export const FAQS = [
   {
     q: "Vad betyder hemsideprogram?",
     a: "Ordet används löst. I praktiken är det fyra arbetssätt: CMS, drag-and-drop, AI-builder eller kod. Jämför kontroll, tempo, underhåll och exit — inte logotyper.",
@@ -392,7 +392,7 @@ export function HemsideprogramContent() {
                   vad en hemsida kostar
                 </Link>
                 . Aktuella Sajtmaskin-paket finns på{" "}
-                <Link href="/#priser" className="text-foreground underline-offset-4 hover:underline">
+                <Link href="/priser" className="text-foreground underline-offset-4 hover:underline">
                   prissidan
                 </Link>
                 .

@@ -187,7 +187,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.131",
     "@ai-sdk/openai": "^3.0.104",
-    "@base-ui/react": "^1.8.0",
+    "@base-ui/react": "^1.9.0",
     "@d-id/client-sdk": "^1.2.10",
     "@hookform/resolvers": "^5.8.0",
     "@paper-design/shaders-react": "^0.0.81",

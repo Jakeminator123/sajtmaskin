@@ -1,19 +1,14 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AuthModal } from "@/components/auth/auth-modal";
 import { Navbar } from "@/components/landing-v2/navbar";
 import { ChatArea } from "@/components/landing-v2/chat-area";
-import { AuditModal } from "@/components/modals/audit-modal";
-import { EntryModal } from "@/components/modals/entry-modal";
-import { OnboardingModal, useOnboarding } from "@/components/modals/onboarding-modal";
-import { PromptWizardModalV2, type WizardData } from "@/components/modals/prompt-wizard-modal-v2";
-import { WelcomeOverlay } from "@/components/modals/welcome-overlay";
+import { useOnboarding } from "@/components/modals/onboarding-modal";
+import type { WizardData } from "@/components/modals/prompt-wizard-modal-v2";
 import { useEntryParams } from "@/lib/entry/use-entry-params";
 import { useAuth } from "@/lib/auth/auth-store";
-import { TemplateGallery } from "@/components/templates/template-gallery";
-import { SiteAuditSection } from "@/components/layout/site-audit-section";
 import {
   isTemplateEntryMode,
   resolveBuildIntentForMethod,
@@ -27,6 +22,38 @@ import { toast } from "sonner";
 import { noteAccountCreatedIfSignup } from "@/lib/ads/fire-google-ads-conversion";
 import { createProject } from "@/lib/projects/project-client";
 import { trackHomepageEvent } from "@/components/landing-v2/landing-analytics";
+
+const AuthModal = dynamic(
+  () => import("@/components/auth/auth-modal").then((m) => m.AuthModal),
+  { ssr: false },
+);
+const AuditModal = dynamic(
+  () => import("@/components/modals/audit-modal").then((m) => m.AuditModal),
+  { ssr: false },
+);
+const EntryModal = dynamic(
+  () => import("@/components/modals/entry-modal").then((m) => m.EntryModal),
+  { ssr: false },
+);
+const OnboardingModal = dynamic(
+  () => import("@/components/modals/onboarding-modal").then((m) => m.OnboardingModal),
+  { ssr: false },
+);
+const PromptWizardModalV2 = dynamic(
+  () =>
+    import("@/components/modals/prompt-wizard-modal-v2").then((m) => m.PromptWizardModalV2),
+  { ssr: false },
+);
+const WelcomeOverlay = dynamic(
+  () => import("@/components/modals/welcome-overlay").then((m) => m.WelcomeOverlay),
+  { ssr: false },
+);
+const TemplateGallery = dynamic(() =>
+  import("@/components/templates/template-gallery").then((m) => m.TemplateGallery),
+);
+const SiteAuditSection = dynamic(() =>
+  import("@/components/layout/site-audit-section").then((m) => m.SiteAuditSection),
+);
 
 declare global {
   interface Window {

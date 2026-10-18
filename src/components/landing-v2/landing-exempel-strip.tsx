@@ -6,7 +6,7 @@ import { EXEMPEL_PATH, HOME_SHOWCASE_SITES, SHOWCASE_SITES } from "@/lib/exempel
 export function LandingExempelStrip() {
   return (
     <section
-      className="border-t border-border/15 px-6 py-16 md:py-24"
+      className="[content-visibility:auto] [contain-intrinsic-size:auto_1100px] border-t border-border/15 px-6 py-16 md:py-24"
       aria-labelledby="landing-exempel-heading"
     >
       <div className="mx-auto max-w-6xl">

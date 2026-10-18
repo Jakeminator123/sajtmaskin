@@ -1,8 +1,10 @@
 import {
   conversionId,
   GOOGLE_ADS_CONVERSION_EVENTS,
+  GOOGLE_ADS_CUSTOM_EVENT_NAMES,
   isAdminAppPath,
   isGoogleAdsEnabled,
+  isGoogleAdsQueueableEvent,
   type GoogleAdsConversionEvent,
 } from "@/lib/ads/google-ads";
 
@@ -113,6 +115,23 @@ export function subscribeCookieConsent(onChange: (accepted: boolean) => void): (
 export function dispatchCookieConsentChange(value: "accepted" | "declined"): void {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(COOKIE_CONSENT_CHANGE_EVENT, { detail: value }));
+  syncGoogleAdsConsent();
+}
+
+export function syncGoogleAdsConsent(): void {
+  if (typeof window === "undefined") return;
+  if (typeof window.gtag !== "function") return;
+  const state = hasAcceptedCookieConsent() ? "granted" : "denied";
+  try {
+    window.gtag("consent", "update", {
+      ad_storage: state,
+      ad_user_data: state,
+      ad_personalization: state,
+      analytics_storage: state,
+    });
+  } catch {
+    /* tag may throw before the remote script is ready */
+  }
 }
 
 export function isGoogleAdsClaimed(event: GoogleAdsConversionEvent): boolean {
@@ -134,7 +153,7 @@ export function noteGoogleAdsConversion(event: GoogleAdsConversionEvent): void {
 function canSendGoogleAdsConversion(event: GoogleAdsConversionEvent): boolean {
   if (typeof window === "undefined") return false;
   if (!isGoogleAdsEnabled()) return false;
-  if (!conversionId(event)) return false;
+  if (!isGoogleAdsQueueableEvent(event)) return false;
   if (!hasAcceptedCookieConsent()) return false;
   if (isAdminAppPath(window.location.pathname)) return false;
   if (typeof window.gtag !== "function") return false;
@@ -150,13 +169,18 @@ export function fireGoogleAdsConversion(event: GoogleAdsConversionEvent): boolea
     return false;
   }
   if (!canSendGoogleAdsConversion(event)) return false;
+  if (typeof window.gtag !== "function") return false;
 
   const sendTo = conversionId(event);
-  if (!sendTo || typeof window.gtag !== "function") return false;
-
   const storage = adsStorage(event);
   try {
-    window.gtag("event", "conversion", { send_to: sendTo });
+    if (sendTo) {
+      window.gtag("event", "conversion", { send_to: sendTo });
+    } else if (event === "first_generation") {
+      window.gtag("event", GOOGLE_ADS_CUSTOM_EVENT_NAMES.first_generation);
+    } else {
+      return false;
+    }
   } catch {
     return false;
   }

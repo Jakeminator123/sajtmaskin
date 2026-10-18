@@ -73,7 +73,7 @@ const SWITCH_STEPS = [
   },
 ] as const;
 
-const FAQS = [
+export const FAQS = [
   {
     q: "Är Sajtmaskin bättre än Wix?",
     a: "Det beror på arbetssätt. Wix är starkt för visuell canvas och inbyggda affärsverktyg. Sajtmaskin är starkt för beskrivning → utkast och kod ni kan exportera. Sidan är skriven av Sajtmaskin.",
@@ -335,7 +335,7 @@ export function WixAlternativContent() {
                 SEO-titlar. Vi lovar ingen automatisk migration från Wix. Domänbyte och
                 redirects är ett eget steg. I Sajtmaskin är credits engångsköp; publicering
                 debiterar credits. Aktuella paket finns på{" "}
-                <Link href="/#priser" className="text-foreground underline-offset-4 hover:underline">
+                <Link href="/priser" className="text-foreground underline-offset-4 hover:underline">
                   prissidan
                 </Link>
                 .
