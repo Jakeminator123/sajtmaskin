@@ -27,8 +27,8 @@ projektion → mental modell → historik. Git är arkivet; inga backupdocs. Pol
 ## Arbetsregel
 
 - Bevara andras arbete; håll diff och staging till uppgiftens filer och följdytor.
-- Jobba i den öppna checkouten. Worktree och Scout/Builder/Steward bara när
-  Jakob ber om det. Policy: `config/agent-workflow.json`.
+- Jobba i den öppna checkouten; läs `npm run inbox` vid start. Worktree och
+  Scout/Builder/Steward bara när Jakob ber om det. Policy: `config/agent-workflow.json`.
 - Kör `npm run hooks:install` vid färsk clone eller workflowändring; främmande
   hookkonflikt är ett stopp.
 - Före push: `npm run verify:pr -- --plan` + riktat. CI: tung eller light.

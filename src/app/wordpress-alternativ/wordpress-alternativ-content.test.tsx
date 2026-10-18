@@ -48,7 +48,7 @@ describe("WordpressAlternativContent", () => {
     expect(body).toContain("Preview är inte publicering");
     expect(body).not.toMatch(/\d+\s*kr\b/i);
     expect(body).not.toMatch(/\b(?:49|99|179)\b/);
-    expect(screen.getByRole("link", { name: "prissidan" }).getAttribute("href")).toBe("/#priser");
+    expect(screen.getByRole("link", { name: "prissidan" }).getAttribute("href")).toBe("/priser");
     expect(screen.queryByRole("link", { name: /wix|lovable/i })).toBeNull();
 
     const readyRelated = readyRelatedSeoLandingSlugs(entry.relatedSlugs);

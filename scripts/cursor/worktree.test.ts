@@ -284,7 +284,7 @@ describe("classifyWorktreePlacement", () => {
       mainWorktree: MAIN,
     });
     expect(nested.ok).toBe(false);
-    expect(nested.ok === false && nested.reason).toContain("bredvid repo-roten");
+    expect(nested.ok === false && nested.reason).toContain("utanför repot");
   });
 
   it("refuses the main checkout itself", () => {

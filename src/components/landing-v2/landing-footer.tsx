@@ -2,7 +2,8 @@
 
 import { Zap } from "lucide-react"
 import Link from "next/link"
-import { getSeoLandingHubLinks } from "@/lib/seo-landing-pages/registry"
+import { BLOG_HAS_PUBLISHED_POSTS } from "@/lib/blog/status"
+import { getSeoLandingHubLinks, getSeoLandingIndustryLinks } from "@/lib/seo-landing-pages/registry"
 
 export function LandingFooter() {
   return (
@@ -49,7 +50,7 @@ export function LandingFooter() {
                 </a>
               </li>
               <li>
-                <Link href="/#priser" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/priser" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Priser
                 </Link>
               </li>
@@ -68,8 +69,13 @@ export function LandingFooter() {
                   Om oss
                 </a>
               </li>
-              {/* Blogg-länken är dold tills det finns publicerade inlägg — en tom
-                  blogg ("Inga inlägg ännu") sänker förtroendet. Sidan /blogg finns kvar. */}
+              {BLOG_HAS_PUBLISHED_POSTS ? (
+                <li>
+                  <Link href="/blogg" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    Blogg
+                  </Link>
+                </li>
+              ) : null}
               <li>
                 <a
                   href="mailto:support@sajtmaskin.se?subject=Karri%C3%A4r"
@@ -126,6 +132,23 @@ export function LandingFooter() {
           </h4>
           <ul className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
             {getSeoLandingHubLinks().map((link) => (
+              <li key={link.slug}>
+                <Link
+                  href={link.href}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="mb-10 border-t border-border/15 pt-8">
+          <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">
+            Branscher
+          </h4>
+          <ul className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
+            {getSeoLandingIndustryLinks().map((link) => (
               <li key={link.slug}>
                 <Link
                   href={link.href}

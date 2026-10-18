@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createSeoLandingMetadata } from "@/lib/seo-landing-pages/metadata";
-import { WixAlternativContent } from "./wix-alternativ-content";
+import { SeoLandingJsonLd } from "@/lib/seo-landing-pages/structured-data";
+import { FAQS, WixAlternativContent } from "./wix-alternativ-content";
 
 /**
  * Wix comparison SEO landing: workflow tradeoffs, disclosed Sajtmaskin authorship.
@@ -11,5 +12,10 @@ import { WixAlternativContent } from "./wix-alternativ-content";
 export const metadata: Metadata = createSeoLandingMetadata("wix-alternativ");
 
 export default function WixAlternativPage() {
-  return <WixAlternativContent />;
+  return (
+    <>
+      <SeoLandingJsonLd slug="wix-alternativ" faqs={FAQS} />
+      <WixAlternativContent />
+    </>
+  );
 }

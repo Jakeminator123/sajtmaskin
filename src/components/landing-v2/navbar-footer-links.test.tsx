@@ -26,6 +26,8 @@ describe("landing nav + footer links after /teknik move", () => {
     expect(analys[0]?.getAttribute("href")).toBe("/analys");
     const exempel = screen.getAllByRole("link", { name: "Exempel" });
     expect(exempel[0]?.getAttribute("href")).toBe("/exempel");
+    const priser = screen.getAllByRole("link", { name: "Priser" });
+    expect(priser[0]?.getAttribute("href")).toBe("/priser");
   });
 
   it("keeps /exempel out of LandingFooter source", () => {
@@ -43,6 +45,7 @@ describe("landing nav + footer links after /teknik move", () => {
     );
     expect(screen.getByRole("link", { name: "Teknik" }).getAttribute("href")).toBe("/teknik");
     expect(screen.getByRole("link", { name: "Analys" }).getAttribute("href")).toBe("/analys");
+    expect(screen.getByRole("link", { name: "Priser" }).getAttribute("href")).toBe("/priser");
   });
 
   it("navbar stays slim and does not list SEO landing slugs", () => {
@@ -74,6 +77,9 @@ describe("landing nav + footer links after /teknik move", () => {
       "/hemsideprogram",
     );
     expect(screen.queryByRole("link", { name: /wix-alternativ/i })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Branscher" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Frisör" }).getAttribute("href")).toBe("/hemsida-frisor");
+    expect(screen.getByRole("link", { name: "Blogg" }).getAttribute("href")).toBe("/blogg");
   });
 
   it("keeps the four-hub constant for callers that still read the compact set", () => {

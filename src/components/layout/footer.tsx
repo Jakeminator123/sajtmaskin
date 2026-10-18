@@ -1,15 +1,20 @@
 import Link from "next/link";
-import { getSeoLandingHubLinks } from "@/lib/seo-landing-pages/registry";
+import { hasPublishedBlogPosts } from "@/lib/blog/posts";
+import {
+  getSeoLandingHubLinks,
+  getSeoLandingIndustryLinks,
+} from "@/lib/seo-landing-pages/registry";
 
 const productLinks = [
   { label: "Skapa", href: "/" },
   { label: "Analys", href: "/analys" },
   { label: "Templates", href: "/templates" },
-  { label: "Priser", href: "/buy-credits" },
+  { label: "Priser", href: "/priser" },
 ];
 
 const companyLinks = [
   { label: "Om oss", href: "/om" },
+  ...(hasPublishedBlogPosts() ? [{ label: "Blogg", href: "/blogg" }] : []),
   { label: "Sajtstudio.se", href: "https://sajtstudio.se", external: true },
 ];
 
@@ -111,6 +116,22 @@ export function Footer() {
           <h3 className="text-foreground text-sm font-medium">Guider</h3>
           <ul className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
             {getSeoLandingHubLinks().map((link) => (
+              <li key={link.slug}>
+                <Link
+                  href={link.href}
+                  className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+                >
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="border-border/50 mt-10 border-t pt-8">
+          <h3 className="text-foreground text-sm font-medium">Branscher</h3>
+          <ul className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
+            {getSeoLandingIndustryLinks().map((link) => (
               <li key={link.slug}>
                 <Link
                   href={link.href}
