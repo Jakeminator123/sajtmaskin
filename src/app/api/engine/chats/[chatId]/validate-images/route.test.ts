@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // known-dead-map record behind `autoFix === true`.
 
 const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
-const getVersionFiles = vi.hoisted(() => vi.fn());
+const getVersionFilesSnapshot = vi.hoisted(() => vi.fn());
 const recordKnownBrokenImageReplacements = vi.hoisted(() => vi.fn());
 const updateVersionFiles = vi.hoisted(() => vi.fn());
 const validateImages = vi.hoisted(() => vi.fn());
@@ -21,10 +21,11 @@ vi.mock("@/lib/config", () => ({
 }));
 
 vi.mock("@/lib/gen/version-manager", () => ({
-  getVersionFiles,
+  getVersionFilesSnapshot,
 }));
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
+  chatHasImportedRepoVersion: vi.fn(async () => false),
   recordKnownBrokenImageReplacements,
   updateVersionFiles,
 }));
@@ -45,6 +46,8 @@ import { MAX_SCOPED_IMAGE_URLS } from "@/lib/utils/validate-images-limit";
 
 const DEAD_URL = "https://images.unsplash.com/photo-dead?w=800";
 const LIVE_URL = "https://images.unsplash.com/photo-live?w=800";
+const codeFiles = [{ path: "app/page.tsx", content: `<img src="${DEAD_URL}" alt="Studio" />`, language: "tsx" }];
+const fixedFiles = [{ ...codeFiles[0], content: `<img src="${LIVE_URL}" alt="Studio" />` }];
 
 function postRequest(body: Record<string, unknown>): Request {
   return new Request("http://localhost/api/engine/chats/chat_1/validate-images", {
@@ -60,9 +63,11 @@ describe("POST validate-images — autoFix gating of the known-dead map", () => 
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       version: { id: "ver_1", files_revision: "rev_n" },
     });
-    getVersionFiles.mockResolvedValue([
-      { path: "app/page.tsx", content: `<img src="${DEAD_URL}" alt="Studio" />`, language: "tsx" },
-    ]);
+    getVersionFilesSnapshot.mockReset();
+    getVersionFilesSnapshot.mockImplementation(async () => {
+      const files = getVersionFilesSnapshot.mock.calls.length === 1 ? codeFiles : fixedFiles;
+      return { files, filesJson: JSON.stringify(files), filesRevision: files === codeFiles ? "rev_n" : "rev_new" };
+    });
     recordKnownBrokenImageReplacements.mockResolvedValue(true);
     updateVersionFiles.mockResolvedValue(true);
     validateImages.mockResolvedValue({
@@ -145,7 +150,7 @@ describe("POST validate-images — autoFix gating of the known-dead map", () => 
     expect(updateVersionFiles).toHaveBeenCalledWith(
       "ver_1",
       expect.any(String),
-      { invalidateVerification: true },
+      { invalidateVerification: true, expectedFilesJson: JSON.stringify(codeFiles) },
     );
   });
 
@@ -164,7 +169,7 @@ describe("POST validate-images — autoFix gating of the known-dead map", () => 
       string,
       { invalidateVerification?: boolean } | undefined,
     ];
-    expect(options).toEqual({ invalidateVerification: true });
+    expect(options).toEqual({ invalidateVerification: true, expectedFilesJson: JSON.stringify(codeFiles) });
   });
 
   it("does not persist or invalidate when nothing was replaced", async () => {
@@ -215,7 +220,7 @@ describe("POST validate-images — autoFix gating of the known-dead map", () => 
     expect(updateVersionFiles).toHaveBeenCalledWith(
       "ver_1",
       expect.any(String),
-      { invalidateVerification: true },
+      { invalidateVerification: true, expectedFilesJson: JSON.stringify(codeFiles) },
     );
   });
 
@@ -236,9 +241,9 @@ describe("POST validate-images — autoFix gating of the known-dead map", () => 
   });
 
   it("distinguishes replacedCount from persisted and returns the new filesRevision", async () => {
-    getEngineVersionForChatByIdForRequest
-      .mockResolvedValueOnce({ version: { id: "ver_1", files_revision: "rev_old" } })
-      .mockResolvedValueOnce({ version: { id: "ver_1", files_revision: "rev_new" } });
+    getVersionFilesSnapshot
+      .mockResolvedValueOnce({ files: codeFiles, filesJson: JSON.stringify(codeFiles), filesRevision: "rev_old" })
+      .mockResolvedValueOnce({ files: fixedFiles, filesJson: JSON.stringify(fixedFiles), filesRevision: "rev_new" });
 
     const res = await POST(postRequest({ versionId: "ver_1", autoFix: true }), {
       params: Promise.resolve({ chatId: "chat_1" }),
@@ -285,5 +290,12 @@ describe("POST validate-images — autoFix gating of the known-dead map", () => 
     expect(body.persisted).toBe(false);
     expect(body.fixed).toBe(false);
     expect(updateVersionFiles).not.toHaveBeenCalled();
+  });
+  it("rejects an inaccessible chat/version before the shared service reads files", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue(null);
+    const response = await POST(postRequest({ versionId: "ver_1" }), { params: Promise.resolve({ chatId: "chat_1" }) });
+    expect(response.status).toBe(404);
+    expect(getVersionFilesSnapshot).not.toHaveBeenCalled();
+    expect(validateImages).not.toHaveBeenCalled();
   });
 });

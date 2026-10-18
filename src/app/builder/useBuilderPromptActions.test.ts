@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BuilderAuthRequiredError } from "@/lib/hooks/chat/helpers-errors";
+import { BriefUsageReceiptError, BuilderAuthRequiredError } from "@/lib/hooks/chat/helpers-errors";
 import { readPendingBuilderDraft } from "@/lib/builder/pending-builder-draft";
 import { useBuilderPromptActions } from "./useBuilderPromptActions";
 
@@ -65,6 +65,21 @@ function makeArgs(
 }
 
 describe("useBuilderPromptActions", () => {
+  it("does not swallow a missing brief receipt or start another paid generation", async () => {
+    const args = makeArgs({
+      isAuthReady: true, isAuthenticated: true,
+      generateDynamicInstructions: vi.fn(async () => { throw new BriefUsageReceiptError("Kostnadskvitto saknas"); }),
+    });
+    args.pendingBriefRef.current = { usageClaimKey: "stale-brief" };
+    const { result } = renderHook(() => useBuilderPromptActions(args));
+    await act(async () => {
+      await expect(result.current.requestCreateChat("Testfika")).resolves.toBe(false);
+    });
+    expect(args.generateDynamicInstructions).toHaveBeenCalledTimes(1);
+    expect(args.createNewChat).not.toHaveBeenCalled();
+    expect(args.pendingBriefRef.current).toBeNull();
+  });
+
   afterEach(() => {
     sessionStorage.clear();
   });

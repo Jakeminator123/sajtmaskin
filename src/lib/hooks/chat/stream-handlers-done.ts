@@ -12,7 +12,6 @@ import {
   updateCreateChatLockChatId,
 } from "./helpers";
 import type { StreamContext, StreamRunState } from "./stream-handlers-types";
-import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
 
 type DoneDeps = {
   appendProgressPart: (
@@ -21,7 +20,6 @@ type DoneDeps = {
     payload?: Record<string, unknown>,
   ) => void;
   deliverPreviewUrl: (url: string | null | undefined, versionId: string | null) => void;
-  parseDonePreflight: (doneData: Record<string, unknown>) => PreviewPreflightState | null;
 };
 
 export function handleDoneEvent(
@@ -42,7 +40,6 @@ export function handleDoneEvent(
   }
   const doneData =
     typeof data === "object" && data ? (data as Record<string, unknown>) : {};
-  const donePreflight = deps.parseDonePreflight(doneData);
   const doneV0ProjectId =
     doneData.projectId || doneData.v0ProjectId || doneData.v0_project_id || null;
   if (doneV0ProjectId && !state.linkedProjectIdFromStream) {
@@ -381,16 +378,4 @@ export function handleDoneEvent(
     previewUrl: effectiveDoneDemo ?? undefined,
     onlySelectVersionIfWasLatest,
   });
-  if (resolvedChatId && resolvedVersionId) {
-    state.materializeQueue.push({
-      chatId: String(resolvedChatId),
-      versionId: String(resolvedVersionId),
-    });
-    state.postCheckQueue.push({
-      chatId: String(resolvedChatId),
-      versionId: String(resolvedVersionId),
-      demoUrl: effectiveDoneDemo,
-      preflight: donePreflight,
-    });
-  }
 }

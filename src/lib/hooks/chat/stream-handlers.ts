@@ -4,7 +4,6 @@ import {
   finalizeStreamStats,
   initStreamStats,
 } from "./helpers";
-import { readPreviewPreflight } from "./post-checks-preview";
 import {
   handleContentEvent,
   handleIntegrationEvent,
@@ -26,7 +25,6 @@ import {
 } from "./stream-handlers-lifecycle";
 import { createPreviewUrlDeliverer } from "./stream-handlers-preview-delivery";
 import { appendProgressPart } from "./stream-handlers-progress";
-import { runPostStreamSideEffects } from "./stream-handlers-post-stream";
 import { createStreamingTextBatcher } from "./stream-handlers-text-batch";
 import type {
   StreamContext,
@@ -54,8 +52,6 @@ export async function handleSseStream(
     generationProgressStarted: false,
     generationDoneProgressReceived: false,
     pendingStreamErrorMessage: null,
-    postCheckQueue: [],
-    materializeQueue: [],
     streamStats: initStreamStats(ctx.streamType, ctx.assistantMessageId),
   };
 
@@ -75,9 +71,6 @@ export async function handleSseStream(
     getAccumulatedThinking: () => state.accumulatedThinking,
   });
 
-  const parseDonePreflight = (doneData: Record<string, unknown>) =>
-    readPreviewPreflight(doneData);
-
   const contentDeps = {
     appendProgressPart: boundAppendProgressPart,
     requestStreamingTextFlush,
@@ -89,7 +82,6 @@ export async function handleSseStream(
   const doneDeps = {
     appendProgressPart: boundAppendProgressPart,
     deliverPreviewUrl,
-    parseDonePreflight,
   };
 
   try {
@@ -173,6 +165,11 @@ export async function handleSseStream(
     // last non-text event (incl. success/error/abort paths) before the stream
     // winds down, so the last delta is never dropped.
     flushStreamingTextNow();
+    ctx.setMessages((prev) =>
+      prev.map((message) =>
+        message.id === ctx.assistantMessageId ? { ...message, isStreaming: false } : message,
+      ),
+    );
     state.streamStats.chatId =
       state.streamStats.chatId ?? state.chatIdFromStream ?? ctx.chatId ?? null;
     state.streamStats.didReceiveDone =
@@ -196,7 +193,7 @@ export async function handleSseStream(
     throw new Error("No chat ID returned from stream");
   }
 
-  runPostStreamSideEffects({ state, ctx, signal, streamQuality });
+  ctx.onVersionStatusRefresh?.();
 
   return {
     streamQuality,

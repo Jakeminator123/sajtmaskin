@@ -37,6 +37,22 @@ function probe(
   };
 }
 
+describe("resume probe original deadline", () => {
+  afterEach(() => vi.restoreAllMocks());
+  it("forwards original deadline and stops before host IO when the session read exhausts it", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const session = { versionId: "v1", filesRevision: "rev_1", previewSessionId: "ps_1", lifecycleToken: "life_1" };
+    vi.mocked(getActivePreviewSessionAsync).mockResolvedValue(session as never);
+    vi.mocked(fetchPreviewHostReadinessVerdict).mockClear().mockResolvedValue(null);
+    await readProductPostcheckPreviewProbe({ chatId: "c", expectedVersionId: "v1", deadlineEpochMs: 1_050 });
+    expect(fetchPreviewHostReadinessVerdict).toHaveBeenCalledWith("ps_1", { expectedVersionId: "v1", expectedLifecycleToken: "life_1", previewDeadlineEpochMs: 1_050 });
+    vi.mocked(fetchPreviewHostReadinessVerdict).mockClear();
+    vi.mocked(getActivePreviewSessionAsync).mockImplementationOnce(async () => { vi.mocked(Date.now).mockReturnValue(1_050); return session as never; });
+    await expect(readProductPostcheckPreviewProbe({ chatId: "c", expectedVersionId: "v1", deadlineEpochMs: 1_050 })).rejects.toThrow("budget exhausted");
+    expect(fetchPreviewHostReadinessVerdict).not.toHaveBeenCalled();
+  });
+});
+
 function readyProbe(
   overrides: Partial<ProductPostcheckPreviewProbe> = {},
 ): ProductPostcheckPreviewProbe {

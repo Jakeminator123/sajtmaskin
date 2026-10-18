@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const runLlmFixer = vi.hoisted(() => vi.fn());
 const devLogAppend = vi.hoisted(() => vi.fn());
 const runAutoFix = vi.hoisted(() => vi.fn());
+const reserveServerRepairBudget = vi.hoisted(() => vi.fn());
+const recordServerRepairBudgetOutcome = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/db/services/server-repair-budget", () => ({ reserveServerRepairBudget, recordServerRepairBudgetOutcome }));
 const validateGeneratedCode = vi.hoisted(() =>
   vi.fn(async (content: string) => {
     const broken = content.includes("( {");
@@ -24,6 +27,7 @@ vi.mock("@/lib/gen/autofix/pipeline", () => ({ runAutoFix }));
 vi.mock("@/lib/gen/retry/validate-syntax", () => ({ validateGeneratedCode }));
 
 import { runRepairLoop } from "./repair-loop";
+import { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
 
 function file(path: string, content: string, lang = "tsx"): string {
   return `\`\`\`${lang} file="${path}"\n${content}\n\`\`\``;
@@ -50,10 +54,27 @@ describe("runRepairLoop — LLM abort preserves deterministic progress (B2)", ()
     devLogAppend.mockReset();
     validateGeneratedCode.mockClear();
     runAutoFix.mockReset();
+    reserveServerRepairBudget.mockReset().mockResolvedValue({ status: "reserved" });
+    recordServerRepairBudgetOutcome.mockReset().mockResolvedValue({ status: "outcome_recorded" });
     runAutoFix.mockImplementation(async (content: string) => ({
       fixedContent: content,
       fixes: [],
     }));
+  });
+
+  it("resumes only the existing retry slot after a known primary abort, without a fresh primary or third attempt", async () => {
+    runLlmFixer.mockResolvedValue({ fixedContent: validPage, fixedFiles: [], missingFiles: [], incompleteFiles: [], partial: false, success: false, aborted: true, durationMs: 1 });
+    const target = { chatId: "c", versionId: "v", runId: "new", filesRevision: "rev", scopeId: "original:root" };
+    await runRepairLoop({ initialContent: validPage, failedOutputs: [gateFailure], contextLines: [], maxLlmPasses: 1,
+      llmTimeoutMs: 10_000, llmRetryTimeoutMs: 2_000, fixerMaxTokens: 4_096, enableTargetedRepair: false,
+      chatId: "c", repairScopeId: target.scopeId, repairLedger: new RepairLedger(),
+      serverRepairBudget: { target, consumed: [{ passIndex: 0, slot: "primary", contentHash: "a".repeat(16), diagnosticFingerprint: "b".repeat(16), requiredFiles: [], outcome: "aborted" }] },
+      onAttemptPromotion: async () => ({ promoted: false }) });
+    expect(runLlmFixer).toHaveBeenCalledTimes(1);
+    expect(runLlmFixer.mock.calls[0][2].maxTokens).toBe(2_048);
+    expect(reserveServerRepairBudget).toHaveBeenCalledTimes(1);
+    expect(reserveServerRepairBudget).toHaveBeenCalledWith(target, expect.objectContaining({ passIndex: 0, slot: "retry" }));
+    expect(recordServerRepairBudgetOutcome).toHaveBeenCalledWith(target, expect.objectContaining({ passIndex: 0, slot: "retry" }), "aborted");
   });
 
   it("does not report no_improvement when deterministic pre-pass changed content but LLM aborted", async () => {
@@ -137,7 +158,7 @@ describe("runRepairLoop — LLM abort preserves deterministic progress (B2)", ()
 
     runLlmFixer
       .mockResolvedValueOnce({
-        fixedContent: contactOnlyBundle,
+        fixedContent: contactOnlyBundle.replace('new Resend("x")', 'new Resend("partial")'),
         fixedFiles: ["app/api/contact/route.ts"],
         missingFiles: [],
         incompleteFiles: [{ path: "app/api/contact/route.ts", reason: "unbalanced_delimiters" }],
@@ -172,6 +193,10 @@ describe("runRepairLoop — LLM abort preserves deterministic progress (B2)", ()
       llmTimeoutMs: 1_000,
       enableTargetedRepair: true,
       targetedRepairMaxFiles: 4,
+      chatId: "c",
+      repairScopeId: "s",
+      repairLedger: new RepairLedger(),
+      serverRepairBudget: { target: { chatId: "c", versionId: "v", runId: "same-request", filesRevision: "rev", scopeId: "s" }, consumed: [] },
       onAttemptPromotion: async () => ({ promoted: false }),
     });
 
@@ -179,5 +204,8 @@ describe("runRepairLoop — LLM abort preserves deterministic progress (B2)", ()
     const retryContent = runLlmFixer.mock.calls[1]?.[0] as string;
     expect(retryContent).toContain('file="app/api/contact/route.ts"');
     expect(retryContent).not.toContain('file="components/extra.tsx"');
+    expect(retryContent).toContain('new Resend("partial")');
+    expect(reserveServerRepairBudget.mock.calls.map((call) => call[1].slot)).toEqual(["primary", "retry"]);
+    expect(recordServerRepairBudgetOutcome.mock.calls.map((call) => call[2])).toEqual(["partial", "success"]);
   });
 });

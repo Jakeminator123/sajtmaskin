@@ -1,12 +1,10 @@
 import type {
-  AutoFixPayload,
   PreviewBuildErrorPayload,
   PreviewProdBuildPayload,
   SetMessages,
   StreamDebugStats,
   StreamQualitySignal,
 } from "./types";
-import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
 
 export type StreamContext = {
   streamType: "create" | "send";
@@ -34,7 +32,7 @@ export type StreamContext = {
     versionId?: string | null;
     force?: boolean;
   }) => void;
-  /** Område 6-3 punkt 1: post-check completion → guaranteed status refetch. */
+  /** Refresh the read-only status projection after generation. */
   onVersionStatusRefresh?: () => void;
   onGenerationComplete?: (data: {
     chatId: string;
@@ -49,8 +47,6 @@ export type StreamContext = {
     lifecycleToken?: string | null;
   } | null) => void;
   mutateVersions: () => void;
-  enableImageMaterialization: boolean;
-  autoFixHandlerRef: React.MutableRefObject<(payload: AutoFixPayload) => void>;
   promptAssistModel?: string | null;
   promptAssistDeep?: boolean;
   /**
@@ -80,18 +76,6 @@ export type StreamHandlerResult = {
   versionIdFromStream: string | null;
 };
 
-export type PostCheckQueueItem = {
-  chatId: string;
-  versionId: string;
-  demoUrl?: string | null;
-  preflight?: PreviewPreflightState | null;
-};
-
-export type MaterializeQueueItem = {
-  chatId: string;
-  versionId: string;
-};
-
 /** Mutable per-stream run state shared across event handlers. */
 export type StreamRunState = {
   chatIdFromStream: string | null;
@@ -104,7 +88,5 @@ export type StreamRunState = {
   generationProgressStarted: boolean;
   generationDoneProgressReceived: boolean;
   pendingStreamErrorMessage: string | null;
-  postCheckQueue: PostCheckQueueItem[];
-  materializeQueue: MaterializeQueueItem[];
   streamStats: StreamDebugStats;
 };

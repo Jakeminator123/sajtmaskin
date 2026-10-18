@@ -104,6 +104,9 @@ vi.mock("./create-chat-plan-mode-trace", () => ({
 import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
 import { buildVariantHintsForBrief } from "@/lib/gen/scaffold-variants/variant-hints";
 import { handleCreateChatStreamPost } from "./create-chat-stream-post";
+import { resolveAppProjectIdForRequest } from "@/lib/tenant";
+import { resolveConfiguredEnvKeys } from "./configured-env-keys";
+import { resolveOrchestrationBase, finalizeOrchestrationPrompts, buildGenerationInputPackage } from "@/lib/gen/orchestrate";
 
 const landingPrompt = "Bygg en landing page med hero och call to action för ett lokalt företag";
 const dashboardPrompt = "Bygg en dashboard med analytics, charts, metrics, kpi och reports";
@@ -111,6 +114,23 @@ const dashboardPrompt = "Bygg en dashboard med analytics, charts, metrics, kpi o
 beforeEach(() => vi.clearAllMocks());
 
 describe("create handler — actual scaffold/variant hints before the brief", () => {
+  it.each([true, false, undefined])("forwards validated materializeImages %s only to the package factory", async (choice) => {
+    vi.mocked(tryGenerateServerAutoBrief).mockResolvedValueOnce(null as never);
+    vi.mocked(resolveAppProjectIdForRequest).mockResolvedValueOnce("fixture-project").mockResolvedValueOnce("fixture-project");
+    vi.mocked(resolveConfiguredEnvKeys).mockResolvedValueOnce(new Set());
+    vi.mocked(resolveOrchestrationBase).mockResolvedValueOnce({ resolvedScaffold: null, routePlan: { routes: [] },
+      buildSpec: { qualityTarget: "standard", contextPolicy: "normal" } } as never);
+    vi.mocked(finalizeOrchestrationPrompts).mockResolvedValueOnce({ engineSystemPrompt: "fixed prompt", variantId: null } as never);
+    vi.mocked(buildGenerationInputPackage).mockImplementationOnce(() => { throw new Error("keyless package boundary"); });
+    await handleCreateChatStreamPost(new Request("https://example.com/api/engine/chats/stream", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message: landingPrompt, thinking: false, imageGenerations: choice !== true, materializeImages: choice }),
+    }));
+    expect(buildGenerationInputPackage).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(buildGenerationInputPackage).mock.calls[0][1]).toMatchObject({ materializeImages: choice === true });
+    expect(vi.mocked(resolveOrchestrationBase).mock.calls[0][0]).not.toHaveProperty("materializeImages");
+    expect(vi.mocked(finalizeOrchestrationPrompts).mock.calls[0][1]).not.toHaveProperty("materializeImages");
+  });
   it.each([
     [
       "stale auto id",

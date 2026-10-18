@@ -84,6 +84,33 @@ export interface PreviewSessionError {
 type StartPreviewSessionOutcome =
   { ok: true; result: PreviewSessionResult } | { ok: false; error: PreviewSessionError };
 
+class PreviewDeadlineExceeded extends Error {}
+function checkPreviewDeadline(deadlineEpochMs: number | undefined): void {
+  if (deadlineEpochMs !== undefined && Date.now() >= deadlineEpochMs) {
+    throw new PreviewDeadlineExceeded("Preview time budget exhausted");
+  }
+}
+function previewBudgetStop(): StartPreviewSessionOutcome {
+  return { ok: false, error: { stage: "preview-start",
+    message: "Preview time budget exhausted" } };
+}
+
+/** A dedupe waiter can stop waiting, but never aborts the shared operation. */
+async function waitForPreviewOutcome(run: Promise<StartPreviewSessionOutcome>, deadlineEpochMs?: number): Promise<StartPreviewSessionOutcome> {
+  if (deadlineEpochMs === undefined) return run;
+  const remainingMs = deadlineEpochMs - Date.now();
+  if (remainingMs <= 0) return previewBudgetStop();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const result = await Promise.race([run, new Promise<StartPreviewSessionOutcome>((resolve) => {
+      timer = setTimeout(() => resolve(previewBudgetStop()), remainingMs);
+    })]);
+    return Date.now() >= deadlineEpochMs ? previewBudgetStop() : result;
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 function validatePreviewHostFilesJson(filesJson: Record<string, string>): Record<string, string> {
   const validated = validateFilesJson(filesJson, "filesJson");
   if (!validated) throw new Error("Invalid filesJson: preview requires a file set");
@@ -301,6 +328,7 @@ async function tryFollowUpPatchLane(params: {
   filesRevision: string | null;
   updatePayload: Record<string, string>;
   previewMode: PreviewSessionMode;
+  previewDeadlineEpochMs?: number;
 }): Promise<PreviewSessionResult | null> {
   const startedAt = Date.now();
   const fallBackToUpdate = (reason: string, detail?: string): null => {
@@ -320,7 +348,10 @@ async function tryFollowUpPatchLane(params: {
   if (!isPreviewPatchLaneEnabled()) return fallBackToUpdate("patch_lane_disabled");
   if (!params.baseVersionId) return fallBackToUpdate("unknown_base_version");
 
-  const manifest = await fetchPreviewHostFilesManifest(params.previewSessionId);
+  checkPreviewDeadline(params.previewDeadlineEpochMs);
+  const manifest = await fetchPreviewHostFilesManifest(params.previewSessionId,
+    params.previewDeadlineEpochMs === undefined ? undefined : { previewDeadlineEpochMs: params.previewDeadlineEpochMs });
+  checkPreviewDeadline(params.previewDeadlineEpochMs);
   // No manifest = older host without the route, an unusable session, or a
   // network blip. All of them mean "we do not know what is live" -> update.
   if (!manifest) return fallBackToUpdate("manifest_unavailable");
@@ -358,7 +389,9 @@ async function tryFollowUpPatchLane(params: {
     // manifest read and the write is refused (409) instead of merging our diff
     // into a workspace it was never derived from.
     expectedBaseVersionId: params.baseVersionId,
+    ...(params.previewDeadlineEpochMs !== undefined ? { previewDeadlineEpochMs: params.previewDeadlineEpochMs } : {}),
   });
+  checkPreviewDeadline(params.previewDeadlineEpochMs);
   if (!patched.ok) return fallBackToUpdate("host_patch_failed", patched.message);
   if (patched.hostVersionId !== params.versionId) {
     // STRICT: the host must positively confirm it pinned the NEW version. A
@@ -369,6 +402,7 @@ async function tryFollowUpPatchLane(params: {
     return fallBackToUpdate("host_version_not_recorded", `host=${patched.hostVersionId ?? "none"}`);
   }
 
+  checkPreviewDeadline(params.previewDeadlineEpochMs);
   const stored = await touchPreviewSessionAsync({
     chatId: params.chatId,
     previewSessionId: patched.previewSessionId,
@@ -380,6 +414,7 @@ async function tryFollowUpPatchLane(params: {
     tier2Provider: "preview_host",
     writeIntent: "authoritative",
   });
+  checkPreviewDeadline(params.previewDeadlineEpochMs);
   if (!stored) return fallBackToUpdate("session_pointer_superseded");
   logPreviewLifecycleTelemetry({
     kind: "preview_followup_lane",
@@ -411,6 +446,7 @@ async function tryFollowUpPatchLane(params: {
 }
 
 export type StartPreviewSessionOptions = {
+  previewDeadlineEpochMs?: number;
   /** When set, decrypted `projectEnvVars` merge into preview `.env.local` (after placeholders). */
   appProjectId?: string | null;
   /** Exact transient env body prepared by import preflight; never persisted in files_json. */
@@ -475,6 +511,7 @@ export async function startPreviewSession(
   generatedFiles: CodeFile[],
   options?: StartPreviewSessionOptions,
 ): Promise<StartPreviewSessionOutcome> {
+  if (options?.previewDeadlineEpochMs !== undefined && Date.now() >= options.previewDeadlineEpochMs) return previewBudgetStop();
   const cid =
     typeof options?.chatId === "string" && options.chatId.trim() ? options.chatId.trim() : null;
   const vid =
@@ -487,23 +524,29 @@ export async function startPreviewSession(
       : null;
   if (dedupeKey) {
     const existing = inflightPreviewSessionByChatVersion.get(dedupeKey);
-    if (existing) return existing;
+    if (existing) return waitForPreviewOutcome(existing, options?.previewDeadlineEpochMs);
   }
 
-  const run = runStartPreviewSession(generatedFiles, options);
+  const run = runStartPreviewSession(generatedFiles, options).catch((error) => {
+    if (error instanceof PreviewDeadlineExceeded) return previewBudgetStop();
+    throw error;
+  });
   if (dedupeKey) {
     inflightPreviewSessionByChatVersion.set(dedupeKey, run);
     void run.finally(() => {
       inflightPreviewSessionByChatVersion.delete(dedupeKey);
     });
   }
-  return run;
+  return waitForPreviewOutcome(run, options?.previewDeadlineEpochMs);
 }
 
 async function runStartPreviewSession(
   generatedFiles: CodeFile[],
   options?: StartPreviewSessionOptions,
 ): Promise<StartPreviewSessionOutcome> {
+  const checkDeadline = () => checkPreviewDeadline(options?.previewDeadlineEpochMs);
+  const deadlineOption = options?.previewDeadlineEpochMs === undefined ? {} : { previewDeadlineEpochMs: options.previewDeadlineEpochMs };
+  checkDeadline();
   const resolvedMode: PreviewSessionMode = "dev_only";
 
   const cid =
@@ -519,6 +562,7 @@ async function runStartPreviewSession(
       : null;
 
   if (cid && options?.forceRestart) {
+    checkDeadline();
     // forceRestart is the user's signal that the previous preview session should
     // be torn down — release the Fly runtime before clearing local state.
     await destroyAndClearPreviewSession(cid);
@@ -536,12 +580,15 @@ async function runStartPreviewSession(
     if (samePinnedContent && sess.previewSessionId) {
       // Snabb-resume: samma versionId betyder att host troligen redan
       // har korrekta filer + warm Next dev. Bara verifiera och returnera.
-      const resumed = await tryResumeTier2Runtime(sess);
+      checkDeadline();
+      const resumed = await tryResumeTier2Runtime(sess, deadlineOption);
+      checkDeadline();
       // Readiness ≠ liveness (req A5): a session whose host `readinessState` is
       // "failed" (process alive, Next build-error overlay) must NOT resume as a
       // healthy preview — fall through to destroy + re-pin so the fresh boot can
       // re-run install/repair instead of surfacing the broken overlay as live.
       if (resumed && resumed.readinessState !== "failed") {
+        checkDeadline();
         const stored = await touchPreviewSessionAsync({
           chatId: cid,
           previewSessionId: resumed.previewSessionId,
@@ -553,6 +600,7 @@ async function runStartPreviewSession(
           tier2Provider: "preview_host",
           writeIntent: "authoritative",
         });
+        checkDeadline();
         if (!stored) {
           return {
             ok: false,
@@ -587,6 +635,7 @@ async function runStartPreviewSession(
       // Resume failed → the stored preview-session may have died on the host.
       // Best-effort destroy first to avoid leaking compute if the host
       // still holds the runtime, then clear the local pointer.
+      checkDeadline();
       await destroyAndClearPreviewSession(cid);
     }
   }
@@ -675,6 +724,7 @@ async function runStartPreviewSession(
       // and skip the Next dev restart. Any doubt -> `null` -> the full update
       // below (unchanged behaviour).
       const patchedResult = await tryFollowUpPatchLane({
+        ...deadlineOption,
         chatId: cid,
         previewSessionId: sess.previewSessionId,
         lifecycleToken: sess.lifecycleToken,
@@ -684,16 +734,20 @@ async function runStartPreviewSession(
         updatePayload,
         previewMode: resolvedMode,
       });
+      checkDeadline();
       if (patchedResult) {
         return { ok: true, result: patchedResult };
       }
       const updated = await updatePreviewHostSession({
+        ...deadlineOption,
         previewSessionId: sess.previewSessionId,
         lifecycleToken: sess.lifecycleToken,
         versionId: vid,
         filesJson: updatePayload,
       });
+      checkDeadline();
       if (updated.ok) {
+        checkDeadline();
         const stored = await touchPreviewSessionAsync({
           chatId: cid,
           previewSessionId: updated.previewSessionId,
@@ -705,6 +759,7 @@ async function runStartPreviewSession(
           tier2Provider: "preview_host",
           writeIntent: "authoritative",
         });
+        checkDeadline();
         if (!stored) {
           return {
             ok: false,
@@ -737,6 +792,7 @@ async function runStartPreviewSession(
       // den lokala pekaren så start-pathen nedan får skapa en ny utan
       // att bli förvirrad av föråldrad session-store-data.
       if ("sessionMissing" in updated && updated.sessionMissing === true) {
+        checkDeadline();
         await destroyAndClearPreviewSession(cid);
       }
       if ("superseded" in updated && updated.superseded === true) {
@@ -836,11 +892,14 @@ async function runStartPreviewSession(
     return previewHostFilesContractFailure(error);
   }
   const pointerBeforeStart = await getActivePreviewSessionAsync(cid);
+  checkDeadline();
   const started = await startPreviewHostSession({
+    ...deadlineOption,
     chatId: cid,
     versionId: hostVersionId,
     filesJson,
   });
+  checkDeadline();
   if (!started.ok) {
     logPreviewLifecycleTelemetry({
       kind: "preview_failed",
@@ -860,6 +919,7 @@ async function runStartPreviewSession(
     };
   }
 
+  checkDeadline();
   const stored = await touchPreviewSessionAsync({
     chatId: cid,
     previewSessionId: started.previewSessionId,
@@ -873,6 +933,7 @@ async function runStartPreviewSession(
     tier2Provider: "preview_host",
     writeIntent: "authoritative",
   });
+  checkDeadline();
   if (!stored) {
     return {
       ok: false,

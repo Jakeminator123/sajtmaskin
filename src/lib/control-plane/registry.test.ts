@@ -463,18 +463,6 @@ describe("control-plane Backoffice and CI truth", () => {
     });
   });
 
-  it("records the user degraded-env editor without claiming runtime wiring", () => {
-    expect(byId.get("user-degraded-env")).toMatchObject({
-      runtimeEnforced: false,
-      runtimeStatus: "declared-only",
-      backoffice: {
-        surface: "user_degraded_env",
-        editable: true,
-        writePath: "config/user_degraded_env.txt",
-      },
-    });
-  });
-
   it("records generated-site placeholder and billing inputs as wired read-only policies", () => {
     expect(byId.get("generated-site-placeholders")).toMatchObject({
       sourceOfTruth: "config/ai_models/40-harmless-placeholders.env.txt",

@@ -5,10 +5,10 @@
  * Phases:
  *   1. validate syntax (+ optional warm typecheck)
  *   2. materialize images (deep path only)
- *   3. verifier pass (+ optional LLM-fixer rerun)
- *   4. parse + merge + preflight (+ scaffold-default block check,
+ *   3. parse + merge + preflight (+ scaffold-default block check,
  *      integration manifest inject, project env inject, partial-file
  *      repair with retry)
+ *   4. verifier pass on the complete candidate; reprepare repairs before confirmation
  *   5. scaffold-retry suggestion
  *
  * Split out of `finalize-version.ts` (OMTAG-03 wave-rest) — no behavior
@@ -21,7 +21,10 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
-import type { CodeFile } from "@/lib/gen/parser";
+import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
+import { isEnvArtifactPath } from "@/lib/integrations/stub-env-filter";
+import { mergeVersionFilesWithWarnings } from "@/lib/gen/version-file-merge";
+import { serializeProjectCandidateForVerifier, updateEmittedFilesAfterRepair } from "../finalize-merge";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
@@ -30,9 +33,6 @@ import { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { materializeImages } from "@/lib/gen/post-process/image-materializer";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
-import { dropResolvedVerifierFindings } from "@/lib/gen/verify/stale-verifier-findings";
-import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
-import { FIX_LESSON_POST_MERGE_STALE_FINDING } from "@/lib/logging/error-log-fix-lessons";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { applyKnownImageReplacementsToContent } from "@/lib/utils/image-validator";
 import { createFinalizeStepTelemetry } from "./step-telemetry";
@@ -376,8 +376,18 @@ export async function runFinalizeFastPath(params: {
   // are mechanical, safe-classed and already carry a warm-tsc receipt.
   const hasLlmFixesInValidate =
     syntaxResult.fixerUsed === true || syntaxResult.llmFixCount > 0;
+  // Complete preparation, including partial-file repair and env scope, owns
+  // the persisted candidate BEFORE semantic verification.
+  const preflightParams = {
+    chatId, model, resolvedTier, originalPrompt, buildIntent, buildSpec,
+    resolvedScaffold, routePlan, orchestrationContract, previousFiles,
+    previousVersionId, previousSelectedDossierEnvKeys, onProgress,
+    selectedDossiers, preservedDossiers, removedDossiers, repairLedger, repairScopeId,
+  };
+  let preflightOutcome = await runPreflightPhase({ ...preflightParams, contentForVersion });
+  let generationContentForVersion = preflightOutcome.contentForVersion;
   const verifierSkippedBySafeFixesOnly =
-    verifierPolicy.run && hasSafeOnlyFixes && !has3DSignal && !hasLlmFixesInValidate;
+    verifierPolicy.run && hasSafeOnlyFixes && !has3DSignal && !hasLlmFixesInValidate && !preflightOutcome.candidateChangedByPreflight;
   const verifierReason = verifierSkippedBySafeFixesOnly
     ? "safe_fixes_only"
     : verifierPolicy.run && hasRiskyFixes
@@ -394,151 +404,41 @@ export async function runFinalizeFastPath(params: {
       ...autoFixRisk,
     });
   }
-  let importedRepoModeHint: boolean | null = null;
-  try {
-    importedRepoModeHint = await chatRepo.chatHasImportedRepoVersion(chatId);
-  } catch (error) {
-    // The verifier overlay is display-only, but it must agree with what
-    // preflight will persist. A transient lookup failure can be followed by
-    // a successful imported-repo lookup in phase 4; treating the unknown as
-    // own-engine mode here would then show the verifier baseline Next/React
-    // pins that the imported project will never receive. Fail closed for the
-    // overlay: keeping the candidate manifest unchanged cannot contaminate a
-    // verbatim repo, while later preflight still owns the canonical lookup.
-    devLogAppend("in-progress", {
-      type: "verifier.package-json.imported-repo-lookup-failed",
-      chatId,
-      fallback: "skip-baseline-merge",
-      message: error instanceof Error ? error.message : String(error),
-    });
-  }
-  const skipBaselinePackageJsonMerge = importedRepoModeHint !== false;
+
   const verifierOutcome = await runVerifierPhase({
     enabled: verifierPolicy.run && !verifierSkippedBySafeFixesOnly,
     reason: verifierReason,
-    chatId,
-    model,
-    resolvedTier,
-    verifierTier,
-    buildSpec,
-    resolvedScaffold,
-    repairPassIndex,
-    contentForVersion,
-    onProgress,
+    chatId, model, resolvedTier, verifierTier, buildSpec, resolvedScaffold,
+    repairPassIndex, onProgress, repairLedger, repairScopeId,
+    contentForVersion: serializeProjectCandidateForVerifier(JSON.parse(preflightOutcome.filesJson) as CodeFile[]),
     runAutoFix: (content) =>
       runAutoFix(content, { chatId, model, previewPolicy: buildSpec?.previewPolicy }),
-    repairLedger,
-    repairScopeId,
-    skipBaselinePackageJsonMerge,
+    prepareCandidate: async (repairedContent, source) => {
+      const currentFiles = JSON.parse(preflightOutcome.filesJson) as CodeFile[];
+      // The model sees env keys only. Never replace persisted env bytes with
+      // that redacted view, or accept model-written values as configured secrets.
+      const repairedFiles = parseCodeProject(repairedContent).files.filter((file) => !isEnvArtifactPath(file.path));
+      const emittedFiles = updateEmittedFilesAfterRepair(
+        preflightOutcome.emittedFiles, currentFiles, repairedFiles, source,
+      );
+      const candidateFiles = mergeVersionFilesWithWarnings(currentFiles, repairedFiles).files;
+      const prepared = await runPreflightPhase({
+        ...preflightParams,
+        contentForVersion: serializeCodeProject(candidateFiles),
+        emittedFiles,
+        importedRepoModeHint: preflightOutcome.importedRepoMode,
+      });
+      const verifierContent = serializeProjectCandidateForVerifier(JSON.parse(prepared.filesJson) as CodeFile[]);
+      preflightOutcome = prepared;
+      generationContentForVersion = serializeProjectCandidateForVerifier(prepared.emittedFiles);
+      return verifierContent;
+    },
   });
-  contentForVersion = verifierOutcome.contentForVersion;
   stepTelemetry.verifier = verifierOutcome.stepTelemetry;
-  let verifierBlockingFindings = verifierOutcome.verifierBlockingFindings;
-
-  // ── Phase 4: parse + merge + preflight + scaffold-retry ─────────────────
-  const preflightOutcome = await runPreflightPhase({
-    chatId,
-    model,
-    resolvedTier,
-    originalPrompt,
-    buildIntent,
-    buildSpec,
-    resolvedScaffold,
-    routePlan,
-    orchestrationContract,
-    previousFiles,
-    previousVersionId,
-    previousSelectedDossierEnvKeys,
-    contentForVersion,
-    onProgress,
-    selectedDossiers,
-    preservedDossiers,
-    removedDossiers,
-    repairLedger,
-    repairScopeId,
-    importedRepoModeHint,
-  });
-
-  // ── SM-023: post-merge stale-check of the verifier verdict ──────────────
-  // Missing-import findings are still judged against PRE-merge model output
-  // in phase 3; phase 4 (merge with previous files, import-validator,
-  // dep-completion) can resolve them in the persisted files. Package.json
-  // dependency claims are already re-checked in the verifier phase against
-  // the baseline-merged manifest — this pass remains the safety net for
-  // import-class findings and any residual manifest claim dep-completion
-  // added after the verifier. Prod chat 3a6c5472 v3 (2026-08-05): all four
-  // blocking findings were already fixed in `files_json`, yet the stale
-  // verdict terminally failed the paid F3 pass. Re-check each blocking
-  // finding against the FINAL files and drop only the ones mechanically
-  // confirmed resolved — unknown classes and unparseable details stay
-  // blocking (fail-closed; see `stale-verifier-findings.ts`).
-  if (verifierBlockingFindings.length > 0) {
-    try {
-      const finalFiles = (
-        JSON.parse(preflightOutcome.filesJson) as Array<{ path?: unknown; content?: unknown }>
-      ).filter(
-        (file): file is { path: string; content: string } =>
-          typeof file?.path === "string" && typeof file?.content === "string",
-      );
-      const staleCheck = dropResolvedVerifierFindings(verifierBlockingFindings, finalFiles);
-      if (staleCheck.dropped.length > 0) {
-        devLogAppend("in-progress", {
-          type: "verifier-pass.stale-findings-dropped",
-          chatId,
-          droppedCount: staleCheck.dropped.length,
-          keptCount: staleCheck.kept.length,
-          dropped: staleCheck.dropped.map(({ id, reason }) => ({ id, reason })),
-          scaffoldId: resolvedScaffold?.id ?? null,
-        });
-        // Correct the fault/fix ledger: the verifier phase already wrote a
-        // `still-failing` RAG row per blocking finding at detection time.
-        // Without a matching `fixed` row the retriever keeps teaching future
-        // generations that these faults went unresolved.
-        const ragGenerationMode =
-          buildSpec?.generationMode === "followUp"
-            ? "followup"
-            : buildSpec?.generationMode === "init"
-              ? "init"
-              : repairPassIndex > 0
-                ? "followup"
-                : null;
-        for (const droppedFinding of staleCheck.dropped) {
-          appendErrorLogEvent({
-            phase: "post-gen",
-            subphase: "verifier-pass",
-            creator: "verifier",
-            fixer: "post-merge-stale-check",
-            severity: "warning",
-            fault: droppedFinding.id,
-            faultText: droppedFinding.detail,
-            fixText: FIX_LESSON_POST_MERGE_STALE_FINDING,
-            modelTier: resolvedTier ?? null,
-            model,
-            provider: "own-engine",
-            repairPassIndex,
-            result: "fixed",
-            chatId,
-            versionId: null, // version not minted yet at this point
-            scaffoldId: resolvedScaffold?.id ?? null,
-            routePath: buildSpec?.routeRealization?.primaryRoutePath ?? null,
-            capabilityIds: buildSpec?.capabilityFlags?.signals ?? [],
-            generationMode: ragGenerationMode,
-            lineageHash: null,
-          });
-        }
-        verifierBlockingFindings = staleCheck.kept;
-      }
-    } catch (staleCheckErr) {
-      // Fail-closed: on any error keep every finding blocking.
-      console.warn(
-        "[verifier-pass] Post-merge stale-check failed (non-fatal, keeping findings):",
-        staleCheckErr,
-      );
-    }
-  }
+  const verifierBlockingFindings = verifierOutcome.verifierBlockingFindings;
 
   return {
-    contentForVersion: preflightOutcome.contentForVersion,
+    contentForVersion: generationContentForVersion,
     syntaxResult,
     filesJson: preflightOutcome.filesJson,
     preflightResult: preflightOutcome.preflightResult,

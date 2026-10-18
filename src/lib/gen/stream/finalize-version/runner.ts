@@ -45,6 +45,7 @@ import { getDossierById } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import { resolveDossiersPresentInVersion } from "@/lib/gen/dossiers/version-presence";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
+import type { GenerationFinalizeInput } from "@/lib/gen/generation-input-package";
 import { readProviderContractsFromSnapshot } from "@/lib/gen/orchestration-snapshot";
 import { resolveExistingDossierCorePlan } from "@/lib/gen/contract/provider-compatibility";
 import { detectProjectProviderEvidence } from "@/lib/gen/contract/project-provider-evidence";
@@ -199,14 +200,21 @@ export function resolveSelectedDossiersFromStreamMeta(
 
 export function resolveFinalizeDossierContext(
   streamMeta: Record<string, unknown> | null | undefined,
+  generationInput?: GenerationFinalizeInput,
 ): {
   selectedDossiers: DossierEntry[];
   requestedCapabilities: string[];
   selectedDossierIds: string[] | undefined;
 } {
   const hasExplicitSelection =
-    !!streamMeta && Object.prototype.hasOwnProperty.call(streamMeta, "selectedDossierIds");
-  const selectedDossiers = resolveSelectedDossiersFromStreamMeta(streamMeta);
+    !!generationInput ||
+    (!!streamMeta && Object.prototype.hasOwnProperty.call(streamMeta, "selectedDossierIds"));
+  const removed = new Set(generationInput?.removedCapabilities ?? []);
+  const selectedDossiers = generationInput
+    ? (generationInput.dossierSelection?.selected ?? [])
+        .map((selected) => selected.entry)
+        .filter((entry) => !removed.has(entry.capability.toLowerCase()))
+    : resolveSelectedDossiersFromStreamMeta(streamMeta);
   if (hasExplicitSelection) {
     return {
       selectedDossiers,
@@ -226,20 +234,25 @@ export function resolveFinalizeDossierContext(
 export function resolveRemovedDossiersFromStreamMeta(
   streamMeta: Record<string, unknown> | null | undefined,
   previousFiles: ReadonlyArray<{ path?: unknown }> | null | undefined,
+  generationInput?: GenerationFinalizeInput,
 ): DossierEntry[] {
   const removedCapabilities = new Set(
-    normalizeCapabilityIds(streamMeta?.removedCapabilities),
+    generationInput
+      ? generationInput.removedCapabilities ?? []
+      : normalizeCapabilityIds(streamMeta?.removedCapabilities),
   );
   if (removedCapabilities.size === 0) return [];
 
-  const explicit = normalizeDossierIds(streamMeta?.removedDossierIds)
+  const explicit = (generationInput
+    ? generationInput.removedDossierIds ?? []
+    : normalizeDossierIds(streamMeta?.removedDossierIds))
     .map((id) => getDossierById(id))
     .filter(
       (entry): entry is DossierEntry =>
         entry !== null &&
         removedCapabilities.has(entry.capability.toLowerCase()),
     );
-  if (explicit.length > 0) return explicit;
+  if (generationInput || explicit.length > 0) return explicit;
 
   return resolveDossiersPresentInVersion(previousFiles ?? [])
     .map((selected) => selected.entry)
@@ -251,18 +264,30 @@ export function resolveRemovedDossiersFromStreamMeta(
 export function resolveExistingDossierCoreFromStreamMeta(
   streamMeta: Record<string, unknown> | null | undefined,
   previousFiles: Parameters<typeof detectProjectProviderEvidence>[0],
+  generationInput?: GenerationFinalizeInput,
 ) {
-  const removedDossiers = resolveRemovedDossiersFromStreamMeta(streamMeta, previousFiles);
-  return resolveExistingDossierCorePlan({
-    contracts: readProviderContractsFromSnapshot(streamMeta),
+  const removedDossiers = resolveRemovedDossiersFromStreamMeta(
+    streamMeta,
+    previousFiles,
+    generationInput,
+  );
+  const corePlan = resolveExistingDossierCorePlan({
+    contracts: generationInput
+      ? generationInput.preGenerationContracts.contracts.integrations
+      : readProviderContractsFromSnapshot(streamMeta),
     projectFiles: previousFiles,
     projectProviderEvidence: detectProjectProviderEvidence(
       previousFiles,
       getPreGenerationContractsConfigFromManifest().providerRules,
     ),
     removedDossierIds: new Set(removedDossiers.map((dossier) => dossier.id)),
-    removedCapabilities: new Set(normalizeCapabilityIds(streamMeta?.removedCapabilities)),
+    removedCapabilities: new Set(
+      generationInput
+        ? generationInput.removedCapabilities ?? []
+        : normalizeCapabilityIds(streamMeta?.removedCapabilities),
+    ),
   });
+  return { ...corePlan, removedDossiers };
 }
 
 export async function finalizeAndSaveVersion(
@@ -276,10 +301,6 @@ export async function finalizeAndSaveVersion(
     resolvedTier,
     originalPrompt,
     buildIntent,
-    buildSpec,
-    routePlan,
-    orchestrationContract,
-    resolvedScaffold,
     urlMap,
     startedAt,
     runAutofix = true,
@@ -290,30 +311,31 @@ export async function finalizeAndSaveVersion(
     previousSelectedDossierEnvKeys,
     onProgress,
     orchestrationStreamMeta,
+    generationInput,
     repairPassIndex = 0,
-    lineageHash,
     targetVersionId,
     lifecycleParentVersionId,
     willRunQualityGate = false,
     qualityGatePlanned = false,
   } = params;
-  // Resolve this once before autofix. A present array (including []) is the
-  // orchestration contract; only snapshots without the key may replay legacy
-  // capabilities. Malformed present metadata throws before any mutation.
+  const { buildSpec, routePlan, orchestrationContract, resolvedScaffold, lineageHash } =
+    generationInput ?? params;
+  // Modern calls use the selected entries directly. Only older calls without
+  // the package normalize/replay metadata here, before autofix or persistence.
   const dossierContext = resolveFinalizeDossierContext(
-    orchestrationStreamMeta as Record<string, unknown> | null | undefined,
+    orchestrationStreamMeta,
+    generationInput,
   );
   const requestedCapabilities = dossierContext.requestedCapabilities;
   const orchestrationSelectedDossierIds = dossierContext.selectedDossierIds;
-  // Read the orchestrate-locked variantId off the stream meta so the
-  // autofix pre-phase can materialize the variant's first fontPairing
-  // into the baseline `app/layout.tsx`. Falls back to null when meta
-  // does not carry a variant (legacy snapshots, eval, repair-only).
+  // A decided null variant is authoritative too; metadata is legacy-only.
   const orchestrationVariantId =
-    typeof orchestrationStreamMeta?.variantId === "string" &&
-    orchestrationStreamMeta.variantId.trim().length > 0
-      ? (orchestrationStreamMeta.variantId as string)
-      : null;
+    generationInput
+      ? generationInput.variantId
+      : typeof orchestrationStreamMeta?.variantId === "string" &&
+          orchestrationStreamMeta.variantId.trim().length > 0
+        ? orchestrationStreamMeta.variantId
+        : null;
 
   const finalizePath = resolveFinalizePathPolicy({
     buildSpec,
@@ -401,14 +423,12 @@ export async function finalizeAndSaveVersion(
   // by orchestration ONCE, so the exact same set drives both the verbatim
   // merge-policy (fast path) and the telemetry record (`meta.selectedDossierIds`).
   const selectedDossiers = dossierContext.selectedDossiers;
-  const removedDossiers = resolveRemovedDossiersFromStreamMeta(
-    orchestrationStreamMeta as Record<string, unknown> | null | undefined,
-    previousFiles,
-  );
   const existingCorePlan = resolveExistingDossierCoreFromStreamMeta(
-    orchestrationStreamMeta as Record<string, unknown> | null | undefined,
+    orchestrationStreamMeta,
     previousFiles ?? [],
+    generationInput,
   );
+  const { removedDossiers } = existingCorePlan;
 
   // 3–4. Fast path: validate syntax → materialize images → verifier →
   // parse/merge/preflight (with scaffold-retry + partial-file repair).
@@ -482,6 +502,15 @@ export async function finalizeAndSaveVersion(
     })),
     ...verifierBlockingFindings,
   ];
+  const verifierBlocked = effectiveVerifierBlockingFindings.length > 0;
+  const previewHasBuildBreakingFindings = hasBuildBreakingVerifierFindings(effectiveVerifierBlockingFindings);
+  const verifierGatesVerification = buildSpec?.previewPolicy === "fidelity3"
+    ? verifierBlocked : previewHasBuildBreakingFindings;
+  const scaffoldSelection =
+    orchestrationStreamMeta?.scaffoldSelection &&
+    typeof orchestrationStreamMeta.scaffoldSelection === "object"
+      ? (orchestrationStreamMeta.scaffoldSelection as Record<string, unknown>)
+      : null;
   Object.assign(finalizeStepTelemetry, fastPathStepTelemetry);
   recordPhaseDuration("syntax-validate", resolveStepDurationMs("validate_syntax"), {
     kind: latencyBudgetKind,
@@ -556,6 +585,23 @@ export async function finalizeAndSaveVersion(
         thinking: thinkingForPersist,
         // Null when empty — the column means "no dossier declared env keys".
         selectedDossierEnvKeys: selectedDossierEnvKeys.length > 0 ? selectedDossierEnvKeys : null,
+        // Only normal NEW typed finalize. Quick-edit uses its separate writer
+        // (edit_kind=quick_edit); versions.ts also rejects that actual DB provenance.
+        finalizeBootstrap: !targetVersionId && repairPassIndex === 0 && generationInput && buildSpec ? {
+          source: "trusted_new_finalize",
+          scopeId: repairScopeId,
+          buildSpec,
+          finalize: repairLedger.exportInvocations(chatId, repairScopeId),
+          verifierGatesVerification,
+          previewHasBuildBreakingFindings,
+          willRunQualityGate,
+          qualityGatePlanned,
+          materializeImages: generationInput.materializeImages === true,
+          preflight: { preflightIssues, preflightFileCount, previewBlockingReason,
+            previewStart: preflightResult.previewStart,
+            finalizedPreviewFileCount: finalizedFilesForPreview.length,
+            scaffoldRetry, routePlan, scaffoldSelection },
+        } : undefined,
       });
   let version = initialVersion;
   const finalizeRunId = repairPassIndex > 0 ? `repair-${repairPassIndex}` : undefined;
@@ -648,12 +694,6 @@ export async function finalizeAndSaveVersion(
     buildIntent,
   });
 
-  const scaffoldSelection =
-    orchestrationStreamMeta?.scaffoldSelection &&
-    typeof orchestrationStreamMeta.scaffoldSelection === "object"
-      ? (orchestrationStreamMeta.scaffoldSelection as Record<string, unknown>)
-      : null;
-
   const {
     preflightErrors,
     preflightWarnings,
@@ -702,11 +742,6 @@ export async function finalizeAndSaveVersion(
   // `isBuildBreakingFinding` (`should-start-preview.ts`) — may gate
   // verification. F3 (integrations) stays strict: every verifier blocking
   // finding gates the row.
-  const verifierBlocked = effectiveVerifierBlockingFindings.length > 0;
-  const verifierGatesVerification =
-    buildSpec?.previewPolicy === "fidelity3"
-      ? verifierBlocked
-      : hasBuildBreakingVerifierFindings(effectiveVerifierBlockingFindings);
   const hasCurrentPreflightBlockers =
     preflightErrors.length > 0 || syntaxResult.status === "failed";
   const hasVerificationBlockingErrors =

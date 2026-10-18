@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import type { PromptAssistConfig, InitBriefOptions } from "./prompt-assist-types";
 import {
   BuilderAuthRequiredError,
+    BriefUsageReceiptError,
   isBriefRouteAuthRefusal,
   readAuthRequiredMessage,
 } from "./chat/helpers-errors";
@@ -129,6 +130,9 @@ export function useInitBrief(params: PromptAssistConfig) {
 
         if (!res.ok) {
           const err = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+          if (err?.code === "brief_usage_unavailable") {
+            throw new BriefUsageReceiptError(extractErrorMessage(err) || "Briefens kostnadskvitto saknas.");
+          }
           if (isBriefRouteAuthRefusal(res.status, err)) {
             throw new BuilderAuthRequiredError(readAuthRequiredMessage(err));
           }
@@ -146,9 +150,10 @@ export function useInitBrief(params: PromptAssistConfig) {
         debugLog("AI", "Client Deep Brief completed", {
           durationMs: Date.now() - startedAt,
         });
-        return brief;
+        const usageClaimKey = res.headers?.get("X-Brief-Usage-Claim-Key")?.trim();
+        return usageClaimKey ? { ...brief, usageClaimKey } : brief;
       } catch (err) {
-        if (err instanceof BuilderAuthRequiredError) throw err;
+        if (err instanceof BuilderAuthRequiredError || err instanceof BriefUsageReceiptError) throw err;
         const rawMessage = err instanceof Error ? err.message : "Dynamic instructions failed";
         const isAbort = isAbortError(err);
         const normalizedMessage = rawMessage.toLowerCase();

@@ -1,4 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
+import { deriveBuildSpec } from "@/lib/gen/build-spec";
+import { buildOrchestrationContract } from "@/lib/gen/orchestration-contract";
+import type { GenerationFinalizeInput } from "@/lib/gen/generation-input-package";
+import type { RoutePlan } from "@/lib/gen/route-plan";
+import { getDossierById } from "@/lib/gen/dossiers/registry";
+import * as prePhases from "./pre-phases";
+import * as fastPath from "./fast-path";
+import * as chatRepo from "@/lib/db/chat-repository-pg";
 
 // Mocka DB-klienten innan runner.ts laddas — annars kraschar modulladdningen
 // med "Missing database connection string" eftersom runner.ts transitive
@@ -13,12 +21,180 @@ vi.mock("@/lib/db/client", () => ({
 }));
 
 const {
+  finalizeAndSaveVersion,
   resolveFinalizeDossierContext,
   resolveExistingDossierCoreFromStreamMeta,
   resolveRemovedDossiersFromStreamMeta,
   resolveSelectedDossiersFromStreamMeta,
 } = await import("./runner");
 const { mergeGeneratedProjectFiles } = await import("../finalize-merge");
+
+function decidedInput(overrides: Partial<GenerationFinalizeInput> = {}): GenerationFinalizeInput {
+  const routePlan: RoutePlan = {
+    provenance: { primarySource: "prompt", sources: ["prompt"] },
+    siteType: "one-page",
+    reason: "explicit empty route plan",
+    routes: [],
+  };
+  const preGenerationContracts = {
+    contracts: { dataMode: "none" as const, integrations: [], envVars: [] },
+    unresolvedDecisions: [],
+  };
+  const buildSpec = deriveBuildSpec({
+    prompt: "Bygg sidan",
+    buildIntent: "website",
+    generationMode: "init",
+    resolvedScaffold: null,
+    routePlan,
+    preGenerationContracts,
+  });
+  return {
+    buildSpec,
+    routePlan,
+    orchestrationContract: buildOrchestrationContract({
+      buildSpec,
+      routePlan,
+      resolvedScaffold: null,
+    }),
+    resolvedScaffold: null,
+    lineageHash: "decided-lineage",
+    variantId: null,
+    dossierSelection: { selected: [], poolSize: 0, byCapability: {} },
+    preGenerationContracts,
+    removedCapabilities: [],
+    removedDossierIds: [],
+    ...overrides,
+  };
+}
+
+describe("finalize typed image policy bootstrap", () => {
+  it.each([true, false, undefined])("writes only the typed image choice %s, never stream metadata", async (choice) => {
+    const input = decidedInput({ materializeImages: choice });
+    const file = { path: "app/page.tsx", content: "export default function Page(){return null}", language: "tsx" };
+    const stop = new Error("mocked version writer boundary");
+    const prepare = vi.spyOn(fastPath, "runFinalizeFastPath").mockResolvedValue({
+      contentForVersion: "```tsx file=app/page.tsx\nexport default function Page(){return null}\n```",
+      filesJson: JSON.stringify([file]), preflightResult: { postMergeFixes: [], previewStart: { canStartPreview: true } },
+      preflightIssues: [], preflightFileCount: 1, previewBlockingReason: null, finalizedFilesForPreview: [file],
+      scaffoldRetry: null, verifierBlockingFindings: [], rejectedShrinks: [], rejectedStructural: [],
+      selectedDossierEnvKeys: [], crossFileStubs: [], stepTelemetry: {}, repairLedger: { exportInvocations: () => [] },
+    } as never);
+    const save = vi.spyOn(chatRepo, "addAssistantMessageAndCreateDraftVersion").mockRejectedValue(stop);
+    try {
+      await expect(finalizeAndSaveVersion({ accumulatedContent: "Generated explanation", chatId: "typed-images", model: "gpt-5.4",
+        resolvedScaffold: null, urlMap: {}, startedAt: Date.now(), runAutofix: false, generationInput: input,
+        orchestrationStreamMeta: { materializeImages: choice !== true, imageGenerations: choice !== true },
+      })).rejects.toBe(stop);
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(save.mock.calls[0][3]?.finalizeBootstrap).toMatchObject({ materializeImages: choice === true, source: "trusted_new_finalize" });
+      expect(save.mock.calls[0][3]?.finalizeBootstrap?.buildSpec).not.toHaveProperty("materializeImages");
+    } finally { prepare.mockRestore(); save.mockRestore(); }
+  });
+
+  it("updating a target version never bootstraps another paid scope even with image=true", async () => {
+    const input = decidedInput({ materializeImages: true });
+    const stop = new Error("mocked existing version writer boundary");
+    const prepare = vi.spyOn(fastPath, "runFinalizeFastPath").mockResolvedValue({
+      contentForVersion: "Generated explanation", filesJson: "[]", preflightResult: { postMergeFixes: [], previewStart: { canStartPreview: true } },
+      preflightIssues: [], preflightFileCount: 0, previewBlockingReason: null, finalizedFilesForPreview: [],
+      scaffoldRetry: null, verifierBlockingFindings: [], rejectedShrinks: [], rejectedStructural: [],
+      selectedDossierEnvKeys: [], crossFileStubs: [], stepTelemetry: {}, repairLedger: { exportInvocations: () => [] },
+    } as never);
+    const save = vi.spyOn(chatRepo, "addAssistantMessageAndUpdateExistingVersion").mockRejectedValue(stop);
+    const create = vi.spyOn(chatRepo, "addAssistantMessageAndCreateDraftVersion");
+    try {
+      await expect(finalizeAndSaveVersion({ accumulatedContent: "Generated explanation", chatId: "typed-images", model: "gpt-5.4",
+        resolvedScaffold: null, urlMap: {}, startedAt: Date.now(), runAutofix: false, generationInput: input,
+        targetVersionId: "existing-version", repairPassIndex: 1,
+      })).rejects.toBe(stop);
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(save.mock.calls[0][4]).not.toHaveProperty("finalizeBootstrap");
+      expect(create).not.toHaveBeenCalled();
+    } finally { prepare.mockRestore(); save.mockRestore(); create.mockRestore(); }
+  });
+});
+
+describe("decided generation input → finalize", () => {
+  it("uses the exact selected entries despite malformed or conflicting metadata", () => {
+    const entry = { ...getDossierById("stripe-checkout")!, label: "Decided Stripe" };
+    const input = decidedInput({
+      dossierSelection: {
+        selected: [{ entry, reason: "capability-match", configured: false }],
+        poolSize: 1,
+        byCapability: { payments: [entry.id] },
+      },
+    });
+    const result = resolveFinalizeDossierContext(
+      { selectedDossierIds: null, requestedCapabilities: ["auth"], removedCapabilities: ["payments"] },
+      input,
+    );
+    expect(result.selectedDossiers[0]).toBe(entry);
+    expect(result.selectedDossierIds).toEqual(["stripe-checkout"]);
+    expect(result.requestedCapabilities).toEqual(["payments"]);
+  });
+
+  it.each([undefined, null, { selected: [], poolSize: 0, byCapability: {} }])(
+    "does not select from metadata when the modern selection is %j",
+    (dossierSelection) => {
+      const result = resolveFinalizeDossierContext(
+        { selectedDossierIds: ["stripe-checkout"], requestedCapabilities: ["payments"] },
+        decidedInput({ dossierSelection }),
+      );
+      expect(result).toEqual({ selectedDossiers: [], selectedDossierIds: [], requestedCapabilities: [] });
+    },
+  );
+
+  it("keeps decided removals separate from stale metadata and treats [] as authoritative", () => {
+    const previousFiles = [
+      { path: "components/checkout-button.tsx" },
+      { path: "app/api/checkout-session/route.ts" },
+      { path: "components/integration-config-notice.tsx" },
+    ];
+    const meta = { removedCapabilities: ["auth"], removedDossierIds: ["clerk-auth"] };
+    const input = decidedInput({ removedCapabilities: ["payments"], removedDossierIds: ["stripe-checkout"] });
+    expect(resolveRemovedDossiersFromStreamMeta(meta, previousFiles, input).map((d) => d.id))
+      .toEqual(["stripe-checkout"]);
+    expect(resolveRemovedDossiersFromStreamMeta(meta, previousFiles, { ...input, removedDossierIds: [] }))
+      .toEqual([]);
+    expect(resolveRemovedDossiersFromStreamMeta(meta, previousFiles, decidedInput({ removedCapabilities: undefined })))
+      .toEqual([]);
+  });
+
+  it.each(["chosen-variant", null])(
+    "threads variant %j, empty routes and scaffold-less input into the real runner",
+    async (variantId) => {
+      const input = decidedInput({ variantId });
+      const stop = new Error("captured before project checks and persistence");
+      const autofix = vi.spyOn(prePhases, "runAutofixPrePhase");
+      const prepare = vi.spyOn(fastPath, "runFinalizeFastPath").mockRejectedValueOnce(stop);
+      try {
+        await expect(finalizeAndSaveVersion({
+          accumulatedContent: "<main>Generated</main>",
+          chatId: "decided-input",
+          model: "gpt-5.4",
+          resolvedScaffold: null,
+          urlMap: {},
+          startedAt: Date.now(),
+          runAutofix: false,
+          generationInput: input,
+          routePlan: { ...input.routePlan, routes: [{ path: "/stale", name: "Old", intent: "old", required: true }] },
+          orchestrationStreamMeta: { selectedDossierIds: ["stripe-checkout"], variantId: "stale-variant" },
+        })).rejects.toBe(stop);
+        expect(autofix).toHaveBeenCalledWith(expect.objectContaining({ variantId, selectedDossierIds: [] }));
+        const call = prepare.mock.calls.at(-1)?.[0];
+        expect(call?.routePlan).toBe(input.routePlan);
+        expect(call?.orchestrationContract).toBe(input.orchestrationContract);
+        expect(call?.buildSpec).toBe(input.buildSpec);
+        expect(call?.resolvedScaffold).toBeNull();
+        expect(call?.selectedDossiers).toEqual([]);
+        expect(call?.repairScopeId).toBe("decided-lineage:root");
+      } finally {
+        autofix.mockRestore();
+        prepare.mockRestore();
+      }
+    },
+  );
+});
 
 /**
  * Regressionstest för Wave 6 verbatim-policy:

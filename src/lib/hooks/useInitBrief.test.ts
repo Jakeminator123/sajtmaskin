@@ -154,6 +154,38 @@ describe("useInitBrief — A2: flödesstatus går via window-event, inte toast",
 });
 
 describe("useInitBrief — B1: returnerar briefen, ingen addendum-sträng", () => {
+  it("stops initialization instead of silently falling back to another paid call when the brief receipt is unavailable", async () => {
+    const { result } = renderHook(() => useInitBrief({ model: "openai/gpt-4.1", deep: true, imageGenerations: false }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ code: "brief_usage_unavailable", error: "Kostnadskvitto saknas" }), { status: 503 })));
+    try {
+      await expect(result.current.generateDynamicInstructions("hej", { forceDeepBrief: true })).rejects.toThrow("Kostnadskvitto saknas");
+      expect(fetch).toHaveBeenCalledTimes(1);
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it("carries the server's paid brief receipt into the generation payload", async () => {
+    const { result } = renderHook(() => useInitBrief({ model: "openai/gpt-4.1", deep: true, imageGenerations: false }));
+    const brief = { projectTitle: "Testfika" };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(brief), {
+      headers: { "X-Brief-Usage-Claim-Key": "brief-claim-1" },
+    })));
+    try {
+      await expect(result.current.generateDynamicInstructions("hej", { forceDeepBrief: true }))
+        .resolves.toEqual({ ...brief, usageClaimKey: "brief-claim-1" });
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it("does not invent a cost receipt for a cache hit", async () => {
+    const { result } = renderHook(() => useInitBrief({ model: "openai/gpt-4.1", deep: true, imageGenerations: false }));
+    const brief = { projectTitle: "Testfika" };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(brief), {
+      headers: { "X-Brief-Cache": "hit" },
+    })));
+    try {
+      await expect(result.current.generateDynamicInstructions("hej", { forceDeepBrief: true })).resolves.toEqual(brief);
+    } finally { vi.unstubAllGlobals(); }
+  });
+
   it("returns the brief object and never a client addendum string", async () => {
     const { result } = renderHook(() =>
       useInitBrief({

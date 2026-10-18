@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import * as dbEnv from "@/lib/db/env";
 import * as orchestration from "../orchestrate";
+import * as autofix from "../autofix/pipeline";
+import * as candidatePreparation from "../stream/finalize-merge";
+import * as finalizePreflight from "../stream/finalize-preflight";
+import * as seoPreflight from "../validation/seo-preflight";
+import * as evalChecks from "./checks";
+import { writeEvalArtifacts } from "./artifact-dump";
+import { buildPreviewStartContract } from "../stream/preflight-contract";
 import { generateCode } from "../engine";
 
 // Only external work is stubbed. The real eval caller goes through actual
@@ -52,7 +59,7 @@ import {
 } from "./runner";
 import { parseSSEBuffer } from "../stream/sse-parser";
 import { checkProjectSanity, type CheckResult } from "./checks";
-import type { CodeFile } from "../parser";
+import { parseCodeProject, serializeCodeProject, type CodeFile } from "../parser";
 import type { EvalPrompt } from "./prompts";
 
 describe("eval actual caller raw-prompt parity", () => {
@@ -87,6 +94,101 @@ describe("eval actual caller raw-prompt parity", () => {
       expect(report.results[0]?.failureStage).toBe("provider_error");
       expect(report.summary.evaluated).toBe(0);
     } finally {
+      db.mockRestore();
+    }
+  });
+});
+
+describe("eval shared candidate preparation", () => {
+  it("shares candidate preparation and evaluates the post-preflight files and dependencies", async () => {
+    const db = vi.spyOn(dbEnv, "resolveConfiguredDbEnv").mockReturnValue({
+      name: "POSTGRES_URL", connectionString: "postgresql://offline.invalid/not-used",
+    });
+    const rawContent = serializeCodeProject([
+      { path: "app/page.tsx", content: "export default function Page(){ return <h1>Raw</h1>; }", language: "tsx" },
+    ]);
+    const fixedContent = rawContent.replace("Raw", "Fixed offline content");
+    const normalize = vi.spyOn(autofix, "runAutoFix").mockResolvedValue({
+      fixedContent, fixes: [], warnings: [], dependencies: {},
+    });
+    const prepare = vi.spyOn(candidatePreparation, "prepareGeneratedProjectCandidate");
+    const seo = vi.spyOn(seoPreflight, "runSeoPreflightChecks");
+    const visual = vi.spyOn(evalChecks, "checkVisualQuality");
+    // Keep this test entirely offline; preflight repairs/provider/preview are not exercised.
+    const preflight = vi.spyOn(finalizePreflight, "runFinalizePreflight").mockImplementation(async ({ filesJson }) => {
+      const files = (JSON.parse(filesJson) as CodeFile[]).map((file) => {
+        if (file.path === "app/page.tsx") {
+          return { ...file, content: file.content.replace("Fixed offline content", "Final preflight content") };
+        }
+        if (file.path === "package.json") {
+          const pkg = JSON.parse(file.content);
+          return { ...file, content: JSON.stringify({ ...pkg, dependencies: { ...pkg.dependencies, sonner: "^2.0.0" } }) };
+        }
+        return file;
+      });
+      if (!files.some((file) => file.path === "package.json")) {
+        files.push({
+          path: "package.json",
+          content: JSON.stringify({ dependencies: { next: "16", react: "19", "react-dom": "19", sonner: "^2.0.0" } }),
+          language: "json",
+        });
+      }
+      return {
+        filesJson: JSON.stringify(files),
+        finalizedFilesForPreview: files,
+        preflightFileCount: files.length,
+        preflightIssues: [],
+        previewBlockingReason: null,
+        previewStart: buildPreviewStartContract({ issues: [], finalizedPreviewFileCount: files.length }),
+        unresolvedImportFallbackUsed: false,
+        postMergeFixes: [],
+      };
+    });
+    vi.mocked(orchestration.prepareGenerationContext).mockClear();
+    try {
+      vi.mocked(generateCode).mockReturnValue(new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(
+            `event: content\ndata: ${JSON.stringify({ text: rawContent })}\n\n`,
+          ));
+          controller.close();
+        },
+      }));
+      const prompt = {
+        ...miniPrompt("shared-candidate"),
+        prompt: "Build a professional corporate consulting landing page.",
+      };
+      const report = await runEval({ prompts: [prompt], print: vi.fn(), dumpMode: "off" });
+      const pkg: Awaited<ReturnType<typeof orchestration.prepareGenerationContext>> =
+        await vi.mocked(orchestration.prepareGenerationContext).mock.results[0]!.value;
+      expect(normalize).toHaveBeenCalledWith(rawContent);
+      expect(prepare).toHaveBeenCalledExactlyOnceWith({
+        chatId: "eval_shared-candidate",
+        contentForVersion: fixedContent,
+        resolvedScaffold: pkg.resolvedScaffold,
+        selectedDossiers: pkg.dossierSelection?.selected.map((selected) => selected.entry) ?? [],
+        routePlan: pkg.routePlan,
+      });
+      const candidate = prepare.mock.results[0]!.value;
+      expect(candidate.generatedFiles).toEqual(parseCodeProject(fixedContent).files);
+      expect(preflight.mock.calls[0]?.[0].filesJson).toBe(candidate.filesJson);
+      const finalFiles: CodeFile[] = (await preflight.mock.results[0]!.value).finalizedFilesForPreview;
+      expect(finalFiles.find((file) => file.path === "app/page.tsx")?.content).toContain("Final preflight content");
+      expect(JSON.parse(finalFiles.find((file) => file.path === "package.json")!.content).dependencies.sonner).toBe("^2.0.0");
+      expect(seo).toHaveBeenCalledWith(finalFiles);
+      expect(visual).toHaveBeenCalledWith(finalFiles);
+      const stages = vi.mocked(writeEvalArtifacts).mock.calls.at(-1)?.[0].stages;
+      expect(stages?.completeProjectFiles).toEqual(finalFiles);
+      expect(stages?.fixedFiles).toEqual(candidate.generatedFiles);
+      expect(report.results[0]?.generationStatus).toBe("passed");
+      expect(report.results[0]?.failureStage).toBeNull();
+      expect(report.summary.evaluated).toBe(1);
+    } finally {
+      visual.mockRestore();
+      seo.mockRestore();
+      preflight.mockRestore();
+      prepare.mockRestore();
+      normalize.mockRestore();
       db.mockRestore();
     }
   });

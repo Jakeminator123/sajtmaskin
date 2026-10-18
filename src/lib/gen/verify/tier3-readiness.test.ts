@@ -1,4 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { FEATURES } from "@/lib/config";
+function setF2ProductPostcheck(value: boolean) {
+  Object.defineProperty(FEATURES, "f2ProductPostcheck", { value, configurable: true });
+}
+import { productPostcheckLogMatchesCurrentFilesRevision } from "@/lib/db/services/version-errors";
+import { interpretProductPostcheckLogs } from "./product-postcheck-verdict";
 
 const getVersionFiles = vi.hoisted(() => vi.fn());
 const detectIntegrationsFromVersionFiles = vi.hoisted(() => vi.fn());
@@ -32,10 +38,13 @@ vi.mock("@/lib/gen/preview/env-local", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/gen/preview/env-local")>()),
   loadPlaceholderKeySet,
 }));
-vi.mock("@/lib/db/services/version-errors", () => ({
+vi.mock("@/lib/db/client", () => ({ db: {}, dbConfigured: false }));
+vi.mock("@/lib/db/services/version-errors", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/db/services/version-errors")>()),
   getEngineVersionErrorLogsForCategories,
 }));
-vi.mock("@/lib/db/services/product-postcheck-runs", () => ({
+vi.mock("@/lib/db/services/product-postcheck-runs", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/db/services/product-postcheck-runs")>()),
   getRunningProductPostcheckClaimForVersion,
 }));
 vi.mock("@/lib/db/chat-repository-pg", () => ({ getVersionById }));
@@ -94,6 +103,55 @@ beforeEach(() => {
 });
 
 describe("checkTier3ReadinessForVersion (L1)", () => {
+  describe("server policy receipts across UI and F3 readiness", () => {
+    const disabled = {
+      category: "product_postcheck.summary",
+      meta: { verdict: "allowed_skip", skippedReason: "feature_disabled", attestedFilesRevision: "rev_n" },
+    };
+    const blocker = {
+      category: "product_postcheck.summary",
+      meta: { verdict: "blocked", productBlocked: true, attestedFilesRevision: "rev_n" },
+    };
+    function exposeCurrentLogs(rows: Array<{ category: string; meta: Record<string, unknown> }>) {
+      const visible = rows.filter(row => productPostcheckLogMatchesCurrentFilesRevision(row.meta, "rev_n"));
+      getEngineVersionErrorLogsForCategories.mockResolvedValue(visible);
+      return interpretProductPostcheckLogs(visible);
+    }
+    const readiness = () => checkTier3ReadinessForVersion({
+      versionId: "ver_f3", chatId: "chat_1", parentVersionId: "ver_f2", requireF2Parent: true,
+      orchestrationSnapshot: null, projectId: "proj_1",
+    });
+    afterEach(() => { setF2ProductPostcheck(true); });
+
+    it("real OFF exposes the canonical skip to the UI and releases the parent F3 gate", async () => {
+      setF2ProductPostcheck(false);
+      expect(exposeCurrentLogs([disabled])).toBe("allowed_skip");
+      expect(await readiness()).toMatchObject({ ready: true });
+    });
+
+    it("OFF->ON invalidates old feature_disabled proof for both UI and F3", async () => {
+      setF2ProductPostcheck(false);
+      expect(exposeCurrentLogs([disabled])).toBe("allowed_skip");
+      setF2ProductPostcheck(true);
+      expect(exposeCurrentLogs([disabled])).toBe("pending");
+      expect(await readiness()).toMatchObject({ ready: false, reason: "product_postcheck_pending" });
+    });
+
+    it("a client-selected filesRevision cannot hide a current blocker after flag ON", async () => {
+      setF2ProductPostcheck(true);
+      const forged = { category: disabled.category, meta: { verdict: "allowed_skip", skippedReason: "feature_disabled", filesRevision: "forged_newer" } };
+      expect(exposeCurrentLogs([disabled, forged, blocker])).toBe("blocked");
+      expect(await readiness()).toMatchObject({ ready: false, reason: "product_postcheck_blocked" });
+    });
+
+    it("an active claim holds F3 even while an OFF receipt remains visible", async () => {
+      setF2ProductPostcheck(false);
+      exposeCurrentLogs([disabled]);
+      getRunningProductPostcheckClaimForVersion.mockResolvedValue({ status: "running" });
+      expect(await readiness()).toMatchObject({ ready: false, reason: "product_postcheck_pending" });
+    });
+  });
+
   it("holds a proven Clerk to Auth0 migration before a cached passed postcheck can release", async () => {
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
