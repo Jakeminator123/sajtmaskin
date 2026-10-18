@@ -56,9 +56,9 @@ nedan är sant:
 2. ~~`robots` är `index, follow` och canonical pekar på produktions-URL.~~
    **Verifierat 2026-09-18** på `/hemsida-till-foretag`.
 3. Auto-tagging är på, UTM sitter på final URL, minst en
-   **builder-start**-konvertering är skapad i Ads, och production-env
-   `NEXT_PUBLIC_GOOGLE_ADS_ID` + `NEXT_PUBLIC_GOOGLE_ADS_BUILDER_START_LABEL`
-   är satta (taggen är fail-closed utan dem).
+   **builder-start**-konvertering är skapad i Ads, och Google-taggen
+   `AW-18458823435` är verifierad på `sajtmaskin.se` (Consent Mode v2,
+   koddefault — extra production-env behövs inte).
 4. Kampanjen är granskad mot [Negativlista](#negativlista) och
    [Tracking](#tracking).
 
@@ -199,24 +199,26 @@ part är komplement — bygg inte ett analyticsprojekt före första klicken.
 **Google-taggen måste sitta på produktion (`sajtmaskin.se`) innan någon
 krona går.** En URL-regel i Ads-UI mot «innehåller `/builder`» räcker
 **inte** för v1: den räknar refresh, återbesök och öppnade projekt. Appen
-skickar tre händelser via första-parts `gtag` när env är satt och
-cookie-samtycke är `accepted`.
+laddar `gtag.js` på produktionshosts med Consent Mode v2 (default denied)
+och skickar händelser efter cookie-samtycke `accepted`.
 
 | Inställning | Värde |
 |---|---|
 | Auto-tagging | På (`gclid`) |
-| Tag | `NEXT_PUBLIC_GOOGLE_ADS_ID` (`AW-…`). Tom = ingen tag, inga events |
-| Primär konvertering | `builder_start` — landning på `/builder?new=1` (`SEO_LANDING_CTA_HREF`). Label: `NEXT_PUBLIC_GOOGLE_ADS_BUILDER_START_LABEL`. sessionStorage-dedup så refresh inte dubbelräknar |
-| Sekundär | `account_created` — efter lyckad **ny** e-postregistrering och första Google-signup (`signup=1`). Inte login. Inte GitHub (GitHub OAuth skapar inget konto). Label: `NEXT_PUBLIC_GOOGLE_ADS_ACCOUNT_CREATED_LABEL` |
-| Tertiär | `first_generation` — första lyckade generation som ger `versionId` i den här webbläsaren (init eller follow-up). Ingen serverflagga för «användaren har aldrig genererat». Label: `NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL` |
+| Tag | Koddefault `AW-18458823435`. Override: `NEXT_PUBLIC_GOOGLE_ADS_ID`. Kill-switch: `NEXT_PUBLIC_GOOGLE_ADS_ENABLED=0`. QA på preview/localhost: `=1` |
+| Primär konvertering | `builder_start` — landning på `/builder?new=1` (`SEO_LANDING_CTA_HREF`). send_to `AW-18458823435/yesaCIbf1fscEIuW7eFE`. sessionStorage-dedup så refresh inte dubbelräknar |
+| Sekundär | `account_created` — efter lyckad **ny** e-postregistrering och första Google-signup (`signup=1`). Inte login. Inte GitHub (GitHub OAuth skapar inget konto). send_to `AW-18458823435/R5rICIPf1fscEIuW7eFE` |
+| Tertiär | `first_site_generated` — första lyckade generation som ger `versionId` i den här webbläsaren (init eller follow-up). Ingen Ads-conversion-label ännu: skickas som `gtag('event','first_site_generated')` utan `send_to`. Sätt `NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL` när labeln skapats i Ads |
 | Värde | Inte satt i v1; vi mäter händelser, inte kr/konvertering |
-| Samtycke | `localStorage` `cookie-consent` måste vara `accepted`. Declined eller saknad = ingen gtag, inga Ads-cookies |
-| CSP | `src/proxy.ts` allowlistar `www.googletagmanager.com`, `www.googleadservices.com`, `googleads.g.doubleclick.net`, `www.google.com` |
+| Samtycke | Consent Mode v2 default denied. `accepted` i cookie-bannern → granted. Declined = taggen ligger kvar cookieless, inga conversion-events |
+| CSP | `src/proxy.ts` allowlistar `www.googletagmanager.com`, `www.googleadservices.com`, `googleads.g.doubleclick.net`, `www.google.com`, `www.google.se` |
 | Admin | Taggen laddas inte på `/admin` |
+| Preview/localhost | Av tills `NEXT_PUBLIC_GOOGLE_ADS_ENABLED=1` |
 
-Skapa de tre konverteringarna i Ads-UI och klistra **bara label-delen**
-(efter `AW-id/`) i env. Sätt inte riktiga AW-id i git. Osatt label = den
-händelsen är en no-op även om kontotaggen är satt.
+`builder_start` och `account_created` har koddefault från Ads-mejlet (#1480).
+Env-labels override:a bara label-delen (efter `AW-id/`). Ogiltig label
+(slash eller `AW-` prefix) stänger av den konverteringen. Osatt
+`FIRST_GENERATION`-label = custom event, inte Ads-konvertering.
 
 Ingen GA4/GTM-yta, ingen remarketing, ingen `page_views`-/UTM-migration.
 
@@ -300,14 +302,38 @@ Två spärrar gäller alltså samtidigt: kampanjen är pausad av oss, kontot är
 pausat av Google. Ingen visning, ingen spend.
 
 Kvar innan spend: annonsörsverifiering, promote av tagg-koden till
-`master` (env är satt; `NEXT_PUBLIC_*` inlineas vid build),
+`master`, Tag Assistant-verifiering på `sajtmaskin.se`,
 annonsgrupperna `hemsida-pris` och `skapa-hemsida-ai`, negativlistan och
-`first_generation`.
+en Ads-conversion-label för `first_site_generated` om den ska räknas i
+kontot (finns inte i Ads ännu).
 
-Production-env (encrypted, bara `production`, 2026-09-18):
-`NEXT_PUBLIC_GOOGLE_ADS_ID`, `NEXT_PUBLIC_GOOGLE_ADS_BUILDER_START_LABEL`,
-`NEXT_PUBLIC_GOOGLE_ADS_ACCOUNT_CREATED_LABEL`. Inte preview. Inte
-`FIRST_GENERATION` — den konverteringen saknas i Ads.
+Koddefault räcker för tag + `builder_start` + `account_created`.
+`NEXT_PUBLIC_GOOGLE_ADS_ENABLED=0` i production stänger av utan revert.
+Inte preview. Inte `FIRST_GENERATION` som conversion — den händelsen är
+ännu bara `gtag` `first_site_generated`.
+
+### Verifiera i Google Tag Assistant efter promote till produktion
+
+1. Promote preview → master (`npm run promote`) och vänta på READY på
+   `https://sajtmaskin.se`.
+2. Öppna `https://sajtmaskin.se` i Chrome med [Tag Assistant](https://tagassistant.google.com)
+   (eller Ads: Verktyg → Google-tagg → «Testa»).
+3. **Före cookie-val:** taggen `AW-18458823435` ska synas, Consent Mode
+   `ad_storage=denied` (och `ad_user_data` / `ad_personalization` denied).
+   Ingen conversion-händelse.
+4. Acceptera cookies i bannern/lanyard. Consent ska gå till `granted`.
+5. `builder_start`: gå till `/builder?new=1`. Tag Assistant ska visa
+   `conversion` med send_to `AW-18458823435/yesaCIbf1fscEIuW7eFE`.
+6. `account_created`: ny e-postregistrering eller första Google-signup
+   (`signup=1`). send_to `AW-18458823435/R5rICIPf1fscEIuW7eFE`.
+7. Första lyckade generation: eventnamn `first_site_generated` **utan**
+   send_to tills en conversion-label skapats i Ads och satts i
+   `NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL` (kräver ny production-deploy).
+8. Ads-UI: konverteringsåtgärderna ska sluta visa «Felkonfigurerad» när
+   Google har sett taggen på den crawade URL:en (kan ta några timmar).
+
+Preview (`preview.sajtmaskin.se`) och localhost ska **inte** skicka Ads
+utan `NEXT_PUBLIC_GOOGLE_ADS_ENABLED=1`.
 
 **Webviewvarning:** Google Payments och Cardinal/3-D Secure blockeras av
 Cloudflare i Cursors inbyggda browser. Betalning, identitetsverifiering och

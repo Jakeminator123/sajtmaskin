@@ -37,7 +37,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
     { href: "/analys", label: "Analys" },
     { href: "/exempel", label: "Exempel" },
     { href: "/#hur-det-fungerar", label: "Hur det fungerar" },
-    { href: "/#priser", label: "Priser" },
+    { href: "/priser", label: "Priser" },
     { href: "/faq", label: "FAQ" },
   ];
 

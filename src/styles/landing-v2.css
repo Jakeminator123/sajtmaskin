@@ -89,6 +89,20 @@
   background: radial-gradient(circle, rgba(92, 115, 118, 0.16) 0%, transparent 70%);
 }
 
+/* Mobile: skip 100px-blur animated orbs (main-thread paint). Desktop unchanged. */
+@media (max-width: 767px) {
+  .landing-chat-bg .shader-orb {
+    animation: none;
+    filter: blur(36px);
+  }
+  .landing-chat-bg .shader-orb-1,
+  .landing-chat-bg .shader-orb-2,
+  .landing-chat-bg .shader-orb-3 {
+    width: 220px;
+    height: 220px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-chat-bg .shader-orb {
     animation: none !important;

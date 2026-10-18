@@ -7,7 +7,7 @@ import "@/styles/landing-v2.css";
 import { AnalyticsTracker } from "@/components/layout/analytics-tracker";
 import { CookieBanner } from "@/components/layout/cookie-banner";
 import { GoogleAdsTag } from "@/components/layout/google-ads-tag";
-import { OrganizationJsonLd, SoftwareApplicationJsonLd } from "@/components/layout/json-ld";
+import { OrganizationJsonLd } from "@/components/layout/json-ld";
 import { ThemeProvider } from "next-themes";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -21,11 +21,15 @@ const openclawSurfaceEnabled = OPENCLAW.surfaceEnabled;
 const geistSans = Geist({
   subsets: ["latin"],
   variable: "--font-geist-sans",
+  preload: false,
+  display: "optional",
 });
 
 const geistMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-geist-mono",
+  preload: false,
+  display: "optional",
 });
 
 const inter = Inter({
@@ -37,16 +41,18 @@ const inter = Inter({
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-heading",
-  display: "swap",
+  display: "optional",
+  // Mobile LCP is the system-ui H1; don't let the heading font compete with CSS.
+  preload: false,
 });
 
 export const metadata: Metadata = {
   title: {
-    default: "Sajtmaskin – AI-driven webbplatsgenerering",
+    default: "Skapa hemsida med AI | Sajtmaskin",
     template: "%s | Sajtmaskin",
   },
   description:
-    "Skapa professionella webbplatser på minuter med AI. En tjänst från Pretty Good B.V.",
+    "Skapa en professionell hemsida med AI. Beskriv ditt företag, anpassa utkastet och publicera. Börja utan kreditkort.",
   metadataBase: new URL(PUBLIC_CANONICAL_ORIGIN),
   icons: {
     icon: "/icon.svg",
@@ -69,6 +75,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // headers() for the CSP nonce makes this root layout dynamic, so marketing
+  // pages cannot be ISR/static while nonce-based CSP remains. TTFB is already
+  // ~0.2–0.5 s; caching HTML would require hash-CSP or PPR first.
   const requestHeaders = await headers();
   const nonce = requestHeaders.get("x-csp-nonce") ?? undefined;
 
@@ -84,13 +93,12 @@ export default async function RootLayout({
             <p>
               <strong>Sajtmaskin</strong>
             </p>
-            <p>AI-driven webbplatsgenerering. Skapa professionella webbplatser på minuter med AI. En tjänst från Pretty Good B.V.</p>
+            <p>Skapa en professionell hemsida med AI. Beskriv ditt företag, anpassa utkastet och publicera. En tjänst från Pretty Good B.V.</p>
             <p>JavaScript krävs för att använda Sajtmaskin. Aktivera JavaScript i din webbläsare och ladda om sidan.</p>
           </div>
         </noscript>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} nonce={nonce}>
           <OrganizationJsonLd />
-          <SoftwareApplicationJsonLd />
           <AnalyticsTracker />
           <GoogleAdsTag nonce={nonce} />
           <Analytics />

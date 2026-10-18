@@ -108,7 +108,7 @@ const CHECKLIST = [
   "Har du läst aktuell prissida — inte ett gammalt screenshot?",
 ] as const;
 
-const FAQS = [
+export const FAQS = [
   {
     q: "Är en AI-hemsidebyggare samma sak som ChatGPT?",
     a: "Nej. En chatt kan skriva utkast till texter. En hemsidebyggare ska också ge struktur, layout och något du kan öppna som en sajt. I Sajtmaskin är resultatet kod i preview, inte bara ett Word-dokument.",
@@ -469,7 +469,7 @@ export function AiHemsidebyggareContent() {
               </dl>
               <p className="mt-6 text-sm text-muted-foreground">
                 Aktuella credit-paket finns på{" "}
-                <Link href="/#priser" className="text-foreground underline-offset-4 hover:underline">
+                <Link href="/priser" className="text-foreground underline-offset-4 hover:underline">
                   prissidan
                 </Link>
                 . Vill du se just Sajtmaskins flöde?{" "}

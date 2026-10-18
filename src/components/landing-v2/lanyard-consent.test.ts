@@ -9,10 +9,18 @@ import {
   shouldPreloadLanyardCard,
 } from "@/components/landing-v2/lanyard-consent";
 
-function stubMatchMedia(reducedMotion: boolean): typeof window.matchMedia {
+function stubMatchMedia(
+  options: boolean | { reducedMotion?: boolean; narrow?: boolean } = false,
+): typeof window.matchMedia {
+  const reducedMotion = typeof options === "boolean" ? options : Boolean(options.reducedMotion);
+  const narrow = typeof options === "boolean" ? false : Boolean(options.narrow);
   const original = window.matchMedia;
   window.matchMedia = ((query: string) => ({
-    matches: query.includes("prefers-reduced-motion") ? reducedMotion : false,
+    matches: query.includes("prefers-reduced-motion")
+      ? reducedMotion
+      : query.includes("max-width")
+        ? narrow
+        : false,
     media: query,
     onchange: null,
     addListener: () => {},
@@ -92,6 +100,12 @@ describe("lanyard consent helpers", () => {
 
     restoreConnection();
     restoreConnection = stubConnection({ effectiveType: "2g" });
+    expect(shouldPreloadLanyardCard()).toBe(false);
+
+    restoreConnection();
+    restoreConnection = stubConnection(undefined);
+    window.matchMedia = originalMatchMedia;
+    originalMatchMedia = stubMatchMedia({ narrow: true });
     expect(shouldPreloadLanyardCard()).toBe(false);
   });
 

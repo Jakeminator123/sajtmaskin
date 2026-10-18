@@ -53,7 +53,7 @@ tidigare `kedja/*`-konventionen:
 
 ```powershell
 npm run kedja:clean                                                              # torrkörning, visar bara
-node scripts/cursor/kedja-clean.mjs --yes --keep ..\sajtmaskin-kedja-x-a         # utför, rör inte vinnaren
+node scripts/cursor/kedja-clean.mjs --yes --keep <worktrees>\sajtmaskin-kedja-x-a  # utför, rör inte vinnaren
 ```
 
 **Anropa flaggorna via `node`, inte via `npm run -- …`.** npm äter både `--yes` (dess egen `-y`-alias) och `--keep` (okänd config) innan de når skriptet, så npm-vägen faller tillbaka på torrkörning utan att säga varför. Verifierat 2026-08-02. Fallet är åt rätt håll — inget raderas av misstag — men flaggorna får bara effekt via `node`.

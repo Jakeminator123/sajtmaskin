@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createSeoLandingMetadata } from "@/lib/seo-landing-pages/metadata";
-import { AiHemsidebyggareContent } from "./ai-hemsidebyggare-content";
+import { SeoLandingJsonLd } from "@/lib/seo-landing-pages/structured-data";
+import { AiHemsidebyggareContent, FAQS } from "./ai-hemsidebyggare-content";
 
 /**
  * Category SEO landing: how to compare AI website builders.
@@ -11,5 +12,10 @@ import { AiHemsidebyggareContent } from "./ai-hemsidebyggare-content";
 export const metadata: Metadata = createSeoLandingMetadata("ai-hemsidebyggare");
 
 export default function AiHemsidebyggarePage() {
-  return <AiHemsidebyggareContent />;
+  return (
+    <>
+      <SeoLandingJsonLd slug="ai-hemsidebyggare" faqs={FAQS} />
+      <AiHemsidebyggareContent />
+    </>
+  );
 }

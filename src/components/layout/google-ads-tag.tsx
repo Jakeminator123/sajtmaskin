@@ -9,13 +9,14 @@ import {
   noteAccountCreatedFromLocation,
   noteBuilderStartFromLocation,
   subscribeCookieConsent,
+  syncGoogleAdsConsent,
 } from "@/lib/ads/fire-google-ads-conversion";
 import {
   getGoogleAdsConfig,
-  conversionId,
   GOOGLE_ADS_CONVERSION_EVENTS,
   isAdminAppPath,
   isGoogleAdsEnabled,
+  isGoogleAdsQueueableEvent,
 } from "@/lib/ads/google-ads";
 import { loadGoogleAdsTag } from "@/lib/ads/load-google-ads-tag";
 
@@ -41,7 +42,6 @@ export function GoogleAdsTag({ nonce }: { nonce?: string }) {
     const config = getGoogleAdsConfig();
     if (!isGoogleAdsEnabled(config) || !config.adsId) return;
     if (isAdminAppPath(pathname)) return;
-    if (!consentAccepted) return;
 
     noteBuilderStartFromLocation(pathname);
     noteAccountCreatedFromLocation();
@@ -56,17 +56,19 @@ export function GoogleAdsTag({ nonce }: { nonce?: string }) {
       } catch {
         /* retry, never claim */
       }
-      if (stopped || !hasAcceptedCookieConsent() || isAdminAppPath(window.location.pathname))
-        return;
+      if (stopped || isAdminAppPath(window.location.pathname)) return;
       if (loaded) {
-        flushPendingGoogleAdsConversions();
+        syncGoogleAdsConsent();
+        if (hasAcceptedCookieConsent()) {
+          flushPendingGoogleAdsConversions();
+        }
       }
-      if (
-        !loaded ||
+      const pendingAfterConsent =
+        hasAcceptedCookieConsent() &&
         GOOGLE_ADS_CONVERSION_EVENTS.some(
-          (event) => Boolean(conversionId(event)) && isGoogleAdsPending(event),
-        )
-      ) {
+          (event) => isGoogleAdsQueueableEvent(event) && isGoogleAdsPending(event),
+        );
+      if (!loaded || pendingAfterConsent) {
         retry = setTimeout(() => {
           void attempt();
         }, delay);
