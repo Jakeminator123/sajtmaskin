@@ -26,6 +26,7 @@ import {
   serializeAttachmentUrls,
 } from "@/lib/builder/pending-builder-draft";
 import { runF3FinalizeAction } from "@/lib/builder/f3-finalize-action";
+import { appendStreamWarning } from "@/lib/builder/stream-warning";
 import { dispatchF3Requirements, dispatchF3Status } from "@/lib/builder/project-env-events";
 import {
   buildInitBuildChoicesInstructions,
@@ -710,9 +711,7 @@ export function useSendMessage(
             m.id === assistantMessageId
               ? {
                   ...m,
-                  content: m.content?.trim()
-                    ? `${m.content}\n\nVarning: ${message}`
-                    : `Varning: ${message}`,
+                  content: appendStreamWarning(m.content, message),
                   isStreaming: false,
                 }
               : m,

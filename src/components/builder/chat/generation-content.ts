@@ -1,3 +1,5 @@
+import { splitTrailingStreamWarning } from "@/lib/builder/stream-warning";
+
 interface GeneratedFile {
   path: string;
   language: string;
@@ -89,7 +91,8 @@ function collectTailFiles(tail: string): GeneratedFile[] {
   }));
 }
 
-export function parseGenerationContent(raw: string): ParsedContent {
+export function parseGenerationContent(content: string): ParsedContent {
+  const { body: raw, warning } = splitTrailingStreamWarning(content);
   const files: GeneratedFile[] = [];
   let genericCodeBlocks = 0;
   let totalCodeLines = 0;
@@ -134,8 +137,9 @@ export function parseGenerationContent(raw: string): ParsedContent {
     }
   }
 
+  const prose = residual.replace(/\n{3,}/g, "\n\n").trim();
   return {
-    proseText: residual.replace(/\n{3,}/g, "\n\n").trim(),
+    proseText: warning ? (prose ? `${prose}\n\n${warning}` : warning) : prose,
     files,
     hasCodeBlocks: genericCodeBlocks > 0,
     genericCodeBlocks,
