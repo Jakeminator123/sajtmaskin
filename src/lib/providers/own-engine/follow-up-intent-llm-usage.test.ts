@@ -14,7 +14,8 @@ vi.mock("@/lib/observability/llm-usage", () => ({ recordLlmUsage }));
 vi.mock("ai", () => ({ generateObject }));
 vi.mock("@/lib/builder/direct-model", () => ({ createDirectModel: () => "model" }));
 vi.mock("@/lib/ai-models/load-manifest", () => ({
-  getWorkloadDefaultModelFromManifest: () => "openai/gpt-5-mini",
+  getWorkloadDefaultModelFromManifest: () => "openai/gpt-6-luna",
+  getWorkloadReasoningEffortFromManifest: () => "none",
 }));
 
 const { llmClassifyFollowUpIntent } = await import("./follow-up-intent-llm-classifier");

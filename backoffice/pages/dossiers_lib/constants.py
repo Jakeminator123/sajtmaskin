@@ -106,7 +106,7 @@ _ALLOWED_ENFORCEMENT = {"build", "feature-runtime", "warn-only"}
 # promote an accepted draft into the live pool — without touching the terminal.
 # The prospect material lives OUTSIDE the repo (kept out of Cursor's index).
 
-_NORMALIZE_MODELS = ("gpt-5.5", "gpt-5.4-mini")
+_NORMALIZE_MODELS = ("gpt-6.1-sol", "gpt-6-luna")
 
 
 

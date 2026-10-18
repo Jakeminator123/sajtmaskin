@@ -29,7 +29,8 @@ vi.mock("@/lib/webscraper", () => ({
 }));
 
 vi.mock("@/lib/ai-models/load-manifest", () => ({
-  getWorkloadDefaultModelFromManifest: () => "openai/gpt-5-mini",
+  getWorkloadDefaultModelFromManifest: () => "openai/gpt-6-luna",
+  getWorkloadReasoningEffortFromManifest: () => "none",
 }));
 
 const { POST } = await import("./route");

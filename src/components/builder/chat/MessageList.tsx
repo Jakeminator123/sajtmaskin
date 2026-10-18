@@ -50,10 +50,19 @@ import {
   isAuditPromptMessage,
   isAutoRepairPromptMessage,
   isF3KickPromptMessage,
+  isKostnadsfriPromptMessage,
   type ChatMessage,
 } from "@/lib/builder/types";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
-import { ChevronDown, ChevronUp, Globe, Loader2, MessageSquare } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  ClipboardList,
+  Globe,
+  Loader2,
+  MessageSquare,
+  type LucideIcon,
+} from "lucide-react";
 import {
   memo,
   useCallback,
@@ -508,7 +517,9 @@ const MessageListComponent = ({
           const isAutoRepairPrompt = Boolean(rawMessage && isAutoRepairPromptMessage(rawMessage));
           const isF3KickPrompt = Boolean(rawMessage && isF3KickPromptMessage(rawMessage));
           const isAuditPrompt = Boolean(rawMessage && isAuditPromptMessage(rawMessage));
-          const isSyntheticSystemPrompt = isAutoRepairPrompt || isF3KickPrompt || isAuditPrompt;
+          const isKostnadsfriPrompt = Boolean(rawMessage && isKostnadsfriPromptMessage(rawMessage));
+          const isSyntheticSystemPrompt =
+            isAutoRepairPrompt || isF3KickPrompt || isAuditPrompt || isKostnadsfriPrompt;
           const isRepairInProgress = Boolean(messages[messageIndex + 1]?.isStreaming);
 
           return (
@@ -657,16 +668,23 @@ const MessageListComponent = ({
                       </MessageResponse>
                     )
                   ) : message.isStreaming && !reasoningPart && !hasStructuredParts && !hasVisibleTooling ? (
-                    <span className="text-muted-foreground text-sm">Startar own-engine-ström...</span>
+                    <span className="text-muted-foreground text-sm">Startar bygget…</span>
                   ) : null
                 ) : isAutoRepairPrompt ? (
                   <AutoRepairMessageRow content={textContent} isInProgress={isRepairInProgress} />
                 ) : isF3KickPrompt ? (
                   <F3KickMessageRow content={textContent} />
                 ) : isAuditPrompt ? (
-                  <AuditHandoffMessageRow
+                  <HandoffPromptMessageRow
                     content={textContent}
-                    domain={rawMessage ? getAuditPromptDomain(rawMessage) : null}
+                    label={auditHandoffLabel(rawMessage ? getAuditPromptDomain(rawMessage) : null)}
+                    icon={Globe}
+                  />
+                ) : isKostnadsfriPrompt ? (
+                  <HandoffPromptMessageRow
+                    content={textContent}
+                    label="Byggunderlag från era svar"
+                    icon={ClipboardList}
                   />
                 ) : (
                   <CollapsibleUserMessage content={textContent} />
@@ -849,9 +867,20 @@ function F3KickMessageRow({ content }: { content: string }) {
   );
 }
 
-function AuditHandoffMessageRow({ content, domain }: { content: string; domain: string | null }) {
+function auditHandoffLabel(domain: string | null): string {
+  return domain ? `Audit: ${domain}` : "Audit";
+}
+
+function HandoffPromptMessageRow({
+  content,
+  label,
+  icon: Icon,
+}: {
+  content: string;
+  label: string;
+  icon: LucideIcon;
+}) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const label = domain ? `Audit: ${domain}` : "Audit";
 
   return (
     <div className="space-y-2">
@@ -859,7 +888,7 @@ function AuditHandoffMessageRow({ content, domain }: { content: string; domain: 
         className="text-muted-foreground bg-muted/40 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs"
         aria-live="polite"
       >
-        <Globe className="h-3.5 w-3.5" aria-hidden="true" />
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
         <span>{label}</span>
       </div>
       {isExpanded ? (
@@ -926,7 +955,7 @@ function SyntheticSystemPromptRow({
             className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
           >
             <ChevronUp className="h-3 w-3" />
-            Dölj den tekniska instruktionen
+            Dölj underlaget
           </button>
         </div>
       ) : (
@@ -935,7 +964,7 @@ function SyntheticSystemPromptRow({
           className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
         >
           <ChevronDown className="h-3 w-3" />
-          Visa den tekniska instruktionen ({lineCount} rader)
+          Visa underlaget ({lineCount} rader)
         </button>
       )}
     </div>

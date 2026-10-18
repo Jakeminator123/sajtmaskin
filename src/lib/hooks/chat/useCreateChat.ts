@@ -252,7 +252,9 @@ export function useCreateChat(
                   domain: auditHandoffDomain ?? null,
                 },
               ]
-            : undefined,
+            : buildMethod === "kostnadsfri" && promptHandoffId
+              ? [{ type: "prompt-source", sourceKind: "kostnadsfri" }]
+              : undefined,
         },
         {
           id: assistantMessageId,

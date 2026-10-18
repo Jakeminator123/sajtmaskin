@@ -57,6 +57,12 @@ export function useBuilderAutoStartGeneration({
   // the 500 ms timer and never retry.
   const hydrationPromptIdRef = useRef(promptId);
   const hydrationPromptParamRef = useRef(promptParam);
+  // `promptActions` is a fresh object on every controller render; as an effect
+  // dependency it would cancel the 500 ms timer before it ever fires.
+  const promptActionsRef = useRef(promptActions);
+  useEffect(() => {
+    promptActionsRef.current = promptActions;
+  }, [promptActions]);
 
   useEffect(() => {
     if (
@@ -73,7 +79,6 @@ export function useBuilderAutoStartGeneration({
       return;
     }
     if (autoGenerateTriggeredRef.current) return;
-    autoGenerateTriggeredRef.current = true;
 
     setSelectedModelTier(DEFAULT_MODEL_TIER);
 
@@ -84,17 +89,11 @@ export function useBuilderAutoStartGeneration({
       setCurrentInitBuildChoices({ ...activeChoices, pageCount: MAX_PAGE_COUNT_CHOICE });
     }
 
+    const prompt = resolvedPrompt!;
     const timer = setTimeout(() => {
-      void promptActions.requestCreateChat(resolvedPrompt!);
+      autoGenerateTriggeredRef.current = true;
+      void promptActionsRef.current.requestCreateChat(prompt);
     }, 500);
     return () => clearTimeout(timer);
-  }, [
-    isAuthenticated,
-    templateId,
-    buildMethod,
-    resolvedPrompt,
-    chatId,
-    setSelectedModelTier,
-    promptActions,
-  ]);
+  }, [isAuthenticated, templateId, buildMethod, resolvedPrompt, chatId, setSelectedModelTier]);
 }

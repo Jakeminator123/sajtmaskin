@@ -954,9 +954,7 @@ describe("MessageList", () => {
     expect(repairRow?.getAttribute("data-role")).not.toBe("user");
 
     // Expanding still surfaces the real prompt for debugging.
-    fireEvent.click(
-      screen.getByRole("button", { name: /Visa den tekniska instruktionen/ }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /Visa underlaget/ }));
     expect(screen.getByText(/Issues detected: typecheck failed/)).toBeTruthy();
   });
 
@@ -1243,9 +1241,7 @@ describe("MessageList", () => {
     expect(kickRow?.getAttribute("data-role")).toBe("system");
     expect(kickRow?.getAttribute("data-role")).not.toBe("user");
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /Visa den tekniska instruktionen/ }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /Visa underlaget/ }));
     expect(
       screen.getByText("Bygg integrationer nu utifrån den finaliserade designversionen."),
     ).toBeTruthy();

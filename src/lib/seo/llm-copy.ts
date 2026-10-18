@@ -21,6 +21,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import { createDirectModel } from "@/lib/builder/direct-model";
+import { workloadOpenAIProviderOptions } from "@/lib/ai-models/workload-reasoning";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { resolveHtmlLang } from "./improve";
 import { writeMetadataString } from "./metadata-literal";
@@ -43,6 +44,7 @@ const COPY_FINDING_IDS = new Set([
 ]);
 
 const LAYOUT_PATHS = new Set(["app/layout.tsx", "src/app/layout.tsx"]);
+const SEO_PUBLISH_COPY_WORKLOAD_ID = "seo_publish_copy";
 const TIMEOUT_MS = 20_000;
 /** Enough of the site to describe it; far short of the whole project. */
 const MAX_CONTEXT_CHARS = 6_000;
@@ -122,7 +124,7 @@ export async function improveSeoCopyWithLlm(
   try {
     const result = await generateObject({
       // `createDirectModel` parses the manifest's `provider/model` form.
-      // `getOpenAIModel` would forward `openai/gpt-5.2` verbatim as a model
+      // `getOpenAIModel` would forward `openai/gpt-6-luna` verbatim as a model
       // name, so every call would fail and silently degrade to no rewrite.
       model: createDirectModel(options.modelId),
       schema: SeoCopySchema,
@@ -146,6 +148,7 @@ export async function improveSeoCopyWithLlm(
       maxOutputTokens: 400,
       maxRetries: 1,
       abortSignal: controller.signal,
+      ...workloadOpenAIProviderOptions(SEO_PUBLISH_COPY_WORKLOAD_ID, options.modelId),
     });
 
     recordLlmUsage({

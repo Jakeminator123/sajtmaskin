@@ -303,18 +303,18 @@ def _parse_json_reply(raw: str) -> dict[str, Any]:
 
 
 def _is_reasoning_model(model: str) -> bool:
-    """GPT-5 family and the o-series are reasoning models: they reject
-    `max_tokens` (require `max_completion_tokens`) and only accept the default
-    temperature (custom values return HTTP 400)."""
+    """GPT-5 and later (GPT-6 Sol/Luna/Astra) and the o-series are reasoning
+    models: they reject `max_tokens` (require `max_completion_tokens`) and only
+    accept the default temperature (custom values return HTTP 400)."""
     m = model.strip().lower()
-    return m.startswith(("gpt-5", "o1", "o3", "o4"))
+    return m.startswith(("gpt-5", "gpt-6", "o1", "o3", "o4"))
 
 
 # Reasoning-modeller räknar sina DOLDA reasoning-tokens mot
 # `max_completion_tokens`. En budget som räckte för en klassisk chat-modell kan
 # därför konsumeras helt av tänkandet innan ett enda synligt tecken skrivs —
 # svaret blir tomt `content` och `_post_openai_chat` kastar. Guidens default är
-# nu gpt-5.6-luna (persona: gpt-5.6-terra). Faktorn ger plats för
+# nu gpt-6-luna (persona: gpt-6.1-sol). Faktorn ger plats för
 # resonemanget; det synliga svaret är fortfarande kort.
 _REASONING_TOKEN_HEADROOM = 4
 
@@ -333,7 +333,7 @@ def _chat_payload(
     response_format: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a Chat Completions payload valid for both classic and
-    reasoning (gpt-5.6 terra/sol/luna) models. Uses `max_completion_tokens`
+    reasoning (gpt-6.1-sol, gpt-6-luna, gpt-5.6-*) models. Uses `max_completion_tokens`
     (accepted by all current chat models); omits the custom `temperature` for
     reasoning models that only allow the default."""
     payload: dict[str, Any] = {
@@ -452,7 +452,7 @@ def ask_guide(
 
     Svaret ska vara kort (max 6 meningar), men budgeten skalas för
     reasoning-modeller — se :data:`_REASONING_TOKEN_HEADROOM`. Guidens
-    manifest-default är en gpt-5-modell, så utan skalningen kunde tänkandet äta
+    manifest-default är en reasoning-modell, så utan skalningen kunde tänkandet äta
     hela taket och lämna ett tomt svar.
     """
     payload = _chat_payload(

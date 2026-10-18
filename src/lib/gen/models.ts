@@ -1,6 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { DEFAULT_OWN_MODEL_ID, aliasRetiredModelId } from "@/lib/models/catalog";
+import { getOpenAIModelCapabilities } from "@/lib/models/openai-capabilities";
 
 /** Default model for code generation. Aligned with the shared model catalog. */
 export const DEFAULT_MODEL = DEFAULT_OWN_MODEL_ID;
@@ -40,11 +41,11 @@ export function getOpenAIModel(modelId?: string) {
   const openai = createOpenAI({ apiKey });
   // In @ai-sdk/openai v3 the default provider call `openai(id)` IS the
   // Responses API model (createLanguageModel === createResponsesModel), so
-  // every OpenAI model here — including gpt-5.3-codex — talks to
-  // /v1/responses. The explicit `.responses()` branch for GPT-5.6 is kept as
-  // belt-and-braces: reasoningMode (standard/pro) is Responses-only, and this
-  // pins that guarantee even if a future SDK major changes the default again.
-  if (id.startsWith("gpt-5.6-")) {
+  // every OpenAI model here talks to /v1/responses. Registered models are
+  // pinned to `.responses()` explicitly: GPT-6.1 Sol needs Responses for tool
+  // calls and reasoningMode is Responses-only, so a future SDK default change
+  // must not move them to Chat Completions.
+  if (getOpenAIModelCapabilities(id)) {
     return openai.responses(id);
   }
   return openai(id);
