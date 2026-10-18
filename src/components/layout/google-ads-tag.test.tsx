@@ -118,13 +118,17 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     ]);
     expect(commands()[0][2]).not.toHaveProperty("url_passthrough");
     expect(commands()[0][2]).not.toHaveProperty("ads_data_redaction");
-    expect(commands()[1]).toEqual(["set", "url_passthrough", true]);
-    expect(commands()[2]).toEqual(["set", "ads_data_redaction", true]);
-    expect(commands()[3]).toEqual([
+    expect(commands()[1]).toEqual([
       "consent",
       "update",
       expect.objectContaining({ ad_storage: "granted" }),
     ]);
+    expect(commands()[2]).toEqual(["set", "url_passthrough", true]);
+    expect(commands()[3]).toEqual(["set", "ads_data_redaction", true]);
+    const jsIdx = commands().findIndex((entry) => entry[0] === "js");
+    const configIdx = commands().findIndex((entry) => entry[0] === "config");
+    expect(jsIdx).toBeGreaterThan(3);
+    expect(configIdx).toBeGreaterThan(jsIdx);
   });
 
   it("does not let a stale loader timeout clear a successfully replaced tag", async () => {
@@ -201,6 +205,11 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     expect(commands()[0][2]).not.toHaveProperty("ads_data_redaction");
     expect(commands()[1]).toEqual(["set", "url_passthrough", true]);
     expect(commands()[2]).toEqual(["set", "ads_data_redaction", true]);
+    const deniedCmds = commands();
+    const deniedJsIdx = deniedCmds.findIndex((entry) => entry[0] === "js");
+    const deniedConfigIdx = deniedCmds.findIndex((entry) => entry[0] === "config");
+    expect(deniedJsIdx).toBeGreaterThan(2);
+    expect(deniedConfigIdx).toBeGreaterThan(deniedJsIdx);
     expect(window.dataLayer?.every(isArgumentsObject)).toBe(true);
     expect(commands().some((entry) => entry[0] === "consent" && entry[1] === "update")).toBe(false);
     await act(async () => {
@@ -229,10 +238,10 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     const jsIdx = cmds.findIndex((entry) => entry[0] === "js");
     const configIdx = cmds.findIndex((entry) => entry[0] === "config");
     expect(defaultIdx).toBe(0);
-    expect(passthroughIdx).toBeGreaterThan(defaultIdx);
+    expect(grantedIdx).toBeGreaterThan(defaultIdx);
+    expect(passthroughIdx).toBeGreaterThan(grantedIdx);
     expect(redactionIdx).toBeGreaterThan(passthroughIdx);
-    expect(grantedIdx).toBeGreaterThan(redactionIdx);
-    expect(jsIdx).toBeGreaterThan(grantedIdx);
+    expect(jsIdx).toBeGreaterThan(redactionIdx);
     expect(configIdx).toBeGreaterThan(jsIdx);
     expect(window.dataLayer?.every(isArgumentsObject)).toBe(true);
   });

@@ -44,15 +44,14 @@ export function ensureGoogleAdsConsentDefault(): void {
   if (!gtag) return;
   if (!window.sajtmaskinAdsConsentDefaulted) {
     gtag("consent", "default", { ...CONSENT_DEFAULT_DENIED });
-    // Google requires these as `set`, not as consent-default fields.
-    gtag("set", "url_passthrough", true);
-    gtag("set", "ads_data_redaction", true);
     window.sajtmaskinAdsConsentDefaulted = true;
     // Returning visitors already have CMP state. Queue granted before js/config
     // so wait_for_update does not let conversion-linker run as denied.
     if (hasAcceptedCookieConsent()) {
       syncGoogleAdsConsent();
     }
+    gtag("set", "url_passthrough", true);
+    gtag("set", "ads_data_redaction", true);
   }
   if (!window.sajtmaskinAdsJsQueued) {
     gtag("js", new Date());
