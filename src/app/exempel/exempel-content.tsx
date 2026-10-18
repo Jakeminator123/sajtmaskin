@@ -28,9 +28,10 @@ export function ExempelContent() {
             Hemsidor och idéer byggda som Sajtmaskin-exempel
           </h1>
           <p className="text-muted-foreground mx-auto mt-5 max-w-2xl text-pretty text-base leading-relaxed md:text-lg">
-            Fem publika rekonstruktioner som visar olika riktningar: corporate
-            SaaS, editorial, premium service, lekfull lifestyle och en lokal
-            verksamhet. Öppna ett exempel, eller börja med en egen beskrivning.
+            Tio publika exempel och rekonstruktioner som visar olika riktningar:
+            kontorsguider, interaktiva kartor, B2B-koncept, spellobbyer,
+            kontrollpaneler, corporate SaaS och lokal verksamhet. Öppna ett
+            exempel, eller börja med en egen beskrivning.
           </p>
           <aside
             className="border-border/30 bg-card/40 mx-auto mt-8 max-w-2xl rounded-2xl border px-5 py-4 text-left text-sm leading-relaxed text-muted-foreground"
@@ -64,47 +65,76 @@ export function ExempelContent() {
       <section className="px-6 pb-16 md:pb-24" aria-labelledby="exempel-grid-heading">
         <div className="mx-auto max-w-6xl">
           <h2 id="exempel-grid-heading" className="sr-only">
-            De fem exemplen
+            Alla exempel
           </h2>
-          <ul className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {SHOWCASE_SITES.map((site) => (
-              <li key={site.id}>
-                <article className="border-border/25 bg-card/35 h-full rounded-[28px] border shadow-[0_24px_60px_rgba(6,10,20,0.22)]">
-                  <a
-                    href={site.href}
-                    target="_blank"
-                    rel={SHOWCASE_EXTERNAL_REL}
-                    aria-label={`Öppna exemplet ${site.name} (öppnas i ny flik)`}
-                    className="group flex h-full flex-col rounded-[28px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                  >
-                    <span className="relative block aspect-[16/10] overflow-hidden rounded-t-[28px] bg-secondary/30">
-                      <Image
-                        src={site.screenshotSrc}
-                        alt=""
-                        fill
-                        sizes="(min-width: 1280px) 360px, (min-width: 768px) 45vw, 100vw"
-                        className="object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
-                      />
-                    </span>
-                    <span className="flex flex-1 flex-col px-5 py-5">
-                      <span className="text-xs font-medium tracking-widest text-primary uppercase">
-                        {site.industry}
+          <ul className="grid gap-5 md:grid-cols-2 xl:grid-cols-6">
+            {SHOWCASE_SITES.map((site, index) => {
+              const isWide = index < 2 || index >= 8;
+              return (
+                <li
+                  key={site.id}
+                  className={isWide ? "xl:col-span-3" : "xl:col-span-2"}
+                >
+                  <article className="border-border/30 bg-card/35 h-full rounded-[28px] border shadow-[0_24px_60px_rgba(6,10,20,0.26)] transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/35 hover:bg-card/55">
+                    <a
+                      href={site.href}
+                      target="_blank"
+                      rel={SHOWCASE_EXTERNAL_REL}
+                      aria-label={`Öppna exemplet ${site.name} (öppnas i ny flik)`}
+                      className="group flex h-full flex-col rounded-[28px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    >
+                      <span className="flex items-center justify-between gap-2 rounded-t-[28px] border-b border-border/20 bg-background/55 px-4 py-2.5">
+                        <span className="flex items-center gap-1.5" aria-hidden>
+                          <span className="h-2.5 w-2.5 rounded-full bg-foreground/20 transition-colors group-hover:bg-primary/65" />
+                          <span className="h-2.5 w-2.5 rounded-full bg-foreground/15" />
+                          <span className="h-2.5 w-2.5 rounded-full bg-foreground/10" />
+                        </span>
+                        <span className="truncate text-xs font-medium text-muted-foreground/85">
+                          {site.highlight}
+                        </span>
                       </span>
-                      <h3 className="mt-2 font-(--font-heading) text-2xl tracking-tight text-foreground">
-                        {site.name}
-                      </h3>
-                      <span className="mt-3 flex-1 text-sm leading-relaxed text-muted-foreground">
-                        {site.summary}
+
+                      <span className="relative block aspect-[16/10] overflow-hidden bg-secondary/30">
+                        <Image
+                          src={site.screenshotSrc}
+                          alt=""
+                          fill
+                          sizes={
+                            isWide
+                              ? "(min-width: 1280px) 560px, (min-width: 768px) 45vw, 100vw"
+                              : "(min-width: 1280px) 360px, (min-width: 768px) 45vw, 100vw"
+                          }
+                          className="object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
+                        />
+                        <span
+                          className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-background/55 to-transparent opacity-70 transition-opacity group-hover:opacity-40"
+                          aria-hidden
+                        />
                       </span>
-                      <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 group-hover:underline">
-                        Öppna exemplet
-                        <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+
+                      <span className="flex flex-1 flex-col px-5 py-5">
+                        <span className="text-xs font-medium tracking-widest text-primary uppercase">
+                          {site.industry}
+                        </span>
+                        <h3 className="mt-2 font-(--font-heading) text-2xl tracking-tight text-foreground">
+                          {site.name}
+                        </h3>
+                        <span className="mt-3 flex-1 text-sm leading-relaxed text-muted-foreground">
+                          {site.summary}
+                        </span>
+                        <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 group-hover:underline">
+                          Öppna exemplet
+                          <ArrowUpRight
+                            className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                            aria-hidden
+                          />
+                        </span>
                       </span>
-                    </span>
-                  </a>
-                </article>
-              </li>
-            ))}
+                    </a>
+                  </article>
+                </li>
+              );
+            })}
           </ul>
         </div>
       </section>
