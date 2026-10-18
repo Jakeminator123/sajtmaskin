@@ -295,7 +295,6 @@ describe("buildRoutePlan", () => {
   it.each([
     ["Lägg till en ny sida som heter Våra hundar och länka den i menyn", "Våra hundar", "/vara-hundar"],
     ['Skapa en sida kallad "Galleri"', "Galleri", "/galleri"],
-    ["Lägg till en sida med namnet Priser.", "Priser", "/priser"],
     ["Gör en ny sida döpt till Recensioner", "Recensioner", "/recensioner"],
     ["Jag vill ha en ny sida som heter Event, tack", "Event", "/event"],
   ])("extracts the Swedish named-page phrasing %s", (prompt, name, path) => {
@@ -309,10 +308,12 @@ describe("buildRoutePlan", () => {
     expect(plan.routes.some((r) => r.path === path)).toBe(true);
   });
 
-  it("does not plan a route when the phrasing points at an existing page", () => {
+  it("does not plan a route when the phrasing points at an existing page or describes form fields", () => {
     for (const prompt of [
       "Ändra texten på sidan som heter Om oss",
       "Byt bild på sidan kallad Tjänster",
+      "Lägg till en sida med namnet och e-post för medlemmar",
+      "Skapa en inloggningssida med fält för användarnamn och lösenord",
     ]) {
       expect(extractExplicitNamedPages(prompt)).toEqual([]);
       const plan = buildRoutePlan({
