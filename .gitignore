@@ -192,7 +192,7 @@ google-services.json
 .cursor/kedja/*
 !.cursor/kedja/README.md
 # Delad agentinkorg (npm run inbox) — självrensande, per maskin, delas av alla worktrees.
-.cursor/inbox.md
+.cursor/inbox.md*
 
 # Logs
 *.log
