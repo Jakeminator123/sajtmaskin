@@ -4,10 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({ pathname: "/" }));
 vi.mock("next/navigation", () => ({ usePathname: () => state.pathname }));
 const script = () => document.getElementById("sajtmaskin-google-ads")!;
+const isArgumentsObject = (entry: unknown) =>
+  Object.prototype.toString.call(entry) === "[object Arguments]";
+const commands = () =>
+  (window.dataLayer ?? [])
+    .filter(isArgumentsObject)
+    .map((entry) => Array.from(entry as ArrayLike<unknown>));
 const conversions = () =>
-  window.dataLayer?.filter(
-    (entry) => Array.isArray(entry) && entry[0] === "event" && entry[1] === "conversion",
-  ) ?? [];
+  commands().filter((entry) => entry[0] === "event" && entry[1] === "conversion");
 
 describe("GoogleAdsTag real loader (no external network)", () => {
   beforeEach(() => {
@@ -61,7 +65,7 @@ describe("GoogleAdsTag real loader (no external network)", () => {
         await vi.advanceTimersByTimeAsync(1_000);
       });
       expect(script()).not.toBeNull();
-      expect(window.dataLayer?.filter((entry) => Array.isArray(entry) && entry[0] === "config")).toHaveLength(1);
+      expect(commands().filter((entry) => entry[0] === "config")).toHaveLength(1);
       await act(async () => {
         script().dispatchEvent(new Event("load"));
       });
@@ -99,9 +103,10 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     script().dispatchEvent(new Event("load"));
     expect(await retry).toBe(true);
     for (const command of ["consent", "js", "config"]) {
-      expect(window.dataLayer?.filter((entry) => Array.isArray(entry) && entry[0] === command)).toHaveLength(1);
+      expect(commands().filter((entry) => entry[0] === command)).toHaveLength(1);
     }
-    expect(window.dataLayer?.[0]).toEqual([
+    expect(window.dataLayer?.every(isArgumentsObject)).toBe(true);
+    expect(commands()[0]).toEqual([
       "consent",
       "default",
       expect.objectContaining({ ad_storage: "denied", ad_user_data: "denied" }),
@@ -163,9 +168,7 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     });
     expect(conversions()).toHaveLength(0);
     expect(
-      window.dataLayer?.filter(
-        (entry) => Array.isArray(entry) && entry[0] === "event" && entry[1] === "first_site_generated",
-      ),
+      commands().filter((entry) => entry[0] === "event" && entry[1] === "first_site_generated"),
     ).toHaveLength(1);
     expect(timers.mock.calls.filter((call) => call[1] === 1_000)).toHaveLength(0);
   });
@@ -175,7 +178,7 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     const { GoogleAdsTag } = await import("./google-ads-tag");
     render(<GoogleAdsTag />);
     expect(script()).not.toBeNull();
-    expect(window.dataLayer?.[0]).toEqual([
+    expect(commands()[0]).toEqual([
       "consent",
       "default",
       expect.objectContaining({ ad_storage: "denied" }),

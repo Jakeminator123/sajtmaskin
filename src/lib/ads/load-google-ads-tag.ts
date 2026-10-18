@@ -24,9 +24,12 @@ function ensureGtagQueue(): GtagFn | undefined {
   if (typeof window === "undefined") return undefined;
   window.dataLayer = window.dataLayer || [];
   if (typeof window.gtag !== "function") {
-    window.gtag = ((...args: unknown[]) => {
-      window.dataLayer?.push(args);
-    }) as GtagFn;
+    // gtag.js dispatches only Arguments objects as commands; a pushed array is
+    // read as a GTM method call, so consent/config/event would be dropped.
+    window.gtag = function gtag() {
+      // eslint-disable-next-line prefer-rest-params
+      window.dataLayer?.push(arguments);
+    } as GtagFn;
   }
   return window.gtag;
 }
