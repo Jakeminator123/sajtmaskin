@@ -26,7 +26,9 @@ import { prepareVersionImages } from "../version-image-validation";
 import { ensureVersionPreview, persistVersionPreviewOutcome, type VersionPreviewReceipt } from "@/lib/gen/preview/ensure-version-preview";
 import type { PreviewSessionError } from "@/lib/gen/preview/preview-session";
 import { runHeldVersionProductPostcheck, runVersionProductPostcheck } from "../version-product-postcheck";
-import { readProductPostcheckPreviewProbe, waitForProductPostcheckPreviewRunning, PRODUCT_POSTCHECK_PREVIEW_WAIT_MS } from "../product-postcheck-preview-wait";
+import { readProductPostcheckPreviewProbe, waitForProductPostcheckPreviewRunning, PRODUCT_POSTCHECK_PREVIEW_WAIT_MS,
+  type ProductPostcheckPreviewProbe } from "../product-postcheck-preview-wait";
+import { classifyReadinessFailure, isUnverifiedReadinessFailure } from "@/lib/gen/preview/readiness-failure";
 import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
 import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import { verdictFromProductPostcheckResult } from "../product-postcheck-verdict";
@@ -95,6 +97,18 @@ import {
 const REVERIFY_CURRENT_CONTEXT = Symbol("reverify-current-context");
 
 type VersionFilesSnapshot = NonNullable<Awaited<ReturnType<typeof getVersionFilesSnapshot>>>;
+
+/**
+ * Host verdict for a boot that started and then failed, when it names a real
+ * build failure. An empty-body verdict only means a JS-less probe saw no text,
+ * and a failure without a message gives the repair loop nothing to act on.
+ */
+function repairableReadinessError(probe: ProductPostcheckPreviewProbe | null | undefined): string | null {
+  if (probe?.readinessState !== "failed") return null;
+  const message = probe.readinessError?.trim();
+  if (!message || isUnverifiedReadinessFailure(classifyReadinessFailure(message))) return null;
+  return message;
+}
 
 function snapshotIsTerminalOrMigrationHeld(snapshot: VersionFilesSnapshot): boolean {
   return (
@@ -309,7 +323,10 @@ export async function runVersionPostchecks(input: VersionPostchecksInput): Promi
           const probe = await readProductPostcheckPreviewProbe({ chatId: input.chatId,
             expectedVersionId: input.versionId, deadlineEpochMs: input.deadlineEpochMs });
           if (!(await current())) return stop("lease_or_context_lost");
-          if (probe.versionId === input.versionId && probe.filesRevision === revision && !probe.running && probe.readinessState) {
+          // A dead boot with a real build error goes on to a reserved attempt, where
+          // the restarted preview reaches the repair loop instead of holding forever.
+          if (probe.versionId === input.versionId && probe.filesRevision === revision && !probe.running && probe.readinessState &&
+              !repairableReadinessError(probe)) {
             return await hold(probe.readinessState === "starting" ? "starting" : "runtime_hold");
           }
           if (probe.versionId === input.versionId && probe.filesRevision === revision && probe.previewSessionId) {
@@ -393,9 +410,23 @@ export async function runVersionPostchecks(input: VersionPostchecksInput): Promi
             } else if (!ready.ok || ready.probe.readinessState !== "ready" || ready.probe.httpReady === false) {
               const observed = ready.ok ? ready.probe : ready.lastProbe;
               if (observed?.readinessState === "starting") return await hold("starting");
-              if (observed?.readinessState === "failed" || (observed?.readinessState === "ready" && observed.httpReady === false)) return await hold("runtime_hold");
-              // An unavailable/legacy-unknown probe is not a confirmed refundable hold.
-              outcome = stop("runtime_unconfirmed"); break;
+              const lateBuildError = repairableReadinessError(observed);
+              if (lateBuildError && !target.imported && policy.serverVerify.diagnosticOnly !== true && isQualityGateConfigured()) {
+                // Same repair as an immediate start failure: the boot was accepted, then compilation failed.
+                const buildError = { stage: "preview-start" as const, message: lateBuildError };
+                notify(input.notifications?.buildError, buildError);
+                await recordPreviewRuntimeOutcomeForVersion(input.versionId, false, { bootedFilesRevision: revision! });
+                if (!(await current())) { outcome = stop("lease_or_context_lost"); break; }
+                const repaired = await repairBuildErrorUnderLease({ chatId: input.chatId, versionId: input.versionId,
+                  holderRunId: runId, snapshot, buildError, repairDeadlineEpochMs: input.deadlineEpochMs,
+                  onRepairAvailable: payload => notify(input.notifications?.repairAvailable, payload) });
+                outcome = repaired.verification;
+              } else if (observed?.readinessState === "failed" || (observed?.readinessState === "ready" && observed.httpReady === false)) {
+                return await hold("runtime_hold");
+              } else {
+                // An unavailable/legacy-unknown probe is not a confirmed refundable hold.
+                outcome = stop("runtime_unconfirmed"); break;
+              }
             } else {
             if (!preview.result.runtimeReady) {
               await recordPreviewRuntimeOutcomeForVersion(input.versionId, true, { bootedFilesRevision: revision! });

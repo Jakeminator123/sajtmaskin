@@ -328,4 +328,39 @@ describe("ONE generation/cron postchecks core", () => {
     expect(telemetry.recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v", false, { bootedFilesRevision: "r2" });
     expect(product.runHeldVersionProductPostcheck).not.toHaveBeenCalled(); expect(gate.runQualityGateOnExportable).not.toHaveBeenCalled();
   });
+  const failedProbe = (readinessError: string | null, running = true) => ({ running, versionId: "v", filesRevision: revision,
+    previewSessionId: "session", lifecycleToken: "token", mutationRevision: 1, previewUrl: "https://preview.example/c",
+    readinessState: "failed" as const, httpReady: false, readinessError });
+  const OVERLAY = "Next dev served its build error overlay: Module not found: Can't resolve './missing'";
+  it("a boot that is accepted and THEN fails to compile reaches the same held repair as a start failure", async () => {
+    vi.mocked(probes.readProductPostcheckPreviewProbe).mockImplementation(async () => failedProbe(OVERLAY));
+    const buildErrors: unknown[] = [];
+    expect(await runVersionPostchecks({ ...input, notifications: { buildError: error => buildErrors.push(error) } }))
+      .toMatchObject({ kind: "stop", reason: "repair_settled" });
+    expect(buildRepair.repairBuildErrorUnderLease).toHaveBeenCalledWith(expect.objectContaining({ holderRunId: "holder",
+      repairDeadlineEpochMs: deadline, buildError: { stage: "preview-start", message: OVERLAY } }));
+    expect(buildErrors).toEqual([{ stage: "preview-start", message: OVERLAY }]);
+    expect(telemetry.recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v", false, { bootedFilesRevision: "r2" });
+    expect(budget.recordServerResumeHold).not.toHaveBeenCalled();
+    expect(product.runHeldVersionProductPostcheck).not.toHaveBeenCalled();
+  });
+  it.each([
+    ["an empty-body verdict", "Preview served HTML with an empty body (no visible text before scripts)"],
+    ["a failure without a message", null],
+  ])("%s after start is still a runtime hold, not a repair", async (_label, readinessError) => {
+    vi.mocked(probes.readProductPostcheckPreviewProbe).mockImplementation(async () => failedProbe(readinessError));
+    expect(await runVersionPostchecks(input)).toMatchObject({ kind: "stop", reason: "runtime_hold", retryable: true });
+    expect(buildRepair.repairBuildErrorUnderLease).not.toHaveBeenCalled();
+  });
+  it("a resume tick on a dead boot with a real build error reserves an attempt and repairs instead of holding again", async () => {
+    vi.mocked(probes.readProductPostcheckPreviewProbe).mockImplementation(async () => {
+      order.push("probe");
+      return failedProbe(OVERLAY, false);
+    });
+    expect(await runVersionPostchecks({ ...input, entry: "resume" })).toMatchObject({ kind: "stop", reason: "repair_settled" });
+    expect(budget.recordServerResumeHold).not.toHaveBeenCalled();
+    expect(order.indexOf("probe")).toBeLessThan(order.indexOf("reserve"));
+    expect(buildRepair.repairBuildErrorUnderLease).toHaveBeenCalledTimes(1);
+    expect(budget.settleServerResumeAttempt).toHaveBeenCalledWith(expect.objectContaining({ runId: "holder" }), 1, "terminal");
+  });
 });

@@ -17,7 +17,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
 vi.mock("@/lib/utils/debug", () => ({ warnLog }));
 vi.mock("../preview-quality-gate", () => ({ isQualityGateConfigured }));
 
-import { acquireVerifyLease } from "./lease";
+import { acquireVerifyLease, isLatestVersionForChat, isRepairTargetHead } from "./lease";
 
 describe("acquireVerifyLease — fail-closed (L4)", () => {
   beforeEach(() => {
@@ -67,5 +67,25 @@ describe("acquireVerifyLease — fail-closed (L4)", () => {
     const denied = [first, second].filter((outcome) => !outcome.proceed);
     expect(denied).toHaveLength(1);
     expect(denied[0]).toEqual({ proceed: false, reason: "lease_busy" });
+  });
+});
+
+describe("isRepairTargetHead", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("accepts a failed newest version even though the preferred head is an older working one", async () => {
+    getPreferredVersion.mockResolvedValue({ id: "v1" });
+    getLatestVersion.mockResolvedValue({ id: "v2" });
+    await expect(isLatestVersionForChat("chat-1", "v2")).resolves.toBe(false);
+    await expect(isRepairTargetHead("chat-1", "v2")).resolves.toBe(true);
+  });
+
+  it("still accepts the preferred head and rejects a version with a newer row above it", async () => {
+    getPreferredVersion.mockResolvedValue({ id: "v1" });
+    getLatestVersion.mockResolvedValue({ id: "v3" });
+    await expect(isRepairTargetHead("chat-1", "v1")).resolves.toBe(true);
+    await expect(isRepairTargetHead("chat-1", "v2")).resolves.toBe(false);
   });
 });

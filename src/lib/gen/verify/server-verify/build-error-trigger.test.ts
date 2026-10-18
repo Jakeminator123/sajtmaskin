@@ -19,7 +19,7 @@ const tryServerRepairLoop = vi.hoisted(() => vi.fn());
 const triggerServerVerification = vi.hoisted(() => vi.fn());
 const acquireVerifyLease = vi.hoisted(() => vi.fn());
 const releaseVerifyLease = vi.hoisted(() => vi.fn());
-const isLatestVersionForChat = vi.hoisted(() => vi.fn());
+const isRepairTargetHead = vi.hoisted(() => vi.fn());
 const isServerVerifyEligible = vi.hoisted(() => vi.fn());
 const logQualityGateFailuresBestEffort = vi.hoisted(() => vi.fn());
 const emitBusEvent = vi.hoisted(() => vi.fn());
@@ -48,7 +48,7 @@ vi.mock("./lease", () => ({
   inflight: new Set<string>(),
   acquireVerifyLease,
   releaseVerifyLease,
-  isLatestVersionForChat,
+  isRepairTargetHead,
   isServerVerifyEligible,
 }));
 vi.mock("@/lib/logging/event-bus", () => ({ emit: emitBusEvent }));
@@ -98,7 +98,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   readServerRepairBudget.mockResolvedValue({ status: "history_unknown" });
   isServerVerifyEligible.mockReturnValue(true);
-  isLatestVersionForChat.mockResolvedValue(true);
+  isRepairTargetHead.mockResolvedValue(true);
   acquireVerifyLease.mockResolvedValue({ proceed: true, runId: "run-1" });
   releaseVerifyLease.mockResolvedValue(undefined);
   failVersionVerification.mockResolvedValue(undefined);
