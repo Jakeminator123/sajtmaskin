@@ -479,8 +479,12 @@ describe("proxy Permissions-Policy", () => {
     const response = await proxy(new NextRequest("https://sajtmaskin.se/"));
     const policy = response.headers.get("Permissions-Policy") ?? "";
 
-    expect(policy).toContain("camera=(self)");
-    expect(policy).toContain("microphone=(self)");
+    expect(policy).toContain('camera=(self "https://studio.d-id.com")');
+    expect(policy).toContain('microphone=(self "https://studio.d-id.com")');
+    expect(policy).toContain('autoplay=(self "https://studio.d-id.com")');
+    expect(policy).toContain("fullscreen=(self)");
+    expect(policy).not.toContain("camera=*");
+    expect(policy).not.toContain("microphone=*");
     expect(policy).toContain("geolocation=()");
     expect(policy).toContain("browsing-topics=()");
     expect(policy).toContain("usb=()");
