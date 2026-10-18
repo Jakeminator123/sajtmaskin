@@ -36,7 +36,11 @@ function readAccountStatus(value: unknown): CampaignAccountStatus {
 interface PasswordGateProps {
   slug: string;
   companyName: string;
-  onSuccess: (data: KostnadsfriCompanyData, account: CampaignAccountStatus) => void | Promise<void>;
+  onSuccess: (
+    data: KostnadsfriCompanyData,
+    account: CampaignAccountStatus,
+    boundProjectId: string | null,
+  ) => void | Promise<void>;
 }
 
 export function PasswordGate({ slug, companyName, onSuccess }: PasswordGateProps) {
@@ -86,7 +90,11 @@ export function PasswordGate({ slug, companyName, onSuccess }: PasswordGateProps
           return;
         }
 
-        await onSuccess(data.companyData, readAccountStatus(data.account));
+        await onSuccess(
+          data.companyData,
+          readAccountStatus(data.account),
+          typeof data.boundProjectId === "string" && data.boundProjectId ? data.boundProjectId : null,
+        );
       } catch {
         setError("Kunde inte ansluta. Kontrollera din internetanslutning.");
       } finally {

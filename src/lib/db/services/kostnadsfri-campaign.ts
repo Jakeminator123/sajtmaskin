@@ -192,6 +192,26 @@ function canReuseBinding(
 }
 
 /**
+ * The project an invitation is already bound to, returned only to the user who
+ * owns that project. A revisit from a fresh session has no stored project id,
+ * and building into a new project would be rejected by the existing binding.
+ */
+export async function getKostnadsfriBoundProjectIdForOwner(
+  invitationSlug: string,
+  userId: string,
+): Promise<string | null> {
+  assertDbConfigured();
+  const rows = await db
+    .select({ projectId: kostnadsfriCampaignEntitlements.project_id, ownerId: appProjects.user_id })
+    .from(kostnadsfriCampaignEntitlements)
+    .innerJoin(appProjects, eq(appProjects.id, kostnadsfriCampaignEntitlements.project_id))
+    .where(eq(kostnadsfriCampaignEntitlements.invitation_slug, invitationSlug))
+    .limit(1);
+  const row = rows[0];
+  return row && row.ownerId === userId ? row.projectId : null;
+}
+
+/**
  * Redeems a password verification for one project. The signed receipt is
  * scoped to the anonymous session; source/slug values from the browser never
  * create an entitlement on their own.
