@@ -74,6 +74,9 @@ describe("landing nav + footer links after /teknik move", () => {
       "/hemsideprogram",
     );
     expect(screen.queryByRole("link", { name: /wix-alternativ/i })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Branscher" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Frisör" }).getAttribute("href")).toBe("/hemsida-frisor");
+    expect(screen.getByRole("link", { name: "Blogg" }).getAttribute("href")).toBe("/blogg");
   });
 
   it("keeps the four-hub constant for callers that still read the compact set", () => {

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { PUBLIC_CANONICAL_ORIGIN, publicCanonicalPath } from "@/lib/public-canonical-url";
+import { getIndexableBlogRelPaths } from "@/lib/blog/posts";
 import {
   SEO_LANDING_PAGES,
+  SEO_LANDING_SLUGS,
   getIndexableSeoLandingRelPaths,
 } from "@/lib/seo-landing-pages/registry";
 import sitemap, { SITEMAP_CATEGORY_SLUGS, STATIC_SITEMAP_REL_PATHS } from "./sitemap";
@@ -36,24 +38,18 @@ describe("marketing sitemap", () => {
     expect(new Set(STATIC_SITEMAP_REL_PATHS).size).toBe(STATIC_SITEMAP_REL_PATHS.length);
   });
 
-  it("omits the unpublished blog until it has indexable content", () => {
+  it("includes the blog index and published posts once editorial posts exist", () => {
     expect(STATIC_SITEMAP_REL_PATHS).not.toContain("/blogg");
-    expect(sitemap().map((entry) => entry.url)).not.toContain(publicCanonicalPath("/blogg"));
+    const urls = sitemap().map((entry) => entry.url);
+    for (const path of getIndexableBlogRelPaths()) {
+      expect(urls).toContain(publicCanonicalPath(path));
+    }
+    expect(urls).toContain(publicCanonicalPath("/blogg"));
+    expect(urls).toContain(publicCanonicalPath("/blogg/vad-kostar-en-hemsida-2026"));
   });
 
   it("lists only ready SEO landing pages on the canonical origin", () => {
-    expect(getIndexableSeoLandingRelPaths()).toEqual([
-      "/skapa-hemsida",
-      "/skapa-hemsida-med-ai",
-      "/ai-hemsidebyggare",
-      "/hemsida-till-foretag",
-      "/hemsideprogram",
-      "/hemsida-utan-kod",
-      "/vad-kostar-en-hemsida",
-      "/wix-alternativ",
-      "/wordpress-alternativ",
-      "/lovable-alternativ",
-    ]);
+    expect(getIndexableSeoLandingRelPaths()).toEqual(SEO_LANDING_SLUGS.map((slug) => `/${slug}`));
     for (const page of SEO_LANDING_PAGES) {
       expect(STATIC_SITEMAP_REL_PATHS).not.toContain(`/${page.slug}`);
     }
@@ -70,6 +66,9 @@ describe("marketing sitemap", () => {
     expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/wordpress-alternativ`);
     expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/exempel`);
     expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/lovable-alternativ`);
+    expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/squarespace-alternativ`);
+    expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/one-com-alternativ`);
+    expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/hemsida-frisor`);
     for (const page of SEO_LANDING_PAGES) {
       if (page.status === "ready") continue;
       expect(urls).not.toContain(`${PUBLIC_CANONICAL_ORIGIN}/${page.slug}`);

@@ -34,4 +34,15 @@ describe("Footer", () => {
       "/hemsideprogram",
     );
   });
+
+  it("exposes a Branscher section and the published blog", () => {
+    render(<Footer />);
+
+    expect(screen.getByRole("heading", { name: "Branscher" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Frisör" }).getAttribute("href")).toBe("/hemsida-frisor");
+    expect(screen.getByRole("link", { name: "Hantverkare" }).getAttribute("href")).toBe(
+      "/hemsida-hantverkare",
+    );
+    expect(screen.getByRole("link", { name: "Blogg" }).getAttribute("href")).toBe("/blogg");
+  });
 });
