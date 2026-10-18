@@ -18,9 +18,9 @@
  * makes the safe order the default.
  *
  * Usage:
- *   node scripts/cursor/worktree.mjs setup  ../sajtmaskin-feat-x
- *   node scripts/cursor/worktree.mjs link   ../sajtmaskin-feat-x
- *   node scripts/cursor/worktree.mjs remove ../sajtmaskin-feat-x [--force]
+ *   node scripts/cursor/worktree.mjs setup  <worktree>
+ *   node scripts/cursor/worktree.mjs link   <worktree>
+ *   node scripts/cursor/worktree.mjs remove <worktree> [--force]
  *
  * npm: `npm run worktree:setup -- <path>` · `npm run worktree:link -- <path>` ·
  * `npm run worktree:remove -- <path>`
@@ -98,7 +98,7 @@ export function resolveTargetWorktree({ targetPath, worktrees, protectedWorktree
 }
 
 /**
- * Sibling placement only. A worktree under the main checkout — especially
+ * Placement outside the main checkout only. A worktree under it — especially
  * `.cursor/worktrees` — is a second tree inside the shared folder and must
  * never be seeded or linked.
  *
@@ -114,7 +114,7 @@ export function classifyWorktreePlacement({ worktreePath, mainWorktree }) {
     return {
       ok: false,
       reason:
-        "worktreet ligger inuti huvudcheckouten. Placera det bredvid repo-roten, aldrig under .cursor/.",
+        "worktreet ligger inuti huvudcheckouten. Placera det utanför repot, t.ex. under %USERPROFILE%\\.cursor\\worktrees\\sajtmaskin\\.",
     };
   }
   return { ok: true };

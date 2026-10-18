@@ -28,7 +28,7 @@
  * Usage:
  *   node scripts/cursor/kedja-clean.mjs
  *   node scripts/cursor/kedja-clean.mjs --yes
- *   node scripts/cursor/kedja-clean.mjs --yes --keep ..\sajtmaskin-kedja-slug-a
+ *   node scripts/cursor/kedja-clean.mjs --yes --keep <worktrees>\sajtmaskin-kedja-slug-a
  *
  * npm: `npm run kedja:clean` · `npm run kedja:clean -- --yes`
  */

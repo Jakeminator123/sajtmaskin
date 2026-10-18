@@ -9,13 +9,19 @@ Codex och Cursor följer samma regel: jobba i den öppna checkouten.
 En skrivande session per checkout; andra agenter får läsa. Skapa en extra
 worktree när Jakob ber om det. Parallella skribenter behöver separata ytor.
 
-Placering: **bredvid** repo-roten, aldrig under `.cursor/`.
+Placering: **utanför** huvudcheckouten, i
+`%USERPROFILE%\.cursor\worktrees\sajtmaskin\<kort>` (där Cursor lägger sina).
+Aldrig inuti repot och inte som syskon i projektmappen. Codex-ytor ligger där
+Codex-appen lägger dem.
 
 ```powershell
 git fetch origin
-git worktree add ..\sajtmaskin-<kort> -b <branch> origin/preview
-npm run worktree:setup -- ..\sajtmaskin-<kort>
+git worktree add <worktree> -b <branch> origin/preview
+npm run worktree:setup -- <worktree>
 ```
+
+Behövs bara en parallell yta mot `preview`, utan ny branch: `git worktree add
+--detach <worktree> origin/preview`. Då låses inte `preview` för huvudcheckouten.
 
 `worktree:setup` seedar `.cursor/mcp.json` från den spårade
 `.cursor/mcp.json.example`. Den kopierar **inte** `.env.local` eller live-MCP,
@@ -29,5 +35,5 @@ Ta bort med `npm run worktree:remove -- <sökväg>`, aldrig rå `git worktree re
 [`docs/runbooks/git-worktree.md`](../../docs/runbooks/git-worktree.md).
 
 En befintlig app-isolerad checkout följer samma regler. Behåll arbetsytan
-tills PR:n är terminal. En långlivad worktree som behöver skyddas använder
+tills PR:n är terminal och fjärrläget verifierat. En långlivad worktree som behöver skyddas använder
 Git-config `sajtmaskin.protectedWorktree`.
