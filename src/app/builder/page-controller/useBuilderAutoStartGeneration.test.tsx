@@ -201,16 +201,33 @@ describe("useBuilderAutoStartGeneration", () => {
   });
 
   it("does not touch byggvalen when auto-start is refused", () => {
+    const setSelectedModelTier = vi.fn();
     renderHook(() =>
       useBuilderAutoStartGeneration(
         baseProps({
           promptId: null,
           resolvedPrompt: "attacker-controlled",
+          setSelectedModelTier,
           promptActions: { requestCreateChat: vi.fn() },
         }),
       ),
     );
 
     expect(getCurrentInitBuildChoices().pageCount).toBe(0);
+    expect(setSelectedModelTier).not.toHaveBeenCalled();
+  });
+
+  it("starts the campaign build on the Mellan tier", () => {
+    const setSelectedModelTier = vi.fn();
+    const { rerender } = renderHook(
+      (props: HookProps) => useBuilderAutoStartGeneration(props),
+      { initialProps: baseProps({ setSelectedModelTier }) },
+    );
+
+    rerender(
+      baseProps({ resolvedPrompt: "Bygg en sajt", promptId: null, setSelectedModelTier }),
+    );
+
+    expect(setSelectedModelTier).toHaveBeenCalledWith("max");
   });
 });

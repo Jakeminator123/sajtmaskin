@@ -158,7 +158,9 @@ export function companyDataFromSlug(slug: string): KostnadsfriCompanyData {
  */
 export function verifyDeterministicPassword(slug: string, password: string): boolean {
   const expected = generatePassword(slug);
-  return password === expected;
+  const actualDigest = crypto.createHash("sha256").update(password).digest();
+  const expectedDigest = crypto.createHash("sha256").update(expected).digest();
+  return crypto.timingSafeEqual(actualDigest, expectedDigest);
 }
 
 export function hasKostnadsfriPasswordSecret(secretKey?: string): boolean {
