@@ -174,6 +174,7 @@ async function handlePOST(
       });
     } catch (persistError) {
       // DB write failed after successful blob upload: avoid orphaned public blobs.
+      console.error("[API] Thumbnail persist failed:", { projectId: id, error: persistError });
       await deleteBlob(uploaded.url).catch(() => undefined);
       return NextResponse.json(
         {
@@ -187,6 +188,7 @@ async function handlePOST(
     if (!persisted) {
       // Ownership-constrained update failed; do not report a green response with
       // a blob that is not referenced by app_projects.thumbnail_path.
+      console.warn("[API] Thumbnail persist matched no owned project row:", { projectId: id });
       await deleteBlob(uploaded.url).catch(() => undefined);
       return NextResponse.json(
         { success: false, error: "Kunde inte spara thumbnail i projektet." },

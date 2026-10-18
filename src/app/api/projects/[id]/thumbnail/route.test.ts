@@ -318,6 +318,7 @@ describe("POST /api/projects/[id]/thumbnail", () => {
   });
 
   it("returns 500 and deletes uploaded blob when DB persist returns null", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     setProjectThumbnail.mockResolvedValue(null);
     const res = await POST(
       thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }),
@@ -325,6 +326,25 @@ describe("POST /api/projects/[id]/thumbnail", () => {
     );
     expect(res.status).toBe(500);
     expect(deleteBlob).toHaveBeenCalledWith("https://blob.example/thumb.jpg");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("Thumbnail persist"), { projectId: "proj_1" });
+    warn.mockRestore();
+  });
+
+  it("logs and returns 500 when the DB write throws, e.g. a read-only database", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const readOnly = new Error("cannot execute UPDATE in a read-only transaction");
+    setProjectThumbnail.mockRejectedValue(readOnly);
+    const res = await POST(
+      thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }),
+      routeParams,
+    );
+    expect(res.status).toBe(500);
+    expect(deleteBlob).toHaveBeenCalledWith("https://blob.example/thumb.jpg");
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("Thumbnail persist failed"), {
+      projectId: "proj_1",
+      error: readOnly,
+    });
+    error.mockRestore();
   });
 
   it("keys thumbnail rate-limit by authenticated user id", async () => {
