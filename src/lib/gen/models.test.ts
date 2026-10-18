@@ -28,11 +28,12 @@ describe("getOpenAIModel", () => {
     mocks.responses.mockClear();
   });
 
-  it("uses the Responses API for every GPT-5.6 variant", () => {
-    for (const id of ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]) {
+  it("pins the Responses API for every registered GPT-6 and GPT-5.6 model", () => {
+    const ids = ["gpt-6.1-sol", "gpt-6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"];
+    for (const id of ids) {
       expect(getOpenAIModel(id)).toEqual({ endpoint: "responses", id });
     }
-    expect(mocks.responses).toHaveBeenCalledTimes(3);
+    expect(mocks.responses).toHaveBeenCalledTimes(ids.length);
     expect(mocks.chat).not.toHaveBeenCalled();
   });
 

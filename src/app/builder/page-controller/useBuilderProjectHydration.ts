@@ -168,6 +168,19 @@ export function useBuilderProjectHydration({
     setAuthModalReason,
   ]);
 
+  // Consume new=1 after a handoff that already created/selected a project so a
+  // later session that reopens the URL does not look like a fresh ads start.
+  // Blank `/builder?new=1` is left to auto-init above (it also deletes `new`).
+  useEffect(() => {
+    if (!forceNew) return;
+    if (!projectParam && !hasEntryParams) return;
+    const params = new URLSearchParams(searchParams.toString());
+    if (params.get("new") !== "1") return;
+    params.delete("new");
+    const query = params.toString();
+    router.replace(query ? `/builder?${query}` : "/builder");
+  }, [forceNew, projectParam, hasEntryParams, searchParams, router]);
+
   // Entry intent sync
   useEffect(() => {
     setEntryIntentActive(entryKind === "prompt-handoff" || entryKind === "audit");

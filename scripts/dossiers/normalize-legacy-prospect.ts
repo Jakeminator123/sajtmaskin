@@ -33,7 +33,7 @@
  * Usage:
  *   npm run dossiers:normalize-legacy -- --only=<legacyId>
  *   npm run dossiers:normalize-legacy -- --all
- *   npm run dossiers:normalize-legacy -- --all --force --model=gpt-5.4-mini
+ *   npm run dossiers:normalize-legacy -- --all --force --model=gpt-6-luna
  *   (default root: C:\Users\jakem\dev\projects\dossiers-prospect, override with --root=)
  *
  * Requires OPENAI_API_KEY (read from process.env, falling back to .env.local).
@@ -62,7 +62,7 @@ const REPO_ROOT = resolve(process.cwd());
 // resolver in backoffice/pages/dossiers.py (_prospect_root).
 const DEFAULT_PROSPECT_ROOT =
   process.env.DOSSIER_PROSPECT_ROOT?.trim() || resolve(REPO_ROOT, "..", "dossiers-prospect");
-const DEFAULT_MODEL = "gpt-5.5";
+const DEFAULT_MODEL = "gpt-6.1-sol";
 /** Per-file cap keeps worst-case prompt size bounded (biggest prospect ≈ 30 kb total). */
 const MAX_FILE_CHARS = 12_000;
 

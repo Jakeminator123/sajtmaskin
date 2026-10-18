@@ -58,7 +58,7 @@ const QUESTIONS = [
   },
 ] as const;
 
-const FAQS = [
+export const FAQS = [
   {
     q: "Är det samma kategori?",
     a: "Delvis. Båda använder AI för att generera UI. Lovable positionerar sig som full-stack-plattform (även marketing pages). Sajtmaskin är byggt för svenska företagssidor: beskrivning → utkast, följdtext, publicering med credits.",
@@ -298,7 +298,7 @@ export function LovableAlternativContent() {
                 egna docs och prissidor samma vecka. I Sajtmaskin är credits engångsköp;
                 publicering debiterar credits. Preview är inte publicering. Aktuella paket finns
                 på{" "}
-                <Link href="/#priser" className="text-foreground underline-offset-4 hover:underline">
+                <Link href="/priser" className="text-foreground underline-offset-4 hover:underline">
                   prissidan
                 </Link>
                 .

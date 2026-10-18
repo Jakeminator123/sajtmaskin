@@ -204,7 +204,7 @@ const BUILTIN_PACKAGES = new Set([
  * `^latest`. Tabellen kan därmed vara mer "good enough" än "perfekt aktuell".
  */
 const CANONICAL_PROJECT_DEPENDENCY_PINS = {
-  "radix-ui": "1.6.7",
+  "radix-ui": "1.8.1",
 } as const satisfies Readonly<Record<string, string>>;
 
 export const KNOWN_PACKAGES: Record<string, string> = {
@@ -253,7 +253,7 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "react-map-gl": "^7",
   "three": "0.185.1",
   "@react-three/fiber": "9.8.1",
-  "@react-three/drei": "10.7.7",
+  "@react-three/drei": "10.7.9",
   "@react-three/rapier": "2.2.0",
   "gsap": "^3",
   "lottie-react": "^2",

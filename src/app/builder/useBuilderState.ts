@@ -9,7 +9,7 @@ import {
   type BuildMethod,
 } from "@/lib/builder/build-intent";
 import { deriveBuilderEntryState } from "./builder-entry";
-import { noteGoogleAdsConversion } from "@/lib/ads/fire-google-ads-conversion";
+import { noteBuilderStartFromLocation } from "@/lib/ads/fire-google-ads-conversion";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
 import {
   getDefaultPaletteState,
@@ -147,7 +147,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
 
   useEffect(() => {
     if (!entry.forceNew) return;
-    noteGoogleAdsConversion("builder_start");
+    noteBuilderStartFromLocation("/builder");
   }, [entry.forceNew]);
 
   const effectiveThinking = enableThinking;

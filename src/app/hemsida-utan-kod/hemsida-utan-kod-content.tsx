@@ -53,7 +53,7 @@ const MISTAKES = [
   "Glömma att någon måste underhålla texter och bilder efter publicering",
 ] as const;
 
-const FAQS = [
+export const FAQS = [
   {
     q: "Vad är skillnaden mot “skapa hemsida med AI”?",
     a: "Den här sidan handlar om att göra det själv utan att skriva programmering. AI-flödessidan går steg för steg genom Sajtmaskins process från beskrivning till första version. De överlappar — men frågan här är vad no-code faktiskt tar bort.",
@@ -307,7 +307,7 @@ export function HemsidaUtanKodContent() {
               <p className="mt-4 text-pretty leading-relaxed text-muted-foreground">
                 I Sajtmaskin betalar du credits som engångsköp, utan prenumeration. Publicering
                 debiterar credits. Aktuella paket finns på{" "}
-                <Link href="/#priser" className="text-foreground underline-offset-4 hover:underline">
+                <Link href="/priser" className="text-foreground underline-offset-4 hover:underline">
                   prissidan
                 </Link>
                 . Formulär och bokning i första utkastet är demo tills ni uttryckligen bygger

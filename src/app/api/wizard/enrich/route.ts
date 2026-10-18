@@ -13,6 +13,11 @@ import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { generateText } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
+import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
+import {
+  workloadOpenAIProviderOptions,
+  workloadResponsesReasoning,
+} from "@/lib/ai-models/workload-reasoning";
 import OpenAI from "openai";
 import { z } from "zod";
 import { requireNotBot } from "@/lib/bot-protection";
@@ -177,8 +182,10 @@ const INDUSTRY_CONTEXT: Record<string, string> = {
   other: "Företag",
 };
 
-// GPT-5 mini: fast ($0.25/1M in) and good enough for follow-up questions
-const ENRICH_MODEL = "openai/gpt-5-mini";
+const WIZARD_WORKLOAD_ID = "wizard_enrich_competitors";
+// GPT-6 Luna at `none` effort: fast and good enough for follow-up questions.
+const ENRICH_MODEL = getWorkloadDefaultModelFromManifest(WIZARD_WORKLOAD_ID) ?? "openai/gpt-6-luna";
+const RESPONSES_MODEL = ENRICH_MODEL.replace(/^openai\//, "");
 
 type EnrichResponse = z.infer<typeof enrichResponseSchema>;
 
@@ -462,12 +469,12 @@ ${suggestionRule}
 
           if (FEATURES.useResponsesApi) {
             const openai = new OpenAI({ apiKey: SECRETS.openaiApiKey });
-            const RESPONSES_MODEL = "gpt-5-mini";
 
             const response = await raceWizardDeadline(deadline.signal, () =>
               openai.responses.create(
                 {
                   model: RESPONSES_MODEL,
+                  ...workloadResponsesReasoning(WIZARD_WORKLOAD_ID, RESPONSES_MODEL),
                   instructions: prompt,
                   input: "Generera svaret baserat på instruktionerna.",
                   text: {
@@ -495,6 +502,7 @@ ${suggestionRule}
                 maxRetries: 1,
                 maxOutputTokens: mode === "final_check" ? 520 : 420,
                 abortSignal: deadline.signal,
+                ...workloadOpenAIProviderOptions(WIZARD_WORKLOAD_ID, ENRICH_MODEL),
               }),
             );
 

@@ -119,6 +119,7 @@ export function useBuilderProjectActions({
       if (!resolvedChatId) return;
       if (projectParam === nextProjectId && chatIdParam === resolvedChatId) return;
       const params = new URLSearchParams(searchParams.toString());
+      params.delete("new");
       params.set("chatId", resolvedChatId);
       params.set("project", nextProjectId);
       router.replace(`/builder?${params.toString()}`);

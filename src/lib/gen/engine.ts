@@ -1,5 +1,10 @@
 import { streamText, type ModelMessage, type ToolSet } from "ai";
 
+import { aliasRetiredModelId } from "@/lib/models/catalog";
+import {
+  clampOpenAIReasoningEffort,
+  minimumOpenAIReasoningEffort,
+} from "@/lib/models/openai-capabilities";
 import { ENGINE_MAX_OUTPUT_TOKENS } from "./defaults";
 import { getDefaultThinkingEnabled } from "./default-thinking";
 import { getOpenAIModel, DEFAULT_MODEL, isAnthropicModel } from "./models";
@@ -99,15 +104,14 @@ export function generateCode(
     usagePhase,
   } = options;
   const resolvedThinking = thinking ?? defaultThinkingEnabled;
-
-  const model = getOpenAIModel(modelId ?? DEFAULT_MODEL);
+  const resolvedId = aliasRetiredModelId(modelId ?? DEFAULT_MODEL);
+  const model = getOpenAIModel(resolvedId);
 
   const messages = [
     ...(chatHistory ?? []),
     { role: "user" as const, content: buildUserPromptContent(prompt, referenceAttachments) },
   ];
 
-  const resolvedId = modelId ?? DEFAULT_MODEL;
   const anthropic = isAnthropicModel(resolvedId);
   const internalAbortController = abortSignal ? null : new AbortController();
   const resolvedAbortSignal = abortSignal ?? internalAbortController!.signal;
@@ -128,7 +132,7 @@ export function generateCode(
   } else if (resolvedThinking) {
     providerOptions = {
       openai: {
-        reasoningEffort,
+        reasoningEffort: clampOpenAIReasoningEffort(resolvedId, reasoningEffort),
         // OpenAI exposes no raw chain-of-thought; without this opt-in the
         // Responses API sends zero reasoning text and the chat's Reasoning
         // box stays empty. AI SDK maps `reasoningSummary` 1:1 onto Responses
@@ -141,6 +145,13 @@ export function generateCode(
         ...(reasoningMode ? { reasoningMode } : {}),
       },
     };
+  } else {
+    // Thinking off = the model's lowest effort. Omitting the field would run
+    // the registered models at OpenAI's `medium` default instead.
+    const minimumEffort = minimumOpenAIReasoningEffort(resolvedId);
+    if (minimumEffort) {
+      providerOptions = { openai: { reasoningEffort: minimumEffort } };
+    }
   }
 
   // Pre-LLM systemprompt assertion — catches JSON-double-encoded leakage,

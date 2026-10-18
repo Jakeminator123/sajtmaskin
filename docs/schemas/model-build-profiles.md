@@ -50,8 +50,11 @@ eller återberättas som nuvarande defaults i docs.
 
 Den tidigare kanoniska profilen `fast` är pensionerad. Äldre requests och
 persisterade val normaliseras till `premium` (UI: Hög). Låg / Mellan / Hög
-(`pro` / `max` / `premium`) bygger alla med GPT-5.6 Sol; Terra och Luna tar
-sidofaser per `phaseRouting`. `codex` är en dold spegling av Mellan.
+(`pro` / `max` / `premium`) bygger alla med GPT-6.1 Sol, som också tar
+sidofaserna utom Låg-verifiern (GPT-6 Luna) per `phaseRouting`. Varje begärd
+reasoning-effort klampas till vad modellen accepterar
+([`openai-capabilities.ts`](../../src/lib/models/openai-capabilities.ts));
+GPT-6.1 Sol saknar `none`. `codex` är en dold spegling av Mellan.
 
 ## Ändringsregel
 

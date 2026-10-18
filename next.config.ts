@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import path from "path";
+import { PERMISSIONS_POLICY } from "./src/lib/security/permissions-policy";
 
 const nextConfig: NextConfig = {
   // Next 16 blocks /_next/* from any host that is not the listen hostname.
@@ -147,6 +148,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/pricing",
+        destination: "/priser",
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {
@@ -165,7 +175,7 @@ const nextConfig: NextConfig = {
     // connect-src, otherwise DevTools floods the Issues panel with violations.
     const cspReportOnly = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://www.google.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://www.google.com https://www.google.se",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data: https://fonts.gstatic.com",
@@ -206,6 +216,10 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy-Report-Only",
             value: cspReportOnly,
+          },
+          {
+            key: "Permissions-Policy",
+            value: PERMISSIONS_POLICY,
           },
         ],
       },

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SoftwareApplicationJsonLd } from "@/components/layout/json-ld";
 import { publicCanonicalPath, publicPageAlternates } from "@/lib/public-canonical-url";
 import HomePageClient from "./home-page-client";
 
@@ -27,5 +28,17 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return <HomePageClient />;
+  return (
+    <>
+      <link
+        rel="preload"
+        as="image"
+        href="/branding/lanyard-card-static.webp"
+        type="image/webp"
+        fetchPriority="high"
+      />
+      <SoftwareApplicationJsonLd />
+      <HomePageClient />
+    </>
+  );
 }

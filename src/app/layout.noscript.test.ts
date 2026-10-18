@@ -11,4 +11,9 @@ describe("root layout noscript fallback", () => {
     expect(noscript?.[0]).not.toMatch(/<h1\b/);
     expect(noscript?.[0]).toMatch(/<strong>Sajtmaskin<\/strong>/);
   });
+
+  it("keeps SoftwareApplication off the root layout so legal pages do not claim the product", () => {
+    expect(LAYOUT).toContain("OrganizationJsonLd");
+    expect(LAYOUT).not.toContain("SoftwareApplicationJsonLd");
+  });
 });

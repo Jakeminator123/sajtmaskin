@@ -1,15 +1,21 @@
 import Link from "next/link";
-import { getSeoLandingHubLinks } from "@/lib/seo-landing-pages/registry";
+import { hasPublishedBlogPosts } from "@/lib/blog/posts";
+import {
+  getSeoLandingCompareLinks,
+  getSeoLandingHubLinks,
+  getSeoLandingIndustryLinks,
+} from "@/lib/seo-landing-pages/registry";
 
 const productLinks = [
   { label: "Skapa", href: "/" },
   { label: "Analys", href: "/analys" },
   { label: "Templates", href: "/templates" },
-  { label: "Priser", href: "/buy-credits" },
+  { label: "Priser", href: "/priser" },
 ];
 
 const companyLinks = [
   { label: "Om oss", href: "/om" },
+  ...(hasPublishedBlogPosts() ? [{ label: "Blogg", href: "/blogg" }] : []),
   { label: "Sajtstudio.se", href: "https://sajtstudio.se", external: true },
 ];
 
@@ -46,7 +52,7 @@ export function Footer() {
 
           {/* Product */}
           <div>
-            <h3 className="text-foreground text-sm font-medium">Produkt</h3>
+            <h2 className="text-foreground text-sm font-medium">Produkt</h2>
             <ul className="mt-3 space-y-2">
               {productLinks.map((link) => (
                 <li key={link.href}>
@@ -63,7 +69,7 @@ export function Footer() {
 
           {/* Company */}
           <div>
-            <h3 className="text-foreground text-sm font-medium">Företag</h3>
+            <h2 className="text-foreground text-sm font-medium">Företag</h2>
             <ul className="mt-3 space-y-2">
               {companyLinks.map((link) => (
                 <li key={link.href}>
@@ -91,7 +97,7 @@ export function Footer() {
 
           {/* Legal */}
           <div>
-            <h3 className="text-foreground text-sm font-medium">Juridiskt</h3>
+            <h2 className="text-foreground text-sm font-medium">Juridiskt</h2>
             <ul className="mt-3 space-y-2">
               {legalLinks.map((link) => (
                 <li key={link.href}>
@@ -108,9 +114,41 @@ export function Footer() {
         </div>
 
         <div className="border-border/50 mt-10 border-t pt-8">
-          <h3 className="text-foreground text-sm font-medium">Guider</h3>
+          <h2 className="text-foreground text-sm font-medium">Guider</h2>
           <ul className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
             {getSeoLandingHubLinks().map((link) => (
+              <li key={link.slug}>
+                <Link
+                  href={link.href}
+                  className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+                >
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="border-border/50 mt-10 border-t pt-8">
+          <h2 className="text-foreground text-sm font-medium">Jämför</h2>
+          <ul className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
+            {getSeoLandingCompareLinks().map((link) => (
+              <li key={link.slug}>
+                <Link
+                  href={link.href}
+                  className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+                >
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="border-border/50 mt-10 border-t pt-8">
+          <h2 className="text-foreground text-sm font-medium">Branscher</h2>
+          <ul className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
+            {getSeoLandingIndustryLinks().map((link) => (
               <li key={link.slug}>
                 <Link
                   href={link.href}

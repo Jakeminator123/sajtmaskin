@@ -1,11 +1,23 @@
 import { describe, expect, it } from "vitest";
 import * as aiHemsidebyggare from "@/app/ai-hemsidebyggare/page";
+import * as hemsidaFastighetsskotsel from "@/app/hemsida-fastighetsskotsel/page";
+import * as hemsidaFotograf from "@/app/hemsida-fotograf/page";
+import * as hemsidaFrisor from "@/app/hemsida-frisor/page";
+import * as hemsidaHantverkare from "@/app/hemsida-hantverkare/page";
+import * as hemsidaKonsult from "@/app/hemsida-konsult/page";
+import * as hemsidaPersonligTranare from "@/app/hemsida-personlig-tranare/page";
+import * as hemsidaRestaurang from "@/app/hemsida-restaurang/page";
+import * as hemsidaRormokare from "@/app/hemsida-rormokare/page";
+import * as hemsidaSkonhetssalong from "@/app/hemsida-skonhetssalong/page";
+import * as hemsidaStadfirma from "@/app/hemsida-stadfirma/page";
 import * as hemsidaTillForetag from "@/app/hemsida-till-foretag/page";
 import * as hemsidaUtanKod from "@/app/hemsida-utan-kod/page";
 import * as hemsideprogram from "@/app/hemsideprogram/page";
 import * as lovableAlternativ from "@/app/lovable-alternativ/page";
+import * as oneComAlternativ from "@/app/one-com-alternativ/page";
 import * as skapaHemsidaMedAi from "@/app/skapa-hemsida-med-ai/page";
 import * as skapaHemsida from "@/app/skapa-hemsida/page";
+import * as squarespaceAlternativ from "@/app/squarespace-alternativ/page";
 import * as vadKostarEnHemsida from "@/app/vad-kostar-en-hemsida/page";
 import * as wixAlternativ from "@/app/wix-alternativ/page";
 import * as wordpressAlternativ from "@/app/wordpress-alternativ/page";
@@ -23,6 +35,18 @@ const PAGE_MODULES = {
   "wix-alternativ": wixAlternativ,
   "wordpress-alternativ": wordpressAlternativ,
   "lovable-alternativ": lovableAlternativ,
+  "squarespace-alternativ": squarespaceAlternativ,
+  "one-com-alternativ": oneComAlternativ,
+  "hemsida-frisor": hemsidaFrisor,
+  "hemsida-hantverkare": hemsidaHantverkare,
+  "hemsida-stadfirma": hemsidaStadfirma,
+  "hemsida-restaurang": hemsidaRestaurang,
+  "hemsida-konsult": hemsidaKonsult,
+  "hemsida-fotograf": hemsidaFotograf,
+  "hemsida-personlig-tranare": hemsidaPersonligTranare,
+  "hemsida-rormokare": hemsidaRormokare,
+  "hemsida-fastighetsskotsel": hemsidaFastighetsskotsel,
+  "hemsida-skonhetssalong": hemsidaSkonhetssalong,
 } as const;
 
 describe("SEO landing App Router pages", () => {

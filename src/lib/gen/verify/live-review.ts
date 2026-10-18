@@ -7,6 +7,7 @@
  */
 import { generateObject } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
+import { resolveWorkloadReasoningEffort } from "@/lib/ai-models/workload-reasoning";
 import {
   getAiModelsManifest,
   getWorkloadDefaultModelFromManifest,
@@ -669,6 +670,7 @@ async function reviewWithModel(
     };
   }
 
+  const reasoningEffort = resolveWorkloadReasoningEffort(LIVE_REVIEW_WORKLOAD_ID, modelId);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   const startedAt = Date.now();
@@ -692,7 +694,12 @@ async function reviewWithModel(
       maxOutputTokens: MAX_OUTPUT_TOKENS,
       maxRetries: 0,
       abortSignal: controller.signal,
-      providerOptions: { openai: { strictJsonSchema: false } },
+      providerOptions: {
+        openai: {
+          strictJsonSchema: false,
+          ...(reasoningEffort ? { reasoningEffort } : {}),
+        },
+      },
     });
     const decision = tryParseReviewDecision(result.object);
     if (!decision) {

@@ -3,7 +3,7 @@ import { resetServerEnvCacheForTests } from "@/lib/env";
 
 const generateObject = vi.hoisted(() => vi.fn());
 const createDirectModel = vi.hoisted(() => vi.fn(() => ({ id: "mock-model" })));
-const getWorkloadDefaultModelFromManifest = vi.hoisted(() => vi.fn(() => "gpt-5.6-terra"));
+const getWorkloadDefaultModelFromManifest = vi.hoisted(() => vi.fn(() => "gpt-6.1-sol"));
 const uploadBlob = vi.hoisted(() => vi.fn());
 
 vi.mock("ai", () => ({ generateObject }));
@@ -13,14 +13,16 @@ vi.mock("@/lib/ai-models/load-manifest", () => ({
     workloads: [
       {
         id: "live_review",
-        defaultModel: "gpt-5.6-terra",
-        fallbackModels: ["gpt-5.6-luna"],
-        visionModels: ["gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.6-sol"],
+        defaultModel: "gpt-6.1-sol",
+        fallbackModels: ["gpt-6-luna"],
+        visionModels: ["gpt-6.1-sol", "gpt-6-luna"],
+        reasoningEffort: "low",
       },
     ],
   }),
   getWorkloadDefaultModelFromManifest,
-  getWorkloadFallbackModelsFromManifest: () => ["gpt-5.6-luna"],
+  getWorkloadFallbackModelsFromManifest: () => ["gpt-6-luna"],
+  getWorkloadReasoningEffortFromManifest: () => "low",
 }));
 vi.mock("@/lib/vercel/blob-service", () => ({ uploadBlob }));
 vi.mock("@/lib/observability/llm-usage", () => ({ recordLlmUsage: vi.fn() }));
@@ -415,7 +417,7 @@ describe("persistLiveReviewJpeg", () => {
 
 describe("resolveLiveReviewModelIds", () => {
   it("reads default + fallback and keeps only visionModels", () => {
-    expect(resolveLiveReviewModelIds()).toEqual(["gpt-5.6-terra", "gpt-5.6-luna"]);
+    expect(resolveLiveReviewModelIds()).toEqual(["gpt-6.1-sol", "gpt-6-luna"]);
     expect(resolveLiveReviewModelIds("gpt-5.6-sol")).toEqual(["gpt-5.6-sol"]);
   });
 });
@@ -487,11 +489,13 @@ describe("runLiveReview", () => {
     expect(result.status).toBe("completed");
     if (result.status === "completed") {
       expect(result.decision.verdict).toBe("pass");
-      expect(result.modelId).toBe("gpt-5.6-terra");
+      expect(result.modelId).toBe("gpt-6.1-sol");
     }
     expect(generateObject).toHaveBeenCalledWith(
       expect.objectContaining({
-        providerOptions: { openai: { strictJsonSchema: false } },
+        // GPT-6.1 Sol gets the manifest's explicit low effort, never the
+        // provider's silent medium default.
+        providerOptions: { openai: { strictJsonSchema: false, reasoningEffort: "low" } },
         messages: [
           expect.objectContaining({
             content: expect.arrayContaining([
@@ -633,9 +637,9 @@ describe("runLiveReview", () => {
         domSummary: null,
       }),
     );
-    expect(createDirectModel).toHaveBeenCalledWith("gpt-5.6-terra");
-    expect(createDirectModel).toHaveBeenCalledWith("gpt-5.6-luna");
-    expect(result).toMatchObject({ status: "completed", modelId: "gpt-5.6-luna" });
+    expect(createDirectModel).toHaveBeenCalledWith("gpt-6.1-sol");
+    expect(createDirectModel).toHaveBeenCalledWith("gpt-6-luna");
+    expect(result).toMatchObject({ status: "completed", modelId: "gpt-6-luna" });
   });
 
   it("provar fallback-modellen när generateObject på default misslyckas", async () => {
@@ -664,7 +668,7 @@ describe("runLiveReview", () => {
       }),
     );
     expect(generateObject).toHaveBeenCalledTimes(2);
-    expect(result).toMatchObject({ status: "completed", modelId: "gpt-5.6-luna" });
+    expect(result).toMatchObject({ status: "completed", modelId: "gpt-6-luna" });
   });
 
   it("degraderar när alla modeller saknar nyckel", async () => {
