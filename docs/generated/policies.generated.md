@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:69614625fe514b5b -->
+<!-- source-fingerprint: config/env-policy.json sha256:926df273dc1c68c1 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:6fdc4794d0a6a606 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:857129e1a1753dc2 -->
 
@@ -77,6 +77,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `NEXT_PUBLIC_BASE_URL`                               | `environment_specific` | `preview`, `production`                | No            | No           |
 | `NEXT_PUBLIC_GOOGLE_ADS_ACCOUNT_CREATED_LABEL`       | `optional_runtime`     | `production`                           | Yes           | No           |
 | `NEXT_PUBLIC_GOOGLE_ADS_BUILDER_START_LABEL`         | `optional_runtime`     | `production`                           | Yes           | No           |
+| `NEXT_PUBLIC_GOOGLE_ADS_ENABLED`                     | `optional_runtime`     | `preview`                              | Yes           | No           |
 | `NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL`      | `optional_runtime`     | `production`                           | Yes           | No           |
 | `NEXT_PUBLIC_GOOGLE_ADS_ID`                          | `optional_runtime`     | `production`                           | Yes           | No           |
 | `NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL`                   | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
