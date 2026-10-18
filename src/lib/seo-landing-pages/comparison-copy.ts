@@ -107,7 +107,7 @@ export const COMPARISON_COPY = {
     ],
     noteHeading: "Ingen one-click-flytt",
     note:
-      "Räkna med att flytta innehåll manuellt. Vi lovar ingen automatisk migration från Squarespace. Domänbyte är ett eget steg. I Sajtmaskin är credits engångsköp; publicering debiterar credits. Aktuella paket finns på prissidan. Squarespace-priser publiceras inte här — de ändras och ska läsas hos dem.",
+      "Räkna med att flytta innehåll manuellt. Vi lovar ingen automatisk migration från Squarespace. Domänbyte är ett eget steg. I Sajtmaskin är credits engångsköp; publicering debiterar credits. Squarespace-priser publiceras inte här — de ändras och ska läsas hos dem.",
     faqs: [
       {
         q: "Är Sajtmaskin bättre än Squarespace?",
@@ -209,7 +209,7 @@ export const COMPARISON_COPY = {
     ],
     noteHeading: "Domän och builder är olika köp",
     note:
-      "Att lämna ett hemsideprogram är inte samma sak som att säga upp domänen. Vi lovar ingen automatisk import från one.com. I Sajtmaskin är credits engångsköp; publicering debiterar credits. Aktuella paket finns på prissidan. one.com-priser och kampanjer publiceras inte här.",
+      "Att lämna ett hemsideprogram är inte samma sak som att säga upp domänen. Vi lovar ingen automatisk import från one.com. I Sajtmaskin är credits engångsköp; publicering debiterar credits. one.com-priser och kampanjer publiceras inte här.",
     faqs: [
       {
         q: "Är Sajtmaskin ett webbhotell som one.com?",
