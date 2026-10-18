@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { buildDidAgentShareUrl } from "@/lib/avatar/did-embed-origin";
 
 function sanitizePublicEnv(value: string | undefined): string | undefined {
   if (!value) return undefined;
@@ -18,10 +19,6 @@ const AGENT_ID = sanitizePublicEnv(process.env.NEXT_PUBLIC_AVATAR_AGENT_ID);
 const CLIENT_KEY = sanitizePublicEnv(process.env.NEXT_PUBLIC_AVATAR_CLIENT_KEY);
 // Avatar is active only when the explicit enable-flag is "1" AND both keys exist.
 const AVATAR_ENABLED = sanitizePublicEnv(process.env.NEXT_PUBLIC_AVATAR_ENABLED) === "1";
-
-function buildShareUrl(agentId: string, clientKey: string): string {
-  return `https://studio.d-id.com/agents/share?id=${encodeURIComponent(agentId)}&key=${encodeURIComponent(clientKey)}`;
-}
 
 export function DidAvatarEmbed() {
   const [loaded, setLoaded] = useState(false);
@@ -46,7 +43,7 @@ export function DidAvatarEmbed() {
     );
   }
 
-  const src = buildShareUrl(AGENT_ID, CLIENT_KEY);
+  const src = buildDidAgentShareUrl(AGENT_ID, CLIENT_KEY);
 
   return (
     <div className="relative min-h-[720px] w-full overflow-hidden rounded-2xl bg-background/80">

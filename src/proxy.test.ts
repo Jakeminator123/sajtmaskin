@@ -417,6 +417,7 @@ describe("proxy CSP — first-party third-party egress allowlist", () => {
       "https://www.googleadservices.com",
       "https://googleads.g.doubleclick.net",
       "https://www.google.com",
+      "https://www.google.se",
     ];
 
     for (const host of hosts) {
@@ -471,5 +472,22 @@ describe("proxy CSP — first-party third-party egress allowlist", () => {
         process.env.CSP_ENFORCE = previous;
       }
     }
+  });
+});
+
+describe("proxy Permissions-Policy", () => {
+  it("sends a restrictive Permissions-Policy on document responses", async () => {
+    const response = await proxy(new NextRequest("https://sajtmaskin.se/"));
+    const policy = response.headers.get("Permissions-Policy") ?? "";
+
+    expect(policy).toContain('camera=(self "https://studio.d-id.com" "https://agent.d-id.com")');
+    expect(policy).toContain('microphone=(self "https://studio.d-id.com" "https://agent.d-id.com")');
+    expect(policy).toContain('autoplay=(self "https://studio.d-id.com" "https://agent.d-id.com")');
+    expect(policy).toContain("fullscreen=(self)");
+    expect(policy).not.toContain("camera=*");
+    expect(policy).not.toContain("microphone=*");
+    expect(policy).toContain("geolocation=()");
+    expect(policy).toContain("browsing-topics=()");
+    expect(policy).toContain("usb=()");
   });
 });

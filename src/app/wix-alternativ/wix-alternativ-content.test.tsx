@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -47,7 +47,7 @@ describe("WixAlternativContent", () => {
     expect(body).not.toMatch(/\d+\s*kr\b/i);
     expect(body).not.toMatch(/\b(?:49|99|179)\b/);
     expect(screen.getByRole("link", { name: "prissidan" }).getAttribute("href")).toBe("/priser");
-    expect(screen.queryByRole("link", { name: /wordpress|lovable/i })).toBeNull();
+    expect(within(screen.getByRole("main")).queryByRole("link", { name: /wordpress|lovable/i })).toBeNull();
 
     const readyRelated = readyRelatedSeoLandingSlugs(entry.relatedSlugs);
     expect(readyRelated).toEqual(

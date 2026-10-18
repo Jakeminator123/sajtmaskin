@@ -21,11 +21,15 @@ const openclawSurfaceEnabled = OPENCLAW.surfaceEnabled;
 const geistSans = Geist({
   subsets: ["latin"],
   variable: "--font-geist-sans",
+  preload: false,
+  display: "optional",
 });
 
 const geistMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-geist-mono",
+  preload: false,
+  display: "optional",
 });
 
 const inter = Inter({
@@ -37,7 +41,9 @@ const inter = Inter({
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-heading",
-  display: "swap",
+  display: "optional",
+  // Mobile LCP is the system-ui H1; don't let the heading font compete with CSS.
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -69,6 +75,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // headers() for the CSP nonce makes this root layout dynamic, so marketing
+  // pages cannot be ISR/static while nonce-based CSP remains. TTFB is already
+  // ~0.2–0.5 s; caching HTML would require hash-CSP or PPR first.
   const requestHeaders = await headers();
   const nonce = requestHeaders.get("x-csp-nonce") ?? undefined;
 
