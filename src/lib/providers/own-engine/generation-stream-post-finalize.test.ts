@@ -6,13 +6,21 @@ import {
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { VersionPostchecksInput } from "@/lib/gen/verify/server-verify/verify-run";
 import type { VersionPreviewReceipt } from "@/lib/gen/preview/ensure-version-preview";
+const emitBusEvent = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/logging/event-bus", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/logging/event-bus")>();
+  return { ...actual, emit: (input: Parameters<typeof actual.emit>[0]) => {
+    emitBusEvent(input);
+    return actual.emit(input);
+  } };
+});
 import { runOwnEngineStreamPostFinalize } from "./generation-stream-post-finalize";
 
 const createEngineVersionErrorLogsMock = vi.hoisted(() =>
   vi.fn<(payloads: unknown[]) => Promise<void>>(async () => undefined),
 );
 const isServerVerifyEligible = vi.hoisted(() => vi.fn());
-const runVersionPostchecksMock = vi.hoisted(() => vi.fn(async (_input: unknown) => ({ kind: "stop", reason: "starting", retryable: true })));
+const runVersionPostchecksMock = vi.hoisted(() => vi.fn(async (_input: unknown): Promise<unknown> => ({ kind: "stop", reason: "starting", retryable: true })));
 const getChat = vi.hoisted(() => vi.fn());
 const updateVersionPreviewUrl = vi.hoisted(() => vi.fn());
 const parseCodeProjectMock = vi.hoisted(() =>
@@ -1758,6 +1766,68 @@ describe("runOwnEngineStreamPostFinalize keeps background jobs alive for lease r
   // call unconditional — but `after()` throws outside a request scope (scripts,
   // tests, cron). The job must still run there, and post-finalize must not
   // throw, otherwise this fix trades a stranded lease for a broken script.
+  function verifierDoneEmits() {
+    return emitBusEvent.mock.calls
+      .map((call) => call[0] as { t?: string; outcome?: string; reason?: string; blocked?: boolean })
+      .filter((event) => event.t === "version.verifier.done");
+  }
+
+  it("keeps F2 verify-skip non-terminal until planned postchecks settle", async () => {
+    emitBusEvent.mockClear();
+    let release!: (outcome: { kind: "stop"; reason: string; retryable: boolean }) => void;
+    const gate = new Promise<{ kind: "stop"; reason: string; retryable: boolean }>((resolve) => { release = resolve; });
+    runVersionPostchecksMock.mockImplementation(async (input) => {
+      const request = input as VersionPostchecksInput;
+      request.notifications?.policy?.(storedPolicyForTest());
+      return gate as never;
+    });
+    await run({ ...verifyBuildSpec, previewPolicy: "fidelity2" });
+    expect(verifierDoneEmits()).toEqual([
+      expect.objectContaining({ outcome: "pending", reason: "postchecks_pending", blocked: false }),
+    ]);
+    release({ kind: "stop", reason: "starting", retryable: true });
+    await runVersionPostchecksMock.mock.results[0]?.value;
+    expect(verifierDoneEmits()).toEqual([
+      expect.objectContaining({ outcome: "pending", reason: "postchecks_pending", blocked: false }),
+    ]);
+  });
+
+  it("emits terminal skipped only after a settled F2 postcheck outcome", async () => {
+    emitBusEvent.mockClear();
+    runVersionPostchecksMock.mockImplementation(async (input) => {
+      const request = input as VersionPostchecksInput;
+      request.notifications?.policy?.({
+        ...storedPolicyForTest(),
+        postChecks: { willRunQualityGate: false, qualityGatePlanned: false, materializeImages: true },
+      });
+      return { kind: "continue", filesRevision: "rev_1", vmGatePassed: false, promoted: false, advisory: false };
+    });
+    await run({ ...verifyBuildSpec, previewPolicy: "fidelity2" });
+    await runVersionPostchecksMock.mock.results[0]?.value;
+    expect(verifierDoneEmits()).toEqual([
+      expect.objectContaining({ outcome: "pending", reason: "postchecks_pending" }),
+      expect.objectContaining({ outcome: "skipped", reason: "design_preview_skip_verify", blocked: false }),
+    ]);
+  });
+
+  it("still emits terminal skipped immediately when no postcheck work remains", async () => {
+    emitBusEvent.mockClear();
+    runVersionPostchecksMock.mockImplementation(async (input) => {
+      const request = input as VersionPostchecksInput;
+      request.notifications?.policy?.({
+        ...storedPolicyForTest(),
+        preview: { canStartPreview: false, hasBuildBreakingFindings: false },
+        postChecks: { willRunQualityGate: false, qualityGatePlanned: false, materializeImages: false },
+      });
+      return { kind: "stop", reason: "preview_blocked", retryable: false };
+    });
+    await run({ ...verifyBuildSpec, previewPolicy: "fidelity2" });
+    await runVersionPostchecksMock.mock.results[0]?.value;
+    expect(verifierDoneEmits()).toEqual([
+      expect.objectContaining({ outcome: "skipped", reason: "design_preview_skip_verify" }),
+    ]);
+  });
+
   it("still runs the job when after() is unavailable (no request scope)", async () => {
     const serverVerify = await import("@/lib/gen/verify/server-verify");
     afterMock.mockImplementation(() => {

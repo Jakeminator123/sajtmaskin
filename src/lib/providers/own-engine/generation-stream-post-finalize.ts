@@ -18,6 +18,8 @@ import {
 import { getUnsignaledDetectedIntegrations } from "@/lib/gen/stream/shared-own-engine-helpers";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { runVersionPostchecks } from "@/lib/gen/verify/server-verify";
+import type { ServerRepairBudgetSnapshot } from "@/lib/db/services/server-repair-budget";
+import type { VersionVerificationOutcome } from "@/lib/gen/verify/server-verify/verify-run";
 import type { BuilderIntegrationEnvelope } from "@/lib/gen/stream/builder-stream-contract";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
@@ -41,6 +43,18 @@ const THREE_D_STUB_NAME_RE = /3d|three|webgl|canvas-?scene/i;
  * Outside a request scope (scripts, tests) `after()` throws; there is no
  * invocation that can freeze there, so plain fire-and-forget is correct.
  */
+function postchecksRemainAfterVerifySkip(policy: ServerRepairBudgetSnapshot["startPolicy"]): boolean {
+  return policy.postChecks.willRunQualityGate
+    || policy.postChecks.qualityGatePlanned
+    || policy.postChecks.materializeImages === true
+    || policy.preview.canStartPreview;
+}
+
+function postchecksSettled(outcome: VersionVerificationOutcome): boolean {
+  if (outcome.kind === "continue" || outcome.kind === "superseded") return true;
+  return outcome.kind === "stop" && outcome.retryable === false;
+}
+
 function keepJobAlive(pending: Promise<unknown>): void {
   try {
     after(pending);
@@ -359,6 +373,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
 
   // One server-owned promise. SSE delivery is an observer, never a continuation trigger.
   if (previewWillRun) safeEnqueue(enc.encode(formatSSEEvent("progress", { step: "preview", phase: "starting" })));
+  let deferredSkipReason: string | null = null;
   const pending = runVersionPostchecks({
     chatId, versionId: finalized.version.id, entry: "initial", deadlineEpochMs: params.requestDeadlineEpochMs,
     notifications: {
@@ -369,8 +384,14 @@ export async function runOwnEngineStreamPostFinalize(params: {
           run: policy.serverVerify.run, reason: policy.serverVerify.reason,
           diagnosticOnly: policy.serverVerify.diagnosticOnly === true, verificationPolicy,
           qualityTarget: buildSpec.qualityTarget, buildIntent: buildSpec.buildIntent, repairPassIndex });
-        if (!policy.serverVerify.run) emitBusEvent({ t: "version.verifier.done", chatId,
-          versionId: finalized.version.id, outcome: "skipped", blocked: false, reason: policy.serverVerify.reason });
+        if (!policy.serverVerify.run && postchecksRemainAfterVerifySkip(policy)) {
+          deferredSkipReason = policy.serverVerify.reason;
+          emitBusEvent({ t: "version.verifier.done", chatId, versionId: finalized.version.id,
+            outcome: "pending", blocked: false, reason: "postchecks_pending" });
+        } else if (!policy.serverVerify.run) {
+          emitBusEvent({ t: "version.verifier.done", chatId, versionId: finalized.version.id,
+            outcome: "skipped", blocked: false, reason: policy.serverVerify.reason });
+        }
       },
       previewReady: (receipt) => {
         // A URL-only reuse is not a new host start/resume operation.
@@ -398,6 +419,12 @@ export async function runOwnEngineStreamPostFinalize(params: {
         versionId: payload.versionId, summary: payload.summary, repairAvailableAt: payload.repairAvailableAt,
       }))),
     },
+  }).then((outcome) => {
+    if (deferredSkipReason && postchecksSettled(outcome)) {
+      emitBusEvent({ t: "version.verifier.done", chatId, versionId: finalized.version.id,
+        outcome: "skipped", blocked: false, reason: deferredSkipReason });
+    }
+    return outcome;
   }).catch(error => warnLog("engine", "Server postchecks stopped", {
     chatId, versionId: finalized.version.id, message: error instanceof Error ? error.message : "unknown",
   }));
