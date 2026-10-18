@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { FEATURES, SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rate-limit";
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
+import { workloadResponsesReasoning } from "@/lib/ai-models/workload-reasoning";
 
 /**
  * Text Analysis API
@@ -24,7 +25,9 @@ interface TextSuggestion {
   prompt: string;
 }
 
-const ANALYSIS_MODEL = getWorkloadDefaultModelFromManifest("text_analyze") ?? "gpt-5-nano";
+const TEXT_ANALYZE_WORKLOAD_ID = "text_analyze";
+const ANALYSIS_MODEL =
+  getWorkloadDefaultModelFromManifest(TEXT_ANALYZE_WORKLOAD_ID) ?? "gpt-6-luna";
 
 const TEXT_ANALYZE_SCHEMA = {
   type: "object" as const,
@@ -125,6 +128,7 @@ ${truncatedContent}`;
 
       const response = await openai.responses.create({
         model: ANALYSIS_MODEL,
+        ...workloadResponsesReasoning(TEXT_ANALYZE_WORKLOAD_ID, ANALYSIS_MODEL),
         instructions,
         input: inputText,
         text: {
@@ -165,6 +169,7 @@ ${truncatedContent}`;
 
     const response = await fallbackClient.client.responses.create({
       model: fallbackClient.modelId,
+      ...workloadResponsesReasoning(TEXT_ANALYZE_WORKLOAD_ID, fallbackClient.modelId),
       instructions,
       input: `${inputText}
 

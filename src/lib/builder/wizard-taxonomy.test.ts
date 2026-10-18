@@ -12,6 +12,7 @@ import {
   wizardIndustryLabel,
   wizardPurposeLabel,
   wizardVibeLabel,
+  wizardVibeUiLabel,
 } from "./wizard-taxonomy";
 
 const INHERITED_OBJECT_KEYS = [
@@ -158,6 +159,15 @@ describe("wizard label lookups", () => {
     expect(wizardIndustryLabel("health")).toBe("Hälsa/Wellness");
   });
 
+  it("keeps English vibe cues for the prompt and Swedish labels for the customer", () => {
+    for (const vibe of WIZARD_VIBES) {
+      expect(wizardVibeLabel(vibe.id)).toBe(vibe.label);
+      expect(wizardVibeUiLabel(vibe.id)).toBe(vibe.uiLabel);
+    }
+    expect(wizardVibeUiLabel("luxury")).toBe("Lyxig");
+    expect(wizardVibeUiLabel("unknown-vibe")).toBe("unknown-vibe");
+  });
+
   it("falls back for inherited Object keys instead of returning a function", () => {
     for (const key of INHERITED_OBJECT_KEYS) {
       expect(wizardPurposeLabel(key, "purpose-fallback")).toBe("purpose-fallback");
@@ -169,6 +179,7 @@ describe("wizard label lookups", () => {
       expect(wizardVibeLabel(key)).toBe(key);
       expect(typeof wizardVibeLabel(key)).toBe("string");
       expect(wizardVibeLabel(key)).not.toBeTypeOf("function");
+      expect(wizardVibeUiLabel(key, "vibe-fallback")).toBe("vibe-fallback");
 
       expect(wizardIndustryLabel(key, "industry-fallback")).toBe("industry-fallback");
       expect(typeof wizardIndustryLabel(key)).toBe("string");

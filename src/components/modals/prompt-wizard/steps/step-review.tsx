@@ -296,7 +296,7 @@ export function StepReview({
             <div className="space-y-0.5">
               <span className="text-gray-500">Stil</span>
               <p className="text-white">
-                {VIBE_OPTIONS.find((v) => v.id === selectedVibe)?.label}
+                {VIBE_OPTIONS.find((v) => v.id === selectedVibe)?.uiLabel}
               </p>
             </div>
           )}
