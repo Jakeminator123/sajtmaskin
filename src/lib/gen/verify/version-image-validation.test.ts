@@ -149,6 +149,9 @@ describe("prepareVersionImages held-only preparation", () => {
     snapshot.mockResolvedValueOnce(base).mockResolvedValueOnce(changed);
     imported.mockResolvedValue(false);
     repair.mockImplementation((inputFiles) => ({ files: inputFiles, fixes: [] }));
+    validate.mockImplementation(async (params: { files: Array<{ name: string; content: string }> }) => ({
+      total: 0, broken: [], replacedCount: 0, files: params.files, warnings: [],
+    }));
     materialize.mockResolvedValue({
       files: [{ name: "app/page.tsx", content: "new" }], summary, warnings: [],
     });
@@ -168,7 +171,8 @@ describe("prepareVersionImages held-only preparation", () => {
       holderRunId: "holder", expectedFilesJson: base.filesJson, invalidateVerification: true,
     });
     expect(outcome).toMatchObject({ kind: "prepared", persisted: true, filesRevision: "rev_new", materialization: summary });
-    for (const mock of [validate, record, acquire, release]) expect(mock).not.toHaveBeenCalled();
+    expect(validate).toHaveBeenCalledWith(expect.objectContaining({ autoFix: true, unsplashAccessKey: "test" }));
+    for (const mock of [record, acquire, release]) expect(mock).not.toHaveBeenCalled();
   });
 
   it.each(["disabled", "missing token"])("can persist mechanical heal with Blob %s", async (mode) => {

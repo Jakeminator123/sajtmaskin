@@ -88,6 +88,20 @@ export async function prepareVersionImages(
       files = files.map((file) => ({ ...file, content: contents.get(file.path) ?? file.content }));
     }
     if (stopped()) return outcome;
+    const checked = await validateImages({
+      files: files.map((file) => ({ name: file.path, content: file.content })),
+      autoFix: true,
+      unsplashAccessKey: FEATURES.useUnsplash ? SECRETS.unsplashAccessKey : null,
+    });
+    if (stopped()) return outcome;
+    outcome.warnings.push(...checked.warnings);
+    if (checked.replacedCount > 0) {
+      const contents = new Map(checked.files.map((file) => [file.name, file.content]));
+      files = files.map((file) => {
+        const content = contents.get(file.path);
+        return content === undefined ? file : { ...file, content };
+      });
+    }
     const filesJson = JSON.stringify(files);
     const changed = filesJson !== JSON.stringify(snapshot.files);
     if (changed) {
@@ -101,6 +115,14 @@ export async function prepareVersionImages(
         !refreshed.filesRevision?.trim() || (changed
           ? refreshed.filesRevision === snapshot.filesRevision
           : refreshed.filesRevision !== snapshot.filesRevision)) return outcome;
+    if (checked.broken.length > 0) {
+      const knownReplacements = buildKnownImageReplacementMap(checked.broken);
+      if (Object.keys(knownReplacements).length) {
+        await recordKnownBrokenImageReplacements(input.chatId, knownReplacements).catch((error) => {
+          console.warn("[validate-images] Failed to record known image replacements:", error);
+        });
+      }
+    }
     return { ...outcome, kind: "prepared", persisted: true, filesRevision: refreshed.filesRevision };
   } catch (error) {
     outcome.warnings.push(`Image preparation stopped: ${error instanceof Error ? error.message : "unknown error"}`);
