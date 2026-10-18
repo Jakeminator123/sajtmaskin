@@ -1,6 +1,6 @@
 {
   "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-10-04T18:23:25.927Z",
+  "generatedAt": "2026-10-18T19:14:53.201Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -202,12 +202,12 @@
         {
           "key": "CLERK_SECRET_KEY",
           "required": true,
-          "enforcement": "build"
+          "enforcement": "feature-runtime"
         },
         {
           "key": "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
           "required": true,
-          "enforcement": "build"
+          "enforcement": "feature-runtime"
         },
         {
           "key": "NEXT_PUBLIC_CLERK_SIGN_IN_URL",
@@ -237,7 +237,6 @@
       "f2Reason": "build-server",
       "buildServerRequirement": true,
       "buildServerReasons": [
-        "build-env",
         "server-file"
       ],
       "labelsSv": {
@@ -1316,7 +1315,7 @@
   },
   "sourceFiles": {
     "data/dossiers/hard/calcom-booking/manifest.json": "cbf3d4f3abd3e5721617954ed3d3c5b0c04ca14b8cfe027e3ca03979cbd1b790",
-    "data/dossiers/hard/clerk-auth/manifest.json": "1d448c843f260c0d973e0d1d44b7384a2350ff4cd8c682089b88ef390eff5a27",
+    "data/dossiers/hard/clerk-auth/manifest.json": "c30204d6de9ef2b0a3a8a742d559bd5393e9ca8de4e34d20b3d0dd210615b4e6",
     "data/dossiers/hard/mailchimp-newsletter/manifest.json": "8e8d1f80f4060bca0622604e450092a8a5bb38d75585468941c06442f70d3c6e",
     "data/dossiers/hard/openai-chat/manifest.json": "b929ec00bac5d4a7f25478eee88444c8916f08b0b24c931fef23f95bcdcd19a2",
     "data/dossiers/hard/postgres-drizzle/manifest.json": "1a2892030be6e1dd503c7b28788795de23fb32be36c47746a717f35f589a9a15",

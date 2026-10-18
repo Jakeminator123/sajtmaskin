@@ -1,5 +1,13 @@
 import type { PlanContracts } from "@/lib/gen/plan/schema";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/gen/dossiers/registry", async (importOriginal) =>
+  (await import("./build-enforced-dossier-mock")).withBuildEnforcedDossier(
+    await importOriginal<typeof import("@/lib/gen/dossiers/registry")>(),
+    "clerk-auth",
+  ),
+);
+
 import { integrationRegistryByKey } from "./registry";
 import { resolveIntegrationIdentityKey } from "./suggestion-display";
 import {
