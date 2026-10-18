@@ -1,4 +1,8 @@
-import type { GtagFn } from "./fire-google-ads-conversion";
+import {
+  hasAcceptedCookieConsent,
+  syncGoogleAdsConsent,
+  type GtagFn,
+} from "./fire-google-ads-conversion";
 
 const SCRIPT_ID = "sajtmaskin-google-ads";
 const LOAD_TIMEOUT_MS = 15_000;
@@ -41,6 +45,11 @@ export function ensureGoogleAdsConsentDefault(): void {
   if (!window.sajtmaskinAdsConsentDefaulted) {
     gtag("consent", "default", { ...CONSENT_DEFAULT_DENIED });
     window.sajtmaskinAdsConsentDefaulted = true;
+    // Returning visitors already have CMP state. Queue granted before js/config
+    // so wait_for_update does not let conversion-linker run as denied.
+    if (hasAcceptedCookieConsent()) {
+      syncGoogleAdsConsent();
+    }
   }
   if (!window.sajtmaskinAdsJsQueued) {
     gtag("js", new Date());

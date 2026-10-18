@@ -102,14 +102,19 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     const retry = retryLoader.loadGoogleAdsTag("AW-123456789");
     script().dispatchEvent(new Event("load"));
     expect(await retry).toBe(true);
-    for (const command of ["consent", "js", "config"]) {
-      expect(commands().filter((entry) => entry[0] === command)).toHaveLength(1);
-    }
+    expect(commands().filter((entry) => entry[0] === "consent")).toHaveLength(2);
+    expect(commands().filter((entry) => entry[0] === "js")).toHaveLength(1);
+    expect(commands().filter((entry) => entry[0] === "config")).toHaveLength(1);
     expect(window.dataLayer?.every(isArgumentsObject)).toBe(true);
     expect(commands()[0]).toEqual([
       "consent",
       "default",
       expect.objectContaining({ ad_storage: "denied", ad_user_data: "denied" }),
+    ]);
+    expect(commands()[1]).toEqual([
+      "consent",
+      "update",
+      expect.objectContaining({ ad_storage: "granted" }),
     ]);
   });
 
@@ -183,9 +188,27 @@ describe("GoogleAdsTag real loader (no external network)", () => {
       "default",
       expect.objectContaining({ ad_storage: "denied" }),
     ]);
+    expect(commands().some((entry) => entry[0] === "consent" && entry[1] === "update")).toBe(false);
     await act(async () => {
       script().dispatchEvent(new Event("load"));
     });
     expect(conversions()).toHaveLength(0);
+  });
+
+  it("queues consent update granted before config when cookies were already accepted", async () => {
+    const loader = await import("@/lib/ads/load-google-ads-tag");
+    void loader.loadGoogleAdsTag("AW-123456789");
+    const cmds = commands();
+    const defaultIdx = cmds.findIndex((entry) => entry[0] === "consent" && entry[1] === "default");
+    const grantedIdx = cmds.findIndex(
+      (entry) =>
+        entry[0] === "consent" &&
+        entry[1] === "update" &&
+        (entry[2] as { ad_storage?: string } | undefined)?.ad_storage === "granted",
+    );
+    const configIdx = cmds.findIndex((entry) => entry[0] === "config");
+    expect(defaultIdx).toBe(0);
+    expect(grantedIdx).toBeGreaterThan(defaultIdx);
+    expect(configIdx).toBeGreaterThan(grantedIdx);
   });
 });
