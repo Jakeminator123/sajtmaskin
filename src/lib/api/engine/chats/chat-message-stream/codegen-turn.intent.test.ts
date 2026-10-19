@@ -31,10 +31,13 @@ vi.mock("./qa-short-circuit", () => ({
   buildQaShortCircuitStream: vi.fn(),
 }));
 
+import { addMessage } from "@/lib/db/chat-repository-pg";
 import { resolveOrchestrationBase, finalizeOrchestrationPrompts, buildGenerationInputPackage } from "@/lib/gen/orchestrate";
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
 import { parseChatRequestMeta } from "../parse-chat-request-meta";
+import { logRequestKindClassification } from "../request-kind-log";
 import { runCodegenTurn } from "./codegen-turn";
+import { buildQaShortCircuitStream, generateQaShortCircuitText } from "./qa-short-circuit";
 import { orchestratePromptMessage } from "@/lib/builder/prompt-orchestration";
 
 const stopAtBoundary = new Error("keyless orchestration boundary captured");
@@ -183,6 +186,81 @@ describe("codegen consumes the same effective metadata without late promotion", 
     vi.mocked(buildGenerationInputPackage).mockImplementation(() => { throw stop; });
     await expect(runCodegenTurn({ ...params("audit"), materializeImages: true, versionsQuerySucceeded: false })).rejects.toBe(stop);
     expect(vi.mocked(buildGenerationInputPackage).mock.calls[0][1]).toMatchObject({ materializeImages: false });
+    expect(createOwnEnginePipelineAndGenerationStream).not.toHaveBeenCalled();
+  });
+});
+
+describe("qa-or-score does not fall through into codegen", () => {
+  function qaTurn() {
+    return {
+      ...params("audit"),
+      hasFollowUpBase: true,
+      message: "Hur promptar jag för parallax?",
+      optimizedMessage: "Hur promptar jag för parallax?",
+      followUpIntentMessage: "Hur promptar jag för parallax?",
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(logRequestKindClassification).mockReturnValue({ kind: "qa-or-score" } as never);
+  });
+
+  it("persists one assistant answer and does not build", async () => {
+    const input = qaTurn();
+    vi.mocked(generateQaShortCircuitText).mockResolvedValue("Kort svar om parallax.");
+    vi.mocked(buildQaShortCircuitStream).mockReturnValue(
+      new ReadableStream({
+        start(controller) {
+          controller.close();
+        },
+      }),
+    );
+    vi.mocked(addMessage).mockResolvedValue({} as never);
+
+    const response = await runCodegenTurn(input);
+
+    expect(response.status).toBe(200);
+    expect(generateQaShortCircuitText).toHaveBeenCalledTimes(1);
+    expect(generateQaShortCircuitText).toHaveBeenCalledWith({
+      optimizedMessage: input.optimizedMessage,
+      signal: input.req.signal,
+    });
+    expect(addMessage).toHaveBeenCalledTimes(1);
+    expect(addMessage).toHaveBeenCalledWith("test", "assistant", "Kort svar om parallax.");
+    expect(buildQaShortCircuitStream).toHaveBeenCalledTimes(1);
+    expect(resolveOrchestrationBase).not.toHaveBeenCalled();
+    expect(finalizeOrchestrationPrompts).not.toHaveBeenCalled();
+    expect(buildGenerationInputPackage).not.toHaveBeenCalled();
+    expect(createOwnEnginePipelineAndGenerationStream).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["provider rejection", Object.assign(new Error("provider rejected the QA call"), { name: "AI_APICallError" })],
+    ["AbortError", Object.assign(new Error("The operation was aborted"), { name: "AbortError" })],
+  ])("%s rejects before orchestration, generation, or a saved version", async (_label, error) => {
+    vi.mocked(generateQaShortCircuitText).mockRejectedValue(error);
+
+    await expect(runCodegenTurn(qaTurn())).rejects.toBe(error);
+
+    expect(addMessage).not.toHaveBeenCalled();
+    expect(buildQaShortCircuitStream).not.toHaveBeenCalled();
+    expect(resolveOrchestrationBase).not.toHaveBeenCalled();
+    expect(finalizeOrchestrationPrompts).not.toHaveBeenCalled();
+    expect(buildGenerationInputPackage).not.toHaveBeenCalled();
+    expect(createOwnEnginePipelineAndGenerationStream).not.toHaveBeenCalled();
+  });
+
+  it("fails empty QA text without codegen", async () => {
+    vi.mocked(generateQaShortCircuitText).mockResolvedValue("   ");
+
+    await expect(runCodegenTurn(qaTurn())).rejects.toThrow(/empty text/);
+
+    expect(addMessage).not.toHaveBeenCalled();
+    expect(buildQaShortCircuitStream).not.toHaveBeenCalled();
+    expect(resolveOrchestrationBase).not.toHaveBeenCalled();
+    expect(finalizeOrchestrationPrompts).not.toHaveBeenCalled();
+    expect(buildGenerationInputPackage).not.toHaveBeenCalled();
     expect(createOwnEnginePipelineAndGenerationStream).not.toHaveBeenCalled();
   });
 });
