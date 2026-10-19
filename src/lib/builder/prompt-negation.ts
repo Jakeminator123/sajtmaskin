@@ -74,10 +74,11 @@ const NEGATED_CAPABILITY_TERMS: Record<string, RegExp[]> = {
  * komma som inleder en NY imperativ-sats ("no auth, add a map" /
  * "lägg inte till auth, lägg till postgres"). Ett komma som bara fortsätter
  * en negerad substantivlista ("lägg inte till backend, auth eller betalning")
- * avslutar INTE fönstret — därav verb-kravet efter kommat.
+ * avslutar INTE fönstret — därav verb-kravet efter kommat. En punkt inuti ett
+ * tekniskt namn (Three.js, Auth.js, preview.example.com) är inte meningsslut.
  */
 const CLAUSE_BOUNDARY_RE =
-  /[.;!?\n]|,\s*(?:och\s+|and\s+|sedan\s+|sen\s+|then\s+)?(?:lägg|skapa|bygg|gör|använd|visa|byt|ta\s+bort|add|create|build|make|use|show|include|inkludera|implementera|implement|remove)(?![\p{L}\p{N}_])|\s(?:men|but)(?![\p{L}\p{N}_])/iu;
+  /[;!?\n]|\.(?![\p{L}\p{N}_])|,\s*(?:och\s+|and\s+|sedan\s+|sen\s+|then\s+)?(?:lägg|skapa|bygg|gör|använd|visa|byt|ta\s+bort|add|create|build|make|use|show|include|inkludera|implementera|implement|remove)(?![\p{L}\p{N}_])|\s(?:men|but)(?![\p{L}\p{N}_])/iu;
 
 const NEGATION_WINDOW_MAX_CHARS = 140;
 
