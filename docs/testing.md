@@ -5,9 +5,7 @@ Repots tester körs med [Vitest](https://vitest.dev). Den fulla sviten
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml): ready runtime,
 högrisk-PR:ar och `master`. Bevisat safe docs och vanliga drafts får i stället
 ett explicit light-kvitto; required checknamn publiceras fortfarande för varje
-PR-head. Godnatt-buggs egna skripttester (`npm run test:godnatt-bugg`) är
-on-demand och ingår inte i `test:ci`, CI eller `verify:pr`. Ovanpå den finns
-smalare lanes:
+PR-head. Ovanpå den finns smalare lanes:
 
 | Lane                      | Kommando                               | Filnamn                            | Blockerar merge?                                                  |
 | ------------------------- | -------------------------------------- | ---------------------------------- | ----------------------------------------------------------------- |

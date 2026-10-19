@@ -21,16 +21,10 @@ alwaysApply: false
 
 Stärk prompt/kontrakt först. Nytt orkestreringssteg, fixer eller signal bara
 när befintlig ägare inte räcker. Single sources: intent, prompt composition,
-runtime status, repair gate, F2/F3. Se `docs/architecture/README.md`.
-
-Importera från mapparna, inte gamla toppfiler:
-
-| Domän | Mapp |
-|---|---|
-| Prompt assembly | `src/lib/gen/system-prompt/` |
-| BuildSpec | `src/lib/gen/build-spec/` |
-| Finalize | `src/lib/gen/stream/finalize-version/` |
-| Prompt assist | `src/lib/builder/prompt-assist/` |
+runtime status, repair gate, F2/F3 (`docs/architecture/README.md`). Importera
+från mapparna, inte gamla toppfiler: `src/lib/gen/system-prompt/`,
+`src/lib/gen/build-spec/`, `src/lib/gen/stream/finalize-version/`,
+`src/lib/builder/prompt-assist/`.
 
 När runtime-sanning, env, schema, signal eller adminflöde ändras: ändra
 ägaren → uppdatera schema/validator bara om kontraktet kräver det →

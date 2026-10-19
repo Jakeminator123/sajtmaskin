@@ -1,40 +1,9 @@
 # .cursor/swarms/
 
-Lokal **rapportfabrik** för `/automat` — sekventiella read-only audit-svärmar
-(upp till åtta agenter per runda) som letar buggar, död kod, namnöverlappningar,
-förbättringar, optimeringar, testluckor och drift. Modellval ägs av
-`subagent-models.mdc`: Luna gör mekanisk scanning; Sol analyserar, prioriterar
-och falsifierar. Mappen är **gitignored** (utom denna README) och ligger inte
-på GitHub.
+Gitignorerad arbetsyta (utom denna README) för `/automat`: `FINDINGS.md` är den
+kuraterade lokala fyndlistan och `runs/<YYYY-MM-DD_HHMM>/` rå rundoutput. Ytan är
+ett triageförråd, inte en bugglista; bekräftade defekter lyfts manuellt med
+`/buggrapport` till `BUG-SWARM-BACKLOG.md`.
 
-> **Audit mode, aldrig fix mode.** Svärmen ändrar **aldrig** kod. Den producerar bara fynd. När du själv hinner plockar du ut värdefulla fynd härifrån och driver dem vidare (t.ex. `/818` för beslut eller `/buggrapport` för att lyfta en bekräftad defekt till den kanoniska `BUG-SWARM-BACKLOG.md`).
-
-## Varför gitignored (inte indexerad, men läsbar)
-
-`.gitignore` respekteras av Cursors index, så innehållet hamnar **inte** i semantisk sökning och stör inte andra agenter. Men filerna är fortfarande **läs/skrivbara via explicit sökväg** — så `/automat`-orchestratorn kan föra in fynd, medan vanliga agenter inte råkar dra in dem. (Vi använder medvetet **inte** `.cursorignore`, eftersom det skulle blockera även orchestratorns Read/Write.) Detta är inte en hård sandbox — en agent som uttryckligen får sökvägen kan läsa filerna.
-
-## Layout
-
-```text
-.cursor/swarms/
-  README.md                       # committad — denna konvention
-  FINDINGS.md                     # gitignored — den ROLLANDE kuraterade fynd-listan (plocka härifrån)
-  runs/
-    YYYY-MM-DD_HHMM/
-      index.md                    # rund-sammanfattning (rundor, lanes, agentantal, topp-plock)
-      r<runda>-<lane>.md          # rå per-agent-rapport (en per agent)
-```
-
-- **`FINDINGS.md`** = den enda lista du behöver titta i. En destill-agent kuraterar varje scan-runda hit och behåller bara de mest värdefulla fynden (dedupar mot fil:rad-ankare). Källa-tag: `A#<n>` (automat).
-- **Status ligger i id:t.** `A#12` = overifierat, `A#12✔` = har överlevt en falsifieringsrunda (en agent försökte motbevisa det och misslyckades). Fynd som falsifierades **raderas** ur listan; motiveringen finns kvar i rundans `index.md`.
-- **`runs/`** = rå hög-volym-output. Behåll för spårbarhet; kan rensas när som helst. Taket är de tre nyaste rundorna **som också är yngre än 14 dagar**. Städa efter `/automat` med bara den här ytan — `node scripts/dev/clean-scratch.mjs --apply --only .cursor/swarms/runs`. Blanka `npm run clean:scratch:apply` sveper även handoffs, kedja-kandidater, `.cursor/tmp` och `logs/`, som `/automat` inte äger; `npm run hygiene` är dry-run av den globala svepningen.
-
-## Relation till den kanoniska bugglistan
-
-`BUG-SWARM-BACKLOG.md` (repo-rot) är fortfarande **enda** spårade bugglistan. `FINDINGS.md` är medvetet **separat och lokal** — ett triage-förråd, inte en konkurrerande sanning. Inget flyttas automatiskt till backloggen; du gör det manuellt via `/buggrapport` när ett fynd är bekräftat.
-
-## Kör
-
-- `/automat` → 3 rundor: scan → falsifiera → scan. 8 agenter per scan-runda.
-- `/automat 7` → 7 rundor sekventiellt, växlande scan och falsifiering.
-- Detaljer: [`.cursor/commands/automat.md`](../commands/automat.md) och [`.agents/skills/automat-swarm/SKILL.md`](../../.agents/skills/automat-swarm/SKILL.md).
+Recept, statusformat (`A#12` / `A#12✔`) och städning:
+[`automat-swarm`](../../.agents/skills/automat-swarm/SKILL.md).
