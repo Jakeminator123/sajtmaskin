@@ -63,16 +63,16 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "9cd0c3afa",
-    "commitDate": "2026-10-05",
+    "commit": "d2bdd5c4b",
+    "commitDate": "2026-10-19",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
-    "openP1": 7,
-    "openP2": 5,
-    "openP3": 1,
+    "openP1": 5,
+    "openP2": 9,
+    "openP3": 2,
     "blocked": 1,
     "shaky": 4,
     "evalExactHitPct": null
@@ -80,9 +80,9 @@ const DATA: CanvasData = {
   "processes": [
     {
       "name": "LLM-faser & runtime-sanning",
-      "status": "done",
-      "statusLabel": "Klart",
-      "tone": "success",
+      "status": "ongoing",
+      "statusLabel": "Pagar",
+      "tone": "info",
       "openBugs": 0,
       "openByPrio": {
         "P0": 0,
@@ -91,26 +91,26 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 2,
+      "churn": 4,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "2 commits / 14d"
+      "note": "Aktiv: 4 commits / 14d"
     },
     {
       "name": "Codegen core",
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 1,
+      "openBugs": 3,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 1,
+        "P2": 3,
         "P3": 0,
         "other": 0
       },
-      "churn": 0,
+      "churn": 2,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
-      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
+      "note": "3 oppna backlog-rader (P0:0 P1:0 P2:3 P3:0)"
     },
     {
       "name": "prompt-core",
@@ -125,7 +125,7 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 0,
+      "churn": 1,
       "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-re",
       "note": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
     },
@@ -134,17 +134,17 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 1,
+      "openBugs": 4,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 0,
+        "P2": 3,
         "P3": 1,
         "other": 0
       },
-      "churn": 3,
+      "churn": 6,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
-      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
+      "note": "4 oppna backlog-rader (P0:0 P1:0 P2:3 P3:1)"
     },
     {
       "name": "Scaffolds: titta & justera",
@@ -165,9 +165,9 @@ const DATA: CanvasData = {
     },
     {
       "name": "Scaffolds & varianter: skapa, redigera, klona, ta bort",
-      "status": "done",
-      "statusLabel": "Klart",
-      "tone": "success",
+      "status": "ongoing",
+      "statusLabel": "Pagar",
+      "tone": "info",
       "openBugs": 0,
       "openByPrio": {
         "P0": 0,
@@ -176,26 +176,26 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 3,
+      "churn": 7,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "3 commits / 14d"
+      "note": "Aktiv: 7 commits / 14d"
     },
     {
       "name": "Preview och versioner",
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 8,
+      "openBugs": 16,
       "openByPrio": {
         "P0": 0,
         "P1": 5,
-        "P2": 2,
-        "P3": 1,
+        "P2": 9,
+        "P3": 2,
         "other": 0
       },
-      "churn": 2,
+      "churn": 1,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
-      "note": "BLOCKER: `SM-080` Preview-projekt kör i samma filsystem/processidentitet och kan läsa andra projek…"
+      "note": "BLOCKER: `SM-080` Preview-projekt på Fly-hosten delar OS-identitet och filsystem; ett projekts ins…"
     },
     {
       "name": "Eval",
@@ -210,9 +210,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 0,
+      "churn": 2,
       "summary": "Backoffice-yta för den canonicala evalen (`npm run eval`). Ett läge (gratis / smoke / full), en knapp. Scaffold-lanen läser senaste lokala JSON-rapport. Codegen-lanen läser data/ev",
-      "note": "Inga oppna signaler"
+      "note": "2 commits / 14d"
     }
   ],
   "shaky": [
@@ -220,25 +220,25 @@ const DATA: CanvasData = {
       "name": "Preview och versioner",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "reason": "BLOCKER: `SM-080` Preview-projekt kör i samma filsystem/processidentitet och kan läsa andra projek…"
+      "reason": "BLOCKER: `SM-080` Preview-projekt på Fly-hosten delar OS-identitet och filsystem; ett projekts ins…"
     },
     {
       "name": "ai_models",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
+      "reason": "4 oppna backlog-rader (P0:0 P1:0 P2:3 P3:1)"
+    },
+    {
+      "name": "Codegen core",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "3 oppna backlog-rader (P0:0 P1:0 P2:3 P3:0)"
     },
     {
       "name": "Scaffolds: titta & justera",
       "statusLabel": "Skakigt",
       "tone": "warning",
       "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
-    },
-    {
-      "name": "Codegen core",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
     },
     {
       "name": "prompt-core",
@@ -252,76 +252,76 @@ const DATA: CanvasData = {
       "prio": "P1",
       "blocker": true,
       "kind": "blocker",
-      "fynd": "`SM-080` Preview-projekt kör i samma filsystem/processidentitet och kan läsa andra projekts filer."
+      "fynd": "`SM-080` Preview-projekt på Fly-hosten delar OS-identitet och filsystem; ett projekts install/dev-process kan…"
     },
     {
       "prio": "P1",
       "blocker": true,
       "kind": "blocker",
-      "fynd": "`SM-092` Resend nekade verifieringsmejlet i prod med 403 «The sajtmaskin.se domain is not verified». Om det g…"
+      "fynd": "`SM-092` Resend nekade verifieringsmejl i prod med 403 «domain is not verified»; då kan en nyregistrerad inte…"
     },
     {
       "prio": "P1",
       "blocker": false,
       "kind": "open",
-      "fynd": "`SM-078` Tidigare: `wizard_runs` läs-/skrivbar via publika roller. Live ACL 2026-09-17: RLS på; anon/authenti…"
+      "fynd": "`SM-081` Parallella genereringar kan inte längre passera samma kreditförkontroll, men det finns ingen budgetr…"
     },
     {
       "prio": "P1",
       "blocker": false,
       "kind": "open",
-      "fynd": "`SM-081` Parallella genereringar kunde passera samma förkontroll innan AI-kostnaden uppstod. Kontolås finns: …"
+      "fynd": "`SM-072` Chromium-captures kan svälta `/tmp` på en varm Fluid-instans; en burst kan döda nästa launch."
     },
     {
       "prio": "P1",
       "blocker": false,
       "kind": "open",
-      "fynd": "`SM-072` Chromium-captures svälter `/tmp` på warm Fluid-instans; burst kan döda nästa launch och visa Degrade…"
-    },
-    {
-      "prio": "P1",
-      "blocker": false,
-      "kind": "verify",
-      "fynd": "`SM-073` Preview-hostens inspector-bridge kunde sakna identitetsstämpel när sessionsmetadata tappats; parent …"
-    },
-    {
-      "prio": "P1",
-      "blocker": false,
-      "kind": "open",
-      "fynd": "`SM-074` `preview_ready_timeout`-bannern falsklarmar permanent på frisk sajt. REVIDERAD ROTORSAK 2026-09-01: …"
+      "fynd": "`SM-073` Inspector-bridgen stämplar bara meddelanden när `previewSessionId` finns; utan den släpper parent fa…"
     },
     {
       "prio": "P2",
       "blocker": false,
       "kind": "open",
-      "fynd": "`SM-001` Repair accepterar nya filer genom att skriva över samma versions `files_json`; ingen användbar rollb…"
+      "fynd": "`SM-090` Planläget bygger systemprompten med `\\n\\n---\\n\\n` i stället för `SYSTEM_PROMPT_SEPARATOR`, så prod-a…"
     },
     {
       "prio": "P2",
       "blocker": false,
       "kind": "open",
-      "fynd": "`SM-013` Misslyckad template-init lämnar `?templateId=...` utan `chatId`; tomläget kan visa ”Läser in templat…"
+      "fynd": "`SM-001` Repair-accept skriver över samma versions `files_json`; ingen rollbackpunkt skapas."
     },
     {
       "prio": "P2",
       "blocker": false,
       "kind": "open",
-      "fynd": "`SM-090` Prod-asserten `missing-separator` slog: systemprompten saknade `SYSTEM_PROMPT_SEPARATOR`, alltså kri…"
+      "fynd": "`SM-094` Billing-upserten kopplar aldrig kampanj i efterhand: en version som först skrevs utan `campaign_enti…"
     },
     {
       "prio": "P2",
       "blocker": false,
       "kind": "open",
-      "fynd": "`SM-093` Flera samtidiga builder-flikar på samma `chatId` kan hålla en version i `pending` genom upprepad `pr…"
+      "fynd": "`SM-095` Falskgrönt: warm-tsc sätter `repaired:true` när LLM-fixern rapporterar success utan ny `tsc`, så ytt…"
     },
     {
       "prio": "P2",
       "blocker": false,
       "kind": "open",
-      "fynd": "`SM-091` Init av importerat arkiv föll med 403 «Archive download forbidden» i prod. Samma klass som den priva…"
+      "fynd": "`SM-096` En deadline efter `reserve` i LLM-repair-grinden stänger varken budgeten eller sätter `aborted`, så …"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "kind": "open",
+      "fynd": "`SM-097` Bakgrundsverify sätter `kind:\"superseded\"` och settle:ar resume-försöket även när supersede-skrivnin…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "kind": "open",
+      "fynd": "`SM-077` Sen preview-boot gav ingen omverifiering. Master har klientens omförsök; preview har bytt till serve…"
     }
   ],
-  "topOpenRisksOmitted": 0,
+  "topOpenRisksOmitted": 2,
   "evals": null,
   "phases": [
     "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",
