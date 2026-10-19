@@ -120,9 +120,9 @@ preview och separat merge med merge-commit (inte squash eller auto-merge) enligt
 
 ## 5. Merge och städ
 
-Med uttryckligt eller förhandsvillkorat mergemandat: följ `pr-merge.mdc` och
-`gh pr merge --squash --match-head-commit <granskad head>` när native villkor är
-uppfyllda.
+Mandat enligt `pr-merge.mdc` punkt 4 (stående för vanlig PR till `preview`
+efter gröna checks och MERGE från bug-koll eller oberoende review; annars
+uttryckligt): `gh pr merge --squash --match-head-commit <granskad head>`.
 
 Efter merge: kör först `npm run tidy` och kräv att ytan rapporteras som `FRI`.
 Först då: `npm run worktree:remove -- <sökväg>`. Lämna huvudcheckouten på

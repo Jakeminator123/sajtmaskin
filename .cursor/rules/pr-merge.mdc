@@ -24,11 +24,15 @@ oberoende granskare kan utföra den. Ett produktnamn är inget eget krav.
    binder merge till aktuell integrationsbas.
 3. Vanlig kod kräver relevant oberoende review. Säkerhet, betalning, databas och
    CI-behörigheter kräver riktad review och nödvändigt ownerbeslut registrerat
-   som GitHub-review eller PR-kommentar. Requested changes, olösta trådar,
-   security/cross-tenant-risk, false-green och brutet kontrakt är stopp.
-4. Merge kräver uttryckligt mandat. Ett villkorat mandat i förväg gäller när de
-   angivna native villkoren senare är uppfyllda och behöver inte efterfrågas
-   igen; ett vanligt koduppdrag är inte mergemandat.
+   som GitHub-review eller PR-kommentar. Requested changes, olösta trådar mot
+   `master`, security/cross-tenant-risk, false-green och brutet kontrakt är stopp.
+4. Stående mandat för `preview`: en vanlig PR squash-mergas utan att fråga när
+   required GitHub-checks är gröna för aktuell head och bug-koll
+   (`.agents/skills/bug-koll/SKILL.md`), eller en oberoende readonly-review om
+   ChatGPT-flik saknas, gett MERGE utan olösta större fel. Säkerhet, betalning
+   och CI-behörigheter kräver dessutom registrerat ownerbeslut (punkt 3). Allt
+   annat kräver uttryckligt eller förhandsvillkorat mandat; ett vanligt
+   koduppdrag är inte mergemandat.
 5. En agent som utför en vanlig manuell preview-merge använder
    `gh pr merge --squash --match-head-commit <granskad head>`; ny head kräver
    ny review. Bara Dependabot-vägen använder native auto-merge. Aldrig
@@ -38,8 +42,8 @@ oberoende granskare kan utföra den. Ett produktnamn är inget eget krav.
 
 Har den mergande agenten en ChatGPT-flik i projektet SaJtMaSkIn: följ
 `.agents/skills/bug-koll/SKILL.md`. Ett större fel som inte rättats eller
-avfärdats med bevis blockerar merge, ny head kräver ny koll, och mandat plus
-punkt 4–5 ovan gäller fortfarande.
+avfärdats med bevis blockerar merge, ny head kräver ny koll, och punkt 4–5
+ovan gäller.
 
 Dependabot-undantaget ägs av `.github/workflows/dependabot-automerge.yml` och
 `config/dependabot-automerge.json`: endast allowlistade npm-patchar med en ren

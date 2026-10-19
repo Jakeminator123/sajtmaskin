@@ -53,6 +53,7 @@ en full snapshot.
 
 ## 6. Merga
 
-Först när koll, required checks och mandat finns: lös öppna review-trådar
-(rulesetet kräver det) och merga enligt `pr-merge.mdc`, normalt
-`gh pr merge --squash --match-head-commit <granskad head>`. Aldrig `--admin`.
+MERGE plus gröna required checks för samma head är stående mandat för vanlig
+PR till `preview` (`pr-merge.mdc` punkt 4):
+`gh pr merge --squash --match-head-commit <granskad head>`. Mot `master` kräver
+rulesetet lösta review-trådar och promote-flödet gäller. Aldrig `--admin`.
