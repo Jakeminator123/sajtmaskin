@@ -596,6 +596,11 @@ describe("POST quality-gate", () => {
     // null, the route did NOT short-circuit — it ran the real verify lane.
     expect(runQualityGateChecks).toHaveBeenCalledTimes(1);
     expect(markVersionVerifying).toHaveBeenCalled();
+    // The late lane sees the version is no longer latest: its green checks
+    // must not surface as a pass for a superseded version.
+    const body = await res.json();
+    expect(body.superseded).toBe(true);
+    expect(body.passed).toBe(false);
   });
 
   it("SAJTMASKIN_DISABLE_QUALITY_GATE: short-circuits the F2 lane without promoting or mutating state", async () => {
