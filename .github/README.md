@@ -7,6 +7,7 @@
 | [`workflows/db-schema-parity.yml`](workflows/db-schema-parity.yml)                 | Daglig read-only-jämförelse av LEVANDE dev↔prod-schema (`npm run db:schema-parity`); push-vägen täcks av `db-schema-parity`-jobbet i ci.yml.                                      |
 | [Buggpass](../docs/runbooks/buggpass.md) | Oberoende granskning före direktpreview-push; PR-vägen återanvänder relevant extern review. Ingen separat betald API-review-workflow. |
 | [`workflows/dependabot-automerge.yml`](workflows/dependabot-automerge.yml)         | Betrodd default-branch-controller som innehållsvaliderar allowlistade npm-patchar och aktiverar GitHubs native auto-merge; PR-head-kod körs aldrig med skrivtoken.                 |
+| [`workflows/pr-base-guard.yml`](workflows/pr-base-guard.yml) | Betrodd vakt på `pull_request_target: edited`: vid basbyte görs PR:en till draft och får en kommentar, så att `ready_for_review` kör om CI med den nya basens profil. Ingen checkout, ingen PR-kod och ingen required check. |
 | [`dependabot.yml`](dependabot.yml)                                                 | Veckovisa uppdateringar för npm och GitHub Actions.                                                                                                                               |
 
 Workflow-filerna äger GitHub-körningen. Canonical checknamn och deras
@@ -18,7 +19,10 @@ kontroller före push; CI publicerar tung profil eller ett explicit light-kvitto
 
 Required checks publiceras en gång per aktuell PR-head. Strict/up-to-date i
 ruleset gör gamla basresultat ogiltiga. PR-head-workflows är explicit read-only;
-skrivande automation måste köra betrodd default-branch-kod. Dependabot-
+skrivande automation måste köra betrodd default-branch-kod, och varje
+`pull_request_target`-workflow har ett eget kontrakt i `check-contract.mjs`.
+`ci.yml` lyssnar inte på `edited`, så ett basbyte kör inte om CI; basvakten
+gör i stället PR:en till draft tills den markeras ready igen. Dependabot-
 controllern får endast begära native auto-merge; GitHub väntar själv på ruleset.
 Alla controller-skrivningar använder Actions-secreten
 `DEPENDABOT_AUTOMERGE_TOKEN`. Dependabot utlöser den betrodda controllern via
