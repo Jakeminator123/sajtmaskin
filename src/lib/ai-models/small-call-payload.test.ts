@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getBriefingEnvKeysFromManifest } from "@/lib/ai-models/load-manifest";
+import { recordLlmUsage } from "@/lib/observability/llm-usage";
 
 vi.mock("@/lib/auth/auth", () => ({
   getCurrentUser: vi.fn(async () => ({ id: "user-test" })),
@@ -46,9 +47,9 @@ function responsesReply(model: string, text: string) {
     usage: {
       input_tokens: 1,
       input_tokens_details: { cached_tokens: 0 },
-      output_tokens: 1,
-      output_tokens_details: { reasoning_tokens: 0 },
-      total_tokens: 2,
+      output_tokens: 6100,
+      output_tokens_details: { reasoning_tokens: 6000 },
+      total_tokens: 6101,
     },
   };
 }
@@ -231,6 +232,15 @@ describe("small-call payloads", () => {
     expect(captured[0]?.body.max_output_tokens).toBe(8192);
     expect(captured[0]?.body).not.toHaveProperty("temperature");
     expect(captured[0]?.body.reasoning).not.toEqual({ effort: "low" });
+    // Synthetic headroom contract, not a live consumption measurement: the
+    // real SDK parses both 6000 reasoning and 100 visible output tokens while
+    // the caller still returns the intended visible result within its cap.
+    const usage = vi.mocked(recordLlmUsage).mock.calls.at(-1)?.[0].usage;
+    expect(usage).toMatchObject({
+      outputTokens: 6100,
+      outputTokenDetails: { reasoningTokens: 6000, textTokens: 100 },
+    });
+    expect(Number(captured[0]?.body.max_output_tokens)).toBeGreaterThanOrEqual(6100);
   });
 
   it("does not invent reasoning effort low for an unregistered classic override", async () => {
