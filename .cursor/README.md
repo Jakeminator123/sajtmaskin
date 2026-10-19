@@ -23,8 +23,8 @@ av kontextreglerna.
 `.agents/skills/` är enda skill-katalogen; spårade skills allowlistas i
 `.gitignore`. `.cursor/commands/*.md` är tunna routrar till en skill — ladda inte
 både command-text och samma recept. `pr-workflow` gäller allt skriv-, PR- och
-mergearbete; `/automat`, `/kedja`, `/818`, `/logg`, `/logg-internet` och
-`$godnatt-bugg` läses bara när de anropas.
+mergearbete och `bug-koll` gäller ChatGPT-bugg-koll före merge; `/automat`,
+`/logg` och `/logg-internet` läses bara när de anropas.
 
 Codex kan spegla kommandon som gitignorerade `.agents/skills/source-command-*`.
 Speglingarna dubblerar kommandona och kostar kontext varje tur;
