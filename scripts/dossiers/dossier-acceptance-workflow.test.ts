@@ -307,7 +307,7 @@ describe("dossier acceptance workflow contract", () => {
     expect(workflow).toContain('    - cron: "17 3 * * 2"');
     expect(workflow).toContain("  workflow_dispatch: {}");
     expect(workflow).toContain(
-      "  group: dossier-acceptance-${{ github.event.pull_request.number || github.ref }}",
+      "  group: dossier-acceptance-${{ github.event.pull_request.number || format('{0}-{1}', github.ref, contains(fromJSON('[\"schedule\",\"workflow_dispatch\"]'), github.event_name) && 'full' || 'push') }}",
     );
     expect(workflow).toContain("  cancel-in-progress: true");
   });
