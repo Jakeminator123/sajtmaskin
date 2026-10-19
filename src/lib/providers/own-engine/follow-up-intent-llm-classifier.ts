@@ -17,7 +17,7 @@
 import { z } from "zod";
 import { generateObject } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
-import { resolveWorkloadReasoningEffort } from "@/lib/ai-models/workload-reasoning";
+import { workloadOpenAIProviderOptions } from "@/lib/ai-models/workload-reasoning";
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import {
@@ -109,14 +109,9 @@ export async function llmClassifyFollowUpIntent(
       // failures, so don't burn latency retrying non-transient errors.
       maxRetries: 1,
       abortSignal: controller.signal,
-      // Manifest effort (medium on the Sol default). Unregistered model ids keep
-      // the existing `low` fallback; this does not invent a capability table.
-      providerOptions: {
-        openai: {
-          reasoningEffort:
-            resolveWorkloadReasoningEffort(MATCH_CLASSIFIER_WORKLOAD_ID, modelId) ?? "low",
-        },
-      },
+      // Manifest effort (medium on Sol 6.1). Classic/unregistered ids omit the
+      // field — do not invent `low` when the model has no registered support.
+      ...workloadOpenAIProviderOptions(MATCH_CLASSIFIER_WORKLOAD_ID, modelId),
     });
 
     recordLlmUsage({

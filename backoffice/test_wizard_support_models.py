@@ -59,16 +59,13 @@ class WorkloadRegistrationTests(unittest.TestCase):
                 self.assertEqual(entry.get("authEnv"), ["OPENAI_API_KEY"])
 
     def test_persona_and_guide_are_separate_entries(self) -> None:
-        """Beslutet 2026-07-28: slå INTE ihop dem. Olika modellbehov (vision vs
-        billig text) är hela skälet att posterna finns."""
+        """Persona och guide förblir två poster även när defaultModel-id:t är
+        lika. Persona äger vision; guiden är ren text."""
         persona = _workload(aw.WORKLOAD_SCAFFOLD_WIZARD_PERSONA)
         guide = _workload(aw.WORKLOAD_SCAFFOLD_WIZARD_GUIDE)
         self.assertNotEqual(persona["id"], guide["id"])
-        self.assertNotEqual(
-            persona["defaultModel"],
-            guide["defaultModel"],
-            "persona och guide har samma defaultModel — då är två poster meningslösa",
-        )
+        self.assertTrue(persona.get("visionModels"))
+        self.assertFalse(guide.get("visionModels"))
 
     def test_wizard_never_reads_the_presentation_vision_workload(self) -> None:
         for workload_id in (
@@ -118,6 +115,8 @@ class FallbackParityTests(unittest.TestCase):
                     dict.fromkeys([entry["defaultModel"], *entry.get("fallbackModels", [])])
                 )
                 self.assertEqual(fallback, expected)
+                self.assertEqual(expected[0], "gpt-6.1-sol")
+                self.assertNotIn("gpt-6-luna", expected)
 
     def test_vision_fallbacks_match_the_manifest(self) -> None:
         for workload_id, fallback in aw.VISION_FALLBACKS.items():
@@ -127,11 +126,10 @@ class FallbackParityTests(unittest.TestCase):
                 )
 
     def test_vision_models_cover_every_offered_5_6_id(self) -> None:
-        """visionModels listar vilka id:n som får bilder, inte bara pickern.
+        """visionModels är bild-allowlisten, inte en automatisk fallback.
 
-        Stegen 2026-09-02: alla GPT-5.6-modeller tar bild. Persona-pickern är
-        Terra (+ Sol fallback) men Luna finns i visionModels så en framtida
-        picker-rad inte plötsligt blir text-only.
+        Luna får stå kvar i personans visionModels utan att erbjudas som
+        default eller fallbackModels.
         """
         for workload_id in ALL_WORKLOADS:
             entry = _workload(workload_id)
@@ -181,7 +179,8 @@ class ResolveFromManifestTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertNotIn('model: "gpt-4o-mini"', text)
-        self.assertIn("model: args.model", text)
+        self.assertIn("resolveCurationModel", text)
+        self.assertIn("buildCurationChatRequest", text)
         self.assertIn(aw.WORKLOAD_DOSSIER_CURATION, text)
 
 
@@ -251,6 +250,32 @@ class ManifestMissingOrBrokenTests(unittest.TestCase):
             aw.model_supports_vision(
                 root, aw.WORKLOAD_SCAFFOLD_WIZARD_PERSONA, "some-text-model"
             )
+        )
+
+    def test_missing_manifest_documents_medium_only_for_sol_defaults(self) -> None:
+        root = self._root_with_manifest(None)
+        for workload_id in ALL_WORKLOADS:
+            with self.subTest(workload_id=workload_id):
+                self.assertEqual(
+                    aw.resolve_reasoning_effort(root, workload_id, "gpt-6.1-sol"),
+                    "medium",
+                )
+                self.assertIsNone(aw.resolve_reasoning_effort(root, workload_id, "gpt-4o"))
+                self.assertIsNone(aw.resolve_reasoning_effort(root, workload_id, "gpt-6-luna"))
+                self.assertIsNone(
+                    aw.resolve_reasoning_effort(root, workload_id, "not-a-model")
+                )
+
+    def test_broken_manifest_uses_the_same_documented_sol_effort(self) -> None:
+        root = self._root_with_manifest("{ trasig json")
+        self.assertEqual(
+            aw.resolve_reasoning_effort(
+                root, aw.WORKLOAD_SCAFFOLD_WIZARD_GUIDE, "gpt-6.1-sol"
+            ),
+            "medium",
+        )
+        self.assertIsNone(
+            aw.resolve_reasoning_effort(root, aw.WORKLOAD_DOSSIER_CURATION, "gpt-4o")
         )
 
     def test_non_string_entries_are_ignored(self) -> None:
@@ -413,10 +438,12 @@ class ReasoningTokenBudgetTests(unittest.TestCase):
         )
         reasoning = self._payload_for(_GUIDE, default_model)
         classic = self._payload_for(_GUIDE, "gpt-4o")
-        self.assertGreater(
-            reasoning["max_completion_tokens"], classic["max_completion_tokens"]
-        )
+        self.assertEqual(reasoning["max_completion_tokens"], 8192)
+        self.assertEqual(reasoning["reasoning_effort"], "medium")
+        self.assertNotIn("temperature", reasoning)
         self.assertEqual(classic["max_completion_tokens"], 500)
+        self.assertNotIn("reasoning_effort", classic)
+        self.assertIn("temperature", classic)
 
     def test_persona_gets_headroom_when_the_operator_picks_a_reasoning_model(self) -> None:
         reasoning_choices = [
@@ -427,11 +454,11 @@ class ReasoningTokenBudgetTests(unittest.TestCase):
         self.assertTrue(reasoning_choices, "persona-posten erbjuder ingen reasoning-modell")
         reasoning = self._payload_for(_PERSONA, reasoning_choices[0])
         classic = self._payload_for(_PERSONA, "gpt-4o")
-        self.assertGreater(
-            reasoning["max_completion_tokens"], classic["max_completion_tokens"]
-        )
-        # Reasoning-modeller får inte heller någon custom temperature (HTTP 400).
+        self.assertEqual(reasoning["max_completion_tokens"], 8192)
+        self.assertEqual(reasoning["reasoning_effort"], "medium")
         self.assertNotIn("temperature", reasoning)
+        self.assertEqual(classic["max_completion_tokens"], 2000)
+        self.assertNotIn("reasoning_effort", classic)
         self.assertIn("temperature", classic)
 
 

@@ -4,12 +4,14 @@ import {
   allowedCurationModels,
   applyCuratorCapabilityChoice,
   assertCurationOutput,
+  buildCurationChatRequest,
   curationAllocateArgs,
   curationCleanupArgs,
   curationEnvRule,
   curationEnvSchemaLine,
   curationTransactionArgs,
   CURATION_CLASS_RULE,
+  CURATION_MAX_COMPLETION_TOKENS,
   CURATION_MOCK_RULE,
   CURATION_WORKLOAD_ID,
   parseArgs,
@@ -78,6 +80,53 @@ describe("curation model resolution", () => {
   it("no longer hardcodes the legacy gpt-4o / gpt-4o-mini ids", () => {
     expect(allowedCurationModels()).not.toContain("gpt-4o-mini");
     expect(allowedCurationModels()).not.toContain("gpt-4o");
+  });
+
+  it("does not offer a hidden Luna fallback when the manifest lists only Sol", () => {
+    const fallbacks = getWorkloadFallbackModelsFromManifest(CURATION_WORKLOAD_ID);
+    expect(fallbacks).not.toContain("gpt-6-luna");
+    expect(allowedCurationModels()).not.toContain("gpt-6-luna");
+    expect(allowedCurationModels()).toEqual(["gpt-6.1-sol"]);
+  });
+
+  it("rejects an unlisted model id before a chat request exists", () => {
+    expect(allowedCurationModels()).not.toContain("gpt-6-luna");
+    expect(() =>
+      buildCurationChatRequest(
+        {
+          reference: "ai-fal-image-generator",
+          class: "soft",
+          id: "example-id",
+          model: "gpt-6-luna",
+        },
+        [{ name: "README.md", body: "# ref" }],
+      ),
+    ).toThrow(/not listed for workload "backoffice_dossier_curation"/);
+  });
+
+  it("builds a Sol medium chat payload with a 32768 total output ceiling", () => {
+    const model = resolveCurationModel(undefined);
+    const payload = buildCurationChatRequest(
+      {
+        reference: "ai-fal-image-generator",
+        class: "soft",
+        id: "example-id",
+        model,
+      },
+      [{ name: "README.md", body: "# ref" }],
+    );
+    expect(model).toBe("gpt-6.1-sol");
+    expect(payload.model).toBe("gpt-6.1-sol");
+    expect(payload.max_completion_tokens).toBe(CURATION_MAX_COMPLETION_TOKENS);
+    expect(payload.max_completion_tokens).toBe(32_768);
+    expect(payload.reasoning_effort).toBe("medium");
+    expect(payload).not.toHaveProperty("temperature");
+    expect(payload).not.toHaveProperty("max_tokens");
+    expect(payload.response_format).toMatchObject({
+      type: "json_schema",
+      json_schema: { name: "DossierCuration", strict: false },
+    });
+    expect(payload.messages).toHaveLength(2);
   });
 
   it("still enforces the pre-existing argument rules", () => {

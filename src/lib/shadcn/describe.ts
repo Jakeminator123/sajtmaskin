@@ -55,9 +55,13 @@ import {
 } from "@/lib/shadcn/registry-search";
 import { createDirectModel } from "@/lib/builder/direct-model";
 import {
-  AUTO_BRIEF_MODEL_ANTHROPIC,
-  AUTO_BRIEF_MODEL_OPENAI,
-} from "@/lib/gen/defaults";
+  getBriefingDefaultsFromManifest,
+  getBriefingEnvKeysFromManifest,
+  getWorkloadDefaultModelFromManifest,
+} from "@/lib/ai-models/load-manifest";
+import { workloadOpenAIProviderOptions } from "@/lib/ai-models/workload-reasoning";
+import { isOpenAIReasoningModelId } from "@/lib/models/openai-capabilities";
+import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { debugLog } from "@/lib/utils/debug";
 
 // Re-export the shared search engine so existing consumers/tests of this
@@ -147,8 +151,14 @@ const COMMUNITY_FETCH_TIMEOUT_MS = 3_000;
  * degrades to a fast heuristic answer instead of burning the whole route
  * budget (`maxDuration`) into a 504.
  */
-const QUERY_LLM_TIMEOUT_MS = 20_000;
-const RANK_LLM_TIMEOUT_MS = 25_000;
+export const QUERY_LLM_TIMEOUT_MS = 20_000;
+export const RANK_LLM_TIMEOUT_MS = 25_000;
+const SHADCN_DESCRIBE_QUERIES_WORKLOAD_ID = "shadcn_describe_queries";
+const SHADCN_DESCRIBE_RANKING_WORKLOAD_ID = "shadcn_describe_ranking";
+/** Total output ceiling for reasoning models. Not measured usage. */
+const DESCRIBE_REASONING_MAX_OUTPUT_TOKENS = 8_192;
+const QUERY_CLASSIC_MAX_OUTPUT_TOKENS = 512;
+const RANK_CLASSIC_MAX_OUTPUT_TOKENS = 1_024;
 /**
  * Ceiling for each official registry HTTP call. `fetchRegistryIndex` /
  * `fetchRegistryItem` (shared registry-service) take no abort signal, so we
@@ -289,12 +299,62 @@ export function heuristicRankCandidates(
 // LLM STEPS (impure, with deterministic fallback)
 // ============================================================================
 
-/** Pick runnable prompt-assist models in failover order. */
-function resolveDescribeModels(): string[] {
+function workloadForDescribeStep(step: "query generation" | "ranking"): string {
+  return step === "query generation"
+    ? SHADCN_DESCRIBE_QUERIES_WORKLOAD_ID
+    : SHADCN_DESCRIBE_RANKING_WORKLOAD_ID;
+}
+
+function explicitAutoBriefModel(envKey: string): string | undefined {
+  const value = process.env[envKey]?.trim();
+  return value || undefined;
+}
+
+/**
+ * OpenAI uses the workload default (Sol 6.1) unless the AUTO_BRIEF env key from
+ * the manifest is set explicitly. Anthropic stays the same-deadline failover.
+ * The env key name comes from the manifest helper; this does not read a .env file.
+ */
+function resolveDescribeModels(workloadId: string): string[] {
   const models: string[] = [];
-  if (process.env.OPENAI_API_KEY?.trim()) models.push(AUTO_BRIEF_MODEL_OPENAI);
-  if (process.env.ANTHROPIC_API_KEY?.trim()) models.push(AUTO_BRIEF_MODEL_ANTHROPIC);
+  const envKeys = getBriefingEnvKeysFromManifest();
+  if (process.env.OPENAI_API_KEY?.trim()) {
+    models.push(
+      explicitAutoBriefModel(envKeys.serverAutoOpenAI) ??
+        getWorkloadDefaultModelFromManifest(workloadId) ??
+        "openai/gpt-6.1-sol",
+    );
+  }
+  if (process.env.ANTHROPIC_API_KEY?.trim()) {
+    models.push(
+      explicitAutoBriefModel(envKeys.serverAutoAnthropic) ??
+        getBriefingDefaultsFromManifest().serverAutoAnthropic,
+    );
+  }
   return Array.from(new Set(models));
+}
+
+function describeMaxOutputTokens(model: string, classicCap: number): number {
+  return isOpenAIReasoningModelId(model) ? DESCRIBE_REASONING_MAX_OUTPUT_TOKENS : classicCap;
+}
+
+function recordDescribeUsage(params: {
+  workload: string;
+  model: string;
+  startedAt: number;
+  usage: unknown;
+  ok?: boolean;
+  errorCode?: string | null;
+}): void {
+  recordLlmUsage({
+    phase: "describe",
+    workload: params.workload,
+    model: params.model,
+    usage: params.usage,
+    durationMs: Date.now() - params.startedAt,
+    ok: params.ok,
+    errorCode: params.errorCode,
+  });
 }
 
 /**
@@ -308,7 +368,8 @@ export async function withDescribeModelFailover<T>(
   run: (model: string, abortSignal: AbortSignal) => Promise<T>,
 ): Promise<T | null> {
   const deadline = Date.now() + timeoutMs;
-  for (const model of resolveDescribeModels()) {
+  const workloadId = workloadForDescribeStep(step);
+  for (const model of resolveDescribeModels(workloadId)) {
     const remainingMs = deadline - Date.now();
     if (remainingMs <= 0) break;
     try {
@@ -349,16 +410,43 @@ export async function generateQueriesWithLlm(description: string): Promise<strin
     "query generation",
     QUERY_LLM_TIMEOUT_MS,
     async (model, abortSignal) => {
-      const result = await generateObject({
-        model: createDirectModel(model),
-        schema: queriesSchema,
-        messages: [
-          { role: "system", content: QUERY_SYSTEM_PROMPT },
-          { role: "user", content: description },
-        ],
-        maxRetries: 1,
-        maxOutputTokens: 512,
-        abortSignal,
+      const startedAt = Date.now();
+      let result;
+      try {
+        result = await generateObject({
+          model: createDirectModel(model),
+          schema: queriesSchema,
+          messages: [
+            { role: "system", content: QUERY_SYSTEM_PROMPT },
+            { role: "user", content: description },
+          ],
+          maxRetries: 1,
+          maxOutputTokens: describeMaxOutputTokens(model, QUERY_CLASSIC_MAX_OUTPUT_TOKENS),
+          abortSignal,
+          ...workloadOpenAIProviderOptions(SHADCN_DESCRIBE_QUERIES_WORKLOAD_ID, model),
+        });
+      } catch (err) {
+        const usage =
+          err && typeof err === "object" && "usage" in err
+            ? (err as { usage?: unknown; name?: unknown }).usage
+            : undefined;
+        if (usage) {
+          recordDescribeUsage({
+            workload: SHADCN_DESCRIBE_QUERIES_WORKLOAD_ID,
+            model,
+            startedAt,
+            usage,
+            ok: false,
+            errorCode: err instanceof Error ? err.name : "describe_failed",
+          });
+        }
+        throw err;
+      }
+      recordDescribeUsage({
+        workload: SHADCN_DESCRIBE_QUERIES_WORKLOAD_ID,
+        model,
+        startedAt,
+        usage: result.usage,
       });
       const deduped = Array.from(
         new Set(
@@ -416,25 +504,52 @@ export async function rankCandidatesWithLlm(
     "ranking",
     RANK_LLM_TIMEOUT_MS,
     async (model, abortSignal) => {
-      const result = await generateObject({
-        model: createDirectModel(model),
-        schema: rankSchema,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You rank shadcn registry candidates by how well they match the user's " +
-              "description. Return ONLY indexes from the provided list, best first, at " +
-              `most ${limit} picks. Never invent components. Give a short reason per pick.`,
-          },
-          {
-            role: "user",
-            content: `Description:\n${description}\n\nCandidates:\n${catalog}`,
-          },
-        ],
-        maxRetries: 1,
-        maxOutputTokens: 1_024,
-        abortSignal,
+      const startedAt = Date.now();
+      let result;
+      try {
+        result = await generateObject({
+          model: createDirectModel(model),
+          schema: rankSchema,
+          messages: [
+            {
+              role: "system",
+              content:
+                "You rank shadcn registry candidates by how well they match the user's " +
+                "description. Return ONLY indexes from the provided list, best first, at " +
+                `most ${limit} picks. Never invent components. Give a short reason per pick.`,
+            },
+            {
+              role: "user",
+              content: `Description:\n${description}\n\nCandidates:\n${catalog}`,
+            },
+          ],
+          maxRetries: 1,
+          maxOutputTokens: describeMaxOutputTokens(model, RANK_CLASSIC_MAX_OUTPUT_TOKENS),
+          abortSignal,
+          ...workloadOpenAIProviderOptions(SHADCN_DESCRIBE_RANKING_WORKLOAD_ID, model),
+        });
+      } catch (err) {
+        const usage =
+          err && typeof err === "object" && "usage" in err
+            ? (err as { usage?: unknown }).usage
+            : undefined;
+        if (usage) {
+          recordDescribeUsage({
+            workload: SHADCN_DESCRIBE_RANKING_WORKLOAD_ID,
+            model,
+            startedAt,
+            usage,
+            ok: false,
+            errorCode: err instanceof Error ? err.name : "describe_failed",
+          });
+        }
+        throw err;
+      }
+      recordDescribeUsage({
+        workload: SHADCN_DESCRIBE_RANKING_WORKLOAD_ID,
+        model,
+        startedAt,
+        usage: result.usage,
       });
 
       const seen = new Set<number>();

@@ -27,7 +27,7 @@ interface TextSuggestion {
 
 const TEXT_ANALYZE_WORKLOAD_ID = "text_analyze";
 const ANALYSIS_MODEL =
-  getWorkloadDefaultModelFromManifest(TEXT_ANALYZE_WORKLOAD_ID) ?? "gpt-6-luna";
+  getWorkloadDefaultModelFromManifest(TEXT_ANALYZE_WORKLOAD_ID) ?? "gpt-6.1-sol";
 
 const TEXT_ANALYZE_SCHEMA = {
   type: "object" as const,

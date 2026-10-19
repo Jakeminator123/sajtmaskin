@@ -44,6 +44,7 @@ import {
   getWorkloadDefaultModelFromManifest,
   getWorkloadFallbackModelsFromManifest,
 } from "../../src/lib/ai-models/load-manifest";
+import { workloadChatReasoningEffort } from "../../src/lib/ai-models/workload-reasoning";
 import { getTemperatureConfig } from "../../src/lib/builder/direct-model";
 import { validateDossierManifest } from "../../src/lib/gen/dossiers/validate-manifest";
 
@@ -62,6 +63,12 @@ const DOSSIERS_ROOT = join(REPO_ROOT, "data", "dossiers");
 
 /** Manifest entry that owns this script's model choice (Fas D). */
 export const CURATION_WORKLOAD_ID = "backoffice_dossier_curation";
+
+/**
+ * Total output ceiling for one curation call (reasoning + manifest +
+ * instructions). A cap, not measured spend.
+ */
+export const CURATION_MAX_COMPLETION_TOKENS = 32_768;
 
 /** Shared class truth embedded in the curation prompt; exported for parity tests. */
 export const CURATION_CLASS_RULE =
@@ -400,15 +407,27 @@ export function assertCurationOutput(
   }
 }
 
-async function callLLM(
-  args: Args,
+/**
+ * Raw Chat Completions body. An id outside the manifest allow-list throws here,
+ * before any client call. Callers that already resolved `--model` pass that id
+ * through unchanged.
+ */
+export function buildCurationChatRequest(
+  args: Pick<Args, "reference" | "class" | "id" | "model">,
   sources: { name: string; body: string }[],
-): Promise<CurationOutput> {
-  const apiKey = (process.env.OPENAI_API_KEY ?? "").trim();
-  if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
-  const openai = new OpenAI({ apiKey });
-
-  const today = new Date().toISOString().slice(0, 10);
+  today = new Date().toISOString().slice(0, 10),
+): {
+  model: string;
+  messages: { role: "system" | "user"; content: string }[];
+  response_format: {
+    type: "json_schema";
+    json_schema: { name: string; strict: false; schema: Record<string, unknown> };
+  };
+  max_completion_tokens: number;
+  temperature?: number;
+  reasoning_effort?: "none" | "low" | "medium" | "high" | "xhigh" | "max";
+} {
+  const model = resolveCurationModel(args.model);
   const sourcesBlock = sources.map((s) => `### ${s.name}\n\`\`\`\n${s.body}\n\`\`\``).join("\n\n");
 
   const system = `You are curating a dossier (a reusable building block) for a website-generation pipeline. Read the provided template repo and produce:
@@ -466,14 +485,14 @@ Source material:
 
 ${sourcesBlock}`;
 
-  const response = await openai.chat.completions.create({
-    model: args.model,
+  return {
+    model,
     messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
+      { role: "system" as const, content: system },
+      { role: "user" as const, content: user },
     ],
     response_format: {
-      type: "json_schema",
+      type: "json_schema" as const,
       json_schema: {
         name: "DossierCuration",
         // strict mode requires every property to be in `required`, which would
@@ -613,7 +632,21 @@ ${sourcesBlock}`;
     // with a HTTP 400, so the rule lives with its canonical owner instead of a
     // fourth copy: getTemperatureConfig returns {} for those ids and
     // {temperature} for classic ones. The manifest default is a reasoning id.
-    ...getTemperatureConfig(args.model, 0.2),
+    max_completion_tokens: CURATION_MAX_COMPLETION_TOKENS,
+    ...getTemperatureConfig(model, 0.2),
+    ...workloadChatReasoningEffort(CURATION_WORKLOAD_ID, model),
+  };
+}
+
+async function callLLM(
+  args: Args,
+  sources: { name: string; body: string }[],
+): Promise<CurationOutput> {
+  const apiKey = (process.env.OPENAI_API_KEY ?? "").trim();
+  if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
+  const openai = new OpenAI({ apiKey });
+  const response = await openai.chat.completions.create({
+    ...buildCurationChatRequest(args, sources),
   });
 
   const content = response.choices[0]?.message?.content;

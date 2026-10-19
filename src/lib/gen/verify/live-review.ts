@@ -78,7 +78,8 @@ const SENSOR_CODES = new Set([
 export const LIVE_REVIEW_ATTEMPT_TIMEOUT_MS = 45_000;
 /** Wall-clock cap for the whole default + fallback chain. */
 export const LIVE_REVIEW_TOTAL_TIMEOUT_MS = 90_000;
-const MAX_OUTPUT_TOKENS = 1200;
+/** Total output ceiling for Sol medium, including reasoning tokens. Not measured usage. */
+const MAX_OUTPUT_TOKENS = 8192;
 const MAX_USER_REQUEST_CHARS = 4000;
 const MAX_BRIEF_CHARS = 1200;
 
