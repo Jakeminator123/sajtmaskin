@@ -371,7 +371,7 @@ describe("POST /api/transcribe", () => {
       const signal = outbound.signal;
       const wasAborted = signal?.aborted === true;
       controller.abort();
-      signalLinked = signal != null && !wasAborted && signal.aborted === true;
+      signalLinked = signal != null && !wasAborted && Boolean(signal.aborted);
       const error = new Error(`${SECRET} aborted`);
       error.name = "APIUserAbortError";
       throw error;

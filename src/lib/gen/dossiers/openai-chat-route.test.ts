@@ -200,7 +200,7 @@ describe("openai-chat dossier route", () => {
       const signal = init?.signal;
       const wasAborted = signal?.aborted === true;
       controller.abort();
-      signalLinked = signal != null && !wasAborted && signal.aborted === true;
+      signalLinked = signal != null && !wasAborted && Boolean(signal.aborted);
       const error = new Error("aborted");
       error.name = "AbortError";
       throw error;
