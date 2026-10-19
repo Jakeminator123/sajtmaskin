@@ -542,6 +542,26 @@ describe("negated and mixed capability clauses", () => {
   const c06 =
     "Visa en dekorativ roterbar 3D-produkt på en vanlig presentationssida, utan fysik, spel, konto eller dashboard.";
 
+  it.each([
+    "Rotate the cards without 3D.",
+    "Rotate the cards. No 3D.",
+    "Create floating ornaments without an object.",
+    "Create a perspective layout, no card.",
+  ])("does not treat a pattern spanning a negated token as 3D: %s", (prompt) => {
+    expect(inferCapabilities(prompt).needs3D).toBe(false);
+    expect(explicitlyRequests3D(prompt)).toBe(false);
+  });
+
+  it.each([
+    "Build a 3D hero. Rotate the cards without 3D.",
+    "Create a floating object. No other object.",
+    "No floating ornaments. Create a floating object.",
+    "Create a perspective card. No other card.",
+  ])("keeps a separate wholly positive 3D match: %s", (prompt) => {
+    expect(inferCapabilities(prompt).needs3D).toBe(true);
+    expect(explicitlyRequests3D(prompt)).toBe(true);
+  });
+
   it("keeps C01–C06 on the requested capability flags", () => {
     expect(inferCapabilities(c01).needsGame).toBe(false);
     const portfolio = inferCapabilities(c03);

@@ -89,7 +89,7 @@ function negationWindowEnd(text: string, start: number): number {
 }
 
 /** Teckenintervall (start/slut) för varje negationsfönster i prompten. */
-function negatedWindowRanges(prompt: string): Array<{ start: number; end: number }> {
+export function negatedWindowRanges(prompt: string): Array<{ start: number; end: number }> {
   const text = String(prompt ?? "");
   return [...text.matchAll(NEGATION_TERM_RE)].map((match) => ({
     start: match.index ?? 0,

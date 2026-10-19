@@ -31,8 +31,8 @@ import {
   hasNegatedBackendIntent,
   hasNegatedEcommerceIntent,
   hasNegatedPaymentIntent,
-  isTermFullyNegated,
   isVisualOnlyFollowUpPrompt,
+  negatedWindowRanges,
 } from "@/lib/builder/prompt-negation";
 
 export interface InferredCapabilities {
@@ -115,13 +115,13 @@ export const NEEDS_3D_PATTERNS: RegExp[] = [
   /\b(3d|three\.?js|webgl|mesh|orb|sphere|particle|three-fiber|@react-three|drei|3d-?model)\b/i,
   /\b(3d[-\s]?(canvas|scene|scen)|webgl[-\s]?(canvas|scene)|three[-\s]?(canvas|scene))\b/i,
   /\b3d[a-zåäö-]+\b/i,
-  /\b(rotat.*3d|tilt|perspect.*card|floating.*object)\b/i,
+  /\b(rotat.*?3d|tilt|perspect.*?card|floating.*?object)\b/i,
   /\b(gltf|glb|usegltf)\b/i,
 ];
 
 /**
- * Rules whose matching occurrences are ignored when every hit sits inside a
- * negation window. A positive hit outside the window still counts — this is
+ * Rules whose matching occurrences must lie wholly outside negation windows.
+ * A separate positive hit still counts — this is
  * not a prompt-wide veto. Auth is included so a fully negated `konto` (absent
  * from `hasNegatedAuthIntent`) does not light `needsAuth`; the global auth
  * veto below is unchanged.
@@ -136,7 +136,18 @@ const NEGATED_OCCURRENCE_KEYS = new Set<keyof InferredCapabilities>([
 ]);
 
 function hasUnnegatedPatternMatch(prompt: string, pattern: RegExp): boolean {
-  return pattern.test(prompt) && !isTermFullyNegated(prompt, pattern);
+  const negations = negatedWindowRanges(prompt);
+  if (negations.length === 0) return pattern.test(prompt);
+  const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+  // A zero-width lookahead also visits starts inside a rejected earlier hit.
+  // Non-greedy span patterns keep an earlier positive endpoint reachable.
+  const overlappingMatches = new RegExp(`(?=(${pattern.source}))`, flags);
+  for (const match of prompt.matchAll(overlappingMatches)) {
+    const start = match.index ?? 0;
+    const end = start + match[1]!.length;
+    if (!negations.some((window) => start < window.end && end > window.start)) return true;
+  }
+  return false;
 }
 
 /**
