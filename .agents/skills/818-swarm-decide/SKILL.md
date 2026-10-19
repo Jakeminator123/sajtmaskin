@@ -5,39 +5,40 @@ description: Use for /818 or one structured go/no-go: three read-only angles, pa
 
 # 818 — one question → three angles → one decision
 
-The name is historical: `818` meant eight agents. Since 2026-08-02 it is **three**. Eight cheap agents on one question produced correlated opinions, not independent ones — the same code read through slightly different framings, which reads as consensus and is not. The value is the ritual: verify, decide once, change little. The trigger stays `/818` so muscle memory keeps working.
-
-**This is for decisions, not bugs.** A bug has a runnable acceptance criterion, so it belongs in [`kedja-fix-pipeline`](../kedja-fix-pipeline/SKILL.md) where a failing test is the judge. A decision has no such judge, which is exactly why the parent must verify the facts itself.
+The name is historical (eight agents). Since 2026-08-02 it is **three**: more
+agents on one question produced correlated opinions, not independent ones. This
+is for decisions; a bug has a runnable acceptance test and belongs in
+[`kedja-fix-pipeline`](../kedja-fix-pipeline/SKILL.md).
 
 ## Pattern (orchestrator = main agent)
 
-1. **One-sentence problem statement** from the user, or ask one clarifying line. Never guess the scope.
-2. **Three** parallel `Task` calls: `explore`, `readonly: true`, `model: <sol>` (resolve the current Sol slug via [`subagent-models.mdc`](../../../.cursor/rules/subagent-models.mdc)).
-3. **Three fixed angles**, one per agent — see the table below. Do not add a fourth.
-4. Require **short** output: max 6 lines, table or bullets, `%` or H/M/L where it fits. No prose.
-5. **Parent verifies** every load-bearing claim with repo tools before deciding. Code is source of truth; subagents may not see `.git`, may miss an existing guard, and sometimes invent `fil:rad`.
-6. **Aggregate** into one table + **one** recommended action.
-7. **Promote before writing:** if the decision is clear and narrow, enter the
-   canonical [`pr-workflow`](../pr-workflow/SKILL.md) first. Fetch fresh
-   `origin/master`, create the task's own worktree/allowed branch and use its
-   commit→PR→native GitHub checks/review→explicit or conditional mandate→cleanup lifecycle.
-   `/818` is never an alternate delivery path. Otherwise list the blockers and
-   stop without edits.
-8. **Implement** only inside that PR-workflow worktree.
-9. **Verify** with `npm run verify:pr -- --plan` plus relevant targeted
-   `vitest`/`ReadLints` checks. GitHub Actions owns the blocking full profile.
-10. **Review pass**: one readonly `<sol>` agent reviews the **intent of the
-    change** without rewriting code. Two agents only for protected paths.
+1. One-sentence problem statement from the user, or ask one clarifying line.
+   Never guess the scope.
+2. **Three** parallel `Task` calls: `explore`, `readonly: true`, `<sol>` per
+   [`subagent-models.mdc`](../../../.cursor/rules/subagent-models.mdc), one fixed
+   angle each (table below). No fourth.
+3. Max 6 lines per answer, table or bullets, `%` or H/M/L. No prose.
+4. **Parent verifies** every load-bearing claim with repo tools before deciding.
+   Subagents miss existing guards and sometimes invent `fil:rad`.
+5. Aggregate into one table + **one** recommended action.
+6. **Promote before writing:** if the decision is clear and narrow, enter the
+   canonical [`pr-workflow`](../pr-workflow/SKILL.md) before the first edit; it
+   owns base, branch, verification, PR, mandate and cleanup. `/818` is never an
+   alternate delivery path. Otherwise list the blockers and stop without edits.
+7. Verify with `npm run verify:pr -- --plan` plus targeted checks.
+8. One readonly `<sol>` agent reviews the **intent** of the change without
+   rewriting code; two only for protected paths.
 
 ## The three angles
 
-| #   | Angle            | What the agent answers                                                                                     |
-| --- | ---------------- | ---------------------------------------------------------------------------------------------------------- |
-| 1   | **Konsekvens**   | What breaks if we do it — call sites, existing tests that lock today's behaviour, migrations               |
-| 2   | **Motståndaren** | The strongest case _against_, plus the cheapest alternative that avoids the change entirely                |
-| 3   | **Kanon**        | Who already owns this decision — glossary, manifest, policy, a `BUG-SWARM-BACKLOG.md` row, a finished plan |
+| # | Angle | What the agent answers |
+|---|---|---|
+| 1 | **Konsekvens** | What breaks — call sites, tests that lock today's behaviour, migrations |
+| 2 | **Motståndaren** | The strongest case _against_, plus the cheapest alternative that avoids the change |
+| 3 | **Kanon** | Who already owns the decision — glossary, manifest, policy, a backlog row, a finished plan |
 
-Chosen so they do not overlap: forward risk, counter-case, ownership. Two agents agreeing is only a signal when they were looking at different things.
+Forward risk, counter-case and ownership do not overlap, so two agents agreeing
+is a real signal.
 
 ## Prompt template
 
@@ -57,14 +58,5 @@ Säkerhet: <H/M/L or %>
 Om du har fel: <the assumption that would break your answer>
 ```
 
-## When NOT to use
-
-- Fixing a defect → `/kedja` (it has a real judge).
-- Huge multi-area refactor → a scoped plan, not a swarm.
-- A single-file typo → just fix it.
-
-## Related
-
-- Command: [`.cursor/commands/818.md`](../../../.cursor/commands/818.md)
-- Fix counterpart: [`kedja-fix-pipeline`](../kedja-fix-pipeline/SKILL.md)
-- Broad audit counterpart: [`automat-swarm`](../automat-swarm/SKILL.md)
+Not for defects (`/kedja`), huge multi-area refactors (scoped plan) or
+single-file typos (just fix them).

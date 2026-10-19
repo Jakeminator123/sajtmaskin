@@ -5,128 +5,70 @@ description: Kör en samtyckesstyrd live prod-generation i Cursor-browsern och a
 
 # /logg-internet — live prod-session med notiser
 
-Kör en **riktig** generering på produktions-sajten via **Cursor-browsern** och
-**antecknar** hur körningen går. Default-persona = **Observatör** (ta notiser, inte
-jaga fel). Kopplad till loggarna: kan korsreferera mot `/logg` för samma `chatId`.
-
-Prod-URL: **https://sajtmaskin.vercel.app/**
-
-## Persona (default: ta notiser)
+Kör en **riktig** generering på https://sajtmaskin.vercel.app/ via Cursor-browsern
+(MCP `cursor-ide-browser`) och anteckna förloppet. Kan korsreferera `/logg` för
+samma `chatId`.
 
 | Persona | När | Beteende |
 |---|---|---|
-| **Observatör** (default) | alltid, om inget annat sägs | Beskriv neutralt vad som händer: prompts, svar, tider, preview-utfall, UI-tillstånd. Notera avvikelser, men jaga **inte** fel. **Ingen** rad i `BUG-SWARM-BACKLOG.md` Aktiv kö. |
-| **Felsökare** | bara om användaren säger "felsök" / "buggjägare" / "hitta fel" | Aktivt leta fel. Lyft **bara** bekräftad defekt via `/buggrapport` efter grinden (falsifierbar + ankare; inte CORS/Fast Refresh/enstaka 4xx). |
-
-Utgå alltid från Observatör i diskussion och körning tills användaren säger annat.
-
-## Trigger & argument
+| **Observatör** (default) | om inget annat sägs | Beskriv neutralt prompts, svar, tider, preview och UI; notera avvikelser men jaga inte fel. Aldrig en rad i Aktiv kö |
+| **Felsökare** | bara på "felsök"/"buggjägare"/"hitta fel" | Leta aktivt; lyft bara bekräftad defekt via `/buggrapport` (falsifierbar + ankare; inte CORS, Fast Refresh eller enstaka 4xx) |
 
 | Kommando | Betydelse |
 |---|---|
-| `/logg-internet` | Observatörssession: agenten komponerar en realistisk svensk friprompt + ~2 uppföljningar. |
-| `/logg-internet <ämne/prompt>` | Använd angivet ämne/prompt som friprompt (t.ex. "frisörsalong i Göteborg"). |
-| `/logg-internet followups=<N>` | Antal uppföljningar (default ~2, rimligt 1–3). |
-| `/logg-internet felsök` | Byt till Felsökare-persona för denna session. |
-| `/logg-internet loggar` | Korsreferera mot `/logg` (backend-loggar) efter sessionen. |
+| `/logg-internet` | Realistisk svensk friprompt + ~2 uppföljningar |
+| `/logg-internet <ämne>` | Ämnet blir friprompten |
+| `/logg-internet followups=<N>` | Antal uppföljningar (1–3) |
+| `/logg-internet felsök` | Felsökare för sessionen |
+| `/logg-internet loggar` | Kör `/logg` för `chatId` efteråt |
 
-## Steg 0 — Fråga först
-
-**Fråga alltid** innan något annat:
+## Steg 0 — fråga först
 
 > "Har du öppnat en Cursor-browser och loggat in på https://sajtmaskin.vercel.app/?
 > Detta kör en **riktig** generering på prod och drar credits på ditt konto."
 
-Vänta på svar. Logga **aldrig** in åt användaren (lösenord/passkey är manuellt).
+Vänta på svar. Logga aldrig in åt användaren; lösenord, passkey och captcha är manuella.
 
-## Target-map (verifierade markörer i koden)
+## Markörer
 
-| Yta | Markör | Åtgärd |
-|---|---|---|
-| Inloggad? | Header visar **"Mina projekt"** + **"Öppna builder"** + **"Logga ut"** | fortsätt |
-| Utloggad? | Header visar **"Logga in"** + **"Kom igång gratis"** | påminn + pausa |
-| Landing-lägen | Knappar: Analyserad · Template · Audit · **Fritext** | välj **Fritext** (default) |
-| Landing friprompt | `textarea[data-openclaw-text-target="landing.freeform.primary"]`, placeholder "Skriv fritt — berätta vad du vill skapa…" | skriv text |
-| Landing skicka | Knapp `aria-label="Skicka"` (pil upp) — eller **Enter** (utan Shift) | skicka |
-| Builder-prompt | `textarea[data-openclaw-text-target="builder.chat.primary"]` | skriv uppföljning |
-| Builder skicka | Knapp `[data-openclaw-send-target="builder.chat.primary"]` — eller **Enter** | skicka |
+| Yta | Markör |
+|---|---|
+| Inloggad | Header: **"Mina projekt"**, **"Öppna builder"**, **"Logga ut"** |
+| Utloggad | Header: **"Logga in"**, **"Kom igång gratis"** → påminn och pausa |
+| Landing-läge | Knappar Analyserad · Template · Audit · **Fritext** (välj Fritext) |
+| Landing-prompt | `textarea[data-openclaw-text-target="landing.freeform.primary"]` |
+| Landing skicka | `aria-label="Skicka"` eller Enter (utan Shift) |
+| Builder-prompt | `textarea[data-openclaw-text-target="builder.chat.primary"]` |
+| Builder skicka | `[data-openclaw-send-target="builder.chat.primary"]` eller Enter |
 
-> Landing-submit skapar projektet och navigerar till `/builder` med prompten **förifylld** i
-> builder-fältet. Generering startar **först vid explicit skicka** i buildern (så steg 3 måste klicka skicka).
+Landing-submit skapar projektet och öppnar `/builder` med prompten förifylld;
+genereringen startar först när du klickar skicka i buildern.
 
-## Arbetsflöde (Cursor-browser MCP `cursor-ide-browser`)
+## Arbetsflöde
 
-Ordning för lås: **navigate → lock → interagera → unlock**. Utelämna `position` så
-fokus behålls (bakgrundsautomation). Vid ihållande stopp (~4 misslyckade försök):
-**stanna och rapportera** vad du såg — improvisera inte vidare.
+Browserordning: `browser_tabs` list → `browser_navigate` (utan `position`) →
+`browser_lock` → interagera → `browser_lock` unlock. Efter ~4 misslyckade försök
+eller oväntat tillstånd: stanna och rapportera.
 
-```text
-- [ ] 0. Fråga om browser öppen + inloggad på prod (steg 0)
-- [ ] 1. Verifiera flik + inloggning (annars påminn och pausa)
-- [ ] 2. Friprompt på landing (Fritext) → skicka
-- [ ] 3. Builder: klicka skicka → generering startar → observera tills klar
-- [ ] 4. ~2 uppföljningsprompter, en i taget, observera var och en
-- [ ] 5. Skriv notiser + (valfritt) korsref mot /logg → unlock
-```
+1. **Flik och inloggning:** navigera vid behov, lås och läs headern i
+   `browser_snapshot`; utloggad → påminn och pausa.
+2. **Friprompt:** säkra Fritext, `browser_type` prompten (given eller realistisk
+   svensk SMB-prompt) och skicka.
+3. **Första genereringen:** vänta på `/builder`, klicka skicka, läs `chatId` från
+   URL:en och polla med korta `browser_snapshot`/`browser_cdp` tills strömmen är
+   klar. `browser_take_screenshot` som bevis; notera modell, tid, vad som byggdes
+   och previewtillstånd. Previewn är en iframe som inte syns i snapshot —
+   använd screenshot och vid behov Fly-loggar via `/logg`.
+4. **Uppföljningar** (default 2): en realistisk iterativ ändring i taget; vänta
+   tills fältet är skrivbart igen innan nästa.
+5. **Notiser:** skriv `.cursor/logg-internet/runs/<YYYY-MM-DD_HHMM>.md`
+   (`Get-Date -Format "yyyy-MM-dd_HHmm"`) och rensa bara den ytan:
+   `node scripts/dev/clean-scratch.mjs --apply --only .cursor/logg-internet/runs`
+   (inte globala `clean:scratch:apply`; `node`, npm äter flaggan). Vid `loggar`
+   eller Felsökare: kör `/logg` för `chatId` och väv in — `/logg` äger drain/console,
+   hämta den inte en gång till. Unlock och ge en kort sammanfattning med pekare.
 
-### 1. Verifiera flik + inloggning
-
-- `browser_tabs` (`action: "list"`) → finns en flik på `sajtmaskin.vercel.app`? Annars `browser_navigate` dit.
-- `browser_lock` (`action: "lock"`).
-- `browser_snapshot` → läs headern. Ser du **"Logga in"/"Kom igång gratis"** → **oinloggad**:
-  påminn användaren ("Du verkar oinloggad — logga in i browsern och säg till"), **pausa**.
-  Ser du **"Mina projekt"/"Öppna builder"** → inloggad, fortsätt.
-
-### 2. Friprompt på landing
-
-- Säkra **Fritext**-läget (klicka knappen om annat läge är aktivt).
-- Hitta friprompt-fältet i snapshoten (textarea med placeholdern ovan; bekräfta vid behov
-  identiteten med `browser_cdp` `DOM`/`Runtime.evaluate` mot `[data-openclaw-text-target="landing.freeform.primary"]`).
-- `browser_type` in prompten (given av användaren, annars en realistisk svensk SMB-prompt,
-  t.ex. "Jag driver en frisörsalong i Göteborg med 3 anställda och vill ha bokning online").
-- Skicka: `browser_press_key` **Enter** (utan Shift) eller `browser_click` på **"Skicka"**.
-
-### 3. Starta + observera första genereringen
-
-- Vänta på `/builder`. `browser_snapshot`. Builder-fältet är förifyllt → `browser_click`
-  på skicka-knappen (`data-openclaw-send-target="builder.chat.primary"`) för att **starta**.
-- Läs `chatId` från URL:en (t.ex. `/builder?chat=…`) — behövs för logg-korsref.
-- Observera streaming: poll:a med korta `browser_snapshot` eller `browser_cdp`
-  (`Runtime.evaluate`) tills strömmen är klar och preview visas. `browser_take_screenshot`
-  för bevis. **Notera** modell, ungefärlig tid, vad som byggdes, preview-tillstånd.
-- Console/network vid behov: `browser_cdp` (`Log.enable`, `Network.enable`) — läs, jaga inte
-  fel i Observatörsläge.
-
-### 4. Uppföljningar (~2)
-
-För varje uppföljning (default 2; 1–3):
-
-- Komponera en realistisk iterativ ändring på svenska (t.ex. "Lägg till en prissektion med
-  tre paket", "Byt till mörkt färgtema och lägg till kontaktformulär").
-- `browser_type` in i `builder.chat.primary` → skicka (Enter eller skicka-knappen).
-- Vänta tills fältet är skrivbart igen / skicka-knappen är redo innan nästa. Observera + notera.
-
-### 5. Notiser + ev. logg-korsref
-
-- Skriv en notis-fil: `.cursor/logg-internet/runs/<YYYY-MM-DD_HHMM>.md` (tidsstämpel:
-  `Get-Date -Format "yyyy-MM-dd_HHmm"`). Se mallen nedan. Rensa sedan **bara den
-  här ytan** så `runs/` håller 3 nyaste och yngre än 14 dagar:
-
-  ```powershell
-  node scripts/dev/clean-scratch.mjs --apply --only .cursor/logg-internet/runs
-  ```
-
-  Kör aldrig blanka `npm run clean:scratch:apply` här — den globala städningen rör
-  även handoffs, kedja-kandidater, `.cursor/tmp`, `logs/` och `.env-backups`, som
-  den här körningen inte äger. Använd `node`, inte `npm run --` (npm äter flaggan).
-- **Valfritt** (om `loggar` eller Felsökare): kör **bara** `/logg` för `chatId` och
-  väv in resultatet. `/logg` äger redan drain (`--kinds=drain`) **eller**
-  `vercel logs`-fallback — hämta **inte** drain/console en andra gång här. Annars
-  dubbelrapporteras samma postcheck-/tmp-/timeout-rader.
-- `browser_lock` (`action: "unlock"`).
-- Ge användaren en kort sammanfattning i chatten + pekare till notis-filen.
-
-## Notis-mall
+## Notismall
 
 ```markdown
 # /logg-internet — <YYYY-MM-DD HH:MM>
@@ -137,17 +79,16 @@ Persona: Observatör | Prod: https://sajtmaskin.vercel.app/ | chatId: <…>
 - Friprompt: "<text>"
 - Uppföljningar: 1) "<text>"  2) "<text>"
 
-## Observationer (per steg)
+## Observationer
 | Steg | Vad hände | Tid | Preview | Notis |
 |---|---|---|---|---|
 | Init | modell X, N filer | ~s | ok/vit | … |
 | Follow-up 1 | … | | | |
-| Follow-up 2 | … | | | |
 
 ## Skärmbilder
 - <ref/sökväg>
 
-## Ev. avvikelser (bara notis, ej åtgärd i Observatörsläge)
+## Ev. avvikelser (bara notis i Observatörsläge)
 - …
 
 ## Logg-korsref (om körd)
@@ -156,20 +97,8 @@ Persona: Observatör | Prod: https://sajtmaskin.vercel.app/ | chatId: <…>
 
 ## Guardrails
 
-- **Prod = riktig generering** som drar credits. Kör bara efter uttryckligt OK (steg 0).
-- **Logga aldrig in åt användaren.** Lösenord/passkey/captcha = manuellt — påminn och pausa.
-- **Default = ta notiser.** Byt till Felsökare bara på begäran. Observatör skriver aldrig SM-rader; Felsökare följer `/buggrapport`-grinden.
-- Browser-ordning: navigate → lock → interagera → **unlock**. Utelämna `position`.
-- Fastnar det (~4 misslyckade försök eller oväntat tillstånd): **stanna och rapportera**, improvisera inte.
-- Preview körs i **iframe** — innehållet syns inte i snapshot. Observera via screenshot + (vid behov) Fly preview-host-loggar (se `/logg`).
-- Skriv inga secrets/cookies/tokens i notiser eller svar.
-- Notis-filer ligger i gitignored `.cursor/logg-internet/` — stage dem aldrig.
-
-## Related
-
-- Kommando: [`.cursor/commands/logg-internet.md`](../../../.cursor/commands/logg-internet.md)
-- Backend-loggar (DB/Vercel/Fly): [`.agents/skills/logg/SKILL.md`](../logg/SKILL.md)
-- Notis-yta: [`.cursor/logg-internet/README.md`](../../../.cursor/logg-internet/README.md)
-- Lyft bekräftad defekt: `/buggrapport` → `BUG-SWARM-BACKLOG.md`
-- Vilka backlog-rader en session kan träffa: [`docs/runbooks/live-verifiering.md`](../../../docs/runbooks/live-verifiering.md)
-- Browser-server: `cursor-ide-browser` MCP (lock/unlock, snapshot, type, click, cdp)
+- Riktig generering som drar credits: bara efter uttryckligt OK i steg 0.
+- Inga secrets, cookies eller tokens i notiser eller svar; notiserna är
+  gitignorerade och stageas aldrig.
+- Vilka backloggrader en session kan träffa:
+  [`docs/runbooks/live-verifiering.md`](../../../docs/runbooks/live-verifiering.md).
