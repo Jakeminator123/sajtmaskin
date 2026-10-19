@@ -1,3 +1,5 @@
+import { appendStreamWarning, splitTrailingStreamWarning } from "@/lib/builder/stream-warning";
+
 /**
  * Deterministic end-of-turn summary for the builder chat.
  *
@@ -12,6 +14,9 @@
  * knows — no extra LLM call, no cost, always present. It is appended to the
  * persisted assistant message and streamed as the last `content` chunk, so
  * `GenerationSummary` renders it as the prose bubble above the file card.
+ * When repair rebuilds the files and drops the model's explanation, an
+ * adequate raw explanation is recovered onto the message only — never back
+ * into the file serialization.
  *
  * Copy rules: Swedish, first person ("jag"), 2–4 sentences, no file paths
  * beyond short basenames, no telemetry vocabulary. Honest about what was
@@ -80,21 +85,51 @@ const NAMED_FILES_MAX = 4;
  */
 const MODEL_PROSE_MIN_CHARS = 40;
 
-const CODE_FENCE_RE = /```[\s\S]*?```/g;
-const THINKING_RE = /<Thinking>[\s\S]*?<\/Thinking>/gi;
+const HUMAN_LETTER_RE = /\p{L}/u;
+
+/**
+ * Same residual as the chat bubble: drop closed fences and thinking, then cut
+ * at the earliest open fence or bare `lang file="…"` tail. Keep paragraphs.
+ */
+function stripGeneratedCodeResidue(body: string): string {
+  let residual = body
+    .replace(/```[^\n]*\n[\s\S]*?```/g, "")
+    .replace(/<Thinking>[\s\S]*?<\/Thinking>/gi, "");
+  const unclosedThinking = /<Thinking>/i.exec(residual);
+  if (unclosedThinking) residual = residual.slice(0, unclosedThinking.index);
+
+  const fenceMatch = /```[^\n]*(?:\n|$)/.exec(residual);
+  const streamMatch = /(?:^|\n)[a-z0-9]+ file="[^"]+"[^\n]*(?:\n|$)/.exec(residual);
+  const candidates: number[] = [];
+  if (fenceMatch) candidates.push(fenceMatch.index);
+  if (streamMatch) {
+    candidates.push(streamMatch.index + (streamMatch[0].startsWith("\n") ? 1 : 0));
+  }
+  if (candidates.length > 0) residual = residual.slice(0, Math.min(...candidates));
+  return residual.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function proseIsAdequate(prose: string): boolean {
+  const collapsed = prose.replace(/\s+/g, " ").trim();
+  return collapsed.length >= MODEL_PROSE_MIN_CHARS && HUMAN_LETTER_RE.test(collapsed);
+}
+
+/**
+ * Explanation outside the files. `null` when nothing adequate remains, so a
+ * code tail cannot suppress or replace the deterministic summary.
+ */
+export function extractUsefulModelProse(content: string): string | null {
+  const { body } = splitTrailingStreamWarning(String(content ?? ""));
+  const prose = stripGeneratedCodeResidue(body);
+  return proseIsAdequate(prose) ? prose : null;
+}
 
 /**
  * `true` when the model already wrote a readable explanation outside the
  * code blocks. Then the deterministic summary stays out of the way.
  */
 export function hasModelProseSummary(content: string): boolean {
-  const residual = String(content ?? "")
-    .replace(CODE_FENCE_RE, "")
-    .replace(THINKING_RE, "")
-    .replace(/(?:^|\n)[a-z0-9]+ file="[^"]+"[^\n]*/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  return residual.length >= MODEL_PROSE_MIN_CHARS;
+  return extractUsefulModelProse(content) !== null;
 }
 
 function normalizePath(path: string): string {
@@ -280,4 +315,47 @@ export function appendTurnSummary(content: string, summary: string | null): stri
   if (!summary) return content;
   const base = String(content ?? "").replace(/\s+$/, "");
   return base ? `${base}\n\n${summary}\n` : `${summary}\n`;
+}
+
+function joinExplanationAndFiles(explanation: string, files: string): string {
+  const prose = explanation.replace(/\s+$/, "");
+  const code = files.replace(/^\s+/, "");
+  if (!prose) return files;
+  if (!code) return prose;
+  if (code === prose || code.startsWith(`${prose}\n`)) return code;
+  return `${prose}\n\n${code}`;
+}
+
+function attachStreamWarningOnce(body: string, warning: string | null): string {
+  if (!warning) return body;
+  const normalized = body.replace(/\s+$/, "");
+  if (normalized === warning || normalized.endsWith(`\n${warning}`)) return normalized;
+  const message = warning.replace(/^Varning:\s*/u, "");
+  return appendStreamWarning(normalized, message);
+}
+
+/**
+ * Chat message = explanation (final prose, else adequate raw prose, else the
+ * fallback) kept apart from the rebuilt files. A trailing stream warning is
+ * attached once. File bytes stay in `rebuiltContent`.
+ */
+export function composePersistedAssistantContent(input: {
+  rawContent: string;
+  rebuiltContent: string;
+  fallbackSummary: string | null;
+}): { content: string; turnSummary: string | null } {
+  const raw = splitTrailingStreamWarning(String(input.rawContent ?? ""));
+  const rebuilt = splitTrailingStreamWarning(String(input.rebuiltContent ?? ""));
+  const finalProse = extractUsefulModelProse(rebuilt.body);
+  const recoveredProse = finalProse ? null : extractUsefulModelProse(raw.body);
+  const turnSummary = finalProse || recoveredProse ? null : input.fallbackSummary;
+
+  let body = rebuilt.body;
+  if (!finalProse && recoveredProse) body = joinExplanationAndFiles(recoveredProse, rebuilt.body);
+  else if (!finalProse) body = appendTurnSummary(rebuilt.body, turnSummary);
+
+  return {
+    content: attachStreamWarningOnce(body, rebuilt.warning ?? raw.warning),
+    turnSummary,
+  };
 }
