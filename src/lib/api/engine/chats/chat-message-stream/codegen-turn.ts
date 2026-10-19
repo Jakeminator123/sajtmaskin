@@ -213,10 +213,15 @@ export async function runCodegenTurn(params: {
       reason: "qa-or-score-no-codegen",
     });
     try {
-      const assistantText = await generateQaShortCircuitText({
-        optimizedMessage,
-        signal: req.signal,
-      });
+      const assistantText = (
+        await generateQaShortCircuitText({
+          optimizedMessage,
+          signal: req.signal,
+        })
+      ).trim();
+      if (!assistantText) {
+        throw new Error("QA short-circuit returned empty text");
+      }
       await chatRepo.addMessage(chatId, "assistant", assistantText).catch(() => null);
       const qaStream = buildQaShortCircuitStream({
         chatId,
@@ -240,6 +245,9 @@ export async function runCodegenTurn(params: {
         kind: requestKindResult.kind,
         reason: err instanceof Error ? err.message : String(err),
       });
+      // The follow-up POST catch (chat-message-stream-post.ts) already
+      // normalizes this into HTTP. Falling through would start codegen.
+      throw err;
     }
   }
   const engineModel = resolveEngineModelId(resolvedModelTier);
