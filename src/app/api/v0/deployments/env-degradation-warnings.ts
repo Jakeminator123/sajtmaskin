@@ -63,14 +63,14 @@ export function buildEnvDegradationWarnings(params: {
 
   const featureRuntimeWarnings: EnvDegradationWarning[] = params.featureRuntimeKeys.map((key) => {
     const integration = nameByKey.get(key) ?? unknownIntegrationLabel;
-    const openRoutes = OPEN_ROUTES_WITHOUT_KEY.has(key)
-      ? " Skyddade sidor är öppna för alla tills dess."
-      : "";
+    const effect = OPEN_ROUTES_WITHOUT_KEY.has(key)
+      ? "körs i demoläge och skyddade sidor är öppna för alla"
+      : "visar en infoskylt för besökaren";
     return {
       key,
       integration,
       reason: "feature-runtime",
-      message: `${key} är inte konfigurerad — ${integration} visar en infoskylt för besökaren tills du fyller i ett värde under Miljövariabler.${openRoutes}`,
+      message: `${key} är inte konfigurerad — ${integration} ${effect} tills du fyller i ett värde under Miljövariabler.`,
     };
   });
 
