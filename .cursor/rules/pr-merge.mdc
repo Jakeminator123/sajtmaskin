@@ -34,6 +34,25 @@ oberoende granskare kan utföra den. Ett produktnamn är inget eget krav.
    ny review. Bara Dependabot-vägen använder native auto-merge. Aldrig
    `--admin`. Kontrollera efteråt att push-CI och deployment startade.
 
+## Bug-koll i ChatGPT (före merge)
+
+Gäller när agenten som ska merga har en ChatGPT-flik (`chatgpt.com`) öppen.
+Browserstegen och projektet ägs av användarskillen `gpt-merge-hjalp-in-browser`
+(`/gpt-merge-hjälp-in-browser`).
+
+1. Läs bara chattens namn, om det är en ny chatt och modelläget, inte hela
+   sidan. Modellen ska stå på `Pro`.
+2. Skriv en kort PR-kommentar på GitHub om att merge planeras.
+3. Skriv i ChatGPT vilka PR:ar (nummer och head-SHA) du vill merga och be om
+   en kort buggrapport med bug-score per PR. Kom ihåg exakt vad du bad om.
+4. Vänta på det färdiga svaret, oftast 3–4 minuter.
+5. Redovisa bug-score per PR i Cursor-chatten. Rätta småfel (ny head kräver
+   ny koll). Större fel går till ansvarig lokal agent om det finns ett system
+   för det, annars till chatten. En PR kan förkastas.
+6. Merga enligt punkt 5 ovan.
+
+Utan ChatGPT-flik gäller vanlig oberoende granskning.
+
 Dependabot-undantaget ägs av `.github/workflows/dependabot-automerge.yml` och
 `config/dependabot-automerge.json`: endast allowlistade npm-patchar med en ren
 manifest-/lockdiff får native auto-merge. Major/minor, corepaket, scripts,
