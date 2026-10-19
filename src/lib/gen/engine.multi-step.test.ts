@@ -73,8 +73,9 @@ const lookupColor = tool({
 });
 
 type ModelStreamResult = Awaited<ReturnType<MockLanguageModelV3["doStream"]>>;
+type ModelStreamPart = ModelStreamResult["stream"] extends ReadableStream<infer Part> ? Part : never;
 
-function streamResult(parts: readonly object[]): ModelStreamResult {
+function streamResult(parts: readonly ModelStreamPart[]): ModelStreamResult {
   return {
     stream: new ReadableStream({
       start(controller) {
@@ -82,10 +83,10 @@ function streamResult(parts: readonly object[]): ModelStreamResult {
         controller.close();
       },
     }),
-  } as ModelStreamResult;
+  };
 }
 
-function textParts(text: string, usage: V3Usage) {
+function textParts(text: string, usage: V3Usage): ModelStreamPart[] {
   return [
     { type: "stream-start", warnings: [] },
     { type: "text-start", id: "text-1" },
@@ -99,7 +100,7 @@ function textParts(text: string, usage: V3Usage) {
   ];
 }
 
-function toolParts(usage: V3Usage, toolCallId: string) {
+function toolParts(usage: V3Usage, toolCallId: string): ModelStreamPart[] {
   return [
     { type: "stream-start", warnings: [] },
     {
