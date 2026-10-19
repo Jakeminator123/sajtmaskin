@@ -93,7 +93,7 @@ const HUMAN_LETTER_RE = /\p{L}/u;
  */
 function stripGeneratedCodeResidue(body: string): string {
   let residual = body
-    .replace(/```[^\n]*\n[\s\S]*?```/g, "")
+    .replace(/```[^\n]*\n[\s\S]*?^```[ \t]*\r?$/gm, "")
     .replace(/<Thinking>[\s\S]*?<\/Thinking>/gi, "");
   const unclosedThinking = /<Thinking>/i.exec(residual);
   if (unclosedThinking) residual = residual.slice(0, unclosedThinking.index);

@@ -211,6 +211,11 @@ function times(haystack: string, needle: string): number {
 }
 
 describe("extractUsefulModelProse", () => {
+  it("does not recover file contents after an inline fence inside generated code", () => {
+    const raw = `${EXPLANATION}\n\n${fence("tsx", "app/page.tsx", 'const markdownFence = "```";\nconst RAW_FILE_CONTENT = "must stay inside the file";')}`;
+    expect(extractUsefulModelProse(raw)).toBe(EXPLANATION);
+  });
+
   it("keeps Swedish paragraphs before and after a closed fence", () => {
     const raw = `${BEFORE}\n\n${fence("tsx", "app/page.tsx", "export default function Page() { return null; }")}\n\n${AFTER}`;
     expect(extractUsefulModelProse(raw)).toBe(EXPLANATION);

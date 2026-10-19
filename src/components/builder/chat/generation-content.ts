@@ -14,8 +14,9 @@ interface ParsedContent {
   totalCodeLines: number;
 }
 
-const CODE_BLOCK_RE = /```(\w+)\s+file="([^"]+)"[^\n]*\n([\s\S]*?)```/g;
-const GENERIC_CODE_BLOCK_RE = /```(\w+)?[^\n]*\n([\s\S]*?)```/g;
+// A closing fence occupies its own line; backticks inside file strings are code.
+const CODE_BLOCK_RE = /```(\w+)\s+file="([^"]+)"[^\n]*\n([\s\S]*?)^```[ \t]*\r?$/gm;
+const GENERIC_CODE_BLOCK_RE = /```(\w+)?[^\n]*\n([\s\S]*?)^```[ \t]*\r?$/gm;
 const THINKING_RE = /<Thinking>([\s\S]*?)<\/Thinking>/gi;
 const OPEN_FENCE_RE = /```(\w+)?[^\n]*(?:\n|$)/;
 const STREAM_FILE_HEADER_RE = /(?:^|\n)([a-z0-9]+) file="([^"]+)"[^\n]*(?:\n|$)/;
