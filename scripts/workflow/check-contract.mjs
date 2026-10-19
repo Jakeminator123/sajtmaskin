@@ -515,14 +515,13 @@ export function evaluateDossierAcceptanceWorkflow(source) {
     "synchronize",
     "reopened",
     "ready_for_review",
-    "edited",
   ];
   if (
     pullRequest &&
     typeof pullRequest === "object" &&
     !includesEvery(pullRequest.types, requiredTypes)
   ) {
-    errors.push("dossier-acceptance must run on new heads, ready_for_review and base retargets (edited)");
+    errors.push("dossier-acceptance must run on new heads and ready_for_review");
   }
   if (values(pullRequest?.types).includes("converted_to_draft")) {
     errors.push("dossier-acceptance must not restart unchanged work on converted_to_draft");
@@ -611,12 +610,9 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     "synchronize",
     "reopened",
     "ready_for_review",
-    "edited",
   ];
   if (!includesEvery(pullRequest?.types, requiredTypes)) {
-    errors.push(
-      "CI must run on new heads, upgrade deferred checks on ready_for_review and re-run on base retargets (edited)",
-    );
+    errors.push("CI must run on new heads and upgrade deferred checks on ready_for_review");
   }
   if (values(pullRequest?.types).includes("converted_to_draft")) {
     errors.push("CI must not restart unchanged work on converted_to_draft");

@@ -1218,7 +1218,7 @@ describe("agent workflow repository contract", () => {
     expect(
       evaluateDossierAcceptanceWorkflow(
         source.replace(
-          "    types: [opened, synchronize, reopened, ready_for_review, edited]\n",
+          "    types: [opened, synchronize, reopened, ready_for_review]\n",
           '    paths: ["data/dossiers/**"]\n',
         ),
       ).length,
