@@ -531,3 +531,61 @@ describe("buildCapabilityHints (pack-based)", () => {
     expect(hints).not.toContain("<RigidBody>");
   });
 });
+
+describe("negated and mixed capability clauses", () => {
+  const c01 =
+    "Skapa en exklusiv informationssida för en privat pokerlounge. Beskriv spelkvällar, regler och anmälan. Ingen spelmotor och inget spel om pengar. Mörk grön, svart och guld; använd den syntetiska porträttreferensen.";
+  const c03 =
+    "Skapa en editorial portfolio med stora fotografier, asymmetrisk typografi och tydliga projektberättelser. Ingen dashboard och ingen 3D.";
+  const c05 =
+    "Lägg in en lekfull 2D-yta med några dragbara objekt som studsar. Använd ingen Three.js eller WebGL-scen.";
+  const c06 =
+    "Visa en dekorativ roterbar 3D-produkt på en vanlig presentationssida, utan fysik, spel, konto eller dashboard.";
+
+  it("keeps C01–C06 on the requested capability flags", () => {
+    expect(inferCapabilities(c01).needsGame).toBe(false);
+    const portfolio = inferCapabilities(c03);
+    expect(portfolio.needs3D).toBe(false);
+    expect(portfolio.needsAppShell).toBe(false);
+    expect(explicitlyRequests3D(c03)).toBe(false);
+    expect(inferCapabilities(c05)).toMatchObject({
+      needsPhysics2D: true,
+      needs3D: false,
+      needsPhysics: false,
+    });
+    expect(inferCapabilities(c06)).toMatchObject({
+      needs3D: true,
+      needsPhysics: false,
+      needsGame: false,
+      needsAuth: false,
+      needsAppShell: false,
+    });
+  });
+
+  it("respects English negation and mixed-positive clauses", () => {
+    const decorative = "Build a 3D product. No physics or game.";
+    expect(inferCapabilities(decorative)).toMatchObject({
+      needs3D: true,
+      needsPhysics: false,
+      needsGame: false,
+    });
+    expect(explicitlyRequests3D(decorative)).toBe(true);
+    const game = "No 3D, but build a playable game.";
+    expect(inferCapabilities(game)).toMatchObject({ needs3D: false, needsGame: true });
+    expect(explicitlyRequests3D(game)).toBe(false);
+    const product = "No dashboard, but add a 3D product.";
+    expect(inferCapabilities(product)).toMatchObject({ needsAppShell: false, needs3D: true });
+    expect(explicitlyRequests3D(product)).toBe(true);
+  });
+
+  it("does not infer 2D physics from bare 2D or a fully negated 2D clause", () => {
+    expect(inferCapabilities("Rita en enkel 2D-karta.").needsPhysics2D).toBe(false);
+    expect(inferCapabilities("Ingen 2D och inga studsande objekt.").needsPhysics2D).toBe(false);
+  });
+
+  it("keeps positive 2D physics together with explicit 3D in a later clause", () => {
+    const prompt = "Lägg in en 2D-yta med objekt som studsar. Visa också en 3D-produkt.";
+    expect(inferCapabilities(prompt)).toMatchObject({ needsPhysics2D: true, needs3D: true });
+    expect(explicitlyRequests3D(prompt)).toBe(true);
+  });
+});
