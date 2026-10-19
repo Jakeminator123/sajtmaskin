@@ -5,6 +5,24 @@ import { AUDIT_ADVANCED_ONLY_FIELDS, resolveAuditRun } from "@/lib/audit/audit-t
 const responsesCreate = vi.hoisted(() => vi.fn());
 const openAIConstructor = vi.hoisted(() => vi.fn());
 const scrapeWebsite = vi.hoisted(() => vi.fn());
+// Explicit historical fixture for fallback/usage mechanics, never product defaults.
+const fallbackFixture = vi.hoisted(() => ({
+  enabled: false,
+  models: ["openai/gpt-6-luna", "openai/gpt-5.6-luna"],
+}));
+
+vi.mock("@/lib/audit/audit-tier", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/audit/audit-tier")>();
+  return {
+    ...actual,
+    resolveAuditRun(input: Parameters<typeof actual.resolveAuditRun>[0]) {
+      const resolved = actual.resolveAuditRun(input);
+      return fallbackFixture.enabled && resolved.workloadId === "audit_structured_public"
+        ? { ...resolved, primaryModel: fallbackFixture.models[0], modelCandidates: fallbackFixture.models }
+        : resolved;
+    },
+  };
+});
 
 vi.mock("openai", async (importOriginal) => {
   const actual = await importOriginal<typeof import("openai")>();
@@ -86,6 +104,7 @@ function runPublic(requestStartTime = Date.now()) {
 }
 
 beforeEach(() => {
+  fallbackFixture.enabled = false;
   vi.restoreAllMocks();
   vi.useRealTimers();
   responsesCreate.mockReset();
@@ -190,7 +209,35 @@ describe("runWebsiteAudit Responses fallback", () => {
     expect(responsesCreate).not.toHaveBeenCalled();
   });
 
-  it("falls back across exactly the two manifest candidates for a transient error", async () => {
+  it("real public policy sends only Sol medium", async () => {
+    expect(resolveAuditRun({ promptKind: "public", auditMode: "basic" }).modelCandidates)
+      .toEqual(["openai/gpt-6.1-sol"]);
+    expect((await runPublic()).ok).toBe(true);
+    expect(responsesCreate).toHaveBeenCalledTimes(1);
+    expect(responsesCreate.mock.calls[0][0]).toMatchObject({
+      model: "gpt-6.1-sol", reasoning: { effort: "medium" },
+    });
+  });
+
+  it.each(["transient provider error", "empty completed output"])(
+    "real public Sol-only policy does not add a model for %s",
+    async (failure) => {
+      if (failure === "transient provider error") {
+        responsesCreate.mockRejectedValueOnce(Object.assign(new Error("rate limited"), { status: 429 }));
+      } else {
+        responsesCreate.mockResolvedValueOnce(successfulResponse({ outputText: "" }));
+      }
+      responsesCreate.mockResolvedValueOnce(successfulResponse());
+      expect(await runPublic()).toMatchObject({ ok: false, status: 502 });
+      expect(responsesCreate).toHaveBeenCalledTimes(1);
+      expect(responsesCreate.mock.calls[0][0].model).toBe("gpt-6.1-sol");
+    },
+  );
+
+  describe("explicit historical two-candidate fixture, not public defaults", () => {
+  beforeEach(() => { fallbackFixture.enabled = true; });
+
+  it("falls back across exactly the two declared fixture candidates for a transient error", async () => {
     responsesCreate
       .mockRejectedValueOnce(Object.assign(new Error("rate limited"), { status: 429 }))
       .mockResolvedValueOnce(successfulResponse());
@@ -511,5 +558,6 @@ describe("runWebsiteAudit Responses fallback", () => {
     const result = await runPublic();
     expect(result).toEqual(expect.objectContaining({ ok: true, usedFallback: true }));
     expect(responsesCreate).toHaveBeenCalledTimes(1);
+  });
   });
 });
