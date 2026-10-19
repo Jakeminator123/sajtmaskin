@@ -14,16 +14,16 @@
     {
       "key": "CLERK_SECRET_KEY",
       "required": true,
-      "enforcement": "build",
+      "enforcement": "feature-runtime",
       "setupUrl": "https://clerk.com/docs/guides/development/clerk-environment-variables",
-      "purpose": "Server-side Clerk API authentication. Clerk dashboard → API Keys → Secret keys (sk_test_/sk_live_). Tagged 'build' because auth is non-functional without it. The middleware key-gates itself: missing/placeholder keys degrade to open routes (NextResponse.next()) instead of crashing every request."
+      "purpose": "Server-side Clerk API authentication. Clerk dashboard → API Keys → Secret keys (sk_test_/sk_live_). Tagged 'feature-runtime': the middleware key-gates itself (missing/placeholder keys degrade to open routes, incl. protectedRoutes) and the buttons open a demo dialog, so a missing value is an F3 warning."
     },
     {
       "key": "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
       "required": true,
-      "enforcement": "build",
+      "enforcement": "feature-runtime",
       "setupUrl": "https://clerk.com/docs/guides/development/clerk-environment-variables",
-      "purpose": "Client-side Clerk SDK init. Clerk dashboard → API Keys → Publishable keys (pk_test_/pk_live_). Tagged 'build' because auth is non-functional without it. ClerkProviderShell validates the key structurally and renders an 'Inloggning i demoläge' banner on missing/placeholder values instead of letting <ClerkProvider> throw."
+      "purpose": "Client-side Clerk SDK init. Clerk dashboard → API Keys → Publishable keys (pk_test_/pk_live_). Tagged 'feature-runtime': ClerkProviderShell validates the key structurally and renders an 'Inloggning i demoläge' banner on missing/placeholder values instead of letting <ClerkProvider> throw."
     },
     {
       "key": "NEXT_PUBLIC_CLERK_SIGN_IN_URL",

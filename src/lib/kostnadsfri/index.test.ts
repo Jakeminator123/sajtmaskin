@@ -41,7 +41,10 @@ describe("generatePassword", () => {
     const password = generatePassword("acme-ab");
 
     expect(verifyDeterministicPassword("acme-ab", password)).toBe(true);
-    expect(verifyDeterministicPassword("acme-ab", `${password.slice(0, 7)}x`)).toBe(false);
+    const wrongLast = password[7] === "x" ? "y" : "x";
+    expect(verifyDeterministicPassword("acme-ab", `${password.slice(0, 7)}${wrongLast}`)).toBe(
+      false,
+    );
     expect(verifyDeterministicPassword("acme-ab", password.slice(0, 4))).toBe(false);
     expect(verifyDeterministicPassword("other-ab", password)).toBe(false);
   });

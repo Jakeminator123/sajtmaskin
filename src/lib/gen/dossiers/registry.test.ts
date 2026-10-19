@@ -140,6 +140,19 @@ describe("getCapabilityMap", () => {
   });
 });
 
+describe("auth dossier env enforcement", () => {
+  it("degrades missing auth keys to demo mode instead of blocking publish", () => {
+    const auth = getAllDossiers().filter((entry) => entry.capability === "auth");
+    expect(auth.map((entry) => entry.id)).toEqual(["clerk-auth", "supabase-auth"]);
+    for (const entry of auth) {
+      for (const envVar of entry.envVars ?? []) {
+        expect({ id: entry.id, key: envVar.key, enforcement: envVar.enforcement ?? "build" })
+          .not.toMatchObject({ enforcement: "build" });
+      }
+    }
+  });
+});
+
 describe("manifest provider projection", () => {
   it("maps a unique provider to exact dossier identity and capability", () => {
     expect(resolveDossierProvider("stripe")).toMatchObject({

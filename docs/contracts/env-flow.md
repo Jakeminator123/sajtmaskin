@@ -152,11 +152,11 @@ blockera på det som verkligen kräver en riktig integration.
 - **Enforcement styr blockering, inte "finns nyckeln i `env.example`".**
   `buildBlockingKeys` (`src/lib/projects/project-env-resolver.ts`) = de build-enforced
   nycklar som saknar både ett riktigt projektvärde och en godkänd
-  katalog-placeholder. Efter #468 är `clerk-auth` den enda dossiern med
-  `build`-nycklar (`CLERK_SECRET_KEY` +
-  `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`), men båda har i dag katalogstöd och kan
-  därför köra demo utan att automatiskt blockera. `openai-chat`s
-  `OPENAI_API_KEY` flyttades `build` → `feature-runtime`.
+  katalog-placeholder. Ingen levererad dossier har i dag `build`-nycklar:
+  `clerk-auth` (`CLERK_SECRET_KEY` + `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) och
+  `openai-chat` (`OPENAI_API_KEY`) är `feature-runtime`. Utan Clerk-nycklar kör
+  sajten Clerks demoläge, och skyddade routes är då öppna. Grinden finns kvar
+  för en framtida dossier som behöver den.
 - **Deploy-grind:** `POST /api/v0/deployments` ger `409 DEPLOY_MISSING_ENV` på
   `buildBlockingKeys` i **F3** — där blockerar `feature-runtime`/placeholder-nycklar
   aldrig; de surfar som icke-blockerande `EnvDegradationWarning`

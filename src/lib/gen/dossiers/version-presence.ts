@@ -249,10 +249,9 @@ export function resolveSelectedDossiersWithVersionPresence(params: {
   // re-selection — which has no prompt/provider context — falls back to the
   // capability DEFAULT (`clerk-auth`). Deduping by dossier id then let that
   // guessed default coexist with the actually-built sibling (`supabase-auth`),
-  // demanding BOTH providers' env keys (Clerk's are `build`-enforced) and
-  // blocking readiness/deploy. So when a capability has real file evidence,
-  // the file-evidenced dossier wins and any snapshot-guessed sibling under the
-  // SAME capability is dropped. Capabilities with no file evidence keep their
+  // demanding BOTH providers' env keys in readiness/deploy. So when a
+  // capability has real file evidence, the file-evidenced dossier wins and
+  // any snapshot-guessed sibling under the SAME capability is dropped. Capabilities with no file evidence keep their
   // snapshot pick (planned-but-unbuilt dossiers).
   const presenceCapabilities = new Set(
     fromPresence.map((selected) => selected.entry.capability.toLowerCase()),
