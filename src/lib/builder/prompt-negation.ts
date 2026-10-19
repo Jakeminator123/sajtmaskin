@@ -77,7 +77,7 @@ const NEGATED_CAPABILITY_TERMS: Record<string, RegExp[]> = {
  * avslutar INTE fönstret — därav verb-kravet efter kommat. En punkt inuti ett
  * tekniskt namn (Three.js, Auth.js, preview.example.com) är inte meningsslut.
  */
-const CLAUSE_BOUNDARY_RE =
+export const CLAUSE_BOUNDARY_RE =
   /[;!?\n]|\.(?![\p{L}\p{N}_])|,\s*(?:och\s+|and\s+|sedan\s+|sen\s+|then\s+)?(?:lägg|skapa|bygg|gör|använd|visa|byt|ta\s+bort|add|create|build|make|use|show|include|inkludera|implementera|implement|remove)(?![\p{L}\p{N}_])|\s(?:men|but)(?![\p{L}\p{N}_])/iu;
 
 const NEGATION_WINDOW_MAX_CHARS = 140;

@@ -588,4 +588,22 @@ describe("negated and mixed capability clauses", () => {
     expect(inferCapabilities(prompt)).toMatchObject({ needsPhysics2D: true, needs3D: true });
     expect(explicitlyRequests3D(prompt)).toBe(true);
   });
+
+  it("does not join a 2D map to physics requested in a separate comma-imperative clause", () => {
+    for (const prompt of [
+      "Bygg en 2D-karta, skapa en separat 3D-scen med fysik.",
+      "Build a 2D map, create a separate 3D scene with physics.",
+      "Bygg en 3D-scen med fysik, skapa en separat 2D-karta.",
+    ]) {
+      expect(inferCapabilities(prompt), prompt).toMatchObject({
+        needsPhysics2D: false,
+        needs3D: true,
+      });
+    }
+    expect(inferCapabilities("Bygg en 2D-yta, med objekt som studsar.")).toMatchObject({
+      needsPhysics2D: true,
+      needs3D: false,
+      needsPhysics: false,
+    });
+  });
 });

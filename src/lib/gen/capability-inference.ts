@@ -26,6 +26,7 @@
 
 import { uWord, uWordRegex } from "@/lib/utils/unicode-word-boundary";
 import {
+  CLAUSE_BOUNDARY_RE,
   hasNegatedAuthIntent,
   hasNegatedBackendIntent,
   hasNegatedEcommerceIntent,
@@ -173,8 +174,8 @@ const GAME_TO_3D_UPGRADE_PATTERN =
 const CLAUSE_PHYSICS_VERBS =
   "studsande|studsar|studsa|kolliderar|kollisioner?|fysiksimulering|fysik|gravitation|gravity|falling|faller|ramlar|trillar|staplas|bouncing|bounces?|colliding|collisions?|physics";
 
-/** Stops at sentence punctuation and at adversative men/but, like a negation window. */
-const SAME_CLAUSE_GAP = `(?:(?!\\s${uWord("men|but")})[^.!?;\\n]){0,100}?`;
+/** Reuse sentence, adversative and comma-imperative boundaries from the canonical owner. */
+const SAME_CLAUSE_GAP = `(?:(?!${CLAUSE_BOUNDARY_RE.source})[\\s\\S]){0,100}?`;
 const EXPLICIT_2D_TOKEN = uWord("2d");
 const CLAUSE_VERB_TOKEN = uWord(CLAUSE_PHYSICS_VERBS);
 
