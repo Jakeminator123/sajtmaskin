@@ -336,6 +336,118 @@ export function evaluatePrHeadWorkflowPermissions(workflowSources) {
   return errors;
 }
 
+// pull_request_target får skrivtoken även på fork-PR:er; varje lyssnare måste
+// ha ett eget granskat kontrakt i den här filen.
+const TRUSTED_PULL_REQUEST_TARGET_WORKFLOWS = Object.freeze([
+  "dependabot-automerge.yml",
+  "pr-base-guard.yml",
+]);
+
+export function evaluatePullRequestTargetWorkflows(workflowSources) {
+  const errors = [];
+  for (const workflow of workflowSources) {
+    let document;
+    try {
+      document = yaml.load(workflow.source);
+    } catch {
+      continue;
+    }
+    if (
+      workflowEvents(document).has("pull_request_target") &&
+      !TRUSTED_PULL_REQUEST_TARGET_WORKFLOWS.includes(workflow.name)
+    ) {
+      errors.push(
+        `${workflow.name} may not use pull_request_target outside the reviewed trusted controllers`,
+      );
+    }
+  }
+  return errors;
+}
+
+const PR_BASE_GUARD_IF =
+  "github.event.changes.base != null && github.event.pull_request.state == 'open'";
+const PR_BASE_GUARD_CONCURRENCY = "pr-base-guard-${{ github.event.pull_request.number }}";
+
+/**
+ * Basbytesvakten har skrivtoken på obetrodda PR-events. Den får bara läsa
+ * eventets basfält via env och anropa gh: ingen checkout, inga actions eller
+ * containrar, inga uttryck i run-skript och ingen PR-head-referens.
+ */
+export function evaluatePrBaseGuardWorkflow(source) {
+  if (typeof source !== "string") return ["PR base guard workflow pr-base-guard.yml is missing"];
+  let document;
+  try {
+    document = yaml.load(source);
+  } catch (error) {
+    return [
+      `PR base guard is not valid YAML: ${error instanceof Error ? error.message : String(error)}`,
+    ];
+  }
+  const errors = [];
+  if (!isDeepStrictEqual(document?.on, { pull_request_target: { types: ["edited"] } })) {
+    errors.push("PR base guard must trigger only on unfiltered pull_request_target edited");
+  }
+  if (!isDeepStrictEqual(document?.permissions, { contents: "write", "pull-requests": "write" })) {
+    errors.push("PR base guard GITHUB_TOKEN must be exactly contents write and pull-requests write");
+  }
+  if (document?.concurrency !== undefined) {
+    errors.push("PR base guard concurrency must stay on the job so ordinary edits cannot replace it");
+  }
+  const jobs = Object.entries(document?.jobs ?? {});
+  if (jobs.length !== 1) errors.push("PR base guard must contain exactly one job");
+  for (const [jobName, job] of jobs) {
+    const label = `PR base guard job ${jobName}`;
+    if (!hasExactExpression(job?.if, PR_BASE_GUARD_IF)) {
+      errors.push(`${label} must run only on an open PR base change`);
+    }
+    if (job?.permissions !== undefined) {
+      errors.push(`${label} must not override workflow permissions`);
+    }
+    if (
+      !hasExactExpression(job?.concurrency?.group, PR_BASE_GUARD_CONCURRENCY) ||
+      job?.concurrency?.["cancel-in-progress"] !== false
+    ) {
+      errors.push(`${label} must serialize per PR without cancelling a running guard`);
+    }
+    const steps = job?.steps ?? [];
+    if (
+      job?.uses !== undefined ||
+      job?.container !== undefined ||
+      job?.services !== undefined ||
+      steps.some((step) => step?.uses !== undefined)
+    ) {
+      errors.push(`${label} must not checkout, call actions or run containers`);
+    }
+    if (steps.some((step) => String(step?.run ?? "").includes("${{"))) {
+      errors.push(`${label} must pass event data to run scripts only through env`);
+    }
+    if (
+      Object.hasOwn(job ?? {}, "continue-on-error") ||
+      steps.some((step) => Object.hasOwn(step ?? {}, "continue-on-error"))
+    ) {
+      errors.push(`${label} must fail visibly when the draft conversion fails`);
+    }
+    if (
+      !steps.some(
+        (step) =>
+          hasExactExpression(step?.env?.GH_TOKEN, "${{ github.token }}") &&
+          String(step?.run ?? "").includes('gh pr ready --undo "$PR_NUMBER" --repo "$REPO"') &&
+          String(step?.run ?? "").includes('gh pr comment "$PR_NUMBER" --repo "$REPO"'),
+      )
+    ) {
+      errors.push(`${label} must convert the PR to draft and comment with the job token`);
+    }
+  }
+  if (
+    /github\.event\.pull_request\.head|github\.head_ref|\bsecrets\s*(?:\.|\[)/u.test(
+      JSON.stringify(document ?? null),
+    )
+  ) {
+    errors.push("PR base guard must not reference the PR head or repository secrets");
+  }
+  return errors;
+}
+
 function ownerWorkflowForRequiredCheck(check, policy = POLICY_FLOORS) {
   return requiredCheckOwnerSpec(check, policy).file;
 }
@@ -1538,6 +1650,12 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   errors.push(...evaluateRetiredApiReviewWorkflows(workflowSources));
   errors.push(...evaluateReservedWorkflowCheckNames(workflowSources, policy));
   errors.push(...evaluatePrHeadWorkflowPermissions(workflowSources));
+  errors.push(...evaluatePullRequestTargetWorkflows(workflowSources));
+  errors.push(
+    ...evaluatePrBaseGuardWorkflow(
+      workflowSources.find(({ name }) => name === "pr-base-guard.yml")?.source,
+    ),
+  );
   for (const workflow of workflowSources) {
     let events = new Set();
     try {
