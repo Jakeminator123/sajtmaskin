@@ -10,7 +10,9 @@ import {
   evaluateDependencyFreeImportGraph,
   evaluateDossierAcceptanceWorkflow,
   evaluatePolicyFloors,
+  evaluatePrBaseGuardWorkflow,
   evaluatePrHeadWorkflowPermissions,
+  evaluatePullRequestTargetWorkflows,
   evaluateReservedWorkflowCheckNames,
   evaluateRetiredBugIdFloor,
   evaluateSecretWorkflowDispatches,
@@ -738,6 +740,82 @@ describe("agent workflow repository contract", () => {
     }
     expect(evaluateTrustedControllerPermissions("jobs: {}\n")).not.toEqual([]);
     expect(evaluateTrustedControllerPermissions("permissions: [\n")).not.toEqual([]);
+  });
+
+  it("keeps the PR base guard an edited-only drafter that never runs PR code", () => {
+    const source = readFileSync(".github/workflows/pr-base-guard.yml", "utf8");
+    expect(evaluatePrBaseGuardWorkflow(source)).toEqual([]);
+    const replaceOnce = (search: string, replacement: string) => {
+      const candidate = source.replace(search, replacement);
+      expect(candidate).not.toBe(source);
+      return candidate;
+    };
+    const jobConcurrency =
+      "    concurrency:\n      group: pr-base-guard-${{ github.event.pull_request.number }}\n      cancel-in-progress: false\n";
+
+    const weakened = [
+      replaceOnce("  pull_request_target:\n", "  pull_request:\n"),
+      replaceOnce("types: [edited]", "types: [edited, synchronize]"),
+      replaceOnce("types: [edited]", "types: [edited]\n    branches: [preview]"),
+      replaceOnce("  contents: write\n", "  contents: read\n"),
+      replaceOnce("  pull-requests: write\n", "  pull-requests: write\n  actions: write\n"),
+      replaceOnce("  pull-requests: write\n", "  pull-requests: write\n  workflows: write\n"),
+      replaceOnce("  pull-requests: write\n", "  pull-requests: write\n  statuses: write\n"),
+      replaceOnce(
+        "permissions:\n  contents: write\n  pull-requests: write\n",
+        "permissions: write-all\n",
+      ),
+      replaceOnce("    timeout-minutes: 5\n", "    timeout-minutes: 5\n    permissions: write-all\n"),
+      replaceOnce("    steps:\n", "    steps:\n      - uses: actions/checkout@v7\n"),
+      replaceOnce(
+        "    steps:\n",
+        "    steps:\n      - uses: actions/checkout@v7\n        with:\n          ref: ${{ github.event.pull_request.head.sha }}\n",
+      ),
+      replaceOnce("    timeout-minutes: 5\n", "    timeout-minutes: 5\n    container: node:24\n"),
+      replaceOnce('"$FROM_BASE" "$TO_BASE"', '"${{ github.event.changes.base.ref.from }}" "$TO_BASE"'),
+      replaceOnce(
+        "TO_BASE: ${{ github.event.pull_request.base.ref }}",
+        "TO_BASE: ${{ github.event.pull_request.head.ref }}",
+      ),
+      replaceOnce("GH_TOKEN: ${{ github.token }}", "GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}"),
+      replaceOnce(
+        "if: github.event.changes.base != null && github.event.pull_request.state == 'open'",
+        "if: github.event.pull_request.state == 'open'",
+      ),
+      replaceOnce(jobConcurrency, ""),
+      replaceOnce("cancel-in-progress: false", "cancel-in-progress: true"),
+      replaceOnce(
+        "jobs:\n",
+        "concurrency:\n  group: pr-base-guard-${{ github.event.pull_request.number }}\n\njobs:\n",
+      ),
+      replaceOnce("        env:\n", "        continue-on-error: true\n        env:\n"),
+      replaceOnce('gh pr ready --undo "$PR_NUMBER"', 'gh pr view "$PR_NUMBER"'),
+    ];
+    for (const candidate of weakened) {
+      expect(evaluatePrBaseGuardWorkflow(candidate).length).toBeGreaterThan(0);
+    }
+    expect(evaluatePrBaseGuardWorkflow(undefined)).not.toEqual([]);
+    expect(evaluatePrBaseGuardWorkflow("on: [\n")).not.toEqual([]);
+  });
+
+  it("allows pull_request_target only in reviewed trusted controllers", () => {
+    const source = "on:\n  pull_request_target:\n    types: [edited]\njobs: {}\n";
+    expect(
+      evaluatePullRequestTargetWorkflows([
+        { name: "pr-base-guard.yml", source },
+        { name: "dependabot-automerge.yml", source },
+      ]),
+    ).toEqual([]);
+    for (const candidate of [
+      source,
+      "on: pull_request_target\njobs: {}\n",
+      "on: [push, pull_request_target]\njobs: {}\n",
+    ]) {
+      expect(
+        evaluatePullRequestTargetWorkflows([{ name: "pr-base-guard.yaml", source: candidate }])
+          .length,
+      ).toBeGreaterThan(0);
+    }
   });
 
   it("keeps policy, CI, hooks, routers and registries in sync", () => {
