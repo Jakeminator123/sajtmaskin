@@ -93,15 +93,35 @@ describe("getKostnadsfriGenerationBySlug for an admin builder without a bound ch
     expect(result.get("acme-ab")).toEqual(notStarted);
   });
 
-  it("ignores chats the project had before the invitation was redeemed", async () => {
+  it("ignores chats and versions the project had before the invitation was redeemed", async () => {
     rowsByTable.set(engineChats, [
       { ...projectChat, createdAt: new Date("2026-10-01T09:00:00Z") },
     ]);
-    rowsByTable.set(engineVersions, projectVersions);
+    rowsByTable.set(engineVersions, [
+      { id: "ver_old", chatId: "chat_1", createdAt: new Date("2026-10-01T09:05:00Z") },
+    ]);
 
     const result = await getKostnadsfriGenerationBySlug(["acme-ab"]);
 
     expect(result.get("acme-ab")).toEqual(notStarted);
+  });
+
+  it("counts a newer version on a chat that existed before redemption", async () => {
+    rowsByTable.set(engineChats, [
+      { ...projectChat, createdAt: new Date("2026-10-01T09:00:00Z") },
+    ]);
+    rowsByTable.set(engineVersions, [
+      { id: "ver_old", chatId: "chat_1", createdAt: new Date("2026-10-01T09:05:00Z") },
+      { id: "ver_new", chatId: "chat_1", createdAt: new Date("2026-10-18T21:20:00Z") },
+    ]);
+
+    const result = await getKostnadsfriGenerationBySlug(["acme-ab"]);
+
+    expect(result.get("acme-ab")).toEqual({
+      state: "succeeded",
+      completedAt: "2026-10-18T21:20:00.000Z",
+      siteId: "proj_1",
+    });
   });
 });
 

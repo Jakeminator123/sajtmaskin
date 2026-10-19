@@ -778,8 +778,8 @@ export async function getKostnadsfriGenerationBySlug(
   const versionById = new Map(versions.map((version) => [version.id, version]));
 
   // Admin/test builders bypass the campaign credit path, so their entitlement
-  // never gets a bound chat or settlement marker. For them, chats the
-  // entitlement's project gained after redemption prove whether a site was
+  // never gets a bound chat or settlement marker. For them, versions and chats
+  // the entitlement's project gained after redemption prove whether a site was
   // generated. Real recipients keep the bound-chat projection only.
   const unboundCandidates = entitlements.filter(
     (row) =>
@@ -887,7 +887,8 @@ type ProjectVersionRow = { id: string; chatId: string; createdAt: Date | string 
 
 /**
  * Earliest version per project, else its earliest chat (generation started,
- * no version yet). Chats older than the project's entitlement are ignored.
+ * no version yet). Only versions and chats created after the project's
+ * entitlement count; an older chat still counts through a newer version.
  */
 function resolveUnboundCampaignGeneration(
   chats: readonly ProjectChatRow[],
@@ -901,8 +902,9 @@ function resolveUnboundCampaignGeneration(
   for (const chat of chats) {
     if (!chat.projectId) continue;
     const since = sinceByProject.get(chat.projectId);
-    if (since === undefined || time(chat.createdAt) < time(since)) continue;
+    if (since === undefined) continue;
     projectByChat.set(chat.id, chat.projectId);
+    if (time(chat.createdAt) < time(since)) continue;
     const at = time(chat.createdAt);
     if (!result.has(chat.projectId) || at < (firstChatAt.get(chat.projectId) ?? Infinity)) {
       result.set(chat.projectId, { chatId: chat.id, version: null });
@@ -912,6 +914,8 @@ function resolveUnboundCampaignGeneration(
   for (const version of versions) {
     const projectId = projectByChat.get(version.chatId);
     if (!projectId) continue;
+    const since = sinceByProject.get(projectId);
+    if (since === undefined || time(version.createdAt) < time(since)) continue;
     const current = result.get(projectId);
     if (!current?.version || time(version.createdAt) < time(current.version.createdAt)) {
       result.set(projectId, { chatId: version.chatId, version });
