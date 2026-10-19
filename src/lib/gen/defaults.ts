@@ -216,7 +216,7 @@ export const REPAIR_ACCEPT_TIMEOUT_MS = REPAIR_ACCEPT_TIMEOUT_MINUTES * 60 * 100
 export const PARTIAL_FILE_REPAIR_MAX_ATTEMPTS = repairPolicies.partialFileRepairMaxAttempts;
 
 export const PROJECT_ANALYZE_DEFAULT_MODEL =
-  getWorkloadDefaultModelFromManifest("project_analyze") ?? "gpt-6-luna";
+  getWorkloadDefaultModelFromManifest("project_analyze") ?? "gpt-6.1-sol";
 
 export const AUDIT_STRUCTURED_DEFAULT_MODEL =
   getWorkloadDefaultModelFromManifest("audit_structured") ?? "openai/gpt-6.1-sol";
@@ -225,22 +225,22 @@ export const AUDIT_STRUCTURED_FALLBACK_MODELS =
   getWorkloadFallbackModelsFromManifest("audit_structured");
 
 export const AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL =
-  getWorkloadDefaultModelFromManifest("audit_structured_public") ?? "openai/gpt-6-luna";
+  getWorkloadDefaultModelFromManifest("audit_structured_public") ?? "openai/gpt-6.1-sol";
 
 export const AUDIT_PUBLIC_STRUCTURED_FALLBACK_MODELS =
   getWorkloadFallbackModelsFromManifest("audit_structured_public");
 
 export const ANALYZE_PRESENTATION_DEFAULT_MODEL =
-  getWorkloadDefaultModelFromManifest("analyze_presentation") ?? "openai/gpt-6-luna";
+  getWorkloadDefaultModelFromManifest("analyze_presentation") ?? "openai/gpt-6.1-sol";
 
 export const ANALYZE_PRESENTATION_FALLBACK_MODELS =
   getWorkloadFallbackModelsFromManifest("analyze_presentation");
 
 export const INSPECTOR_AI_MATCH_DEFAULT_MODEL =
-  getWorkloadDefaultModelFromManifest("inspector_ai_match") ?? "gpt-6-luna";
+  getWorkloadDefaultModelFromManifest("inspector_ai_match") ?? "gpt-6.1-sol";
 
 export const PROMPT_REWRITE_DEFAULT_MODEL =
-  getWorkloadDefaultModelFromManifest("prompt_rewrite") ?? "openai/gpt-6-luna";
+  getWorkloadDefaultModelFromManifest("prompt_rewrite") ?? "openai/gpt-6.1-sol";
 
 /** Re-export for callers that resolve env keys dynamically (e.g. catalog). */
 export function getBuildProfileEnvKey(profile: BuildProfileId): string {

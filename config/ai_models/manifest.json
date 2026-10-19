@@ -185,7 +185,7 @@
         },
         "verifier": {
           "thinking": false,
-          "reasoningEffort": "low"
+          "reasoningEffort": "medium"
         },
         "deploy-assistant": {
           "thinking": false,
@@ -209,11 +209,11 @@
         },
         "verifier": {
           "thinking": false,
-          "reasoningEffort": "low"
+          "reasoningEffort": "medium"
         },
         "deploy-assistant": {
           "thinking": false,
-          "reasoningEffort": "low"
+          "reasoningEffort": "medium"
         }
       },
       "max": {
@@ -233,7 +233,7 @@
         },
         "verifier": {
           "thinking": false,
-          "reasoningEffort": "low"
+          "reasoningEffort": "medium"
         },
         "deploy-assistant": {
           "thinking": false,
@@ -257,7 +257,7 @@
         },
         "verifier": {
           "thinking": false,
-          "reasoningEffort": "low"
+          "reasoningEffort": "medium"
         },
         "deploy-assistant": {
           "thinking": false,
@@ -303,7 +303,7 @@
         },
         "verifier": {
           "thinking": false,
-          "reasoningEffort": "low"
+          "reasoningEffort": "medium"
         },
         "deploy-assistant": {
           "thinking": false,
@@ -311,7 +311,7 @@
         }
       }
     },
-    "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override. Tier ladder (owner decision 2026-09-02): pro=«Låg», max=«Mellan», premium=«Hög» all build with GPT-6.1 Sol (since 2026-10-17); the tiers differ by generator reasoningEffort (medium / high / xhigh) and fixer effort. ultra=«Extra hög» (2026-10-18) builds planner and generator with GPT-6 Astra at high; its fixer, verifier and deploy-assistant stay on GPT-6.1 Sol. GPT-6.1 Sol also takes fixer, deploy-assistant and every tier's verifier (Låg moved off GPT-6 Luna 2026-10-18 so no tier reviews code below the former Terra level). GPT-6.1 Sol has no `none` effort, so callers clamp every requested effort to the model's range (src/lib/models/openai-capabilities.ts). reasoningMode is always `standard`: prod llm_usage (28 jul–1 sep 2026) showed Premium's `pro` mode inflating billed input ~6x (142k vs 22k p50, 40% cache) for identical prompts — OpenAI's reasoning guide confirms pro mode «aggregates the model work performed» and bills all of it. Verifiers run without a thinking stream at low effort: the previous Sol/high verifier spent 26 s p50 with 90% of its output being reasoning for a ~200-token verdict. Fixers keep thinking:false but honor the manifest effort (llm-fixer.ts passes it for registered GPT-5.6/GPT-6 models). `codex` is a hidden compatibility tier that mirrors Mellan. Persisted `fast` selections are accepted only as a compatibility alias and canonicalized to `premium`. The persisted chat.model remains the tier build model so repair and background verification can recover the tier; generated-version telemetry records the resolved phase model."
+    "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override. Tier ladder (owner decision 2026-09-02): pro=«Låg», max=«Mellan», premium=«Hög» all build with GPT-6.1 Sol (since 2026-10-17); the tiers differ by generator reasoningEffort (medium / high / xhigh) and fixer effort. ultra=«Extra hög» (2026-10-18) builds planner and generator with GPT-6 Astra at high; its fixer, verifier and deploy-assistant stay on GPT-6.1 Sol. GPT-6.1 Sol also takes fixer, deploy-assistant and every tier's verifier (Låg moved off GPT-6 Luna 2026-10-18 so no tier reviews code below the former Terra level). GPT-6.1 Sol has no `none` effort, so callers clamp every requested effort to the model's range (src/lib/models/openai-capabilities.ts). reasoningMode is always `standard`: prod llm_usage (28 jul–1 sep 2026) showed Premium's `pro` mode inflating billed input ~6x (142k vs 22k p50, 40% cache) for identical prompts — OpenAI's reasoning guide confirms pro mode «aggregates the model work performed» and bills all of it. OpenAI-tier verifiers run without a thinking stream at medium effort, and Låg deploy-assistant uses medium like the other tiers. The previous Sol/high verifier spent 26 s p50 with 90% of its output being reasoning for a ~200-token verdict. Fixers keep thinking:false but honor the manifest effort (llm-fixer.ts passes it for registered GPT-5.6/GPT-6 models). `codex` is a hidden compatibility tier that mirrors Mellan. Persisted `fast` selections are accepted only as a compatibility alias and canonicalized to `premium`. The persisted chat.model remains the tier build model so repair and background verification can recover the tier; generated-version telemetry records the resolved phase model."
   },
   "perTierBriefing": {
     "premium": {
@@ -1066,8 +1066,8 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/projects/[id]/analyze/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-6-luna",
-      "reasoningEffort": "low"
+      "defaultModel": "gpt-6.1-sol",
+      "reasoningEffort": "medium"
     },
     {
       "id": "text_analyze",
@@ -1077,8 +1077,8 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/text/analyze/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-6-luna",
-      "reasoningEffort": "none"
+      "defaultModel": "gpt-6.1-sol",
+      "reasoningEffort": "medium"
     },
     {
       "id": "wizard_enrich_competitors",
@@ -1092,8 +1092,8 @@
       ],
       "authEnv": ["OPENAI_API_KEY"],
       "defaultModel": "openai/gpt-6.1-sol",
-      "reasoningEffort": "low",
-      "notes": "GPT-6.1 Sol low since 2026-10-18 (owner decision): follow-up questions and the competitor list are visible to the customer in the wizard. Sol has no `none`, and reasoning tokens count toward maxOutputTokens, so the routes reserve headroom and run with maxDuration 40 s (enrich) / 35 s (competitors)."
+      "reasoningEffort": "medium",
+      "notes": "GPT-6.1 Sol medium (owner decision 2026-10-19; was low on 2026-10-18): follow-up questions and the competitor list are visible to the customer in the wizard. Sol has no `none`, and reasoning tokens count toward maxOutputTokens, so the routes reserve headroom and run with maxDuration 40 s (enrich) / 35 s (competitors)."
     },
     {
       "id": "audit_structured",
@@ -1111,15 +1111,14 @@
     {
       "id": "audit_structured_public",
       "title": "Public /analys lead magnet (structured JSON)",
-      "description": "Same scrape + JSON schema as product audit, cheaper model, no web_search.",
+      "description": "Same scrape + JSON schema as product audit, no web_search.",
       "invocation": "openai_responses_create_or_ai_sdk_generateText",
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/analys/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "openai/gpt-6-luna",
-      "fallbackModels": ["openai/gpt-5.6-luna"],
-      "reasoningEffort": "low",
-      "notes": "Gratis /analys och betald Vanlig. gpt-6-luna (~$0.10/$0.50) med low effort i stället för Sol; gpt-5.6-luna är beprövad reserv. Ingen web_search."
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium",
+      "notes": "Gratis /analys och betald Vanlig. GPT-6.1 Sol med medium. Ingen Luna-reserv och ingen web_search. Den äldre Sol-reserven gpt-5.6-sol hör bara till audit_structured."
     },
     {
       "id": "analyze_presentation",
@@ -1129,8 +1128,8 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/analyze-presentation/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "openai/gpt-6-luna",
-      "reasoningEffort": "none"
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium"
     },
     {
       "id": "transcribe",
@@ -1149,8 +1148,8 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/inspector-ai-match/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-6-luna",
-      "reasoningEffort": "none"
+      "defaultModel": "gpt-6.1-sol",
+      "reasoningEffort": "medium"
     },
     {
       "id": "analyze_website",
@@ -1160,8 +1159,8 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/analyze-website/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "openai/gpt-6-luna",
-      "reasoningEffort": "none"
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium"
     },
     {
       "id": "company_lookup",
@@ -1172,8 +1171,8 @@
       "codeEntry": ["src/app/api/wizard/company-lookup/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
       "defaultModel": "openai/gpt-6.1-sol",
-      "reasoningEffort": "low",
-      "notes": "GPT-6.1 Sol low since 2026-10-18, same as the other wizard workloads. The fallback has no web-search tool, so it can only answer from model knowledge; reasoning tokens count toward maxOutputTokens."
+      "reasoningEffort": "medium",
+      "notes": "GPT-6.1 Sol medium since 2026-10-19, same as the other wizard workloads. The lookup fallback has no web-search tool, so it can only answer from model knowledge; reasoning tokens count toward maxOutputTokens."
     },
     {
       "id": "domain_suggestions",
@@ -1183,8 +1182,8 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/domain-suggestions/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "openai/gpt-6-luna",
-      "reasoningEffort": "none"
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium"
     },
     {
       "id": "prompt_rewrite",
@@ -1197,8 +1196,8 @@
         "src/lib/builder/prompt-assist-pre-send.ts"
       ],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "openai/gpt-6-luna",
-      "reasoningEffort": "none",
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium",
       "envOverrides": {
         "model": "SAJTMASKIN_PROMPT_REWRITE_MODEL"
       },
@@ -1213,10 +1212,9 @@
       "codeEntry": ["src/app/api/analyze-presentation/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
       "defaultModel": "gpt-6.1-sol",
-      "fallbackModels": ["gpt-6-luna"],
       "visionModels": ["gpt-6.1-sol", "gpt-6-luna"],
-      "reasoningEffort": "low",
-      "notes": "gpt-4o retired from this workload 2026-09-02: every GPT-5.6 model accepts image input (OpenAI model pages), GPT-6.1 Sol replaced Terra 2026-10-17 (no GPT-6 Terra; Sol has the lower output price)."
+      "reasoningEffort": "medium",
+      "notes": "gpt-4o retired from this workload 2026-09-02: every GPT-5.6 model accepts image input (OpenAI model pages), GPT-6.1 Sol replaced Terra 2026-10-17 (no GPT-6 Terra; Sol has the lower output price). Default is GPT-6.1 Sol at medium. visionModels still lists GPT-6 Luna as an explicit selectable id, not an automatic fallback."
     },
     {
       "id": "backoffice_scaffold_wizard_persona",
@@ -1227,20 +1225,20 @@
       "codeEntry": ["backoffice/wizard_support.py", "backoffice/pages/scaffold_wizard.py"],
       "authEnv": ["OPENAI_API_KEY"],
       "defaultModel": "gpt-6.1-sol",
-      "fallbackModels": ["gpt-6-luna"],
       "visionModels": ["gpt-6.1-sol", "gpt-6-luna"],
-      "notes": "Own entry on purpose: the wizard must NOT inherit analyze_presentation_vision, which belongs to the body-language feature in src/app/api/analyze-presentation/route.ts. Sharing it would tie two unrelated features to one model decision. Kept separate from backoffice_scaffold_wizard_guide because this path needs vision and the guide does not. gpt-4o retired 2026-09-02; Terra replaced by GPT-6.1 Sol 2026-10-17. GPT-6.1 Sol and GPT-6 Luna accept image input."
+      "reasoningEffort": "medium",
+      "notes": "Own entry on purpose: the wizard must NOT inherit analyze_presentation_vision, which belongs to the body-language feature in src/app/api/analyze-presentation/route.ts. Sharing it would tie two unrelated features to one model decision. Kept separate from backoffice_scaffold_wizard_guide because this path needs vision and the guide does not. gpt-4o retired 2026-09-02; Terra replaced by GPT-6.1 Sol 2026-10-17. GPT-6.1 Sol and GPT-6 Luna accept image input. Default is GPT-6.1 Sol at medium. Luna stays in visionModels as an explicit selectable id, not an automatic fallback."
     },
     {
       "id": "backoffice_scaffold_wizard_guide",
       "title": "Backoffice scaffold wizard — step guide (text only)",
-      "description": "Short Swedish Q&A helper inside the wizard steps. Text only, no images — a cheap model is enough, which is why it is not merged with backoffice_scaffold_wizard_persona.",
+      "description": "Short Swedish Q&A helper inside the wizard steps. Text only, no images, which is why it is not merged with backoffice_scaffold_wizard_persona.",
       "invocation": "openai_chat_completions",
       "provider": "openai_direct",
       "codeEntry": ["backoffice/wizard_support.py", "backoffice/pages/scaffold_wizard.py"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-6-luna",
-      "fallbackModels": ["gpt-6.1-sol"]
+      "defaultModel": "gpt-6.1-sol",
+      "reasoningEffort": "medium"
     },
     {
       "id": "backoffice_dossier_curation",
@@ -1251,8 +1249,8 @@
       "codeEntry": ["scripts/dossiers/curate-from-reference.ts", "backoffice/pages/dossiers.py"],
       "authEnv": ["OPENAI_API_KEY"],
       "defaultModel": "gpt-6.1-sol",
-      "fallbackModels": ["gpt-6-luna"],
-      "notes": "Replaces the hardcoded gpt-4o-mini in curate-from-reference.ts. The script takes --model=<id> and rejects an id that is not defaultModel or one of fallbackModels BEFORE the LLM call."
+      "reasoningEffort": "medium",
+      "notes": "Replaces the hardcoded gpt-4o-mini in curate-from-reference.ts. The script takes --model=<id> and rejects an id that is not defaultModel or one of fallbackModels BEFORE the LLM call. Active default is GPT-6.1 Sol at medium; there is no automatic Luna fallback."
     },
     {
       "id": "match_classifier",
@@ -1265,8 +1263,8 @@
         "src/lib/providers/own-engine/follow-up-intent-router.ts"
       ],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "openai/gpt-6-luna",
-      "reasoningEffort": "none"
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium"
     },
     {
       "id": "seo_publish_copy",
@@ -1292,10 +1290,45 @@
       ],
       "authEnv": ["OPENAI_API_KEY"],
       "defaultModel": "gpt-6.1-sol",
-      "fallbackModels": ["gpt-6-luna"],
       "visionModels": ["gpt-6.1-sol", "gpt-6-luna"],
-      "reasoningEffort": "low",
-      "notes": "Reuses the vision slugs listed on backoffice_scaffold_wizard_persona and analyze_presentation_vision. Do not invent a new model id. Etapp 1 is critic only. gpt-4o retired 2026-09-02; Terra replaced by GPT-6.1 Sol (low effort) 2026-10-17, GPT-6 Luna is the cheap fallback."
+      "reasoningEffort": "medium",
+      "notes": "Reuses the vision slugs listed on backoffice_scaffold_wizard_persona and analyze_presentation_vision. Do not invent a new model id. Etapp 1 is critic only. gpt-4o retired 2026-09-02; Terra replaced by GPT-6.1 Sol 2026-10-17. Default is GPT-6.1 Sol at medium. visionModels still lists GPT-6 Luna as an explicit selectable id, not an automatic fallback."
+    },
+    {
+      "id": "qa_short_circuit",
+      "title": "QA short-circuit",
+      "description": "Small generateText answer when a follow-up is classified as qa-or-score, instead of a full codegen round.",
+      "invocation": "ai_sdk_generateText",
+      "provider": "openai_direct",
+      "codeEntry": ["src/lib/api/engine/chats/chat-message-stream/qa-short-circuit.ts"],
+      "authEnv": ["OPENAI_API_KEY"],
+      "defaultModel": "gpt-6.1-sol",
+      "reasoningEffort": "medium",
+      "notes": "Records the canonical Sol 6.1 / medium policy. The caller still resolves the max-tier build model itself and is not changed here."
+    },
+    {
+      "id": "shadcn_describe_queries",
+      "title": "shadcn describe — search queries",
+      "description": "generateObject that turns a UI description into 1–3 registry search queries.",
+      "invocation": "ai_generateObject",
+      "provider": "openai_anthropic_direct",
+      "codeEntry": ["src/lib/shadcn/describe.ts"],
+      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium",
+      "notes": "Caller still chooses OpenAI then Anthropic from its own key check. This entry does not add a silent model fallback. The caller is migrated in a later round."
+    },
+    {
+      "id": "shadcn_describe_ranking",
+      "title": "shadcn describe — candidate ranking",
+      "description": "generateObject that ranks real shadcn registry candidates against the description.",
+      "invocation": "ai_generateObject",
+      "provider": "openai_anthropic_direct",
+      "codeEntry": ["src/lib/shadcn/describe.ts"],
+      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium",
+      "notes": "Same caller file as shadcn_describe_queries. Default is GPT-6.1 Sol at medium. No automatic fallback is declared here."
     }
   ]
 }

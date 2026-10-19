@@ -15,6 +15,8 @@ Alla **standardvärden** som går att styra centralt ligger i [`manifest.json`](
 | **Vissa admin/wizard/inspektor** | Analys, JSON | OpenAI **Responses** API | `OPENAI_API_KEY` |
 | **Projektanalys** | Gratis kodöversikt | OpenAI Responses API | `OPENAI_API_KEY` |
 
+Aktuell textrouting: nya aktiva text-, kod- och visionanrop defaultar `gpt-6.1-sol`. Små workloads (wizard, kundanalys, prompt-assist, vision, verifier och Låg deploy-assistant) använder `reasoningEffort: medium`. Ingen dold Luna-reserv. Vision-allowlisten kan fortfarande välja Luna explicit. Embeddings och `gpt-transcribe` är specialmodeller. Extra hög (`ultra`) bygger planner/generator med GPT-6 Astra. Prompt-assistens outputtak `8192` är en maxgräns som inkluderar reasoning, inte uppmätt förbrukning.
+
 > **Plattformsberoende:** AI SDK (`ai` npm-paketet) är open-source (MIT) och provideragnostiskt — det är inte Vercel-låst.
 
 Detaljer per fil och exakt `invocation`-fält finns under `workloads[]` i `manifest.json`.
