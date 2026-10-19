@@ -15,8 +15,7 @@ Jakobs uttryckliga modellval vinner.
   Codex eller ChatGPT.
 - `<luna>`: bara mekanisk read-only med lätt verifierbart facit. Terra:
   avgränsad lågrisk, aldrig tyst kostnadsfallback. `<sol>`: analys, fixar,
-  falsifiering och review.
-- Godnatt har egna profiler; produktens sajtmodeller påverkas inte.
+  falsifiering och review. Produktens sajtmodeller påverkas inte.
 
 Reasoning `high` normalt; `xhigh` vid protected paths, P0/security,
 cross-tenant, irreversibel DB-risk eller motsägande review.

@@ -146,5 +146,3 @@ gaps, doc drift.
 Output only finished table rows in FINDINGS.md's existing column format —
 no ids, no preamble, no explanation of what you skipped.
 ```
-
-Single-question variant: [`818-swarm-decide`](../818-swarm-decide/SKILL.md).

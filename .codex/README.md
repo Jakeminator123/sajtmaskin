@@ -64,14 +64,3 @@ under arbetskatalogen (inte projektdata, committa aldrig). Kontrollera med
 kan behöva laddas om. Startar inte `rg`: kontrollera `Get-Command rg -All`
 (WinGet-länk före Codex bundlade exe) och använd fungerande exe explicit eller
 `git grep`; ändra inte system-PATH och installera inte om automatiskt.
-
-## Godnatt-bugg
-
-`.agents/skills/godnatt-bugg/` är kanonisk (lägen, state, merge och cleanup). Den
-använder tre projektprofiler: `.codex/agents/godnatt-investigator.toml`
-(skrivskyddad, Sol xhigh), `godnatt-worker.toml` (avgränsad, Sol high, i angivet
-app-worktree) och `godnatt-reviewer.toml` (skrivskyddad, Sol xhigh). Native anrop
-använder dollarformen (`$godnatt-bugg`, `$godnatt-bugg evaluation 2`,
-`$godnatt-bugg full 9`); slashformen förstås som vanligt språk. Desktop-
-automationen `godnatt-bugg` hålls pausad tills en full batch armeras och anropar
-bara `$godnatt-bugg scheduled`.

@@ -9,9 +9,7 @@ export const FILE_BUDGETS = Object.freeze({
   ".cursor/README.md": 4_500,
   "docs/architecture/glossary.md": 22_000,
   ".cursor/rules/pr-merge.mdc": 5_000,
-  ".cursor/commands/818.md": 800,
   ".cursor/commands/automat.md": 800,
-  ".cursor/commands/kedja.md": 800,
   ".cursor/commands/logg.md": 800,
   ".cursor/commands/logg-internet.md": 800,
   ".cursor/commands/explore.md": 1_000,
@@ -47,11 +45,6 @@ const LEGACY_ACTIVE_REFERENCES = Object.freeze([
   { label: "retired jakob-pre-mvp-backup rule", pattern: /jakob-pre-mvp-backup\.mdc/iu },
   { label: "retired broad context skill", pattern: /sajtmaskin-context/iu },
 ]);
-const GODNATT_PROFILES = Object.freeze({
-  ".codex/agents/godnatt-investigator.toml": "xhigh",
-  ".codex/agents/godnatt-worker.toml": "high",
-  ".codex/agents/godnatt-reviewer.toml": "xhigh",
-});
 export const REQUIRED_CURSOR_SECRET_IGNORES = Object.freeze([
   ".env",
   ".env.*",
@@ -221,16 +214,6 @@ export function evaluateAgentContext(root = REPO_ROOT) {
   if (!/^default_subagent_model\s*=\s*"gpt-5\.6-sol"\s*$/m.test(codexConfig)) {
     errors.push(".codex/config.toml must keep gpt-5.6-sol as the subagent default");
   }
-  for (const [path, effort] of Object.entries(GODNATT_PROFILES)) {
-    const profile = read(root, path);
-    if (
-      !/^model\s*=\s*"gpt-5\.6-sol"\s*$/m.test(profile) ||
-      !new RegExp(`^model_reasoning_effort\\s*=\\s*"${effort}"\\s*$`, "m").test(profile)
-    ) {
-      errors.push(`${path} must stay on gpt-5.6-sol with ${effort} reasoning`);
-    }
-  }
-
   for (const path of filesBelow(root, ".cursor/commands", ".md")) {
     const command = read(root, path);
     const restoresBroadReadBundle = [

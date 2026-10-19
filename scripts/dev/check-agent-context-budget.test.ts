@@ -30,9 +30,6 @@ beforeEach(() => {
     ".cursorindexingignore",
     "config/agent-workflow.json",
     ".codex/config.toml",
-    ".codex/agents/godnatt-investigator.toml",
-    ".codex/agents/godnatt-worker.toml",
-    ".codex/agents/godnatt-reviewer.toml",
   ]);
   for (const path of paths) {
     const target = join(fixtureRoot, path);
