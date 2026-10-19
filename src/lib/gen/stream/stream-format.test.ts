@@ -358,6 +358,34 @@ describe("createCodeGenSSEStream", () => {
     expect(events.at(-1)?.event).toBe("done");
   });
 
+  it("prefers aggregate totalUsage for done tokens and falls back to the last step", async () => {
+    const stream = createCodeGenSSEStream(
+      {
+        fullStream: (async function* () {
+          yield { type: "text-delta", text: "ok" };
+          yield { type: "finish", finishReason: "stop" };
+        })(),
+        usage: Promise.resolve({ inputTokens: 20, outputTokens: 6 }),
+        totalUsage: Promise.resolve({ inputTokens: 30, outputTokens: 10 }),
+      },
+      { meta: { chatId: "chat_test" } },
+    );
+    const preferred = await collectFromReadableStream(stream);
+    expect(preferred.find((event) => event.event === "done")?.data).toEqual({
+      promptTokens: 30,
+      completionTokens: 10,
+    });
+
+    const fallback = await collectEvents([
+      { type: "text-delta", text: "ok" },
+      { type: "finish", finishReason: "stop" },
+    ]);
+    expect(fallback.find((event) => event.event === "done")?.data).toEqual({
+      promptTokens: 11,
+      completionTokens: 7,
+    });
+  });
+
   it("still explains a genuinely silent stream when no provider error was seen", async () => {
     const events = await collectEvents([
       { type: "start" },
