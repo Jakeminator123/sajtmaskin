@@ -1,11 +1,11 @@
 /**
- * API Route: Transcribe audio via OpenAI Whisper
+ * API Route: Transcribe uploaded audio via OpenAI gpt-transcribe
  * POST /api/transcribe
  *
- * Takes audio file (webm, mp3, wav, m4a, ogg, flac) and returns transcribed text.
- * Supports Swedish and English.
+ * Takes an audio file (webm, mp3, wav, m4a, ogg, flac) and returns transcribed text.
+ * Accepts the caller languages `sv` and `en`.
  *
- * Uses OpenAI Whisper API directly (OPENAI_API_KEY).
+ * Uses the OpenAI transcriptions API (model `gpt-transcribe`, `OPENAI_API_KEY`).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -17,7 +17,13 @@ import { withRateLimit } from "@/lib/rate-limit";
 // Allow 60 seconds for audio processing
 export const maxDuration = 60;
 
-// Supported audio/video formats (Whisper handles video containers too)
+/** SDK deadline in milliseconds. Stays under the route maxDuration of 60s. */
+const TRANSCRIBE_REQUEST_TIMEOUT_MS = 45_000;
+
+const SUPPORTED_LANGUAGES = ["sv", "en"] as const;
+type TranscribeLanguage = (typeof SUPPORTED_LANGUAGES)[number];
+
+// Supported audio/video containers accepted by this route.
 const SUPPORTED_FORMATS = [
   "audio/webm",
   "audio/mp3",
@@ -31,7 +37,7 @@ const SUPPORTED_FORMATS = [
   "video/mp4",
 ];
 
-// Map browser mime types to Whisper-friendly extensions
+// Map browser MIME types to filename extensions for the transcription request.
 function getFileExtension(mimeType: string): string {
   const map: Record<string, string> = {
     "audio/webm": "webm",
@@ -48,6 +54,47 @@ function getFileExtension(mimeType: string): string {
   return map[mimeType] || "webm";
 }
 
+function requestedLanguage(value: FormDataEntryValue | null): TranscribeLanguage | null {
+  if (value == null || value === "") return "sv";
+  if (value === "sv" || value === "en") return value;
+  return null;
+}
+
+function normalizedTranscript(result: unknown): string {
+  if (typeof result === "string") return result.trim();
+  if (typeof result === "object" && result !== null && "text" in result) {
+    const text = result.text;
+    return typeof text === "string" ? text.trim() : "";
+  }
+  return "";
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === "AbortError" || error.name === "APIUserAbortError")
+  );
+}
+
+function providerFailureText(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  const status =
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    (typeof error.status === "number" || typeof error.status === "string")
+      ? String(error.status)
+      : "";
+  return `${status} ${message}`;
+}
+
+function abortedResponse(): NextResponse {
+  return NextResponse.json(
+    { success: false, error: "Förfrågan avbröts." },
+    { status: 499 },
+  );
+}
+
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "audio:transcribe", async () => {
     console.info("[API/transcribe] Request received");
@@ -62,104 +109,120 @@ export async function POST(req: NextRequest) {
         );
       }
 
-    const apiKey = process.env.OPENAI_API_KEY?.trim();
-    if (!apiKey) {
-      console.error("[API/transcribe] Missing OPENAI_API_KEY");
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Transkribering ej konfigurerad. OPENAI_API_KEY saknas.",
-        },
-        { status: 503 },
+      const apiKey = process.env.OPENAI_API_KEY?.trim();
+      if (!apiKey) {
+        console.error("[API/transcribe] Missing OPENAI_API_KEY");
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Transkribering ej konfigurerad. OPENAI_API_KEY saknas.",
+          },
+          { status: 503 },
+        );
+      }
+
+      const formData = await req.formData();
+      const language = requestedLanguage(formData.get("language"));
+      if (!language) {
+        return NextResponse.json(
+          { success: false, error: "Ogiltigt språk. Stöds: sv, en." },
+          { status: 400 },
+        );
+      }
+
+      const audioEntry = formData.get("audio");
+      if (!(audioEntry instanceof File)) {
+        return NextResponse.json(
+          { success: false, error: "No audio file provided" },
+          { status: 400 },
+        );
+      }
+      const audioFile = audioEntry;
+
+      if (!SUPPORTED_FORMATS.includes(audioFile.type)) {
+        console.info("[API/transcribe] Unsupported format:", audioFile.type);
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Unsupported audio format: ${audioFile.type}. Supported: webm, mp3, wav, m4a, ogg, flac`,
+          },
+          { status: 400 },
+        );
+      }
+
+      // Transcription endpoint accepts at most 25MB.
+      const maxSize = 25 * 1024 * 1024;
+      if (audioFile.size > maxSize) {
+        return NextResponse.json(
+          { success: false, error: "Audio file too large (max 25MB)" },
+          { status: 400 },
+        );
+      }
+
+      if (req.signal.aborted) {
+        return abortedResponse();
+      }
+
+      console.info("[API/transcribe] Processing audio:", {
+        type: audioFile.type,
+        size: `${(audioFile.size / 1024).toFixed(1)}KB`,
+        language,
+      });
+
+      const arrayBuffer = await audioFile.arrayBuffer();
+      const ext = getFileExtension(audioFile.type);
+      const file = await toFile(
+        new Blob([arrayBuffer], { type: audioFile.type }),
+        `recording.${ext}`,
       );
-    }
 
-    // Parse form data
-    const formData = await req.formData();
-    const audioFile = formData.get("audio") as File | null;
-    const language = (formData.get("language") as string) || "sv";
+      if (req.signal.aborted) {
+        return abortedResponse();
+      }
 
-    if (!audioFile) {
-      return NextResponse.json(
-        { success: false, error: "No audio file provided" },
-        { status: 400 },
-      );
-    }
+      const openai = new OpenAI({ apiKey });
+      // gpt-transcribe reads `languages` as an array. The pinned SDK accepts the
+      // field on the wire; its TypeScript params may omit it, so this stays a
+      // structurally compatible variable with a JSON format literal.
+      const transcriptionParams = {
+        file,
+        model: "gpt-transcribe",
+        languages: [language],
+        response_format: "json" as const,
+      };
+      const transcription = await openai.audio.transcriptions.create(transcriptionParams, {
+        signal: req.signal,
+        timeout: TRANSCRIBE_REQUEST_TIMEOUT_MS,
+        maxRetries: 0,
+      });
+      const transcript = normalizedTranscript(transcription);
 
-    // Validate file type
-    if (!SUPPORTED_FORMATS.includes(audioFile.type)) {
-      console.info("[API/transcribe] Unsupported format:", audioFile.type);
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Unsupported audio format: ${audioFile.type}. Supported: webm, mp3, wav, m4a, ogg, flac`,
-        },
-        { status: 400 },
-      );
-    }
+      if (!transcript) {
+        console.info("[API/transcribe] Empty transcript returned");
+        return NextResponse.json({
+          success: true,
+          transcript: "",
+          warning: "Inget tal upptäcktes i inspelningen.",
+        });
+      }
 
-    // Check file size (max 25MB for Whisper)
-    const maxSize = 25 * 1024 * 1024; // 25MB
-    if (audioFile.size > maxSize) {
-      return NextResponse.json(
-        { success: false, error: "Audio file too large (max 25MB)" },
-        { status: 400 },
-      );
-    }
+      console.info("[API/transcribe] Transcription successful:", {
+        characters: transcript.length,
+      });
 
-    console.info("[API/transcribe] Processing audio:", {
-      type: audioFile.type,
-      size: `${(audioFile.size / 1024).toFixed(1)}KB`,
-      language,
-    });
-
-    // Convert to buffer for OpenAI
-    const arrayBuffer = await audioFile.arrayBuffer();
-    const ext = getFileExtension(audioFile.type);
-    const file = await toFile(
-      new Blob([arrayBuffer], { type: audioFile.type }),
-      `recording.${ext}`,
-    );
-
-    const openai = new OpenAI({ apiKey });
-
-    const transcription = await openai.audio.transcriptions.create({
-      file,
-      model: "whisper-1",
-      language: language === "sv" ? "sv" : "en",
-      response_format: "text",
-    });
-
-    const transcript =
-      typeof transcription === "string"
-        ? transcription.trim()
-        : (transcription as unknown as { text: string }).text?.trim() ?? "";
-
-    if (!transcript) {
-      console.info("[API/transcribe] Empty transcript returned");
       return NextResponse.json({
         success: true,
-        transcript: "",
-        warning: "Inget tal upptäcktes i inspelningen.",
+        transcript,
       });
-    }
-
-    console.info("[API/transcribe] Transcription successful:", {
-      characters: transcript.length,
-    });
-
-    return NextResponse.json({
-      success: true,
-      transcript,
-    });
     } catch (error) {
+      if (req.signal.aborted || isAbortError(error)) {
+        return abortedResponse();
+      }
+
       console.error("[API/transcribe] Error:", error);
+      const failure = providerFailureText(error);
 
-      const message =
-        error instanceof Error ? error.message : "Unknown error";
-
-      // Handle specific OpenAI errors
-      if (message.includes("invalid_api_key") || message.includes("401")) {
+      if (failure.includes("invalid_api_key") || failure.includes("401")) {
         return NextResponse.json(
           {
             success: false,
@@ -169,7 +232,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      if (message.includes("rate_limit") || message.includes("429")) {
+      if (failure.includes("rate_limit") || failure.includes("429")) {
         return NextResponse.json(
           {
             success: false,

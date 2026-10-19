@@ -29,6 +29,22 @@ const DEMO_REPLY =
   "det här är inte ett riktigt AI-svar. Så här kommer chatten att kännas och se ut. " +
   "När en riktig OpenAI-nyckel sparas under \"Byggblock\" i byggaren (och sajten publiceras om) svarar jag på riktigt utifrån din fråga.";
 
+/** Output cap for short visitor replies. Counts reasoning tokens toward the same budget. */
+const VISITOR_OUTPUT_TOKEN_BUDGET = 8192;
+
+const SAFE_PROVIDER_ERROR = "The assistant could not answer. Try again.";
+
+function isAbortError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === "AbortError" || error.name === "APIUserAbortError")
+  );
+}
+
+function abortedResponse(): Response {
+  return new Response(null, { status: 499 });
+}
+
 /**
  * Stream a canned reply using the same UI message stream protocol the client's
  * `useChat` hook already consumes for real responses — so the demo renders
@@ -56,13 +72,20 @@ function streamCannedDemoReply(): Response {
 }
 
 export async function POST(req: Request) {
+  if (req.signal.aborted) {
+    return abortedResponse();
+  }
+
   const apiKey = process.env.OPENAI_API_KEY;
 
   let messages: UIMessage[];
   try {
     const body = (await req.json()) as { messages?: UIMessage[] };
     messages = body.messages ?? [];
-  } catch {
+  } catch (error) {
+    if (req.signal.aborted || isAbortError(error)) {
+      return abortedResponse();
+    }
     return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
@@ -75,13 +98,40 @@ export async function POST(req: Request) {
     return streamCannedDemoReply();
   }
 
-  const modelMessages = await convertToModelMessages(messages);
-  const result = streamText({
-    model: openai("gpt-4o-mini"),
-    system:
-      "You are a helpful assistant for this site's visitors. Answer concisely. If a question is outside your knowledge, say so.",
-    messages: modelMessages,
-  });
+  if (req.signal.aborted) {
+    return abortedResponse();
+  }
 
-  return result.toUIMessageStreamResponse();
+  try {
+    const modelMessages = await convertToModelMessages(messages);
+    if (req.signal.aborted) {
+      return abortedResponse();
+    }
+
+    const result = streamText({
+      model: openai.responses("gpt-6.1-sol"),
+      system:
+        "You are a helpful assistant for this site's visitors. Answer concisely. If a question is outside your knowledge, say so.",
+      messages: modelMessages,
+      maxOutputTokens: VISITOR_OUTPUT_TOKEN_BUDGET,
+      maxRetries: 0,
+      abortSignal: req.signal,
+      providerOptions: {
+        openai: { reasoningEffort: "medium" },
+      },
+    });
+
+    return result.toUIMessageStreamResponse({
+      onError: () => SAFE_PROVIDER_ERROR,
+    });
+  } catch (error) {
+    if (req.signal.aborted || isAbortError(error)) {
+      return abortedResponse();
+    }
+    console.error("[openai-chat] request failed");
+    return new Response(JSON.stringify({ error: SAFE_PROVIDER_ERROR }), {
+      status: 502,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 }
