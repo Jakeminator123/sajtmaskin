@@ -1780,8 +1780,12 @@ async function settleVersionQualityGateUnderLease(params: {
           ], { lockTimeoutMs: QUALITY_GATE_ERROR_LOG_LOCK_TIMEOUT_MS }).catch((err) => {
             console.warn("[quality-gate] Failed to persist superseded log:", err);
           });
+          // Like the early lane: a superseded verdict never counts as a pass. The
+          // lease-guarded settle may also have written nothing (another run owns
+          // the row), so `passed: true` here would claim a terminal state.
           return qualityGateResponse({
             ...gateResult,
+            passed: false,
             superseded: true,
             promoted: false,
           });
