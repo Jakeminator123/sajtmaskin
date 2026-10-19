@@ -64,7 +64,7 @@ class SharedManifestParityTests(unittest.TestCase):
         self.assertEqual(thinking["premium"]["generator"]["reasoningEffort"], "xhigh")
         self.assertEqual(thinking["premium"]["generator"]["reasoningMode"], "standard")
         self.assertEqual(thinking["premium"]["verifier"]["thinking"], False)
-        self.assertEqual(thinking["premium"]["verifier"]["reasoningEffort"], "low")
+        self.assertEqual(thinking["premium"]["verifier"]["reasoningEffort"], "medium")
 
 
 if __name__ == "__main__":

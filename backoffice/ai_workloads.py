@@ -58,7 +58,7 @@ VISION_FALLBACKS: dict[str, frozenset[str]] = {
 # `low`, och inte ett erbjudande av en annan modell.
 _DOCUMENTED_SOL_REASONING_EFFORT = "medium"
 _SOL_DEFAULT_MODEL = "gpt-6.1-sol"
-_REASONING_EFFORTS = frozenset({"none", "low", "medium", "high", "xhigh", "max"})
+_REASONING_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
 
 
 def load_workload(repo_root: Path, workload_id: str) -> dict[str, Any] | None:
@@ -136,25 +136,14 @@ def _bare_model_id(model: str) -> str:
     return bare
 
 
-def _model_accepts_reasoning_effort(model: str) -> bool:
-    """Prefixregel för rå `reasoning_effort`, inte en modellkatalog.
-
-    Klassiska chat-id (gpt-4*) och okända strängar får ingen effort.
-    `*-chat*` avvisar fältet hos providern och behandlas likadant.
-    """
-    bare = _bare_model_id(model)
-    if not bare or "-chat" in bare:
-        return False
-    return bare.startswith(("gpt-5", "gpt-6", "o1", "o3", "o4"))
-
-
 def resolve_reasoning_effort(repo_root: Path, workload_id: str, model: str) -> str | None:
-    """Workloadens `reasoningEffort` för en modell som tål fältet, annars None.
+    """Explicit effort för dessa workloads aktuella Sol-default, annars None.
 
     När manifestet saknas eller är trasigt får de tre Sol-defaultsen dokumenterad
-    ``medium``. Andra id:n, inklusive explicit Luna, får ingen påhittad effort.
+    ``medium``. Prefixlikhet bevisar inte capabilities: äldre explicita val och
+    okända id:n behåller provider-default, utan en parallell modellkatalog.
     """
-    if not _model_accepts_reasoning_effort(model):
+    if _bare_model_id(model) != _SOL_DEFAULT_MODEL:
         return None
     workload = load_workload(repo_root, workload_id)
     if workload is None:

@@ -445,6 +445,10 @@ class ReasoningTokenBudgetTests(unittest.TestCase):
         self.assertNotIn("reasoning_effort", classic)
         self.assertIn("temperature", classic)
 
+    def test_unknown_reasoning_prefix_does_not_invent_effort(self) -> None:
+        payload = self._payload_for(_GUIDE, "gpt-6-unknown-model")
+        self.assertNotIn("reasoning_effort", payload)
+
     def test_persona_gets_headroom_when_the_operator_picks_a_reasoning_model(self) -> None:
         reasoning_choices = [
             m

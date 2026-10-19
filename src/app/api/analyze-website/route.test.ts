@@ -30,10 +30,14 @@ vi.mock("@/lib/webscraper", () => ({
   quickScrapeWebsite,
 }));
 
-vi.mock("@/lib/ai-models/load-manifest", () => ({
-  getWorkloadDefaultModelFromManifest: () => "openai/gpt-6.1-sol",
-  getWorkloadReasoningEffortFromManifest: () => "medium",
-}));
+vi.mock("@/lib/ai-models/load-manifest", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/ai-models/load-manifest")>();
+  return {
+    ...actual,
+    getWorkloadDefaultModelFromManifest: () => "openai/gpt-6.1-sol",
+    getWorkloadReasoningEffortFromManifest: () => "medium",
+  };
+});
 
 const { POST } = await import("./route");
 

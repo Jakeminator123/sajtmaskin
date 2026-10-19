@@ -165,7 +165,7 @@ ${codeBlock}`;
             max_completion_tokens: MAX_OUTPUT_TOKENS,
             ...workloadChatReasoningEffort(INSPECTOR_AI_MATCH_WORKLOAD_ID, clientConfig.modelId),
           }
-        : { max_tokens: MAX_OUTPUT_TOKENS, temperature: 0.1 }),
+        : { max_tokens: 300, temperature: 0.1 }),
     });
 
     const usage = completion.usage;

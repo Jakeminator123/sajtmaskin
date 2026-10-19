@@ -185,6 +185,28 @@ describe("small-call payloads", () => {
     expect(captured[0]?.body).not.toHaveProperty("temperature");
   });
 
+  it("preserves the classic inspector override's 300-token cap and sampling", async () => {
+    vi.resetModules();
+    vi.doMock("@/lib/gen/defaults", async (importOriginal) => ({
+      ...await importOriginal<typeof import("@/lib/gen/defaults")>(),
+      INSPECTOR_AI_MATCH_DEFAULT_MODEL: "gpt-4o",
+    }));
+    const captured = installFetch({ text: JSON.stringify({ tag: "button", confidence: "high" }) });
+    try {
+      const { POST } = await import("@/app/api/inspector-ai-match/route");
+      expect((await POST(inspectorRequest())).status).toBe(200);
+      expect(captured).toHaveLength(1);
+      expect(captured[0].body).toMatchObject({
+        model: "gpt-4o", max_tokens: 300, temperature: 0.1,
+      });
+      expect(captured[0].body).not.toHaveProperty("reasoning_effort");
+      expect(captured[0].body).not.toHaveProperty("max_completion_tokens");
+    } finally {
+      vi.doUnmock("@/lib/gen/defaults");
+      vi.resetModules();
+    }
+  });
+
   it("inspector provider failure does not fabricate a successful match", async () => {
     const captured = installFetch({ status: 500 });
     const response = await inspectorPost(inspectorRequest());
@@ -218,7 +240,7 @@ describe("small-call payloads", () => {
     ).resolves.toBe("clear-refine");
 
     expect(captured).toHaveLength(1);
-    expect(captured[0]?.url).toMatch(/\/v1\/chat\/completions$/);
+    expect(captured[0]?.url).toMatch(/\/v1\/responses$/);
     expect(captured[0]?.body.model).toBe("gpt-4o");
     expect(captured[0]?.body.reasoning_effort).toBeUndefined();
     expect(captured[0]?.body.reasoning).toBeUndefined();

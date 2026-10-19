@@ -161,7 +161,7 @@ Returnera BARA JSON (inget annat):
 Om du inte hittar företaget: {"found":false}
 Bara JSON, inget annat.`,
     maxRetries: 1,
-    maxOutputTokens: 1_500,
+    maxOutputTokens: 8_192,
     ...workloadOpenAIProviderOptions("company_lookup", modelId),
   });
 

@@ -1011,6 +1011,7 @@
       "codeEntry": ["src/app/api/ai/brief/route.ts", "src/lib/builder/site-brief-generation.ts"],
       "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
       "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium",
       "tokenBudget": {
         "envKey": "SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS",
         "default": 82768,
@@ -1304,7 +1305,7 @@
       "authEnv": ["OPENAI_API_KEY"],
       "defaultModel": "gpt-6.1-sol",
       "reasoningEffort": "medium",
-      "notes": "Records the canonical Sol 6.1 / medium policy. The caller still resolves the max-tier build model itself and is not changed here."
+      "notes": "Read-only answer workload for follow-ups classified as qa-or-score, separate from code generation."
     },
     {
       "id": "shadcn_describe_queries",
@@ -1316,7 +1317,7 @@
       "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
       "defaultModel": "openai/gpt-6.1-sol",
       "reasoningEffort": "medium",
-      "notes": "Caller still chooses OpenAI then Anthropic from its own key check. This entry does not add a silent model fallback. The caller is migrated in a later round."
+      "notes": "Explicit AUTO_BRIEF overrides and existing Anthropic failover share the original query deadline. No automatic Luna reserve."
     },
     {
       "id": "shadcn_describe_ranking",
