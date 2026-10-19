@@ -333,42 +333,54 @@ export async function runOwnEngineStreamPostFinalize(params: {
     });
   }
 
-  devLogAppend("in-progress", {
-    type: "site.done",
-    chatId,
-    versionId: finalized.version.id,
-    previewUrl: null,
-    previewDeferred: previewWillRun,
-    previewBlocked,
-    durationMs: Date.now() - engineStartedAt,
-    // PLANERADE FÄLT (idag null) — F2/F3 telemetry split:
-    //
-    // Denna site.done-rad emitteras FÖRE preview-ready och FÖRE quality-gate
-    // completion, så vi har inte exakta split-timings tillgängliga vid den
-    // här callsite-en. Fälten är medvetet inkluderade som null så att
-    // backoffice (llm_flode_telemetry.py) och strict-schemat
-    // (site-done-telemetry.schema.json som tillåter `["number","null"]`) kan
-    // börja titta efter dem utan format-byte när mätpunkterna wireas in.
-    //
-    // För att fylla dem behövs nya mätpunkter:
-    //   - f2TimeMs: tid från site.start till första `preview_ready`-event
-    //     (kräver sample-callback i preview-host-client eller event-bus-listener)
-    //   - f3TimeMs: tid från preview_ready till sista quality-gate-resultat
-    //     (kräver instrumentering kring runTier2VerifyLane i post-checks.ts)
-    //
-    // Se framtida wave i körplanen:
-    //   - docs/plans/avklarat/2026-04-24-llm-flode-korplan/06-latens-och-scaffold-delta.md § E1
-    //   - docs/plans/avklarat/2026-04-24-llm-flode-korplan/07-f2-ux-slo-matbarhet.md
-    f2TimeMs: null,
-    f3TimeMs: null,
-    warmTscSkipped: finalized.warmTscSkipped === true,
-    // P0 warm-pass observability: structured {enabled, ran, skipped,
-    // scaffoldId, durationMs} per pass, so backoffice can tell "ran" from
-    // "silently skipped (cache_cold / feature_flag_disabled)". Source:
-    // buildWarmPassTelemetry in finalize-version/runner.ts.
-    warmTsc: finalized.warmTsc ?? null,
-    warmEslint: finalized.warmEslint ?? null,
-  });
+  // `site.done` outranks `site.aborted` in generation-log-writer, so a version
+  // recovered from a stream without `done` must not claim a clean finish.
+  // `versionId` tells the reader that a repairable version exists.
+  if (recoveredAfterStreamAbort) {
+    devLogAppend("in-progress", {
+      type: "site.aborted",
+      chatId,
+      versionId: finalized.version.id,
+      reason: "stream_closed_without_done",
+    });
+  } else {
+    devLogAppend("in-progress", {
+      type: "site.done",
+      chatId,
+      versionId: finalized.version.id,
+      previewUrl: null,
+      previewDeferred: previewWillRun,
+      previewBlocked,
+      durationMs: Date.now() - engineStartedAt,
+      // PLANERADE FÄLT (idag null) — F2/F3 telemetry split:
+      //
+      // Denna site.done-rad emitteras FÖRE preview-ready och FÖRE quality-gate
+      // completion, så vi har inte exakta split-timings tillgängliga vid den
+      // här callsite-en. Fälten är medvetet inkluderade som null så att
+      // backoffice (llm_flode_telemetry.py) och strict-schemat
+      // (site-done-telemetry.schema.json som tillåter `["number","null"]`) kan
+      // börja titta efter dem utan format-byte när mätpunkterna wireas in.
+      //
+      // För att fylla dem behövs nya mätpunkter:
+      //   - f2TimeMs: tid från site.start till första `preview_ready`-event
+      //     (kräver sample-callback i preview-host-client eller event-bus-listener)
+      //   - f3TimeMs: tid från preview_ready till sista quality-gate-resultat
+      //     (kräver instrumentering kring runTier2VerifyLane i post-checks.ts)
+      //
+      // Se framtida wave i körplanen:
+      //   - docs/plans/avklarat/2026-04-24-llm-flode-korplan/06-latens-och-scaffold-delta.md § E1
+      //   - docs/plans/avklarat/2026-04-24-llm-flode-korplan/07-f2-ux-slo-matbarhet.md
+      f2TimeMs: null,
+      f3TimeMs: null,
+      warmTscSkipped: finalized.warmTscSkipped === true,
+      // P0 warm-pass observability: structured {enabled, ran, skipped,
+      // scaffoldId, durationMs} per pass, so backoffice can tell "ran" from
+      // "silently skipped (cache_cold / feature_flag_disabled)". Source:
+      // buildWarmPassTelemetry in finalize-version/runner.ts.
+      warmTsc: finalized.warmTsc ?? null,
+      warmEslint: finalized.warmEslint ?? null,
+    });
+  }
   devLogFinalizeSite();
 
   // One server-owned promise. SSE delivery is an observer, never a continuation trigger.

@@ -53,6 +53,12 @@ vi.mock("@/lib/utils/debug", () => ({
 import { createOwnEngineGenerationStream } from "./generation-stream";
 import { runOwnEngineStreamPostFinalize } from "./generation-stream-post-finalize";
 import { devLogAppend } from "@/lib/logging/dev-log";
+import { createCodeGenSSEStream } from "@/lib/gen/stream/stream-format";
+import { buildMeta } from "@/lib/logging/generation-log-writer/status";
+import {
+  F3_CONTINUATION_EMPTY_QUESTION,
+  F3_EMPTY_NO_CODE_REASON,
+} from "@/lib/gen/stream/f3-continuation";
 
 async function collectSseEvents(stream: ReadableStream<Uint8Array>): Promise<
   Array<{ event: string; data: unknown }>
@@ -157,7 +163,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     addMessageMock.mockReset();
     addMessageMock.mockResolvedValue(null);
     failVersionVerificationMock.mockReset();
-    failVersionVerificationMock.mockResolvedValue(true);
+    failVersionVerificationMock.mockResolvedValue(null);
     logGenerationMock.mockReset();
     logGenerationMock.mockResolvedValue(null);
     commitCredits.mockClear();
@@ -1229,5 +1235,131 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     // marker failure; the version is already persisted and reconcilable only
     // after the marker succeeds on a later explicit retry.
     expect(finalizeAndSaveVersionMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("stores a provider abort with partial files as a failed recovered version, never as site.done", async () => {
+    failVersionVerificationMock.mockImplementationOnce(async (versionId: string, summary: string) => ({
+      ...mockFinalizeResult.version,
+      id: versionId,
+      release_state: "draft",
+      verification_state: "failed",
+      verification_summary: summary,
+      promoted_at: null,
+    }));
+    const pipelineStream = createCodeGenSSEStream(
+      {
+        fullStream: (async function* () {
+          yield { type: "start" };
+          yield {
+            type: "text-delta",
+            textDelta: '```tsx file="app/page.tsx"\nexport default function Page(){return <main>Hel</main>}\n```',
+          };
+          yield { type: "abort" };
+        })(),
+        usage: Promise.resolve({ inputTokens: 11, outputTokens: 7 }),
+      },
+      { meta: { chatId: "chat_provider_abort" } },
+    );
+
+    const events = await collectSseEvents(
+      createOwnEngineGenerationStream({
+        ...providerFaultParams("chat_provider_abort", {}),
+        pipelineStream,
+      }),
+    );
+
+    expect(finalizeAndSaveVersionMock).toHaveBeenCalledTimes(1);
+    expect(finalizeAndSaveVersionMock.mock.calls[0]?.[0]).toMatchObject({
+      runAutofix: false,
+      logNote: "Done from fallback flush",
+    });
+    expect(failVersionVerificationMock).toHaveBeenCalledWith(
+      "ver_golden_1",
+      expect.stringContaining("Återställd ofullständig version efter streamfel"),
+    );
+    expect(runOwnEngineStreamPostFinalize).toHaveBeenCalledWith(
+      expect.objectContaining({ recoveredAfterStreamAbort: true }),
+    );
+
+    const doneEvents = events.filter((event) => event.event === "done");
+    expect(doneEvents).toHaveLength(1);
+    expect(doneEvents[0]?.data).toMatchObject({
+      versionId: "ver_golden_1",
+      releaseState: "draft",
+      verificationState: "failed",
+      verificationSummary: expect.stringContaining("Återställd ofullständig version efter streamfel"),
+    });
+
+    const logged = vi
+      .mocked(devLogAppend)
+      .mock.calls.map(([, payload]) => payload as Record<string, unknown>);
+    expect(logged.some((entry) => entry.type === "site.done")).toBe(false);
+    expect(logged).toContainEqual(
+      expect.objectContaining({
+        type: "site.aborted",
+        versionId: "ver_golden_1",
+        reason: "stream_closed_without_done",
+      }),
+    );
+    const meta = buildMeta(
+      logged.map((data) => ({
+        ts: new Date().toISOString(),
+        target: "in-progress",
+        slug: null,
+        summary: null,
+        data,
+      })),
+    );
+    expect(meta).toMatchObject({ status: "aborted", versionId: "ver_golden_1" });
+  });
+
+  it.each([
+    ["abort", [{ type: "start" }, { type: "abort" }]],
+    [
+      "provider error without clean finish",
+      [
+        { type: "start" },
+        { type: "error", error: new Error("upstream reset") },
+        { type: "finish", finishReason: "error" },
+      ],
+    ],
+  ])("keeps the F3 continuation marker after an empty %s", async (_name, parts) => {
+    const { EmptyGenerationError } = await import("@/lib/gen/stream/finalize-version");
+    finalizeAndSaveVersionMock.mockRejectedValueOnce(
+      new EmptyGenerationError("chat_f3_empty_abort", null),
+    );
+    const params = providerFaultParams("chat_f3_empty_abort", {});
+    const pipelineStream = createCodeGenSSEStream(
+      {
+        fullStream: (async function* () {
+          for (const part of parts) yield part;
+        })(),
+        usage: Promise.resolve({ inputTokens: 11, outputTokens: 0 }),
+      },
+      { meta: { chatId: "chat_f3_empty_abort" } },
+    );
+
+    const events = await collectSseEvents(
+      createOwnEngineGenerationStream({
+        ...params,
+        buildSpec: { ...params.buildSpec, previewPolicy: "fidelity3" },
+        pipelineStream,
+      }),
+    );
+
+    const doneEvents = events.filter((event) => event.event === "done");
+    expect(doneEvents).toHaveLength(1);
+    expect(doneEvents[0]?.data).toMatchObject({
+      versionId: null,
+      awaitingInput: true,
+      reason: F3_EMPTY_NO_CODE_REASON,
+    });
+    expect(addMessageMock).toHaveBeenCalledWith(
+      "chat_f3_empty_abort",
+      "assistant",
+      F3_CONTINUATION_EMPTY_QUESTION,
+      undefined,
+      [expect.objectContaining({ type: expect.any(String) })],
+    );
   });
 });

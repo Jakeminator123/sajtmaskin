@@ -1024,15 +1024,18 @@ export function createOwnEngineGenerationStream(
                 handlePartialFileOutput,
               });
               if (fallbackFinalized) {
-                await chatRepo
+                const failedVersion = await chatRepo
                   .failVersionVerification(
                     fallbackFinalized.version.id,
                     fallbackVerificationSummary,
                   )
                   .catch(() => null);
-                await emitDoneWithVersion(fallbackFinalized, {
-                  recoveredAfterStreamAbort: true,
-                });
+                await emitDoneWithVersion(
+                  failedVersion
+                    ? { ...fallbackFinalized, version: failedVersion }
+                    : fallbackFinalized,
+                  { recoveredAfterStreamAbort: true },
+                );
               }
             } catch {
               if (postFinalizeError) {
