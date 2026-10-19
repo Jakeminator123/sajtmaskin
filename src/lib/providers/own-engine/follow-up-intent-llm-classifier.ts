@@ -10,8 +10,9 @@
  * provider error) is fail-safe.
  *
  * Model is manifest-controlled via the `match_classifier` workload
- * (`defaultModel`, a small/cheap model). Tokens are kept minimal and the call
- * is bounded by a short timeout.
+ * (`defaultModel`). A missing default uses GPT-6.1 Sol. The call stays on a
+ * short timeout and a short input. 8192 is the total output ceiling, including
+ * reasoning, not a measured cost.
  */
 import { z } from "zod";
 import { generateObject } from "ai";
@@ -26,11 +27,12 @@ import {
 
 const MATCH_CLASSIFIER_WORKLOAD_ID = "match_classifier";
 /** Used only if the manifest workload is missing a defaultModel. */
-const FALLBACK_MODEL = "openai/gpt-6-luna";
+const FALLBACK_MODEL = "openai/gpt-6.1-sol";
 const DEFAULT_TIMEOUT_MS = 4000;
 /** Follow-ups are short; cap input so a pasted wall of text stays cheap. */
 const MAX_PROMPT_CHARS = 2000;
-const MAX_OUTPUT_TOKENS = 2000;
+/** Total output budget, including reasoning tokens. A ceiling, not a measured cost. */
+const MAX_OUTPUT_TOKENS = 8192;
 
 // Mirrors FollowUpIntentMode in src/lib/gen/follow-up-intent-types.ts. The
 // runtime guard below cross-checks the parsed label against the canonical set
@@ -107,7 +109,8 @@ export async function llmClassifyFollowUpIntent(
       // failures, so don't burn latency retrying non-transient errors.
       maxRetries: 1,
       abortSignal: controller.signal,
-      // Manifest effort (`none` on GPT-6 Luna); overrides to older ids keep `low`.
+      // Manifest effort (medium on the Sol default). Unregistered model ids keep
+      // the existing `low` fallback; this does not invent a capability table.
       providerOptions: {
         openai: {
           reasoningEffort:

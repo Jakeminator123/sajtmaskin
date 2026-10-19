@@ -183,8 +183,8 @@ const INDUSTRY_CONTEXT: Record<string, string> = {
 };
 
 const WIZARD_WORKLOAD_ID = "wizard_enrich_competitors";
-// GPT-6 Luna at `none` effort: fast and good enough for follow-up questions.
-const ENRICH_MODEL = getWorkloadDefaultModelFromManifest(WIZARD_WORKLOAD_ID) ?? "openai/gpt-6-luna";
+// Manifest default is GPT-6.1 Sol at medium. This literal is only used when that default is missing.
+const ENRICH_MODEL = getWorkloadDefaultModelFromManifest(WIZARD_WORKLOAD_ID) ?? "openai/gpt-6.1-sol";
 const RESPONSES_MODEL = ENRICH_MODEL.replace(/^openai\//, "");
 
 type EnrichResponse = z.infer<typeof enrichResponseSchema>;
@@ -500,7 +500,7 @@ ${suggestionRule}
                 model: createDirectModel(ENRICH_MODEL),
                 prompt,
                 maxRetries: 1,
-                maxOutputTokens: mode === "final_check" ? 2_000 : 1_600,
+                maxOutputTokens: 8_192,
                 abortSignal: deadline.signal,
                 ...workloadOpenAIProviderOptions(WIZARD_WORKLOAD_ID, ENRICH_MODEL),
               }),

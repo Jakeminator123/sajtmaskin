@@ -31,7 +31,7 @@ export const maxDuration = 35;
 
 const WIZARD_WORKLOAD_ID = "wizard_enrich_competitors";
 const COMPETITORS_MODEL =
-  getWorkloadDefaultModelFromManifest(WIZARD_WORKLOAD_ID) ?? "openai/gpt-6-luna";
+  getWorkloadDefaultModelFromManifest(WIZARD_WORKLOAD_ID) ?? "openai/gpt-6.1-sol";
 const RESPONSES_MODEL = COMPETITORS_MODEL.replace(/^openai\//, "");
 
 const requestSchema = z.object({
@@ -232,7 +232,7 @@ Returnera BARA JSON (inget annat):
 
 - Bara JSON, inget annat`,
                 maxRetries: 1,
-                maxOutputTokens: 2_400,
+                maxOutputTokens: 8_192,
                 abortSignal: deadline.signal,
                 ...workloadOpenAIProviderOptions(WIZARD_WORKLOAD_ID, COMPETITORS_MODEL),
               }),

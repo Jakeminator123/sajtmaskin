@@ -15,7 +15,8 @@ const INSPECTOR_AI_MATCH_WORKLOAD_ID = "inspector_ai_match";
 const MODEL = INSPECTOR_AI_MATCH_DEFAULT_MODEL;
 const MAX_CODE_CHARS = 12_000;
 const MAX_FILES = 6;
-const MAX_OUTPUT_TOKENS = 300;
+/** Total output ceiling, including Sol medium reasoning tokens. Not a measured cost. */
+const MAX_OUTPUT_TOKENS = 8_192;
 
 function getDirectApiKey(): string | null {
   const key = process.env.OPENAI_API_KEY;
@@ -157,8 +158,8 @@ ${codeBlock}`;
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      // Reasoning models reject `max_tokens`, and a custom temperature unless
-      // effort is `none`; workload effort is `none` on GPT-6 Luna.
+      // Reasoning models reject `max_tokens` and custom temperature. Sol has no
+      // `none`; effort comes from the workload helper. Classic models keep temperature.
       ...(isOpenAIReasoningModelId(clientConfig.modelId)
         ? {
             max_completion_tokens: MAX_OUTPUT_TOKENS,

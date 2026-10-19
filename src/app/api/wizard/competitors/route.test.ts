@@ -163,13 +163,14 @@ describe("POST /api/wizard/competitors", () => {
     expect(createDirectModel).toHaveBeenCalledWith("openai/gpt-6.1-sol");
     expect(generateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        maxOutputTokens: 2_400,
+        maxOutputTokens: 8_192,
         model: "model",
         prompt: expect.stringContaining("https://konkurrent.example"),
         abortSignal: expect.any(AbortSignal),
-        providerOptions: { openai: { reasoningEffort: "low" } },
+        providerOptions: { openai: { reasoningEffort: "medium" } },
       }),
     );
+    expect(generateText.mock.calls[0][0]).not.toHaveProperty("temperature");
     expect(authorizeWizardRun).toHaveBeenCalledWith(expect.any(Request), WIZARD_RUN_ID);
     expect(emitWizardRouteTerminal).toHaveBeenCalledWith(
       expect.objectContaining({
