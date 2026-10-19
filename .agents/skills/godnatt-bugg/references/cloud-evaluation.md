@@ -1,20 +1,11 @@
 # Cloud evaluation — två draft-PR-pass
 
-Använd bara detta protokoll för ett uttryckligt admin-test av cirkulariteten.
-Det är inte Desktop-automationen och ger aldrig merge-authority.
-
-## Förutsättningar
-
-Starta inte Cloud-tasken förrän aktuell `origin/preview` innehåller:
-
-- `.agents/skills/godnatt-bugg/`, inklusive evaluation-state och tester;
-- `.codex/agents/godnatt-{investigator,worker,reviewer}.toml`;
-- permanenta worktree-skyddet och dess tester.
-
-Cloud checkar ut en pushad branch eller commit och kan inte använda lokala
-ocommittade filer. Evaluation ska därför starta från den preview-SHA där
-infrastrukturen redan har mergats. Desktop-automationen `godnatt-bugg` ska vara
-PAUSED före, under och efter testet.
+Bara för ett uttryckligt admintest av cirkulariteten; inte Desktop-automationen
+och aldrig merge-authority. Starta Cloud-tasken från en preview-SHA där
+`.agents/skills/godnatt-bugg/` (med evaluation-state och tester),
+`.codex/agents/godnatt-{investigator,worker,reviewer}.toml` och det permanenta
+worktree-skyddet redan är mergade — Cloud ser bara pushade commits.
+Desktop-automationen `godnatt-bugg` ska vara PAUSED före, under och efter.
 
 ## Prompt för Cloud-tasken
 
@@ -74,17 +65,16 @@ For each pass:
     state with the exact current 40-character head SHA and live preview-base
     SHA. The PR API's historical base SHA is not the current preview tip.
 11. Allow automated review. If no useful review is available, follow the
-    repository fallback to independent read-only bug review; the model or
-    GitHub bot is not the procedure name. Fix
-    credible findings on the candidate branch. Any head or preview-base move
-    requires re-registering the current `draft-pr` stage and a new review for
-    both frozen SHAs. The review command must assert `--reviewed-sha` and
+    repository fallback to independent read-only bug review. Fix credible
+    findings on the candidate branch. Any head or preview-base move requires
+    re-registering the current `draft-pr` stage and a new review for both
+    frozen SHAs. The review command must assert `--reviewed-sha` and
     `--reviewed-base-sha`; never use the full-only `re-review` transition here.
     Stop after at most three review/fix passes; the cap never permits merging.
 12. Complete the evaluation pass only from `draft-pr`, only after a clean or
     findings-fixed review for the current head and live preview-base SHAs,
-    and only after re-verifying the
-    PR is still draft/admin-blocked and unmerged.
+    and only after re-verifying the PR is still draft/admin-blocked and
+    unmerged.
 
 Between pass 1 and pass 2:
 - Leave the first PR open and draft and leave its remote branch intact.
@@ -95,8 +85,8 @@ Between pass 1 and pass 2:
 
 At completion return a table with pass number, SM id, verdict, branch, draft PR
 URL, tests/checks, review source/pass count, and unresolved risks. Re-read both
-PRs from GitHub and explicitly confirm that both remain draft, neither has
-no PR was made ready, none was closed, and nothing was merged.
+PRs from GitHub and explicitly confirm that both remain draft, no PR was made
+ready, none was closed, and nothing was merged.
 
 Final mandatory statement:
 
@@ -106,6 +96,6 @@ NO PULL REQUEST WAS MERGED, CLOSED, OR MARKED READY.
 
 ## Stoppa hellre än att simulera
 
-Om Cloud-miljön inte kan pusha två branches eller skapa två separata draft-PR:er
-är cirkularitetstestet inte genomfört. Lämna då inga påståenden om skapade PR:er
-och försök inte ersätta dem med en enda kombinerad PR eller en full-run.
+Kan Cloud-miljön inte pusha två branches eller skapa två separata draft-PR:er är
+testet inte genomfört. Påstå inga skapade PR:er och ersätt dem inte med en
+kombinerad PR eller en full-run.

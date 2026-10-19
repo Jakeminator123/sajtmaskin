@@ -2,8 +2,8 @@
 
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync, statSync } from "node:fs";
-import { posix, resolve, win32 } from "node:path";
+import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { dirname, posix, resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
@@ -204,10 +204,43 @@ export function captureRepoSnapshot(cwd = process.cwd()) {
   };
 }
 
-function main() {
-  process.stdout.write(JSON.stringify(captureRepoSnapshot(), null, 2) + "\n");
+const USAGE =
+  "Usage: repo-snapshot.mjs [--out <file>] | compare <before.json> <after.json> [--pass-branch <branch>]";
+
+// Snapshots are large; --out and compare keep the JSON out of agent context.
+export function runCli(argv, { cwd = process.cwd(), write = (line) => process.stdout.write(line) } = {}) {
+  const [command, ...rest] = argv;
+  if (command === undefined) {
+    write(JSON.stringify(captureRepoSnapshot(cwd), null, 2) + "\n");
+    return;
+  }
+  if (command === "--out") {
+    if (rest.length !== 1) throw new Error(USAGE);
+    const out = resolve(cwd, rest[0]);
+    const snapshot = captureRepoSnapshot(cwd);
+    mkdirSync(dirname(out), { recursive: true });
+    writeFileSync(out, JSON.stringify(snapshot, null, 2) + "\n", "utf8");
+    write(JSON.stringify({ ok: true, out, head: snapshot.head, branch: snapshot.branch }) + "\n");
+    return;
+  }
+  if (command === "compare") {
+    const [beforePath, afterPath, ...flags] = rest;
+    const valid = beforePath && afterPath &&
+      (flags.length === 0 || (flags.length === 2 && flags[0] === "--pass-branch" && flags[1]));
+    if (!valid) throw new Error(USAGE);
+    const read = (path) => JSON.parse(readFileSync(resolve(cwd, path), "utf8"));
+    const options = flags.length === 2 ? { passBranch: flags[1] } : {};
+    write(JSON.stringify(compareRepoSnapshots(read(beforePath), read(afterPath), options)) + "\n");
+    return;
+  }
+  throw new Error(USAGE);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === SCRIPT_PATH) {
-  main();
+  try {
+    runCli(process.argv.slice(2));
+  } catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 2;
+  }
 }

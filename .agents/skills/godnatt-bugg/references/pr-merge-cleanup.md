@@ -1,26 +1,14 @@
 # PR-, review-, merge- och cleanup-gate
 
-Den kanoniska källan är repots aktuella .cursor/rules/pr-merge.mdc tillsammans
-med git.mdc, workflow.mdc, agent-worktree.mdc och BUG-SWARM-BACKLOG.md. Läs dem
-på nytt vid varje pass. Den här referensen är ett körprotokoll, inte en ersättare
-för reglerna.
+Körprotokoll för full mode, inte en ersättare för `.cursor/rules/pr-merge.mdc`,
+`git.mdc`, `workflow.mdc`, `agent-worktree.mdc` och backloggens same-PR-regel.
+Läs dem på nytt vid varje pass.
 
-## Före PR
-
-1. Verifiera full diff inklusive ospårade filer.
-2. Kör fokuserade regressionstester, countertest och tillämpliga quality-,
-   backoffice-, schema- och buildkontroller.
-3. Kör oberoende bugggranskning på hela diffen; ett fullgott separat
-   reviewer-agentpass räcker. Kör inte en identisk extra procedur.
-4. Commitera med begriplig scope, kontrollera git status och pusha worker-
-   branchen.
-5. Skapa draft-PR mot preview och spara PR-nummer/head-SHA.
-6. Uppdatera backloggrad och PR-body enligt backloggens same-PR-regel. Om detta
-   skapar ny commit måste oberoende bugggranskning och SHA-känsliga kontroller köras om.
+Före PR gäller SKILL.md steg 5–7: full diff inklusive ospårade filer,
+regression/countertest och tillämpliga quality-, backoffice-, schema- och
+buildkontroller, oberoende bugggranskning, draft-PR och same-PR-backlogg.
 
 ## Läs hela PR-tillståndet
-
-Använd gh eller GitHub-connectorn för att läsa minst:
 
     gh pr view PR --json number,state,isDraft,baseRefName,headRefName,headRefOid,mergeable,createdAt,labels,reviews,reviewDecision,statusCheckRollup,url
     gh pr checks PR
@@ -28,61 +16,40 @@ Använd gh eller GitHub-connectorn för att läsa minst:
     gh api repos/OWNER/REPO/issues/PR/comments --paginate
     gh api repos/OWNER/REPO/pulls/PR/reviews --paginate
 
-Verifiera att kommentarer/reviews gäller aktuell head-SHA. En budget-/usage-
-limit-kommentar är inte en review och utlöser lokal fallback.
+Kommentarer och reviews ska gälla aktuell head-SHA. En budget-/usage-limit- eller
+quota-/neutral-kommentar är inte review och utlöser lokal fallback; ingen
+automatisk betald API-review eller kontofallback. Required checks är
+verifieringsgrind, inte reviewbevis. Ny head eller flyttad integrationsbas gör
+äldre resultat stale; gör en färsk helhetsavläsning före merge.
 
-## Reviewordning
-
-Kräv en oberoende readonly-granskare för aktuell diff/head, och triagera även
-GitHub-Bugbot/Codex-fynd när de finns. En quota-/neutral-check är inte review.
-Ingen automatisk betald API-review eller kontofallback ska startas.
-
-GitHubs required checks är verifieringsgrind, inte bevis för review. Ny head
-eller flyttad integrationsbas gör äldre resultat stale enligt rulesetet. Vänta
-icke-blockerande och gör en färsk helhetsavläsning före merge.
-
-Efter ett reviewfynd:
-
-1. Triagera mot faktisk kod och hela branchdiffen.
-2. Fixa P0/P1 eller pausa.
-3. Kör regression/countertest och berörda gates igen.
-4. Commitera/pusha och betrakta tidigare bugggranskning och SHA-känsliga
-   resultat som stale.
-
-Godnatt-bugg tillåter högst tre sådana korrigeringsvarv. Taket är en
-eskaleringsgräns, aldrig tillåtelse att merga kvarvarande fel.
-
-## Mandat
-
-Merge kräver batchens uttryckliga eller förhandsvillkorade preview-mandat. Ett
-villkorat mandat behöver inte frågas om igen när GitHubs angivna native villkor
-är uppfyllda. Ett vanligt fixuppdrag är inte mergemandat.
+Efter ett reviewfynd: triagera mot faktisk kod och hela branchdiffen, fixa P0/P1
+eller pausa, kör regression/countertest och berörda gates igen, commitera/pusha
+och betrakta tidigare granskning som stale. Högst tre korrigeringsvarv; taket är
+en eskaleringsgräns, aldrig tillåtelse att merga kvarvarande fel.
 
 ## Full merge-gate
 
-Merga endast när allt är sant:
+Merge kräver batchens uttryckliga eller förhandsvillkorade preview-mandat (ett
+villkorat mandat frågas inte om igen när native villkor är uppfyllda; ett vanligt
+fixuppdrag är inte mergemandat). Merga endast när allt är sant:
 
 - PR är ej draft, base är preview och mergeable.
-- GitHubs required checks är gröna för aktuell head och integrationsbas.
+- Required checks är gröna för aktuell head och integrationsbas.
 - Vercel är grön eller saknas enligt reporegeln.
-- Inga requested changes, blockerande trådar eller öppna P0/P1 finns.
-- Labels do-not-merge, agent:needs-human, risk:4 eller risk:5 saknas eller har
-  uttryckligt ägarbeslut enligt regeln.
+- Inga requested changes, blockerande trådar eller öppna P0/P1.
+- Labels `do-not-merge`, `agent:needs-human`, `risk:4` eller `risk:5` saknas
+  eller har uttryckligt ägarbeslut.
 - Oberoende bugggranskning och triage gäller exakt head- och live preview-base-SHA.
-- PR-body och backloggändring beskriver det som faktiskt ska mergeas.
+- PR-body och backloggändring beskriver det som faktiskt mergeas.
 
-Använd GitHubs vanliga mergefunktion enligt `pr-merge.mdc`. Ingen admin-bypass.
+Använd GitHubs vanliga mergefunktion enligt `pr-merge.mdc`, ingen admin-bypass.
 Känsliga ytor kräver ownerbeslut i PR:n; okända effekter mot delad
-produktions-DB är stopp.
-Detta pass promoterar eller mergar aldrig master.
+produktions-DB är stopp. Passet promoterar eller mergar aldrig master.
 
 ## Cleanup-handoff
 
-Godnatt-bugg använder appens current worktree som pass-worktree. Agenten får
-aldrig köra worktree:remove eller rå git worktree remove på det. Desktop äger
-worktree-teardown och håller retentionen bounded.
-
-Efter verifierad merge:
+Appens current worktree är pass-worktree; kör aldrig `worktree:remove` eller rå
+`git worktree remove` på det. Desktop äger teardown. Efter verifierad merge:
 
     cleanup_pass_remote() {
       case "$PASS_BRANCH" in
@@ -123,17 +90,16 @@ Efter verifierad merge:
     fi
     unset -f cleanup_pass_remote
 
-Remote-delete körs bara när branchen fortfarande finns, dess live-tip fortfarande
-är exakt den verifierade head-SHA:n och antingen Git-ancestry eller en mergad
-GitHub-PR med samma branch/head-SHA är bevisad. `--force-with-lease` låser även
-racet mellan kontroll och delete; en ny remote-commit bevaras och stoppar
-cleanup. GitHub kan redan ha raderat branchen. Ett tomt/felande GitHub-svar är
-stopp. Den utcheckade lokala branchen lämnas till appens teardown. Flytta state
-till cleanup först efter denna verifiering. State återläser PR, ren registrerad
-worktree på exakt PR-head och framgångsrik `ls-remote` utan pass-ref både vid
-cleanup och complete. GitHub-ancestry måste binda registrerad mergecommit till
-aktuell preview (identical/ahead med exakt merge-base); rewind/divergence eller
-API-/Git-fel är stopp. Complete verifierar endast att
-worktreet är redo för app-handoff, inte att Desktop redan utfört teardown.
-Vid dirty/omergad branch eller
+Remote-delete sker bara när branchen finns, dess live-tip är exakt den
+verifierade head-SHA:n och Git-ancestry eller en mergad GitHub-PR med samma
+branch/head-SHA är bevisad. `--force-with-lease` låser racet mellan kontroll och
+delete: en ny remote-commit bevaras och stoppar cleanup. GitHub kan redan ha
+raderat branchen; ett tomt eller felande GitHub-svar är stopp. Den lokala
+branchen lämnas till appens teardown.
+
+Flytta state till cleanup först efter denna verifiering. State återläser PR, ren
+registrerad worktree på exakt PR-head och lyckad `ls-remote` utan pass-ref vid
+cleanup och complete, och GitHub-ancestry måste binda mergecommiten till aktuell
+preview; rewind/divergence eller API-/Git-fel är stopp. Complete verifierar bara
+att worktreet är redo för app-handoff. Vid dirty/omergad branch eller
 permanent/current-path-risk: pausa och bevara.

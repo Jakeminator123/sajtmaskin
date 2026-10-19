@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 
-import { captureRepoSnapshot, compareRepoSnapshots } from "./repo-snapshot.mjs";
+import { captureRepoSnapshot, compareRepoSnapshots, runCli } from "./repo-snapshot.mjs";
 
 function fixture() {
   const repo = mkdtempSync(join(tmpdir(), "godnatt-snapshot-repo-"));
@@ -18,6 +18,43 @@ function fixture() {
   git("commit", "-m", "snapshot fixture");
   return { repo, git };
 }
+
+describe("repo snapshot cli", () => {
+  it("writes snapshots to ignored files and compares them without printing the JSON", () => {
+    const { repo, git } = fixture();
+    try {
+      writeFileSync(join(repo, ".gitignore"), ".cursor/tmp/\n", "utf8");
+      git("add", ".gitignore");
+      git("commit", "-m", "ignore scratch");
+      const lines = [];
+      const write = (line) => lines.push(JSON.parse(line));
+      runCli(["--out", ".cursor/tmp/godnatt/before.json"], { cwd: repo, write });
+      runCli(["--out", ".cursor/tmp/godnatt/after.json"], { cwd: repo, write });
+      runCli(["compare", ".cursor/tmp/godnatt/before.json", ".cursor/tmp/godnatt/after.json"],
+        { cwd: repo, write });
+
+      assert.equal(lines[0].ok, true);
+      assert.match(lines[0].head, /^[a-f0-9]{40}$/u);
+      const saved = JSON.parse(readFileSync(join(repo, ".cursor/tmp/godnatt/before.json"), "utf8"));
+      assert.equal(saved.head, lines[0].head);
+      assert.equal(lines[2].kind, "unchanged");
+
+      git("tag", "cli-probe");
+      runCli(["--out", ".cursor/tmp/godnatt/tagged.json"], { cwd: repo, write });
+      runCli(["compare", ".cursor/tmp/godnatt/before.json", ".cursor/tmp/godnatt/tagged.json",
+        "--pass-branch", saved.branch], { cwd: repo, write });
+      assert.equal(lines[4].kind, "external-change");
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects incomplete arguments instead of guessing", () => {
+    for (const argv of [["--out"], ["compare", "a.json"], ["compare", "a", "b", "--pass-branch"], ["status"]]) {
+      assert.throws(() => runCli(argv, { write: () => {} }), /Usage:/u);
+    }
+  });
+});
 
 describe("repo snapshot", () => {
   it("is deterministic when no repository state changes", () => {
