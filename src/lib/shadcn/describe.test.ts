@@ -342,6 +342,31 @@ describe("LLM call options", () => {
     expect(options.providerOptions).toBeUndefined();
   });
 
+  it.each([
+    ["gpt-4o-mini", "gpt-6.1-sol"],
+    ["openai/gpt-4o-mini", "openai/gpt-6.1-sol"],
+    ["gpt-4.1", "gpt-6.1-sol"],
+    ["openai/gpt-4.1", "openai/gpt-6.1-sol"],
+  ])("resolves retired override %s before both payload and usage decisions", async (requested, resolved) => {
+    clearAutoBriefEnv();
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    vi.stubEnv(getBriefingEnvKeysFromManifest().serverAutoOpenAI, requested);
+    generateObject
+      .mockResolvedValueOnce({ object: { queries: ["pricing"] }, usage: {} })
+      .mockResolvedValueOnce({ object: { picks: [{ index: 0, reason: "pricing" }] }, usage: {} });
+    await expect(generateQueriesWithLlm("pricing table")).resolves.toEqual(["pricing"]);
+    expect((await rankCandidatesWithLlm("pricing table", sampleCandidates(), 1)).ranking).toBe("llm");
+    for (const [options] of generateObject.mock.calls) {
+      expect(options).toMatchObject({
+        model: { modelId: resolved }, maxOutputTokens: 8192,
+        providerOptions: { openai: { reasoningEffort: "medium" } },
+      });
+    }
+    expect(recordLlmUsage).toHaveBeenCalledTimes(2);
+    for (const [usage] of recordLlmUsage.mock.calls) expect(usage.model).toBe(resolved);
+  });
+
   it("falls back to the heuristic when every provider call fails", async () => {
     clearAutoBriefEnv();
     vi.stubEnv("OPENAI_API_KEY", "test-key");

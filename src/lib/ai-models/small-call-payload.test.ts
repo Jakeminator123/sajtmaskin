@@ -221,9 +221,9 @@ describe("small-call payloads", () => {
     expect(captured.some((request) => String(request.body.model).includes("luna"))).toBe(false);
   });
 
-  it("llmClassifyFollowUpIntent sends Responses Sol medium with max_output_tokens 8192", async () => {
+  it.each(["", "gpt-4o-mini", "gpt-4.1"])("classifier override '%s' sends Responses Sol medium with 8192", async (override) => {
     const captured = installFetch({ text: "{\"intent\":\"neutral\"}" });
-    await expect(llmClassifyFollowUpIntent("hej")).resolves.toBe("neutral");
+    await expect(llmClassifyFollowUpIntent("hej", override ? { model: override } : {})).resolves.toBe("neutral");
 
     expect(captured.length).toBeGreaterThan(0);
     expect(captured[0]?.url).toMatch(/\/v1\/responses$/);
@@ -236,6 +236,7 @@ describe("small-call payloads", () => {
     // real SDK parses both 6000 reasoning and 100 visible output tokens while
     // the caller still returns the intended visible result within its cap.
     const usage = vi.mocked(recordLlmUsage).mock.calls.at(-1)?.[0].usage;
+    expect(vi.mocked(recordLlmUsage).mock.calls.at(-1)?.[0].model).toMatch(/^(openai\/)?gpt-6\.1-sol$/);
     expect(usage).toMatchObject({
       outputTokens: 6100,
       outputTokenDetails: { reasoningTokens: 6000, textTokens: 100 },
@@ -266,7 +267,8 @@ describe("small-call payloads", () => {
     expect(captured.some((request) => String(request.body.model).includes("luna"))).toBe(false);
   });
 
-  it("shadcn query and ranking use Sol medium and an 8192 ceiling", async () => {
+  it.each(["", "gpt-4o-mini", "gpt-4.1"])("shadcn query/ranking resolve override '%s' to Sol medium and 8192", async (override) => {
+    vi.stubEnv(getBriefingEnvKeysFromManifest().serverAutoOpenAI, override);
     const queryCaptured = installFetch({ text: "{\"queries\":[\"pricing table\"]}" });
     await expect(generateQueriesWithLlm("pricing table")).resolves.toEqual(["pricing table"]);
     expect(queryCaptured[0]?.url).toMatch(/\/v1\/responses$/);

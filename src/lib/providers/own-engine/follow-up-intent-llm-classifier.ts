@@ -18,6 +18,7 @@ import { z } from "zod";
 import { generateObject } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
 import { workloadOpenAIProviderOptions } from "@/lib/ai-models/workload-reasoning";
+import { aliasRetiredModelId } from "@/lib/models/catalog";
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import {
@@ -80,10 +81,11 @@ export async function llmClassifyFollowUpIntent(
   const trimmed = String(message ?? "").trim();
   if (!trimmed) return "neutral";
 
-  const modelId =
+  const modelId = aliasRetiredModelId(
     opts.model ??
     getWorkloadDefaultModelFromManifest(MATCH_CLASSIFIER_WORKLOAD_ID) ??
-    FALLBACK_MODEL;
+    FALLBACK_MODEL,
+  );
 
   // Throws when the required API key is missing → fail-safe fallback.
   const model = createDirectModel(modelId);

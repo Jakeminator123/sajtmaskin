@@ -61,6 +61,7 @@ import {
 } from "@/lib/ai-models/load-manifest";
 import { workloadOpenAIProviderOptions } from "@/lib/ai-models/workload-reasoning";
 import { isOpenAIReasoningModelId } from "@/lib/models/openai-capabilities";
+import { aliasRetiredModelId } from "@/lib/models/catalog";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { debugLog } from "@/lib/utils/debug";
 
@@ -331,7 +332,15 @@ function resolveDescribeModels(workloadId: string): string[] {
         getBriefingDefaultsFromManifest().serverAutoAnthropic,
     );
   }
-  return Array.from(new Set(models));
+  return Array.from(new Set(models.map((requestedModel) => {
+    const resolvedModel = aliasRetiredModelId(requestedModel);
+    if (resolvedModel !== requestedModel) {
+      debugLog("shadcn-describe", "Retired model override resolved", {
+        workloadId, requestedModel, resolvedModel,
+      });
+    }
+    return resolvedModel;
+  })));
 }
 
 function describeMaxOutputTokens(model: string, classicCap: number): number {
