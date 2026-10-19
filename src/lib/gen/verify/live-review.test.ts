@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetServerEnvCacheForTests } from "@/lib/env";
 
 const generateObject = vi.hoisted(() => vi.fn());
-const createDirectModel = vi.hoisted(() => vi.fn(() => ({ id: "mock-model" })));
+const createDirectModel = vi.hoisted(() => vi.fn((_modelId: string) => ({ id: "mock-model" })));
 const uploadBlob = vi.hoisted(() => vi.fn());
 /** Product default: Sol medium, no automatic Luna. Tests opt into fallback explicitly. */
 const liveReviewManifest = vi.hoisted(() => ({
