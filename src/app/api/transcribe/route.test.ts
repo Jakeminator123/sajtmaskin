@@ -134,6 +134,7 @@ describe("POST /api/transcribe", () => {
     fetchMock = vi.fn(async () => {
       throw new Error("unexpected network");
     });
+    Object.assign(fetchMock, { Response });
     vi.stubGlobal("fetch", fetchMock);
   });
 
@@ -370,7 +371,7 @@ describe("POST /api/transcribe", () => {
       const signal = outbound.signal;
       const wasAborted = signal?.aborted === true;
       controller.abort();
-      signalLinked = Boolean(signal) && !wasAborted && signal.aborted === true;
+      signalLinked = signal != null && !wasAborted && signal.aborted === true;
       const error = new Error(`${SECRET} aborted`);
       error.name = "APIUserAbortError";
       throw error;

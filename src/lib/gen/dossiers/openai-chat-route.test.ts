@@ -131,6 +131,28 @@ async function responseText(res: Response): Promise<string> {
   }
 }
 
+function reconstructedTextDeltas(raw: string): string {
+  let combined = "";
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("data:")) continue;
+    const payload = trimmed.slice(5).trim();
+    if (payload === "[DONE]") continue;
+    const event: unknown = JSON.parse(payload);
+    if (
+      typeof event === "object" &&
+      event !== null &&
+      "type" in event &&
+      event.type === "text-delta" &&
+      "delta" in event &&
+      typeof event.delta === "string"
+    ) {
+      combined += event.delta;
+    }
+  }
+  return combined;
+}
+
 describe("openai-chat dossier route", () => {
   beforeEach(() => {
     process.env.OPENAI_API_KEY = "test-key";
@@ -178,7 +200,7 @@ describe("openai-chat dossier route", () => {
       const signal = init?.signal;
       const wasAborted = signal?.aborted === true;
       controller.abort();
-      signalLinked = Boolean(signal) && !wasAborted && signal.aborted === true;
+      signalLinked = signal != null && !wasAborted && signal.aborted === true;
       const error = new Error("aborted");
       error.name = "AbortError";
       throw error;
@@ -208,7 +230,7 @@ describe("openai-chat dossier route", () => {
     expect(res.status).toBe(200);
     expect(text).toContain("text-delta");
     expect(text).toContain("demo-assistent");
-    expect(text).toContain("inte ett riktigt AI-svar");
+    expect(reconstructedTextDeltas(text)).toContain("inte ett riktigt AI-svar");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
