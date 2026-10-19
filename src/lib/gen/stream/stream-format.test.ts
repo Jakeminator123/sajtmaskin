@@ -304,6 +304,43 @@ describe("createCodeGenSSEStream", () => {
     ).toBe(true);
   });
 
+  // A `done` after a provider abort/error let the caller persist partial
+  // output as a normal version; without it the caller's no-done fallback
+  // stores it as failed verification (`recoveredAfterStreamAbort`).
+  it("ends without done after a provider abort mid-content", async () => {
+    const events = await collectEvents([
+      { type: "start" },
+      { type: "text-delta", textDelta: "<main>Hel" },
+      { type: "abort" },
+    ]);
+
+    expect(events.some((event) => event.event === "error")).toBe(true);
+    expect(events.some((event) => event.event === "done")).toBe(false);
+  });
+
+  it("ends without done after a provider error without a clean finish", async () => {
+    const events = await collectEvents([
+      { type: "start" },
+      { type: "text-delta", textDelta: "<main>Hel" },
+      { type: "error", error: new Error("upstream reset") },
+      { type: "finish", finishReason: "error" },
+    ]);
+
+    expect(events.some((event) => event.event === "error")).toBe(true);
+    expect(events.some((event) => event.event === "done")).toBe(false);
+  });
+
+  it("keeps done when the run finishes cleanly after a provider error", async () => {
+    const events = await collectEvents([
+      { type: "start" },
+      { type: "error", error: new Error("transient upstream blip") },
+      { type: "text-delta", textDelta: "<main>Hello</main>" },
+      { type: "finish", finishReason: "stop" },
+    ]);
+
+    expect(events.at(-1)?.event).toBe("done");
+  });
+
   it("still explains a genuinely silent stream when no provider error was seen", async () => {
     const events = await collectEvents([
       { type: "start" },

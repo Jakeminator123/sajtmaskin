@@ -349,6 +349,7 @@ export function createCodeGenSSEStream(
       let sawContentEvent = false;
       let abortedByProvider = false;
       let truncatedByLength = false;
+      let finishedCleanly = false;
       /**
        * Sant så snart strömmen sagt VARFÖR den föll. Klienten behåller bara
        * det sista error-eventet, så en generisk rad efteråt raderar diagnosen.
@@ -530,6 +531,10 @@ export function createCodeGenSSEStream(
               ensureGenerationStarted();
               if (part.finishReason === "length") {
                 truncatedByLength = true;
+              }
+              if (part.type === "finish") {
+                finishedCleanly =
+                  part.finishReason === "stop" || part.finishReason === "tool-calls";
               }
               break;
             }
@@ -797,6 +802,17 @@ export function createCodeGenSSEStream(
               }),
             );
           }
+        }
+
+        if (abortedByProvider || (providerErrorEmitted && !finishedCleanly)) {
+          // No `done`, like the truncation path: the caller's no-done fallback
+          // stores partial output as failed verification instead of a normal
+          // version. A provider error followed by a clean finish still ends
+          // as designed and keeps `done`.
+          await recordCodegenUsage("provider_stream_error");
+          summarizeStream("error");
+          reportAccumulatedThinking();
+          return;
         }
 
         const usage = await result.usage;
