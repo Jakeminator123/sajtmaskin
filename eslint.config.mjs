@@ -64,7 +64,6 @@ export default defineConfig([
     ".cursor/tmp/**/*",
     ".cursor/bugs/**/*",
     ".cursor/handoffs/**/*",
-    ".cursor/kedja/**/*",
     ".cursor/logg-internet/**/*",
     ".cursor/plans/**/*",
     ".cursor/swarms/**/*",

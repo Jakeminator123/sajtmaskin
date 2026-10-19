@@ -70,7 +70,7 @@ const packageJson = {
     "observability:test":
       'python -m unittest discover -s scripts/observability -p "test_*.py" -t scripts/observability',
     "db:blob-sync-unit": "python scripts/db/test_pydatabastest.py",
-    "test:godnatt-bugg": "node --test .agents/skills/godnatt-bugg/scripts/run-state.test.mjs",
+    "test:skill-scripts": "node --test .agents/skills/example/scripts/run-state.test.mjs",
     "preview-host:verify":
       "npm --prefix preview-host run check && npm --prefix preview-host run test:guards",
   },
@@ -139,7 +139,7 @@ describe("test discovery coverage", () => {
       "backoffice/test_routes.py",
       "scripts/observability/test_report.py",
       "scripts/db/test_pydatabastest.py",
-      ".agents/skills/godnatt-bugg/scripts/run-state.test.mjs",
+      ".agents/skills/example/scripts/run-state.test.mjs",
       "preview-host/scripts/test-preview-guard.mjs",
       "preview-host/scripts/test-preview-nested.mjs",
     ];

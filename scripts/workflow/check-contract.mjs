@@ -1618,13 +1618,6 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     if (!pkg.scripts?.[command])
       errors.push(`verification command missing in package.json: ${command}`);
   }
-  if (String(pkg.scripts?.["test:ci"] ?? "").includes("godnatt")) {
-    errors.push("test:ci must not invoke godnatt-bugg; keep that command on-demand");
-  }
-  if (!pkg.scripts?.["test:godnatt-bugg"]) {
-    errors.push("test:godnatt-bugg command missing in package.json");
-  }
-
   const schemas = json(root, "config/control-plane/schema-registry.json").entries;
   const policies = json(root, "config/control-plane/policy-registry.json").entries;
   if (!schemas.some((entry) => entry.id === "agent-workflow-schema")) {
@@ -1886,14 +1879,6 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
       "managed pre-push must bind clean HEAD, block hook downgrades and proof-gate remote delete",
     );
   }
-  const godnattCleanup = read(root, ".agents/skills/godnatt-bugg/references/pr-merge-cleanup.md");
-  if (
-    !godnattCleanup.includes("REMOTE_SHA=${REMOTE_REF%%[[:space:]]*}") ||
-    !godnattCleanup.includes('--force-with-lease="refs/heads/$PASS_BRANCH:$PASS_SHA"') ||
-    !godnattCleanup.includes('SAJTMASKIN_PROVEN_REMOTE_DELETE_SHA="$PASS_SHA"')
-  ) {
-    errors.push("Godnatt cleanup must lease remote deletion to the exact merged head SHA");
-  }
   if (!prWorkflow.includes("npm run hooks:install")) {
     errors.push("canonical PR workflow must install the managed local hooks");
   }
@@ -1952,10 +1937,6 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
         `.codex/README.md must document ${key} = "${declared}" from .codex/config.toml in the same change`,
       );
     }
-  }
-  const decide818 = read(root, ".agents/skills/818-swarm-decide/SKILL.md");
-  if (!decide818.includes("../pr-workflow/SKILL.md") || !decide818.includes("before writing")) {
-    errors.push("818 decision flow must enter canonical pr-workflow before edits");
   }
   const tidySource = read(root, "scripts/dev/tidy.mjs");
   if (!tidySource.includes("config/agent-workflow.json") || tidySource.includes("SKYDDADE = [")) {

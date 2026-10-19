@@ -52,8 +52,8 @@ Canonical owner och dokumentationsnivåer definieras i
 
 `package.json` är kanonisk källa för tillgängliga kommandon. Minsta verifiering
 per ändringstyp finns i [`.cursor/rules/workflow.mdc`](.cursor/rules/workflow.mdc).
-Lokal Cursor- och tokenhygien:
-[`.cursor/README.md`](.cursor/README.md#tokenhygien-i-praktiken).
+Lokal Cursor-kontext:
+[`.cursor/README.md`](.cursor/README.md#kontext).
 Manuella underhållsknappar som CI _inte_ kör: städ i
 [`docs/runbooks/hygiene.md`](docs/runbooks/hygiene.md), worktrees i
 [`docs/runbooks/git-worktree.md`](docs/runbooks/git-worktree.md), env i

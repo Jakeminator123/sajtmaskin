@@ -12,32 +12,22 @@ alwaysApply: false
 
 # Scaffold-regler
 
-Arkitektur: `docs/contracts/scaffold-system.md`.
+Arkitektur: `docs/contracts/scaffold-system.md`. Scaffold-filer redigeras direkt
+i `src/lib/gen/scaffolds/<id>/files/`, metadata i `manifest.ts`, registry/types i
+`registry.ts`/`types.ts`. Variants: `config/scaffold-variants/<scaffold>/<variant>.json`
+mot `docs/schemas/strict/scaffold-variant.schema.json`.
 
-## Canonical paths
+1. Efter ändring: `npm run typecheck` + `npm run scaffolds:validate`.
+2. Regenerera klientprojektionen `scaffold-client-list.generated.ts` med
+   `npm run scaffolds:client-list:write`; importera aldrig serverregistret från
+   klientkod.
+3. Ändra inte `serialize.ts`, `registry.ts`, `seo-defaults.ts`,
+   `finalize-merge.ts` eller `protected-paths.ts` utan att förstå merge-pipelinen.
+4. Externa referenser och research går via dossier-/reference-pipen, inte gamla
+   template-library-script.
+5. Före borttagning eller sammanslagning: sök referenser, variantmappar,
+   registry, embeddings och docs.
 
-| Sak | Path |
-|---|---|
-| Scaffold-filer | `src/lib/gen/scaffolds/<id>/files/` |
-| Scaffold manifest | `src/lib/gen/scaffolds/<id>/manifest.ts` |
-| Registry/types | `src/lib/gen/scaffolds/registry.ts`, `types.ts` |
-| Browser-safe klientprojektion | `src/lib/gen/scaffolds/scaffold-client-list.generated.ts` |
-| Variants | `config/scaffold-variants/<scaffold>/<variant>.json` |
-| Variant schema | `docs/schemas/strict/scaffold-variant.schema.json` |
-
-## Regler
-
-1. Redigera scaffold-filer direkt i `files/`.
-2. Metadata i `manifest.ts`.
-3. Kör `npm run typecheck` + `npm run scaffolds:validate` efter ändringar.
-4. Regenerera klientprojektionen med `npm run scaffolds:client-list:write`; importera aldrig serverregistret från klientkod.
-5. Ändra inte `serialize.ts`, `registry.ts`, `seo-defaults.ts`, `finalize-merge.ts` eller `protected-paths.ts` utan att förstå merge-pipeline.
-6. Externa referenser och research går via dossier-/reference-pipen, inte gamla template-library-script.
-7. Innan ta bort/slå ihop scaffold: sök referenser, variantmappar, registry, embeddings och docs.
-
-## Merge-policy
-
-- `LLM_ONLY_PATHS`: scaffold-default blockas, LLM måste emittera.
-- `SCAFFOLD_PROTECTED_PATHS`: LLM-emission droppas, scaffold/previous vinner.
-
-Lägg bara rena utility-filer i protected paths.
+Merge-policy: `LLM_ONLY_PATHS` blockar scaffold-default (LLM måste emittera);
+`SCAFFOLD_PROTECTED_PATHS` droppar LLM-emission (scaffold/previous vinner). Lägg
+bara rena utility-filer i protected paths.

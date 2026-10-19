@@ -152,7 +152,7 @@ describe("agent workflow impact", () => {
   it("finds the Cursor-agenter Backoffice surface after the skill move", () => {
     const impact = collectImpact({
       ...inputs,
-      changedFiles: [".agents/skills/godnatt-bugg/SKILL.md", "AGENTS.md"],
+      changedFiles: [".agents/skills/bug-koll/SKILL.md", "AGENTS.md"],
     });
     expect(impact.backofficePages).toContain("Cursor-agenter");
     expect(impact.commands).toContain("check:agent-context");

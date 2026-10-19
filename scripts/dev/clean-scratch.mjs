@@ -35,12 +35,12 @@
  *
  * Why `--only` exists: a skill that finishes a run should not sweep unrelated
  * workspaces. `/automat` writes to `.cursor/swarms/runs` but the global apply
- * also prunes handoffs, kedja candidate diffs, `.cursor/tmp`, `logs/` and
- * `.env-backups`. A kedja loser diff can be the sole copy of that candidate, so
+ * also prunes handoffs, bug reports, `.cursor/tmp`, `logs/` and
+ * `.env-backups`. A bug report can be the sole copy of a repro, so
  * losing it to an unrelated audit run is real data loss. Per-run cleanup passes
  * `--only <its own tree>`; the global sweep stays an explicit owner action.
  * Run it with `node`, not `npm run --`: npm eats unknown flags before they
- * reach the script (same trap documented in `.cursor/kedja/README.md`).
+ * reach the script.
  *
  * Cross-platform: pure Node fs + one `git ls-files` call.
  */
@@ -103,7 +103,7 @@ export const LOGS_TREE = "logs";
  * matters: a busy day produces a dozen entries that are all minutes old, so the
  * age escape hatch would keep every one of them and the cap would never bite.
  * Their READMEs all say the contents may be cleared at any time — a handoff is
- * delivered, a kedja diff is superseded once the winner is merged — so recency
+ * delivered, a run is superseded by the next one — so recency
  * is the only signal worth keeping.
  *
  * The tracked-file guard still applies, so the committed README.md in each
@@ -126,7 +126,6 @@ export const LOGS_TREE = "logs";
  */
 const COUNT_TREES = [
   ".cursor/handoffs",
-  ".cursor/kedja",
   ".cursor/bugs",
   ".cursor/logg-internet/runs",
   ".cursor/swarms/runs",

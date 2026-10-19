@@ -1,30 +1,66 @@
 ---
-description: "Lokal Cursor-miljö är Windows/PowerShell. Använd pwsh-syntax i terminalexempel."
+description: "Windows/pwsh 7: syntax, felkatalog, commit-meddelande via fil och RTK-komprimerad Shell-output. Läs vid terminalarbete eller pwsh-fel."
 alwaysApply: false
 ---
 
-# PowerShell först
+# PowerShell och terminal
 
-Lokal miljö är Windows med PowerShell 7 (`pwsh`). Använd pwsh-syntax i terminalkommandon.
-
-**Riktig exe:** `C:\Program Files\PowerShell\7\pwsh.exe`. Starta aldrig `powershell` / `powershell.exe` — det är Windows PowerShell **5.1** och skriver bannern `Copyright (C) Microsoft Corporation` + `aka.ms/pscore6`. `WindowsApps\pwsh.exe` är ett 0-byte App Execution Alias och får inte användas (failar i sandbox/elevated). Cursor-agenten på Windows kan fortfarande välja 5.1 trots defaultProfile — skriv därför aldrig `&&` (finns bara i 7) och peka på full `pwsh`-sökväg om skalet är tveksamt.
+Lokal miljö är Windows med `pwsh` 7: `C:\Program Files\PowerShell\7\pwsh.exe`.
+`powershell.exe` är alltid 5.1 (banner `Copyright (C) Microsoft Corporation` +
+`aka.ms/pscore6`, inget `&&`, inte UTF-8 som default). `WindowsApps\pwsh.exe` är
+ett 0-byte alias; User PATH ska ha PowerShell 7-mappen före WindowsApps
+(`where.exe pwsh`). Är skalet tveksamt: kedja med `;` och villkora på
+`$LASTEXITCODE`.
 
 | Använd | Undvik |
 |---|---|
-| `Get-ChildItem`, `Get-Content`, `Select-String` | `ls -la`, `cat`, `grep`, `sed` |
+| `Get-ChildItem`, `Get-Content`, `Select-String`, `Select-Object -First N` | `ls -la`, `cat`, `grep`, `head`, `sed`, `awk` |
 | `$env:NAME = "x"` | `export NAME=x` |
-| `; if ($LASTEXITCODE -eq 0) { ... }` (externt program) · `; if ($?) { ... }` (cmdlet) | `&&` / `||` |
+| `$LASTEXITCODE -eq 0` efter externa program (`$?` bara för cmdlets) | `&&` / `\|\|`, `$?` efter git/npm/node |
 | `foreach ($x in $items) { ... }` | `for x in ...; do ...` |
-| here-string `@" ... "@` | heredoc `<<EOF` |
 | `Remove-Item -Recurse -Force` | `rm -rf` |
-| `-LiteralPath` vid `[chatId]`-liknande sökvägar | wildcard-tolkning av `[ ]` |
+| `-LiteralPath` vid `[chatId]`-sökvägar | wildcard-tolkning av `[ ]` |
+| `'...'` / `@' '@` för literal text | `"..."` / `@" "@` när `$` eller backtick ska vara literal |
 
-Kedja med `;` i en kommandosträng. Oberoende kommandon: parallella verktygsanrop.
+## Felkatalog
 
-**Commit-meddelande:** skriv texten till fil i ett eget steg och kör
-`git commit -F .cursor/tmp/commit-msg.txt`. Varken bash-heredoc eller
-`-m $msg` fungerar — hookarna nekar båda. Detalj: felkatalogen.
+| Symptom | Fix |
+|---|---|
+| `The term 'if' is not recognized` | `if`/`foreach` som värde → `$( ... )` eller räkna ut i en variabel först |
+| `Missing file specification after redirection operator` | Bash-heredoc (`<<'EOF'`). Commit: se nedan. Annan flerradig text: `@'`…`'@` med båda tokens i kolumn 0 och inget efter öppningstoken |
+| `Blockerat: commit-skyddet ... dynamiskt eller aliasbaserat git-kommando` | `$` i skrivande git (`commit/push/worktree/branch/checkout/switch`) → `git commit -F <fil>` |
+| Trunkerad (`…`) eller tom output vid pipe till fil | Avsluta med `\| Out-String -Width 4096` |
+| `spawnSync('npm.cmd')` → `EINVAL`, eller npm/npx exit 0 med tom stdout | `shell: process.platform === "win32"` bara för npm/npx; `git` förblir shell-fri |
+| Svenska tecken blir `├ñ` / `ÔÇö` | Skriv med editorverktyg eller UTF-8 från pwsh 7 |
+| `.Replace()` träffar inte | Repo-filer är LF, here-strings CRLF: normalisera ``.Replace("`r`n", "`n")`` eller använd editorverktyg |
+| Cursor Glob hittar inte `[chatId]` | Glob-syntax: escapa `[[]chatId[]]` eller läs exakt sökväg |
 
-**RTK:** global Cursor-hook kan komprimera Shell-output. Lita på exit code, inte på kort stdout. Aldrig manuellt `rtk git log` (merge-bug). Rå engångskörning: `RTK_DISABLED=1 …` (unix-prefix). Detaljer: `@.cursor/rules/rtk-terminal.mdc`.
+Krånglig one-liner: skriv en liten `.ps1`/`.mjs` under `.cursor/tmp/` eller
+använd editorns Read/Grep/StrReplace. Oberoende kommandon körs som parallella
+verktygsanrop.
 
-**Felsökning / heredoc / LF-fällor:** bifoga `@.cursor/rules/bash-och-pwsh-fel.mdc` (eller läs den) — inte alwaysApply.
+## Commit-meddelande
+
+Bash-heredoc och `-m $msg` nekas av `.cursor/hooks/heredoc-guard.mjs` och
+`scripts/workflow/commit-guard.mjs`. Skriv texten till fil i ett eget steg och
+kör en git-rad utan `$`:
+
+```powershell
+git commit -F .cursor/tmp/commit-msg.txt
+```
+
+Ett enradigt literal-meddelande (`git commit -m "kort rubrik"`) går också.
+
+## RTK
+
+Ägarens globala RTK-hook (`%USERPROFILE%\.cursor\hooks.json` → `preToolUse` /
+`rtk hook cursor`, matcher `Shell`) kan komprimera Shell-output. Den är inte
+garanterad: läs filen, lita inte på `rtk hook check` (läser Claude Codes plats).
+Återinstallera med `rtk init -g --agent cursor`. Projektets `.cursor/hooks.json`
+är en annan fil.
+
+- Lita på exit code, inte kort stdout; vid fel, läs tee-filen om RTK anger `full output: …`.
+- Historik/merge: plain `git log` eller `gh`, aldrig manuellt `rtk git log` (döljer merge-commits).
+- Rå engångskörning: unix-prefix `RTK_DISABLED=1 git status`, inte `$env:RTK_DISABLED`.
+- `%APPDATA%\rtk\config.toml`: `[hooks] exclude_commands = ["git log", "git rebase", "git cherry-pick"]`, telemetri av, `tee` vid failures.
+- RTK sparar inte tokens från Read/Grep, regler, MCP eller modellsvar.

@@ -161,7 +161,7 @@ describe("doctor — dubblerade skills", () => {
     const findings = checkSkillDuplication({
       cursorSkills: [],
       agentSkills: [],
-      commandMirrors: ["source-command-818", "source-command-logg"],
+      commandMirrors: ["source-command-automat", "source-command-logg"],
     });
     expect(findings[0].level).toBe("warn");
     expect(findings[0].message).toContain("2 source-command");
