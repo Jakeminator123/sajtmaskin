@@ -164,6 +164,7 @@
         "dependencies",
         "ci",
         "previewHost",
+        "bugBacklog",
         "observability",
         "e2e"
       ],
@@ -177,6 +178,7 @@
         "dependencies": { "$ref": "#/$defs/pathPatterns" },
         "ci": { "$ref": "#/$defs/pathPatterns" },
         "previewHost": { "$ref": "#/$defs/pathPatterns" },
+        "bugBacklog": { "$ref": "#/$defs/pathPatterns" },
         "observability": { "$ref": "#/$defs/pathPatterns" },
         "e2e": { "$ref": "#/$defs/pathPatterns" }
       }
@@ -195,6 +197,7 @@
         "dependencies",
         "ci",
         "previewHost",
+        "bugBacklog",
         "observability",
         "e2e",
         "full"
@@ -210,6 +213,7 @@
         "dependencies": { "$ref": "#/$defs/commands" },
         "ci": { "$ref": "#/$defs/commands" },
         "previewHost": { "$ref": "#/$defs/commands" },
+        "bugBacklog": { "$ref": "#/$defs/commands" },
         "observability": { "$ref": "#/$defs/commands" },
         "e2e": { "$ref": "#/$defs/commands" },
         "full": { "$ref": "#/$defs/commands" }

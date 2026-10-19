@@ -455,6 +455,16 @@ describe("agent workflow impact", () => {
     );
   });
 
+  it("routes an unprotected backlog edit to its validators without the full profile", () => {
+    const impact = collectImpact({ ...inputs, changedFiles: ["BUG-SWARM-BACKLOG.md"] });
+    expect(impact.protectedFiles).toEqual([]);
+    expect(impact.commands).toEqual(
+      expect.arrayContaining(["docs:check", "check:bug-backlog", "canvas:check"]),
+    );
+    expect(impact.commands).not.toContain("knip:files");
+    expect(impact.commands).not.toContain("test:ci");
+  });
+
   it("keeps ordinary documentation changes on the docs-only plan", () => {
     const impact = collectImpact({ ...inputs, changedFiles: ["docs/example-guide.md"] });
     expect(impact.commands).toEqual(

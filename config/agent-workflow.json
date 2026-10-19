@@ -162,6 +162,7 @@
     ],
     "ci": [".github/**", "scripts/ci/**"],
     "previewHost": ["preview-host/**"],
+    "bugBacklog": ["BUG-SWARM-BACKLOG.md", "docs/canvases/**"],
     "observability": ["scripts/observability/**", "requirements.genlogs.txt"],
     "e2e": ["e2e/**", "playwright*.config.ts"]
   },
@@ -182,6 +183,7 @@
     "dependencies": ["baseline-deps:verify", "baseline-deps:tree"],
     "ci": ["typecheck", "test:ci"],
     "previewHost": ["preview-host:verify"],
+    "bugBacklog": ["check:bug-backlog", "canvas:check"],
     "observability": ["observability:test"],
     "e2e": ["test:e2e:contract"],
     "full": [
