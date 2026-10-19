@@ -330,6 +330,23 @@ describe("createCodeGenSSEStream", () => {
     expect(events.some((event) => event.event === "done")).toBe(false);
   });
 
+  it.each([
+    ["abort", [{ type: "start" }, { type: "abort" }]],
+    [
+      "provider error without clean finish",
+      [
+        { type: "start" },
+        { type: "error", error: new Error("upstream reset") },
+        { type: "finish", finishReason: "error" },
+      ],
+    ],
+  ])("keeps done after an empty %s so empty-generation handling still runs", async (_name, parts) => {
+    const events = await collectEvents(parts as StreamPart[]);
+
+    expect(events.some((event) => event.event === "error")).toBe(true);
+    expect(events.at(-1)?.event).toBe("done");
+  });
+
   it("keeps done when the run finishes cleanly after a provider error", async () => {
     const events = await collectEvents([
       { type: "start" },
