@@ -224,6 +224,7 @@ import { buildOrchestrationContract } from "@/lib/gen/orchestration-contract";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { serializeProjectCandidateForVerifier } from "./finalize-merge";
 import { appendStreamWarning } from "@/lib/builder/stream-warning";
+import { parseGenerationContent } from "@/components/builder/chat/generation-content";
 
 const BASIC_GENERATED_CONTENT =
   '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```';
@@ -752,6 +753,9 @@ export default function Page() {
 
       expect(times(persisted, explanation)).toBe(1);
       expect(persisted.startsWith(`${explanation}\n\n`)).toBe(true);
+      expect(parseGenerationContent(persisted).proseText).toBe(
+        parseGenerationContent(accumulatedContent).proseText,
+      );
       expect(persisted).toContain("REPAIRED_FINAL_HERO");
       expect(persisted.trimEnd().endsWith(`Varning: ${warning}`)).toBe(true);
       expect(times(persisted, `Varning: ${warning}`)).toBe(1);
