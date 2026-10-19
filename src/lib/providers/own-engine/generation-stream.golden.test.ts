@@ -1017,6 +1017,38 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     };
   }
 
+  it("settles one persisted version after multiple tool steps and one final completion", async () => {
+    const chatId = "chat_multi_step_billing";
+    const params = providerFaultParams(chatId, {});
+    const pipelineStream = createCodeGenSSEStream({
+      fullStream: (async function* () {
+        yield { type: "tool-call", toolCallId: "lookup-1", toolName: "inspect", input: {} };
+        yield { type: "tool-result", toolCallId: "lookup-1", toolName: "inspect" };
+        yield { type: "finish-step", finishReason: "tool-calls" };
+        yield { type: "tool-call", toolCallId: "lookup-2", toolName: "inspect", input: {} };
+        yield { type: "tool-result", toolCallId: "lookup-2", toolName: "inspect" };
+        yield { type: "finish-step", finishReason: "tool-calls" };
+        yield {
+          type: "text-delta",
+          text: '```tsx file="app/page.tsx"\nexport default function Page(){return <main>Klar</main>}\n```',
+        };
+        yield { type: "finish", finishReason: "stop" };
+      })(),
+      usage: Promise.resolve({ inputTokens: 20, outputTokens: 6 }),
+      totalUsage: Promise.resolve({ inputTokens: 30, outputTokens: 10 }),
+    }, { meta: { chatId } });
+
+    const events = await collectSseEvents(createOwnEngineGenerationStream({
+      ...params,
+      pipelineStream,
+    }));
+
+    expect(finalizeAndSaveVersionMock).toHaveBeenCalledTimes(1);
+    expect(events.filter((event) => event.event === "done")).toHaveLength(1);
+    expect(commitCredits).toHaveBeenCalledTimes(1);
+    expect(commitCredits).toHaveBeenCalledWith({ chatId, versionId: "ver_golden_1" });
+  });
+
   it("a provider fault (revoked key) charges no credits and leaves a failed generation row", async () => {
     const out = createOwnEngineGenerationStream(
       providerFaultParams("chat_bad_key", {
