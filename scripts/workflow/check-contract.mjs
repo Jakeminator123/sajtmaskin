@@ -110,7 +110,6 @@ export const POLICY_FLOORS = Object.freeze({
     "config/agent-workflow.json",
     "docs/schemas/**",
     "docs/decisions/**",
-    "BUG-SWARM-BACKLOG.md",
     "src/app/api/**",
     "src/lib/api/**",
     "src/lib/auth/**",
