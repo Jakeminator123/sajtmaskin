@@ -20,8 +20,7 @@ export const maxDuration = 60;
 /** SDK deadline in milliseconds. Stays under the route maxDuration of 60s. */
 const TRANSCRIBE_REQUEST_TIMEOUT_MS = 45_000;
 
-const SUPPORTED_LANGUAGES = ["sv", "en"] as const;
-type TranscribeLanguage = (typeof SUPPORTED_LANGUAGES)[number];
+type TranscribeLanguage = "sv" | "en";
 
 // Supported audio/video containers accepted by this route.
 const SUPPORTED_FORMATS = [
