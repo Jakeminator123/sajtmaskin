@@ -240,7 +240,7 @@ export async function runCodegenTurn(params: {
       );
     } catch (err) {
       devLogAppend("in-progress", {
-        type: "request.kind.shortcircuit.fallback",
+        type: "request.kind.shortcircuit.failed",
         chatId,
         kind: requestKindResult.kind,
         reason: err instanceof Error ? err.message : String(err),

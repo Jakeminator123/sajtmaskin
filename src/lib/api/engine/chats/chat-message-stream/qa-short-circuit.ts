@@ -3,13 +3,10 @@
  * answers the user's question with a small direct LLM call instead of a
  * full codegen round. Extracted from `chat-message-stream-post.ts`.
  *
- * Model and effort come from the `qa_short_circuit` workload when the
- * manifest defines it. Empty text and provider failures record one usage
- * row and throw; they never become a codegen prompt.
+ * Empty text and provider failures record one usage row and throw;
+ * they never become a codegen prompt.
  */
 import { generateText } from "ai";
-import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
-import { workloadOpenAIProviderOptions } from "@/lib/ai-models/workload-reasoning";
 import { createDirectModel } from "@/lib/builder/direct-model";
 import {
   canonicalModelIdToOwnModelId,
@@ -19,34 +16,19 @@ import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { formatSSEEvent } from "@/lib/streaming";
 
 const QA_SHORT_CIRCUIT_WORKLOAD = "qa_short_circuit";
-const QA_MAX_OUTPUT_TOKENS = 8192;
-const QA_MAX_RETRIES = 0;
+const QA_SHORTCIRCUIT_MODEL = canonicalModelIdToOwnModelId(DEFAULT_MODEL_ID);
 
 export async function generateQaShortCircuitText(params: {
   optimizedMessage: string;
   signal: AbortSignal;
 }): Promise<string> {
   const startedAt = Date.now();
-  const modelId =
-    getWorkloadDefaultModelFromManifest(QA_SHORT_CIRCUIT_WORKLOAD) ??
-    canonicalModelIdToOwnModelId(DEFAULT_MODEL_ID);
-  const openAIOptions = workloadOpenAIProviderOptions(QA_SHORT_CIRCUIT_WORKLOAD, modelId);
-  const effort = openAIOptions.providerOptions?.openai.reasoningEffort ?? null;
-  const meta = {
-    requestedModel: modelId,
-    effectiveModel: modelId,
-    effort,
-    maxOutputTokens: QA_MAX_OUTPUT_TOKENS,
-    maxRetries: QA_MAX_RETRIES,
-  };
+  const modelId = QA_SHORTCIRCUIT_MODEL;
   let usageRecorded = false;
   try {
     const result = await generateText({
       model: createDirectModel(modelId),
-      ...openAIOptions,
       abortSignal: params.signal,
-      maxOutputTokens: QA_MAX_OUTPUT_TOKENS,
-      maxRetries: QA_MAX_RETRIES,
       prompt:
         "Användaren har ställt en fråga om sin sajt. Svara koncist (max 4 meningar) baserat på följande kontext:\n\n" +
         params.optimizedMessage,
@@ -61,7 +43,6 @@ export async function generateQaShortCircuitText(params: {
         durationMs: Date.now() - startedAt,
         ok: false,
         errorCode: "empty_qa_text",
-        meta,
       });
       usageRecorded = true;
       throw new Error("QA short-circuit returned empty text");
@@ -72,7 +53,6 @@ export async function generateQaShortCircuitText(params: {
       model: modelId,
       usage: result.usage,
       durationMs: Date.now() - startedAt,
-      meta,
     });
     usageRecorded = true;
     return text;
@@ -91,7 +71,6 @@ export async function generateQaShortCircuitText(params: {
           errorObject && typeof errorObject.name === "string" && errorObject.name
             ? errorObject.name
             : "qa_failed",
-        meta,
       });
     }
     throw err;
