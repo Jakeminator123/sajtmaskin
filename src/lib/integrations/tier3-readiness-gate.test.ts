@@ -50,6 +50,12 @@ vi.mock("@/lib/db/services/product-postcheck-runs", () => ({
 // CI quality-core has no POSTGRES_URL; this mock keeps module load from
 // throwing Missing database connection string.
 vi.mock("@/lib/db/chat-repository-pg", () => ({ getVersionById }));
+vi.mock("@/lib/gen/dossiers/registry", async (importOriginal) =>
+  (await import("./build-enforced-dossier-mock")).withBuildEnforcedDossier(
+    await importOriginal<typeof import("@/lib/gen/dossiers/registry")>(),
+    "clerk-auth",
+  ),
+);
 
 import { checkTier3ReadinessForVersion } from "./tier3-readiness-gate";
 

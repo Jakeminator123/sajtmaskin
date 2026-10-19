@@ -231,7 +231,7 @@ När `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt behandlar appen preview-host 
 | Project env vars (`projectEnvVars`) | Effektiva runtime-värden för F3/deploy | Ja, om dossier-nyckeln har `enforcement: "build"` och saknar både riktigt värde och katalog-godkänd placeholder |
 | Preview-host `.env.local` | Faktisk runtime-fil inne i preview-VM | Speglar lagren ovan via `buildPreviewEnvLocalContents()` |
 
-F3-readiness ska alltså spegla **verkliga integrationkrav**, inte om en nyckel råkar finnas i `env.example`. `feature-runtime` rapporteras som warning och `warn-only` som info; bara `build`-enforcement kan blockera, och då endast när både riktigt projektvärde och godkänd katalog-placeholder saknas. Efter #468 är `clerk-auth` den enda hard-dossiern med `build`-nycklar. Dess två nycklar (`CLERK_SECRET_KEY` + `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) har i dag katalog-placeholder, så en saknad riktig Clerk-konfiguration ger demo/advisory i stället för ett automatiskt F3-stopp.
+F3-readiness ska alltså spegla **verkliga integrationkrav**, inte om en nyckel råkar finnas i `env.example`. `feature-runtime` rapporteras som warning och `warn-only` som info; bara `build`-enforcement kan blockera, och då endast när både riktigt projektvärde och godkänd katalog-placeholder saknas. Ingen levererad dossier har i dag `build`-nycklar. `clerk-auth` (`CLERK_SECRET_KEY` + `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) är `feature-runtime`, så en saknad riktig Clerk-konfiguration ger demoläge och en varning i stället för ett F3-stopp. Skyddade routes är då öppna.
 
 Om F3-specen helt saknar `requiredRealEnvKeys` är detta inte signal att
 capabilityn saknas. `finalize-design` forkar då en ny `integrations`-version

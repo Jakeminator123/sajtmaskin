@@ -9,7 +9,7 @@
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:ccdd23798506b73b -->
-<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:6fdc4794d0a6a606 -->
+<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:906768b4c309ab32 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:ed83b142db793efe -->
 
 # Policies
@@ -202,8 +202,8 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | Dossier                | Capability             | Key                                  | Required | Enforcement       | Demoläge  |
 | ---------------------- | ---------------------- | ------------------------------------ | -------- | ----------------- | --------- |
 | `calcom-booking`       | `booking`              | `NEXT_PUBLIC_CALCOM_LINK`            | Yes      | `feature-runtime` | `visual`  |
-| `clerk-auth`           | `auth`                 | `CLERK_SECRET_KEY`                   | Yes      | `build`           | `visual`  |
-| `clerk-auth`           | `auth`                 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`  | Yes      | `build`           | `visual`  |
+| `clerk-auth`           | `auth`                 | `CLERK_SECRET_KEY`                   | Yes      | `feature-runtime` | `visual`  |
+| `clerk-auth`           | `auth`                 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`  | Yes      | `feature-runtime` | `visual`  |
 | `clerk-auth`           | `auth`                 | `NEXT_PUBLIC_CLERK_SIGN_IN_URL`      | No       | `warn-only`       | `visual`  |
 | `clerk-auth`           | `auth`                 | `NEXT_PUBLIC_CLERK_SIGN_UP_URL`      | No       | `warn-only`       | `visual`  |
 | `mailchimp-newsletter` | `newsletter-subscribe` | `MAILCHIMP_API_KEY`                  | Yes      | `feature-runtime` | `success` |
