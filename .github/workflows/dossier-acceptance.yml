@@ -4,16 +4,17 @@ on:
   push:
     branches: [preview]
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    # `edited` covers a base-branch retarget; a skipped job would read as green.
+    types: [opened, synchronize, reopened, ready_for_review, edited]
   schedule:
     - cron: "17 3 * * 2"
   workflow_dispatch: {}
 
 # A new commit on the same PR supersedes its older acceptance build. Scheduled
-# and manual runs share their ref key so they also cannot burn two matrices in
-# parallel for the same branch.
+# and manual runs share a full-matrix key per ref; pushes get their own key so a
+# preview push (often run_matrix=false) cannot cancel the weekly full matrix.
 concurrency:
-  group: dossier-acceptance-${{ github.event.pull_request.number || github.ref }}
+  group: dossier-acceptance-${{ github.event.pull_request.number || format('{0}-{1}', github.ref, contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) && 'full' || 'push') }}
   cancel-in-progress: true
 
 permissions:

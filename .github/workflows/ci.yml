@@ -7,7 +7,9 @@ on:
     branches: [master, preview]
     # Draft blocks merge already; changing to draft must not cancel/restart
     # an otherwise valid same-head run. Ready still upgrades deferred checks.
-    types: [opened, synchronize, reopened, ready_for_review]
+    # `edited` re-runs after a base retarget (preview → master needs the heavy
+    # profile); jobs must not be skipped on edit, since skipped reads as green.
+    types: [opened, synchronize, reopened, ready_for_review, edited]
   workflow_dispatch: {}
 
 concurrency:

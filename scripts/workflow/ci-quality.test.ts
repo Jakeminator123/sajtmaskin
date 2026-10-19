@@ -258,7 +258,8 @@ describe("complete native test sharding contract", () => {
       "RUN_PREVIEW_HOST: false",
     ],
     ["run: npm run test:discovery:check", "run: echo discovery-skipped"],
-    ["types: [opened, synchronize, reopened, ready_for_review]", "types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]"],
+    ["types: [opened, synchronize, reopened, ready_for_review, edited]", "types: [opened, synchronize, reopened, ready_for_review, edited, converted_to_draft]"],
+    ["types: [opened, synchronize, reopened, ready_for_review, edited]", "types: [opened, synchronize, reopened, ready_for_review]"],
   ])("rejects incomplete or nonblocking sharding: %s", (before, after) => {
     const changed = source.replace(before, after);
     expect(changed).not.toBe(source);
@@ -292,8 +293,12 @@ describe("complete native test sharding contract", () => {
     const dossier = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
     expect(evaluateDossierAcceptanceWorkflow(dossier)).toEqual([]);
     expect(evaluateDossierAcceptanceWorkflow(dossier.replace(
+      "reopened, ready_for_review, edited]",
+      "reopened, ready_for_review, edited, converted_to_draft]",
+    ))).not.toEqual([]);
+    expect(evaluateDossierAcceptanceWorkflow(dossier.replace(
+      "reopened, ready_for_review, edited]",
       "reopened, ready_for_review]",
-      "reopened, ready_for_review, converted_to_draft]",
     ))).not.toEqual([]);
   });
 });
