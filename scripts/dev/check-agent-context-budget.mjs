@@ -20,10 +20,9 @@ export const FILE_BUDGETS = Object.freeze({
 
 export const REQUIRED_ALWAYS_RULES = Object.freeze([
   ".cursor/rules/git.mdc",
-  ".cursor/rules/repo-router.mdc",
   ".cursor/rules/workflow.mdc",
 ]);
-export const ALWAYS_RULE_BYTES_LIMIT = 6_000;
+export const ALWAYS_RULE_BYTES_LIMIT = 3_000;
 const REQUIRED_CONTEXT_FILES = Object.freeze([
   "config/agent-workflow.json",
   ".agents/skills/pr-workflow/SKILL.md",

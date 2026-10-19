@@ -1,40 +1,41 @@
 # Agent entry — Sajtmaskin
 
-Använd **selektiv kontext**. Börja med uppgiften, nämnda sökvägar och minsta
-relevanta owner; läs inte en fast dokumentstack.
+Selektiv kontext: börja med uppgiften, nämnda sökvägar och minsta relevanta
+owner; läs aldrig en fast dokumentstack. Kod/manifest/policy äger beteende,
+genererad Markdown är projektion, handskrivna docs är mental modell och Git är
+arkivet ([livscykel](docs/documentation-lifecycle.md)).
 
 ## Router
 
-| När | Läs |
+| Uppgift | Börja här |
 |---|---|
-| Okänd produktyta | `docs/README.md`, sedan högst relevant modell eller kodkarta |
-| Byggblock/dossiers | `docs/llm/dossier-cheatsheet.md` (koden vinner) |
-| Kodändring | närliggande kod, tester och matchande `.cursor/rules/*.mdc` |
-| Terminologi/bugg | sök exakt term eller `SM-###`; läs inte hela glossaryn/kön |
-| Env/DB | relevant del av `config/env-policy.json` eller `docs/ENV.md` |
-| Skriv/PR/merge | `.agents/skills/pr-workflow/SKILL.md`, sedan `git.mdc` och `workflow.mdc`; läs `pr-merge.mdc` först efter skapad PR eller mergeuppdrag |
+| Okänd yta | `docs/README.md` → högst en mental modell/kodkarta → runtime-owner |
+| LLM/generation | `src/lib/gen/`, `docs/architecture/llm-pipeline.md` |
+| Preview/VM | `preview-host/`, `src/lib/gen/preview/` |
+| Builder/chat | `src/app/builder/`, `src/components/builder/` |
+| Deploy | `src/lib/deploy/` |
+| Env/DB | exakt nyckel i `config/env-policy.json`/`docs/ENV.md`; `src/lib/db/` |
+| Scaffolds | `src/lib/gen/scaffolds/`, `config/scaffold-variants/` |
+| Dossiers | `src/lib/gen/dossiers/`, `data/dossiers/{hard,soft}/`, `docs/llm/dossier-cheatsheet.md` |
+| Eval | `src/lib/gen/eval/`; kör bara `npm run eval` |
+| Backoffice | `sajtmaskin_backoffice.py`, `backoffice/` |
+| Term/bugg | exakt term i `docs/architecture/glossary.md`, exakt `SM-###` i `BUG-SWARM-BACKLOG.md` |
+| Skriv/PR/merge | `.agents/skills/pr-workflow/SKILL.md`; `pr-merge.mdc` först efter PR eller mergeuppdrag |
 
-Snabb kodrouter: [`.cursor/rules/repo-router.mdc`](.cursor/rules/repo-router.mdc).
-Cursor-konfiguration: [`.cursor/README.md`](.cursor/README.md). Codex:
-[`.codex/README.md`](.codex/README.md).
-
-## Canonical owner
-
-Per faktatyp: körbar/deklarativ owner → konsument/validator → genererad
-projektion → mental modell → historik. Git är arkivet; inga backupdocs. Policy:
-[`docs/documentation-lifecycle.md`](docs/documentation-lifecycle.md).
+Kodändring: närliggande kod, tester och matchande `.cursor/rules/*.mdc`.
+`templates_v0`/`v0` kan vara legacy eller API-versionering; verifiera mot kod.
+Verktyg: [Cursor](.cursor/README.md), [Codex](.codex/README.md).
 
 ## Arbetsregel
 
-- Bevara andras arbete; håll diff och staging till uppgiftens filer och följdytor.
-- Jobba i den öppna checkouten; läs `npm run inbox` vid start. Worktree och
-  Scout/Builder/Steward bara när Jakob ber om det. Policy: `config/agent-workflow.json`.
-- Kör `npm run hooks:install` vid färsk clone eller workflowändring; främmande
-  hookkonflikt är ett stopp.
-- Före push: `npm run verify:pr -- --plan` + riktat. CI: tung eller light.
-- Branch, commit, push, PR, merge, force-push och radering: mandat och förbud i `git.mdc`.
-- Svara kort på svenska när användaren gör det; skilj bevis från antagande.
+- Läs `npm run inbox` vid start; `npm run hooks:install` vid färsk clone eller
+  workflowändring (främmande hookkonflikt är stopp).
+- Jobba i den öppna checkouten och bevara andras arbete. Git-mandat, förbud och
+  worktree: `git.mdc`. Ändringsflöde: `workflow.mdc`.
+- Före push: `npm run verify:pr -- --plan` + riktade kontroller; full regression
+  ägs av CI.
 - Pausa vid dataförlust, security/cross-tenant, oklar owner eller stort scope.
+- Svara kort på svenska när användaren gör det; skilj bevis från antagande.
 
 Review: false-green, saknad verifiering och kontraktsbrott är fynd; smak och
 hypotetiska nits är inte blockers.
