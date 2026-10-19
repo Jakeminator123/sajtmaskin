@@ -9,8 +9,10 @@ on:
   pull_request_target:
     types: [edited]
 
+# convertPullRequestToDraft avvisar GITHUB_TOKEN utan contents: write
+# (cli/cli#8910). Token når aldrig PR-kod; se kontraktet i check-contract.mjs.
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 jobs:

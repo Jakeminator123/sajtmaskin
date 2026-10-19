@@ -387,8 +387,8 @@ export function evaluatePrBaseGuardWorkflow(source) {
   if (!isDeepStrictEqual(document?.on, { pull_request_target: { types: ["edited"] } })) {
     errors.push("PR base guard must trigger only on unfiltered pull_request_target edited");
   }
-  if (!isDeepStrictEqual(document?.permissions, { contents: "read", "pull-requests": "write" })) {
-    errors.push("PR base guard GITHUB_TOKEN must be exactly contents read and pull-requests write");
+  if (!isDeepStrictEqual(document?.permissions, { contents: "write", "pull-requests": "write" })) {
+    errors.push("PR base guard GITHUB_TOKEN must be exactly contents write and pull-requests write");
   }
   if (document?.concurrency !== undefined) {
     errors.push("PR base guard concurrency must stay on the job so ordinary edits cannot replace it");
