@@ -11,6 +11,8 @@ describe("inferCapabilities", () => {
     "Build a page without ads with a rotatable 3D product.",
     "En sida utan annonser med WebGL.",
     "Build a page without clutter with a 3D scene.",
+    "Bygg en sida utan inloggning med en roterbar 3D-produkt.",
+    "Build a page without payments with a 3D scene.",
   ])("preserves an affirmative feature after an unrelated exclusion: %s", (prompt) => {
     expect(inferCapabilities(prompt).needs3D).toBe(true);
     expect(explicitlyRequests3D(prompt)).toBe(true);

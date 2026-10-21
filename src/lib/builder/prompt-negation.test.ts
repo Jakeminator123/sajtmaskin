@@ -5,6 +5,15 @@ import { hasNegatedTerms, isTermFullyNegated } from "./prompt-negation";
 const WEBGL = /WebGL/iu;
 
 describe("prompt-negation clause period", () => {
+  it.each([
+    ["Utan betalning med Stripe.", /Stripe/iu],
+    ["Without login with Clerk.", /Clerk/iu],
+    ["Utan databas med Postgres.", /Postgres/iu],
+    ["Utan platformerspel med 3D-fysik.", /3D/iu],
+  ] as const)("keeps related modifiers negated: %s", (prompt, term) => {
+    assert.equal(isTermFullyNegated(prompt, term), true);
+  });
+
   it("keeps a following term negated after Three.js", () => {
     const prompt = "Använd ingen Three.js eller WebGL-scen.";
     assert.equal(isTermFullyNegated(prompt, /Three\.js/iu), true);
@@ -55,3 +64,4 @@ describe("prompt-negation clause period", () => {
     assert.equal(isTermFullyNegated(prompt, /Three\.js/iu), true);
   });
 });
+

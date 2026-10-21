@@ -82,14 +82,15 @@ export const CLAUSE_BOUNDARY_RE =
 
 const NEGATION_WINDOW_MAX_CHARS = 140;
 
-// "utan reklam med en 3D-produkt" reintroduces a positive requirement.
-// Do not split modifiers of a negated feature: "utan spel med 3D-fysik"
-// still excludes the entire game. Reuse the canonical feature vocabulary.
-const NEGATED_FEATURE_HEAD_TERMS = [
-  ...REDESIGN_TERMS, ...AUTH_TERMS, ...PAYMENT_TERMS, ...ECOMMERCE_TERMS,
-  ...BACKEND_TERMS, ...INTEGRATION_TERMS,
-  /(?<![\p{L}\p{N}_])(?:3d|2d|three\.?js|webgl|canvas|mesh|physics|fysik|matter\.?js|rapier|spel[\p{L}]*|games?|gaming|app[\p{L}-]*|konto[\p{L}]*|dashboard|effekt[\p{L}]*|effects?|animation[\p{L}]*)(?![\p{L}\p{N}_])/iu,
+// "utan reklam/inloggning med en 3D-produkt" reintroduces an unrelated
+// positive requirement. Keep related modifiers ("utan betalning med Stripe")
+// and whole excluded containers ("utan spel med 3D-fysik") in their window.
+const NEGATED_MODIFIER_GROUPS: RegExp[][] = [
+  REDESIGN_TERMS, AUTH_TERMS, PAYMENT_TERMS, ECOMMERCE_TERMS,
+  BACKEND_TERMS, INTEGRATION_TERMS,
+  [/(?<![\p{L}\p{N}_])(?:3d|2d|three\.?js|webgl|canvas|mesh|physics|fysik|matter\.?js|rapier|effekt[\p{L}]*|effects?|animation[\p{L}]*)(?![\p{L}\p{N}_])/iu],
 ];
+const NEGATED_CONTAINER_RE = /(?<![\p{L}\p{N}_])(?:[\p{L}]*spel[\p{L}]*|games?|gaming|app[\p{L}-]*|dashboard)(?![\p{L}\p{N}_])/iu;
 const POSITIVE_WITH_RE = /\s(?:med|with)(?![\p{L}\p{N}_])\s+/giu;
 
 function negationWindowEnd(text: string, start: number): number {
@@ -99,7 +100,11 @@ function negationWindowEnd(text: string, start: number): number {
   const window = text.slice(start, end);
   for (const match of window.matchAll(POSITIVE_WITH_RE)) {
     const head = window.slice(0, match.index);
-    if (!NEGATED_FEATURE_HEAD_TERMS.some((term) => term.test(head))) {
+    const tail = window.slice(match.index + match[0].length);
+    const relatedModifier = NEGATED_MODIFIER_GROUPS.some((terms) =>
+      terms.some((term) => term.test(head)) && terms.some((term) => term.test(tail)),
+    );
+    if (!NEGATED_CONTAINER_RE.test(head) && !relatedModifier) {
       return start + match.index;
     }
   }
