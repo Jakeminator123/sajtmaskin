@@ -8,6 +8,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { createCreditCheckoutSession } from "@/lib/billing/stripe-credit-checkout";
+import {
+  creditPackageIdFromPurchaseDescription,
+  creditPackageMeasurement,
+} from "@/lib/billing/credit-packages";
 import { getPackageById } from "@/lib/billing/stripe";
 import { URLS, SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -47,7 +51,20 @@ export async function GET(req: NextRequest) {
     try {
       const transaction = await getTransactionByStripeSession(sessionId);
       const credited = Boolean(transaction && transaction.user_id === user.id);
-      return NextResponse.json({ success: true, credited });
+      if (!credited) {
+        return NextResponse.json({ success: true, credited: false });
+      }
+      const measurement = creditPackageMeasurement(
+        creditPackageIdFromPurchaseDescription(transaction?.description),
+      );
+      return NextResponse.json({
+        success: true,
+        credited: true,
+        packageId: measurement?.packageId ?? null,
+        name: measurement?.name ?? null,
+        amount: measurement?.amount ?? null,
+        currency: measurement?.currency ?? "SEK",
+      });
     } catch (error) {
       console.error("[Stripe/checkout] Confirmation lookup failed:", error);
       return NextResponse.json(

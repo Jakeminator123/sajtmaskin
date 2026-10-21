@@ -195,11 +195,11 @@ const nextConfig: NextConfig = {
     // connect-src, otherwise DevTools floods the Issues panel with violations.
     const cspReportOnly = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://www.google.com https://www.google.se",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://www.google.com https://www.google.se https://bzrcdn.openai.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "img-src 'self' data: blob: https:",
+      "img-src 'self' data: blob: https: https://bzr.openai.com",
       "font-src 'self' data: https://fonts.gstatic.com",
-      "connect-src 'self' https: wss: https://api-js.mixpanel.com",
+      "connect-src 'self' https: wss: https://api-js.mixpanel.com https://bzrcdn.openai.com https://bzr.openai.com",
       "frame-src 'self' https: blob:",
       "worker-src 'self' blob:",
       "media-src 'self' blob: https:",

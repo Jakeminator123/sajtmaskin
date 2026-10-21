@@ -410,6 +410,15 @@ describe("proxy CSP — first-party third-party egress allowlist", () => {
     expect(connectSrc).not.toContain("https://*.gstatic.com");
   });
 
+  it("allows the OpenAI Ads pixel hosts on script/connect/img", async () => {
+    const csp = await cspFor("https://sajtmaskin.example/");
+    expect(directive(csp, "script-src")).toContain("https://bzrcdn.openai.com");
+    expect(directive(csp, "connect-src")).toContain("https://bzrcdn.openai.com");
+    expect(directive(csp, "connect-src")).toContain("https://bzr.openai.com");
+    expect(directive(csp, "img-src")).toContain("https://bzr.openai.com");
+    expect(directive(csp, "script-src")).not.toContain("https://bzr.openai.com");
+  });
+
   it("allows the Google Ads conversion hosts on script/connect/img/frame", async () => {
     const csp = await cspFor("https://sajtmaskin.example/");
     const hosts = [

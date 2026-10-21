@@ -8,6 +8,7 @@ import { ShaderBackground } from "@/components/layout/shader-background";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { useAuth } from "@/lib/auth/auth-store";
 import { noteAccountCreatedIfSignup } from "@/lib/ads/fire-google-ads-conversion";
+import { noteOpenAiOrderCreated } from "@/lib/ads/fire-openai-ads";
 import { CreditPackageGrid } from "@/components/billing/CreditPackageGrid";
 import { usePublicPricing } from "@/lib/credits/use-public-pricing";
 import { MODEL_LABELS } from "@/lib/models/catalog";
@@ -248,8 +249,32 @@ function BuyCreditsContent() {
           `/api/stripe/checkout?session_id=${encodeURIComponent(sessionId)}`,
         );
         if (!response.ok) return false;
-        const data = (await response.json().catch(() => null)) as { credited?: boolean } | null;
-        return data?.credited === true;
+        const data = (await response.json().catch(() => null)) as {
+          credited?: boolean;
+          packageId?: string | null;
+          name?: string | null;
+          amount?: number | null;
+          currency?: string | null;
+        } | null;
+        if (data?.credited === true) {
+          noteOpenAiOrderCreated({
+            eventId: sessionId,
+            amount: typeof data.amount === "number" ? data.amount : undefined,
+            currency: data.currency ?? "SEK",
+            contents: data.packageId
+              ? [
+                  {
+                    id: data.packageId,
+                    name: data.name || data.packageId,
+                    content_type: "product",
+                    quantity: 1,
+                  },
+                ]
+              : undefined,
+          });
+          return true;
+        }
+        return false;
       } catch {
         return false;
       }
