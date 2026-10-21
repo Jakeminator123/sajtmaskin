@@ -764,22 +764,6 @@ describe("agent workflow repository contract", () => {
       "    concurrency:\n      group: pr-base-guard-${{ github.event.pull_request.number }}\n      cancel-in-progress: false\n";
 
     const weakened = [
-      ...["check:bug-backlog", "canvas:check"].map((removed) => ({
-        ...structuredClone(policy),
-        verificationProfiles: {
-          ...structuredClone(policy.verificationProfiles),
-          bugBacklog: policy.verificationProfiles.bugBacklog.filter(
-            (command: string) => command !== removed,
-          ),
-        },
-      })),
-      ...["BUG-SWARM-BACKLOG.md", "docs/canvases/**"].map((removed) => ({
-        ...structuredClone(policy),
-        pathGroups: {
-          ...structuredClone(policy.pathGroups),
-          bugBacklog: policy.pathGroups.bugBacklog.filter((path: string) => path !== removed),
-        },
-      })),
       replaceOnce("  pull_request_target:\n", "  pull_request:\n"),
       replaceOnce("types: [edited]", "types: [edited, synchronize]"),
       replaceOnce("types: [edited]", "types: [edited]\n    branches: [preview]"),
@@ -1363,6 +1347,22 @@ describe("agent workflow repository contract", () => {
     );
 
     const weakened = [
+      ...["check:bug-backlog", "canvas:check"].map((removed) => ({
+        ...structuredClone(policy),
+        verificationProfiles: {
+          ...structuredClone(policy.verificationProfiles),
+          bugBacklog: policy.verificationProfiles.bugBacklog.filter(
+            (command: string) => command !== removed,
+          ),
+        },
+      })),
+      ...["BUG-SWARM-BACKLOG.md", "docs/canvases/**"].map((removed) => ({
+        ...structuredClone(policy),
+        pathGroups: {
+          ...structuredClone(policy.pathGroups),
+          bugBacklog: policy.pathGroups.bugBacklog.filter((path: string) => path !== removed),
+        },
+      })),
       { ...structuredClone(policy), requiredChecks: ["quality"] },
       {
         ...structuredClone(policy),
