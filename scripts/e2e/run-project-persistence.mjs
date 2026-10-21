@@ -288,7 +288,10 @@ async function inside() {
     app = start(
       process.execPath,
       ["node_modules/next/dist/bin/next", "dev", "--webpack", "-H", "127.0.0.1", "-p", "3107"],
-      process.env,
+      // Cold Webpack compilation exceeded the default heap and restarted Next
+      // during reload, aborting real file requests. Bound only this dev server;
+      // the launcher environment remains scrubbed and test timeouts unchanged.
+      { ...process.env, NODE_OPTIONS: "--max-old-space-size=4096" },
     );
     const readyDeadline = Date.now() + 120_000;
     while (true) {

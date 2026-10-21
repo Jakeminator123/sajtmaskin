@@ -2,7 +2,7 @@
 // grunden"), not preservation — they must not open a negation window (Codex P2
 // on #447).
 const NEGATION_TERM_RE =
-  /(?<![\p{L}\p{N}_])(?:lägg\s+inte\s+till|lägg\s+inte|inte(?!\s+bara)|ingen|inget|utan|undvik|do\s+not|don't|dont|no|without|avoid|not(?!\s+(?:just|only)))(?![\p{L}\p{N}_])/giu;
+  /(?<![\p{L}\p{N}_])(?:lägg\s+inte\s+till|lägg\s+inte|inte(?!\s+bara)|ingen|inget|inga|utan|undvik|do\s+not|don't|dont|no|without|avoid|not(?!\s+(?:just|only)))(?![\p{L}\p{N}_])/giu;
 
 const REDESIGN_TERMS: RegExp[] = [
   /(?<![\p{L}\p{N}_])(?:redesign|omdesign|gör\s+om|designa\s+om|ny\s+design|redesigna)(?![\p{L}\p{N}_])/iu,
@@ -74,21 +74,59 @@ const NEGATED_CAPABILITY_TERMS: Record<string, RegExp[]> = {
  * komma som inleder en NY imperativ-sats ("no auth, add a map" /
  * "lägg inte till auth, lägg till postgres"). Ett komma som bara fortsätter
  * en negerad substantivlista ("lägg inte till backend, auth eller betalning")
- * avslutar INTE fönstret — därav verb-kravet efter kommat.
+ * avslutar INTE fönstret — därav verb-kravet efter kommat. En punkt inuti ett
+ * tekniskt namn (Three.js, Auth.js, preview.example.com) är inte meningsslut.
  */
-const CLAUSE_BOUNDARY_RE =
-  /[.;!?\n]|,\s*(?:och\s+|and\s+|sedan\s+|sen\s+|then\s+)?(?:lägg|skapa|bygg|gör|använd|visa|byt|ta\s+bort|add|create|build|make|use|show|include|inkludera|implementera|implement|remove)(?![\p{L}\p{N}_])|\s(?:men|but)(?![\p{L}\p{N}_])/iu;
+export const CLAUSE_BOUNDARY_RE =
+  /[;!?\n]|\.(?![\p{L}\p{N}_])|,\s*(?:och\s+|and\s+|sedan\s+|sen\s+|then\s+)?(?:lägg|skapa|bygg|gör|använd|visa|byt|ta\s+bort|add|create|build|make|use|show|include|inkludera|implementera|implement|remove)(?![\p{L}\p{N}_])|\s(?:men|but)(?![\p{L}\p{N}_])/iu;
 
 const NEGATION_WINDOW_MAX_CHARS = 140;
+
+// "utan reklam/inloggning med en 3D-produkt" reintroduces an unrelated
+// positive requirement. Keep related modifiers ("utan betalning med Stripe")
+// and whole excluded containers ("utan spel med 3D-fysik") in their window.
+const NEGATED_MODIFIER_GROUPS: RegExp[][] = [
+  REDESIGN_TERMS, AUTH_TERMS, PAYMENT_TERMS, ECOMMERCE_TERMS,
+  BACKEND_TERMS, INTEGRATION_TERMS,
+  [/(?<![\p{L}\p{N}_])(?:3d|three\.?js|webgl|mesh|rapier|gltf|glb)(?![\p{L}\p{N}_])/iu],
+  [/(?<![\p{L}\p{N}_])(?:2d|matter\.?js)(?![\p{L}\p{N}_])/iu],
+  [/(?<![\p{L}\p{N}_])(?:physics|fysik|gravitation|gravity|collision|kollision)(?![\p{L}\p{N}_])/iu],
+];
+const NEGATED_GAME_RE = /(?<![\p{L}\p{N}_])(?:spel(?:et|en|motor(?:er)?)?|(?:arkad|plattform|platformer|fysik)spel|games?|gaming)(?![\p{L}\p{N}_])/iu;
+const POSITIVE_WITH_RE = /\s(?:med|with)(?![\p{L}\p{N}_])\s+/giu;
+const COORDINATED_FEATURE_RE = /\s(?:och|and)\s+(?:en|ett|a|an)\s+/giu;
+
+function isRelatedModifier(head: string, tail: string): boolean {
+  return NEGATED_MODIFIER_GROUPS.some((terms) =>
+    terms.some((term) => term.test(head)) && terms.some((term) => term.test(tail)),
+  );
+}
 
 function negationWindowEnd(text: string, start: number): number {
   const cap = Math.min(text.length, start + NEGATION_WINDOW_MAX_CHARS);
   const boundaryIdx = text.slice(start, cap).search(CLAUSE_BOUNDARY_RE);
-  return boundaryIdx === -1 ? cap : start + boundaryIdx;
+  const end = boundaryIdx === -1 ? cap : start + boundaryIdx;
+  const window = text.slice(start, end);
+  for (const match of window.matchAll(POSITIVE_WITH_RE)) {
+    const head = window.slice(0, match.index);
+    const tail = window.slice(match.index + match[0].length);
+    if (NEGATED_GAME_RE.test(head)) continue;
+    if (!isRelatedModifier(head, tail)) {
+      return start + match.index;
+    }
+    // A provider modifier does not swallow a subsequent independent feature:
+    // "utan inloggning med Clerk och en 3D-produkt" still asks for the product.
+    for (const coordinate of tail.matchAll(COORDINATED_FEATURE_RE)) {
+      if (!isRelatedModifier(head, tail.slice(coordinate.index + coordinate[0].length))) {
+        return start + match.index + match[0].length + coordinate.index;
+      }
+    }
+  }
+  return end;
 }
 
 /** Teckenintervall (start/slut) för varje negationsfönster i prompten. */
-function negatedWindowRanges(prompt: string): Array<{ start: number; end: number }> {
+export function negatedWindowRanges(prompt: string): Array<{ start: number; end: number }> {
   const text = String(prompt ?? "");
   return [...text.matchAll(NEGATION_TERM_RE)].map((match) => ({
     start: match.index ?? 0,
@@ -180,3 +218,4 @@ export function isVisualOnlyFollowUpPrompt(prompt: string): boolean {
     hasNegatedIntegrationIntent(text)
   );
 }
+
