@@ -137,7 +137,9 @@ test("real file edit + Save project survives reload; another guest cannot read o
       apiRequests.set(request, { id: ++nextRequestId, atMs, generation: navigationGeneration });
     }
     const start = apiRequests.get(request);
-    if (!start || apiTimeline.length >= 80) return;
+    if (!start) return;
+    // Keep the newest events so reload failures are not hidden by initial boot.
+    if (apiTimeline.length >= 80) apiTimeline.shift();
     apiTimeline.push({
       event,
       requestId: start.id,
@@ -180,7 +182,8 @@ test("real file edit + Save project survives reload; another guest cannot read o
     const readinessStartedAt = Date.now();
     // Observe the app's own GETs, not APIRequestContext calls that bypass hydration.
     // Metadata and first files share ONE existing navigation-sized deadline.
-    // Reload and ordinary actions keep the configured 15-second limit.
+    // A full document navigation can trigger more dev compilation even on reload.
+    // Ordinary actions keep the configured 15-second limit.
     // This proves functionality, not a 15-second cold-start performance SLA.
     const [project] = await Promise.all(loadPaths.map(async (path) => {
       const response = await waitForAppResponse("GET", path, initialStartup ? remainingStartup() : undefined);
@@ -366,13 +369,16 @@ test("real file edit + Save project survives reload; another guest cannot read o
 
     const reloadNavigation = await page.reload({ waitUntil: "domcontentloaded" });
     expect(reloadNavigation?.status(), "Builder must render after reload").toBe(200);
-    const reloaded = await assertBuilderLoaded();
+    // Share one bounded navigation budget for metadata and files. The total
+    // test ceiling and every data/ownership assertion remain unchanged.
+    initialReadyBy = Date.now() + testInfo.project.use.navigationTimeout!;
+    const reloaded = await assertBuilderLoaded(true);
     expect(reloaded.data).toMatchObject({
       chat_id: fixture.chatId,
       files: savedBody.files,
       messages: savedBody.messages,
     });
-    await expect((await openEditor(page, () => assertFilesLoaded(expectedFiles))).editor).toHaveValue(changed);
+    await expect((await openEditor(page, () => assertFilesLoaded(expectedFiles, true))).editor).toHaveValue(changed);
     expect(
       unexpectedMutations,
       "Unexpected generation, preview, provider or mutation route",
@@ -436,3 +442,4 @@ test("real file edit + Save project survives reload; another guest cannot read o
     }
   }
 });
+
