@@ -547,6 +547,8 @@ describe("buildPromoteBody", () => {
     // promote-headen, inte på del-PR:arna mot preview.
     expect(body).not.toContain("- [x]");
     expect(body).toContain("- [ ] P0/P1 = 0");
+    expect(body).toContain("- [ ] Full dossiermatris grön på promote-headen");
+    expect(body).toContain("samtliga aktuella paket med filer");
   });
 
   it("begränsar fillistan utan att tappa totala diffstorleken", () => {

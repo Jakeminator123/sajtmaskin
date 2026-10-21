@@ -29,6 +29,7 @@
         { "context": "schema-drift" },
         { "context": "build" },
         { "context": "dossier-acceptance" },
+        { "context": "dossier-acceptance-master" },
         {
           "context": "GitGuardian Security Checks",
           "integration_id": 46505
@@ -39,7 +40,7 @@
   "policyNotes": {
     "intent": "GitHub owns mergeability: required checks are strict against the current integration base and review threads must be resolved. Master remains a separate manual release.",
     "approval": "Native approval count stays at 0 while the repository has one human owner. Ordinary work still needs relevant GitHub review and an explicit or pre-recorded conditional merge mandate; master always needs a fresh production confirmation.",
-    "requiredChecks": "This file lists GitHubs required checks. config/agent-workflow.json keeps the same locally owned check names; GitGuardian remains an external required check.",
+    "requiredChecks": "This file lists GitHubs required checks. config/agent-workflow.json keeps the common Preview check names; dossier-acceptance-master is master-only and reserved in scripts/workflow/required-check-owners.mjs. GitGuardian remains an external required check.",
     "deletion": "deletion and non_fast_forward must remain present so master cannot be deleted or force-pushed.",
     "squash": "allowed_merge_methods must include squash for normal preview delivery and promote paths. Other methods may remain for ancestry sync.",
     "mutation": "This file is a projection of the intended live ruleset; update the live ruleset and this file together."

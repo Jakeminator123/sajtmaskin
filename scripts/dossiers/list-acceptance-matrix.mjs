@@ -31,12 +31,15 @@ export function acceptanceCatalog(root = process.cwd()) {
   return entries;
 }
 
-export function validateAcceptanceSelection(value, catalog) {
+export function validateAcceptanceSelection(value, catalog, { requireFull = false } = {}) {
   const selected = JSON.parse(value);
   const valid = new Set(catalog.map(entry => entry.id));
   if (!Array.isArray(selected) || selected.length === 0 ||
       new Set(selected).size !== selected.length || selected.some(id => typeof id !== "string" || !valid.has(id))) {
     throw new Error("Missing, empty or invalid acceptance selection");
+  }
+  if (requireFull && selected.length !== valid.size) {
+    throw new Error("Full acceptance catalog required for non-preview PRs");
   }
   return selected;
 }
@@ -45,5 +48,5 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const catalog = acceptanceCatalog();
   const selected = process.env.ACCEPTANCE_DOSSIERS;
   if (process.env.GITHUB_ACTIONS === "true" && !selected) throw new Error("CI acceptance selection missing");
-  process.stdout.write(JSON.stringify(selected === undefined ? catalog.map(entry => entry.id) : validateAcceptanceSelection(selected, catalog)));
+  process.stdout.write(JSON.stringify(selected === undefined ? catalog.map(entry => entry.id) : validateAcceptanceSelection(selected, catalog, { requireFull: process.env.ACCEPTANCE_REQUIRE_FULL === "true" })));
 }

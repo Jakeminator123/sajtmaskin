@@ -2,9 +2,9 @@ name: PR base guard
 
 # Betrodd default-branch-kod utan checkout eller actions: läser bara eventets
 # basfält och skriver via gh. PR-head körs aldrig med den här token.
-# ci.yml och dossier-acceptance lyssnar inte på edited (Bugbot redigerar varje
-# beskrivning), så ett basbyte gör PR:en till draft i stället. ready_for_review
-# kör sedan om CI med den nya basens profil.
+# ci.yml lyssnar inte på edited, så basbyte gör PR:en till draft. Dossier-
+# acceptance kör direkt vid basbyte och ignorerar textändringar. ready_for_review
+# kör sedan båda kontrollerna med den nya basens profil.
 on:
   pull_request_target:
     types: [edited]
@@ -42,7 +42,7 @@ jobs:
           body="$RUNNER_TEMP/pr-base-guard.md"
           {
             printf 'Basen ändrades från `%s` till `%s`.\n\n' "$FROM_BASE" "$TO_BASE"
-            echo 'CI och dossier-acceptance körs inte om vid ett basbyte, så checkarna på den här headen kan ha den gamla basens profil.'
+            echo 'CI körs inte om automatiskt vid ett basbyte, så dess checkar på den här headen kan ha den gamla basens profil.'
             echo
             if [ "$drafted" = true ]; then
               echo 'PR:en är nu draft, vilket blockerar merge. Markera den som ready for review igen för att köra om CI med den nya basen.'
