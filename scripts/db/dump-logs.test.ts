@@ -71,6 +71,22 @@ describe("dump-logs.mjs telemetry kind", () => {
   });
 });
 
+describe("dump-logs.mjs llmusage kind", () => {
+  it("exporterar meta och anropar sanitizeLlmUsageMeta", () => {
+    const llmusageBlock = dumpLogsSource.match(/llmusage:\s*\{[\s\S]*?\n  \},\n  oc:/)?.[0];
+    expect(llmusageBlock, "llmusage kind block").toBeDefined();
+    expect(llmusageBlock).toMatch(/"error_code",\s*"meta",\s*"created_at"/);
+    expect(llmusageBlock).toContain('"run_id"');
+    expect(llmusageBlock).toContain(
+      "sanitizeRow: (row) => ({ ...row, meta: sanitizeLlmUsageMeta(row.meta) })",
+    );
+    expect(llmusageBlock).not.toContain("truncateMetaStrings");
+    expect(dumpLogsSource).toMatch(
+      /import\s*\{[^}]*\bsanitizeLlmUsageMeta\b[^}]*\}\s*from\s*"\.\/dump-logs-meta\.mjs"/,
+    );
+  });
+});
+
 describe("dump-logs.mjs chats kind", () => {
   it("resolves title via app_projects.name and first user prompt, not the empty column", () => {
     const chatsBlock = dumpLogsSource.match(
