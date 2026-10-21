@@ -267,13 +267,19 @@ export async function runLlmRepairGate(params: {
     requiredFiles: [...ledgerStart.record.requiredFiles], outcome: "unknown" as const } : null;
   // Dedupe has finished; reserve strictly before invoking the fixer.
   if (identity) await params.repairBudget?.reserve(identity);
-  // A slow reservation cannot extend the original deadline. Keep any durable
-  // reservation; this STOP is neither a fixer invocation nor an aborted retry.
-  if (deadlineExpired()) return deadlineStop();
+  const stopBeforeFixer = async () => {
+    // The model never started. Retain the consumed slot, but persist its known
+    // outcome so a later bounded retry is not blocked by an unknown invocation.
+    // Open the in-memory ledger only after the durable receipt succeeds.
+    if (identity) await params.repairBudget?.complete({ ...identity, outcome: "aborted" });
+    if (ledger && ledgerKey) ledger.complete(ledgerKey, { success: false, partial: false, aborted: true });
+    return deadlineStop();
+  };
+  if (deadlineExpired()) return stopBeforeFixer();
   const timeoutMs = params.deadlineEpochMs === undefined
     ? Math.max(1_000, params.timeoutMs)
     : Math.min(params.timeoutMs, params.deadlineEpochMs - Date.now());
-  if (params.deadlineEpochMs !== undefined && (!Number.isFinite(timeoutMs) || timeoutMs <= 0)) return deadlineStop();
+  if (params.deadlineEpochMs !== undefined && (!Number.isFinite(timeoutMs) || timeoutMs <= 0)) return stopBeforeFixer();
   let observation = params.deadlineEpochMs === undefined && ledgerStart ? ledger?.observeInvocation(ledgerStart.record) : undefined;
 
   const abort = new AbortController();
@@ -282,7 +288,9 @@ export async function runLlmRepairGate(params: {
     let result: FixerResult;
     try {
       const recurringPatterns = params.recurringPatterns ?? readRecurringPatternsForChat(params.chatId);
-      if (deadlineExpired()) return deadlineStop();
+      // Return the promise without awaiting here: a settlement failure must
+      // propagate unchanged, not be recorded as a fixer error by this catch.
+      if (deadlineExpired()) return stopBeforeFixer();
       observation ??= ledgerStart ? ledger?.observeInvocation(ledgerStart.record) : undefined;
       result = await runLlmFixer(params.content, params.errors, {
       model: config.fixerModel,
