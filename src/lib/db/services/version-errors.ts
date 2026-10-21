@@ -246,6 +246,43 @@ export async function createEngineVersionErrorLogs(
 }
 
 /**
+ * Only the bounded server-resume lane may reopen an unattested failed claim,
+ * after reserving a durable resume attempt. Final passed/blocked receipts stay immutable.
+ */
+export async function reopenFailedProductPostcheckRun(input: {
+  held: LiveReviewHeldContext;
+  key: ProductPostcheckClaimKey;
+  claim: { runId: string; claimGeneration: number };
+  deadlineAt: number;
+}): Promise<boolean> {
+  assertDbConfigured();
+  const key = normalizeProductPostcheckClaimKey(input.key);
+  if (!isLiveReviewHeldContext(input.held) || key.versionId !== input.held.versionId ||
+      key.filesRevision !== input.held.filesRevision || !key.previewSession || key.previewSession === "unbound" ||
+      !input.claim.runId || !Number.isSafeInteger(input.claim.claimGeneration) || input.claim.claimGeneration < 1 ||
+      !Number.isFinite(input.deadlineAt) || Date.now() >= input.deadlineAt) return false;
+  return db.transaction(async tx => {
+    await tx.execute(sql`SELECT set_config('lock_timeout', ${String(LEASE_LOCK_TIMEOUT_MS)}, true)`);
+    const versions = await tx.select({ chatId: engineVersions.chatId, filesRevision: engineVersions.filesRevision })
+      .from(engineVersions).where(and(eq(engineVersions.id, key.versionId), eq(engineVersions.releaseState, "draft"),
+        eq(engineVersions.lifecycleStage, "design"), eq(engineVersions.verificationState, "pending"))).for("update");
+    if (versions[0]?.chatId !== input.held.chatId || versions[0]?.filesRevision !== key.filesRevision) return false;
+    const jobWhere = and(eq(engineVersionJobs.versionId, key.versionId), eq(engineVersionJobs.runId, input.held.holderRunId),
+      eq(engineVersionJobs.status, "running"), gt(engineVersionJobs.leaseExpiresAt, sql`clock_timestamp()`));
+    const jobs = await tx.select({ runId: engineVersionJobs.runId }).from(engineVersionJobs).where(jobWhere).for("update");
+    if (jobs.length !== 1) return false;
+    const reopened = await tx.update(productPostcheckRuns).set({ status: "expired", expiresAt: sql`clock_timestamp()` })
+      .where(and(eq(productPostcheckRuns.chatId, input.held.chatId), eq(productPostcheckRuns.versionId, key.versionId),
+        eq(productPostcheckRuns.filesRevision, key.filesRevision), eq(productPostcheckRuns.previewSession, key.previewSession),
+        eq(productPostcheckRuns.lifecycleToken, key.lifecycleToken), eq(productPostcheckRuns.mutationRevision, key.mutationRevision),
+        eq(productPostcheckRuns.runId, input.claim.runId), eq(productPostcheckRuns.claimGeneration, input.claim.claimGeneration),
+        eq(productPostcheckRuns.status, "failed"), lt(sql`clock_timestamp()`, new Date(input.deadlineAt)),
+        sql`EXISTS (SELECT 1 FROM ${engineVersionJobs} WHERE ${jobWhere})`)).returning({ runId: productPostcheckRuns.runId });
+    return reopened.length === 1;
+  });
+}
+
+/**
  * Sole server-owned Product Postcheck writer. Logs and claim completion commit
  * together, under version -> versionsjob -> productclaim. Redis lifecycle is
  * re-read by the held core; this TX fences its durable tuple.

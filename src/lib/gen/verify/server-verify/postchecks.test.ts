@@ -91,6 +91,7 @@ describe("ONE generation/cron postchecks core", () => {
     vi.spyOn(exported, "chatUsesVerbatimRepo").mockResolvedValue(false);
     vi.spyOn(exported, "buildExportableProject").mockResolvedValue(files);
     vi.spyOn(errors, "createEngineVersionErrorLogs").mockResolvedValue([] as never);
+    vi.spyOn(errors, "reopenFailedProductPostcheckRun").mockImplementation(async () => { order.push("reopen"); return true; });
     vi.spyOn(f3, "loadServerVerifyF3ReadinessContext").mockResolvedValue({ projectId: "p", orchestrationSnapshot: null } as never);
     vi.spyOn(f3, "evaluateServerOwnedF3Readiness").mockResolvedValue({ ready: true, ok: true } as never);
     vi.spyOn(f3, "persistF3ReadinessHold").mockResolvedValue(undefined);
@@ -295,6 +296,33 @@ describe("ONE generation/cron postchecks core", () => {
     });
     expect((await runVersionPostchecks(input)).kind).toBe("continue");
     expect(billing.settleExistingGenerationBillingIfPresent).toHaveBeenCalledWith({ chatId: "c", versionId: "v", userId: "guest:s" });
+  });
+  it("a failed pending product claim is retried only after a bounded resume reservation", async () => {
+    vi.mocked(claims.lookupProductPostcheckRun).mockResolvedValue({ kind: "settled", status: "failed", runId: "claim", claimGeneration: 4 });
+    vi.mocked(product.runVersionProductPostcheck).mockResolvedValue({ kind: "result", result: {
+      ...productResult().result, skipped: true, skippedReason: "claim_settled", attestation: null,
+    } } as never);
+    expect(await runVersionPostchecks({ ...input, entry: "resume" })).toMatchObject({ kind: "continue" });
+    expect(order.indexOf("reserve")).toBeLessThan(order.indexOf("reopen"));
+    expect(order.indexOf("reopen")).toBeLessThan(order.indexOf("product"));
+    expect(errors.reopenFailedProductPostcheckRun).toHaveBeenCalledWith(expect.objectContaining({
+      held: { chatId: "c", versionId: "v", filesRevision: "r1", holderRunId: "holder" },
+      claim: { runId: "claim", claimGeneration: 4 }, deadlineAt: deadline,
+    }));
+    expect(budget.settleServerResumeAttempt).toHaveBeenCalledWith(expect.anything(), 1, "completed");
+  });
+  it.each(["capacity", "cas", "write_error"])("failed product retry stops safely on %s", async failure => {
+    vi.mocked(claims.lookupProductPostcheckRun).mockResolvedValue({ kind: "settled", status: "failed", runId: "claim", claimGeneration: 4 });
+    vi.mocked(product.runVersionProductPostcheck).mockResolvedValue({ kind: "result", result: {
+      ...productResult().result, skipped: true, skippedReason: "claim_settled", attestation: null,
+    } } as never);
+    if (failure === "capacity") vi.mocked(budget.reserveServerResumeAttempt).mockResolvedValue({ status: "terminal" });
+    if (failure === "cas") vi.mocked(errors.reopenFailedProductPostcheckRun).mockResolvedValue(false);
+    if (failure === "write_error") vi.mocked(errors.reopenFailedProductPostcheckRun).mockRejectedValue(new Error("offline"));
+    expect((await runVersionPostchecks({ ...input, entry: "resume" })).kind).toBe("stop");
+    expect(product.runHeldVersionProductPostcheck).not.toHaveBeenCalled();
+    if (failure === "capacity") expect(errors.reopenFailedProductPostcheckRun).not.toHaveBeenCalled();
+    else expect(budget.settleServerResumeAttempt).toHaveBeenCalledWith(expect.anything(), 1, "retryable_failure");
   });
   it("resume probes and pure claim replay PRECEDE one reservation; duplicates take no second lease/work", async () => {
     vi.mocked(claims.lookupProductPostcheckRun).mockResolvedValue({ kind: "settled", status: "passed", runId: "claim" } as never);

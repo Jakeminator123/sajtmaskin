@@ -53,7 +53,7 @@ import {
   buildExportableProject,
   chatUsesVerbatimRepo,
 } from "@/lib/gen/export/build-exportable-project";
-import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+import { createEngineVersionErrorLogs, reopenFailedProductPostcheckRun } from "@/lib/db/services/version-errors";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 // Side-effect imports: wire default subscribers (devLog-mirror + DB
 // sink) so every `version.verifier.done`/`version.build.error` emit
@@ -249,6 +249,7 @@ export async function runVersionPostchecks(input: VersionPostchecksInput): Promi
   if (!lease.proceed) { inflight.delete(input.versionId); return stop(lease.reason); }
   const runId = lease.runId;
   let attemptId: number | undefined;
+  let failedProductClaim: Parameters<typeof reopenFailedProductPostcheckRun>[0] | null = null;
   let revision: string | null = null;
   const budgetTarget = () => ({ chatId: input.chatId, versionId: input.versionId, runId, filesRevision: revision! });
   const notify = <T>(callback: ((value: T) => void) | undefined, value: T) => {
@@ -342,7 +343,14 @@ export async function runVersionPostchecks(input: VersionPostchecksInput): Promi
               const replay = await runVersionProductPostcheck({ chatId: input.chatId, versionId: input.versionId,
                 userId: target.userId, filesRevision: revision!, deadlineAt: input.deadlineEpochMs });
               if (!(await current())) return stop("lease_or_context_lost");
-              if (replay.kind !== "result" || verdictFromProductPostcheckResult(replay.result) === "pending") return stop("product_replay_pending");
+              if (replay.kind !== "result") return stop("product_replay_pending");
+              if (verdictFromProductPostcheckResult(replay.result) === "pending") {
+                if (lookup.status !== "failed") return stop("product_replay_pending");
+                failedProductClaim = { held: { chatId: input.chatId, versionId: input.versionId, filesRevision: revision!, holderRunId: runId },
+                  key: { versionId: input.versionId, filesRevision: revision!, previewSession: probe.previewSessionId,
+                    lifecycleToken: probe.lifecycleToken, mutationRevision: normalizeProductPostcheckMutationRevision(probe.mutationRevision) },
+                  claim: { runId: lookup.runId, claimGeneration: lookup.claimGeneration }, deadlineAt: input.deadlineEpochMs };
+              }
             }
           }
           const reserved = await reserveServerResumeAttempt(budgetTarget());
@@ -354,6 +362,11 @@ export async function runVersionPostchecks(input: VersionPostchecksInput): Promi
         let outcome: VersionVerificationOutcome = stop("postchecks_stopped");
         for (let restart = 0; restart < 2; restart++) {
           if (!(await current())) { outcome = stop("lease_or_context_lost"); break; }
+          if (failedProductClaim) {
+            const reopened = await reopenFailedProductPostcheckRun(failedProductClaim).catch(() => false);
+            failedProductClaim = null;
+            if (!reopened) { outcome = stop("product_retry_unconfirmed"); break; }
+          }
           if (restart === 0) notify(input.notifications?.policy, policy);
           if (!target.imported) {
             const prepared = await prepareVersionImages({ chatId: input.chatId, versionId: input.versionId,
