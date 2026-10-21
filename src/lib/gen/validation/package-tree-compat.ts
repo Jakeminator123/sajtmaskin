@@ -75,7 +75,7 @@ const DEP_FIELDS = [
   "peerDependencies",
 ] as const;
 
-// Published stable npm peer contracts (419 releases through Next 16.3.8).
+// Published stable npm peer contracts (423 releases through Next 16.4.2).
 // Select all contracts an unlocked range admits; never guess a newer major.
 // Next 0/1 did not declare a React peer, so do not invent one for those lines.
 const NEXT_REACT_PEERS = [

@@ -74,12 +74,18 @@ export function checkNode(pinned, running) {
  * RTK only compresses terminal output when the GLOBAL Cursor hook file exists.
  * A Cursor reinstall removes it while the binary and its config survive, so the
  * absence looks like nothing at all. Only relevant if RTK is actually installed.
+ * A local wrapper script (e.g. `rtk-cursor-hook.cjs`) counts as wired: raw
+ * `rtk hook cursor` answers `ask` on every rewrite, so the wrapper is the
+ * supported way to keep rewritten commands from prompting.
  */
 export function checkRtk({ binaryPresent, hooks }) {
   if (!binaryPresent) {
     return { level: "ok", area: "rtk", message: "RTK inte installerad — inget att koppla in" };
   }
-  const wired = JSON.stringify(hooks ?? {}).includes("rtk hook cursor");
+  const commands = Object.values(hooks?.hooks ?? {})
+    .flat()
+    .map((hook) => String(hook?.command ?? ""));
+  const wired = commands.some((command) => /\brtk\b/i.test(command) && /cursor/i.test(command));
   return wired
     ? { level: "ok", area: "rtk", message: "RTK wrappar Shell via global hook" }
     : {
@@ -180,7 +186,7 @@ export function checkSkillDuplication({ cursorSkills, agentSkills, commandMirror
       level: "warn",
       area: "skills",
       message: `${overlap.length} skillnamn finns i både ~/.cursor/skills-cursor och ~/.agents/skills — möjlig dubbelladdning; innehåll och sessionsstatus inte jämförda`,
-      fix: "Behåll den delade ~/.agents/skills-roten. Jämför innehåll och referenser; avveckla bara verifierade legacy-dubbletter i ~/.cursor/skills-cursor med uttryckligt mandat.",
+      fix: "~/.cursor/skills-cursor är Cursors inbyggda rot och skrivs om av Cursor — rensa inte där. Jämför innehållet; är kopiorna i ~/.agents/skills Codex-importerade speglingar (t.ex. «Cursor» utbytt mot «Codex»), flytta dem till ett arkiv med uttryckligt mandat och stäng av Codex external-agent-import-sync om de återkommer.",
     });
   }
   if (commandMirrors.length > 0) {
