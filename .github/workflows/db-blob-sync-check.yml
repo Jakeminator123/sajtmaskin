@@ -25,8 +25,8 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  group: db-blob-sync-${{ github.ref }}
-  cancel-in-progress: true
+  group: db-blob-sync-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Read-only check: needs no write scopes and no persisted git credentials.
 permissions:

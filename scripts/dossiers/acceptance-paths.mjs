@@ -10,6 +10,21 @@
  * materializer.
  */
 export const DOSSIER_ACCEPTANCE_PATH_CONTRACT = Object.freeze([
+  ...[
+    "docs/schemas/strict/dossier.schema.json",
+    "src/lib/gen/autofix/runtime-imports.ts",
+    "src/lib/gen/scaffolds/protected-paths.ts",
+    "src/lib/gen/security/path-validator.ts",
+    "src/lib/gen/validation/node-core-modules.ts",
+    "src/lib/ai-models/**",
+    "config/ai_models/**",
+    "src/lib/gen/preview/project-preview-env.ts",
+    "src/lib/gen/preview/relevant-env-keys.ts",
+    "src/lib/integrations/stub-env-filter.ts",
+  ].map(pattern => ({
+    pattern,
+    reason: "Transitive materializer dependency: changing it can affect every generated acceptance project.",
+  })),
   {
     pattern: ".github/workflows/dossier-acceptance.yml",
     reason: "Workflow self-coverage: trigger, scope gate and aggregate must re-run when they change.",
