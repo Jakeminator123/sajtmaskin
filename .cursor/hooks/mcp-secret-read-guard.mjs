@@ -28,6 +28,8 @@
  * fd 1) and no `process.exit()` afterwards.
  */
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { checkMcpSecrets } from "../../scripts/dev/doctor.mjs";
 import { writeHookResponse } from "./hook-io.mjs";
@@ -72,11 +74,15 @@ export function decide(input) {
   };
 }
 
-let response = { permission: "allow" };
-try {
-  const raw = readFileSync(0, "utf8").trim();
-  response = decide(raw ? JSON.parse(raw) : null);
-} catch {
-  response = { permission: "allow" };
+// Bara som CLI: `.claude/hooks/read-guard.mjs` importerar `decide` och får inte
+// trigga en egen stdin-läsning och Cursor-JSON på stdout (samma vakt som syskonen).
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  let response = { permission: "allow" };
+  try {
+    const raw = readFileSync(0, "utf8").trim();
+    response = decide(raw ? JSON.parse(raw) : null);
+  } catch {
+    response = { permission: "allow" };
+  }
+  writeHookResponse(response);
 }
-writeHookResponse(response);
