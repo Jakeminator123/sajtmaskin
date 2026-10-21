@@ -4,7 +4,8 @@ on:
   push:
     branches: [preview]
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    # Retarget immediately; body/title edits are isolated below without a required check.
+    types: [opened, synchronize, reopened, ready_for_review, edited]
   schedule:
     - cron: "17 3 * * 2"
   workflow_dispatch:
@@ -14,11 +15,11 @@ on:
         type: boolean
         default: false
 
-# Only a newer PR head replaces an older run. Unique trusted groups also keep
-# pending integration, weekly and manual receipts from replacing each other.
+# New PR heads/base changes replace stale runs. Metadata-only edits have unique
+# groups and cannot cancel required work. Trusted integration receipts stay unique.
 concurrency:
-  group: dossier-acceptance-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: dossier-acceptance-${{ (github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null)) && format('metadata-{0}', github.run_id) || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && !(github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null)) }}
 
 permissions:
   contents: read
@@ -28,6 +29,7 @@ jobs:
   # expensive matrix can skip while the required aggregate stays green.
   # Classification errors fail closed to the matrix.
   scope:
+    if: ${{ !(github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null)) }}
     permissions:
       contents: read
       actions: read
@@ -47,6 +49,7 @@ jobs:
       - name: Classify dossier-acceptance scope
         id: classify
         env:
+          SAJTMASKIN_PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           SAJTMASKIN_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           SAJTMASKIN_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           SAJTMASKIN_PUSH_BASE_SHA: ${{ github.event.before }}
@@ -70,6 +73,7 @@ jobs:
         id: matrix
         env:
           ACCEPTANCE_DOSSIERS: ${{ needs.scope.outputs.dossiers }}
+          ACCEPTANCE_REQUIRE_FULL: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref != 'preview' }}
         run: |
           dossiers=$(node scripts/dossiers/list-acceptance-matrix.mjs)
           echo "dossiers=$dossiers" >> "$GITHUB_OUTPUT"
@@ -245,18 +249,22 @@ jobs:
   # scope decision legitimately skipped it. Red if scope failed, the matrix
   # failed, or a skip was not legitimate. Same pattern as CI `quality`.
   dossier-acceptance:
+    # A skipped metadata job must NEVER publish the required acceptance identity.
+    name: ${{ (github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null)) && 'dossier-metadata-edit' || 'dossier-acceptance' }}
     needs:
       - scope
       - discover
       - verification-evidence
       - dependency-registry
       - keyless-production-build
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null)) }}
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate required dossier-acceptance result
         env:
           EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          MATRIX_MODE: ${{ needs.scope.outputs.matrix_mode }}
           SCOPE_RESULT: ${{ needs.scope.result }}
           RUN_MATRIX: ${{ needs.scope.outputs.run_matrix }}
           DISCOVER_RESULT: ${{ needs.discover.result }}
@@ -266,7 +274,12 @@ jobs:
         run: |
           set -euo pipefail
           EXPECT_MATRIX=true
-          if { [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "push" ]; } && [ "$SCOPE_RESULT" = "success" ] && [ "$RUN_MATRIX" = "false" ]; then
+          if [ "$EVENT_NAME" = "pull_request" ] && [ "$BASE_REF" != "preview" ]; then
+            if [ "$RUN_MATRIX" != "true" ] || [ "$MATRIX_MODE" != "full" ]; then
+              echo "::error::non-preview PR requires the full dossier matrix"
+              exit 1
+            fi
+          elif { [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "push" ]; } && [ "$SCOPE_RESULT" = "success" ] && [ "$RUN_MATRIX" = "false" ]; then
             EXPECT_MATRIX=false
           fi
           if [ "$SCOPE_RESULT" != "success" ]; then
@@ -292,3 +305,28 @@ jobs:
             exit 1
           fi
           echo "✓ dossier-acceptance aggregate green (matrix=${EXPECT_MATRIX}, reason scope=${SCOPE_RESULT}/${RUN_MATRIX})"
+
+  # A Preview receipt must never satisfy the separate master-only required check.
+  # The tiny aggregate survives cancellation so skipped/cancelled work fails closed.
+  dossier-acceptance-master:
+    name: ${{ (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'master' && !(github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null))) && 'dossier-acceptance-master' || 'dossier-master-not-applicable' }}
+    if: ${{ always() && (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'master' && !(github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null))) }}
+    needs: [scope, discover, dependency-registry, keyless-production-build, dossier-acceptance]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Require a complete successful master matrix
+        env:
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          MATRIX_MODE: ${{ needs.scope.outputs.matrix_mode }}
+          RUN_MATRIX: ${{ needs.scope.outputs.run_matrix }}
+          DISCOVER_RESULT: ${{ needs.discover.result }}
+          REGISTRY_RESULT: ${{ needs.dependency-registry.result }}
+          BUILD_RESULT: ${{ needs.keyless-production-build.result }}
+          ACCEPTANCE_RESULT: ${{ needs.dossier-acceptance.result }}
+        run: node scripts/dossiers/check-master-acceptance.mjs

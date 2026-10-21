@@ -3,6 +3,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 
+import { MASTER_ONLY_REQUIRED_CHECK_OWNERS, REQUIRED_CHECK_OWNERS, requiredCheckOwnerSpec } from "./required-check-owners.mjs";
+
 import {
   collectEsmSpecifiers,
   evaluateCiBranch,
@@ -1291,6 +1293,7 @@ describe("agent workflow repository contract", () => {
       "permissions: { contents: read }",
       "jobs:",
       "  dossier-acceptance: { runs-on: ubuntu-latest, steps: [] }",
+      "  dossier-acceptance-master: { runs-on: ubuntu-latest, steps: [] }",
       "",
     ].join("\n");
     expect(
@@ -1307,11 +1310,54 @@ describe("agent workflow repository contract", () => {
     expect(
       evaluateDossierAcceptanceWorkflow(
         source.replace(
-          "    types: [opened, synchronize, reopened, ready_for_review]\n",
+          "    types: [opened, synchronize, reopened, ready_for_review, edited]\n",
           '    paths: ["data/dossiers/**"]\n',
         ),
       ).length,
     ).toBeGreaterThan(0);
+  });
+
+  it.each([
+    [", edited]", "]"],
+    ["SAJTMASKIN_PR_BASE_REF:", "UNUSED_BASE_REF:"],
+    ["ACCEPTANCE_REQUIRE_FULL:", "UNUSED_FULL_REQUIREMENT:"],
+    ["BASE_REF: ${{ github.event.pull_request.base.ref }}", "BASE_REF: preview"],
+    ["MATRIX_MODE: ${{ needs.scope.outputs.matrix_mode }}", "MATRIX_MODE: full"],
+  ])("rejects a promotion gate with weakened wiring %s", (from, to) => {
+    const source = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
+    expect(source).toContain(from);
+    expect(evaluateDossierAcceptanceWorkflow(source.replaceAll(from, to)).length).toBeGreaterThan(0);
+  });
+
+  it("allows only the exact closed metadata check name in its sole owner", () => {
+    const ci = readFileSync(".github/workflows/ci.yml", "utf8");
+    const dossier = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
+    const check = (source: string, name = "dossier-acceptance.yml") => evaluateReservedWorkflowCheckNames([
+      { name: "ci.yml", source: ci }, { name, source },
+    ]);
+    expect(check(dossier)).toEqual([]);
+    expect(check(dossier, "other.yml").length).toBeGreaterThan(0);
+    for (const changed of [
+      dossier.replace("dossier-metadata-edit", "quality"),
+      dossier.replaceAll("github.event.changes.base == null", "true"),
+      dossier.replace("\n  dossier-acceptance:\n", "\n  fake-acceptance:\n"),
+    ]) {
+      expect(changed).not.toBe(dossier);
+      expect(check(changed).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("rejects metadata shortcuts that could cancel tests or publish a false green", () => {
+    const source = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
+    for (const changed of [
+      source.replace("github.event.changes.base == null", "true"),
+      source.replace("metadata-{0}", "metadata-shared"),
+      source.replace("name: ${{ (github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null)) && 'dossier-metadata-edit' || 'dossier-acceptance' }}", "name: dossier-acceptance"),
+      source.replace("if: ${{ !(github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null)) }}", "if: true"),
+    ]) {
+      expect(changed).not.toBe(source);
+      expect(evaluateDossierAcceptanceWorkflow(changed).length).toBeGreaterThan(0);
+    }
   });
 
   it("keeps an independent security floor below the editable policy", () => {
@@ -1467,3 +1513,45 @@ describe("agent workflow repository contract", () => {
   });
 });
 
+
+describe("master-specific required check ownership", () => {
+  it("resolves master ownership without adding it to the common Preview floor", () => {
+    expect(MASTER_ONLY_REQUIRED_CHECK_OWNERS).toEqual({ "dossier-acceptance-master": "dossier-acceptance.yml" });
+    expect(REQUIRED_CHECK_OWNERS).not.toHaveProperty("dossier-acceptance-master");
+    expect(loadWorkflowInputs().policy.requiredChecks).not.toContain("dossier-acceptance-master");
+    expect(requiredCheckOwnerSpec("dossier-acceptance-master")).toEqual({
+      path: ".github/workflows/dossier-acceptance.yml", file: "dossier-acceptance.yml", event: "pull_request",
+    });
+  });
+  it("reserves the master identity against another workflow or dynamic alias", () => {
+    const ci = readFileSync(".github/workflows/ci.yml", "utf8");
+    const source = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
+    const others = [{ name: "ci.yml", source: ci }, { name: "dossier-acceptance.yml", source }];
+    expect(evaluateReservedWorkflowCheckNames(others)).toEqual([]);
+    for (const name of ["dossier-acceptance-master", "${{ matrix.check }}"]) {
+      expect(evaluateReservedWorkflowCheckNames([...others, { name: "other.yml", source: "jobs:\n  fake:\n    name: " + name + "\n" }])
+        .some((error: string) => /canonical CI identity|dynamic check name/u.test(error))).toBe(true);
+    }
+    for (const changed of [
+      source.replace("dossier-master-not-applicable", "dossier-acceptance-master"),
+      source.replace("\n  dossier-acceptance-master:\n", "\n  fake-master:\n"),
+      source + "\n  fake-green-master:\n    name: dossier-acceptance-master\n    if: false\n    runs-on: ubuntu-latest\n    steps: []\n",
+    ]) {
+      expect(evaluateReservedWorkflowCheckNames([{ name: "ci.yml", source: ci }, { name: "dossier-acceptance.yml", source: changed }]).length).toBeGreaterThan(0);
+    }
+  });
+  it("rejects master skip/identity shortcuts and missing direct receipts", () => {
+    const source = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
+    for (const [from, to] of [
+      ["always() &&", "!cancelled() &&"],
+      ["dossier-master-not-applicable", "dossier-acceptance-master"],
+      ["ACCEPTANCE_RESULT: ${{ needs.dossier-acceptance.result }}", "ACCEPTANCE_RESULT: success"],
+      ["RUN_MATRIX: ${{ needs.scope.outputs.run_matrix }}", "RUN_MATRIX: true"],
+      ["run: node scripts/dossiers/check-master-acceptance.mjs", "run: echo green"],
+      ["timeout-minutes: 2", "timeout-minutes: 20"],
+    ]) {
+      expect(source).toContain(from);
+      expect(evaluateDossierAcceptanceWorkflow(source.replaceAll(from, to)).length).toBeGreaterThan(0);
+    }
+  });
+});

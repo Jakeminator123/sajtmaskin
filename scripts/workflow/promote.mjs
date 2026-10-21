@@ -248,6 +248,7 @@ export function buildPromoteBody({
     "## Verifiering",
     "",
     `- [ ] Required GitHub-checks gröna på promote-headen (inte bara på del-PR:arna mot \`${STAGING_BRANCH}\`)`,
+    "- [ ] Full dossiermatris grön på promote-headen: samtliga aktuella paket med filer ska ha installerats, typkontrollerats och produktionsbyggts; inget Preview-urval",
     "- [ ] Bugkoll på diffen mot produktion; alla fynd fixade, loggade eller avfärdade",
     "- [ ] P0/P1 = 0",
     "",

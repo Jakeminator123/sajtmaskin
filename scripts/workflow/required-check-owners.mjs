@@ -13,6 +13,11 @@ export const REQUIRED_CHECK_OWNERS = Object.freeze({
   "dossier-acceptance": "dossier-acceptance.yml",
 });
 
+// Reserved identity, deliberately excluded from the common Preview policy floor.
+export const MASTER_ONLY_REQUIRED_CHECK_OWNERS = Object.freeze({
+  "dossier-acceptance-master": "dossier-acceptance.yml",
+});
+
 export const REQUIRED_CHECK_WORKFLOW = Object.freeze({
   path: ".github/workflows/ci.yml",
   event: "pull_request",
@@ -36,6 +41,7 @@ export function requiredCheckOwnerSpec(check, policy = DEFAULT_OWNER_POLICY) {
   const canonical = policy.review?.requiredCheckWorkflow ?? REQUIRED_CHECK_WORKFLOW;
   const owners = {
     ...REQUIRED_CHECK_OWNERS,
+    ...MASTER_ONLY_REQUIRED_CHECK_OWNERS,
     ...(policy.requiredCheckOwners ?? {}),
   };
   const owner = owners[check];
