@@ -80,6 +80,7 @@ export const PATH_GROUP_FLOORS = Object.freeze({
   ]),
   ci: Object.freeze([".github/**", "scripts/ci/**"]),
   previewHost: Object.freeze(["preview-host/**"]),
+  bugBacklog: Object.freeze(["BUG-SWARM-BACKLOG.md", "docs/canvases/**"]),
   observability: Object.freeze(["scripts/observability/**", "requirements.genlogs.txt"]),
   e2e: Object.freeze(["e2e/**", "playwright*.config.ts"]),
 });
@@ -305,3 +306,4 @@ export function loadWorkflowInputs(root = process.cwd()) {
     domainMap: readJson("config/backoffice/domain-map.json"),
   };
 }
+

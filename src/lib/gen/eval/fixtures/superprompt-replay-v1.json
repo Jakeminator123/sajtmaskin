@@ -1,0 +1,386 @@
+{
+  "formatVersion": 1,
+  "id": "superprompt-replay-v1",
+  "synthetic": true,
+  "paidTestsAuthorized": false,
+  "status": "specification_not_execution",
+  "purpose": "Sanitär hypotes för E02 om fält och invarianter hos två syntetiska fall. Filen är inte observerad modelloutput, inte ett kört resultat och inte en kvalitetsbaslinje.",
+  "execution": {
+    "performed": false,
+    "providerCalls": null,
+    "dbCalls": null,
+    "modelCalls": null,
+    "note": "Inga provider-, databas- eller modellanrop ingår. null är inte en uppmätt nolla från en körning."
+  },
+  "quality": {
+    "expectedScore": null,
+    "runtimePass": null,
+    "priorDesignExperience": {
+      "recorded": null,
+      "expectedQualityOracle": false,
+      "note": "En tidigare designupplevelse är inte inlagd och får inte användas som förväntad kvalitet. null betyder att den saknas i fixturen, inte att en sådan upplevelse har bedömts."
+    }
+  },
+  "semantics": {
+    "missingIsNotInferred": true,
+    "modelEffort": {
+      "requestedAllows": ["string", "unknown", null],
+      "effectiveAllows": ["string", "unknown", null],
+      "requestedEffortAllows": ["string", "unknown", null],
+      "effectiveEffortAllows": ["string", "unknown", null],
+      "effectiveReasoningAllows": ["string", "unknown", null],
+      "thisFixture": "requested och requestedEffort är strängen unknown eftersom specifikationen inte namnger modell eller effort. effective, effectiveEffort och effectiveReasoning är null eftersom inget mättes. unknown och null är tillåtna värden. Inget av dem får fyllas i med en gissning, och en saknad nyckel får inte tolkas som ett värde."
+    },
+    "contextLabels": {
+      "environment": "synthetic betyder att körningen är påhittad i fixturen.",
+      "deployment": "unknown är en explicit etikett, inte ett utläst deploy-namn.",
+      "commit": "unknown är en explicit etikett, inte en verklig commit.",
+      "timestampKind": "synthetic_fixed är ett valt klockslag för ordning i specifikationen, inte en observation."
+    },
+    "selectedSourceOutcome": {
+      "allows": ["selected", "not_attempted", null],
+      "selected": "Specifikationen pekar ut ett deklarerat syntetiskt material som valt. Det är inte ett observerat uppslag mot en provider eller ett bildarkiv.",
+      "not_attempted": "Urvalssteget är angivet som inte kört. Det är ett processtillstånd, inte ett bevis på att inspiration saknades hos avsändaren eller i ologgad kontext.",
+      "null": "Inget urvalsutfall är registrerat på den nivån. Saknat värde är inte en slutsats och bevisar inte att inspiration saknades.",
+      "undeclaredInspirationOutcome": "Alltid null i den här filen. Det betyder att inspiration utöver det deklarerade materialet inte är registrerad, inte att sådan inspiration har uteslutits."
+    }
+  },
+  "expectedInvariants": [
+    {
+      "id": "no-game-engine-from-subject-alone",
+      "description": "Ämnesord får inte ensamma aktivera en spelmotor. C01: privat pokerlounge, spelkvällar och ordet spel i «inget spel om pengar» är ämne och förbud; «Ingen spelmotor» är ett explicit avslag, inte en beställning av spelbar mekanik. C02: bokhandel och «rörelse» är en företagssida med återhållsam rörelse, inte ett spel. Detta är en förväntad invariant i specifikationen, inte ett kört capability-resultat."
+    },
+    {
+      "id": "explicit-style-preservation",
+      "description": "Stil som prompten uttryckligen anger ska finnas kvar i följdfråga och reparation. C01: mörk grön, svart, guld och referensen synthetic:portrait-lounge-01. C02: brutalistisk komposition, turkos palett, typografisk kontrast och relevant men återhållsam rörelse. Ospecificerad typografi eller rörelse ska förbli null och inte fyllas från en tidigare designupplevelse. Den upplevelsen är inte förväntad kvalitet."
+    },
+    {
+      "id": "separate-lifecycle-turns",
+      "description": "Varje fall har tre syntetiska körningar med egna runId: initial, followup-question och repair. parentRunId är null på initial och pekar på initial från både följdfråga och reparation. Följdfrågan har buildRequested false och är bara en fråga. Reparationen är inte barn till frågeturen och ska inte ta frågan som byggunderlag."
+    },
+    {
+      "id": "explanatory-prose-retention",
+      "description": "Reparationen behåller casets hela prosa, inklusive förklarande meningar och avgränsningar, inte en nyckelordslista. C01 behåller informationssidan, spelkvällar, regler, anmälan och förbuden mot spelmotor och spel om pengar. C02 behåller företagssidan, målgruppen bokintresserade, målen sälja böcker, visa sortiment och tydlig kontakt, samt stilmeningarna."
+    }
+  ],
+  "cases": [
+    {
+      "id": "C01-lounge",
+      "syntheticLabels": {
+        "venueName": "Salong Vinterbarr",
+        "personName": "Nora Alm",
+        "namePolicy": "Påhittade generiska namn för fixturen. Ingen verklig person, verksamhet eller bild."
+      },
+      "prompt": "Skapa en exklusiv informationssida för en privat pokerlounge. Beskriv spelkvällar, regler och anmälan. Ingen spelmotor och inget spel om pengar. Mörk grön, svart och guld; använd den syntetiska porträttreferensen.",
+      "brief": {
+        "palette": {
+          "specified": true,
+          "labels": ["mörk grön", "svart", "guld"],
+          "tokens": null
+        },
+        "typography": {
+          "specified": false,
+          "contrast": null,
+          "composition": null
+        },
+        "motion": {
+          "specified": false,
+          "direction": null
+        },
+        "intent": {
+          "pageKind": "informationssida",
+          "subject": "privat pokerlounge",
+          "audience": null,
+          "tone": "exklusiv",
+          "goals": ["beskriva spelkvällar", "beskriva regler", "anmälan"],
+          "constraints": ["ingen spelmotor", "inget spel om pengar"],
+          "prose": "Skapa en exklusiv informationssida för en privat pokerlounge. Beskriv spelkvällar, regler och anmälan. Ingen spelmotor och inget spel om pengar. Mörk grön, svart och guld; använd den syntetiska porträttreferensen."
+        }
+      },
+      "sources": {
+        "sourceKind": "synthetic_image_reference",
+        "declaredReference": "synthetic:portrait-lounge-01",
+        "referenceForm": "non_url_synthetic_token",
+        "referenceIsUrl": false,
+        "realImage": false,
+        "selectedSourceOutcome": "selected",
+        "undeclaredInspirationOutcome": null,
+        "outcomeRecordedFromRun": false,
+        "note": "Tokenet är fixturens syntetiska bindning till promptens «den syntetiska porträttreferensen». Det är ingen URL och ingen verklig bild. selected är specificerat material, inte ett observerat uppslag. undeclaredInspirationOutcome null bevisar inte att annan inspiration saknades."
+      },
+      "runs": [
+        {
+          "turnKind": "initial",
+          "buildRequested": true,
+          "prompt": "Skapa en exklusiv informationssida för en privat pokerlounge. Beskriv spelkvällar, regler och anmälan. Ingen spelmotor och inget spel om pengar. Mörk grön, svart och guld; använd den syntetiska porträttreferensen.",
+          "context": {
+            "environment": "synthetic",
+            "deployment": "unknown",
+            "commit": "unknown",
+            "chatId": "syn-chat-c01-lounge",
+            "versionId": "syn-ver-c01-initial",
+            "runId": "syn-run-c01-initial",
+            "parentRunId": null,
+            "timestamp": "2026-01-15T12:00:00.000Z",
+            "timestampKind": "synthetic_fixed"
+          },
+          "model": {
+            "requested": "unknown",
+            "effective": null,
+            "requestedEffort": "unknown",
+            "effectiveEffort": null,
+            "effectiveReasoning": null,
+            "missingIsNotInferred": true
+          },
+          "sources": {
+            "sourceKind": "synthetic_image_reference",
+            "declaredReference": "synthetic:portrait-lounge-01",
+            "referenceForm": "non_url_synthetic_token",
+            "referenceIsUrl": false,
+            "realImage": false,
+            "selectedSourceOutcome": "selected",
+            "undeclaredInspirationOutcome": null,
+            "retainedFromRunId": null
+          },
+          "observedOutput": null,
+          "runtimePass": null
+        },
+        {
+          "turnKind": "followup-question",
+          "buildRequested": false,
+          "prompt": "Ska reglerna stå före anmälan, och räcker en textbeskrivning av spelkvällarna?",
+          "context": {
+            "environment": "synthetic",
+            "deployment": "unknown",
+            "commit": "unknown",
+            "chatId": "syn-chat-c01-lounge",
+            "versionId": "syn-ver-c01-initial",
+            "runId": "syn-run-c01-followup-question",
+            "parentRunId": "syn-run-c01-initial",
+            "timestamp": "2026-01-15T12:10:00.000Z",
+            "timestampKind": "synthetic_fixed"
+          },
+          "model": {
+            "requested": "unknown",
+            "effective": null,
+            "requestedEffort": "unknown",
+            "effectiveEffort": null,
+            "effectiveReasoning": null,
+            "missingIsNotInferred": true
+          },
+          "sources": {
+            "sourceKind": "synthetic_image_reference",
+            "declaredReference": "synthetic:portrait-lounge-01",
+            "referenceForm": "non_url_synthetic_token",
+            "referenceIsUrl": false,
+            "realImage": false,
+            "selectedSourceOutcome": null,
+            "undeclaredInspirationOutcome": null,
+            "retainedFromRunId": null,
+            "note": "Frågeturen registrerar inget nytt urval och ber inte om en build. null ersätter inte casets selected och bevisar inte att referensen eller annan inspiration saknas."
+          },
+          "observedOutput": null,
+          "runtimePass": null
+        },
+        {
+          "turnKind": "repair",
+          "buildRequested": null,
+          "prompt": null,
+          "retainedProseIntent": "Skapa en exklusiv informationssida för en privat pokerlounge. Beskriv spelkvällar, regler och anmälan. Ingen spelmotor och inget spel om pengar. Mörk grön, svart och guld; använd den syntetiska porträttreferensen.",
+          "context": {
+            "environment": "synthetic",
+            "deployment": "unknown",
+            "commit": "unknown",
+            "chatId": "syn-chat-c01-lounge",
+            "versionId": "syn-ver-c01-initial",
+            "runId": "syn-run-c01-repair",
+            "parentRunId": "syn-run-c01-initial",
+            "timestamp": "2026-01-15T12:20:00.000Z",
+            "timestampKind": "synthetic_fixed"
+          },
+          "model": {
+            "requested": "unknown",
+            "effective": null,
+            "requestedEffort": "unknown",
+            "effectiveEffort": null,
+            "effectiveReasoning": null,
+            "missingIsNotInferred": true
+          },
+          "sources": {
+            "sourceKind": "synthetic_image_reference",
+            "declaredReference": "synthetic:portrait-lounge-01",
+            "referenceForm": "non_url_synthetic_token",
+            "referenceIsUrl": false,
+            "realImage": false,
+            "selectedSourceOutcome": "selected",
+            "undeclaredInspirationOutcome": null,
+            "retainedFromRunId": "syn-run-c01-initial",
+            "note": "Reparationen behåller det ursprungligt valda syntetiska porträttet och prosaavsikten. buildRequested null betyder att specifikationen inte avgör om reparationen är en användarbeställning; det är inte en slutsats om att en beställning saknades. Ingen observerad felorsak är inlagd."
+          },
+          "observedFailure": null,
+          "observedOutput": null,
+          "runtimePass": null
+        }
+      ]
+    },
+    {
+      "id": "C02-campaign",
+      "syntheticLabels": {
+        "venueName": "Bokhandeln Marginalen",
+        "personName": null,
+        "namePolicy": "Påhittat generiskt verksamhetsnamn. Ingen verklig bokhandel, person eller bild. personName null betyder att fixturen inte namnger någon, inte att en person har uteslutits ur verksamheten."
+      },
+      "prompt": "Bygg en kreativ bokhandels företagssida. Målgrupp: bokintresserade. Strukturerade mål: sälja böcker, visa sortiment, tydlig kontakt. Brutalistisk komposition, turkos palett, typografisk kontrast och relevant men återhållsam rörelse.",
+      "brief": {
+        "palette": {
+          "specified": true,
+          "labels": ["turkos"],
+          "tokens": null
+        },
+        "typography": {
+          "specified": true,
+          "contrast": "typografisk kontrast",
+          "composition": "brutalistisk komposition"
+        },
+        "motion": {
+          "specified": true,
+          "direction": "relevant men återhållsam rörelse"
+        },
+        "intent": {
+          "pageKind": "företagssida",
+          "subject": "kreativ bokhandel",
+          "audience": "bokintresserade",
+          "tone": "kreativ",
+          "goals": ["sälja böcker", "visa sortiment", "tydlig kontakt"],
+          "constraints": [],
+          "prose": "Bygg en kreativ bokhandels företagssida. Målgrupp: bokintresserade. Strukturerade mål: sälja böcker, visa sortiment, tydlig kontakt. Brutalistisk komposition, turkos palett, typografisk kontrast och relevant men återhållsam rörelse."
+        }
+      },
+      "sources": {
+        "sourceKind": "none_declared",
+        "declaredReference": null,
+        "referenceForm": null,
+        "referenceIsUrl": false,
+        "realImage": false,
+        "selectedSourceOutcome": "not_attempted",
+        "undeclaredInspirationOutcome": null,
+        "outcomeRecordedFromRun": false,
+        "note": "Prompten namnger ingen bild eller inspirationskälla. not_attempted betyder att urvalet inte körs i den här specifikationen. Det bevisar inte att inspiration saknades. declaredReference null är inte en borttappad URL."
+      },
+      "runs": [
+        {
+          "turnKind": "initial",
+          "buildRequested": true,
+          "prompt": "Bygg en kreativ bokhandels företagssida. Målgrupp: bokintresserade. Strukturerade mål: sälja böcker, visa sortiment, tydlig kontakt. Brutalistisk komposition, turkos palett, typografisk kontrast och relevant men återhållsam rörelse.",
+          "context": {
+            "environment": "synthetic",
+            "deployment": "unknown",
+            "commit": "unknown",
+            "chatId": "syn-chat-c02-campaign",
+            "versionId": "syn-ver-c02-initial",
+            "runId": "syn-run-c02-initial",
+            "parentRunId": null,
+            "timestamp": "2026-01-15T13:00:00.000Z",
+            "timestampKind": "synthetic_fixed"
+          },
+          "model": {
+            "requested": "unknown",
+            "effective": null,
+            "requestedEffort": "unknown",
+            "effectiveEffort": null,
+            "effectiveReasoning": null,
+            "missingIsNotInferred": true
+          },
+          "sources": {
+            "sourceKind": "none_declared",
+            "declaredReference": null,
+            "referenceForm": null,
+            "referenceIsUrl": false,
+            "realImage": false,
+            "selectedSourceOutcome": "not_attempted",
+            "undeclaredInspirationOutcome": null,
+            "retainedFromRunId": null
+          },
+          "observedOutput": null,
+          "runtimePass": null
+        },
+        {
+          "turnKind": "followup-question",
+          "buildRequested": false,
+          "prompt": "Vilket av de tre målen ska en bokintresserad möta först: försäljning, sortiment eller kontakt?",
+          "context": {
+            "environment": "synthetic",
+            "deployment": "unknown",
+            "commit": "unknown",
+            "chatId": "syn-chat-c02-campaign",
+            "versionId": "syn-ver-c02-initial",
+            "runId": "syn-run-c02-followup-question",
+            "parentRunId": "syn-run-c02-initial",
+            "timestamp": "2026-01-15T13:10:00.000Z",
+            "timestampKind": "synthetic_fixed"
+          },
+          "model": {
+            "requested": "unknown",
+            "effective": null,
+            "requestedEffort": "unknown",
+            "effectiveEffort": null,
+            "effectiveReasoning": null,
+            "missingIsNotInferred": true
+          },
+          "sources": {
+            "sourceKind": "none_declared",
+            "declaredReference": null,
+            "referenceForm": null,
+            "referenceIsUrl": false,
+            "realImage": false,
+            "selectedSourceOutcome": null,
+            "undeclaredInspirationOutcome": null,
+            "retainedFromRunId": null,
+            "note": "Frågeturen registrerar inget urval och ber inte om en build. null är inte samma tillstånd som casets not_attempted och bevisar inte att inspiration saknades."
+          },
+          "observedOutput": null,
+          "runtimePass": null
+        },
+        {
+          "turnKind": "repair",
+          "buildRequested": null,
+          "prompt": null,
+          "retainedProseIntent": "Bygg en kreativ bokhandels företagssida. Målgrupp: bokintresserade. Strukturerade mål: sälja böcker, visa sortiment, tydlig kontakt. Brutalistisk komposition, turkos palett, typografisk kontrast och relevant men återhållsam rörelse.",
+          "context": {
+            "environment": "synthetic",
+            "deployment": "unknown",
+            "commit": "unknown",
+            "chatId": "syn-chat-c02-campaign",
+            "versionId": "syn-ver-c02-initial",
+            "runId": "syn-run-c02-repair",
+            "parentRunId": "syn-run-c02-initial",
+            "timestamp": "2026-01-15T13:20:00.000Z",
+            "timestampKind": "synthetic_fixed"
+          },
+          "model": {
+            "requested": "unknown",
+            "effective": null,
+            "requestedEffort": "unknown",
+            "effectiveEffort": null,
+            "effectiveReasoning": null,
+            "missingIsNotInferred": true
+          },
+          "sources": {
+            "sourceKind": "none_declared",
+            "declaredReference": null,
+            "referenceForm": null,
+            "referenceIsUrl": false,
+            "realImage": false,
+            "selectedSourceOutcome": "not_attempted",
+            "undeclaredInspirationOutcome": null,
+            "retainedFromRunId": "syn-run-c02-initial",
+            "note": "Reparationen behåller not_attempted och hittar inte på en bildreferens. Prosaavsikten behålls i sin helhet. buildRequested null är inte en slutsats om att en beställning saknades. Ingen observerad felorsak är inlagd."
+          },
+          "observedFailure": null,
+          "observedOutput": null,
+          "runtimePass": null
+        }
+      ]
+    }
+  ]
+}

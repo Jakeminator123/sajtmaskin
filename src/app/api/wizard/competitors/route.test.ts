@@ -12,6 +12,7 @@ const config = vi.hoisted(() => ({
 const requireNotBot = vi.hoisted(() => vi.fn());
 const authorizeWizardRun = vi.hoisted(() => vi.fn());
 const generateText = vi.hoisted(() => vi.fn());
+const responsesCreate = vi.hoisted(() => vi.fn());
 const createDirectModel = vi.hoisted(() => vi.fn(() => "model"));
 const braveWebSearch = vi.hoisted(() => vi.fn());
 const debugLog = vi.hoisted(() => vi.fn());
@@ -37,6 +38,9 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 vi.mock("@/lib/wizard/authorize-wizard-run", () => ({ authorizeWizardRun }));
 vi.mock("ai", () => ({ generateText }));
+vi.mock("openai", () => ({
+  default: class { responses = { create: responsesCreate }; },
+}));
 vi.mock("@/lib/builder/direct-model", () => ({ createDirectModel }));
 vi.mock("@/lib/brave-search", () => ({ braveWebSearch }));
 vi.mock("@/lib/utils/debug", () => ({ debugLog, errorLog }));
@@ -67,6 +71,22 @@ function makeRequest(body: unknown): Request {
 }
 
 describe("POST /api/wizard/competitors", () => {
+  it("bounds the active Responses path and keeps the wizard abort signal", async () => {
+    config.features.useResponsesApi = true;
+    responsesCreate.mockResolvedValue({ output_text: '{"competitors":[],"marketInsight":"Svar"}' });
+    const response = await POST(makeRequest({ companyName: "Sajtstudio", industry: "Webb" }));
+    expect(response.status).toBe(200);
+    expect(responsesCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "gpt-6.1-sol",
+        max_output_tokens: 8192,
+        reasoning: { effort: "medium" },
+      }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     config.features.useResponsesApi = false;
@@ -215,3 +235,4 @@ describe("POST /api/wizard/competitors", () => {
     );
   });
 });
+

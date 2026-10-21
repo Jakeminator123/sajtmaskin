@@ -201,6 +201,7 @@ Regler:
               openai.responses.create(
                 {
                   model: RESPONSES_MODEL,
+                  max_output_tokens: 8_192,
                   ...workloadResponsesReasoning(WIZARD_WORKLOAD_ID, RESPONSES_MODEL),
                   instructions: competitorsPrompt,
                   input: "Generera konkurrentanalys baserat på instruktionerna.",
@@ -271,3 +272,4 @@ Returnera BARA JSON (inget annat):
     ),
   );
 }
+

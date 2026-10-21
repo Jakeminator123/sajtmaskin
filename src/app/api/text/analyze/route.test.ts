@@ -2,6 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const getCurrentUser = vi.hoisted(() => vi.fn());
+const responsesCreate = vi.hoisted(() => vi.fn());
+const config = vi.hoisted(() => ({
+  features: { useResponsesApi: true },
+  secrets: { openaiApiKey: "test-key" },
+}));
+vi.mock("openai", () => ({
+  default: class { responses = { create: responsesCreate }; },
+}));
 
 vi.mock("@/lib/auth/auth", () => ({
   getCurrentUser,
@@ -12,13 +20,35 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 
 vi.mock("@/lib/config", () => ({
-  FEATURES: { useResponsesApi: true },
-  SECRETS: { openaiApiKey: "" },
+  FEATURES: config.features,
+  SECRETS: config.secrets,
 }));
 
-const { POST } = await import("./route");
+const { POST, maxDuration } = await import("./route");
 
 describe("POST /api/text/analyze", () => {
+  it.each([true, false])("bounds output and request lifetime with Responses flag %s", async (enabled) => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    config.features.useResponsesApi = enabled;
+    getCurrentUser.mockResolvedValue({ id: "user_1" });
+    responsesCreate.mockResolvedValue({ output_text: JSON.stringify({
+      summary: "Sammanfattning", suggestions: [{ id: "hero", label: "Hero", description: "Rubrik", prompt: "Skapa hero" }],
+    }) });
+    const request = new NextRequest("http://localhost/api/text/analyze", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ content: "Hej", filename: "text.txt" }),
+    });
+    try {
+      const response = await POST(request);
+      expect(await response.json()).toMatchObject({ success: true, summary: "Sammanfattning" });
+      expect(responsesCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ model: "gpt-6.1-sol", max_output_tokens: 8192, reasoning: { effort: "medium" } }),
+        { signal: request.signal, timeout: 30000, maxRetries: 0 },
+      );
+      expect(maxDuration).toBe(45);
+    } finally { vi.unstubAllEnvs(); }
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -36,3 +66,4 @@ describe("POST /api/text/analyze", () => {
     expect(res.status).toBe(401);
   });
 });
+
