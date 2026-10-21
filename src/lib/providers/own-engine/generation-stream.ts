@@ -1024,16 +1024,43 @@ export function createOwnEngineGenerationStream(
                 handlePartialFileOutput,
               });
               if (fallbackFinalized) {
-                const failedVersion = await chatRepo
-                  .failVersionVerification(
+                // The saved row is not a recovered failure until the mark is
+                // confirmed. Null and thrown marks leave passed/promoted
+                // untouched — emitting that stale version, or running
+                // post-finalize from it, would claim a clean finish. Keep the
+                // one saved version, write its credit marker once, and fail
+                // the stream. Do not invent a persisted failed status.
+                let failedVersion: Awaited<
+                  ReturnType<typeof chatRepo.failVersionVerification>
+                > = null;
+                let verificationMarkError: unknown = null;
+                try {
+                  failedVersion = await chatRepo.failVersionVerification(
                     fallbackFinalized.version.id,
                     fallbackVerificationSummary,
-                  )
-                  .catch(() => null);
+                  );
+                } catch (error) {
+                  verificationMarkError = error;
+                }
+                if (!failedVersion) {
+                  try {
+                    await commitCredits({
+                      chatId,
+                      versionId: fallbackFinalized.version.id,
+                    });
+                  } catch (markerError) {
+                    postFinalizeError = markerError;
+                    safeError(markerError);
+                    return;
+                  }
+                  safeError(
+                    verificationMarkError ??
+                      new Error("Recovered version verification was not confirmed"),
+                  );
+                  return;
+                }
                 await emitDoneWithVersion(
-                  failedVersion
-                    ? { ...fallbackFinalized, version: failedVersion }
-                    : fallbackFinalized,
+                  { ...fallbackFinalized, version: failedVersion },
                   { recoveredAfterStreamAbort: true },
                 );
               }

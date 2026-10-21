@@ -17,9 +17,14 @@ async function loadEngineModule() {
   });
   createCodeGenSSEStreamMock.mockReturnValue({} as ReadableStream<Uint8Array>);
 
-  vi.doMock("ai", () => ({
-    streamText: streamTextMock,
-  }));
+  vi.doMock("ai", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("ai")>();
+    return {
+      ...actual,
+      streamText: streamTextMock,
+      stepCountIs: actual.stepCountIs,
+    };
+  });
   vi.doMock("./models", () => ({
     DEFAULT_MODEL: "gpt-5.4",
     getOpenAIModel: getOpenAIModelMock,
@@ -201,5 +206,44 @@ describe("generateCode providerOptions", () => {
 
     expect(streamTextMock).toHaveBeenCalledTimes(1);
     expect(streamTextMock.mock.calls[0][0].providerOptions).toBeUndefined();
+  });
+
+  it("maps the public maxSteps budget to stopWhen and keeps abortSignal", async () => {
+    const { generateCode } = await loadEngineModule();
+    const tools = { lookup: { description: "lookup" } };
+    const abortController = new AbortController();
+
+    generateCode({
+      prompt: "Build this",
+      systemPrompt: "System",
+      abortSignal: abortController.signal,
+      tools: tools as never,
+      maxSteps: 2,
+    });
+
+    const settings = streamTextMock.mock.calls[0][0];
+    expect(settings.tools).toBe(tools);
+    expect(settings.maxSteps).toBeUndefined();
+    expect(settings.abortSignal).toBe(abortController.signal);
+    expect(settings.stopWhen({ steps: [{}] })).toBe(false);
+    expect(settings.stopWhen({ steps: [{}, {}] })).toBe(true);
+
+    generateCode({
+      prompt: "Build this",
+      systemPrompt: "System",
+      tools: tools as never,
+    });
+    const defaultStop = streamTextMock.mock.calls[1][0].stopWhen;
+    expect(streamTextMock.mock.calls[1][0].maxSteps).toBeUndefined();
+    expect(defaultStop({ steps: [{}, {}, {}] })).toBe(false);
+    expect(defaultStop({ steps: [{}, {}, {}, {}] })).toBe(true);
+
+    generateCode({
+      prompt: "Build this",
+      systemPrompt: "System",
+    });
+    expect(streamTextMock.mock.calls[2][0].stopWhen).toBeUndefined();
+    expect(streamTextMock.mock.calls[2][0].maxSteps).toBeUndefined();
+    expect(streamTextMock.mock.calls[2][0].abortSignal).toBeInstanceOf(AbortSignal);
   });
 });
