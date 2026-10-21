@@ -15,6 +15,7 @@ import { SAFE_DOCS_COMMANDS } from "./ci-scope.mjs";
 import { PATH_GROUP_FLOORS } from "./path-impact.mjs";
 import {
   REQUIRED_CHECK_OWNERS,
+  MASTER_ONLY_REQUIRED_CHECK_OWNERS,
   REQUIRED_CHECK_WORKFLOW,
   requiredCheckOwnerSpec,
 } from "./required-check-owners.mjs";
@@ -448,6 +449,19 @@ export function evaluatePrBaseGuardWorkflow(source) {
   return errors;
 }
 
+// The sole dynamic check-name exception is a closed pair of literal names.
+// Metadata edits cannot publish a skipped success under the required identity.
+const DOSSIER_METADATA_EDIT = "github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null)";
+const DOSSIER_CHECK_NAME = "${{ (" + DOSSIER_METADATA_EDIT + ") && 'dossier-metadata-edit' || 'dossier-acceptance' }}";
+const DOSSIER_SCOPE_IF = "${{ !(" + DOSSIER_METADATA_EDIT + ") }}";
+const DOSSIER_AGGREGATE_IF = "${{ !cancelled() && !(" + DOSSIER_METADATA_EDIT + ") }}";
+const DOSSIER_CONCURRENCY_GROUP = "dossier-acceptance-${{ (" + DOSSIER_METADATA_EDIT + ") && format('metadata-{0}', github.run_id) || github.event.pull_request.number || github.run_id }}";
+const DOSSIER_CANCEL = "${{ github.event_name == 'pull_request' && !(" + DOSSIER_METADATA_EDIT + ") }}";
+
+const DOSSIER_MASTER_EVENT = "github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'master' && !(" + DOSSIER_METADATA_EDIT + ")";
+const DOSSIER_MASTER_NAME = "${{ (" + DOSSIER_MASTER_EVENT + ") && 'dossier-acceptance-master' || 'dossier-master-not-applicable' }}";
+const DOSSIER_MASTER_IF = "${{ always() && (" + DOSSIER_MASTER_EVENT + ") }}";
+
 function ownerWorkflowForRequiredCheck(check, policy = POLICY_FLOORS) {
   return requiredCheckOwnerSpec(check, policy).file;
 }
@@ -459,10 +473,11 @@ export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POL
       .map((name) => String(name).trim().toLowerCase())
       .filter(Boolean),
   );
+  const reservedNames = new Set([...coreNames, ...Object.keys(MASTER_ONLY_REQUIRED_CHECK_OWNERS)]);
   const reviewPatterns = (policy.review?.qualifyingCheckPatterns ?? [])
     .map((pattern) => String(pattern).trim().toLowerCase())
     .filter(Boolean);
-  const canonicalCoreCounts = new Map([...coreNames].map((name) => [name, 0]));
+  const canonicalCoreCounts = new Map([...reservedNames].map((name) => [name, 0]));
   for (const workflow of workflowSources) {
     let document;
     try {
@@ -472,20 +487,27 @@ export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POL
     }
     for (const [jobId, job] of Object.entries(document?.jobs ?? {})) {
       const publishedName = String(job?.name ?? jobId).trim();
-      if (publishedName.includes("${{")) {
+      const closedDossierName = workflow.name === "dossier-acceptance.yml" && jobId === "dossier-acceptance" &&
+        hasExactExpression(publishedName, DOSSIER_CHECK_NAME);
+      const closedMasterName = workflow.name === "dossier-acceptance.yml" && jobId === "dossier-acceptance-master" &&
+        hasExactExpression(publishedName, DOSSIER_MASTER_NAME);
+      if (publishedName.includes("${{") && !closedDossierName && !closedMasterName) {
         errors.push(
           `${workflow.name} job ${jobId} has a dynamic check name that cannot be proven non-reserved`,
         );
       }
-      const identities = new Set([String(jobId).trim().toLowerCase(), publishedName.toLowerCase()]);
+      const publishedNames = new Set(closedDossierName
+        ? ["dossier-acceptance", "dossier-metadata-edit"]
+        : closedMasterName ? ["dossier-acceptance-master", "dossier-master-not-applicable"] : [publishedName.toLowerCase()]);
+      const identities = new Set([String(jobId).trim().toLowerCase(), ...publishedNames]);
       for (const identity of identities) {
-        if (coreNames.has(identity)) {
+        if (reservedNames.has(identity)) {
           const owner = ownerWorkflowForRequiredCheck(identity, policy);
           if (workflow.name !== owner) {
             errors.push(
               `${workflow.name} job ${jobId} may not use canonical CI identity ${identity}`,
             );
-          } else if (identity === publishedName.toLowerCase()) {
+          } else if (publishedNames.has(identity)) {
             canonicalCoreCounts.set(identity, (canonicalCoreCounts.get(identity) ?? 0) + 1);
           }
         }
@@ -627,23 +649,25 @@ export function evaluateDossierAcceptanceWorkflow(source) {
     "synchronize",
     "reopened",
     "ready_for_review",
+    "edited",
   ];
   if (
     pullRequest &&
     typeof pullRequest === "object" &&
     !includesEvery(pullRequest.types, requiredTypes)
   ) {
-    errors.push("dossier-acceptance must run on new heads and ready_for_review");
+    errors.push("dossier-acceptance must run on new heads, ready_for_review and base edits");
   }
   if (values(pullRequest?.types).includes("converted_to_draft")) {
     errors.push("dossier-acceptance must not restart unchanged work on converted_to_draft");
   }
 
-  if (values(pullRequest?.types).includes("edited")) {
-    errors.push("dossier-acceptance must delegate base edits to pr-base-guard without restarting on PR metadata edits");
-  }
-
   const scope = document?.jobs?.scope;
+  if (!hasExactExpression(scope?.if, DOSSIER_SCOPE_IF) ||
+      !hasExactExpression(document?.concurrency?.group, DOSSIER_CONCURRENCY_GROUP) ||
+      !hasExactExpression(document?.concurrency?.["cancel-in-progress"], DOSSIER_CANCEL)) {
+    errors.push("dossier metadata edits must skip work in isolated non-cancelling groups");
+  }
   if (
     !scope ||
     !scope.outputs?.run_matrix ||
@@ -710,10 +734,31 @@ export function evaluateDossierAcceptanceWorkflow(source) {
       "dossier-acceptance must aggregate scope, discover, evidence, registry and keyless builds",
     );
   }
-  if (!hasExactExpression(aggregate?.if, "${{ !cancelled() }}")) {
+  if (!hasExactExpression(aggregate?.name, DOSSIER_CHECK_NAME) ||
+      !hasExactExpression(aggregate?.if, DOSSIER_AGGREGATE_IF)) {
     errors.push(
-      "dossier-acceptance must publish after failed/skipped dependencies without surviving cancellation",
+      "dossier-acceptance must publish after failed/skipped dependencies, but never publish the required identity for metadata or survive cancellation",
     );
+  }
+
+  const master = document?.jobs?.["dossier-acceptance-master"];
+  const masterStep = master?.steps?.find(step => step.run === "node scripts/dossiers/check-master-acceptance.mjs");
+  const masterEnv = {
+    SCOPE_RESULT: "${{ needs.scope.result }}",
+    MATRIX_MODE: "${{ needs.scope.outputs.matrix_mode }}",
+    RUN_MATRIX: "${{ needs.scope.outputs.run_matrix }}",
+    DISCOVER_RESULT: "${{ needs.discover.result }}",
+    REGISTRY_RESULT: "${{ needs.dependency-registry.result }}",
+    BUILD_RESULT: "${{ needs.keyless-production-build.result }}",
+    ACCEPTANCE_RESULT: "${{ needs.dossier-acceptance.result }}",
+  };
+  if (!hasExactExpression(master?.name, DOSSIER_MASTER_NAME) ||
+      !hasExactExpression(master?.if, DOSSIER_MASTER_IF) ||
+      !hasExactStringSet(master?.needs, ["scope", "discover", "dependency-registry", "keyless-production-build", "dossier-acceptance"]) ||
+      master?.["timeout-minutes"] !== 2 ||
+      !masterStep ||
+      Object.entries(masterEnv).some(([key, value]) => !hasExactExpression(masterStep.env?.[key], value))) {
+    errors.push("master-only dossier check must use a distinct conditional identity and require all successful full-matrix receipts, even after cancellation");
   }
 
   return errors;

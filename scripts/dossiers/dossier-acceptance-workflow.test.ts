@@ -444,20 +444,16 @@ describe("dossier acceptance workflow contract", () => {
     const pullRequestBlock = workflow.slice(start, end);
     expect(pullRequestBlock).not.toContain("    paths:");
     expect(pullRequestBlock).toContain("ready_for_review");
-    expect(parse(workflow).on.pull_request.types).not.toContain("edited");
+    expect(parse(workflow).on.pull_request.types).toContain("edited");
     expect(pullRequestBlock).not.toContain("converted_to_draft");
     expect(workflow).toContain('    - cron: "17 3 * * 2"');
     expect(parse(workflow).on.workflow_dispatch.inputs.cold_cache).toMatchObject({ type: "boolean", default: false });
-    expect(workflow).toContain(
-      "  group: dossier-acceptance-${{ github.event.pull_request.number || github.run_id }}",
-    );
-    expect(parse(workflow).concurrency["cancel-in-progress"]).toBe("${{ github.event_name == 'pull_request' }}");
+    expect(parse(workflow).concurrency.group).toContain("metadata-{0}");
   });
 
   it.each([
     ["ci.yml", "ci"],
     ["db-blob-sync-check.yml", "db-blob-sync"],
-    ["dossier-acceptance.yml", "dossier-acceptance"],
   ])("retains active and pending trusted receipts in %s while replacing stale PR runs", (file, prefix) => {
     const concurrency = parse(readFileSync(`.github/workflows/${file}`, "utf8")).concurrency;
     expect(concurrency).toEqual({
@@ -470,7 +466,7 @@ describe("dossier acceptance workflow contract", () => {
     expect(workflow).toContain("  scope:");
     expect(workflow).toContain("run: node scripts/dossiers/acceptance-scope.mjs");
     expect(workflow).toContain("  dossier-acceptance:");
-    expect(workflow).toContain("    if: ${{ !cancelled() }}");
+    expect(parse(workflow).jobs["dossier-acceptance"].if).toContain("!cancelled()");
     expect(workflow).toContain("EXPECT_MATRIX=true");
     expect(parse(workflow).jobs.discover.steps.find((s: { id?: string }) => s.id === "matrix").env.ACCEPTANCE_DOSSIERS).toBe("${{ needs.scope.outputs.dossiers }}");
   });
@@ -543,27 +539,126 @@ describe("dossier acceptance workflow contract", () => {
   });
 });
 
-describe("PR metadata and base-change regression", () => {
-  const acceptanceEvents = parse(workflow).on.pull_request.types;
-  const guard = parse(readFileSync(".github/workflows/pr-base-guard.yml", "utf8"));
-  const baseGuard = guard.jobs["draft-on-base-change"];
-  function guards(changes: Record<string, unknown>, state = "open") {
-    return runInNewContext(baseGuard.if, { github: { event: { changes, pull_request: { state } } } }, { timeout: 100 });
+describe("PR metadata and retargeting regression", () => {
+  const document = parse(workflow);
+  // Evaluate the committed boolean/string expressions. Missing GitHub properties
+  // are represented by absent JS properties; the null comparisons cover both.
+  function decision(eventName = "pull_request", action = "edited", changes: Record<string, unknown> = {}, runId = 100, cancelled = false) {
+    const context = {
+      github: { event_name: eventName, run_id: runId, event: { action, changes, pull_request: { number: eventName === "pull_request" ? 42 : null } } },
+      cancelled: () => cancelled,
+      format: (pattern: string, value: unknown) => pattern.replace("{0}", String(value)),
+    };
+    const evaluate = (expression: string) => runInNewContext(
+      expression.replace(/^\$\{\{\s*|\s*\}\}$/gu, ""), context, { timeout: 100 },
+    );
+    return {
+      scope: Boolean(evaluate(document.jobs.scope.if)),
+      aggregate: Boolean(evaluate(document.jobs["dossier-acceptance"].if)),
+      checkName: evaluate(document.jobs["dossier-acceptance"].name),
+      group: document.concurrency.group.replace(/\$\{\{([\s\S]*?)\}\}/gu, (_match: string, expression: string) => String(evaluate(expression))),
+      cancel: Boolean(evaluate(document.concurrency["cancel-in-progress"])),
+    };
   }
-  it.each([{ body: { from: "old checklist" } }, { title: { from: "old title" } }])("does not restart or cancel acceptance on metadata edits %j", changes => {
-    expect(acceptanceEvents).not.toContain("edited");
-    expect(guards(changes)).toBe(false);
+  it.each([
+    { body: { from: "old checklist" } },
+    { title: { from: "old title" } },
+    { title: { from: "old title" }, body: { from: "" } },
+  ])("metadata %j neither cancels work nor publishes a skipped required check", changes => {
+    const edit = decision("pull_request", "edited", changes);
+    expect(edit).toEqual({ scope: false, aggregate: false, checkName: "dossier-metadata-edit", group: "dossier-acceptance-metadata-100", cancel: false });
+    expect(edit.group).not.toBe(decision("pull_request", "synchronize").group);
+    expect(edit.group).not.toBe(decision("pull_request", "edited", changes, 101).group);
   });
-  it("requires a fresh ready event after retargeting, which selects the complete master catalog", () => {
-    const changes = { base: { ref: { from: "preview" }, sha: { from: "a".repeat(40) } } };
-    expect(guard.on.pull_request_target.types).toEqual(["edited"]);
-    expect(guards(changes)).toBe(true);
-    expect(guards({ ...changes, body: { from: "also edited" } })).toBe(true);
-    expect(baseGuard.concurrency["cancel-in-progress"]).toBe(false);
-    expect(baseGuard.steps[0].run).toContain('gh pr ready --undo "$PR_NUMBER" --repo "$REPO"');
-    expect(acceptanceEvents).toContain("ready_for_review");
+  it.each([
+    { base: { ref: { from: "preview" } } },
+    { base: { ref: { from: "preview" } }, body: { from: "also edited" } },
+    {},
+    { unknown: { from: "unknown edit" } },
+  ])("base, mixed or unclassified edit %j keeps the blocking check and replaces stale work", changes => {
+    expect(decision("pull_request", "edited", changes)).toEqual({
+      scope: true, aggregate: true, checkName: "dossier-acceptance", group: "dossier-acceptance-42", cancel: true,
+    });
     expect(decideAcceptanceScope({ eventName: "pull_request", baseRef: "master" })).toMatchObject({
       runMatrix: true, matrixMode: "full", dossiers: acceptanceCatalog().map(entry => entry.id),
     });
+  });
+  it.each(["opened", "synchronize", "reopened", "ready_for_review"])("retains required coverage on %s", action => {
+    expect(document.on.pull_request.types).toContain(action);
+    expect(decision("pull_request", action, { body: { from: "ignored outside edited" } })).toMatchObject({
+      scope: true, aggregate: true, checkName: "dossier-acceptance", group: "dossier-acceptance-42", cancel: true,
+    });
+  });
+  it.each(["push", "schedule", "workflow_dispatch"])("preserves unique non-cancelling %s receipts", eventName => {
+    expect(decision(eventName, "")).toEqual({
+      scope: true, aggregate: true, checkName: "dossier-acceptance", group: "dossier-acceptance-100", cancel: false,
+    });
+    expect(decision(eventName, "").group).not.toBe(decision(eventName, "", {}, 101).group);
+  });
+  it("does not keep an aggregate alive after cancellation", () => {
+    expect(decision("pull_request", "synchronize", {}, 100, true).aggregate).toBe(false);
+  });
+  it("retains the separate base guard for rerunning the main CI profile", () => {
+    const guard = parse(readFileSync(".github/workflows/pr-base-guard.yml", "utf8"));
+    const job = guard.jobs["draft-on-base-change"];
+    const shouldDraft = (changes: Record<string, unknown>) => runInNewContext(job.if, {
+      github: { event: { changes, pull_request: { state: "open" } } },
+    }, { timeout: 100 });
+    expect(shouldDraft({ body: { from: "text" } })).toBe(false);
+    expect(shouldDraft({ base: { ref: { from: "preview" } } })).toBe(true);
+    expect(job.concurrency["cancel-in-progress"]).toBe(false);
+  });
+});
+
+describe("master-only acceptance receipt", () => {
+  const job = parse(workflow).jobs["dossier-acceptance-master"];
+  function receipt(base = "master", action = "synchronize", changes: Record<string, unknown> = {}, eventName = "pull_request", cancelled = false) {
+    const context = {
+      github: { event_name: eventName, event: { action, changes, pull_request: { base: { ref: base } } } },
+      always: () => true,
+      cancelled: () => cancelled,
+    };
+    const evaluate = (expression: string) => runInNewContext(expression.replace(/^\$\{\{\s*|\s*\}\}$/gu, ""), context, { timeout: 100 });
+    return { name: evaluate(job.name), run: Boolean(evaluate(job.if)) };
+  }
+  it.each(["opened", "synchronize", "ready_for_review", "reopened"])("requires a separate full receipt for master %s", action => {
+    expect(receipt("master", action)).toEqual({ name: "dossier-acceptance-master", run: true });
+  });
+  it("publishes the master identity on retarget, including mixed and unclassified edits", () => {
+    for (const changes of [{ base: { ref: { from: "preview" } } }, { base: {}, body: {} }, {}, { unknown: {} }]) {
+      expect(receipt("master", "edited", changes)).toEqual({ name: "dossier-acceptance-master", run: true });
+    }
+  });
+  it.each(["preview", "release", ""])("never publishes even a skipped master identity on base %s", base => {
+    expect(receipt(base)).toEqual({ name: "dossier-master-not-applicable", run: false });
+  });
+  it.each(["push", "schedule", "workflow_dispatch"])("cannot reuse a %s receipt as the master gate", eventName => {
+    expect(receipt("master", "", {}, eventName)).toEqual({ name: "dossier-master-not-applicable", run: false });
+  });
+  it.each([{ body: {} }, { title: {} }, { body: {}, title: {} }])("metadata %j never replaces the master receipt", changes => {
+    expect(receipt("master", "edited", changes)).toEqual({ name: "dossier-master-not-applicable", run: false });
+  });
+  it("still evaluates failed or cancelled dependencies instead of publishing a skipped green", () => {
+    expect(receipt("master", "synchronize", {}, "pull_request", true)).toEqual({ name: "dossier-acceptance-master", run: true });
+  });
+  const success = {
+    SCOPE_RESULT: "success", MATRIX_MODE: "full", RUN_MATRIX: "true",
+    DISCOVER_RESULT: "success", REGISTRY_RESULT: "success", BUILD_RESULT: "success", ACCEPTANCE_RESULT: "success",
+  };
+  function run(overrides: Record<string, string> = {}) {
+    const step = job.steps.find((step: { run?: string }) => step.run?.startsWith("node scripts/"));
+    const script = step.run.slice("node ".length);
+    return spawnSync(process.execPath, [script], { env: { ...process.env, ...success, ...overrides }, encoding: "utf8", timeout: 5_000 });
+  }
+  it("accepts a full successful catalog without installing or building again", () => {
+    expect(run().status).toBe(0);
+    expect(job.steps.filter((step: { run?: string }) => step.run)).toHaveLength(1);
+  });
+  it.each(Object.keys(success))("rejects incomplete or unproven %s via the actual workflow command", key => {
+    for (const value of ["", "skipped", "cancelled", "failure", "affected"]) {
+      const result = run({ [key]: value });
+      expect(result.status, result.stderr).toBe(1);
+      expect(result.stderr).toContain(key);
+    }
   });
 });
