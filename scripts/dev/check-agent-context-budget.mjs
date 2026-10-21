@@ -217,11 +217,10 @@ export function evaluateAgentContext(root = REPO_ROOT) {
   if (!/^@AGENTS\.md\s*$/m.test(read(root, "CLAUDE.md"))) {
     errors.push("CLAUDE.md must import @AGENTS.md (Claude Code skips AGENTS.md otherwise)");
   }
-  // Projektionen av Cursor-lagret (regler, läsblockering, allowlist, MCP).
-  if (existsSync(resolve(root, ".claude"))) {
-    for (const drift of claudeProjectionDrift(root)) {
-      errors.push(`Claude-projektionen: ${drift} — kör npm run claude:sync`);
-    }
+  // Projektionen av Cursor-lagret (regler, läsblockering, allowlist, grindar,
+  // MCP). Alltid: en borttagen `.claude/` får inte bli grön.
+  for (const drift of claudeProjectionDrift(root)) {
+    errors.push(`Claude-projektionen: ${drift} — kör npm run claude:sync`);
   }
   if (/\b(?:PowerShell|pwsh)\b/i.test(agents)) {
     errors.push("AGENTS.md must not inject shell-specific reminders into every task");

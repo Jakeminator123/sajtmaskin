@@ -94,6 +94,34 @@ function inspectGitInvocation(tokens) {
   return { subcommand, args };
 }
 
+/**
+ * Git läser `-uf` som `-u -f` och godtar entydigt förkortade långa flaggor
+ * (`--mirr` = `--mirror`). Båda formerna gick förbi exakta tokenjämförelser
+ * medan allowlistans prefix (`git push`, `git switch`, `git branch -vv`) släppte
+ * dem utan fråga (extern granskning 2026-10-22).
+ */
+function clusterHas(token, letters) {
+  return /^-[A-Za-z]{2,}$/u.test(token) && [...token.slice(1)].some((c) => letters.includes(c));
+}
+
+function abbreviates(token, longNames) {
+  if (!token.startsWith("--")) return false;
+  const name = token.slice(2).split("=")[0];
+  return name.length >= 2 && longNames.some((long) => long !== name && long.startsWith(name));
+}
+
+const PUSH_DANGEROUS_LONG = [
+  "force",
+  "force-with-lease",
+  "force-if-includes",
+  "delete",
+  "mirror",
+  "prune",
+  "no-verify",
+];
+const DISCARD_LONG = ["force", "discard-changes"];
+const BRANCH_MUTATING_LONG = ["delete", "move", "copy", "force"];
+
 function takeNamedArgs(args, createFlags, valueFlags) {
   const creates = [];
   const positionals = [];
@@ -133,6 +161,16 @@ function classifyGitInvocation(subcommand, args) {
   }
 
   if (subcommand === "branch") {
+    // `git branch -vvd x` matchar allowlistans läsprefix `git branch -vv`; en
+    // skrivflagga gömd i ett kluster eller en förkortning nekas därför här.
+    // Fristående `-d`/`-D` når som förut klassificeraren/frågan.
+    if (
+      args.some(
+        (token) => clusterHas(token, "dDmMcCf") || abbreviates(token, BRANCH_MUTATING_LONG),
+      )
+    ) {
+      return "deny-branch-cluster";
+    }
     const mutating = args.some((token) => BRANCH_MUTATING_FLAG.test(token));
     const positionals = args.filter((token) => !token.startsWith("-"));
     const listing =
@@ -152,7 +190,16 @@ function classifyGitInvocation(subcommand, args) {
     // `-f` / `--discard-changes` throw away uncommitted work in the tree with
     // no recovery path. With `git switch` allowlisted in permissions.json this
     // would otherwise run without anyone seeing it (extern granskning, 5/10).
-    if (args.some((token) => token === "-f" || token === "--force" || token === "--discard-changes")) {
+    if (
+      args.some(
+        (token) =>
+          token === "-f" ||
+          token === "--force" ||
+          token === "--discard-changes" ||
+          clusterHas(token, "f") ||
+          abbreviates(token, DISCARD_LONG),
+      )
+    ) {
       return "deny-discard";
     }
     if (args.some((token) => token === "--ours" || token === "--theirs")) {
@@ -203,6 +250,8 @@ function classifyGitInvocation(subcommand, args) {
           token === "--mirror" ||
           token === "--prune" ||
           token === "--no-verify" ||
+          clusterHas(token, "fd") ||
+          abbreviates(token, PUSH_DANGEROUS_LONG) ||
           /^\+\S/u.test(token) ||
           /^:\S/u.test(token),
       )
@@ -237,6 +286,7 @@ export function cheapShellDecision(command) {
   if (verdicts.includes("deny-immutable")) return immutableBranchDenial();
   if (verdicts.includes("deny-force-push")) return forcePushDenial();
   if (verdicts.includes("deny-discard")) return discardDenial();
+  if (verdicts.includes("deny-branch-cluster")) return branchClusterDenial();
 
   const expandable = command.replace(/'[^']*'/gu, "");
   if (SHELL_EXPANSION.test(expandable)) return null;
@@ -275,6 +325,19 @@ export function discardDenial() {
     agent_message:
       "Denied: `git checkout -f`, `git switch -f` and `--discard-changes` drop uncommitted work with no " +
       "recovery path. Use `git stash` or commit first. Do not work around this with another command.",
+  };
+}
+
+export function branchClusterDenial() {
+  return {
+    permission: "deny",
+    user_message:
+      "Blockerat: en skrivflagga (`-d/-D/-m/-M/-c/-C/-f` eller förkortad `--delete/--move/--copy/--force`) " +
+      "gömd i ett flaggkluster för `git branch`. Läsformerna är allowlistade, skrivformerna ska frågas.",
+    agent_message:
+      "Denied: a mutating `git branch` flag hidden in a short-flag cluster or an abbreviated long option " +
+      "(e.g. `-vvd`, `--del`). Write the flag on its own (`git branch -d <name>`) so it reaches the normal " +
+      "approval path. Do not work around this with another command.",
   };
 }
 

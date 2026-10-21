@@ -632,6 +632,47 @@ describe("cheap read-only git path", () => {
     expect(decideWorktree(command, { aliases: null }).permission).toBe("deny");
   });
 
+  // Extern granskning 2026-10-22: git läser `-uf` som `-u -f` och godtar
+  // förkortade långa flaggor; båda smet förbi exakta tokenjämförelser medan
+  // allowlistans prefix släppte dem.
+  it.each([
+    "git push -uf origin HEAD",
+    "git push -fu origin HEAD",
+    "git push -ud origin feat/x",
+    "git push --forc origin feat/x",
+    "git push --force-with=feat/x origin feat/x",
+    "git push --mirr origin",
+    "git push --prun origin",
+    "git push --no-verif origin HEAD",
+    "git push --del origin feat/x",
+    "git switch -fc feature",
+    "git checkout -fb feature",
+    "git switch --discard main",
+    "git checkout --forc main",
+    "git branch -vvd feat/x",
+    "git branch -aD feat/x",
+    "git branch -vM old new",
+    "git branch --del feat/x",
+  ])("denies flags hidden in clusters or abbreviations: %s", (command) => {
+    expect(cheapShellDecision(command)?.permission).toBe("deny");
+    expect(decideWorktree(command, { aliases: null }).permission).toBe("deny");
+    expect(decideCommitCommand(command, { aliases: null }).permission).toBe("deny");
+  });
+
+  it("keeps ordinary clusters, full read flags and standalone branch writes on their old path", () => {
+    expect(cheapShellDecision("git push -u origin HEAD")).toBeNull();
+    expect(cheapShellDecision("git push --follow-tags origin HEAD")).toBeNull();
+    expect(cheapShellDecision("git push --dry-run origin HEAD")).toBeNull();
+    expect(cheapShellDecision("git push -o ci.skip origin HEAD")).toBeNull();
+    expect(cheapShellDecision("git switch -c feature")).toEqual({ permission: "allow" });
+    expect(cheapShellDecision("git switch --detach origin/preview")).toEqual({ permission: "allow" });
+    expect(cheapShellDecision("git branch -vv")).toEqual({ permission: "allow" });
+    expect(cheapShellDecision("git branch -a --contains HEAD")).toEqual({ permission: "allow" });
+    expect(cheapShellDecision("git branch --merged")).toEqual({ permission: "allow" });
+    // Fristående skrivflagga är inte allowlistad och når klassificeraren som förut.
+    expect(cheapShellDecision("git branch -d feat/x")?.permission).not.toBe("deny");
+  });
+
   it("keeps plain switch/checkout and merge-side selection allowed", () => {
     expect(cheapShellDecision("git switch main")).toEqual({ permission: "allow" });
     expect(cheapShellDecision("git checkout feat/x")).toEqual({ permission: "allow" });

@@ -8,7 +8,8 @@
  *   .cursor/permissions.json          → .claude/settings.json permissions.allow
  *   .cursor/mcp.json.example          → .mcp.json
  *
- * Handskrivet i .claude/settings.json (rörs inte): permissions.ask, hooks, env.
+ * Hela .claude/settings.json ägs av det här skriptet. `permissions.ask`, `env`
+ * och `hooks` är konstanter nedan, så att en borttagen grind syns som drift.
  *
  *   npm run claude:sync            skriv projektionen
  *   npm run claude:sync -- --check  rapportera drift (check:agent-context gör samma)
@@ -38,6 +39,59 @@ export const EXCLUDED_RULES = Object.freeze({
 /** MCP-servrar i Cursor-mallen som Claude inte får (legacy eller kräver nyckel). */
 export const EXCLUDED_MCP_SERVERS = Object.freeze({
   v0: "legacy v0-chat-API; riktiga anrop kräver nyckel",
+});
+
+const bothShells = (pattern) => [`Bash(${pattern})`, `PowerShell(${pattern})`];
+
+/**
+ * Cursors `autoRun.block_instructions` (styrning till klassificeraren) som
+ * deterministiska frågor. `*` är wildcard var som helst i mönstret.
+ */
+export const CLAUDE_ASK_RULES = Object.freeze([
+  ...bothShells("gh pr merge*"),
+  ...bothShells("gh pr create*"),
+  // gh api med annan metod än GET; fältflaggor gör anropet till POST.
+  ...bothShells("gh api*-X*"),
+  ...bothShells("gh api*--method*"),
+  ...bothShells("gh api* -f *"),
+  ...bothShells("gh api* -F *"),
+  ...bothShells("gh api*--field*"),
+  ...bothShells("gh api*--raw-field*"),
+  ...bothShells("gh api*--input*"),
+  ...bothShells("npm run promote*"),
+  ...bothShells("npm run db:*"),
+  ...bothShells("npm run clean:*:apply*"),
+  ...bothShells("npm run tidy*--apply*"),
+  ...bothShells("npm run worktree:remove*"),
+  "Bash(rm -r*)",
+  "Bash(rm -R*)",
+  "Bash(rm -fr*)",
+  "Bash(rm -fR*)",
+  "Bash(rm --recursive*)",
+  // PowerShell-regler kanoniserar alias (rm, del, ri, rd) till Remove-Item.
+  "PowerShell(Remove-Item*-r*)",
+  "Edit(/.cursor/mcp.json)",
+  "Edit(/.mcp.json)",
+  "Edit(~/.cursor/**)",
+  "Edit(~/.codex/**)",
+  "Edit(~/.claude/**)",
+]);
+
+export const CLAUDE_ENV = Object.freeze({ CLAUDE_CODE_USE_POWERSHELL_TOOL: "1" });
+
+const hookCommand = (script, timeout) => ({
+  type: "command",
+  command: "node",
+  args: [`\${CLAUDE_PROJECT_DIR}/.claude/hooks/${script}`],
+  timeout,
+});
+
+/** Motsvarar .cursor/hooks.json; beslutslogiken ägs av Cursor-grindarna. */
+export const CLAUDE_HOOKS = Object.freeze({
+  PreToolUse: [
+    { matcher: "Bash|PowerShell", hooks: [hookCommand("shell-guard.mjs", 120)] },
+    { matcher: "Read", hooks: [hookCommand("read-guard.mjs", 10)] },
+  ],
 });
 
 // ---------- regler ----------
@@ -170,11 +224,9 @@ export function buildDenyRules(root = REPO_ROOT) {
   const rules = ignoreLines(readFileSync(resolve(root, ".cursorignore"), "utf8")).flatMap(
     (pattern) => {
       const rule = toClaudeReadRule(pattern);
-      // gitignore träffar både fil och katalog; ett namn utan punkt/wildcard
-      // (`variant-embeddings`) kan vara en katalog och behöver även `/**`.
-      const last = pattern.replace(/\/$/u, "").split("/").pop() ?? "";
-      const maybeDir = !pattern.endsWith("/") && !/[.*]/u.test(last);
-      return maybeDir ? [rule, rule.replace(/\)$/u, "/**)")] : [rule];
+      // gitignore träffar både fil och katalog med samma namn; `.env` kan vara
+      // en katalog (`.env/production.env`). Varje filmönster får därför även `/**`.
+      return rule.endsWith("/**)") ? [rule] : [rule, rule.replace(/\)$/u, "/**)")];
     },
   );
   // Claudes egna worktree-katalog; samma fälla som .cursor/worktrees/.
@@ -236,18 +288,18 @@ export function buildMcpConfig(root = REPO_ROOT) {
 
 // ---------- settings ----------
 
+/** Byggs helt från källor och konstanter — aldrig från filen som kontrolleras. */
 export function buildSettings(root = REPO_ROOT) {
-  const path = resolve(root, CLAUDE_SETTINGS);
-  const current = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {};
-  const permissions = { ...(current.permissions ?? {}) };
-  permissions.allow = buildAllowRules(root);
-  permissions.deny = buildDenyRules(root);
-  const next = { ...current, permissions: orderPermissions(permissions) };
-  return `${JSON.stringify(next, null, 2)}\n`;
-}
-
-function orderPermissions({ allow, ask, deny, ...rest }) {
-  return { allow, ...(ask ? { ask } : {}), deny, ...rest };
+  const settings = {
+    permissions: {
+      allow: buildAllowRules(root),
+      ask: [...CLAUDE_ASK_RULES],
+      deny: buildDenyRules(root),
+    },
+    env: { ...CLAUDE_ENV },
+    hooks: CLAUDE_HOOKS,
+  };
+  return `${JSON.stringify(settings, null, 2)}\n`;
 }
 
 // ---------- drift / skriv ----------

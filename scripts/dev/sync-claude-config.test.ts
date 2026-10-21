@@ -1,7 +1,8 @@
 // @vitest-environment node
+import { spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { REQUIRED_CURSOR_SECRET_IGNORES } from "./check-agent-context-budget.mjs";
 import {
@@ -83,11 +84,98 @@ describe("Claude-projektionen", () => {
     }
   });
 
+  it("blockerar även innehållet när ett secret-namn är en katalog", () => {
+    const deny = new Set(buildDenyRules(repoRoot));
+    expect(deny.has("Read(**/.env/**)")).toBe(true);
+    expect(deny.has("Read(**/.env.*/**)")).toBe(true);
+    expect(deny.has("Read(**/.vercel/**)")).toBe(true);
+  });
+
+  it("räknar en borttagen eller ändrad grind i settings.json som drift", () => {
+    const root = fixture();
+    writeClaudeProjection(root);
+    const path = join(root, ".claude/settings.json");
+    const settings = JSON.parse(readFileSync(path, "utf8"));
+    expect(settings.hooks.PreToolUse.map((h: { matcher: string }) => h.matcher)).toEqual([
+      "Bash|PowerShell",
+      "Read",
+    ]);
+
+    delete settings.hooks;
+    settings.permissions.ask = [];
+    writeFileSync(path, JSON.stringify(settings));
+    expect(claudeProjectionDrift(root)).toContain("inaktuell: .claude/settings.json");
+  });
+
   it("ger PowerShell-cmdlets bara till PowerShell-verktyget", () => {
     const allow = buildAllowRules(repoRoot);
     expect(allow).toContain("PowerShell(Get-ChildItem*)");
     expect(allow).not.toContain("Bash(Get-ChildItem*)");
     expect(allow).toContain("Bash(git status*)");
+  });
+});
+
+function runHook(script: string, stdin: string) {
+  const result = spawnSync(process.execPath, [join(repoRoot, ".claude/hooks", script)], {
+    input: stdin,
+    encoding: "utf8",
+    env: { ...process.env, CLAUDE_PROJECT_DIR: repoRoot },
+    timeout: 30_000,
+  });
+  return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+}
+
+const shellInput = (command: unknown) =>
+  JSON.stringify({ tool_name: "Bash", tool_input: { command }, cwd: repoRoot });
+
+describe("Claude-hookarna", () => {
+  it.each([
+    "git push --force origin preview",
+    "git push -uf origin HEAD",
+    "x && $(printf g)it push --force",
+  ])("shell-guard nekar med exitkod 2: %s", (command) => {
+    const result = runHook("shell-guard.mjs", shellInput(command));
+    expect(result.status).toBe(2);
+    expect(result.stderr).toMatch(/Denied/u);
+  });
+
+  it("shell-guard släpper vanliga kommandon utan beslut", () => {
+    const result = runHook("shell-guard.mjs", shellInput("echo $(date) && ls -la"));
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
+  });
+
+  it.each(["", "{inte json", shellInput(["git", "push", "-f"])])(
+    "shell-guard nekar oläsbar indata (fail-closed): %j",
+    (stdin) => {
+      expect(runHook("shell-guard.mjs", stdin).status).toBe(2);
+    },
+  );
+
+  it("read-guard nekar .cursor/mcp.json med secret-format och släpper annat", () => {
+    const root = mkdtempSync(join(tmpdir(), "sajtmaskin-claude-read-"));
+    fixtures.push(root);
+    const guarded = join(root, ".cursor", "mcp.json");
+    mkdirSync(dirname(guarded), { recursive: true });
+    const read = (filePath: string) =>
+      runHook(
+        "read-guard.mjs",
+        JSON.stringify({ tool_name: "Read", tool_input: { file_path: filePath } }),
+      );
+
+    writeFileSync(guarded, JSON.stringify({ mcpServers: { x: { url: "https://example.test" } } }));
+    expect(read(guarded).status).toBe(0);
+
+    writeFileSync(
+      guarded,
+      JSON.stringify({
+        mcpServers: {
+          x: { url: "https://example.test", headers: { Authorization: "Bearer abc" } },
+        },
+      }),
+    );
+    expect(read(guarded).status).toBe(2);
+    expect(read(join(root, "README.md")).status).toBe(0);
   });
 });
 

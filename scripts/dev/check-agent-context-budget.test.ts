@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -36,6 +36,16 @@ beforeEach(() => {
     mkdirSync(dirname(target), { recursive: true });
     copyFileSync(join(repoRoot, path), target);
   }
+  // Claude-projektionen och dess Cursor-källor (claude:sync).
+  for (const path of [
+    ".cursor/rules",
+    ".cursor/permissions.json",
+    ".cursor/mcp.json.example",
+    ".claude",
+    ".mcp.json",
+  ]) {
+    cpSync(join(repoRoot, path), join(fixtureRoot, path), { recursive: true });
+  }
 });
 
 afterEach(() => {
@@ -48,6 +58,23 @@ describe("active agent context", () => {
     writeFixture(".cursor/worktrees/old/.cursor/rules/legacy.mdc", "mvp-scope-freeze.mdc");
 
     expect(evaluateAgentContext(fixtureRoot).errors).toEqual([]);
+  });
+
+  it("fails when the Claude projection is missing or its gate was removed", () => {
+    rmSync(join(fixtureRoot, ".claude"), { recursive: true, force: true });
+    expect(evaluateAgentContext(fixtureRoot).errors).toEqual(
+      expect.arrayContaining([
+        "Claude-projektionen: saknas: .claude/settings.json — kör npm run claude:sync",
+        "Claude-projektionen: saknas: .claude/rules/git.md — kör npm run claude:sync",
+      ]),
+    );
+  });
+
+  it("fails when CLAUDE.md stops importing AGENTS.md", () => {
+    writeFixture("CLAUDE.md", "# Claude Code\n");
+    expect(evaluateAgentContext(fixtureRoot).errors).toContain(
+      "CLAUDE.md must import @AGENTS.md (Claude Code skips AGENTS.md otherwise)",
+    );
   });
 
   it("still rejects retired instructions in an active rule", () => {

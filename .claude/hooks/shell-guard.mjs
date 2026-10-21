@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Claude Code PreToolUse-adapter för repots Cursor-skalgrindar.
+ * Claude Code PreToolUse-adapter (Bash/PowerShell) för repots Cursor-skalgrindar.
  *
  * Cursor kör `scripts/workflow/commit-guard.mjs` och
  * `.cursor/hooks/worktree-force-guard.mjs` som `beforeShellExecution`
@@ -8,33 +8,41 @@
  * når grindarna aldrig Claude. Beslutslogiken ägs fortfarande av de två
  * skripten — här översätts bara in- och utdata.
  *
- * heredoc-guard tas medvetet inte med: Claudes Bash-verktyg är Git Bash där
- * heredoc är giltigt, och PowerShell-verktygets egna instruktioner förbjuder
- * redan heredoc. Kvar blir commit-guardens deny av `$(...)` i skrivande git.
+ * - Deny skrivs som exitkod 2 + stderr (synkront). Claude blockerar på exit 2
+ *   oavsett stdout, så ett tappat pipe-chunk kan inte bli ett tyst allow.
+ * - Fail-closed: oläsbar indata eller en grind som kastar nekas.
+ * - Grindarna körs på varje skalanrop, inte bara när ordet `git` syns:
+ *   `$(printf g)it push --force` innehåller inget `git`. Deras billiga väg
+ *   släpper vanliga kommandon utan subprocess.
+ * - Ett allow ger ingen auto-approve; Claudes behörighetsflöde avgör som vanligt.
  *
- * Fail-closed som i Cursor: kraschar en grind på ett git-kommando nekas det.
- * Ett `allow` från grinden ger ingen auto-approve — Claudes vanliga
- * behörighetsflöde avgör då som vanligt.
+ * heredoc-guard tas medvetet inte med: Claudes Bash-verktyg är Git Bash där
+ * heredoc är giltigt; commit-guarden nekar ändå `$(...)` i skrivande git.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, writeSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-// Samma förfilter som matcherna i .cursor/hooks.json.
-const RELEVANT_RE = /\bgit\b|\bcommit\b|\bworktree\b/u;
-
-function emit(payload) {
-  process.stdout.write(`${JSON.stringify(payload)}\n`);
+function deny(reason) {
+  try {
+    writeSync(2, `${reason}\n`);
+  } catch {
+    // stderr stängd: exitkoden bär ändå beslutet.
+  }
+  process.exitCode = 2;
 }
 
-function deny(reason) {
-  emit({
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: "deny",
-      permissionDecisionReason: reason,
-    },
-  });
+function context(message) {
+  try {
+    writeSync(
+      1,
+      `${JSON.stringify({
+        hookSpecificOutput: { hookEventName: "PreToolUse", additionalContext: message },
+      })}\n`,
+    );
+  } catch {
+    // Bara information; beslutet är redan allow.
+  }
 }
 
 function messageOf(verdict) {
@@ -44,12 +52,14 @@ function messageOf(verdict) {
 async function main() {
   let input;
   try {
-    input = JSON.parse(readFileSync(0, "utf8"));
+    input = JSON.parse(readFileSync(0, "utf8").replace(/^﻿/u, ""));
   } catch {
-    return; // Ingen tolkbar input: inget att bedöma.
+    return deny("Skalgrinden kunde inte tolka hook-indata; kommandot nekas (fail-closed).");
   }
   const command = input?.tool_input?.command;
-  if (typeof command !== "string" || !RELEVANT_RE.test(command)) return;
+  if (typeof command !== "string") {
+    return deny("Skalgrinden fick inget kommando att bedöma; kommandot nekas (fail-closed).");
+  }
 
   const root = process.env.CLAUDE_PROJECT_DIR || process.cwd();
   const cwd = typeof input.cwd === "string" && input.cwd ? input.cwd : root;
@@ -63,14 +73,7 @@ async function main() {
     const { decideCommitCommand } = await load("scripts/workflow/commit-guard.mjs");
     const commit = decideCommitCommand(command, { cwd });
     if (commit?.permission === "deny") return deny(messageOf(commit));
-    if (commit?.agent_message) {
-      emit({
-        hookSpecificOutput: {
-          hookEventName: "PreToolUse",
-          additionalContext: commit.agent_message,
-        },
-      });
-    }
+    if (commit?.agent_message) context(commit.agent_message);
   } catch (error) {
     deny(
       `Skalgrinden kunde inte köras (${error instanceof Error ? error.message : "okänt fel"}). ` +
