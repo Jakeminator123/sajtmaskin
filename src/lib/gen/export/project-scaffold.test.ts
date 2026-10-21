@@ -790,6 +790,8 @@ describe("buildCompleteProject", () => {
     expect(eslintConfig).toBeDefined();
     expect(eslintConfig!.content).toContain('"react-hooks/set-state-in-effect": "warn"');
     expect(eslintConfig!.content).toContain('"react-hooks/purity": "warn"');
+    expect(eslintConfig!.content).toContain('"react-hooks/set-state-in-render": "warn"');
+    expect(eslintConfig!.content).toContain('"react-hooks/use-memo": "warn"');
     // No react-hooks rule should be pinned to error in the generated config.
     expect(eslintConfig!.content).not.toMatch(/"react-hooks\/[^"]+":\s*"error"/);
     // Regression guard: the react-hooks warn override MUST be scoped to

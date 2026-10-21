@@ -234,6 +234,12 @@ export default defineConfig([
       "react-hooks/purity": "warn",
       "react-hooks/refs": "warn",
       "react-hooks/static-components": "warn",
+      "react-hooks/config": "warn",
+      "react-hooks/error-boundaries": "warn",
+      "react-hooks/gating": "warn",
+      "react-hooks/globals": "warn",
+      "react-hooks/set-state-in-render": "warn",
+      "react-hooks/use-memo": "warn",
     },
   },
 ]);
