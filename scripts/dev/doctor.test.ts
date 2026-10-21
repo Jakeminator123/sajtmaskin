@@ -48,6 +48,22 @@ describe("doctor — RTK", () => {
     ).toBe("ok");
   });
 
+  it("godkänner en lokal wrapper runt rtk hook cursor", () => {
+    // Rå `rtk hook cursor` svarar `ask` på varje omskrivning; wrappern som gör
+    // om det till `allow` är det faktiska läget på ägarens maskin.
+    expect(
+      checkRtk({
+        binaryPresent: true,
+        hooks: {
+          version: 1,
+          hooks: {
+            preToolUse: [{ command: "node C:\\Users\\jakob\\.local\\bin\\rtk-cursor-hook.cjs" }],
+          },
+        },
+      }).level,
+    ).toBe("ok");
+  });
+
   it("godkänner inte en hook som pekar på ett annat verktyg", () => {
     expect(
       checkRtk({
@@ -150,7 +166,8 @@ describe("doctor — dubblerade skills", () => {
     expect(findings[0].level).toBe("warn");
     expect(findings[0].message).toContain("2 skillnamn");
     expect(findings[0].message).toContain("möjlig dubbelladdning");
-    expect(findings[0].fix).toContain("Behåll den delade ~/.agents/skills-roten");
+    expect(findings[0].fix).toContain("skills-cursor är Cursors inbyggda rot");
+    expect(findings[0].fix).toContain("external-agent-import-sync");
     expect(findings[0].fix).not.toContain("Flytta undan");
   });
 
