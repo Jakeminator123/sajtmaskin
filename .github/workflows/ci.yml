@@ -470,6 +470,9 @@ jobs:
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+          # Next's TypeScript worker exceeds Node's default ~2 GiB heap.
+          # Keep type checking enabled and leave RAM for Turbopack/native work.
+          NODE_OPTIONS: "--max-old-space-size=4096"
 
   # Backoffice Python tests: control-plane/domain-map parity, matching-config
   # strict-schema validate-on-save, manifest parity and page-import smoke.
@@ -793,3 +796,4 @@ jobs:
         env:
           POSTGRES_URL_DEV: ${{ secrets.POSTGRES_URL_DEV }}
           POSTGRES_URL_PROD: ${{ secrets.POSTGRES_URL_PROD }}
+
