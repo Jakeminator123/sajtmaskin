@@ -152,9 +152,21 @@ describe("Protect master ruleset drift", () => {
       "schema-drift",
       "build",
       "dossier-acceptance",
+      "dossier-acceptance-master",
       "GitGuardian Security Checks",
     ]);
     expect(contexts).not.toContain("review-window");
+  });
+
+  it("rejects live master protection without the full-catalog receipt", () => {
+    const live = matchingLiveRuleset();
+    const status = rule(live, "required_status_checks").parameters!;
+    status.required_status_checks = status.required_status_checks!.filter(
+      check => check.context !== "dossier-acceptance-master",
+    );
+    expect(evaluateMasterRuleset(live, spec)).toEqual([
+      expect.stringContaining("required status checks"),
+    ]);
   });
 
   it("treats a tighter live GitHub ruleset as drift until expected is changed", () => {
