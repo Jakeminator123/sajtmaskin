@@ -20,13 +20,21 @@ type Fixture = {
 // This hook runs before the test's browser fixture is requested.
 test.beforeAll(() => assertRuntimeIsolation(process.cwd()));
 
-async function openEditor(page: Page, assertFilesReady: () => Promise<void>) {
+async function openEditor(
+  page: Page,
+  assertFilesReady: () => Promise<void>,
+  remainingHydrationMs: () => number,
+) {
   // Natural app data may arrive before the code-view hook runs. Prove the
   // data first, then require the real view/file/editor through ordinary actions.
   await assertFilesReady();
   await page.getByRole("button", { name: "Kod", exact: true }).click();
   await page.getByRole("menuitem", { name: "Kodvy", exact: true }).click();
-  await page.getByRole("button", { name: "page.tsx", exact: true }).click();
+  const fileButton = page.getByRole("button", { name: "page.tsx", exact: true });
+  // The lazy code view can refetch files while dev routes are compiling. Its
+  // first render shares the existing navigation budget; clicks stay at 15s.
+  await expect(fileButton).toBeVisible({ timeout: remainingHydrationMs() });
+  await fileButton.click();
   const pane = page.getByText("app/page.tsx", { exact: true }).locator("xpath=../..");
   await pane.getByRole("button", { name: "Redigera fil", exact: true }).click();
   // PreviewPanelCode owns the header and its direct editor sections. The raw
@@ -280,7 +288,7 @@ test("real file edit + Save project survives reload; another guest cannot read o
     await assertBuilderLoaded(true);
     const { pane, editor } = await openEditor(page, () => assertFilesLoaded(
       fixture.files.map((file) => ({ name: file.path, content: file.content })), true,
-    ));
+    ), remainingStartup);
     const original = fixture.files.find((file) => file.path === "app/page.tsx")!.content;
     const changed = original.replace("A4_INITIAL_MARKER", "A4_SAVED_MARKER");
     expect(changed).not.toBe(original);
@@ -378,7 +386,7 @@ test("real file edit + Save project survives reload; another guest cannot read o
       files: savedBody.files,
       messages: savedBody.messages,
     });
-    await expect((await openEditor(page, () => assertFilesLoaded(expectedFiles, true))).editor).toHaveValue(changed);
+    await expect((await openEditor(page, () => assertFilesLoaded(expectedFiles, true), remainingStartup)).editor).toHaveValue(changed);
     expect(
       unexpectedMutations,
       "Unexpected generation, preview, provider or mutation route",
