@@ -2,10 +2,13 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { claudeProjectionDrift } from "./sync-claude-config.mjs";
+
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 export const FILE_BUDGETS = Object.freeze({
   "AGENTS.md": 2_200,
+  "CLAUDE.md": 2_000,
   ".cursor/README.md": 4_500,
   "docs/architecture/glossary.md": 22_000,
   ".cursor/rules/pr-merge.mdc": 5_000,
@@ -29,10 +32,16 @@ const ACTIVE_CONTEXT_ROOTS = Object.freeze([
   ".cursor",
   ".agents",
   ".codex",
+  ".claude",
   "docs/runbooks",
   "docs/plans/active",
 ]);
-const ACTIVE_CONTEXT_FILES = Object.freeze(["AGENTS.md", "README.md", "docs/README.md"]);
+const ACTIVE_CONTEXT_FILES = Object.freeze([
+  "AGENTS.md",
+  "CLAUDE.md",
+  "README.md",
+  "docs/README.md",
+]);
 const ACTIVE_TEXT_SUFFIXES = Object.freeze([".md", ".mdc", ".json", ".toml", ".yaml", ".yml"]);
 const LEGACY_ACTIVE_REFERENCES = Object.freeze([
   { label: "legacy Grok 4.5 model instruction", pattern: /\bGrok\s+4\.5\b/iu },
@@ -124,7 +133,7 @@ function activeContextFiles(root) {
   return [
     ...ACTIVE_CONTEXT_FILES,
     ...ACTIVE_CONTEXT_ROOTS.flatMap((dir) =>
-      filesBelow(root, dir, "", [".cursor/tmp", ".cursor/worktrees"]),
+      filesBelow(root, dir, "", [".cursor/tmp", ".cursor/worktrees", ".claude/worktrees"]),
     ),
   ]
     .filter((path) => ACTIVE_TEXT_SUFFIXES.some((suffix) => path.endsWith(suffix)))
@@ -202,6 +211,17 @@ export function evaluateAgentContext(root = REPO_ROOT) {
   const agents = read(root, "AGENTS.md");
   if (/Läs i denna ordning innan du börjar/i.test(agents)) {
     errors.push("AGENTS.md must not restore a mandatory pre-read stack");
+  }
+
+  // Claude Code läser inte AGENTS.md när CLAUDE.md finns; importen bär startkontexten.
+  if (!/^@AGENTS\.md\s*$/m.test(read(root, "CLAUDE.md"))) {
+    errors.push("CLAUDE.md must import @AGENTS.md (Claude Code skips AGENTS.md otherwise)");
+  }
+  // Projektionen av Cursor-lagret (regler, läsblockering, allowlist, MCP).
+  if (existsSync(resolve(root, ".claude"))) {
+    for (const drift of claudeProjectionDrift(root)) {
+      errors.push(`Claude-projektionen: ${drift} — kör npm run claude:sync`);
+    }
   }
   if (/\b(?:PowerShell|pwsh)\b/i.test(agents)) {
     errors.push("AGENTS.md must not inject shell-specific reminders into every task");

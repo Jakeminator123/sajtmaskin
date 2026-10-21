@@ -1,0 +1,24 @@
+<!-- Genererad av npm run claude:sync från .cursor/rules/git.mdc — redigera källan, inte den här filen. -->
+
+# Git-säkerhet
+
+Flöde: `.agents/skills/pr-workflow/SKILL.md`. Mergegrind: `pr-merge.mdc`.
+Worktree: `agent-worktree.mdc`. Värden: `config/agent-workflow.json`.
+
+- En skrivande session per checkout. Worktree och Scout/Builder/Steward bara
+  när Jakob ber om det.
+- Branch, commit, push, PR och rebase när Jakob ber om det. Stage bara
+  uppgiftens filer; vid oklar status: visa status och pausa.
+- Merge kräver mandat, aldrig `--admin`. Stående mandat: vanlig PR till
+  `preview` squash-mergas när villkoren i `pr-merge.mdc` punkt 4 är uppfyllda;
+  annars krävs uttryckligt mandat (koduppdrag räcker inte).
+- `master` = produktion: bara via `npm run promote` (aldrig `preview` som
+  head-gren) plus produktionsvarning och extra bekräftelse i samma chatt.
+- Force-pusha aldrig `master`, `preview` eller en delad remote-branch. Rör aldrig
+  `*BRA*` eller `rescue/*`; gamla restore-tips hör i `archive/`.
+- Remote-branch raderas bara på Jakobs begäran via
+  `npm run tidy -- --delete-remote <branch> --apply` (arkiverar först).
+- `preview`-grenen är staging (`preview.sajtmaskin.se`), inte builderns preview
+  eller `preview_host`. DB-apply kräver eget uppdrag.
+- `.cursorignore` är secrets/Read-fällor; mönster tas bort bara på uttryckligt
+  ägarbeslut i `docs/decisions/`.

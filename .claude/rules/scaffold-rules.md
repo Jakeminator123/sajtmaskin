@@ -1,0 +1,33 @@
+---
+paths:
+  - "src/lib/gen/scaffolds/**"
+  - "src/lib/gen/orchestrate.ts"
+  - "src/lib/gen/system-prompt/**"
+  - "src/lib/gen/build-spec/**"
+  - "scripts/scaffolds/**"
+  - "config/scaffold-variants/**"
+---
+
+<!-- Genererad av npm run claude:sync från .cursor/rules/scaffold-rules.mdc — redigera källan, inte den här filen. -->
+
+# Scaffold-regler
+
+Arkitektur: `docs/contracts/scaffold-system.md`. Scaffold-filer redigeras direkt
+i `src/lib/gen/scaffolds/<id>/files/`, metadata i `manifest.ts`, registry/types i
+`registry.ts`/`types.ts`. Variants: `config/scaffold-variants/<scaffold>/<variant>.json`
+mot `docs/schemas/strict/scaffold-variant.schema.json`.
+
+1. Efter ändring: `npm run typecheck` + `npm run scaffolds:validate`.
+2. Regenerera klientprojektionen `scaffold-client-list.generated.ts` med
+   `npm run scaffolds:client-list:write`; importera aldrig serverregistret från
+   klientkod.
+3. Ändra inte `serialize.ts`, `registry.ts`, `seo-defaults.ts`,
+   `finalize-merge.ts` eller `protected-paths.ts` utan att förstå merge-pipelinen.
+4. Externa referenser och research går via dossier-/reference-pipen, inte gamla
+   template-library-script.
+5. Före borttagning eller sammanslagning: sök referenser, variantmappar,
+   registry, embeddings och docs.
+
+Merge-policy: `LLM_ONLY_PATHS` blockar scaffold-default (LLM måste emittera);
+`SCAFFOLD_PROTECTED_PATHS` droppar LLM-emission (scaffold/previous vinner). Lägg
+bara rena utility-filer i protected paths.

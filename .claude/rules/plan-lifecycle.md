@@ -1,0 +1,31 @@
+---
+paths:
+  - "docs/plans/**"
+  - ".cursor/bugs/**"
+---
+
+<!-- Genererad av npm run claude:sync från .cursor/rules/plan-lifecycle.mdc — redigera källan, inte den här filen. -->
+
+# Plan-livscykel
+
+Planer dokumenterar arbete, de är inte produkten.
+`docs/plans/active/README.md` är aktiv router. Allt som inte styr pågående
+arbete ska ut ur `active/`.
+
+| Plats | Innehåll |
+|---|---|
+| `docs/plans/active/README.md` | aktivt koncentrat + länkar |
+| `docs/plans/active/<initiativ>/` | bara stora pågående initiativ |
+| `docs/plans/avklarat/` | implementerat och mergat |
+| `docs/plans/archived/` | vilande, parkerat, ersatt, skrotat |
+
+Stora initiativ: `00-master-plan.md` → `NN-område.md` → `aktiviteter/*.md`.
+
+Flytta färdiga planer till `avklarat/` i samma ändring som länkar/README.
+`avklarat/README.md` är den avsedda ytan. Standard: en rad i indexet och
+radera detaljfilen (git är arkivet). Behåll egen fil bara om kod/contract
+eller `*.stability.test.ts` citerar den.
+
+Öppna beslut: `BUG-SWARM-BACKLOG.md`. Ratificerade: `docs/decisions/README.md`.
+Buggsanning: backloggens `## Aktiv kö` / `## Arkiv`. `.cursor/bugs/` är lokal
+evidens (gitignored), inte status.
