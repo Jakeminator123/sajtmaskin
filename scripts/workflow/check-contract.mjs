@@ -627,17 +627,20 @@ export function evaluateDossierAcceptanceWorkflow(source) {
     "synchronize",
     "reopened",
     "ready_for_review",
-    "edited",
   ];
   if (
     pullRequest &&
     typeof pullRequest === "object" &&
     !includesEvery(pullRequest.types, requiredTypes)
   ) {
-    errors.push("dossier-acceptance must run on new heads, ready_for_review and base edits");
+    errors.push("dossier-acceptance must run on new heads and ready_for_review");
   }
   if (values(pullRequest?.types).includes("converted_to_draft")) {
     errors.push("dossier-acceptance must not restart unchanged work on converted_to_draft");
+  }
+
+  if (values(pullRequest?.types).includes("edited")) {
+    errors.push("dossier-acceptance must delegate base edits to pr-base-guard without restarting on PR metadata edits");
   }
 
   const scope = document?.jobs?.scope;

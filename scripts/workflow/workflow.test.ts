@@ -1307,7 +1307,7 @@ describe("agent workflow repository contract", () => {
     expect(
       evaluateDossierAcceptanceWorkflow(
         source.replace(
-          "    types: [opened, synchronize, reopened, ready_for_review, edited]\n",
+          "    types: [opened, synchronize, reopened, ready_for_review]\n",
           '    paths: ["data/dossiers/**"]\n',
         ),
       ).length,
@@ -1315,7 +1315,7 @@ describe("agent workflow repository contract", () => {
   });
 
   it.each([
-    [", edited]", "]"],
+    ["ready_for_review]", "ready_for_review, edited]"],
     ["SAJTMASKIN_PR_BASE_REF:", "UNUSED_BASE_REF:"],
     ["ACCEPTANCE_REQUIRE_FULL:", "UNUSED_FULL_REQUIREMENT:"],
     ["BASE_REF: ${{ github.event.pull_request.base.ref }}", "BASE_REF: preview"],

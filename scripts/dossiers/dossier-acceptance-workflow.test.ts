@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, relative, resolve } from "node:path";
+import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
@@ -443,7 +444,7 @@ describe("dossier acceptance workflow contract", () => {
     const pullRequestBlock = workflow.slice(start, end);
     expect(pullRequestBlock).not.toContain("    paths:");
     expect(pullRequestBlock).toContain("ready_for_review");
-    expect(parse(workflow).on.pull_request.types).toContain("edited");
+    expect(parse(workflow).on.pull_request.types).not.toContain("edited");
     expect(pullRequestBlock).not.toContain("converted_to_draft");
     expect(workflow).toContain('    - cron: "17 3 * * 2"');
     expect(parse(workflow).on.workflow_dispatch.inputs.cold_cache).toMatchObject({ type: "boolean", default: false });
@@ -539,5 +540,30 @@ describe("dossier acceptance workflow contract", () => {
     expect(workflow).toContain(
       'if [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "push" ]; then',
     );
+  });
+});
+
+describe("PR metadata and base-change regression", () => {
+  const acceptanceEvents = parse(workflow).on.pull_request.types;
+  const guard = parse(readFileSync(".github/workflows/pr-base-guard.yml", "utf8"));
+  const baseGuard = guard.jobs["draft-on-base-change"];
+  function guards(changes: Record<string, unknown>, state = "open") {
+    return runInNewContext(baseGuard.if, { github: { event: { changes, pull_request: { state } } } }, { timeout: 100 });
+  }
+  it.each([{ body: { from: "old checklist" } }, { title: { from: "old title" } }])("does not restart or cancel acceptance on metadata edits %j", changes => {
+    expect(acceptanceEvents).not.toContain("edited");
+    expect(guards(changes)).toBe(false);
+  });
+  it("requires a fresh ready event after retargeting, which selects the complete master catalog", () => {
+    const changes = { base: { ref: { from: "preview" }, sha: { from: "a".repeat(40) } } };
+    expect(guard.on.pull_request_target.types).toEqual(["edited"]);
+    expect(guards(changes)).toBe(true);
+    expect(guards({ ...changes, body: { from: "also edited" } })).toBe(true);
+    expect(baseGuard.concurrency["cancel-in-progress"]).toBe(false);
+    expect(baseGuard.steps[0].run).toContain('gh pr ready --undo "$PR_NUMBER" --repo "$REPO"');
+    expect(acceptanceEvents).toContain("ready_for_review");
+    expect(decideAcceptanceScope({ eventName: "pull_request", baseRef: "master" })).toMatchObject({
+      runMatrix: true, matrixMode: "full", dossiers: acceptanceCatalog().map(entry => entry.id),
+    });
   });
 });

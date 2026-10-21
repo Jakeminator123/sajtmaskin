@@ -4,8 +4,9 @@ on:
   push:
     branches: [preview]
   pull_request:
-    # edited also covers retargeting an existing PR from preview to master.
-    types: [opened, synchronize, reopened, ready_for_review, edited]
+    # pr-base-guard drafts base changes; ready_for_review reruns the new target.
+    # Body/title edits must not restart or cancel required acceptance checks.
+    types: [opened, synchronize, reopened, ready_for_review]
   schedule:
     - cron: "17 3 * * 2"
   workflow_dispatch:

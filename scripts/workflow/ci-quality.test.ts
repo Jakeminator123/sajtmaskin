@@ -292,8 +292,8 @@ describe("complete native test sharding contract", () => {
     const dossier = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
     expect(evaluateDossierAcceptanceWorkflow(dossier)).toEqual([]);
     const changed = dossier.replace(
-      "reopened, ready_for_review, edited]",
-      "reopened, ready_for_review, edited, converted_to_draft]",
+      "reopened, ready_for_review]",
+      "reopened, ready_for_review, converted_to_draft]",
     );
     expect(changed).not.toBe(dossier);
     expect(evaluateDossierAcceptanceWorkflow(changed)).not.toEqual([]);
