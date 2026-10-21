@@ -10,7 +10,6 @@ import {
 import {
     attachBriefReasoningSummary,
     extractGenerateObjectReasoning,
-    OPENAI_REASONING_SUMMARY_DETAILED,
     openaiBriefReasoningProviderOptions,
     supportsOpenAIReasoningSummary,
 } from "@/lib/builder/deep-brief-visibility";
@@ -36,6 +35,7 @@ import {
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { debugLog, errorLog } from "@/lib/utils/debug";
+import type { OpenAIReasoningEffort } from "@/lib/models/openai-capabilities";
 import { generateObject } from "ai";
 import { createHash } from "node:crypto";
 import { z } from "zod";
@@ -242,6 +242,7 @@ export const SIMPLIFIED_SCHEMA_PROVIDER_OPTIONS = {
 type BriefGenerateObjectProviderOptions = {
   openai: {
     reasoningSummary?: "detailed";
+    reasoningEffort?: OpenAIReasoningEffort;
     strictJsonSchema?: boolean;
   };
 };
@@ -264,11 +265,11 @@ export function briefGenerateObjectProviderOptions(
   if (simplified) {
     return {
       providerOptions: {
-        openai: { ...nonStrict, reasoningSummary: OPENAI_REASONING_SUMMARY_DETAILED },
+        openai: { ...openaiBriefReasoningProviderOptions(modelId).openai, ...nonStrict },
       },
     };
   }
-  return { providerOptions: openaiBriefReasoningProviderOptions() };
+  return { providerOptions: openaiBriefReasoningProviderOptions(modelId) };
 }
 
 export const simplifiedBriefSchema = z.object({

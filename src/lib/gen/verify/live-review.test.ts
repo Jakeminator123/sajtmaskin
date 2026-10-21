@@ -2,9 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetServerEnvCacheForTests } from "@/lib/env";
 
 const generateObject = vi.hoisted(() => vi.fn());
-const createDirectModel = vi.hoisted(() => vi.fn(() => ({ id: "mock-model" })));
-const getWorkloadDefaultModelFromManifest = vi.hoisted(() => vi.fn(() => "gpt-6.1-sol"));
+const createDirectModel = vi.hoisted(() => vi.fn((_modelId: string) => ({ id: "mock-model" })));
 const uploadBlob = vi.hoisted(() => vi.fn());
+/** Product default: Sol medium, no automatic Luna. Tests opt into fallback explicitly. */
+const liveReviewManifest = vi.hoisted(() => ({
+  defaultModel: "gpt-6.1-sol",
+  fallbackModels: [] as string[],
+  visionModels: ["gpt-6.1-sol", "gpt-6-luna"] as string[],
+  reasoningEffort: "medium",
+}));
 
 vi.mock("ai", () => ({ generateObject }));
 vi.mock("@/lib/builder/direct-model", () => ({ createDirectModel }));
@@ -13,16 +19,16 @@ vi.mock("@/lib/ai-models/load-manifest", () => ({
     workloads: [
       {
         id: "live_review",
-        defaultModel: "gpt-6.1-sol",
-        fallbackModels: ["gpt-6-luna"],
-        visionModels: ["gpt-6.1-sol", "gpt-6-luna"],
-        reasoningEffort: "low",
+        defaultModel: liveReviewManifest.defaultModel,
+        fallbackModels: liveReviewManifest.fallbackModels,
+        visionModels: liveReviewManifest.visionModels,
+        reasoningEffort: liveReviewManifest.reasoningEffort,
       },
     ],
   }),
-  getWorkloadDefaultModelFromManifest,
-  getWorkloadFallbackModelsFromManifest: () => ["gpt-6-luna"],
-  getWorkloadReasoningEffortFromManifest: () => "low",
+  getWorkloadDefaultModelFromManifest: () => liveReviewManifest.defaultModel,
+  getWorkloadFallbackModelsFromManifest: () => [...liveReviewManifest.fallbackModels],
+  getWorkloadReasoningEffortFromManifest: () => liveReviewManifest.reasoningEffort,
 }));
 vi.mock("@/lib/vercel/blob-service", () => ({ uploadBlob }));
 vi.mock("@/lib/observability/llm-usage", () => ({ recordLlmUsage: vi.fn() }));
@@ -415,10 +421,27 @@ describe("persistLiveReviewJpeg", () => {
   });
 });
 
+function resetLiveReviewManifest() {
+  liveReviewManifest.defaultModel = "gpt-6.1-sol";
+  liveReviewManifest.fallbackModels = [];
+  liveReviewManifest.visionModels = ["gpt-6.1-sol", "gpt-6-luna"];
+  liveReviewManifest.reasoningEffort = "medium";
+}
+
 describe("resolveLiveReviewModelIds", () => {
-  it("reads default + fallback and keeps only visionModels", () => {
-    expect(resolveLiveReviewModelIds()).toEqual(["gpt-6.1-sol", "gpt-6-luna"]);
+  beforeEach(() => {
+    resetLiveReviewManifest();
+  });
+
+  it("product default is Sol medium and does not add Luna from visionModels", () => {
+    expect(resolveLiveReviewModelIds()).toEqual(["gpt-6.1-sol"]);
     expect(resolveLiveReviewModelIds("gpt-5.6-sol")).toEqual(["gpt-5.6-sol"]);
+  });
+
+  it("explicit test fixture: a declared fallback is still listed after the default", () => {
+    // Inte produktens default. Manifestet har ingen automatisk Luna-reserv.
+    liveReviewManifest.fallbackModels = ["gpt-6-luna"];
+    expect(resolveLiveReviewModelIds()).toEqual(["gpt-6.1-sol", "gpt-6-luna"]);
   });
 });
 
@@ -431,6 +454,7 @@ describe("review timeouts", () => {
 
 describe("runLiveReview", () => {
   beforeEach(() => {
+    resetLiveReviewManifest();
     generateObject.mockReset();
     createDirectModel.mockReset();
     createDirectModel.mockImplementation(() => ({ id: "mock-model" }));
@@ -454,6 +478,8 @@ describe("runLiveReview", () => {
   });
 
   it("a fallback model cannot start after the holder was lost by the first attempt", async () => {
+    // Explicit testfixtur så det finns en andra modell att stoppa. Inte produktens default.
+    liveReviewManifest.fallbackModels = ["gpt-6-luna"];
     const bundle = assembleReviewBundle({ versionId: "v1", parentVersionId: null, userRequest: "x", briefSummary: "",
       changedFiles: [], screenshots: { desktopUrl: "https://blob.example/own.jpg", mobileUrl: null }, findings: [], domSummary: null });
     let current = true;
@@ -493,9 +519,9 @@ describe("runLiveReview", () => {
     }
     expect(generateObject).toHaveBeenCalledWith(
       expect.objectContaining({
-        // GPT-6.1 Sol gets the manifest's explicit low effort, never the
-        // provider's silent medium default.
-        providerOptions: { openai: { strictJsonSchema: false, reasoningEffort: "low" } },
+        maxOutputTokens: 8192,
+        maxRetries: 0,
+        providerOptions: { openai: { strictJsonSchema: false, reasoningEffort: "medium" } },
         messages: [
           expect.objectContaining({
             content: expect.arrayContaining([
@@ -611,7 +637,9 @@ describe("runLiveReview", () => {
     expect(createDirectModel).not.toHaveBeenCalled();
   });
 
-  it("provar fallback-modellen när default kastar vid createDirectModel", async () => {
+  it("explicit testfixtur: provar fallback-modellen när default kastar vid createDirectModel", async () => {
+    // Inte produktens default. Fallbackmekaniken provas bara med en deklarerad reserv.
+    liveReviewManifest.fallbackModels = ["gpt-6-luna"];
     createDirectModel.mockImplementationOnce(() => {
       throw new Error("OPENAI_API_KEY is required for OpenAI models.");
     });
@@ -642,7 +670,9 @@ describe("runLiveReview", () => {
     expect(result).toMatchObject({ status: "completed", modelId: "gpt-6-luna" });
   });
 
-  it("provar fallback-modellen när generateObject på default misslyckas", async () => {
+  it("explicit testfixtur: provar fallback-modellen när generateObject på default misslyckas", async () => {
+    // Inte produktens default. Fallbackmekaniken provas bara med en deklarerad reserv.
+    liveReviewManifest.fallbackModels = ["gpt-6-luna"];
     generateObject
       .mockRejectedValueOnce(new Error("model overloaded"))
       .mockResolvedValueOnce({
@@ -669,6 +699,32 @@ describe("runLiveReview", () => {
     );
     expect(generateObject).toHaveBeenCalledTimes(2);
     expect(result).toMatchObject({ status: "completed", modelId: "gpt-6-luna" });
+  });
+
+  it("a default provider error does not silently switch to Luna", async () => {
+    generateObject.mockRejectedValue(new Error("model overloaded"));
+    const result = await runLiveReview(
+      assembleReviewBundle({
+        versionId: "v1",
+        parentVersionId: null,
+        userRequest: "x",
+        briefSummary: "",
+        changedFiles: [],
+        screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
+        findings: [],
+        domSummary: null,
+      }),
+    );
+    expect(createDirectModel.mock.calls.map((call) => call[0])).toEqual(["gpt-6.1-sol"]);
+    expect(generateObject).toHaveBeenCalledTimes(1);
+    expect(generateObject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maxOutputTokens: 8192,
+        providerOptions: { openai: { strictJsonSchema: false, reasoningEffort: "medium" } },
+      }),
+    );
+    expect(result).toMatchObject({ status: "skipped", reason: "review_error" });
+    expect(result.status).not.toBe("completed");
   });
 
   it("degraderar när alla modeller saknar nyckel", async () => {

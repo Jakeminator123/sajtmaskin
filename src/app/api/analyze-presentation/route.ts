@@ -309,9 +309,10 @@ async function analyzeWithVision(userText: string, frames: string[]): Promise<st
         ],
       },
     ],
-    // GPT-5.x rejects `max_tokens` + custom temperature (same class as
-    // backoffice/wizard_support.py). Chat Completions still accepts image_url.
-    max_completion_tokens: isReasoningChatModel(model) ? 2_400 : 600,
+    // Reasoning models reject `max_tokens` + custom temperature. 8192 is the
+    // total output ceiling, including Sol medium reasoning. Classic models keep
+    // their smaller cap and temperature. Chat Completions still accepts image_url.
+    max_completion_tokens: isReasoningChatModel(model) ? 8_192 : 600,
     ...(isReasoningChatModel(model)
       ? workloadChatReasoningEffort(VISION_WORKLOAD_ID, model)
       : { temperature: 0.7 }),
@@ -329,7 +330,7 @@ async function analyzeTextOnly(userText: string): Promise<string> {
         { role: "system", content: TEXT_ONLY_PROMPT },
         { role: "user", content: userText },
       ],
-      maxOutputTokens: 500,
+      maxOutputTokens: 8_192,
       ...workloadOpenAIProviderOptions(TEXT_WORKLOAD_ID, ANALYZE_PRESENTATION_DEFAULT_MODEL),
     });
     return result.text?.trim() || "";
@@ -353,7 +354,7 @@ async function analyzeTextOnly(userText: string): Promise<string> {
       { role: "system", content: TEXT_ONLY_PROMPT },
       { role: "user", content: userText },
     ],
-    max_completion_tokens: isReasoningChatModel(fallbackModel) ? 2_000 : 500,
+    max_completion_tokens: isReasoningChatModel(fallbackModel) ? 8_192 : 500,
     ...(isReasoningChatModel(fallbackModel)
       ? workloadChatReasoningEffort(TEXT_WORKLOAD_ID, fallbackModel)
       : { temperature: 0.7 }),

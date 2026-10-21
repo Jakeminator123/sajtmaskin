@@ -43,7 +43,7 @@ const MINIMAL_BRIEF = {
 };
 
 describe("generateSiteBriefObject reasoning", () => {
-  it("requests a detailed OpenAI reasoning summary and returns it", async () => {
+  it("requests canonical Sol medium plus detailed summary and returns reasoning", async () => {
     const { generateSiteBriefObject } = await loadModule();
     generateObjectMock.mockResolvedValue({
       object: MINIMAL_BRIEF,
@@ -53,14 +53,14 @@ describe("generateSiteBriefObject reasoning", () => {
 
     const result = await generateSiteBriefObject({
       prompt: "Ett kafé",
-      normalizedModel: "openai/gpt-5.6-sol",
+      normalizedModel: "openai/gpt-6.1-sol",
       imageGenerations: false,
       source: "dynamic_instructions",
     });
 
     expect(generateObjectMock).toHaveBeenCalledTimes(1);
     expect(generateObjectMock.mock.calls[0][0].providerOptions).toEqual({
-      openai: { reasoningSummary: "detailed" },
+      openai: { reasoningSummary: "detailed", reasoningEffort: "medium" },
     });
     expect(result.reasoningSummary).toBe("Jag lägger hero och meny.");
     expect(result.brief.reasoningSummary).toBe("Jag lägger hero och meny.");
@@ -134,7 +134,7 @@ describe("generateSiteBriefObject system option", () => {
     expectSystemOptionWithoutSystemMessage(generateObjectMock.mock.calls[0][0]);
   });
 
-  it("keeps the simplified fallback on the system option as well", async () => {
+  it("keeps simplified fallback on the system option with explicit medium and non-strict schema", async () => {
     const { generateSiteBriefObject } = await loadModule();
     generateObjectMock
       .mockRejectedValueOnce(new Error("schema parse failed"))
@@ -145,7 +145,7 @@ describe("generateSiteBriefObject system option", () => {
 
     const result = await generateSiteBriefObject({
       prompt: "Ett kafé",
-      normalizedModel: "openai/gpt-5.6-sol",
+      normalizedModel: "openai/gpt-6.1-sol",
       imageGenerations: false,
       source: "dynamic_instructions",
     });
@@ -154,6 +154,12 @@ describe("generateSiteBriefObject system option", () => {
     expect(generateObjectMock).toHaveBeenCalledTimes(2);
     expectSystemOptionWithoutSystemMessage(generateObjectMock.mock.calls[0][0]);
     expectSystemOptionWithoutSystemMessage(generateObjectMock.mock.calls[1][0]);
+    expect(generateObjectMock.mock.calls[0][0].providerOptions).toEqual({
+      openai: { reasoningSummary: "detailed", reasoningEffort: "medium" },
+    });
+    expect(generateObjectMock.mock.calls[1][0].providerOptions).toEqual({
+      openai: { reasoningSummary: "detailed", reasoningEffort: "medium", strictJsonSchema: false },
+    });
     expect(String(generateObjectMock.mock.calls[1][0].system)).toContain(
       "Keep your response concise",
     );

@@ -1,24 +1,22 @@
 /**
- * Pre-send Prompt-assist: cheap rewrite of the chat draft before send.
+ * Pre-send Prompt-assist: rewrite of the chat draft before send.
  * Natural language in, natural language out. Not Deep Brief / siteBriefSchema.
  */
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
+import { resolveWorkloadReasoningEffort } from "@/lib/ai-models/workload-reasoning";
 import { getTemperatureConfig } from "@/lib/builder/direct-model";
 import { aliasRetiredModelId } from "@/lib/models/catalog";
-import {
-  minimumOpenAIReasoningEffort,
-  type OpenAIReasoningEffort,
-} from "@/lib/models/openai-capabilities";
+import type { OpenAIReasoningEffort } from "@/lib/models/openai-capabilities";
 
 export const PROMPT_REWRITE_WORKLOAD_ID = "prompt_rewrite";
-export const PROMPT_REWRITE_FALLBACK_MODEL = "openai/gpt-6-luna";
+export const PROMPT_REWRITE_FALLBACK_MODEL = "openai/gpt-6.1-sol";
 export const PROMPT_ASSIST_DRAFT_MAX_CHARS = 8_000;
 /**
- * A rewrite of the largest allowed draft is about 2k tokens in Swedish/English.
- * 3,072 leaves room for JSON escaping without giving this cheap pre-send step an
- * open-ended provider bill.
+ * Total Responses output budget, including reasoning tokens, so a rewrite of
+ * up to 8,000 characters still fits beside the workload's medium effort.
+ * 8,192 is a maximum limit, not a measured cost.
  */
-export const PROMPT_REWRITE_MAX_OUTPUT_TOKENS = 3_072;
+export const PROMPT_REWRITE_MAX_OUTPUT_TOKENS = 8_192;
 /** Keep writeback within the same character contract as the input draft. */
 export const PROMPT_REWRITE_MAX_CHARS = PROMPT_ASSIST_DRAFT_MAX_CHARS;
 
@@ -57,8 +55,8 @@ export function buildPromptAssistModelOptions(modelId: string): {
   providerOptions?: { openai: { reasoningEffort: OpenAIReasoningEffort } };
 } {
   const resolved = aliasRetiredModelId(modelId);
-  // Lowest effort the model accepts: `none` on GPT-6 Luna, `low` on GPT-6.1 Sol.
-  const effort = minimumOpenAIReasoningEffort(resolved);
+  // Manifest effort for this workload, clamped to the model that will be called.
+  const effort = resolveWorkloadReasoningEffort(PROMPT_REWRITE_WORKLOAD_ID, resolved);
   return {
     maxOutputTokens: PROMPT_REWRITE_MAX_OUTPUT_TOKENS,
     ...getTemperatureConfig(resolved, 0.3),

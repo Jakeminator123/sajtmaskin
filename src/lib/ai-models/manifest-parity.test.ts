@@ -245,15 +245,18 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(briefing.anthropic.briefingModel).toBe("anthropic/claude-opus-4.8");
   });
 
-  it("splits product audit (Sol) from public /analys (Luna)", () => {
+  it("routes product audit and public /analys to Sol 6.1", () => {
     const m = getAiModelsManifest();
     const product = m.workloads.find((w) => w.id === "audit_structured");
     const pub = m.workloads.find((w) => w.id === "audit_structured_public");
 
     expect(product?.defaultModel).toBe("openai/gpt-6.1-sol");
+    expect(product?.fallbackModels).toEqual(["openai/gpt-5.6-sol"]);
     expect(product?.codeEntry).toContain("src/app/api/audit/route.ts");
     expect(product?.codeEntry).not.toContain("src/app/api/analys/route.ts");
-    expect(pub?.defaultModel).toBe("openai/gpt-6-luna");
+    expect(pub?.defaultModel).toBe("openai/gpt-6.1-sol");
+    expect(pub?.reasoningEffort).toBe("medium");
+    expect(pub?.fallbackModels).toBeUndefined();
     expect(pub?.codeEntry).toEqual(["src/app/api/analys/route.ts"]);
   });
 
@@ -261,7 +264,8 @@ describe("config/ai_models/manifest.json parity", () => {
     const m = getAiModelsManifest();
     const rewrite = m.workloads.find((w) => w.id === "prompt_rewrite");
 
-    expect(rewrite?.defaultModel).toBe("openai/gpt-6-luna");
+    expect(rewrite?.defaultModel).toBe("openai/gpt-6.1-sol");
+    expect(rewrite?.reasoningEffort).toBe("medium");
     expect(rewrite?.envOverrides?.model).toBe("SAJTMASKIN_PROMPT_REWRITE_MODEL");
     expect(rewrite?.codeEntry).toContain("src/app/api/ai/prompt-assist/route.ts");
     expect(rewrite?.id).not.toBe("prompt_assist");
@@ -293,9 +297,12 @@ describe("config/ai_models/manifest.json parity", () => {
       expect(entry?.authEnv).toEqual(["OPENAI_API_KEY"]);
     }
     expect(persona?.defaultModel).toBe("gpt-6.1-sol");
-    expect(guide?.defaultModel).toBe("gpt-6-luna");
+    expect(guide?.defaultModel).toBe("gpt-6.1-sol");
     expect(curation?.defaultModel).toBe("gpt-6.1-sol");
-    expect(persona?.defaultModel).not.toBe(guide?.defaultModel);
+    expect(persona?.id).not.toBe(guide?.id);
+    expect(persona?.reasoningEffort).toBe("medium");
+    expect(guide?.reasoningEffort).toBe("medium");
+    expect(curation?.reasoningEffort).toBe("medium");
 
     // visionModels must survive the Zod parse (an undeclared key would be
     // stripped here while Python still read it — silent drift between surfaces).
@@ -303,7 +310,9 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(persona?.visionModels).toContain(persona?.defaultModel);
     expect(persona?.visionModels).toEqual(["gpt-6.1-sol", "gpt-6-luna"]);
     expect(persona?.visionModels).not.toContain("gpt-4o");
-    expect(persona?.fallbackModels).toEqual(["gpt-6-luna"]);
+    expect(persona?.fallbackModels ?? []).not.toContain("gpt-6-luna");
+    expect(guide?.fallbackModels).toBeUndefined();
+    expect(curation?.fallbackModels).toBeUndefined();
     expect(guide?.visionModels).toBeUndefined();
 
     expect(curation?.codeEntry).toContain("scripts/dossiers/curate-from-reference.ts");
@@ -330,11 +339,63 @@ describe("config/ai_models/manifest.json parity", () => {
     const liveReview = m.workloads.find((w) => w.id === "live_review");
     expect(liveReview?.invocation).toBe("ai_generateObject");
     expect(liveReview?.defaultModel).toBe("gpt-6.1-sol");
-    expect(liveReview?.fallbackModels).toEqual(["gpt-6-luna"]);
+    expect(liveReview?.reasoningEffort).toBe("medium");
+    expect(liveReview?.fallbackModels).toBeUndefined();
     expect(liveReview?.visionModels).toEqual(["gpt-6.1-sol", "gpt-6-luna"]);
     expect(liveReview?.visionModels).not.toContain("gpt-4o");
     expect(liveReview?.codeEntry).toContain("src/lib/gen/verify/live-review.ts");
   });
+
+  it("keeps small text workloads, OpenAI verifiers and new callers on Sol 6.1 medium", () => {
+    const m = getAiModelsManifest();
+    const byId = new Map(m.workloads.map((w) => [w.id, w]));
+    const solMedium = [
+      ["project_analyze", "gpt-6.1-sol"],
+      ["text_analyze", "gpt-6.1-sol"],
+      ["wizard_enrich_competitors", "openai/gpt-6.1-sol"],
+      ["company_lookup", "openai/gpt-6.1-sol"],
+      ["domain_suggestions", "openai/gpt-6.1-sol"],
+      ["match_classifier", "openai/gpt-6.1-sol"],
+      ["qa_short_circuit", "gpt-6.1-sol"],
+      ["shadcn_describe_queries", "openai/gpt-6.1-sol"],
+      ["shadcn_describe_ranking", "openai/gpt-6.1-sol"],
+    ] as const;
+    for (const [id, model] of solMedium) {
+      expect(byId.get(id)?.defaultModel, id).toBe(model);
+      expect(byId.get(id)?.reasoningEffort, id).toBe("medium");
+    }
+    expect(byId.get("qa_short_circuit")?.invocation).toBe("ai_sdk_generateText");
+    expect(byId.get("qa_short_circuit")?.authEnv).toEqual(["OPENAI_API_KEY"]);
+    expect(byId.get("qa_short_circuit")?.codeEntry).toEqual([
+      "src/lib/api/engine/chats/chat-message-stream/qa-short-circuit.ts",
+    ]);
+    expect(byId.get("shadcn_describe_queries")?.invocation).toBe("ai_generateObject");
+    expect(byId.get("shadcn_describe_queries")?.authEnv).toEqual([
+      "OPENAI_API_KEY",
+      "ANTHROPIC_API_KEY",
+    ]);
+    expect(byId.get("shadcn_describe_queries")?.codeEntry).toEqual(["src/lib/shadcn/describe.ts"]);
+    expect(byId.get("shadcn_describe_ranking")?.codeEntry).toEqual(["src/lib/shadcn/describe.ts"]);
+    expect(byId.get("runtime_embeddings_query")?.defaultModel).toBeUndefined();
+    expect(byId.get("transcribe")?.defaultModel).toBeUndefined();
+    for (const workload of m.workloads) {
+      for (const model of workload.fallbackModels ?? []) {
+        expect(model, workload.id).not.toMatch(/luna/i);
+      }
+    }
+    const thinking = m.phaseRouting.thinkingByTier!;
+    for (const tier of ["premium", "pro", "max", "codex", "ultra"] as const) {
+      expect(thinking[tier].verifier.reasoningEffort, tier).toBe("medium");
+      expect(thinking[tier].verifier.thinking, tier).toBe(false);
+    }
+    expect(thinking.pro["deploy-assistant"].reasoningEffort).toBe("medium");
+    expect(thinking.premium.generator.reasoningEffort).toBe("xhigh");
+    expect(thinking.pro.generator.reasoningEffort).toBe("medium");
+    expect(thinking.ultra.generator.reasoningEffort).toBe("high");
+    expect(thinking.premium.fixer.reasoningEffort).toBe("high");
+    expect(m.buildProfiles.defaults.ultra).toBe("gpt-6-astra");
+  });
+
   it("prices every model the manifest routes to", () => {
     const m = getAiModelsManifest();
     const routed = new Set<string>([

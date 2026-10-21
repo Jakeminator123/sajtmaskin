@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { canonicalModelIdToOwnModelId, DEFAULT_MODEL_ID } from "@/lib/models/catalog";
+import * as modelManifest from "@/lib/ai-models/load-manifest";
 
 const generateText = vi.hoisted(() => vi.fn());
 const createDirectModel = vi.hoisted(() => vi.fn((modelId: string) => ({ modelId })));
@@ -24,6 +25,7 @@ describe("generateQaShortCircuitText", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
   it("keeps the canonical model and original abort signal and records usage once", async () => {
@@ -38,6 +40,8 @@ describe("generateQaShortCircuitText", () => {
     expect(generateText.mock.calls[0][0]).toMatchObject({
       model: { modelId },
       abortSignal: signal,
+      maxOutputTokens: 8192,
+      providerOptions: { openai: { reasoningEffort: "medium" } },
     });
     expect(generateText.mock.calls[0][0].abortSignal).toBe(signal);
     expect(recordLlmUsage).toHaveBeenCalledTimes(1);
@@ -48,6 +52,22 @@ describe("generateQaShortCircuitText", () => {
       workload: "qa_short_circuit",
       model: modelId,
     });
+  });
+
+  it("uses the QA workload model and normalizes retired IDs before selecting provider options", async () => {
+    const resolveModel = vi.spyOn(modelManifest, "getWorkloadDefaultModelFromManifest")
+      .mockReturnValue("gpt-4o-mini");
+    generateText.mockResolvedValue({ text: "Kort svar.", usage: tokenUsage });
+
+    await generateQaShortCircuitText({ optimizedMessage: "Hur är färgen?", signal });
+
+    expect(resolveModel).toHaveBeenCalledWith("qa_short_circuit");
+    expect(createDirectModel).toHaveBeenCalledWith("gpt-6.1-sol");
+    expect(generateText.mock.calls[0][0]).toMatchObject({
+      maxOutputTokens: 8192,
+      providerOptions: { openai: { reasoningEffort: "medium" } },
+    });
+    expect(recordLlmUsage.mock.calls[0][0].model).toBe("gpt-6.1-sol");
   });
 
   it("records one failed row with the real usage when the answer is empty", async () => {
@@ -101,3 +121,4 @@ describe("generateQaShortCircuitText", () => {
     });
   });
 });
+

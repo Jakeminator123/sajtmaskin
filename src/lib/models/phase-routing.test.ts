@@ -171,12 +171,12 @@ describe("resolvePhaseThinking", () => {
     }
   });
 
-  it("every OpenAI-tier verifier is thinking:false / low", () => {
+  it("every OpenAI-tier verifier is thinking:false / medium", () => {
     for (const tier of OPENAI_TIERS) {
       expect(resolvePhaseThinking(tier, "verifier")).toEqual({
         phase: "verifier",
         thinking: false,
-        reasoningEffort: "low",
+        reasoningEffort: "medium",
         reason: "manifest-phase-thinking",
       });
     }
@@ -309,11 +309,11 @@ describe("resolvePhaseThinking", () => {
     });
   });
 
-  it("deploy-assistant is thinking:false (Låg low, others medium)", () => {
+  it("deploy-assistant is thinking:false / medium, including Låg", () => {
     expect(resolvePhaseThinking("pro", "deploy-assistant")).toEqual({
       phase: "deploy-assistant",
       thinking: false,
-      reasoningEffort: "low",
+      reasoningEffort: "medium",
       reason: "manifest-phase-thinking",
     });
     expect(resolvePhaseThinking("max", "deploy-assistant")).toMatchObject({

@@ -109,8 +109,8 @@ describe("aliasRetiredModelId — OpenAI-deprecated models", () => {
     ["gpt-5.3-codex-max", "gpt-6.1-sol"],
     ["gpt-4.1", "gpt-6.1-sol"],
     ["openai/gpt-4.1", "openai/gpt-6.1-sol"],
-    ["gpt-4o-mini", "gpt-6-luna"],
-    ["openai/gpt-4o-mini", "openai/gpt-6-luna"],
+    ["gpt-4o-mini", "gpt-6.1-sol"],
+    ["openai/gpt-4o-mini", "openai/gpt-6.1-sol"],
   ])("maps %s -> %s", (input, expected) => {
     expect(aliasRetiredModelId(input)).toBe(expected);
   });

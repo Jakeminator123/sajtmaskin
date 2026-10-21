@@ -8,7 +8,10 @@
  */
 import { generateText } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
+import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
+import { workloadOpenAIProviderOptions } from "@/lib/ai-models/workload-reasoning";
 import {
+  aliasRetiredModelId,
   canonicalModelIdToOwnModelId,
   DEFAULT_MODEL_ID,
 } from "@/lib/models/catalog";
@@ -16,19 +19,24 @@ import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { formatSSEEvent } from "@/lib/streaming";
 
 const QA_SHORT_CIRCUIT_WORKLOAD = "qa_short_circuit";
-const QA_SHORTCIRCUIT_MODEL = canonicalModelIdToOwnModelId(DEFAULT_MODEL_ID);
 
 export async function generateQaShortCircuitText(params: {
   optimizedMessage: string;
   signal: AbortSignal;
 }): Promise<string> {
   const startedAt = Date.now();
-  const modelId = QA_SHORTCIRCUIT_MODEL;
+  const modelId = aliasRetiredModelId(
+    getWorkloadDefaultModelFromManifest(QA_SHORT_CIRCUIT_WORKLOAD) ??
+      canonicalModelIdToOwnModelId(DEFAULT_MODEL_ID),
+  );
   let usageRecorded = false;
   try {
     const result = await generateText({
       model: createDirectModel(modelId),
       abortSignal: params.signal,
+      // Reasoning shares the output budget; leave room for the visible answer.
+      maxOutputTokens: 8192,
+      ...workloadOpenAIProviderOptions(QA_SHORT_CIRCUIT_WORKLOAD, modelId),
       prompt:
         "Användaren har ställt en fråga om sin sajt. Svara koncist (max 4 meningar) baserat på följande kontext:\n\n" +
         params.optimizedMessage,
@@ -93,3 +101,4 @@ export function buildQaShortCircuitStream(params: {
     },
   });
 }
+

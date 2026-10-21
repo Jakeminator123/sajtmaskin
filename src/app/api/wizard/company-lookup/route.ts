@@ -151,7 +151,7 @@ async function lookupViaBraveSearch(companyName: string): Promise<CompanyLookupR
 }
 
 async function lookupViaAiSearch(companyName: string): Promise<CompanyLookupResult> {
-  const modelId = getWorkloadDefaultModelFromManifest("company_lookup") ?? "openai/gpt-6-luna";
+  const modelId = getWorkloadDefaultModelFromManifest("company_lookup") ?? "openai/gpt-6.1-sol";
   const result = await generateText({
     model: createDirectModel(modelId),
     prompt: `Sök upp det svenska företaget "${companyName}" på allabolag.se eller liknande källa.
@@ -161,7 +161,7 @@ Returnera BARA JSON (inget annat):
 Om du inte hittar företaget: {"found":false}
 Bara JSON, inget annat.`,
     maxRetries: 1,
-    maxOutputTokens: 1_500,
+    maxOutputTokens: 8_192,
     ...workloadOpenAIProviderOptions("company_lookup", modelId),
   });
 

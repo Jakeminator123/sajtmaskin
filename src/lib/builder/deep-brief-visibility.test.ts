@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment node
+import { generateText } from "ai";
+import { describe, expect, it, vi } from "vitest";
+import { createDirectModel } from "./direct-model";
+import { briefGenerateObjectProviderOptions } from "./site-brief-generation";
 import {
   attachBriefReasoningSummary,
   buildDeepBriefVisibility,
@@ -27,16 +31,64 @@ describe("supportsOpenAIReasoningSummary", () => {
 });
 
 describe("openai brief provider options", () => {
-  it("requests detailed reasoning summaries", () => {
+  it("requests detailed summaries and canonical medium for the actual Sol model", () => {
     expect(openaiBriefReasoningProviderOptions()).toEqual({
-      openai: { reasoningSummary: "detailed" },
+      openai: { reasoningSummary: "detailed", reasoningEffort: "medium" },
     });
   });
 
   it("keeps extra OpenAI options when merging", () => {
     expect(mergeOpenAIBriefProviderOptions({ openai: { strictJsonSchema: false } })).toEqual({
-      openai: { reasoningSummary: "detailed", strictJsonSchema: false },
+      openai: { reasoningSummary: "detailed", reasoningEffort: "medium", strictJsonSchema: false },
     });
+  });
+
+  it("does not fabricate effort for classic, Anthropic or unknown model capabilities", () => {
+    for (const model of ["gpt-4o", "anthropic/claude-opus-4.8", "unknown-model"]) {
+      expect(openaiBriefReasoningProviderOptions(model)).toEqual({ openai: {} });
+    }
+    expect(openaiBriefReasoningProviderOptions("gpt-5.3-codex")).toEqual({
+      openai: { reasoningSummary: "detailed" },
+    });
+    expect(mergeOpenAIBriefProviderOptions({ openai: { reasoningEffort: "high" } })).toEqual({
+      openai: { reasoningSummary: "detailed", reasoningEffort: "high" },
+    });
+  });
+
+  it("serializes the real brief helper as Responses medium plus detailed summary", async () => {
+    const captured: Record<string, unknown>[] = [];
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toMatch(/\/v1\/responses$/);
+      captured.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return Response.json({
+        id: "resp_brief_test", object: "response", created_at: 0,
+        status: "completed", model: "gpt-6.1-sol", incomplete_details: null,
+        output: [{
+          type: "message", id: "msg_brief_test", role: "assistant", status: "completed",
+          content: [{ type: "output_text", text: "ok", annotations: [] }],
+        }],
+        usage: {
+          input_tokens: 1, input_tokens_details: { cached_tokens: 0 },
+          output_tokens: 1, output_tokens_details: { reasoning_tokens: 0 }, total_tokens: 2,
+        },
+      });
+    }));
+    try {
+      await generateText({
+        model: createDirectModel("openai/gpt-6.1-sol"),
+        prompt: "hej", maxRetries: 0, maxOutputTokens: 8192,
+        ...briefGenerateObjectProviderOptions("openai", "openai/gpt-6.1-sol", false),
+      });
+      expect(captured).toHaveLength(1);
+      expect(captured[0].model).toBe("gpt-6.1-sol");
+      expect(captured[0].reasoning).toEqual({ effort: "medium", summary: "detailed" });
+      expect(captured[0]).not.toHaveProperty("temperature");
+      expect(captured[0]).not.toHaveProperty("top_p");
+    } finally {
+      vi.unstubAllEnvs();
+      vi.unstubAllGlobals();
+    }
   });
 });
 

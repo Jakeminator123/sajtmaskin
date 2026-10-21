@@ -78,19 +78,25 @@ describe("prompt-assist-pre-send", () => {
     expect(parsePromptAssistResponse('{"text":"En vanlig rättning"}')).toBe("En vanlig rättning");
   });
 
-  it("caps provider output and runs registered models at their lowest effort", () => {
+  it("caps provider output at 8192 and uses the prompt_rewrite workload effort", () => {
+    expect(PROMPT_REWRITE_MAX_CHARS).toBe(8_000);
+    expect(PROMPT_REWRITE_MAX_OUTPUT_TOKENS).toBe(8_192);
+    expect(buildPromptAssistModelOptions("openai/gpt-6.1-sol")).toEqual({
+      maxOutputTokens: PROMPT_REWRITE_MAX_OUTPUT_TOKENS,
+      providerOptions: { openai: { reasoningEffort: "medium" } },
+    });
+    // Explicit registered overrides keep the workload effort, not the model minimum.
     expect(buildPromptAssistModelOptions("openai/gpt-6-luna")).toEqual({
       maxOutputTokens: PROMPT_REWRITE_MAX_OUTPUT_TOKENS,
-      providerOptions: { openai: { reasoningEffort: "none" } },
+      providerOptions: { openai: { reasoningEffort: "medium" } },
     });
     expect(buildPromptAssistModelOptions("openai/gpt-5.6-terra")).toEqual({
       maxOutputTokens: PROMPT_REWRITE_MAX_OUTPUT_TOKENS,
-      providerOptions: { openai: { reasoningEffort: "none" } },
+      providerOptions: { openai: { reasoningEffort: "medium" } },
     });
-    // GPT-6.1 Sol rejects `none`; an operator override to it must not 400.
-    expect(buildPromptAssistModelOptions("openai/gpt-6.1-sol")).toEqual({
+    // Unregistered legacy ids stay without an effort field.
+    expect(buildPromptAssistModelOptions("openai/gpt-5.4")).toEqual({
       maxOutputTokens: PROMPT_REWRITE_MAX_OUTPUT_TOKENS,
-      providerOptions: { openai: { reasoningEffort: "low" } },
     });
   });
 });

@@ -10,13 +10,15 @@
  * provider error) is fail-safe.
  *
  * Model is manifest-controlled via the `match_classifier` workload
- * (`defaultModel`, a small/cheap model). Tokens are kept minimal and the call
- * is bounded by a short timeout.
+ * (`defaultModel`). A missing default uses GPT-6.1 Sol. The call stays on a
+ * short timeout and a short input. 8192 is the total output ceiling, including
+ * reasoning, not a measured cost.
  */
 import { z } from "zod";
 import { generateObject } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
-import { resolveWorkloadReasoningEffort } from "@/lib/ai-models/workload-reasoning";
+import { workloadOpenAIProviderOptions } from "@/lib/ai-models/workload-reasoning";
+import { aliasRetiredModelId } from "@/lib/models/catalog";
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import {
@@ -26,11 +28,12 @@ import {
 
 const MATCH_CLASSIFIER_WORKLOAD_ID = "match_classifier";
 /** Used only if the manifest workload is missing a defaultModel. */
-const FALLBACK_MODEL = "openai/gpt-6-luna";
+const FALLBACK_MODEL = "openai/gpt-6.1-sol";
 const DEFAULT_TIMEOUT_MS = 4000;
 /** Follow-ups are short; cap input so a pasted wall of text stays cheap. */
 const MAX_PROMPT_CHARS = 2000;
-const MAX_OUTPUT_TOKENS = 2000;
+/** Total output budget, including reasoning tokens. A ceiling, not a measured cost. */
+const MAX_OUTPUT_TOKENS = 8192;
 
 // Mirrors FollowUpIntentMode in src/lib/gen/follow-up-intent-types.ts. The
 // runtime guard below cross-checks the parsed label against the canonical set
@@ -78,10 +81,11 @@ export async function llmClassifyFollowUpIntent(
   const trimmed = String(message ?? "").trim();
   if (!trimmed) return "neutral";
 
-  const modelId =
+  const modelId = aliasRetiredModelId(
     opts.model ??
     getWorkloadDefaultModelFromManifest(MATCH_CLASSIFIER_WORKLOAD_ID) ??
-    FALLBACK_MODEL;
+    FALLBACK_MODEL,
+  );
 
   // Throws when the required API key is missing → fail-safe fallback.
   const model = createDirectModel(modelId);
@@ -107,13 +111,9 @@ export async function llmClassifyFollowUpIntent(
       // failures, so don't burn latency retrying non-transient errors.
       maxRetries: 1,
       abortSignal: controller.signal,
-      // Manifest effort (`none` on GPT-6 Luna); overrides to older ids keep `low`.
-      providerOptions: {
-        openai: {
-          reasoningEffort:
-            resolveWorkloadReasoningEffort(MATCH_CLASSIFIER_WORKLOAD_ID, modelId) ?? "low",
-        },
-      },
+      // Manifest effort (medium on Sol 6.1). Classic/unregistered ids omit the
+      // field — do not invent `low` when the model has no registered support.
+      ...workloadOpenAIProviderOptions(MATCH_CLASSIFIER_WORKLOAD_ID, modelId),
     });
 
     recordLlmUsage({
