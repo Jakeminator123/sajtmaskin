@@ -163,7 +163,15 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     addMessageMock.mockReset();
     addMessageMock.mockResolvedValue(null);
     failVersionVerificationMock.mockReset();
-    failVersionVerificationMock.mockResolvedValue(null);
+    // Confirmed failed draft. Explicit null/throw cases override this; a
+    // missing mark must not be treated as a successful recovery.
+    failVersionVerificationMock.mockImplementation(async (versionId: string, summary: string) => ({
+      id: versionId,
+      release_state: "draft",
+      verification_state: "failed",
+      verification_summary: summary,
+      promoted_at: null,
+    }));
     logGenerationMock.mockReset();
     logGenerationMock.mockResolvedValue(null);
     commitCredits.mockClear();
@@ -1009,6 +1017,38 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     };
   }
 
+  it("settles one persisted version after multiple tool steps and one final completion", async () => {
+    const chatId = "chat_multi_step_billing";
+    const params = providerFaultParams(chatId, {});
+    const pipelineStream = createCodeGenSSEStream({
+      fullStream: (async function* () {
+        yield { type: "tool-call", toolCallId: "lookup-1", toolName: "inspect", input: {} };
+        yield { type: "tool-result", toolCallId: "lookup-1", toolName: "inspect" };
+        yield { type: "finish-step", finishReason: "tool-calls" };
+        yield { type: "tool-call", toolCallId: "lookup-2", toolName: "inspect", input: {} };
+        yield { type: "tool-result", toolCallId: "lookup-2", toolName: "inspect" };
+        yield { type: "finish-step", finishReason: "tool-calls" };
+        yield {
+          type: "text-delta",
+          text: '```tsx file="app/page.tsx"\nexport default function Page(){return <main>Klar</main>}\n```',
+        };
+        yield { type: "finish", finishReason: "stop" };
+      })(),
+      usage: Promise.resolve({ inputTokens: 20, outputTokens: 6 }),
+      totalUsage: Promise.resolve({ inputTokens: 30, outputTokens: 10 }),
+    }, { meta: { chatId } });
+
+    const events = await collectSseEvents(createOwnEngineGenerationStream({
+      ...params,
+      pipelineStream,
+    }));
+
+    expect(finalizeAndSaveVersionMock).toHaveBeenCalledTimes(1);
+    expect(events.filter((event) => event.event === "done")).toHaveLength(1);
+    expect(commitCredits).toHaveBeenCalledTimes(1);
+    expect(commitCredits).toHaveBeenCalledWith({ chatId, versionId: "ver_golden_1" });
+  });
+
   it("a provider fault (revoked key) charges no credits and leaves a failed generation row", async () => {
     const out = createOwnEngineGenerationStream(
       providerFaultParams("chat_bad_key", {
@@ -1312,6 +1352,76 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     );
     expect(meta).toMatchObject({ status: "aborted", versionId: "ver_golden_1" });
   });
+
+  it.each(["null", "throws"] as const)(
+    "fails closed when recovered verification marking %s, without emitting stale passed/promoted",
+    async (mode) => {
+      const markError = new Error("verification mark failed");
+      const staleVersion = {
+        id: "ver_stale_promoted",
+        release_state: "promoted" as const,
+        verification_state: "passed" as const,
+        verification_summary: "looks done",
+        promoted_at: "2026-10-01T00:00:00.000Z",
+      };
+      finalizeAndSaveVersionMock.mockResolvedValueOnce({
+        ...mockFinalizeResult,
+        version: staleVersion as FinalizeResult["version"],
+      });
+      if (mode === "null") {
+        failVersionVerificationMock.mockResolvedValueOnce(null);
+      } else {
+        failVersionVerificationMock.mockRejectedValueOnce(markError);
+      }
+      const chatId = `chat_unconfirmed_${mode}`;
+      const params = providerFaultParams(chatId, {});
+      const out = createOwnEngineGenerationStream({
+        ...params,
+        pipelineStream: pipelineStreamFromSsePayload(
+          formatSSEEvent("content", {
+            text: '```tsx file="app/page.tsx"\nexport default function Page(){return null}\n```',
+          }),
+        ),
+      });
+
+      const result = await collectSseEventsUntilError(out);
+
+      if (mode === "throws") {
+        expect(result.error).toBe(markError);
+      } else {
+        expect(result.error).toBeInstanceOf(Error);
+        expect((result.error as Error).message).toContain("not confirmed");
+      }
+      expect(result.events.filter((event) => event.event === "done")).toHaveLength(0);
+      expect(result.events.filter((event) => event.event === "preview-ready")).toHaveLength(0);
+      for (const event of result.events) {
+        if (!event.data || typeof event.data !== "object") continue;
+        const data = event.data as Record<string, unknown>;
+        expect(data.verificationState).not.toBe("passed");
+        expect(data.releaseState).not.toBe("promoted");
+        expect(data.promotedAt).toBeUndefined();
+        expect(data.step).not.toBe("preview");
+      }
+      expect(finalizeAndSaveVersionMock).toHaveBeenCalledTimes(1);
+      expect(failVersionVerificationMock).toHaveBeenCalledTimes(1);
+      expect(failVersionVerificationMock).toHaveBeenCalledWith(
+        "ver_stale_promoted",
+        expect.any(String),
+      );
+      expect(commitCredits).toHaveBeenCalledTimes(1);
+      expect(commitCredits).toHaveBeenCalledWith({
+        chatId,
+        versionId: "ver_stale_promoted",
+      });
+      expect(runOwnEngineStreamPostFinalize).not.toHaveBeenCalled();
+      const logged = vi
+        .mocked(devLogAppend)
+        .mock.calls.map(([, payload]) => payload as Record<string, unknown>);
+      expect(logged.some((entry) => entry.type === "site.done")).toBe(false);
+      expect(logged.some((entry) => entry.type === "site.aborted")).toBe(false);
+      expect(logged.some((entry) => entry.type === "server-verify.policy")).toBe(false);
+    },
+  );
 
   it.each([
     ["abort", [{ type: "start" }, { type: "abort" }]],

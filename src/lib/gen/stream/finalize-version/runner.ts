@@ -61,9 +61,8 @@ import {
 } from "./persist-side-effects";
 import { persistTelemetryRecord } from "./persist-telemetry";
 import {
-  appendTurnSummary,
   buildTurnSummary,
-  hasModelProseSummary,
+  composePersistedAssistantContent,
   parseTurnSummaryFiles,
 } from "../turn-summary";
 import { attachVersionToPendingUsage, setLlmUsageContext } from "@/lib/observability/llm-usage";
@@ -539,31 +538,28 @@ export async function finalizeAndSaveVersion(
   // with the previous version (see resolveDossierEnvScopeForFinalize).
   // Threaded into the first preview boot (FinalizeResult) AND persisted on
   // the version row so the next follow-up inherits the same scope.
-  // Plain-language account of the turn for the chat (see turn-summary.ts).
-  // Appended to the persisted MESSAGE only — `contentForVersion` (the code)
-  // is what the rest of the pipeline keeps reading. Skipped when the model
-  // itself explained its work outside the code blocks. The prose check must
-  // look at the RAW stream (`accumulatedContent`): autofix/parse/merge can
-  // rebuild `contentForVersion` from files, and the live chat holds the raw
-  // stream — checking only the rebuilt text would append a second summary
-  // under the model's own (Bugbot on #1292).
-  const turnSummary =
-    hasModelProseSummary(accumulatedContent) || hasModelProseSummary(contentForVersion)
-      ? null
-      : buildTurnSummary({
-        generationMode: buildSpec?.generationMode === "followUp" ? "followUp" : "init",
-        repairPassIndex,
-        userPrompt: originalPrompt ?? null,
-        files: parseTurnSummaryFiles(filesJson),
-        previousFiles: previousFiles ?? null,
-        routeNames: routePlan?.routes?.map((route) => route.name) ?? null,
-        dossierLabels: selectedDossiers.map((dossier) => dossier.label),
-        autofixFixCount: autoFixFixCount,
-        rejectedShrinks,
-        rejectedStructural,
-        previewBlocked: Boolean(previewBlockingReason),
-      });
-  const contentForMessage = appendTurnSummary(contentForVersion, turnSummary);
+  // Plain-language account for the chat message only. `contentForVersion`
+  // and `filesJson` stay the repaired files. Prefer prose that still sits on
+  // the rebuilt text; otherwise recover an adequate explanation from the raw
+  // stream. Append the deterministic summary only when neither explains, and
+  // keep a trailing stream warning once (Bugbot on #1292).
+  const { content: contentForMessage, turnSummary } = composePersistedAssistantContent({
+    rawContent: accumulatedContent,
+    rebuiltContent: contentForVersion,
+    fallbackSummary: buildTurnSummary({
+      generationMode: buildSpec?.generationMode === "followUp" ? "followUp" : "init",
+      repairPassIndex,
+      userPrompt: originalPrompt ?? null,
+      files: parseTurnSummaryFiles(filesJson),
+      previousFiles: previousFiles ?? null,
+      routeNames: routePlan?.routes?.map((route) => route.name) ?? null,
+      dossierLabels: selectedDossiers.map((dossier) => dossier.label),
+      autofixFixCount: autoFixFixCount,
+      rejectedShrinks,
+      rejectedStructural,
+      previewBlocked: Boolean(previewBlockingReason),
+    }),
+  });
   const { message: assistantMsg, version: initialVersion } = targetVersionId
     ? await chatRepo.addAssistantMessageAndUpdateExistingVersion(
         chatId,

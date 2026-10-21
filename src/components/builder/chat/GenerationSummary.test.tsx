@@ -12,6 +12,23 @@ function completeBlock(path: string): string {
 }
 
 describe("GenerationSummary — fence-balans (F9)", () => {
+  it("keeps inline backticks inside a generated file out of the prose bubble", () => {
+    const content = [
+      "Här kommer den uppdaterade sidan med förklaringen bevarad.",
+      '```tsx file="app/page.tsx"',
+      'const markdownFence = "```";',
+      CODE_MARKER,
+      "```",
+    ].join("\n");
+
+    render(<GenerationSummary content={content} />);
+
+    const prose = screen.getByTestId("generation-summary-prose");
+    expect(prose.textContent).toContain("Här kommer den uppdaterade sidan");
+    expect(prose.textContent).not.toContain(CODE_MARKER);
+    expect(screen.getByText("1 fil")).toBeTruthy();
+  });
+
   it.each(['```tsx file="app/page.tsx"', 'tsx file="app/page.tsx"', '```'])(
     "hides an incomplete file header before its code body arrives: %s",
     (header) => {

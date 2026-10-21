@@ -223,6 +223,8 @@ import type { GenerationFinalizeInput } from "@/lib/gen/generation-input-package
 import { buildOrchestrationContract } from "@/lib/gen/orchestration-contract";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { serializeProjectCandidateForVerifier } from "./finalize-merge";
+import { appendStreamWarning } from "@/lib/builder/stream-warning";
+import { parseGenerationContent } from "@/components/builder/chat/generation-content";
 
 const BASIC_GENERATED_CONTENT =
   '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```';
@@ -690,6 +692,92 @@ export default function Page() {
       expect(result.turnSummary).toBeNull();
       const call = addAssistantMessageAndCreateDraftVersion.mock.calls[0];
       expect(call?.[1] as string).not.toContain("Klart — jag har byggt");
+    });
+
+    it("keeps the original Swedish explanation once when repaired files drop the raw prose", async () => {
+      const explanation = [
+        "Jag har byggt en landningssida med hero, tjänster och kontaktformulär.",
+        "",
+        "Säg till om du vill justera färgerna eller texterna.",
+      ].join("\n");
+      const warning = "Anslutningen bröts innan svaret var klart.";
+      const originalPage =
+        "export default function Page() { return (<main><h1>ORIGINAL_UNREPAIRED_HERO</h1><p>Den gamla ofixade texten ska inte följa med.</p></main>); }";
+      const repairedPage =
+        "export default function Page() { return (<main><h1>REPAIRED_FINAL_HERO</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }";
+      const repairedCode = `\`\`\`tsx file="src/app/page.tsx"\n${repairedPage}\n\`\`\``;
+      const accumulatedContent = appendStreamWarning(
+        [
+          "<Thinking>THINKING_CHAIN_MARKER planera hero utan att spara kedjan.</Thinking>",
+          explanation,
+          '```env file=".env.local"\nSECRET_MARKER=sk_live_should_not_leak\n```',
+          `\`\`\`tsx file="src/app/page.tsx"\n${originalPage}\n\`\`\``,
+          '```tsx file="src/app/open-tail.tsx"\nconst OPEN_FENCE_TAIL = true;',
+          `tsx file="src/app/bare-tail.tsx"\nconst BARE_STREAM_TAIL = ${"x".repeat(80)};`,
+        ].join("\n\n"),
+        warning,
+      );
+      runAutoFix.mockResolvedValue({
+        fixedContent: repairedCode,
+        fixes: [],
+        warnings: [],
+        dependencies: [],
+      });
+      validateAndFix.mockResolvedValue({
+        content: repairedCode,
+        hadErrors: false,
+        fixerUsed: false,
+        fixerImproved: false,
+        errorsBefore: 0,
+        errorsAfter: 0,
+        passes: 1,
+        status: "passed",
+        pipelineError: null,
+        earlyStopReason: null,
+      });
+
+      const result = await finalizeAndSaveVersion({
+        accumulatedContent,
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      expect(result.turnSummary).toBeNull();
+      const call = addAssistantMessageAndCreateDraftVersion.mock.calls[0];
+      const persisted = call?.[1] as string;
+      const filesJson = call?.[2] as string;
+      const times = (haystack: string, needle: string) => haystack.split(needle).length - 1;
+
+      expect(times(persisted, explanation)).toBe(1);
+      expect(persisted.startsWith(`${explanation}\n\n`)).toBe(true);
+      expect(parseGenerationContent(persisted).proseText).toBe(
+        parseGenerationContent(accumulatedContent).proseText,
+      );
+      expect(persisted).toContain("REPAIRED_FINAL_HERO");
+      expect(persisted.trimEnd().endsWith(`Varning: ${warning}`)).toBe(true);
+      expect(times(persisted, `Varning: ${warning}`)).toBe(1);
+      expect(persisted).not.toContain("Klart — jag har byggt");
+      expect(persisted).not.toContain("ORIGINAL_UNREPAIRED_HERO");
+      expect(persisted).not.toContain("SECRET_MARKER");
+      expect(persisted).not.toContain("OPEN_FENCE_TAIL");
+      expect(persisted).not.toContain("BARE_STREAM_TAIL");
+      expect(persisted).not.toContain("THINKING_CHAIN_MARKER");
+
+      expect(result.contentForVersion).toContain("REPAIRED_FINAL_HERO");
+      expect(result.contentForVersion).not.toContain("ORIGINAL_UNREPAIRED_HERO");
+      expect(result.contentForVersion).not.toContain("Säg till om du vill justera");
+      expect(result.contentForVersion).not.toContain("SECRET_MARKER");
+      expect(result.contentForVersion).not.toContain("THINKING_CHAIN_MARKER");
+      expect(filesJson).toContain("REPAIRED_FINAL_HERO");
+      expect(filesJson).not.toContain("ORIGINAL_UNREPAIRED_HERO");
+      expect(filesJson).not.toContain("Säg till om du vill justera");
+      expect(filesJson).not.toContain("SECRET_MARKER");
+      expect(filesJson).not.toContain("THINKING_CHAIN_MARKER");
+      expect(filesJson).not.toContain("OPEN_FENCE_TAIL");
+      expect(filesJson).not.toContain("BARE_STREAM_TAIL");
     });
   });
 
