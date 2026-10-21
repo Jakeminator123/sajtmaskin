@@ -7,7 +7,12 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   schedule:
     - cron: "17 3 * * 2"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      cold_cache:
+        description: Measure the full matrix with an empty npm cache (no shared caches deleted)
+        type: boolean
+        default: false
 
 # Only a newer PR head replaces an older run. Unique trusted groups also keep
 # pending integration, weekly and manual receipts from replacing each other.
@@ -73,7 +78,15 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
-          cache: npm
+          cache: ${{ !(github.event_name == 'workflow_dispatch' && inputs.cold_cache) && 'npm' || '' }}
+          package-manager-cache: false
+
+      - name: Use an empty npm cache for the manual cold measurement
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.cold_cache }}
+        run: |
+          cache="$RUNNER_TEMP/dossier-cold-npm"
+          test ! -e "$cache" || { echo "::error::Cold cache directory already exists"; exit 1; }
+          echo "NPM_CONFIG_CACHE=$cache" >> "$GITHUB_ENV"
 
       - name: Install repository dependencies once for materialization
         run: npm ci
@@ -114,7 +127,15 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
-          cache: npm
+          cache: ${{ !(github.event_name == 'workflow_dispatch' && inputs.cold_cache) && 'npm' || '' }}
+          package-manager-cache: false
+
+      - name: Use an empty npm cache for the manual cold measurement
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.cold_cache }}
+        run: |
+          cache="$RUNNER_TEMP/dossier-cold-npm"
+          test ! -e "$cache" || { echo "::error::Cold cache directory already exists"; exit 1; }
+          echo "NPM_CONFIG_CACHE=$cache" >> "$GITHUB_ENV"
 
       - name: Install repository dependencies
         run: npm ci
@@ -139,7 +160,15 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
-          cache: npm
+          cache: ${{ !(github.event_name == 'workflow_dispatch' && inputs.cold_cache) && 'npm' || '' }}
+          package-manager-cache: false
+
+      - name: Use an empty npm cache for the manual cold measurement
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.cold_cache }}
+        run: |
+          cache="$RUNNER_TEMP/dossier-cold-npm"
+          test ! -e "$cache" || { echo "::error::Cold cache directory already exists"; exit 1; }
+          echo "NPM_CONFIG_CACHE=$cache" >> "$GITHUB_ENV"
 
       - name: Install repository dependencies
         run: npm ci
@@ -167,7 +196,15 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
-          cache: npm
+          cache: ${{ !(github.event_name == 'workflow_dispatch' && inputs.cold_cache) && 'npm' || '' }}
+          package-manager-cache: false
+
+      - name: Use an empty npm cache for the manual cold measurement
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.cold_cache }}
+        run: |
+          cache="$RUNNER_TEMP/dossier-cold-npm"
+          test ! -e "$cache" || { echo "::error::Cold cache directory already exists"; exit 1; }
+          echo "NPM_CONFIG_CACHE=$cache" >> "$GITHUB_ENV"
 
       - name: Require the prepared artifact receipt
         env:

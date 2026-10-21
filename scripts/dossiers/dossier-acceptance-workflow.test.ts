@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, relative, resolve } from "node:path";
 import ts from "typescript";
 import { parse } from "yaml";
@@ -386,7 +387,7 @@ describe("dossier acceptance workflow contract", () => {
     expect(pullRequestBlock).toContain("ready_for_review");
     expect(pullRequestBlock).not.toContain("converted_to_draft");
     expect(workflow).toContain('    - cron: "17 3 * * 2"');
-    expect(workflow).toContain("  workflow_dispatch: {}");
+    expect(parse(workflow).on.workflow_dispatch.inputs.cold_cache).toMatchObject({ type: "boolean", default: false });
     expect(workflow).toContain(
       "  group: dossier-acceptance-${{ github.event.pull_request.number || github.run_id }}",
     );
@@ -432,6 +433,38 @@ describe("dossier acceptance workflow contract", () => {
     expect(workflow).not.toContain("secrets.");
     expect(workflow).not.toContain("pull_request_target:");
     expect(prepare.find((s: { id?: string }) => s.id === "projects").with["if-no-files-found"]).toBe("error");
+  });
+
+  it("keeps cold-cache measurement manual, with automatic caching disabled in every install job", () => {
+    const jobs = parse(workflow).jobs;
+    for (const id of ["discover", "dependency-registry", "verification-evidence", "keyless-production-build"]) {
+      const steps = jobs[id].steps;
+      const setup = steps.find((s: { uses?: string }) => s.uses?.startsWith("actions/setup-node@"));
+      expect(setup.with.cache).toBe("${{ !(github.event_name == 'workflow_dispatch' && inputs.cold_cache) && 'npm' || '' }}");
+      expect(setup.with["package-manager-cache"]).toBe(false);
+      const cold = steps.find((s: { name?: string }) => s.name?.startsWith("Use an empty npm cache"));
+      expect(cold.if).toBe("${{ github.event_name == 'workflow_dispatch' && inputs.cold_cache }}");
+      expect(steps.indexOf(cold)).toBeLessThan(steps.findIndex((s: { run?: string }) => s.run?.startsWith("npm ")));
+    }
+    expect(decideAcceptanceScope({ eventName: "workflow_dispatch" }).dossiers).toEqual(acceptanceCatalog().map(entry => entry.id));
+  });
+
+  it.skipIf(process.platform === "win32" && !existsSync(bash))("cold measurement uses a fresh directory and refuses existing cache without deleting it", () => {
+    const root = mkdtempSync(resolve(tmpdir(), "dossier-cold-cache-"));
+    try {
+      const envFile = resolve(root, "github-env");
+      const script = parse(workflow).jobs.discover.steps.find((s: { name?: string }) => s.name?.startsWith("Use an empty npm cache")).run;
+      const run = () => spawnSync(bash, ["-e", "-c", script], { encoding: "utf8", timeout: 5_000,
+        env: { ...process.env, RUNNER_TEMP: root.replaceAll("\\", "/"), GITHUB_ENV: envFile.replaceAll("\\", "/") } });
+      expect(run().status).toBe(0);
+      const exported = readFileSync(envFile, "utf8");
+      expect(exported.trim()).toBe(`NPM_CONFIG_CACHE=${root.replaceAll("\\", "/")}/dossier-cold-npm`);
+      const cache = resolve(root, "dossier-cold-npm");
+      mkdirSync(cache);
+      expect(run().status).not.toBe(0);
+      expect(existsSync(cache)).toBe(true);
+      expect(readFileSync(envFile, "utf8")).toBe(exported);
+    } finally { rmSync(root, { recursive: true, force: true }); }
   });
 
   it("runs acceptance on preview pushes but keeps freshness only on schedule/manual", () => {
