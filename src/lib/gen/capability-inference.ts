@@ -24,13 +24,16 @@
  * regex banks across these three files.
  */
 
-import { uWordRegex } from "@/lib/utils/unicode-word-boundary";
+import { uWord, uWordRegex } from "@/lib/utils/unicode-word-boundary";
 import {
+  CLAUSE_BOUNDARY_RE,
   hasNegatedAuthIntent,
   hasNegatedBackendIntent,
   hasNegatedEcommerceIntent,
   hasNegatedPaymentIntent,
+  isTermFullyNegated,
   isVisualOnlyFollowUpPrompt,
+  negatedWindowRanges,
 } from "@/lib/builder/prompt-negation";
 
 export interface InferredCapabilities {
@@ -113,9 +116,40 @@ export const NEEDS_3D_PATTERNS: RegExp[] = [
   /\b(3d|three\.?js|webgl|mesh|orb|sphere|particle|three-fiber|@react-three|drei|3d-?model)\b/i,
   /\b(3d[-\s]?(canvas|scene|scen)|webgl[-\s]?(canvas|scene)|three[-\s]?(canvas|scene))\b/i,
   /\b3d[a-zåäö-]+\b/i,
-  /\b(rotat.*3d|tilt|perspect.*card|floating.*object)\b/i,
+  /\b(rotat.*?3d|tilt|perspect.*?card|floating.*?object)\b/i,
   /\b(gltf|glb|usegltf)\b/i,
 ];
+
+/**
+ * Rules whose matching occurrences must lie wholly outside negation windows.
+ * A separate positive hit still counts — this is
+ * not a prompt-wide veto. Auth is included so a fully negated `konto` (absent
+ * from `hasNegatedAuthIntent`) does not light `needsAuth`; the global auth
+ * veto below is unchanged.
+ */
+const NEGATED_OCCURRENCE_KEYS = new Set<keyof InferredCapabilities>([
+  "needs3D",
+  "needsPhysics",
+  "needsPhysics2D",
+  "needsGame",
+  "needsAppShell",
+  "needsAuth",
+]);
+
+function hasUnnegatedPatternMatch(prompt: string, pattern: RegExp): boolean {
+  const negations = negatedWindowRanges(prompt);
+  if (negations.length === 0) return pattern.test(prompt);
+  const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+  // A zero-width lookahead also visits starts inside a rejected earlier hit.
+  // Non-greedy span patterns keep an earlier positive endpoint reachable.
+  const overlappingMatches = new RegExp(`(?=(${pattern.source}))`, flags);
+  for (const match of prompt.matchAll(overlappingMatches)) {
+    const start = match.index ?? 0;
+    const end = start + match[1]!.length;
+    if (!negations.some((window) => start < window.end && end > window.start)) return true;
+  }
+  return false;
+}
 
 /**
  * True when the prompt literally asks for 3D / WebGL (a bare `canvas` or
@@ -125,10 +159,10 @@ export const NEEDS_3D_PATTERNS: RegExp[] = [
  * an LLM-suggested `visual-3d` dossier capability when the prompt only implies
  * a cinematic/immersive/dramatic mood (which belongs to `motionLevel`/
  * `qualityBar`) rather than real 3D. Mirrors how `carousel` is gated by
- * `explicitlyRequestsCarousel`.
+ * `explicitlyRequestsCarousel`. Negated stack tokens do not count.
  */
 export function explicitlyRequests3D(prompt: string): boolean {
-  return NEEDS_3D_PATTERNS.some((pattern) => pattern.test(prompt));
+  return NEEDS_3D_PATTERNS.some((pattern) => hasUnnegatedPatternMatch(prompt, pattern));
 }
 
 /**
@@ -138,6 +172,58 @@ export function explicitlyRequests3D(prompt: string): boolean {
  */
 const NARROW_3D_STACK_PATTERN =
   /(?<![\p{L}\p{N}_])(?:3d|three\.?js|@?react-three(?:\/[\p{L}\p{N}-]+)?|webgl|r3f|rapier|gltf|glb)(?![\p{L}\p{N}_])/iu;
+
+// Excluding Rapier or a GLTF asset format alone does not forbid a 3D scene.
+const GENERIC_3D_EXCLUSION_PATTERN =
+  /(?<![\p{L}\p{N}_])(?:3d|three\.?js|webgl)(?![\p{L}\p{N}_])/iu;
+
+/** Same tokens the game→3D upgrade has always used; negation is applied at the call site. */
+const GAME_TO_3D_UPGRADE_PATTERN =
+  /3d|three|webgl|canvas|physics|fysik|studs|gravity|collision|rapier/i;
+
+/**
+ * Physics verbs that, together with an explicit `2D` token in the same clause,
+ * count as 2D physics. Bare `2D` does not. Mirrors the shared physics verbs
+ * plus the 2D card verbs (`ramlar`, `bounce`, …). Engine names stay on the
+ * narrower Matter.js / rapier rules.
+ */
+const CLAUSE_PHYSICS_VERBS =
+  "studsande|studsar|studsa|kolliderar|kollisioner?|fysiksimulering|fysik|gravitation|gravity|falling|faller|ramlar|trillar|staplas|bouncing|bounces?|colliding|collisions?|physics";
+
+/** Reuse sentence, adversative and comma-imperative boundaries from the canonical owner. */
+const SAME_CLAUSE_GAP = `(?:(?!${CLAUSE_BOUNDARY_RE.source})[\\s\\S]){0,100}?`;
+const EXPLICIT_2D_TOKEN = uWord("2d");
+const CLAUSE_VERB_TOKEN = uWord(CLAUSE_PHYSICS_VERBS);
+
+const EXPLICIT_2D_THEN_PHYSICS_VERB = new RegExp(
+  `${EXPLICIT_2D_TOKEN}${SAME_CLAUSE_GAP}${CLAUSE_VERB_TOKEN}`,
+  "iu",
+);
+const PHYSICS_VERB_AFTER_EXPLICIT_2D = new RegExp(
+  `(?<=${EXPLICIT_2D_TOKEN}${SAME_CLAUSE_GAP})${CLAUSE_VERB_TOKEN}`,
+  "iu",
+);
+const PHYSICS_VERB_THEN_EXPLICIT_2D = new RegExp(
+  `${CLAUSE_VERB_TOKEN}${SAME_CLAUSE_GAP}${EXPLICIT_2D_TOKEN}`,
+  "iu",
+);
+const EXPLICIT_2D_AFTER_PHYSICS_VERB = new RegExp(
+  `(?<=${CLAUSE_VERB_TOKEN}${SAME_CLAUSE_GAP})${EXPLICIT_2D_TOKEN}`,
+  "iu",
+);
+
+function hasExplicit2DPhysicsClause(prompt: string): boolean {
+  if (
+    hasUnnegatedPatternMatch(prompt, EXPLICIT_2D_THEN_PHYSICS_VERB) &&
+    hasUnnegatedPatternMatch(prompt, PHYSICS_VERB_AFTER_EXPLICIT_2D)
+  ) {
+    return true;
+  }
+  return (
+    hasUnnegatedPatternMatch(prompt, PHYSICS_VERB_THEN_EXPLICIT_2D) &&
+    hasUnnegatedPatternMatch(prompt, EXPLICIT_2D_AFTER_PHYSICS_VERB)
+  );
+}
 
 const RULES: CapabilityRule[] = [
   {
@@ -168,7 +254,9 @@ const RULES: CapabilityRule[] = [
   {
     // Explicit 2D / DOM physics — Matter.js on real page elements. The bare
     // physics verbs stay in `needsPhysics`; this rule needs a 2D/DOM/Matter
-    // marker or a physics word tied to page objects. See `physics-2d` in
+    // marker or a physics word tied to page objects. A bare `2D` token is
+    // not enough — `hasExplicit2DPhysicsClause` adds explicit 2D plus a
+    // physics verb in the same clause. See `physics-2d` in
     // `follow-up-capability-vocabulary.ts` (kept in sync by hand, different
     // consumer thresholds — see that file's header).
     key: "needsPhysics2D",
@@ -344,13 +432,19 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
   };
 
   for (const rule of RULES) {
+    const ignoreFullyNegated = NEGATED_OCCURRENCE_KEYS.has(rule.key);
     for (const pattern of rule.patterns) {
-      if (pattern.test(prompt)) {
+      const matched = ignoreFullyNegated
+        ? hasUnnegatedPatternMatch(prompt, pattern)
+        : pattern.test(prompt);
+      if (matched) {
         result[rule.key] = true;
         break;
       }
     }
   }
+
+  if (hasExplicit2DPhysicsClause(prompt)) result.needsPhysics2D = true;
 
   const visualOnlyFollowUp = isVisualOnlyFollowUpPrompt(prompt);
   if (visualOnlyFollowUp || hasNegatedAuthIntent(prompt)) result.needsAuth = false;
@@ -365,10 +459,17 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
   }
 
   // An explicit 2D/DOM physics ask owns the physics verbs unless the prompt
-  // also names the 3D stack. Otherwise "produktbilder som faller och staplas
-  // med Matter.js" would light `needsPhysics` → `needs3D` and the hint would
-  // demand a WebGL canvas for a DOM effect.
-  const explicit3DStack = NARROW_3D_STACK_PATTERN.test(prompt);
+  // also names the 3D stack outside a negation window. Otherwise
+  // "produktbilder som faller och staplas med Matter.js" — or a 2D clause
+  // that only mentions Three.js/WebGL to forbid them — would light
+  // `needsPhysics` → `needs3D` and demand a WebGL canvas.
+  const explicit3DStack = hasUnnegatedPatternMatch(prompt, NARROW_3D_STACK_PATTERN);
+  const excludes3DStack =
+    !explicit3DStack && isTermFullyNegated(prompt, GENERIC_3D_EXCLUSION_PATTERN);
+  // An explicit 3D exclusion also constrains inferred upgrades from physics.
+  // Keep the requested bouncing/falling behavior in the 2D/DOM path.
+  if (excludes3DStack && result.needsPhysics) result.needsPhysics2D = true;
+  if (excludes3DStack) result.needs3D = false;
   if (result.needsPhysics2D && !explicit3DStack) {
     result.needsPhysics = false;
     result.needs3D = false;
@@ -378,7 +479,8 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
     result.needsMotion = true;
     if (
       (!result.needsPhysics2D || explicit3DStack) &&
-      /3d|three|webgl|canvas|physics|fysik|studs|gravity|collision|rapier/i.test(prompt)
+      !excludes3DStack &&
+      hasUnnegatedPatternMatch(prompt, GAME_TO_3D_UPGRADE_PATTERN)
     ) {
       result.needs3D = true;
     }
@@ -605,3 +707,4 @@ export function buildCapabilityHints(
   if (lines.length === 0) return null;
   return `## Detected Capabilities\n\n${lines.join("\n")}`;
 }
+
