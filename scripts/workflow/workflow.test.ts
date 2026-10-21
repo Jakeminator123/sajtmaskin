@@ -1307,11 +1307,23 @@ describe("agent workflow repository contract", () => {
     expect(
       evaluateDossierAcceptanceWorkflow(
         source.replace(
-          "    types: [opened, synchronize, reopened, ready_for_review]\n",
+          "    types: [opened, synchronize, reopened, ready_for_review, edited]\n",
           '    paths: ["data/dossiers/**"]\n',
         ),
       ).length,
     ).toBeGreaterThan(0);
+  });
+
+  it.each([
+    [", edited]", "]"],
+    ["SAJTMASKIN_PR_BASE_REF:", "UNUSED_BASE_REF:"],
+    ["ACCEPTANCE_REQUIRE_FULL:", "UNUSED_FULL_REQUIREMENT:"],
+    ["BASE_REF: ${{ github.event.pull_request.base.ref }}", "BASE_REF: preview"],
+    ["MATRIX_MODE: ${{ needs.scope.outputs.matrix_mode }}", "MATRIX_MODE: full"],
+  ])("rejects a promotion gate with weakened wiring %s", (from, to) => {
+    const source = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
+    expect(source).toContain(from);
+    expect(evaluateDossierAcceptanceWorkflow(source.replaceAll(from, to)).length).toBeGreaterThan(0);
   });
 
   it("keeps an independent security floor below the editable policy", () => {

@@ -44,6 +44,7 @@ export function selectAffectedDossiers(paths, catalog) {
  * @param {{
  *   eventName?: string,
  *   ref?: string,
+ *   baseRef?: string,
  *   baselineVerified?: boolean,
  *   baseSha?: string,
  *   headSha?: string,
@@ -54,6 +55,7 @@ export function selectAffectedDossiers(paths, catalog) {
 export function decideAcceptanceScope({
   eventName,
   ref = "",
+  baseRef = "",
   baselineVerified = false,
   baseSha,
   headSha,
@@ -64,6 +66,11 @@ export function decideAcceptanceScope({
   // A corrupt catalog is a failed classifier, never a green empty matrix.
   const catalog = acceptanceCatalog(cwd);
   const full = { dossiers: catalog.map(entry => entry.id), matrixMode: "full" };
+  // Incremental PR coverage is a Preview-only optimization. Production and an
+  // absent/unknown target must build the complete current catalog before merge.
+  if (event === "pull_request" && baseRef !== "preview") {
+    return { ...full, runMatrix: true, reason: "non-preview-pr-full", files: [], matched: [], classificationError: null };
+  }
   if (event !== "pull_request" && !(event === "push" && ref === "refs/heads/preview" && baselineVerified)) {
     return {
       ...full,
@@ -122,6 +129,7 @@ async function main() {
     baselineVerified,
     eventName: process.env.GITHUB_EVENT_NAME,
     ref: process.env.GITHUB_REF,
+    baseRef: process.env.SAJTMASKIN_PR_BASE_REF,
     baseSha:
       process.env.GITHUB_EVENT_NAME === "push"
         ? process.env.SAJTMASKIN_PUSH_BASE_SHA

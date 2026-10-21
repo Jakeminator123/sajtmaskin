@@ -41,7 +41,7 @@ describe("affected dossier selection", () => {
     ], catalog).dossiers).toEqual(all);
   });
   it("unknown repository paths cannot produce a green skipped matrix", () => {
-    expect(decideAcceptanceScope({ eventName: "pull_request", baseSha: "a".repeat(40), headSha: "b".repeat(40),
+    expect(decideAcceptanceScope({ eventName: "pull_request", baseRef: "preview", baseSha: "a".repeat(40), headSha: "b".repeat(40),
       gitCommand: () => ({ status: 0, stdout: "M\0new-runtime/owner.js\0" }),
     })).toMatchObject({ runMatrix: true, dossiers: all, matrixMode: "full", reason: "unknown-path" });
   });
@@ -61,6 +61,52 @@ describe("affected dossier selection", () => {
     });
     expect(result.status).not.toBe(0);
     expect(result.stdout).toBe("");
+  });
+});
+
+describe("promotion requires every dossier", () => {
+  const catalog = acceptanceCatalog();
+  const all = catalog.map(entry => entry.id);
+  it.each(["master", "", "release", undefined])("requires the whole catalog for PR base %s without trusting a narrow diff", baseRef => {
+    for (const diff of ["M\0README.md\0", "M\0data/dossiers/hard/vercel-analytics/components/analytics-providers.tsx\0", ""]) {
+      expect(decideAcceptanceScope({ eventName: "pull_request", baseRef,
+        baseSha: "a".repeat(40), headSha: "b".repeat(40),
+        gitCommand: () => ({ status: 0, stdout: diff }),
+      })).toMatchObject({ runMatrix: true, matrixMode: "full", dossiers: all, reason: "non-preview-pr-full" });
+    }
+  });
+  it("keeps a one-dossier Preview PR incremental", () => {
+    expect(decideAcceptanceScope({ eventName: "pull_request", baseRef: "preview",
+      baseSha: "a".repeat(40), headSha: "b".repeat(40),
+      gitCommand: () => ({ status: 0, stdout: "M\0data/dossiers/hard/vercel-analytics/components/analytics-providers.tsx\0" }),
+    })).toMatchObject({ runMatrix: true, matrixMode: "affected", dossiers: ["vercel-analytics"] });
+  });
+  it("independently refuses partial discovery, including when a future dossier is added", () => {
+    expect(() => validateAcceptanceSelection(JSON.stringify(all.slice(1)), catalog, { requireFull: true })).toThrow("Full acceptance catalog required");
+    expect(validateAcceptanceSelection(JSON.stringify([...all].reverse()), catalog, { requireFull: true })).toEqual([...all].reverse());
+    expect(() => validateAcceptanceSelection(JSON.stringify(all), [...catalog, { id: "future-dossier", class: "hard" }], { requireFull: true })).toThrow();
+  });
+  it("fails the actual discovery command for a forged partial promotion selection", () => {
+    const result = spawnSync(process.execPath, ["scripts/dossiers/list-acceptance-matrix.mjs"], {
+      env: { ...process.env, GITHUB_ACTIONS: "true", ACCEPTANCE_REQUIRE_FULL: "true", ACCEPTANCE_DOSSIERS: JSON.stringify([all[0]]) }, encoding: "utf8",
+    });
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("Full acceptance catalog required");
+  });
+  it("wires the actual promotion event into full scope output", () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "dossier-promote-scope-"));
+    const output = resolve(dir, "output");
+    try {
+      const result = spawnSync(process.execPath, ["scripts/dossiers/acceptance-scope.mjs"], {
+        env: { ...process.env, GITHUB_EVENT_NAME: "pull_request", SAJTMASKIN_PR_BASE_REF: "master", GITHUB_OUTPUT: output }, encoding: "utf8",
+      });
+      expect(result.status, result.stderr).toBe(0);
+      const lines = readFileSync(output, "utf8").split("\n");
+      expect(lines).toContain("run_matrix=true");
+      expect(lines).toContain("matrix_mode=full");
+      expect(JSON.parse(lines.find(line => line.startsWith("dossiers="))!.slice(9))).toEqual(all);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });
 
@@ -188,7 +234,7 @@ describe("dossier acceptance scope", () => {
 
   it("skips the matrix for an out-of-contract PR diff", () => {
     const result = decideAcceptanceScope({
-      eventName: "pull_request",
+      eventName: "pull_request", baseRef: "preview",
       baseSha: "a".repeat(40),
       headSha: "b".repeat(40),
       gitCommand: () => ({
@@ -208,7 +254,7 @@ describe("dossier acceptance scope", () => {
 
   it("runs the matrix when a UI or Node pin that lands in generated projects changes", () => {
     const result = decideAcceptanceScope({
-      eventName: "pull_request",
+      eventName: "pull_request", baseRef: "preview",
       baseSha: "a".repeat(40),
       headSha: "b".repeat(40),
       gitCommand: () => ({
@@ -227,7 +273,7 @@ describe("dossier acceptance scope", () => {
 
   it("fails closed to the matrix when the PR diff cannot be classified", () => {
     const result = decideAcceptanceScope({
-      eventName: "pull_request",
+      eventName: "pull_request", baseRef: "preview",
       baseSha: "a".repeat(40),
       headSha: "b".repeat(40),
       gitCommand: () => ({
@@ -315,6 +361,8 @@ describe.skipIf(process.platform === "win32" && !existsSync(bash))(
     const aggregate = parse(workflow).jobs["dossier-acceptance"].steps[0].run;
     const success = {
       EVENT_NAME: "push",
+      BASE_REF: "preview",
+      MATRIX_MODE: "full",
       SCOPE_RESULT: "success",
       RUN_MATRIX: "true",
       DISCOVER_RESULT: "success",
@@ -345,6 +393,16 @@ describe.skipIf(process.platform === "win32" && !existsSync(bash))(
         expect(run({ EVENT_NAME, ...skipped })).toBe(0);
       },
     );
+    it.each(["master", "", "release"])("blocks skipped/partial or failed promotion matrices for base %s", BASE_REF => {
+      expect(run({ EVENT_NAME: "pull_request", BASE_REF })).toBe(0);
+      expect(run({ EVENT_NAME: "pull_request", BASE_REF, ...skipped })).toBe(1);
+      for (const MATRIX_MODE of ["affected", "none", "", "unknown"]) {
+        expect(run({ EVENT_NAME: "pull_request", BASE_REF, MATRIX_MODE })).toBe(1);
+      }
+      for (const BUILD_RESULT of ["failure", "cancelled", "skipped"]) {
+        expect(run({ EVENT_NAME: "pull_request", BASE_REF, BUILD_RESULT })).toBe(1);
+      }
+    });
     it.each(["schedule", "workflow_dispatch"])(
       "never permits a skipped matrix on %s",
       (EVENT_NAME) => {
@@ -385,6 +443,7 @@ describe("dossier acceptance workflow contract", () => {
     const pullRequestBlock = workflow.slice(start, end);
     expect(pullRequestBlock).not.toContain("    paths:");
     expect(pullRequestBlock).toContain("ready_for_review");
+    expect(parse(workflow).on.pull_request.types).toContain("edited");
     expect(pullRequestBlock).not.toContain("converted_to_draft");
     expect(workflow).toContain('    - cron: "17 3 * * 2"');
     expect(parse(workflow).on.workflow_dispatch.inputs.cold_cache).toMatchObject({ type: "boolean", default: false });

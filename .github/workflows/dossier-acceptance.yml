@@ -4,7 +4,8 @@ on:
   push:
     branches: [preview]
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    # edited also covers retargeting an existing PR from preview to master.
+    types: [opened, synchronize, reopened, ready_for_review, edited]
   schedule:
     - cron: "17 3 * * 2"
   workflow_dispatch:
@@ -47,6 +48,7 @@ jobs:
       - name: Classify dossier-acceptance scope
         id: classify
         env:
+          SAJTMASKIN_PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           SAJTMASKIN_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           SAJTMASKIN_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           SAJTMASKIN_PUSH_BASE_SHA: ${{ github.event.before }}
@@ -70,6 +72,7 @@ jobs:
         id: matrix
         env:
           ACCEPTANCE_DOSSIERS: ${{ needs.scope.outputs.dossiers }}
+          ACCEPTANCE_REQUIRE_FULL: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref != 'preview' }}
         run: |
           dossiers=$(node scripts/dossiers/list-acceptance-matrix.mjs)
           echo "dossiers=$dossiers" >> "$GITHUB_OUTPUT"
@@ -257,6 +260,8 @@ jobs:
       - name: Aggregate required dossier-acceptance result
         env:
           EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          MATRIX_MODE: ${{ needs.scope.outputs.matrix_mode }}
           SCOPE_RESULT: ${{ needs.scope.result }}
           RUN_MATRIX: ${{ needs.scope.outputs.run_matrix }}
           DISCOVER_RESULT: ${{ needs.discover.result }}
@@ -266,7 +271,12 @@ jobs:
         run: |
           set -euo pipefail
           EXPECT_MATRIX=true
-          if { [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "push" ]; } && [ "$SCOPE_RESULT" = "success" ] && [ "$RUN_MATRIX" = "false" ]; then
+          if [ "$EVENT_NAME" = "pull_request" ] && [ "$BASE_REF" != "preview" ]; then
+            if [ "$RUN_MATRIX" != "true" ] || [ "$MATRIX_MODE" != "full" ]; then
+              echo "::error::non-preview PR requires the full dossier matrix"
+              exit 1
+            fi
+          elif { [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "push" ]; } && [ "$SCOPE_RESULT" = "success" ] && [ "$RUN_MATRIX" = "false" ]; then
             EXPECT_MATRIX=false
           fi
           if [ "$SCOPE_RESULT" != "success" ]; then

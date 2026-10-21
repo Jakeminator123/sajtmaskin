@@ -627,13 +627,14 @@ export function evaluateDossierAcceptanceWorkflow(source) {
     "synchronize",
     "reopened",
     "ready_for_review",
+    "edited",
   ];
   if (
     pullRequest &&
     typeof pullRequest === "object" &&
     !includesEvery(pullRequest.types, requiredTypes)
   ) {
-    errors.push("dossier-acceptance must run on new heads and ready_for_review");
+    errors.push("dossier-acceptance must run on new heads, ready_for_review and base edits");
   }
   if (values(pullRequest?.types).includes("converted_to_draft")) {
     errors.push("dossier-acceptance must not restart unchanged work on converted_to_draft");
@@ -664,6 +665,13 @@ export function evaluateDossierAcceptanceWorkflow(source) {
     }
   }
 
+  const scopeBase = scope?.steps?.find(step => step.run === "node scripts/dossiers/acceptance-scope.mjs");
+  const matrixEnv = document?.jobs?.discover?.steps?.find(step => step.id === "matrix")?.env;
+  if (!hasExactExpression(scopeBase?.env?.SAJTMASKIN_PR_BASE_REF, "${{ github.event.pull_request.base.ref }}") ||
+      !hasExactExpression(matrixEnv?.ACCEPTANCE_REQUIRE_FULL, "${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref != 'preview' }}")) {
+    errors.push("dossier promotion must independently require the full catalog using the PR base");
+  }
+
   const keyless = document?.jobs?.["keyless-production-build"];
   if (
     !includesEvery(keyless?.needs, ["scope", "discover"]) ||
@@ -682,6 +690,11 @@ export function evaluateDossierAcceptanceWorkflow(source) {
   }
 
   const aggregate = document?.jobs?.["dossier-acceptance"];
+  const aggregateStep = aggregate?.steps?.find(step => step.name === "Aggregate required dossier-acceptance result");
+  if (!hasExactExpression(aggregateStep?.env?.BASE_REF, "${{ github.event.pull_request.base.ref }}") ||
+      !hasExactExpression(aggregateStep?.env?.MATRIX_MODE, "${{ needs.scope.outputs.matrix_mode }}")) {
+    errors.push("dossier aggregate must enforce the promotion base and matrix mode");
+  }
   const aggregateNeeds = [
     "scope",
     "discover",
