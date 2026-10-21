@@ -56,6 +56,11 @@ async function main() {
   } catch {
     return deny("Skalgrinden kunde inte tolka hook-indata; kommandot nekas (fail-closed).");
   }
+  // Cursor importerar .claude/settings.json-hookar (Third-Party Imports, på som
+  // standard) och kör dem utöver .cursor/hooks.json, som redan kör samma
+  // grindar. Cursor-indata känns igen på fält som Claude aldrig skickar; miljön
+  // duger inte eftersom Claude Code i Cursor ärver CURSOR_*-variabler.
+  if (input?.cursor_version || input?.conversation_id) return;
   const command = input?.tool_input?.command;
   if (typeof command !== "string") {
     return deny("Skalgrinden fick inget kommando att bedöma; kommandot nekas (fail-closed).");

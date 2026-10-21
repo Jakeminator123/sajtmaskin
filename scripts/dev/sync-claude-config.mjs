@@ -79,10 +79,15 @@ export const CLAUDE_ASK_RULES = Object.freeze([
 
 export const CLAUDE_ENV = Object.freeze({ CLAUDE_CODE_USE_POWERSHELL_TOOL: "1" });
 
+/**
+ * Skalform, inte exec-form (`args`): Cursor importerar de här hookarna och
+ * dokumenterar bara en kommandosträng. Claude kör strängen i Git Bash där
+ * `${CLAUDE_PROJECT_DIR}` expanderas. Kan Cursor inte köra den blir det en
+ * misslyckad hook, som Cursor släpper igenom (fail-open) — aldrig en blockering.
+ */
 const hookCommand = (script, timeout) => ({
   type: "command",
-  command: "node",
-  args: [`\${CLAUDE_PROJECT_DIR}/.claude/hooks/${script}`],
+  command: `node "\${CLAUDE_PROJECT_DIR}/.claude/hooks/${script}"`,
   timeout,
 });
 

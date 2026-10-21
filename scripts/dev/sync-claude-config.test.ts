@@ -152,6 +152,37 @@ describe("Claude-hookarna", () => {
     },
   );
 
+  it("gör ingenting när Cursor kör de importerade hookarna (Cursor har egna grindar)", () => {
+    const cursorShell = JSON.stringify({
+      conversation_id: "c1",
+      cursor_version: "3.26.16",
+      hook_event_name: "preToolUse",
+      tool_name: "Shell",
+      tool_input: { command: "git push --force origin preview", working_directory: repoRoot },
+    });
+    const result = runHook("shell-guard.mjs", cursorShell);
+    expect(result.status).toBe(0);
+    expect(result.stdout + result.stderr).toBe("");
+    const cursorRead = JSON.stringify({
+      conversation_id: "c1",
+      tool_name: "Read",
+      tool_input: { file_path: join(repoRoot, ".cursor", "mcp.json") },
+    });
+    expect(runHook("read-guard.mjs", cursorRead).status).toBe(0);
+  });
+
+  it("hookkommandot är en skalsträng som även Cursor kan köra", () => {
+    const settings = JSON.parse(readFileSync(join(repoRoot, ".claude/settings.json"), "utf8"));
+    for (const entry of settings.hooks.PreToolUse) {
+      for (const hook of entry.hooks) {
+        expect(hook.args).toBeUndefined();
+        expect(hook.command).toMatch(
+          /^node "\$\{CLAUDE_PROJECT_DIR\}\/\.claude\/hooks\/[\w-]+\.mjs"$/u,
+        );
+      }
+    }
+  });
+
   it("read-guard nekar .cursor/mcp.json med secret-format och släpper annat", () => {
     const root = mkdtempSync(join(tmpdir(), "sajtmaskin-claude-read-"));
     fixtures.push(root);

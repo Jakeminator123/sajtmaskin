@@ -30,6 +30,9 @@ async function main() {
   } catch {
     return; // Ingen tolkbar sökväg: inget att skydda (som Cursor-grinden, failClosed: false).
   }
+  // Cursor kör sin egen mcp-secret-read-guard via .cursor/hooks.json; en
+  // importerad kopia av den här hooken ska inte göra något där.
+  if (input?.cursor_version || input?.conversation_id) return;
   const filePath = input?.tool_input?.file_path;
   if (typeof filePath !== "string" || !GUARDED_PATH_RE.test(filePath.trim())) return;
 
