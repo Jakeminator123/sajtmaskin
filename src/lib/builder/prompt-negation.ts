@@ -88,10 +88,19 @@ const NEGATION_WINDOW_MAX_CHARS = 140;
 const NEGATED_MODIFIER_GROUPS: RegExp[][] = [
   REDESIGN_TERMS, AUTH_TERMS, PAYMENT_TERMS, ECOMMERCE_TERMS,
   BACKEND_TERMS, INTEGRATION_TERMS,
-  [/(?<![\p{L}\p{N}_])(?:3d|2d|three\.?js|webgl|canvas|mesh|physics|fysik|matter\.?js|rapier|effekt[\p{L}]*|effects?|animation[\p{L}]*)(?![\p{L}\p{N}_])/iu],
+  [/(?<![\p{L}\p{N}_])(?:3d|three\.?js|webgl|mesh|rapier|gltf|glb)(?![\p{L}\p{N}_])/iu],
+  [/(?<![\p{L}\p{N}_])(?:2d|matter\.?js)(?![\p{L}\p{N}_])/iu],
+  [/(?<![\p{L}\p{N}_])(?:physics|fysik|gravitation|gravity|collision|kollision)(?![\p{L}\p{N}_])/iu],
 ];
-const NEGATED_CONTAINER_RE = /(?<![\p{L}\p{N}_])(?:[\p{L}]*spel[\p{L}]*|games?|gaming|app[\p{L}-]*|dashboard)(?![\p{L}\p{N}_])/iu;
+const NEGATED_GAME_RE = /(?<![\p{L}\p{N}_])(?:spel(?:et|en|motor(?:er)?)?|(?:arkad|plattform|platformer|fysik)spel|games?|gaming)(?![\p{L}\p{N}_])/iu;
 const POSITIVE_WITH_RE = /\s(?:med|with)(?![\p{L}\p{N}_])\s+/giu;
+const COORDINATED_FEATURE_RE = /\s(?:och|and)\s+(?:en|ett|a|an)\s+/giu;
+
+function isRelatedModifier(head: string, tail: string): boolean {
+  return NEGATED_MODIFIER_GROUPS.some((terms) =>
+    terms.some((term) => term.test(head)) && terms.some((term) => term.test(tail)),
+  );
+}
 
 function negationWindowEnd(text: string, start: number): number {
   const cap = Math.min(text.length, start + NEGATION_WINDOW_MAX_CHARS);
@@ -101,11 +110,16 @@ function negationWindowEnd(text: string, start: number): number {
   for (const match of window.matchAll(POSITIVE_WITH_RE)) {
     const head = window.slice(0, match.index);
     const tail = window.slice(match.index + match[0].length);
-    const relatedModifier = NEGATED_MODIFIER_GROUPS.some((terms) =>
-      terms.some((term) => term.test(head)) && terms.some((term) => term.test(tail)),
-    );
-    if (!NEGATED_CONTAINER_RE.test(head) && !relatedModifier) {
+    if (NEGATED_GAME_RE.test(head)) continue;
+    if (!isRelatedModifier(head, tail)) {
       return start + match.index;
+    }
+    // A provider modifier does not swallow a subsequent independent feature:
+    // "utan inloggning med Clerk och en 3D-produkt" still asks for the product.
+    for (const coordinate of tail.matchAll(COORDINATED_FEATURE_RE)) {
+      if (!isRelatedModifier(head, tail.slice(coordinate.index + coordinate[0].length))) {
+        return start + match.index + match[0].length + coordinate.index;
+      }
     }
   }
   return end;

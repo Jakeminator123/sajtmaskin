@@ -10,6 +10,8 @@ describe("prompt-negation clause period", () => {
     ["Without login with Clerk.", /Clerk/iu],
     ["Utan databas med Postgres.", /Postgres/iu],
     ["Utan platformerspel med 3D-fysik.", /3D/iu],
+    ["Without login with Clerk and a password.", /password/iu],
+    ["No games with 3D and a physics engine.", /physics/iu],
   ] as const)("keeps related modifiers negated: %s", (prompt, term) => {
     assert.equal(isTermFullyNegated(prompt, term), true);
   });

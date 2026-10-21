@@ -13,6 +13,12 @@ describe("inferCapabilities", () => {
     "Build a page without clutter with a 3D scene.",
     "Bygg en sida utan inloggning med en roterbar 3D-produkt.",
     "Build a page without payments with a 3D scene.",
+    "Bygg utan inloggning med Clerk och en 3D-produkt.",
+    "Build without login with Clerk and a 3D product.",
+    "Bygg utan inspelning med en 3D-produkt.",
+    "Build without apple-pay with a 3D product.",
+    "Build without an appendix with a 3D product.",
+    "Ingen dashboard med en 3D-produkt.",
   ])("preserves an affirmative feature after an unrelated exclusion: %s", (prompt) => {
     expect(inferCapabilities(prompt).needs3D).toBe(true);
     expect(explicitlyRequests3D(prompt)).toBe(true);
@@ -27,6 +33,20 @@ describe("inferCapabilities", () => {
     expect(caps.needs3D).toBe(false);
     expect(caps.needsGame).toBe(false);
     expect(caps.needsPhysics).toBe(false);
+  });
+
+  it.each([
+    "Bygg utan 3D med Matter.js.",
+    "Ingen 3D med studsande 2D-objekt.",
+    "No WebGL with Matter.js 2D physics.",
+    "Bygg utan 3D med studsande kort.",
+  ])("respects a 3D exclusion while keeping requested 2D physics: %s", (prompt) => {
+    expect(inferCapabilities(prompt)).toMatchObject({
+      needs3D: false,
+      needsPhysics: false,
+      needsPhysics2D: true,
+    });
+    expect(explicitlyRequests3D(prompt)).toBe(false);
   });
 
   it("detects app-like cinematic 3D website prompts in Swedish", () => {

@@ -31,6 +31,7 @@ import {
   hasNegatedBackendIntent,
   hasNegatedEcommerceIntent,
   hasNegatedPaymentIntent,
+  isTermFullyNegated,
   isVisualOnlyFollowUpPrompt,
   negatedWindowRanges,
 } from "@/lib/builder/prompt-negation";
@@ -459,6 +460,11 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
   // that only mentions Three.js/WebGL to forbid them — would light
   // `needsPhysics` → `needs3D` and demand a WebGL canvas.
   const explicit3DStack = hasUnnegatedPatternMatch(prompt, NARROW_3D_STACK_PATTERN);
+  const excludes3DStack = isTermFullyNegated(prompt, NARROW_3D_STACK_PATTERN);
+  // An explicit 3D exclusion also constrains inferred upgrades from physics.
+  // Keep the requested bouncing/falling behavior in the 2D/DOM path.
+  if (excludes3DStack && result.needsPhysics) result.needsPhysics2D = true;
+  if (excludes3DStack) result.needs3D = false;
   if (result.needsPhysics2D && !explicit3DStack) {
     result.needsPhysics = false;
     result.needs3D = false;
@@ -468,6 +474,7 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
     result.needsMotion = true;
     if (
       (!result.needsPhysics2D || explicit3DStack) &&
+      !excludes3DStack &&
       hasUnnegatedPatternMatch(prompt, GAME_TO_3D_UPGRADE_PATTERN)
     ) {
       result.needs3D = true;
@@ -695,3 +702,4 @@ export function buildCapabilityHints(
   if (lines.length === 0) return null;
   return `## Detected Capabilities\n\n${lines.join("\n")}`;
 }
+
