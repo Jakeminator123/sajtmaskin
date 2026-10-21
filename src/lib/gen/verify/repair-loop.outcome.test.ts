@@ -100,7 +100,10 @@ describe("runRepairLoop — non-promoted outcome is never silent (M#sr0)", () =>
     await vi.advanceTimersByTimeAsync(600_001);
     expect(await pending).toMatchObject({ promoted: false, earlyStopReason: "time_budget_exceeded", llmPasses: delayedSlot === "primary" ? 0 : 1 });
     expect(runLlmFixer).toHaveBeenCalledTimes(delayedSlot === "primary" ? 0 : 1);
-    expect(recordServerRepairBudgetOutcome).toHaveBeenCalledTimes(delayedSlot === "primary" ? 0 : 1);
+    expect(recordServerRepairBudgetOutcome).toHaveBeenCalledTimes(delayedSlot === "primary" ? 1 : 2);
+    expect(recordServerRepairBudgetOutcome).toHaveBeenLastCalledWith(target, expect.objectContaining({
+      passIndex: 0, slot: delayedSlot, outcome: "aborted",
+    }), "aborted");
     expect(reservations.at(-1)).toMatchObject({ passIndex: 0, slot: delayedSlot });
     expect(ledger.exportInvocations("c", "s")).toHaveLength(delayedSlot === "primary" ? 0 : 1);
     expect(promote.mock.calls.map(([candidate]) => candidate)).toEqual([validPage]); // Original deterministic candidate only; no post-STOP merge/promotion.
