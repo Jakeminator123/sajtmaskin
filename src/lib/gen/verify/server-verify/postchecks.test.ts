@@ -23,7 +23,7 @@ import * as errors from "@/lib/db/services/version-errors";
 import * as f3 from "./f3-readiness";
 import * as lease from "./lease";
 import * as buildRepair from "./build-error-trigger";
-import { runVersionPostchecks } from "./verify-run";
+import { runVersionPostchecks, verifyVersionUnderLease } from "./verify-run";
 import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS, INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS } from "../quality-gate-checks";
 
 describe("ONE generation/cron postchecks core", () => {
@@ -100,6 +100,34 @@ describe("ONE generation/cron postchecks core", () => {
       verification: { kind: "stop", reason: "repair_settled", retryable: false } });
   });
   afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); lease.inflight.clear(); });
+
+  it.each(["null", "error"])("does not claim superseded when the guarded write returns %s", async failure => {
+    vi.mocked(lease.isLatestVersionForChat).mockResolvedValue(false);
+    const write = vi.spyOn(repo, "markVersionSupersededByRepair");
+    if (failure === "error") write.mockRejectedValue(new Error("database unavailable"));
+    else write.mockResolvedValue(null);
+    const outcome = await verifyVersionUnderLease({ chatId: "c", versionId: "v", holderRunId: "holder", snapshot: snapshot() as never });
+    expect(outcome).toEqual({ kind: "stop", reason: "supersede_persist_failed", retryable: true });
+    expect(errors.createEngineVersionErrorLogs).not.toHaveBeenCalled();
+    expect(gate.runQualityGateOnExportable).not.toHaveBeenCalled();
+  });
+
+  it("reports superseded only after the guarded write succeeds", async () => {
+    vi.mocked(lease.isLatestVersionForChat).mockResolvedValue(false);
+    vi.spyOn(repo, "markVersionSupersededByRepair").mockResolvedValue({ ...target.version, verification_state: "superseded" });
+    expect(await verifyVersionUnderLease({ chatId: "c", versionId: "v", holderRunId: "holder", snapshot: snapshot() as never }))
+      .toMatchObject({ kind: "superseded", cause: "newer_version" });
+  });
+
+  it("settles a resume as retryable failure when the supersede write is unconfirmed", async () => {
+    policy.serverVerify = { run: true, reason: "verify" };
+    vi.mocked(lease.isLatestVersionForChat).mockResolvedValue(false);
+    vi.spyOn(repo, "markVersionSupersededByRepair").mockResolvedValue(null);
+    expect(await runVersionPostchecks({ ...input, entry: "resume" }))
+      .toEqual({ kind: "stop", reason: "supersede_persist_failed", retryable: true });
+    expect(budget.settleServerResumeAttempt).toHaveBeenCalledWith(expect.anything(), 1, "retryable_failure");
+    expect(budget.settleServerResumeAttempt).not.toHaveBeenCalledWith(expect.anything(), 1, "superseded");
+  });
 
   it("orders held images → RAW readback revision → preview → AWAIT persist → product, with no initial resume attempt", async () => {
     expect(await runVersionPostchecks(input)).toMatchObject({ kind: "continue", filesRevision: "r2", promoted: false });
@@ -179,6 +207,16 @@ describe("ONE generation/cron postchecks core", () => {
     expect(await pending).toMatchObject({ kind: "stop", reason: "starting", retryable: true });
     expect(telemetry.recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
     expect(product.runHeldVersionProductPostcheck).not.toHaveBeenCalled();
+
+    // A later scheduler tick must continue the original version after boot,
+    // even though the initial request has already stopped waiting.
+    vi.mocked(probes.readProductPostcheckPreviewProbe).mockImplementation(async () => ({
+      running: true, versionId: "v", filesRevision: revision, previewSessionId: "session", lifecycleToken: "token",
+      mutationRevision: 1, readinessState: "ready", httpReady: true, previewUrl: "https://preview.example/c",
+    }));
+    expect(await runVersionPostchecks({ ...input, entry: "resume" })).toMatchObject({ kind: "continue", filesRevision: "r2" });
+    expect(product.runHeldVersionProductPostcheck).toHaveBeenCalledTimes(1);
+    expect(budget.settleServerResumeAttempt).toHaveBeenCalledWith(expect.anything(), 1, "completed");
   });
   it.each(["missing_owner", "missing_billing", "missing_init", "quick_edit", "restore", "not_latest"])("stops before actual work for %s", async kind => {
     if (kind === "missing_owner") vi.mocked(repo.getServerPostcheckTarget).mockResolvedValue(null);

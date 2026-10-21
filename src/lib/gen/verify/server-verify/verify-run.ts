@@ -525,8 +525,12 @@ export async function verifyVersionUnderLease(params: HeldVersionVerificationInp
   try {
     checkVerificationDeadline(params.verifyDeadlineEpochMs);
     if (!(await isLatestVersionForChat(chatId, versionId))) {
+      const superseded = await markVersionSupersededByRepair(versionId, null, runId).catch(() => null);
+      if (!superseded) {
+        outcome = { kind: "stop", reason: "supersede_persist_failed", retryable: true };
+        return;
+      }
       outcome = { kind: "superseded", cause: "newer_version", forceBuildCheck, contextRetryUsed };
-      await markVersionSupersededByRepair(versionId, null, runId).catch(() => null);
       await createEngineVersionErrorLogs([
         {
           chatId,

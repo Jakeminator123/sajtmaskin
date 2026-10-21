@@ -64,6 +64,12 @@ Flaggan skapar inget schema: `vercel.json` saknar ännu en post för routen.
 Före aktivering krävs separat godkänd schemaläggning, konfigurerad autentisering,
 verifierad plattformstid och runtimeprov. Vercels env-ändringar gäller nya
 deployments, inte redan driftsatta versioner. Lokalt skapas inget cron-jobb.
+Vercel Cron anropar produktionsdeploymenten; en cron-post i en Preview-build
+är därför inte ett Preview-prov. Prova först återupptagning av en bestämd
+testversion i Preview/DEV och kontrollera budgetkvitton och slutstatus.
+En tom återkoll anropar ingen AI. Routen har gränser för urval, försök och
+körtid, men inget eget månadstak i pengar; server-/DB-förbrukning och eventuell
+LiveReview/reparation måste räknas separat.
 Se [pipelineöversikten](architecture/llm-pipeline.md) för den gemensamma ägaren.
 
 ### Övriga tillägg
