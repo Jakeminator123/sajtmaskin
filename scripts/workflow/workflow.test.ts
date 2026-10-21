@@ -848,7 +848,8 @@ describe("agent workflow repository contract", () => {
         "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
         "cancel-in-progress: true",
       ),
-      replaceOnce("group: ci-${{ github.ref }}", "group: ci-${{ github.run_id }}"),
+      replaceOnce("group: ci-${{ github.event.pull_request.number || github.run_id }}", "group: ci-${{ github.run_id }}"),
+      replaceOnce("group: ci-${{ github.event.pull_request.number || github.run_id }}", "group: ci-${{ github.ref }}"),
       replaceOnce(
         "run_preview_host: ${{ steps.classify.outputs.run_preview_host }}",
         "run_preview_host: ${{ steps.classify.outputs.safe_docs_only }}",

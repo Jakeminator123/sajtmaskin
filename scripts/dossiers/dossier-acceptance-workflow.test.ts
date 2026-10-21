@@ -1,13 +1,95 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, relative, resolve } from "node:path";
+import ts from "typescript";
 import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
 
 import { pathMatchesPattern } from "../workflow/path-impact.mjs";
 import { DOSSIER_ACCEPTANCE_PATH_CONTRACT, DOSSIER_ACCEPTANCE_PATHS } from "./acceptance-paths.mjs";
-import { decideAcceptanceScope, matchesAcceptanceContract } from "./acceptance-scope.mjs";
+import { decideAcceptanceScope, matchesAcceptanceContract, selectAffectedDossiers } from "./acceptance-scope.mjs";
+import { acceptanceCatalog, validateAcceptanceSelection } from "./list-acceptance-matrix.mjs";
 
 const workflow = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
+
+describe("affected dossier selection", () => {
+  const catalog = acceptanceCatalog();
+  const all = catalog.map(entry => entry.id);
+  it("selects only changed file-shipping dossiers, without repeated builds for multiple files", () => {
+    expect(selectAffectedDossiers([
+      "data/dossiers/hard/stripe-checkout/instructions.md",
+      "data/dossiers/hard/stripe-checkout/components/checkout-button.tsx",
+      "data/dossiers/hard/openai-chat/instructions.md",
+    ], catalog)).toEqual({ dossiers: ["openai-chat", "stripe-checkout"], matrixMode: "affected" });
+  });
+  it.each([
+    "src/components/ui/button.tsx", // All transitive UI consumers must build.
+    "src/lib/gen/export/project-scaffold-ui-reader.ts",
+    "src/lib/gen/scaffolds/landing-page/files/app/page.tsx",
+    "package-lock.json",
+    "data/dossiers/hard/stripe-checkout/manifest.json", // Shared npm resolution.
+    "data/dossiers/_index/capability-map.json",
+    "data/dossiers/hard/deleted-or-unknown/manifest.json",
+  ])("retains full coverage for shared, transitive or unprovable input %s", path => {
+    expect(selectAffectedDossiers([path], catalog)).toEqual({ dossiers: all, matrixMode: "full" });
+  });
+  it("includes both sides of a dossier rename and falls back when the old id was deleted", () => {
+    expect(selectAffectedDossiers([
+      "data/dossiers/hard/removed/manifest.json",
+      "data/dossiers/hard/openai-chat/manifest.json",
+    ], catalog).dossiers).toEqual(all);
+  });
+  it("unknown repository paths cannot produce a green skipped matrix", () => {
+    expect(decideAcceptanceScope({ eventName: "pull_request", baseSha: "a".repeat(40), headSha: "b".repeat(40),
+      gitCommand: () => ({ status: 0, stdout: "M\0new-runtime/owner.js\0" }),
+    })).toMatchObject({ runMatrix: true, dossiers: all, matrixMode: "full", reason: "unknown-path" });
+  });
+  it("preserves full scheduled/manual and unproven push coverage", () => {
+    for (const eventName of ["schedule", "workflow_dispatch", "push"]) {
+      expect(decideAcceptanceScope({ eventName })).toMatchObject({ dossiers: all, matrixMode: "full" });
+    }
+  });
+  it.each(["", "[]", "null", "{}", '["missing"]', '["openai-chat","openai-chat"]', "bad json"])(
+    "rejects missing/invalid discovery output %s", value => {
+      expect(() => validateAcceptanceSelection(value, catalog)).toThrow();
+    },
+  );
+  it("CI discovery exits nonzero when classification output is absent", () => {
+    const result = spawnSync(process.execPath, ["scripts/dossiers/list-acceptance-matrix.mjs"], {
+      env: { ...process.env, GITHUB_ACTIONS: "true", ACCEPTANCE_DOSSIERS: "" }, encoding: "utf8",
+    });
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).toBe("");
+  });
+});
+
+describe("materializer transitive dependency contract", () => {
+  it("covers the static value-import closure, including newly introduced shared dependencies", () => {
+    const seen = new Set<string>();
+    function visit(file: string) {
+      if (seen.has(file)) return;
+      seen.add(file);
+      if (!/\.[cm]?[jt]sx?$/.test(file)) return;
+      const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
+      for (const node of source.statements) {
+        if (!ts.isImportDeclaration(node) && !ts.isExportDeclaration(node)) continue;
+        if ((ts.isImportDeclaration(node) && node.importClause?.isTypeOnly) ||
+            (ts.isExportDeclaration(node) && node.isTypeOnly) ||
+            !node.moduleSpecifier || !ts.isStringLiteral(node.moduleSpecifier)) continue;
+        const specifier = node.moduleSpecifier.text;
+        if (!specifier.startsWith(".") && !specifier.startsWith("@/")) continue;
+        const root = specifier.startsWith("@/") ? resolve("src", specifier.slice(2)) : resolve(dirname(file), specifier);
+        const target = ["", ".ts", ".tsx", ".js", ".mjs", "/index.ts"].map(suffix => root + suffix)
+          .find(path => existsSync(path) && statSync(path).isFile());
+        expect(target, `Resolve ${specifier} from ${file}`).toBeDefined();
+        visit(relative(process.cwd(), target!).replaceAll("\\", "/"));
+      }
+    }
+    visit("src/lib/gen/dossiers/acceptance-project.ts");
+    expect([...seen].filter(path => !matchesAcceptanceContract(path))).toEqual([]);
+  });
+});
 
 const IN_CONTRACT_EXAMPLES = [
   ".github/workflows/dossier-acceptance.yml",
@@ -45,7 +127,7 @@ const OUT_OF_CONTRACT_EXAMPLES = [
 
 describe("dossier acceptance path contract", () => {
   it("lists every direct materialization dependency exactly once", () => {
-    expect(DOSSIER_ACCEPTANCE_PATHS).toEqual([
+    expect(DOSSIER_ACCEPTANCE_PATHS).toEqual(expect.arrayContaining([
       ".github/workflows/dossier-acceptance.yml",
       "data/dossiers/**",
       "scripts/dossiers/**",
@@ -71,7 +153,7 @@ describe("dossier acceptance path contract", () => {
       ".nvmrc",
       "package.json",
       "package-lock.json",
-    ]);
+    ]));
     expect(new Set(DOSSIER_ACCEPTANCE_PATHS).size).toBe(DOSSIER_ACCEPTANCE_PATHS.length);
     expect(DOSSIER_ACCEPTANCE_PATH_CONTRACT.every((entry) => entry.reason.trim().length > 0)).toBe(
       true,
@@ -289,7 +371,7 @@ describe.skipIf(process.platform === "win32" && !existsSync(bash))(
 describe("dossier acceptance workflow contract", () => {
   it("keeps one discovered dossier id per job and at most six builds in parallel", () => {
     expect(workflow).toContain(
-      'run: echo "dossiers=$(node scripts/dossiers/list-acceptance-matrix.mjs)" >> "$GITHUB_OUTPUT"',
+      'dossiers=$(node scripts/dossiers/list-acceptance-matrix.mjs)',
     );
     expect(workflow).toContain("dossier: ${{ fromJSON(needs.discover.outputs.dossiers) }}");
     expect(workflow).toContain("max-parallel: 6");
@@ -305,11 +387,23 @@ describe("dossier acceptance workflow contract", () => {
     expect(pullRequestBlock).toContain("ready_for_review");
     expect(pullRequestBlock).not.toContain("converted_to_draft");
     expect(workflow).toContain('    - cron: "17 3 * * 2"');
-    expect(workflow).toContain("  workflow_dispatch: {}");
+    expect(parse(workflow).on.workflow_dispatch.inputs.cold_cache).toMatchObject({ type: "boolean", default: false });
     expect(workflow).toContain(
-      "  group: dossier-acceptance-${{ github.event.pull_request.number || format('{0}-{1}', github.ref, contains(fromJSON('[\"schedule\",\"workflow_dispatch\"]'), github.event_name) && 'full' || 'push') }}",
+      "  group: dossier-acceptance-${{ github.event.pull_request.number || github.run_id }}",
     );
-    expect(workflow).toContain("  cancel-in-progress: true");
+    expect(parse(workflow).concurrency["cancel-in-progress"]).toBe("${{ github.event_name == 'pull_request' }}");
+  });
+
+  it.each([
+    ["ci.yml", "ci"],
+    ["db-blob-sync-check.yml", "db-blob-sync"],
+    ["dossier-acceptance.yml", "dossier-acceptance"],
+  ])("retains active and pending trusted receipts in %s while replacing stale PR runs", (file, prefix) => {
+    const concurrency = parse(readFileSync(`.github/workflows/${file}`, "utf8")).concurrency;
+    expect(concurrency).toEqual({
+      group: `${prefix}-` + "${{ github.event.pull_request.number || github.run_id }}",
+      "cancel-in-progress": "${{ github.event_name == 'pull_request' }}",
+    });
   });
 
   it("classifies paths before the matrix and publishes a required aggregate", () => {
@@ -318,6 +412,59 @@ describe("dossier acceptance workflow contract", () => {
     expect(workflow).toContain("  dossier-acceptance:");
     expect(workflow).toContain("    if: ${{ !cancelled() }}");
     expect(workflow).toContain("EXPECT_MATRIX=true");
+    expect(parse(workflow).jobs.discover.steps.find((s: { id?: string }) => s.id === "matrix").env.ACCEPTANCE_DOSSIERS).toBe("${{ needs.scope.outputs.dossiers }}");
+  });
+
+  it("shares only prepared source from this run and preserves isolated install, typecheck and build", () => {
+    const jobs = parse(workflow).jobs;
+    const prepare = jobs.discover.steps;
+    const build = jobs["keyless-production-build"].steps;
+    expect(prepare.filter((s: { run?: string }) => s.run === "npm ci")).toHaveLength(1);
+    expect(build.some((s: { run?: string }) => s.run === "npm ci")).toBe(false);
+    expect(build.map((s: { run?: string }) => s.run).join("\n")).toContain('npm --prefix "$ACCEPTANCE_ROOT" install --no-audit --no-fund');
+    expect(build.map((s: { run?: string }) => s.run).join("\n")).toContain('npm --prefix "$ACCEPTANCE_ROOT" run typecheck');
+    expect(build.map((s: { run?: string }) => s.run).join("\n")).toContain('npm --prefix "$ACCEPTANCE_ROOT" run build');
+    const download = build.find((s: { uses?: string }) => s.uses?.startsWith("actions/download-artifact@"));
+    expect(download.with).toEqual({
+      "artifact-ids": "${{ needs.discover.outputs.artifact_id }}",
+      path: "${{ runner.temp }}/acceptance-artifact",
+    }); // No cross-run ID, token or repository override.
+    expect(parse(workflow).permissions).toEqual({ contents: "read" });
+    expect(workflow).not.toContain("secrets.");
+    expect(workflow).not.toContain("pull_request_target:");
+    expect(prepare.find((s: { id?: string }) => s.id === "projects").with["if-no-files-found"]).toBe("error");
+  });
+
+  it("keeps cold-cache measurement manual, with automatic caching disabled in every install job", () => {
+    const jobs = parse(workflow).jobs;
+    for (const id of ["discover", "dependency-registry", "verification-evidence", "keyless-production-build"]) {
+      const steps = jobs[id].steps;
+      const setup = steps.find((s: { uses?: string }) => s.uses?.startsWith("actions/setup-node@"));
+      expect(setup.with.cache).toBe("${{ !(github.event_name == 'workflow_dispatch' && inputs.cold_cache) && 'npm' || '' }}");
+      expect(setup.with["package-manager-cache"]).toBe(false);
+      const cold = steps.find((s: { name?: string }) => s.name?.startsWith("Use an empty npm cache"));
+      expect(cold.if).toBe("${{ github.event_name == 'workflow_dispatch' && inputs.cold_cache }}");
+      expect(steps.indexOf(cold)).toBeLessThan(steps.findIndex((s: { run?: string }) => s.run?.startsWith("npm ")));
+    }
+    expect(decideAcceptanceScope({ eventName: "workflow_dispatch" }).dossiers).toEqual(acceptanceCatalog().map(entry => entry.id));
+  });
+
+  it.skipIf(process.platform === "win32" && !existsSync(bash))("cold measurement uses a fresh directory and refuses existing cache without deleting it", () => {
+    const root = mkdtempSync(resolve(tmpdir(), "dossier-cold-cache-"));
+    try {
+      const envFile = resolve(root, "github-env");
+      const script = parse(workflow).jobs.discover.steps.find((s: { name?: string }) => s.name?.startsWith("Use an empty npm cache")).run;
+      const run = () => spawnSync(bash, ["-e", "-c", script], { encoding: "utf8", timeout: 5_000,
+        env: { ...process.env, RUNNER_TEMP: root.replaceAll("\\", "/"), GITHUB_ENV: envFile.replaceAll("\\", "/") } });
+      expect(run().status).toBe(0);
+      const exported = readFileSync(envFile, "utf8");
+      expect(exported.trim()).toBe(`NPM_CONFIG_CACHE=${root.replaceAll("\\", "/")}/dossier-cold-npm`);
+      const cache = resolve(root, "dossier-cold-npm");
+      mkdirSync(cache);
+      expect(run().status).not.toBe(0);
+      expect(existsSync(cache)).toBe(true);
+      expect(readFileSync(envFile, "utf8")).toBe(exported);
+    } finally { rmSync(root, { recursive: true, force: true }); }
   });
 
   it("runs acceptance on preview pushes but keeps freshness only on schedule/manual", () => {

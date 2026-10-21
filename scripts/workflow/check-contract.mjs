@@ -730,8 +730,8 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     errors.push("CI must not restart unchanged work on converted_to_draft");
   }
 
-  if (!hasExactExpression(document?.concurrency?.group, "ci-${{ github.ref }}")) {
-    errors.push("CI concurrency must serialize read-only trusted observations per ref");
+  if (!hasExactExpression(document?.concurrency?.group, "ci-${{ github.event.pull_request.number || github.run_id }}")) {
+    errors.push("CI concurrency must supersede stale PR heads and retain every trusted observation");
   }
   if (
     !hasExactExpression(
