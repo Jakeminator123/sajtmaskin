@@ -2,7 +2,7 @@
 // grunden"), not preservation — they must not open a negation window (Codex P2
 // on #447).
 const NEGATION_TERM_RE =
-  /(?<![\p{L}\p{N}_])(?:lägg\s+inte\s+till|lägg\s+inte|inte(?!\s+bara)|ingen|inget|utan|undvik|do\s+not|don't|dont|no|without|avoid|not(?!\s+(?:just|only)))(?![\p{L}\p{N}_])/giu;
+  /(?<![\p{L}\p{N}_])(?:lägg\s+inte\s+till|lägg\s+inte|inte(?!\s+bara)|ingen|inget|inga|utan|undvik|do\s+not|don't|dont|no|without|avoid|not(?!\s+(?:just|only)))(?![\p{L}\p{N}_])/giu;
 
 const REDESIGN_TERMS: RegExp[] = [
   /(?<![\p{L}\p{N}_])(?:redesign|omdesign|gör\s+om|designa\s+om|ny\s+design|redesigna)(?![\p{L}\p{N}_])/iu,
@@ -82,10 +82,28 @@ export const CLAUSE_BOUNDARY_RE =
 
 const NEGATION_WINDOW_MAX_CHARS = 140;
 
+// "utan reklam med en 3D-produkt" reintroduces a positive requirement.
+// Do not split modifiers of a negated feature: "utan spel med 3D-fysik"
+// still excludes the entire game. Reuse the canonical feature vocabulary.
+const NEGATED_FEATURE_HEAD_TERMS = [
+  ...REDESIGN_TERMS, ...AUTH_TERMS, ...PAYMENT_TERMS, ...ECOMMERCE_TERMS,
+  ...BACKEND_TERMS, ...INTEGRATION_TERMS,
+  /(?<![\p{L}\p{N}_])(?:3d|2d|three\.?js|webgl|canvas|mesh|physics|fysik|matter\.?js|rapier|spel[\p{L}]*|games?|gaming|app[\p{L}-]*|konto[\p{L}]*|dashboard|effekt[\p{L}]*|effects?|animation[\p{L}]*)(?![\p{L}\p{N}_])/iu,
+];
+const POSITIVE_WITH_RE = /\s(?:med|with)(?![\p{L}\p{N}_])\s+/giu;
+
 function negationWindowEnd(text: string, start: number): number {
   const cap = Math.min(text.length, start + NEGATION_WINDOW_MAX_CHARS);
   const boundaryIdx = text.slice(start, cap).search(CLAUSE_BOUNDARY_RE);
-  return boundaryIdx === -1 ? cap : start + boundaryIdx;
+  const end = boundaryIdx === -1 ? cap : start + boundaryIdx;
+  const window = text.slice(start, end);
+  for (const match of window.matchAll(POSITIVE_WITH_RE)) {
+    const head = window.slice(0, match.index);
+    if (!NEGATED_FEATURE_HEAD_TERMS.some((term) => term.test(head))) {
+      return start + match.index;
+    }
+  }
+  return end;
 }
 
 /** Teckenintervall (start/slut) för varje negationsfönster i prompten. */
@@ -181,3 +199,4 @@ export function isVisualOnlyFollowUpPrompt(prompt: string): boolean {
     hasNegatedIntegrationIntent(text)
   );
 }
+

@@ -6,6 +6,27 @@ import {
 } from "./capability-inference";
 
 describe("inferCapabilities", () => {
+  it.each([
+    "Bygg en sida utan reklam med en roterbar 3D-produkt.",
+    "Build a page without ads with a rotatable 3D product.",
+    "En sida utan annonser med WebGL.",
+    "Build a page without clutter with a 3D scene.",
+  ])("preserves an affirmative feature after an unrelated exclusion: %s", (prompt) => {
+    expect(inferCapabilities(prompt).needs3D).toBe(true);
+    expect(explicitlyRequests3D(prompt)).toBe(true);
+  });
+
+  it.each([
+    "Inga 3D-effekter eller spel.",
+    "Bygg utan spel med 3D och fysik.",
+    "Build without games with 3D physics.",
+  ])("keeps a negated feature and its modifiers excluded: %s", (prompt) => {
+    const caps = inferCapabilities(prompt);
+    expect(caps.needs3D).toBe(false);
+    expect(caps.needsGame).toBe(false);
+    expect(caps.needsPhysics).toBe(false);
+  });
+
   it("detects app-like cinematic 3D website prompts in Swedish", () => {
     const caps = inferCapabilities(
       "Jag vill ha en hemsida som är mycket app-lik med en massa coola 3dsaker och filmisk neon-känsla.",
@@ -627,3 +648,4 @@ describe("negated and mixed capability clauses", () => {
     });
   });
 });
+
