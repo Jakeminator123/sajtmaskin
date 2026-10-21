@@ -43,3 +43,51 @@ export function truncateMetaStrings(value, depth = 0) {
     Object.entries(value).map(([key, entry]) => [key, truncateMetaStrings(entry, depth + 1)]),
   );
 }
+
+/**
+ * Fält från provider-payloaden som `recordLlmUsage.meta` kan bära.
+ * `parentRunId` är valfri och tas bara med när nyckeln faktiskt finns.
+ * `run_id`-kolumnen äger körningsrelationen; den här listan härleder inget.
+ */
+const LLM_USAGE_EXPORT_META_KEYS = [
+  "requestedModelId",
+  "resolvedModelId",
+  "requestedReasoningEffort",
+  "effectiveReasoningEffort",
+  "reasoningClampReason",
+  "parentRunId",
+];
+
+/** `sk-` / `sk_` och bearer-token. Matchas mot hela strängen före eventuell kapning. */
+const CREDENTIAL_LIKE_VALUE = /sk[-_]|bearer\s+\S+/i;
+
+/**
+ * Strikt meta för `llmusage`-exporten.
+ *
+ * Behåller bara skalära null/sträng för allow-listen. Saknade nycklar fylls
+ * inte i, nästlade värden och övriga nycklar (prompt, rå reasoning, feltext,
+ * authorization, cookies, källinnehåll) släpps, och credential-liknande
+ * strängar släpps hela. Returnerar `null` när meta saknas, inte är ett objekt,
+ * eller inget tillåtet fält återstår — inte `{}` och inte defaultvärden.
+ * Muterar inte indata. Anropar inte `truncateMetaStrings`.
+ */
+export function sanitizeLlmUsageMeta(meta) {
+  if (meta === null || meta === undefined) return null;
+  if (typeof meta !== "object" || Array.isArray(meta)) return null;
+
+  const out = {};
+  for (const key of LLM_USAGE_EXPORT_META_KEYS) {
+    if (!Object.hasOwn(meta, key)) continue;
+    const sanitized = sanitizeLlmUsageMetaValue(meta[key]);
+    if (sanitized === undefined) continue;
+    out[key] = sanitized;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+function sanitizeLlmUsageMetaValue(value) {
+  if (value === null) return null;
+  if (typeof value !== "string") return undefined;
+  if (CREDENTIAL_LIKE_VALUE.test(value)) return undefined;
+  return value.length > META_MAX_STRING ? value.slice(0, META_MAX_STRING) : value;
+}

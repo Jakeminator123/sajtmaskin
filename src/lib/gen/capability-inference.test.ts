@@ -49,6 +49,13 @@ describe("inferCapabilities", () => {
     expect(explicitlyRequests3D(prompt)).toBe(false);
   });
 
+  it.each(["A glowing orb without Rapier.", "A glowing orb without GLTF assets."])(
+    "does not treat an excluded physics engine or asset format as a 3D ban: %s",
+    (prompt) => {
+      expect(inferCapabilities(prompt).needs3D).toBe(true);
+    },
+  );
+
   it("detects app-like cinematic 3D website prompts in Swedish", () => {
     const caps = inferCapabilities(
       "Jag vill ha en hemsida som är mycket app-lik med en massa coola 3dsaker och filmisk neon-känsla.",

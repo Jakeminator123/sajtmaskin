@@ -76,8 +76,9 @@ Inget i D blockerar att den här planen stängs. Bocka av B och C.
       attempt-budget) är inte klar. Beslutet hör i
       [`../../archived/2026-08-20-live-review.md`](../../archived/2026-08-20-live-review.md)
       och `docs/decisions/README.md`. Slå inte på flaggan för att stänga B.
-- [ ] Fly-maskinklass (befintlig backlogfråga): burst-sessioner pressar även
-      preview-hostens CPU; `shared-cpu-8x` är +3 USD/mån för dubbel kvot.
+- [x] Fly-maskinklass: avgjord med #1324 (2026-09-09) — `performance-4x`/16 GB
+      enligt [`preview-host/fly.toml`](../../../../preview-host/fly.toml); live
+      bekräftad 2026-10-19 (Fly release v66).
 
 ## E. Env-läge (inget att ändra för fixarna)
 

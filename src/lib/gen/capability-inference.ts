@@ -173,6 +173,10 @@ export function explicitlyRequests3D(prompt: string): boolean {
 const NARROW_3D_STACK_PATTERN =
   /(?<![\p{L}\p{N}_])(?:3d|three\.?js|@?react-three(?:\/[\p{L}\p{N}-]+)?|webgl|r3f|rapier|gltf|glb)(?![\p{L}\p{N}_])/iu;
 
+// Excluding Rapier or a GLTF asset format alone does not forbid a 3D scene.
+const GENERIC_3D_EXCLUSION_PATTERN =
+  /(?<![\p{L}\p{N}_])(?:3d|three\.?js|webgl)(?![\p{L}\p{N}_])/iu;
+
 /** Same tokens the game→3D upgrade has always used; negation is applied at the call site. */
 const GAME_TO_3D_UPGRADE_PATTERN =
   /3d|three|webgl|canvas|physics|fysik|studs|gravity|collision|rapier/i;
@@ -460,7 +464,8 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
   // that only mentions Three.js/WebGL to forbid them — would light
   // `needsPhysics` → `needs3D` and demand a WebGL canvas.
   const explicit3DStack = hasUnnegatedPatternMatch(prompt, NARROW_3D_STACK_PATTERN);
-  const excludes3DStack = isTermFullyNegated(prompt, NARROW_3D_STACK_PATTERN);
+  const excludes3DStack =
+    !explicit3DStack && isTermFullyNegated(prompt, GENERIC_3D_EXCLUSION_PATTERN);
   // An explicit 3D exclusion also constrains inferred upgrades from physics.
   // Keep the requested bouncing/falling behavior in the 2D/DOM path.
   if (excludes3DStack && result.needsPhysics) result.needsPhysics2D = true;

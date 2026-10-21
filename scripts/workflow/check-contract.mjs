@@ -90,6 +90,7 @@ export const POLICY_FLOORS = Object.freeze({
     dependencies: ["baseline-deps:verify", "baseline-deps:tree"],
     ci: ["typecheck", "test:ci"],
     previewHost: ["preview-host:verify"],
+    bugBacklog: ["check:bug-backlog", "canvas:check"],
     observability: ["observability:test"],
     e2e: ["test:e2e:contract"],
     full: ["lint", "knip:files"],
@@ -110,7 +111,6 @@ export const POLICY_FLOORS = Object.freeze({
     "config/agent-workflow.json",
     "docs/schemas/**",
     "docs/decisions/**",
-    "BUG-SWARM-BACKLOG.md",
     "src/app/api/**",
     "src/lib/api/**",
     "src/lib/auth/**",
@@ -1969,3 +1969,4 @@ function main() {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
+

@@ -455,6 +455,16 @@ describe("agent workflow impact", () => {
     );
   });
 
+  it("routes an unprotected backlog edit to its validators without the full profile", () => {
+    const impact = collectImpact({ ...inputs, changedFiles: ["BUG-SWARM-BACKLOG.md"] });
+    expect(impact.protectedFiles).toEqual([]);
+    expect(impact.commands).toEqual(
+      expect.arrayContaining(["docs:check", "check:bug-backlog", "canvas:check"]),
+    );
+    expect(impact.commands).not.toContain("knip:files");
+    expect(impact.commands).not.toContain("test:ci");
+  });
+
   it("keeps ordinary documentation changes on the docs-only plan", () => {
     const impact = collectImpact({ ...inputs, changedFiles: ["docs/example-guide.md"] });
     expect(impact.commands).toEqual(
@@ -1337,6 +1347,22 @@ describe("agent workflow repository contract", () => {
     );
 
     const weakened = [
+      ...["check:bug-backlog", "canvas:check"].map((removed) => ({
+        ...structuredClone(policy),
+        verificationProfiles: {
+          ...structuredClone(policy.verificationProfiles),
+          bugBacklog: policy.verificationProfiles.bugBacklog.filter(
+            (command: string) => command !== removed,
+          ),
+        },
+      })),
+      ...["BUG-SWARM-BACKLOG.md", "docs/canvases/**"].map((removed) => ({
+        ...structuredClone(policy),
+        pathGroups: {
+          ...structuredClone(policy.pathGroups),
+          bugBacklog: policy.pathGroups.bugBacklog.filter((path: string) => path !== removed),
+        },
+      })),
       { ...structuredClone(policy), requiredChecks: ["quality"] },
       {
         ...structuredClone(policy),
@@ -1439,3 +1465,4 @@ describe("agent workflow repository contract", () => {
     ]);
   });
 });
+
