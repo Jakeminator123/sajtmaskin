@@ -263,6 +263,55 @@ export async function commitExportToGitHub(params: CommitExportParams): Promise<
   const repoResult = await ensureRepo({ token, owner, repo, isPrivate, ownerIsOrg });
   const defaultBranch = repoResult.repo.default_branch || "main";
 
+  // Two exports to the same branch can race (e.g. two publishes close together):
+  // both read the same head, the second fast-forward PATCH is rejected with 422.
+  // Re-read the head and rebuild on top of it instead of ever force-pushing.
+  for (let attempt = 1; ; attempt += 1) {
+    const outcome = await commitOnCurrentHead({
+      token,
+      owner,
+      repo,
+      defaultBranch,
+      files,
+      seedFile: previewFiles[0],
+      commitMessage,
+      textTransport,
+    });
+    if (outcome.kind === "committed") {
+      return {
+        repo: repoResult.repo,
+        created: repoResult.created,
+        commitSha: outcome.commitSha,
+        fileCount: outcome.fileCount,
+        deletedCount: outcome.deletedCount,
+      };
+    }
+    if (attempt >= MAX_REF_UPDATE_ATTEMPTS) {
+      throw new Error("Failed to update GitHub branch: it kept moving during export");
+    }
+  }
+}
+
+/** A rejected fast-forward is retried this many times in total. */
+export const MAX_REF_UPDATE_ATTEMPTS = 3;
+
+type CommitAttempt =
+  | { kind: "committed"; commitSha: string; fileCount: number; deletedCount: number }
+  | { kind: "ref-moved" };
+
+async function commitOnCurrentHead(params: {
+  token: string;
+  owner: string;
+  repo: string;
+  defaultBranch: string;
+  files: GitHubExportSourceFile[];
+  seedFile: GitHubExportFile;
+  commitMessage: string;
+  textTransport: "blob" | "inline";
+}): Promise<CommitAttempt> {
+  const { token, owner, repo, defaultBranch, files, seedFile, commitMessage, textTransport } =
+    params;
+
   let base = await getBaseCommit({ token, owner, repo, branch: defaultBranch });
   if (!base) {
     await initializeEmptyRepository({
@@ -270,7 +319,7 @@ export async function commitExportToGitHub(params: CommitExportParams): Promise<
       owner,
       repo,
       branch: defaultBranch,
-      file: previewFiles[0],
+      file: seedFile,
     });
     base = await getBaseCommit({ token, owner, repo, branch: defaultBranch });
     if (!base) throw new Error("GitHub repository is still empty after initialization");
@@ -342,19 +391,22 @@ export async function commitExportToGitHub(params: CommitExportParams): Promise<
   }
 
   // The branch always exists here: either it had commits, or the seed commit
-  // created it. One code path, no "create ref" twin to drift.
+  // created it. One code path, no "create ref" twin to drift. No `force`: a
+  // moved branch is a 422 "not a fast forward", which the caller retries.
   const updateRef = await githubRequest(token, `/repos/${owner}/${repo}/git/refs/heads/${defaultBranch}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sha: commitResponse.data.sha }),
+    body: JSON.stringify({ sha: commitResponse.data.sha, force: false }),
   });
+  if (updateRef.status === 422) {
+    return { kind: "ref-moved" };
+  }
   if (!updateRef.ok) {
     throw new Error("Failed to update GitHub branch");
   }
 
   return {
-    repo: repoResult.repo,
-    created: repoResult.created,
+    kind: "committed",
     commitSha: commitResponse.data.sha,
     fileCount: plan.files.length,
     deletedCount: plan.deletionPaths.length,

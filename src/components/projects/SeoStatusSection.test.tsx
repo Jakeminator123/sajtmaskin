@@ -26,7 +26,7 @@ describe("SeoStatusSection", () => {
     expect(screen.getByText(/körs när sajten publiceras/)).toBeTruthy();
 
     rerender(<SeoStatusSection status={null} projectId="proj_1" hasLiveVersion />);
-    expect(screen.getByText(/Ingen SEO-kontroll har körts ännu/)).toBeTruthy();
+    expect(screen.getByText(/Ingen SEO-kontroll finns för den publicerade versionen/)).toBeTruthy();
   });
 
   it("shows the score, what publishing fixed and the open findings by severity", () => {

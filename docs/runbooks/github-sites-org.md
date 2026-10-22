@@ -3,7 +3,7 @@
 Status 2026-10-22: **kod klar, inaktiv tills env finns.** Fyra env-nycklar
 (`GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_INSTALLATION_ID`,
 `GITHUB_SITES_ORG`) slår på `FEATURES.useGitHubSitesOrg`. Då tar deploy-routen
-en kodbackup efter varje accepterad publicering via
+en kodbackup av varje **produktionspublicering som Vercel rapporterar READY** via
 [`src/lib/github/sites-backup.ts`](../../src/lib/github/sites-backup.ts)
 (`after()`, aldrig blockerande) till repot `site-<projectId>` i organisationen,
 och portalen visar tidpunkten. Utan env händer ingenting. Kvarvarande steg står sist.
@@ -68,15 +68,20 @@ Källor: GitHubs rate-limit-dokumentation (`docs.github.com/rest/using-the-rest-
 
 | Del | Fil |
 |---|---|
-| Git-Data-export med `textTransport: "inline"` (ett tree-anrop för all text, blobs bara för binärer) | [`src/lib/github/git-data-export.ts`](../../src/lib/github/git-data-export.ts) |
-| Backup per publicering → `site-<projectId>`, resultat i `project_data.meta.githubBackup` | [`src/lib/github/sites-backup.ts`](../../src/lib/github/sites-backup.ts) |
-| Hook efter `deploymentDelivered = true`, `after()`, bakom `FEATURES.useGitHubSitesOrg` | `src/app/api/v0/deployments/_route/post.ts` |
+| Git-Data-export med `textTransport: "inline"` (ett tree-anrop för all text, blobs bara för binärer). Flyttad gren (422 "not a fast forward") byggs om på nya headen, max 3 försök, aldrig force | [`src/lib/github/git-data-export.ts`](../../src/lib/github/git-data-export.ts) |
+| Backup = exakt de filer som skickades till Vercel (secrets strippade) → `site-<projectId>`, resultat i `project_data.meta.githubBackup` | [`src/lib/github/sites-backup.ts`](../../src/lib/github/sites-backup.ts) |
+| Hook efter `deploymentDelivered = true`, `after()`, bara `target=production`, väntar på READY (max 180 s, annars hoppas backupen över och loggas) | `src/app/api/v0/deployments/_route/post.ts`, [`wait-for-deployment-ready.ts`](../../src/lib/vercel/wait-for-deployment-ready.ts) |
 | Portal: "Sajtmaskin tog en säkerhetskopia av koden …" | `src/app/projects/[id]/page.tsx` via `site-overview.ts` |
+
+Ordning vid samtidiga publiceringar: den som blir READY sist committar sist.
+`meta.githubBackup.versionId` anger vilken version repots head motsvarar.
 
 ## Kvar (ej byggt)
 
 1. Första riktiga körning mot org:en på preview med en testsajt; verifiera repo,
-   commit och att en andra publicering ger ett inkrementellt commit.
+   seed-commit för tomt repo, att en andra publicering ger ett inkrementellt
+   commit, att en misslyckad build inte ger någon backup, och två publiceringar
+   tätt efter varandra (retry-vägen).
 2. Överlämning: `POST /repos/{org}/{repo}/transfer` till kundens GitHub-användare
    när kunden ber om det (manuell knapp i backoffice först).
 3. Integritetspolicy: lägg till GitHub (USA) som underbiträde för kodbackup.

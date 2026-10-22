@@ -39,16 +39,20 @@ type BusinessFactsSectionProps = {
   support: BusinessFactsSupportState;
 };
 
-/** Copy for the save toast and the footer, by support state. One owner so they never disagree. */
+/**
+ * All customer-facing copy that depends on the support state: save toast,
+ * footer and the builder callout. One owner so the three never disagree.
+ * `callout === null` means no callout is shown.
+ */
 export function supportCopy(
   support: BusinessFactsSupportState,
   hasLiveVersion: boolean,
-): { toast: string; footer: string; needsBuilder: boolean } {
+): { toast: string; footer: string; callout: { text: string; action: string } | null } {
   if (!hasLiveVersion) {
     return {
       toast: "Sparat. Uppgifterna används när sajten byggs och publiceras.",
       footer: "Uppgifterna används när sajten byggs och publiceras första gången.",
-      needsBuilder: false,
+      callout: null,
     };
   }
   switch (support) {
@@ -57,38 +61,54 @@ export function supportCopy(
         toast: "Sparat. Publicera om sajten så syns ändringen.",
         footer:
           "Ändringar når den publicerade sajten när du publicerar om. Ingen ny generering behövs.",
-        needsBuilder: false,
+        callout: null,
       };
     case "unsupported":
       return {
         toast: "Sparat. Den publicerade sajten behöver uppdateras i byggaren innan ändringen syns.",
         footer:
           "Den publicerade sajten är byggd utan automatiska företagsuppgifter. Öppna byggaren och be den uppdatera öppettider och kontakt – därefter räcker det att publicera om.",
-        needsBuilder: true,
+        callout: {
+          text: "Sajten behöver en engångsuppdatering i byggaren.",
+          action: "Uppdatera i byggaren",
+        },
       };
     case "imported":
       return {
         toast: "Sparat. Importerade projekt uppdateras inte automatiskt – ändra texterna i byggaren.",
         footer:
           "Den här sajten är ett importerat projekt och tar inte emot företagsuppgifter automatiskt. Ändra öppettider och kontakt direkt i byggaren.",
-        needsBuilder: true,
+        callout: {
+          text: "Importerade projekt ändras direkt i byggaren.",
+          action: "Ändra i byggaren",
+        },
       };
     default:
       return {
         toast: "Sparat. Ändringen tas med vid nästa publicering.",
         footer:
           "Vid nästa publicering kontrolleras om sajten tar emot uppgifterna automatiskt; annars får du besked här.",
-        needsBuilder: false,
+        callout: null,
       };
   }
 }
 
-/** 30-minute steps. The schema accepts quarter hours; the UI keeps the list short. */
+/** 30-minute steps keep the list short; the schema also accepts quarter hours. */
 export const TIME_OPTIONS: readonly string[] = Array.from({ length: 48 }, (_, index) => {
   const hours = String(Math.floor(index / 2)).padStart(2, "0");
   const minutes = index % 2 === 0 ? "00" : "30";
   return `${hours}:${minutes}`;
 });
+
+/**
+ * Options for one time select. A saved quarter-hour value (e.g. `09:15`, set
+ * via API or an earlier UI) is kept in the list in sort order, so the select
+ * shows what is stored instead of silently displaying another time.
+ */
+export function timeOptionsFor(current: string): readonly string[] {
+  if (TIME_OPTIONS.includes(current)) return TIME_OPTIONS;
+  return [...TIME_OPTIONS, current].sort();
+}
 
 type ContactForm = {
   phone: string;
@@ -191,7 +211,7 @@ function DayRow({
             value={value.open}
             onChange={(event) => onChange({ ...value, open: event.target.value })}
           >
-            {TIME_OPTIONS.map((time) => (
+            {timeOptionsFor(value.open).map((time) => (
               <NativeSelectOption key={time} value={time}>
                 {time}
               </NativeSelectOption>
@@ -204,7 +224,7 @@ function DayRow({
             value={value.close}
             onChange={(event) => onChange({ ...value, close: event.target.value })}
           >
-            {TIME_OPTIONS.map((time) => (
+            {timeOptionsFor(value.close).map((time) => (
               <NativeSelectOption key={time} value={time}>
                 {time}
               </NativeSelectOption>
@@ -476,14 +496,14 @@ export function BusinessFactsSection({
           {copy.footer}
         </p>
       </div>
-      {copy.needsBuilder && (
+      {copy.callout && (
         <div className="flex flex-wrap items-center gap-3 border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
           <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>Sajten behöver en engångsuppdatering i byggaren.</span>
+          <span>{copy.callout.text}</span>
           <Link href={`/builder?project=${projectId}`}>
             <Button variant="outline" size="sm" className="gap-2">
               <PencilLine className="h-4 w-4" />
-              Uppdatera i byggaren
+              {copy.callout.action}
             </Button>
           </Link>
         </div>

@@ -119,6 +119,103 @@ describe("commitExportToGitHub", () => {
     expect(recorded.tree?.every((entry) => entry.content === undefined)).toBe(true);
   });
 
+  it("rebuilds on the new head when a concurrent export moved the branch, never forcing", async () => {
+    let refPatches = 0;
+    let headSha = "commit-base";
+    const patchBodies: Array<{ sha?: string; force?: boolean }> = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method || "GET").toUpperCase();
+      const pathname = new URL(String(input)).pathname.replace(/^\/+/, "");
+      if (method === "GET" && pathname === "repos/sites/site-1") {
+        return jsonResponse({ full_name: "sites/site-1", html_url: "https://github.com/sites/site-1", default_branch: "main" });
+      }
+      if (method === "GET" && pathname === "repos/sites/site-1/git/refs/heads/main") {
+        return jsonResponse({ object: { sha: headSha } });
+      }
+      const commitGet = pathname.match(/^repos\/sites\/site-1\/git\/commits\/(.+)$/);
+      if (method === "GET" && commitGet) {
+        return jsonResponse({ sha: commitGet[1], tree: { sha: `tree-of-${commitGet[1]}` } });
+      }
+      if (method === "GET" && pathname.startsWith("repos/sites/site-1/git/trees/")) {
+        return jsonResponse({ tree: [], truncated: false });
+      }
+      if (method === "POST" && pathname === "repos/sites/site-1/git/trees") {
+        return jsonResponse({ sha: "tree-new" });
+      }
+      if (method === "POST" && pathname === "repos/sites/site-1/git/commits") {
+        const body = JSON.parse(String(init?.body ?? "{}")) as { parents?: string[] };
+        return jsonResponse({ sha: `commit-on-${body.parents?.[0]}`, tree: { sha: "tree-new" } });
+      }
+      if (method === "PATCH" && pathname === "repos/sites/site-1/git/refs/heads/main") {
+        refPatches += 1;
+        patchBodies.push(JSON.parse(String(init?.body ?? "{}")));
+        if (refPatches === 1) {
+          // Another publish landed first.
+          headSha = "commit-concurrent";
+          return jsonResponse({ message: "Update is not a fast forward" }, 422);
+        }
+        return jsonResponse({ object: { sha: "ok" } });
+      }
+      return jsonResponse({ message: `Unhandled ${method} ${pathname}` }, 500);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await commitExportToGitHub({
+      token: "ghs_x",
+      owner: "sites",
+      repo: "site-1",
+      isPrivate: true,
+      ownerIsOrg: true,
+      files: [{ path: "app/page.tsx", content: "x" }],
+      commitMessage: "Publish",
+      textTransport: "inline",
+    });
+
+    expect(refPatches).toBe(2);
+    expect(patchBodies.every((body) => body.force === false)).toBe(true);
+    // The retry is parented on the branch head that won the race.
+    expect(result.commitSha).toBe("commit-on-commit-concurrent");
+  });
+
+  it("gives up after a bounded number of moved-branch retries", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method || "GET").toUpperCase();
+      const pathname = new URL(String(input)).pathname.replace(/^\/+/, "");
+      if (method === "GET" && pathname === "repos/sites/site-1") {
+        return jsonResponse({ full_name: "sites/site-1", html_url: "u", default_branch: "main" });
+      }
+      if (method === "GET" && pathname === "repos/sites/site-1/git/refs/heads/main") {
+        return jsonResponse({ object: { sha: "c" } });
+      }
+      if (method === "GET" && pathname.startsWith("repos/sites/site-1/git/commits/")) {
+        return jsonResponse({ sha: "c", tree: { sha: "t" } });
+      }
+      if (method === "GET" && pathname.startsWith("repos/sites/site-1/git/trees/")) {
+        return jsonResponse({ tree: [], truncated: false });
+      }
+      if (method === "POST" && pathname.endsWith("/git/trees")) return jsonResponse({ sha: "t2" });
+      if (method === "POST" && pathname.endsWith("/git/commits")) return jsonResponse({ sha: "c2", tree: { sha: "t2" } });
+      if (method === "PATCH") return jsonResponse({ message: "Update is not a fast forward" }, 422);
+      return jsonResponse({ message: "unhandled" }, 500);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      commitExportToGitHub({
+        token: "ghs_x",
+        owner: "sites",
+        repo: "site-1",
+        isPrivate: true,
+        ownerIsOrg: true,
+        files: [{ path: "app/page.tsx", content: "x" }],
+        commitMessage: "Publish",
+        textTransport: "inline",
+      }),
+    ).rejects.toThrow(/kept moving/);
+    const patches = fetchMock.mock.calls.filter(([, init]) => (init?.method || "").toUpperCase() === "PATCH");
+    expect(patches).toHaveLength(3);
+  });
+
   it("refuses an export with no files before touching GitHub", async () => {
     const { fetchMock } = installGitHubMock();
     await expect(

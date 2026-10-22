@@ -1,6 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BusinessFactsSection, TIME_OPTIONS, supportCopy, toInput } from "./BusinessFactsSection";
+import {
+  BusinessFactsSection,
+  TIME_OPTIONS,
+  supportCopy,
+  timeOptionsFor,
+  toInput,
+} from "./BusinessFactsSection";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status });
@@ -124,24 +130,48 @@ describe("BusinessFactsSection", () => {
     expect(screen.queryByText(/Ingen ny generering behövs/)).toBeNull();
   });
 
-  it("keeps toast and footer copy in one owner per support state", () => {
+  it("keeps toast, footer and callout copy in one owner per support state", () => {
     expect(supportCopy("supported", true).toast).toMatch(/Publicera om/);
-    expect(supportCopy("supported", true).needsBuilder).toBe(false);
-    expect(supportCopy("unsupported", true).needsBuilder).toBe(true);
+    expect(supportCopy("supported", true).callout).toBeNull();
+    expect(supportCopy("unsupported", true).callout?.text).toMatch(/engångsuppdatering/);
     expect(supportCopy("unsupported", true).toast).not.toMatch(/Publicera om sajten så syns/);
     expect(supportCopy("unknown", true).footer).toMatch(/nästa publicering/);
-    // Imported repos never get the module, so no "republish afterwards" promise.
+    expect(supportCopy("unknown", true).callout).toBeNull();
+    // Imported repos never get the module: no "republish afterwards" promise and
+    // no "one-time upgrade" callout that contradicts the footer.
     expect(supportCopy("imported", true).footer).not.toMatch(/publicera om/);
-    expect(supportCopy("imported", true).needsBuilder).toBe(true);
+    expect(supportCopy("imported", true).callout?.text).not.toMatch(/engångsuppdatering/);
+    expect(supportCopy("imported", true).callout?.text).toMatch(/direkt i byggaren/);
     // Before the first publish the support state is irrelevant.
     expect(supportCopy("unsupported", false)).toEqual(supportCopy("unknown", false));
   });
 
-  it("offers only half-hour steps", () => {
+  it("offers half-hour steps but keeps a stored quarter-hour value selectable", () => {
     expect(TIME_OPTIONS).toHaveLength(48);
     expect(TIME_OPTIONS[0]).toBe("00:00");
     expect(TIME_OPTIONS[47]).toBe("23:30");
     expect(TIME_OPTIONS.every((time) => /^\d{2}:(00|30)$/.test(time))).toBe(true);
+
+    expect(timeOptionsFor("09:30")).toBe(TIME_OPTIONS);
+    const withQuarter = timeOptionsFor("09:15");
+    expect(withQuarter).toHaveLength(49);
+    expect(withQuarter.indexOf("09:15")).toBe(withQuarter.indexOf("09:00") + 1);
+  });
+
+  it("shows a stored quarter-hour time as-is in the select", async () => {
+    const week = {
+      ...SAVED.hours.week,
+      mon: { closed: false, open: "09:15", close: "17:45" },
+    };
+    globalThis.fetch = vi.fn(async () =>
+      json({ success: true, preferences: { business: { ...SAVED, hours: { mode: "regular", week } } } }),
+    ) as unknown as typeof fetch;
+
+    render(<BusinessFactsSection projectId="proj_1" hasLiveVersion support="supported" />);
+    await screen.findByText("Måndag 09:15–17:45");
+
+    expect((screen.getByLabelText("Måndag öppnar") as HTMLSelectElement).value).toBe("09:15");
+    expect((screen.getByLabelText("Måndag stänger") as HTMLSelectElement).value).toBe("17:45");
   });
 
   it("maps a partially filled address through so the server can name the missing field", () => {

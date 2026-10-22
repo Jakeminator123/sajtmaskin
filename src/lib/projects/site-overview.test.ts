@@ -7,6 +7,7 @@ import {
   resolveOverviewAddress,
   resolveSiteAddress,
   selectLivePublishIdentity,
+  seoStatusForLiveVersion,
   toPublishState,
 } from "./site-overview";
 
@@ -293,5 +294,28 @@ describe("toPublishState", () => {
     expect(toPublishState(null)).toBe("pending");
     expect(toPublishState("queued")).toBe("pending");
     expect(toPublishState("something-new")).toBe("pending");
+  });
+});
+
+describe("seoStatusForLiveVersion", () => {
+  const status = {
+    score: 80,
+    scoreBefore: 60,
+    checkedAt: "2026-10-22T09:00:00.000Z",
+    siteUrl: "https://kund.se",
+    versionId: "ver_live",
+    pagesInspected: 2,
+    improvementCount: 1,
+    remainingCount: 0,
+    remainingBlockingCount: 0,
+    remaining: [],
+  };
+
+  it("shows the audit only for the version that is live now", () => {
+    expect(seoStatusForLiveVersion(status, "ver_live")).toBe(status);
+    // A newer publish (failed or still building) or an older audit is not current.
+    expect(seoStatusForLiveVersion(status, "ver_other")).toBeNull();
+    expect(seoStatusForLiveVersion(status, null)).toBeNull();
+    expect(seoStatusForLiveVersion(null, "ver_live")).toBeNull();
   });
 });

@@ -73,8 +73,9 @@ export type SiteOverview = {
   /** Present once the project has published at least once. */
   vercelProjectId: string | null;
   /**
-   * Sajtmaskin's own SEO audit from the last publish that ran the SEO pass, or
-   * `null` when the project never published with SEO enabled.
+   * Sajtmaskin's own SEO audit for the version that is LIVE now, or `null` when
+   * that version was not published with SEO enabled (or nothing is live). An
+   * audit of an older or failed publish is never shown as current.
    */
   seoStatus: SeoStatusPersisted | null;
   /**
@@ -224,6 +225,18 @@ export function toPublishState(status: string | null | undefined): SitePublishSt
   }
 }
 
+/**
+ * The persisted SEO audit only describes the version it was taken from. Shown
+ * only while that version is the attested live one; otherwise `null`.
+ */
+export function seoStatusForLiveVersion(
+  status: SeoStatusPersisted | null,
+  liveVersionId: string | null,
+): SeoStatusPersisted | null {
+  if (!status || !liveVersionId || status.versionId !== liveVersionId) return null;
+  return status;
+}
+
 /** Id to subscribe to when the newest deployment is still in flight. */
 export function inFlightDeploymentId(
   latest: { id: string; status: string | null | undefined } | null | undefined,
@@ -288,7 +301,8 @@ export async function getProjectSiteOverview(projectId: string): Promise<SiteOve
     customDomain: project.customDomain ?? null,
     customDomainVerified: Boolean(project.customDomainVerifiedAt),
     vercelProjectId: project.vercelProjectId ?? null,
-    seoStatus,
+    // Nothing is attested live yet, so no audit can describe the live site.
+    seoStatus: null,
     codeBackupAt,
     businessFactsSupport: "unknown",
   };
@@ -331,6 +345,7 @@ export async function getProjectSiteOverview(projectId: string): Promise<SiteOve
     state: toPublishState(latest.status),
     liveAt: liveRow?.updatedAt ?? null,
     liveVersionId: liveRow?.versionId ?? null,
+    seoStatus: seoStatusForLiveVersion(seoStatus, liveRow?.versionId ?? null),
     latestDeploymentId: inFlightDeploymentId(latest),
     businessFactsSupport: resolveBusinessFactsSupport(
       businessFactsSupportRecord,

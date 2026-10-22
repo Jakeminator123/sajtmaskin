@@ -356,7 +356,7 @@ export default function ProjectSitePage() {
 
               <Section
                 title="Företagsuppgifter"
-                description="Öppettider och kontaktuppgifter som sajten visar. Ändra här och publicera om — ingen ny generering behövs."
+                description="Öppettider och kontaktuppgifter som sajten visar."
               >
                 <BusinessFactsSection
                   projectId={site.projectId}

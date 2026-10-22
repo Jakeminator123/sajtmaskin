@@ -54,7 +54,7 @@ export function SeoStatusSection({ status, projectId, hasLiveVersion }: SeoStatu
         <Info className="mt-0.5 h-4 w-4 shrink-0" />
         <p>
           {hasLiveVersion
-            ? "Ingen SEO-kontroll har körts ännu. Slå på SEO när du publicerar i byggaren, så granskas sajten vid varje publicering."
+            ? "Ingen SEO-kontroll finns för den publicerade versionen. Slå på SEO när du publicerar i byggaren, så granskas sajten vid varje publicering."
             : "SEO-kontrollen körs när sajten publiceras med SEO påslaget i byggaren."}
         </p>
       </div>

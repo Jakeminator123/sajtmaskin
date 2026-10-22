@@ -2,6 +2,7 @@ import { after, NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rate-limit";
 import { FEATURES } from "@/lib/config";
 import { backupPublishedVersion } from "@/lib/github/sites-backup";
+import { waitForVercelDeploymentReady } from "@/lib/vercel/wait-for-deployment-ready";
 import {
   createDeploymentRecord,
   getLatestReadyDeploymentIdentityForChat,
@@ -911,7 +912,8 @@ export async function POST(req: Request) {
             versionId,
             deployTarget,
             publishedFiles,
-            importedRepo: await chatUsesVerbatimRepo(chatId),
+            // Only production writes portal status; skip the DB read otherwise.
+            importedRepo: deployTarget === "production" ? await chatUsesVerbatimRepo(chatId) : false,
             now: new Date().toISOString(),
           });
           if (Object.keys(portalMetaPatch).length > 0) {
@@ -924,8 +926,15 @@ export async function POST(req: Request) {
         // Code backup to Sajtmaskin's GitHub org. Runs after the response is
         // sent and can only ever log — a backup must not slow or fail a publish.
         // Gets the published snapshot, so the repo matches what went live even
-        // if the customer edits facts between publish and backup.
-        if (FEATURES.useGitHubSitesOrg) {
+        // if the customer edits facts between publish and backup. Production
+        // only, and only once Vercel reports READY: "accepted" is not "live",
+        // and a failed build must never be recorded as the site's backup.
+        const acceptedVercelDeploymentId = created.vercelDeploymentId;
+        if (
+          FEATURES.useGitHubSitesOrg &&
+          deployTarget === "production" &&
+          acceptedVercelDeploymentId
+        ) {
           const backupInput = {
             projectId: engineProjectId,
             chatId,
@@ -936,6 +945,14 @@ export async function POST(req: Request) {
           };
           after(async () => {
             try {
+              const outcome = await waitForVercelDeploymentReady(acceptedVercelDeploymentId);
+              if (outcome !== "ready") {
+                console.info("[deploy] GitHub backup skipped: deployment not READY", {
+                  deploymentId,
+                  outcome,
+                });
+                return;
+              }
               const backup = await backupPublishedVersion(backupInput);
               if (backup) {
                 console.info("[deploy] GitHub backup committed", {
