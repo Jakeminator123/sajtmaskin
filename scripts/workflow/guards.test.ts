@@ -642,6 +642,7 @@ describe("cheap read-only git path", () => {
     "git push --forc origin feat/x",
     "git push --force-with=feat/x origin feat/x",
     "git push --mirr origin",
+    "git push --m origin",
     "git push --prun origin",
     "git push --no-verif origin HEAD",
     "git push --del origin feat/x",

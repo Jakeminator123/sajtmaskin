@@ -8,7 +8,7 @@
  * och låter samma `decide` avgöra. Alla andra sökvägar släpps direkt utan import.
  * Deny = exitkod 2 + stderr (synkront), samma skäl som i shell-guard.mjs.
  */
-import { existsSync, readFileSync, writeSync } from "node:fs";
+import { readFileSync, realpathSync, writeSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -34,15 +34,25 @@ async function main() {
   // importerad kopia av den här hooken ska inte göra något där.
   if (input?.cursor_version || input?.conversation_id) return;
   const filePath = input?.tool_input?.file_path;
-  if (typeof filePath !== "string" || !GUARDED_PATH_RE.test(filePath.trim())) return;
+  if (typeof filePath !== "string" || !filePath.trim()) return;
+  const root = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const cwd = typeof input.cwd === "string" && input.cwd ? input.cwd : root;
+  const normalizedPath = resolve(cwd, filePath.trim().replace(/\\/gu, "/"));
+  let canonicalPath = normalizedPath;
+  try {
+    canonicalPath = realpathSync(normalizedPath);
+  } catch {
+    // A missing/unreadable named MCP file still reaches the fail-closed read.
+  }
+  const guardedPath = GUARDED_PATH_RE.test(normalizedPath) ? normalizedPath : canonicalPath;
+  if (!GUARDED_PATH_RE.test(guardedPath)) return;
 
   try {
-    const root = process.env.CLAUDE_PROJECT_DIR || process.cwd();
     const { decide } = await import(
       pathToFileURL(resolve(root, ".cursor/hooks/mcp-secret-read-guard.mjs")).href
     );
-    const content = existsSync(filePath) ? readFileSync(filePath, "utf8") : "";
-    const verdict = decide({ file_path: filePath, content });
+    const content = readFileSync(normalizedPath, "utf8");
+    const verdict = decide({ file_path: guardedPath, content });
     if (verdict?.permission === "deny") {
       deny(verdict.agent_message || verdict.user_message || "Blockerat: .cursor/mcp.json.");
     }

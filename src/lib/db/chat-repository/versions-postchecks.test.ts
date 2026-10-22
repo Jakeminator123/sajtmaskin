@@ -4,7 +4,7 @@ import { getTableName, type SQL, type Table } from "drizzle-orm";
 import { alias, PgDialect } from "drizzle-orm/pg-core";
 import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
 const state = vi.hoisted(() => ({ rows: [] as Array<Record<string, unknown>>, receipts: [] as Array<Record<string, unknown>>,
-  conditions: [] as string[], latestOrders: [] as unknown[], owner: "u" as string | null, session: "s" as string | null,
+  conditions: [] as string[], queryParams: [] as unknown[][], latestOrders: [] as unknown[], owner: "u" as string | null, session: "s" as string | null,
   billing: true, imported: false, pageSize: 64 }));
 vi.mock("../services/version-errors", () => ({ SERVER_REPAIR_BUDGET_LOG_CATEGORY: "server-repair:budget" }));
 vi.mock("./version-lifecycle", () => ({ promoteVersion: vi.fn() }));
@@ -21,7 +21,7 @@ vi.mock("../client", async () => {
         innerJoin: () => builder, leftJoin: () => builder,
         where: (condition: SQL) => {
           const query = new PgDialect().sqlToQuery(condition); state.conditions.push(query.sql);
-          const params = query.params;
+          const params = query.params; state.queryParams.push(params);
           if (name === "engine_version_error_logs") return Promise.resolve(state.receipts.filter(row => params.includes(row.versionId)));
           const limit = async () => {
             if (name === "latest_postcheck_version") {
@@ -60,9 +60,20 @@ describe("canonical latest-first server candidates and stored identity", () => {
         preview: { canStartPreview, hasBuildBreakingFindings }, postChecks: { willRunQualityGate: true, qualityGatePlanned: true, materializeImages: false } },
     } };
   }
-  beforeEach(() => { vi.spyOn(Date, "now").mockReturnValue(NOW); state.rows = []; state.receipts = []; state.conditions = []; state.latestOrders = [];
+  beforeEach(() => { vi.spyOn(Date, "now").mockReturnValue(NOW); state.rows = []; state.receipts = []; state.conditions = []; state.queryParams = []; state.latestOrders = [];
     state.owner = "u"; state.session = "s"; state.billing = true; state.imported = false; state.pageSize = 64; });
   afterEach(() => vi.restoreAllMocks());
+
+  it("puts a caller's exact chat/version scope into the latest-row query before pagination", async () => {
+    await listServerPostcheckCandidates(1, NOW + 1000, { chatId: "own-chat", versionId: "own-version" });
+    expect(state.conditions[0]).toContain('"latest_postcheck_version"."chat_id" =');
+    expect(state.conditions[0]).toContain('"latest_postcheck_version"."id" =');
+    expect(state.queryParams[0]).toEqual(expect.arrayContaining(["own-chat", "own-version"]));
+  });
+  it("an empty scope cannot turn a scoped request into a global batch", async () => {
+    expect(await listServerPostcheckCandidates(1, NOW + 1000, { chatId: "", versionId: "v" })).toEqual([]);
+    expect(state.conditions).toEqual([]);
+  });
 
   it("two policy-STOP candidates ahead of a runnable THIRD do not fill/starve the batch", async () => {
     const [a, b, c] = [version("v_a"), version("v_b"), version("v_c")];

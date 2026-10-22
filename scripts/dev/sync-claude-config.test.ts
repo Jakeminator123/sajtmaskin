@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -134,6 +134,7 @@ describe("Claude-hookarna", () => {
   it.each([
     "git push --force origin preview",
     "git push -uf origin HEAD",
+    "git push --m origin",
     "x && $(printf g)it push --force",
   ])("shell-guard nekar med exitkod 2: %s", (command) => {
     const result = runHook("shell-guard.mjs", shellInput(command));
@@ -198,14 +199,24 @@ describe("Claude-hookarna", () => {
     fixtures.push(root);
     const guarded = join(root, ".cursor", "mcp.json");
     mkdirSync(dirname(guarded), { recursive: true });
+    symlinkSync(dirname(guarded), join(root, "alias"), "junction");
     const read = (filePath: string) =>
       runHook(
         "read-guard.mjs",
-        JSON.stringify({ tool_name: "Read", tool_input: { file_path: filePath } }),
+        JSON.stringify({ tool_name: "Read", cwd: root, tool_input: { file_path: filePath } }),
       );
+    const aliases = [
+      guarded,
+      join(root, "alias", "mcp.json"),
+      `${root}/.cursor/./mcp.json`,
+      `${root}/.cursor/unused/../mcp.json`,
+      ".cursor/./mcp.json",
+      ".cursor/unused/../mcp.json",
+      ".cursor\\unused\\..\\mcp.json",
+    ];
 
     writeFileSync(guarded, JSON.stringify({ mcpServers: { x: { url: "https://example.test" } } }));
-    expect(read(guarded).status).toBe(0);
+    for (const filePath of aliases) expect(read(filePath).status, filePath).toBe(0);
 
     writeFileSync(
       guarded,
@@ -215,7 +226,7 @@ describe("Claude-hookarna", () => {
         },
       }),
     );
-    expect(read(guarded).status).toBe(2);
+    for (const filePath of aliases) expect(read(filePath).status, filePath).toBe(2);
     expect(read(join(root, "README.md")).status).toBe(0);
   });
 });

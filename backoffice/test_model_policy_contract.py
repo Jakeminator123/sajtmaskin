@@ -24,7 +24,7 @@ def _workloads(manifest: dict) -> dict[str, dict]:
 
 
 class ModelPolicyContractTests(unittest.TestCase):
-    def test_small_workloads_are_sol_medium_without_luna_fallbacks(self) -> None:
+    def test_small_workloads_use_selected_sol_efforts_without_luna_fallbacks(self) -> None:
         workloads = _workloads(_manifest())
         expected = {
             "project_analyze": "gpt-6.1-sol",
@@ -43,7 +43,8 @@ class ModelPolicyContractTests(unittest.TestCase):
         for workload_id, model in expected.items():
             entry = workloads[workload_id]
             self.assertEqual(entry["defaultModel"], model, workload_id)
-            self.assertEqual(entry["reasoningEffort"], "medium", workload_id)
+            expected_effort = "low" if workload_id == "prompt_rewrite" else "medium"
+            self.assertEqual(entry["reasoningEffort"], expected_effort, workload_id)
         for entry in workloads.values():
             for model in entry.get("fallbackModels") or []:
                 self.assertNotIn("luna", str(model).lower(), entry["id"])

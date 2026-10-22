@@ -117,7 +117,7 @@ const BRANCH_READ_FLAG = /^(?:-[avr]+|--list|--all|--remotes|--show-current|--ve
 function abbreviates(token, longNames) {
   if (!token.startsWith("--")) return false;
   const name = token.slice(2).split("=")[0];
-  return name.length >= 2 && longNames.some((long) => long !== name && long.startsWith(name));
+  return name.length >= 1 && longNames.some((long) => long !== name && long.startsWith(name));
 }
 
 const PUSH_DANGEROUS_LONG = [
