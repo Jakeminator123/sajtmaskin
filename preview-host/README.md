@@ -154,14 +154,52 @@ en eventuell gemensam non-root-användare skapar ingen tenantgräns.
 Oberoende projekt med obetrodd kod får därför inte betraktas som isolerade
 på den delade hosten. Full isolering är fortsatt en öppen P1 före sådan launch.
 
-En försvarbar lösning kräver en separat VM eller en granskad container-sandbox
-per projekt/livscykel, inklusive install och verify. Gästens skrivbara mount
-ska bara innehålla dess eget workspace; andra projekt, hostens store,
-kontrollplansnycklar, container-socket och muterbara delade paketcache får inte
-vara tillgängliga. Nätpolicy måste skilja gäster från varandra och från
-kontrollplanets loopback-/privata endpoints. Resursgränser och destroy måste
-ägas av kontrollplanet utanför gästen. Detta kräver arkitekturval, infrastruktur
-och verifierad driftsättning; det ryms inte i en env- eller Docker-USER-fix.
+Den ratificerade lösningen (beslut 2026-09-18) är en separat Fly Machine per
+projekt för install, verify och dev. Container-sandbox på samma maskin är
+avfärdad, liksom env-filtrering och en gemensam non-root-användare. Gästens
+skrivbara filsystem innehåller bara dess eget workspace; andra projekt,
+hostens store, kontrollplansnycklar och den delade paketcachen finns inte där.
+Resursgränser, start/stopp och destroy ägs av kontrollplanet.
+
+### Maskinläge (`PREVIEW_HOST_ISOLATION=machine`)
+
+Koden för det läget finns och är guard-testad, men är **inte driftsatt**:
+
+| Del | Fil |
+| --- | --- |
+| Läge och fail-closed-validering | `src/machines/isolation-config.js` |
+| Fly Machines-klient (create/get/wait/start/stop/destroy/list) | `src/machines/fly-machines-client.js` |
+| Maskin per chat: skapa, starta, identitetsbevis, parkera, förstöra, reconcile | `src/machines/project-machines.js` (store: `data.machines`) |
+| Boot/patch/verify inne i gästen; dev-processen som fjärrbarn | `src/runtime/machine-runtime.js`, inkopplat i `process-lifecycle.js`, `preview-proxy.js`, `verify-jobs.js`, `storage-cleanup.js` |
+| Gästagent + bild (kör som egen användare, varm paketcache i bilden) | `guest/` ([pilotrunbook](guest/README.md)) |
+
+Så fungerar det: hosten skapar en maskin ur `PREVIEW_GUEST_IMAGE` med en
+färsk bearer-token och `chatId` i miljön, väntar in `started`, och kräver att
+agentens `/health` svarar med exakt den `chatId`:n över den token. Sedan
+synkas filsnapshotet (inklusive `.env.local` och in-memory-patchad
+`next.config`) till gästens `live`-workspace, install körs där (fingerprint-skip
+och varm seed som i delat läge), `npm run dev` startas på gästens loopback och
+proxyn/readiness går till agentens autentiserade `/proxy`. Hot patch,
+hibernate (stoppar maskinen), resume (startar den), destroy (förstör den) och
+verify (eget `verify-<id>`-workspace som tas bort efteråt) går samma väg.
+Saknas token, app, bild eller identitetsbevis **failar booten** med
+`PREVIEW_ISOLATION_UNAVAILABLE`/identitetsfel; ingenting körs på hosten.
+`GET /health` visar `isolation.mode` och `GET /admin/machines` poster utan token.
+
+Nycklar (hostens env, se [`../docs/ENV.md`](../docs/ENV.md)):
+`PREVIEW_HOST_ISOLATION`, `PREVIEW_GUEST_FLY_APP`, `PREVIEW_GUEST_IMAGE`,
+`FLY_API_TOKEN` (eller `PREVIEW_GUEST_FLY_API_TOKEN`),
+`PREVIEW_GUEST_MACHINES_API_BASE` (default `https://api.machines.dev`; inne på
+Fly `http://_api.internal:4280`), `PREVIEW_GUEST_REGION`,
+`PREVIEW_GUEST_CPU_KIND`/`_CPUS`/`_MEMORY_MB` (default shared/2/2048),
+`PREVIEW_GUEST_AGENT_PORT` (7070), `PREVIEW_GUEST_DEV_PORT` (3000),
+`PREVIEW_GUEST_HOST_IDENTITY` (default `FLY_APP_NAME`; märker maskiner så en
+annan host aldrig reconcile-förstör dem), `PREVIEW_GUEST_STOP_ON_HIBERNATE`
+(default `true`).
+
+Lokalt bevis: `npm run test:guest-agent` och `npm run test:isolation` (riktig
+gästagent per "maskin" på egna loopback-adresser, fejkat Machines-API). De
+bevisar kontrakten, inte Fly-nätgränsen. Acceptans nedan gäller fortfarande.
 
 Acceptans i en disponibel testmiljö, endast med syntetiska data:
 
@@ -177,6 +215,13 @@ Acceptans i en disponibel testmiljö, endast med syntetiska data:
 5. Kör på den avsedda plattformen och spara käll-SHA, image-id, policykonfiguration
    och faktiska nekanden. Gröna lokala tester på den delade hosten kan inte
    godkänna en ännu odriftsatt sandboxarkitektur.
+6. Specifikt för maskinläget: från A:s gäst, försök nå B:s agentport och
+   dev-port över `.internal`/6PN, kontrollplanets `/preview/*` utan nyckel,
+   `_api.internal:4280` och ett eventuellt `/.fly/api`. Alla ska nekas; notera
+   att alla previews fortfarande delar webbläsar-origin på hostens domän.
+
+Den delade baslinjen (värden och varför den fungerar) finns i
+[`../docs/runbooks/preview-host-shared-baseline.md`](../docs/runbooks/preview-host-shared-baseline.md).
 
 Hemligheter och miljöklassificering dokumenteras i
 [`../docs/ENV.md`](../docs/ENV.md). Runtimeflödet finns i

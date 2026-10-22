@@ -27,6 +27,7 @@ const {
   ensureRuntimeForChat,
   getRuntimeStateForChat,
   queueRuntimeBoot,
+  runtimeTargetForTracked,
 } = require("./process-lifecycle.js");
 const {
   configuredAppOrigins,
@@ -807,11 +808,11 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
       // (icke-injicerbart), så inspektorn blir inert trots ?inspect=1.
       req.headers["accept-encoding"] = "identity";
       proxy.web(req, res, {
-        target: `http://${LOOPBACK}:${state.runtimePort}`,
+        ...runtimeProxyOptions(state),
         selfHandleResponse: true,
       });
     } else {
-      proxy.web(req, res, { target: `http://${LOOPBACK}:${state.runtimePort}` });
+      proxy.web(req, res, runtimeProxyOptions(state));
     }
     return true;
   }
@@ -1066,8 +1067,24 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
   if (isHmrPath(info.restPath) || info.restPath.startsWith("/_next/") || info.restPath.startsWith("/__nextjs")) {
     delete req.headers.origin;
   }
-  proxy.ws(req, socket, head, { target: `ws://${LOOPBACK}:${runtime.runtimePort}` });
+  proxy.ws(req, socket, head, runtimeProxyOptions(live, { ws: true, runtimePort: runtime.runtimePort }));
   return true;
+}
+
+/**
+ * http-proxy options for a live runtime. Shared mode targets the local child's
+ * loopback port; machine mode (SM-080) targets the guest agent's authenticated
+ * `/proxy` endpoint and adds its bearer header on every upstream request.
+ */
+function runtimeProxyOptions(state, { ws = false, runtimePort = null } = {}) {
+  const target =
+    state?.runtimeTarget ??
+    runtimeTargetForTracked(runtimeChildren.get(state?.session?.sessionId), runtimePort ?? state?.runtimePort);
+  const base = ws ? target.ws : target.http;
+  return {
+    target: base,
+    ...(target.headers ? { headers: target.headers } : {}),
+  };
 }
 
 function injectPreviewHeadTag(body, tag) {

@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { normalizePrewarmLeaseKey } = require("./prewarm-leases.js");
 
-/** @typedef {{ sessions: Record<string, object>, logs: Record<string, object[]>, previewSessionToSession: Record<string, string>, prewarmLeases: Record<string, object>, mutationRevisionByChat: Record<string, number> }} StoreRoot */
+/** @typedef {{ sessions: Record<string, object>, logs: Record<string, object[]>, previewSessionToSession: Record<string, string>, prewarmLeases: Record<string, object>, mutationRevisionByChat: Record<string, number>, machines: Record<string, object> }} StoreRoot */
 
 function getDataDir() {
   const raw = process.env.PREVIEW_HOST_DATA_DIR || process.env.DATA_DIR;
@@ -26,7 +26,21 @@ function emptyStore() {
     previewSessionToSession: {},
     prewarmLeases: {},
     mutationRevisionByChat: {},
+    // SM-080: per-chat guest machine records (machineId, private IP, token).
+    machines: {},
   };
+}
+
+function normalizeMachines(rawMachines) {
+  if (!rawMachines || typeof rawMachines !== "object" || Array.isArray(rawMachines)) return {};
+  const machines = {};
+  for (const [chatId, record] of Object.entries(rawMachines)) {
+    if (!chatId || !record || typeof record !== "object" || Array.isArray(record)) continue;
+    if (typeof record.machineId !== "string" || !record.machineId.trim()) continue;
+    if (typeof record.token !== "string" || !record.token.trim()) continue;
+    machines[chatId] = { ...record };
+  }
+  return machines;
 }
 
 function normalizeMutationRevisions(rawRevisions) {
@@ -138,6 +152,7 @@ function readStoreSync() {
       previewSessionToSession: normalizePreviewSessionMap(parsed, sessions),
       prewarmLeases: normalizePrewarmLeases(parsed.prewarmLeases),
       mutationRevisionByChat: normalizeMutationRevisions(parsed.mutationRevisionByChat),
+      machines: normalizeMachines(parsed.machines),
     };
   } catch (e) {
     if (e && e.code === "ENOENT") {

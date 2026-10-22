@@ -87,6 +87,18 @@ function refreshWorkspaceAfterAdoptedPatch(chatId, workspaceDir, bootSnapshot, a
     if (isInstallOwnedLockfile(relPath)) continue;
     if (!Object.prototype.hasOwnProperty.call(adopted, relPath)) removed.push(relPath);
   }
+  if (isMachineRuntime()) {
+    // Guest workspace: the diff goes over the agent API (next.config basePath
+    // is re-applied in memory by prepareGuestFiles). Returns a promise; the
+    // boot path awaits it.
+    const result = {
+      rewritten: true,
+      changedFiles: Object.keys(changed).length,
+      removedPaths: removed.length,
+    };
+    if (result.changedFiles === 0 && result.removedPaths === 0) return Promise.resolve(result);
+    return patchWorkspaceInMachine(chatId, changed, removed).then(() => result);
+  }
   if (Object.keys(changed).length > 0 || removed.length > 0) {
     patchWorkspaceFiles(chatId, changed, removed);
   }
@@ -104,6 +116,36 @@ const { runInstallCommand } = require("./package-install.js");
 // require inuti stopStaleRuntimes (körs långt efter att allt laddats).
 const { withNoSpaceCleanupRetry } = require("./storage-cleanup.js");
 const { readMutationRevision, withChatLifecycleLock } = require("../session-lifecycle.js");
+// SM-080: när PREVIEW_HOST_ISOLATION=machine körs workspace, install och
+// `next dev` i chattens egen Fly Machine. Hosten behåller store, boot-kedja,
+// readiness och proxy; bara exekveringsplatsen byts.
+const {
+  isMachineRuntime,
+  parkProjectMachine,
+  patchWorkspaceInMachine,
+  startRemoteDevServer,
+  syncAndInstallInMachine,
+} = require("./machine-runtime.js");
+
+/**
+ * Where the proxy and readiness probes reach a tracked runtime. Shared mode:
+ * the loopback port of the local child. Machine mode: the guest agent's
+ * authenticated `/proxy` endpoint on the private network.
+ */
+function runtimeTargetForTracked(tracked, runtimePort = null) {
+  if (tracked?.remoteTarget) return tracked.remoteTarget;
+  const port = tracked?.port ?? runtimePort;
+  if (!port) return null;
+  return {
+    http: `http://${LOOPBACK}:${port}`,
+    ws: `ws://${LOOPBACK}:${port}`,
+    headers: null,
+  };
+}
+
+function runtimeTargetLabel(target) {
+  return target?.http ?? "unknown runtime target";
+}
 
 const READINESS_INTERVAL_MS = 1200;
 const READINESS_EMPTY_BODY_MIN_CHARS = 50;
@@ -336,9 +378,13 @@ async function probeReadinessAfterPatch({
     lifecycleToken: lifecycleToken ?? null,
     mutationRevision: mutationRevision ?? null,
   };
-  const url = `http://${LOOPBACK}:${runtimePort}/${encodeURIComponent(chatId)}/`;
+  const target = runtimeTargetForTracked(
+    runtimeChildren.get(runtimeState.session?.sessionId),
+    runtimePort,
+  );
+  const url = `${target.http}/${encodeURIComponent(chatId)}/`;
   try {
-    await waitForReady(url);
+    await waitForReady(url, { headers: target.headers });
     let applied = false;
     await updateSessionById(sessionId, (stored) => {
       if (stored.versionId !== versionId || !sameSessionLifecycle(stored, probeLifecycle)) return;
@@ -432,6 +478,14 @@ function applyRuntimePatch(
     // boot's workspace snapshot. A dead runtime (`!running && !booting`)
     // still needs a boot. A new versionId during boot still restarts.
     if (sameVersionRewrite && runtimeState.booting && !runtimeState.running) {
+      if (isMachineRuntime()) {
+        // The in-flight boot re-reads session.filesJson (already merged by the
+        // route) before syncing the guest, so the rewrite lands either way.
+        // A best-effort diff write covers the window after that sync.
+        return patchWorkspaceInMachine(chatId, changed, removed)
+          .catch(() => undefined)
+          .then(() => ({ mode: "patched", reason: "boot_in_flight" }));
+      }
       try {
         patchWorkspaceFiles(chatId, changed, removed);
       } catch (error) {
@@ -451,6 +505,28 @@ function applyRuntimePatch(
       mode: "booted",
       reason: runtimeState.running ? "runtime_booting" : "runtime_not_running",
     };
+  }
+  if (isMachineRuntime()) {
+    // Hot patch into the guest workspace; the dev process in the machine
+    // picks the files up through its own watcher. Async by nature: the route
+    // awaits the promise. Failure maps to the same `{ mode: "error" }`
+    // rollback contract as a local write failure.
+    return patchWorkspaceInMachine(chatId, changed, removed).then(
+      () => {
+        markHotPatchWritten(chatId);
+        const tracked = runtimeChildren.get(runtimeState.session.sessionId);
+        promoteTrackedRuntimeReceipt(tracked, runtimeState.session, {
+          versionId,
+          mutationRevision,
+          expectedPreviousMutationRevision,
+        });
+        return { mode: "patched", reason: null };
+      },
+      (error) => ({
+        mode: "error",
+        reason: error instanceof Error ? error.message : "Guest workspace patch failed.",
+      }),
+    );
   }
   try {
     patchWorkspaceFiles(chatId, changed, removed);
@@ -608,7 +684,7 @@ const READINESS_MAX_BUILD_ERROR_RETRIES = 4;
  */
 const READINESS_VERDICT_RE = /build error overlay|empty body for \d+ms|never accepted HTTP/i;
 
-async function waitForReady(url) {
+async function waitForReady(url, { headers = null } = {}) {
   // Empty HTML body is treated like any other "not ready yet" signal: keep
   // polling until meaningful visible text appears. Accepting after a handful of
   // empty polls (~6s) was a false-green — cold starts routinely compile longer
@@ -646,7 +722,10 @@ async function waitForReady(url) {
         method: "GET",
         redirect: "follow",
         signal: ctrl.signal,
-        headers: { Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8" },
+        headers: {
+          Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+          ...(headers && typeof headers === "object" ? headers : {}),
+        },
       });
       if (!responseHeadersLookLikeHtmlDocument(res)) {
         buildErrorStreak = 0;
@@ -724,6 +803,11 @@ function stopChildProcessTree(child) {
   return new Promise((resolve) => {
     if (!child || child.exitCode !== null) {
       resolve();
+      return;
+    }
+    if (typeof child.stopRemote === "function") {
+      // SM-080 guest dev process: the agent owns the process tree.
+      child.stopRemote().then(() => resolve(), () => resolve());
       return;
     }
     if (process.platform === "win32") {
@@ -880,7 +964,7 @@ function exposeRuntimeToClients(session, { restart = false, runtimePort = null, 
   return true;
 }
 
-async function spawnDevServer(session, workspaceDir, runtimePort) {
+async function spawnDevServer(session, workspaceDir, runtimePort, machineGuest = null) {
   // Defense-in-depth (prod-incident 2026-07-03): never overwrite a live
   // tracked child. `runtimeChildren.set` below would orphan the previous
   // process, which keeps holding Next 16's workspace dev-lock and kills every
@@ -904,11 +988,26 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
   const chatId = getSessionChatId(session);
   const basePath = `/${chatId}`;
   const runId = runIdResolverFromSession(session);
-  const child = spawnDevServerChildForTesting
-    ? await Promise.resolve(
-        spawnDevServerChildForTesting({ session, workspaceDir, runtimePort }),
-      )
-    : spawnNpm(
+  let remoteTarget = null;
+  let child;
+  if (spawnDevServerChildForTesting) {
+    child = await Promise.resolve(
+      spawnDevServerChildForTesting({ session, workspaceDir, runtimePort }),
+    );
+  } else if (isMachineRuntime()) {
+    if (!machineGuest) {
+      throw new Error("Machine runtime boot reached spawn without a guest handle.");
+    }
+    const remote = await startRemoteDevServer({
+      chatId,
+      previewSessionId: session.previewSessionId,
+      guest: machineGuest,
+      runId,
+    });
+    child = remote.child;
+    remoteTarget = remote.target;
+  } else {
+    child = spawnNpm(
         ["run", "dev", "--", "--hostname", LOOPBACK, "--port", String(runtimePort)],
         {
           cwd: workspaceDir,
@@ -934,10 +1033,13 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
           }),
         },
       );
+  }
 
   const tracked = {
     child,
     port: runtimePort,
+    // SM-080: set when the dev process lives in the chat's own machine.
+    remoteTarget,
     ignoreExit: false,
     workspaceDir,
     chatId,
@@ -1036,7 +1138,9 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
 
   await appendRuntimeLog(
     session.previewSessionId,
-    `Starting dev runtime on port ${runtimePort} for chat ${chatId}.`,
+    remoteTarget
+      ? `Starting dev runtime in guest machine for chat ${chatId}.`
+      : `Starting dev runtime on port ${runtimePort} for chat ${chatId}.`,
   );
   return session;
 }
@@ -1127,31 +1231,55 @@ async function bootRuntimeForSession(session, options = {}) {
     const isPrewarm = session.prewarm === true;
     const runBoot = async () => {
       session = assertCurrentSessionLifecycle(session);
-      const workspaceDir = writeWorkspaceFiles(chatId, session.filesJson);
-      patchNextConfigForPreviewBasePath(workspaceDir);
-      const runtimePort = await resolvePortForChat(chatId, Number(session.runtimePort));
-      // Install (+ stale-lockfile reconcile + dependency postcondition). Throws
-      // on install/postcondition failure → outer catch sets status "error", so
-      // a broken dependency graph never reaches a running preview.
-      const installOutcome = await runInstallCommand(
-        workspaceDir,
-        session.previewSessionId,
-        session.filesJson,
-      );
+      const machineMode = isMachineRuntime();
+      let workspaceDir = null;
+      let runtimePort = null;
+      let installOutcome;
+      let machineGuest = null;
+      if (machineMode) {
+        // SM-080: nothing of the project touches this host's disk or process
+        // table. Ensure the chat's machine (fail-closed), sync the snapshot
+        // and install inside it. The "port" is the guest agent's port; the
+        // proxy reaches the runtime through tracked.remoteTarget.
+        const synced = await syncAndInstallInMachine({
+          chatId,
+          previewSessionId: session.previewSessionId,
+          filesJson: session.filesJson,
+        });
+        machineGuest = synced.guest;
+        installOutcome = synced.installOutcome;
+        runtimePort = synced.record.agentPort;
+      } else {
+        workspaceDir = writeWorkspaceFiles(chatId, session.filesJson);
+        patchNextConfigForPreviewBasePath(workspaceDir);
+        runtimePort = await resolvePortForChat(chatId, Number(session.runtimePort));
+        // Install (+ stale-lockfile reconcile + dependency postcondition). Throws
+        // on install/postcondition failure → outer catch sets status "error", so
+        // a broken dependency graph never reaches a running preview.
+        installOutcome = await runInstallCommand(
+          workspaceDir,
+          session.previewSessionId,
+          session.filesJson,
+        );
+      }
       // Re-read after install: a same-version patch may have landed while npm
       // ran. Only rewrite when mutationRevision actually advanced — a full
       // writeWorkspaceFiles here used to clobber the pre-install basePath
       // injection on every boot (Bugbot on #1314).
       const sessionBeforeAdopt = session;
       session = assertCurrentSessionLifecycle(session);
-      refreshWorkspaceAfterAdoptedPatch(
+      await refreshWorkspaceAfterAdoptedPatch(
         chatId,
         workspaceDir,
         sessionBeforeAdopt,
         session,
       );
-      session = await spawnDevServer(session, workspaceDir, runtimePort);
+      session = await spawnDevServer(session, workspaceDir, runtimePort, machineGuest);
       const spawnedBootId = runtimeChildren.get(session.sessionId)?.bootId ?? null;
+      const readinessTarget = runtimeTargetForTracked(
+        runtimeChildren.get(session.sessionId),
+        runtimePort,
+      );
 
       await updateSessionById(session.sessionId, (stored) => {
         if (!sameSessionLifecycleOrAdoptedPatch(stored, session)) return;
@@ -1199,7 +1327,8 @@ async function bootRuntimeForSession(session, options = {}) {
       });
 
       const readiness = waitForReady(
-        `http://${LOOPBACK}:${runtimePort}/${encodeURIComponent(chatId)}/`,
+        `${readinessTarget.http}/${encodeURIComponent(chatId)}/`,
+        { headers: readinessTarget.headers },
       );
       // Record the readiness OUTCOME into the session for non-prewarm boots.
       // Previously the normal path fired readiness fire-and-forget and only
@@ -1223,7 +1352,7 @@ async function bootRuntimeForSession(session, options = {}) {
             exposeRuntimeToClients(session, { restart, runtimePort, bootId: spawnedBootId });
             return appendRuntimeLog(
               session.previewSessionId,
-              `Runtime ready on http://${LOOPBACK}:${runtimePort}. Preview available at ${session.previewUrl}.`,
+              `Runtime ready on ${runtimeTargetLabel(readinessTarget)}. Preview available at ${session.previewUrl}.`,
             );
           })
           .catch((err) => {
@@ -1260,7 +1389,7 @@ async function bootRuntimeForSession(session, options = {}) {
             exposeRuntimeToClients(session, { restart: false, runtimePort, bootId: spawnedBootId });
             return appendRuntimeLog(
               session.previewSessionId,
-              `Runtime ready on http://${LOOPBACK}:${runtimePort}. Preview available at ${session.previewUrl}.`,
+              `Runtime ready on ${runtimeTargetLabel(readinessTarget)}. Preview available at ${session.previewUrl}.`,
             );
           })
           .catch((err) =>
@@ -1527,13 +1656,17 @@ function getRuntimeStateForChat(chatId) {
   // `status:"starting"` is persisted and may survive a host restart; it is not
   // proof that this process owns a live boot. Only the in-memory boot chain is.
   const booting = inflightBootByChat.has(chatId);
+  const runtimePort =
+    tracked?.port ?? (Number.isFinite(Number(session.runtimePort)) ? Number(session.runtimePort) : null);
   return {
     session,
     running,
     booting,
     persistedStarting: session.status === "starting",
     acceptingTraffic: Boolean(running && tracked && tracked.acceptingTraffic !== false),
-    runtimePort: tracked?.port ?? (Number.isFinite(Number(session.runtimePort)) ? Number(session.runtimePort) : null),
+    runtimePort,
+    // Proxy/readiness address; null until a tracked runtime exists in machine mode.
+    runtimeTarget: running ? runtimeTargetForTracked(tracked, runtimePort) : null,
     lastActivityAt: Number.isFinite(tracked?.lastActivityAt) ? tracked.lastActivityAt : null,
   };
 }
@@ -1543,6 +1676,11 @@ async function hibernateChatRuntime(chatId) {
   const session = findSessionByChatId(data, chatId);
   if (!session) return null;
   await stopRuntimeForSession(session);
+  // A verify running inside the same machine must not lose it; the verify
+  // parks the machine itself when it finishes.
+  if (isMachineRuntime() && !activeVerifyChatKeys.has(safeChatKey(chatId))) {
+    await parkProjectMachine(chatId, { previewSessionId: session.previewSessionId });
+  }
   return session;
 }
 
@@ -1627,6 +1765,9 @@ async function sweepIdleRuntimes(nowMs = Date.now()) {
           previewSessionId,
           `Runtime idle-stopped after ${Math.round(RUNTIME_IDLE_STOP_MS / 60000)} min without preview traffic; next visit boots it again.`,
         ).catch(() => {});
+      }
+      if (isMachineRuntime() && chatId) {
+        await parkProjectMachine(chatId, { previewSessionId });
       }
     });
   }
@@ -1747,6 +1888,7 @@ module.exports = {
   ensureRuntimeForChat,
   queueRuntimeBoot,
   getRuntimeStateForChat,
+  runtimeTargetForTracked,
   hibernateChatRuntime,
   sweepIdleRuntimes,
   setRuntimeStateForTesting,
