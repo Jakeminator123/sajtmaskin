@@ -20,10 +20,24 @@ class FlyMachinesError extends Error {
   }
 }
 
+/**
+ * Fly uses two auth schemes: tokens from `fly tokens create` (macaroons,
+ * printed as `FlyV1 fm2_…`) must be sent as `Authorization: FlyV1 <token>`;
+ * only `flyctl auth token` output uses `Bearer`. The guest-app deploy token
+ * the runbook prescribes is a macaroon, so sending it as Bearer is a 401.
+ */
+function flyAuthorizationHeader(apiToken) {
+  const token = String(apiToken ?? "").trim();
+  if (/^FlyV1\s+/i.test(token)) return `FlyV1 ${token.replace(/^FlyV1\s+/i, "")}`;
+  if (/^fm\d_/.test(token)) return `FlyV1 ${token}`;
+  return `Bearer ${token}`;
+}
+
 function createFlyMachinesClient({ apiBase, apiToken, appName, fetchImpl = globalThis.fetch }) {
   if (!apiBase || !apiToken || !appName) {
     throw new Error("Fly Machines client requires apiBase, apiToken and appName.");
   }
+  const authorization = flyAuthorizationHeader(apiToken);
   const base = apiBase.replace(/\/$/, "");
   const appPath = `/v1/apps/${encodeURIComponent(appName)}`;
 
@@ -40,7 +54,7 @@ function createFlyMachinesClient({ apiBase, apiToken, appName, fetchImpl = globa
       response = await fetchImpl(url, {
         method,
         headers: {
-          authorization: `Bearer ${apiToken}`,
+          authorization,
           accept: "application/json",
           ...(body !== undefined ? { "content-type": "application/json" } : {}),
         },
@@ -120,4 +134,5 @@ function createFlyMachinesClient({ apiBase, apiToken, appName, fetchImpl = globa
 module.exports = {
   FlyMachinesError,
   createFlyMachinesClient,
+  flyAuthorizationHeader,
 };
