@@ -18,7 +18,9 @@ Worktree: `agent-worktree.mdc`. Värden: `config/agent-workflow.json`.
 - `master` = produktion: bara via `npm run promote` (aldrig `preview` som
   head-gren) plus produktionsvarning och extra bekräftelse i samma chatt.
 - Force-pusha aldrig `master`, `preview` eller en delad remote-branch. Rör aldrig
-  `*BRA*` eller `rescue/*`; gamla restore-tips hör i `archive/`.
+  `*BRA*` eller `rescue/*`; enda raderingsundantaget är de sex SHA-bundna,
+  redan arkiverade backuperna i `scripts/dev/backup-retirements.mjs`
+  (ägarbeslut 2026-10-22). Inga backup-tips får flyttas.
 - Remote-branch raderas bara på Jakobs begäran via
   `npm run tidy -- --delete-remote <branch> --apply` (arkiverar först).
 - `preview`-grenen är staging (`preview.sajtmaskin.se`), inte builderns preview

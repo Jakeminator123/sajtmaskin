@@ -4,8 +4,8 @@ on:
   push:
     branches: [preview]
   pull_request:
-    # Retarget immediately; body/title edits are isolated below without a required check.
-    types: [opened, synchronize, reopened, ready_for_review, edited]
+    # Retargeting is drafted by pr-base-guard; ready_for_review tests the new base.
+    types: [opened, synchronize, reopened, ready_for_review]
   schedule:
     - cron: "17 3 * * 2"
   workflow_dispatch:
@@ -15,11 +15,11 @@ on:
         type: boolean
         default: false
 
-# New PR heads/base changes replace stale runs. Metadata-only edits have unique
-# groups and cannot cancel required work. Trusted integration receipts stay unique.
+# Only new PR heads/readiness replace stale runs. Body/title edits must not create
+# a newer skipped suite that hides the required receipt. Integration runs stay unique.
 concurrency:
-  group: dossier-acceptance-${{ (github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null)) && format('metadata-{0}', github.run_id) || github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' && !(github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null)) }}
+  group: dossier-acceptance-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -29,7 +29,6 @@ jobs:
   # expensive matrix can skip while the required aggregate stays green.
   # Classification errors fail closed to the matrix.
   scope:
-    if: ${{ !(github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null)) }}
     permissions:
       contents: read
       actions: read
@@ -249,15 +248,14 @@ jobs:
   # scope decision legitimately skipped it. Red if scope failed, the matrix
   # failed, or a skip was not legitimate. Same pattern as CI `quality`.
   dossier-acceptance:
-    # A skipped metadata job must NEVER publish the required acceptance identity.
-    name: ${{ (github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null)) && 'dossier-metadata-edit' || 'dossier-acceptance' }}
+    name: dossier-acceptance
     needs:
       - scope
       - discover
       - verification-evidence
       - dependency-registry
       - keyless-production-build
-    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null)) }}
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate required dossier-acceptance result
@@ -309,8 +307,8 @@ jobs:
   # A Preview receipt must never satisfy the separate master-only required check.
   # The tiny aggregate survives cancellation so skipped/cancelled work fails closed.
   dossier-acceptance-master:
-    name: ${{ (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'master' && !(github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null))) && 'dossier-acceptance-master' || 'dossier-master-not-applicable' }}
-    if: ${{ always() && (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'master' && !(github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null))) }}
+    name: ${{ (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'master') && 'dossier-acceptance-master' || 'dossier-master-not-applicable' }}
+    if: ${{ always() && (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'master') }}
     needs: [scope, discover, dependency-registry, keyless-production-build, dossier-acceptance]
     runs-on: ubuntu-latest
     timeout-minutes: 2

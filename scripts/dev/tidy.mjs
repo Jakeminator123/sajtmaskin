@@ -51,6 +51,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { approvedBackupRetirement } from "./backup-retirements.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = path.join(__dirname, "..", "..");
@@ -249,7 +250,10 @@ export const archiveTagFor = (branch) => `archive/${branch}`;
 export function planRemoteDelete({ branch, run }) {
   const refuse = (reason) => ({ branch, action: "refuse", reason });
   if (!isPlainBranchName(branch)) return refuse("ogiltigt branchnamn");
-  if (isRemoteDeleteRefused(branch)) return refuse("skyddad/oföränderlig branch enligt policy");
+  const retirementTip = approvedBackupRetirement(branch);
+  if (isRemoteDeleteRefused(branch) && !retirementTip) {
+    return refuse("skyddad/oföränderlig branch enligt policy");
+  }
 
   const tag = archiveTagFor(branch);
   const headRef = `refs/heads/${branch}`;
@@ -264,6 +268,9 @@ export function planRemoteDelete({ branch, run }) {
   }
   const tip = refs.get(headRef);
   if (!tip) return { branch, action: "absent", reason: "finns inte på origin" };
+  if (retirementTip && (tip !== retirementTip || refs.get(tagRef) !== retirementTip)) {
+    return refuse("backup-undantaget kräver beslutad tip och en befintlig arkivtagg på samma SHA");
+  }
 
   const gh = run("gh", [
     "pr",

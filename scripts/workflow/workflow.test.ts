@@ -1310,7 +1310,7 @@ describe("agent workflow repository contract", () => {
     expect(
       evaluateDossierAcceptanceWorkflow(
         source.replace(
-          "    types: [opened, synchronize, reopened, ready_for_review, edited]\n",
+          "    types: [opened, synchronize, reopened, ready_for_review]\n",
           '    paths: ["data/dossiers/**"]\n',
         ),
       ).length,
@@ -1318,7 +1318,7 @@ describe("agent workflow repository contract", () => {
   });
 
   it.each([
-    [", edited]", "]"],
+    [", ready_for_review]", "]"],
     ["SAJTMASKIN_PR_BASE_REF:", "UNUSED_BASE_REF:"],
     ["ACCEPTANCE_REQUIRE_FULL:", "UNUSED_FULL_REQUIREMENT:"],
     ["BASE_REF: ${{ github.event.pull_request.base.ref }}", "BASE_REF: preview"],
@@ -1329,7 +1329,7 @@ describe("agent workflow repository contract", () => {
     expect(evaluateDossierAcceptanceWorkflow(source.replaceAll(from, to)).length).toBeGreaterThan(0);
   });
 
-  it("allows only the exact closed metadata check name in its sole owner", () => {
+  it("allows only the closed master check name in its sole owner", () => {
     const ci = readFileSync(".github/workflows/ci.yml", "utf8");
     const dossier = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
     const check = (source: string, name = "dossier-acceptance.yml") => evaluateReservedWorkflowCheckNames([
@@ -1338,22 +1338,23 @@ describe("agent workflow repository contract", () => {
     expect(check(dossier)).toEqual([]);
     expect(check(dossier, "other.yml").length).toBeGreaterThan(0);
     for (const changed of [
-      dossier.replace("dossier-metadata-edit", "quality"),
-      dossier.replaceAll("github.event.changes.base == null", "true"),
-      dossier.replace("\n  dossier-acceptance:\n", "\n  fake-acceptance:\n"),
+      dossier.replace("dossier-master-not-applicable", "quality"),
+      dossier.replaceAll("github.event.pull_request.base.ref == 'master'", "true"),
+      dossier.replace("name: dossier-acceptance", "name: ${{ github.event_name }}"),
     ]) {
       expect(changed).not.toBe(dossier);
       expect(check(changed).length).toBeGreaterThan(0);
     }
   });
 
-  it("rejects metadata shortcuts that could cancel tests or publish a false green", () => {
+  it("rejects metadata-triggered suites, conditional scope and unsafe concurrency", () => {
     const source = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
     for (const changed of [
-      source.replace("github.event.changes.base == null", "true"),
-      source.replace("metadata-{0}", "metadata-shared"),
-      source.replace("name: ${{ (github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null)) && 'dossier-metadata-edit' || 'dossier-acceptance' }}", "name: dossier-acceptance"),
-      source.replace("if: ${{ !(github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null)) }}", "if: true"),
+      source.replace("ready_for_review]", "ready_for_review, edited]"),
+      source.replace("github.event.pull_request.number || github.run_id", "github.run_id"),
+      source.replace("  cancel-in-progress: ${{ github.event_name == 'pull_request' }}", "  cancel-in-progress: true"),
+      source.replace("  scope:\n", "  scope:\n    if: false\n"),
+      source.replace("name: dossier-acceptance", "name: missing-acceptance"),
     ]) {
       expect(changed).not.toBe(source);
       expect(evaluateDossierAcceptanceWorkflow(changed).length).toBeGreaterThan(0);

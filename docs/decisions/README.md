@@ -20,6 +20,21 @@ i backloggen — registret finns för att beslut ska kunna stängas.
 
 ## Gällande beslut
 
+### 2026-10-22: sex äldre BRA-backuper ersätts av arkivtaggar
+
+Jakob godkände uttryckligen ett avgränsat, testat och granskat raderingsundantag
+för de sex branch/SHA-paren i
+[`backup-retirements.mjs`](../../scripts/dev/backup-retirements.mjs).
+`npm run tidy -- --delete-remote <branch> --apply` och pre-push kräver samma
+exakta tip, befintlig remote-tagg `archive/<branch>` och ingen öppen PR.
+Undantaget tillåter ingen flytt av en backup-tip. Standardstädning får fortfarande
+inte radera backupbrancher. Nyaste `BRA_BRA_backup_1337`, övriga BRA,
+`rescue/*`, `preview` och `master` behåller sina skydd.
+GitHub-undantagen begränsas till dessa sex exakta refs under raderingen och
+återställs efteråt; inga bypass-aktörer används eller läggs till.
+Kontraktet provas i [`tidy.test.ts`](../../scripts/dev/tidy.test.ts) och
+[`install-git-hooks.test.ts`](../../scripts/dev/install-git-hooks.test.ts).
+
 | Datum      | Område                       | Beslut                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Kanonisk källa                                                                                                                                                                                                                                                                             |
 | ---------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 2026-10-07 | DB / Preview och Development | **Preview och Development delar DEV; Production behåller PROD.** Jakob har auktoriserat miljöomkoppling, avgränsad DEV-synk och styrdokumentation. Befintlig mejlmigration äger det nya schemat; tomma pensionerade DEV-tabeller flyttas till ett åtkomstbegränsat arkiv och historisk ledger bevaras. Redis/Blob kan fortfarande delas. Beslutet omfattar inte Supabase-planbyte eller produktionsmigration. | [`db-targets.json`](../../config/db-targets.json) + [`align-dev-preview.mjs`](../../scripts/db/align-dev-preview.mjs) + [`DB-runbook`](../runbooks/db-migrations.md) |
