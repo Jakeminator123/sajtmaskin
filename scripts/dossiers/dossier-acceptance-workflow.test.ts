@@ -41,12 +41,7 @@ describe("affected dossier selection", () => {
       "data/dossiers/hard/openai-chat/manifest.json",
     ], catalog).dossiers).toEqual(all);
   });
-  it("unknown repository paths cannot produce a green skipped matrix", () => {
-    expect(decideAcceptanceScope({ eventName: "pull_request", baseRef: "preview", baseSha: "a".repeat(40), headSha: "b".repeat(40),
-      gitCommand: () => ({ status: 0, stdout: "M\0new-runtime/owner.js\0" }),
-    })).toMatchObject({ runMatrix: true, dossiers: all, matrixMode: "full", reason: "unknown-path" });
-  });
-  it("preserves full scheduled/manual and unproven push coverage", () => {
+  it("preserves full scheduled/manual and non-preview push coverage", () => {
     for (const eventName of ["schedule", "workflow_dispatch", "push"]) {
       expect(decideAcceptanceScope({ eventName })).toMatchObject({ dossiers: all, matrixMode: "full" });
     }
@@ -76,11 +71,14 @@ describe("promotion requires every dossier", () => {
       })).toMatchObject({ runMatrix: true, matrixMode: "full", dossiers: all, reason: "non-preview-pr-full" });
     }
   });
-  it("keeps a one-dossier Preview PR incremental", () => {
+  it("defers even a one-dossier Preview PR to promote and names what promote will build", () => {
     expect(decideAcceptanceScope({ eventName: "pull_request", baseRef: "preview",
       baseSha: "a".repeat(40), headSha: "b".repeat(40),
       gitCommand: () => ({ status: 0, stdout: "M\0data/dossiers/hard/vercel-analytics/components/analytics-providers.tsx\0" }),
-    })).toMatchObject({ runMatrix: true, matrixMode: "affected", dossiers: ["vercel-analytics"] });
+    })).toMatchObject({
+      runMatrix: false, matrixMode: "none", dossiers: [], reason: "deferred-to-promote",
+      deferredDossiers: ["vercel-analytics"],
+    });
   });
   it("independently refuses partial discovery, including when a future dossier is added", () => {
     expect(() => validateAcceptanceSelection(JSON.stringify(all.slice(1)), catalog, { requireFull: true })).toThrow("Full acceptance catalog required");
@@ -94,6 +92,25 @@ describe("promotion requires every dossier", () => {
     expect(result.status).not.toBe(0);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("Full acceptance catalog required");
+  });
+  it.each([
+    ["pull_request", { SAJTMASKIN_PR_BASE_REF: "preview", SAJTMASKIN_PR_BASE_SHA: "", SAJTMASKIN_PR_HEAD_SHA: "" }],
+    ["push", { GITHUB_REF: "refs/heads/preview", SAJTMASKIN_PUSH_BASE_SHA: "0".repeat(40), GITHUB_SHA: "" }],
+  ])("wires an actual preview %s into deferred scope output that the aggregate accepts", (eventName, extraEnv) => {
+    const dir = mkdtempSync(resolve(tmpdir(), "dossier-preview-scope-"));
+    const output = resolve(dir, "output");
+    try {
+      const result = spawnSync(process.execPath, ["scripts/dossiers/acceptance-scope.mjs"], {
+        env: { ...process.env, GITHUB_EVENT_NAME: eventName, GITHUB_TOKEN: "", ...extraEnv, GITHUB_OUTPUT: output }, encoding: "utf8",
+      });
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain("reason=deferred-to-promote");
+      const lines = readFileSync(output, "utf8").split("\n");
+      expect(lines).toContain("run_matrix=false");
+      expect(lines).toContain("matrix_mode=none");
+      expect(lines).toContain("dossiers=[]");
+      expect(lines).toContain("reason=deferred-to-promote");
+    } finally { rmSync(dir, { recursive: true, force: true }); }
   });
   it("wires the actual promotion event into full scope output", () => {
     const dir = mkdtempSync(resolve(tmpdir(), "dossier-promote-scope-"));
@@ -233,7 +250,7 @@ describe("dossier acceptance scope", () => {
     });
   });
 
-  it("skips the matrix for an out-of-contract PR diff", () => {
+  it("defers an out-of-contract Preview PR diff", () => {
     const result = decideAcceptanceScope({
       eventName: "pull_request", baseRef: "preview",
       baseSha: "a".repeat(40),
@@ -246,14 +263,15 @@ describe("dossier acceptance scope", () => {
     });
     expect(result).toMatchObject({
       runMatrix: false,
-      reason: "out-of-contract",
+      reason: "deferred-to-promote",
       files: ["README.md"],
       matched: [],
+      deferredDossiers: [],
       classificationError: null,
     });
   });
 
-  it("runs the matrix when a UI or Node pin that lands in generated projects changes", () => {
+  it("defers a shared UI or Node pin change on Preview and reports the full catalog for promote", () => {
     const result = decideAcceptanceScope({
       eventName: "pull_request", baseRef: "preview",
       baseSha: "a".repeat(40),
@@ -265,14 +283,15 @@ describe("dossier acceptance scope", () => {
       }),
     });
     expect(result).toMatchObject({
-      runMatrix: true,
-      reason: "in-contract",
+      runMatrix: false,
+      reason: "deferred-to-promote",
       classificationError: null,
+      deferredDossiers: acceptanceCatalog().map(entry => entry.id),
     });
     expect(result.matched).toEqual(["src/components/ui/button.tsx", ".node-version"]);
   });
 
-  it("fails closed to the matrix when the PR diff cannot be classified", () => {
+  it("an unclassifiable Preview diff is still deferred; the error is only reported", () => {
     const result = decideAcceptanceScope({
       eventName: "pull_request", baseRef: "preview",
       baseSha: "a".repeat(40),
@@ -284,41 +303,34 @@ describe("dossier acceptance scope", () => {
       }),
     });
     expect(result).toMatchObject({
-      runMatrix: true,
-      reason: "classification-error",
+      runMatrix: false,
+      reason: "deferred-to-promote",
     });
     expect(result.classificationError).toContain("git diff failed");
   });
 });
 
 describe("preview push dossier scope", () => {
-  it("does not skip carried dossier changes without successful predecessor evidence", () => {
-    expect(decideAcceptanceScope({
-      eventName: "push", ref: "refs/heads/preview",
-      baseSha: "a".repeat(40), headSha: "b".repeat(40),
-      gitCommand: () => ({ status: 0, stdout: "M\0README.md\0" }),
-    })).toMatchObject({ runMatrix: true });
-  });
   it.each([
-    ["src/app/builder/page.tsx", false],
-    ["README.md", false],
-    ["data/dossiers/hard/test/manifest.json", true],
-    ["src/components/ui/button.tsx", true],
-    ["scripts/workflow/ci-scope.mjs", true],
-    ["package-lock.json", true],
-  ])("scopes fast-forward preview push %s to matrix=%s", (path, runMatrix) => {
+    ["src/app/builder/page.tsx", true],
+    ["README.md", true],
+    ["data/dossiers/hard/test/manifest.json", false],
+    ["src/components/ui/button.tsx", false],
+    ["scripts/workflow/ci-scope.mjs", false],
+    ["package-lock.json", false],
+  ])("defers preview push %s to promote whether or not the push baseline is verified (%s)", (path, baselineVerified) => {
     expect(
       decideAcceptanceScope({
         eventName: "push",
-        ref: "refs/heads/preview", baselineVerified: true,
+        ref: "refs/heads/preview", baselineVerified,
         baseSha: "a".repeat(40),
         headSha: "b".repeat(40),
         gitCommand: () => ({ status: 0, stdout: `M\0${path}\0` }),
       }),
-    ).toMatchObject({ runMatrix, classificationError: null });
+    ).toMatchObject({ runMatrix: false, reason: "deferred-to-promote", classificationError: null });
   });
 
-  it("fails closed for unprovable preview pushes and keeps other refs full", () => {
+  it("an unprovable preview push is deferred too, and other refs stay full", () => {
     for (const baseSha of ["", "0".repeat(40), "a".repeat(40)]) {
       expect(
         decideAcceptanceScope({
@@ -328,14 +340,14 @@ describe("preview push dossier scope", () => {
           headSha: "b".repeat(40),
           gitCommand: () => ({ status: 1, stdout: "" }),
         }),
-      ).toMatchObject({ runMatrix: true, reason: "classification-error" });
+      ).toMatchObject({ runMatrix: false, reason: "deferred-to-promote" });
     }
     expect(decideAcceptanceScope({ eventName: "push", ref: "refs/heads/master" })).toMatchObject({
       runMatrix: true,
     });
   });
 
-  it("retains a renamed dependency even when its new path is irrelevant", () => {
+  it("still reports a renamed dependency for the promote summary", () => {
     expect(
       decideAcceptanceScope({
         eventName: "push",
@@ -347,7 +359,7 @@ describe("preview push dossier scope", () => {
           stdout: "R100\0src/components/ui/card.tsx\0docs/card.md\0",
         }),
       }),
-    ).toMatchObject({ runMatrix: true, matched: ["src/components/ui/card.tsx"] });
+    ).toMatchObject({ runMatrix: false, matched: ["src/components/ui/card.tsx"] });
   });
 });
 
@@ -392,6 +404,8 @@ describe.skipIf(process.platform === "win32" && !existsSync(bash))(
       (EVENT_NAME) => {
         expect(run({ EVENT_NAME })).toBe(0);
         expect(run({ EVENT_NAME, ...skipped })).toBe(0);
+        // The exact outputs a deferred preview run publishes.
+        expect(run({ EVENT_NAME, ...skipped, MATRIX_MODE: "none" })).toBe(0);
       },
     );
     it.each(["master", "", "release"])("blocks skipped/partial or failed promotion matrices for base %s", BASE_REF => {
@@ -523,7 +537,7 @@ describe("dossier acceptance workflow contract", () => {
     } finally { rmSync(root, { recursive: true, force: true }); }
   });
 
-  it("runs acceptance on preview pushes but keeps freshness only on schedule/manual", () => {
+  it("still triggers on preview pushes (to publish the deferred receipt) and keeps freshness only on schedule/manual", () => {
     const start = workflow.indexOf("  verification-evidence:");
     const end = workflow.indexOf("  dependency-registry:", start);
 

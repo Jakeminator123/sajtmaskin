@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { changedFilesForEvent } from "../workflow/ci-scope.mjs";
-import { pathMatchesPattern, PATH_GROUP_FLOORS } from "../workflow/path-impact.mjs";
+import { pathMatchesPattern } from "../workflow/path-impact.mjs";
 import { verifiedPushBaseline } from "../workflow/push-baseline.mjs";
 import { DOSSIER_ACCEPTANCE_PATHS } from "./acceptance-paths.mjs";
 import { acceptanceCatalog } from "./list-acceptance-matrix.mjs";
@@ -38,8 +38,9 @@ export function selectAffectedDossiers(paths, catalog) {
 /**
  * Decide whether this event must run the expensive dossier matrix.
  *
- * PRs and proven fast-forward preview pushes use the same path contract.
- * Other events and classification errors run the complete matrix.
+ * PRs to master (promote) and every scheduled/manual run build the complete
+ * catalog. Preview PRs and Preview pushes never run it; they only report which
+ * dossiers their diff touches (`deferredDossiers`).
  *
  * @param {{
  *   eventName?: string,
@@ -66,55 +67,51 @@ export function decideAcceptanceScope({
   // A corrupt catalog is a failed classifier, never a green empty matrix.
   const catalog = acceptanceCatalog(cwd);
   const full = { dossiers: catalog.map(entry => entry.id), matrixMode: "full" };
-  // Incremental PR coverage is a Preview-only optimization. Production and an
-  // absent/unknown target must build the complete current catalog before merge.
+  // Production and an absent/unknown target must build the complete current
+  // catalog before merge. This is the promote gate.
   if (event === "pull_request" && baseRef !== "preview") {
     return { ...full, runMatrix: true, reason: "non-preview-pr-full", files: [], matched: [], classificationError: null };
   }
-  if (event !== "pull_request" && !(event === "push" && ref === "refs/heads/preview" && baselineVerified)) {
-    return {
-      ...full,
-      runMatrix: true,
-      reason: `trusted-${event || "unknown"}-full`,
-      files: [],
-      matched: [],
-      classificationError: null,
-    };
-  }
-
-  try {
-    const files = changedFilesForEvent({ eventName: event, baseSha, headSha, cwd, gitCommand });
-    const matched = files.filter((path) => matchesAcceptanceContract(path));
-    const unknown = files.filter(path => !Object.values(PATH_GROUP_FLOORS).flat().some(pattern => pathMatchesPattern(path, pattern)) && !matchesAcceptanceContract(path));
-    if (unknown.length) return { ...full, runMatrix: true, reason: "unknown-path", files, matched, classificationError: null };
-    if (matched.length === 0) {
-      return {
-        dossiers: [], matrixMode: "none",
-        runMatrix: false,
-        reason: files.length === 0 ? "empty-diff" : "out-of-contract",
-        files,
-        matched,
-        classificationError: null,
-      };
+  // Ägarbeslut 2026-10-22 (docs/decisions/README.md): the matrix — one isolated
+  // install + typecheck + production build per dossier — was the single
+  // largest GitHub Actions cost, and it ran on every Preview PR head and every
+  // Preview push. It now runs only where code heads for production (PRs to
+  // master, i.e. promote) plus the weekly schedule and manual runs. Preview
+  // PRs and pushes still classify the diff so the log names what the promote
+  // run will cover; nothing they report can turn the matrix on.
+  if ((event === "pull_request" && baseRef === "preview") || (event === "push" && ref === "refs/heads/preview")) {
+    void baselineVerified;
+    let files = [];
+    let matched = [];
+    let classificationError = null;
+    try {
+      files = changedFilesForEvent({ eventName: event, baseSha, headSha, cwd, gitCommand });
+      matched = files.filter((path) => matchesAcceptanceContract(path));
+    } catch (error) {
+      classificationError = error instanceof Error ? error.message : String(error);
     }
+    const wouldSelect = matched.length > 0
+      ? selectAffectedDossiers(matched, catalog)
+      : { dossiers: [], matrixMode: "none" };
     return {
-      ...selectAffectedDossiers(matched, catalog),
-      runMatrix: true,
-      reason: "in-contract",
+      dossiers: [],
+      matrixMode: "none",
+      runMatrix: false,
+      reason: "deferred-to-promote",
       files,
       matched,
-      classificationError: null,
-    };
-  } catch (error) {
-    return {
-      ...full,
-      runMatrix: true,
-      reason: "classification-error",
-      files: [],
-      matched: [],
-      classificationError: error instanceof Error ? error.message : String(error),
+      deferredDossiers: wouldSelect.dossiers,
+      classificationError,
     };
   }
+  return {
+    ...full,
+    runMatrix: true,
+    reason: `trusted-${event || "unknown"}-full`,
+    files: [],
+    matched: [],
+    classificationError: null,
+  };
 }
 
 function writeOutput(path, key, value) {
@@ -142,7 +139,9 @@ async function main() {
 
   if (decision.classificationError) {
     console.warn(
-      "::warning title=Dossier acceptance fell back to full matrix::Changed-file classification failed; the matrix will run.",
+      decision.runMatrix
+        ? "::warning title=Dossier acceptance fell back to full matrix::Changed-file classification failed; the matrix will run."
+        : "::warning title=Dossier acceptance classification failed::The matrix is deferred to promote either way; only the informational diff summary is missing.",
     );
     console.warn(
       `[acceptance-scope] classification detail: ${decision.classificationError.replace(/[\r\n]+/gu, " ")}`,
@@ -159,7 +158,10 @@ async function main() {
 
   console.log(
     `[acceptance-scope] matrix=${decision.runMatrix} reason=${decision.reason} ` +
-      `files=${decision.files.length} matched=${decision.matched.length} selected=${decision.dossiers.length} mode=${decision.matrixMode}`,
+      `files=${decision.files.length} matched=${decision.matched.length} selected=${decision.dossiers.length} mode=${decision.matrixMode}` +
+      (decision.reason === "deferred-to-promote"
+        ? ` deferred=${decision.deferredDossiers.length ? decision.deferredDossiers.join(",") : "none"}`
+        : ""),
   );
 }
 
