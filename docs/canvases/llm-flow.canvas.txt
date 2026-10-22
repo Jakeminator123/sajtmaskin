@@ -63,14 +63,14 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "c422d8001",
+    "commit": "1bcca87b6",
     "commitDate": "2026-10-22",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
-    "openP1": 5,
+    "openP1": 4,
     "openP2": 9,
     "openP3": 2,
     "blocked": 1,
@@ -108,7 +108,7 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 0,
+      "churn": 1,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
       "note": "3 oppna backlog-rader (P0:0 P1:0 P2:3 P3:0)"
     },
@@ -142,7 +142,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 7,
+      "churn": 8,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
       "note": "4 oppna backlog-rader (P0:0 P1:0 P2:3 P3:1)"
     },
@@ -185,17 +185,17 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 16,
+      "openBugs": 15,
       "openByPrio": {
         "P0": 0,
-        "P1": 5,
+        "P1": 4,
         "P2": 9,
         "P3": 2,
         "other": 0
       },
       "churn": 2,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
-      "note": "BLOCKER: `SM-080` Preview-projekt på Fly-hosten delar OS-identitet och filsystem. En inloggad anvä…"
+      "note": "BLOCKER: `SM-092` Resend nekade verifieringsmejl i prod med 403 «domain is not verified»; då kan e…"
     },
     {
       "name": "Eval",
@@ -220,7 +220,7 @@ const DATA: CanvasData = {
       "name": "Preview och versioner",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "reason": "BLOCKER: `SM-080` Preview-projekt på Fly-hosten delar OS-identitet och filsystem. En inloggad anvä…"
+      "reason": "BLOCKER: `SM-092` Resend nekade verifieringsmejl i prod med 403 «domain is not verified»; då kan e…"
     },
     {
       "name": "ai_models",
@@ -248,12 +248,6 @@ const DATA: CanvasData = {
     }
   ],
   "topOpenRisks": [
-    {
-      "prio": "P1",
-      "blocker": true,
-      "kind": "blocker",
-      "fynd": "`SM-080` Preview-projekt på Fly-hosten delar OS-identitet och filsystem. En inloggad användare (gratiskonto r…"
-    },
     {
       "prio": "P1",
       "blocker": true,
@@ -319,9 +313,15 @@ const DATA: CanvasData = {
       "blocker": false,
       "kind": "open",
       "fynd": "`SM-077` Sen preview-boot gav ingen omverifiering. Master har klientens omförsök; preview har bytt till serve…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "kind": "open",
+      "fynd": "`SM-093` Flera flikar på samma `chatId` kan hålla en version i `pending` via upprepad `preview_superseded`."
     }
   ],
-  "topOpenRisksOmitted": 2,
+  "topOpenRisksOmitted": 1,
   "evals": null,
   "phases": [
     "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",

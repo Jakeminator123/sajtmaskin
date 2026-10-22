@@ -84,6 +84,19 @@ binder `127.0.0.1`; syskonmaskiner kommer inte åt den utan token.
    `fly machines list -a vm-fly-jakem` (en maskin, ny version) innan nästa
    kundpreview startas.
 
+## Läge 2026-10-22
+
+Maskinläget är **påslaget på `vm-fly-jakem`** sedan 2026-10-22 (deploy från
+`preview` efter #1664, #1668, #1669) med bilden
+`registry.fly.io/sajtmaskin-preview-guests:pilot-flyv1`, 2 vCPU/4 GB per gäst
+och `PREVIEW_GUEST_STOP_ON_HIBERNATE=false`. Piloten (`vm-fly-pilot`) lärde:
+en stoppad Fly Machine förlorar sin rotdisk, så ett parkerat projekt
+installerar om vid nästa besök (~90 s från bildens cache). Därför stoppas inte
+gästen vid hibernate; den lever tills sessionen går ut (2 h) och städas då.
+Tokenen `sm080-prod-control-plane` gäller ett år; förnya med
+`fly tokens create deploy -a sajtmaskin-preview-guests` och
+`fly secrets set PREVIEW_GUEST_FLY_API_TOKEN=…` före 2027-10-22.
+
 ## Drift
 
 - `GET /admin/machines` på hosten listar poster (utan token) och läget.

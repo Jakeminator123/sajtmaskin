@@ -1,6 +1,6 @@
 # MVP-säkerhet och releaseberedskap
 
-Status: **kod för A–E landad; öppet lanseringsblocker är `SM-080`.**
+Status: **kod för A–E landad; `SM-080` löst i maskinläge sedan 2026-10-22.**
 Wizard-RLS (`SM-078`), Google-koppling (`SM-079`) och kontolås (`SM-081`)
 är byggda. Beställ inte om dem. Preview och produktion delar databas enligt
 ägarbeslut.
@@ -82,14 +82,14 @@ Acceptansproven ägs av
 lanseringsblocker och körs i en disposabel miljö med syntetiska data — gröna
 tester på den delade hosten kan inte godkänna arkitekturen.
 
-**Läge 2026-10-22:** maskinläget är implementerat bakom
-`PREVIEW_HOST_ISOLATION=machine` (`preview-host/src/machines/`,
-`src/runtime/machine-runtime.js`, gästagent och bild i `preview-host/guest/`)
-med fail-closed-validering, identitetsbevis per maskin och end-to-end-guard
-mot ett fejkat Machines-API. Det är inte driftsatt; piloten enligt
-`preview-host/guest/README.md` och acceptansproven ovan återstår, liksom
-beslut om size/idle/pooling. Den delade baslinjen är dokumenterad för
-återställning i `docs/runbooks/preview-host-shared-baseline.md`.
+**Läge 2026-10-22, kväll:** maskinläget (`PREVIEW_HOST_ISOLATION=machine`,
+`preview-host/src/machines/`, `src/runtime/machine-runtime.js`, gästagent och
+bild i `preview-host/guest/`) är pilotkört på `vm-fly-pilot` och påslaget på
+`vm-fly-jakem`. Tre pilotfynd rättades (#1668, #1669). Driftvärden står i
+beslutsregistret; den delade baslinjen finns för återställning i
+`docs/runbooks/preview-host-shared-baseline.md`. Kvar som egna skuldrader i
+backloggen: delad webbläsar-origin, omstartstak för döda dev-servrar och
+nedskalning av kontrollplanet.
 
 ## Avgränsningar som inte får döljas
 
