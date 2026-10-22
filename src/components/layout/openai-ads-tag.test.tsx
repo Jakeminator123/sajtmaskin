@@ -36,7 +36,7 @@ describe("OpenAiAdsTag real loader (no external network)", () => {
     vi.unstubAllEnvs();
   });
 
-  it("injects the SDK once, denies consent before init, and never sets debug", async () => {
+  it("injects the SDK once, restores stored consent before init, and never sets debug", async () => {
     const { OpenAiAdsTag } = await import("./openai-ads-tag");
     render(<OpenAiAdsTag nonce="nonce-test" />);
     expect(script().getAttribute("nonce")).toBe("nonce-test");
@@ -46,13 +46,47 @@ describe("OpenAiAdsTag real loader (no external network)", () => {
     const initIdx = commands.findIndex((entry) => entry[0] === "init");
     expect(consentIdx).toBeGreaterThanOrEqual(0);
     expect(initIdx).toBeGreaterThan(consentIdx);
-    expect(commands[consentIdx]).toEqual(["consent", false]);
+    expect(commands[consentIdx]).toEqual(["consent", true]);
+    expect(commands).not.toContainEqual(["consent", false]);
     expect(commands[initIdx]).toEqual(["init", { pixelId: "TestPixelId123" }]);
     expect(commands.some((entry) => JSON.stringify(entry).includes("debug"))).toBe(false);
     await act(async () => {
       script().dispatchEvent(new Event("load"));
     });
     expect(document.querySelectorAll("#sajtmaskin-openai-ads")).toHaveLength(1);
+  });
+
+  it.each([null, "rejected"])("denies consent before init when stored choice is %s", async (choice) => {
+    if (choice === null) localStorage.removeItem("cookie-consent");
+    else localStorage.setItem("cookie-consent", choice);
+    const { ensureOpenAiAdsInitialized } = await import("@/lib/ads/load-openai-ads-tag");
+    ensureOpenAiAdsInitialized("TestPixelId123");
+    expect(queued().slice(0, 2)).toEqual([
+      ["consent", false],
+      ["init", { pixelId: "TestPixelId123" }],
+    ]);
+  });
+
+  it("preserves stored attribution on a consented Stripe return and still honors revocation", async () => {
+    window.history.replaceState({}, "", "/buy-credits?success=true&session_id=cs_test");
+    const attribution = new Map([
+      ["__oppref", "existing-click"],
+      ["__obref", "existing-browser"],
+    ]);
+    // The SDK documents that consent=false deletes both attribution cookies.
+    window.oaiq = vi.fn((command, value) => {
+      if (command === "consent" && value === false) attribution.clear();
+    });
+    const { ensureOpenAiAdsInitialized } = await import("@/lib/ads/load-openai-ads-tag");
+    ensureOpenAiAdsInitialized("TestPixelId123");
+    expect(attribution.get("__oppref")).toBe("existing-click");
+    expect(attribution.get("__obref")).toBe("existing-browser");
+    expect(window.oaiq).toHaveBeenNthCalledWith(1, "consent", true);
+    expect(window.oaiq).toHaveBeenNthCalledWith(2, "init", { pixelId: "TestPixelId123" });
+    localStorage.setItem("cookie-consent", "rejected");
+    const { syncOpenAiAdsConsent } = await import("@/lib/ads/fire-openai-ads");
+    syncOpenAiAdsConsent();
+    expect(attribution.size).toBe(0);
   });
 
   it("retries a failed load then flushes a pending registration once", async () => {

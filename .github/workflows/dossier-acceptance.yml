@@ -4,17 +4,22 @@ on:
   push:
     branches: [preview]
   pull_request:
+    # Retargeting is drafted by pr-base-guard; ready_for_review tests the new base.
     types: [opened, synchronize, reopened, ready_for_review]
   schedule:
     - cron: "17 3 * * 2"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      cold_cache:
+        description: Measure the full matrix with an empty npm cache (no shared caches deleted)
+        type: boolean
+        default: false
 
-# A new commit on the same PR supersedes its older acceptance build. Scheduled
-# and manual runs share a full-matrix key per ref; pushes get their own key so a
-# preview push (often run_matrix=false) cannot cancel the weekly full matrix.
+# Only new PR heads/readiness replace stale runs. Body/title edits must not create
+# a newer skipped suite that hides the required receipt. Integration runs stay unique.
 concurrency:
-  group: dossier-acceptance-${{ github.event.pull_request.number || format('{0}-{1}', github.ref, contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) && 'full' || 'push') }}
-  cancel-in-progress: true
+  group: dossier-acceptance-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -31,6 +36,8 @@ jobs:
     outputs:
       run_matrix: ${{ steps.classify.outputs.run_matrix }}
       reason: ${{ steps.classify.outputs.reason }}
+      dossiers: ${{ steps.classify.outputs.dossiers }}
+      matrix_mode: ${{ steps.classify.outputs.matrix_mode }}
     steps:
       - name: Checkout with PR history
         uses: actions/checkout@v7
@@ -41,6 +48,7 @@ jobs:
       - name: Classify dossier-acceptance scope
         id: classify
         env:
+          SAJTMASKIN_PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           SAJTMASKIN_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           SAJTMASKIN_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           SAJTMASKIN_PUSH_BASE_SHA: ${{ github.event.before }}
@@ -53,15 +61,58 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       dossiers: ${{ steps.matrix.outputs.dossiers }}
+      artifact_id: ${{ steps.projects.outputs.artifact-id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - name: Discover dossiers with files (hard + soft)
+      - name: Validate selected dossiers with files (hard + soft)
         id: matrix
-        run: echo "dossiers=$(node scripts/dossiers/list-acceptance-matrix.mjs)" >> "$GITHUB_OUTPUT"
+        env:
+          ACCEPTANCE_DOSSIERS: ${{ needs.scope.outputs.dossiers }}
+          ACCEPTANCE_REQUIRE_FULL: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref != 'preview' }}
+        run: |
+          dossiers=$(node scripts/dossiers/list-acceptance-matrix.mjs)
+          echo "dossiers=$dossiers" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: ${{ !(github.event_name == 'workflow_dispatch' && inputs.cold_cache) && 'npm' || '' }}
+          package-manager-cache: false
+
+      - name: Use an empty npm cache for the manual cold measurement
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.cold_cache }}
+        run: |
+          cache="$RUNNER_TEMP/dossier-cold-npm"
+          test ! -e "$cache" || { echo "::error::Cold cache directory already exists"; exit 1; }
+          echo "NPM_CONFIG_CACHE=$cache" >> "$GITHUB_ENV"
+
+      - name: Install repository dependencies once for materialization
+        run: npm ci
+
+      - name: Materialize selected keyless projects
+        env:
+          ACCEPTANCE_ROOT: ${{ runner.temp }}/acceptance-projects
+          ACCEPTANCE_DOSSIERS: ${{ steps.matrix.outputs.dossiers }}
+        run: |
+          node scripts/dossiers/materialize-acceptance-matrix.mjs
+          tar -czf "$RUNNER_TEMP/acceptance-projects.tar.gz" -C "$ACCEPTANCE_ROOT" .
+
+      # Same run/attempt only. Never consumed by privileged workflows. Packing
+      # preserves generated dotfiles without uploading any repository env files.
+      - name: Share prepared source projects within this run
+        id: projects
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: dossier-projects-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/acceptance-projects.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
 
   # Catalog freshness is a scheduled/manual sentinel and may intentionally be
   # red for an explicit `unverified` dossier. It must not false-red an otherwise
@@ -79,7 +130,15 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
-          cache: npm
+          cache: ${{ !(github.event_name == 'workflow_dispatch' && inputs.cold_cache) && 'npm' || '' }}
+          package-manager-cache: false
+
+      - name: Use an empty npm cache for the manual cold measurement
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.cold_cache }}
+        run: |
+          cache="$RUNNER_TEMP/dossier-cold-npm"
+          test ! -e "$cache" || { echo "::error::Cold cache directory already exists"; exit 1; }
+          echo "NPM_CONFIG_CACHE=$cache" >> "$GITHUB_ENV"
 
       - name: Install repository dependencies
         run: npm ci
@@ -104,7 +163,15 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
-          cache: npm
+          cache: ${{ !(github.event_name == 'workflow_dispatch' && inputs.cold_cache) && 'npm' || '' }}
+          package-manager-cache: false
+
+      - name: Use an empty npm cache for the manual cold measurement
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.cold_cache }}
+        run: |
+          cache="$RUNNER_TEMP/dossier-cold-npm"
+          test ! -e "$cache" || { echo "::error::Cold cache directory already exists"; exit 1; }
+          echo "NPM_CONFIG_CACHE=$cache" >> "$GITHUB_ENV"
 
       - name: Install repository dependencies
         run: npm ci
@@ -132,15 +199,34 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
-          cache: npm
+          cache: ${{ !(github.event_name == 'workflow_dispatch' && inputs.cold_cache) && 'npm' || '' }}
+          package-manager-cache: false
 
-      - name: Install repository dependencies
-        run: npm ci
+      - name: Use an empty npm cache for the manual cold measurement
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.cold_cache }}
+        run: |
+          cache="$RUNNER_TEMP/dossier-cold-npm"
+          test ! -e "$cache" || { echo "::error::Cold cache directory already exists"; exit 1; }
+          echo "NPM_CONFIG_CACHE=$cache" >> "$GITHUB_ENV"
 
-      - name: Materialize keyless generated project
+      - name: Require the prepared artifact receipt
         env:
-          ACCEPTANCE_ROOT: ${{ runner.temp }}/dossier-${{ matrix.dossier }}
-        run: npx tsx scripts/dossiers/materialize-acceptance-project.ts --id=${{ matrix.dossier }} --out="$ACCEPTANCE_ROOT"
+          ARTIFACT_ID: ${{ needs.discover.outputs.artifact_id }}
+        run: '[[ "$ARTIFACT_ID" =~ ^[0-9]+$ ]] || { echo "::error::Missing prepared artifact receipt"; exit 1; }'
+
+      - name: Download prepared source from this workflow run
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          artifact-ids: ${{ needs.discover.outputs.artifact_id }}
+          path: ${{ runner.temp }}/acceptance-artifact
+
+      - name: Unpack selected keyless project
+        env:
+          DOSSIER_ID: ${{ matrix.dossier }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/acceptance-projects"
+          tar -xzf "$RUNNER_TEMP/acceptance-artifact/acceptance-projects.tar.gz" -C "$RUNNER_TEMP/acceptance-projects" "./$DOSSIER_ID"
+          mv "$RUNNER_TEMP/acceptance-projects/$DOSSIER_ID" "$RUNNER_TEMP/dossier-$DOSSIER_ID"
 
       - name: Install generated-project dependencies
         env:
@@ -162,6 +248,7 @@ jobs:
   # scope decision legitimately skipped it. Red if scope failed, the matrix
   # failed, or a skip was not legitimate. Same pattern as CI `quality`.
   dossier-acceptance:
+    name: dossier-acceptance
     needs:
       - scope
       - discover
@@ -174,6 +261,8 @@ jobs:
       - name: Aggregate required dossier-acceptance result
         env:
           EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          MATRIX_MODE: ${{ needs.scope.outputs.matrix_mode }}
           SCOPE_RESULT: ${{ needs.scope.result }}
           RUN_MATRIX: ${{ needs.scope.outputs.run_matrix }}
           DISCOVER_RESULT: ${{ needs.discover.result }}
@@ -183,7 +272,12 @@ jobs:
         run: |
           set -euo pipefail
           EXPECT_MATRIX=true
-          if { [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "push" ]; } && [ "$SCOPE_RESULT" = "success" ] && [ "$RUN_MATRIX" = "false" ]; then
+          if [ "$EVENT_NAME" = "pull_request" ] && [ "$BASE_REF" != "preview" ]; then
+            if [ "$RUN_MATRIX" != "true" ] || [ "$MATRIX_MODE" != "full" ]; then
+              echo "::error::non-preview PR requires the full dossier matrix"
+              exit 1
+            fi
+          elif { [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "push" ]; } && [ "$SCOPE_RESULT" = "success" ] && [ "$RUN_MATRIX" = "false" ]; then
             EXPECT_MATRIX=false
           fi
           if [ "$SCOPE_RESULT" != "success" ]; then
@@ -209,3 +303,28 @@ jobs:
             exit 1
           fi
           echo "✓ dossier-acceptance aggregate green (matrix=${EXPECT_MATRIX}, reason scope=${SCOPE_RESULT}/${RUN_MATRIX})"
+
+  # A Preview receipt must never satisfy the separate master-only required check.
+  # The tiny aggregate survives cancellation so skipped/cancelled work fails closed.
+  dossier-acceptance-master:
+    name: ${{ (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'master') && 'dossier-acceptance-master' || 'dossier-master-not-applicable' }}
+    if: ${{ always() && (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'master') }}
+    needs: [scope, discover, dependency-registry, keyless-production-build, dossier-acceptance]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Require a complete successful master matrix
+        env:
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          MATRIX_MODE: ${{ needs.scope.outputs.matrix_mode }}
+          RUN_MATRIX: ${{ needs.scope.outputs.run_matrix }}
+          DISCOVER_RESULT: ${{ needs.discover.result }}
+          REGISTRY_RESULT: ${{ needs.dependency-registry.result }}
+          BUILD_RESULT: ${{ needs.keyless-production-build.result }}
+          ACCEPTANCE_RESULT: ${{ needs.dossier-acceptance.result }}
+        run: node scripts/dossiers/check-master-acceptance.mjs

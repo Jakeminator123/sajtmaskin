@@ -63,8 +63,8 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "d2bdd5c4b",
-    "commitDate": "2026-10-19",
+    "commit": "030b92af0",
+    "commitDate": "2026-10-21",
     "sinceDays": 14
   },
   "totals": {
@@ -91,9 +91,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 4,
+      "churn": 7,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "Aktiv: 4 commits / 14d"
+      "note": "Aktiv: 7 commits / 14d"
     },
     {
       "name": "Codegen core",
@@ -108,7 +108,7 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 2,
+      "churn": 0,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
       "note": "3 oppna backlog-rader (P0:0 P1:0 P2:3 P3:0)"
     },
@@ -125,7 +125,7 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 1,
+      "churn": 0,
       "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-re",
       "note": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
     },
@@ -159,7 +159,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 2,
+      "churn": 0,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): dynamiska filträd direkt från respektive scaffold-rot, kopiering till webbläsarens ",
       "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     },
@@ -176,9 +176,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 7,
+      "churn": 5,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "Aktiv: 7 commits / 14d"
+      "note": "Aktiv: 5 commits / 14d"
     },
     {
       "name": "Preview och versioner",
@@ -193,7 +193,7 @@ const DATA: CanvasData = {
         "P3": 2,
         "other": 0
       },
-      "churn": 1,
+      "churn": 2,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "BLOCKER: `SM-080` Preview-projekt på Fly-hosten delar OS-identitet och filsystem; ett projekts ins…"
     },
@@ -235,16 +235,16 @@ const DATA: CanvasData = {
       "reason": "3 oppna backlog-rader (P0:0 P1:0 P2:3 P3:0)"
     },
     {
-      "name": "Scaffolds: titta & justera",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
-    },
-    {
       "name": "prompt-core",
       "statusLabel": "Skakigt",
       "tone": "warning",
       "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
+    },
+    {
+      "name": "Scaffolds: titta & justera",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     }
   ],
   "topOpenRisks": [
@@ -306,13 +306,13 @@ const DATA: CanvasData = {
       "prio": "P2",
       "blocker": false,
       "kind": "open",
-      "fynd": "`SM-096` En deadline efter `reserve` i LLM-repair-grinden stänger varken budgeten eller sätter `aborted`, så …"
+      "fynd": "`SM-096` En deadline efter `reserve` kunde lämna budgetutfallet okänt och dedup-blockera nästa reparation. Fr…"
     },
     {
       "prio": "P2",
       "blocker": false,
       "kind": "open",
-      "fynd": "`SM-097` Bakgrundsverify sätter `kind:\"superseded\"` och settle:ar resume-försöket även när supersede-skrivnin…"
+      "fynd": "`SM-097` Bakgrundsverify kunde settle:a resume som `superseded` trots utebliven databasskrivning. Från `A#6`."
     },
     {
       "prio": "P2",

@@ -23,17 +23,14 @@ function ensureOaiqQueue(): OpenAiAdsFn | undefined {
   return window.oaiq;
 }
 
-/** Consent must be denied before the first `init`. Never pass `debug`. */
+/** Apply stored consent before `init`; revoking it deletes attribution cookies. */
 export function ensureOpenAiAdsInitialized(pixelId: string): void {
   const oaiq = ensureOaiqQueue();
   if (!oaiq) return;
   if (window.sajtmaskinOpenAiAdsInitializedId === pixelId) return;
-  oaiq("consent", false);
+  oaiq("consent", hasAcceptedCookieConsent());
   oaiq("init", { pixelId });
   window.sajtmaskinOpenAiAdsInitializedId = pixelId;
-  if (hasAcceptedCookieConsent()) {
-    oaiq("consent", true);
-  }
 }
 
 /** A queue shim is not proof that the remote tag loaded. Failed loads can retry. */

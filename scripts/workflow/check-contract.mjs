@@ -15,6 +15,7 @@ import { SAFE_DOCS_COMMANDS } from "./ci-scope.mjs";
 import { PATH_GROUP_FLOORS } from "./path-impact.mjs";
 import {
   REQUIRED_CHECK_OWNERS,
+  MASTER_ONLY_REQUIRED_CHECK_OWNERS,
   REQUIRED_CHECK_WORKFLOW,
   requiredCheckOwnerSpec,
 } from "./required-check-owners.mjs";
@@ -448,6 +449,17 @@ export function evaluatePrBaseGuardWorkflow(source) {
   return errors;
 }
 
+// Only the master-only receipt may switch between two closed literal names.
+// Ordinary acceptance uses a static name and never starts on metadata edits.
+const DOSSIER_CHECK_NAME = "dossier-acceptance";
+const DOSSIER_AGGREGATE_IF = "${{ !cancelled() }}";
+const DOSSIER_CONCURRENCY_GROUP = "dossier-acceptance-${{ github.event.pull_request.number || github.run_id }}";
+const DOSSIER_CANCEL = "${{ github.event_name == 'pull_request' }}";
+
+const DOSSIER_MASTER_EVENT = "github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'master'";
+const DOSSIER_MASTER_NAME = "${{ (" + DOSSIER_MASTER_EVENT + ") && 'dossier-acceptance-master' || 'dossier-master-not-applicable' }}";
+const DOSSIER_MASTER_IF = "${{ always() && (" + DOSSIER_MASTER_EVENT + ") }}";
+
 function ownerWorkflowForRequiredCheck(check, policy = POLICY_FLOORS) {
   return requiredCheckOwnerSpec(check, policy).file;
 }
@@ -459,10 +471,11 @@ export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POL
       .map((name) => String(name).trim().toLowerCase())
       .filter(Boolean),
   );
+  const reservedNames = new Set([...coreNames, ...Object.keys(MASTER_ONLY_REQUIRED_CHECK_OWNERS)]);
   const reviewPatterns = (policy.review?.qualifyingCheckPatterns ?? [])
     .map((pattern) => String(pattern).trim().toLowerCase())
     .filter(Boolean);
-  const canonicalCoreCounts = new Map([...coreNames].map((name) => [name, 0]));
+  const canonicalCoreCounts = new Map([...reservedNames].map((name) => [name, 0]));
   for (const workflow of workflowSources) {
     let document;
     try {
@@ -472,20 +485,23 @@ export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POL
     }
     for (const [jobId, job] of Object.entries(document?.jobs ?? {})) {
       const publishedName = String(job?.name ?? jobId).trim();
-      if (publishedName.includes("${{")) {
+      const closedMasterName = workflow.name === "dossier-acceptance.yml" && jobId === "dossier-acceptance-master" &&
+        hasExactExpression(publishedName, DOSSIER_MASTER_NAME);
+      if (publishedName.includes("${{") && !closedMasterName) {
         errors.push(
           `${workflow.name} job ${jobId} has a dynamic check name that cannot be proven non-reserved`,
         );
       }
-      const identities = new Set([String(jobId).trim().toLowerCase(), publishedName.toLowerCase()]);
+      const publishedNames = new Set(closedMasterName ? ["dossier-acceptance-master", "dossier-master-not-applicable"] : [publishedName.toLowerCase()]);
+      const identities = new Set([String(jobId).trim().toLowerCase(), ...publishedNames]);
       for (const identity of identities) {
-        if (coreNames.has(identity)) {
+        if (reservedNames.has(identity)) {
           const owner = ownerWorkflowForRequiredCheck(identity, policy);
           if (workflow.name !== owner) {
             errors.push(
               `${workflow.name} job ${jobId} may not use canonical CI identity ${identity}`,
             );
-          } else if (identity === publishedName.toLowerCase()) {
+          } else if (publishedNames.has(identity)) {
             canonicalCoreCounts.set(identity, (canonicalCoreCounts.get(identity) ?? 0) + 1);
           }
         }
@@ -629,17 +645,20 @@ export function evaluateDossierAcceptanceWorkflow(source) {
     "ready_for_review",
   ];
   if (
-    pullRequest &&
-    typeof pullRequest === "object" &&
-    !includesEvery(pullRequest.types, requiredTypes)
+    !hasExactStringSet(pullRequest?.types, requiredTypes)
   ) {
-    errors.push("dossier-acceptance must run on new heads and ready_for_review");
+    errors.push("dossier-acceptance must run only on new heads/readiness, never metadata edits");
   }
   if (values(pullRequest?.types).includes("converted_to_draft")) {
     errors.push("dossier-acceptance must not restart unchanged work on converted_to_draft");
   }
 
   const scope = document?.jobs?.scope;
+  if (scope?.if !== undefined ||
+      !hasExactExpression(document?.concurrency?.group, DOSSIER_CONCURRENCY_GROUP) ||
+      !hasExactExpression(document?.concurrency?.["cancel-in-progress"], DOSSIER_CANCEL)) {
+    errors.push("dossier scope must always classify; only PR runs may replace stale runs");
+  }
   if (
     !scope ||
     !scope.outputs?.run_matrix ||
@@ -664,6 +683,13 @@ export function evaluateDossierAcceptanceWorkflow(source) {
     }
   }
 
+  const scopeBase = scope?.steps?.find(step => step.run === "node scripts/dossiers/acceptance-scope.mjs");
+  const matrixEnv = document?.jobs?.discover?.steps?.find(step => step.id === "matrix")?.env;
+  if (!hasExactExpression(scopeBase?.env?.SAJTMASKIN_PR_BASE_REF, "${{ github.event.pull_request.base.ref }}") ||
+      !hasExactExpression(matrixEnv?.ACCEPTANCE_REQUIRE_FULL, "${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref != 'preview' }}")) {
+    errors.push("dossier promotion must independently require the full catalog using the PR base");
+  }
+
   const keyless = document?.jobs?.["keyless-production-build"];
   if (
     !includesEvery(keyless?.needs, ["scope", "discover"]) ||
@@ -682,6 +708,11 @@ export function evaluateDossierAcceptanceWorkflow(source) {
   }
 
   const aggregate = document?.jobs?.["dossier-acceptance"];
+  const aggregateStep = aggregate?.steps?.find(step => step.name === "Aggregate required dossier-acceptance result");
+  if (!hasExactExpression(aggregateStep?.env?.BASE_REF, "${{ github.event.pull_request.base.ref }}") ||
+      !hasExactExpression(aggregateStep?.env?.MATRIX_MODE, "${{ needs.scope.outputs.matrix_mode }}")) {
+    errors.push("dossier aggregate must enforce the promotion base and matrix mode");
+  }
   const aggregateNeeds = [
     "scope",
     "discover",
@@ -694,10 +725,31 @@ export function evaluateDossierAcceptanceWorkflow(source) {
       "dossier-acceptance must aggregate scope, discover, evidence, registry and keyless builds",
     );
   }
-  if (!hasExactExpression(aggregate?.if, "${{ !cancelled() }}")) {
+  if (!hasExactExpression(aggregate?.name, DOSSIER_CHECK_NAME) ||
+      !hasExactExpression(aggregate?.if, DOSSIER_AGGREGATE_IF)) {
     errors.push(
-      "dossier-acceptance must publish after failed/skipped dependencies without surviving cancellation",
+      "dossier-acceptance must keep a static identity and report failed/skipped dependencies without surviving cancellation",
     );
+  }
+
+  const master = document?.jobs?.["dossier-acceptance-master"];
+  const masterStep = master?.steps?.find(step => step.run === "node scripts/dossiers/check-master-acceptance.mjs");
+  const masterEnv = {
+    SCOPE_RESULT: "${{ needs.scope.result }}",
+    MATRIX_MODE: "${{ needs.scope.outputs.matrix_mode }}",
+    RUN_MATRIX: "${{ needs.scope.outputs.run_matrix }}",
+    DISCOVER_RESULT: "${{ needs.discover.result }}",
+    REGISTRY_RESULT: "${{ needs.dependency-registry.result }}",
+    BUILD_RESULT: "${{ needs.keyless-production-build.result }}",
+    ACCEPTANCE_RESULT: "${{ needs.dossier-acceptance.result }}",
+  };
+  if (!hasExactExpression(master?.name, DOSSIER_MASTER_NAME) ||
+      !hasExactExpression(master?.if, DOSSIER_MASTER_IF) ||
+      !hasExactStringSet(master?.needs, ["scope", "discover", "dependency-registry", "keyless-production-build", "dossier-acceptance"]) ||
+      master?.["timeout-minutes"] !== 2 ||
+      !masterStep ||
+      Object.entries(masterEnv).some(([key, value]) => !hasExactExpression(masterStep.env?.[key], value))) {
+    errors.push("master-only dossier check must use a distinct conditional identity and require all successful full-matrix receipts, even after cancellation");
   }
 
   return errors;
@@ -730,8 +782,8 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     errors.push("CI must not restart unchanged work on converted_to_draft");
   }
 
-  if (!hasExactExpression(document?.concurrency?.group, "ci-${{ github.ref }}")) {
-    errors.push("CI concurrency must serialize read-only trusted observations per ref");
+  if (!hasExactExpression(document?.concurrency?.group, "ci-${{ github.event.pull_request.number || github.run_id }}")) {
+    errors.push("CI concurrency must supersede stale PR heads and retain every trusted observation");
   }
   if (
     !hasExactExpression(

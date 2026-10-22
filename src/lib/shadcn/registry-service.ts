@@ -584,13 +584,6 @@ export const FEATURED_BLOCKS = [
     blocks: ["signup-01", "signup-02", "signup-03", "signup-04", "signup-05"],
   },
   {
-    id: "otp",
-    titleSv: "Verifiering (OTP)",
-    descriptionSv: "Engångskod-verifiering",
-    icon: "🔢",
-    blocks: ["otp-01", "otp-02", "otp-03", "otp-04", "otp-05"],
-  },
-  {
     id: "dashboard",
     titleSv: "Kontrollpanel",
     descriptionSv: "Moderna dashboard-layouts med diagram",
@@ -873,7 +866,7 @@ export const CURATED_UI_COLLECTIONS: CuratedUiCollectionDefinition[] = [
   {
     id: "auth-form-blocks",
     titleSv: "Auth-Blocks",
-    descriptionSv: "Startklara login-, signup- och verifieringsblock.",
+    descriptionSv: "Startklara login- och signup-block.",
     icon: "🔐",
     itemType: "block",
     family: "auth",
@@ -888,11 +881,6 @@ export const CURATED_UI_COLLECTIONS: CuratedUiCollectionDefinition[] = [
       "signup-03",
       "signup-04",
       "signup-05",
-      "otp-01",
-      "otp-02",
-      "otp-03",
-      "otp-04",
-      "otp-05",
     ],
   },
   {

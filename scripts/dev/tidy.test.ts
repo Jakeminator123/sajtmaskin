@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
+import { BACKUP_RETIREMENTS } from "./backup-retirements.mjs";
 
 import {
   BASE_REF,
@@ -431,6 +432,50 @@ describe("--delete-remote", () => {
       expect(runDeleteRemote({ branches: [name], apply: true, run, log: silent }).ok).toBe(false);
       expect(calls).toEqual([]);
     }
+  });
+
+  it("raderar bara de sex beslutade backup-tipsen med befintligt remote-arkiv", () => {
+    expect(Object.keys(BACKUP_RETIREMENTS)).toHaveLength(6);
+    for (const [branch, sha] of Object.entries(BACKUP_RETIREMENTS)) {
+      const { run, calls } = fakeRunner({ tips: [sha], tag: sha });
+      expect(runDeleteRemote({ branches: [branch], apply: true, run, log: silent }).ok).toBe(true);
+      expect(
+        writes(calls)
+          .filter((call) => call.args[0] === "push")
+          .map((call) => call.args),
+      ).toEqual([["push", "origin", "--delete", `refs/heads/${branch}`]]);
+      // Implicit local cleanup still cannot delete any backup branch.
+      expect(isProtectedBranch(branch)).toBe(true);
+    }
+  });
+
+  it("nekar backup-undantaget vid saknat/fel arkiv, ändrad tip, öppen PR eller API-fel", () => {
+    const branch = "BRA_19191919";
+    const sha = BACKUP_RETIREMENTS[branch];
+    const scenarios = [
+      { tips: [sha], tag: null },
+      { tips: [sha], tag: other },
+      { tips: [other], tag: other },
+      { tips: [sha, other], tag: sha },
+      { tips: [sha], tag: sha, prs: null },
+      {
+        tips: [sha],
+        tag: sha,
+        prs: JSON.stringify([
+          { headRefName: branch, headRefOid: sha, state: "OPEN", mergedAt: null },
+        ]),
+      },
+    ];
+    for (const scenario of scenarios) {
+      const { run, calls } = fakeRunner(scenario);
+      expect(runDeleteRemote({ branches: [branch], apply: true, run, log: silent }).ok).toBe(false);
+      expect(writes(calls)).toEqual([]);
+    }
+    const { run, calls } = fakeRunner({ tips: [sha], tag: sha });
+    expect(
+      runDeleteRemote({ branches: ["BRA_BRA_backup_1337"], apply: true, run, log: silent }).ok,
+    ).toBe(false);
+    expect(calls).toEqual([]);
   });
 
   it("nekar en branch med öppen PR", () => {

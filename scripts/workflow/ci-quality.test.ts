@@ -291,9 +291,11 @@ describe("complete native test sharding contract", () => {
   it("does not restart dossier builds when switching unchanged code back to draft", () => {
     const dossier = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
     expect(evaluateDossierAcceptanceWorkflow(dossier)).toEqual([]);
-    expect(evaluateDossierAcceptanceWorkflow(dossier.replace(
+    const changed = dossier.replace(
       "reopened, ready_for_review]",
       "reopened, ready_for_review, converted_to_draft]",
-    ))).not.toEqual([]);
+    );
+    expect(changed).not.toBe(dossier);
+    expect(evaluateDossierAcceptanceWorkflow(changed)).not.toEqual([]);
   });
 });

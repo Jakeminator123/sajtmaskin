@@ -160,6 +160,7 @@ import { F3_READINESS_MISSING_ENV_CATEGORY } from "@/lib/integrations/log-tier3-
 import { PREVIEW_CLIENT_ERROR_CATEGORY } from "@/lib/builder/preview-client-error-report";
 import {
   commitProductPostcheckResult,
+  reopenFailedProductPostcheckRun,
   storeProductPostcheckPolicySkip,
   getEngineVersionErrorLogs,
   getLatestEngineVersionErrorLogs,
@@ -432,6 +433,23 @@ describe("canonical server product result transaction", () => {
     expect(claimSetSpy.mock.calls[0][0].status).toBe("blocked");
     await commit({ result: { ...result, skipped: true, skippedReason: "preview_not_ready", attestation: null } });
     expect(claimSetSpy.mock.calls[1][0].status).toBe("superseded");
+  });
+  it("reopens only the exact failed product tuple under the current versionslease", async () => {
+    await expect(reopenFailedProductPostcheckRun({ held, key, claim, deadlineAt: Date.now() + 60_000 })).resolves.toBe(true);
+    expect(txOrder).toEqual(["version", "job", "claim"]);
+    expect(claimSetSpy.mock.calls[0][0].status).toBe("expired");
+    const guard = new PgDialect().sqlToQuery(claimWhereSpy.mock.calls[0][0]);
+    expect(guard.params).toEqual(expect.arrayContaining(["failed", "c1", "v1", "rev_n", "ps_n", "life_n", 2, "product_n", 3, "holder_n"]));
+    expect(guard.sql).toContain("clock_timestamp()");
+    expect(insertValuesSpy).not.toHaveBeenCalled();
+  });
+  it.each(["revision", "lease", "claim", "deadline"])("never reopens a failed product claim after %s drift", async failure => {
+    if (failure === "revision") lockedVersionRows.mockReturnValue([{ chatId: "c1", filesRevision: "new" }]);
+    if (failure === "lease") lockedJobRows.mockReturnValue([]);
+    if (failure === "claim") completedRows.mockReturnValue([]);
+    await expect(reopenFailedProductPostcheckRun({ held, key, claim,
+      deadlineAt: failure === "deadline" ? 0 : Date.now() + 60_000 })).resolves.toBe(false);
+    expect(insertValuesSpy).not.toHaveBeenCalled();
   });
   it("rejects mismatched held/key/attestation without a transaction", async () => {
     await expect(commit({ held: { ...held, filesRevision: "other" } })).resolves.toMatchObject({ status: "superseded" });

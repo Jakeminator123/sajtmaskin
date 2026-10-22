@@ -13,7 +13,7 @@ export const PROMPT_REWRITE_FALLBACK_MODEL = "openai/gpt-6.1-sol";
 export const PROMPT_ASSIST_DRAFT_MAX_CHARS = 8_000;
 /**
  * Total Responses output budget, including reasoning tokens, so a rewrite of
- * up to 8,000 characters still fits beside the workload's medium effort.
+ * up to 8,000 characters still fits beside the workload's low effort.
  * 8,192 is a maximum limit, not a measured cost.
  */
 export const PROMPT_REWRITE_MAX_OUTPUT_TOKENS = 8_192;
@@ -38,10 +38,10 @@ export function buildPromptAssistMessages(draft: string): {
     system: [
       "You clean a website-builder chat draft before the user sends it.",
       "Fix spelling and light grammar. Add line breaks or a bullet list only when the draft already has list-like points.",
-      "You may fill a thin draft or shorten a rambling one so another LLM can act on it.",
+      "Clarify phrasing and lightly structure the existing request so the website-generation LLM can follow it. You may remove repetition, but do not fill gaps with new requirements.",
       "Keep the user's language and voice. Do not translate unless they mixed languages accidentally.",
       "Do not turn the draft into a spec, site brief, JSON schema, or system prompt.",
-      "Do not invent pages, features, or brand facts that are not implied.",
+      "Preserve the user's intent and explicit constraints. Do not add pages, features, technical choices, or brand facts that the draft does not contain.",
       `Keep the rewritten draft at or below ${PROMPT_REWRITE_MAX_CHARS} characters.`,
       'Return JSON only: {"text":"<rewritten draft>"}.',
     ].join(" "),

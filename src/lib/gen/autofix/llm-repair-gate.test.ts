@@ -45,11 +45,11 @@ describe("runLlmRepairGate ledger", () => {
     expect(params.ledger.exportInvocations("c", "s")).toEqual([]);
   });
 
-  it("slow paid reservation past the original deadline stays reserved without fixer or completion", async () => {
+  it("settles an unstarted reservation after deadline without inventing a fixer call, allowing a bounded retry", async () => {
     vi.useFakeTimers(); vi.setSystemTime(100_000);
     const params = deadlineParams();
     const reservations: unknown[] = [];
-    params.repairBudget.reserve.mockImplementation(async (identity?: unknown) => {
+    params.repairBudget.reserve.mockImplementationOnce(async (identity?: unknown) => {
       reservations.push(identity);
       await new Promise(resolve => setTimeout(resolve, 60));
     });
@@ -60,8 +60,15 @@ describe("runLlmRepairGate ledger", () => {
     expect(result.result.aborted).not.toBe(true);
     expect(reservations).toEqual([expect.objectContaining({ outcome: "unknown" })]);
     expect(runLlmFixer).not.toHaveBeenCalled();
-    expect(params.repairBudget.complete).not.toHaveBeenCalled();
+    expect(params.repairBudget.complete).toHaveBeenCalledWith(expect.objectContaining({ outcome: "aborted" }));
     expect(params.ledger.exportInvocations("c", "s")).toEqual([]);
+
+    runLlmFixer.mockResolvedValueOnce({ ...abortedResult, success: true, aborted: false });
+    const retry = await runLlmRepairGate({ ...params, deadlineEpochMs: Date.now() + 1_000 });
+    expect(retry.deduped).toBe(false);
+    expect(runLlmFixer).toHaveBeenCalledTimes(1);
+    expect(params.repairBudget.reserve).toHaveBeenCalledTimes(2);
+    expect(params.ledger.exportInvocations("c", "s")).toEqual([expect.objectContaining({ outcome: "success" })]);
   });
 
   it("checks again at the actual fixer boundary after synchronous prompt preparation", async () => {
@@ -71,7 +78,25 @@ describe("runLlmRepairGate ledger", () => {
     const result = await runLlmRepairGate(Object.assign(params, { deadlineEpochMs: 100_050 }));
     expect(result.stop).toEqual({ reason: "time_budget_exceeded", retryable: true });
     expect(params.repairBudget.reserve).toHaveBeenCalledTimes(1);
-    expect(params.repairBudget.complete).not.toHaveBeenCalled();
+    expect(params.repairBudget.complete).toHaveBeenCalledWith(expect.objectContaining({ outcome: "aborted" }));
+    expect(runLlmFixer).not.toHaveBeenCalled();
+    expect(params.ledger.exportInvocations("c", "s")).toEqual([]);
+  });
+
+  it.each(["reservation", "prompt preparation"])("keeps the ledger blocked if settlement after %s fails", async stage => {
+    vi.useFakeTimers(); vi.setSystemTime(100_000);
+    const params = deadlineParams();
+    if (stage === "reservation") {
+      params.repairBudget.reserve.mockImplementationOnce(async () => { vi.setSystemTime(100_051); });
+    } else {
+      Object.defineProperty(params, "recurringPatterns", { get: () => { vi.setSystemTime(100_051); return []; } });
+    }
+    params.repairBudget.complete.mockRejectedValueOnce(new Error("receipt unavailable"));
+    await expect(runLlmRepairGate(Object.assign(params, { deadlineEpochMs: 100_050 }))).rejects.toThrow("receipt unavailable");
+    const retry = await runLlmRepairGate({ ...params, deadlineEpochMs: Date.now() + 1_000 });
+    expect(retry.deduped).toBe(true);
+    expect(params.repairBudget.reserve).toHaveBeenCalledTimes(1);
+    expect(params.repairBudget.complete).toHaveBeenCalledTimes(1);
     expect(runLlmFixer).not.toHaveBeenCalled();
     expect(params.ledger.exportInvocations("c", "s")).toEqual([]);
   });

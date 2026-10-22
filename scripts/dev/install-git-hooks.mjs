@@ -29,9 +29,10 @@ import {
 } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import { BACKUP_RETIREMENTS } from "./backup-retirements.mjs";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 23;
+export const HOOK_VERSION = 24;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
@@ -153,14 +154,29 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   # eller radering av en befintlig ar stangd har. GitHub-rulesetet
   # "Protect BRA backups" blockerar bara deletion och non_fast_forward —
   # en vanlig fast-forward kan fortfarande slappas igenom server-side.
-  # Hooken ar darfor ensam om att stoppa FF. Ingen break-glass har.
+  # Hooken stoppar fortfarande alla flyttar. Bara sex SHA-bundna, redan
+  # arkiverade backuper har ett uttryckligt raderingsbeslut 2026-10-22.
   case "$remote_ref" in
     refs/heads/*BRA*|refs/heads/rescue/*)
       if [ "$local_sha" = "$ZERO_SHA" ]; then
-        echo "[hooks] Push stoppad: \${remote_ref} ar en fryst backup och far aldrig raderas." >&2
-        exit 1
-      fi
-      if [ "$remote_sha" != "$ZERO_SHA" ]; then
+        case "$remote_ref:$remote_sha" in
+          ${Object.entries(BACKUP_RETIREMENTS)
+            .map(([branch, sha]) => `refs/heads/${branch}:${sha}`)
+            .join("|")})
+            archive_ref="refs/tags/archive/\${remote_ref#refs/heads/}"
+            archive_receipt=$(git ls-remote "$PUSH_REMOTE" "$archive_ref") || exit 1
+            expected_archive=$(printf '%s\\t%s' "$remote_sha" "$archive_ref")
+            if [ "$archive_receipt" != "$expected_archive" ]; then
+              echo "[hooks] Push stoppad: backupens remote-arkivtagg saknas eller har fel SHA." >&2
+              exit 1
+            fi
+            ;;
+          *)
+            echo "[hooks] Push stoppad: \${remote_ref} ar en fryst backup och far aldrig raderas utan exakt beslut." >&2
+            exit 1
+            ;;
+        esac
+      elif [ "$remote_sha" != "$ZERO_SHA" ]; then
         echo "[hooks] Push stoppad: \${remote_ref} ar en fryst backup och far aldrig andras." >&2
         exit 1
       fi
@@ -318,7 +334,7 @@ export function decideHookRetirement({ hookName, existing }) {
   if (existing === null || existing === undefined)
     return { action: "retire", reason: "saknas; installera passivt nedgraderingsskydd" };
   if (existing === renderHookScript(hookName)) return { action: "skip", reason: "redan passiv" };
-  const legacyPassive = [18, 19, 20, 21, 22].flatMap((version) => {
+  const legacyPassive = [18, 19, 20, 21, 22, 23].flatMap((version) => {
     const body = `#!/bin/sh\n# ${HOOK_MARKER} v${version} (${hookName}: retired)\nexit 0\n`;
     return [body, body.replace(/\n/g, "\r\n")];
   });
@@ -368,9 +384,11 @@ export function decideHookInstall({ existing, desired }) {
       reason: `managed hook v${existingVersion} har oväntat annat innehåll`,
     };
   }
-  // Canonical v19, v20, v21 (74c788c7) and v22; LF and CRLF. A version marker
+  // Canonical v19-v23 (v23 at 713eefa9); LF and CRLF. A version marker
   // alone must never authorize deleting local additions or a third-party delegate.
   const knownPriorHashes = [
+    "e2ea0aeeccafd2ee4c31226dd07c7924bbc4127bdc604fe025e01e018d2e582e",
+    "4381bbed8717af9960848d861f05e5d76fc28bcc424cec854081f750c6ad4136",
     "f7be73bd080af0f130b27b13c63c22d7e937877fe291528ccdce51fbf8c6eab1",
     "85f09c53ffc9d39216f0056ebeedc1eaaff40adc2667768027dfc1b222d47dd2",
     "e685af891d6563c8fd40eaf68b2fb42cdd899e59285bcac775492ac2e21fe35a",

@@ -50,6 +50,15 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 
 ### Automatisk återkoll av ofärdiga efterkontroller
 
+Builderns versionspoll kan väcka den befintliga serverkedjan via
+`POST /api/engine/chats/[chatId]/postchecks` när senaste designversionen har
+väntat minst fem minuter. Det fungerar även efter omladdning. Klienten skickar
+bara versions-ID; servern kontrollerar ägarskap, senaste version, lease,
+ursprunglig budget, ålder och backoff igen. Anropet skapar ingen ny generering
+och ändrar inga kostnadstak. Återupptagen kontroll/reparation kan fortfarande
+kosta enligt den befintliga budgeten. Denna reservväg kräver en öppen builder;
+med alla flikar stängda väntar den till återbesök eller separat schemaläggning.
+
 `SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED=0` är av; exakt `1` tillåter arbete i
 `/api/engine/postchecks`. Saknat eller annat värde är av. Det är inte ett datum
 eller en engångskörning. Vanlig generering och dess direkta efterkontroller
@@ -64,6 +73,12 @@ Flaggan skapar inget schema: `vercel.json` saknar ännu en post för routen.
 Före aktivering krävs separat godkänd schemaläggning, konfigurerad autentisering,
 verifierad plattformstid och runtimeprov. Vercels env-ändringar gäller nya
 deployments, inte redan driftsatta versioner. Lokalt skapas inget cron-jobb.
+Vercel Cron anropar produktionsdeploymenten; en cron-post i en Preview-build
+är därför inte ett Preview-prov. Prova först återupptagning av en bestämd
+testversion i Preview/DEV och kontrollera budgetkvitton och slutstatus.
+En tom återkoll anropar ingen AI. Routen har gränser för urval, försök och
+körtid, men inget eget månadstak i pengar; server-/DB-förbrukning och eventuell
+LiveReview/reparation måste räknas separat.
 Se [pipelineöversikten](architecture/llm-pipeline.md) för den gemensamma ägaren.
 
 ### Övriga tillägg
@@ -74,7 +89,7 @@ Se [pipelineöversikten](architecture/llm-pipeline.md) för den gemensamma ägar
 | Blob / uppladdning | `BLOB_READ_WRITE_TOKEN` | Vercel Blob (media + **platform embeddings** under `embeddings/*.json`). Lokalt: embeddings-cache på disk; CI syncar via public URL i `config/embeddings-blob-manifest.json`. Backoffice-knapparna (Pipeline Health + scaffold-wizard) kör generate med `--require-blob` så saknad token inte ser ut som en lyckad publicering. Streamlit laddar `.env` sedan `.env.local` (local vinner), samma ordning som embeddings-skripten. |
 | Betalning | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, valfria `STRIPE_PRICE_STARTER` / `POPULAR` / `PRO` | Credits-checkout. Nycklarna ska vara delade per Vercel-mål: `sk_test`/`pk_test` + test-`whsec` i development/preview, live i production. Inte samma värde i alla miljöer. Spara som encrypted `--no-sensitive` (inte Sensitive) så prefix och targeting går att inspektera. Runtime (`env.ts`) nekar `sk_test_`/`pk_test_` när `VERCEL_ENV=production` och nyckeln är satt. `STRIPE_PRICE_*` ska vara **osatta** — checkout bygger `price_data` från `credit-packages.ts` (49/99/179 kr = credits). Sätt bara ett `price_`-id om beloppet i Stripe-dashboarden matchar paketet. |
 | Google Ads (första part, appen) | `NEXT_PUBLIC_GOOGLE_ADS_ENABLED`, `NEXT_PUBLIC_GOOGLE_ADS_ID`, `NEXT_PUBLIC_GOOGLE_ADS_BUILDER_START_LABEL`, `NEXT_PUBLIC_GOOGLE_ADS_ACCOUNT_CREATED_LABEL`, `NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL` | Koddefault på produktionshosts (`sajtmaskin.se` / `.com` / `sajtmaskin.vercel.app`). Preview/localhost av. `ENABLED=1` för QA, `=0` kill-switch. Labels: tom = default för builder_start/account_created; `FIRST_GENERATION` tom = gtag-event `first_site_generated` utan send_to. Aldrig preview-host eller genererade sajter. Operativ yta: [`runbooks/google-ads-search-test.md`](runbooks/google-ads-search-test.md). |
-| OpenAI Ads pixel (första part, appen) | `NEXT_PUBLIC_OPENAI_ADS_PIXEL_ID`, `NEXT_PUBLIC_OPENAI_ADS_ENABLED` | Koddefault pixel-id `Y9zJZ4cVRrgfMzr329kAtn` på produktionshosts. Preview/localhost av. `ENABLED=1` för QA, `=0` kill-switch. Respekterar cookie-consent (`oaiq("consent", false)` före init). Aldrig preview-host eller genererade sajter. |
+| OpenAI Ads pixel (första part, appen) | `NEXT_PUBLIC_OPENAI_ADS_PIXEL_ID`, `NEXT_PUBLIC_OPENAI_ADS_ENABLED` | Koddefault pixel-id `Y9zJZ4cVRrgfMzr329kAtn` på produktionshosts. Preview/localhost av. `ENABLED=1` för QA, `=0` kill-switch. Respekterar sparat cookie-consent före init; saknat eller avvisat samtycke ger `false`. Aldrig preview-host eller genererade sajter. |
 | E-post | `RESEND_API_KEY` | Utan: vissa mailflöden noop:ar. |
 | Kostnadsfri-länkar (mejlflödet) | `KOSTNADSFRI_PASSWORD_SEED`, `KOSTNADSFRI_API_KEY` | `KOSTNADSFRI_PASSWORD_SEED` är HMAC-nyckeln som `generatePassword` härleder sidlösenordet ur (slug + seed → lösenord). **Måste vara identisk i varje miljö där ett lösenord räknas ut eller verifieras** — skapar admin länken i en miljö med annan seed än den som verifierar, avvisas lösenordet. **Byte av seed bryter alla redan utskickade lösenord** (inget lösenord lagras i klartext; hashen i `kostnadsfri_pages.password_hash` matchar bara den gamla seeden). `KOSTNADSFRI_API_KEY` autentiserar maskinvägen `POST`/`GET /api/kostnadsfri` via headern `x-api-key` — det är den nyckel det externa utskicksverktyget använder för att registrera utskick (`sentAt`/`source`). Obs kopplingen: `generatePassword` faller tillbaka på `KOSTNADSFRI_API_KEY` när seeden är osatt, så en rotation av API-nyckeln utan satt seed bryter lösenorden. Är ingen av dem satt visar `/admin/kostnadsfri` "Lösenordsseed saknas" och länkar kan varken skapas eller verifieras. Källa: `src/lib/kostnadsfri/index.ts`, `src/app/api/kostnadsfri/route.ts`. |
 | Kostnadsfri-profilfallback | `KOSTNADSFRI_LOOKUP_SECRET`, valfri `KOSTNADSFRI_LOOKUP_URL` | **Valfri, default av.** Efter ett korrekt lösenord på `/kostnadsfri/[slug]` hämtar verify-routen bolagsprofilen från utskicksverktyget (`GET <URL>/api/kostnadsfri/lookup?slug=`, header `x-api-key`) — men bara när `extra_data.profile` saknas. Push via `POST /api/kostnadsfri` förblir huvudvägen; fallbacken täcker rader skapade i `/admin`, `--no-register`, registreringsfel och äldre inbjudningar. `KOSTNADSFRI_LOOKUP_SECRET` måste vara **samma värde** som dashens `KOSTNADSFRI_LOOKUP_SECRET` i Render — en egen nyckel, **inte** `KOSTNADSFRI_API_KEY` (den är vår inbound). Utan secret körs inget anrop. `KOSTNADSFRI_LOOKUP_URL` default `https://sajtmaskin-dash.onrender.com`; samma tjänst i preview och prod. Budget 8 s i kundens väntan, alla utfall degraderar till dagens tomma wizard. Svaret körs genom våra egna PII-guards och träffen skrivs tillbaka till raden så anropet sker en gång per inbjudan. Källa: `src/lib/kostnadsfri/profile-lookup.ts`, `src/app/api/kostnadsfri/[slug]/verify/route.ts`. |
