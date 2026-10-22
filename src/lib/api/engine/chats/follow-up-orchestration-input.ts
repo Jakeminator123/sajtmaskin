@@ -89,6 +89,8 @@ export interface BuildFollowUpOrchestrationInputParams {
    */
   snapshotVariantId?: string | null;
   customInstructions?: string;
+  /** Företagsuppgifter for the chat's app project; `null` when none are set. */
+  businessFacts?: OrchestrationInput["businessFacts"];
   chatId?: string;
   priorQualityTarget?: OrchestrationInput["priorQualityTarget"];
   requestKind?: OrchestrationInput["requestKind"];
@@ -278,6 +280,9 @@ export function buildFollowUpOrchestrationInput(
     // must see the same intent as codegen so compact-mode and variant
     // inspiration resolve the same way (K3).
     followUpIntent: params.hasFollowUpBase ? (params.followUpIntent ?? undefined) : undefined,
+    // Plan and codegen read the same facts so the plan cannot promise hours the
+    // build then renders differently.
+    businessFacts: params.businessFacts ?? null,
   };
 
   if (params.mode === "plan") {

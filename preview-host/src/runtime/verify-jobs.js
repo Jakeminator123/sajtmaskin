@@ -12,6 +12,8 @@ const {
   activeVerifyChatKeys,
   clipVerifyOutput,
   dependencyStatePathForWorkspace,
+  inflightBootByChat,
+  runtimeChildren,
   removeDirWithRetries,
   runShellCommand,
   safeChatKey,
@@ -28,6 +30,17 @@ const {
   tryShareNodeModules,
 } = require("./package-install.js");
 const { withNoSpaceCleanupRetry } = require("./storage-cleanup.js");
+const { ensureProjectMachine } = require("../machines/project-machines.js");
+const {
+  installInGuest,
+  isMachineRuntime,
+  parkProjectMachine,
+  prepareGuestFiles,
+} = require("./machine-runtime.js");
+
+// Per-check ceiling inside a guest machine; the host path relies on the
+// verify queue instead, but a remote exec must always settle.
+const VERIFY_CHECK_TIMEOUT_MS = 15 * 60 * 1000;
 
 const VERIFY_COMMANDS = {
   typecheck: "node ./node_modules/typescript/bin/tsc --noEmit",
@@ -136,7 +149,197 @@ function classifyLintResult(result) {
 let verifyInstallRunner = runInstallCommandWithFallback;
 let verifyCommandRunner = runShellCommand;
 
+/**
+ * SM-080: the same verify job executed inside the chat's own guest machine.
+ * Same result shape and classification as the host path; only the execution
+ * site differs. Verify and boot never share a mutable workspace: the guest
+ * keeps `live` and `verify-<id>` apart and the verify workspace is removed
+ * when the job ends.
+ */
+async function runVerifyJobInMachine(params) {
+  const { verifyId, chatId, versionId, filesJson, checks } = params;
+  const workspace = `verify-${verifyId.replace(/[^A-Za-z0-9_-]/g, "")}`.slice(0, 87);
+  const startedAt = Date.now();
+  const jobStartedAtIso = new Date(startedAt).toISOString();
+  let firstFailureCheck = null;
+  const results = [];
+  const pushResult = (entry) => {
+    const normalized = { durationMs: 0, ...entry };
+    if (firstFailureCheck === null && normalized.passed === false) {
+      firstFailureCheck = normalized.check;
+    }
+    results.push(normalized);
+    return normalized;
+  };
+  const finish = () => ({
+    verifyId,
+    versionId,
+    durationMs: Date.now() - startedAt,
+    jobStartedAt: jobStartedAtIso,
+    jobFinishedAt: new Date().toISOString(),
+    firstFailureCheck,
+    results,
+  });
+
+  // Never replace the machine from here: it may be serving the live preview.
+  const { guest } = await ensureProjectMachine(chatId, { allowReplace: false });
+  try {
+    await guest.putWorkspace(workspace, prepareGuestFiles(filesJson));
+    const install = resolveInstallCommand(filesJson);
+    const fingerprint = dependencyFingerprint(filesJson);
+    let shared = { reused: false, reason: "lockfile_stale" };
+    if (!install.lockfileStale) {
+      const seeded = await guest
+        .seedNodeModules(workspace, { fingerprint, from: "live" })
+        .catch((error) => ({ seeded: false, reason: `share_failed:${error.message}` }));
+      shared = seeded?.seeded
+        ? { reused: true, method: seeded.method ?? "copy" }
+        : { reused: false, reason: seeded?.reason ?? "fingerprint_mismatch" };
+    }
+    if (shared.reused) {
+      pushResult({
+        check: "install-cache-share",
+        passed: true,
+        exitCode: 0,
+        output: `Reused node_modules from live guest workspace via ${shared.method}.`,
+      });
+    } else if (shared.reason !== "missing_fingerprint") {
+      pushResult({
+        check: "install-cache-share",
+        passed: true,
+        exitCode: 0,
+        output: `Skipped node_modules reuse: ${shared.reason}.`,
+      });
+    }
+    let installResult;
+    if (shared.reused) {
+      installResult = {
+        passed: true,
+        exitCode: 0,
+        durationMs: 0,
+        output: "Dependency fingerprint matched; copied project-local node_modules and skipped install.",
+        usedFallback: false,
+        peerConflictDetected: false,
+      };
+    } else {
+      try {
+        const outcome = await installInGuest({ guest, workspace, filesJson, log: async () => {} });
+        installResult = {
+          passed: true,
+          exitCode: 0,
+          durationMs: 0,
+          output: outcome.installOutput || install.successLabel,
+          usedFallback: outcome.usedFallback === true,
+          peerConflictDetected: outcome.peerConflictDetected === true,
+        };
+      } catch (error) {
+        const diagnostics = error?.installDiagnostics ?? null;
+        installResult = {
+          passed: false,
+          exitCode: diagnostics?.exitCode ?? 1,
+          durationMs: 0,
+          output: error instanceof Error ? error.message : "Install failed in guest.",
+          failureReason: diagnostics?.failureReason ?? null,
+          usedFallback: false,
+          peerConflictDetected: false,
+        };
+      }
+    }
+    const installDiskFull =
+      !installResult.passed &&
+      (installResult.failureReason === "no_space" || isNoSpaceInstallFailure(installResult.output));
+    pushResult({
+      check: "install",
+      passed: installResult.passed,
+      exitCode: installResult.exitCode,
+      durationMs: installResult.durationMs,
+      repairable: installResult.passed ? false : !installDiskFull,
+      failureKind: installResult.passed ? null : installDiskFull ? "tooling" : "code",
+      output: installResult.passed
+        ? installResult.output || install.successLabel
+        : installResult.output || `(No install output captured; exit ${installResult.exitCode ?? "unknown"}).`,
+    });
+    if (!installResult.passed) return finish();
+    if (installResult.usedFallback && installResult.peerConflictDetected) {
+      pushResult({
+        check: "install-peer-fallback",
+        passed: true,
+        advisory: true,
+        repairable: false,
+        exitCode: 0,
+        output:
+          `Peer dependency conflict detected; fallback used: ${install.fallbackLogLabel}. ` +
+          "Preview can start, but this is not a publish-ready install (Vercel npm install has no --legacy-peer-deps).",
+      });
+    }
+
+    const probes = checks
+      .map((check) => VERIFY_LOCAL_TOOL_PATHS[check])
+      .filter(Boolean)
+      .map((parts) => `node_modules/${parts.join("/")}`);
+    const state = probes.length > 0 ? await guest.state(workspace, { probes }) : { probes: {} };
+    for (const check of checks) {
+      let toolingError = null;
+      if (check === "lint") {
+        const lintSetup = inspectProjectLintSetup(filesJson);
+        if (!lintSetup.ok) toolingError = lintSetup.reason;
+      }
+      const localToolPath = VERIFY_LOCAL_TOOL_PATHS[check];
+      if (!toolingError && localToolPath) {
+        const probe = `node_modules/${localToolPath.join("/")}`;
+        if (state?.probes?.[probe] !== true) {
+          toolingError = `installed project is missing ${probe}`;
+        }
+      }
+      if (toolingError) {
+        pushResult({
+          check,
+          passed: false,
+          advisory: false,
+          repairable: false,
+          failureKind: "tooling",
+          exitCode: 2,
+          errorCount: 0,
+          warningCount: 0,
+          output: `${check} tooling/configuration error: ${toolingError}. No package download was attempted.`,
+        });
+        continue;
+      }
+      const command = VERIFY_COMMANDS[check];
+      if (!command) continue;
+      const result = await guest.exec(workspace, { command, timeoutMs: VERIFY_CHECK_TIMEOUT_MS });
+      const output = clipVerifyOutput(check, result.output);
+      const lintClassification = check === "lint" ? classifyLintResult(result) : null;
+      const passed = lintClassification?.passed ?? result.exitCode === 0;
+      pushResult({
+        check,
+        passed,
+        advisory: lintClassification?.advisory ?? false,
+        repairable: lintClassification?.repairable ?? !passed,
+        failureKind: lintClassification?.failureKind ?? (passed ? null : "code"),
+        exitCode: result.exitCode,
+        durationMs: result.durationMs ?? 0,
+        errorCount: lintClassification?.errorCount ?? undefined,
+        warningCount: lintClassification?.warningCount ?? undefined,
+        output: passed || output ? output : `(No ${check} output captured; exit ${result.exitCode}).`,
+      });
+    }
+    return finish();
+  } finally {
+    await guest.deleteWorkspace(workspace).catch(() => {});
+    // A verify may have started a parked machine. Park it again unless a live
+    // dev process or an in-flight boot for this chat is using it.
+    const chatHasLiveRuntime = [...runtimeChildren.values()].some(
+      (tracked) => tracked?.chatId === chatId && tracked.child?.exitCode === null,
+    );
+    if (!chatHasLiveRuntime && !inflightBootByChat.has(chatId)) {
+      await parkProjectMachine(chatId).catch(() => false);
+    }
+  }
+}
+
 async function runVerifyJob(params) {
+  if (isMachineRuntime()) return runVerifyJobInMachine(params);
   const { verifyId, chatId, versionId, filesJson, checks } = params;
   const workspaceDir = workspaceDirForVerifyJob(chatId, verifyId);
   const startedAt = Date.now();

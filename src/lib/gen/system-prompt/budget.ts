@@ -46,6 +46,14 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   // to the default (priority 60, prunable), i.e. they were among the FIRST
   // blocks dropped when the budget got tight.
   { match: /^must have$/i, priority: 88, required: true },
+  // Owner-verified opening hours/contact + the `lib/business-facts.ts` contract.
+  // Dropping it under a tight budget would let the model invent hours — the
+  // exact failure the block exists to prevent — and skip the module import that
+  // makes portal edits reach the live site without a regeneration. Priority sits
+  // below scaffold/route plan/dossier files (90–92): on a first generation the
+  // block carries the module source (~1.9k tokens), and it must never be the
+  // reason those structural blocks get truncated.
+  { match: /^business facts/i, priority: 89, required: true },
   { match: /^capability surface ownership/i, priority: 87, required: true },
   { match: /^design priority$/i, priority: 89, required: true },
   { match: /^scaffold$/i, priority: 90, required: true },

@@ -68,6 +68,8 @@ const {
   maybeRunOpportunisticCleanup,
   describeStorageState,
 } = require("./storage.js");
+const { describeIsolation } = require("../machines/isolation-config.js");
+const { listProjectMachineRecords } = require("../machines/project-machines.js");
 
 function findReferencedSession(data, validated) {
   return (
@@ -96,6 +98,9 @@ async function routeRequest(req, res) {
       release: releaseIdentity,
       ts: nowIso(),
       sessions: Object.keys(data.sessions).length,
+      // SM-080: `mode: "shared"` means project code runs on this host. The
+      // full (secret-free) config lives behind the key on /admin/machines.
+      isolation: (({ mode, configured }) => ({ mode, configured }))(describeIsolation()),
     });
   }
 
@@ -123,6 +128,7 @@ async function routeRequest(req, res) {
         "GET /preview/logs/:previewSessionId",
         "GET /admin/sessions",
         "GET /admin/storage",
+        "GET /admin/machines",
         "POST /admin/cleanup",
         "POST /admin/destroy-all",
         "GET /placeholder.svg",
@@ -649,12 +655,14 @@ async function routeRequest(req, res) {
         versionId: patchOutcome.currentVersionId,
       });
     }
+    // `applyRuntimePatch` is synchronous for the shared host and a promise
+    // for a guest machine (SM-080); awaiting covers both.
     const patchResult = patchOutcome.replacingPrewarm
       ? (() => {
           queueRuntimeBoot(patchOutcome.chatId, { restart: true });
           return { mode: "restarted", reason: "prewarm_replacement" };
         })()
-      : applyRuntimePatch(patchOutcome.chatId, {
+      : await applyRuntimePatch(patchOutcome.chatId, {
           files: validated.files,
           removedPaths: validated.removedPaths,
           versionId: validated.versionId,
@@ -945,6 +953,16 @@ async function routeRequest(req, res) {
     return json(res, 200, {
       ok: true,
       storage: await describeStorageState(),
+    });
+  }
+
+  if (req.method === "GET" && url.pathname === "/admin/machines") {
+    if (!checkApiKey(req, res)) return;
+    // Operator view of SM-080 guest machines. Tokens are never returned.
+    return json(res, 200, {
+      ok: true,
+      isolation: describeIsolation(),
+      machines: listProjectMachineRecords(),
     });
   }
 

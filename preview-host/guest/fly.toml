@@ -1,0 +1,11 @@
+# Fly app that HOLDS the preview guest machines. Machines are created by the
+# control plane through the Machines API (see src/machines/project-machines.js),
+# never by `fly deploy`. This file exists so the image can be built and pushed
+# with `fly deploy -c guest/fly.toml --build-only --push` and so the app has a
+# home for `fly machines list`. No services: guests are reached only over the
+# private network by the control plane, never through the Fly proxy.
+app = "sajtmaskin-preview-guests"
+primary_region = "arn"
+
+[build]
+  dockerfile = "Dockerfile"
