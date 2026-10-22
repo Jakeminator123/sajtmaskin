@@ -44,6 +44,7 @@ import {
 } from "@/lib/openclaw/read-files";
 import { classifyAgentMessage } from "@/lib/openclaw/agent-message-kind";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+import { isOpenClawSurfaceEnabledOnPage } from "@/lib/openclaw/surface-flag";
 
 export interface SajtagentContextValue {
   /** Sajtagentens yta är aktiverad för den här deployen (health). */
@@ -98,8 +99,11 @@ export function SajtagentProvider({
   const [available, setAvailable] = useState(false);
 
   // Health: ytans aktivering + läs-/agera-grindarna. Samma best-effort som
-  // panelen hade: ett misslyckat anrop lämnar agenten passiv.
+  // panelen hade: ett misslyckat anrop lämnar agenten passiv. Anropet görs
+  // bara när root-layouten säger att ytan finns (`surface-flag.ts`): en deploy
+  // utan OpenClaw ska inte betala en enda extra request vid builderns start.
   useEffect(() => {
+    if (!isOpenClawSurfaceEnabledOnPage()) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -122,22 +126,26 @@ export function SajtagentProvider({
   }, [setDebugEnabled, setEditEnabled]);
 
   // Befogenheter per chatt (default-på för en ny builderchatt, se
-  // `persist-openclaw-powers.ts`). Körs när chatten eller env-grinden ändras.
+  // `persist-openclaw-powers.ts`). Körs när chatten eller env-grinden ändras;
+  // `editEnabled` blir bara sant efter en lyckad health-koll, så inget anrop
+  // sker på en deploy utan ytan.
   useEffect(() => {
     if (!chatId || !editEnabled) return;
     void hydrateOpenClawPowersForChat(chatId);
   }, [chatId, editEnabled]);
 
-  // Beständig historik: fyll på storen när en chatt öppnas. Scope-bytet i
+  // Beständig historik: fyll på storen när en chatt öppnas — först när ytan
+  // bekräftats, så builderns egen laddning (projekt, versioner, filer) inte
+  // konkurrerar med ett agentanrop som ändå inte används. Scope-bytet i
   // `OpenClawChat` har redan tömt minnet för den förra chatten.
   const chatIdRef = useRef(chatId);
   useEffect(() => {
     chatIdRef.current = chatId;
   }, [chatId]);
   useEffect(() => {
-    if (!chatId) return;
+    if (!chatId || !available) return;
     void hydrateAgentHistory(chatId, () => chatIdRef.current === chatId);
-  }, [chatId]);
+  }, [chatId, available]);
 
   // Varje avslutad tur (inklusive nästlade väckningar som sker inuti `send`)
   // skrivs ner — bara det som faktiskt fick innehåll.
