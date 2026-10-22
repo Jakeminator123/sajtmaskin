@@ -25,9 +25,9 @@ permissions:
   contents: read
 
 jobs:
-  # Always-on classifier. Irrelevant PR/preview diffs publish run_matrix=false so the
-  # expensive matrix can skip while the required aggregate stays green.
-  # Classification errors fail closed to the matrix.
+  # Always-on classifier. Preview PRs and pushes publish run_matrix=false
+  # (deferred-to-promote, owner decision 2026-10-22) so the required aggregate
+  # stays green; promote PRs, schedule and manual runs always get the full matrix.
   scope:
     permissions:
       contents: read

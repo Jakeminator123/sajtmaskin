@@ -669,13 +669,17 @@ Do **not** bump `lastVerified` just to make CI green. A completed pass means:
    can be obtained, and dependency/API usage still matches current official
    provider documentation.
 
-The always-on PR, weekly and manual [dossier-acceptance workflow](../../.github/workflows/dossier-acceptance.yml)
+The [dossier-acceptance workflow](../../.github/workflows/dossier-acceptance.yml)
 automates the first, keyless layer for **every dossier that ships files —
 hard AND soft** (instructions-only dossiers have nothing to build and are
-skipped). Every pull request runs a path-scope job against the materialization
-contract (`scripts/dossiers/acceptance-paths.mjs`). Hits install, typecheck and
-production-build the matrix; misses skip the matrix and still publish the
-required `dossier-acceptance` aggregate as green. The same workflow materializes
+skipped). It installs, typechecks and production-builds the full catalog on
+every PR to `master` (promote), weekly and on manual runs. PRs and pushes to
+`preview` never run the matrix (owner decision 2026-10-22): they still classify
+the diff against the materialization contract
+(`scripts/dossiers/acceptance-paths.mjs`), log which dossiers promote will
+build, and publish the required `dossier-acceptance` aggregate as green with
+reason `deferred-to-promote`. A dossier change is therefore first proven in
+the promote PR, not in its own preview PR. The same workflow materializes
 the exact dossier files on the selected existing acceptance scaffold
 (`landing-page` by default; `ecommerce` for Stripe, `dashboard` for Postgres,
 and `blog` for Mailchimp), merges the canonical export baseline and manifest
