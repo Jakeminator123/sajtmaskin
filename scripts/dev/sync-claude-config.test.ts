@@ -171,16 +171,24 @@ describe("Claude-hookarna", () => {
     expect(runHook("read-guard.mjs", cursorRead).status).toBe(0);
   });
 
-  it("hookkommandot är en skalsträng som även Cursor kan köra", () => {
+  it("hookkommandot är exec-form som inte beror på vilket skal Claude väljer", () => {
     const settings = JSON.parse(readFileSync(join(repoRoot, ".claude/settings.json"), "utf8"));
     for (const entry of settings.hooks.PreToolUse) {
       for (const hook of entry.hooks) {
-        expect(hook.args).toBeUndefined();
-        expect(hook.command).toMatch(
-          /^node "\$\{CLAUDE_PROJECT_DIR\}\/\.claude\/hooks\/[\w-]+\.mjs"$/u,
-        );
+        expect(hook.command).toBe("node");
+        expect(hook.args).toHaveLength(1);
+        expect(hook.args[0]).toMatch(/^\$\{CLAUDE_PROJECT_DIR\}\/\.claude\/hooks\/[\w-]+\.mjs$/u);
       }
     }
+  });
+
+  it("i Cursor (args ignorerade) blir node med JSON på stdin fail-open, aldrig exit 2", () => {
+    const result = spawnSync(process.execPath, [], {
+      input: JSON.stringify({ conversation_id: "c1", tool_input: { command: "git push -f" } }),
+      encoding: "utf8",
+      timeout: 30_000,
+    });
+    expect(result.status).toBe(1);
   });
 
   it("read-guard nekar .cursor/mcp.json med secret-format och släpper annat", () => {

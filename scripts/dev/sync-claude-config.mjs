@@ -80,14 +80,16 @@ export const CLAUDE_ASK_RULES = Object.freeze([
 export const CLAUDE_ENV = Object.freeze({ CLAUDE_CODE_USE_POWERSHELL_TOOL: "1" });
 
 /**
- * Skalform, inte exec-form (`args`): Cursor importerar de här hookarna och
- * dokumenterar bara en kommandosträng. Claude kör strängen i Git Bash där
- * `${CLAUDE_PROJECT_DIR}` expanderas. Kan Cursor inte köra den blir det en
- * misslyckad hook, som Cursor släpper igenom (fail-open) — aldrig en blockering.
+ * Exec-form (`args`): Claude startar node direkt utan skal, så sökvägen
+ * substitueras även när hooken annars hade körts i PowerShell (skalformens
+ * `${…}` blir tom där och grinden tyst av; Buggpass runda 3). Cursor importerar
+ * hookarna men dokumenterar bara `command`; ignoreras `args` läser `node` JSON
+ * från stdin som skript och avslutar med kod 1 = fail-open, aldrig blockering.
  */
 const hookCommand = (script, timeout) => ({
   type: "command",
-  command: `node "\${CLAUDE_PROJECT_DIR}/.claude/hooks/${script}"`,
+  command: "node",
+  args: [`\${CLAUDE_PROJECT_DIR}/.claude/hooks/${script}`],
   timeout,
 });
 

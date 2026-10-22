@@ -333,7 +333,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/shell-guard.mjs\"",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/shell-guard.mjs"],
             "timeout": 120
           }
         ]
@@ -343,7 +344,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/read-guard.mjs\"",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/read-guard.mjs"],
             "timeout": 10
           }
         ]

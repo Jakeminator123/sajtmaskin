@@ -31,6 +31,7 @@ ett 0-byte alias; User PATH ska ha PowerShell 7-mappen före WindowsApps
 | `Blockerat: commit-skyddet ... dynamiskt eller aliasbaserat git-kommando` | `$` i skrivande git (`commit/push/worktree/branch/checkout/switch`) → `git commit -F <fil>` |
 | Trunkerad (`…`) eller tom output vid pipe till fil | Avsluta med `\| Out-String -Width 4096` |
 | `spawnSync('npm.cmd')` → `EINVAL`, eller npm/npx exit 0 med tom stdout | `shell: process.platform === "win32"` bara för npm/npx; `git` förblir shell-fri |
+| Citattecken/JSON till externt program går sönder (`node -e` → `SyntaxError`/`Invalid string escape`, trasig `gh`-body, `jq`-filter) | pwsh skickar `"` annorlunda till exe och `.cmd`-shims (npm/npx). Skriv texten till fil och peka ut den: `gh pr create --body-file`, `gh api --input`, `jq -f`, `node skript.mjs`, `git commit -F` |
 | Svenska tecken blir `├ñ` / `ÔÇö` | Skriv med editorverktyg eller UTF-8 från pwsh 7 |
 | `.Replace()` träffar inte | Repo-filer är LF, here-strings CRLF: normalisera ``.Replace("`r`n", "`n")`` eller använd editorverktyg |
 | Cursor Glob hittar inte `[chatId]` | Glob-syntax: escapa `[[]chatId[]]` eller läs exakt sökväg |

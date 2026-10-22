@@ -100,9 +100,19 @@ function inspectGitInvocation(tokens) {
  * medan allowlistans prefix (`git push`, `git switch`, `git branch -vv`) släppte
  * dem utan fråga (extern granskning 2026-10-22).
  */
-function clusterHas(token, letters) {
-  return /^-[A-Za-z]{2,}$/u.test(token) && [...token.slice(1)].some((c) => letters.includes(c));
+function clusterHas(token, letters, valueLetters = "") {
+  // Siffror är egna flaggor (`git push -4f` = `--ipv4 --force`). En flagga som
+  // tar värde (`-o`, `-c`, `-b`) avslutar klustret: resten är värdet, inte flaggor.
+  if (!/^-[A-Za-z0-9]{2,}$/u.test(token)) return false;
+  for (const c of token.slice(1)) {
+    if (letters.includes(c)) return true;
+    if (valueLetters.includes(c)) return false;
+  }
+  return false;
 }
+
+/** Läsflaggor som allowlistan (`git branch -vv`, `-a`, `-r`, `--list` …) släpper som prefix. */
+const BRANCH_READ_FLAG = /^(?:-[avr]+|--list|--all|--remotes|--show-current|--verbose)$/u;
 
 function abbreviates(token, longNames) {
   if (!token.startsWith("--")) return false;
@@ -166,12 +176,15 @@ function classifyGitInvocation(subcommand, args) {
     // Fristående `-d`/`-D` når som förut klassificeraren/frågan.
     if (
       args.some(
-        (token) => clusterHas(token, "dDmMcCf") || abbreviates(token, BRANCH_MUTATING_LONG),
+        (token) => clusterHas(token, "dDmMcCf", "u") || abbreviates(token, BRANCH_MUTATING_LONG),
       )
     ) {
       return "deny-branch-cluster";
     }
     const mutating = args.some((token) => BRANCH_MUTATING_FLAG.test(token));
+    // `git branch -vv -d x` börjar med ett allowlistat läsprefix och smet därför
+    // förbi frågan. Skrivflaggan först (`git branch -d -r origin/x`) når den.
+    if (mutating && BRANCH_READ_FLAG.test(args[0] ?? "")) return "deny-branch-cluster";
     const positionals = args.filter((token) => !token.startsWith("-"));
     const listing =
       !mutating &&
@@ -196,7 +209,7 @@ function classifyGitInvocation(subcommand, args) {
           token === "-f" ||
           token === "--force" ||
           token === "--discard-changes" ||
-          clusterHas(token, "f") ||
+          clusterHas(token, "f", "cCbB") ||
           abbreviates(token, DISCARD_LONG),
       )
     ) {
@@ -250,7 +263,7 @@ function classifyGitInvocation(subcommand, args) {
           token === "--mirror" ||
           token === "--prune" ||
           token === "--no-verify" ||
-          clusterHas(token, "fd") ||
+          clusterHas(token, "fd", "o") ||
           abbreviates(token, PUSH_DANGEROUS_LONG) ||
           /^\+\S/u.test(token) ||
           /^:\S/u.test(token),
@@ -333,11 +346,12 @@ export function branchClusterDenial() {
     permission: "deny",
     user_message:
       "Blockerat: en skrivflagga (`-d/-D/-m/-M/-c/-C/-f` eller förkortad `--delete/--move/--copy/--force`) " +
-      "gömd i ett flaggkluster för `git branch`. Läsformerna är allowlistade, skrivformerna ska frågas.",
+      "gömd i ett flaggkluster eller efter en läsflagga (`-vv`, `-a`, `-r`, `--list`) för `git branch`. " +
+      "Läsformerna är allowlistade, skrivformerna ska frågas.",
     agent_message:
-      "Denied: a mutating `git branch` flag hidden in a short-flag cluster or an abbreviated long option " +
-      "(e.g. `-vvd`, `--del`). Write the flag on its own (`git branch -d <name>`) so it reaches the normal " +
-      "approval path. Do not work around this with another command.",
+      "Denied: a mutating `git branch` flag hidden in a short-flag cluster, an abbreviated long option, or " +
+      "placed after an allowlisted read flag (e.g. `-vvd`, `--del`, `-vv -d`). Put the write flag first " +
+      "(`git branch -d <name>`) so it reaches the normal approval path. Do not work around this with another command.",
   };
 }
 

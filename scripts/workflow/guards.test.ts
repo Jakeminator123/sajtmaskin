@@ -653,6 +653,14 @@ describe("cheap read-only git path", () => {
     "git branch -aD feat/x",
     "git branch -vM old new",
     "git branch --del feat/x",
+    // Buggpass runda 2: siffror är egna flaggor, och skrivflagga efter läsprefix.
+    "git push -4f origin HEAD",
+    "git push -f4 origin HEAD",
+    "git push -6d origin feat/x",
+    "git branch -vv -d feat/x",
+    "git branch -vv -D feat/x",
+    "git branch -a --delete feat/x",
+    "git branch --list -m old new",
   ])("denies flags hidden in clusters or abbreviations: %s", (command) => {
     expect(cheapShellDecision(command)?.permission).toBe("deny");
     expect(decideWorktree(command, { aliases: null }).permission).toBe("deny");
@@ -671,6 +679,11 @@ describe("cheap read-only git path", () => {
     expect(cheapShellDecision("git branch --merged")).toEqual({ permission: "allow" });
     // Fristående skrivflagga är inte allowlistad och når klassificeraren som förut.
     expect(cheapShellDecision("git branch -d feat/x")?.permission).not.toBe("deny");
+    expect(cheapShellDecision("git branch -d -r origin/feat/x")?.permission).not.toBe("deny");
+    // Värdeflaggor avslutar klustret: resten är värdet, inte flaggor.
+    expect(cheapShellDecision("git push -ofoo origin HEAD")?.permission).not.toBe("deny");
+    expect(cheapShellDecision("git switch -cfix")).toEqual({ permission: "allow" });
+    expect(cheapShellDecision("git push -4 origin HEAD")).toBeNull();
   });
 
   it("keeps plain switch/checkout and merge-side selection allowed", () => {
