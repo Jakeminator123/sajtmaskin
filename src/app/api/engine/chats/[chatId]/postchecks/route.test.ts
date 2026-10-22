@@ -26,7 +26,10 @@ describe("tenant-scoped postcheck wakeup", () => {
     const deadlineEpochMs = 10_000 + (maxDuration - 20) * 1000;
     expect(mocks.owner).toHaveBeenCalledWith(request, "own-chat", "own-version");
     expect(mocks.select).toHaveBeenCalledWith(1, deadlineEpochMs, { chatId: "own-chat", versionId: "own-version" });
-    expect(mocks.limit).toHaveBeenCalledWith(request, "engine:postchecks", expect.any(Function), { failClosedOnTimeout: true });
+    expect(mocks.limit).toHaveBeenNthCalledWith(1, request, "engine:postchecks:request", expect.any(Function), { failClosedOnTimeout: true });
+    expect(mocks.limit).toHaveBeenNthCalledWith(2, request, "engine:postchecks", expect.any(Function), {
+      failClosedOnTimeout: true, verifiedResourceId: JSON.stringify(["own-chat", "own-version"]),
+    });
     expect(response.status).toBe(202); expect(await response.json()).toEqual({ accepted: true });
     expect(mocks.run).not.toHaveBeenCalled();
     vi.mocked(Date.now).mockReturnValue(20_000);
@@ -36,6 +39,7 @@ describe("tenant-scoped postcheck wakeup", () => {
   it("does no work for another guest/user or a mismatched chat-version pair", async () => {
     mocks.owner.mockResolvedValue(null);
     expect((await POST(req(), ctx)).status).toBe(404);
+    expect(mocks.limit).toHaveBeenCalledTimes(1);
     expect(mocks.select).not.toHaveBeenCalled(); expect(mocks.after).not.toHaveBeenCalled();
   });
   it.each([{}, null, { versionId: "" }, { versionId: "v", files: [] }, { versionId: "v", userId: "other" }, { versionId: "v", deadlineEpochMs: 999999 }])("rejects invalid or authority-bearing payload %j", async body => {
@@ -54,5 +58,29 @@ describe("tenant-scoped postcheck wakeup", () => {
     expect((await POST(req(), ctx)).status).toBe(503); expect(mocks.after).not.toHaveBeenCalled();
     mocks.owner.mockClear(); mocks.limit.mockResolvedValueOnce(new Response(null, { status: 429 }));
     expect((await POST(req(), ctx)).status).toBe(429); expect(mocks.owner).not.toHaveBeenCalled();
+  });
+
+  it("does not consume a version bucket until the exact pair is authorized", async () => {
+    mocks.owner.mockImplementation(async () => {
+      expect(mocks.limit).toHaveBeenCalledTimes(1);
+      return { chat: {}, version: {} };
+    });
+    mocks.limit.mockImplementation((_req, key, handler) => key === "engine:postchecks"
+      ? new Response(null, { status: 429 }) : handler());
+    expect((await POST(req(), ctx)).status).toBe(429);
+    expect(mocks.owner).toHaveBeenCalledOnce();
+    expect(mocks.select).not.toHaveBeenCalled();
+    expect(mocks.after).not.toHaveBeenCalled();
+  });
+
+  it("uses distinct authorized resources for parallel chats behind one IP", async () => {
+    mocks.select.mockResolvedValue([]);
+    await POST(req(), ctx);
+    await POST(req({ versionId: "second-version" }), { params: Promise.resolve({ chatId: "second-chat" }) });
+    const inner = mocks.limit.mock.calls.filter(([, key]) => key === "engine:postchecks");
+    expect(inner.map(call => call[3].verifiedResourceId)).toEqual([
+      JSON.stringify(["own-chat", "own-version"]),
+      JSON.stringify(["second-chat", "second-version"]),
+    ]);
   });
 });
