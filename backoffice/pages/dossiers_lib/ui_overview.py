@@ -47,7 +47,6 @@ from .constants import (
     _COMPLEXITY_FALLBACK,
     _MOCK_FALLBACK,
     _ALLOWED_ENFORCEMENT,
-    _NORMALIZE_MODELS,
     _INSTRUCTIONS_STUB,
 )
 
@@ -83,12 +82,6 @@ from .io import (
     _apply_capability_override,
     _describe_capability_group_hint,
     _npm_binary,
-    _prospect_root,
-    _load_prospect_plan,
-    _load_prospect_report,
-    _read_prospect_verdict_files,
-    _run_normalize,
-    _promote_prospect,
     _create_dossier_skeleton,
     _run_sdk_version_check,
 )

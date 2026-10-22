@@ -31,7 +31,6 @@ services:
       ignoredPaths:
         - infra/openclaw/.gitignore
         - infra/openclaw/DEPLOY_INFO.txt
-        - infra/openclaw/railway.toml
     envVars:
       # --- Secrets: set per instance, never commit values ---
       - key: OPENCLAW_GATEWAY_TOKEN

@@ -79,7 +79,7 @@
       "codeReaders": ["src/lib/gen/static-core-loader.ts"]
     },
     "ai_models": {
-      "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placeholders för genererade sajter. Här ska panelen spegla faktisk runtime, inte definiera den. Faktisk LLM-input (system vs user-turn, pruning): docs/architecture/llm-pipeline.md § FAS 2. Post-stream finalize/verifier/server-verify: docs/architecture/llm-pipeline.md § FAS 2. `qualityToOwnEngineModel` mappar UI-byggprofiler till modeller; `BuildSpec.qualityTarget` (standard|premium|release-candidate) härleds separat i build-spec.ts för codegen/finalize/verify-policy — samma ord betyder alltså inte samma sak.",
+      "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placeholders för genererade sajter. Här ska panelen spegla faktisk runtime, inte definiera den. Faktisk LLM-input (system vs user-turn, pruning): docs/architecture/llm-pipeline.md § FAS 2. Post-stream finalize/verifier/server-verify: docs/architecture/llm-pipeline.md § FAS 2. `qualityToOwnEngineModel` mappar UI-byggprofiler till modeller; `BuildSpec.qualityTarget` (standard|premium|release-candidate) härleds separat i src/lib/gen/build-spec/ för codegen/finalize/verify-policy — samma ord betyder alltså inte samma sak.",
       "canonicalPaths": [
         "config/ai_models/manifest.json",
         "config/ai_models/*.md",
@@ -304,12 +304,11 @@
       "codeReaders": ["scripts/audit/audit-shadcn-mirror-repos.mjs"]
     },
     "Databashälsa": {
-      "summary": "Read-only diagnos av Postgres-tabeller och index + APPLY-flöde för saknade index (idempotent CREATE INDEX IF NOT EXISTS, audit-loggat). Kör scripts/db/db-health-check.mjs via subprocess. Stödskript: scripts/db/add-performance-indexes.mjs (perf-migration), scripts/db/drop-legacy-index-aliases.mjs (opt-in cleanup). Auto-applicering på `npm run dev` via predev-hooken.",
+      "summary": "Read-only diagnos av Postgres-tabeller och index + APPLY-flöde för saknade index (idempotent CREATE INDEX IF NOT EXISTS, audit-loggat). Kör scripts/db/db-health-check.mjs via subprocess. Stödskript: scripts/db/add-performance-indexes.mjs (perf-migration). Ingen auto-applicering vid `npm run dev`; schemaändringar går via migrationsrunbooken.",
       "canonicalPaths": [
         "backoffice/pages/database_health.py",
         "scripts/db/db-health-check.mjs",
         "scripts/db/add-performance-indexes.mjs",
-        "scripts/db/drop-legacy-index-aliases.mjs",
         "src/lib/db/schema.ts"
       ],
       "docsPaths": ["docs/contracts/data-layer.md"],
@@ -360,8 +359,7 @@
       "canonicalPaths": [
         "backoffice/pages/log_export.py",
         "scripts/db/dump-logs.mjs",
-        "scripts/db/env-merge.mjs",
-        "scripts/debug/latest-generations.mjs"
+        "scripts/db/env-merge.mjs"
       ],
       "docsPaths": ["docs/ENV.md", ".cursor/rules/db-env-parity.mdc"],
       "codeReaders": [
@@ -376,7 +374,7 @@
         "backoffice/pages/eval_page.py",
         "src/lib/gen/eval/",
         "src/lib/gen/eval/eval-baseline.json",
-        "data/scaffold-eval/reports/ (lokal JSON via npm run eval / eval-landing-variants; gitignorerad, ej i CI)",
+        "data/scaffold-eval/reports/ (lokal JSON via npm run eval; gitignorerad, ej i CI)",
         "docs/evals/"
       ],
       "docsPaths": ["src/lib/gen/eval/README.md"],
@@ -490,7 +488,6 @@
       "summary": "Deterministisk statuskarta över LLM-flödet: renderar docs/canvases/llm-flow.canvas.json (gitignorerad sidecar, byggs om vid backoffice-start och via knapp) med processstatus, backlog och eval-scorecard.",
       "canonicalPaths": [
         "scripts/canvas/build-llm-flow-canvas.mjs",
-        "scripts/canvas/llm-flow-canvas.config.json",
         "docs/canvases/llm-flow.canvas.txt"
       ],
       "docsPaths": [],

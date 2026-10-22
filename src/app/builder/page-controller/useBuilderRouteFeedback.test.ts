@@ -4,6 +4,7 @@ import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const noteAccountCreatedIfSignup = vi.hoisted(() => vi.fn());
+const noteOpenAiRegistrationIfSignup = vi.hoisted(() => vi.fn());
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
@@ -12,12 +13,14 @@ vi.mock("sonner", () => ({
 vi.mock("@/lib/ads/fire-google-ads-conversion", () => ({
   noteAccountCreatedIfSignup,
 }));
+vi.mock("@/lib/ads/fire-openai-ads", () => ({ noteOpenAiRegistrationIfSignup }));
 
 import { useBuilderRouteFeedback } from "./useBuilderRouteFeedback";
 
 describe("useBuilderRouteFeedback signup conversion", () => {
   beforeEach(() => {
     noteAccountCreatedIfSignup.mockClear();
+    noteOpenAiRegistrationIfSignup.mockClear();
   });
 
   it("notes account_created from signup=1 before the query param is cleared", () => {
@@ -42,8 +45,12 @@ describe("useBuilderRouteFeedback signup conversion", () => {
     );
 
     expect(noteAccountCreatedIfSignup).toHaveBeenCalledWith("1");
+    expect(noteOpenAiRegistrationIfSignup).toHaveBeenCalledWith("1");
     expect(replace).toHaveBeenCalledWith("/builder");
     expect(noteAccountCreatedIfSignup.mock.invocationCallOrder[0]).toBeLessThan(
+      replace.mock.invocationCallOrder[0],
+    );
+    expect(noteOpenAiRegistrationIfSignup.mock.invocationCallOrder[0]).toBeLessThan(
       replace.mock.invocationCallOrder[0],
     );
   });

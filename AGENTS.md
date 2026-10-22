@@ -24,7 +24,7 @@ arkivet ([livscykel](docs/documentation-lifecycle.md)).
 
 Kodändring: närliggande kod, tester och matchande `.cursor/rules/*.mdc`.
 `templates_v0`/`v0` kan vara legacy eller API-versionering; verifiera mot kod.
-Verktyg: [Cursor](.cursor/README.md), [Codex](.codex/README.md).
+Verktyg: [Cursor](.cursor/README.md), [Codex](.codex/README.md), [Claude](.claude/README.md).
 
 ## Arbetsregel
 

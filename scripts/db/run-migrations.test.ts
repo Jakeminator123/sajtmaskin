@@ -1,9 +1,12 @@
 import { readdirSync, readFileSync } from "fs";
 import { join } from "path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   MIGRATION_ORDER,
   MIGRATIONS_DIR,
+  assertSessionModeTarget,
+  planPendingMigrations,
+  requireExistingMigrationLedger,
   resolveConnectionString,
   resolveMigrationRunOrder,
 } from "./run-migrations";
@@ -110,6 +113,81 @@ describe("scripts/db/run-migrations resolveMigrationRunOrder", () => {
     expect(() =>
       resolveMigrationRunOrder([...MIGRATION_ORDER, "README.md", ".gitkeep"]),
     ).not.toThrow();
+  });
+});
+
+// Runbook § Innan live-apply: only pending files run, and DDL never goes
+// through transaction pooling.
+describe("scripts/db/run-migrations fail-closed plan", () => {
+  it("refuses a missing ledger before creating a table or applying SQL", async () => {
+    const query = vi.fn().mockRejectedValue({ code: "42P01" });
+    const client = { query } as unknown as Parameters<typeof requireExistingMigrationLedger>[0];
+    await expect(requireExistingMigrationLedger(client)).rejects.toThrow(/ledger is missing/);
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(query).toHaveBeenCalledWith("SELECT filename FROM schema_migrations");
+  });
+
+  it("keeps existing history and hardens only a confirmed ledger", async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{ filename: MIGRATION_ORDER[0] }] });
+    const client = { query } as unknown as Parameters<typeof requireExistingMigrationLedger>[0];
+    await expect(requireExistingMigrationLedger(client)).resolves.toEqual(new Set([MIGRATION_ORDER[0]]));
+    expect(query).toHaveBeenNthCalledWith(1, "SELECT filename FROM schema_migrations");
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(query.mock.calls[1][0]).toContain("ENABLE ROW LEVEL SECURITY");
+  });
+
+  it("does not bootstrap a ledger when its read fails for another reason", async () => {
+    const query = vi.fn().mockRejectedValue(new Error("permission denied"));
+    const client = { query } as unknown as Parameters<typeof requireExistingMigrationLedger>[0];
+    await expect(requireExistingMigrationLedger(client)).rejects.toThrow("permission denied");
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs only migrations the ledger has not recorded, in manifest order", () => {
+    const [first, second, third] = MIGRATION_ORDER;
+    const pending = planPendingMigrations([...MIGRATION_ORDER], new Set([first, third]));
+    expect(pending).not.toContain(first);
+    expect(pending).not.toContain(third);
+    expect(pending[0]).toBe(second);
+    expect(pending).toHaveLength(MIGRATION_ORDER.length - 2);
+  });
+
+  it("plans nothing when every migration is recorded", () => {
+    expect(planPendingMigrations([...MIGRATION_ORDER], new Set(MIGRATION_ORDER))).toEqual([]);
+  });
+
+  it("still refuses an on-disk file that is missing from the manifest", () => {
+    expect(() =>
+      planPendingMigrations([...MIGRATION_ORDER, "add-some-new-thing.sql"], new Set()),
+    ).toThrow(/not registered in MIGRATION_ORDER/);
+  });
+
+  it("refuses transaction pooling", () => {
+    expect(() =>
+      assertSessionModeTarget(
+        "postgresql://u:p@aws-1-eu-north-1.pooler.supabase.com:6543/postgres",
+      ),
+    ).toThrow(/transaction pooling/);
+    expect(() => assertSessionModeTarget("postgresql://u:p@db.example:6543/app")).toThrow(
+      /transaction pooling/,
+    );
+  });
+
+  it("accepts session mode, direct connections and local Postgres", () => {
+    expect(() =>
+      assertSessionModeTarget(
+        "postgresql://u:p@aws-1-eu-north-1.pooler.supabase.com:5432/postgres",
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertSessionModeTarget("postgresql://u:p@db.abcdefghijklmnop.supabase.co:5432/postgres"),
+    ).not.toThrow();
+    expect(() => assertSessionModeTarget("postgresql://localhost/devdb")).not.toThrow();
+    expect(() => assertSessionModeTarget("postgresql://localhost:54322/postgres")).not.toThrow();
+  });
+
+  it("refuses an unparseable URL instead of guessing", () => {
+    expect(() => assertSessionModeTarget("not a url")).toThrow(/could not parse/);
   });
 });
 

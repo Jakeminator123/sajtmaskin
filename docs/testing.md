@@ -62,7 +62,7 @@ DB och Blob körs bara på push/dispatch till `master`.
 ## Build-grinden
 
 I den tunga profilen kör `build`-jobbet `npm run build` (som i sin tur kör
-`prebuild`: `preflight:common` + `scaffolds:embeddings:check`) **utan secrets**.
+`prebuild`: `preflight:common` + `embeddings:ensure`) **utan secrets**.
 Det finns för att `next build` ska köras nyckelfritt i CI även när en Vercel
 Preview uteblir eller misslyckas. typecheck och lint täcker inte
 build-tidsfel som route-config, RSC-gränser eller prerender-fel.

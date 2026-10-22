@@ -129,12 +129,17 @@ async function main() {
     );
 
     const keep = projects.rows.slice(0, KEEP);
-    const toDelete = projects.rows.slice(KEEP);
+    const candidates = projects.rows.slice(KEEP);
+    const subscribed = await projectsWithSubscriptions(candidates.map((r) => r.id));
+    const billingKept = candidates.filter((r) => subscribed.has(r.id));
+    const toDelete = candidates.filter((r) => !subscribed.has(r.id));
     totalProjects += projects.rows.length;
     totalToDelete += toDelete.length;
 
     console.log(`── ${user.email} (id=${user.id}) ──`);
-    console.log(`   Totalt: ${projects.rows.length} projekt | Behåller: ${keep.length} | Tar bort: ${toDelete.length}`);
+    console.log(
+      `   Totalt: ${projects.rows.length} projekt | Behåller: ${keep.length} | Abonnemang: ${billingKept.length} | Tar bort: ${toDelete.length}`,
+    );
 
     if (keep.length > 0) {
       console.log(`   Behålls (senaste ${keep.length}):`);
@@ -143,9 +148,22 @@ async function main() {
       }
     }
 
+    if (billingKept.length > 0) {
+      console.log(`   Behålls (har site_subscriptions, bokföringen får inte raderas):`);
+      for (const row of billingKept) {
+        console.log(`      BILL   ${row.id.padEnd(36)} ${formatDate(row.updated_at)}  ${row.name ?? ""}`);
+      }
+    }
+
     if (toDelete.length === 0) {
       console.log(`   Inget att radera för denna användare.`);
-      summary.push({ email: user.email, keep: keep.length, deleted: 0, engineChats: 0 });
+      summary.push({
+        email: user.email,
+        keep: keep.length,
+        billingKept: billingKept.length,
+        deleted: 0,
+        engineChats: 0,
+      });
       console.log("");
       continue;
     }
@@ -173,6 +191,7 @@ async function main() {
     summary.push({
       email: user.email,
       keep: keep.length,
+      billingKept: billingKept.length,
       deleted: toDelete.length,
       engineChats: engineChatRows.rows.length,
     });
@@ -190,6 +209,26 @@ async function main() {
   console.log(JSON.stringify({ mode: APPLY ? "apply" : "dry-run", keep: KEEP, summary }));
 
   await pool.end();
+}
+
+/**
+ * Projekt med rader i `site_subscriptions` raderas inte: FK:n är
+ * ON DELETE RESTRICT för att bevara bokföringen (add-site-subscriptions.sql).
+ * Utan filtret rullade en enda sådan rad tillbaka hela användarens batch. En
+ * databas utan D1-migrationen saknar tabellen och har inget att skydda.
+ */
+async function projectsWithSubscriptions(projectIds) {
+  if (projectIds.length === 0) return new Set();
+  try {
+    const r = await pool.query(
+      `SELECT DISTINCT project_id FROM site_subscriptions WHERE project_id = ANY($1::text[])`,
+      [projectIds],
+    );
+    return new Set(r.rows.map((row) => row.project_id));
+  } catch (e) {
+    if (e.code === "42P01") return new Set();
+    throw e;
+  }
 }
 
 /**

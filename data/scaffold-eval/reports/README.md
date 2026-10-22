@@ -8,8 +8,7 @@ den här mappen; kandidatpoolen kommer alltid från det committade variantregist
 | Körning | Output |
 |---|---|
 | `npm run eval` (scaffold-lane) | `scaffold-selection-latest.json` (+ timestampad kopia) |
-| `npx tsx scripts/scaffolds/eval-landing-variants.ts` | `landing-page-variant-latest.json` (+ timestampad kopia) |
 
-Prompt-fixtures som **är** spårade ligger en nivå upp: `../prompts.json`, `../landing-variant-prompts.json`.
+Prompt-fixturen som **är** spårad ligger en nivå upp: `../prompts.json`.
 
 Backoffice → Eval läser `*-latest.json` om den finns lokalt. Saknas filen är det förväntat på en ren checkout.

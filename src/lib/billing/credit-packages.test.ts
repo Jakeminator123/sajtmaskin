@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { CREDIT_PACKAGES, getCreditPackageById } from "./credit-packages";
+import {
+  CREDIT_PACKAGES,
+  creditPackageIdFromPurchaseDescription,
+  creditPackageMeasurement,
+  getCreditPackageById,
+} from "./credit-packages";
 
 describe("CREDIT_PACKAGES", () => {
   it("owns the three one-time packages at 1 kr = 1 credit", () => {
@@ -39,5 +44,22 @@ describe("CREDIT_PACKAGES", () => {
       credits: 179,
       price: 179,
     });
+  });
+
+  it("parses webhook purchase descriptions into pixel minor units", () => {
+    expect(creditPackageIdFromPurchaseDescription("Köp: popular")).toBe("popular");
+    expect(creditPackageIdFromPurchaseDescription("Köp: 10_credits")).toBe("10_credits");
+    expect(creditPackageIdFromPurchaseDescription("refund")).toBeUndefined();
+    expect(creditPackageMeasurement("popular")).toEqual({
+      packageId: "popular",
+      name: "Popular",
+      amount: 9900,
+      currency: "SEK",
+    });
+    expect(creditPackageMeasurement("10_credits")).toMatchObject({
+      packageId: "starter",
+      amount: 4900,
+    });
+    expect(creditPackageMeasurement("missing")).toBeNull();
   });
 });

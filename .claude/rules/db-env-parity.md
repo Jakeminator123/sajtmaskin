@@ -1,0 +1,41 @@
+---
+paths:
+  - "src/lib/db/**"
+  - "scripts/db/**"
+  - "config/env-policy.json"
+  - "docs/ENV.md"
+  - "preview-host/fly.toml"
+---
+
+<!-- Genererad av npm run claude:sync från .cursor/rules/db-env-parity.mdc — redigera källan, inte den här filen. -->
+
+# DB- och env-paritet
+
+Lokal framgång bevisar **inte** prod. Identitet och miljömappning ägs av
+`config/db-targets.json` (tabell i `docs/ENV.md`): Preview och Development delar
+DEV-DB, Production använder PROD. Skriptetikett `[DEV]`/`[PROD]` vinner över
+flaggnamn; verifiera med `npm run db:check-target -- --expect=dev|prod`
+(Vercel-prebuild kör `--vercel`). DB-byte kräver redeploy och kontroll av aktiva
+deploymentens mål.
+
+Migrationer körs **inte** vid Vercel-deploy, Git-operationer, dev-start eller
+vanliga CI-pushar. Registrera i `MIGRATION_ORDER`, testa isolerat och ta fram en
+granskad DB-plan. DB-skrivningar är ett separat mandat, aldrig en följd av ett
+kod-/mergeuppdrag eller av `npm run promote` (kodleverans, inte atomisk deploy).
+Även additiv DDL kan låsa eller påverka policies, triggers och beteende. CI läser
+ledger och live-paritet; rött kräver inspektion, aldrig auto-reparation. Tom
+dev-DB initieras uttryckligt med `db:init`; pending migrationer i initierad
+dev-DB med `db:ensure`. Prod kräver separat ägarbeslut, granskad körplan och
+verifierad direkt/session-mode-anslutning
+([runbook](../../docs/runbooks/db-migrations.md)).
+
+Ingen live-apply, historisk checksum-backfill eller DB-reparation utan mandat.
+DEV-synken för Preview ägs av `scripts/db/align-dev-preview.mjs` (befintlig
+mejlmigration + återställbar arkivering av tomma pensionerade tabeller), utan
+automatisk apply; historiska ledgerposter och SQL-filer bevaras. En kodrevert
+återställer inte DB-data eller schema. Före merge: redovisa DB-effekt.
+
+Env finns på tre ställen: `.env.local`, `vercel env` för
+production|preview|development och `config/env-policy.json`; `NEXT_PUBLIC_*`
+kräver ny deploy. Preview-host (Fly) är egen miljö (`preview-host/fly.toml`,
+`fly secrets`); Vercel-env når inte Fly.

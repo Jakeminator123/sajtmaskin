@@ -51,8 +51,8 @@ function normalizeDomainMapPath(raw: string): NormalizedDomainMapPath | null {
 //    a generation run but never on a clean CI checkout (Vercel).
 //
 // 2. `data/scaffold-eval/reports/**` — per-machine eval output written by
-//    `npm run eval` (scaffold lane in src/lib/gen/eval/canonical.ts
-//    and eval-landing-variants.ts). The backoffice "Eval"-page reads the
+//    `npm run eval` (scaffold lane in src/lib/gen/eval/canonical.ts).
+//    The backoffice "Eval"-page reads the
 //    latest local JSON report; the file is not produced on a clean CI
 //    checkout. Same wrong-coupling as `logs/**`.
 //

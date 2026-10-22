@@ -1095,10 +1095,11 @@ export const generationTelemetry = pgTable(
     meta: jsonb("meta"),
     createdAt: timestamptz("created_at").defaultNow().notNull(),
   },
+  // Names match add-generation-telemetry.sql, which is what every database has.
   (table) => ({
-    chatIdx: index("idx_generation_telemetry_chat").on(table.chatId),
-    versionIdx: index("idx_generation_telemetry_version").on(table.versionId),
-    createdIdx: index("idx_generation_telemetry_created").on(table.createdAt),
+    chatIdx: index("idx_gen_telemetry_chat").on(table.chatId),
+    versionIdx: index("idx_gen_telemetry_version").on(table.versionId),
+    createdIdx: index("idx_gen_telemetry_created").on(table.createdAt),
   }),
 );
 

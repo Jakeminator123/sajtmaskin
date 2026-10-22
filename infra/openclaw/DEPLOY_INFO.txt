@@ -35,7 +35,7 @@ Disk:          3 GB mounted at /root/.openclaw
 
 Create the service from the Blueprint at infra/openclaw/render.yaml on master.
 The service keeps auto-deploy enabled, but its build filter only includes
-infra/openclaw/** and ignores this guide, .gitignore and railway.toml. Normal
+infra/openclaw/** and ignores this guide and .gitignore. Normal
 app/docs merges therefore do not rebuild or restart the gateway. Manual
 deploys and Blueprint configuration syncs are intentionally unaffected.
 

@@ -758,8 +758,8 @@ tests exercising the 503 → notice path (see
 `src/lib/gen/dossiers/dossier-config-fallback.test.tsx`).
 
 **Backoffice validation:** every class-aware write path in
-`backoffice/pages/dossiers.py` (safe edit, raw JSON, capability override,
-legacy promotion, and skeleton creation) applies the hard/soft `providers`
+`backoffice/pages/dossiers.py` (safe edit, raw JSON, capability override
+and skeleton creation) applies the hard/soft `providers`
 rule and the strict JSON schema before backup/write. The lightweight
 `_validate_manifest` still supplies immediate field-level feedback, while the
 strict-schema pass prevents the raw editor from bypassing canonical shape
@@ -817,5 +817,5 @@ Set `SAJTMASKIN_DOSSIER_PIPELINE=false` (or `0`) in any environment to skip doss
 | `src/lib/gen/dossiers/types.ts`                                                                                            | `DossierEntry`, `SelectedDossier`, `DossierSelectionResult`                                                                                                                                                                                                                                                                     |
 | `src/lib/gen/system-prompt/`                                                                                               | Renders the three dossier blocks into the system prompt                                                                                                                                                                                                                                                                         |
 | `scripts/dossiers/curate-from-reference.ts`                                                                                | AI-curation script (single dossier from a cloned reference repo). The model comes from `config/ai_models/manifest.json` → workload `backoffice_dossier_curation`; `--model=<id>` picks another id from that entry and an unlisted id is rejected before the LLM call                                                            |
-| `scripts/dossiers/inventory-legacy.mjs`, `normalize-legacy-prospect.ts`, `validate-all.ts`, `regenerate-capability-map.ts` | Legacy-import chain (PR #419): inventory a legacy v1 archive → LLM-normalize to v2 draft → validate promoted pool → rebuild the capability-map view. Backoffice UI: "Legacy-import" tab in `dossiers.py`.                                                                                                                       |
+| `scripts/dossiers/validate-all.ts`, `regenerate-capability-map.ts`                                                         | Validate the whole pool (`dossiers:validate-all`) and rebuild the capability-map view (`dossiers:capability-map:write`).                                                                                                                                                                                                        |
 | `backoffice/pages/dossiers.py`                                                                                             | Backoffice UI: browse (incl. grupperad kategorivy), edit, delete (checklista + id-bekräftelse), curate (inom vald kategori), rebuild capability-map via TS-scriptet                                                                                                                                                             |
