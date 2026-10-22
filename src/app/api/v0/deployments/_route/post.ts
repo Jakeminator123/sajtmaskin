@@ -919,7 +919,9 @@ export async function POST(req: Request) {
             // newer build never hides the live version's status.
             existingMeta: persistedMeta,
           });
-          if (Object.keys(portalMetaPatch).length > 0) {
+          // The patch replaces the per-version namespace, so it is only safe when
+          // the existing entries were actually read; a failed read would wipe them.
+          if (!projectDataLoadFailed && Object.keys(portalMetaPatch).length > 0) {
             await saveProjectData({ project_id: engineProjectId, meta_patch: portalMetaPatch });
           }
         } catch (portalStatusErr) {
