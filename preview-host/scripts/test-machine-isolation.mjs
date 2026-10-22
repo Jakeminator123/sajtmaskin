@@ -30,7 +30,8 @@ const tmp = mkdtempSync(join(tmpdir(), "preview-host-isolation-"));
 const dataDir = join(tmp, "host-data");
 const guestsDir = join(tmp, "guests");
 const HOST_API_KEY = "host-secret-must-not-leak-0001";
-const FLY_TOKEN = "fake-fly-token";
+// Shaped like a `fly tokens create deploy` macaroon so the FlyV1 path is exercised.
+const FLY_TOKEN = "FlyV1 fm2_fake-guest-app-deploy-token";
 const APP_NAME = "guests-test";
 
 function freePort() {
@@ -84,6 +85,14 @@ function check(label, condition) {
     failures += 1;
     console.error(`  FAIL  ${label}`);
   }
+}
+
+// Fly auth scheme (found in the pilot 2026-10-22): macaroons need FlyV1.
+{
+  const { flyAuthorizationHeader } = require("../src/machines/fly-machines-client.js");
+  check("FlyV1-prefixed macaroon is sent as FlyV1", flyAuthorizationHeader("FlyV1 fm2_abc") === "FlyV1 fm2_abc");
+  check("bare fm2_ macaroon gets the FlyV1 scheme", flyAuthorizationHeader("fm2_abc") === "FlyV1 fm2_abc");
+  check("flyctl auth token stays Bearer", flyAuthorizationHeader("abc123") === "Bearer abc123");
 }
 
 async function api(method, path, body) {
