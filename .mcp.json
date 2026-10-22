@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "shadcn": {
-      "command": "cmd",
-      "args": ["/d", "/s", "/c", "${CLAUDE_PROJECT_DIR:-.}\\scripts\\cursor\\shadcn-mcp.cmd"]
+      "command": "node",
+      "args": ["${CLAUDE_PROJECT_DIR:-.}/scripts/cursor/shadcn-mcp.cjs"]
     },
     "vercel": {
       "type": "http",

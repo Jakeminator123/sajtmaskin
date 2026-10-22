@@ -274,6 +274,22 @@ export function buildAllowRules(root = REPO_ROOT) {
 
 // ---------- MCP ----------
 
+/**
+ * `cmd /c …\scripts\cursor\<namn>.cmd` med en `<namn>.cjs` bredvid startas
+ * direkt med `node` för Claude. Varje `cmd`-lager är en egen process som
+ * Windows inte stänger med föräldern; `.cjs`-startaren äger sitt träd.
+ * Cursor behåller `.cmd` (Volta-version enligt .node-version).
+ */
+export function directNodeEntry(root, server) {
+  if (String(server.command).toLowerCase() !== "cmd") return null;
+  const target = (server.args ?? []).at(-1) ?? "";
+  const match = /\$\{workspaceFolder\}[\\/](scripts[\\/]cursor[\\/][\w-]+)\.cmd$/u.exec(target);
+  if (!match) return null;
+  const script = `${match[1].replaceAll("\\", "/")}.cjs`;
+  if (!existsSync(resolve(root, script))) return null;
+  return { command: "node", args: [`\${CLAUDE_PROJECT_DIR:-.}/${script}`] };
+}
+
 export function buildMcpConfig(root = REPO_ROOT) {
   const template = JSON.parse(readFileSync(resolve(root, ".cursor/mcp.json.example"), "utf8"));
   const servers = {};
@@ -282,7 +298,7 @@ export function buildMcpConfig(root = REPO_ROOT) {
     if (server.url) {
       servers[name] = { type: "http", url: server.url };
     } else if (server.command) {
-      servers[name] = {
+      servers[name] = directNodeEntry(root, server) ?? {
         command: server.command,
         args: (server.args ?? []).map((arg) =>
           arg.replaceAll("${workspaceFolder}", "${CLAUDE_PROJECT_DIR:-.}"),

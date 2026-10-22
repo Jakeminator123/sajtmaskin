@@ -8,7 +8,9 @@ import { REQUIRED_CURSOR_SECRET_IGNORES } from "./check-agent-context-budget.mjs
 import {
   buildAllowRules,
   buildDenyRules,
+  buildMcpConfig,
   buildRuleFiles,
+  directNodeEntry,
   claudeProjectionDrift,
   EXCLUDED_RULES,
   parseJsonc,
@@ -241,6 +243,17 @@ describe("mappningar", () => {
     expect(toClaudeReadRule("/old/")).toBe("Read(/old/**)");
     expect(toClaudeReadRule("**/client_secret*.json")).toBe("Read(**/client_secret*.json)");
     expect(toClaudeReadRule("docs/old/**/*.env")).toBe("Read(/docs/old/**/*.env)");
+  });
+
+  it("startar cmd-wrappade MCP-skript direkt med node för Claude", () => {
+    const shadcn = JSON.parse(buildMcpConfig(repoRoot)).mcpServers.shadcn;
+    expect(shadcn).toEqual({
+      command: "node",
+      args: ["${CLAUDE_PROJECT_DIR:-.}/scripts/cursor/shadcn-mcp.cjs"],
+    });
+    expect(
+      directNodeEntry(repoRoot, { command: "cmd", args: ["/c", "${workspaceFolder}\\saknas.cmd"] }),
+    ).toBeNull();
   });
 
   it("tål radkommentarer och avslutande komman i JSONC", () => {

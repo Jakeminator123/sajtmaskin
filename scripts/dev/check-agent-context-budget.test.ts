@@ -43,6 +43,8 @@ beforeEach(() => {
     ".cursor/mcp.json.example",
     ".claude",
     ".mcp.json",
+    // Startskript som .mcp.json pekar på direkt (directNodeEntry).
+    "scripts/cursor",
   ]) {
     cpSync(join(repoRoot, path), join(fixtureRoot, path), { recursive: true });
   }

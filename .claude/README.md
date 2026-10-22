@@ -4,19 +4,19 @@ Claude Code ska bete sig som en Cursor-agent här. Cursor-filerna är källan;
 Claude-lagret är en projektion som `npm run claude:sync` skriver och
 `npm run check:agent-context` låser mot drift.
 
-| Cursor (källa)                                  | Claude Code                                          | Hur                                                                     |
-| ----------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------- |
-| `AGENTS.md`                                     | `CLAUDE.md` → `@AGENTS.md`                           | Finns `CLAUDE.md` läser Claude inte `AGENTS.md` självt; importen krävs. |
-| `.cursor/rules/*.mdc` alwaysApply               | `.claude/rules/<namn>.md` utan `paths`               | Laddas vid start.                                                       |
-| `.cursor/rules/*.mdc` med `globs`               | `.claude/rules/<namn>.md` med `paths`                | Laddas när Claude rör en matchande fil. `[param]` blir `*`.             |
-| `.cursor/rules/*.mdc` bara beskrivning          | `.claude/rules/cursor-regelindex.md`                 | Index; regeln läses vid behov som i Cursor.                             |
-| `.cursorignore`                                 | `permissions.deny` `Read(...)`                       | Blockerar Read/Edit/Grep och även `cat` i skalet.                       |
-| `.cursor/permissions.json` `terminalAllowlist`  | `permissions.allow` `Bash(...)`/`PowerShell(...)`    | Samma prefixsemantik (`prefix*`).                                       |
-| `.cursor/permissions.json` `mcpAllowlist`       | `permissions.allow` `mcp__...`                       |                                                                         |
-| `.cursor/permissions.json` `block_instructions` | `permissions.ask` (`CLAUDE_ASK_RULES`)               | Deterministisk fråga i stället för klassificerarstyrning.               |
-| `.cursor/mcp.json.example`                      | `.mcp.json`                                          | Samma servrar; OAuth via `/mcp`.                                        |
-| `.cursor/hooks.json` commit-/worktree-guard     | `hooks.PreToolUse` → `.claude/hooks/shell-guard.mjs` | Adapter på varje skalanrop; deny = exit 2.                              |
-| `.cursor/hooks.json` mcp-secret-read-guard      | `hooks.PreToolUse` → `.claude/hooks/read-guard.mjs`  | Adaptern läser filen själv; samma `decide`.                             |
+| Cursor (källa)                                  | Claude Code                                          | Hur                                                                               |
+| ----------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `AGENTS.md`                                     | `CLAUDE.md` → `@AGENTS.md`                           | Finns `CLAUDE.md` läser Claude inte `AGENTS.md` självt; importen krävs.           |
+| `.cursor/rules/*.mdc` alwaysApply               | `.claude/rules/<namn>.md` utan `paths`               | Laddas vid start.                                                                 |
+| `.cursor/rules/*.mdc` med `globs`               | `.claude/rules/<namn>.md` med `paths`                | Laddas när Claude rör en matchande fil. `[param]` blir `*`.                       |
+| `.cursor/rules/*.mdc` bara beskrivning          | `.claude/rules/cursor-regelindex.md`                 | Index; regeln läses vid behov som i Cursor.                                       |
+| `.cursorignore`                                 | `permissions.deny` `Read(...)`                       | Blockerar Read/Edit/Grep och även `cat` i skalet.                                 |
+| `.cursor/permissions.json` `terminalAllowlist`  | `permissions.allow` `Bash(...)`/`PowerShell(...)`    | Samma prefixsemantik (`prefix*`).                                                 |
+| `.cursor/permissions.json` `mcpAllowlist`       | `permissions.allow` `mcp__...`                       |                                                                                   |
+| `.cursor/permissions.json` `block_instructions` | `permissions.ask` (`CLAUDE_ASK_RULES`)               | Deterministisk fråga i stället för klassificerarstyrning.                         |
+| `.cursor/mcp.json.example`                      | `.mcp.json`                                          | Samma servrar; OAuth via `/mcp`. `cmd`-wrappade skript startas med `node` direkt. |
+| `.cursor/hooks.json` commit-/worktree-guard     | `hooks.PreToolUse` → `.claude/hooks/shell-guard.mjs` | Adapter på varje skalanrop; deny = exit 2.                                        |
+| `.cursor/hooks.json` mcp-secret-read-guard      | `hooks.PreToolUse` → `.claude/hooks/read-guard.mjs`  | Adaptern läser filen själv; samma `decide`.                                       |
 
 ## Medvetet inte speglat
 
