@@ -75,6 +75,21 @@ describe("OpenClawChat launcher", () => {
     });
   });
 
+  it("renders no launcher or panel in the builder — the agent lives in the builder chat", () => {
+    navigation.pathname = "/builder";
+    act(() => {
+      useOpenClawStore.setState({ isOpen: true });
+    });
+    const { container } = render(<OpenClawChat />);
+    expect(container.firstElementChild).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Fråga Sajtagenten — öppna chattrutan" }),
+    ).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    // The scope sync still runs so the store resets per builder chat.
+    expect(useOpenClawStore.getState().scopeKey).toBe("/builder");
+  });
+
   it("hides the kostnadsfri teaser card but keeps the chat launcher", async () => {
     navigation.pathname = "/kostnadsfri/zax-2-0-ab";
     render(<OpenClawChat />);

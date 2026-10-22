@@ -21,8 +21,10 @@ import { TextUploader } from "@/components/media/text-uploader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Bot,
   FileText,
   Globe,
+  Hammer,
   ImageIcon,
   Layers,
   Loader2,
@@ -30,8 +32,18 @@ import {
   Search,
   SearchX,
   Sparkles,
+  Square,
   X,
 } from "lucide-react";
+import {
+  isComposerMode,
+  resolveComposerRoute,
+  type ComposerMode,
+} from "@/lib/builder/composer-route";
+import { OpenClawPowersControl } from "@/components/openclaw/OpenClawPowersControl";
+import { useOpenClawPowers } from "@/components/openclaw/useOpenClawPowers";
+import { ComposerModeToggle } from "./sajtagent/ComposerModeToggle";
+import { useSajtagent } from "./sajtagent/SajtagentProvider";
 import type { AuditComposerToken } from "@/lib/builder/audit-handoff";
 import { builderModeToggleClassName } from "@/lib/builder/icon-language";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
@@ -44,6 +56,7 @@ import {
   type FigmaPreviewResponse,
 } from "@/lib/api/figma-preview-contract";
 import {
+  isOpenClawPreparedSend,
   resolveOpenClawPreparedPromptSource,
   type OpenClawPreparedPromptSource,
 } from "@/lib/openclaw/prepared-prompt";
@@ -222,6 +235,27 @@ function isFigmaUrl(url: string): boolean {
   }
 }
 
+const COMPOSER_MODE_STORAGE_KEY = "sajtmaskin:composerMode";
+
+function readStoredComposerMode(): ComposerMode {
+  if (typeof window === "undefined") return "auto";
+  try {
+    const stored = sessionStorage.getItem(COMPOSER_MODE_STORAGE_KEY);
+    return isComposerMode(stored) ? stored : "auto";
+  } catch {
+    return "auto";
+  }
+}
+
+function storeComposerMode(mode: ComposerMode): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(COMPOSER_MODE_STORAGE_KEY, mode);
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function ChatInterface({
   chatId,
   initialPrompt,
@@ -269,7 +303,30 @@ export function ChatInterface({
 
   const hasUploading = files.some((file) => file.status === "uploading");
   const hasSuccessFiles = files.some((file) => file.status === "success");
-  const inputDisabled = isSending || isBusy || promptAssistBusy;
+
+  // En chatt (plan 2026-10-22): samma input når både byggmotorn och
+  // Sajtagenten. Agenten finns bara med en provider (buildern) och en
+  // befintlig chatt; utan den är allt som förut.
+  const agent = useSajtagent();
+  const agentAvailable = Boolean(agent?.available && chatId);
+  const agentStreaming = Boolean(agent?.isStreaming);
+  // Oklar text går till agenten bara när den själv kan starta bygget
+  // (`start_build` kräver armerad autonomi); annars är byggmotorn närmast.
+  const agentCanBuild = useOpenClawPowers().armedAutonomy;
+  const [composerMode, setComposerMode] = useState<ComposerMode>("auto");
+  useEffect(() => {
+    setComposerMode(readStoredComposerMode());
+  }, []);
+  const handleComposerModeChange = useCallback((mode: ComposerMode) => {
+    setComposerMode(mode);
+    storeComposerMode(mode);
+  }, []);
+
+  // Medan ett bygge pågår är byggmotorn låst, men en fråga till Sajtagenten
+  // («vad händer nu?») ska fortfarande gå att ställa. Inputen hålls därför
+  // öppen när agenten finns; byggvägen spärras i handleSubmit i stället.
+  const builderLocked = Boolean(isBusy);
+  const inputDisabled = isSending || promptAssistBusy || (builderLocked && !agentAvailable);
   const submitDisabled = inputDisabled || hasUploading;
   const showPreparingPrompt = Boolean(isPreparingPrompt);
 
@@ -662,6 +719,12 @@ export function ChatInterface({
     baseMessage: string,
     options: { clearDraft?: boolean; planMode?: boolean; promptSourceMeta?: PromptSourceMeta } = {},
   ) => {
+    // Inputen hålls öppen under ett bygge för Sajtagentens skull; byggvägen
+    // (plan, textuppladdning, vanligt utskick) väntar tills turen är klar.
+    if (builderLocked) {
+      toast("Ett bygge pågår. Vänta tills det är klart.");
+      return;
+    }
     setIsSending(true);
     try {
       const payload = await buildMessagePayload(baseMessage);
@@ -724,11 +787,49 @@ export function ChatInterface({
     }
   };
 
+  const hasComposerAttachments =
+    hasSuccessFiles || Boolean(normalizedFigmaUrl) || inspectPoints.length > 0;
+
+  const resolveRouteFor = (text: string) => {
+    // En byggprompt som Sajtagenten själv lade i fältet är ett byggkommando,
+    // oavsett hur texten läses — annars studsar den tillbaka till agenten.
+    if (
+      isOpenClawPreparedSend({
+        preparedFill: useOpenClawStore.getState().preparedFill,
+        message: text,
+      })
+    ) {
+      return "build";
+    }
+    return resolveComposerRoute({
+      mode: composerMode,
+      text,
+      hasChat: Boolean(chatId),
+      hasAttachments: hasComposerAttachments,
+      agentAvailable,
+      agentCanBuild,
+    });
+  };
+
   const handleSubmit = async ({ text }: { text: string }) => {
     if (submitDisabled) return;
     const trimmed = text.trim();
     const hasAuditToken = Boolean(auditHandoff && !chatId);
     if (!trimmed && !hasSuccessFiles && !hasAuditToken) return;
+
+    if (trimmed && agent && resolveRouteFor(trimmed) === "agent") {
+      if (agentStreaming) {
+        toast("Sajtagenten svarar fortfarande — vänta en stund.");
+        return;
+      }
+      void agent.send(trimmed);
+      setInput("");
+      return;
+    }
+    if (builderLocked) {
+      toast("Ett bygge pågår. Vänta tills det är klart, eller ställ en fråga till Sajtagenten.");
+      return;
+    }
     const baseMessage =
       trimmed ||
       (hasAuditToken
@@ -817,9 +918,21 @@ export function ChatInterface({
         className="border-input bg-background rounded-lg border shadow-sm"
       >
         <PromptInputHeader className="flex-col items-stretch gap-2">
-          <p className="text-muted-foreground text-[11px] leading-4" suppressHydrationWarning>
-            Verktyg
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-muted-foreground text-[11px] leading-4" suppressHydrationWarning>
+              Verktyg
+            </p>
+            {agentAvailable ? (
+              <div className="flex items-center gap-1.5">
+                <ComposerModeToggle
+                  value={composerMode}
+                  onChange={handleComposerModeChange}
+                  disabledModes={builderLocked ? ["build"] : []}
+                />
+                <OpenClawPowersControl />
+              </div>
+            ) : null}
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {/* "Avancerat"-popovern togs bort 2026-07-31: efter att
                 temaväljaren flyttade till Byggval-reglagen (ägarbeslut,
@@ -830,7 +943,7 @@ export function ChatInterface({
             <button
               type="button"
               onClick={() => void handlePlanRequest()}
-              disabled={inputDisabled || !input.trim()}
+              disabled={inputDisabled || builderLocked || !input.trim()}
               className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
               title="Gör en plan eller PRD innan kod"
             >
@@ -1042,7 +1155,9 @@ export function ChatInterface({
             data-openclaw-text-label="Builderns huvudprompt"
             placeholder={
               chatId
-                ? "Skriv en uppdatering... (Enter för att skicka)"
+                ? agentAvailable
+                  ? "Fråga Sajtagenten eller beskriv en ändring... (Enter för att skicka)"
+                  : "Skriv en uppdatering... (Enter för att skicka)"
                 : "Beskriv vad du vill bygga... (Enter för att skicka)"
             }
             aria-label={chatId ? "Skriv en uppdatering" : "Beskriv vad du vill bygga"}
@@ -1058,6 +1173,41 @@ export function ChatInterface({
               {initBriefStatus ?? "Förbereder prompt..."}
             </div>
           )}
+          {agentAvailable && (agentStreaming || input.trim()) ? (
+            <div
+              className="text-muted-foreground flex items-center justify-between gap-2 text-[11px]"
+              data-testid="composer-route-hint"
+              aria-live="polite"
+            >
+              {agentStreaming ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Loader2 className="size-3 animate-spin" />
+                  Sajtagenten svarar…
+                </span>
+              ) : resolveRouteFor(input) === "agent" ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Bot className="size-3" aria-hidden="true" />
+                  Skickas till Sajtagenten
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5">
+                  <Hammer className="size-3" aria-hidden="true" />
+                  {builderLocked ? "Bygget pågår — byggordrar väntar" : "Startar ett bygge"}
+                </span>
+              )}
+              {agentStreaming && agent ? (
+                <button
+                  type="button"
+                  onClick={agent.stop}
+                  className="inline-flex h-6 items-center gap-1 rounded border border-zinc-700/60 px-1.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100"
+                  aria-label="Stoppa Sajtagenten"
+                >
+                  <Square className="size-3" />
+                  Stoppa
+                </button>
+              ) : null}
+            </div>
+          ) : null}
           <div className="flex items-end justify-between gap-2">
             <PromptInputTools className="flex flex-wrap items-center gap-1.5">
               {mediaEnabled && (

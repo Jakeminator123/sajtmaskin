@@ -192,8 +192,14 @@ export function decideOpenClawCodeContextMode(params: {
    * latest user message expresses a concrete edit intent. Does not bypass to
    * full — that remains debug-only. */
   edit?: boolean;
+  /**
+   * Kodnavigering (plan 2026-10-22): en ägarverifierad builderchatt får alltid
+   * minst manifestet, så agenten kan be om filer med `read_files` i stället för
+   * att gissa. Höjer aldrig till `full`; det förblir uttryckligt/debug.
+   */
+  navigate?: boolean;
 }): OpenClawCodeContextMode {
-  const { messages, page, chatId, currentCode, debug, edit } = params;
+  const { messages, page, chatId, currentCode, debug, edit, navigate } = params;
   const latestUserText = getLatestOpenClawUserText(messages);
   if (!latestUserText) return "none";
 
@@ -242,6 +248,10 @@ export function decideOpenClawCodeContextMode(params: {
     if (hasCurrentCode) return "light";
     if (hasChatId) return "manifest";
   }
+
+  // Sist, efter alla starkare lägen: navigeringsgolvet. Manifestet är billigt
+  // (namn, typ, storlek) och är det som gör read_files möjligt.
+  if (navigate && hasChatId) return "manifest";
 
   return "none";
 }

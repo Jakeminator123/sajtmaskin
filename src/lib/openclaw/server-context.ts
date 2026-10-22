@@ -46,6 +46,8 @@ type BuildOpenClawContextSystemMessageParams = {
   /** Edit-mode (OC_EDIT AND a user-granted power): allow bounded manifest/light
    * code context on edit intent. */
   edit?: boolean;
+  /** Kodnavigering: ägarverifierad chatt → minst manifestet (`read_files`). */
+  navigate?: boolean;
   /**
    * Ownership gate for generated file/code context. Generated files are fetched
    * ONLY for ids this verifier confirms the caller owns. Fail-closed: when it is
@@ -167,6 +169,7 @@ export async function buildOpenClawContextSystemMessage(
     fullFileLimit = 24,
     debug = false,
     edit = false,
+    navigate = false,
     verifyOwnership,
   } = params;
 
@@ -177,6 +180,7 @@ export async function buildOpenClawContextSystemMessage(
     currentCode: context.currentCode,
     debug,
     edit,
+    navigate,
   });
 
   let fileBlock: string | null = null;
