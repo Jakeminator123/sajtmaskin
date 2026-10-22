@@ -93,6 +93,25 @@ describe("promotion requires every dossier", () => {
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("Full acceptance catalog required");
   });
+  it.each([
+    ["pull_request", { SAJTMASKIN_PR_BASE_REF: "preview", SAJTMASKIN_PR_BASE_SHA: "", SAJTMASKIN_PR_HEAD_SHA: "" }],
+    ["push", { GITHUB_REF: "refs/heads/preview", SAJTMASKIN_PUSH_BASE_SHA: "0".repeat(40), GITHUB_SHA: "" }],
+  ])("wires an actual preview %s into deferred scope output that the aggregate accepts", (eventName, extraEnv) => {
+    const dir = mkdtempSync(resolve(tmpdir(), "dossier-preview-scope-"));
+    const output = resolve(dir, "output");
+    try {
+      const result = spawnSync(process.execPath, ["scripts/dossiers/acceptance-scope.mjs"], {
+        env: { ...process.env, GITHUB_EVENT_NAME: eventName, GITHUB_TOKEN: "", ...extraEnv, GITHUB_OUTPUT: output }, encoding: "utf8",
+      });
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain("reason=deferred-to-promote");
+      const lines = readFileSync(output, "utf8").split("\n");
+      expect(lines).toContain("run_matrix=false");
+      expect(lines).toContain("matrix_mode=none");
+      expect(lines).toContain("dossiers=[]");
+      expect(lines).toContain("reason=deferred-to-promote");
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
   it("wires the actual promotion event into full scope output", () => {
     const dir = mkdtempSync(resolve(tmpdir(), "dossier-promote-scope-"));
     const output = resolve(dir, "output");
@@ -299,7 +318,7 @@ describe("preview push dossier scope", () => {
     ["src/components/ui/button.tsx", false],
     ["scripts/workflow/ci-scope.mjs", false],
     ["package-lock.json", false],
-  ])("defers preview push %s to promote (baseline verified=%s)", (path, baselineVerified) => {
+  ])("defers preview push %s to promote whether or not the push baseline is verified (%s)", (path, baselineVerified) => {
     expect(
       decideAcceptanceScope({
         eventName: "push",
@@ -385,6 +404,8 @@ describe.skipIf(process.platform === "win32" && !existsSync(bash))(
       (EVENT_NAME) => {
         expect(run({ EVENT_NAME })).toBe(0);
         expect(run({ EVENT_NAME, ...skipped })).toBe(0);
+        // The exact outputs a deferred preview run publishes.
+        expect(run({ EVENT_NAME, ...skipped, MATRIX_MODE: "none" })).toBe(0);
       },
     );
     it.each(["master", "", "release"])("blocks skipped/partial or failed promotion matrices for base %s", BASE_REF => {
@@ -516,7 +537,7 @@ describe("dossier acceptance workflow contract", () => {
     } finally { rmSync(root, { recursive: true, force: true }); }
   });
 
-  it("runs acceptance on preview pushes but keeps freshness only on schedule/manual", () => {
+  it("still triggers on preview pushes (to publish the deferred receipt) and keeps freshness only on schedule/manual", () => {
     const start = workflow.indexOf("  verification-evidence:");
     const end = workflow.indexOf("  dependency-registry:", start);
 

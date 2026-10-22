@@ -32,7 +32,8 @@ mot `preview` skjuter upp den med orsaken `deferred-to-promote` (ägarbeslut
 CI-profil.
 Preview-genvägar kräver att respektive workflow lyckats på föregående exakta
 push-SHA. Klassificeraren läser ett GitHub-kvitto med read-only-token; fel,
-saknat eller pågående kvitto kör full profil/matris. Ingen extra testsvit körs.
+saknat eller pågående kvitto kör full CI-profil (dossiermatrisen påverkas inte;
+den skjuts alltid upp på `preview`). Ingen extra testsvit körs.
 Det kompletta agent→preview/PR-flödet finns i
 [`agent-workflow.md`](agent-workflow.md).
 
