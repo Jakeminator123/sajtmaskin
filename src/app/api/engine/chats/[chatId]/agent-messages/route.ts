@@ -30,6 +30,7 @@ const messageSchema = z.object({
   meta: z
     .object({
       anchorBuilderMessageId: z.string().max(200).nullable().optional(),
+      anchorBuilderMessageIndex: z.number().int().min(0).max(100_000).nullable().optional(),
       builderTarget: z
         .object({ chatId: z.string().min(1), versionId: z.string().min(1) })
         .nullable()

@@ -35,8 +35,9 @@ describe("classifyComposerIntent", () => {
     expect(classifyComposerIntent("Kan du göra knappen större?")).toBe("agent");
   });
 
-  it("träffar inte «andra» som ändringsverb mitt i en mening", () => {
+  it("träffar inte «andra» som ändringsverb, inte heller i början av meningen", () => {
     expect(classifyComposerIntent("Den andra sidan känns tom")).toBe("unsure");
+    expect(classifyComposerIntent("Andra sidan ser konstig ut")).toBe("unsure");
   });
 
   it("lämnar rena beskrivningar som oklara", () => {
@@ -62,8 +63,16 @@ describe("resolveComposerRoute", () => {
     expect(resolveComposerRoute({ ...base, text: "Byt rubriken till Välkommen" })).toBe("build");
   });
 
-  it("skickar oklar text till agenten i auto-läge", () => {
+  it("skickar oklar text till agenten i auto-läge — men till byggmotorn när agenten inte kan bygga", () => {
     expect(resolveComposerRoute({ ...base, text: "Blåare knappar" })).toBe("agent");
+    expect(resolveComposerRoute({ ...base, text: "Blåare knappar", agentCanBuild: true })).toBe(
+      "agent",
+    );
+    expect(resolveComposerRoute({ ...base, text: "Blåare knappar", agentCanBuild: false })).toBe(
+      "build",
+    );
+    // Frågor går fortfarande till agenten även utan byggbefogenhet.
+    expect(resolveComposerRoute({ ...base, agentCanBuild: false })).toBe("agent");
   });
 
   it("respekterar tvingat läge åt båda håll", () => {

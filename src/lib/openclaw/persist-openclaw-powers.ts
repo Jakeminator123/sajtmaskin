@@ -29,6 +29,12 @@ let persistQueue: PersistJob[] = [];
 let persistInFlight: Promise<boolean> | null = null;
 let persistTargetChatId: string | null = null;
 let hydrateGeneration = 0;
+/**
+ * Chattar som redan fått standardbefogenheterna i den här sessionen. En
+ * misslyckad persist får inte bli en loop av «ingen grant → default → persist
+ * → re-hydrera → ingen grant …»; defaults sätts högst en gång per chatt.
+ */
+const defaultedChats = new Set<string>();
 
 function enqueuePersistJob(job: PersistJob): void {
   persistQueue = persistQueue.filter((entry) => entry.chatId !== job.chatId);
@@ -116,8 +122,17 @@ export async function hydrateOpenClawPowersForChat(
     if (chatHasPendingPersist(id) && !opts?.allowDuringPersist) return;
     // Ny builderchatt utan grant: standardbefogenheterna gäller och skrivs ner
     // så nästa laddning läser samma sak. `persisted === false` är serverns
-    // uttryckliga besked; ett äldre svar utan fältet lämnas orört.
-    if (data.persisted === false && useOpenClawStore.getState().editEnabled) {
+    // uttryckliga besked (ett läsfel svarar 503 och når aldrig hit); ett äldre
+    // svar utan fältet lämnas orört. Aldrig från drain-slingans re-hydrering
+    // (`allowDuringPersist`) och högst en gång per chatt — annars kan en
+    // misslyckad POST driva en persist-loop.
+    if (
+      data.persisted === false &&
+      !opts?.allowDuringPersist &&
+      !defaultedChats.has(id) &&
+      useOpenClawStore.getState().editEnabled
+    ) {
+      defaultedChats.add(id);
       useOpenClawStore.getState().hydratePowers({
         powersOn: true,
         grantedPowers: [...OPENCLAW_BUILDER_DEFAULT_POWERS],
@@ -125,6 +140,7 @@ export async function hydrateOpenClawPowersForChat(
       void persistOpenClawPowersForActiveChat();
       return;
     }
+    if (data.persisted === false) return;
     const grantedPowers = sanitizeOpenClawPowerIds(data.granted) as OpenClawPowerId[];
     useOpenClawStore.getState().hydratePowers({
       powersOn: data.powersOn === true,

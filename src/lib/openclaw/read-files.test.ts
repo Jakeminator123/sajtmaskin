@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { parseArmingDirective, parseStopDirective } from "./debug/armed-mandate";
 import {
+  normalizeOpenClawClientMessages,
+  OPENCLAW_CHAT_MAX_CONTENT_CHARS,
+} from "./message-validation";
+import {
   buildReadFilesLimitTurn,
   buildReadFilesTurn,
   normalizeReadPath,
+  READ_FILES_MAX_PATHS,
   selectRequestedFiles,
 } from "./read-files";
 
@@ -70,6 +75,25 @@ describe("buildReadFilesTurn", () => {
     const turn = buildReadFilesTurn({ files: [], missing: ["x.tsx"] });
     expect(turn).toContain("Ingen av de begärda filerna finns");
     expect(turn).toContain("x.tsx");
+  });
+
+  it("ryms alltid under chat-transportens tak så inget klipps tyst på vägen till modellen", () => {
+    // Värsta fallet: maxantal filer, alla större än budgeten, långa namn, plus
+    // saknade sökvägar. Transporten (`normalizeOpenClawClientMessages`) får
+    // inte ändra ett enda tecken.
+    const big = Array.from({ length: READ_FILES_MAX_PATHS }, (_, index) => ({
+      name: `components/sections/some-long-directory-name/${"segment-".repeat(6)}${index}.tsx`,
+      content: "y".repeat(50_000),
+    }));
+    const selection = selectRequestedFiles(big, [
+      ...big.map((file) => file.name),
+      "app/missing-one.tsx",
+      "app/missing-two.tsx",
+    ]);
+    const turn = buildReadFilesTurn(selection);
+    expect(turn.length).toBeLessThanOrEqual(OPENCLAW_CHAT_MAX_CONTENT_CHARS);
+    const [normalized] = normalizeOpenClawClientMessages([{ role: "user", content: turn }]);
+    expect(normalized.content).toBe(turn);
   });
 
   it("är interna turer som varken armerar eller stoppar", () => {

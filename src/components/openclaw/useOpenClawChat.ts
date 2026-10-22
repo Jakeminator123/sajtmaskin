@@ -37,7 +37,11 @@ import {
   settleArmedHandshakeWake,
 } from "@/lib/openclaw/debug/armed-continuation";
 import { parseOpenClawMessage } from "@/lib/openclaw/text-field-actions";
-import { readActiveBuilderTarget, readBuilderAnchor } from "@/lib/openclaw/builder-target";
+import {
+  readActiveBuilderTarget,
+  readBuilderAnchor,
+  readBuilderAnchorIndex,
+} from "@/lib/openclaw/builder-target";
 import { normalizeOpenClawClientMessages } from "@/lib/openclaw/message-validation";
 
 function makeId() {
@@ -168,6 +172,7 @@ export function useOpenClawChat() {
       // Samma ankare för frågan och svaret: båda hör hemma efter det
       // buildermeddelande som var senast när turen skickades.
       const anchorBuilderMessageId = readBuilderAnchor();
+      const anchorBuilderMessageIndex = readBuilderAnchorIndex();
       const userMsg: OpenClawMessage = {
         id: makeId(),
         role: "user",
@@ -175,6 +180,7 @@ export function useOpenClawChat() {
         timestamp: Date.now(),
         kind: options?.internal ? "internal" : "chat",
         anchorBuilderMessageId,
+        anchorBuilderMessageIndex,
       };
       const currentMessages = useOpenClawStore.getState().messages;
       const nextConversation = [...currentMessages, userMsg];
@@ -188,6 +194,7 @@ export function useOpenClawChat() {
         timestamp: Date.now(),
         kind: "chat",
         anchorBuilderMessageId,
+        anchorBuilderMessageIndex,
         // Bind svaret till builder-målet som gäller NÄR turen skickas — samma
         // kontext som `collectOpenClawClientContext()` ger modellen. Quick-
         // edit-kortet använder detta så ett förslag appliceras mot versionen

@@ -177,21 +177,31 @@ export function SajtagentProvider({
   // innehållet från filer-API:t (ägarverifierat) och skickas tillbaka som en
   // intern `[Filinnehåll]`-tur. Rundor räknas per användarfråga så en modell
   // som ber om fil efter fil inte kan loopa; hydrerade rader körs aldrig.
+  //
+  // Bokföring: ett svar räknas som hanterat först när dess tur faktiskt
+  // skickats (eller medvetet nekats), så en hämtning som avbryts av ett
+  // chattbyte inte tystar frågan för gott. `inFlight` hindrar dubbla
+  // hämtningar för samma svar medan den första pågår.
   const handledReadIdsRef = useRef<Set<string>>(new Set());
-  const readRoundsRef = useRef<{ userMessageId: string | null; rounds: number }>({
+  const inFlightReadIdRef = useRef<string | null>(null);
+  const readRoundsRef = useRef<{ userMessageId: string | null; rounds: number; limitSent: boolean }>({
     userMessageId: null,
     rounds: 0,
+    limitSent: false,
   });
+  const activeVersionIdRef = useRef(activeVersionId);
+  useEffect(() => {
+    activeVersionIdRef.current = activeVersionId;
+  }, [activeVersionId]);
   const agentStreaming = chat.isStreaming;
   const agentMessages = chat.messages;
   useEffect(() => {
     if (agentStreaming || !chatId) return;
     const last = agentMessages[agentMessages.length - 1];
     if (!last || last.role !== "assistant" || last.hydrated) return;
-    if (handledReadIdsRef.current.has(last.id)) return;
+    if (handledReadIdsRef.current.has(last.id) || inFlightReadIdRef.current === last.id) return;
     const parsed = parseOpenClawMessage(last.content);
     if (parsed.action?.type !== "read_files") return;
-    handledReadIdsRef.current.add(last.id);
     const action = parsed.action;
 
     // Rundräknare nollställs vid varje riktig användarfråga.
@@ -204,7 +214,7 @@ export function SajtagentProvider({
       }
     }
     if (readRoundsRef.current.userMessageId !== lastUserChatId) {
-      readRoundsRef.current = { userMessageId: lastUserChatId, rounds: 0 };
+      readRoundsRef.current = { userMessageId: lastUserChatId, rounds: 0, limitSent: false };
     }
     const internalOptions: OpenClawSendOptions = {
       allowArming: false,
@@ -212,13 +222,19 @@ export function SajtagentProvider({
       internal: true,
     };
     if (readRoundsRef.current.rounds >= READ_FILES_MAX_ROUNDS) {
-      void sendRef.current(buildReadFilesLimitTurn(), internalOptions);
+      // Taket sägs en gång per fråga; därefter ignoreras fler läsförfrågningar
+      // tills användaren skriver något nytt.
+      handledReadIdsRef.current.add(last.id);
+      if (!readRoundsRef.current.limitSent) {
+        readRoundsRef.current.limitSent = true;
+        void sendRef.current(buildReadFilesLimitTurn(), internalOptions);
+      }
       return;
     }
-    readRoundsRef.current.rounds += 1;
 
-    const versionId = last.builderTarget?.versionId ?? activeVersionId;
+    const versionId = last.builderTarget?.versionId ?? activeVersionIdRef.current;
     let cancelled = false;
+    inFlightReadIdRef.current = last.id;
     void (async () => {
       let files: ReadableFile[] = [];
       try {
@@ -239,21 +255,46 @@ export function SajtagentProvider({
         }
       } catch {
         // tomt → turen säger att inget kunde läsas
+      } finally {
+        if (inFlightReadIdRef.current === last.id) inFlightReadIdRef.current = null;
       }
       if (cancelled || chatIdRef.current !== chatId) return;
+      handledReadIdsRef.current.add(last.id);
+      readRoundsRef.current.rounds += 1;
       const turn = buildReadFilesTurn(selectRequestedFiles(files, action.paths));
       void sendRef.current(turn, internalOptions);
     })();
     return () => {
       cancelled = true;
     };
-  }, [agentMessages, agentStreaming, chatId, activeVersionId]);
+  }, [agentMessages, agentStreaming, chatId]);
 
   // «Nästa bästa steg» efter ett bygge (E6). Ren beslutsmodul; här finns bara
-  // ögonblicksbilderna och utskicket.
-  const prevSnapshotRef = useRef<PostBuildDigestSnapshot | null>(null);
+  // strömkanterna och utskicket. En väckning kräver att en builder-ström setts
+  // i chatten och att den gav en ny version — samma regel som continuation.
   const lastDigestVersionIdRef = useRef<string | null>(null);
+  const streamTrackRef = useRef<{
+    chatId: string | null;
+    wasStreaming: boolean;
+    streamed: boolean;
+    versionIdAtStreamStart: string | null;
+  }>({ chatId, wasStreaming: false, streamed: false, versionIdAtStreamStart: null });
   useEffect(() => {
+    const track = streamTrackRef.current;
+    if (track.chatId !== chatId) {
+      track.chatId = chatId;
+      track.wasStreaming = false;
+      track.streamed = false;
+      track.versionIdAtStreamStart = null;
+      lastDigestVersionIdRef.current = null;
+    }
+    if (isAnyStreaming && !track.wasStreaming) {
+      track.streamed = true;
+      track.versionIdAtStreamStart = activeVersionId;
+    }
+    track.wasStreaming = isAnyStreaming;
+
+    if (!available) return;
     const next: PostBuildDigestSnapshot = {
       chatId,
       activeVersionId,
@@ -261,20 +302,19 @@ export function SajtagentProvider({
       versionIsLatest: activeVersionIsLatest,
       isStreaming: isAnyStreaming,
     };
-    const prev = prevSnapshotRef.current;
-    prevSnapshotRef.current = next;
-    if (!available) return;
     const live = useOpenClawStore.getState();
     const decision = decidePostBuildDigest({
-      prev,
       next,
       enabled: digestEnabled,
       agentStreaming: live.isStreaming,
       continuationActive: live.armedContinuation !== null,
       lastDigestVersionId: lastDigestVersionIdRef.current,
+      streamedSinceLastDigest: track.streamed,
+      versionIdAtStreamStart: track.versionIdAtStreamStart,
     });
     if (decision.kind !== "digest") return;
     lastDigestVersionIdRef.current = decision.versionId;
+    track.streamed = false;
     void sendRef.current(buildPostBuildDigestPrompt({ versionStatus: decision.versionStatus }), {
       allowArming: false,
       countTowardCampaignQuota: false,

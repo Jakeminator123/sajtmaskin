@@ -41,6 +41,7 @@ import {
   type ComposerMode,
 } from "@/lib/builder/composer-route";
 import { OpenClawPowersControl } from "@/components/openclaw/OpenClawPowersControl";
+import { useOpenClawPowers } from "@/components/openclaw/useOpenClawPowers";
 import { ComposerModeToggle } from "./sajtagent/ComposerModeToggle";
 import { useSajtagent } from "./sajtagent/SajtagentProvider";
 import type { AuditComposerToken } from "@/lib/builder/audit-handoff";
@@ -55,6 +56,7 @@ import {
   type FigmaPreviewResponse,
 } from "@/lib/api/figma-preview-contract";
 import {
+  isOpenClawPreparedSend,
   resolveOpenClawPreparedPromptSource,
   type OpenClawPreparedPromptSource,
 } from "@/lib/openclaw/prepared-prompt";
@@ -308,6 +310,9 @@ export function ChatInterface({
   const agent = useSajtagent();
   const agentAvailable = Boolean(agent?.available && chatId);
   const agentStreaming = Boolean(agent?.isStreaming);
+  // Oklar text går till agenten bara när den själv kan starta bygget
+  // (`start_build` kräver armerad autonomi); annars är byggmotorn närmast.
+  const agentCanBuild = useOpenClawPowers().armedAutonomy;
   const [composerMode, setComposerMode] = useState<ComposerMode>("auto");
   useEffect(() => {
     setComposerMode(readStoredComposerMode());
@@ -785,14 +790,26 @@ export function ChatInterface({
   const hasComposerAttachments =
     hasSuccessFiles || Boolean(normalizedFigmaUrl) || inspectPoints.length > 0;
 
-  const resolveRouteFor = (text: string) =>
-    resolveComposerRoute({
+  const resolveRouteFor = (text: string) => {
+    // En byggprompt som Sajtagenten själv lade i fältet är ett byggkommando,
+    // oavsett hur texten läses — annars studsar den tillbaka till agenten.
+    if (
+      isOpenClawPreparedSend({
+        preparedFill: useOpenClawStore.getState().preparedFill,
+        message: text,
+      })
+    ) {
+      return "build";
+    }
+    return resolveComposerRoute({
       mode: composerMode,
       text,
       hasChat: Boolean(chatId),
       hasAttachments: hasComposerAttachments,
       agentAvailable,
+      agentCanBuild,
     });
+  };
 
   const handleSubmit = async ({ text }: { text: string }) => {
     if (submitDisabled) return;

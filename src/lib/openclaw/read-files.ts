@@ -11,12 +11,23 @@
  * högst {@link READ_FILES_MAX_PATHS} filer per runda, högst
  * {@link READ_FILES_MAX_ROUNDS} rundor per användarfråga, och en teckenbudget
  * som klipper stora filer i stället för att svälla prompten.
+ *
+ * Budgeten härleds från chat-transportens tak per meddelande
+ * (`OPENCLAW_CHAT_MAX_CONTENT_CHARS`): klienten klipper varje meddelande där
+ * och servern avvisar allt över. En tur som är större skulle klippas TYST, och
+ * modellen få beskedet att den läst allt. Därför ligger hela turen — rubrik,
+ * filhuvuden och innehåll — under taket, och det låses av ett test.
  */
 
-export const READ_FILES_MAX_PATHS = 6;
-export const READ_FILES_MAX_ROUNDS = 2;
-export const READ_FILES_MAX_CHARS_PER_FILE = 12_000;
-export const READ_FILES_MAX_TOTAL_CHARS = 40_000;
+import { OPENCLAW_CHAT_MAX_CONTENT_CHARS } from "./message-validation";
+
+export const READ_FILES_MAX_PATHS = 4;
+export const READ_FILES_MAX_ROUNDS = 3;
+/** Rubrik + filhuvuden + saknade-rad ryms i marginalen. */
+const READ_FILES_TURN_OVERHEAD_CHARS = 800;
+export const READ_FILES_MAX_TOTAL_CHARS =
+  OPENCLAW_CHAT_MAX_CONTENT_CHARS - READ_FILES_TURN_OVERHEAD_CHARS;
+export const READ_FILES_MAX_CHARS_PER_FILE = 6_000;
 
 /** Prefix för den interna turen; `agent-message-kind.ts` visar den som statusrad. */
 export const READ_FILES_TURN_PREFIX = "[Filinnehåll]";
@@ -107,7 +118,7 @@ export function buildReadFilesTurn(selection: ReadFilesSelection): string {
   );
   for (const file of selection.files) {
     parts.push(
-      `--- ${file.name}${file.truncated ? " (klippt vid teckenbudgeten)" : ""} ---\n${file.content}`,
+      `--- ${file.name}${file.truncated ? " (klippt vid teckenbudgeten — be om resten i en ny runda om det behövs)" : ""} ---\n${file.content}`,
     );
   }
   if (selection.missing.length > 0) {

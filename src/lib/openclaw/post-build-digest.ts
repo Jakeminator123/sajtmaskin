@@ -7,13 +7,12 @@
  * (`/api/openclaw/tips` + `TipCard`): samma inställning, men svaret hamnar i
  * den gemensamma chatten där det hör hemma.
  *
- * Ren modul (inga timers, ingen DOM) så reglerna är testbara:
- *
- * - bara en digest per version och bara när versionen är den senaste,
- * - aldrig på en sidladdning: övergången måste ha setts i sessionen
- *   (föregående ögonblicksbild var en annan version eller strömmade),
- * - aldrig medan armerad continuation redan äger väckningen,
- * - aldrig medan agenten själv skriver.
+ * Ren modul (inga timers, ingen DOM) så reglerna är testbara. Samma princip
+ * som armed-continuation: en väckning kräver att ett bygge faktiskt skett —
+ * en builder-ström har pågått i chatten och den landade en NY version jämfört
+ * med den som var aktiv när strömmen startade. Sidladdning, navigering mellan
+ * versioner, plan-/motfrågeströmmar och avvisade turer ger därför ingen
+ * väckning, och varje version väcker högst en gång.
  */
 
 export interface PostBuildDigestSnapshot {
@@ -25,7 +24,6 @@ export interface PostBuildDigestSnapshot {
 }
 
 export interface PostBuildDigestInput {
-  prev: PostBuildDigestSnapshot | null;
   next: PostBuildDigestSnapshot;
   /** Inställningen «Sajtagenten kommenterar efter bygget». */
   enabled: boolean;
@@ -34,6 +32,10 @@ export interface PostBuildDigestInput {
   continuationActive: boolean;
   /** Version som redan fått sin digest i den här sessionen. */
   lastDigestVersionId: string | null;
+  /** En builder-ström har setts i den här chatten sedan senaste digest. */
+  streamedSinceLastDigest: boolean;
+  /** Aktiv version när den strömmen startade — turen måste ha gett en ny. */
+  versionIdAtStreamStart: string | null;
 }
 
 export type PostBuildDigestDecision =
@@ -43,22 +45,16 @@ export type PostBuildDigestDecision =
 const TERMINAL_STATUSES = new Set(["ready", "promoted", "degraded", "failed", "blocked"]);
 
 export function decidePostBuildDigest(input: PostBuildDigestInput): PostBuildDigestDecision {
-  const { prev, next } = input;
+  const { next } = input;
   if (!input.enabled) return { kind: "idle" };
   if (input.agentStreaming || input.continuationActive) return { kind: "idle" };
   if (!next.chatId || !next.activeVersionId || !next.versionStatus) return { kind: "idle" };
   if (next.isStreaming || !next.versionIsLatest) return { kind: "idle" };
   if (!TERMINAL_STATUSES.has(next.versionStatus)) return { kind: "idle" };
   if (input.lastDigestVersionId === next.activeVersionId) return { kind: "idle" };
-  // Övergången måste ha setts: utan föregående bild (sidladdning) eller när
-  // samma version redan stod terminal utan att strömma får inget hända.
-  if (!prev) return { kind: "idle" };
-  if (prev.chatId !== next.chatId) return { kind: "idle" };
-  const observedTransition =
-    prev.isStreaming ||
-    prev.activeVersionId !== next.activeVersionId ||
-    (prev.versionStatus !== null && !TERMINAL_STATUSES.has(prev.versionStatus));
-  if (!observedTransition) return { kind: "idle" };
+  // Bara ett bygge räknas: en ström sågs, och den gav en ny version.
+  if (!input.streamedSinceLastDigest) return { kind: "idle" };
+  if (next.activeVersionId === input.versionIdAtStreamStart) return { kind: "idle" };
   return { kind: "digest", versionId: next.activeVersionId, versionStatus: next.versionStatus };
 }
 

@@ -17,83 +17,75 @@ function snap(overrides: Partial<PostBuildDigestSnapshot> = {}): PostBuildDigest
   };
 }
 
-const base = {
+/** En ström sågs från v1 och v2 landade terminal. */
+const afterBuild = {
   enabled: true,
   agentStreaming: false,
   continuationActive: false,
   lastDigestVersionId: null,
+  streamedSinceLastDigest: true,
+  versionIdAtStreamStart: "v1",
 };
 
 describe("decidePostBuildDigest", () => {
-  it("väcker en gång när en ny version blir terminal efter en ström", () => {
+  it("väcker en gång när en ström gav en ny terminal version", () => {
+    expect(decidePostBuildDigest({ ...afterBuild, next: snap() })).toEqual({
+      kind: "digest",
+      versionId: "v2",
+      versionStatus: "ready",
+    });
     expect(
-      decidePostBuildDigest({
-        ...base,
-        prev: snap({ activeVersionId: "v1", isStreaming: true }),
-        next: snap(),
-      }),
-    ).toEqual({ kind: "digest", versionId: "v2", versionStatus: "ready" });
-  });
-
-  it("väcker när statusen går från pågående till terminal på samma version", () => {
-    expect(
-      decidePostBuildDigest({
-        ...base,
-        prev: snap({ versionStatus: "verifying" }),
-        next: snap({ versionStatus: "degraded" }),
-      }),
+      decidePostBuildDigest({ ...afterBuild, next: snap({ versionStatus: "degraded" }) }),
     ).toEqual({ kind: "digest", versionId: "v2", versionStatus: "degraded" });
   });
 
-  it("väcker aldrig på en sidladdning eller när inget hänt", () => {
-    expect(decidePostBuildDigest({ ...base, prev: null, next: snap() })).toEqual({ kind: "idle" });
-    expect(decidePostBuildDigest({ ...base, prev: snap(), next: snap() })).toEqual({ kind: "idle" });
+  it("väcker inte på sidladdning, navigering eller en ström som inte byggde något", () => {
+    // Ingen ström sedd i chatten (sidladdning, chattöppning, versionsbyte).
+    expect(
+      decidePostBuildDigest({ ...afterBuild, streamedSinceLastDigest: false, next: snap() }),
+    ).toEqual({ kind: "idle" });
+    // Strömmen (plan, motfråga, 409/412, avbryt) lämnade versionen orörd.
+    expect(
+      decidePostBuildDigest({ ...afterBuild, versionIdAtStreamStart: "v2", next: snap() }),
+    ).toEqual({ kind: "idle" });
   });
 
   it("väcker inte samma version två gånger", () => {
     expect(
-      decidePostBuildDigest({
-        ...base,
-        lastDigestVersionId: "v2",
-        prev: snap({ isStreaming: true }),
-        next: snap(),
-      }),
+      decidePostBuildDigest({ ...afterBuild, lastDigestVersionId: "v2", next: snap() }),
     ).toEqual({ kind: "idle" });
   });
 
   it("väntar medan turen strömmar, versionen inte är senast eller statusen inte är terminal", () => {
-    const prev = snap({ isStreaming: true });
-    expect(decidePostBuildDigest({ ...base, prev, next: snap({ isStreaming: true }) })).toEqual({
+    expect(decidePostBuildDigest({ ...afterBuild, next: snap({ isStreaming: true }) })).toEqual({
       kind: "idle",
     });
     expect(
-      decidePostBuildDigest({ ...base, prev, next: snap({ versionIsLatest: false }) }),
+      decidePostBuildDigest({ ...afterBuild, next: snap({ versionIsLatest: false }) }),
     ).toEqual({ kind: "idle" });
     expect(
-      decidePostBuildDigest({ ...base, prev, next: snap({ versionStatus: "verifying" }) }),
+      decidePostBuildDigest({ ...afterBuild, next: snap({ versionStatus: "verifying" }) }),
     ).toEqual({ kind: "idle" });
   });
 
   it("låter inställning, agentström och armerad continuation stoppa väckningen", () => {
-    const prev = snap({ isStreaming: true });
-    expect(decidePostBuildDigest({ ...base, enabled: false, prev, next: snap() })).toEqual({
+    expect(decidePostBuildDigest({ ...afterBuild, enabled: false, next: snap() })).toEqual({
       kind: "idle",
     });
-    expect(decidePostBuildDigest({ ...base, agentStreaming: true, prev, next: snap() })).toEqual({
+    expect(decidePostBuildDigest({ ...afterBuild, agentStreaming: true, next: snap() })).toEqual({
       kind: "idle",
     });
     expect(
-      decidePostBuildDigest({ ...base, continuationActive: true, prev, next: snap() }),
+      decidePostBuildDigest({ ...afterBuild, continuationActive: true, next: snap() }),
     ).toEqual({ kind: "idle" });
   });
 
-  it("ignorerar en övergång som hör till en annan chatt", () => {
+  it("kräver en chatt och en version", () => {
+    expect(decidePostBuildDigest({ ...afterBuild, next: snap({ chatId: null }) })).toEqual({
+      kind: "idle",
+    });
     expect(
-      decidePostBuildDigest({
-        ...base,
-        prev: snap({ chatId: "chat_0", isStreaming: true }),
-        next: snap(),
-      }),
+      decidePostBuildDigest({ ...afterBuild, next: snap({ activeVersionId: null }) }),
     ).toEqual({ kind: "idle" });
   });
 });

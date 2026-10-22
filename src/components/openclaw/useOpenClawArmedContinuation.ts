@@ -2,7 +2,11 @@
 
 import { useEffect, useRef } from "react";
 import { readOpenClawPowers, useOpenClawStore } from "@/lib/openclaw/openclaw-store";
-import { readBuilderTurnSnapshot } from "@/lib/openclaw/builder-target";
+import {
+  readBuilderAnchor,
+  readBuilderAnchorIndex,
+  readBuilderTurnSnapshot,
+} from "@/lib/openclaw/builder-target";
 import {
   buildArmedContinuationPrompt,
   decideArmedContinuation,
@@ -73,6 +77,11 @@ export function useOpenClawArmedContinuation(send: SendFn): void {
             role: "assistant",
             content: decision.reason,
             timestamp: Date.now(),
+            kind: "chat",
+            // Förankra notisen där i tidslinjen den hör hemma (efter senaste
+            // byggraden), annars hamnar den överst som en rad utan ankare.
+            anchorBuilderMessageId: readBuilderAnchor() ?? null,
+            anchorBuilderMessageIndex: readBuilderAnchorIndex() ?? null,
           });
         }
         return;
@@ -108,6 +117,9 @@ export function useOpenClawArmedContinuation(send: SendFn): void {
             role: "assistant",
             content: "Autonomin stoppades: jag kunde inte läsa resultatet av bygget.",
             timestamp: Date.now(),
+            kind: "chat",
+            anchorBuilderMessageId: readBuilderAnchor() ?? null,
+            anchorBuilderMessageIndex: readBuilderAnchorIndex() ?? null,
           });
         })
         .finally(() => {

@@ -40,7 +40,7 @@ Parsern i [`text-field-actions.ts`](../../src/lib/openclaw/text-field-actions.ts
 
 | Action | Vad händer | Grind |
 |---|---|---|
-| `read_files` | Klienten hämtar de begärda filerna (ägarverifierat) och skickar tillbaka dem som en intern `[Filinnehåll]`-tur; agenten svarar med koden framför sig. Högst 6 filer per runda, 2 rundor per fråga, teckenbudget. | Ingen befogenhet krävs — läsning. |
+| `read_files` | Klienten hämtar de begärda filerna (ägarverifierat) och skickar tillbaka dem som en intern `[Filinnehåll]`-tur; agenten svarar med koden framför sig. Högst 4 filer per runda, 3 rundor per fråga; hela turen ryms under chat-transportens tak per meddelande (stora filer klipps och markeras). | Ingen befogenhet krävs — läsning. |
 | `start_build` | Startar en byggtur genom builder-bryggan (samma `sendMessage` som Skicka-knappen). | Armerad autonomi: körs direkt. Annars ett kort att godkänna. |
 | `fill_text_field` | Fyller komposern med en föreslagen prompt. Med `submit:true` under ett armerat mandat skickas den också. | Kort att godkänna, eller mandat. |
 | `apply_quick_edit` | Exakta filoperationer genom Fast Edit Lane till en minor-version. | Snabbändringar beviljad + manuellt godkännande per förslag, alltid. |

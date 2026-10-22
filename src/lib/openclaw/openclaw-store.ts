@@ -57,6 +57,13 @@ export interface OpenClawMessage {
    */
   anchorBuilderMessageId?: string | null;
   /**
+   * Antal buildermeddelanden när raden skapades. Positionsfallback när
+   * ankar-id:t inte finns i listan (byggraderna har bytt id efter hydrering
+   * från servern, annan webbläsare, rensad storage): raden hamnar då efter
+   * buildermeddelande nummer `index` i stället för längst ner.
+   */
+  anchorBuilderMessageIndex?: number | null;
+  /**
    * Raden kom från persisterad historik, inte från den här sessionen. Kort som
    * agerar automatiskt (armerad auto-send, direktbygg) får aldrig köra på en
    * hydrerad rad — annars startar varje omladdning gamla byggen igen.

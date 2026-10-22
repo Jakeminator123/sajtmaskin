@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, Eye, MessageSquare } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BuilderLayout } from "../BuilderLayout";
 import type { BuilderViewModel } from "../useBuilderPageController";
 import { BuilderShellDialogs } from "./shell-dialogs";
@@ -142,6 +142,18 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       }),
     [bridgeChatId, bridgeCancel, isInteractionLocked, sendMessage],
   );
+
+  // En nedfälld chatt döljer utdatan men inte den flytande komposern, som kan
+  // skicka till Sajtagenten. Svaret får inte landa i en dold yta: fäll ut när
+  // en ny agentrad kommer (samma skäl som tips-popovern förut expanderade).
+  const agentMessageCount = useOpenClawStore((s) => s.messages.length);
+  const prevAgentMessageCountRef = useRef(agentMessageCount);
+  const expandChatOutput = chatOutputCollapse.expand;
+  useEffect(() => {
+    const grew = agentMessageCount > prevAgentMessageCountRef.current;
+    prevAgentMessageCountRef.current = agentMessageCount;
+    if (grew && isChatOutputCollapsed) expandChatOutput();
+  }, [agentMessageCount, isChatOutputCollapsed, expandChatOutput]);
 
   // Ett stopp är ett stopp: headerns «Avbryt» avbryter bygget OCH släpper ett
   // aktivt agentmandat, så continuation-slingan inte skickar nästa steg på en

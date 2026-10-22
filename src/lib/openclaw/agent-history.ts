@@ -22,6 +22,7 @@ export interface PersistedAgentMessage {
   createdAt: string;
   meta: {
     anchorBuilderMessageId?: string | null;
+    anchorBuilderMessageIndex?: number | null;
     builderTarget?: { chatId: string; versionId: string } | null;
   } | null;
 }
@@ -42,6 +43,10 @@ export function toStoreMessage(row: PersistedAgentMessage): OpenClawMessage {
     timestamp: Number.isFinite(createdAt) ? createdAt : 0,
     kind: row.kind,
     anchorBuilderMessageId: row.meta?.anchorBuilderMessageId ?? undefined,
+    anchorBuilderMessageIndex:
+      typeof row.meta?.anchorBuilderMessageIndex === "number"
+        ? row.meta.anchorBuilderMessageIndex
+        : undefined,
     builderTarget: row.meta?.builderTarget ?? null,
     hydrated: true,
   };
@@ -58,6 +63,7 @@ export function toPersistedPayload(message: OpenClawMessage): Omit<PersistedAgen
     timestamp: message.timestamp,
     meta: {
       anchorBuilderMessageId: message.anchorBuilderMessageId ?? null,
+      anchorBuilderMessageIndex: message.anchorBuilderMessageIndex ?? null,
       builderTarget: message.builderTarget ?? null,
     },
   };

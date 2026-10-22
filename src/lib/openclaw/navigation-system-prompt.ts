@@ -21,7 +21,7 @@ export function buildOpenClawNavigationSystemPrompt(): string {
 <openclaw-action>
 {"type":"read_files","paths":["app/page.tsx","components/hero.tsx"],"reason":"Kort motivering"}
 </openclaw-action>
-- Högst ${READ_FILES_MAX_PATHS} filer per runda och högst ${READ_FILES_MAX_ROUNDS} rundor per användarfråga. Välj de mest relevanta först (sidan som frågan gäller, layouten, komponenten som nämns).
+- Högst ${READ_FILES_MAX_PATHS} filer per runda och högst ${READ_FILES_MAX_ROUNDS} rundor per användarfråga. Välj de mest relevanta först (sidan som frågan gäller, layouten, komponenten som nämns). Stora filer klipps vid en teckenbudget och markeras då; be om färre filer per runda om du behöver hela innehållet.
 - Du får sedan innehållet som ett internt meddelande som börjar med ${READ_FILES_TURN_PREFIX}. Svara då på användarens ursprungliga fråga, citera sökvägar och var konkret. Be inte om samma fil två gånger.
 - Använd bara sökvägar som står i manifestet. Hitta aldrig på filer eller innehåll; saknas något, säg det.
 - read_files är läsning. Ändringar går fortfarande genom start_build, snabbändring eller ett fältförslag enligt dina befogenheter.`;

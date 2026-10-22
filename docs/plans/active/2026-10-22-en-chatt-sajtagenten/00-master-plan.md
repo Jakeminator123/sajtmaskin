@@ -99,7 +99,8 @@ Mental modell för användare och agenter: [`docs/concepts/sajtagenten.md`](../.
 
 Agenten fick ett riktigt arbetssätt för kod: manifestet skickas alltid för en
 ägd chatt (`navigate` i `chat-context-policy.ts`), och actionen `read_files`
-låter den be om upp till sex filer per runda (två rundor per fråga) som
+låter den be om upp till fyra filer per runda (tre rundor per fråga, turen
+ryms under chat-transportens tak per meddelande) som
 klienten hämtar ägarverifierat och skickar tillbaka som intern
 `[Filinnehåll]`-tur (`read-files.ts`, `navigation-system-prompt.ts`,
 `SajtagentProvider`). Läsning kräver ingen befogenhet.

@@ -7,7 +7,7 @@ describe("buildOpenClawNavigationSystemPrompt", () => {
     const prompt = buildOpenClawNavigationSystemPrompt();
     expect(prompt).toContain("[FILMANIFEST]");
     expect(prompt).toContain('"type":"read_files"');
-    expect(prompt).toContain("Högst 6 filer per runda och högst 2 rundor");
+    expect(prompt).toContain("Högst 4 filer per runda och högst 3 rundor");
     expect(prompt).toContain("[Filinnehåll]");
   });
 

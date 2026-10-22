@@ -4,7 +4,7 @@ import { OPENCLAW } from "@/lib/config";
 import { withRateLimit } from "@/lib/rate-limit";
 import { getEngineChatByIdForRequest } from "@/lib/tenant";
 import {
-  readLiveReviewGrant,
+  readLiveReviewGrantState,
   writeLiveReviewGrant,
 } from "@/lib/db/services/live-review-grants";
 import { sanitizeOpenClawPowerIds } from "@/lib/openclaw/powers";
@@ -31,15 +31,21 @@ export async function GET(req: Request) {
     if (!chat) {
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     }
-    const stored = await readLiveReviewGrant(chatId);
-    const grant = stored ?? { powersOn: false, granted: [] };
+    const state = await readLiveReviewGrantState(chatId);
+    // Ett läsfel får inte se ut som «ingen grant»: klienten skulle då skriva
+    // standardbefogenheterna över ett uttryckligt av-val. 503 → klienten
+    // behåller sitt lokala läge och försöker inte persistera något.
+    if (state.status === "error") {
+      return NextResponse.json({ error: "grant_unavailable" }, { status: 503 });
+    }
+    const grant = state.status === "present" ? state.grant : { powersOn: false, granted: [] };
     return NextResponse.json({
       powersOn: OPENCLAW.editEnabled && grant.powersOn,
       granted: OPENCLAW.editEnabled ? grant.granted : [],
       // Skiljer «ingen grant finns» från «grant uttryckligen av» så klienten
       // kan ge en ny builderchatt standardbefogenheterna utan att återställa
       // ett val användaren redan gjort (`OPENCLAW_BUILDER_DEFAULT_POWERS`).
-      persisted: stored !== null,
+      persisted: state.status === "present",
     });
   });
 }

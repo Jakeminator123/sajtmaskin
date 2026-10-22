@@ -8,6 +8,7 @@ import {
   isOpenClawSendReady,
   parseOpenClawMessage,
   triggerOpenClawSend,
+  type OpenClawAction,
   type OpenClawFillTextFieldAction,
   type OpenClawRequestRepairAction,
   type OpenClawReadFilesAction,
@@ -16,6 +17,9 @@ import {
 } from "@/lib/openclaw/text-field-actions";
 import { getBuilderBridge, waitForBuilderSend } from "@/lib/openclaw/builder-bridge";
 import { resolveOpenClawPreparedPromptSource } from "@/lib/openclaw/prepared-prompt";
+import { classifyAgentMessage } from "@/lib/openclaw/agent-message-kind";
+import { READ_FILES_TURN_PREFIX } from "@/lib/openclaw/read-files";
+import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
 import {
   describeOpenClawQuickEditOp,
   type OpenClawApplyQuickEditAction,
@@ -60,6 +64,55 @@ const consumedArmedSends = new Set<string>();
 
 /** Same idempotency for direct builds (`start_build`). */
 const consumedStartBuilds = new Set<string>();
+/** At most ONE automatic direct build per user question (keyed by the user turn). */
+const autoStartBuildsByUserTurn = new Set<string>();
+
+/** Module-scoped idempotency ledgers survive across tests — clear them per test. */
+export function resetOpenClawActionLedgersForTests(): void {
+  consumedArmedSends.clear();
+  consumedStartBuilds.clear();
+  autoStartBuildsByUserTurn.clear();
+}
+
+/**
+ * Whether a `start_build` reply may run on its own: only when it answers a
+ * real user turn (or the file-content turn that serves that question) — never
+ * a machine wake-up such as `[Byggresultat]` or a continuation. Otherwise the
+ * digest after a build could trigger the next build, and so on, with nothing
+ * but the prompt text holding the chain back.
+ */
+export function resolveStartBuildAutoRun(
+  messages: readonly Msg[],
+  messageId: string,
+): { allowed: boolean; userTurnId: string | null } {
+  const index = messages.findIndex((message) => message.id === messageId);
+  if (index === -1) return { allowed: false, userTurnId: null };
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    const candidate = messages[cursor];
+    if (candidate.role !== "user") continue;
+    const isChatTurn = classifyAgentMessage(candidate) === "chat";
+    const isFileTurn = candidate.content.trimStart().startsWith(READ_FILES_TURN_PREFIX);
+    if (!isChatTurn && !isFileTurn) return { allowed: false, userTurnId: candidate.id };
+    if (isFileTurn) continue; // the real question sits further back
+    return { allowed: true, userTurnId: candidate.id };
+  }
+  return { allowed: false, userTurnId: null };
+}
+
+/** Swedish status for a builder send that did not run (`SendMessageOutcome`). */
+function describeRejectedOutcome(outcome: SendMessageOutcome): string | null {
+  switch (outcome.status) {
+    case "started":
+    case "settled":
+      return null;
+    case "rejected":
+      return `Buildern tog inte emot bygget (${outcome.reason}).`;
+    case "aborted":
+      return "Bygget avbröts innan det startade.";
+    case "failed":
+      return `Bygget kunde inte startas: ${outcome.message}`;
+  }
+}
 
 /**
  * Only a message created in THIS session may act on its own. Persisted
@@ -160,6 +213,31 @@ export function OpenClawMessage({
     msg.timestamp >= armedMandate.createdAt &&
     !msg.hydrated;
 
+  // Direct build (`start_build`): decided once per message, at mount — the
+  // card auto-runs on mount, so a later store change must not re-decide it.
+  const startBuildAuto = useMemo(
+    () =>
+      !isUser && action?.type === "start_build"
+        ? resolveStartBuildAutoRun(useOpenClawStore.getState().messages, msg.id)
+        : { allowed: false, userTurnId: null },
+    [isUser, action?.type, msg.id],
+  );
+
+  // A row hydrated from history must never act again: its cards become a
+  // read-only receipt. Powers are default-on, so a clickable «Starta bygget»
+  // from last week would otherwise re-run a build on reload.
+  const interactive = !isUser && !msg.hydrated;
+  const historicAction =
+    !isUser &&
+    msg.hydrated &&
+    action &&
+    (action.type === "fill_text_field" ||
+      action.type === "request_repair" ||
+      action.type === "start_build" ||
+      action.type === "apply_quick_edit")
+      ? action
+      : null;
+
   return (
     <div
       className={cn(
@@ -206,7 +284,11 @@ export function OpenClawMessage({
           </div>
         ) : null}
 
-        {!isUser && action?.type === "fill_text_field" ? (
+        {historicAction ? (
+          <OpenClawHistoricActionChip key="historic_action" action={historicAction} />
+        ) : null}
+
+        {interactive && action?.type === "fill_text_field" ? (
           canArmedSend ? (
             <OpenClawArmedSendCard key={`armed:${msg.id}`} action={action} messageId={msg.id} />
           ) : (
@@ -214,7 +296,7 @@ export function OpenClawMessage({
           )
         ) : null}
 
-        {!isUser && action?.type === "request_repair" ? (
+        {interactive && action?.type === "request_repair" ? (
           <OpenClawRepairRequestCard key="request_repair" action={action} />
         ) : null}
 
@@ -226,12 +308,13 @@ export function OpenClawMessage({
           />
         ) : null}
 
-        {!isUser && action?.type === "start_build" ? (
+        {interactive && action?.type === "start_build" ? (
           <OpenClawStartBuildCard
             key={`start_build:${msg.id}`}
             action={action}
             messageId={msg.id}
-            autoRun={powers.armedAutonomy && isLiveMessage(msg)}
+            autoRun={powers.armedAutonomy && isLiveMessage(msg) && startBuildAuto.allowed}
+            userTurnId={startBuildAuto.userTurnId}
           />
         ) : null}
 
@@ -239,7 +322,7 @@ export function OpenClawMessage({
           <OpenClawReadFilesChip key="read_files" action={action} />
         ) : null}
 
-        {!isUser && action?.type === "apply_quick_edit" ? (
+        {interactive && action?.type === "apply_quick_edit" ? (
           <OpenClawQuickEditCard
             key="apply_quick_edit"
             action={action}
@@ -252,6 +335,34 @@ export function OpenClawMessage({
           <OpenClawRejectedActionCard key="rejected_action" reason={rejectedActionReason} />
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Read-only receipt for an action card that came from persisted history.
+ * Says what the agent proposed back then; offers no buttons.
+ */
+function OpenClawHistoricActionChip({ action }: { action: OpenClawAction }) {
+  const label =
+    action.type === "start_build"
+      ? action.label || "Startade ett bygge"
+      : action.type === "fill_text_field"
+        ? action.label || "Föreslog en byggprompt"
+        : action.type === "request_repair"
+          ? action.label || "Föreslog en reparation"
+          : action.type === "apply_quick_edit"
+            ? action.label || "Föreslog en snabbändring"
+            : "Åtgärd";
+  return (
+    <div
+      className="min-w-0 rounded-xl border border-white/10 bg-slate-900/50 px-3 py-2 text-slate-300"
+      data-testid="openclaw-historic-action"
+    >
+      <p className="text-[11px] font-medium tracking-[0.16em] text-slate-400 uppercase">
+        Från tidigare session
+      </p>
+      <p className="mt-0.5 text-xs leading-5">{label}</p>
     </div>
   );
 }
@@ -305,7 +416,10 @@ function OpenClawRejectedActionCard({ reason }: { reason: string }) {
 async function sendViaBuilderBridge(
   text: string,
   options: { isCancelled?: () => boolean } = {},
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; outcome: Promise<SendMessageOutcome | null> }
+  | { ok: false; error: string }
+> {
   const wait = await waitForBuilderSend({ isCancelled: options.isCancelled });
   if (!wait.ok) {
     return {
@@ -324,14 +438,14 @@ async function sendViaBuilderBridge(
     message: text,
     hasAttachments: false,
   });
-  void wait.bridge
+  const outcome = wait.bridge
     .sendMessage(text, promptSource ? { promptSource } : undefined)
-    .catch(() => undefined)
+    .catch((): SendMessageOutcome | null => null)
     .finally(() => {
       const live = useOpenClawStore.getState();
       if (live.preparedFill?.value === text) live.setPreparedFill(null);
     });
-  return { ok: true };
+  return { ok: true, outcome };
 }
 
 function OpenClawFillTextFieldCard({ action }: { action: OpenClawFillTextFieldAction }) {
@@ -680,10 +794,13 @@ function OpenClawStartBuildCard({
   action,
   messageId,
   autoRun,
+  userTurnId,
 }: {
   action: OpenClawStartBuildAction;
   messageId: string;
   autoRun: boolean;
+  /** The user question this reply answers — one automatic build per question. */
+  userTurnId: string | null;
 }) {
   const [state, setState] = useState<"pending" | "sending" | "sent" | "failed">(
     consumedStartBuilds.has(messageId) ? "sent" : autoRun ? "sending" : "pending",
@@ -695,11 +812,24 @@ function OpenClawStartBuildCard({
     actionRef.current = action;
   }, [action]);
 
+  // The per-user-turn claim happens HERE, in commit order, not during render:
+  // two replies mounted in the same commit would otherwise both read an
+  // unclaimed turn and both auto-run. The claim is also kept out of the deps so
+  // a re-render after it cannot cancel the run it just started.
   useEffect(() => {
     if (!autoRun) return;
     if (consumedStartBuilds.has(messageId)) return;
     if (startedRef.current) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    if (userTurnId && autoStartBuildsByUserTurn.has(userTurnId)) {
+      // Another reply already built for this question — this one is a proposal.
+      timer = setTimeout(() => setState("pending"), 0);
+      return () => {
+        if (timer) clearTimeout(timer);
+      };
+    }
     startedRef.current = true;
+    if (userTurnId) autoStartBuildsByUserTurn.add(userTurnId);
     let cancelled = false;
     void (async () => {
       const result = await startBuild(() => cancelled);
@@ -724,6 +854,15 @@ function OpenClawStartBuildCard({
       if (!result.ok) return result;
       consumedStartBuilds.add(messageId);
       setState("sent");
+      // The bridge resolves with the builder's own verdict (`SendMessageOutcome`):
+      // a refusal (credits, stale base, F3 gate) must not read as «started».
+      const outcome = await result.outcome;
+      if (isCancelled?.()) return { ok: true };
+      const rejection = outcome ? describeRejectedOutcome(outcome) : null;
+      if (rejection) {
+        setState("failed");
+        setError(rejection);
+      }
       return { ok: true };
     }
     // Outside the builder bridge: fall back to the composer DOM path.
@@ -810,9 +949,7 @@ function OpenClawStartBuildCard({
           <p className="text-xs text-slate-300">Skickar till buildern…</p>
         ) : null}
         {state === "sent" ? (
-          <p className="text-xs text-emerald-300">
-            Bygget är startat. Jag återkommer när versionen är klar.
-          </p>
+          <p className="text-xs text-emerald-300">Bygget är startat — följ det i byggkortet.</p>
         ) : null}
         {state === "failed" ? (
           <p className="text-xs text-rose-300">{error ?? "Kunde inte starta bygget."}</p>

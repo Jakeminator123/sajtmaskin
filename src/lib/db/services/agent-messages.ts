@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db, dbConfigured } from "@/lib/db/client";
 import { agentMessages } from "@/lib/db/schema";
 import type { AgentMessageKind } from "@/lib/openclaw/agent-message-kind";
@@ -43,12 +43,15 @@ export async function listAgentMessages(
   const id = chatId.trim();
   if (!id || !dbConfigured) return [];
   try {
+    // De NYASTE `limit` raderna, returnerade i kronologisk ordning: en lång
+    // chatt får sin senaste historik, inte sina första 200 rader.
     const rows = await db
       .select()
       .from(agentMessages)
       .where(eq(agentMessages.chatId, id))
-      .orderBy(asc(agentMessages.createdAt), asc(agentMessages.id))
+      .orderBy(desc(agentMessages.createdAt), desc(agentMessages.id))
       .limit(limit);
+    rows.reverse();
     return rows
       .filter((row) => row.role === "user" || row.role === "assistant")
       .map((row) => ({

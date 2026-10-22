@@ -136,7 +136,9 @@ const BUILD_OPENERS = uWordRegex(
     "byt",
     "byt ut",
     "ändra",
-    "andra",
+    // ASCII-formen "andra" är struken med flit: den träffar det vanliga ordet
+    // *andra* («Andra sidan ser konstig ut») och skulle starta ett bygge på
+    // ett klagomål. En diakritlös ändringsbegäran fångas av substantiven.
     "uppdatera",
     "justera",
     "flytta",
@@ -254,6 +256,13 @@ export interface ResolveComposerRouteInput {
   hasAttachments: boolean;
   /** Sajtagentens yta är aktiverad och nåbar från den här buildern. */
   agentAvailable: boolean;
+  /**
+   * Agenten får starta byggen själv (`start_build` kräver armerad autonomi).
+   * Utan det går oklar text till byggmotorn: en ändringsbegäran som hamnar
+   * hos en agent som inte kan bygga blir bara ett extra klick för användaren.
+   * Utelämnad → behandlas som sant.
+   */
+  agentCanBuild?: boolean;
 }
 
 /** Slutgiltigt val för ett utskick från komposern. */
@@ -264,5 +273,7 @@ export function resolveComposerRoute(input: ResolveComposerRouteInput): Composer
   if (input.mode === "agent") return "agent";
   if (input.mode === "build") return "build";
   const intent = classifyComposerIntent(input.text);
-  return intent === "build" ? "build" : "agent";
+  if (intent === "build") return "build";
+  if (intent === "agent") return "agent";
+  return input.agentCanBuild === false ? "build" : "agent";
 }

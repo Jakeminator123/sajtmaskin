@@ -31,6 +31,15 @@ export function readBuilderAnchor(): string | null | undefined {
   return typeof lastMessageId === "string" && lastMessageId ? lastMessageId : null;
 }
 
+/** Antal buildermeddelanden just nu — positionsfallback för tidslinjeankaret. */
+export function readBuilderAnchorIndex(): number | null | undefined {
+  if (typeof window === "undefined") return undefined;
+  const ctx = window.__SITEMASKIN_CONTEXT;
+  if (!ctx || ctx.page !== "builder") return undefined;
+  const count = ctx.chatMessageCount;
+  return typeof count === "number" && Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : null;
+}
+
 export function readActiveBuilderTarget(): OpenClawBuilderTarget | null {
   if (typeof window === "undefined") return null;
   const ctx = window.__SITEMASKIN_CONTEXT;

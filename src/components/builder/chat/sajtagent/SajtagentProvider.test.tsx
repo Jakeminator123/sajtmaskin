@@ -99,6 +99,84 @@ describe("SajtagentProvider — anrop bara när ytan finns", () => {
     expect(useOpenClawStore.getState().editEnabled).toBe(true);
   });
 
+  it("löser read_files: hämtar filerna och skickar en [Filinnehåll]-tur, högst en gång per svar", async () => {
+    document.body.setAttribute(OPENCLAW_SURFACE_BODY_ATTR, "1");
+    const chatCalls: string[] = [];
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/api/openclaw/health")) {
+        return new Response(
+          JSON.stringify({ surfaceEnabled: true, editEnabled: false, debugEnabled: false }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (url.includes("/agent-messages")) {
+        return new Response(JSON.stringify({ messages: [] }), { status: 200 });
+      }
+      if (url.includes("/files")) {
+        expect(url).toContain("versionId=v1");
+        return new Response(
+          JSON.stringify({
+            versionId: "v1",
+            files: [
+              { name: "app/page.tsx", content: "export default function Page() {}" },
+              { name: "app/layout.tsx", content: "layout" },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      if (url === "/api/openclaw/chat") {
+        chatCalls.push(String(init?.body ?? ""));
+        return new Response("", { status: 503 });
+      }
+      return new Response("{}", { status: 200 });
+    });
+
+    const { seen } = renderProvider();
+    await waitFor(() => expect(seen.at(-1)).toBe(true));
+
+    act(() => {
+      useOpenClawStore.getState().addMessage({
+        id: "u1",
+        role: "user",
+        content: "Vad gör startsidan?",
+        timestamp: Date.now(),
+        kind: "chat",
+      });
+      useOpenClawStore.getState().addMessage({
+        id: "a1",
+        role: "assistant",
+        timestamp: Date.now(),
+        kind: "chat",
+        content: [
+          "Jag tittar i app/page.tsx.",
+          "<openclaw-action>",
+          JSON.stringify({ type: "read_files", paths: ["app/page.tsx", "nope.tsx"] }),
+          "</openclaw-action>",
+        ].join("\n"),
+      });
+    });
+
+    await waitFor(() => {
+      const turn = useOpenClawStore
+        .getState()
+        .messages.find((message) => message.content.startsWith("[Filinnehåll]"));
+      expect(turn?.kind).toBe("internal");
+      expect(turn?.content).toContain("--- app/page.tsx ---\nexport default function Page() {}");
+      expect(turn?.content).toContain("Filer som inte finns i versionen: nope.tsx.");
+    });
+    await waitFor(() => expect(chatCalls.length).toBe(1));
+
+    // Samma svar igen (omrendering) → ingen ny hämtning, ingen ny tur.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+    const fileFetches = fetchMock.mock.calls.filter((call) => String(call[0]).includes("/files"));
+    expect(fileFetches).toHaveLength(1);
+    expect(chatCalls).toHaveLength(1);
+  });
+
   it("hämtar ingen historik utan chatt", async () => {
     document.body.setAttribute(OPENCLAW_SURFACE_BODY_ATTR, "1");
     fetchMock.mockResolvedValue(
