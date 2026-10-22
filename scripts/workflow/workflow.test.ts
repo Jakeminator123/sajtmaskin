@@ -913,6 +913,8 @@ describe("agent workflow repository contract", () => {
       ),
       ...[
         "npx tsx scripts/db/run-migrations.ts",
+        "node scripts/db/migrate-prod.mjs --reason=x",
+        "npm run db:migrate:prod -- --reason=x",
         "npm run db:init",
         "npm run db:ensure",
         "npm run db:perf-indexes",
