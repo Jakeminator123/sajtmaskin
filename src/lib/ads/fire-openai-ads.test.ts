@@ -12,6 +12,7 @@ import {
   noteOpenAiOrderCreated,
   noteOpenAiRegistrationCompleted,
   noteOpenAiRegistrationFromLocation,
+  noteOpenAiRegistrationIfSignup,
   syncOpenAiAdsConsent,
 } from "./fire-openai-ads";
 
@@ -91,6 +92,22 @@ describe("fireOpenAiAds", () => {
     expect(isOpenAiRegistrationPending()).toBe(false);
     noteOpenAiRegistrationFromLocation("?login=success&signup=1");
     expect(isOpenAiRegistrationClaimed()).toBe(true);
+  });
+
+  it("retains a route's signup snapshot after URL cleanup until consent, then sends once", () => {
+    enablePixel();
+    noteOpenAiRegistrationIfSignup(null);
+    noteOpenAiRegistrationIfSignup("0");
+    expect(isOpenAiRegistrationPending()).toBe(false);
+    noteOpenAiRegistrationIfSignup("1");
+    window.history.replaceState({}, "", "/projects");
+    noteOpenAiRegistrationFromLocation();
+    expect(isOpenAiRegistrationPending()).toBe(true);
+    expect(oaiqCommands().filter((entry) => entry[1] === "registration_completed")).toHaveLength(0);
+    acceptConsent();
+    flushPendingOpenAiAdsEvents();
+    noteOpenAiRegistrationIfSignup("1");
+    expect(oaiqCommands().filter((entry) => entry[1] === "registration_completed")).toHaveLength(1);
   });
 
   it("fires order_created per session id and ignores reload of the same session", () => {

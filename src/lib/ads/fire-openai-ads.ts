@@ -252,15 +252,18 @@ export function noteOpenAiRegistrationCompleted(eventId?: string): void {
   fireOpenAiRegistrationCompleted(eventId);
 }
 
+/** Capture the callback snapshot before a route removes signup from the URL. */
+export function noteOpenAiRegistrationIfSignup(signup: string | null): void {
+  if (signup === "1") noteOpenAiRegistrationCompleted();
+}
+
 export function noteOpenAiRegistrationFromLocation(
   search: string = typeof window !== "undefined" ? window.location.search : "",
 ): void {
   const params = new URLSearchParams(
     search.startsWith("?") || search.length === 0 ? search : `?${search}`,
   );
-  if (params.get("signup") === "1") {
-    noteOpenAiRegistrationCompleted();
-  }
+  noteOpenAiRegistrationIfSignup(params.get("signup"));
 }
 
 export function fireOpenAiOrderCreated(input: OpenAiOrderCreatedInput): boolean {
@@ -311,3 +314,4 @@ export function flushPendingOpenAiAdsEvents(): void {
     if (pending) fireOpenAiOrderCreated(pending);
   }
 }
+
