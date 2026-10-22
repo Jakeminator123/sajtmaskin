@@ -160,14 +160,45 @@ function createDevProcessManager() {
     };
   }
 
+  // A child killed by a signal has `exitCode === null` and `signalCode` set,
+  // and its `close` has already fired. Checking only exitCode made stop()
+  // wait forever for a second close (hung CI 2026-10-22: DELETE /workspaces
+  // after a SIGTERM-stopped dev process). Treat any recorded end as done.
+  function childHasEnded(entry) {
+    const child = entry?.child;
+    return Boolean(
+      !child ||
+        entry.exitCode !== null ||
+        child.exitCode !== null ||
+        child.signalCode !== null,
+    );
+  }
+
   async function stop(entry, drainMs = 5000) {
-    if (!entry || entry.child.exitCode !== null) return;
+    if (!entry || childHasEnded(entry)) return;
     const child = entry.child;
+    const drain = Number.isFinite(drainMs) && drainMs >= 0 ? drainMs : 5000;
     await new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(hardTimer);
+        resolve();
+      };
+      // Definitive ceiling: whatever the OS does, the caller is never wedged.
+      const hardTimer = setTimeout(finish, drain + 5000);
+      hardTimer.unref?.();
+      child.once("close", finish);
+      if (childHasEnded(entry)) {
+        finish();
+        return;
+      }
       if (process.platform === "win32") {
         const killer = spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
-        killer.once("close", () => resolve());
-        child.once("close", () => resolve());
+        killer.once("close", () => {
+          if (childHasEnded(entry)) finish();
+        });
         return;
       }
       const signalGroup = (signal) => {
@@ -178,19 +209,16 @@ function createDevProcessManager() {
         }
       };
       signalGroup("SIGTERM");
-      const timer = setTimeout(() => {
-        if (child.exitCode === null) signalGroup("SIGKILL");
-      }, drainMs);
-      child.once("close", () => {
-        clearTimeout(timer);
-        resolve();
-      });
+      const killTimer = setTimeout(() => {
+        if (!childHasEnded(entry)) signalGroup("SIGKILL");
+      }, drain);
+      killTimer.unref?.();
     });
   }
 
   return {
     async start({ args, cwd, env }) {
-      if (current && current.child.exitCode === null) await stop(current);
+      if (current && !childHasEnded(current)) await stop(current);
       generation += 1;
       const npmArgs = Array.isArray(args) ? args.map(String) : ["run", "dev"];
       const child =
@@ -252,6 +280,8 @@ function createDevProcessManager() {
     async shutdown() {
       if (current) await stop(current, 2000);
     },
+    /** Test hook: the exact "already ended" predicate stop() relies on. */
+    childHasEndedForTesting: childHasEnded,
   };
 }
 

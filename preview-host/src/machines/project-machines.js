@@ -273,13 +273,24 @@ function ensureProjectMachine(chatId, { log, allowReplace = true } = {}) {
       await writeMachineRecord(chatId, record);
       return { record, guest, config };
     } catch (error) {
-      // Fail-closed: a machine we cannot prove is ours and ready is destroyed,
-      // never reused, and the boot fails with the reason.
-      await destroyMachineQuietly(fly, record.machineId);
-      await writeMachineRecord(chatId, null);
-      await log?.(
-        `Guest machine ${record.machineId} rejected: ${error instanceof Error ? error.message : "unknown error"}`,
-      );
+      // Fail-closed means the CALLER fails; it does not mean every error
+      // destroys the machine. Destroy only when the machine itself is the
+      // problem: it answers for another chat, or (boot path) it never became
+      // ready. A transient Machines-API/network error during a verify must
+      // never take down the machine that is serving the live preview.
+      const identityMismatch = error?.code === "PREVIEW_GUEST_IDENTITY_MISMATCH";
+      const neverReady = error?.code === "PREVIEW_GUEST_NOT_READY";
+      if (identityMismatch || (allowReplace && neverReady)) {
+        await destroyMachineQuietly(fly, record.machineId);
+        await writeMachineRecord(chatId, null);
+        await log?.(
+          `Guest machine ${record.machineId} rejected and destroyed: ${error instanceof Error ? error.message : "unknown error"}`,
+        );
+      } else {
+        await log?.(
+          `Guest machine ${record.machineId} not usable right now (kept): ${error instanceof Error ? error.message : "unknown error"}`,
+        );
+      }
       throw error;
     }
   });

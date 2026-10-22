@@ -9,7 +9,6 @@ const httpProxy = require("http-proxy");
 
 const { readStoreSync } = require("./../store.js");
 const {
-  LOOPBACK,
   acknowledgePreviewClientReload,
   clearPreviewSocketCandidate,
   findSessionByChatId,

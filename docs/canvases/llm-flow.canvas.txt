@@ -63,8 +63,8 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "030b92af0",
-    "commitDate": "2026-10-21",
+    "commit": "c422d8001",
+    "commitDate": "2026-10-22",
     "sinceDays": 14
   },
   "totals": {
@@ -91,9 +91,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 7,
+      "churn": 8,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "Aktiv: 7 commits / 14d"
+      "note": "Aktiv: 8 commits / 14d"
     },
     {
       "name": "Codegen core",
@@ -142,7 +142,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 6,
+      "churn": 7,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
       "note": "4 oppna backlog-rader (P0:0 P1:0 P2:3 P3:1)"
     },
@@ -159,7 +159,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 0,
+      "churn": 1,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): dynamiska filträd direkt från respektive scaffold-rot, kopiering till webbläsarens ",
       "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     },
@@ -176,9 +176,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 5,
+      "churn": 7,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "Aktiv: 5 commits / 14d"
+      "note": "Aktiv: 7 commits / 14d"
     },
     {
       "name": "Preview och versioner",
@@ -195,7 +195,7 @@ const DATA: CanvasData = {
       },
       "churn": 2,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
-      "note": "BLOCKER: `SM-080` Preview-projekt på Fly-hosten delar OS-identitet och filsystem; ett projekts ins…"
+      "note": "BLOCKER: `SM-080` Preview-projekt på Fly-hosten delar OS-identitet och filsystem. En inloggad anvä…"
     },
     {
       "name": "Eval",
@@ -210,9 +210,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 2,
+      "churn": 3,
       "summary": "Backoffice-yta för den canonicala evalen (`npm run eval`). Ett läge (gratis / smoke / full), en knapp. Scaffold-lanen läser senaste lokala JSON-rapport. Codegen-lanen läser data/ev",
-      "note": "2 commits / 14d"
+      "note": "3 commits / 14d"
     }
   ],
   "shaky": [
@@ -220,7 +220,7 @@ const DATA: CanvasData = {
       "name": "Preview och versioner",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "reason": "BLOCKER: `SM-080` Preview-projekt på Fly-hosten delar OS-identitet och filsystem; ett projekts ins…"
+      "reason": "BLOCKER: `SM-080` Preview-projekt på Fly-hosten delar OS-identitet och filsystem. En inloggad anvä…"
     },
     {
       "name": "ai_models",
@@ -235,16 +235,16 @@ const DATA: CanvasData = {
       "reason": "3 oppna backlog-rader (P0:0 P1:0 P2:3 P3:0)"
     },
     {
-      "name": "prompt-core",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
-    },
-    {
       "name": "Scaffolds: titta & justera",
       "statusLabel": "Skakigt",
       "tone": "warning",
       "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
+    },
+    {
+      "name": "prompt-core",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
     }
   ],
   "topOpenRisks": [
@@ -252,7 +252,7 @@ const DATA: CanvasData = {
       "prio": "P1",
       "blocker": true,
       "kind": "blocker",
-      "fynd": "`SM-080` Preview-projekt på Fly-hosten delar OS-identitet och filsystem; ett projekts install/dev-process kan…"
+      "fynd": "`SM-080` Preview-projekt på Fly-hosten delar OS-identitet och filsystem. En inloggad användare (gratiskonto r…"
     },
     {
       "prio": "P1",

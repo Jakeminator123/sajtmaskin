@@ -59,7 +59,11 @@ function loadConfig(env = process.env) {
     chatId,
     problems,
     port: readIntEnv("SAJTMASKIN_GUEST_PORT", 7070),
-    bindHost: env.SAJTMASKIN_GUEST_BIND?.trim() || "0.0.0.0",
+    // Fly's private 6PN network is IPv6. "0.0.0.0" listens on IPv4 only and the
+    // control plane's connect to the machine's private IP gets ECONNREFUSED.
+    // "::" is dual-stack: reachable on the 6PN address AND 127.0.0.1 (tests).
+    // The token, not the bind address, is the access control.
+    bindHost: env.SAJTMASKIN_GUEST_BIND?.trim() || "::",
     root: path.resolve(env.SAJTMASKIN_GUEST_ROOT?.trim() || "/workspace"),
     devPort: readIntEnv("SAJTMASKIN_GUEST_DEV_PORT", 3000),
     warmDir: path.resolve(env.SAJTMASKIN_GUEST_WARM_DIR?.trim() || "/opt/sajtmaskin-warm"),

@@ -47,6 +47,16 @@ function freePort() {
   });
 }
 
+// 0. The stop predicate treats a signal-ended child as ended (CI hang 2026-10-22).
+{
+  const { createDevProcessManager } = require("../guest/lib/process.js");
+  const probe = createDevProcessManager().childHasEndedForTesting;
+  check("signal-killed child counts as ended", probe({ exitCode: null, child: { exitCode: null, signalCode: "SIGKILL" } }));
+  check("exit-0 child counts as ended", probe({ exitCode: null, child: { exitCode: 0, signalCode: null } }));
+  check("recorded entry exit counts as ended", probe({ exitCode: 1, child: { exitCode: null, signalCode: null } }));
+  check("running child does not count as ended", !probe({ exitCode: null, child: { exitCode: null, signalCode: null } }));
+}
+
 // 1. Config fail-closed.
 {
   const bad = agentModule.loadConfig({});
@@ -193,8 +203,13 @@ try {
   const startedAt = Date.now();
   const timeout = await call("POST", "/workspaces/live/exec", { command: `node ${hang}`, timeoutMs: 1500 });
   check("exec settles on timeout", timeout.body.timedOut === true && timeout.body.exitCode === 124 && Date.now() - startedAt < 20_000);
+  // A script FILE, not `node -e`/`-p`: the command goes through `sh -lc` on
+  // Linux, where parentheses are shell syntax (the same lesson as
+  // test-runtime-guards.mjs).
+  const envProbe = join(tmp, "env-probe.cjs");
+  writeFileSync(envProbe, "console.log(String(process.env.SAJTMASKIN_GUEST_TOKEN) + String(process.env.LD_PRELOAD));\n");
   const envLeak = await call("POST", "/workspaces/live/exec", {
-    command: "node -p process.env.SAJTMASKIN_GUEST_TOKEN+String(process.env.LD_PRELOAD)",
+    command: `node ${envProbe}`,
     env: { LD_PRELOAD: "/evil.so" },
     timeoutMs: 20_000,
   });
@@ -237,8 +252,63 @@ try {
   const after = await call("GET", "/dev/status");
   check("dev status reports stopped", after.body.running === false);
 
+  // Regression (CI 2026-10-22): a second stop of a signal-killed process must
+  // return immediately, not wait for a `close` that already fired.
+  const stopAgainAt = Date.now();
+  const stopAgain = await call("POST", "/dev/stop", { generation: 1 });
+  check("stop after a signal-ended process returns at once", stopAgain.status === 200 && Date.now() - stopAgainAt < 3000);
+
+  // Crash → restart: the next start must not wait on the dead process either.
+  await call("PATCH", "/workspaces/live", { files: { "server.js": "process.exit(3);" } });
+  const crashStart = await call("POST", "/dev/start", { args: ["run", "dev"] });
+  check("start after stop yields a new generation", crashStart.body.generation === 2);
+  let crashed = null;
+  for (let i = 0; i < 40 && !crashed; i += 1) {
+    const res = await call("GET", "/dev/status");
+    if (res.body.running === false && res.body.generation === 2) crashed = res.body;
+    else await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  check("crashed dev process reports its exit code", crashed?.exitCode === 3);
+  const restartAt = Date.now();
+  const restart = await call("POST", "/dev/start", { args: ["run", "dev"] });
+  check("restart after crash does not hang", restart.body.generation === 3 && Date.now() - restartAt < 3000);
+  await call("POST", "/dev/stop", { generation: 3 });
+
+  const delAt = Date.now();
   const del = await call("DELETE", "/workspaces/live");
   check("workspace delete removes the directory", del.status === 200 && !existsSync(join(root, "live")));
+  check("workspace delete after a stopped dev process is prompt", Date.now() - delAt < 8000);
+
+  // IPv6: Fly's private network is IPv6-only, so the default bind must answer
+  // on an IPv6 address. Second agent with the default bind, reached via ::1.
+  const v6Port = await freePort();
+  const v6Agent = spawn(process.execPath, [join(process.cwd(), "guest", "agent.js")], {
+    env: {
+      ...process.env,
+      SAJTMASKIN_GUEST_TOKEN: token,
+      SAJTMASKIN_GUEST_CHAT_ID: "chat-v6",
+      SAJTMASKIN_GUEST_PORT: String(v6Port),
+      SAJTMASKIN_GUEST_ROOT: join(tmp, "root-v6"),
+      SAJTMASKIN_GUEST_DEV_PORT: String(await freePort()),
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  try {
+    let v6 = null;
+    for (let i = 0; i < 60 && !v6; i += 1) {
+      try {
+        const res = await fetch(`http://[::1]:${v6Port}/health`, { headers: auth });
+        if (res.status === 200) v6 = await res.json();
+      } catch { /* not yet */ }
+      if (!v6) await new Promise((resolve) => setTimeout(resolve, 150));
+    }
+    check("default bind answers over IPv6 (Fly 6PN)", v6?.chatId === "chat-v6");
+    const v4 = await fetch(`http://127.0.0.1:${v6Port}/health`, { headers: auth }).then((r) => r.status).catch(() => 0);
+    check("default bind still answers over IPv4", v4 === 200);
+  } finally {
+    if (process.platform === "win32") spawn("taskkill", ["/pid", String(v6Agent.pid), "/t", "/f"], { stdio: "ignore" });
+    else v6Agent.kill("SIGTERM");
+  }
 } catch (error) {
   failures += 1;
   console.error(`  FAIL  unexpected error: ${error instanceof Error ? error.stack : error}`);

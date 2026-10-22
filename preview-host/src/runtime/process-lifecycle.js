@@ -801,7 +801,9 @@ async function waitForReady(url, { headers = null } = {}) {
 
 function stopChildProcessTree(child) {
   return new Promise((resolve) => {
-    if (!child || child.exitCode !== null) {
+    // A signal-killed child has exitCode null and signalCode set; its close
+    // already fired, so waiting for another one would hang the stop.
+    if (!child || child.exitCode !== null || child.signalCode != null) {
       resolve();
       return;
     }
