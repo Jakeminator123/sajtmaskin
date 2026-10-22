@@ -31,8 +31,18 @@ export function agentMessagesUrl(chatId: string): string {
   return `${engineChatBaseUrl(chatId)}/agent-messages`;
 }
 
-/** Rader som redan skickats (eller kommit från servern) — skickas aldrig om. */
+/** Rader som redan kvitterats (eller kommit från servern) — skickas aldrig om. */
 const persistedIds = new Set<string>();
+
+/** Speglar routens gränser (`agent-messages/route.ts`): rader per POST och tecken per rad. */
+export const AGENT_MESSAGES_MAX_PER_POST = 20;
+export const AGENT_MESSAGE_MAX_CONTENT_CHARS = 20_000;
+
+function clampContent(content: string): string {
+  return content.length > AGENT_MESSAGE_MAX_CONTENT_CHARS
+    ? `${content.slice(0, AGENT_MESSAGE_MAX_CONTENT_CHARS - 1)}…`
+    : content;
+}
 
 export function toStoreMessage(row: PersistedAgentMessage): OpenClawMessage {
   const createdAt = Date.parse(row.createdAt);
@@ -59,7 +69,7 @@ export function toPersistedPayload(message: OpenClawMessage): Omit<PersistedAgen
     id: message.id,
     role: message.role,
     kind: message.kind ?? "chat",
-    content: message.content,
+    content: clampContent(message.content),
     timestamp: message.timestamp,
     meta: {
       anchorBuilderMessageId: message.anchorBuilderMessageId ?? null,
@@ -105,35 +115,48 @@ export async function hydrateAgentHistory(
   }
 }
 
-/** Skicka in avslutade turer. Tomma platshållare och redan sparade rader hoppas över. */
+/**
+ * Skriv ner allt i storen som ännu inte kvitterats. Anroparen lämnar hela
+ * listan (inte bara senaste turen), så rader som släpptes efter ett misslyckat
+ * försök följer med automatiskt nästa gång. Tomma platshållare, hydrerade
+ * rader och redan kvitterade id:n hoppas över; större mängder delas upp i
+ * routens batchstorlek. `true` bara när allt nytt faktiskt kvitterats.
+ */
 export async function persistAgentMessages(
   chatId: string,
   messages: readonly OpenClawMessage[],
 ): Promise<boolean> {
   const fresh = messages.filter(
-    (message) => !persistedIds.has(message.id) && message.content.trim().length > 0,
+    (message) =>
+      !message.hydrated && !persistedIds.has(message.id) && message.content.trim().length > 0,
   );
   if (fresh.length === 0) return false;
   for (const message of fresh) persistedIds.add(message.id);
+  let allPersisted = true;
+  for (let start = 0; start < fresh.length; start += AGENT_MESSAGES_MAX_PER_POST) {
+    const batch = fresh.slice(start, start + AGENT_MESSAGES_MAX_PER_POST);
+    if (!(await postBatch(chatId, batch))) {
+      // Routen är fail-soft: ett DB-fel ger 200 med `persisted: false`. Bara ett
+      // uttryckligt `persisted: true` är ett kvitto — annars släpps raderna så
+      // nästa anrop (nästa avslutade tur) skickar dem igen.
+      for (const message of batch) persistedIds.delete(message.id);
+      allPersisted = false;
+    }
+  }
+  return allPersisted;
+}
+
+async function postBatch(chatId: string, batch: readonly OpenClawMessage[]): Promise<boolean> {
   try {
     const res = await fetch(agentMessagesUrl(chatId), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: fresh.map(toPersistedPayload) }),
+      body: JSON.stringify({ messages: batch.map(toPersistedPayload) }),
     });
-    // Routen är fail-soft: ett DB-fel ger 200 med `persisted: false`. Bara ett
-    // uttryckligt `persisted: true` är ett kvitto — annars släpps raderna så
-    // nästa tur får försöka skriva dem igen.
-    const data = res.ok
-      ? ((await res.json().catch(() => null)) as { persisted?: unknown } | null)
-      : null;
-    if (data?.persisted !== true) {
-      for (const message of fresh) persistedIds.delete(message.id);
-      return false;
-    }
-    return true;
+    if (!res.ok) return false;
+    const data = (await res.json().catch(() => null)) as { persisted?: unknown } | null;
+    return data?.persisted === true;
   } catch {
-    for (const message of fresh) persistedIds.delete(message.id);
     return false;
   }
 }

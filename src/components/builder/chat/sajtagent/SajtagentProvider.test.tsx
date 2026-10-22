@@ -344,4 +344,78 @@ describe("SajtagentProvider — anrop bara när ytan finns", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(String(fetchMock.mock.calls[0][0])).toBe("/api/openclaw/health");
   });
+
+  it("skickar om rader som inte kvitterats när nästa tur skrivs ner", async () => {
+    document.body.setAttribute(OPENCLAW_SURFACE_BODY_ATTR, "1");
+    const persistBodies: Array<{ messages: Array<{ id: string }> }> = [];
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/api/openclaw/health")) {
+        return new Response(
+          JSON.stringify({ surfaceEnabled: true, editEnabled: false, debugEnabled: false }),
+          { status: 200 },
+        );
+      }
+      if (url.includes("/agent-messages")) {
+        if (init?.method === "POST") {
+          persistBodies.push(JSON.parse(String(init.body)) as { messages: Array<{ id: string }> });
+          // Första skrivningen misslyckas fail-soft (200 + persisted:false).
+          return new Response(
+            JSON.stringify({ persisted: persistBodies.length > 1, count: 0 }),
+            { status: 200 },
+          );
+        }
+        return new Response(JSON.stringify({ messages: [] }), { status: 200 });
+      }
+      if (url.includes("/files")) {
+        return new Response(
+          JSON.stringify({ versionId: "v1", files: [{ name: "app/page.tsx", content: "sida" }] }),
+          { status: 200 },
+        );
+      }
+      if (url === "/api/openclaw/chat") return new Response("", { status: 503 });
+      return new Response("{}", { status: 200 });
+    });
+
+    const { seen } = renderProvider();
+    await waitFor(() => expect(seen.at(-1)).toBe(true));
+
+    const readAction = (id: string) => ({
+      id,
+      role: "assistant" as const,
+      timestamp: Date.now(),
+      kind: "chat" as const,
+      content: [
+        "Läser.",
+        "<openclaw-action>",
+        JSON.stringify({ type: "read_files", paths: ["app/page.tsx"] }),
+        "</openclaw-action>",
+      ].join("\n"),
+    });
+    act(() => {
+      useOpenClawStore.getState().addMessage({
+        id: "u1",
+        role: "user",
+        content: "Vad gör startsidan?",
+        timestamp: Date.now(),
+        kind: "chat",
+      });
+      useOpenClawStore.getState().addMessage(readAction("a1"));
+    });
+    // Filturen skickas via providerns `send`, som skriver ner storen efteråt.
+    await waitFor(() => expect(persistBodies).toHaveLength(1));
+    const firstIds = persistBodies[0].messages.map((row) => row.id);
+    expect(firstIds).toContain("u1");
+    expect(firstIds).toContain("a1");
+
+    // Nästa tur: de okvitterade raderna följer med igen tillsammans med de nya.
+    act(() => {
+      useOpenClawStore.getState().addMessage(readAction("a2"));
+    });
+    await waitFor(() => expect(persistBodies).toHaveLength(2));
+    const secondIds = persistBodies[1].messages.map((row) => row.id);
+    for (const id of firstIds) expect(secondIds).toContain(id);
+    expect(secondIds).toContain("a2");
+  });
+
 });

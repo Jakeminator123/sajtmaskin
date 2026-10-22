@@ -161,18 +161,18 @@ export function SajtagentProvider({
     void hydrateOpenClawPowersForChat(chatId);
   }, [chatId, editEnabled, scopeMatchesChat, scopeKey]);
 
-  // Varje avslutad tur (inklusive nästlade väckningar som sker inuti `send`)
-  // skrivs ner — bara det som faktiskt fick innehåll.
+  // Efter varje avslutad tur (inklusive nästlade väckningar som sker inuti
+  // `send`) skrivs allt i storen som ännu inte kvitterats — hela listan, inte
+  // bara turens rader, så ett tidigare misslyckat försök tas med igen.
+  // `persistAgentMessages` hoppar själv över kvitterade, hydrerade och tomma rader.
   const send = useCallback(
     async (text: string, options?: OpenClawSendOptions) => {
       const chatAtSend = chatIdRef.current;
-      const before = useOpenClawStore.getState().messages.length;
       try {
         await chat.send(text, options);
       } finally {
         if (chatAtSend && chatIdRef.current === chatAtSend) {
-          const after = useOpenClawStore.getState().messages.slice(before);
-          if (after.length > 0) void persistAgentMessages(chatAtSend, after);
+          void persistAgentMessages(chatAtSend, useOpenClawStore.getState().messages);
         }
       }
     },
