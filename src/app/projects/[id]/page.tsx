@@ -37,6 +37,8 @@ import {
 import { useAuth } from "@/lib/auth/auth-store";
 import { GitHubExportDialog } from "@/components/builder/project-transfer/GitHubExportDialog";
 import { ByodDomainFlow } from "@/components/projects/ByodDomainFlow";
+import { BusinessFactsSection } from "@/components/projects/BusinessFactsSection";
+import { SeoStatusSection } from "@/components/projects/SeoStatusSection";
 
 function Section({
   title,
@@ -353,6 +355,27 @@ export default function ProjectSitePage() {
               </Section>
 
               <Section
+                title="Företagsuppgifter"
+                description="Öppettider och kontaktuppgifter som sajten visar. Ändra här och publicera om — ingen ny generering behövs."
+              >
+                <BusinessFactsSection
+                  projectId={site.projectId}
+                  hasLiveVersion={Boolean(site.liveVersionId)}
+                />
+              </Section>
+
+              <Section
+                title="SEO"
+                description="Sajtmaskins kontroll av sökmotoroptimering vid senaste publiceringen."
+              >
+                <SeoStatusSection
+                  status={site.seoStatus}
+                  projectId={site.projectId}
+                  hasLiveVersion={Boolean(site.liveVersionId)}
+                />
+              </Section>
+
+              <Section
                 title="Egen domän"
                 description="Koppla en domän du redan äger. Ingen tillgänglighetskontroll eller köp."
               >
@@ -392,6 +415,19 @@ export default function ProjectSitePage() {
                   {(!site.chatId || !site.liveVersionId) && (
                     <p className="text-xs text-amber-500">
                       Publicera en version först så att det finns en bestämd version att exportera.
+                    </p>
+                  )}
+                  {site.codeBackupAt && (
+                    <p className="text-xs text-gray-500">
+                      Sajtmaskin tog en säkerhetskopia av koden{" "}
+                      {new Date(site.codeBackupAt).toLocaleString("sv-SE", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                      . Den kan lämnas över till dig om du lämnar Sajtmaskin.
                     </p>
                   )}
                 </div>

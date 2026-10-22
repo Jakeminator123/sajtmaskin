@@ -1,5 +1,8 @@
 // Client-side API for project operations
 
+import type { BusinessFactsInput, BusinessFactsPersisted } from "./business-facts-schema";
+import type { SeoStatusPersisted } from "./seo-status";
+
 export interface Project {
   id: string;
   name: string;
@@ -65,6 +68,50 @@ export interface ProjectSite {
   customDomain: string | null;
   customDomainVerified: boolean;
   vercelProjectId: string | null;
+  /** Last publish's SEO audit (Sajtmaskin's own score), or `null`. */
+  seoStatus: SeoStatusPersisted | null;
+  /** ISO time of the last code backup to Sajtmaskin's GitHub, or `null`. */
+  codeBackupAt: string | null;
+}
+
+/** Wire shape of the `business` namespace in `GET /api/projects/[id]/preferences`. */
+export type ProjectBusinessPreferences = BusinessFactsPersisted;
+
+/**
+ * Företagsuppgifter for one project. Owner-scoped on the server; a 404 means
+ * missing or not yours, which the caller treats alike.
+ */
+export async function getProjectBusinessFacts(
+  id: string,
+): Promise<ProjectBusinessPreferences | null> {
+  const response = await fetch(`/api/projects/${id}/preferences`);
+  if (response.status === 404) return null;
+  const data = await response.json();
+  if (!data.success) {
+    throw new Error(data.error || "Kunde inte läsa företagsuppgifter");
+  }
+  return (data.preferences?.business as ProjectBusinessPreferences | undefined) ?? null;
+}
+
+/** Whole-object save; `null` clears every stored fact. */
+export async function saveProjectBusinessFacts(
+  id: string,
+  business: BusinessFactsInput | null,
+): Promise<ProjectBusinessPreferences> {
+  const response = await fetch(`/api/projects/${id}/preferences`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ business }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data?.success) {
+    const detail =
+      Array.isArray(data?.details) && data.details[0]?.message
+        ? `: ${data.details[0].message}`
+        : "";
+    throw new Error((data?.error || "Kunde inte spara företagsuppgifter") + detail);
+  }
+  return data.preferences.business as ProjectBusinessPreferences;
 }
 
 // Get all projects

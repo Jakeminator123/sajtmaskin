@@ -298,6 +298,7 @@ export async function finalizeOrchestrationPrompts(
     mediaCatalog,
     buildSpec: base.buildSpec,
     customInstructions,
+    businessFacts: input.businessFacts ?? null,
     userPrompt: input.prompt,
     generationMode: resolvedMode,
     importedRepoMode: input.importedRepoMode === true,

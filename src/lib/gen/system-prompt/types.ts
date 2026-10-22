@@ -19,6 +19,7 @@ import type { DossierSelectionResult } from "../dossiers";
 import type { ShadcnUiRecipe } from "../data/shadcn-ui-recipes";
 import type { Tier3BuildSpec } from "@/lib/integrations/tier3-build-spec";
 import type { ImportedRepoContractContext } from "@/lib/templates/imported-repo-contract";
+import type { BusinessFactsPersisted } from "@/lib/projects/business-facts-schema";
 
 export interface Brief {
   projectTitle?: string;
@@ -127,6 +128,12 @@ export interface DynamicContextOptions {
   designReferences?: DesignReferenceAsset[];
   /** User-supplied custom instructions from the builder UI */
   customInstructions?: string;
+  /**
+   * Företagsuppgifter from `project_data.meta.business` (portal). Renders the
+   * `## Business Facts` block + the `lib/business-facts.ts` module contract.
+   * `null`/omitted = owner has stated nothing; no block.
+   */
+  businessFacts?: BusinessFactsPersisted | null;
   /** Raw user prompt text — used for domain/motion/quality inference. */
   userPrompt?: string;
   /** `init` = first gen (rich brief), `followUp` = delta-only editing. */

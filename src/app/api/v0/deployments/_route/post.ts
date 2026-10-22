@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rate-limit";
+import { FEATURES } from "@/lib/config";
+import { backupPublishedVersion } from "@/lib/github/sites-backup";
 import {
   createDeploymentRecord,
   getLatestReadyDeploymentIdentityForChat,
@@ -41,9 +43,13 @@ import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/v
 import {
   clearProjectCustomDomainVerification,
   getProjectData,
+  saveProjectData,
   setProjectVercelLink,
 } from "@/lib/db/services/projects";
 import { readSeoPreferencesFromMeta } from "@/lib/projects/preferences-schema";
+import { readBusinessFactsFromMeta } from "@/lib/projects/business-facts-schema";
+import { applyBusinessFactsToFiles } from "@/lib/projects/business-facts-module";
+import { buildSeoStatus } from "@/lib/projects/seo-status";
 import { resolveDeploySeoOptions } from "../resolve-seo";
 import { runSeoPublishPass } from "@/lib/seo";
 import { resolveSeoCopyModelId, toSeoReportPayload } from "../seo-publish";
@@ -362,9 +368,12 @@ export async function POST(req: Request) {
       // canonical project URL wins over both at apply time. Guarded so that a
       // missing project_data row doesn't fail the deploy.
       const persistedProjectData = await getProjectData(engineProjectId).catch(() => null);
-      const persistedSeo = readSeoPreferencesFromMeta(
-        (persistedProjectData?.meta as Record<string, unknown> | null | undefined) ?? null,
-      );
+      const persistedMeta =
+        (persistedProjectData?.meta as Record<string, unknown> | null | undefined) ?? null;
+      const persistedSeo = readSeoPreferencesFromMeta(persistedMeta);
+      // Företagsuppgifter: rewritten into `lib/business-facts.ts` below so a
+      // portal edit + "Publicera om" reaches the live site without regeneration.
+      const persistedBusinessFacts = readBusinessFactsFromMeta(persistedMeta);
 
       const {
         files: fixedFiles,
@@ -791,10 +800,16 @@ export async function POST(req: Request) {
             scoreAfter: seoPass.report.after.score,
           });
         }
-        const metadataFiles = applyCanonicalMetadataToFiles(
+        // Only rewrites a `lib/business-facts.ts` the version already has; a
+        // site that never imported the module deploys byte-identical.
+        const businessFactsApply = applyBusinessFactsToFiles(
           seoPass ? seoPass.files : fixedFiles,
-          policyUrl,
+          persistedBusinessFacts,
         );
+        if (businessFactsApply.applied) {
+          console.info("[deploy] business facts module rewritten from project settings");
+        }
+        const metadataFiles = applyCanonicalMetadataToFiles(businessFactsApply.files, policyUrl);
         const policyHost = canonicalAddress.contract.canonicalHost;
         const providerHostForNoindex = attestedProviderHost;
         const canonicalHostRedirect = applyCanonicalHostRedirect(
@@ -859,6 +874,51 @@ export async function POST(req: Request) {
         // Vercel accepted the deploy — it's now live/irreversible, so a later
         // failure below must not refund the charge.
         deploymentDelivered = true;
+
+        // Portal SEO status: persist the audit of the files Vercel just took.
+        // Best effort after delivery — the portal reading "no status" is a
+        // smaller failure than a publish error for a status write.
+        if (seoPass && seoApplyResult.siteUrl) {
+          try {
+            await saveProjectData({
+              project_id: engineProjectId,
+              meta_patch: {
+                seoStatus: buildSeoStatus(seoPass.report, {
+                  siteUrl: seoApplyResult.siteUrl,
+                  versionId,
+                  checkedAt: new Date().toISOString(),
+                }),
+              },
+            });
+          } catch (seoStatusErr) {
+            console.warn("[deploy] Failed to persist SEO status for portal:", seoStatusErr);
+          }
+        }
+
+        // Code backup to Sajtmaskin's GitHub org. Runs after the response is
+        // sent and can only ever log — a backup must not slow or fail a publish.
+        if (FEATURES.useGitHubSitesOrg) {
+          const backupInput = {
+            projectId: engineProjectId,
+            chatId,
+            versionId,
+            deploymentId,
+            userId: ownedProject.user_id ?? null,
+          };
+          after(async () => {
+            try {
+              const backup = await backupPublishedVersion(backupInput);
+              if (backup) {
+                console.info("[deploy] GitHub backup committed", {
+                  repo: backup.repo,
+                  commitSha: backup.commitSha,
+                });
+              }
+            } catch (backupErr) {
+              console.warn("[deploy] GitHub backup failed (non-blocking):", backupErr);
+            }
+          });
+        }
         const effectiveProjectId =
           created.vercelProjectId ?? ensuredProject?.id ?? ownedProject.vercel_project_id ?? null;
 
@@ -983,6 +1043,7 @@ export async function POST(req: Request) {
           // The full audit → improve → re-audit story, so the UI can show what
           // was reviewed and what actually changed rather than a bare boolean.
           seoReport: seoPass ? toSeoReportPayload(seoPass.report) : null,
+          businessFacts: { applied: businessFactsApply.applied },
         });
       } catch (deployErr) {
         // Pengaväg: vi debiterade före Vercel-anropet — refundera BARA om

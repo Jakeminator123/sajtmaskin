@@ -53,6 +53,11 @@ describe("GET /api/projects/[id]/preferences", () => {
     const body = (await res.json()) as { preferences: unknown };
     expect(body.preferences).toEqual({
       seo: { optIn: false, siteUrl: null, brand: null, lastSetAt: null },
+      business: {
+        hours: { mode: "unspecified", week: null },
+        contact: { phone: null, email: null, orgNumber: null, address: null },
+        lastSetAt: null,
+      },
     });
   });
 
@@ -282,5 +287,165 @@ describe("PATCH /api/projects/[id]/preferences — seo", () => {
 
     expect(res.status).toBe(404);
     expect(saveProjectData).not.toHaveBeenCalled();
+  });
+});
+
+const REGULAR_WEEK = {
+  mon: { closed: false, open: "09:00", close: "17:00" },
+  tue: { closed: false, open: "09:00", close: "17:00" },
+  wed: { closed: false, open: "09:00", close: "17:00" },
+  thu: { closed: false, open: "09:00", close: "17:00" },
+  fri: { closed: false, open: "09:00", close: "15:00" },
+  sat: { closed: true },
+  sun: { closed: true },
+};
+
+describe("PATCH /api/projects/[id]/preferences — business", () => {
+  it("persists normalized Företagsuppgifter as a whole namespace", async () => {
+    getProjectData.mockResolvedValue({ meta: { seo: { optIn: true } } });
+
+    const res = await PATCH(
+      makeRequest({
+        business: {
+          hours: { mode: "regular", week: REGULAR_WEEK },
+          contact: {
+            phone: "08-123  45 67",
+            email: "Info@Kund.SE",
+            orgNumber: "5566778899",
+            address: { street: "Storgatan 1", postalCode: "12345", city: "Staden" },
+          },
+        },
+      }) as never,
+      makeParams(),
+    );
+
+    expect(res.status).toBe(200);
+    const persisted = saveProjectData.mock.calls[0]?.[0] as {
+      meta_patch: Record<string, unknown> & {
+        business: {
+          hours: { mode: string };
+          contact: { phone: string; email: string; orgNumber: string; address: { postalCode: string } };
+          lastSetAt: string;
+        };
+      };
+    };
+    // `seo` was not in the patch, so it must not be rewritten from the snapshot.
+    expect(persisted.meta_patch).not.toHaveProperty("seo");
+    expect(persisted.meta_patch.business.hours.mode).toBe("regular");
+    expect(persisted.meta_patch.business.contact.phone).toBe("08-123 45 67");
+    expect(persisted.meta_patch.business.contact.email).toBe("info@kund.se");
+    expect(persisted.meta_patch.business.contact.orgNumber).toBe("556677-8899");
+    expect(persisted.meta_patch.business.contact.address.postalCode).toBe("123 45");
+    expect(typeof persisted.meta_patch.business.lastSetAt).toBe("string");
+
+    const body = (await res.json()) as {
+      preferences: { business: { hours: { mode: string }; lastSetAt: string | null } };
+    };
+    expect(body.preferences.business.hours.mode).toBe("regular");
+    expect(body.preferences.business.lastSetAt).not.toBeNull();
+  });
+
+  it("accepts 24/7 without a week and by-appointment without times", async () => {
+    getProjectData.mockResolvedValue(null);
+
+    const always = await PATCH(
+      makeRequest({
+        business: {
+          hours: { mode: "always_open", week: null },
+          contact: { phone: null, email: null, orgNumber: null, address: null },
+        },
+      }) as never,
+      makeParams(),
+    );
+    expect(always.status).toBe(200);
+
+    const appointment = await PATCH(
+      makeRequest({
+        business: {
+          hours: { mode: "by_appointment", week: null },
+          contact: { phone: "070-111 22 33", email: null, orgNumber: null, address: null },
+        },
+      }) as never,
+      makeParams(),
+    );
+    expect(appointment.status).toBe(200);
+  });
+
+  it("rejects regular hours without a week, non-quarter times and bad org numbers", async () => {
+    getProjectData.mockResolvedValue(null);
+    const contact = { phone: null, email: null, orgNumber: null, address: null };
+
+    const noWeek = await PATCH(
+      makeRequest({ business: { hours: { mode: "regular", week: null }, contact } }) as never,
+      makeParams(),
+    );
+    expect(noWeek.status).toBe(400);
+
+    const oddTime = await PATCH(
+      makeRequest({
+        business: {
+          hours: {
+            mode: "regular",
+            week: { ...REGULAR_WEEK, mon: { closed: false, open: "09:10", close: "17:00" } },
+          },
+          contact,
+        },
+      }) as never,
+      makeParams(),
+    );
+    expect(oddTime.status).toBe(400);
+
+    const badOrg = await PATCH(
+      makeRequest({
+        business: {
+          hours: { mode: "unspecified", week: null },
+          contact: { ...contact, orgNumber: "12-34" },
+        },
+      }) as never,
+      makeParams(),
+    );
+    expect(badOrg.status).toBe(400);
+    expect(saveProjectData).not.toHaveBeenCalled();
+  });
+
+  it("clears the namespace with business: null", async () => {
+    getProjectData.mockResolvedValue({
+      meta: { business: { hours: { mode: "always_open", week: null } } },
+    });
+
+    const res = await PATCH(makeRequest({ business: null }) as never, makeParams());
+
+    expect(res.status).toBe(200);
+    const persisted = saveProjectData.mock.calls[0]?.[0] as { meta_patch: { business: unknown } };
+    expect(persisted.meta_patch.business).toBeNull();
+    const body = (await res.json()) as { preferences: { business: { hours: { mode: string } } } };
+    expect(body.preferences.business.hours.mode).toBe("unspecified");
+  });
+});
+
+describe("GET /api/projects/[id]/preferences — business", () => {
+  it("returns persisted facts and falls back to defaults for malformed meta", async () => {
+    getProjectData.mockResolvedValue({
+      meta: {
+        business: {
+          hours: { mode: "always_open", week: null },
+          contact: { phone: "08-1", email: null, orgNumber: null, address: null },
+          lastSetAt: "2026-10-22T10:00:00.000Z",
+        },
+      },
+    });
+    const ok = await GET(makeRequest() as never, makeParams());
+    const okBody = (await ok.json()) as {
+      preferences: { business: { hours: { mode: string }; lastSetAt: string } };
+    };
+    expect(okBody.preferences.business.hours.mode).toBe("always_open");
+    expect(okBody.preferences.business.lastSetAt).toBe("2026-10-22T10:00:00.000Z");
+
+    getProjectData.mockResolvedValue({ meta: { business: { hours: "måndag 9-17" } } });
+    const malformed = await GET(makeRequest() as never, makeParams());
+    const malformedBody = (await malformed.json()) as {
+      preferences: { business: { hours: { mode: string } } };
+    };
+    expect(malformedBody.preferences.business.hours.mode).toBe("unspecified");
   });
 });

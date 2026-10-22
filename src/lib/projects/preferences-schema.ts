@@ -15,6 +15,7 @@
  * placeholders är alltid tillåtna i F3 numera.)
  */
 import { z } from "zod";
+import { businessFactsInputSchema } from "./business-facts-schema";
 
 /**
  * IETF-ish locale tag accepted in `seo.brand.locale`.
@@ -79,6 +80,12 @@ export type SeoPreferences = z.infer<typeof seoPreferencesSchema>;
  */
 export const projectPreferencesPatchSchema = z.object({
   seo: seoPreferencesSchema.optional(),
+  /**
+   * Företagsuppgifter (`meta.business`). Unlike `seo` this is a whole-object
+   * replace: the portal form always submits every field, and `null` clears the
+   * namespace. See `business-facts-schema.ts` for the owner of the shape.
+   */
+  business: businessFactsInputSchema.nullable().optional(),
 });
 
 export type ProjectPreferencesPatch = z.infer<typeof projectPreferencesPatchSchema>;

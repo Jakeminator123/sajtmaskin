@@ -1,6 +1,7 @@
 import { runWithGenerationWork } from "@/lib/gen/stream/generation-work";
 import { getAiModelsManifest } from "@/lib/ai-models/load-manifest";
 import { ENGINE_ROUTE_MAX_DURATION_SECONDS } from "@/lib/gen/defaults";
+import { loadBusinessFactsForProject } from "@/lib/projects/business-facts-loader";
 import { withPromptToDoneMetricResponse } from "@/lib/observability/prompt-to-done-stream";
 import { createChatSchema } from "@/lib/validations/chat-schemas";
 import { NextResponse } from "next/server";
@@ -625,6 +626,14 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           );
           const planModel = plannerSettings.modelId;
           const engineIntent = metaBuildIntent;
+          // Resolved before the plan orchestration (not after, as before) so the
+          // plan sees the project's Företagsuppgifter; the chat boot below reuses it.
+          const projectIdForChat = await resolveAppProjectIdForRequest(
+            req,
+            { appProjectId: metaAppProjectId, projectId },
+            { sessionId },
+          );
+          const planBusinessFacts = await loadBusinessFactsForProject(projectIdForChat);
           const planOrchestrationStartedAt = Date.now();
           const planOrchestration = await prepareGenerationContext({
             prompt: optimizedMessage,
@@ -666,6 +675,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             // komplexitet/färgläge/ton-direktiv) — annars planerar plan-läget
             // utan direktiv som codegen sedan får.
             customInstructions: trimmedSystemPrompt || undefined,
+            businessFacts: planBusinessFacts,
             // Pinna samma pre-match-variant som huvudflödet (pre-matchen läser
             // styleKeywordsHint) så plan-orkestreringen inte async-väljer en
             // annan variant än brief-hints/codegen.
@@ -700,11 +710,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             resolvedThinking: plannerSettings.thinking,
           });
 
-          const projectIdForChat = await resolveAppProjectIdForRequest(
-            req,
-            { appProjectId: metaAppProjectId, projectId },
-            { sessionId },
-          );
           if (!projectIdForChat) {
             return attachSessionCookie(
               NextResponse.json(
@@ -849,6 +854,8 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           // placeholder-UI. Läs projektets env-karta i stället — men aldrig
           // `undefined`, som skulle falla tillbaka på plattformens process.env.
           const configuredEnvKeys = await resolveConfiguredEnvKeys(projectIdForChat);
+          // Företagsuppgifter (portal) — owner-verified hours/contact for the prompt.
+          const businessFacts = await loadBusinessFactsForProject(projectIdForChat);
 
           const orchestrationInput = {
             prompt: optimizedMessage,
@@ -896,6 +903,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             designReferences,
             requestAttachments,
             customInstructions: trimmedSystemPrompt || undefined,
+            businessFacts,
             promptStrategyMeta: strategyMeta,
             // Lock variant to the pre-match pick so brief-LLM hints (variantHints
             // built above) and the final codegen variant agree. Without this the

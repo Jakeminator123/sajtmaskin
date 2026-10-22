@@ -230,6 +230,22 @@ export const SECRETS = {
     return env.GITHUB_CLIENT_SECRET ?? "";
   },
 
+  // GitHub App for Sajtmaskin's own sites organisation (not the customer OAuth
+  // app above). Short-lived installation tokens; see src/lib/github/.
+  get githubAppId() {
+    return env.GITHUB_APP_ID ?? "";
+  },
+  get githubAppPrivateKey() {
+    return env.GITHUB_APP_PRIVATE_KEY ?? "";
+  },
+  get githubAppInstallationId() {
+    return env.GITHUB_APP_INSTALLATION_ID ?? "";
+  },
+  /** Organisation login that owns customer-site backup repos. */
+  get githubSitesOrg() {
+    return env.GITHUB_SITES_ORG ?? "";
+  },
+
   get resendApiKey() {
     return env.RESEND_API_KEY ?? "";
   },
@@ -495,6 +511,18 @@ export const FEATURES = {
   useGoogleAuth: Boolean(SECRETS.googleClientId && SECRETS.googleClientSecret),
 
   useGitHubAuth: Boolean(SECRETS.githubClientId && SECRETS.githubClientSecret),
+
+  /**
+   * Sajtmaskin-owned GitHub organisation for customer-site backups. Separate
+   * from `useGitHubAuth` on purpose: that one is the customer's own account,
+   * this one is our org and must never be implied by the OAuth app existing.
+   */
+  useGitHubSitesOrg: Boolean(
+    SECRETS.githubAppId &&
+      SECRETS.githubAppPrivateKey &&
+      SECRETS.githubAppInstallationId &&
+      SECRETS.githubSitesOrg,
+  ),
 
   useStripePayments: Boolean(SECRETS.stripeSecretKey),
 

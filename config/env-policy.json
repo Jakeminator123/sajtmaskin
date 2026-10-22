@@ -6,9 +6,13 @@
     "CRON_SECRET",
     "DATA_DIR",
     "DEBUG",
+    "GITHUB_APP_ID",
+    "GITHUB_APP_INSTALLATION_ID",
+    "GITHUB_APP_PRIVATE_KEY",
     "GITHUB_CLIENT_ID_DEV",
     "GITHUB_CLIENT_SECRET_DEV",
     "GITHUB_REDIRECT_URI",
+    "GITHUB_SITES_ORG",
     "GOOGLE_CLIENT_ID_DEV",
     "GOOGLE_CLIENT_SECRET_DEV",
     "GOOGLE_REDIRECT_URI",
@@ -122,10 +126,14 @@
     "EMAIL_FROM",
     "ENABLE_PEXELS",
     "GENERATIONSLOGG",
+    "GITHUB_APP_ID",
+    "GITHUB_APP_INSTALLATION_ID",
+    "GITHUB_APP_PRIVATE_KEY",
     "GITHUB_CLIENT_ID",
     "GITHUB_CLIENT_ID_DEV",
     "GITHUB_CLIENT_SECRET",
     "GITHUB_CLIENT_SECRET_DEV",
+    "GITHUB_SITES_ORG",
     "GITHUB_TOKEN",
     "GITHUB_WORKFLOW_TOKEN",
     "GOOGLE_API_KEY",
@@ -750,6 +758,30 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": [],
       "notes": "Optional override. If unset, the GitHub callback is derived from the current app base URL."
+    },
+    {
+      "key": "GITHUB_APP_ID",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["preview", "production"],
+      "notes": "GitHub App (owned by Sajtmaskin's sites organisation) numeric app id. Unset = FEATURES.useGitHubSitesOrg off; no backup/hand-over repos are touched. Runbook: docs/runbooks/github-sites-org.md."
+    },
+    {
+      "key": "GITHUB_APP_PRIVATE_KEY",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["preview", "production"],
+      "notes": "PEM private key of the GitHub App (multi-line or \\n-escaped). Signs 10-minute JWTs that are exchanged for 1-hour installation tokens; never used as a bearer token itself. Rotate from the App settings page; the old key stops working immediately."
+    },
+    {
+      "key": "GITHUB_APP_INSTALLATION_ID",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["preview", "production"],
+      "notes": "Installation id of the GitHub App on the sites organisation (from the installation URL). Tokens are scoped to that installation's repos only."
+    },
+    {
+      "key": "GITHUB_SITES_ORG",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["preview", "production"],
+      "notes": "Login of the GitHub organisation that owns customer-site backup repos (e.g. sajtmaskin-sites). Not sensitive. Must match the installation; the App never writes outside it."
     },
     {
       "key": "OAUTH_ALLOWED_ORIGINS",

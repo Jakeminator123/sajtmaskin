@@ -21,7 +21,10 @@ import { resolveLegacyProviderUrl } from "@/app/api/v0/deployments/_route/legacy
 import { db } from "@/lib/db/client";
 import { appProjects, deployments, engineChats } from "@/lib/db/schema";
 import { normalizeDomainHostname, resolveLiveUrl } from "@/lib/live-site-url";
+import { getProjectData } from "@/lib/db/services/projects";
 import { getVercelProjectProductionIdentity } from "@/lib/vercel/vercel-deploy";
+import { readSeoStatusFromMeta, type SeoStatusPersisted } from "./seo-status";
+import { readGithubBackupFromMeta } from "@/lib/github/backup-status";
 
 /** Which kind of host is serving the site right now. */
 export type SiteAddressKind = "custom" | "branded" | "provider" | "none";
@@ -64,6 +67,16 @@ export type SiteOverview = {
   customDomainVerified: boolean;
   /** Present once the project has published at least once. */
   vercelProjectId: string | null;
+  /**
+   * Sajtmaskin's own SEO audit from the last publish that ran the SEO pass, or
+   * `null` when the project never published with SEO enabled.
+   */
+  seoStatus: SeoStatusPersisted | null;
+  /**
+   * When Sajtmaskin last backed the published code up to its own GitHub org.
+   * The repo itself is private to Sajtmaskin, so the portal gets the time only.
+   */
+  codeBackupAt: Date | null;
 };
 
 type AddressInput = {
@@ -239,6 +252,16 @@ export async function getProjectSiteOverview(projectId: string): Promise<SiteOve
     .where(eq(engineChats.projectId, normalizedId));
   const chatIds = chats.map((chat) => chat.id);
 
+  // Best effort: a missing or malformed project_data row must not hide the
+  // address and publish state, which are the portal's primary answers.
+  const projectData = await getProjectData(normalizedId).catch(() => null);
+  const projectMeta = (projectData?.meta as Record<string, unknown> | null | undefined) ?? null;
+  const seoStatus = readSeoStatusFromMeta(projectMeta);
+  const codeBackup = readGithubBackupFromMeta(projectMeta);
+  const codeBackupDate = codeBackup ? new Date(codeBackup.at) : null;
+  const codeBackupAt =
+    codeBackupDate && !Number.isNaN(codeBackupDate.getTime()) ? codeBackupDate : null;
+
   const emptyOverview: SiteOverview = {
     projectId: project.id,
     chatId: chatIds[0] ?? null,
@@ -253,6 +276,8 @@ export async function getProjectSiteOverview(projectId: string): Promise<SiteOve
     customDomain: project.customDomain ?? null,
     customDomainVerified: Boolean(project.customDomainVerifiedAt),
     vercelProjectId: project.vercelProjectId ?? null,
+    seoStatus,
+    codeBackupAt,
   };
 
   if (chatIds.length === 0) return emptyOverview;
