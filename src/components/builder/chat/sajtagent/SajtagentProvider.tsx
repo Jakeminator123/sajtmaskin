@@ -125,27 +125,41 @@ export function SajtagentProvider({
     };
   }, [setDebugEnabled, setEditEnabled]);
 
-  // Befogenheter per chatt (default-på för en ny builderchatt, se
-  // `persist-openclaw-powers.ts`). Körs när chatten eller env-grinden ändras;
-  // `editEnabled` blir bara sant efter en lyckad health-koll, så inget anrop
-  // sker på en deploy utan ytan.
-  useEffect(() => {
-    if (!chatId || !editEnabled) return;
-    void hydrateOpenClawPowersForChat(chatId);
-  }, [chatId, editEnabled]);
-
   // Beständig historik: fyll på storen när en chatt öppnas — först när ytan
   // bekräftats, så builderns egen laddning (projekt, versioner, filer) inte
-  // konkurrerar med ett agentanrop som ändå inte används. Scope-bytet i
-  // `OpenClawChat` har redan tömt minnet för den förra chatten.
+  // konkurrerar med ett agentanrop som ändå inte används.
+  //
+  // Ordningsvakt mot scope-bytet: `OpenClawChat` (root-layouten) sätter
+  // storens scope till `…::<chatId>` och tömmer minnet när builderns kontext
+  // annonserar en ny chatt. Hydreringen får bara ske när scopen redan pekar på
+  // den här chatten — annars kunde ett sent scope-byte radera det vi just
+  // hämtade (Bugbot på #1670). Samma villkor gäller när svaret kommer.
   const chatIdRef = useRef(chatId);
   useEffect(() => {
     chatIdRef.current = chatId;
   }, [chatId]);
+  const scopeKey = useOpenClawStore((s) => s.scopeKey);
+  const scopeMatchesChat = Boolean(chatId && scopeKey.endsWith(`::${chatId}`));
   useEffect(() => {
-    if (!chatId || !available) return;
-    void hydrateAgentHistory(chatId, () => chatIdRef.current === chatId);
-  }, [chatId, available]);
+    if (!chatId || !available || !scopeMatchesChat) return;
+    void hydrateAgentHistory(
+      chatId,
+      () =>
+        chatIdRef.current === chatId &&
+        useOpenClawStore.getState().scopeKey.endsWith(`::${chatId}`),
+    );
+  }, [chatId, available, scopeMatchesChat]);
+
+  // Befogenheter per chatt (default-på för en ny builderchatt, se
+  // `persist-openclaw-powers.ts`). Samma ordningsvakt som historiken: scope-
+  // bytet nollar även `powersOn`/`grantedPowers`, så hydreringen sker först
+  // när scopen pekar på chatten, och om igen om scopen byts därefter
+  // (`scopeKey` i deps). `editEnabled` blir bara sant efter en lyckad
+  // health-koll, så inget anrop sker på en deploy utan ytan.
+  useEffect(() => {
+    if (!chatId || !editEnabled || !scopeMatchesChat) return;
+    void hydrateOpenClawPowersForChat(chatId);
+  }, [chatId, editEnabled, scopeMatchesChat, scopeKey]);
 
   // Varje avslutad tur (inklusive nästlade väckningar som sker inuti `send`)
   // skrivs ner — bara det som faktiskt fick innehåll.

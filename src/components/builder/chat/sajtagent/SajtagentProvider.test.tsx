@@ -91,6 +91,8 @@ beforeEach(() => {
       grantedPowers: [],
       armedMandate: null,
       armedContinuation: null,
+      // Root-layoutens OpenClawChat har redan satt scopen till chatten.
+      scopeKey: "/builder::builder::chat_1",
     });
   });
 });
@@ -264,6 +266,73 @@ describe("SajtagentProvider — anrop bara när ytan finns", () => {
       await new Promise((resolve) => setTimeout(resolve, 30));
     });
     expect(chatCalls).toHaveLength(1);
+  });
+
+  it("väntar med historik och befogenheter tills scopen pekar på chatten, och hydrerar om efter ett scope-byte", async () => {
+    document.body.setAttribute(OPENCLAW_SURFACE_BODY_ATTR, "1");
+    // Befogenhetshydreringen skriver bara när builderkontexten pekar på chatten.
+    window.__SITEMASKIN_CONTEXT = { chatId: "chat_1" } as typeof window.__SITEMASKIN_CONTEXT;
+    act(() => {
+      // OpenClawChat (lazy, ssr:false) har inte hunnit sätta scopen än.
+      useOpenClawStore.setState({ scopeKey: "global" });
+    });
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/openclaw/health")) {
+        return new Response(
+          JSON.stringify({ surfaceEnabled: true, editEnabled: true, debugEnabled: false }),
+          { status: 200 },
+        );
+      }
+      if (url.includes("/agent-messages")) {
+        return new Response(
+          JSON.stringify({
+            messages: [
+              {
+                id: "old-1",
+                role: "assistant",
+                kind: "chat",
+                content: "Hej från igår",
+                createdAt: "2026-10-21T10:00:00.000Z",
+                meta: null,
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.startsWith("/api/openclaw/powers")) {
+        return new Response(
+          JSON.stringify({ powersOn: true, granted: ["quick_edit"], persisted: true }),
+          { status: 200 },
+        );
+      }
+      return new Response("{}", { status: 200 });
+    });
+
+    const { seen } = renderProvider();
+    await waitFor(() => expect(seen.at(-1)).toBe(true));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+    const urlsBefore = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(urlsBefore.some((url) => url.includes("/agent-messages"))).toBe(false);
+    expect(urlsBefore.some((url) => url.startsWith("/api/openclaw/powers"))).toBe(false);
+
+    // Scope-bytet landar (och nollar minnet, som i OpenClawChat) → nu hydreras.
+    act(() => {
+      useOpenClawStore.getState().setScope("/builder::builder::chat_1");
+    });
+    try {
+      await waitFor(() => {
+        expect(useOpenClawStore.getState().messages.map((message) => message.id)).toEqual([
+          "old-1",
+        ]);
+        expect(useOpenClawStore.getState().grantedPowers).toEqual(["quick_edit"]);
+      });
+    } finally {
+      delete window.__SITEMASKIN_CONTEXT;
+    }
   });
 
   it("hämtar ingen historik utan chatt", async () => {

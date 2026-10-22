@@ -121,7 +121,13 @@ export async function persistAgentMessages(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages: fresh.map(toPersistedPayload) }),
     });
-    if (!res.ok) {
+    // Routen är fail-soft: ett DB-fel ger 200 med `persisted: false`. Bara ett
+    // uttryckligt `persisted: true` är ett kvitto — annars släpps raderna så
+    // nästa tur får försöka skriva dem igen.
+    const data = res.ok
+      ? ((await res.json().catch(() => null)) as { persisted?: unknown } | null)
+      : null;
+    if (data?.persisted !== true) {
       for (const message of fresh) persistedIds.delete(message.id);
       return false;
     }
