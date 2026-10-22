@@ -16,6 +16,7 @@ respektive kod, manifest eller policy. Aktuella inventarier finns i
 | own-engine | Sajtmaskins egna codegen-flöde för buildern. |
 | Init | Första riktiga genereringen i en chat; får välja projektets grund. |
 | Byggval | Strukturerade init-reglage; hårda val vinner över promptens tolkning. |
+| Företagsuppgifter | Kundens standardiserade öppettider och kontaktuppgifter per projekt (`project_data.meta.business`), redigeras på `/projects/[id]`. Går in i prompten som `## Business Facts` och skrivs om i sajtens `lib/business-facts.ts` vid varje publicering. Inte en Dossier och inte `company_profiles` (wizardens fritext). |
 | Follow-up | Delta på befintlig version. Ska bevara grund om inte användaren ändrar den. |
 | Briefing | Lagret före kodgeneratorn; ett produktlager, inte en modell. |
 | Deep Brief | LLM-läge i Briefing som strukturerar fritext före Orkestrering. |

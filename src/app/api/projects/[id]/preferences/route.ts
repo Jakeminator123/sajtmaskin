@@ -7,6 +7,9 @@
  * - `seo` (SEO opt-in + siteUrl + brand-overrides) — added in PR-A of the
  *   SEO-F3-promotion track. Persists what the future Bygg-dialog will
  *   write. Pipeline-koppling that *reads* this is PR-B scope.
+ * - `business` (Företagsuppgifter: öppettider + kontakt) — written by the
+ *   portal (`/projects/[id]`), read by the generation prompt and rewritten
+ *   into `lib/business-facts.ts` on every publish.
  *
  * This route deliberately does NOT touch chat / files / messages so it is
  * safe to call from any panel without race conditions against the larger
@@ -28,6 +31,11 @@ import {
   type SeoPreferences,
   type SeoPreferencesPersisted,
 } from "@/lib/projects/preferences-schema";
+import {
+  BUSINESS_FACTS_DEFAULTS,
+  readBusinessFactsFromMeta,
+  type BusinessFactsPersisted,
+} from "@/lib/projects/business-facts-schema";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -95,29 +103,39 @@ async function handlePATCH(request: NextRequest, { params }: RouteParams) {
 
     const existingData = await getProjectData(id);
     const existingMeta = asRecord(existingData?.meta);
+    const now = new Date().toISOString();
+    // Each namespace is merged top-level in PostgreSQL so a concurrent palette
+    // or preview autosave cannot be overwritten by the stale metadata snapshot
+    // used to calculate this patch.
+    const metaPatch: Record<string, unknown> = {};
 
     if (parsed.data.seo !== undefined) {
       const existingSeo = readSeoPreferencesFromMeta(existingMeta);
-      const merged = mergeSeoPatch(
-        parsed.data.seo,
-        existingSeo,
-        new Date().toISOString(),
-      );
+      const merged = mergeSeoPatch(parsed.data.seo, existingSeo, now);
       existingMeta.seo = merged;
+      metaPatch.seo = merged;
+    }
+
+    if (parsed.data.business !== undefined) {
+      // Whole-object replace: the portal form submits every field. `null`
+      // clears the facts; the defaults then read back as "nothing stated".
+      const business: BusinessFactsPersisted | null = parsed.data.business
+        ? { ...parsed.data.business, lastSetAt: now }
+        : null;
+      existingMeta.business = business;
+      metaPatch.business = business;
     }
 
     await saveProjectData({
       project_id: id,
-      // `seo` owns one top-level namespace. Merge it in PostgreSQL so a
-      // concurrent palette or preview autosave cannot be overwritten by the
-      // stale metadata snapshot used to calculate this SEO patch.
-      meta_patch: parsed.data.seo !== undefined ? { seo: existingMeta.seo } : {},
+      meta_patch: metaPatch,
     });
 
     return NextResponse.json({
       success: true,
       preferences: {
         seo: readSeoPreferencesFromMeta(existingMeta),
+        business: readBusinessFactsFromMeta(existingMeta),
       },
     });
   } catch (error) {
@@ -160,6 +178,7 @@ async function handleGET(request: NextRequest, { params }: RouteParams) {
         // Defaults kept centralized in the schema module so future fields
         // get a single source of truth.
         seo: data ? readSeoPreferencesFromMeta(meta) : { ...SEO_PREFERENCES_DEFAULTS },
+        business: data ? readBusinessFactsFromMeta(meta) : structuredClone(BUSINESS_FACTS_DEFAULTS),
       },
     });
   } catch (error) {

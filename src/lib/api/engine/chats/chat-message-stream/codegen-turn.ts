@@ -7,6 +7,7 @@
 import type { FollowUpCapabilityDetection } from "@/lib/builder/follow-up-capability-detection";
 import { getAiModelsManifest } from "@/lib/ai-models/load-manifest";
 import { ENGINE_ROUTE_MAX_DURATION_SECONDS } from "@/lib/gen/defaults";
+import { loadBusinessFactsForProject } from "@/lib/projects/business-facts-loader";
 import type { orchestratePromptMessage } from "@/lib/builder/prompt-orchestration";
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
@@ -262,6 +263,9 @@ export async function runCodegenTurn(params: {
   // hard-dossier `configured` prompt signal reflects the PROJECT'S env,
   // not the platform process.env.
   const configuredEnvKeys = await resolveConfiguredEnvKeys(engineChat.project_id);
+  // Företagsuppgifter from the portal: the follow-up must keep the owner's
+  // hours/contact and the `lib/business-facts.ts` import contract.
+  const businessFacts = await loadBusinessFactsForProject(engineChat.project_id);
   // P32 Fas B next step: external-fetch needs web-search integration
   // before it can short-circuit safely; keep it on normal codegen for now.
   const orchestrationInput = buildFollowUpOrchestrationInput({
@@ -300,6 +304,7 @@ export async function runCodegenTurn(params: {
     engineModelId: generatorModel,
     snapshotVariantId,
     customInstructions: trimmedSystem || undefined,
+    businessFacts,
     chatId,
     priorQualityTarget,
     requestKind: requestKindResult?.kind ?? null,

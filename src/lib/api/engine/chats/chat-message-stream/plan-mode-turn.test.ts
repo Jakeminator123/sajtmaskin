@@ -15,6 +15,9 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   addMessage: vi.fn(),
   updateChatScaffoldId: vi.fn(),
 }));
+// Företagsuppgifter read the DB; this test has no POSTGRES_URL.
+const loadBusinessFactsForProject = vi.hoisted(() => vi.fn(async () => null));
+vi.mock("@/lib/projects/business-facts-loader", () => ({ loadBusinessFactsForProject }));
 vi.mock("@/lib/db/services/prompt-logs", () => ({ createPromptLog: vi.fn() }));
 vi.mock("@/lib/logging/dev-log", () => ({ devLogAppend: vi.fn() }));
 vi.mock("@/lib/utils/debug", () => ({ debugLog: vi.fn() }));
@@ -170,7 +173,10 @@ describe("runPlanModeTurn — persistering av planner-svaret", () => {
     expect(vi.mocked(buildFollowUpOrchestrationInput).mock.calls[0][0]).toMatchObject({
       buildIntent: intent,
       parsedMeta: { buildMethod: method, buildIntent: intent },
+      // Same Företagsuppgifter source as codegen (loader mocked → null here).
+      businessFacts: null,
     });
+    expect(loadBusinessFactsForProject).toHaveBeenCalled();
   });
 
   it("persisterar planner-prosan när utdatan INTE är en plan", async () => {

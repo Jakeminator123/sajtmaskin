@@ -11,6 +11,10 @@ vi.mock("@/lib/gen/defaults", async (importOriginal) => {
 
 vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("@/lib/db/chat-repository-pg", () => ({ addMessage: vi.fn() }));
+// Företagsuppgifter read the DB; this test has no POSTGRES_URL.
+vi.mock("@/lib/projects/business-facts-loader", () => ({
+  loadBusinessFactsForProject: vi.fn(async () => null),
+}));
 vi.mock("@/lib/gen/orchestrate", () => ({ resolveOrchestrationBase: vi.fn(),
   finalizeOrchestrationPrompts: vi.fn(), buildGenerationInputPackage: vi.fn(), writeOrchestrationDynamicDump: vi.fn() }));
 vi.mock("../configured-env-keys", () => ({

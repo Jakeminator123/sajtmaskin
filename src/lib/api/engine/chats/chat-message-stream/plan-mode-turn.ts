@@ -17,6 +17,7 @@ import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { withPromptToDoneMetricResponse } from "@/lib/observability/prompt-to-done-stream";
 import { resolveEngineModelId } from "@/lib/models/selection";
+import { loadBusinessFactsForProject } from "@/lib/projects/business-facts-loader";
 import type { BuildProfileId, CanonicalModelId } from "@/lib/models/catalog";
 import { MODEL_LABELS } from "@/lib/models/catalog";
 import {
@@ -103,6 +104,8 @@ export async function runPlanModeTurn(params: {
   } = params;
   await chatRepo.addMessage(engineChat.id, "user", message);
 
+  // Same Företagsuppgifter as codegen, so the plan cannot promise other hours.
+  const businessFacts = await loadBusinessFactsForProject(engineChat.project_id);
   const planOrchestrationStartedAt = Date.now();
   const planOrchestration = await prepareGenerationContext(
     buildFollowUpOrchestrationInput({
@@ -128,6 +131,7 @@ export async function runPlanModeTurn(params: {
       followUpIntent,
       orchestrationSnapshot: engineChat.orchestration_snapshot as Record<string, unknown> | null,
       engineModelId: resolveEngineModelId(resolvedModelTier),
+      businessFacts,
     }),
   );
   debugLog("orchestration", "Follow-up plan orchestration prepared", {
