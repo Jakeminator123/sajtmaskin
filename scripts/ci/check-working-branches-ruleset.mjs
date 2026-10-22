@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { appendFile, readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -15,16 +15,21 @@ function canonical(value) {
   return value;
 }
 
-export function evaluateWorkingBranchesRuleset(live, spec) {
+export function evaluateWorkingBranchesRuleset(live, spec, { readOnly = false } = {}) {
   if (spec?.schemaVersion !== 1 || FIELDS.some((key) => spec.expected?.[key] === undefined)) {
     return ["invalid working-branches ruleset spec"];
   }
-  return FIELDS.filter((key) =>
+  // GitHub hides bypass_actors from tokens without ruleset write access.
+  // Read-only mode may report that field as unverified, never ignore a visible mismatch.
+  return FIELDS.filter((key) => !(readOnly && key === "bypass_actors" && live?.[key] === undefined)).filter((key) =>
     JSON.stringify(canonical(live?.[key])) !== JSON.stringify(canonical(spec.expected[key])),
   ).map((key) => "working-branches ruleset drift: " + key);
 }
 
 async function main() {
+  const args = process.argv.slice(2);
+  if (args.some((arg) => arg !== "--read-only")) throw new Error("unknown argument");
+  const readOnly = args.includes("--read-only");
   const spec = JSON.parse(await readFile(SPEC_PATH, "utf8"));
   const repository = process.env.GITHUB_REPOSITORY || spec.repository;
   if (repository !== "Jakeminator123/sajtmaskin" || repository !== spec.repository) {
@@ -52,9 +57,19 @@ async function main() {
   }
   const response = await fetch(api + "/" + matches[0].id, { headers });
   if (!response.ok) throw new Error("ruleset read failed: " + response.status);
-  const issues = evaluateWorkingBranchesRuleset(await response.json(), spec);
+  const live = await response.json();
+  const issues = evaluateWorkingBranchesRuleset(live, spec, { readOnly });
   if (issues.length) throw new Error(issues.join("\n"));
-  console.log("Working-branch deletion protection matches versioned policy");
+  if (readOnly && live?.bypass_actors === undefined) {
+    const warning = "Partial working-branch audit: public fields match; bypass actors UNVERIFIED. " +
+      "GitHub omits them for this token. Run the default full audit with an authorized operator token after any ruleset change.";
+    console.warn("::warning::" + warning);
+    if (process.env.GITHUB_STEP_SUMMARY) {
+      await appendFile(process.env.GITHUB_STEP_SUMMARY, "\n### Working-branch protection: PARTIAL audit\n\n" + warning + "\n");
+    }
+  } else {
+    console.log("Working-branch deletion protection matches versioned policy (including bypass actors)");
+  }
 }
 
 const invokedPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : "";

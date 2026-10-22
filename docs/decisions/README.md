@@ -39,8 +39,13 @@ ges till review-automationer. `tidy` nekar öppen PR och okänt PR-tillstånd.
 GitHub-regeln kan inte välja enbart öppna PR-grenar. Därför gäller skyddet även
 efter merge, och automatisk branchstädning kan behöva ersättas av verifierad
 `tidy`. Vanlig branchskapning, push och merge begränsas inte. Den befintliga
-read-only-kontrollen för rulesets verifierar även detta skydd, inklusive att
-ingen app fått undantag. Ingen ny schemaläggning, token eller produktionsändring.
+read-only-kontrollen för rulesets verifierar även detta skydds synliga fält.
+GitHub döljer undantagslistan för dess token; då visas uttryckligen en partiell
+kontroll med undantagen **ej verifierade**, inte ett fullständigt grönt kvitto.
+Efter regeländringar kör operatören `node scripts/ci/check-working-branches-ruleset.mjs`
+med behörighet att läsa listan; standardläget nekar saknade fält och app-undantag.
+Ingen ny schemaläggning, token eller produktionsändring. Den nattliga kontrollen
+får denna ändring först när workflowet senare når default-grenen genom vanlig promote.
 
 ### 2026-10-22: sex äldre BRA-backuper ersätts av arkivtaggar
 
