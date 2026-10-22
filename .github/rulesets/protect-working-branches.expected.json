@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "repository": "Jakeminator123/sajtmaskin",
+  "expected": {
+    "name": "Protect working branches from deletion",
+    "target": "branch",
+    "enforcement": "active",
+    "conditions": {
+      "ref_name": {
+        "include": ["~ALL"],
+        "exclude": ["refs/heads/master", "refs/heads/preview"]
+      }
+    },
+    "bypass_actors": [
+      { "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" }
+    ],
+    "rules": [{ "type": "deletion" }]
+  },
+  "policyNotes": {
+    "intent": "Block GitHub Apps from deleting working branches, including open PR heads. Master and preview keep their existing separate rulesets. This rule does not restrict branch creation, pushes or merges.",
+    "cleanup": "Repository administrators retain the existing explicit tidy deletion path, which refuses open PR heads and unknown PR state. Administrator credentials must not be shared with review automations. No GitHub App has a bypass.",
+    "scope": "GitHub ref rules cannot select branches by open PR state. All working branches are protected, including after merge; automatic deletion may therefore leave cleanup to tidy. Do not weaken the rule to recover automatic cleanup.",
+    "mutation": "Update this policy and the live ruleset together, then run node scripts/ci/check-working-branches-ruleset.mjs with an authorized operator token for a full check including bypass actors. The scheduled read-only audit detects deletion, disabling and scope drift. GitHub may hide bypass actors from its token; that field is explicitly reported UNVERIFIED, never a full green receipt. No new credential or write permission is added to CI."
+  }
+}
