@@ -68,6 +68,33 @@ en readonly-prompt eller hook skapar inte en OS-sandbox. Granskaren får inte
 ändra filer, köra repokod, läsa secrets eller publicera. Saknas en fungerande
 granskningsväg används PR-vägen med oberoende review; inga behörigheter sänks.
 
+## När en testsvit faller
+
+Felsök först smalt; en misslyckad lång svit ska inte startas om efter varje liten
+rättning. Detta förtydligar riktad verifiering i [PR-workflow](../../.agents/skills/pr-workflow/SKILL.md).
+
+1. Läs felet och identifiera testfil, testnamn och vilket beteende som ska gälla.
+   Kör det berörda testet eller testfilen medan du rättar. Samla gärna alla fel i
+   den avgränsade filen med `--bail=0`, så gamla följdförväntningar upptäcks samtidigt:
+
+   ```text
+   npx vitest run scripts/dossiers/dossier-acceptance-workflow.test.ts --environment node --maxWorkers=4 --bail=0
+   ```
+
+   Lägg till `-t "del av testnamnet"` för ett enskilt fall. Kör inte den breda
+   `npm run test:workflow`-sviten med ett filargument och anta att resten filtreras bort.
+2. Utgå från det beslutade beteendet och kontraktet. Är beteendet avsiktligt ändrat:
+   uppdatera eller ersätt gamla förväntningar och sök motsvarande syskontester.
+   Bevisa både det nya beteendet och att viktiga fel fortfarande stoppas. Ta inte
+   bort eller skippa ett verkligt regressionstest bara för att få grönt.
+3. När rättningen är samlad: kör berörda filer tillsammans, därefter den föreskrivna
+   lokala sviten en gång för slutlig kod. Full CI, säkerhets- och DB-grindar samt
+   hela dossierkatalogen inför master behålls. Återanvänd inte gamla gröna kvitton
+   som bevis för en ändrad revision, bas eller miljö.
+4. Vid ett verifierat tillfälligt CI-/infrastrukturfel på oförändrad kod: kör om det
+   fallerade jobbet eller `gh run rerun <run-id> --failed` (inklusive beroende jobb),
+   i stället för alla jobb. En kodändring ska få ordinarie CI på sin nya head.
+
 ## Fynd och uppföljning
 
 Varje fynd har id, plats, kort scenario, `confidencePercent` (subjektiv säkerhet,
