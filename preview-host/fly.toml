@@ -64,6 +64,17 @@ swap_size_mb = 2048
   # reload, no iframe refresh). Reversible: set to "false" (or remove) + redeploy
   # to fall back to the no-op HMR stub. Default behaviour when unset is "off".
   SAJTMASKIN_PREVIEW_HMR_PROXY = "true"
+  # SM-080: project isolation. Unset/"shared" = this ONE machine runs every
+  # project's install/verify/next dev (the baseline documented in
+  # docs/runbooks/preview-host-shared-baseline.md). "machine" = one Fly Machine
+  # per chat from PREVIEW_GUEST_IMAGE in PREVIEW_GUEST_FLY_APP, fail-closed when
+  # PREVIEW_GUEST_FLY_API_TOKEN/app/image are missing. Flip only after the pilot
+  # acceptance in README.md and guest/README.md; the token goes in
+  # `fly secrets set --stage` in the SAME deploy as this flip, never before.
+  # PREVIEW_HOST_ISOLATION = "machine"
+  # PREVIEW_GUEST_FLY_APP = "sajtmaskin-preview-guests"
+  # PREVIEW_GUEST_IMAGE = "registry.fly.io/sajtmaskin-preview-guests:deployment-…"
+  # PREVIEW_GUEST_MACHINES_API_BASE = "http://_api.internal:4280"
 
 [[mounts]]
   source = "preview_host_data"
