@@ -209,13 +209,11 @@ export function readBusinessFactsForDeploy(
   return { ...parsed.data, lastSetAt: typeof lastSetAt === "string" ? lastSetAt : null };
 }
 
-export const BUSINESS_FACTS_SUPPORT_META_KEY = "businessFactsSupport";
-
 /**
- * Written by the deploy route on every production publish: did the files that
- * went live contain a marked `lib/business-facts.ts`? The portal uses it to
- * tell the customer whether "Publicera om" will carry their edits, instead of
- * promising it for a site generated before the feature existed.
+ * Whether one published version carries a used `lib/business-facts.ts`. Stored
+ * per version by `portal-status.ts`; the portal uses it to tell the customer
+ * whether "Publicera om" will carry their edits, instead of promising it for a
+ * site generated before the feature existed.
  */
 export type BusinessFactsSupportRecord = {
   supported: boolean;
@@ -230,28 +228,6 @@ export type BusinessFactsSupportRecord = {
 };
 
 export type BusinessFactsSupportState = "supported" | "unsupported" | "imported" | "unknown";
-
-export function readBusinessFactsSupportFromMeta(
-  meta: Record<string, unknown> | null | undefined,
-): BusinessFactsSupportRecord | null {
-  if (!meta || typeof meta !== "object") return null;
-  const raw = (meta as Record<string, unknown>)[BUSINESS_FACTS_SUPPORT_META_KEY];
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const record = raw as Record<string, unknown>;
-  if (
-    typeof record.supported !== "boolean" ||
-    typeof record.versionId !== "string" ||
-    typeof record.checkedAt !== "string"
-  ) {
-    return null;
-  }
-  return {
-    supported: record.supported,
-    versionId: record.versionId,
-    checkedAt: record.checkedAt,
-    importedRepo: record.importedRepo === true,
-  };
-}
 
 /**
  * The record only answers for the version it was taken from. A different live

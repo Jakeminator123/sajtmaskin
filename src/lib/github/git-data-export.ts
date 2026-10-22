@@ -393,12 +393,18 @@ async function commitOnCurrentHead(params: {
   // The branch always exists here: either it had commits, or the seed commit
   // created it. One code path, no "create ref" twin to drift. No `force`: a
   // moved branch is a 422 "not a fast forward", which the caller retries.
-  const updateRef = await githubRequest(token, `/repos/${owner}/${repo}/git/refs/heads/${defaultBranch}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sha: commitResponse.data.sha, force: false }),
-  });
-  if (updateRef.status === 422) {
+  const updateRef = await githubRequest<{ message?: string }>(
+    token,
+    `/repos/${owner}/${repo}/git/refs/heads/${defaultBranch}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sha: commitResponse.data.sha, force: false }),
+    },
+  );
+  // Only a moved branch is retried. Other 422s (protected branch, missing ref)
+  // fail at once so a customer export does not re-upload everything three times.
+  if (updateRef.status === 422 && /fast[\s-]?forward/i.test(updateRef.data?.message ?? "")) {
     return { kind: "ref-moved" };
   }
   if (!updateRef.ok) {

@@ -68,9 +68,9 @@ Källor: GitHubs rate-limit-dokumentation (`docs.github.com/rest/using-the-rest-
 
 | Del | Fil |
 |---|---|
-| Git-Data-export med `textTransport: "inline"` (ett tree-anrop för all text, blobs bara för binärer). Flyttad gren (422 "not a fast forward") byggs om på nya headen, max 3 försök, aldrig force | [`src/lib/github/git-data-export.ts`](../../src/lib/github/git-data-export.ts) |
+| Git-Data-export med `textTransport: "inline"` (ett tree-anrop för all text, blobs bara för binärer). Flyttad gren (422 "not a fast forward") byggs om på nya headen, max 3 försök, aldrig force; andra 422 (t.ex. skyddad gren) felar direkt | [`src/lib/github/git-data-export.ts`](../../src/lib/github/git-data-export.ts) |
 | Backup = exakt de filer som skickades till Vercel (secrets strippade) → `site-<projectId>`, resultat i `project_data.meta.githubBackup` | [`src/lib/github/sites-backup.ts`](../../src/lib/github/sites-backup.ts) |
-| Hook efter `deploymentDelivered = true`, `after()`, bara `target=production`, väntar på READY (max 180 s, annars hoppas backupen över och loggas) | `src/app/api/v0/deployments/_route/post.ts`, [`wait-for-deployment-ready.ts`](../../src/lib/vercel/wait-for-deployment-ready.ts) |
+| Hook efter `deploymentDelivered = true`, `after()`, bara `target=production`, väntar på READY (max 120 s, loggar före väntan; annars hoppas backupen över och loggas) | `src/app/api/v0/deployments/_route/post.ts`, [`wait-for-deployment-ready.ts`](../../src/lib/vercel/wait-for-deployment-ready.ts) |
 | Portal: "Sajtmaskin tog en säkerhetskopia av koden …" | `src/app/projects/[id]/page.tsx` via `site-overview.ts` |
 
 Ordning vid samtidiga publiceringar: den som blir READY sist committar sist.

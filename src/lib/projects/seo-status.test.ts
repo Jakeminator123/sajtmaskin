@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SeoPublishReport } from "@/lib/seo/types";
-import { buildSeoStatus, readSeoStatusFromMeta, SEO_STATUS_MAX_FINDINGS } from "./seo-status";
+import { buildSeoStatus, parseSeoStatus, SEO_STATUS_MAX_FINDINGS } from "./seo-status";
 
 function report(overrides: Partial<SeoPublishReport> = {}): SeoPublishReport {
   return {
@@ -67,28 +67,26 @@ describe("buildSeoStatus", () => {
   });
 });
 
-describe("readSeoStatusFromMeta", () => {
+describe("parseSeoStatus", () => {
   it("round-trips a persisted status and rejects malformed ones", () => {
     const status = buildSeoStatus(report(), {
       siteUrl: "https://kund.se",
       versionId: "ver_1",
       checkedAt: "2026-10-22T09:00:00.000Z",
     });
-    expect(readSeoStatusFromMeta({ seoStatus: JSON.parse(JSON.stringify(status)) })).toEqual(status);
-    expect(readSeoStatusFromMeta(null)).toBeNull();
-    expect(readSeoStatusFromMeta({ seoStatus: { score: "80" } })).toBeNull();
-    expect(readSeoStatusFromMeta({ seoStatus: { score: 80 } })).toBeNull();
+    expect(parseSeoStatus(JSON.parse(JSON.stringify(status)))).toEqual(status);
+    expect(parseSeoStatus(null)).toBeNull();
+    expect(parseSeoStatus({ score: "80" })).toBeNull();
+    expect(parseSeoStatus({ score: 80 })).toBeNull();
   });
 
   it("drops malformed findings instead of failing the whole status", () => {
-    const status = readSeoStatusFromMeta({
-      seoStatus: {
-        score: 70,
-        checkedAt: "2026-10-22T09:00:00.000Z",
-        siteUrl: "https://kund.se",
-        versionId: "ver_1",
-        remaining: [{ id: "missing-h1", severity: "critical", message: "Saknar H1." }, "junk", { id: 1 }],
-      },
+    const status = parseSeoStatus({
+      score: 70,
+      checkedAt: "2026-10-22T09:00:00.000Z",
+      siteUrl: "https://kund.se",
+      versionId: "ver_1",
+      remaining: [{ id: "missing-h1", severity: "critical", message: "Saknar H1." }, "junk", { id: 1 }],
     });
     expect(status?.remaining).toEqual([
       { id: "missing-h1", severity: "critical", message: "Saknar H1." },

@@ -51,7 +51,7 @@ import { readSeoPreferencesFromMeta } from "@/lib/projects/preferences-schema";
 import { readBusinessFactsForDeploy } from "@/lib/projects/business-facts-schema";
 import { applyBusinessFactsToFiles } from "@/lib/projects/business-facts-module";
 import { chatUsesVerbatimRepo } from "@/lib/gen/export/build-exportable-project";
-import { buildPortalStatusMetaPatch } from "../portal-status";
+import { buildPortalStatusMetaPatch } from "@/lib/projects/portal-status";
 import { resolveDeploySeoOptions } from "../resolve-seo";
 import { runSeoPublishPass } from "@/lib/seo";
 import { resolveSeoCopyModelId, toSeoReportPayload } from "../seo-publish";
@@ -915,6 +915,9 @@ export async function POST(req: Request) {
             // Only production writes portal status; skip the DB read otherwise.
             importedRepo: deployTarget === "production" ? await chatUsesVerbatimRepo(chatId) : false,
             now: new Date().toISOString(),
+            // Entries are per version; carry earlier ones forward so a failed
+            // newer build never hides the live version's status.
+            existingMeta: persistedMeta,
           });
           if (Object.keys(portalMetaPatch).length > 0) {
             await saveProjectData({ project_id: engineProjectId, meta_patch: portalMetaPatch });
@@ -945,6 +948,9 @@ export async function POST(req: Request) {
           };
           after(async () => {
             try {
+              // Logged first: if the function is stopped mid-wait, this line is
+              // the trace that a backup was pending for this deployment.
+              console.info("[deploy] GitHub backup waiting for READY", { deploymentId });
               const outcome = await waitForVercelDeploymentReady(acceptedVercelDeploymentId);
               if (outcome !== "ready") {
                 console.info("[deploy] GitHub backup skipped: deployment not READY", {

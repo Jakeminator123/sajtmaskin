@@ -4,8 +4,9 @@
  * The deploy route already runs `runSeoPublishPass` (audit → improve → re-audit)
  * when the project has SEO opted in, but the report only travelled in the deploy
  * response. The portal needs it later, so the deploy route stores a compact
- * summary under `project_data.meta.seoStatus` once Vercel has accepted the
- * deploy. Read by `site-overview.ts`; shown on `/projects/[id]`.
+ * summary per version (`portal-status.ts`, `meta.portalStatusByVersion`) once
+ * Vercel has accepted a production deploy. Shown on `/projects/[id]` only for
+ * the version that is live.
  *
  * This is Sajtmaskin's own 0–100 score over the checks in `src/lib/seo/types.ts`,
  * not Lighthouse or Search Console. The portal copy must say so.
@@ -71,12 +72,11 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-/** Defensive read of `meta.seoStatus`; anything malformed reads as "no status". */
-export function readSeoStatusFromMeta(
-  meta: Record<string, unknown> | null | undefined,
-): SeoStatusPersisted | null {
-  if (!meta || typeof meta !== "object") return null;
-  const raw = (meta as Record<string, unknown>).seoStatus;
+/**
+ * Defensive parse of one persisted SEO status (stored per version by
+ * `portal-status.ts`); anything malformed reads as "no status".
+ */
+export function parseSeoStatus(raw: unknown): SeoStatusPersisted | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const status = raw as Record<string, unknown>;
   if (

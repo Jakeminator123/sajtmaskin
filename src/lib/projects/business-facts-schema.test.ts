@@ -7,7 +7,6 @@ import {
   hasBusinessFacts,
   readBusinessFactsForDeploy,
   readBusinessFactsFromMeta,
-  readBusinessFactsSupportFromMeta,
   resolveBusinessFactsSupport,
   type OpeningHours,
 } from "./business-facts-schema";
@@ -189,15 +188,6 @@ describe("readBusinessFactsForDeploy", () => {
 describe("business facts support record", () => {
   const record = { supported: false, versionId: "ver_1", checkedAt: "2026-10-22T09:00:00.000Z" };
 
-  it("reads a valid record and rejects malformed ones", () => {
-    expect(readBusinessFactsSupportFromMeta({ businessFactsSupport: record })).toEqual({
-      ...record,
-      importedRepo: false,
-    });
-    expect(readBusinessFactsSupportFromMeta(null)).toBeNull();
-    expect(readBusinessFactsSupportFromMeta({ businessFactsSupport: { supported: "yes" } })).toBeNull();
-  });
-
   it("only answers for the version that is live now", () => {
     expect(resolveBusinessFactsSupport(record, "ver_1")).toBe("unsupported");
     expect(resolveBusinessFactsSupport({ ...record, supported: true }, "ver_1")).toBe("supported");
@@ -208,12 +198,9 @@ describe("business facts support record", () => {
 
   it("separates imported repos from sites the builder can upgrade", () => {
     expect(resolveBusinessFactsSupport({ ...record, importedRepo: true }, "ver_1")).toBe("imported");
-    expect(
-      readBusinessFactsSupportFromMeta({ businessFactsSupport: { ...record, importedRepo: true } }),
-    ).toMatchObject({ importedRepo: true });
-    expect(readBusinessFactsSupportFromMeta({ businessFactsSupport: record })).toMatchObject({
-      importedRepo: false,
-    });
+    expect(resolveBusinessFactsSupport({ ...record, importedRepo: false }, "ver_1")).toBe(
+      "unsupported",
+    );
   });
 });
 

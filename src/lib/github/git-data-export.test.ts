@@ -216,6 +216,48 @@ describe("commitExportToGitHub", () => {
     expect(patches).toHaveLength(3);
   });
 
+  it("fails at once on a 422 that is not a moved branch (e.g. protected branch)", async () => {
+    let patches = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method || "GET").toUpperCase();
+      const pathname = new URL(String(input)).pathname.replace(/^\/+/, "");
+      if (method === "GET" && pathname === "repos/sites/site-1") {
+        return jsonResponse({ full_name: "sites/site-1", html_url: "u", default_branch: "main" });
+      }
+      if (method === "GET" && pathname === "repos/sites/site-1/git/refs/heads/main") {
+        return jsonResponse({ object: { sha: "c" } });
+      }
+      if (method === "GET" && pathname.startsWith("repos/sites/site-1/git/commits/")) {
+        return jsonResponse({ sha: "c", tree: { sha: "t" } });
+      }
+      if (method === "GET" && pathname.startsWith("repos/sites/site-1/git/trees/")) {
+        return jsonResponse({ tree: [], truncated: false });
+      }
+      if (method === "POST" && pathname.endsWith("/git/trees")) return jsonResponse({ sha: "t2" });
+      if (method === "POST" && pathname.endsWith("/git/commits")) return jsonResponse({ sha: "c2", tree: { sha: "t2" } });
+      if (method === "PATCH") {
+        patches += 1;
+        return jsonResponse({ message: "Protected branch update failed for refs/heads/main." }, 422);
+      }
+      return jsonResponse({ message: "unhandled" }, 500);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      commitExportToGitHub({
+        token: "ghs_x",
+        owner: "sites",
+        repo: "site-1",
+        isPrivate: true,
+        ownerIsOrg: true,
+        files: [{ path: "app/page.tsx", content: "x" }],
+        commitMessage: "Export",
+        textTransport: "inline",
+      }),
+    ).rejects.toThrow("Failed to update GitHub branch");
+    expect(patches).toBe(1);
+  });
+
   it("refuses an export with no files before touching GitHub", async () => {
     const { fetchMock } = installGitHubMock();
     await expect(

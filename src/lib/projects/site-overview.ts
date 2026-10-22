@@ -23,12 +23,9 @@ import { appProjects, deployments, engineChats } from "@/lib/db/schema";
 import { normalizeDomainHostname, resolveLiveUrl } from "@/lib/live-site-url";
 import { getProjectData } from "@/lib/db/services/projects";
 import { getVercelProjectProductionIdentity } from "@/lib/vercel/vercel-deploy";
-import { readSeoStatusFromMeta, type SeoStatusPersisted } from "./seo-status";
-import {
-  readBusinessFactsSupportFromMeta,
-  resolveBusinessFactsSupport,
-  type BusinessFactsSupportState,
-} from "./business-facts-schema";
+import type { SeoStatusPersisted } from "./seo-status";
+import { readPortalStatusForVersion } from "./portal-status";
+import type { BusinessFactsSupportState } from "./business-facts-schema";
 import { readGithubBackupFromMeta } from "@/lib/github/backup-status";
 
 /** Which kind of host is serving the site right now. */
@@ -225,17 +222,6 @@ export function toPublishState(status: string | null | undefined): SitePublishSt
   }
 }
 
-/**
- * The persisted SEO audit only describes the version it was taken from. Shown
- * only while that version is the attested live one; otherwise `null`.
- */
-export function seoStatusForLiveVersion(
-  status: SeoStatusPersisted | null,
-  liveVersionId: string | null,
-): SeoStatusPersisted | null {
-  if (!status || !liveVersionId || status.versionId !== liveVersionId) return null;
-  return status;
-}
 
 /** Id to subscribe to when the newest deployment is still in flight. */
 export function inFlightDeploymentId(
@@ -280,12 +266,10 @@ export async function getProjectSiteOverview(projectId: string): Promise<SiteOve
   // address and publish state, which are the portal's primary answers.
   const projectData = await getProjectData(normalizedId).catch(() => null);
   const projectMeta = (projectData?.meta as Record<string, unknown> | null | undefined) ?? null;
-  const seoStatus = readSeoStatusFromMeta(projectMeta);
   const codeBackup = readGithubBackupFromMeta(projectMeta);
   const codeBackupDate = codeBackup ? new Date(codeBackup.at) : null;
   const codeBackupAt =
     codeBackupDate && !Number.isNaN(codeBackupDate.getTime()) ? codeBackupDate : null;
-  const businessFactsSupportRecord = readBusinessFactsSupportFromMeta(projectMeta);
 
   const emptyOverview: SiteOverview = {
     projectId: project.id,
@@ -337,6 +321,9 @@ export async function getProjectSiteOverview(projectId: string): Promise<SiteOve
     vercelProjectId: project.vercelProjectId,
     productionDeploymentId: attested?.productionDeploymentId ?? null,
   });
+  // Per-version status for the attested live version only: a newer build that
+  // was accepted but failed never hides or replaces the live site's answer.
+  const livePortalStatus = readPortalStatusForVersion(projectMeta, liveRow?.versionId ?? null);
 
   return {
     ...emptyOverview,
@@ -345,11 +332,8 @@ export async function getProjectSiteOverview(projectId: string): Promise<SiteOve
     state: toPublishState(latest.status),
     liveAt: liveRow?.updatedAt ?? null,
     liveVersionId: liveRow?.versionId ?? null,
-    seoStatus: seoStatusForLiveVersion(seoStatus, liveRow?.versionId ?? null),
+    seoStatus: livePortalStatus.seoStatus,
     latestDeploymentId: inFlightDeploymentId(latest),
-    businessFactsSupport: resolveBusinessFactsSupport(
-      businessFactsSupportRecord,
-      liveRow?.versionId ?? null,
-    ),
+    businessFactsSupport: livePortalStatus.businessFactsSupport,
   };
 }

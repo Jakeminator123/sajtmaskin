@@ -12,7 +12,11 @@ import { getVercelDeployment, mapVercelReadyStateToStatus } from "./vercel-deplo
 export type DeploymentReadyOutcome = "ready" | "error" | "cancelled" | "timeout";
 
 export interface WaitForReadyOptions {
-  /** Total budget; default 180 s — under the deploy route's function limit. */
+  /**
+   * Total budget; default 120 s. It runs on top of the time the deploy route
+   * already used, so it stays well under the function's max duration; a site
+   * that builds slower is simply backed up on its next publish.
+   */
   timeoutMs?: number;
   /** Poll interval; default 10 s. */
   intervalMs?: number;
@@ -26,7 +30,7 @@ export async function waitForVercelDeploymentReady(
   vercelDeploymentId: string,
   options: WaitForReadyOptions = {},
 ): Promise<DeploymentReadyOutcome> {
-  const timeoutMs = options.timeoutMs ?? 180_000;
+  const timeoutMs = options.timeoutMs ?? 120_000;
   const intervalMs = options.intervalMs ?? 10_000;
   const getDeployment = options.getDeployment ?? getVercelDeployment;
   const sleep = options.sleep ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
