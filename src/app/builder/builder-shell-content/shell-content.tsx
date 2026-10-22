@@ -11,8 +11,10 @@ import {
   F3RequirementsSurface,
   F3StatusSurface,
 } from "@/components/builder/readiness/F3RequirementsSurface";
-import { TipCard } from "@/components/builder/shell/TipCard";
+import { SajtagentProvider } from "@/components/builder/chat/sajtagent/SajtagentProvider";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
+import { registerBuilderBridge } from "@/lib/openclaw/builder-bridge";
+import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import { CampaignAccountBanner } from "@/components/kostnadsfri/campaign-account-banner";
 import { currentBuilderReturnTo } from "@/lib/builder/pending-builder-draft";
 import { useAuthStore } from "@/lib/auth/auth-store";
@@ -23,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, Eye, MessageSquare } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BuilderLayout } from "../BuilderLayout";
 import type { BuilderViewModel } from "../useBuilderPageController";
 import { BuilderShellDialogs } from "./shell-dialogs";
@@ -90,14 +92,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     setEnableAutofix,
     isFigmaInputOpen,
     setIsFigmaInputOpen,
-    tipPanelOpen,
-    setTipPanelOpen,
-    tipText,
-    tipError,
-    tipCost,
-    isTipLoading,
     handleApproveBuildPlan,
-    handleRefreshTip,
   } = useShellF3TipsChrome(vm, sendMessage);
 
   const {
@@ -123,13 +118,38 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     chatOutputCollapse,
     isChatOutputCollapsed,
   } = useShellPreviewLayout(vm, {
-    tipPanelOpen,
     setEnableAutofix,
     setF3Requirements,
     setF3Status,
     sendMessage,
     isInteractionLocked,
   });
+
+  // Builder-brygga (plan 2026-10-22 «En chatt», E4): Sajtagentens byggkommandon
+  // går genom samma INLINDADE `sendMessage` som Skicka-knappen — den binder
+  // armerad continuation — i stället för att fylla komposern via DOM:en.
+  // Omregistrering är bara en modulvariabel-tilldelning, och korten läser
+  // bryggan färskt per poll, så effekten får följa sina inputs rakt av.
+  const bridgeChatId = vm.chatId;
+  const bridgeCancel = vm.cancelActiveGeneration;
+  useEffect(
+    () =>
+      registerBuilderBridge({
+        getChatId: () => bridgeChatId,
+        canSend: () => Boolean(bridgeChatId) && !isInteractionLocked,
+        sendMessage: (message, options) => sendMessage(message, options),
+        cancelGeneration: () => bridgeCancel(),
+      }),
+    [bridgeChatId, bridgeCancel, isInteractionLocked, sendMessage],
+  );
+
+  // Ett stopp är ett stopp: headerns «Avbryt» avbryter bygget OCH släpper ett
+  // aktivt agentmandat, så continuation-slingan inte skickar nästa steg på en
+  // tur användaren just avbröt.
+  const handleCancelGeneration = useCallback(() => {
+    useOpenClawStore.getState().setArmedMandate(null);
+    vm.cancelActiveGeneration();
+  }, [vm]);
 
   // Publiceringsspärrar (postcheck-overlay, fake_form, …) visas inte i chatten
   // — de bor i error-log + Versionsdiagnostik (ägare 2026-08-19).
@@ -188,7 +208,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onGoHome={vm.handleGoHome}
         onNewChat={vm.resetToNewChat}
         onSaveProject={vm.handleSaveProject}
-        onCancelGeneration={vm.cancelActiveGeneration}
+        onCancelGeneration={handleCancelGeneration}
         isDeploying={vm.isDeploying}
         isCreatingChat={vm.isCreatingChat}
         isAnyStreaming={vm.isAnyStreaming}
@@ -297,6 +317,17 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             mobileTab === "chat" ? "flex" : "hidden",
           )}
         >
+          {/* Sajtagenten bor i samma chatt som byggmotorn (plan 2026-10-22).
+              Providern äger agentens samtal, continuation och «nästa steg»
+              efter bygget; MessageList och ChatInterface läser den. */}
+          <SajtagentProvider
+            chatId={vm.chatId}
+            activeVersionId={vm.activeVersionId}
+            activeVersionStatus={activeVersionStatus ?? null}
+            activeVersionIsLatest={activeVersionIsLatest}
+            isAnyStreaming={vm.isAnyStreaming}
+            digestEnabled={vm.tipsEnabled}
+          >
           {/* F3 stannar utanför float-boxen; göms i collapsed lg+. */}
           <div className={cn(isChatOutputCollapsed && "lg:hidden")}>
             {/* Lucka 3 (ägarbeslut 2026-08-11): render while an F3-blocked
@@ -349,15 +380,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
               isStreaming={vm.isAnyStreaming}
             />
-            <TipCard
-              open={tipPanelOpen && vm.tipsEnabled}
-              isLoading={isTipLoading}
-              tip={tipText}
-              error={tipError}
-              cost={tipCost}
-              onRefresh={handleRefreshTip}
-              onClose={() => setTipPanelOpen(false)}
-            />
           </div>
           <FloatingCollapsedChatInput
             floatEnabled={isChatOutputCollapsed}
@@ -405,7 +427,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             hasGitHub={hasGitHub}
             githubUsername={authUser?.github_username ?? null}
           />
-
+          </SajtagentProvider>
         </div>
 
         <div

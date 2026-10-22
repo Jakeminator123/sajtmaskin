@@ -82,8 +82,10 @@ respektive kod, manifest eller policy. Aktuella inventarier finns i
 | Superseded ("Ersatt") | Terminal-neutralt `verification_state`: en nyare version tog över medan denna verifierades. |
 | Fast Edit Lane | Exakt deterministisk filändring utan LLM, sparad som minor-version. |
 | Minor-version | Quick-edit-version under en major, exempelvis `v3.1`. |
-| Sajtagenten / OpenClaw | Sajtagenten är den användarsynliga assistenten i chatten; OpenClaw är agentplattformen bakom (egen gateway-tjänst på Render, `infra/openclaw/`). |
-| Extra befogenheter (OpenClaw) | UI-opt-in ovanpå env-grinden `OC_EDIT`: sköldknapp i Sajtagenten-chatten + vald befogenhet (`armed_autonomy` / `quick_edit`) krävs innan något utöver guide-beteendet händer. |
+| Sajtagenten / OpenClaw | Sajtagenten är den användarsynliga assistenten; OpenClaw är agentplattformen bakom (gateway på Render, `infra/openclaw/`). I buildern bor den i samma chatt som byggmotorn (`SajtagentProvider`), på andra ytor som flytande bubbla. |
+| Gemensam chatt (builder) | En input och en tidslinje för byggmotor och Sajtagent. `composer-route.ts` väljer mottagare (Auto · Fråga · Bygg); agentrader förankras vid buildermeddelanden och persisteras i `agent_messages`, aldrig `engine_messages`. |
+| Direktbygg (`start_build`) | OpenClaw-action som startar en byggtur via builder-bryggan när användaren bett om en ändring; direkt med armerad autonomi, annars godkännandekort. |
+| Extra befogenheter (OpenClaw) | UI-opt-in ovanpå `OC_EDIT`: sköldknapp + vald befogenhet (`armed_autonomy` / `quick_edit` / `live_review`). Ny builderchatt utan grant får alla tre (`OPENCLAW_BUILDER_DEFAULT_POWERS`). |
 | Armerad autonomi | OpenClaw-läge där Sajtagenten efter uttrycklig armering får skicka ett begränsat antal follow-ups genom den ordinarie pipelinevägen. |
 | Snabbändring (OpenClaw) | OpenClaw-befogenhet: `apply_quick_edit`-förslag med exakta filoperationer som körs genom Fast Edit Lane till en minor-version efter manuellt godkännande per förslag. |
 | False-green | Systemet visar grönt trots blocker/degradation. |

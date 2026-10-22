@@ -18,6 +18,19 @@ export function readActiveBuilderChatId(): string | null {
   return typeof chatId === "string" && chatId.trim() ? chatId.trim() : null;
 }
 
+/**
+ * Builderns senaste meddelande-id, publicerat av `use-dev-context-effects.ts`.
+ * Ankaret som ger Sajtagentens rader sin plats i den gemensamma tidslinjen.
+ * `null` när buildern är öppen men chatten tom; `undefined` utanför buildern.
+ */
+export function readBuilderAnchor(): string | null | undefined {
+  if (typeof window === "undefined") return undefined;
+  const ctx = window.__SITEMASKIN_CONTEXT;
+  if (!ctx || ctx.page !== "builder") return undefined;
+  const lastMessageId = ctx.lastMessageId;
+  return typeof lastMessageId === "string" && lastMessageId ? lastMessageId : null;
+}
+
 export function readActiveBuilderTarget(): OpenClawBuilderTarget | null {
   if (typeof window === "undefined") return null;
   const ctx = window.__SITEMASKIN_CONTEXT;

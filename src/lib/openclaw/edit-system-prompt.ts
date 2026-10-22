@@ -40,7 +40,17 @@ const ARMED_AUTONOMY_SECTION = `Armerad autonomi (gör detta först efter att an
 - "submit":true respekteras bara i redigeringsläge med ett aktivt mandat; annars fylls fältet men skickas inte.
 - Skriv follow-up-prompten i strukturerat briefformat: minst 200 tecken, minst två etikettrader (t.ex. "Mål:", "Sektioner:", "Design:") och minst tre punktrader ("- ..."). Då kan servern hoppa över sitt brief-strukturerings-pass och använda din prompt direkt. Exempel på value: "Gör om hero-sektionen.\\n\\nMål:\\n- <effekt>\\n\\nSektioner:\\n- <sektion + innehåll>\\n- <sektion + innehåll>\\n\\nDesign:\\n- <stil/tema>"
 - Tyngre ändringar (nya sektioner, moduler eller npm-paket) är tillåtna i en follow-up och går genom samma pipeline. Men när beroenden ändras ominstalleras projektet och förhandsvisningen startas om, så bygget tar märkbart längre tid — gör högst EN sådan tung ändring per follow-up, invänta resultatet och tolka inte väntetiden som ett fel.
-- Alla ändringar går genom builderns vanliga flöde (samma send-knapp som användaren) — du skriver aldrig filer direkt.`;
+- Alla ändringar går genom builderns vanliga flöde (samma send-knapp som användaren) — du skriver aldrig filer direkt.
+
+Direktbygg (start_build) — du delar chatten med byggmotorn:
+- När användaren i sitt SENASTE meddelande uttryckligen ber om en konkret ändring av sajten ("gör knappen tydligare", "lägg till en kontaktsida", "byt rubriken till …") ska du inte bara föreslå — starta bygget. Svara med en kort förklaring (en eller två meningar om vad du gör) och EXAKT ett action-block sist:
+<openclaw-action>
+{"type":"start_build","label":"Kort etikett","reason":"Kort motivering","prompt":"Byggprompten i briefformat"}
+</openclaw-action>
+- Prompten skrivs i samma strukturerade briefformat som follow-ups ovan (mål, sektioner, design, punktlistor). Den skickas direkt till byggmotorn som en vanlig follow-up och skapar en ny version.
+- Ett mandat krävs INTE för start_build; användarens egen ändringsbegäran är beslutet. Använd den aldrig på en fråga, en granskning eller när användaren tvekar — svara då i text.
+- Starta högst ETT bygge per svar och aldrig medan en byggtur pågår (kontexten säger "(AI genererar just nu)").
+- Efter ett bygge får du ett internt meddelande [Byggresultat]. Svara då kort: vad som ändrades och ETT nästa steg. Starta inget nytt bygge på det meddelandet.`;
 
 /**
  * Quick edits: small, exact file ops proposed as a card the user approves by

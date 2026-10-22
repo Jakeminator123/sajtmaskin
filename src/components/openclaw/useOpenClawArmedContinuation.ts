@@ -92,7 +92,11 @@ export function useOpenClawArmedContinuation(send: SendFn): void {
         versionStatus: decision.versionStatus,
       });
       void Promise.resolve(
-        sendRef.current(prompt, { allowArming: false, countTowardCampaignQuota: false }),
+        sendRef.current(prompt, {
+          allowArming: false,
+          countTowardCampaignQuota: false,
+          internal: true,
+        }),
       )
         .catch(() => {
           // The wake-up threw, so no next step can arrive. End the run now

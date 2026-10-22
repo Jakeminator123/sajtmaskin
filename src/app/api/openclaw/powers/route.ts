@@ -31,10 +31,15 @@ export async function GET(req: Request) {
     if (!chat) {
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     }
-    const grant = (await readLiveReviewGrant(chatId)) ?? { powersOn: false, granted: [] };
+    const stored = await readLiveReviewGrant(chatId);
+    const grant = stored ?? { powersOn: false, granted: [] };
     return NextResponse.json({
       powersOn: OPENCLAW.editEnabled && grant.powersOn,
       granted: OPENCLAW.editEnabled ? grant.granted : [],
+      // Skiljer «ingen grant finns» från «grant uttryckligen av» så klienten
+      // kan ge en ny builderchatt standardbefogenheterna utan att återställa
+      // ett val användaren redan gjort (`OPENCLAW_BUILDER_DEFAULT_POWERS`).
+      persisted: stored !== null,
     });
   });
 }

@@ -4,7 +4,7 @@ Builder-UI:t är grupperat efter ansvar. Tester ligger bredvid koden de skyddar.
 
 | Mapp | Ansvar |
 |---|---|
-| `chat/` | Chatt, meddelanderendering, verktygsresultat och kollapslogik |
+| `chat/` | Chatt, meddelanderendering, verktygsresultat och kollapslogik. `chat/sajtagent/` är Sajtagentens hem i den gemensamma chatten (provider, agentrad, lägesväljare) |
 | `diagnostics/` | Diagnostik- och traceytor |
 | `preview-panel/` | Preview, kodvy, inspect, composer och Byggblock-UI |
 | `project-transfer/` | Import från repo och export till GitHub |

@@ -131,6 +131,8 @@ EMPTY_TABLES: Tuple[str, ...] = (
     "company_profiles",
     "engine_chats",
     "engine_messages",
+    # Sajtagentens samtal per builderchatt; följer engine_chats (FK CASCADE).
+    "agent_messages",
     "engine_versions",
     "engine_generation_logs",
     "engine_version_error_logs",

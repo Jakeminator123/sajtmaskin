@@ -1,6 +1,10 @@
 import { readActiveBuilderChatId } from "@/lib/openclaw/builder-target";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
-import { sanitizeOpenClawPowerIds, type OpenClawPowerId } from "@/lib/openclaw/powers";
+import {
+  OPENCLAW_BUILDER_DEFAULT_POWERS,
+  sanitizeOpenClawPowerIds,
+  type OpenClawPowerId,
+} from "@/lib/openclaw/powers";
 
 type PersistJob = {
   chatId: string;
@@ -104,11 +108,23 @@ export async function hydrateOpenClawPowersForChat(
     const data = (await res.json().catch(() => null)) as {
       powersOn?: unknown;
       granted?: unknown;
+      persisted?: unknown;
     } | null;
     if (!data) return;
     if (generation !== hydrateGeneration) return;
     if (readActiveBuilderChatId() !== id) return;
     if (chatHasPendingPersist(id) && !opts?.allowDuringPersist) return;
+    // Ny builderchatt utan grant: standardbefogenheterna gäller och skrivs ner
+    // så nästa laddning läser samma sak. `persisted === false` är serverns
+    // uttryckliga besked; ett äldre svar utan fältet lämnas orört.
+    if (data.persisted === false && useOpenClawStore.getState().editEnabled) {
+      useOpenClawStore.getState().hydratePowers({
+        powersOn: true,
+        grantedPowers: [...OPENCLAW_BUILDER_DEFAULT_POWERS],
+      });
+      void persistOpenClawPowersForActiveChat();
+      return;
+    }
     const grantedPowers = sanitizeOpenClawPowerIds(data.granted) as OpenClawPowerId[];
     useOpenClawStore.getState().hydratePowers({
       powersOn: data.powersOn === true,
