@@ -163,6 +163,9 @@ Thumbs.db
 .cursor/documents/
 # Local Cursor MCP (IDE only; not read by Next/own-engine). May hold tokens or machine paths; template: .cursor/mcp.json.example
 .cursor/mcp.json
+# Claude Code: maskinlokala godkännanden. Delad konfiguration: CLAUDE.md, .claude/settings.json, .mcp.json
+.claude/settings.local.json
+.claude/worktrees/
 
 # OAuth / mobile secret dumps (never commit real files)
 **/client_secret*.json

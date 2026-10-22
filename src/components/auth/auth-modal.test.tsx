@@ -11,8 +11,13 @@ vi.mock("@/lib/builder/pending-builder-draft", () => ({
   googleOAuthStartHref: (returnTo: string) => `/api/auth/google?redirect=${returnTo}`,
   touchPendingBuilderDraftReturnTo: vi.fn(),
 }));
+const noteOpenAiRegistrationCompleted = vi.hoisted(() => vi.fn());
+
 vi.mock("@/lib/ads/fire-google-ads-conversion", () => ({
   noteGoogleAdsConversion: vi.fn(),
+}));
+vi.mock("@/lib/ads/fire-openai-ads", () => ({
+  noteOpenAiRegistrationCompleted,
 }));
 
 import { AuthModal } from "./auth-modal";
@@ -38,6 +43,7 @@ describe("AuthModal onSuccess", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     setUser.mockReset();
+    noteOpenAiRegistrationCompleted.mockReset();
   });
 
   it("fires exactly once after a successful login and store update", async () => {
@@ -94,6 +100,25 @@ describe("AuthModal onSuccess", () => {
     fireEvent.click(screen.getByRole("button", { name: "Skapa konto" }));
     await screen.findByRole("status");
     expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it("notes OpenAI registration after account create even when verification is pending", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          requiresEmailVerification: true,
+          emailVerificationSent: true,
+          user: null,
+        }),
+      ),
+    );
+    render(<AuthModal isOpen onClose={vi.fn()} defaultMode="register" />);
+    fireEvent.change(screen.getByLabelText("E-post"), { target: { value: "new@example.se" } });
+    fireEvent.change(screen.getByLabelText("Lösenord"), { target: { value: "secret123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Skapa konto" }));
+    await screen.findByRole("status");
+    expect(noteOpenAiRegistrationCompleted).toHaveBeenCalledTimes(1);
   });
 
   it("does not turn an async continuation failure into an auth error", async () => {

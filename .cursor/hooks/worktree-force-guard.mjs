@@ -94,6 +94,44 @@ function inspectGitInvocation(tokens) {
   return { subcommand, args };
 }
 
+/**
+ * Git läser `-uf` som `-u -f` och godtar entydigt förkortade långa flaggor
+ * (`--mirr` = `--mirror`). Båda formerna gick förbi exakta tokenjämförelser
+ * medan allowlistans prefix (`git push`, `git switch`, `git branch -vv`) släppte
+ * dem utan fråga (extern granskning 2026-10-22).
+ */
+function clusterHas(token, letters, valueLetters = "") {
+  // Siffror är egna flaggor (`git push -4f` = `--ipv4 --force`). En flagga som
+  // tar värde (`-o`, `-c`, `-b`) avslutar klustret: resten är värdet, inte flaggor.
+  if (!/^-[A-Za-z0-9]{2,}$/u.test(token)) return false;
+  for (const c of token.slice(1)) {
+    if (letters.includes(c)) return true;
+    if (valueLetters.includes(c)) return false;
+  }
+  return false;
+}
+
+/** Läsflaggor som allowlistan (`git branch -vv`, `-a`, `-r`, `--list` …) släpper som prefix. */
+const BRANCH_READ_FLAG = /^(?:-[avr]+|--list|--all|--remotes|--show-current|--verbose)$/u;
+
+function abbreviates(token, longNames) {
+  if (!token.startsWith("--")) return false;
+  const name = token.slice(2).split("=")[0];
+  return name.length >= 1 && longNames.some((long) => long !== name && long.startsWith(name));
+}
+
+const PUSH_DANGEROUS_LONG = [
+  "force",
+  "force-with-lease",
+  "force-if-includes",
+  "delete",
+  "mirror",
+  "prune",
+  "no-verify",
+];
+const DISCARD_LONG = ["force", "discard-changes"];
+const BRANCH_MUTATING_LONG = ["delete", "move", "copy", "force"];
+
 function takeNamedArgs(args, createFlags, valueFlags) {
   const creates = [];
   const positionals = [];
@@ -133,7 +171,20 @@ function classifyGitInvocation(subcommand, args) {
   }
 
   if (subcommand === "branch") {
+    // `git branch -vvd x` matchar allowlistans läsprefix `git branch -vv`; en
+    // skrivflagga gömd i ett kluster eller en förkortning nekas därför här.
+    // Fristående `-d`/`-D` når som förut klassificeraren/frågan.
+    if (
+      args.some(
+        (token) => clusterHas(token, "dDmMcCf", "u") || abbreviates(token, BRANCH_MUTATING_LONG),
+      )
+    ) {
+      return "deny-branch-cluster";
+    }
     const mutating = args.some((token) => BRANCH_MUTATING_FLAG.test(token));
+    // `git branch -vv -d x` börjar med ett allowlistat läsprefix och smet därför
+    // förbi frågan. Skrivflaggan först (`git branch -d -r origin/x`) når den.
+    if (mutating && BRANCH_READ_FLAG.test(args[0] ?? "")) return "deny-branch-cluster";
     const positionals = args.filter((token) => !token.startsWith("-"));
     const listing =
       !mutating &&
@@ -152,7 +203,16 @@ function classifyGitInvocation(subcommand, args) {
     // `-f` / `--discard-changes` throw away uncommitted work in the tree with
     // no recovery path. With `git switch` allowlisted in permissions.json this
     // would otherwise run without anyone seeing it (extern granskning, 5/10).
-    if (args.some((token) => token === "-f" || token === "--force" || token === "--discard-changes")) {
+    if (
+      args.some(
+        (token) =>
+          token === "-f" ||
+          token === "--force" ||
+          token === "--discard-changes" ||
+          clusterHas(token, "f", "cCbB") ||
+          abbreviates(token, DISCARD_LONG),
+      )
+    ) {
       return "deny-discard";
     }
     if (args.some((token) => token === "--ours" || token === "--theirs")) {
@@ -203,6 +263,8 @@ function classifyGitInvocation(subcommand, args) {
           token === "--mirror" ||
           token === "--prune" ||
           token === "--no-verify" ||
+          clusterHas(token, "fd", "o") ||
+          abbreviates(token, PUSH_DANGEROUS_LONG) ||
           /^\+\S/u.test(token) ||
           /^:\S/u.test(token),
       )
@@ -237,6 +299,7 @@ export function cheapShellDecision(command) {
   if (verdicts.includes("deny-immutable")) return immutableBranchDenial();
   if (verdicts.includes("deny-force-push")) return forcePushDenial();
   if (verdicts.includes("deny-discard")) return discardDenial();
+  if (verdicts.includes("deny-branch-cluster")) return branchClusterDenial();
 
   const expandable = command.replace(/'[^']*'/gu, "");
   if (SHELL_EXPANSION.test(expandable)) return null;
@@ -275,6 +338,20 @@ export function discardDenial() {
     agent_message:
       "Denied: `git checkout -f`, `git switch -f` and `--discard-changes` drop uncommitted work with no " +
       "recovery path. Use `git stash` or commit first. Do not work around this with another command.",
+  };
+}
+
+export function branchClusterDenial() {
+  return {
+    permission: "deny",
+    user_message:
+      "Blockerat: en skrivflagga (`-d/-D/-m/-M/-c/-C/-f` eller förkortad `--delete/--move/--copy/--force`) " +
+      "gömd i ett flaggkluster eller efter en läsflagga (`-vv`, `-a`, `-r`, `--list`) för `git branch`. " +
+      "Läsformerna är allowlistade, skrivformerna ska frågas.",
+    agent_message:
+      "Denied: a mutating `git branch` flag hidden in a short-flag cluster, an abbreviated long option, or " +
+      "placed after an allowlisted read flag (e.g. `-vvd`, `--del`, `-vv -d`). Put the write flag first " +
+      "(`git branch -d <name>`) so it reaches the normal approval path. Do not work around this with another command.",
   };
 }
 

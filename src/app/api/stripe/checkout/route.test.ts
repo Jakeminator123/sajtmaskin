@@ -16,8 +16,10 @@ vi.mock("@/lib/config", () => ({
   SECRETS: { stripeSecretKey: "sk_test_x" },
   URLS: { baseUrl: "http://localhost:3000" },
 }));
+const getTransactionByStripeSession = vi.hoisted(() => vi.fn());
+
 vi.mock("@/lib/db/services/transactions", () => ({
-  getTransactionByStripeSession: vi.fn(),
+  getTransactionByStripeSession,
 }));
 
 vi.mock("stripe", async (importOriginal) => {
@@ -34,7 +36,7 @@ vi.mock("stripe", async (importOriginal) => {
   };
 });
 
-const { POST } = await import("./route");
+const { GET, POST } = await import("./route");
 
 const PACKAGE = {
   id: "popular",
@@ -138,5 +140,54 @@ describe("POST /api/stripe/checkout", () => {
     expect(body.success).toBe(false);
     expect(body.error).toContain("Betalningsfel");
     expect(createSession).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("GET /api/stripe/checkout", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getCurrentUser.mockResolvedValue({ id: "user-1", email: "buyer@example.com" });
+    getTransactionByStripeSession.mockResolvedValue(null);
+  });
+
+  it("returnerar credited=false utan pixelpayload när sessionen saknas", async () => {
+    const response = await GET(
+      new NextRequest("http://localhost/api/stripe/checkout?session_id=cs_missing"),
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ success: true, credited: false });
+  });
+
+  it("returnerar paketbelopp i öre när webhooken har krediterat sessionen", async () => {
+    getTransactionByStripeSession.mockResolvedValue({
+      user_id: "user-1",
+      description: "Köp: popular",
+    });
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/stripe/checkout?session_id=cs_ok"),
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      credited: true,
+      packageId: "popular",
+      name: "Popular",
+      amount: 9900,
+      currency: "SEK",
+    });
+  });
+
+  it("nekas för en annan användares session", async () => {
+    getTransactionByStripeSession.mockResolvedValue({
+      user_id: "other-user",
+      description: "Köp: popular",
+    });
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/stripe/checkout?session_id=cs_ok"),
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ success: true, credited: false });
   });
 });
