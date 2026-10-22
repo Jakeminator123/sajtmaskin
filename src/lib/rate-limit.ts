@@ -115,6 +115,7 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "v0:deployments-events": { maxRequests: 60, windowMs: 60 * 1000 },
   "engine:quality-gate": { maxRequests: 12, windowMs: 60 * 1000 },
   "engine:repair": { maxRequests: 12, windowMs: 60 * 1000 },
+  "engine:postchecks:request": { maxRequests: 60, windowMs: 60 * 1000 },
   "engine:postchecks": { maxRequests: 2, windowMs: 60 * 1000 },
   "engine:readiness": { maxRequests: 60, windowMs: 60 * 1000 },
   // Polled by `useVersionStatus` (default 4s while a version is non-terminal).
@@ -290,11 +291,14 @@ export async function withRateLimit(
   handler: () => Promise<Response>,
   options?: {
     userId?: string;
+    /** Only after authorizing this exact resource; never use an unverified request value. */
+    verifiedResourceId?: string;
     failClosedOnTimeout?: boolean;
     rateLimitErrorCode?: string;
   },
 ): Promise<Response> {
-  const clientId = getClientId(request, options);
+  const resourceId = options?.verifiedResourceId?.trim();
+  const clientId = resourceId ? `resource:${resourceId}` : getClientId(request, options);
   const limits = RATE_LIMITS[endpoint] || RATE_LIMITS["default"];
   let limiter: ReturnType<typeof getLimiter>;
   try {
@@ -385,10 +389,11 @@ export async function withRateLimit(
   const clonedResponse = response.clone();
 
   const headers = new Headers(clonedResponse.headers);
+  // A nested, narrower limiter owns its response metadata (including 429).
   Object.entries(createRateLimitHeaders(result)).forEach(([key, value]) => {
-    headers.set(key, value);
+    if (!headers.has(key)) headers.set(key, value);
   });
-  headers.set("X-RateLimit-Mode", rateLimitMode);
+  if (!headers.has("X-RateLimit-Mode")) headers.set("X-RateLimit-Mode", rateLimitMode);
 
   return new Response(clonedResponse.body, {
     status: clonedResponse.status,
