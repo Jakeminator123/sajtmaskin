@@ -429,7 +429,7 @@ describe("GET /api/projects/[id]/preferences — business", () => {
       meta: {
         business: {
           hours: { mode: "always_open", week: null },
-          contact: { phone: "08-1", email: null, orgNumber: null, address: null },
+          contact: { phone: "08-123 45 67", email: null, orgNumber: null, address: null },
           lastSetAt: "2026-10-22T10:00:00.000Z",
         },
       },

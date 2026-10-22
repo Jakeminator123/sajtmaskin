@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BusinessFactsSection, TIME_OPTIONS, toInput } from "./BusinessFactsSection";
+import { BusinessFactsSection, TIME_OPTIONS, supportCopy, toInput } from "./BusinessFactsSection";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status });
@@ -39,7 +39,7 @@ describe("BusinessFactsSection", () => {
       return json({ success: true, preferences: { business: SAVED } });
     }) as unknown as typeof fetch;
 
-    render(<BusinessFactsSection projectId="proj_1" hasLiveVersion />);
+    render(<BusinessFactsSection projectId="proj_1" hasLiveVersion support="supported" />);
 
     await screen.findByText("Måndag–Torsdag 09:00–17:00");
     expect(screen.getByText("Fredag 09:00–15:00")).toBeTruthy();
@@ -66,7 +66,7 @@ describe("BusinessFactsSection", () => {
       return json({ success: true, preferences: { business: SAVED } });
     }) as unknown as typeof fetch;
 
-    render(<BusinessFactsSection projectId="proj_1" hasLiveVersion />);
+    render(<BusinessFactsSection projectId="proj_1" hasLiveVersion support="supported" />);
     await screen.findByText("Måndag–Torsdag 09:00–17:00");
 
     fireEvent.change(screen.getByLabelText("Typ av öppettider"), { target: { value: "always_open" } });
@@ -97,7 +97,7 @@ describe("BusinessFactsSection", () => {
       json({ success: true, preferences: { business: SAVED } }),
     ) as unknown as typeof fetch;
 
-    render(<BusinessFactsSection projectId="proj_1" hasLiveVersion={false} />);
+    render(<BusinessFactsSection projectId="proj_1" hasLiveVersion={false} support="unknown" />);
     await screen.findByText("Måndag–Torsdag 09:00–17:00");
 
     expect(screen.getByLabelText("Fredag öppnar")).toBeTruthy();
@@ -107,6 +107,31 @@ describe("BusinessFactsSection", () => {
     });
     expect(screen.getByText("Måndag–Torsdag 09:00–17:00")).toBeTruthy();
     expect(screen.getByText("Fredag–Söndag Stängt")).toBeTruthy();
+  });
+
+  it("never promises that republishing is enough when the live site lacks the module", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      json({ success: true, preferences: { business: SAVED } }),
+    ) as unknown as typeof fetch;
+
+    render(<BusinessFactsSection projectId="proj_1" hasLiveVersion support="unsupported" />);
+    await screen.findByText("Måndag–Torsdag 09:00–17:00");
+
+    expect(screen.getByText(/byggd utan automatiska företagsuppgifter/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Uppdatera i byggaren/ }).getAttribute("href")).toBe(
+      "/builder?project=proj_1",
+    );
+    expect(screen.queryByText(/Ingen ny generering behövs/)).toBeNull();
+  });
+
+  it("keeps toast and footer copy in one owner per support state", () => {
+    expect(supportCopy("supported", true).toast).toMatch(/Publicera om/);
+    expect(supportCopy("supported", true).needsBuilder).toBe(false);
+    expect(supportCopy("unsupported", true).needsBuilder).toBe(true);
+    expect(supportCopy("unsupported", true).toast).not.toMatch(/Publicera om sajten så syns/);
+    expect(supportCopy("unknown", true).footer).toMatch(/nästa publicering/);
+    // Before the first publish the support state is irrelevant.
+    expect(supportCopy("unsupported", false)).toEqual(supportCopy("unknown", false));
   });
 
   it("offers only half-hour steps", () => {

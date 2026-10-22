@@ -60,12 +60,12 @@ async function loadRenderedModule(facts: BusinessFactsPersisted): Promise<Render
     ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"),
   );
   expect(diagnostics).toEqual([]);
-  const module = { exports: {} as RenderedModule };
+  const moduleRef = { exports: {} as RenderedModule };
   const evaluate = new Function("exports", "module", "require", output.outputText);
-  evaluate(module.exports, module, () => {
+  evaluate(moduleRef.exports, moduleRef, () => {
     throw new Error("rendered module must not require anything");
   });
-  return module.exports;
+  return moduleRef.exports;
 }
 
 describe("renderBusinessFactsModule", () => {
@@ -97,8 +97,15 @@ describe("renderBusinessFactsModule", () => {
     expect(mod.isOpenNow(new Date("2026-10-21T16:00:00Z"))).toBe(false);
     // Saturday 23:30 Stockholm → open (22:00–02:00).
     expect(mod.isOpenNow(new Date("2026-10-24T21:30:00Z"))).toBe(true);
-    // Sunday → closed.
+    // Sunday 01:00 Stockholm → still Saturday's night opening, even though Sunday is closed.
+    expect(mod.isOpenNow(new Date("2026-10-24T23:00:00Z"))).toBe(true);
+    // Sunday 02:30 → Saturday's opening has closed.
+    expect(mod.isOpenNow(new Date("2026-10-25T00:30:00Z"))).toBe(false);
+    // Sunday 10:00 → closed.
     expect(mod.isOpenNow(new Date("2026-10-25T10:00:00Z"))).toBe(false);
+    // Saturday 01:00 → Friday closed at 15:00, so the small hours are NOT open
+    // even though Saturday itself has an overnight interval later.
+    expect(mod.isOpenNow(new Date("2026-10-23T23:00:00Z"))).toBe(false);
   });
 
   it("returns null for isOpenNow when hours are unknown and renders empty lines", async () => {
@@ -130,15 +137,26 @@ describe("renderBusinessFactsModule", () => {
 });
 
 describe("applyBusinessFactsToFiles", () => {
-  it("rewrites only an existing module and leaves other files untouched", () => {
+  it("rewrites only an existing marked module and leaves other files untouched", () => {
     const files = [
       { name: "app/page.tsx", content: "export default function Page() { return null }" },
-      { name: BUSINESS_FACTS_MODULE_PATH, content: "// stale" },
+      { name: BUSINESS_FACTS_MODULE_PATH, content: `${BUSINESS_FACTS_MODULE_MARKER}\n// stale` },
     ];
     const result = applyBusinessFactsToFiles(files, FACTS);
     expect(result.applied).toBe(true);
+    expect(result.skipped).toEqual([]);
     expect(result.files[0]).toBe(files[0]);
     expect(result.files[1].content).toBe(renderBusinessFactsModule(FACTS));
+  });
+
+  it("leaves a module the LLM rewrote (marker gone) untouched and reports it", () => {
+    const files = [
+      { name: BUSINESS_FACTS_MODULE_PATH, content: "export const businessFacts = { custom: true };" },
+    ];
+    const result = applyBusinessFactsToFiles(files, FACTS);
+    expect(result.applied).toBe(false);
+    expect(result.skipped).toEqual([BUSINESS_FACTS_MODULE_PATH]);
+    expect(result.files[0]).toBe(files[0]);
   });
 
   it("is a no-op for a site without the module or with identical content", () => {

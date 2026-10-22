@@ -186,6 +186,74 @@ export function readBusinessFactsFromMeta(
   };
 }
 
+/**
+ * Deploy-time read: unlike {@link readBusinessFactsFromMeta} this must NOT turn
+ * a broken read into "no facts", because the deploy would then rewrite the
+ * site's `lib/business-facts.ts` with empty values and silently drop the
+ * customer's hours. `null` = unknown → the caller leaves the module alone.
+ *
+ * - `meta` missing/unreadable → `null` (unknown)
+ * - `business` absent or `null` → defaults (the owner cleared or never set facts)
+ * - `business` present but malformed → `null` (unknown)
+ */
+export function readBusinessFactsForDeploy(
+  meta: Record<string, unknown> | null | undefined,
+): BusinessFactsPersisted | null {
+  if (!meta || typeof meta !== "object") return null;
+  const raw = (meta as Record<string, unknown>).business;
+  if (raw === undefined || raw === null) return structuredClone(BUSINESS_FACTS_DEFAULTS);
+  if (typeof raw !== "object" || Array.isArray(raw)) return null;
+  const parsed = businessFactsInputSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const lastSetAt = (raw as Record<string, unknown>).lastSetAt;
+  return { ...parsed.data, lastSetAt: typeof lastSetAt === "string" ? lastSetAt : null };
+}
+
+export const BUSINESS_FACTS_SUPPORT_META_KEY = "businessFactsSupport";
+
+/**
+ * Written by the deploy route on every production publish: did the files that
+ * went live contain a marked `lib/business-facts.ts`? The portal uses it to
+ * tell the customer whether "Publicera om" will carry their edits, instead of
+ * promising it for a site generated before the feature existed.
+ */
+export type BusinessFactsSupportRecord = {
+  supported: boolean;
+  versionId: string;
+  checkedAt: string;
+};
+
+export type BusinessFactsSupportState = "supported" | "unsupported" | "unknown";
+
+export function readBusinessFactsSupportFromMeta(
+  meta: Record<string, unknown> | null | undefined,
+): BusinessFactsSupportRecord | null {
+  if (!meta || typeof meta !== "object") return null;
+  const raw = (meta as Record<string, unknown>)[BUSINESS_FACTS_SUPPORT_META_KEY];
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const record = raw as Record<string, unknown>;
+  if (
+    typeof record.supported !== "boolean" ||
+    typeof record.versionId !== "string" ||
+    typeof record.checkedAt !== "string"
+  ) {
+    return null;
+  }
+  return { supported: record.supported, versionId: record.versionId, checkedAt: record.checkedAt };
+}
+
+/**
+ * The record only answers for the version it was taken from. A different live
+ * version (or none) is `unknown`, and the portal must not promise anything.
+ */
+export function resolveBusinessFactsSupport(
+  record: BusinessFactsSupportRecord | null,
+  liveVersionId: string | null | undefined,
+): BusinessFactsSupportState {
+  if (!record || !liveVersionId || record.versionId !== liveVersionId) return "unknown";
+  return record.supported ? "supported" : "unsupported";
+}
+
 /** True when the owner has stated at least one fact worth rendering. */
 export function hasBusinessFacts(facts: BusinessFactsPersisted | null | undefined): boolean {
   if (!facts) return false;

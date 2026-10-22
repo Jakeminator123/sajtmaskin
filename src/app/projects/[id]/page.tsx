@@ -361,6 +361,7 @@ export default function ProjectSitePage() {
                 <BusinessFactsSection
                   projectId={site.projectId}
                   hasLiveVersion={Boolean(site.liveVersionId)}
+                  support={site.businessFactsSupport}
                 />
               </Section>
 

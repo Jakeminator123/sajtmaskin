@@ -17,11 +17,13 @@
  */
 import { FEATURES, SECRETS } from "@/lib/config";
 import { getVersionById } from "@/lib/db/chat-repository-pg";
-import { saveProjectData } from "@/lib/db/services/projects";
+import { getProjectData, saveProjectData } from "@/lib/db/services/projects";
 import { buildPortableExportProject } from "@/lib/gen/export/build-portable-export-project";
 import type { GitHubExportSourceFile } from "@/lib/gen/export/github-tree-plan";
 import { sanitizeEnvSecretsForPublicExport } from "@/lib/gen/export/sanitize-public-export";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
+import { applyBusinessFactsToFiles } from "@/lib/projects/business-facts-module";
+import { readBusinessFactsForDeploy } from "@/lib/projects/business-facts-schema";
 import { loadProjectExportMedia } from "@/lib/projects/project-export-media";
 import { createInstallationTokenClient } from "./app-installation-token";
 import { GITHUB_BACKUP_META_KEY, type GithubBackupStatus } from "./backup-status";
@@ -64,6 +66,32 @@ function safeMediaFileName(originalName: string, id: number | string): string {
   return `${id}-${stem || "media"}${ext || ".bin"}`;
 }
 
+/**
+ * Manual-backup fallback: the stored version with secrets stripped and a marked
+ * `lib/business-facts.ts` rewritten from the current facts (unknown facts leave
+ * the stored file as-is, same rule as the deploy route).
+ */
+async function storedVersionFilesWithCurrentFacts(params: {
+  version: { files_json: unknown };
+  chatId: string;
+  projectId: string;
+}): Promise<Array<{ path: string; content: string }>> {
+  const rawFiles = parseCodeFilesFromFilesJson(params.version.files_json as string) ?? [];
+  const portable = await buildPortableExportProject(rawFiles, params.chatId);
+  const sanitized = sanitizeEnvSecretsForPublicExport(portable);
+  const projectData = await getProjectData(params.projectId).catch(() => null);
+  const facts = projectData
+    ? readBusinessFactsForDeploy(
+        (projectData.meta as Record<string, unknown> | null | undefined) ?? {},
+      )
+    : null;
+  if (!facts) return sanitized.map((file) => ({ path: file.path, content: file.content }));
+  return applyBusinessFactsToFiles(
+    sanitized.map((file) => ({ name: file.path, content: file.content })),
+    facts,
+  ).files.map((file) => ({ path: file.name, content: file.content }));
+}
+
 export interface BackupPublishedVersionParams {
   projectId: string;
   chatId: string;
@@ -71,30 +99,44 @@ export interface BackupPublishedVersionParams {
   deploymentId: string | null;
   /** Owner of the project; media in the library are scoped by user. `null` for session projects. */
   userId: string | null;
+  /**
+   * The exact text files the deploy sent to Vercel (after SEO pass, business
+   * facts rewrite and canonical metadata). When given, the backup is this
+   * snapshot — not a re-read of the version, which could miss or race a portal
+   * edit. Omitted only for a manual backup of a stored version.
+   */
+  publishedFiles?: ReadonlyArray<{ path: string; content: string }>;
 }
 
 /**
- * Commit the exact published version (plus uploaded media) to
+ * Commit the published version's source (plus uploaded media) to
  * `GITHUB_SITES_ORG/site-<projectId>` and record the result under
  * `project_data.meta.githubBackup`. Returns `null` when the feature is off.
  *
- * Secrets are stripped the same way the customer export strips them. Media URLs
- * are NOT rewritten: the live site keeps pointing at Vercel Blob, and the files
- * are in the repo as well, so the backup is complete without being a migration.
+ * What the repo holds when called from the deploy route: the exact text files
+ * that went live (`publishedFiles`: SEO pass, business-facts rewrite and
+ * canonical metadata already applied) with secrets stripped, plus media as
+ * files. Without `publishedFiles` (manual backup of a stored version) it falls
+ * back to the version's files with `lib/business-facts.ts` rewritten from the
+ * current Företagsuppgifter. Media URLs are not rewritten; the live site keeps
+ * pointing at Vercel Blob.
  */
 export async function backupPublishedVersion(
   params: BackupPublishedVersionParams,
 ): Promise<GithubBackupStatus | null> {
   if (!FEATURES.useGitHubSitesOrg) return null;
-  const { projectId, chatId, versionId, deploymentId, userId } = params;
+  const { projectId, chatId, versionId, deploymentId, userId, publishedFiles } = params;
 
   const version = await getVersionById(versionId);
   if (!version || version.chat_id !== chatId) {
     throw new Error(`Backup: version ${versionId} does not belong to chat ${chatId}`);
   }
-  const rawFiles = parseCodeFilesFromFilesJson(version.files_json) ?? [];
-  const portable = await buildPortableExportProject(rawFiles, chatId);
-  const safeFiles = sanitizeEnvSecretsForPublicExport(portable);
+
+  const safeFiles = publishedFiles
+    ? sanitizeEnvSecretsForPublicExport(
+        publishedFiles.map((file) => ({ path: file.path, content: file.content, language: "" })),
+      ).map((file) => ({ path: file.path, content: file.content }))
+    : await storedVersionFilesWithCurrentFacts({ version, chatId, projectId });
 
   const media = userId
     ? await loadProjectExportMedia({

@@ -5,7 +5,10 @@ import {
   formatAddressLine,
   formatOpeningHoursLines,
   hasBusinessFacts,
+  readBusinessFactsForDeploy,
   readBusinessFactsFromMeta,
+  readBusinessFactsSupportFromMeta,
+  resolveBusinessFactsSupport,
   type OpeningHours,
 } from "./business-facts-schema";
 
@@ -144,6 +147,60 @@ describe("readBusinessFactsFromMeta", () => {
     const facts = readBusinessFactsFromMeta(null);
     facts.contact.phone = "123";
     expect(BUSINESS_FACTS_DEFAULTS.contact.phone).toBeNull();
+  });
+});
+
+describe("readBusinessFactsForDeploy", () => {
+  it("treats an unreadable meta or a malformed namespace as unknown, never as empty facts", () => {
+    expect(readBusinessFactsForDeploy(null)).toBeNull();
+    expect(readBusinessFactsForDeploy(undefined)).toBeNull();
+    expect(readBusinessFactsForDeploy({ business: "9-17" })).toBeNull();
+    expect(readBusinessFactsForDeploy({ business: { hours: { mode: "weird" } } })).toBeNull();
+    expect(
+      readBusinessFactsForDeploy({
+        business: {
+          hours: { mode: "always_open", week: null },
+          // One invalid field must not wipe the whole module on deploy.
+          contact: { phone: "1", email: null, orgNumber: null, address: null },
+        },
+      }),
+    ).toBeNull();
+  });
+
+  it("reads an absent or cleared namespace as intentionally empty", () => {
+    expect(readBusinessFactsForDeploy({})).toEqual(BUSINESS_FACTS_DEFAULTS);
+    expect(readBusinessFactsForDeploy({ seo: {} })).toEqual(BUSINESS_FACTS_DEFAULTS);
+    expect(readBusinessFactsForDeploy({ business: null })).toEqual(BUSINESS_FACTS_DEFAULTS);
+  });
+
+  it("returns valid facts with lastSetAt", () => {
+    const facts = readBusinessFactsForDeploy({
+      business: {
+        hours: { mode: "always_open", week: null },
+        contact: { phone: null, email: null, orgNumber: null, address: null },
+        lastSetAt: "2026-10-22T08:00:00.000Z",
+      },
+    });
+    expect(facts?.hours.mode).toBe("always_open");
+    expect(facts?.lastSetAt).toBe("2026-10-22T08:00:00.000Z");
+  });
+});
+
+describe("business facts support record", () => {
+  const record = { supported: false, versionId: "ver_1", checkedAt: "2026-10-22T09:00:00.000Z" };
+
+  it("reads a valid record and rejects malformed ones", () => {
+    expect(readBusinessFactsSupportFromMeta({ businessFactsSupport: record })).toEqual(record);
+    expect(readBusinessFactsSupportFromMeta(null)).toBeNull();
+    expect(readBusinessFactsSupportFromMeta({ businessFactsSupport: { supported: "yes" } })).toBeNull();
+  });
+
+  it("only answers for the version that is live now", () => {
+    expect(resolveBusinessFactsSupport(record, "ver_1")).toBe("unsupported");
+    expect(resolveBusinessFactsSupport({ ...record, supported: true }, "ver_1")).toBe("supported");
+    expect(resolveBusinessFactsSupport(record, "ver_2")).toBe("unknown");
+    expect(resolveBusinessFactsSupport(record, null)).toBe("unknown");
+    expect(resolveBusinessFactsSupport(null, "ver_1")).toBe("unknown");
   });
 });
 

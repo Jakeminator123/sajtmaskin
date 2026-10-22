@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, Check, Loader2, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { AlertCircle, Check, Loader2, PencilLine, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import {
   formatOpeningHoursLines,
   type BusinessFactsInput,
   type BusinessFactsPersisted,
+  type BusinessFactsSupportState,
   type BusinessWeekday,
   type DayHours,
   type OpeningHoursMode,
@@ -29,7 +31,50 @@ type BusinessFactsSectionProps = {
   projectId: string;
   /** True once a version is live; drives the "publicera om" hint after save. */
   hasLiveVersion: boolean;
+  /**
+   * Whether the LIVE site carries `lib/business-facts.ts`. Only `supported`
+   * may promise that "Publicera om" carries the edit; `unsupported` sends the
+   * customer to the builder for a one-time upgrade; `unknown` stays neutral.
+   */
+  support: BusinessFactsSupportState;
 };
+
+/** Copy for the save toast and the footer, by support state. One owner so they never disagree. */
+export function supportCopy(
+  support: BusinessFactsSupportState,
+  hasLiveVersion: boolean,
+): { toast: string; footer: string; needsBuilder: boolean } {
+  if (!hasLiveVersion) {
+    return {
+      toast: "Sparat. Uppgifterna används när sajten byggs och publiceras.",
+      footer: "Uppgifterna används när sajten byggs och publiceras första gången.",
+      needsBuilder: false,
+    };
+  }
+  switch (support) {
+    case "supported":
+      return {
+        toast: "Sparat. Publicera om sajten så syns ändringen.",
+        footer:
+          "Ändringar når den publicerade sajten när du publicerar om. Ingen ny generering behövs.",
+        needsBuilder: false,
+      };
+    case "unsupported":
+      return {
+        toast: "Sparat. Den publicerade sajten behöver uppdateras i byggaren innan ändringen syns.",
+        footer:
+          "Den publicerade sajten är byggd utan automatiska företagsuppgifter. Öppna byggaren och be den uppdatera öppettider och kontakt – därefter räcker det att publicera om.",
+        needsBuilder: true,
+      };
+    default:
+      return {
+        toast: "Sparat. Ändringen tas med vid nästa publicering.",
+        footer:
+          "Vid nästa publicering kontrolleras om sajten tar emot uppgifterna automatiskt; annars får du besked här.",
+        needsBuilder: false,
+      };
+  }
+}
 
 /** 30-minute steps. The schema accepts quarter hours; the UI keeps the list short. */
 export const TIME_OPTIONS: readonly string[] = Array.from({ length: 48 }, (_, index) => {
@@ -170,7 +215,12 @@ function DayRow({
  * `lib/business-facts.ts` is rewritten from it on every publish, so a change
  * here reaches the live site with "Publicera om" — no regeneration.
  */
-export function BusinessFactsSection({ projectId, hasLiveVersion }: BusinessFactsSectionProps) {
+export function BusinessFactsSection({
+  projectId,
+  hasLiveVersion,
+  support,
+}: BusinessFactsSectionProps) {
+  const copy = supportCopy(support, hasLiveVersion);
   const [form, setForm] = useState<FormState>(() => toForm(null));
   const [lastSetAt, setLastSetAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -218,11 +268,7 @@ export function BusinessFactsSection({ projectId, hasLiveVersion }: BusinessFact
       setForm(toForm(saved));
       setLastSetAt(saved.lastSetAt);
       setDirty(false);
-      toast.success(
-        hasLiveVersion
-          ? "Sparat. Publicera om sajten så syns ändringen."
-          : "Sparat. Uppgifterna används när sajten byggs och publiceras.",
-      );
+      toast.success(copy.toast);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Kunde inte spara företagsuppgifter");
     } finally {
@@ -420,9 +466,21 @@ export function BusinessFactsSection({ projectId, hasLiveVersion }: BusinessFact
                 minute: "2-digit",
               })}.`
             : "Inget sparat ännu."}{" "}
-          Ändringar når den publicerade sajten när du publicerar om. Ingen ny generering behövs.
+          {copy.footer}
         </p>
       </div>
+      {copy.needsBuilder && (
+        <div className="flex flex-wrap items-center gap-3 border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>Sajten behöver en engångsuppdatering i byggaren.</span>
+          <Link href={`/builder?project=${projectId}`}>
+            <Button variant="outline" size="sm" className="gap-2">
+              <PencilLine className="h-4 w-4" />
+              Uppdatera i byggaren
+            </Button>
+          </Link>
+        </div>
+      )}
     </form>
   );
 }

@@ -1,6 +1,10 @@
 // Client-side API for project operations
 
-import type { BusinessFactsInput, BusinessFactsPersisted } from "./business-facts-schema";
+import type {
+  BusinessFactsInput,
+  BusinessFactsPersisted,
+  BusinessFactsSupportState,
+} from "./business-facts-schema";
 import type { SeoStatusPersisted } from "./seo-status";
 
 export interface Project {
@@ -72,6 +76,8 @@ export interface ProjectSite {
   seoStatus: SeoStatusPersisted | null;
   /** ISO time of the last code backup to Sajtmaskin's GitHub, or `null`. */
   codeBackupAt: string | null;
+  /** Does the live version carry `lib/business-facts.ts`? Drives the portal's republish promise. */
+  businessFactsSupport: BusinessFactsSupportState;
 }
 
 /** Wire shape of the `business` namespace in `GET /api/projects/[id]/preferences`. */

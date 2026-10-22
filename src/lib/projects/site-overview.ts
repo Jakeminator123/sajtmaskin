@@ -24,6 +24,11 @@ import { normalizeDomainHostname, resolveLiveUrl } from "@/lib/live-site-url";
 import { getProjectData } from "@/lib/db/services/projects";
 import { getVercelProjectProductionIdentity } from "@/lib/vercel/vercel-deploy";
 import { readSeoStatusFromMeta, type SeoStatusPersisted } from "./seo-status";
+import {
+  readBusinessFactsSupportFromMeta,
+  resolveBusinessFactsSupport,
+  type BusinessFactsSupportState,
+} from "./business-facts-schema";
 import { readGithubBackupFromMeta } from "@/lib/github/backup-status";
 
 /** Which kind of host is serving the site right now. */
@@ -77,6 +82,12 @@ export type SiteOverview = {
    * The repo itself is private to Sajtmaskin, so the portal gets the time only.
    */
   codeBackupAt: Date | null;
+  /**
+   * Whether the LIVE version carries `lib/business-facts.ts`, i.e. whether a
+   * portal edit reaches the site with "Publicera om". `unknown` until a
+   * production publish has recorded it for the version that is live now.
+   */
+  businessFactsSupport: BusinessFactsSupportState;
 };
 
 type AddressInput = {
@@ -261,6 +272,7 @@ export async function getProjectSiteOverview(projectId: string): Promise<SiteOve
   const codeBackupDate = codeBackup ? new Date(codeBackup.at) : null;
   const codeBackupAt =
     codeBackupDate && !Number.isNaN(codeBackupDate.getTime()) ? codeBackupDate : null;
+  const businessFactsSupportRecord = readBusinessFactsSupportFromMeta(projectMeta);
 
   const emptyOverview: SiteOverview = {
     projectId: project.id,
@@ -278,6 +290,7 @@ export async function getProjectSiteOverview(projectId: string): Promise<SiteOve
     vercelProjectId: project.vercelProjectId ?? null,
     seoStatus,
     codeBackupAt,
+    businessFactsSupport: "unknown",
   };
 
   if (chatIds.length === 0) return emptyOverview;
@@ -319,5 +332,9 @@ export async function getProjectSiteOverview(projectId: string): Promise<SiteOve
     liveAt: liveRow?.updatedAt ?? null,
     liveVersionId: liveRow?.versionId ?? null,
     latestDeploymentId: inFlightDeploymentId(latest),
+    businessFactsSupport: resolveBusinessFactsSupport(
+      businessFactsSupportRecord,
+      liveRow?.versionId ?? null,
+    ),
   };
 }

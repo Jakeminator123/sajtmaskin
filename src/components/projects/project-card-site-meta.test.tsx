@@ -18,6 +18,8 @@ function site(overrides: Partial<ProjectSite> = {}): ProjectSite {
     customDomain: "butik.example",
     customDomainVerified: true,
     vercelProjectId: "prj_1",
+    seoStatus: null,
+    codeBackupAt: null,
     ...overrides,
   };
 }

@@ -112,6 +112,16 @@ const WEEKDAY_BY_INTL: Record<string, BusinessWeekday> = {
   Sun: "sun",
 };
 
+const PREVIOUS_WEEKDAY: Record<BusinessWeekday, BusinessWeekday> = {
+  mon: "sun",
+  tue: "mon",
+  wed: "tue",
+  thu: "wed",
+  fri: "thu",
+  sat: "fri",
+  sun: "sat",
+};
+
 function minutesOf(time: string): number {
   const [hours, minutes] = time.split(":").map(Number);
   return hours * 60 + minutes;
@@ -139,13 +149,22 @@ export function isOpenNow(now: Date = new Date()): boolean | null {
   const minute = Number(parts.find((part) => part.type === "minute")?.value ?? "0");
   const weekday = WEEKDAY_BY_INTL[weekdayPart];
   if (!weekday) return null;
+  const current = hour * 60 + minute;
+  // Gårdagens nattöppet (t.ex. fredag 18:00–02:00) gäller fram till stängning
+  // även om dagens rad säger stängt.
+  const yesterday = week[PREVIOUS_WEEKDAY[weekday]];
+  if (!yesterday.closed) {
+    const yesterdayOpen = minutesOf(yesterday.open);
+    const yesterdayClose = minutesOf(yesterday.close);
+    if (yesterdayClose <= yesterdayOpen && current < yesterdayClose) return true;
+  }
   const today = week[weekday];
   if (today.closed) return false;
-  const current = hour * 60 + minute;
   const open = minutesOf(today.open);
   const close = minutesOf(today.close);
-  // Stänger efter midnatt (t.ex. 18:00–02:00) räknas som öppet fram till stängning.
-  if (close <= open) return current >= open || current < close;
+  // Stänger efter midnatt: öppet från öppning och resten av dygnet; tiden efter
+  // midnatt hanteras av nästa dags "gårdagen"-kontroll ovan.
+  if (close <= open) return current >= open;
   return current >= open && current < close;
 }
 
@@ -191,21 +210,29 @@ export function openingHoursSpecification(): Array<Record<string, unknown>> {
 export type BusinessFactsTargetFile = { name: string; content: string };
 
 /**
- * Deploy-time rewrite. Only touches a file the site already has: a site that
- * never imported the module gets nothing injected, and a site generated before
- * this feature keeps deploying byte-identical.
+ * Deploy-time rewrite. Only touches a file the site already has AND that still
+ * starts with {@link BUSINESS_FACTS_MODULE_MARKER}: a site that never imported
+ * the module gets nothing injected, a site generated before this feature keeps
+ * deploying byte-identical, and a module the LLM has rewritten (extra exports,
+ * renamed symbols) is left alone — overwriting it could break the build after
+ * the publish has already been charged. Such paths are reported in `skipped`.
  */
 export function applyBusinessFactsToFiles<T extends BusinessFactsTargetFile>(
   files: T[],
   facts: BusinessFactsPersisted,
-): { files: T[]; applied: boolean } {
+): { files: T[]; applied: boolean; skipped: string[] } {
   let applied = false;
+  const skipped: string[] = [];
   const next = files.map((file) => {
     if (!isBusinessFactsModulePath(file.name)) return file;
+    if (!file.content.startsWith(BUSINESS_FACTS_MODULE_MARKER)) {
+      skipped.push(file.name);
+      return file;
+    }
     const content = renderBusinessFactsModule(facts);
     if (content === file.content) return file;
     applied = true;
     return { ...file, content };
   });
-  return { files: next, applied };
+  return { files: next, applied, skipped };
 }

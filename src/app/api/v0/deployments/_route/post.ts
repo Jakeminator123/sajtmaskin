@@ -47,8 +47,15 @@ import {
   setProjectVercelLink,
 } from "@/lib/db/services/projects";
 import { readSeoPreferencesFromMeta } from "@/lib/projects/preferences-schema";
-import { readBusinessFactsFromMeta } from "@/lib/projects/business-facts-schema";
-import { applyBusinessFactsToFiles } from "@/lib/projects/business-facts-module";
+import {
+  BUSINESS_FACTS_SUPPORT_META_KEY,
+  readBusinessFactsForDeploy,
+} from "@/lib/projects/business-facts-schema";
+import {
+  BUSINESS_FACTS_MODULE_MARKER,
+  applyBusinessFactsToFiles,
+  isBusinessFactsModulePath,
+} from "@/lib/projects/business-facts-module";
 import { buildSeoStatus } from "@/lib/projects/seo-status";
 import { resolveDeploySeoOptions } from "../resolve-seo";
 import { runSeoPublishPass } from "@/lib/seo";
@@ -367,13 +374,22 @@ export async function POST(req: Request) {
       // override (parsed above as `bodySeo`) wins over persisted preferences;
       // canonical project URL wins over both at apply time. Guarded so that a
       // missing project_data row doesn't fail the deploy.
-      const persistedProjectData = await getProjectData(engineProjectId).catch(() => null);
+      let projectDataLoadFailed = false;
+      const persistedProjectData = await getProjectData(engineProjectId).catch((loadErr) => {
+        projectDataLoadFailed = true;
+        console.warn("[deploy] Could not read project_data; SEO/business facts fall back:", loadErr);
+        return null;
+      });
       const persistedMeta =
         (persistedProjectData?.meta as Record<string, unknown> | null | undefined) ?? null;
       const persistedSeo = readSeoPreferencesFromMeta(persistedMeta);
       // Företagsuppgifter: rewritten into `lib/business-facts.ts` below so a
       // portal edit + "Publicera om" reaches the live site without regeneration.
-      const persistedBusinessFacts = readBusinessFactsFromMeta(persistedMeta);
+      // `null` = unknown (read failed or namespace malformed) → the module is
+      // left exactly as the version has it, never emptied.
+      const persistedBusinessFacts = projectDataLoadFailed
+        ? null
+        : readBusinessFactsForDeploy(persistedMeta ?? {});
 
       const {
         files: fixedFiles,
@@ -800,14 +816,20 @@ export async function POST(req: Request) {
             scoreAfter: seoPass.report.after.score,
           });
         }
-        // Only rewrites a `lib/business-facts.ts` the version already has; a
-        // site that never imported the module deploys byte-identical.
-        const businessFactsApply = applyBusinessFactsToFiles(
-          seoPass ? seoPass.files : fixedFiles,
-          persistedBusinessFacts,
-        );
+        // Only rewrites a marked `lib/business-facts.ts` the version already
+        // has; a site that never imported the module deploys byte-identical,
+        // and unknown facts (read failure) leave the module untouched.
+        const businessFactsApply = persistedBusinessFacts
+          ? applyBusinessFactsToFiles(seoPass ? seoPass.files : fixedFiles, persistedBusinessFacts)
+          : { files: seoPass ? seoPass.files : fixedFiles, applied: false, skipped: [] as string[] };
         if (businessFactsApply.applied) {
           console.info("[deploy] business facts module rewritten from project settings");
+        }
+        if (businessFactsApply.skipped.length > 0) {
+          console.warn(
+            "[deploy] business facts module left untouched (marker missing):",
+            businessFactsApply.skipped,
+          );
         }
         const metadataFiles = applyCanonicalMetadataToFiles(businessFactsApply.files, policyUrl);
         const policyHost = canonicalAddress.contract.canonicalHost;
@@ -875,28 +897,50 @@ export async function POST(req: Request) {
         // failure below must not refund the charge.
         deploymentDelivered = true;
 
-        // Portal SEO status: persist the audit of the files Vercel just took.
-        // Best effort after delivery — the portal reading "no status" is a
-        // smaller failure than a publish error for a status write.
+        // The exact text files Vercel took — the backup and the portal's
+        // "does this site carry the business-facts module?" answer both derive
+        // from this snapshot, never from a re-read that could race a portal edit.
+        const publishedFiles = imageAssets.files.map((file) => ({
+          path: file.name,
+          content: file.content,
+        }));
+        const businessFactsSupported = publishedFiles.some(
+          (file) =>
+            isBusinessFactsModulePath(file.path) &&
+            file.content.startsWith(BUSINESS_FACTS_MODULE_MARKER),
+        );
+
+        // Portal status: persist the SEO audit of the files Vercel just took and
+        // whether the live site supports portal-driven Företagsuppgifter. Best
+        // effort after delivery — the portal reading "unknown" is a smaller
+        // failure than a publish error for a status write.
+        const portalMetaPatch: Record<string, unknown> = {};
         if (seoPass && seoApplyResult.siteUrl) {
+          portalMetaPatch.seoStatus = buildSeoStatus(seoPass.report, {
+            siteUrl: seoApplyResult.siteUrl,
+            versionId,
+            checkedAt: new Date().toISOString(),
+          });
+        }
+        if (deployTarget === "production") {
+          portalMetaPatch[BUSINESS_FACTS_SUPPORT_META_KEY] = {
+            supported: businessFactsSupported,
+            versionId,
+            checkedAt: new Date().toISOString(),
+          };
+        }
+        if (Object.keys(portalMetaPatch).length > 0) {
           try {
-            await saveProjectData({
-              project_id: engineProjectId,
-              meta_patch: {
-                seoStatus: buildSeoStatus(seoPass.report, {
-                  siteUrl: seoApplyResult.siteUrl,
-                  versionId,
-                  checkedAt: new Date().toISOString(),
-                }),
-              },
-            });
-          } catch (seoStatusErr) {
-            console.warn("[deploy] Failed to persist SEO status for portal:", seoStatusErr);
+            await saveProjectData({ project_id: engineProjectId, meta_patch: portalMetaPatch });
+          } catch (portalStatusErr) {
+            console.warn("[deploy] Failed to persist portal status:", portalStatusErr);
           }
         }
 
         // Code backup to Sajtmaskin's GitHub org. Runs after the response is
         // sent and can only ever log — a backup must not slow or fail a publish.
+        // Gets the published snapshot, so the repo matches what went live even
+        // if the customer edits facts between publish and backup.
         if (FEATURES.useGitHubSitesOrg) {
           const backupInput = {
             projectId: engineProjectId,
@@ -904,6 +948,7 @@ export async function POST(req: Request) {
             versionId,
             deploymentId,
             userId: ownedProject.user_id ?? null,
+            publishedFiles,
           };
           after(async () => {
             try {
