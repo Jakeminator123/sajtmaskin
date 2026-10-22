@@ -127,7 +127,7 @@ async function main(): Promise<void> {
     console.info(`[embeddings:ensure] ${id}: ${embeddings.length} vectors`);
   }
 
-  // Scaffold registry parity (same as scaffolds:embeddings:check).
+  // Scaffold registry parity: every registered scaffold must have an embedding.
   const scaffoldData = (await loadEmbeddingsArtifact("scaffold")) as ScaffoldEmbeddingsFile;
   const registered = getAllScaffolds()
     .map((s) => s.id)

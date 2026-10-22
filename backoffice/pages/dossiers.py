@@ -47,7 +47,6 @@ from .dossiers_lib.constants import (
     _COMPLEXITY_FALLBACK,
     _MOCK_FALLBACK,
     _ALLOWED_ENFORCEMENT,
-    _NORMALIZE_MODELS,
     _INSTRUCTIONS_STUB,
 )
 
@@ -90,12 +89,6 @@ from .dossiers_lib.io import (
     _apply_capability_override,
     _describe_capability_group_hint,
     _npm_binary,
-    _prospect_root,
-    _load_prospect_plan,
-    _load_prospect_report,
-    _read_prospect_verdict_files,
-    _run_normalize,
-    _promote_prospect,
     _create_dossier_skeleton,
     _run_sdk_version_check,
 )
@@ -117,7 +110,6 @@ from .dossiers_lib.ui_edit import (
 from .dossiers_lib.ui_create import (
     _section_create_from_scratch,
     _section_curate,
-    _section_legacy_prospect,
 )
 
 from .dossiers_lib.ui_system_map import _section_system_map
@@ -152,7 +144,6 @@ __all__ = [
     "_KEBAB_RE",
     "_MOCK_FALLBACK",
     "_MOCK_OPTIONS",
-    "_NORMALIZE_MODELS",
     "_apply_capability_override",
     "_apply_manifest_field_edits",
     "_create_dossier_skeleton",
@@ -169,19 +160,13 @@ __all__ = [
     "_load_group_view",
     "_load_json",
     "_load_mockless_capability_exceptions",
-    "_load_prospect_plan",
-    "_load_prospect_report",
     "_npm_binary",
-    "_promote_prospect",
-    "_prospect_root",
-    "_read_prospect_verdict_files",
     "_rebuild_capability_map",
     "_recover_pending_default_transaction",
     "_render_delete_body",
     "_render_dossier_flash",
     "_run_capability_map_write",
     "_run_curate",
-    "_run_normalize",
     "_run_sdk_version_check",
     "_save_json",
     "_save_raw_manifest",
@@ -257,8 +242,7 @@ def render(ctx) -> None:
         _section_delete(dossiers)
     with tabs[3]:
         _section_curate()
-        st.divider()
-        _section_legacy_prospect(dossiers)
+        # `_section_create_from_scratch` öppnar med egen `st.divider()`.
         _section_create_from_scratch()
     with tabs[4]:
         _section_enforcement_overview(dossiers)

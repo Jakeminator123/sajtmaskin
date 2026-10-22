@@ -36,7 +36,7 @@ produktens kontrollflöde.
 
 ## Vilka scaffolds är provisionerade?
 
-**Alla aktiva scaffolds** — listan ägs av [`scripts/warm-cache-scaffolds.json`](../../scripts/warm-cache-scaffolds.json) (läses av både provisioneringsscriptet och smoke-checken). Med symlink-strategin är kostnaden per scaffold bara `tsconfig.json` + `eslint.config.mjs` (några KB) + en symlink, så det finns ingen anledning att bara täcka `landing-page` — det gapet gjorde tidigare att F2-generationer på andra scaffolds tyst skippade warm-passen med `cache_cold`. Ny scaffold i `src/lib/gen/scaffolds/`? Lägg till dess id i JSON-listan och kör om provisioneringen.
+**Alla aktiva scaffolds** — listan ägs av [`scripts/warm-cache-scaffolds.json`](../../scripts/warm-cache-scaffolds.json) (läses av både provisioneringsscriptet och smoke-checken). Med symlink-strategin är kostnaden per scaffold bara `tsconfig.json` + `eslint.config.mjs` (några KB) + en symlink, så det finns ingen anledning att bara täcka `landing-page` — det gapet gjorde tidigare att F2-generationer på andra scaffolds tyst skippade warm-passen med `cache_cold`. Ny scaffold i `src/lib/gen/scaffolds/`? Lägg till dess id i JSON-listan och kör om provisioneringen; `src/lib/gen/scaffolds/warm-cache-scaffolds.test.ts` faller annars.
 
 ## Verifiera cachen (smoke-check)
 

@@ -97,7 +97,6 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "inspector:ai-match": { maxRequests: 10, windowMs: 60 * 1000 },
   read: { maxRequests: 150, windowMs: 60 * 1000 },
   default: { maxRequests: 90, windowMs: 60 * 1000 },
-  "webhook:v0": { maxRequests: 180, windowMs: 60 * 1000 },
   "preview-session:create": { maxRequests: 15, windowMs: 60 * 1000 },
   "preview-session:status": { maxRequests: 60, windowMs: 60 * 1000 },
   "preview-session:heartbeat": { maxRequests: 120, windowMs: 60 * 1000 },

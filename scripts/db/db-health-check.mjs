@@ -126,9 +126,9 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
     { name: "idx_engine_generation_logs_chat_created", columns: ["chat_id", "created_at"] },
   ],
   generation_telemetry: [
-    { name: "idx_generation_telemetry_chat", columns: ["chat_id"] },
-    { name: "idx_generation_telemetry_version", columns: ["version_id"] },
-    { name: "idx_generation_telemetry_created", columns: ["created_at"] },
+    { name: "idx_gen_telemetry_chat", columns: ["chat_id"] },
+    { name: "idx_gen_telemetry_version", columns: ["version_id"] },
+    { name: "idx_gen_telemetry_created", columns: ["created_at"] },
   ],
   llm_usage: [
     { name: "idx_llm_usage_chat", columns: ["chat_id"] },
@@ -564,7 +564,7 @@ async function getTableInfo(name) {
   // (a) namnet finns, eller (b) ett annat index täcker EXAKT samma
   // kolumner i samma ordning (covering). Det senare hindrar falska
   // "missing"-larm när tidigare migrations skapat samma index med
-  // alternativt namn (t.ex. `idx_gen_telemetry_chat`).
+  // alternativt namn.
   const expected = EXPECTED_INDEXES_WITH_COLUMNS[name] || [];
   const { missing, aliasedFor } = findMissingIndexes(expected, indexes, indexMeta);
 

@@ -12,9 +12,8 @@
  * fångar drift INNAN den når DB:n.
  *
  * Testen är medvetet **icke-strikt** på vissa punkter:
- *   - Tillåter att (2) har FLER index än (1) — t.ex. `idx_gen_telemetry_chat`
- *     som är en alternativ namnsättning för `idx_generation_telemetry_chat`.
- *     (Dedupe-aware health-check hanterar det.)
+ *   - Tillåter att (2) har FLER index än (1), t.ex. ett äldre namn på samma
+ *     kolumner. (Dedupe-aware health-check hanterar det.)
  *   - Tillåter att (3) använder snake_case-kolumnnamn som inte matchar
  *     Drizzle-egendomsnamn (camelCase) — vi parsar SQL-kolumnerna direkt.
  *

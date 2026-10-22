@@ -219,7 +219,7 @@ function parseArgs(argv) {
 }
 
 /**
- * Laddar de lokala env-filerna som syskonskripten använder (`check-dev-db.mjs`
+ * Laddar de lokala env-filerna som syskonskripten använder (`run-migrations.ts`
  * → `.env.local`, `migrate-prod.mjs` → `.env.vercel.production.pulled`) så den
  * dokumenterade lokala `db:check-target`-kommandot faktiskt hittar en URL.
  * `override: false` gör att CI:s explicit injicerade `POSTGRES_URL` (och alla
@@ -230,8 +230,8 @@ function parseArgs(argv) {
  * som sätter en nyckel vinner, måste prod-snapshoten laddas FÖRE `.env.local`
  * för `--expect=prod`. Annars skulle en dev-orienterad `POSTGRES_URL` i
  * `.env.local` skugga prod-snapshoten och guarden skulle validera fel URL
- * (falsk röd). Detta speglar `migrate-prod.mjs` som läser `POSTGRES_URL` direkt
- * ur snapshoten och ignorerar `.env.local`.
+ * (falsk röd). Detta speglar `migrate-prod.mjs`, som läser sin URL
+ * (`POSTGRES_URL_NON_POOLING`) direkt ur snapshoten och ignorerar `.env.local`.
  */
 function loadLocalEnvFiles(expect) {
   if (expect === "prod" && existsSync(".env.vercel.production.pulled")) {

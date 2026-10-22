@@ -42,7 +42,7 @@ export type LandingHeroProps = Pick<
   | "handleAuditUrlChange"
   | "submitPrimaryInput"
 > &
-  Pick<ChatAreaProps, "expandedContent" | "onPlayIntro">
+  Pick<ChatAreaProps, "expandedContent">
 
 export function LandingHero({
   expandedContent,

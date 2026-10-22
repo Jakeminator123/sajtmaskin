@@ -10,7 +10,6 @@ const EXTERNAL_MACHINE_ENDPOINTS = new Set([
   "/api/drains/vercel",
   "/api/stripe/webhook",
   "/api/webhooks/openai",
-  "/api/webhooks/v0",
   "/api/webhooks/vercel",
   "/api/kostnadsfri/unsubscribe",
   "/api/admin/handoff",

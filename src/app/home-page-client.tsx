@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/landing-v2/navbar";
 import { ChatArea } from "@/components/landing-v2/chat-area";
-import { useOnboarding } from "@/components/modals/onboarding-modal";
 import type { WizardData } from "@/components/modals/prompt-wizard-modal-v2";
 import { useEntryParams } from "@/lib/entry/use-entry-params";
 import { useAuth } from "@/lib/auth/auth-store";
@@ -34,10 +33,6 @@ const AuditModal = dynamic(
 );
 const EntryModal = dynamic(
   () => import("@/components/modals/entry-modal").then((m) => m.EntryModal),
-  { ssr: false },
-);
-const OnboardingModal = dynamic(
-  () => import("@/components/modals/onboarding-modal").then((m) => m.OnboardingModal),
   { ssr: false },
 );
 const PromptWizardModalV2 = dynamic(
@@ -85,7 +80,6 @@ function RootLandingContent() {
   const [auditSubmitSignal, setAuditSubmitSignal] = useState(0);
 
   const entry = useEntryParams();
-  const { showOnboarding, openOnboarding, handleComplete, handleSkip } = useOnboarding();
 
   useEffect(() => {
     fetchUser().catch(() => {});
@@ -384,7 +378,6 @@ function RootLandingContent() {
           auditUrl={auditUrl}
           onAuditUrlChange={setAuditUrl}
           onAuditSubmit={handleAuditSubmitFromHero}
-          onPlayIntro={openOnboarding}
         />
       </div>
 
@@ -428,9 +421,6 @@ function RootLandingContent() {
         />
       )}
 
-      {showOnboarding && (
-        <OnboardingModal onComplete={handleComplete} onSkip={handleSkip} />
-      )}
     </>
   );
 }

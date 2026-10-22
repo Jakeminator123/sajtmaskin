@@ -1,7 +1,7 @@
 import { readdir, readFile } from "fs/promises";
 import { join } from "path";
 import { pathToFileURL } from "url";
-import { Pool } from "pg";
+import { Client } from "pg";
 import { config } from "dotenv";
 import { assertSafeWriteTarget } from "./db-target-guard.mjs";
 import {
@@ -11,6 +11,7 @@ import {
 } from "./migration-order.mjs";
 import {
   ensureMigrationLedger,
+  readAppliedMigrations,
   recordAppliedMigration,
 } from "./migration-ledger.mjs";
 import { resolveSslConfig } from "./db-ssl.mjs";
@@ -55,9 +56,43 @@ export function resolveConnectionString(
 // a URL `db:init` connected to fine. Behaviour is unchanged for every other
 // sslmode (prod uses `require`).
 
+// Session-level advisory lock that serialises migration runs against one DB.
+export const MIGRATION_LOCK_KEY = "sajtmaskin:db:migrate";
+
+// DDL needs a direct or session-mode connection: an advisory lock means nothing
+// through transaction pooling (Supabase pooler port 6543), because each
+// statement may land on a different backend. See docs/runbooks/db-migrations.md
+// § Innan live-apply, point 4.
+export function assertSessionModeTarget(connectionString: string): void {
+  let url: URL;
+  try {
+    url = new URL(connectionString);
+  } catch {
+    throw new Error("db:migrate could not parse the database URL; refusing to run.");
+  }
+  const port = url.port || "5432";
+  const supabasePooler = /\.pooler\.supabase\.com$/iu.test(url.hostname);
+  if (port === "6543" || (supabasePooler && port !== "5432")) {
+    throw new Error(
+      `db:migrate refuses ${url.hostname}:${port} (transaction pooling). ` +
+        "Use the direct or session-mode URL on port 5432 (POSTGRES_URL_NON_POOLING).",
+    );
+  }
+}
+
+// Only files the ledger has not recorded run. Re-running recorded migrations to
+// "get green" is exactly what the runbook forbids.
+export function planPendingMigrations(
+  filesOnDisk: readonly string[],
+  applied: ReadonlySet<string>,
+): string[] {
+  return resolveMigrationRunOrder([...filesOnDisk]).filter((file: string) => !applied.has(file));
+}
+
 async function main() {
   assertSafeWriteTarget({ commandName: "db:migrate", env: process.env });
   const connStr = resolveConnectionString();
+  assertSessionModeTarget(connStr);
   const cleanUrl = (() => {
     try {
       const u = new URL(connStr);
@@ -68,58 +103,72 @@ async function main() {
       return connStr;
     }
   })();
-  const pool = new Pool({
+  // One client = one session, so the advisory lock covers every statement.
+  const client = new Client({
     connectionString: cleanUrl,
     ssl: resolveSslConfig(connStr),
   });
+  await client.connect();
 
   try {
-    // Best-effort: create the schema_migrations ledger so this run can record
-    // what it applied. Warn-only — a ledger hiccup must never abort a migration.
+    const lock = await client.query<{ locked: boolean }>(
+      "SELECT pg_try_advisory_lock(hashtext($1)) AS locked",
+      [MIGRATION_LOCK_KEY],
+    );
+    if (!lock.rows[0]?.locked) {
+      throw new Error("Another migration run holds the lock on this database; refusing to run.");
+    }
+
     try {
-      await ensureMigrationLedger(pool);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.warn(`  ⚠ Could not ensure schema_migrations ledger: ${message}`);
-    }
+      // Fail-closed: without a ledger we cannot tell pending from applied.
+      await ensureMigrationLedger(client);
+      const applied = await readAppliedMigrations(client);
+      if (applied === null) {
+        throw new Error("schema_migrations ledger is missing after ensure; refusing to run.");
+      }
 
-    const files = resolveMigrationRunOrder(await readdir(MIGRATIONS_DIR));
+      const pending = planPendingMigrations(await readdir(MIGRATIONS_DIR), applied);
+      if (pending.length === 0) {
+        console.log("No pending migrations; the ledger is up to date.");
+        return;
+      }
 
-    if (files.length === 0) {
-      console.log("No migration files found.");
-      return;
-    }
+      console.log(`Pending migration(s): ${pending.length}`);
+      for (const file of pending) console.log(`  - ${file}`);
 
-    console.log(`Found ${files.length} migration(s):`);
-
-    for (const file of files) {
-      const sql = await readFile(join(MIGRATIONS_DIR, file), "utf-8");
-      console.log(`  Running: ${file}`);
-      try {
-        await pool.query(sql);
-        console.log(`  ✓ ${file}`);
-      } catch (err) {
-        if (isAlreadyExistsError(err)) {
-          console.log(`  ⊘ ${file} (already applied)`);
-        } else {
+      for (const file of pending) {
+        const sql = await readFile(join(MIGRATIONS_DIR, file), "utf-8");
+        console.log(`  Running: ${file}`);
+        // The migration and its ledger row commit together or not at all.
+        await client.query("BEGIN");
+        try {
+          await client.query(sql);
+          await recordAppliedMigration(client, file);
+          await client.query("COMMIT");
+          console.log(`  ✓ ${file}`);
+        } catch (err) {
+          await client.query("ROLLBACK").catch(() => {});
           const message = err instanceof Error ? err.message : String(err);
+          if (isAlreadyExistsError(err)) {
+            throw new Error(
+              `${file}: an object already exists but the ledger has no entry for it. ` +
+                "Schema and ledger disagree; inspect the database before recording anything. " +
+                `(${message})`,
+            );
+          }
           console.error(`  ✗ ${file}: ${message}`);
           throw err;
         }
       }
-      // Record every migration we processed (freshly applied OR already-exists)
-      // so the ledger reflects the true applied set. Warn-only.
-      try {
-        await recordAppliedMigration(pool, file);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.warn(`  ⚠ Could not record ${file} in schema_migrations: ${message}`);
-      }
-    }
 
-    console.log("\nAll migrations applied.");
+      console.log(`\nApplied ${pending.length} pending migration(s).`);
+    } finally {
+      await client
+        .query("SELECT pg_advisory_unlock(hashtext($1))", [MIGRATION_LOCK_KEY])
+        .catch(() => {});
+    }
   } finally {
-    await pool.end();
+    await client.end();
   }
 }
 

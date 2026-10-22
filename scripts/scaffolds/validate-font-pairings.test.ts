@@ -1,7 +1,10 @@
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
   buildKnownFontNameSet,
+  loadVariantInputs,
   validateVariantFonts,
   type VariantInput,
 } from "./validate-font-pairings";
@@ -81,5 +84,17 @@ describe("validateVariantFonts", () => {
     ];
 
     expect(validateVariantFonts(variants, known)).toEqual([]);
+  });
+});
+
+// The CLI is not wired into CI on its own; this case runs the same check
+// against the real variant files so a missing font fails `test:ci`.
+describe("real scaffold variants", () => {
+  it("only reference fonts that are in google-font-registry.ts", () => {
+    const rootDir = path.resolve(process.cwd(), "config/scaffold-variants");
+    const { variants, loadErrors } = loadVariantInputs(rootDir);
+    expect(loadErrors).toEqual([]);
+    expect(variants.length).toBeGreaterThan(0);
+    expect(validateVariantFonts(variants, buildKnownFontNameSet())).toEqual([]);
   });
 });

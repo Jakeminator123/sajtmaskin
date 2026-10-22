@@ -34,8 +34,6 @@ export const SHARED_TEST_EXCLUDE = [
   ".next/**",
   "old/**",
   "e2e/**",
-  "vercel_templates_levels/**",
-  "research/**",
   "_template_refs/**",
   "data/**",
 ];

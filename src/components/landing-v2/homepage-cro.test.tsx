@@ -23,7 +23,6 @@ import { LandingTrustStrip } from "./landing-trust-strip";
 
 const heroProps = {
   expandedContent: null,
-  onPlayIntro: undefined,
   selectedCategory: "fritext",
   pickCategory: vi.fn(),
   showVoiceRecorder: false,
