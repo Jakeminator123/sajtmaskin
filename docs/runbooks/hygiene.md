@@ -25,9 +25,11 @@ push-grind. Ändringar i verifieringsmotorn kontrolleras lokalt med
 `npm run test:workflow` (Node, fyra workers), `workflow:contract`, typecheck och
 berörda integrationstester; hela regressionen körs i CI, inte dubbelt lokalt.
 Full lokal körning finns kvar för felsökning eller ett uttryckligt fulltestuppdrag.
-Preview-push använder samma safe-docs-profil som PR. Dossiermatrisen körs när
-dess beroenden ändras; veckokörning/manuell körning är full. Master, saknad
-pushhistorik och osäker klassificering behåller full kontroll.
+Preview-push använder samma safe-docs-profil som PR. Dossiermatrisen körs bara
+vid promote (PR mot `master`, full katalog), veckovis och manuellt; PR och push
+mot `preview` skjuter upp den med orsaken `deferred-to-promote` (ägarbeslut
+2026-10-22). Saknad pushhistorik och osäker klassificering behåller full
+CI-profil.
 Preview-genvägar kräver att respektive workflow lyckats på föregående exakta
 push-SHA. Klassificeraren läser ett GitHub-kvitto med read-only-token; fel,
 saknat eller pågående kvitto kör full profil/matris. Ingen extra testsvit körs.
