@@ -43,7 +43,11 @@ function machineIsolationConfig() {
     appName: readTrimmed("PREVIEW_GUEST_FLY_APP"),
     image: readTrimmed("PREVIEW_GUEST_IMAGE"),
     apiBase: readTrimmed("PREVIEW_GUEST_MACHINES_API_BASE") || DEFAULT_MACHINES_API_BASE,
-    apiToken: readTrimmed("PREVIEW_GUEST_FLY_API_TOKEN") || readTrimmed("FLY_API_TOKEN"),
+    // Explicit, guest-app-scoped token only. The generic FLY_API_TOKEN is
+    // deliberately NOT read: a broad token lying in a host's env is exactly
+    // what shared mode can leak through /proc, and a deploy token for the
+    // control-plane app itself must never double as the guest-app token.
+    apiToken: readTrimmed("PREVIEW_GUEST_FLY_API_TOKEN"),
     region: readTrimmed("PREVIEW_GUEST_REGION") || readTrimmed("FLY_REGION") || "arn",
     cpuKind: readTrimmed("PREVIEW_GUEST_CPU_KIND") || "shared",
     cpus: readInt("PREVIEW_GUEST_CPUS", 2),
@@ -70,7 +74,7 @@ function validateMachineIsolationConfig(config = machineIsolationConfig()) {
   }
   if (!config.appName) problems.push("PREVIEW_GUEST_FLY_APP is missing.");
   if (!config.image) problems.push("PREVIEW_GUEST_IMAGE is missing.");
-  if (!config.apiToken) problems.push("FLY_API_TOKEN (or PREVIEW_GUEST_FLY_API_TOKEN) is missing.");
+  if (!config.apiToken) problems.push("PREVIEW_GUEST_FLY_API_TOKEN (guest-app-scoped Fly token) is missing.");
   if (!/^https?:\/\//.test(config.apiBase)) {
     problems.push("PREVIEW_GUEST_MACHINES_API_BASE must be an http(s) URL.");
   }

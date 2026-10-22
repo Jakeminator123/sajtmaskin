@@ -42,16 +42,23 @@ binder `127.0.0.1`; syskonmaskiner kommer inte åt den utan token.
    org-/personlig token. Sätt den på **pilothosten**, inte på `vm-fly-jakem`:
 
    ```powershell
-   fly secrets set -a vm-fly-pilot FLY_API_TOKEN=<gäst-app-token>
-   fly secrets set -a vm-fly-pilot PREVIEW_GUEST_FLY_APP=sajtmaskin-preview-guests PREVIEW_GUEST_IMAGE=registry.fly.io/sajtmaskin-preview-guests:deployment-XXXX PREVIEW_GUEST_MACHINES_API_BASE=http://_api.internal:4280
+   fly secrets set --stage -a vm-fly-pilot PREVIEW_GUEST_FLY_API_TOKEN=<gäst-app-token> PREVIEW_GUEST_FLY_APP=sajtmaskin-preview-guests PREVIEW_GUEST_IMAGE=registry.fly.io/sajtmaskin-preview-guests:deployment-XXXX PREVIEW_GUEST_MACHINES_API_BASE=http://_api.internal:4280
    ```
+
+   `--stage` är avgörande: utan flaggan startar `fly secrets set` själv om
+   appens maskiner med den nya miljön, det vill säga tokenen landar på en
+   host som fortfarande kör delat läge. Med `--stage` ligger den vilande tills
+   nästa deploy, som ska vara den som slår på maskinläget (steg 4 respektive 6).
+   Hosten läser bara `PREVIEW_GUEST_FLY_API_TOKEN`; en generisk
+   `FLY_API_TOKEN` ignoreras avsiktligt.
 
    **Varför inte på `vm-fly-jakem` nu:** så länge den kör delat läge kan
    kundkod läsa hostprocessens miljö via `/proc`. En Fly-token där skulle ge
    en kund rätt att skapa maskiner och läsa alla gästers tokens ur
-   maskinkonfigurationerna. Tokenen får landa på den riktiga hosten först i
-   samma deploy som slår på `PREVIEW_HOST_ISOLATION=machine` (steg 6), då
-   ingen kundkod längre kör där. Piloten körs på en separat kontrollplans-app
+   maskinkonfigurationerna. Tokenen får bli aktiv på den riktiga hosten först
+   i samma deploy som slår på `PREVIEW_HOST_ISOLATION=machine` (steg 6), då
+   ingen kundkod längre kör där. Kontrollera efteråt med `fly machines list`
+   att ingen maskin kör en äldre version med delat läge. Piloten körs på en separat kontrollplans-app
    (klona `vm-fly-jakem` som `vm-fly-pilot` med egen volym) eller lokalt mot
    riktiga Machines med `PREVIEW_GUEST_MACHINES_API_BASE=https://api.machines.dev`.
 
@@ -70,9 +77,12 @@ binder `127.0.0.1`; syskonmaskiner kommer inte åt den utan token.
 6. Besluta driftvärden (inte ratificerade ännu): `PREVIEW_GUEST_CPU_KIND`,
    `PREVIEW_GUEST_CPUS`, `PREVIEW_GUEST_MEMORY_MB`, idle-/stopp-policy
    (`PREVIEW_GUEST_STOP_ON_HIBERNATE`), region. Först därefter, i **en** och
-   samma deploy av `vm-fly-jakem`: secrets (gäst-app-token och gästkonfig)
-   plus `PREVIEW_HOST_ISOLATION=machine` i `fly.toml`. Verifiera `/health`
-   (`isolation.mode = machine`) innan nästa kundpreview startas.
+   samma deploy av `vm-fly-jakem`: `fly secrets set --stage` med
+   gäst-app-token och gästkonfig, `PREVIEW_HOST_ISOLATION=machine` i
+   `fly.toml`, sedan `npm --prefix preview-host run deploy`. Verifiera
+   `/health` (`isolation.mode = machine`, `configured = true`) och
+   `fly machines list -a vm-fly-jakem` (en maskin, ny version) innan nästa
+   kundpreview startas.
 
 ## Drift
 

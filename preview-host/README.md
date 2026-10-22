@@ -188,7 +188,8 @@ Saknas token, app, bild eller identitetsbevis **failar booten** med
 
 Nycklar (hostens env, se [`../docs/ENV.md`](../docs/ENV.md)):
 `PREVIEW_HOST_ISOLATION`, `PREVIEW_GUEST_FLY_APP`, `PREVIEW_GUEST_IMAGE`,
-`FLY_API_TOKEN` (eller `PREVIEW_GUEST_FLY_API_TOKEN`),
+`PREVIEW_GUEST_FLY_API_TOKEN` (token scopad till gäst-appen; den generiska
+`FLY_API_TOKEN` läses medvetet inte),
 `PREVIEW_GUEST_MACHINES_API_BASE` (default `https://api.machines.dev`; inne på
 Fly `http://_api.internal:4280`), `PREVIEW_GUEST_REGION`,
 `PREVIEW_GUEST_CPU_KIND`/`_CPUS`/`_MEMORY_MB` (default shared/2/2048),
@@ -215,10 +216,17 @@ Acceptans i en disponibel testmiljö, endast med syntetiska data:
 5. Kör på den avsedda plattformen och spara käll-SHA, image-id, policykonfiguration
    och faktiska nekanden. Gröna lokala tester på den delade hosten kan inte
    godkänna en ännu odriftsatt sandboxarkitektur.
-6. Specifikt för maskinläget: från A:s gäst, försök nå B:s agentport och
-   dev-port över `.internal`/6PN, kontrollplanets `/preview/*` utan nyckel,
-   `_api.internal:4280` och ett eventuellt `/.fly/api`. Alla ska nekas; notera
-   att alla previews fortfarande delar webbläsar-origin på hostens domän.
+6. Specifikt för maskinläget, med TCP-nåbarhet och behörighet som **separata**
+   krav: gäster i samma Fly-organisationsnät kan normalt öppna TCP mot
+   varandra över 6PN, så en lyckad anslutning till B:s agentport är inte i
+   sig ett fel. Felet är om A utan B:s token kan läsa filer, köra kommandon,
+   styra dev-processen eller proxa trafik hos B (agenten ska svara 401), om
+   A når B:s dev-port (ska bara lyssna på B:s loopback), om A når
+   kontrollplanets `/preview/*` utan nyckel, `_api.internal:4280` utan token,
+   eller ett eventuellt `/.fly/api`. Kräver ägaren full nätseparation behövs
+   dessutom egen Fly-nätverkspolicy eller ett separat privat nät; det är inte
+   bevisat av tokenkontrollen. Alla previews delar fortfarande webbläsar-origin
+   på hostens domän.
 
 Den delade baslinjen (värden och varför den fungerar) finns i
 [`../docs/runbooks/preview-host-shared-baseline.md`](../docs/runbooks/preview-host-shared-baseline.md).

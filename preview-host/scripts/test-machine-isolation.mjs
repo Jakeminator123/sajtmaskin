@@ -57,7 +57,7 @@ process.env.HOST = "127.0.0.1";
 process.env.PREVIEW_BASE_URL = "http://127.0.0.1:0000";
 process.env.PREVIEW_HOST_API_KEY = HOST_API_KEY;
 process.env.PREVIEW_HOST_ISOLATION = "machine";
-process.env.FLY_API_TOKEN = FLY_TOKEN;
+process.env.PREVIEW_GUEST_FLY_API_TOKEN = FLY_TOKEN;
 process.env.PREVIEW_GUEST_FLY_APP = APP_NAME;
 process.env.PREVIEW_GUEST_IMAGE = "registry.fly.io/guests-test:test";
 process.env.PREVIEW_GUEST_MACHINES_API_BASE = fake.baseUrl;
@@ -225,8 +225,8 @@ try {
   check("machine record removed from the store", runtime.__testing.readMachineRecord(chatA) === null);
 
   // --- Fail-closed: missing config ---
-  const savedToken = process.env.FLY_API_TOKEN;
-  delete process.env.FLY_API_TOKEN;
+  const savedToken = process.env.PREVIEW_GUEST_FLY_API_TOKEN;
+  delete process.env.PREVIEW_GUEST_FLY_API_TOKEN;
   const createsBefore = fake.callsFor("POST", /\/machines$/).length;
   const chatB = "chat_iso_b";
   const startB = await api("POST", "/preview/session/start", {
@@ -239,7 +239,7 @@ try {
   check("missing isolation config fails the boot", failedB?.status === "error" && /isolation is required but not available/i.test(failedB?.readinessError ?? ""));
   check("missing config created no machine", fake.callsFor("POST", /\/machines$/).length === createsBefore);
   check("missing config ran nothing on the host", !existsSync(join(dataDir, "workspaces", chatB)));
-  process.env.FLY_API_TOKEN = savedToken;
+  process.env.PREVIEW_GUEST_FLY_API_TOKEN = savedToken;
   await api("POST", "/preview/session/destroy", { previewSessionId: startB.body.previewSessionId, lifecycleToken: startB.body.lifecycleToken });
 
   // --- Fail-closed: identity mismatch ---
