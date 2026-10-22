@@ -13,6 +13,11 @@ import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { generateText } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
+import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
+import {
+  workloadOpenAIProviderOptions,
+  workloadResponsesReasoning,
+} from "@/lib/ai-models/workload-reasoning";
 import OpenAI from "openai";
 import { z } from "zod";
 import { requireNotBot } from "@/lib/bot-protection";
@@ -26,7 +31,7 @@ import { isWizardAbortError, raceWizardDeadline } from "@/lib/wizard/route-deadl
 
 export const runtime = "nodejs";
 /** Keep as a numeric literal — Next bakes `maxDuration` at build time. Do not raise without p95/p99. */
-export const maxDuration = 30;
+export const maxDuration = 40;
 
 // ── Request schema ──────────────────────────────────────────────────
 
@@ -177,8 +182,10 @@ const INDUSTRY_CONTEXT: Record<string, string> = {
   other: "Företag",
 };
 
-// GPT-5 mini: fast ($0.25/1M in) and good enough for follow-up questions
-const ENRICH_MODEL = "openai/gpt-5-mini";
+const WIZARD_WORKLOAD_ID = "wizard_enrich_competitors";
+// Manifest default is GPT-6.1 Sol at medium. This literal is only used when that default is missing.
+const ENRICH_MODEL = getWorkloadDefaultModelFromManifest(WIZARD_WORKLOAD_ID) ?? "openai/gpt-6.1-sol";
+const RESPONSES_MODEL = ENRICH_MODEL.replace(/^openai\//, "");
 
 type EnrichResponse = z.infer<typeof enrichResponseSchema>;
 
@@ -462,12 +469,13 @@ ${suggestionRule}
 
           if (FEATURES.useResponsesApi) {
             const openai = new OpenAI({ apiKey: SECRETS.openaiApiKey });
-            const RESPONSES_MODEL = "gpt-5-mini";
 
             const response = await raceWizardDeadline(deadline.signal, () =>
               openai.responses.create(
                 {
                   model: RESPONSES_MODEL,
+                  max_output_tokens: 8_192,
+                  ...workloadResponsesReasoning(WIZARD_WORKLOAD_ID, RESPONSES_MODEL),
                   instructions: prompt,
                   input: "Generera svaret baserat på instruktionerna.",
                   text: {
@@ -493,8 +501,9 @@ ${suggestionRule}
                 model: createDirectModel(ENRICH_MODEL),
                 prompt,
                 maxRetries: 1,
-                maxOutputTokens: mode === "final_check" ? 520 : 420,
+                maxOutputTokens: 8_192,
                 abortSignal: deadline.signal,
+                ...workloadOpenAIProviderOptions(WIZARD_WORKLOAD_ID, ENRICH_MODEL),
               }),
             );
 
@@ -556,3 +565,4 @@ ${suggestionRule}
     ),
   );
 }
+

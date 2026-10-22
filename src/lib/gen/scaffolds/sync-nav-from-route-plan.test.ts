@@ -416,7 +416,7 @@ describe("syncNavItemsFromRoutePlan — footerLinks form + multiple surfaces (SM
     const footer = result.files[0]!.content;
     expect(footer).toContain('href: "/products"');
     expect(footer).toContain('href: "/categories"');
-    expect(footer).toContain('href: "/om"');
+    expect(footer).toContain('href: "/#om"');
     expect(footer).toContain('href: "/"');
     expect(footer).not.toContain("/category/category-1");
     expect(footer).not.toContain("/category/category-2");
@@ -440,7 +440,7 @@ describe("syncNavItemsFromRoutePlan — footerLinks form + multiple surfaces (SM
     ]);
     const header = result.files[0]!.content;
     const footer = result.files[1]!.content;
-    expect(extractNavHrefs(header)).toEqual(["/"]);
+    expect(extractNavHrefs(header)).toEqual(["/", "/#om"]);
     expect(header).not.toContain('href: "/products"');
     expect(footer).toContain('href: "/"');
     expect(footer).not.toContain('href: "/products"');

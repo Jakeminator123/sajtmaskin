@@ -9,6 +9,11 @@
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
+import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
+import {
+  workloadOpenAIProviderOptions,
+  workloadResponsesReasoning,
+} from "@/lib/ai-models/workload-reasoning";
 import OpenAI from "openai";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -22,7 +27,12 @@ import { isWizardAbortError, raceWizardDeadline } from "@/lib/wizard/route-deadl
 
 export const runtime = "nodejs";
 /** Keep as a numeric literal — Next bakes `maxDuration` at build time. Do not raise without p95/p99. */
-export const maxDuration = 25;
+export const maxDuration = 35;
+
+const WIZARD_WORKLOAD_ID = "wizard_enrich_competitors";
+const COMPETITORS_MODEL =
+  getWorkloadDefaultModelFromManifest(WIZARD_WORKLOAD_ID) ?? "openai/gpt-6.1-sol";
+const RESPONSES_MODEL = COMPETITORS_MODEL.replace(/^openai\//, "");
 
 const requestSchema = z.object({
   wizardRunId: z.string().uuid(),
@@ -186,12 +196,13 @@ Regler:
 
           if (FEATURES.useResponsesApi) {
             const openai = new OpenAI({ apiKey: SECRETS.openaiApiKey });
-            const RESPONSES_MODEL = "gpt-5-mini";
 
             const response = await raceWizardDeadline(deadline.signal, () =>
               openai.responses.create(
                 {
                   model: RESPONSES_MODEL,
+                  max_output_tokens: 8_192,
+                  ...workloadResponsesReasoning(WIZARD_WORKLOAD_ID, RESPONSES_MODEL),
                   instructions: competitorsPrompt,
                   input: "Generera konkurrentanalys baserat på instruktionerna.",
                   text: {
@@ -214,7 +225,7 @@ Regler:
           } else {
             const result = await raceWizardDeadline(deadline.signal, () =>
               generateText({
-                model: createDirectModel("openai/gpt-5-mini"),
+                model: createDirectModel(COMPETITORS_MODEL),
                 prompt: `${competitorsPrompt}
 
 Returnera BARA JSON (inget annat):
@@ -222,8 +233,9 @@ Returnera BARA JSON (inget annat):
 
 - Bara JSON, inget annat`,
                 maxRetries: 1,
-                maxOutputTokens: 600,
+                maxOutputTokens: 8_192,
                 abortSignal: deadline.signal,
+                ...workloadOpenAIProviderOptions(WIZARD_WORKLOAD_ID, COMPETITORS_MODEL),
               }),
             );
 
@@ -260,3 +272,4 @@ Returnera BARA JSON (inget annat):
     ),
   );
 }
+

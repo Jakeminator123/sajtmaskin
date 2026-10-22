@@ -148,6 +148,12 @@ export const emitPlanArtifact = tool({
         integrations: z
           .array(
             z.object({
+              kind: z.enum(["database", "auth", "payment", "integration"]).optional(),
+              providerKey: z.string().optional(),
+              dossierCapability: z.string().optional(),
+              selectionSource: z
+                .enum(["explicit", "legacy-preserved", "dossier-default", "generic-default"])
+                .optional(),
               provider: z.string(),
               name: z.string(),
               reason: z.string(),

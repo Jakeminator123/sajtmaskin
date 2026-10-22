@@ -131,7 +131,7 @@ function uniqueProviderIntegrations(contracts: PlanContracts): PlanIntegrationCo
   const seen = new Set<string>();
   const out: PlanIntegrationContract[] = [];
   for (const integration of contracts.integrations) {
-    const id = integration.provider || integration.name;
+    const id = integration.providerKey || integration.provider || integration.name;
     if (!id || seen.has(id)) continue;
     seen.add(id);
     out.push(integration);
@@ -142,6 +142,10 @@ function uniqueProviderIntegrations(contracts: PlanContracts): PlanIntegrationCo
 function findIntegrationDefinition(
   integration: PlanIntegrationContract,
 ): IntegrationDefinition | undefined {
+  if (integration.providerKey) {
+    const byCanonicalKey = integrationRegistryByKey.get(integration.providerKey);
+    if (byCanonicalKey) return byCanonicalKey;
+  }
   const byProviderId = integrationRegistryByKey.get(integration.provider);
   if (byProviderId) return byProviderId;
   for (const def of integrationRegistry) {
@@ -557,7 +561,8 @@ export function deriveTier3BuildSpec(contracts: PlanContracts): Tier3BuildSpec {
 
   for (const integration of uniqueProviderIntegrations(contracts)) {
     if (integration.status === "optional") continue;
-    const exactDossier = findExactDossierInput(integration.provider);
+    if (integration.status === "unresolved") continue;
+    const exactDossier = findExactDossierInput(integration.providerKey ?? integration.provider);
     if (exactDossier) {
       requirements.push(
         buildDossierRequirement(exactDossier, {
@@ -570,7 +575,9 @@ export function deriveTier3BuildSpec(contracts: PlanContracts): Tier3BuildSpec {
     }
 
     const def = findIntegrationDefinition(integration);
-    const provider = canonicalProviderKey(def?.provider ?? def?.key ?? integration.provider);
+    const provider = canonicalProviderKey(
+      def?.provider ?? def?.key ?? integration.providerKey ?? integration.provider,
+    );
     const resolution = resolveInjectableProvider(provider);
     if (resolution.status === "unique") {
       const entry = resolution.dossiers[0];

@@ -4,7 +4,28 @@ import { PreviewPanelF3Trigger } from "./PreviewPanelF3Trigger";
 import {
   F3_REBUILD_REQUEST_EVENT,
   dispatchVersionStatusRefreshed,
+  requestF3Rebuild,
 } from "@/lib/builder/project-env-events";
+
+const buttonCommit = vi.hoisted(() => ({
+  onCommit: null as ((disabled: boolean) => void) | null,
+}));
+
+vi.mock("@/components/ui/button", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/components/ui/button")>();
+  const { createElement, useLayoutEffect } = await import("react");
+  return {
+    ...actual,
+    // Observe the real button's committed DOM before passive effects run.
+    // Only seam tests install a callback; readiness and F3 remain real.
+    Button: function CommitObservedButton(props: Parameters<typeof actual.Button>[0]) {
+      useLayoutEffect(() => {
+        buttonCommit.onCommit?.(props.disabled === true);
+      });
+      return createElement(actual.Button, props);
+    },
+  };
+});
 
 vi.mock("sonner", () => {
   throw new Error("F3 trigger must not use Sonner.");
@@ -29,9 +50,30 @@ async function waitForF3Enabled() {
   });
 }
 
+function stubFinalizeRequests(readiness: () => Promise<Response>) {
+  const requestedBodies: Array<Record<string, unknown>> = [];
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.includes("/error-log")) return readiness();
+    if (url.includes("/finalize-design")) {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      requestedBodies.push(body);
+      return Response.json({
+        ready: true,
+        parentVersionId: body.versionId,
+        requirements: [],
+        streamMeta: { lifecycleStage: "integrations", parentVersionId: body.versionId },
+      });
+    }
+    return Response.json({}, { status: 404 });
+  }));
+  return requestedBodies;
+}
+
 describe("PreviewPanelF3Trigger", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    buttonCommit.onCommit = null;
   });
 
   it("lets a newer passing Product Postcheck summary override an older blocker", async () => {
@@ -328,6 +370,78 @@ describe("PreviewPanelF3Trigger", () => {
         versionId: "ver_required_parent",
       });
     });
+  });
+
+  it.each([
+    { requested: "ver_required_parent", expected: "ver_required_parent" },
+    { requested: undefined, expected: "ver_transient_active" },
+  ])("uses committed readiness for an immediate rebuild ($expected)", async ({ requested, expected }) => {
+    const readiness = Promise.withResolvers<Response>();
+    const requestedBodies = stubFinalizeRequests(() => readiness.promise);
+    let dispatched = false;
+    buttonCommit.onCommit = (disabled) => {
+      if (disabled) return;
+      buttonCommit.onCommit = null;
+      expect(screen.getByRole("button", { name: /bygg integrationer/i })).toHaveProperty("disabled", false);
+      dispatched = true;
+      requestF3Rebuild(requested);
+    };
+
+    render(<PreviewPanelF3Trigger chatId="chat_1" versionId="ver_transient_active" />);
+    expect(requestedBodies).toEqual([]);
+    await act(async () => {
+      readiness.resolve(Response.json(PASSED_ERROR_LOG));
+    });
+
+    expect(dispatched).toBe(true);
+    expect(requestedBodies).toEqual([{ versionId: expected }]);
+  });
+
+  it.each(["blocked", "busy"] as const)("rejects an immediate rebuild when committed state becomes %s", async (guard) => {
+    const firstRead = Promise.withResolvers<Response>();
+    const blockedRead = Promise.withResolvers<Response>();
+    const readiness = vi.fn()
+      .mockImplementationOnce(() => firstRead.promise)
+      .mockImplementation(() => blockedRead.promise);
+    const requestedBodies = stubFinalizeRequests(readiness);
+    const onStatus = vi.fn();
+    const props = { chatId: "chat_1", versionId: "ver_transient_active", onStatus };
+    const { rerender } = render(<PreviewPanelF3Trigger {...props} />);
+    await act(async () => {
+      firstRead.resolve(Response.json(PASSED_ERROR_LOG));
+    });
+    expect(screen.getByRole("button", { name: /bygg integrationer/i })).toHaveProperty("disabled", false);
+
+    let dispatched = false;
+    buttonCommit.onCommit = (disabled) => {
+      if (!disabled) return;
+      buttonCommit.onCommit = null;
+      expect(screen.getByRole("button", { name: /bygg integrationer/i })).toHaveProperty("disabled", true);
+      dispatched = true;
+      requestF3Rebuild("ver_required_parent");
+    };
+    if (guard === "busy") {
+      rerender(<PreviewPanelF3Trigger {...props} isBusy />);
+    } else {
+      act(() => dispatchVersionStatusRefreshed());
+      await act(async () => {
+        blockedRead.resolve(Response.json({
+          logs: [{
+            category: "product_postcheck.summary",
+            meta: { verdict: "blocked", productBlocked: true },
+            created_at: "2026-08-15T10:01:00.000Z",
+          }],
+        }));
+      });
+    }
+
+    expect(dispatched).toBe(true);
+    expect(requestedBodies).toEqual([]);
+    expect(onStatus).toHaveBeenCalledWith(expect.objectContaining({
+      tone: "warning",
+      title: guard === "busy" ? "Integrationsbygget väntar" : "Integrationsbygget är spärrat av Product Postcheck",
+      versionId: "ver_required_parent",
+    }));
   });
 
   it("runs ReleaseGate on the exact F2 version without starting an F3 LLM round", async () => {

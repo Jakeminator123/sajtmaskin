@@ -1,16 +1,39 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   isBuiltinPackage,
   parseManifestDependencySpec,
   resolveExportableVersion,
 } from "@/lib/gen/autofix/dep-completer";
 import { getAllDossiers, getDossierFileContent } from "./registry";
+import * as registry from "./registry";
 import { mapDossierPathToOutput } from "./output-path";
 import { buildDossierAcceptanceProject } from "./acceptance-project";
+import type { DossierEntry } from "./types";
+
+function mockAcceptanceDossier(paths: string[], id = "synthetic-acceptance"): void {
+  const dossier: DossierEntry = {
+    class: "soft",
+    id,
+    label: "Synthetic acceptance",
+    capability: "synthetic-acceptance",
+    codeFidelity: "rewritable",
+    complexity: "simple",
+    defaultForCapability: false,
+    summary: "Synthetic dossier for acceptance path-conflict tests.",
+    files: paths.map((path) => ({ path, role: "shared" as const })),
+    lastVerified: "2026-01-01",
+  };
+  vi.spyOn(registry, "getDossierById").mockReturnValue(dossier);
+  vi.spyOn(registry, "getDossierFileContent").mockImplementation(
+    (_class, _id, path) => `export const source = ${JSON.stringify(path)};`,
+  );
+}
 
 describe("keyless dossier acceptance project", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   it("materializes every file-shipping dossier (hard + soft) with exact files and deterministic dependencies", () => {
     const fileShippingDossiers = getAllDossiers().filter(
       (dossier) => (dossier.files ?? []).length > 0,
@@ -25,11 +48,13 @@ describe("keyless dossier acceptance project", () => {
       const project = buildDossierAcceptanceProject(dossier.id);
       const byPath = new Map(project.files.map((file) => [file.path, file.content]));
       expect(byPath.has("package.json"), dossier.id).toBe(true);
-      for (const component of ["badge", "button", "card", "separator"]) {
-        expect(
-          byPath.has(`components/ui/${component}.tsx`),
-          `${dossier.id}: landing-page scaffold needs ${component}`,
-        ).toBe(true);
+      if (project.scaffoldId === "landing-page") {
+        for (const component of ["badge", "button", "card", "separator"]) {
+          expect(
+            byPath.has(`components/ui/${component}.tsx`),
+            `${dossier.id}: landing-page scaffold needs ${component}`,
+          ).toBe(true);
+        }
       }
       expect(byPath.get(".env.local"), `${dossier.id} must use preview placeholders`).toContain(
         "placeholder .env.local for local development (not production secrets)",
@@ -55,12 +80,109 @@ describe("keyless dossier acceptance project", () => {
     }
   });
 
+  it.each([
+    {
+      dossierId: "stripe-checkout",
+      scaffoldId: "ecommerce",
+      sentinel: "app/product/[id]/page.tsx",
+      mountImport: 'from "@/components/checkout-button"',
+      mountRender: '<CheckoutButton priceId="" />',
+      exportPath: "components/checkout-button.tsx",
+      exportDeclaration: "export function CheckoutButton",
+    },
+    {
+      dossierId: "postgres-drizzle",
+      scaffoldId: "dashboard",
+      sentinel: "app/users/page.tsx",
+      mountImport: 'from "@/lib/db/seed-data"',
+      mountRender: "seedData.length",
+      exportPath: "lib/db/seed-data.ts",
+      exportDeclaration: "export const seedData",
+    },
+    {
+      dossierId: "mailchimp-newsletter",
+      scaffoldId: "blog",
+      sentinel: "app/blog/[slug]/page.tsx",
+      mountImport: 'from "@/components/newsletter-form"',
+      mountRender: "<NewsletterForm />",
+      exportPath: "components/newsletter-form.tsx",
+      exportDeclaration: "export function NewsletterForm",
+    },
+  ] as const)(
+    "mounts $dossierId in the existing $scaffoldId fixture without provider calls",
+    ({
+      dossierId,
+      scaffoldId,
+      sentinel,
+      mountImport,
+      mountRender,
+      exportPath,
+      exportDeclaration,
+    }) => {
+      const project = buildDossierAcceptanceProject(dossierId);
+      const byPath = new Map(project.files.map((file) => [file.path, file.content]));
+
+      expect(project.scaffoldId).toBe(scaffoldId);
+      expect(byPath.has(sentinel)).toBe(true);
+      expect(byPath.get("app/dossier-acceptance/page.tsx")).toContain(mountImport);
+      expect(byPath.get("app/dossier-acceptance/page.tsx")).toContain(mountRender);
+      expect(byPath.get(exportPath)).toContain(exportDeclaration);
+    },
+  );
+
   it("rejects file-less dossiers because there is nothing to build", () => {
     const fileless = getAllDossiers().find((dossier) => (dossier.files ?? []).length === 0);
     expect(fileless, "expected at least one instructions-only dossier in the pool").toBeDefined();
     expect(() => buildDossierAcceptanceProject(fileless!.id)).toThrow(
       /requires a dossier with declared files/,
     );
+  });
+
+  it("allows an exact literal scaffold overlay", () => {
+    mockAcceptanceDossier(["app/page.tsx"]);
+    const project = buildDossierAcceptanceProject("synthetic-acceptance");
+    expect(project.files.find((file) => file.path === "app/page.tsx")?.content).toContain(
+      '"app/page.tsx"',
+    );
+  });
+
+  it("rejects a portable scaffold alias before overwriting it", () => {
+    mockAcceptanceDossier(["app/Page.tsx"]);
+    expect(() => buildDossierAcceptanceProject("synthetic-acceptance")).toThrow(
+      "acceptance-output-conflict",
+    );
+  });
+
+  it.each(["components", "components/site-header.tsx/child.ts"])(
+    "rejects scaffold file/directory conflict %s",
+    (path) => {
+      mockAcceptanceDossier([path]);
+      expect(() => buildDossierAcceptanceProject("synthetic-acceptance")).toThrow(
+        "acceptance-output-conflict",
+      );
+    },
+  );
+
+  it("rejects a file/directory conflict with an already materialized dossier file", () => {
+    mockAcceptanceDossier(["components/cache", "components/cache/item.ts"]);
+    expect(() => buildDossierAcceptanceProject("synthetic-acceptance")).toThrow(
+      "acceptance-output-conflict",
+    );
+  });
+
+  it.each([
+    ["app/dossier-acceptance/page.tsx", "acceptance-harness-conflict"],
+    ["app/Dossier-Acceptance/page.tsx", "acceptance-harness-conflict"],
+    ["app/dossier-acceptance", "acceptance-output-conflict"],
+    ["app/dossier-acceptance/page.tsx/child.ts", "acceptance-output-conflict"],
+  ])("rejects harness collision %s", (path, reason) => {
+    mockAcceptanceDossier([path], "stripe-checkout");
+    expect(() => buildDossierAcceptanceProject("stripe-checkout")).toThrow(reason);
+  });
+
+  it("allows a scaffold prefix sibling without a slash boundary", () => {
+    mockAcceptanceDossier(["components/site-header.tsx-extra"]);
+    expect(() => buildDossierAcceptanceProject("synthetic-acceptance")).not.toThrow();
   });
 
   it("materializes openai-chat with the AI SDK ranges used by the warm typecheck", () => {
@@ -89,6 +211,15 @@ describe("keyless dossier acceptance project", () => {
       ).toBe(warmCacheDependencies[dependency]);
     }
     expect(generated.dependencies?.ai).not.toMatch(/^\^?7(?:\.|$)/);
+  });
+
+  it("materializes Clerk route policy beside the verbatim root middleware", () => {
+    const project = buildDossierAcceptanceProject("clerk-auth");
+    const middleware = project.files.find((file) => file.path === "middleware.ts");
+    const policy = project.files.find((file) => file.path === "lib/clerk/protected-routes.ts");
+
+    expect(middleware?.content).toContain('from "./lib/clerk/protected-routes"');
+    expect(policy?.content).toContain("export const protectedRoutes");
   });
 
   it("keeps the MapLibre v6 worker URL before map construction", () => {

@@ -62,8 +62,8 @@ export function chatGenerationLockFailureResponse(
 }
 
 const REDIS_LOCK_PREFIX = `${REDIS_KEY_PREFIX}generation-lock:`;
-// Preview and production currently share the users/credits database, so the
-// entitlement mutex MUST NOT inherit the runtime/cache environment prefix.
+// Development and Preview share DEV users/credits. The entitlement mutex must
+// not inherit the runtime/cache environment prefix, so both coordinate.
 // Deployment prerequisite: every deployment sharing those entitlements must
 // point getRedis() at the SAME Redis instance/logical database (REDIS_URL or
 // REDIS_HOST/REDIS_PASSWORD). The separate Upstash rate-limiter is not this lock

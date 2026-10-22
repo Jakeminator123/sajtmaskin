@@ -1,12 +1,61 @@
-import type { GtagFn } from "./fire-google-ads-conversion";
+import {
+  hasAcceptedCookieConsent,
+  syncGoogleAdsConsent,
+  type GtagFn,
+} from "./fire-google-ads-conversion";
 
 const SCRIPT_ID = "sajtmaskin-google-ads";
 const LOAD_TIMEOUT_MS = 15_000;
 let loading: Promise<boolean> | null = null;
 
+const CONSENT_DEFAULT_DENIED = {
+  ad_storage: "denied",
+  ad_user_data: "denied",
+  ad_personalization: "denied",
+  analytics_storage: "denied",
+  wait_for_update: 500,
+} as const;
+
 declare global {
   interface Window {
     sajtmaskinAdsConfiguredIds?: string[];
+    sajtmaskinAdsConsentDefaulted?: boolean;
+    sajtmaskinAdsJsQueued?: boolean;
+  }
+}
+
+function ensureGtagQueue(): GtagFn | undefined {
+  if (typeof window === "undefined") return undefined;
+  window.dataLayer = window.dataLayer || [];
+  if (typeof window.gtag !== "function") {
+    // gtag.js dispatches only Arguments objects as commands; a pushed array is
+    // read as a GTM method call, so consent/config/event would be dropped.
+    window.gtag = function gtag() {
+      // eslint-disable-next-line prefer-rest-params
+      window.dataLayer?.push(arguments);
+    } as GtagFn;
+  }
+  return window.gtag;
+}
+
+/** Consent Mode v2 default must land before `js` / `config`. */
+export function ensureGoogleAdsConsentDefault(): void {
+  const gtag = ensureGtagQueue();
+  if (!gtag) return;
+  if (!window.sajtmaskinAdsConsentDefaulted) {
+    gtag("consent", "default", { ...CONSENT_DEFAULT_DENIED });
+    window.sajtmaskinAdsConsentDefaulted = true;
+    // Returning visitors already have CMP state. Queue granted before js/config
+    // so wait_for_update does not let conversion-linker run as denied.
+    if (hasAcceptedCookieConsent()) {
+      syncGoogleAdsConsent();
+    }
+    gtag("set", "url_passthrough", true);
+    gtag("set", "ads_data_redaction", true);
+  }
+  if (!window.sajtmaskinAdsJsQueued) {
+    gtag("js", new Date());
+    window.sajtmaskinAdsJsQueued = true;
   }
 }
 
@@ -20,18 +69,13 @@ export function loadGoogleAdsTag(adsId: string, nonce?: string): Promise<boolean
   }
   if (loading) return loading;
   window.sajtmaskinAdsTagLoaded = false;
-  window.dataLayer = window.dataLayer || [];
-  if (typeof window.gtag !== "function") {
-    window.gtag = ((...args: unknown[]) => {
-      window.dataLayer?.push(args);
-    }) as GtagFn;
-    window.gtag("js", new Date());
-  }
+  ensureGoogleAdsConsentDefault();
+  const gtag = window.gtag;
   // Failed script loads leave the same dataLayer intact. Retry injection,
   // not configuration; keep this per-document identity across module reloads.
   const configuredIds = (window.sajtmaskinAdsConfiguredIds ??= []);
-  if (!configuredIds.includes(adsId)) {
-    window.gtag("config", adsId);
+  if (typeof gtag === "function" && !configuredIds.includes(adsId)) {
+    gtag("config", adsId);
     configuredIds.push(adsId);
   }
   existing?.remove();

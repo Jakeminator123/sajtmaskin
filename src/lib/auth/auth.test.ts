@@ -102,6 +102,15 @@ describe("auth token security", () => {
     claimUnclaimedSessionProjects.mockResolvedValue(["proj_1"]);
   });
 
+  it("jämför lösenordshashar utan att godkänna ett avvikande eller avhugget hash", () => {
+    const password = crypto.randomBytes(12).toString("base64url");
+    const stored = auth.hashPassword(password);
+    expect(auth.verifyPassword(password, stored)).toBe(true);
+    expect(auth.verifyPassword(`${password}!`, stored)).toBe(false);
+    expect(auth.verifyPassword(password, stored.slice(0, -2))).toBe(false);
+    expect(auth.verifyPassword(password, "inte-en-hash")).toBe(false);
+  });
+
   it("creates and verifies JWT tokens", () => {
     const token = auth.createToken("user_1", "user@example.com");
     const payload = auth.verifyToken(token);
@@ -353,6 +362,24 @@ describe("server-component auth cookie reader", () => {
       id: "user_1",
     });
     expect(users.getUserById).toHaveBeenCalledWith("user_1");
+  });
+
+  it("treats a session for a saved campaign account as signed out", async () => {
+    const token = auth.createToken("user_campaign", "kostnadsfri+zax@kampanj.sajtmaskin.invalid");
+    mockIncomingHeaders({ cookie: `${AUTH_COOKIE_LEGACY_NAME}=${token}` });
+    vi.mocked(users.getUserById).mockResolvedValue({
+      id: "user_campaign",
+      provider: "kostnadsfri_claimed",
+    } as never);
+
+    await expect(auth.getCurrentUserFromCookies()).resolves.toBeNull();
+    await expect(
+      auth.getCurrentUser(
+        new Request("http://localhost/api/auth/me", {
+          headers: { cookie: `${AUTH_COOKIE_LEGACY_NAME}=${token}` },
+        }),
+      ),
+    ).resolves.toBeNull();
   });
 });
 

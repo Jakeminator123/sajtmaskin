@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gt, inArray, isNull, like, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
+  engineChats,
   engineGenerationLogs,
   engineVersions,
   generationBillings,
@@ -19,6 +20,7 @@ import { buildKostnadsfriProfileFallback } from "@/lib/kostnadsfri/company-profi
 import { unsubscribedAtFromExtra } from "@/lib/kostnadsfri/unsubscribe";
 import { assertDbConfigured } from "./shared";
 import type { KostnadsfriPage } from "./shared";
+import { isAdminEmail } from "./users";
 import type { KostnadsfriGeneration } from "@/lib/kostnadsfri/mail-register-contract";
 import {
   mailTypeFromSource,
@@ -109,10 +111,10 @@ export async function createKostnadsfriPageWithMailEvent(
  * Register that the invite mail for `slug` went out — the write half of the
  * send register behind `/admin/kostnadsfri`.
  *
- * `contactEmail` is only written when it is a non-empty string: a caller that
- * re-registers a send without repeating the address must not blank the one
- * already stored. Returns null when the slug has no row (the caller decides
- * whether to create one).
+ * `industry` and `contactEmail` are only written when they are non-empty
+ * strings: a caller that re-registers a send without repeating the metadata
+ * must not blank what is already stored. Returns null when the slug has no row
+ * (the caller decides whether to create one).
  *
  * `extraDataPatch` slås ihop med `jsonb ||` i databasen i stället för att läsas
  * och skrivas tillbaka. Den ytliga sammanslagningen är avsiktlig här: patchen
@@ -122,19 +124,27 @@ export async function createKostnadsfriPageWithMailEvent(
 export type KostnadsfriPageSentInput = {
   sentAt: Date;
   source: string;
+  industry?: string | null;
   contactEmail?: string | null;
   extraDataPatch?: Record<string, unknown> | null;
 };
 
 /** Company metadata a registered send may refresh. Never the cohort fields. */
 export type KostnadsfriPageMetadataInput = {
+  industry?: string | null;
   contactEmail?: string | null;
   extraDataPatch?: Record<string, unknown> | null;
 };
 
 function kostnadsfriPageMetadataUpdates(data: KostnadsfriPageMetadataInput) {
-  const updates: { contact_email?: string; extra_data?: ReturnType<typeof sql> } = {};
+  const updates: {
+    industry?: string;
+    contact_email?: string;
+    extra_data?: ReturnType<typeof sql>;
+  } = {};
+  const industry = data.industry?.trim();
   const contactEmail = data.contactEmail?.trim();
+  if (industry) updates.industry = industry;
   if (contactEmail) updates.contact_email = contactEmail;
   if (data.extraDataPatch && Object.keys(data.extraDataPatch).length > 0) {
     updates.extra_data = sql`coalesce(${kostnadsfriPages.extra_data}, '{}'::jsonb) || ${JSON.stringify(
@@ -418,7 +428,7 @@ export async function recordKostnadsfriMailEventForSubscribedPage(
      */
     firstSend?: { sentAt: Date; source: string };
     /**
-     * Contact/profile refresh carried by an accepted send (first or follow).
+     * Industry/contact/profile refresh carried by an accepted send (first or follow).
      * Applied under the same lock and opt-out check, independently of the
      * protected cohort fields. Conflict or opt-out changes nothing.
      */
@@ -766,8 +776,69 @@ export async function getKostnadsfriGenerationBySlug(
           .where(inArray(engineVersions.id, effectiveVersionIds))
       : [];
   const versionById = new Map(versions.map((version) => [version.id, version]));
+
+  // Admin/test builders bypass the campaign credit path, so their entitlement
+  // never gets a bound chat or settlement marker. For them, versions and chats
+  // the entitlement's project gained after redemption prove whether a site was
+  // generated. Real recipients keep the bound-chat projection only.
+  const unboundCandidates = entitlements.filter(
+    (row) =>
+      row.user_id &&
+      !row.initial_chat_id &&
+      !row.initial_version_id &&
+      !markerByEntitlement.has(row.id),
+  );
+  const ownerRows =
+    unboundCandidates.length > 0
+      ? await db
+          .select({ id: users.id, email: users.email })
+          .from(users)
+          .where(inArray(users.id, [...new Set(unboundCandidates.map((row) => row.user_id!))]))
+      : [];
+  const adminOwnerIds = new Set(
+    ownerRows.filter((owner) => isAdminEmail(owner.email)).map((owner) => owner.id),
+  );
+  const unboundSince = new Map(
+    unboundCandidates
+      .filter((row) => adminOwnerIds.has(row.user_id!))
+      .map((row) => [row.project_id, row.created_at] as const),
+  );
+  const unboundProjectIds = [...unboundSince.keys()];
+  const projectChats =
+    unboundProjectIds.length > 0
+      ? await db
+          .select({
+            id: engineChats.id,
+            projectId: engineChats.projectId,
+            createdAt: engineChats.createdAt,
+          })
+          .from(engineChats)
+          .where(inArray(engineChats.projectId, unboundProjectIds))
+      : [];
+  const projectVersions =
+    projectChats.length > 0
+      ? await db
+          .select({
+            id: engineVersions.id,
+            chatId: engineVersions.chatId,
+            createdAt: engineVersions.createdAt,
+          })
+          .from(engineVersions)
+          .where(
+            inArray(
+              engineVersions.chatId,
+              projectChats.map((chat) => chat.id),
+            ),
+          )
+      : [];
+  const unboundByProject = resolveUnboundCampaignGeneration(
+    projectChats,
+    projectVersions,
+    unboundSince,
+  );
+
   const chatIds = entitlements
-    .map((row) => row.initial_chat_id)
+    .map((row) => row.initial_chat_id ?? unboundByProject.get(row.project_id)?.chatId ?? null)
     .filter((value): value is string => Boolean(value));
   const logs =
     chatIds.length > 0
@@ -787,22 +858,68 @@ export async function getKostnadsfriGenerationBySlug(
   const result = new Map<string, KostnadsfriGeneration>();
   for (const row of entitlements) {
     const marker = markerByEntitlement.get(row.id);
-    const versionId = row.initial_version_id ?? marker?.versionId ?? null;
+    const unbound = row.initial_chat_id ? undefined : unboundByProject.get(row.project_id);
+    const chatId = row.initial_chat_id ?? unbound?.chatId ?? null;
+    const versionId = row.initial_version_id ?? marker?.versionId ?? unbound?.version?.id ?? null;
     const completedAt = versionId
-      ? (versionById.get(versionId)?.createdAt ?? row.initial_claimed_at ?? marker?.createdAt ?? null)
+      ? (versionById.get(versionId)?.createdAt ??
+        unbound?.version?.createdAt ??
+        row.initial_claimed_at ??
+        marker?.createdAt ??
+        null)
       : null;
     result.set(
       row.invitation_slug,
       resolveKostnadsfriGenerationProjection({
         projectId: row.project_id,
-        initialChatId: row.initial_chat_id,
+        initialChatId: chatId,
         initialVersionId: versionId,
         completedAt,
-        latestGenerationSucceeded: row.initial_chat_id
-          ? (latestLog.get(row.initial_chat_id)?.success ?? null)
-          : null,
+        latestGenerationSucceeded: chatId ? (latestLog.get(chatId)?.success ?? null) : null,
       }),
     );
+  }
+  return result;
+}
+
+type ProjectChatRow = { id: string; projectId: string | null; createdAt: Date | string };
+type ProjectVersionRow = { id: string; chatId: string; createdAt: Date | string };
+
+/**
+ * Earliest version per project, else its earliest chat (generation started,
+ * no version yet). Only versions and chats created after the project's
+ * entitlement count; an older chat still counts through a newer version.
+ */
+function resolveUnboundCampaignGeneration(
+  chats: readonly ProjectChatRow[],
+  versions: readonly ProjectVersionRow[],
+  sinceByProject: ReadonlyMap<string, Date | string>,
+): Map<string, { chatId: string; version: ProjectVersionRow | null }> {
+  const time = (value: Date | string) => new Date(value).getTime();
+  const projectByChat = new Map<string, string>();
+  const result = new Map<string, { chatId: string; version: ProjectVersionRow | null }>();
+  const firstChatAt = new Map<string, number>();
+  for (const chat of chats) {
+    if (!chat.projectId) continue;
+    const since = sinceByProject.get(chat.projectId);
+    if (since === undefined) continue;
+    projectByChat.set(chat.id, chat.projectId);
+    if (time(chat.createdAt) < time(since)) continue;
+    const at = time(chat.createdAt);
+    if (!result.has(chat.projectId) || at < (firstChatAt.get(chat.projectId) ?? Infinity)) {
+      result.set(chat.projectId, { chatId: chat.id, version: null });
+      firstChatAt.set(chat.projectId, at);
+    }
+  }
+  for (const version of versions) {
+    const projectId = projectByChat.get(version.chatId);
+    if (!projectId) continue;
+    const since = sinceByProject.get(projectId);
+    if (since === undefined || time(version.createdAt) < time(since)) continue;
+    const current = result.get(projectId);
+    if (!current?.version || time(version.createdAt) < time(current.version.createdAt)) {
+      result.set(projectId, { chatId: version.chatId, version });
+    }
   }
   return result;
 }
@@ -819,7 +936,11 @@ export interface KostnadsfriSlugStats {
   uniqueVisitors: number;
   /** Successful password verifications. */
   verified: number;
-  /** Completed wizards (builder handoff created). */
+  /** Client-reported: wizard done, Sajtagenten step reached. Can be inflated. */
+  wizardDone: number;
+  /** Client-reported: login/register wall shown. Can be inflated. */
+  authShown: number;
+  /** Prompt handoff created after login, before the builder. */
   started: number;
   firstSeen: string;
   lastSeen: string;
@@ -890,6 +1011,8 @@ export async function getKostnadsfriVisitStats(
         visits: 0,
         uniqueVisitors: 0,
         verified: 0,
+        wizardDone: 0,
+        authShown: 0,
         started: 0,
         firstSeen: at,
         lastSeen: at,
@@ -906,7 +1029,11 @@ export async function getKostnadsfriVisitStats(
       entry.visitorKeys.add(row.session_id || row.ip_address || `row:${at}`);
     } else if (parsed.event === "verifierad") {
       entry.verified += 1;
-    } else {
+    } else if (parsed.event === "wizard") {
+      entry.wizardDone += 1;
+    } else if (parsed.event === "konto") {
+      entry.authShown += 1;
+    } else if (parsed.event === "skapad") {
       entry.started += 1;
     }
 

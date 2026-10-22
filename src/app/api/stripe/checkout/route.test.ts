@@ -87,6 +87,16 @@ describe("POST /api/stripe/checkout", () => {
     );
   });
 
+  it("stoppar köp från ett osparat kampanjkonto", async () => {
+    getCurrentUser.mockResolvedValue({ id: "campaign-1", email: null, provider: "kostnadsfri" });
+
+    const response = await POST(postCheckout());
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ code: "campaign_account_unclaimed" });
+    expect(createSession).not.toHaveBeenCalled();
+  });
+
   it("faller tillbaka på price_data när price-id saknas i Stripe-kontot", async () => {
     createSession
       .mockRejectedValueOnce(missingPriceError())

@@ -1,20 +1,22 @@
 /**
- * Pre-send Prompt-assist: cheap rewrite of the chat draft before send.
+ * Pre-send Prompt-assist: rewrite of the chat draft before send.
  * Natural language in, natural language out. Not Deep Brief / siteBriefSchema.
  */
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
+import { resolveWorkloadReasoningEffort } from "@/lib/ai-models/workload-reasoning";
 import { getTemperatureConfig } from "@/lib/builder/direct-model";
 import { aliasRetiredModelId } from "@/lib/models/catalog";
+import type { OpenAIReasoningEffort } from "@/lib/models/openai-capabilities";
 
 export const PROMPT_REWRITE_WORKLOAD_ID = "prompt_rewrite";
-export const PROMPT_REWRITE_FALLBACK_MODEL = "openai/gpt-5.6-terra";
+export const PROMPT_REWRITE_FALLBACK_MODEL = "openai/gpt-6.1-sol";
 export const PROMPT_ASSIST_DRAFT_MAX_CHARS = 8_000;
 /**
- * A rewrite of the largest allowed draft is about 2k tokens in Swedish/English.
- * 3,072 leaves room for JSON escaping without giving this cheap pre-send step an
- * open-ended provider bill.
+ * Total Responses output budget, including reasoning tokens, so a rewrite of
+ * up to 8,000 characters still fits beside the workload's low effort.
+ * 8,192 is a maximum limit, not a measured cost.
  */
-export const PROMPT_REWRITE_MAX_OUTPUT_TOKENS = 3_072;
+export const PROMPT_REWRITE_MAX_OUTPUT_TOKENS = 8_192;
 /** Keep writeback within the same character contract as the input draft. */
 export const PROMPT_REWRITE_MAX_CHARS = PROMPT_ASSIST_DRAFT_MAX_CHARS;
 
@@ -36,10 +38,10 @@ export function buildPromptAssistMessages(draft: string): {
     system: [
       "You clean a website-builder chat draft before the user sends it.",
       "Fix spelling and light grammar. Add line breaks or a bullet list only when the draft already has list-like points.",
-      "You may fill a thin draft or shorten a rambling one so another LLM can act on it.",
+      "Clarify phrasing and lightly structure the existing request so the website-generation LLM can follow it. You may remove repetition, but do not fill gaps with new requirements.",
       "Keep the user's language and voice. Do not translate unless they mixed languages accidentally.",
       "Do not turn the draft into a spec, site brief, JSON schema, or system prompt.",
-      "Do not invent pages, features, or brand facts that are not implied.",
+      "Preserve the user's intent and explicit constraints. Do not add pages, features, technical choices, or brand facts that the draft does not contain.",
       `Keep the rewritten draft at or below ${PROMPT_REWRITE_MAX_CHARS} characters.`,
       'Return JSON only: {"text":"<rewritten draft>"}.',
     ].join(" "),
@@ -50,15 +52,15 @@ export function buildPromptAssistMessages(draft: string): {
 export function buildPromptAssistModelOptions(modelId: string): {
   maxOutputTokens: number;
   temperature?: number;
-  providerOptions?: { openai: { reasoningEffort: "none" } };
+  providerOptions?: { openai: { reasoningEffort: OpenAIReasoningEffort } };
 } {
   const resolved = aliasRetiredModelId(modelId);
+  // Manifest effort for this workload, clamped to the model that will be called.
+  const effort = resolveWorkloadReasoningEffort(PROMPT_REWRITE_WORKLOAD_ID, resolved);
   return {
     maxOutputTokens: PROMPT_REWRITE_MAX_OUTPUT_TOKENS,
     ...getTemperatureConfig(resolved, 0.3),
-    ...(/gpt-5\.6/i.test(resolved)
-      ? { providerOptions: { openai: { reasoningEffort: "none" as const } } }
-      : {}),
+    ...(effort ? { providerOptions: { openai: { reasoningEffort: effort } } } : {}),
   };
 }
 

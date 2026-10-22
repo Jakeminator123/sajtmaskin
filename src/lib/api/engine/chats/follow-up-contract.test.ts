@@ -31,6 +31,28 @@ function baseSnapshot(): Record<string, unknown> {
 }
 
 describe("buildFollowUpContract — consolidation (5-1)", () => {
+  it("inherits a typed unresolved provider decision without inventing identity", () => {
+    const contract = buildFollowUpContract({
+      snapshot: {
+        ...baseSnapshot(),
+        contractIntegrations: [
+          {
+            kind: "auth",
+            dossierCapability: "auth",
+            selectionSource: "explicit",
+            provider: "Authentication provider not selected",
+            name: "Authentication provider not selected",
+            reason: "Clerk was rejected",
+            status: "unresolved",
+          },
+        ],
+      },
+    });
+    expect(contract.inheritedProviderContracts).toEqual([
+      expect.objectContaining({ dossierCapability: "auth", status: "unresolved" }),
+    ]);
+    expect(contract.inheritedProviderContracts?.[0]).not.toHaveProperty("providerKey");
+  });
   it("(a) vanlig follow-up: consolidates snapshot + persisted ids + routes + prior quality", () => {
     const snapshot = baseSnapshot();
     const contract = buildFollowUpContract({
@@ -114,11 +136,13 @@ describe("buildFollowUpContract — consolidation (5-1)", () => {
       const contract = buildFollowUpContract({ snapshot });
       expect(contract).toEqual({
         baseVersionId: null,
+        buildIntent: null,
         snapshotBrief: null,
         scaffoldId: null,
         variantId: null,
         routePlan: { existingRoutePaths: [], existingShellRoutePaths: [] },
         capabilities: [],
+        inheritedProviderContracts: [],
         f3ApprovedCapabilities: [],
         f3ApprovedProviders: [],
         removedCapabilities: [],
@@ -233,6 +257,19 @@ function followUpParams(
 }
 
 describe("buildFollowUpOrchestrationInput attaches followUpContract (5-1, additive)", () => {
+  it.each(["plan", "codegen"] as const)(
+    "%s carries the accepted intent without changing inherited provider/capability evidence",
+    (mode) => {
+      const input = buildFollowUpOrchestrationInput(followUpParams({
+        mode,
+        orchestrationSnapshot: { ...baseSnapshot(), buildIntent: "website" },
+      }));
+      expect(input.followUpContract?.buildIntent).toBe("website");
+      expect(input.followUpContract?.capabilities).toEqual(["payments", "booking"]);
+      expect(input.followUpContract?.inheritedProviderContracts).toEqual([]);
+    },
+  );
+
   it("(a) vanlig follow-up: contract is fully derived and the brief fallback is unchanged (parity)", () => {
     const snapshot = baseSnapshot();
     const input = buildFollowUpOrchestrationInput(followUpParams());
@@ -243,11 +280,13 @@ describe("buildFollowUpOrchestrationInput attaches followUpContract (5-1, additi
 
     expect(input.followUpContract).toEqual({
       baseVersionId: "ver_base_1",
+      buildIntent: null,
       snapshotBrief: buildFollowUpBriefFromSnapshot(snapshot),
       scaffoldId: "landing-page",
       variantId: "minimalist-mag",
       routePlan: { existingRoutePaths: ["/"], existingShellRoutePaths: [] },
       capabilities: ["payments", "booking"],
+      inheritedProviderContracts: [],
       f3ApprovedCapabilities: [],
       f3ApprovedProviders: [],
       removedCapabilities: [],

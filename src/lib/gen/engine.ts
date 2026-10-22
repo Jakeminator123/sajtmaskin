@@ -1,5 +1,10 @@
-import { streamText, type ModelMessage, type ToolSet } from "ai";
+import { stepCountIs, streamText, type ModelMessage, type ToolSet } from "ai";
 
+import { aliasRetiredModelId } from "@/lib/models/catalog";
+import {
+  clampOpenAIReasoningEffort,
+  minimumOpenAIReasoningEffort,
+} from "@/lib/models/openai-capabilities";
 import { ENGINE_MAX_OUTPUT_TOKENS } from "./defaults";
 import { getDefaultThinkingEnabled } from "./default-thinking";
 import { getOpenAIModel, DEFAULT_MODEL, isAnthropicModel } from "./models";
@@ -16,6 +21,22 @@ export type ReasoningMode = "standard" | "pro";
 type JsonValue = null | string | number | boolean | JsonObject | JsonValue[];
 type JsonObject = { [key: string]: JsonValue | undefined };
 type ProviderOptionsRecord = Record<string, JsonObject>;
+type ReasoningClampReason =
+  | "thinking_disabled_minimum"
+  | "model_capability_clamp"
+  | "provider_effort_mapping"
+  | "default_effort"
+  | null;
+
+function readEffectiveReasoningEffort(
+  providerOptions: ProviderOptionsRecord | undefined,
+): string | null {
+  const anthropicEffort = providerOptions?.anthropic?.effort;
+  if (typeof anthropicEffort === "string") return anthropicEffort;
+  const openaiEffort = providerOptions?.openai?.reasoningEffort;
+  if (typeof openaiEffort === "string") return openaiEffort;
+  return null;
+}
 
 export function toAnthropicEffort(effort: ReasoningEffort): "low" | "medium" | "high" | "max" {
   switch (effort) {
@@ -64,9 +85,10 @@ export interface GenerateOptions {
  * Generates code from a prompt using AI SDK wrappers over direct
  * OpenAI/Anthropic provider calls.
  *
- * After this stream completes, `finalizeAndSaveVersion` runs the ordered
- * post-stream phases in `finalize-pipeline-contract.ts` (autofix → URLs →
- * images → syntax validate/fix → optional verifier LLM → merge/preflight/persist).
+ * After this stream completes, `finalizeAndSaveVersion` prepares the complete
+ * project before semantic verification and reprepares repairs before confirmation.
+ * Runtime order lives in `finalize-version/fast-path.ts`; UI/telemetry phase ids
+ * live in `finalize-pipeline-contract.ts`.
  *
  * Returns a ReadableStream of SSE events:
  *  `meta`     — chat/version metadata
@@ -98,36 +120,44 @@ export function generateCode(
     usagePhase,
   } = options;
   const resolvedThinking = thinking ?? defaultThinkingEnabled;
-
-  const model = getOpenAIModel(modelId ?? DEFAULT_MODEL);
+  const resolvedId = aliasRetiredModelId(modelId ?? DEFAULT_MODEL);
+  const model = getOpenAIModel(resolvedId);
 
   const messages = [
     ...(chatHistory ?? []),
     { role: "user" as const, content: buildUserPromptContent(prompt, referenceAttachments) },
   ];
 
-  const resolvedId = modelId ?? DEFAULT_MODEL;
   const anthropic = isAnthropicModel(resolvedId);
   const internalAbortController = abortSignal ? null : new AbortController();
   const resolvedAbortSignal = abortSignal ?? internalAbortController!.signal;
 
   let providerOptions: ProviderOptionsRecord | undefined;
+  let reasoningClampReason: ReasoningClampReason = null;
+  const requestedReasoningEffort = options.reasoningEffort ?? null;
   if (anthropic) {
     // Anthropic `effort` applies even without extended thinking, and for
     // Opus 4.8 an omitted effort defaults to `high`. The fixer/verifier phases
     // run with thinking:false to stay cheap/fast, so we must still pass `effort`
     // explicitly (with thinking disabled) — otherwise those calls silently run
     // at high effort/latency instead of the configured tier. (Codex P2, #283.)
+    const effort = toAnthropicEffort(reasoningEffort);
     providerOptions = {
       anthropic: {
         thinking: resolvedThinking ? { type: "adaptive" as const } : { type: "disabled" as const },
-        effort: toAnthropicEffort(reasoningEffort),
+        effort,
       },
     };
+    if (effort !== reasoningEffort) {
+      reasoningClampReason = "provider_effort_mapping";
+    } else if (requestedReasoningEffort === null) {
+      reasoningClampReason = "default_effort";
+    }
   } else if (resolvedThinking) {
+    const effort = clampOpenAIReasoningEffort(resolvedId, reasoningEffort);
     providerOptions = {
       openai: {
-        reasoningEffort,
+        reasoningEffort: effort,
         // OpenAI exposes no raw chain-of-thought; without this opt-in the
         // Responses API sends zero reasoning text and the chat's Reasoning
         // box stays empty. AI SDK maps `reasoningSummary` 1:1 onto Responses
@@ -140,6 +170,19 @@ export function generateCode(
         ...(reasoningMode ? { reasoningMode } : {}),
       },
     };
+    if (effort !== reasoningEffort) {
+      reasoningClampReason = "model_capability_clamp";
+    } else if (requestedReasoningEffort === null) {
+      reasoningClampReason = "default_effort";
+    }
+  } else {
+    // Thinking off = the model's lowest effort. Omitting the field would run
+    // the registered models at OpenAI's `medium` default instead.
+    const minimumEffort = minimumOpenAIReasoningEffort(resolvedId);
+    if (minimumEffort) {
+      providerOptions = { openai: { reasoningEffort: minimumEffort } };
+      reasoningClampReason = "thinking_disabled_minimum";
+    }
   }
 
   // Pre-LLM systemprompt assertion — catches JSON-double-encoded leakage,
@@ -151,13 +194,14 @@ export function generateCode(
     phase: "engine.generateCode",
   });
 
+  // Public `maxSteps` is the tool budget. AI SDK 6 reads it from `stopWhen`.
   const result = streamText({
     model,
     system: systemPrompt,
     messages: messages as ModelMessage[],
     maxOutputTokens: maxTokens ?? ENGINE_MAX_OUTPUT_TOKENS,
     abortSignal: resolvedAbortSignal,
-    ...(tools ? { tools, maxSteps: maxSteps ?? 4 } : {}),
+    ...(tools ? { tools, stopWhen: stepCountIs(maxSteps ?? 4) } : {}),
     ...(providerOptions ? { providerOptions } : {}),
   });
 
@@ -168,6 +212,13 @@ export function generateCode(
     onAccumulatedThinking,
     usagePhase,
     usageModelId: resolvedId,
+    usageMeta: {
+      requestedModelId: modelId ?? null,
+      resolvedModelId: resolvedId,
+      requestedReasoningEffort,
+      effectiveReasoningEffort: readEffectiveReasoningEffort(providerOptions),
+      reasoningClampReason,
+    },
   });
 }
 

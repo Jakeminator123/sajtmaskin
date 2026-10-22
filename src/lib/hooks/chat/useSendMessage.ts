@@ -5,7 +5,6 @@ import { debugLog, errorLog } from "@/lib/utils/debug";
 import { PROMPT_SOURCE_UI_PART_TYPE } from "@/lib/builder/types";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
 import type {
-  AutoFixPayload,
   MessageOptions,
   ChatMessagingParams,
   SendMessageOutcome,
@@ -19,7 +18,6 @@ import {
   isClientInitiatedAbort,
   isNetworkError,
 } from "./helpers";
-import { abortPostChecksForChat } from "./post-checks";
 import { handleSseStream } from "./stream-handlers";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import {
@@ -28,6 +26,7 @@ import {
   serializeAttachmentUrls,
 } from "@/lib/builder/pending-builder-draft";
 import { runF3FinalizeAction } from "@/lib/builder/f3-finalize-action";
+import { appendStreamWarning } from "@/lib/builder/stream-warning";
 import { dispatchF3Requirements, dispatchF3Status } from "@/lib/builder/project-env-events";
 import {
   buildInitBuildChoicesInstructions,
@@ -45,7 +44,6 @@ export function useSendMessage(
       systemPromptOverride?: string,
     ) => Promise<boolean>;
     streamAbortRef: React.MutableRefObject<AbortController | null>;
-    autoFixHandlerRef: React.MutableRefObject<(payload: AutoFixPayload) => void>;
     lastSentSystemPromptRef: React.MutableRefObject<string | null>;
     startStreamSafetyTimer: (timeoutMs?: number) => void;
     touchStreamSafetyTimer: () => void;
@@ -92,7 +90,6 @@ export function useSendMessage(
   const {
     createNewChat,
     streamAbortRef,
-    autoFixHandlerRef,
     lastSentSystemPromptRef,
     startStreamSafetyTimer,
     touchStreamSafetyTimer,
@@ -298,7 +295,7 @@ export function useSendMessage(
           promptMeta.scaffoldId = effectiveScaffoldId;
         }
         if (appProjectId) promptMeta.appProjectId = appProjectId;
-        if (designThemePreset) promptMeta.designTheme = designThemePreset;
+        if (designThemePreset && designThemePreset !== "off") promptMeta.designTheme = designThemePreset;
         if (themeColors) promptMeta.themeColors = themeColors;
         if (paletteState?.selections?.length) promptMeta.palette = paletteState;
         if (initChoicesMeta?.pageCountHint) {
@@ -375,6 +372,7 @@ export function useSendMessage(
           modelId: selectedModelTier,
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
+          materializeImages: enableImageMaterialization,
           meta: promptMeta,
         };
         // OpenClaw prepared-prompt fast lane: top-level body tag (NOT meta —
@@ -399,7 +397,6 @@ export function useSendMessage(
           requestBody.attachments = options.attachments;
         }
 
-        abortPostChecksForChat(chatId);
         streamAbortRef.current?.abort();
         streamController = new AbortController();
         streamAbortRef.current = streamController;
@@ -669,8 +666,6 @@ export function useSendMessage(
             onGenerationComplete,
             onPreviewSessionMeta,
             mutateVersions,
-            enableImageMaterialization,
-            autoFixHandlerRef,
             promptAssistModel,
             promptAssistDeep,
           },
@@ -716,9 +711,7 @@ export function useSendMessage(
             m.id === assistantMessageId
               ? {
                   ...m,
-                  content: m.content?.trim()
-                    ? `${m.content}\n\nVarning: ${message}`
-                    : `Varning: ${message}`,
+                  content: appendStreamWarning(m.content, message),
                   isStreaming: false,
                 }
               : m,
@@ -767,7 +760,6 @@ export function useSendMessage(
       touchStreamSafetyTimer,
       clearStreamSafetyTimer,
       streamAbortRef,
-      autoFixHandlerRef,
       lastSentSystemPromptRef,
       setPreviewPending,
       isAuthReady,

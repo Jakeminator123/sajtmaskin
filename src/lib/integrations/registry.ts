@@ -63,6 +63,22 @@ const integrationRegistryBase: IntegrationDefinition[] = [
     provider: "next-auth",
   },
   {
+    key: "auth0",
+    name: "Auth0",
+    category: "auth",
+    envVars: [
+      "AUTH0_SECRET",
+      "AUTH0_BASE_URL",
+      "AUTH0_ISSUER_BASE_URL",
+      "AUTH0_CLIENT_ID",
+      "AUTH0_CLIENT_SECRET",
+    ],
+    setupGuide: "Skapa en Regular Web Application i Auth0 och konfigurera URL:er och nycklar.",
+    runtime: "server",
+    optional: false,
+    provider: "auth0",
+  },
+  {
     key: "google",
     name: "Google APIs",
     category: "other",

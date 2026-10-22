@@ -68,4 +68,93 @@ describe("useBuilderProjectHydration new entry", () => {
     expect(localStorage.getItem("sajtmaskin:lastProjectId")).toBe("project_new");
     expect(router.replace).not.toHaveBeenCalledWith(expect.stringContaining("project_old"));
   });
+
+  it("does not create a second project when startBuild already passed project + new=1", () => {
+    localStorage.setItem("sajtmaskin:lastProjectId", "project_old");
+    const setAppProjectId = vi.fn();
+    const router = { replace: vi.fn() };
+    const setter = () => vi.fn() as never;
+
+    renderHook(() =>
+      useBuilderProjectHydration({
+        appProjectId: null,
+        chatId: null,
+        chatIdParam: null,
+        entryKind: "prompt-handoff",
+        forceNew: true,
+        hasEntryParams: true,
+        isAuthLoading: false,
+        paletteState: getDefaultPaletteState(),
+        projectParam: "proj_1",
+        autoProjectInitRef: ref(false),
+        lastPaletteSavedRef: ref<string | null>(null),
+        lastProjectIdRef: ref<string | null>(null),
+        paletteLoadedRef: ref(false),
+        router,
+        searchParams: new URLSearchParams(
+          "project=proj_1&promptId=prompt_1&buildMethod=freeform&new=1",
+        ) as never,
+        setAppProjectId: setAppProjectId as never,
+        setAppProjectName: setter(),
+        setAuthModalReason: setter(),
+        setClearedPreviewVersionId: setter(),
+        setEntryIntentActive: setter(),
+        setPaletteState: setter(),
+        setServerProjectChatId: setter(),
+        setServerProjectDemoUrl: setter(),
+        setServerProjectMessages: setter(),
+        setServerProjectPreviewOverrideUrl: setter(),
+        setServerProjectPreviewOverrideVersionId: setter(),
+      }),
+    );
+
+    expect(createProject).not.toHaveBeenCalled();
+    expect(setAppProjectId).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith(
+      "/builder?project=proj_1&promptId=prompt_1&buildMethod=freeform",
+    );
+  });
+
+  it("keeps gclid when consuming new=1 from a project handoff URL", () => {
+    const router = { replace: vi.fn() };
+    const setter = () => vi.fn() as never;
+
+    renderHook(() =>
+      useBuilderProjectHydration({
+        appProjectId: null,
+        chatId: null,
+        chatIdParam: null,
+        entryKind: "project-restore",
+        forceNew: true,
+        hasEntryParams: false,
+        isAuthLoading: false,
+        paletteState: getDefaultPaletteState(),
+        projectParam: "proj_1",
+        autoProjectInitRef: ref(false),
+        lastPaletteSavedRef: ref<string | null>(null),
+        lastProjectIdRef: ref<string | null>(null),
+        paletteLoadedRef: ref(false),
+        router,
+        searchParams: new URLSearchParams(
+          "project=proj_1&buildMethod=freeform&new=1&gclid=KeepMe",
+        ) as never,
+        setAppProjectId: setter(),
+        setAppProjectName: setter(),
+        setAuthModalReason: setter(),
+        setClearedPreviewVersionId: setter(),
+        setEntryIntentActive: setter(),
+        setPaletteState: setter(),
+        setServerProjectChatId: setter(),
+        setServerProjectDemoUrl: setter(),
+        setServerProjectMessages: setter(),
+        setServerProjectPreviewOverrideUrl: setter(),
+        setServerProjectPreviewOverrideVersionId: setter(),
+      }),
+    );
+
+    expect(createProject).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith(
+      "/builder?project=proj_1&buildMethod=freeform&gclid=KeepMe",
+    );
+  });
 });

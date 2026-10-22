@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { InferredCapabilities } from "./capability-inference";
+import { inferCapabilities, type InferredCapabilities } from "./capability-inference";
 import {
   INFERRED_CAPABILITY_DOSSIER_BRIDGE,
   resolveDossierCapabilitiesFromInferredCapabilities,
@@ -202,5 +202,34 @@ describe("filterDossierCapabilitiesForPrompt", () => {
         previewPolicy: "fidelity2",
       }),
     ).toEqual(["visual-3d"]);
+  });
+});
+
+describe("inferCapabilities → dossier bridge", () => {
+  it("drops game, 3D physics, and auth, and keeps physics-2d on C05 only", () => {
+    const c01 =
+      "Skapa en exklusiv informationssida för en privat pokerlounge. Beskriv spelkvällar, regler och anmälan. Ingen spelmotor och inget spel om pengar. Mörk grön, svart och guld; använd den syntetiska porträttreferensen.";
+    const c03 =
+      "Skapa en editorial portfolio med stora fotografier, asymmetrisk typografi och tydliga projektberättelser. Ingen dashboard och ingen 3D.";
+    const c05 =
+      "Lägg in en lekfull 2D-yta med några dragbara objekt som studsar. Använd ingen Three.js eller WebGL-scen.";
+    const c06 =
+      "Visa en dekorativ roterbar 3D-produkt på en vanlig presentationssida, utan fysik, spel, konto eller dashboard.";
+
+    for (const prompt of [c01, c03, c06]) {
+      const dossiers = resolveDossierCapabilitiesFromInferredCapabilities(
+        inferCapabilities(prompt),
+      );
+      expect(dossiers, prompt).not.toContain("interactive-game");
+      expect(dossiers, prompt).not.toContain("physics-3d");
+      expect(dossiers, prompt).not.toContain("auth");
+      expect(dossiers, prompt).not.toContain("physics-2d");
+    }
+    expect(
+      resolveDossierCapabilitiesFromInferredCapabilities(inferCapabilities(c06)),
+    ).toContain("visual-3d");
+    expect(
+      resolveDossierCapabilitiesFromInferredCapabilities(inferCapabilities(c05)),
+    ).toEqual(["physics-2d"]);
   });
 });

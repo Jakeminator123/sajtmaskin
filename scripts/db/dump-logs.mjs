@@ -39,7 +39,7 @@ import {
   summarizeTarget,
 } from "./db-target-guard.mjs";
 import { mergeEnvFileOverProcess } from "./env-merge.mjs";
-import { truncateMetaStrings } from "./dump-logs-meta.mjs";
+import { sanitizeLlmUsageMeta, truncateMetaStrings } from "./dump-logs-meta.mjs";
 import { formatLogTimestamp, LOG_TIMESTAMP_NOTE } from "./log-timestamp.mjs";
 import {
   LATEST_PRODUCT_POSTCHECK_JOIN,
@@ -221,12 +221,14 @@ const KIND_SPECS = {
   llmusage: {
     table: "llm_usage",
     chatColumn: "chat_id",
+    // Delad jsonb-påse. Bara provider-payload-skalärer lämnar exporten.
     columns: [
       "id", "run_id", "chat_id", "version_id", "user_id", "phase", "workload",
       "provider", "model", "model_tier", "input_tokens", "cached_input_tokens",
       "output_tokens", "reasoning_tokens", "duration_ms", "ok", "error_code",
-      "created_at",
+      "meta", "created_at",
     ],
+    sanitizeRow: (row) => ({ ...row, meta: sanitizeLlmUsageMeta(row.meta) }),
   },
   oc: {
     table: "oc_debug_findings",

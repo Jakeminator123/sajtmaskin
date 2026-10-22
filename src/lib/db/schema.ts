@@ -1379,7 +1379,7 @@ export const domainOrders = pgTable(
 // canonical owner — these declarations are the typed projection of it.
 //
 // `billing_mode` ('test' | 'live') carries the environment split. Vercel
-// Preview and Production share the same prod Postgres, so a Stripe test
+// Billing mode remains part of identity even with separate DEV/PROD databases; a Stripe test
 // customer and a real customer live side by side in these tables; every
 // external identity is unique WITHIN a mode, never across.
 // ---------------------------------------------------------------------------

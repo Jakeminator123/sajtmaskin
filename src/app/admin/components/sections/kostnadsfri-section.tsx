@@ -2,7 +2,20 @@
 
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
-import { Check, Copy, Eye, KeyRound, Link2, Mail, Rocket, Send, Users, Wand2, X } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Eye,
+  KeyRound,
+  Link2,
+  LogIn,
+  Mail,
+  Rocket,
+  Send,
+  Users,
+  Wand2,
+  X,
+} from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,7 +63,9 @@ const PERIODS = [
 const EVENT_LABEL: Record<KostnadsfriAdminPayload["recent"][number]["event"], string> = {
   besok: "Besökte länken",
   verifierad: "Angav rätt lösenord",
-  skapad: "Slutförde formuläret",
+  wizard: "Klar med wizarden",
+  konto: "Fick inloggningsrutan",
+  skapad: "Skickades till buildern",
 };
 
 const EVENT_TONE: Record<
@@ -59,6 +74,8 @@ const EVENT_TONE: Record<
 > = {
   besok: "off",
   verifierad: "warn",
+  wizard: "warn",
+  konto: "warn",
   skapad: "ok",
 };
 
@@ -80,6 +97,7 @@ type KostnadsfriRow = {
   companyName: string | null;
   saved: boolean;
   status: string | null;
+  industry: string | null;
   contactEmail: string | null;
   sentAt: string | null;
   source: string | null;
@@ -263,6 +281,7 @@ export function KostnadsfriSection() {
         companyName: page.companyName,
         saved: true,
         status: page.status,
+        industry: page.industry?.trim() || null,
         contactEmail: page.contactEmail,
         sentAt: page.sentAt,
         source: page.source,
@@ -282,6 +301,7 @@ export function KostnadsfriSection() {
           companyName: null,
           saved: false,
           status: null,
+          industry: null,
           contactEmail: null,
           sentAt: null,
           source: null,
@@ -331,7 +351,7 @@ export function KostnadsfriSection() {
         if (!matchesCountFilter(row.stats?.started ?? 0, startedFilter)) return false;
       }
       if (!needle) return true;
-      return [row.companyName, row.slug, row.contactEmail].some((field) =>
+      return [row.companyName, row.industry, row.slug, row.contactEmail].some((field) =>
         field?.toLowerCase().includes(needle),
       );
     });
@@ -358,6 +378,8 @@ export function KostnadsfriSection() {
       slugs: inviteStats.length,
       visits: inviteStats.reduce((sum, s) => sum + s.visits, 0),
       verified: inviteStats.reduce((sum, s) => sum + s.verified, 0),
+      wizardDone: inviteStats.reduce((sum, s) => sum + s.wizardDone, 0),
+      authShown: inviteStats.reduce((sum, s) => sum + s.authShown, 0),
       started: inviteStats.reduce((sum, s) => sum + s.started, 0),
       // Sends are lifetime facts on the DB row, not period statistics.
       sent: (data?.pages ?? []).filter((page) => page.sentAt).length,
@@ -401,9 +423,8 @@ export function KostnadsfriSection() {
         <Alert variant="destructive">
           <AlertTitle>Besöksanalysen är inte tillgänglig</AlertTitle>
           <AlertDescription>
-            Utskicksregistret visas fortfarande. Besök, verifieringar och slutförda formulär är
-            okända — de ska inte tolkas som noll.
-            Besöksfilter är avstängda tills analysen är tillgänglig igen.
+            Utskicksregistret visas fortfarande. Besök, verifieringar och senare steg är okända — de
+            ska inte tolkas som noll. Besöksfilter är avstängda tills analysen är tillgänglig igen.
           </AlertDescription>
         </Alert>
       )}
@@ -556,7 +577,7 @@ export function KostnadsfriSection() {
       >
         {data && (
           <>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-8">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-5">
               <StatCard
                 label="Utskick i registret"
                 value={totals.sent}
@@ -600,9 +621,21 @@ export function KostnadsfriSection() {
                 icon={KeyRound}
               />
               <StatCard
-                label="Slutförda formulär"
+                label="Klar med wizard"
+                value={data.analytics.available ? totals.wizardDone : "—"}
+                hint={`klientrapporterat, ${periodLabel}`}
+                icon={Wand2}
+              />
+              <StatCard
+                label="Fick inloggning"
+                value={data.analytics.available ? totals.authShown : "—"}
+                hint={`klientrapporterat, ${periodLabel}`}
+                icon={LogIn}
+              />
+              <StatCard
+                label="Till buildern"
                 value={data.analytics.available ? totals.started : "—"}
-                hint={periodLabel}
+                hint={`efter inloggning, ${periodLabel}`}
                 icon={Rocket}
               />
             </div>
@@ -629,7 +662,7 @@ export function KostnadsfriSection() {
                       id="kostnadsfri-filter"
                       value={rowFilter}
                       onChange={(event) => setRowFilter(event.target.value)}
-                      placeholder="Sök företag, slug eller e-post"
+                      placeholder="Sök företag, bransch, slug eller e-post"
                       autoComplete="off"
                     />
                   </div>
@@ -688,14 +721,14 @@ export function KostnadsfriSection() {
                     active={data.analytics.available && startedFilter === "gt0"}
                     onClick={() => setStartedFilter((value) => cycleCountFilter(value, "gt0"))}
                   >
-                    Formulär klara {">"} 0
+                    Till buildern {">"} 0
                   </FilterChip>
                   <FilterChip
                     disabled={!data.analytics.available}
                     active={data.analytics.available && startedFilter === "eq0"}
                     onClick={() => setStartedFilter((value) => cycleCountFilter(value, "eq0"))}
                   >
-                    Formulär klara = 0
+                    Till buildern = 0
                   </FilterChip>
                 </div>
               </div>
@@ -717,6 +750,7 @@ export function KostnadsfriSection() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Företag / slug</TableHead>
+                      <TableHead>Bransch</TableHead>
                       <TableHead>Path</TableHead>
                       <TableHead>Skickat</TableHead>
                       <TableHead>Mejltyp</TableHead>
@@ -726,9 +760,21 @@ export function KostnadsfriSection() {
                       <TableHead className="text-right">Rätt lösenord</TableHead>
                       <TableHead
                         className="text-right"
-                        title="Räknas server-side när wizarden skapat sin prompt-handoff — före buildern. Säger inte om en sajt faktiskt genererades."
+                        title="Klientrapporterat när kunden nått Sajtagentens steg. Kan blåsas upp."
                       >
-                        Formulär klara
+                        Wizard klar
+                      </TableHead>
+                      <TableHead
+                        className="text-right"
+                        title="Klientrapporterat när inloggnings-/registreringsrutan visats. Kan blåsas upp."
+                      >
+                        Inloggning
+                      </TableHead>
+                      <TableHead
+                        className="text-right"
+                        title="Räknas server-side när prompt-handoffen skapas efter inloggning — före buildern. Säger inte om en sajt faktiskt genererades."
+                      >
+                        Till buildern
                       </TableHead>
                       <TableHead>Senast</TableHead>
                       <TableHead className="text-right">Status</TableHead>
@@ -746,6 +792,7 @@ export function KostnadsfriSection() {
                           </p>
                           <p className="text-muted-foreground text-xs">{row.contactEmail || "—"}</p>
                         </TableCell>
+                        <TableCell>{row.industry || "Ej angiven"}</TableCell>
                         <TableCell>
                           <StatusBadge tone={KIND_TONE[row.kind]}>{KIND_LABEL[row.kind]}</StatusBadge>
                         </TableCell>
@@ -798,6 +845,16 @@ export function KostnadsfriSection() {
                         <TableCell className="text-right tabular-nums">
                           {formatCount(
                             data.analytics.available ? (row.stats?.verified ?? 0) : null,
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatCount(
+                            data.analytics.available ? (row.stats?.wizardDone ?? 0) : null,
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatCount(
+                            data.analytics.available ? (row.stats?.authShown ?? 0) : null,
                           )}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">

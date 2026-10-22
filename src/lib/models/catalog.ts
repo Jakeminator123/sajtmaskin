@@ -15,18 +15,20 @@ import {
 import { getBuildProfileEnvKey } from "@/lib/gen/defaults";
 
 /** Internal canonical IDs for the builder's own model profiles. */
-export const CANONICAL_MODEL_IDS = ["premium", "pro", "max", "codex", "anthropic"] as const;
+export const CANONICAL_MODEL_IDS = ["premium", "pro", "max", "codex", "anthropic", "ultra"] as const;
 
 export type CanonicalModelId = (typeof CANONICAL_MODEL_IDS)[number];
 
-export const DEFAULT_MODEL_ID: CanonicalModelId = "pro";
+export const DEFAULT_MODEL_ID: CanonicalModelId = "max";
 
 /**
  * Concrete model IDs for the own engine.
  *
- * GPT-5.6 Sol is the build model for Låg/Mellan/Hög; Terra and Luna take the
- * cheap side phases (fixer/verifier/brief) per `phaseRouting`. Older full-size
- * IDs remain for persisted chat/version rows and environment overrides.
+ * GPT-6.1 Sol is the build model for Låg/Mellan/Hög; GPT-6 Astra builds Extra
+ * hög. The GPT-5.6 family and older full-size IDs remain for persisted
+ * chat/version rows and environment overrides.
+ * GPT-5.3 Codex and GPT-4.1 are deprecated by OpenAI and alias to GPT-6.1 Sol
+ * via {@link aliasRetiredModelId}.
  *
  * `claude-sonnet-4.6` is **retired** (2026-06-28): it is no longer a default
  * or selectable model and is never sent to a provider — any lingering reference
@@ -34,14 +36,15 @@ export const DEFAULT_MODEL_ID: CanonicalModelId = "pro";
  * kept here only so persisted/legacy strings still parse and round-trip.
  */
 export const OWN_MODEL_IDS = [
+  "gpt-6.1-sol",
+  "gpt-6-astra",
+  "gpt-6-luna",
   "gpt-5.6-sol",
   "gpt-5.6-terra",
   "gpt-5.6-luna",
   "gpt-5.5",
   "gpt-5.4",
-  "gpt-5.3-codex",
   "gpt-5.2",
-  "gpt-4.1",
   "claude-sonnet-4.6",
   "claude-opus-4.8",
   "claude-opus-4.6",
@@ -52,8 +55,12 @@ export type OwnModelId = (typeof OWN_MODEL_IDS)[number];
 /** Must match `buildProfiles.defaults.max` in config/ai_models/manifest.json */
 export const DEFAULT_OWN_MODEL_ID = getDefaultMaxTierOwnEngineModel() as OwnModelId;
 
-/** Build model shared by Låg/Mellan/Hög (see `buildProfiles.notes`). */
-const SHARED_BUILD_MODEL_ID: OwnModelId = "gpt-5.6-sol";
+/**
+ * Build models shared by Låg/Mellan/Hög (see `buildProfiles.notes`): the
+ * current GPT-6.1 Sol plus the GPT-5.6 Sol that chats persisted before the
+ * 2026-10-17 upgrade.
+ */
+const SHARED_BUILD_MODEL_IDS: ReadonlySet<string> = new Set(["gpt-6.1-sol", "gpt-5.6-sol"]);
 
 /**
  * Old model IDs that may exist in persisted data (localStorage, DB rows,
@@ -84,10 +91,21 @@ const LEGACY_MODEL_IDS = Object.keys(LEGACY_ALIAS) as (keyof typeof LEGACY_ALIAS
  * form (`claude-sonnet-4-6`, produced by `resolveAnthropicBriefModelId` before
  * `createDirectModel`) are mapped across all provider prefixes so no brief /
  * direct-model path can slip the retired id through.
+ *
+ * OpenAI lists GPT-5.3 Codex (and the never-valid `-max` id), GPT-4.1 and
+ * GPT-4o mini as deprecated (2026-10-17); they route to GPT-6.1 Sol.
  */
 const RETIRED_MODEL_ALIAS: Record<string, string> = {
-  "gpt-5.4-mini": "gpt-5.6-sol",
-  "openai/gpt-5.4-mini": "openai/gpt-5.6-sol",
+  "gpt-5.4-mini": "gpt-6.1-sol",
+  "openai/gpt-5.4-mini": "openai/gpt-6.1-sol",
+  "gpt-5.3-codex": "gpt-6.1-sol",
+  "openai/gpt-5.3-codex": "openai/gpt-6.1-sol",
+  "gpt-5.3-codex-max": "gpt-6.1-sol",
+  "openai/gpt-5.3-codex-max": "openai/gpt-6.1-sol",
+  "gpt-4.1": "gpt-6.1-sol",
+  "openai/gpt-4.1": "openai/gpt-6.1-sol",
+  "gpt-4o-mini": "gpt-6.1-sol",
+  "openai/gpt-4o-mini": "openai/gpt-6.1-sol",
   "claude-sonnet-4.6": "claude-opus-4.8",
   "claude-sonnet-4-6": "claude-opus-4-8",
   "anthropic/claude-sonnet-4.6": "anthropic/claude-opus-4.8",
@@ -133,12 +151,13 @@ export function ownModelIdToCanonicalModelId(
   const trimmed = aliasRetiredModelId(value);
   if (!trimmed) return null;
 
-  // Since 2026-09-02 Låg/Mellan/Hög all persist `gpt-5.6-sol` as chat.model, so
-  // the build model alone cannot identify the tier. Resolve the shared model to
-  // Mellan: its fixer/verifier config sits between the two neighbours, which
-  // bounds the cost of guessing wrong in either direction. Callers that know
-  // the tier (request payload, telemetry) should prefer that over this lookup.
-  if (trimmed === SHARED_BUILD_MODEL_ID) return "max";
+  // Since 2026-09-02 Låg/Mellan/Hög all persist the same Sol id as chat.model
+  // (`gpt-5.6-sol` until 2026-10-17, `gpt-6.1-sol` after), so the build model
+  // alone cannot identify the tier. Resolve a shared model to Mellan: its
+  // fixer/verifier config sits between the two neighbours, which bounds the
+  // cost of guessing wrong in either direction. Callers that know the tier
+  // (request payload, telemetry) should prefer that over this lookup.
+  if (SHARED_BUILD_MODEL_IDS.has(trimmed)) return "max";
 
   for (const candidate of CANONICAL_MODEL_IDS) {
     if (canonicalModelIdToOwnModelId(candidate) === trimmed) {
@@ -158,7 +177,7 @@ export function ownModelIdToCanonicalModelId(
 
 /**
  * Resolve the tier a persisted chat was built with. `chat.model` is the shared
- * `gpt-5.6-sol` for Låg/Mellan/Hög, so prefer the `modelTier` that finalize
+ * Sol id for Låg/Mellan/Hög, so prefer the `modelTier` that finalize
  * stores in `orchestration_snapshot` (stream meta from the actual run) and only
  * fall back to the model-id heuristic for chats predating that snapshot.
  */
@@ -183,9 +202,10 @@ export function resolveChatModelTier(
 /**
  * User-facing labels for the builder profiles.
  *
- * Tier ladder (2026-09-02): `pro` = Låg, `max` = Mellan, `premium` = Hög. The
- * internal ids are kept for persisted chats/URL params; only the labels and the
- * manifest routing changed. `codex` is a hidden compatibility tier.
+ * Tier ladder (2026-09-02): `pro` = Låg, `max` = Mellan, `premium` = Hög;
+ * `ultra` = Extra hög (2026-10-18). The internal ids are kept for persisted
+ * chats/URL params; only the labels and the manifest routing changed. `codex`
+ * is a hidden compatibility tier.
  */
 export const MODEL_LABELS: Record<CanonicalModelId, string> = {
   premium: "Hög",
@@ -193,14 +213,15 @@ export const MODEL_LABELS: Record<CanonicalModelId, string> = {
   max: "Mellan",
   codex: "Kod Max",
   anthropic: "Anthropic",
+  ultra: "Extra hög",
 };
 
 /**
  * Tiers the builder UI offers, in slider order (cheapest/fastest first).
- * `codex` is intentionally absent: persisted selections still resolve, but the
- * tier is no longer a user choice.
+ * `codex` and `anthropic` are intentionally absent: persisted selections still
+ * resolve and build with their own routing, but they are not a user choice.
  */
-export const SELECTABLE_MODEL_IDS = ["pro", "max", "premium", "anthropic"] as const satisfies readonly CanonicalModelId[];
+export const SELECTABLE_MODEL_IDS = ["pro", "max", "premium", "ultra"] as const satisfies readonly CanonicalModelId[];
 
 export type SelectableModelId = (typeof SELECTABLE_MODEL_IDS)[number];
 
@@ -210,22 +231,24 @@ export function isSelectableModelId(value: string): value is SelectableModelId {
 
 /** Short helper text per tier for the builder slider / pricing table. */
 export const MODEL_TIER_DESCRIPTIONS: Record<CanonicalModelId, string> = {
-  pro: "Snabbast och billigast. GPT-5.6 Sol med måttligt resonemang.",
-  max: "Balans. GPT-5.6 Sol med högt resonemang.",
-  premium: "Mest genomarbetat. GPT-5.6 Sol med maximalt resonemang – tar längre tid.",
+  pro: "Snabbast och billigast. GPT-6.1 Sol med måttligt resonemang.",
+  max: "Balans. GPT-6.1 Sol med högt resonemang.",
+  premium: "Mest genomarbetat. GPT-6.1 Sol med maximalt resonemang – tar längre tid.",
   codex: "Dold kompatibilitetsprofil (samma som Mellan).",
   anthropic: "Claude Opus 4.8 i alla faser.",
+  ultra: "Starkast och dyrast. GPT-6 Astra med högt resonemang – tar längst tid.",
 };
 
 export const BUILD_PROFILE_IDS: Record<
   CanonicalModelId,
-  "premium" | "pro" | "max" | "codex" | "anthropic"
+  "premium" | "pro" | "max" | "codex" | "anthropic" | "ultra"
 > = {
   premium: "premium",
   pro: "pro",
   max: "max",
   codex: "codex",
   anthropic: "anthropic",
+  ultra: "ultra",
 };
 
 export type BuildProfileId = (typeof BUILD_PROFILE_IDS)[CanonicalModelId];
@@ -271,6 +294,9 @@ export function canonicalModelIdToOwnModelId(modelId: CanonicalModelId): OwnMode
     anthropic:
       process.env[getBuildProfileEnvKey("anthropic")]?.trim() ||
       getBuildProfileDefaultOwnEngineModel("anthropic"),
+    ultra:
+      process.env[getBuildProfileEnvKey("ultra")]?.trim() ||
+      getBuildProfileDefaultOwnEngineModel("ultra"),
   };
   const raw = tierMap[modelId] ?? getBuildProfileDefaultOwnEngineModel("pro");
   return aliasRetiredModelId(raw) as OwnModelId;

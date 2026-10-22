@@ -275,7 +275,7 @@ def _render_payload(payload: dict[str, Any], ctx: BackofficeContext) -> None:
         )
         with st.expander("Vilka index saknas?", expanded=True):
             df = pd.DataFrame(missing_indexes)
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.dataframe(df, width="stretch", hide_index=True)
     else:
         st.success("✅ Alla förväntade index finns på plats.")
 
@@ -286,7 +286,7 @@ def _render_payload(payload: dict[str, Any], ctx: BackofficeContext) -> None:
                 "mellan `schema.ts` och faktisk DB. Inte automatiskt fel — bara värt att veta."
             )
             df = pd.DataFrame(extra_indexes)
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.dataframe(df, width="stretch", hide_index=True)
 
     st.divider()
     st.subheader("Tabeller")
@@ -309,7 +309,7 @@ def _render_payload(payload: dict[str, Any], ctx: BackofficeContext) -> None:
         )
     df = pd.DataFrame(rows)
     # Färga saknade-idx-kolumnen
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(df, width="stretch", hide_index=True)
 
     with st.expander("Råa JSON-svaret (för debug)", expanded=False):
         st.json(payload)
@@ -464,7 +464,7 @@ def _render_perf_index_button(ctx: BackofficeContext, payload: dict[str, Any] | 
                 )
             st.dataframe(
                 pd.DataFrame(display_rows),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
 
@@ -507,4 +507,4 @@ def _render_history(ctx: BackofficeContext) -> None:
         st.line_chart(df_summary["indexes_missing"])
 
     with st.expander("Rådata (sista 200 snapshots)"):
-        st.dataframe(df_summary.reset_index(), use_container_width=True, hide_index=True)
+        st.dataframe(df_summary.reset_index(), width="stretch", hide_index=True)

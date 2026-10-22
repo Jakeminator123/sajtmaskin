@@ -411,8 +411,13 @@ export function renderPreGenerationContractsBlock(
   if (contracts.paymentProvider) parts.push(`- **Payment:** ${contracts.paymentProvider}`);
   for (const integration of contracts.integrations.slice(0, 8)) {
     const envSuffix = integration.envVars?.length ? ` [${integration.envVars.join(", ")}]` : "";
+    const identity = integration.providerKey
+      ? `; providerKey=${integration.providerKey}`
+      : integration.dossierCapability
+        ? "; provider choice unresolved"
+        : "";
     parts.push(
-      `- **Integration (${integration.status}):** ${integration.name} — ${integration.reason}${envSuffix}`,
+      `- **Integration (${integration.status}${identity}):** ${integration.name} — ${integration.reason}${envSuffix}`,
     );
   }
   if (contracts.envVars.length > 0) {
@@ -427,14 +432,14 @@ export function renderPreGenerationContractsBlock(
   }
   parts.push(
     "",
-    "- **Placeholder policy (mandatory for runnable preview):** If **Auth** is NextAuth/Auth.js, use **Credentials** (password/demo user) only — **no OAuth** providers unless the user explicitly asked for one by name. If **Stripe/payment** appears, use test-mode keys and/or `process.env` fallbacks so the app never throws at import time. The preview runtime merges non-secret placeholder `.env.local` values; your code must still run when those are absent.",
+    "- **Provider policy:** Implement only the provider identified by the contract. Never substitute a capability default for an explicit or unresolved provider decision. Keep preview-safe fallbacks for missing configuration without claiming the provider is live.",
     "",
   );
   if (unresolvedDecisions.length > 0) {
     parts.push("", "- **Unresolved decisions:**");
     parts.push(...unresolvedDecisions.map((entry) => `  - ${entry.kind}: ${entry.reason}`));
     parts.push(
-      "  - Prefer **non-blocking** defaults: Auth.js Credentials, SQLite or mock data, Stripe test placeholders. Do not stall generation on provider choice; ship runnable code first.",
+      "  - Keep provider-dependent F3 work blocked until the contract names a provider; do not guess a default.",
     );
   }
   parts.push("");

@@ -11,10 +11,10 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
   # Nya commits ska avbryta en stale PR-körning. Trusted push/dispatch-körningar
-  # är read-only mot live-DB och får slutföra sina observationskvitton; GitHubs
-  # vanliga single-pending-beteende behålls för kön.
+  # är read-only mot live-DB. Unika grupper skyddar även väntande observations-
+  # kvitton från GitHubs single-pending-ersättning, inte bara pågående jobb.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # PR-head-kod får bara läsbehörighet. Skrivande Dependabot-automation körs
@@ -24,14 +24,18 @@ permissions:
   pull-requests: read
 
 jobs:
-  # En enda fail-closed klassificerare äger vilka PR-diffar som får ta den
+  # En enda fail-closed klassificerare äger vilka PR-/preview-diffar som får ta den
   # lätta profilen. Den återanvänder samma path-impactmotor som lokal verify:pr.
   # Saknat/fallerat scope-resultat tolkas som FULL körning av alla konsumenter.
   scope:
+    permissions:
+      contents: read
+      actions: read
     runs-on: ubuntu-latest
     outputs:
       run_heavy: ${{ steps.classify.outputs.run_heavy }}
       safe_docs_only: ${{ steps.classify.outputs.safe_docs_only }}
+      run_preview_host: ${{ steps.classify.outputs.run_preview_host }}
       high_risk: ${{ steps.classify.outputs.high_risk }}
       reason: ${{ steps.classify.outputs.reason }}
 
@@ -54,6 +58,8 @@ jobs:
           SAJTMASKIN_PR_DRAFT: ${{ github.event.pull_request.draft }}
           SAJTMASKIN_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           SAJTMASKIN_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SAJTMASKIN_PUSH_BASE_SHA: ${{ github.event.before }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/workflow/ci-scope.mjs
 
   quality-core:
@@ -169,9 +175,8 @@ jobs:
 
       # Deterministic stability contracts (C2): every current `*.stability.test.*`
       # file is hermetic (no network/DB/wall-clock). Hard-gate them here so a
-      # regression reddens the required `quality` check. The broad `stability`
-      # job stays `continue-on-error` for the glossary check and future flaky
-      # additions that must be classified before they can block.
+      # regression reddens the required `quality` check. Discovery requires
+      # the real stability-config file set to equal this reviewed blocking set.
       - name: Deterministic stability contracts (blocking)
         # Run even if test:ci failed so a contract regression is never masked/skipped.
         if: ${{ !cancelled() }}
@@ -181,7 +186,7 @@ jobs:
       # — men detta jobb gjorde det inte, så en commit kunde bli CI-grön och
       # ändå fälla prod-deployen (hänt: #368). Kör samma sanity-checks här så
       # den tunga profilen fångar det före merge.
-      # route-timeouts:check dubblas medvetet (billig, redan grön ovan).
+      # Äger route-timeouts:check i heavy/fallback; light kör den i contracts.
       - name: Preflight parity with Vercel prebuild (blocking)
         if: ${{ !cancelled() }}
         run: npm run preflight:common
@@ -256,8 +261,14 @@ jobs:
         run: npm run baseline-deps:tree
 
       - name: Validate scaffold manifests
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' }}
         run: npm run scaffolds:validate
+
+      # Heavy/fallback already materializes embeddings in every test runner and
+      # runs all scaffold tests in the four full shards. Keep the real validator.
+      - name: Validate scaffold client list (heavy/fallback)
+        if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false') }}
+        run: npm run scaffolds:client-list:check
 
       - name: Validate dossier manifests
         if: ${{ !cancelled() }}
@@ -277,11 +288,15 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run workflow:contract
 
-      # Scope-logiken får aldrig kunna hoppa över sina egna regressionstester.
-      # Denna lilla lane ligger därför i det alltid körande kontraktsjobbet.
-      - name: Validate workflow and CI scope decisions
+      - name: Verify every test file has an intentional runner (blocking)
         if: ${{ !cancelled() }}
-        run: npx vitest run scripts/workflow/workflow.test.ts scripts/workflow/ci-scope.test.ts scripts/workflow/ci-quality.test.ts
+        run: npm run test:discovery:check
+
+      # Heavy/fallback kör dessa i hela test:ci via alla fyra shards. Endast
+      # ett lyckat, uttryckligt lightbeslut använder den riktade körningen.
+      - name: Validate workflow and CI scope decisions
+        if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' }}
+        run: npm run test:workflow
 
       - name: Verify generated contract docs
         if: ${{ !cancelled() }}
@@ -305,6 +320,13 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run check:terms:contract
 
+      # Preserve the separate advisory prose scan after removing duplicate
+      # stability execution. No second checkout/install or path filter needed.
+      - name: Ordlista-check (warn-only, grandmaster C2)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: npm run check:terms
+
       - name: Verify agent context budget
         if: ${{ !cancelled() }}
         run: npm run check:agent-context
@@ -314,7 +336,8 @@ jobs:
         run: npm run compat:v0-chat-boundary:check
 
       - name: Verify route maxDuration ↔ manifest sync
-        if: ${{ !cancelled() }}
+        # Heavy/fallback täcks av quality-core:s oförändrade preflight:common.
+        if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' }}
         run: npm run route-timeouts:check
 
       # Dessa är repo-/arbetsflödeskontrakt, inte produktionsbyggets ansvar.
@@ -326,8 +349,38 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run canvas:check
 
+  # Real UI/API/DB persistence, with no shared DB or provider credentials.
+  # Only setup may download packages/images. Runtime joins its own network-none
+  # Postgres namespace after dropping privileges; no host-network fallback.
+  quality-project-persistence:
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Prepare locked browser and disposable database image
+        run: |
+          node node_modules/@playwright/test/cli.js install --with-deps chromium
+          IMAGE=$(node --input-type=module -e 'import { POSTGRES_IMAGE } from "./scripts/e2e/project-persistence-env.mjs"; console.log(POSTGRES_IMAGE)')
+          docker pull "$IMAGE"
+      - name: Real isolated project persistence (blocking)
+        run: npm run test:e2e:project-persistence
+
   quality:
-    needs: [scope, quality-core, quality-tests, quality-contracts, preview-host-guards, dead-code]
+    needs: [scope, quality-core, quality-tests, quality-contracts, quality-project-persistence, preview-host-guards, dead-code]
     # Kör efter failed/skipped dependencies för att publicera grinden, men låt
     # en stale concurrency-cancelled PR-run dö i stället för att leva vidare.
     if: ${{ !cancelled() }}
@@ -339,6 +392,7 @@ jobs:
           RUN_HEAVY: ${{ needs.scope.outputs.run_heavy }}
           CORE_RESULT: ${{ needs['quality-core'].result }}
           TESTS_RESULT: ${{ needs['quality-tests'].result }}
+          PERSISTENCE_RESULT: ${{ needs['quality-project-persistence'].result }}
           CONTRACTS_RESULT: ${{ needs['quality-contracts'].result }}
           PREVIEW_HOST_RESULT: ${{ needs['preview-host-guards'].result }}
           DEAD_CODE_RESULT: ${{ needs['dead-code'].result }}
@@ -352,8 +406,8 @@ jobs:
             echo "::error::scope=${SCOPE_RESULT}/${RUN_HEAVY}, quality-core=${CORE_RESULT}, quality-tests=${TESTS_RESULT}, quality-contracts=${CONTRACTS_RESULT}, preview-host-guards=${PREVIEW_HOST_RESULT}, dead-code=${DEAD_CODE_RESULT}"
             exit 1
           fi
-          if [ "$EXPECT_HEAVY" = "true" ] && { [ "$CORE_RESULT" != "success" ] || [ "$TESTS_RESULT" != "success" ]; }; then
-            echo "::error::Full CI kravdes men quality-core=${CORE_RESULT}, quality-tests=${TESTS_RESULT} (scope=${SCOPE_RESULT}/${RUN_HEAVY})"
+          if [ "$EXPECT_HEAVY" = "true" ] && { [ "$CORE_RESULT" != "success" ] || [ "$TESTS_RESULT" != "success" ] || [ "$PERSISTENCE_RESULT" != "success" ]; }; then
+            echo "::error::Full CI kravdes men quality-core=${CORE_RESULT}, quality-tests=${TESTS_RESULT}, persistence=${PERSISTENCE_RESULT} (scope=${SCOPE_RESULT}/${RUN_HEAVY})"
             exit 1
           fi
           if [ "$EXPECT_HEAVY" = "false" ] && [ "$CORE_RESULT" != "skipped" ] && [ "$CORE_RESULT" != "success" ]; then
@@ -364,7 +418,11 @@ jobs:
             echo "::error::Latt CI tillat men quality-tests fick ovantat resultat ${TESTS_RESULT}"
             exit 1
           fi
-          echo "✓ quality aggregate green (heavy=${EXPECT_HEAVY}, core=${CORE_RESULT}, tests=${TESTS_RESULT})"
+          if [ "$EXPECT_HEAVY" = "false" ] && [ "$PERSISTENCE_RESULT" != "skipped" ] && [ "$PERSISTENCE_RESULT" != "success" ]; then
+            echo "::error::Latt CI tillat men project-persistence fick ovantat resultat ${PERSISTENCE_RESULT}"
+            exit 1
+          fi
+          echo "✓ quality aggregate green (heavy=${EXPECT_HEAVY}, core=${CORE_RESULT}, tests=${TESTS_RESULT}, persistence=${PERSISTENCE_RESULT})"
 
   # Produktionsbygge (2026-07-29). `next build` kördes INGENSTANS före merge:
   # preview-deployer är avstängda i `vercel.json` (`deploymentEnabled` bara för
@@ -412,6 +470,9 @@ jobs:
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+          # Next's TypeScript worker exceeds Node's default ~2 GiB heap.
+          # Keep type checking enabled and leave RAM for Turbopack/native work.
+          NODE_OPTIONS: "--max-old-space-size=4096"
 
   # Backoffice Python tests: control-plane/domain-map parity, matching-config
   # strict-schema validate-on-save, manifest parity and page-import smoke.
@@ -482,8 +543,7 @@ jobs:
   # låser att avsett schema (src/lib/db/schema.ts) == applicerat (db-init.mjs /
   # add-performance-indexes.mjs / migrations/*.sql). Kräver inga DB-creds. På full profil
   # finns ingen continue-on-error → ett rött resultat blockerar push/PR/merge.
-  # Deterministiska `*.stability.test.*` blockerar via quality-core ovan; jobbet
-  # `stability` nedan förblir warn-only.
+  # Deterministiska `*.stability.test.*` blockerar separat via quality-core ovan.
   schema-drift:
     needs: scope
     if: ${{ !cancelled() }}
@@ -517,78 +577,6 @@ jobs:
         if: ${{ env.RUN_HEAVY == 'true' }}
         run: npm run db:schema-drift
 
-  # Warn-only stabilitets-lane (grandmaster S1). Avsiktligt icke-blockerande:
-  # continue-on-error gör att ett rött stabilitets-resultat aldrig blockerar
-  # merge medan lanen stabiliseras. S4:s db:schema-drift-gate körs blockerande i det
-  # separata schema-drift-jobbet ovan; här ligger den bredare (flaky) vitest-lanen
-  # warn-only. Detta är platsen där C2 (ordlista-check) lägger sitt CI-steg.
-  # Icke-required: trigger-nivå-paths skulle skippa hela jobbet (OK här).
-  # Jobben delar dock `on:` med required quality/build/schema-drift, så ett
-  # workflow-nivå-paths skulle tysta även dem. Skip här är bara tidsvinst —
-  # inte en grind.
-  stability:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - name: Detect stability-relevant changes
-        id: filter
-        uses: dorny/paths-filter@v4
-        with:
-          filters: |
-            stability:
-              - '.github/workflows/ci.yml'
-              - '.node-version'
-              - '**/*.stability.test.ts'
-              - '**/*.stability.test.tsx'
-              - 'vitest.stability.config.ts'
-              - 'vitest.config.ts'
-              - 'src/lib/logging/**'
-              - 'src/lib/gen/**'
-              - 'src/lib/builder/**'
-              - 'src/lib/db/**'
-              - 'scripts/db/**'
-            terms:
-              - 'scripts/dev/check-term-coverage.mjs'
-              - 'scripts/docs/**'
-              - 'docs/architecture/glossary.md'
-              - 'config/naming-dictionary.json'
-              - 'docs/**/*.md'
-              - 'docs/**/*.mdx'
-
-      - name: Setup Node.js
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.stability == 'true' || steps.filter.outputs.terms == 'true' }}
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .node-version
-          cache: npm
-
-      - name: Install dependencies
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.stability == 'true' }}
-        run: npm ci
-
-      - name: Stability lane (warn-only)
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.stability == 'true' }}
-        run: npm run test:stability
-
-      # Grandmaster C2: light ordlista-check. Warn-first by design - the script always
-      # exits 0 and this whole job is continue-on-error, so it never blocks push/PR/merge.
-      # if: !cancelled() so it still runs even if an earlier step (the flaky stability
-      # lane) failed - step-level gating defaults to success(), which job-level
-      # continue-on-error does NOT override. Skips only on an actual run cancellation.
-      - name: Ordlista-check (warn-only, grandmaster C2)
-        if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || steps.filter.outputs.terms == 'true') }}
-        run: npm run check:terms
-
-      - name: Skip stability tests (no relevant changes)
-        if: ${{ github.event_name != 'workflow_dispatch' && steps.filter.outputs.stability != 'true' }}
-        run: echo "No stability-related files changed; skipping install and tests."
-
   # Preview-host runtime-guards (A#13/A#28). `preview-host/` är ett fristående
   # Node-paket med egen `package.json` och spårad lockfile; `npm ci` gör grinden
   # reproducerbar mot exakt committat dependency-träd. Guard-testerna är
@@ -601,43 +589,38 @@ jobs:
   # Next-källåsen (HMR-path mot installerad `next`) körs inte här — jobbet har
   # ingen `next`. Den lanen sitter i `quality` (`REQUIRE_NEXT_CONTRACT=1`).
   preview-host-guards:
+    needs: scope
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
+    env:
+      RUN_PREVIEW_HOST: ${{ needs.scope.result != 'success' || needs.scope.outputs.run_preview_host != 'false' }}
 
     steps:
+      - name: Report skipped preview-host scope
+        if: ${{ env.RUN_PREVIEW_HOST == 'false' }}
+        run: echo "No preview-host, shared-config or unknown paths changed; skipping install and tests."
+
       - name: Checkout
+        if: ${{ env.RUN_PREVIEW_HOST == 'true' }}
         uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - name: Detect preview-host-relevant changes
-        id: filter
-        uses: dorny/paths-filter@v4
-        with:
-          filters: |
-            preview_host:
-              - '.github/workflows/ci.yml'
-              - '.node-version'
-              - 'preview-host/**'
-
       - name: Setup Node.js
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.preview_host == 'true' }}
+        if: ${{ env.RUN_PREVIEW_HOST == 'true' }}
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
 
       - name: Install preview-host dependencies
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.preview_host == 'true' }}
+        if: ${{ env.RUN_PREVIEW_HOST == 'true' }}
         working-directory: preview-host
         run: npm ci --no-audit --no-fund
 
       - name: Preview-host runtime guards (blocking)
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.preview_host == 'true' }}
+        if: ${{ env.RUN_PREVIEW_HOST == 'true' }}
         working-directory: preview-host
         run: npm run check && npm run test:guards && npm run test:patch
-
-      - name: Skip preview-host guards (no relevant changes)
-        if: ${{ github.event_name != 'workflow_dispatch' && steps.filter.outputs.preview_host != 'true' }}
-        run: echo "No preview-host files changed; skipping install and tests."
 
   # Dead-code / orphan-file-hygien (självgående städ-enforcement). knip är tunat i
   # knip.json så FILES-kategorin har noll falska positiver: dynamiskt körda kataloger
@@ -749,7 +732,7 @@ jobs:
 
   # Read-only dev↔prod-paritet. Jobbet jämför de två levande databaserna men
   # applicerar aldrig migrationer eller prestandaindex.
-  # Körs på preview och master: preview delar prod-DB, så drift måste synas
+  # Körs på preview och master: preview delar DEV, så DEV↔PROD-drift måste synas
   # när staging landar, inte först vid promote. Den schemalagda systern
   # (db-schema-parity.yml) fångar drift mellan pushar.
   db-schema-parity:
@@ -813,3 +796,4 @@ jobs:
         env:
           POSTGRES_URL_DEV: ${{ secrets.POSTGRES_URL_DEV }}
           POSTGRES_URL_PROD: ${{ secrets.POSTGRES_URL_PROD }}
+

@@ -1,0 +1,57 @@
+name: PR base guard
+
+# Betrodd default-branch-kod utan checkout eller actions: läser bara eventets
+# basfält och skriver via gh. PR-head körs aldrig med den här token.
+# CI och dossier-acceptance lyssnar inte på edited: en textändring får inte
+# ersätta deras kvitton. Basbyte gör PR:en till draft; ready_for_review kör
+# sedan båda kontrollerna med den nya basens profil.
+on:
+  pull_request_target:
+    types: [edited]
+
+# convertPullRequestToDraft avvisar GITHUB_TOKEN utan contents: write
+# (cli/cli#8910). Token når aldrig PR-kod; se kontraktet i check-contract.mjs.
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  draft-on-base-change:
+    if: github.event.changes.base != null && github.event.pull_request.state == 'open'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Jobbnivå, inte workflownivå: en senare beskrivningsredigering får inte
+    # ersätta en köad basbyteskörning med ett överhoppat jobb.
+    concurrency:
+      group: pr-base-guard-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    steps:
+      - name: Convert to draft and explain the base change
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          FROM_BASE: ${{ github.event.changes.base.ref.from }}
+          TO_BASE: ${{ github.event.pull_request.base.ref }}
+        run: |
+          if gh pr ready --undo "$PR_NUMBER" --repo "$REPO"; then
+            drafted=true
+          else
+            drafted=false
+          fi
+          body="$RUNNER_TEMP/pr-base-guard.md"
+          {
+            printf 'Basen ändrades från `%s` till `%s`.\n\n' "$FROM_BASE" "$TO_BASE"
+            echo 'CI och dossierkontroller körs inte om automatiskt vid ett basbyte, så kvittona på den här headen kan ha den gamla basens profil.'
+            echo
+            if [ "$drafted" = true ]; then
+              echo 'PR:en är nu draft, vilket blockerar merge. Markera den som ready for review igen för att köra om CI med den nya basen.'
+            else
+              echo 'Vakten kunde inte göra PR:en till draft. Gör den till draft manuellt och markera den sedan som ready for review, så körs CI om med den nya basen.'
+            fi
+          } > "$body"
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file "$body"
+          if [ "$drafted" != true ]; then
+            echo "::error::Kunde inte göra PR #$PR_NUMBER till draft efter basbytet."
+            exit 1
+          fi

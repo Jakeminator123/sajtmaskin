@@ -15,37 +15,6 @@ import { getDossierById } from "@/lib/gen/dossiers/registry";
 import { PIPELINE_ENV_LOCAL_MARKER } from "./env-local";
 
 describe("buildProjectEnvFileContents", () => {
-  // NOTE (scope-env-example wave 1): these two tests exercise the LEGACY
-  // full-catalog dump, which is now only reached when NO `dossierEnvScope` is
-  // passed (unknown/older callsites). The real pipeline (preflight-phase.ts)
-  // always passes a scope, so the STRIPE_SECRET_KEY-in-F2-default pin below
-  // describes the fallback, not the production path — the dossier-scoped path
-  // is pinned in the "dossier-scoped env.example" describe block.
-  it("includes the F2 user-facing header by default (legacy full-dump fallback)", async () => {
-    const body = await buildProjectEnvFileContents({
-      appProjectId: "proj_test",
-      generatedEnvLocal: null,
-    });
-    expect(body).toContain("designläge");
-    expect(body).toContain("Bygg integrationer");
-    expect(body).toContain("# ── Tier-3 placeholders");
-    expect(body).toContain("# ── Säkra placeholders");
-    expect(body).toContain("STRIPE_SECRET_KEY=");
-    expect(body).toContain("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=");
-  });
-
-  it("strips tier-3 stub layer in F3 (legacy full-dump fallback)", async () => {
-    const body = await buildProjectEnvFileContents({
-      appProjectId: "proj_test",
-      generatedEnvLocal: null,
-      lifecycleStage: "integrations",
-    });
-    expect(body).toContain("integrationsbygge");
-    expect(body).not.toContain("# ── Tier-3 placeholders");
-    expect(body).not.toContain("STRIPE_SECRET_KEY=");
-    expect(body).toContain("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=");
-  });
-
   it("never loads or renders stored project values", async () => {
     const { getStoredProjectEnvVarMap } = await import("@/lib/projects/project-env-vars");
     const getStoredMap = vi.mocked(getStoredProjectEnvVarMap);
@@ -66,6 +35,7 @@ describe("buildProjectEnvFileContents", () => {
     const body = await buildProjectEnvFileContents({
       appProjectId: "proj_test",
       generatedEnvLocal: null,
+      dossierEnvScope: { envVars: [] },
       lifecycleStage: "design",
       projectFiles: [
         {
@@ -94,12 +64,13 @@ describe("injectProjectEnvFileIntoFilesJson", () => {
     const next = await injectProjectEnvFileIntoFilesJson(filesJson, {
       appProjectId: "proj_test",
       lifecycleStage: "design",
+      dossierEnvScope: { envVars: [] },
     });
     const parsed = JSON.parse(next) as Array<{ path: string; content: string }>;
     const envFile = parsed.find((f) => f.path === PROJECT_ENV_FILE_PATH);
     expect(envFile).toBeDefined();
     expect(envFile?.path).toBe("env.example");
-    expect(envFile?.content).toContain("STRIPE_SECRET_KEY=");
+    expect(envFile?.content).not.toContain("STRIPE_SECRET_KEY=");
   });
 
   it("replaces an existing env.example file rather than duplicating", async () => {
@@ -110,6 +81,7 @@ describe("injectProjectEnvFileIntoFilesJson", () => {
     const next = await injectProjectEnvFileIntoFilesJson(filesJson, {
       appProjectId: "proj_test",
       lifecycleStage: "design",
+      dossierEnvScope: { envVars: [] },
     });
     const parsed = JSON.parse(next) as Array<{ path: string; content: string }>;
     const envFiles = parsed.filter((f) => f.path === PROJECT_ENV_FILE_PATH);
@@ -125,6 +97,7 @@ describe("injectProjectEnvFileIntoFilesJson", () => {
     const next = await injectProjectEnvFileIntoFilesJson(filesJson, {
       appProjectId: "proj_test",
       lifecycleStage: "design",
+      dossierEnvScope: { envVars: [] },
     });
     const parsed = JSON.parse(next) as Array<{ path: string; content: string }>;
     expect(parsed.find((f) => f.path === "env.env")).toBeUndefined();
@@ -139,6 +112,7 @@ describe("injectProjectEnvFileIntoFilesJson", () => {
     const next = await injectProjectEnvFileIntoFilesJson(filesJson, {
       appProjectId: "proj_test",
       lifecycleStage: "design",
+      dossierEnvScope: { envVars: [] },
     });
     const parsed = JSON.parse(next) as Array<{ path: string; content: string }>;
     const envFile = parsed.find((f) => f.path === PROJECT_ENV_FILE_PATH);
@@ -229,6 +203,7 @@ describe("injectProjectEnvFileIntoFilesJson", () => {
     const next = await injectProjectEnvFileIntoFilesJson(bad, {
       appProjectId: "proj_test",
       lifecycleStage: "design",
+      dossierEnvScope: { envVars: [] },
     });
     expect(next).toBe(bad);
   });
@@ -248,6 +223,8 @@ describe("buildProjectEnvFileContents — dossier-scoped env.example (wave 1)", 
     expect(body).not.toContain("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=");
     // Project-preview tokens are project-specific and always kept.
     expect(body).toContain("# ── Stabila projekt-tokens");
+    expect(body).toContain("designläge");
+    expect(body).toContain("Bygg integrationer");
   });
 
   it("emits only the catalog keys a selected dossier declares", async () => {

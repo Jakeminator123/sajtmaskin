@@ -15,6 +15,8 @@ Alla **standardvärden** som går att styra centralt ligger i [`manifest.json`](
 | **Vissa admin/wizard/inspektor** | Analys, JSON | OpenAI **Responses** API | `OPENAI_API_KEY` |
 | **Projektanalys** | Gratis kodöversikt | OpenAI Responses API | `OPENAI_API_KEY` |
 
+Aktuell textrouting: nya aktiva text-, kod- och visionanrop defaultar `gpt-6.1-sol`. Små workloads (wizard, kundanalys, prompt-assist, vision, verifier och Låg deploy-assistant) använder `reasoningEffort: medium`. Ingen dold Luna-reserv. Vision-allowlisten kan fortfarande välja Luna explicit. Embeddings och `gpt-transcribe` är specialmodeller. Extra hög (`ultra`) bygger planner/generator med GPT-6 Astra. Prompt-assistens outputtak `8192` är en maxgräns som inkluderar reasoning, inte uppmätt förbrukning.
+
 > **Plattformsberoende:** AI SDK (`ai` npm-paketet) är open-source (MIT) och provideragnostiskt — det är inte Vercel-låst.
 
 Detaljer per fil och exakt `invocation`-fält finns under `workloads[]` i `manifest.json`.
@@ -26,12 +28,12 @@ För att **genererade** Next-projekt ofta ska kunna byggas/köras utan riktiga R
 - [`40-harmless-placeholders.env.txt`](40-harmless-placeholders.env.txt) — `KEY=value`-rader som är **säkra även i F3** (test/publishable-keys, AUTH_SECRET, GA-id, search-only API-keys, m.m.).
 - [`41-tier3-stub-placeholders.env.txt`](41-tier3-stub-placeholders.env.txt) — F2-stubbar (Stripe-secret, Supabase-URL, Clerk-secret, Redis URL, OpenAI, …) som **strippas helt i F3-merge** och kräver riktiga värden via `validateTier3Readiness`.
 - Per-key-klassificering: [`src/lib/integrations/placeholder-harmless.ts`](../../src/lib/integrations/placeholder-harmless.ts).
-- [`manifest.json`](manifest.json) → fältet `generatedSiteIntegrationPlaceholders` pekar på båda filnamnen (`harmlessEnvFragmentFile`, `tier3StubEnvFragmentFile`) och länkar till policy i [`../user_degraded_env.txt`](../user_degraded_env.txt).
+- [`manifest.json`](manifest.json) → fältet `generatedSiteIntegrationPlaceholders` pekar på båda filnamnen (`harmlessEnvFragmentFile`, `tier3StubEnvFragmentFile`). Env-kontrakt: [env-flow.md](../../docs/contracts/env-flow.md).
 - TypeScript: [`src/lib/ai-models/load-generated-site-placeholders.ts`](../../src/lib/ai-models/load-generated-site-placeholders.ts) (endast Node — inte i klientbundles).
 
 Detta är **parallellt med** `config/codegen-core-manifest.json` + `prompt-core/*.md`: manifest + vanlig text under `config/`, men här är nyttolasten env-placeholders för slutkundsprojekt, inte systemprompt.
 
-**Tier-2 preview / VM:** Både `startPreviewSession` (builder) och `generateOwnEngineSiteFromPrompt` (MCP/own-engine) mergar nycklarna in i `.env.local` via `buildPreviewEnvLocalContents` i [`src/lib/gen/preview/env-local.ts`](../../src/lib/gen/preview/env-local.ts). Merge-ordning: `harmless → tier3-stub → project-preview → user → generated` (senare lager vinner). I F3 (`lifecycleStage: "integrations"`) hoppas tier-3-stub-laget över helt. Produktens primära live-preview är i dag `preview_host` / VM; ordet `sandbox` lever fortfarande kvar som legacy i vissa kontrakt och interna namn. **Tier-1 shim** använder inte samma merge. Översikt och lagerordning: [_READ_ME_FIRST.md](_READ_ME_FIRST.md).
+**Tier-2 preview / VM:** `startPreviewSession` (builder) mergar nycklarna in i `.env.local` via `buildPreviewEnvLocalContents` i [`src/lib/gen/preview/env-local.ts`](../../src/lib/gen/preview/env-local.ts). Merge-ordning: `harmless → tier3-stub → project-preview → user → generated` (senare lager vinner). I F3 (`lifecycleStage: "integrations"`) hoppas tier-3-stub-laget över helt. Produktens primära live-preview är i dag `preview_host` / VM; ordet `sandbox` lever fortfarande kvar som legacy i vissa kontrakt och interna namn. **Tier-1 shim** använder inte samma merge. Översikt och lagerordning: [_READ_ME_FIRST.md](_READ_ME_FIRST.md).
 
 ## Direkt provider-API vs SDK (viktigt)
 
@@ -55,4 +57,4 @@ Primära direkt-API-länkar (canonical listan ligger i `manifest.json`):
 - [10-own-engine.md](10-own-engine.md) — byggprofiler och `claude-*`-normalisering.
 - [20-briefing.md](20-briefing.md) — Briefing-lagret och provider-namngivning (`"openai" | "anthropic"`).
 - [30-embeddings-and-misc.md](30-embeddings-and-misc.md) — embedding-modeller och övriga routes.
-- [40-harmless-placeholders.env.txt](40-harmless-placeholders.env.txt) + [41-tier3-stub-placeholders.env.txt](41-tier3-stub-placeholders.env.txt) — preview-env för genererade sajter (se även [../user_degraded_env.txt](../user_degraded_env.txt)).
+- [40-harmless-placeholders.env.txt](40-harmless-placeholders.env.txt) + [41-tier3-stub-placeholders.env.txt](41-tier3-stub-placeholders.env.txt) — preview-env för genererade sajter (se även [env-kontraktet](../../docs/contracts/env-flow.md)).

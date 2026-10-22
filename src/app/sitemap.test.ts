@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { PUBLIC_CANONICAL_ORIGIN, publicCanonicalPath } from "@/lib/public-canonical-url";
+import { getIndexableBlogRelPaths } from "@/lib/blog/posts";
 import {
   SEO_LANDING_PAGES,
+  SEO_LANDING_SLUGS,
   getIndexableSeoLandingRelPaths,
 } from "@/lib/seo-landing-pages/registry";
-import sitemap, { SITEMAP_CATEGORY_SLUGS, STATIC_SITEMAP_REL_PATHS } from "./sitemap";
+import sitemap, { NOINDEX_CATEGORY_SLUGS, STATIC_SITEMAP_REL_PATHS } from "./sitemap";
 
 const PRIVATE_SITEMAP_REL_PATHS = [
   "/builder",
@@ -20,15 +22,15 @@ const PRIVATE_SITEMAP_REL_PATHS = [
 ] as const;
 
 describe("marketing sitemap", () => {
-  it("includes core marketing, blog, and legal routes once", () => {
+  it("includes core marketing and legal routes once", () => {
     expect(STATIC_SITEMAP_REL_PATHS).toEqual(
       expect.arrayContaining([
-        "/blogg",
         "/om",
         "/exempel",
         "/faq",
         "/templates",
         "/teknik",
+        "/priser",
         "/terms",
         "/privacy",
       ]),
@@ -37,19 +39,18 @@ describe("marketing sitemap", () => {
     expect(new Set(STATIC_SITEMAP_REL_PATHS).size).toBe(STATIC_SITEMAP_REL_PATHS.length);
   });
 
+  it("includes the blog index and published posts once editorial posts exist", () => {
+    expect(STATIC_SITEMAP_REL_PATHS).not.toContain("/blogg");
+    const urls = sitemap().map((entry) => entry.url);
+    for (const path of getIndexableBlogRelPaths()) {
+      expect(urls).toContain(publicCanonicalPath(path));
+    }
+    expect(urls).toContain(publicCanonicalPath("/blogg"));
+    expect(urls).toContain(publicCanonicalPath("/blogg/vad-kostar-en-hemsida-2026"));
+  });
+
   it("lists only ready SEO landing pages on the canonical origin", () => {
-    expect(getIndexableSeoLandingRelPaths()).toEqual([
-      "/skapa-hemsida",
-      "/skapa-hemsida-med-ai",
-      "/ai-hemsidebyggare",
-      "/hemsida-till-foretag",
-      "/hemsideprogram",
-      "/hemsida-utan-kod",
-      "/vad-kostar-en-hemsida",
-      "/wix-alternativ",
-      "/wordpress-alternativ",
-      "/lovable-alternativ",
-    ]);
+    expect(getIndexableSeoLandingRelPaths()).toEqual(SEO_LANDING_SLUGS.map((slug) => `/${slug}`));
     for (const page of SEO_LANDING_PAGES) {
       expect(STATIC_SITEMAP_REL_PATHS).not.toContain(`/${page.slug}`);
     }
@@ -66,20 +67,25 @@ describe("marketing sitemap", () => {
     expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/wordpress-alternativ`);
     expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/exempel`);
     expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/lovable-alternativ`);
+    expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/squarespace-alternativ`);
+    expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/one-com-alternativ`);
+    expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/hemsida-frisor`);
     for (const page of SEO_LANDING_PAGES) {
       if (page.status === "ready") continue;
       expect(urls).not.toContain(`${PUBLIC_CANONICAL_ORIGIN}/${page.slug}`);
     }
   });
 
-  it("keeps public static and category routes on sajtmaskin.se", () => {
+  it("keeps public static routes on sajtmaskin.se and omits thin category indexes", () => {
     const urls = sitemap().map((entry) => entry.url);
     expect(urls).toContain(PUBLIC_CANONICAL_ORIGIN);
+    expect(urls).toContain(publicCanonicalPath("/priser"));
     for (const path of STATIC_SITEMAP_REL_PATHS) {
       expect(urls).toContain(publicCanonicalPath(path));
     }
-    for (const slug of SITEMAP_CATEGORY_SLUGS) {
-      expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/category/${slug}`);
+    expect(NOINDEX_CATEGORY_SLUGS).toHaveLength(9);
+    for (const slug of NOINDEX_CATEGORY_SLUGS) {
+      expect(urls).not.toContain(`${PUBLIC_CANONICAL_ORIGIN}/category/${slug}`);
     }
     expect(urls.every((url) => url.startsWith(`${PUBLIC_CANONICAL_ORIGIN}`))).toBe(true);
     expect(new Set(urls).size).toBe(urls.length);

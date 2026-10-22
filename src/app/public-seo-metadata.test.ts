@@ -8,6 +8,8 @@ import { metadata as buyCreditsMetadata } from "./buy-credits/layout";
 import { metadata as kontoMetadata } from "./konto/layout";
 import { metadata as homeMetadata } from "./page";
 import { metadata as omMetadata } from "./om/page";
+import { metadata as priserMetadata } from "./priser/page";
+import { metadata as templatesMetadata } from "./templates/page";
 import { generateMetadata as generateCategoryMetadata } from "./category/[type]/layout";
 
 const NOINDEX = { index: false, follow: false };
@@ -27,6 +29,13 @@ describe("public and private SEO metadata", () => {
       canonical: `${PUBLIC_CANONICAL_ORIGIN}/faq`,
     });
     expect(faqMetadata.alternates?.canonical).not.toBe(`${PUBLIC_CANONICAL_ORIGIN}/`);
+    expect(priserMetadata.alternates).toEqual({
+      canonical: `${PUBLIC_CANONICAL_ORIGIN}/priser`,
+    });
+    expect(templatesMetadata.title).toBe("Hemsidemallar");
+    expect(templatesMetadata.alternates).toEqual({
+      canonical: `${PUBLIC_CANONICAL_ORIGIN}/templates`,
+    });
   });
 
   it("marks app-internal surfaces noindex", () => {
@@ -45,5 +54,6 @@ describe("public and private SEO metadata", () => {
       canonical: `${PUBLIC_CANONICAL_ORIGIN}/category/ai`,
     });
     expect(metadata.title).toBe("AI");
+    expect(metadata.robots).toEqual(expect.objectContaining({ index: false }));
   });
 });

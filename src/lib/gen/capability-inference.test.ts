@@ -6,6 +6,56 @@ import {
 } from "./capability-inference";
 
 describe("inferCapabilities", () => {
+  it.each([
+    "Bygg en sida utan reklam med en roterbar 3D-produkt.",
+    "Build a page without ads with a rotatable 3D product.",
+    "En sida utan annonser med WebGL.",
+    "Build a page without clutter with a 3D scene.",
+    "Bygg en sida utan inloggning med en roterbar 3D-produkt.",
+    "Build a page without payments with a 3D scene.",
+    "Bygg utan inloggning med Clerk och en 3D-produkt.",
+    "Build without login with Clerk and a 3D product.",
+    "Bygg utan inspelning med en 3D-produkt.",
+    "Build without apple-pay with a 3D product.",
+    "Build without an appendix with a 3D product.",
+    "Ingen dashboard med en 3D-produkt.",
+  ])("preserves an affirmative feature after an unrelated exclusion: %s", (prompt) => {
+    expect(inferCapabilities(prompt).needs3D).toBe(true);
+    expect(explicitlyRequests3D(prompt)).toBe(true);
+  });
+
+  it.each([
+    "Inga 3D-effekter eller spel.",
+    "Bygg utan spel med 3D och fysik.",
+    "Build without games with 3D physics.",
+  ])("keeps a negated feature and its modifiers excluded: %s", (prompt) => {
+    const caps = inferCapabilities(prompt);
+    expect(caps.needs3D).toBe(false);
+    expect(caps.needsGame).toBe(false);
+    expect(caps.needsPhysics).toBe(false);
+  });
+
+  it.each([
+    "Bygg utan 3D med Matter.js.",
+    "Ingen 3D med studsande 2D-objekt.",
+    "No WebGL with Matter.js 2D physics.",
+    "Bygg utan 3D med studsande kort.",
+  ])("respects a 3D exclusion while keeping requested 2D physics: %s", (prompt) => {
+    expect(inferCapabilities(prompt)).toMatchObject({
+      needs3D: false,
+      needsPhysics: false,
+      needsPhysics2D: true,
+    });
+    expect(explicitlyRequests3D(prompt)).toBe(false);
+  });
+
+  it.each(["A glowing orb without Rapier.", "A glowing orb without GLTF assets."])(
+    "does not treat an excluded physics engine or asset format as a 3D ban: %s",
+    (prompt) => {
+      expect(inferCapabilities(prompt).needs3D).toBe(true);
+    },
+  );
+
   it("detects app-like cinematic 3D website prompts in Swedish", () => {
     const caps = inferCapabilities(
       "Jag vill ha en hemsida som är mycket app-lik med en massa coola 3dsaker och filmisk neon-känsla.",
@@ -531,3 +581,100 @@ describe("buildCapabilityHints (pack-based)", () => {
     expect(hints).not.toContain("<RigidBody>");
   });
 });
+
+describe("negated and mixed capability clauses", () => {
+  const c01 =
+    "Skapa en exklusiv informationssida för en privat pokerlounge. Beskriv spelkvällar, regler och anmälan. Ingen spelmotor och inget spel om pengar. Mörk grön, svart och guld; använd den syntetiska porträttreferensen.";
+  const c03 =
+    "Skapa en editorial portfolio med stora fotografier, asymmetrisk typografi och tydliga projektberättelser. Ingen dashboard och ingen 3D.";
+  const c05 =
+    "Lägg in en lekfull 2D-yta med några dragbara objekt som studsar. Använd ingen Three.js eller WebGL-scen.";
+  const c06 =
+    "Visa en dekorativ roterbar 3D-produkt på en vanlig presentationssida, utan fysik, spel, konto eller dashboard.";
+
+  it.each([
+    "Rotate the cards without 3D.",
+    "Rotate the cards. No 3D.",
+    "Create floating ornaments without an object.",
+    "Create a perspective layout, no card.",
+  ])("does not treat a pattern spanning a negated token as 3D: %s", (prompt) => {
+    expect(inferCapabilities(prompt).needs3D).toBe(false);
+    expect(explicitlyRequests3D(prompt)).toBe(false);
+  });
+
+  it.each([
+    "Build a 3D hero. Rotate the cards without 3D.",
+    "Create a floating object. No other object.",
+    "No floating ornaments. Create a floating object.",
+    "Create a perspective card. No other card.",
+  ])("keeps a separate wholly positive 3D match: %s", (prompt) => {
+    expect(inferCapabilities(prompt).needs3D).toBe(true);
+    expect(explicitlyRequests3D(prompt)).toBe(true);
+  });
+
+  it("keeps C01–C06 on the requested capability flags", () => {
+    expect(inferCapabilities(c01).needsGame).toBe(false);
+    const portfolio = inferCapabilities(c03);
+    expect(portfolio.needs3D).toBe(false);
+    expect(portfolio.needsAppShell).toBe(false);
+    expect(explicitlyRequests3D(c03)).toBe(false);
+    expect(inferCapabilities(c05)).toMatchObject({
+      needsPhysics2D: true,
+      needs3D: false,
+      needsPhysics: false,
+    });
+    expect(inferCapabilities(c06)).toMatchObject({
+      needs3D: true,
+      needsPhysics: false,
+      needsGame: false,
+      needsAuth: false,
+      needsAppShell: false,
+    });
+  });
+
+  it("respects English negation and mixed-positive clauses", () => {
+    const decorative = "Build a 3D product. No physics or game.";
+    expect(inferCapabilities(decorative)).toMatchObject({
+      needs3D: true,
+      needsPhysics: false,
+      needsGame: false,
+    });
+    expect(explicitlyRequests3D(decorative)).toBe(true);
+    const game = "No 3D, but build a playable game.";
+    expect(inferCapabilities(game)).toMatchObject({ needs3D: false, needsGame: true });
+    expect(explicitlyRequests3D(game)).toBe(false);
+    const product = "No dashboard, but add a 3D product.";
+    expect(inferCapabilities(product)).toMatchObject({ needsAppShell: false, needs3D: true });
+    expect(explicitlyRequests3D(product)).toBe(true);
+  });
+
+  it("does not infer 2D physics from bare 2D or a fully negated 2D clause", () => {
+    expect(inferCapabilities("Rita en enkel 2D-karta.").needsPhysics2D).toBe(false);
+    expect(inferCapabilities("Ingen 2D och inga studsande objekt.").needsPhysics2D).toBe(false);
+  });
+
+  it("keeps positive 2D physics together with explicit 3D in a later clause", () => {
+    const prompt = "Lägg in en 2D-yta med objekt som studsar. Visa också en 3D-produkt.";
+    expect(inferCapabilities(prompt)).toMatchObject({ needsPhysics2D: true, needs3D: true });
+    expect(explicitlyRequests3D(prompt)).toBe(true);
+  });
+
+  it("does not join a 2D map to physics requested in a separate comma-imperative clause", () => {
+    for (const prompt of [
+      "Bygg en 2D-karta, skapa en separat 3D-scen med fysik.",
+      "Build a 2D map, create a separate 3D scene with physics.",
+      "Bygg en 3D-scen med fysik, skapa en separat 2D-karta.",
+    ]) {
+      expect(inferCapabilities(prompt), prompt).toMatchObject({
+        needsPhysics2D: false,
+        needs3D: true,
+      });
+    }
+    expect(inferCapabilities("Bygg en 2D-yta, med objekt som studsar.")).toMatchObject({
+      needsPhysics2D: true,
+      needs3D: false,
+      needsPhysics: false,
+    });
+  });
+});
+

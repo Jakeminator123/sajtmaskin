@@ -52,12 +52,13 @@ const MODEL_TIER_HINTS: Partial<Record<ModelTier, string>> = {
   max: "rekommenderad",
   premium: "mest genomarbetad",
   anthropic: "jämför",
+  ultra: "starkast",
 };
 
 /**
- * Builder-selectable tiers in slider order (Låg → Mellan → Hög → Anthropic).
+ * Builder-selectable tiers in slider order (Låg → Mellan → Hög → Extra hög).
  * Labels/descriptions come from the catalog so UI, pricing and backoffice
- * cannot drift apart. `codex` is intentionally not offered (hidden tier).
+ * cannot drift apart. `codex` and `anthropic` are not offered (hidden tiers).
  */
 export const MODEL_TIER_OPTIONS: ModelTierOption[] = SELECTABLE_MODEL_IDS.map((value) => ({
   value,
@@ -68,6 +69,12 @@ export const MODEL_TIER_OPTIONS: ModelTierOption[] = SELECTABLE_MODEL_IDS.map((v
 
 /** Default build tier for new chats */
 export const DEFAULT_MODEL_TIER: ModelTier = DEFAULT_MODEL_ID;
+
+/**
+ * Kampanjbygget från en kostnadsfri-länk startar på Mellan: init + en
+ * uppföljning ingår i inbjudan oavsett nivå, och det är kundens första intryck.
+ */
+export const KOSTNADSFRI_MODEL_TIER: ModelTier = "max";
 
 /** Default scaffold selection for new chats — off means no scaffold unless user picks one */
 export const DEFAULT_SCAFFOLD_MODE: ScaffoldMode = "auto";
@@ -85,12 +92,13 @@ export interface PromptAssistModelOption {
 export const PROMPT_ASSIST_OFF_VALUE = "off";
 
 const PROMPT_ASSIST_LABELS: Record<string, string> = {
+  "openai/gpt-6.1-sol": "OpenAI GPT-6.1 Sol",
+  "openai/gpt-6-luna": "OpenAI GPT-6 Luna",
   "openai/gpt-5.6-sol": "OpenAI GPT-5.6 Sol",
   "openai/gpt-5.6-terra": "OpenAI GPT-5.6 Terra",
   "openai/gpt-5.6-luna": "OpenAI GPT-5.6 Luna",
   "openai/gpt-5.5": "OpenAI GPT-5.5",
   "openai/gpt-5.4": "OpenAI GPT-5.4",
-  "openai/gpt-5.3-codex": "OpenAI GPT-5.3 Codex",
   "openai/gpt-5.2": "OpenAI GPT-5.2",
   "anthropic/claude-opus-4.8": "Anthropic Claude Opus 4.8",
   "anthropic/claude-opus-4.6": "Anthropic Claude Opus 4.6",

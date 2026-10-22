@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { appendStreamWarning, splitTrailingStreamWarning } from "@/lib/builder/stream-warning";
 import { GenerationSummary } from "./GenerationSummary";
 
 const CODE_MARKER = "const SECRET_MARKER_FROM_CODE = 1;";
@@ -11,6 +12,23 @@ function completeBlock(path: string): string {
 }
 
 describe("GenerationSummary — fence-balans (F9)", () => {
+  it("keeps inline backticks inside a generated file out of the prose bubble", () => {
+    const content = [
+      "Här kommer den uppdaterade sidan med förklaringen bevarad.",
+      '```tsx file="app/page.tsx"',
+      'const markdownFence = "```";',
+      CODE_MARKER,
+      "```",
+    ].join("\n");
+
+    render(<GenerationSummary content={content} />);
+
+    const prose = screen.getByTestId("generation-summary-prose");
+    expect(prose.textContent).toContain("Här kommer den uppdaterade sidan");
+    expect(prose.textContent).not.toContain(CODE_MARKER);
+    expect(screen.getByText("1 fil")).toBeTruthy();
+  });
+
   it.each(['```tsx file="app/page.tsx"', 'tsx file="app/page.tsx"', '```'])(
     "hides an incomplete file header before its code body arrives: %s",
     (header) => {
@@ -140,5 +158,54 @@ describe("GenerationSummary — fence-balans (F9)", () => {
 
     expect(screen.getByText("2 filer")).toBeTruthy();
     expect(screen.getByTestId("generation-summary-prose").textContent).toBe("Klart.");
+  });
+});
+
+describe("GenerationSummary — varning efter avbruten ström", () => {
+  const WARNING = "Anslutningen bröts innan svaret var klart.";
+
+  it.each([
+    ["en oavslutad fence", '```tsx file="app/kontakt/page.tsx"'],
+    ["en stream-header utan fence", 'tsx file="app/kontakt/page.tsx"'],
+  ])("visar varningen i svarsrutan när strömmen bröts inne i %s", (_label, header) => {
+    const streamed = ["Här kommer sidorna.", completeBlock("app/page.tsx"), header, CODE_MARKER].join("\n\n");
+
+    render(<GenerationSummary content={appendStreamWarning(streamed, WARNING)} />);
+
+    const prose = screen.getByTestId("generation-summary-prose");
+    expect(prose.textContent).toContain("Här kommer sidorna.");
+    expect(prose.textContent).toContain(`Varning: ${WARNING}`);
+    expect(prose.textContent).not.toContain(CODE_MARKER);
+  });
+
+  it("lämnar text där kod följer efter markören som kod", () => {
+    expect(splitTrailingStreamWarning("Text\n\nVarning: x\n```tsx\ncode")).toEqual({
+      body: "Text\n\nVarning: x\n```tsx\ncode",
+      warning: null,
+    });
+    expect(splitTrailingStreamWarning(appendStreamWarning("", WARNING))).toEqual({
+      body: "",
+      warning: `Varning: ${WARNING}`,
+    });
+  });
+
+  it("visar inte kod som följer på modellens egen Varning-rad utan fence", () => {
+    const content = ["Klart.", "Varning: tänk på bildrätter.", 'tsx file="app/page.tsx"', CODE_MARKER].join("\n\n");
+
+    render(<GenerationSummary content={content} />);
+
+    const prose = screen.getByTestId("generation-summary-prose");
+    expect(prose.textContent).toContain("Varning: tänk på bildrätter.");
+    expect(prose.textContent).not.toContain(CODE_MARKER);
+  });
+
+  it("hittar den tillagda varningen även när svaret börjar med Varning:", () => {
+    const streamed = ["Varning: modellen inleder så.", '```tsx file="app/page.tsx"', CODE_MARKER].join("\n\n");
+
+    render(<GenerationSummary content={appendStreamWarning(streamed, `rad ett\nrad två`)} />);
+
+    const prose = screen.getByTestId("generation-summary-prose");
+    expect(prose.textContent).toContain("Varning: rad ett rad två");
+    expect(prose.textContent).not.toContain(CODE_MARKER);
   });
 });

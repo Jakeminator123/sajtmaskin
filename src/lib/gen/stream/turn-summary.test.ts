@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { appendStreamWarning } from "@/lib/builder/stream-warning";
 import {
   appendTurnSummary,
   buildTurnSummary,
+  composePersistedAssistantContent,
+  extractUsefulModelProse,
   hasModelProseSummary,
   summarizeVersionChanges,
 } from "./turn-summary";
@@ -189,5 +192,153 @@ describe("appendTurnSummary", () => {
 
   it("is a no-op for a null summary", () => {
     expect(appendTurnSummary("abc", null)).toBe("abc");
+  });
+});
+
+const BEFORE = "Jag har byggt en landningssida med hero, tjänster och kontaktformulär.";
+const AFTER = "Hör av dig om du vill ändra färgerna eller texterna.";
+const EXPLANATION = `${BEFORE}\n\n${AFTER}`;
+const SECRET = "SECRET_MARKER=sk_live_should_not_leak";
+const WARNING = "Anslutningen bröts innan svaret var klart.";
+const FALLBACK = "Klart — jag har byggt en första version av sajten.";
+
+function fence(lang: string, path: string, body: string): string {
+  return `\`\`\`${lang} file="${path}"\n${body}\n\`\`\``;
+}
+
+function times(haystack: string, needle: string): number {
+  return haystack.split(needle).length - 1;
+}
+
+describe("extractUsefulModelProse", () => {
+  it("does not recover file contents after an inline fence inside generated code", () => {
+    const raw = `${EXPLANATION}\n\n${fence("tsx", "app/page.tsx", 'const markdownFence = "```";\nconst RAW_FILE_CONTENT = "must stay inside the file";')}`;
+    expect(extractUsefulModelProse(raw)).toBe(EXPLANATION);
+  });
+
+  it("keeps Swedish paragraphs before and after a closed fence", () => {
+    const raw = `${BEFORE}\n\n${fence("tsx", "app/page.tsx", "export default function Page() { return null; }")}\n\n${AFTER}`;
+    expect(extractUsefulModelProse(raw)).toBe(EXPLANATION);
+  });
+
+  it("drops a closed thinking block and keeps the explanation", () => {
+    const plan = "Planera hero, tjänster och formulär utan att visa kedjan. ".repeat(3);
+    const raw = `<Thinking>${plan}</Thinking>\n\n${EXPLANATION}`;
+    const prose = extractUsefulModelProse(raw);
+    expect(prose).toBe(EXPLANATION);
+    expect(prose).not.toContain("Planera");
+    expect(prose).not.toContain("Thinking");
+  });
+
+  it("cuts an open code fence and does not keep its tail", () => {
+    const tail = `const OPEN_FENCE_TAIL = ${"x".repeat(80)};`;
+    const raw = `${EXPLANATION}\n\n\`\`\`tsx file="app/page.tsx"\n${tail}`;
+    const prose = extractUsefulModelProse(raw);
+    expect(prose).toBe(EXPLANATION);
+    expect(prose).not.toContain("OPEN_FENCE_TAIL");
+    expect(hasModelProseSummary(raw)).toBe(true);
+  });
+
+  it("cuts a bare stream header and does not treat the long code tail as prose", () => {
+    const tail = `const BARE_STREAM_TAIL = ${"y".repeat(160)};`;
+    const onlyCode = `tsx file="app/page.tsx"\n${tail}`;
+    expect(extractUsefulModelProse(onlyCode)).toBeNull();
+    expect(hasModelProseSummary(onlyCode)).toBe(false);
+
+    const withProse = `${EXPLANATION}\n${onlyCode}`;
+    const prose = extractUsefulModelProse(withProse);
+    expect(prose).toBe(EXPLANATION);
+    expect(prose).not.toContain("BARE_STREAM_TAIL");
+  });
+
+  it("keeps a Swedish sentence that mentions file=\"…\" mid-line", () => {
+    const sentence =
+      'Jag la logiken i file="app/page.tsx" så att den körs på servern och inte bara i klienten.';
+    expect(extractUsefulModelProse(sentence)).toBe(sentence);
+  });
+
+  it("omits an env-file secret from fenced and bare stream tails", () => {
+    const fenced = [
+      EXPLANATION,
+      fence("env", ".env.local", SECRET),
+      fence("tsx", "app/page.tsx", "export default function Page() { return null; }"),
+    ].join("\n\n");
+    const bare = `${BEFORE}\n\nenv file=".env.local"\n${SECRET}\nNEXT_PUBLIC_DEMO=1\n`;
+    expect(extractUsefulModelProse(fenced)).toBe(EXPLANATION);
+    expect(extractUsefulModelProse(fenced)).not.toContain("SECRET_MARKER");
+    expect(extractUsefulModelProse(fenced)).not.toContain("sk_live");
+    expect(extractUsefulModelProse(bare)).toBe(BEFORE);
+    expect(extractUsefulModelProse(bare)).not.toContain("SECRET_MARKER");
+  });
+});
+
+describe("composePersistedAssistantContent", () => {
+  const repaired = fence("tsx", "src/app/page.tsx", "export default function Page() { return <h1>REPAIRED_FINAL_HERO</h1>; }");
+  const original = fence("tsx", "src/app/page.tsx", "export default function Page() { return <h1>ORIGINAL_UNREPAIRED_HERO</h1>; }");
+
+  it("does not repeat final prose or pull raw code back in", () => {
+    const extra = "Den här råtexten ska inte läggas till när final redan förklarar.";
+    const rebuilt = `${EXPLANATION}\n\n${repaired}`;
+    const raw = `${EXPLANATION}\n\n${extra}\n\n${original}`;
+    const { content, turnSummary } = composePersistedAssistantContent({
+      rawContent: raw,
+      rebuiltContent: rebuilt,
+      fallbackSummary: FALLBACK,
+    });
+    expect(turnSummary).toBeNull();
+    expect(times(content, EXPLANATION)).toBe(1);
+    expect(content).not.toContain(extra);
+    expect(content).not.toContain("ORIGINAL_UNREPAIRED_HERO");
+    expect(content).toContain("REPAIRED_FINAL_HERO");
+    expect(content).not.toContain("Klart — jag har byggt");
+  });
+
+  it("recovers adequate raw prose once and keeps a stream warning once", () => {
+    const raw = appendStreamWarning(
+      [
+        `<Thinking>${"hemlig kedja ".repeat(8)}</Thinking>`,
+        EXPLANATION,
+        fence("env", ".env.local", SECRET),
+        original,
+        `\`\`\`tsx file="app/open.tsx"\nconst OPEN_FENCE_TAIL = ${"z".repeat(40)};`,
+      ].join("\n\n"),
+      WARNING,
+    );
+    const { content, turnSummary } = composePersistedAssistantContent({
+      rawContent: raw,
+      rebuiltContent: repaired,
+      fallbackSummary: FALLBACK,
+    });
+    expect(turnSummary).toBeNull();
+    expect(times(content, EXPLANATION)).toBe(1);
+    expect(content.startsWith(`${EXPLANATION}\n\n`)).toBe(true);
+    expect(content).toContain("REPAIRED_FINAL_HERO");
+    expect(content.trimEnd().endsWith(`Varning: ${WARNING}`)).toBe(true);
+    expect(times(content, `Varning: ${WARNING}`)).toBe(1);
+    expect(content).not.toContain("Klart — jag har byggt");
+    expect(content).not.toContain("ORIGINAL_UNREPAIRED_HERO");
+    expect(content).not.toContain("SECRET_MARKER");
+    expect(content).not.toContain("OPEN_FENCE_TAIL");
+    expect(content).not.toContain("hemlig kedja");
+  });
+
+  it("appends the fallback once when a long code tail and a warning are not an explanation", () => {
+    const raw = appendStreamWarning(
+      `tsx file="app/page.tsx"\nconst BARE_STREAM_TAIL = ${"q".repeat(180)};`,
+      WARNING,
+    );
+    const rebuilt = appendStreamWarning(repaired, WARNING);
+    const { content, turnSummary } = composePersistedAssistantContent({
+      rawContent: raw,
+      rebuiltContent: rebuilt,
+      fallbackSummary: FALLBACK,
+    });
+    expect(turnSummary).toBe(FALLBACK);
+    expect(times(content, FALLBACK)).toBe(1);
+    expect(times(content, `Varning: ${WARNING}`)).toBe(1);
+    expect(content.trimEnd().endsWith(`Varning: ${WARNING}`)).toBe(true);
+    expect(content).toContain("REPAIRED_FINAL_HERO");
+    expect(content).not.toContain("BARE_STREAM_TAIL");
+    expect(hasModelProseSummary(raw)).toBe(false);
   });
 });

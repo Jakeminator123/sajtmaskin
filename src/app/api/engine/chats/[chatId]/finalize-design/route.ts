@@ -37,6 +37,14 @@ import {
   getDossiersByCapability,
   resolvePendingIntegrationDossiers,
 } from "@/lib/gen/dossiers";
+import { resolveProviderContractDossierPlan } from "@/lib/gen/contract/provider-compatibility";
+import {
+  detectProjectProviderEvidence,
+  projectProviderEvidenceMatchesContract,
+} from "@/lib/gen/contract/project-provider-evidence";
+import { readProviderContractsFromSnapshot } from "@/lib/gen/orchestration-snapshot";
+import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
+import { integrationRegistryByKey } from "@/lib/integrations/registry";
 import {
   checkTier3ReadinessForVersion,
 } from "@/lib/integrations/tier3-readiness-gate";
@@ -125,6 +133,103 @@ export async function POST(
     }
 
     const versionFiles = await getVersionFiles(baseVersion.id).catch(() => null);
+    if (!versionFiles) {
+      return NextResponse.json(
+        {
+          ready: false,
+          reason: "version_files_unavailable",
+          parentVersionId: baseVersion.id,
+          message: "Kunde inte läsa versionens filer — kan inte avgöra integrationsarbetet.",
+        },
+        { status: 409 },
+      );
+    }
+    const providerContracts = readProviderContractsFromSnapshot(
+      chat.orchestration_snapshot as Record<string, unknown> | null,
+    );
+    const providerEvidence = detectProjectProviderEvidence(
+      versionFiles,
+      getPreGenerationContractsConfigFromManifest().providerRules,
+    );
+    const unresolvedProviderContract = providerContracts.find(
+      (contract) =>
+        contract.dossierCapability &&
+        (contract.status === "unresolved" || !contract.providerKey),
+    );
+    if (unresolvedProviderContract) {
+      return NextResponse.json(
+        {
+          ready: false,
+          reason: "integration_contract_unresolved",
+          capability: unresolvedProviderContract.dossierCapability,
+          message: "Välj integrationsleverantör innan integrationsbygget startas.",
+        },
+        { status: 409 },
+      );
+    }
+
+    const genericProviderKeys: string[] = [];
+    for (const contract of providerContracts) {
+      if (!contract.providerKey || !contract.dossierCapability || contract.status !== "chosen") {
+        continue;
+      }
+      const compatibility = resolveProviderContractDossierPlan({
+        contract,
+        contracts: providerContracts,
+        projectFiles: versionFiles,
+        projectProviderEvidence: providerEvidence,
+      });
+      if (compatibility.decisions.some((decision) => decision.reasonCode === "owned-path-conflict")) {
+        return NextResponse.json(
+          {
+            ready: false,
+            reason: "integration_migration_required",
+            capability: contract.dossierCapability,
+            provider: contract.provider,
+            message: "Befintlig serverkod måste migreras innan leverantörens byggblock kan installeras.",
+          },
+          { status: 409 },
+        );
+      }
+      const incompatibleMethod = compatibility.decisions.find(
+        (decision) => decision.reasonCode === "method-incompatible",
+      );
+      if (incompatibleMethod) {
+        const delivered = providerEvidence.some(
+          (evidence) =>
+            !evidence.dossierCapability &&
+            evidence.providerKey.toLowerCase() ===
+              incompatibleMethod.providerKey?.toLowerCase(),
+        );
+        if (delivered) continue;
+        return NextResponse.json(
+          {
+            ready: false,
+            reason: "integration_migration_required",
+            capability: contract.dossierCapability,
+            provider: incompatibleMethod.providerKey,
+            message:
+              "Den valda integrationsmetoden saknar ännu verifierad projektkod och kan inte byteforkas som färdig.",
+          },
+          { status: 409 },
+        );
+      }
+      if (compatibility.dossierSelection.selected.length > 0) continue;
+      if (projectProviderEvidenceMatchesContract(providerEvidence, contract)) continue;
+      if (!integrationRegistryByKey.has(contract.providerKey)) {
+        return NextResponse.json(
+          {
+            ready: false,
+            reason: "integration_contract_unresolved",
+            capability: contract.dossierCapability,
+            provider: contract.provider,
+            message: "Den valda leverantören saknar ett säkert byggkontrakt.",
+          },
+          { status: 409 },
+        );
+      }
+      genericProviderKeys.push(contract.providerKey);
+    }
     const pendingDossiers = resolvePendingIntegrationDossiers({
       snapshot: chat.orchestration_snapshot as Record<string, unknown> | null,
       versionFiles,
@@ -142,6 +247,7 @@ export async function POST(
         orchestrationSnapshot: chat.orchestration_snapshot,
         projectId: chat.project_id,
         preloadedFiles: versionFiles,
+        pendingApprovedProviderKeys: genericProviderKeys,
         pendingApprovedDossierIds: pendingDossierIds,
       });
     } catch (error) {
@@ -237,9 +343,15 @@ export async function POST(
     // enforcement. Only when no dossier remains pending may an empty/no-build-
     // key spec use the byte-for-byte F3 fork below.
     const requirements = gate.spec.requirements;
-    if (pendingDossiers.length > 0) {
+    if (pendingDossiers.length > 0 || genericProviderKeys.length > 0) {
       const pendingCapabilities = Array.from(
-        new Set(pendingDossiers.map((selected) => selected.entry.capability)),
+        new Set([
+          ...pendingDossiers.map((selected) => selected.entry.capability),
+          ...providerContracts
+            .filter((contract) => contract.providerKey && genericProviderKeys.includes(contract.providerKey))
+            .map((contract) => contract.dossierCapability)
+            .filter((capability): capability is string => Boolean(capability)),
+        ]),
       );
       // Godkännandet ERSÄTTER tidigare val för samma capability. Selektionen
       // tillåter bara ett syskon per capability, så ett kvarliggande
@@ -257,7 +369,7 @@ export async function POST(
         const persisted = await appendF3ApprovedToSnapshot(
           chat.id,
           pendingCapabilities,
-          pendingDossierIds,
+          [...pendingDossierIds, ...genericProviderKeys],
           supersededDossierIds,
         );
         if (!persisted) throw new Error("approval snapshot was not updated");
@@ -280,6 +392,7 @@ export async function POST(
         parentVersionId: baseVersion.id,
         requirements,
         plannedDossierIds: pendingDossierIds,
+        plannedProviderKeys: genericProviderKeys,
         streamMeta: {
           lifecycleStage: "integrations",
           parentVersionId: baseVersion.id,

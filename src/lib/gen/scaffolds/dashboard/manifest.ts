@@ -5,12 +5,12 @@ export const dashboardManifest: ScaffoldManifest = {
   id: "dashboard",
   label: "Dashboard",
   description:
-    "Analytics and overview dashboard with sidebar, stats cards, data tables, and chart placeholders. For admin panels, analytics, and SaaS apps.",
+    "Demo analytics dashboard with sidebar, sample KPI cards, tables, and chart placeholders. Authentication, live data, and settings persistence require integration.",
   siteKind: "app",
   complexity: "advanced",
   structureProfile: "dashboard-app",
   contentProfile: "operations-analytics",
-  features: ["auth", "navigation-shell", "tables", "charts"],
+  features: ["navigation-shell", "tables", "charts"],
   allowedBuildIntents: ["app"],
   tags: [
     "dashboard",
@@ -25,13 +25,16 @@ export const dashboardManifest: ScaffoldManifest = {
   ],
   promptHints: [
     "Use this scaffold for analytics-heavy dashboards, KPI monitoring, admin overviews, and data operations.",
-    "Keep the sidebar navigation, stats cards, trend sections, and chart surfaces. Replace all metrics with domain-specific data.",
+    "Keep the sidebar navigation, stats cards, trend sections, and chart surfaces. Use domain-specific examples visibly labelled as demo until connected to verified data.",
     "Treat this as an analytics cockpit rather than a CRUD workspace. Add deeper charts and reporting detail where needed.",
+    "Preserve facts provided by the brief or verified sources; never invent live KPI results, customer activity, ratings, or certifications.",
+    "Authentication, settings persistence, export, scheduling, and provider actions are not connected. Keep unavailable actions disabled and visibly explain the boundary until a real integration exists.",
   ],
   qualityChecklist: [
     "The layout should remain app-like, dense, and operational rather than turning into a marketing page.",
     "Sidebar, top summary cards, and main data surfaces should match the user's actual domain and workflows.",
-    "Tables, charts, and filters should look purposeful and realistic even when the data is static.",
+    "Static tables, charts, users, and activity must remain visibly labelled as demo, including on secondary routes.",
+    "Sample identity is not an authenticated session. Settings fields are previews, not saved preferences, until persistence is implemented.",
   ],
   research: {
     upgradeTargets: [

@@ -17,8 +17,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import type { DossierEntry } from "@/lib/gen/dossiers";
 import type { RoutePlan } from "@/lib/gen/route-plan";
+import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
 import { devLogAppend } from "@/lib/logging/dev-log";
-import { mergeGeneratedProjectFiles } from "./finalize-merge";
+import {
+  mergeGeneratedProjectFiles,
+  prepareGeneratedProjectCandidate,
+  serializeProjectCandidateForVerifier,
+  updateEmittedFilesAfterRepair,
+  removeExplicitlyRemovedDossierFiles,
+} from "./finalize-merge";
 
 type CrossFileFix = {
   sourceFile: string;
@@ -48,13 +55,9 @@ vi.mock("@/lib/utils/debug", () => ({
 vi.mock("@/lib/gen/autofix/rules/cross-file-import-checker", () => ({
   checkCrossFileImports,
 }));
-vi.mock("@/lib/db/chat-repository-pg", () => ({
-  getPreferredVersion: vi.fn(),
-  getLatestVersion: vi.fn(),
-  getVersionById: vi.fn(),
-  getKnownBrokenImageReplacements: vi.fn(),
-  updateVersionFiles: vi.fn(),
-}));
+vi.mock("@/lib/db/chat-repository-pg", () => {
+  throw new Error("Project candidate preparation must not load the DB repository");
+});
 vi.mock("@/lib/observability/metrics", () => ({
   incIngressEvent: vi.fn(),
 }));
@@ -69,6 +72,136 @@ vi.mock("@/lib/gen/dossiers/registry", async (importOriginal) => {
     getDossierFileContent: (...args: [string, string, string]) =>
       getDossierFileContent(...args),
   };
+});
+
+describe("removeExplicitlyRemovedDossierFiles portable identities", () => {
+  function dossier(id: string, path: string): DossierEntry {
+    return {
+      id,
+      class: "soft",
+      label: id,
+      capability: id,
+      codeFidelity: "verbatim",
+      complexity: "simple",
+      defaultForCapability: false,
+      summary: "Synthetic dossier used for portable removal identity tests.",
+      files: [{ path, role: "shared" }],
+      lastVerified: "2026-01-01",
+    };
+  }
+
+  it("does not remove a case alias still owned by an active dossier", () => {
+    const files = [{ path: "components/foo.ts", content: "kept", language: "ts" as const }];
+    expect(
+      removeExplicitlyRemovedDossierFiles({
+        files,
+        removedDossiers: [dossier("removed", "components/Foo.ts")],
+        selectedDossiers: [dossier("active", "components/foo.ts")],
+      }),
+    ).toEqual({ files, removedPaths: [] });
+  });
+
+  it("matches removal case-insensitively but reports the actual normalized file path", () => {
+    expect(
+      removeExplicitlyRemovedDossierFiles({
+        files: [{ path: "components/foo.ts", content: "removed", language: "ts" }],
+        removedDossiers: [dossier("removed", "components/Foo.ts")],
+        selectedDossiers: [],
+      }),
+    ).toEqual({ files: [], removedPaths: ["components/foo.ts"] });
+  });
+
+  it("keeps a shared path still claimed by a preserved existing dossier", () => {
+    const files = [{ path: "components/shared.ts", content: "kept", language: "ts" as const }];
+    expect(
+      removeExplicitlyRemovedDossierFiles({
+        files,
+        removedDossiers: [dossier("removed", "components/shared.ts")],
+        selectedDossiers: [],
+        preservedDossiers: [dossier("preserved", "components/shared.ts")],
+      }),
+    ).toEqual({ files, removedPaths: [] });
+  });
+});
+
+describe("existing dossier verbatim preservation", () => {
+  const olderClerk = {
+    id: "clerk-auth",
+    class: "hard",
+    capability: "auth",
+    codeFidelity: "verbatim",
+    files: [
+      { path: "components/middleware.ts", role: "server", injectionMode: "verbatim" },
+      {
+        path: "components/lib/clerk/config.ts",
+        role: "shared",
+        injectionMode: "rewritable",
+      },
+    ],
+  } as unknown as DossierEntry;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getDossierFileContent.mockImplementation((_klass, _id, path) =>
+      path === "components/middleware.ts" ? "new catalog middleware" : null,
+    );
+    checkCrossFileImports.mockImplementation((files: unknown) => ({ files, fixes: [] }));
+  });
+
+  it("restores previous Clerk core before the first checker without seeding rewritable config", () => {
+    checkCrossFileImports.mockImplementationOnce((files: unknown) => {
+      expect(files).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: "middleware.ts", content: "older clerk middleware" }),
+        ]),
+      );
+      expect(
+        (files as Array<{ path: string }>).some((file) => file.path.includes("lib/clerk/config")),
+      ).toBe(false);
+      return { files, fixes: [] };
+    });
+    const result = prepareGeneratedProjectCandidate({
+      chatId: "preserve-clerk",
+      contentForVersion: serializeCodeProject([
+        { path: "middleware.ts", content: "new catalog middleware", language: "ts" },
+        { path: "app/page.tsx", content: "export default function Page(){}", language: "tsx" },
+      ]),
+      resolvedScaffold: null,
+      previousFiles: [
+        { path: "middleware.ts", content: "older clerk middleware", language: "ts" },
+        { path: "app/page.tsx", content: "export default function Page(){}", language: "tsx" },
+      ],
+      selectedDossiers: [],
+      preservedDossiers: [olderClerk],
+    });
+    const files = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    expect(files).toContainEqual(
+      expect.objectContaining({ path: "middleware.ts", content: "older clerk middleware" }),
+    );
+    expect(files.some((file) => file.path.includes("lib/clerk/config"))).toBe(false);
+  });
+
+  it("fails closed when the first checker mutates preserved bytes", () => {
+    checkCrossFileImports.mockImplementationOnce((files: unknown) => ({
+      files: (files as Array<{ path: string; content: string; language: "ts" }>).map((file) =>
+        file.path === "middleware.ts" ? { ...file, content: "fixer drift" } : file,
+      ),
+      fixes: [{ sourceFile: "middleware.ts", missingImport: "./x", stubFile: "x.ts" }],
+    }));
+    expect(() =>
+      mergeGeneratedProjectFiles({
+        chatId: "preserve-clerk-drift",
+        originalFilesJson: "[]",
+        generatedFiles: [],
+        resolvedScaffold: null,
+        previousFiles: [
+          { path: "middleware.ts", content: "older clerk middleware", language: "ts" },
+        ],
+        selectedDossiers: [],
+        preservedDossiers: [olderClerk],
+      }),
+    ).toThrow("preserved-verbatim-mutation");
+  });
 });
 
 function makeScaffold(): ScaffoldManifest {
@@ -118,6 +251,128 @@ function makeDossier(
   } as unknown as DossierEntry;
 }
 
+describe("shared project candidate preparation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getDossierFileContent.mockReturnValue(null);
+  });
+
+  it("does not count an assembled scaffold page or unchanged repair echo as a model emission", () => {
+    const scaffold = makeScaffold();
+    const candidateFiles = scaffold.files.map((file) => ({ ...file, language: "tsx" }));
+    const emittedFiles = [candidateFiles.find((file) => file.path === "app/layout.tsx")!];
+    const echoed = updateEmittedFilesAfterRepair(emittedFiles, candidateFiles, candidateFiles, "llm");
+    expect(echoed).toEqual(emittedFiles);
+    const result = prepareGeneratedProjectCandidate({
+      chatId: "candidate-provenance",
+      contentForVersion: serializeCodeProject(candidateFiles),
+      emittedFiles: echoed,
+      resolvedScaffold: scaffold,
+    });
+    expect(result.missingEmittedEssentials).toEqual(["app/page.tsx"]);
+    expect(JSON.parse(result.filesJson).some((file: { path: string }) => file.path === "app/page.tsx")).toBe(false);
+  });
+
+  it("distinguishes a real model repair from a mechanical mutation of an assembled file", () => {
+    const scaffold = makeScaffold();
+    const candidateFiles = scaffold.files.map((file) => ({ ...file, language: "tsx" }));
+    const repairedFiles = candidateFiles.map((file) => file.path === "app/page.tsx"
+      ? { ...file, content: "export default function Page(){ return <h1>Actually authored repair</h1>; }" }
+      : file);
+    expect(updateEmittedFilesAfterRepair([], candidateFiles, repairedFiles, "mechanical")).toEqual([]);
+    const emittedFiles = updateEmittedFilesAfterRepair([], candidateFiles, repairedFiles, "llm");
+    expect(emittedFiles.map((file) => file.path)).toEqual(["app/page.tsx"]);
+    const result = prepareGeneratedProjectCandidate({
+      chatId: "candidate-authored-repair", resolvedScaffold: scaffold,
+      contentForVersion: serializeCodeProject(repairedFiles), emittedFiles,
+    });
+    expect(result.missingEmittedEssentials).toEqual([]);
+    expect(JSON.parse(result.filesJson).find((file: { path: string }) => file.path === "app/page.tsx")?.content).toContain("Actually authored repair");
+  });
+
+  it("projects env requirements without stored values, comments or multiline secrets", () => {
+    const files = [
+      { path: "nested/.env.production", language: "env", content: '# fixture-secret-comment\nexport PRIVATE_TOKEN="fixture-secret-value"\nMULTILINE="fixture-secret-first\nfixture-secret-last"\nPUBLIC_URL=https://fixture-secret-url.invalid' },
+      { path: "app/page.tsx", language: "tsx", content: "export default function Page(){ return <h1>Kept</h1>; }" },
+    ];
+    const serialized = serializeProjectCandidateForVerifier(files);
+    expect(serialized).toContain("PRIVATE_TOKEN=\nMULTILINE=\nPUBLIC_URL=");
+    expect(parseCodeProject(serialized).files).toContainEqual(files[1]);
+    expect(serializeProjectCandidateForVerifier(files)).not.toContain("fixture-secret");
+    expect(files[0]?.content).toContain("fixture-secret-value");
+  });
+
+  it("preserves a scaffold-less imported base and unions dependencies without mutating inputs", () => {
+    const previousFiles = [
+      { path: "app/page.tsx", content: "export default function Page(){ return <h1>Imported</h1>; }", language: "tsx" },
+      { path: "lib/imported.ts", content: "export const imported = true;", language: "ts" },
+      { path: "package.json", content: JSON.stringify({ dependencies: { react: "19", next: "16" }, scripts: { build: "next build" } }), language: "json" },
+    ];
+    const previousSnapshot = structuredClone(previousFiles);
+    const generatedFiles = [
+      { path: "app/page.tsx", content: "export default function Page(){ return <h1>Updated imported site</h1>; }", language: "tsx" },
+      { path: "package.json", content: JSON.stringify({ dependencies: { three: "1" } }), language: "json" },
+    ];
+    const result = prepareGeneratedProjectCandidate({
+      chatId: "candidate-imported",
+      contentForVersion: serializeCodeProject(generatedFiles),
+      previousFiles,
+      resolvedScaffold: null,
+      selectedDossiers: [],
+    });
+    const mergedFiles = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    expect(result.generatedFiles).toEqual(generatedFiles);
+    expect(mergedFiles).toContainEqual(previousFiles[1]);
+    expect(mergedFiles.find((file) => file.path === "app/page.tsx")?.content).toContain("Updated imported site");
+    expect(JSON.parse(mergedFiles.find((file) => file.path === "package.json")!.content)).toEqual({
+      dependencies: { react: "19", next: "16", three: "1" },
+      scripts: { build: "next build" },
+    });
+    expect(result.missingEmittedEssentials).toEqual([]);
+    expect(previousFiles).toEqual(previousSnapshot);
+  });
+
+  it("keeps parsed emissions separate from protected-path filtering without a scaffold or base", () => {
+    const generatedFiles = [
+      { path: "app/page.tsx", content: "export default function Page(){ return <h1>Standalone</h1>; }", language: "tsx" },
+      { path: "app/api/placeholder/route.ts", content: "export function GET(){ return new Response('broken'); }", language: "ts" },
+    ];
+    const result = prepareGeneratedProjectCandidate({
+      chatId: "candidate-standalone",
+      contentForVersion: serializeCodeProject(generatedFiles),
+      resolvedScaffold: null,
+      selectedDossiers: [],
+    });
+    expect(result.generatedFiles).toEqual(generatedFiles);
+    expect(JSON.parse(result.filesJson)).toEqual([generatedFiles[0]]);
+  });
+
+  it.each(["rewritable", "verbatim"] as const)(
+    "applies canonical %s dossier policy to parsed files without a scaffold",
+    (mode) => {
+      const content = mode === "verbatim" ? "canonical bytes" : "model-owned content";
+      getDossierFileContent.mockReturnValue("canonical bytes");
+      const selected = {
+        ...makeDossier("candidate-dossier", "candidate", ["components/Foo.ts"]),
+        class: "soft",
+        codeFidelity: mode,
+        files: [{ path: "components/Foo.ts", role: "shared", injectionMode: mode }],
+      } as DossierEntry;
+      const result = prepareGeneratedProjectCandidate({
+        chatId: `candidate-dossier-${mode}`,
+        contentForVersion: serializeCodeProject([
+          { path: "components/foo.ts", content: "model-owned content", language: "ts" },
+        ]),
+        resolvedScaffold: null,
+        selectedDossiers: [selected],
+      });
+      expect(JSON.parse(result.filesJson)).toEqual([
+        { path: "components/Foo.ts", content, language: "ts" },
+      ]);
+    },
+  );
+});
+
 describe("OMTAG 1·05 — scaffold-default blocking for app/page.tsx", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -134,10 +389,9 @@ describe("OMTAG 1·05 — scaffold-default blocking for app/page.tsx", () => {
       },
     ];
 
-    const result = mergeGeneratedProjectFiles({
+    const result = prepareGeneratedProjectCandidate({
       chatId: "c1",
-      originalFilesJson: "[]",
-      generatedFiles,
+      contentForVersion: serializeCodeProject(generatedFiles),
       resolvedScaffold: scaffold,
       previousFiles: undefined,
     });
@@ -166,10 +420,9 @@ describe("OMTAG 1·05 — scaffold-default blocking for app/page.tsx", () => {
       },
     ];
 
-    const result = mergeGeneratedProjectFiles({
+    const result = prepareGeneratedProjectCandidate({
       chatId: "c2",
-      originalFilesJson: "[]",
-      generatedFiles,
+      contentForVersion: serializeCodeProject(generatedFiles),
       resolvedScaffold: scaffold,
       previousFiles: undefined,
     });
@@ -204,10 +457,9 @@ describe("OMTAG 1·05 — scaffold-default blocking for app/page.tsx", () => {
       },
     ];
 
-    const result = mergeGeneratedProjectFiles({
+    const result = prepareGeneratedProjectCandidate({
       chatId: "c3",
-      originalFilesJson: JSON.stringify(previousFiles),
-      generatedFiles,
+      contentForVersion: serializeCodeProject(generatedFiles),
       resolvedScaffold: scaffold,
       previousFiles,
     });
@@ -720,10 +972,9 @@ describe("explicit dossier removal", () => {
       },
     ];
 
-    const result = mergeGeneratedProjectFiles({
+    const result = prepareGeneratedProjectCandidate({
       chatId: "remove-stripe",
-      originalFilesJson: JSON.stringify([previousFiles[0]]),
-      generatedFiles: [previousFiles[0]],
+      contentForVersion: serializeCodeProject([previousFiles[0]]),
       resolvedScaffold: null,
       previousFiles,
       selectedDossiers: [],
@@ -822,6 +1073,76 @@ describe("explicit dossier removal", () => {
     );
 
     expect(paths).toEqual(["components/integration-config-notice.tsx"]);
+  });
+
+  it("fails closed when the real post-removal checker rewrites restored verbatim bytes", async () => {
+    const actual = await vi.importActual<
+      typeof import("@/lib/gen/autofix/rules/cross-file-import-checker")
+    >("@/lib/gen/autofix/rules/cross-file-import-checker");
+    const canonical = [
+      'import { Panel } from "@/components/panel";',
+      "export function Owner() { return <Panel />; }",
+    ].join("\n");
+    const active = {
+      id: "active-verbatim",
+      class: "soft",
+      capability: "active-verbatim",
+      codeFidelity: "verbatim",
+      files: [
+        {
+          path: "components/owner.tsx",
+          role: "client",
+          injectionMode: "verbatim",
+        },
+      ],
+    } as unknown as DossierEntry;
+    const removed = makeDossier("removed-unrelated", "removed-unrelated", [
+      "components/unrelated.tsx",
+    ]);
+    const previousFiles = [
+      {
+        path: "components/owner.tsx",
+        content: "export function Owner() { return null; }",
+        language: "tsx",
+      },
+      {
+        path: "components/panel-component.tsx",
+        content: "export function Panel() { return <section />; }",
+        language: "tsx",
+      },
+      {
+        path: "components/unrelated.tsx",
+        content: "export function Unrelated() { return null; }",
+        language: "tsx",
+      },
+    ];
+    getDossierFileContent.mockImplementation((_klass, id, relPath) =>
+      id === "active-verbatim" && relPath === "components/owner.tsx" ? canonical : null,
+    );
+    checkCrossFileImports
+      .mockImplementationOnce((files: unknown) => ({ files, fixes: [] }))
+      .mockImplementationOnce((files: unknown) =>
+        actual.checkCrossFileImports(
+          files as Parameters<typeof actual.checkCrossFileImports>[0],
+        ),
+      );
+
+    try {
+      expect(() =>
+        mergeGeneratedProjectFiles({
+          chatId: "post-removal-verbatim-rewrite",
+          originalFilesJson: JSON.stringify(previousFiles),
+          generatedFiles: previousFiles,
+          resolvedScaffold: null,
+          previousFiles,
+          selectedDossiers: [active],
+          removedDossiers: [removed],
+        }),
+      ).toThrow("post-removal-verbatim-mutation");
+    } finally {
+      getDossierFileContent.mockReset();
+      getDossierFileContent.mockReturnValue(null);
+    }
   });
 });
 
@@ -1014,6 +1335,148 @@ describe("SCAFFOLD_PROTECTED_PATHS — scaffold-default lock for utility files",
     }>;
     const layout = mergedFiles.find((f) => f.path === "app/layout.tsx");
     expect(layout!.content).toContain("bg-stone-950");
+  });
+});
+
+describe("no-scaffold fallback dossier path persistence", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getDossierFileContent.mockReturnValue(null);
+  });
+
+  function selectedPathDossier(mode: "rewritable" | "verbatim"): DossierEntry {
+    return {
+      id: `fallback-${mode}`,
+      class: "soft",
+      capability: `fallback-${mode}`,
+      codeFidelity: mode,
+      files: [
+        {
+          path: "components/Foo.ts",
+          role: "shared",
+          injectionMode: mode,
+        },
+      ],
+    } as unknown as DossierEntry;
+  }
+
+  it.each(["rewritable", "verbatim"] as const)(
+    "persists a canonicalized %s dossier path when content is unchanged",
+    (mode) => {
+      const content = mode === "rewritable" ? "LLM-owned content" : "canonical bytes";
+      getDossierFileContent.mockReturnValue(
+        mode === "rewritable" ? "canonical seed" : content,
+      );
+      const originalFiles = [
+        { path: "components/foo.ts", content, language: "ts" as const },
+      ];
+
+      const result = mergeGeneratedProjectFiles({
+        chatId: `c-fallback-${mode}`,
+        originalFilesJson: JSON.stringify(originalFiles),
+        generatedFiles: [],
+        resolvedScaffold: null,
+        previousFiles: undefined,
+        selectedDossiers: [selectedPathDossier(mode)],
+      });
+
+      expect(JSON.parse(result.filesJson)).toEqual([
+        { path: "components/Foo.ts", content, language: "ts" },
+      ]);
+    },
+  );
+
+  it("returns the original serialized fallback unchanged when policy makes no change", () => {
+    const originalFilesJson = '[ { "path": "app/page.tsx", "content": "ok", "language": "tsx" } ]';
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-fallback-no-change",
+      originalFilesJson,
+      generatedFiles: [],
+      resolvedScaffold: null,
+      previousFiles: undefined,
+      selectedDossiers: [],
+    });
+    expect(result.filesJson).toBe(originalFilesJson);
+  });
+
+  it("persists import rewrites that follow a canonicalized dossier path", () => {
+    getDossierFileContent.mockReturnValue("canonical seed");
+    const originalFiles = [
+      {
+        path: "components/DB-config-notice.tsx",
+        content: "LLM-owned notice",
+        language: "tsx" as const,
+      },
+      {
+        path: "app/page.tsx",
+        content:
+          'import { Notice } from "@/components/DB-config-notice";\nexport default Notice;',
+        language: "tsx" as const,
+      },
+    ];
+    const dossier = {
+      ...selectedPathDossier("rewritable"),
+      files: [
+        {
+          path: "components/db-config-notice.tsx",
+          role: "client",
+          injectionMode: "rewritable",
+        },
+      ],
+    } as DossierEntry;
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-fallback-import-rename",
+      originalFilesJson: JSON.stringify(originalFiles),
+      generatedFiles: [],
+      resolvedScaffold: null,
+      previousFiles: undefined,
+      selectedDossiers: [dossier],
+    });
+    const files = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    expect(files.find((file) => file.path === "components/db-config-notice.tsx")).toBeDefined();
+    expect(files.find((file) => file.path === "app/page.tsx")?.content).toContain(
+      'from "@/components/db-config-notice"',
+    );
+  });
+
+  it("canonicalizes dossier paths before the cross-file checker can create a case-alias stub", () => {
+    getDossierFileContent.mockReturnValue("canonical seed");
+    const dossier = {
+      ...selectedPathDossier("rewritable"),
+      files: [
+        {
+          path: "components/db-config-notice.tsx",
+          role: "client",
+          injectionMode: "rewritable",
+        },
+      ],
+    } as DossierEntry;
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-precheck-import-rename",
+      originalFilesJson: "[]",
+      generatedFiles: [
+        {
+          path: "components/DB-config-notice.tsx",
+          content: "export const Notice = () => null;",
+          language: "tsx",
+        },
+        {
+          path: "app/page.tsx",
+          content:
+            'import { Notice } from "@/components/db-config-notice";\nexport default Notice;',
+          language: "tsx",
+        },
+      ],
+      resolvedScaffold: null,
+      previousFiles: undefined,
+      selectedDossiers: [dossier],
+    });
+    const files = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    expect(result.crossFileStubs).toEqual([]);
+    expect(
+      files.filter((file) => file.path.toLowerCase() === "components/db-config-notice.tsx"),
+    ).toHaveLength(1);
+    expect(files.find((file) => file.path === "components/db-config-notice.tsx")).toBeDefined();
   });
 });
 

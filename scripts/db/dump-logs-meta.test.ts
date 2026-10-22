@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { META_MAX_DEPTH, META_MAX_STRING, truncateMetaStrings } from "./dump-logs-meta.mjs";
+import {
+  META_MAX_DEPTH,
+  META_MAX_STRING,
+  sanitizeLlmUsageMeta,
+  truncateMetaStrings,
+} from "./dump-logs-meta.mjs";
 
 /** Bygger `{ a: { a: … { a: leaf } } }` med `depth` nivåer objekt runt `leaf`. */
 function nest(leaf: unknown, depth: number): unknown {
@@ -76,5 +81,175 @@ describe("truncateMetaStrings", () => {
     expect(truncateMetaStrings(undefined)).toBeUndefined();
     expect(truncateMetaStrings(42)).toBe(42);
     expect(truncateMetaStrings(true)).toBe(true);
+  });
+});
+
+describe("sanitizeLlmUsageMeta", () => {
+  it("behåller begärt och faktiskt värde utan att fylla luckor eller gissa", () => {
+    expect(
+      sanitizeLlmUsageMeta({
+        requestedModelId: "openai/gpt-5.4",
+        resolvedModelId: "openai/gpt-5.5",
+        requestedReasoningEffort: "high",
+        effectiveReasoningEffort: "medium",
+        reasoningClampReason: "provider_cap",
+      }),
+    ).toEqual({
+      requestedModelId: "openai/gpt-5.4",
+      resolvedModelId: "openai/gpt-5.5",
+      requestedReasoningEffort: "high",
+      effectiveReasoningEffort: "medium",
+      reasoningClampReason: "provider_cap",
+    });
+
+    expect(
+      sanitizeLlmUsageMeta({
+        resolvedModelId: "openai/gpt-5.5",
+        effectiveReasoningEffort: "low",
+      }),
+    ).toEqual({
+      resolvedModelId: "openai/gpt-5.5",
+      effectiveReasoningEffort: "low",
+    });
+
+    expect(sanitizeLlmUsageMeta({ requestedReasoningEffort: "high" })).toEqual({
+      requestedReasoningEffort: "high",
+    });
+    expect(sanitizeLlmUsageMeta({ requestedModelId: "null" })).toEqual({
+      requestedModelId: "null",
+    });
+  });
+
+  it("skiljer explicit null från saknad nyckel och returnerar null när inget tillåts", () => {
+    expect(
+      sanitizeLlmUsageMeta({
+        requestedModelId: null,
+        effectiveReasoningEffort: null,
+        resolvedModelId: "openai/gpt-5.5",
+      }),
+    ).toEqual({
+      requestedModelId: null,
+      effectiveReasoningEffort: null,
+      resolvedModelId: "openai/gpt-5.5",
+    });
+
+    const partial = sanitizeLlmUsageMeta({ resolvedModelId: "openai/gpt-5.5" });
+    expect(partial).toEqual({ resolvedModelId: "openai/gpt-5.5" });
+    expect(partial).not.toHaveProperty("requestedModelId");
+    expect(partial).not.toHaveProperty("requestedReasoningEffort");
+    expect(partial).not.toHaveProperty("effectiveReasoningEffort");
+    expect(partial).not.toHaveProperty("reasoningClampReason");
+    expect(partial).not.toHaveProperty("parentRunId");
+
+    expect(sanitizeLlmUsageMeta(null)).toBeNull();
+    expect(sanitizeLlmUsageMeta(undefined)).toBeNull();
+    expect(sanitizeLlmUsageMeta({})).toBeNull();
+    expect(sanitizeLlmUsageMeta([])).toBeNull();
+    expect(sanitizeLlmUsageMeta('{"resolvedModelId":"openai/gpt-5.5"}')).toBeNull();
+    expect(sanitizeLlmUsageMeta({ claimKey: "abc", runId: "run-1" })).toBeNull();
+  });
+
+  it("släpper nästlade värden, credentials och råa fält", () => {
+    expect(
+      sanitizeLlmUsageMeta({
+        requestedModelId: { id: "openai/gpt-5.5" },
+        resolvedModelId: ["openai/gpt-5.5"],
+        requestedReasoningEffort: "sk-live-secret",
+        effectiveReasoningEffort: "prefix sk_live suffix",
+        reasoningClampReason: "Bearer eyJhbGciOi",
+        parentRunId: { runId: "parent" },
+        prompt: "rå prompt",
+        reasoning: "chain of thought",
+        errorMessage: "provider 401",
+        error: "stack",
+        authorization: "Bearer abc",
+        cookie: "session=1",
+        source: "raw file",
+        claimKey: "uuid",
+      }),
+    ).toBeNull();
+
+    expect(
+      sanitizeLlmUsageMeta({
+        requestedModelId: "openai/gpt-5.4",
+        resolvedModelId: "SK-proj-abcdef",
+        requestedReasoningEffort: null,
+        effectiveReasoningEffort: { effort: "high" },
+        reasoningClampReason: "provider_cap",
+        prompt: "släpp",
+        parentRunId: "run_parent_1",
+      }),
+    ).toEqual({
+      requestedModelId: "openai/gpt-5.4",
+      requestedReasoningEffort: null,
+      reasoningClampReason: "provider_cap",
+      parentRunId: "run_parent_1",
+    });
+
+    expect(
+      sanitizeLlmUsageMeta({
+        requestedModelId: 5,
+        resolvedModelId: true,
+        requestedReasoningEffort: 0,
+      }),
+    ).toBeNull();
+  });
+
+  it("behåller parentRunId bara när nyckeln finns", () => {
+    const without = sanitizeLlmUsageMeta({ resolvedModelId: "openai/gpt-5.5" });
+    expect(without).toEqual({ resolvedModelId: "openai/gpt-5.5" });
+    expect(without).not.toHaveProperty("parentRunId");
+
+    expect(
+      sanitizeLlmUsageMeta({
+        resolvedModelId: "openai/gpt-5.5",
+        parentRunId: "parent-run",
+      }),
+    ).toEqual({
+      resolvedModelId: "openai/gpt-5.5",
+      parentRunId: "parent-run",
+    });
+
+    expect(
+      sanitizeLlmUsageMeta({
+        requestedModelId: "openai/gpt-5.4",
+        parentRunId: null,
+      }),
+    ).toEqual({
+      requestedModelId: "openai/gpt-5.4",
+      parentRunId: null,
+    });
+  });
+
+  it("kapar långa säkra strängar och muterar inte indata", () => {
+    const long = `m${"o".repeat(META_MAX_STRING + 20)}`;
+    const capped = sanitizeLlmUsageMeta({ resolvedModelId: long }) as {
+      resolvedModelId: string;
+    };
+    expect(capped.resolvedModelId).toBe(long.slice(0, META_MAX_STRING));
+    expect(capped.resolvedModelId).toHaveLength(META_MAX_STRING);
+
+    expect(
+      sanitizeLlmUsageMeta({
+        reasoningClampReason: `${"a".repeat(META_MAX_STRING)} sk-secret`,
+      }),
+    ).toBeNull();
+
+    const meta = {
+      requestedModelId: "openai/gpt-5.4",
+      resolvedModelId: { id: "openai/gpt-5.5" },
+      prompt: "rå prompt",
+      items: ["a"],
+    };
+    const before = JSON.stringify(meta);
+    const frozen = Object.freeze({
+      requestedModelId: meta.requestedModelId,
+      resolvedModelId: Object.freeze(meta.resolvedModelId),
+      prompt: meta.prompt,
+      items: Object.freeze(meta.items),
+    });
+    expect(sanitizeLlmUsageMeta(frozen)).toEqual({ requestedModelId: "openai/gpt-5.4" });
+    expect(JSON.stringify(meta)).toBe(before);
+    expect(sanitizeLlmUsageMeta(meta)).not.toBe(meta);
   });
 });

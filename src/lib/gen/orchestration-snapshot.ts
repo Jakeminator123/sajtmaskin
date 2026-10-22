@@ -4,9 +4,14 @@
  * signals without duplicating the full optimized prompt.
  */
 import type { BuildSpecQualityTarget } from "./build-spec";
+import type { BuildIntent } from "@/lib/builder/build-intent";
 import { filterProvidersForRemovedCapabilities } from "./capability-removal";
 import { getDossierById } from "./dossiers/registry";
 import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "./prompt-wrapper-contract";
+import {
+  normalizePlanIntegrationContract,
+  type PlanIntegrationContract,
+} from "./plan/schema";
 
 const SENSITIVE_KEY_SUBSTR = /pass|secret|token|auth|cookie|credential|apikey|api_key/i;
 const SAFE_KEY_ALLOWLIST = new Set(["contractAuthProvider"]);
@@ -50,6 +55,31 @@ const PROTECTED_CAPABILITY_SIGNAL_KEYS = [
   "f3ApprovedProviders",
 ] as const;
 const MAX_PROTECTED_ARRAY_LEN = 40;
+
+function sanitizeProtectedIntegrationContracts(value: unknown): PlanIntegrationContract[] | null {
+  if (!Array.isArray(value)) return null;
+  return value
+    .slice(0, MAX_PROTECTED_ARRAY_LEN)
+    .map(normalizePlanIntegrationContract)
+    .filter((entry): entry is PlanIntegrationContract => Boolean(entry))
+    .map((entry) => ({
+      ...entry,
+      ...(entry.providerKey ? { providerKey: truncateString(entry.providerKey) } : {}),
+      ...(entry.dossierCapability
+        ? { dossierCapability: truncateString(entry.dossierCapability) }
+        : {}),
+      provider: truncateString(entry.provider),
+      name: truncateString(entry.name),
+      reason: truncateString(entry.reason),
+      envVars: (entry.envVars ?? []).slice(0, MAX_PROTECTED_ARRAY_LEN).map(truncateString),
+    }));
+}
+
+export function readProviderContractsFromSnapshot(
+  snapshot: Record<string, unknown> | null | undefined,
+): PlanIntegrationContract[] {
+  return sanitizeProtectedIntegrationContracts(snapshot?.contractIntegrations) ?? [];
+}
 
 function truncateString(s: string): string {
   if (s.length <= MAX_STRING) return s;
@@ -109,11 +139,15 @@ export function sanitizeOrchestrationSnapshotForStorage(
       out[key] = list;
       capabilitySignalsWritten.add(key);
     }
+    if ("contractIntegrations" in input) {
+      const contracts = sanitizeProtectedIntegrationContracts(input.contractIntegrations);
+      if (contracts) out.contractIntegrations = contracts;
+    }
   }
   if (keyCount.n > MAX_KEYS) return out;
   for (const [k, v] of Object.entries(input)) {
     if (depth === 0 && PROTECTED_TOP_LEVEL_KEY_SET.has(k)) continue;
-    if (depth === 0 && capabilitySignalsWritten.has(k)) continue;
+    if (depth === 0 && (capabilitySignalsWritten.has(k) || k === "contractIntegrations")) continue;
     if (keyCount.n > MAX_KEYS) break;
     if (!SAFE_KEY_ALLOWLIST.has(k) && SENSITIVE_KEY_SUBSTR.test(k)) continue;
     keyCount.n += 1;
@@ -254,6 +288,23 @@ export function mergePersistedOrchestrationSnapshots(
     merged.removedCapabilities = Array.from(unioned).filter(
       (capability) => !readded.has(capability),
     );
+    if (
+      "removedDossierIds" in base ||
+      "removedDossierIds" in next ||
+      readded.size > 0
+    ) {
+      const unionedIds = new Set([
+        ...normalizeCapabilityList(base.removedDossierIds),
+        ...normalizeCapabilityList(next.removedDossierIds),
+      ]);
+      merged.removedDossierIds = Array.from(unionedIds).filter((dossierId) => {
+        const capability = getDossierById(dossierId)?.capability.trim().toLowerCase();
+        // Unknown historical ids are retained here so the strict promotion
+        // reader can hold them for review. Only a known id whose canonical
+        // capability was explicitly re-added is safe to clear.
+        return !capability || !readded.has(capability);
+      });
+    }
   }
   // Deferred integrations (spår 01 steg 3) accumulate the same way, for the
   // same reason: the mute is round-scoped, so a plain "gör rubriken större"
@@ -320,6 +371,55 @@ export function mergePersistedOrchestrationSnapshots(
 export const MUTED_CAPABILITIES_SNAPSHOT_KEY = "mutedCapabilities";
 export const MUTED_DOSSIER_IDS_SNAPSHOT_KEY = "mutedDossierIds";
 export const REMOVED_CAPABILITIES_SNAPSHOT_KEY = "removedCapabilities";
+
+export type PromotionRemovalScope = {
+  removedCapabilities: string[];
+  removedDossierIds: string[];
+};
+
+/**
+ * Strict promotion-boundary reader for durable removal tombstones. Older
+ * snapshots legitimately omit both keys, but a PRESENT malformed key may not
+ * be downgraded to an empty removal set: that would let a stale integration
+ * pass the final promotion guard.
+ */
+export function readPromotionRemovalScopeFromSnapshot(
+  snapshot: unknown,
+): PromotionRemovalScope | null {
+  if (snapshot === null || snapshot === undefined) {
+    return { removedCapabilities: [], removedDossierIds: [] };
+  }
+  if (typeof snapshot !== "object" || Array.isArray(snapshot)) return null;
+  const record = snapshot as Record<string, unknown>;
+  const readStrict = (key: "removedCapabilities" | "removedDossierIds") => {
+    if (!Object.prototype.hasOwnProperty.call(record, key)) return [];
+    const value = record[key];
+    if (
+      !Array.isArray(value) ||
+      value.some((entry) => typeof entry !== "string" || entry.trim().length === 0)
+    ) {
+      return null;
+    }
+    return Array.from(
+      new Set(
+        value
+          .map((entry) => (entry as string).trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    );
+  };
+  const removedCapabilities = readStrict("removedCapabilities");
+  const removedDossierIds = readStrict("removedDossierIds");
+  if (!removedCapabilities || !removedDossierIds) return null;
+  const removedCapabilitySet = new Set(removedCapabilities);
+  for (const dossierId of removedDossierIds) {
+    const dossier = getDossierById(dossierId);
+    if (!dossier || !removedCapabilitySet.has(dossier.capability.trim().toLowerCase())) {
+      return null;
+    }
+  }
+  return { removedCapabilities, removedDossierIds };
+}
 
 /**
  * Durable capability-removal tombstone on the chat snapshot.
@@ -416,7 +516,11 @@ export function readF3ApprovedFromSnapshot(snapshot: Record<string, unknown> | n
   const removedSet = new Set(removed);
   return {
     capabilities: capabilities.filter((capability) => !removedSet.has(capability)),
-    providers: filterProvidersForRemovedCapabilities(providers, removed),
+    providers: filterProvidersForRemovedCapabilities(
+      providers,
+      removed,
+      readProviderContractsFromSnapshot(snapshot),
+    ),
   };
 }
 
@@ -637,6 +741,8 @@ export interface FollowUpContract {
   snapshotBrief: Record<string, unknown> | null;
   /** Frozen scaffold id carried across the follow-up (persisted id, else snapshot). */
   scaffoldId: string | null;
+  /** Prior accepted intent, when recorded; missing legacy metadata is not inferred. */
+  buildIntent?: BuildIntent | null;
   /** Frozen scaffold variant id carried across the follow-up (persisted id, else snapshot). */
   variantId: string | null;
   /** Frozen routes from the base version (existing route + deferred-shell paths). */
@@ -648,6 +754,8 @@ export interface FollowUpContract {
    * top-level `requestedCapabilities` (brief + inferred-bridge + prior floor),
    * with the briefSummary subset as fallback for older snapshots. */
   capabilities: string[];
+  /** Typed durable provider decisions inherited by both plan and codegen. */
+  inheritedProviderContracts?: PlanIntegrationContract[];
   /**
    * Dossier capabilities the user EXPLICITLY approved in an earlier F3
    * suggestion round (durable across rounds/refresh — persisted on the
@@ -714,6 +822,15 @@ function resolveContractQualityTarget(
  */
 export function buildFollowUpContract(input: BuildFollowUpContractInput): FollowUpContract {
   const { snapshot } = input;
+  const snapshotBuildSpec = snapshot?.buildSpec;
+  const priorBuildIntent = [
+    snapshot?.buildIntent,
+    snapshotBuildSpec && typeof snapshotBuildSpec === "object"
+      ? (snapshotBuildSpec as Record<string, unknown>).buildIntent
+      : null,
+  ].find((value): value is BuildIntent =>
+    value === "template" || value === "website" || value === "app",
+  ) ?? null;
   const snapshotBrief = buildFollowUpBriefFromSnapshot(snapshot);
   // Capability floor source (BUG-SWARM rank 4): prefer the snapshot's top-level
   // `requestedCapabilities` — the merged floor orchestrate persisted from
@@ -762,6 +879,7 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
     snapshotBrief,
     scaffoldId:
       nonEmptyString(input.persistedScaffoldId) ?? readSnapshotString(snapshot, "scaffoldId"),
+    buildIntent: priorBuildIntent,
     variantId:
       nonEmptyString(input.persistedVariantId) ?? readSnapshotString(snapshot, "variantId"),
     // Defensive copies: never hand out a shared array reference, so future
@@ -772,6 +890,7 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
       existingShellRoutePaths: [...(input.existingShellRoutePaths ?? [])],
     },
     capabilities: [...inheritedCapabilities],
+    inheritedProviderContracts: readProviderContractsFromSnapshot(snapshot),
     // `readF3ApprovedFromSnapshot` is the single owner of the durable-removal
     // subtraction for approvals (capabilities AND providers) — see its doc.
     // Every reader (this contract + the raw fallback in

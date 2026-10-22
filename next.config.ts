@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import path from "path";
+import { PERMISSIONS_POLICY } from "./src/lib/security/permissions-policy";
 
 const nextConfig: NextConfig = {
   // Next 16 blocks /_next/* from any host that is not the listen hostname.
@@ -35,8 +36,9 @@ const nextConfig: NextConfig = {
         "./node_modules/playwright-core/browsers.json",
         "./node_modules/@sparticuz/chromium/bin/**",
       ],
-      // Inspector-capture startar samma Chromium som miniatyrerna och är en
-      // EGEN serverless-funktion — den behöver därför sin egen spårningspost.
+      // Inspector-capture och inspector-element-map startar samma Chromium som
+      // miniatyrerna och är EGNA serverless-funktioner — de behöver därför
+      // varsin spårningspost.
       // Utan den tappar NFT binären och funktionen dör vid browser-launch, med
       // 502 i prod trots grönt bygge (Codex P1 på #729). Enhetstesten mockar
       // `executablePath` och kan inte fånga det.
@@ -44,10 +46,29 @@ const nextConfig: NextConfig = {
         "./node_modules/playwright-core/browsers.json",
         "./node_modules/@sparticuz/chromium/bin/**",
       ],
+      "/api/inspector-element-map": [
+        "./node_modules/playwright-core/browsers.json",
+        "./node_modules/@sparticuz/chromium/bin/**",
+      ],
       // Product Postcheck startar samma Chromium och är också en egen
       // serverless-funktion. Nyckeln är en glob: "[chatId]" literalt skulle
       // tolkas som en teckenklass och aldrig matcha.
       "/api/engine/chats/*/product-postcheck": [
+        "./node_modules/playwright-core/browsers.json",
+        "./node_modules/@sparticuz/chromium/bin/**",
+      ],
+      // Generering (create och följdprompt) och postchecks-cronen kör
+      // produktkontrollen i sin egen funktion via runVersionPostchecks, så
+      // Chromium måste spåras in även här.
+      "/api/engine/chats/stream": [
+        "./node_modules/playwright-core/browsers.json",
+        "./node_modules/@sparticuz/chromium/bin/**",
+      ],
+      "/api/engine/chats/*/stream": [
+        "./node_modules/playwright-core/browsers.json",
+        "./node_modules/@sparticuz/chromium/bin/**",
+      ],
+      "/api/engine/postchecks": [
         "./node_modules/playwright-core/browsers.json",
         "./node_modules/@sparticuz/chromium/bin/**",
       ],
@@ -147,6 +168,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/pricing",
+        destination: "/priser",
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {
@@ -165,7 +195,7 @@ const nextConfig: NextConfig = {
     // connect-src, otherwise DevTools floods the Issues panel with violations.
     const cspReportOnly = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://www.google.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://www.google.com https://www.google.se",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data: https://fonts.gstatic.com",
@@ -206,6 +236,10 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy-Report-Only",
             value: cspReportOnly,
+          },
+          {
+            key: "Permissions-Policy",
+            value: PERMISSIONS_POLICY,
           },
         ],
       },

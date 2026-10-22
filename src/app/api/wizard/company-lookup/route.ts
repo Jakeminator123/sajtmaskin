@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
+import { workloadOpenAIProviderOptions } from "@/lib/ai-models/workload-reasoning";
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -20,7 +21,7 @@ import { safeFetch } from "@/lib/ssrf-guard";
 import { ALLABOLAG_BASE, resolveAllabolagCompanyUrl } from "./allabolag-url";
 
 export const runtime = "nodejs";
-export const maxDuration = 25;
+export const maxDuration = 35;
 
 const ALLABOLAG_PAGE_MAX_BYTES = 1_500_000;
 
@@ -150,10 +151,9 @@ async function lookupViaBraveSearch(companyName: string): Promise<CompanyLookupR
 }
 
 async function lookupViaAiSearch(companyName: string): Promise<CompanyLookupResult> {
+  const modelId = getWorkloadDefaultModelFromManifest("company_lookup") ?? "openai/gpt-6.1-sol";
   const result = await generateText({
-    model: createDirectModel(
-      getWorkloadDefaultModelFromManifest("company_lookup") ?? "openai/gpt-5-mini",
-    ),
+    model: createDirectModel(modelId),
     prompt: `Sök upp det svenska företaget "${companyName}" på allabolag.se eller liknande källa.
 Returnera BARA JSON (inget annat):
 {"found":true,"companyName":"","orgNr":"","companyType":"AB","city":"","industries":[""],"employees":0,"revenueKsek":0,"purpose":"","homepage":""}
@@ -161,7 +161,8 @@ Returnera BARA JSON (inget annat):
 Om du inte hittar företaget: {"found":false}
 Bara JSON, inget annat.`,
     maxRetries: 1,
-    maxOutputTokens: 350,
+    maxOutputTokens: 8_192,
+    ...workloadOpenAIProviderOptions("company_lookup", modelId),
   });
 
   const text = result.text?.trim() || "";

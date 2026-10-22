@@ -28,7 +28,7 @@ function payload(): KostnadsfriAdminPayload {
     pages: ["Historik AB", "Nytt AB"].map((companyName, index) => ({
       slug: index ? "nytt-ab" : "historik-ab",
       companyName,
-      industry: null,
+      industry: index ? "IT – AI/Data" : null,
       website: null,
       contactEmail: null,
       contactName: null,
@@ -47,6 +47,8 @@ function payload(): KostnadsfriAdminPayload {
         visits: 1,
         uniqueVisitors: 1,
         verified: 1,
+        wizardDone: 1,
+        authShown: 1,
         started: 1,
         firstSeen: checkedAt,
         lastSeen: checkedAt,
@@ -78,12 +80,57 @@ describe("KostnadsfriSection data-quality regressions", () => {
     ).toBeTruthy();
   });
 
+  it("shows industry, marks missing values and includes industry in register search", () => {
+    render(<KostnadsfriSection />);
+    const table = within(screen.getAllByRole("table")[0]);
+    expect(table.getByRole("columnheader", { name: "Bransch" })).toBeTruthy();
+    expect(table.getByText("IT – AI/Data")).toBeTruthy();
+    expect(table.getByText("Ej angiven")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Sök i registret"), {
+      target: { value: "ai/data" },
+    });
+
+    expect(table.getByText("Nytt AB")).toBeTruthy();
+    expect(table.queryByText("Historik AB")).toBeNull();
+  });
+
+  it("shows the client-reported wizard and login steps before the builder handoff", () => {
+    data = {
+      ...data,
+      recent: (["wizard", "konto", "skapad"] as const).map((event) => ({
+        slug: "nytt-ab",
+        event,
+        at: checkedAt,
+        userEmail: null,
+        userId: null,
+        sessionId: null,
+        ipAddress: null,
+        userAgent: null,
+      })),
+    };
+    render(<KostnadsfriSection />);
+    const headers = within(screen.getAllByRole("table")[0])
+      .getAllByRole("columnheader")
+      .map((header) => header.textContent);
+    expect(headers.slice(headers.indexOf("Rätt lösenord"), headers.indexOf("Senast"))).toEqual([
+      "Rätt lösenord",
+      "Wizard klar",
+      "Inloggning",
+      "Till buildern",
+    ]);
+    const recent = within(screen.getAllByRole("table")[1]);
+    expect(recent.getByText("Klar med wizarden")).toBeTruthy();
+    expect(recent.getByText("Fick inloggningsrutan")).toBeTruthy();
+    expect(recent.getByText("Skickades till buildern")).toBeTruthy();
+  });
+
   it.each([
     "Unika > 0",
     "Rätt lösenord > 0",
     "Rätt lösenord = 0",
-    "Formulär klara > 0",
-    "Formulär klara = 0",
+    "Till buildern > 0",
+    "Till buildern = 0",
   ])("disables and ignores %s during an analytics outage, then restores it", (filter) => {
     const { rerender } = render(<KostnadsfriSection />);
     fireEvent.click(screen.getByRole("button", { name: filter }));

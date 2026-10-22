@@ -6,29 +6,44 @@
  * `reasoningSummary` is a UI/transport field, not part of siteBriefSchema.
  */
 
+import { isOpenAIReasoningModelId } from "@/lib/models/openai-capabilities";
+import type { OpenAIReasoningEffort } from "@/lib/models/openai-capabilities";
+import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
+import { resolveWorkloadReasoningEffort } from "@/lib/ai-models/workload-reasoning";
+
 export const BRIEF_REASONING_SUMMARY_KEY = "reasoningSummary";
 
 /** AI SDK `providerOptions.openai.reasoningSummary` — maps 1:1 to Responses `reasoning.summary`. */
 export const OPENAI_REASONING_SUMMARY_DETAILED = "detailed" as const;
 
-const OPENAI_REASONING_MODEL_RE = /(^|\/)(o[1-9]|gpt-5)/;
-
 export function supportsOpenAIReasoningSummary(modelId: string): boolean {
-  return OPENAI_REASONING_MODEL_RE.test(modelId.trim().toLowerCase());
+  const normalized = modelId.trim().toLowerCase();
+  if (normalized.includes("/") && !normalized.startsWith("openai/")) return false;
+  return isOpenAIReasoningModelId(normalized);
 }
 
-export function openaiBriefReasoningProviderOptions(): {
-  openai: { reasoningSummary: "detailed" };
+export function openaiBriefReasoningProviderOptions(
+  modelId = getWorkloadDefaultModelFromManifest("brief_structured") ?? "",
+): {
+  openai: { reasoningSummary?: "detailed"; reasoningEffort?: OpenAIReasoningEffort };
 } {
-  return { openai: { reasoningSummary: OPENAI_REASONING_SUMMARY_DETAILED } };
-}
-
-export function mergeOpenAIBriefProviderOptions(extra?: {
-  openai?: Record<string, unknown>;
-}): { openai: Record<string, unknown> } {
+  if (!supportsOpenAIReasoningSummary(modelId)) return { openai: {} };
+  const reasoningEffort = resolveWorkloadReasoningEffort("brief_structured", modelId);
   return {
     openai: {
       reasoningSummary: OPENAI_REASONING_SUMMARY_DETAILED,
+      ...(reasoningEffort ? { reasoningEffort } : {}),
+    },
+  };
+}
+
+export function mergeOpenAIBriefProviderOptions(
+  extra?: { openai?: Record<string, unknown> },
+  modelId?: string,
+): { openai: Record<string, unknown> } {
+  return {
+    openai: {
+      ...openaiBriefReasoningProviderOptions(modelId).openai,
       ...extra?.openai,
     },
   };

@@ -3,6 +3,15 @@
   "schemaVersion": 1,
   "trunk": "master",
   "deliveryBranch": "preview",
+  "directPreview": {
+    "allowed": true,
+    "prepareCommand": "preview:prepare",
+    "pushCommand": "preview:push",
+    "confirmation": "exact-head-after-human-confirmation",
+    "reviewName": "Buggpass",
+    "reviewTiming": "before-push",
+    "remoteChecks": "after-push"
+  },
   "allowedBranchPrefixes": [],
   "branchPrefixExemptActors": ["dependabot[bot]"],
   "immutableRemoteBranchPatterns": ["*BRA*", "rescue/*"],
@@ -38,7 +47,6 @@
     ".cursor/rules/pr-merge.mdc",
     ".github/workflows/",
     "scripts/ci/",
-    "scripts/pr-review/",
     "scripts/workflow/check-contract.mjs",
     "scripts/workflow/required-check-owners.mjs",
     "scripts/workflow/ci-scope.mjs",
@@ -79,7 +87,6 @@
     "config/agent-workflow.json",
     "docs/schemas/**",
     "docs/decisions/**",
-    "BUG-SWARM-BACKLOG.md",
     "src/app/api/**",
     "src/lib/api/**",
     "src/lib/auth/**",
@@ -153,13 +160,14 @@
       "requirements*.txt",
       ".node-version"
     ],
-    "ci": [".github/**", "scripts/ci/**", "scripts/pr-review/**"],
+    "ci": [".github/**", "scripts/ci/**"],
     "previewHost": ["preview-host/**"],
+    "bugBacklog": ["BUG-SWARM-BACKLOG.md", "docs/canvases/**"],
     "observability": ["scripts/observability/**", "requirements.genlogs.txt"],
     "e2e": ["e2e/**", "playwright*.config.ts"]
   },
   "verificationProfiles": {
-    "always": ["workflow:contract"],
+    "always": ["workflow:contract", "test:discovery:check"],
     "docs": [
       "docs:check",
       "docs:links",
@@ -175,6 +183,7 @@
     "dependencies": ["baseline-deps:verify", "baseline-deps:tree"],
     "ci": ["typecheck", "test:ci"],
     "previewHost": ["preview-host:verify"],
+    "bugBacklog": ["check:bug-backlog", "canvas:check"],
     "observability": ["observability:test"],
     "e2e": ["test:e2e:contract"],
     "full": [

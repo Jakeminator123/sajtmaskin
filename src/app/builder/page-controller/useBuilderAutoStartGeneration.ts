@@ -3,7 +3,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useRef } from "react";
 import type { BuildMethod } from "@/lib/builder/build-intent";
-import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
+import { KOSTNADSFRI_MODEL_TIER } from "@/lib/builder/defaults";
 import {
   MAX_PAGE_COUNT_CHOICE,
   getCurrentInitBuildChoices,
@@ -57,6 +57,12 @@ export function useBuilderAutoStartGeneration({
   // the 500 ms timer and never retry.
   const hydrationPromptIdRef = useRef(promptId);
   const hydrationPromptParamRef = useRef(promptParam);
+  // `promptActions` is a fresh object on every controller render; as an effect
+  // dependency it would cancel the 500 ms timer before it ever fires.
+  const promptActionsRef = useRef(promptActions);
+  useEffect(() => {
+    promptActionsRef.current = promptActions;
+  }, [promptActions]);
 
   useEffect(() => {
     if (
@@ -73,9 +79,8 @@ export function useBuilderAutoStartGeneration({
       return;
     }
     if (autoGenerateTriggeredRef.current) return;
-    autoGenerateTriggeredRef.current = true;
 
-    setSelectedModelTier(DEFAULT_MODEL_TIER);
+    setSelectedModelTier(KOSTNADSFRI_MODEL_TIER);
 
     // Bara när inget val redan uttalats (0 = auto). Ett faktiskt byggval äger
     // sitt eget tal och ska inte skrivas över av kampanjstandarden.
@@ -84,17 +89,11 @@ export function useBuilderAutoStartGeneration({
       setCurrentInitBuildChoices({ ...activeChoices, pageCount: MAX_PAGE_COUNT_CHOICE });
     }
 
+    const prompt = resolvedPrompt!;
     const timer = setTimeout(() => {
-      void promptActions.requestCreateChat(resolvedPrompt!);
+      autoGenerateTriggeredRef.current = true;
+      void promptActionsRef.current.requestCreateChat(prompt);
     }, 500);
     return () => clearTimeout(timer);
-  }, [
-    isAuthenticated,
-    templateId,
-    buildMethod,
-    resolvedPrompt,
-    chatId,
-    setSelectedModelTier,
-    promptActions,
-  ]);
+  }, [isAuthenticated, templateId, buildMethod, resolvedPrompt, chatId, setSelectedModelTier]);
 }

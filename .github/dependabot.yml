@@ -26,6 +26,16 @@ updates:
       prefix-development: "chore"
       include: "scope"
     groups:
+      # Must stay first: Dependabot assigns a package to the first matching
+      # group. `playwright` and `@playwright/test` need the same version, or the
+      # CLI loads a different Playwright instance than the test files.
+      # `playwright-core` is deliberately absent and exact-pinned: it drives the
+      # `@sparticuz/chromium` binary in production and must move with it
+      # (src/lib/capture/browser.ts).
+      playwright-test-runner:
+        patterns:
+          - "playwright"
+          - "@playwright/test"
       npm-production-patch:
         dependency-type: "production"
         update-types:
@@ -68,10 +78,12 @@ updates:
           - "patch"
         patterns:
           - "*"
-        # Dev-side core packages (typescript/eslint/@types/node) must not be
-        # grouped either — a TS or ESLint patch can shift lint/type output and
-        # deserves its own reviewed PR (docs/dependency-policy.md).
+        # Dev-side core packages must not be grouped (docs/dependency-policy.md).
+        # typescript/eslint/@types/node can shift lint/type output. `ai` and
+        # `@ai-sdk/*` are core too; #1595 pulled runtime `ai` in via `@ai-sdk/react`.
         exclude-patterns:
+          - "ai"
+          - "@ai-sdk/*"
           - "typescript"
           - "eslint"
           - "@eslint/*"
@@ -81,6 +93,7 @@ updates:
           - "minor"
         patterns:
           - "@radix-ui/*"
+          - "radix-ui"
           - "nanoid"
           - "swr"
           - "tailwind-merge"

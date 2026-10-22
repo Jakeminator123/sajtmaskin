@@ -13,6 +13,7 @@ import {
   noteBuilderStartFromLocation,
   noteGoogleAdsConversion,
   subscribeCookieConsent,
+  syncGoogleAdsConsent,
 } from "./fire-google-ads-conversion";
 
 function acceptConsent() {
@@ -20,6 +21,7 @@ function acceptConsent() {
 }
 
 function enableAds() {
+  vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_ENABLED", "1");
   vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_ID", "AW-123456789");
   window.sajtmaskinAdsTagLoaded = true;
   vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_BUILDER_START_LABEL", "builder_lbl");
@@ -45,7 +47,9 @@ describe("fireGoogleAdsConversion", () => {
     window.gtag = undefined;
   });
 
-  it("no-ops when the account tag is unset", () => {
+  it("no-ops when the kill-switch is off", () => {
+    vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_ENABLED", "0");
+    window.sajtmaskinAdsTagLoaded = true;
     acceptConsent();
     const gtag = vi.fn();
     window.gtag = gtag;
@@ -173,6 +177,39 @@ describe("fireGoogleAdsConversion", () => {
     expect(localStorage.getItem("sajtmaskin:ads:claimed:first_generation")).toBe("1");
   });
 
+  it("sends first_site_generated without send_to when the conversion label is unset", () => {
+    enableAds();
+    vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL", "");
+    acceptConsent();
+    const gtag = vi.fn();
+    window.gtag = gtag;
+    noteGoogleAdsConversion("first_generation");
+    expect(gtag).toHaveBeenCalledTimes(1);
+    expect(gtag).toHaveBeenCalledWith("event", "first_site_generated");
+    expect(isGoogleAdsClaimed("first_generation")).toBe(true);
+  });
+
+  it("updates Consent Mode to granted after cookie accept", () => {
+    enableAds();
+    const gtag = vi.fn();
+    window.gtag = gtag;
+    syncGoogleAdsConsent();
+    expect(gtag).toHaveBeenCalledWith("consent", "update", {
+      ad_storage: "denied",
+      ad_user_data: "denied",
+      ad_personalization: "denied",
+      analytics_storage: "denied",
+    });
+    acceptConsent();
+    dispatchCookieConsentChange("accepted");
+    expect(gtag).toHaveBeenCalledWith("consent", "update", {
+      ad_storage: "granted",
+      ad_user_data: "granted",
+      ad_personalization: "granted",
+      analytics_storage: "granted",
+    });
+  });
+
   it("does not fire on /admin even with consent and gtag", () => {
     enableAds();
     acceptConsent();
@@ -195,6 +232,74 @@ describe("fireGoogleAdsConversion", () => {
     expect(gtag).toHaveBeenCalledTimes(1);
     noteBuilderStartFromLocation("/faq", "?new=1");
     expect(gtag).toHaveBeenCalledTimes(1);
+  });
+
+  it("strips only new from the URL and does not recount the same project later", () => {
+    enableAds();
+    acceptConsent();
+    const gtag = vi.fn();
+    window.gtag = gtag;
+    const state = { idx: 1 };
+    window.history.replaceState(
+      state,
+      "",
+      "/builder?project=proj_1&buildMethod=freeform&new=1&gclid=KeepMe",
+    );
+    noteBuilderStartFromLocation("/builder");
+    expect(gtag).toHaveBeenCalledTimes(1);
+    expect(`${window.location.pathname}${window.location.search}`).toBe(
+      "/builder?project=proj_1&buildMethod=freeform&gclid=KeepMe",
+    );
+    expect(window.history.state).toEqual(state);
+
+    sessionStorage.clear();
+    delete window.sajtmaskinAdsTransientState;
+    window.history.replaceState(
+      {},
+      "",
+      "/builder?project=proj_1&buildMethod=freeform&new=1&gclid=KeepMe",
+    );
+    noteBuilderStartFromLocation("/builder");
+    expect(gtag).toHaveBeenCalledTimes(1);
+    expect(window.location.search).toBe("?project=proj_1&buildMethod=freeform&gclid=KeepMe");
+
+    window.history.replaceState({}, "", "/builder?project=proj_2&new=1");
+    noteBuilderStartFromLocation("/builder");
+    expect(gtag).toHaveBeenCalledTimes(2);
+    expect(window.location.search).toBe("?project=proj_2");
+  });
+
+  it("still counts a later blank /builder?new=1 after the flag was stripped", () => {
+    enableAds();
+    acceptConsent();
+    const gtag = vi.fn();
+    window.gtag = gtag;
+    window.history.replaceState({}, "", "/builder?new=1");
+    noteBuilderStartFromLocation("/builder");
+    expect(gtag).toHaveBeenCalledTimes(1);
+    expect(window.location.search).toBe("");
+    sessionStorage.clear();
+    delete window.sajtmaskinAdsTransientState;
+    window.history.replaceState({}, "", "/builder?new=1");
+    noteBuilderStartFromLocation("/builder");
+    expect(gtag).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not double-count builder_start on refresh when new=1 stays in the URL", () => {
+    enableAds();
+    acceptConsent();
+    const gtag = vi.fn();
+    window.gtag = gtag;
+    noteBuilderStartFromLocation(
+      "/builder",
+      "?project=proj_1&buildMethod=freeform&buildIntent=website&new=1",
+    );
+    noteBuilderStartFromLocation(
+      "/builder",
+      "?project=proj_1&buildMethod=freeform&buildIntent=website&new=1",
+    );
+    expect(gtag).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem("sajtmaskin:ads:claimed:builder_start")).toBe("1");
   });
 
   it("notes account_created from signup=1", () => {

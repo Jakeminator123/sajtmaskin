@@ -69,7 +69,7 @@ const STEPS = [
   },
 ] as const;
 
-const FAQS = [
+export const FAQS = [
   {
     q: "Måste jag lämna WordPress?",
     a: "Nej. Om ekosystem och plugins är poängen är WordPress ofta rätt. Ett annat arbetssätt är aktuellt när behoven är enklare.",
@@ -345,7 +345,7 @@ export function WordpressAlternativContent() {
                 migration från WordPress. Preview är inte publicering. Utan egen domän får en
                 publicerad Sajtmaskin-sajt en Vercel-adress. Credits är engångsköp; publicering
                 debiterar credits. Aktuella paket finns på{" "}
-                <Link href="/#priser" className="text-foreground underline-offset-4 hover:underline">
+                <Link href="/priser" className="text-foreground underline-offset-4 hover:underline">
                   prissidan
                 </Link>
                 .

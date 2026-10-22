@@ -30,7 +30,7 @@ const numericEnvSettingSchema = z.object({
   max: z.number(),
 });
 
-const _buildProfileIdSchema = z.enum(["premium", "pro", "max", "codex", "anthropic"]);
+const _buildProfileIdSchema = z.enum(["premium", "pro", "max", "codex", "anthropic", "ultra"]);
 const _generationPhaseSchema = z.enum([
   "planner",
   "generator",
@@ -48,6 +48,7 @@ const buildProfilesSchema = z.object({
     max: z.string(),
     codex: z.string(),
     anthropic: z.string(),
+    ultra: z.string(),
   }),
   envKeys: z.object({
     premium: z.string(),
@@ -55,6 +56,7 @@ const buildProfilesSchema = z.object({
     max: z.string(),
     codex: z.string(),
     anthropic: z.string(),
+    ultra: z.string(),
   }),
 });
 
@@ -112,6 +114,7 @@ const phaseRoutingSchema = z.object({
     max: phaseRoutingTierSchema,
     codex: phaseRoutingTierSchema,
     anthropic: phaseRoutingTierSchema,
+    ultra: phaseRoutingTierSchema,
   }),
   thinkingByTier: z
     .object({
@@ -120,6 +123,7 @@ const phaseRoutingSchema = z.object({
       max: phaseThinkingTierSchema,
       codex: phaseThinkingTierSchema,
       anthropic: phaseThinkingTierSchema,
+      ultra: phaseThinkingTierSchema,
     })
     .optional(),
   notes: z.string().optional(),
@@ -173,11 +177,16 @@ const postGenerationPassesSchema = z.object({
 
 const contractProviderRuleSchema = z.object({
   kind: z.enum(["database", "auth", "payment", "integration"]),
+  providerKey: z.string(),
+  dossierCapability: z.string().optional(),
+  methodOnly: z.boolean().optional(),
+  packageRoots: z.array(z.string()).optional(),
   provider: z.string(),
   name: z.string(),
   envVars: z.array(z.string()),
   matchPatterns: z.array(z.string()),
-  status: z.enum(["chosen", "optional"]).optional(),
+  purposePatterns: z.array(z.string()).optional(),
+  status: z.enum(["chosen", "unresolved", "optional"]).optional(),
   reason: z.string(),
 });
 
@@ -208,6 +217,8 @@ const workloadSchema = z.object({
    * while Python read it, and the two surfaces would drift silently.
    */
   visionModels: z.array(z.string()).optional(),
+  /** Requested OpenAI effort; see {@link getWorkloadReasoningEffortFromManifest}. */
+  reasoningEffort: reasoningEffortSchema.optional(),
   envOverrides: z.record(z.string(), z.string()).optional(),
   tokenBudget: tokenBudgetSchema.optional(),
   notes: z.string().optional(),
@@ -268,6 +279,7 @@ function tierKeyedSchema<T extends z.ZodTypeAny>(inner: T) {
     max: inner,
     codex: inner,
     anthropic: inner,
+    ultra: inner,
   });
 }
 
@@ -356,8 +368,8 @@ let cached: AiModelsManifest | null = null;
 
 const DEFAULT_PHASE_THINKING_BY_TIER: Record<BuildProfileId, PhaseThinkingTierFromManifest> = {
   premium: {
-    planner: { thinking: true, reasoningEffort: "high", reasoningMode: "pro" },
-    generator: { thinking: true, reasoningEffort: "high", reasoningMode: "pro" },
+    planner: { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
+    generator: { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
     fixer: { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
     verifier: { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
     "deploy-assistant": { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
@@ -388,6 +400,13 @@ const DEFAULT_PHASE_THINKING_BY_TIER: Record<BuildProfileId, PhaseThinkingTierFr
     generator: { thinking: true, reasoningEffort: "high" },
     fixer: { thinking: false, reasoningEffort: "medium" },
     verifier: { thinking: false, reasoningEffort: "medium" },
+    "deploy-assistant": { thinking: false, reasoningEffort: "medium" },
+  },
+  ultra: {
+    planner: { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
+    generator: { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
+    fixer: { thinking: false, reasoningEffort: "high" },
+    verifier: { thinking: false, reasoningEffort: "low" },
     "deploy-assistant": { thinking: false, reasoningEffort: "medium" },
   },
 };
@@ -505,6 +524,17 @@ export function getWorkloadDefaultModelFromManifest(workloadId: string): string 
 
 export function getWorkloadFallbackModelsFromManifest(workloadId: string): readonly string[] {
   return getWorkloadByIdFromManifest(workloadId)?.fallbackModels ?? [];
+}
+
+/**
+ * Requested OpenAI reasoning effort for a workload. Raw value: callers must
+ * clamp it per model (`clampOpenAIReasoningEffort`) because one workload can
+ * fall back across models with different effort ranges.
+ */
+export function getWorkloadReasoningEffortFromManifest(
+  workloadId: string,
+): ReasoningEffortFromManifest | undefined {
+  return getWorkloadByIdFromManifest(workloadId)?.reasoningEffort;
 }
 
 /**

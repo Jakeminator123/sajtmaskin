@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Additiv-bara-grind för PENDING migrationer mot en delad produktionsdatabas.
+ * Additiv-bara-grind för PENDING migrationer mot produktionsdatabasen.
  *
- * Varför den finns: Vercel Preview och Production läser SAMMA prod-Postgres
- * (`config/db-targets.json`), men `preview` kan ligga tiotals commits före
- * `master`. Vid uttrycklig migrations-apply för `preview` träffar DDL:en
- * därför den databas som den GAMLA produktionskoden fortfarande läser. En
+ * Varför den finns: Vercel Preview/Development läser DEV och Production läser
+ * PROD (`config/db-targets.json`), men `preview` kan ligga tiotals commits före
+ * `master`. Vid uttrycklig PROD-apply före kodpromote träffar DDL:en ändå den
+ * databas som den GAMLA produktionskoden fortfarande läser. En
  * additiv migration (`ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`)
  * behöver fortfarande riskgranskas, bland annat för lås och skrivbeteende. Brytande DDL är
  * inte: tar man bort, byter typ på eller byter namn på något som produktionen

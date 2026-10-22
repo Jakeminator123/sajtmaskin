@@ -34,7 +34,5 @@ Körda riktade kontroller:
 - Återställning/rollback:
 
 > Lämna som draft medan arbete, CI-fixar eller reviewtriage återstår. GitHubs
-> ruleset, required checks, reviews och trådstatus äger mergebarheten. Merge
-> kräver uttryckligt eller förhandsvillkorat mandat; använd aldrig `--admin`.
-> Native auto-merge är endast för den allowlistade Dependabot-patchvägen.
-> Promote till `master` kräver extra produktionsbekräftelse.
+> ruleset, required checks, reviews och trådstatus äger mergebarheten.
+> Mandat, `--admin`-förbud och promote-bekräftelse: `.cursor/rules/pr-merge.mdc`.

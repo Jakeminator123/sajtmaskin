@@ -5,7 +5,9 @@ import {
   getChat,
   markVersionSupersededByRepair,
   renewVersionLease,
+  resetVersionVerificationToPending,
 } from "@/lib/db/chat-repository-pg";
+import { holdVersionForIntegrationMigration } from "@/lib/db/chat-repository/version-lifecycle";
 import type { RepairProvenance } from "@/lib/db/repair-files-payload";
 import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
 import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
@@ -32,6 +34,7 @@ import "@/lib/logging/event-bus-subscribers";
 import "@/lib/logging/event-bus-error-log-sink";
 import { resolveSameSignalGateChecks } from "../quality-gate-checks";
 import { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
+import { readServerRepairBudget, type ServerRepairBudgetSnapshot, type ServerRepairBudgetTarget } from "@/lib/db/services/server-repair-budget";
 import {
   maybeAnalyzeVisualQAForPassedExportable,
   shouldPromoteAfterRepair,
@@ -47,8 +50,13 @@ import {
   buildGroupedRepairErrorContext,
   buildRepairErrorContextLines,
   runRepairLoop,
+  type RepairAttemptResult,
   type RepairErrorManifest,
 } from "../repair-loop";
+import {
+  isCurrentIntegrationMigrationHold,
+  isNonTerminalVerificationState,
+} from "../stale-verification";
 import {
   buildServerVerifyQualityGateMeta,
   buildServerVerifyRepairContextLines,
@@ -61,7 +69,7 @@ import {
 } from "../server-verify-log-meta";
 import { resolvePostRepairFinalize } from "../server-repair-policy";
 import { recordRepairPhaseSignal, withRepairPhaseSignal } from "../repair-phase-signal";
-import { isLatestVersionForChat } from "./lease";
+import { isRepairTargetHead } from "./lease";
 import {
   evaluateServerOwnedF3Readiness,
   persistF3ReadinessHold,
@@ -69,16 +77,23 @@ import {
 } from "./f3-readiness";
 
 /**
- * Outcome of a server-repair loop run. `supersededByUserEdit` is set when the
+ * Outcome of a server-repair loop run. `reverifyCurrent` is set when the
  * repair no-op'd because a concurrent user edit advanced `files_json` past the
  * snapshot the repair was based on (#260 Codex P2 `stale_base`). The caller MUST
- * then re-verify the CURRENT files on a fresh lease so the user's newer edit B
- * reaches an honest terminal state instead of lingering in `repairing` (where
- * the readiness watchdog could fail it). Every other outcome already left the
- * row terminal (`repair_available` / `failed`).
+ * return supersession to the chain coordinator rather than releasing/re-entering
+ * from this helper. A lost lease/budget returns typed STOP, never a product failure.
  */
 interface ServerRepairLoopOutcome {
-  supersededByUserEdit: boolean;
+  /** Lost/unproven ownership is not a product failure and must not be terminalized. */
+  stop?: { reason: "lease_lost" | "repair_budget_unavailable" | "time_budget_exceeded"; retryable: true };
+  /** Re-run the current row after the old repair context was superseded. */
+  reverifyCurrent: boolean;
+  /** Re-entry came from a full decision-context race, not a user file edit. */
+  contextCasMiss: boolean;
+  /** A revision-bound migration hold was durably persisted after repair. */
+  integrationMigrationHoldApplied: boolean;
+  /** Terminal migration outcome that must not be treated as an ordinary repair failure. */
+  integrationMigrationStop?: "applied" | "cas_miss" | "unavailable" | null;
   /**
    * The repair was entered from a build/preview-start failure. When the repair
    * is superseded by a concurrent user edit, the caller's re-verify of the
@@ -89,12 +104,19 @@ interface ServerRepairLoopOutcome {
   buildOriginated: boolean;
 }
 
+class RepairLeaseLost extends Error {}
+class RepairDeadlineExceeded extends Error {}
+
 export async function tryServerRepairLoop(params: {
   chatId: string;
   versionId: string;
   codeFiles: CodeFile[];
   /** Exact files_json the repair is based on (#260 / P2 #5 revision-binding). */
   baseFilesJson: string;
+  /** Persisted revision for `baseFilesJson`; omitted by legacy callers. */
+  baseFilesRevision?: string | null;
+  /** Immutable edit provenance from the same row as baseFilesJson. */
+  baseEditKind?: string | null;
   failedOutputs: ServerVerifyFailedOutput[];
   verifyLaneDurationMs: number;
   firstFailureCheck: string | null;
@@ -121,6 +143,8 @@ export async function tryServerRepairLoop(params: {
    * build. `triggerBuildErrorRepair` always passes `true`.
    */
   forceBuildGate?: boolean;
+  /** Internal bound: the one fresh decision-context retry was already consumed. */
+  contextRetryUsed?: boolean;
   /**
    * A3: absolut `Date.now()`-deadline som trädas ner i `runRepairLoop` så en
    * SYNKRON anropare (deploy-repair-endpointen) kan binda loopen till sin
@@ -131,6 +155,8 @@ export async function tryServerRepairLoop(params: {
   /** Fas 3 (RepairGate): shared ledger + scope for cross-lane dedupe. */
   repairLedger?: RepairLedger;
   repairScopeId?: string;
+  /** Manual authority is request-local; it never initializes automatic capacity. */
+  repairAuthority?: "automatic" | "manual";
   /**
    * L1: F3 snapshot context so post-repair readiness re-runs against the
    * repaired files before the post-repair gate / persist.
@@ -152,6 +178,8 @@ export async function tryServerRepairLoop(params: {
     versionId,
     codeFiles,
     baseFilesJson,
+    baseFilesRevision: suppliedBaseFilesRevision,
+    baseEditKind = null,
     failedOutputs,
     verifyLaneDurationMs,
     firstFailureCheck,
@@ -161,15 +189,52 @@ export async function tryServerRepairLoop(params: {
     runId,
     previewPolicy,
     forceBuildGate = false,
+    contextRetryUsed = false,
     repairDeadlineEpochMs,
     f3Readiness = null,
     repairProvenance,
   } = params;
-  // Fas 3: without a finalize handover, use a fresh per-run ledger + a
-  // version-bound scope (mirrors runner.ts's `{base}:{pass}` pattern) so the
-  // loop still dedupes identical retries within this repair run.
-  const repairLedger = params.repairLedger ?? new RepairLedger();
-  const repairScopeId = params.repairScopeId ?? `${versionId}:server-repair`;
+  const checkRepairDeadline = (deadline = repairDeadlineEpochMs) => {
+    if (deadline !== undefined && Date.now() >= deadline) {
+      throw new RepairDeadlineExceeded("Repair time budget exhausted");
+    }
+  };
+  const boundedLlmTimeout = (phaseCapMs: number) => {
+    if (repairDeadlineEpochMs === undefined) return phaseCapMs;
+    const remainingMs = repairDeadlineEpochMs - Date.now();
+    if (remainingMs <= 0) throw new RepairDeadlineExceeded("Repair time budget exhausted");
+    return Math.min(phaseCapMs, remainingMs);
+  };
+  const renewHeldLease = async () => {
+    if (runId && await renewVersionLease(versionId, runId).catch(() => false) !== true) {
+      throw new RepairLeaseLost("Repair lease lost or unavailable");
+    }
+    checkRepairDeadline();
+  };
+  let repairLedger: RepairLedger;
+  let repairScopeId: string;
+  let serverRepairBudget: { target: ServerRepairBudgetTarget; consumed: ServerRepairBudgetSnapshot["consumed"] } | undefined;
+  if (params.repairAuthority === "manual") {
+    repairLedger = params.repairLedger ?? new RepairLedger();
+    repairScopeId = params.repairScopeId ?? `${versionId}:server-repair`;
+  } else {
+    // No synthetic revision, fresh ledger or caller-provided scope can authorize automatic payment.
+    if (!runId || !suppliedBaseFilesRevision) return {
+      stop: { reason: "repair_budget_unavailable", retryable: true }, reverifyCurrent: false,
+      contextCasMiss: false, buildOriginated: params.forceBuildGate === true || params.firstFailureCheck === "build" ||
+        params.failedOutputs.some((output) => output.check === "build"), integrationMigrationHoldApplied: false,
+    };
+    const target = { chatId, versionId, runId, filesRevision: suppliedBaseFilesRevision };
+    const budget = await readServerRepairBudget(target).catch(() => null);
+    if (!budget || budget.status !== "ready") return {
+      stop: { reason: "repair_budget_unavailable", retryable: true }, reverifyCurrent: false,
+      contextCasMiss: false, buildOriginated: params.forceBuildGate === true || params.firstFailureCheck === "build" ||
+        params.failedOutputs.some((output) => output.check === "build"), integrationMigrationHoldApplied: false,
+    };
+    repairScopeId = budget.snapshot.scopeId;
+    repairLedger = RepairLedger.hydrate(chatId, repairScopeId, [...budget.snapshot.finalize, ...budget.snapshot.consumed]);
+    serverRepairBudget = { target: { ...target, scopeId: repairScopeId }, consumed: budget.snapshot.consumed };
+  }
   const verifyContext = {
     verifyLaneDurationMs,
     firstFailureCheck,
@@ -188,6 +253,11 @@ export async function tryServerRepairLoop(params: {
     forceBuildGate ||
     failedOutputs.some((output) => output.check === "build") ||
     firstFailureCheck === "build";
+  const baseFilesRevision =
+    suppliedBaseFilesRevision ?? resolveSnapshotFilesRevision({ filesJson: baseFilesJson });
+  let integrationMigrationHoldApplied = false;
+  let integrationMigrationStop: ServerRepairLoopOutcome["integrationMigrationStop"] = null;
+  let reverifyCurrent = false;
   // #260 Codex P2 (repair-vs-edit finalize): set when saveRepairedFiles no-ops
   // because a concurrent user edit advanced files_json past the repaired-from
   // snapshot. Used after the loop to skip failVersionVerification so the user's
@@ -224,20 +294,20 @@ export async function tryServerRepairLoop(params: {
     projectContent: string,
     method: "deterministic" | "llm",
     options?: { verifyDeadlineEpochMs?: number },
-  ): Promise<boolean> {
+  ): Promise<RepairAttemptResult<{ reason: string; holdResult: string | null }>> {
     // Codex P2 (renew before the post-repair gate): the per-pass onBeforePass
     // renewal only covers the LLM passes. shouldPromoteAfterRepair below runs a
     // preview-host verify that can take up to 300s, after which the
     // renew-before-save fires. Since renewVersionLease refuses expired leases,
     // a slow gate could otherwise expire the lease and no-op a valid
     // saveRepairedFiles. Renew here so the gate window is covered too.
-    if (runId) await renewVersionLease(versionId, runId).catch(() => {});
+    await renewHeldLease();
     // Terminal persist block: a prior pass already lacked a protected path
     // (emitted-and-dropped or never mentioned). Returning false alone lets
     // the loop retry; refuse every subsequent persist in this run so the
     // version cannot be both saved and later failed from the holder.
     if (missingProtectedGate.block) {
-      return false;
+      return { promoted: false };
     }
     const rawRepairedFiles = parseCodeProject(projectContent).files;
     // Block the server-repair bypass of SCAFFOLD_PROTECTED_PATHS: even if
@@ -272,14 +342,93 @@ export async function tryServerRepairLoop(params: {
         projectId: f3Readiness.projectId,
       });
       if (!readiness.ready) {
-        await persistF3ReadinessHold({
-          chatId,
-          versionId,
-          filesRevision: repairedRevision,
-          result: readiness,
-          at: "after_repair",
-        });
-        return false;
+        if (readiness.reason === "integration_migration_required") {
+          const holdResult = await holdVersionForIntegrationMigration(
+            versionId,
+            {
+              verificationState: "repairing",
+              filesRevision: baseFilesRevision,
+              filesJson: baseFilesJson,
+              editKind: baseEditKind,
+              orchestrationSnapshot: f3Readiness.orchestrationSnapshot,
+            },
+            runId,
+          );
+          integrationMigrationHoldApplied = holdResult === "applied";
+          integrationMigrationStop = holdResult ?? "unavailable";
+          if (holdResult === "applied") {
+            await persistF3ReadinessHold({
+              chatId,
+              versionId,
+              filesRevision: baseFilesRevision,
+              result: readiness,
+              at: "after_repair",
+            });
+          }
+          if (holdResult === "cas_miss") {
+            const current = await getVersionFilesSnapshot(versionId).catch(() => null);
+            const currentIsHold = Boolean(
+              current &&
+                isCurrentIntegrationMigrationHold({
+                  release_state: current.releaseState,
+                  verification_state: current.verificationState,
+                  verification_summary: current.verificationSummary,
+                  files_revision: current.filesRevision,
+                }),
+            );
+            if (
+              current &&
+              current.files.length > 0 &&
+              !currentIsHold &&
+              isNonTerminalVerificationState(current.verificationState)
+            ) {
+              if (contextRetryUsed) {
+                if (
+                  current.verificationState === "verifying" ||
+                  current.verificationState === "repairing"
+                ) {
+                  await resetVersionVerificationToPending(
+                    versionId,
+                    "Provider decision context changed after repair; retry the current version.",
+                    runId,
+                    {
+                      expected: {
+                        filesJson: current.filesJson,
+                        filesRevision: current.filesRevision,
+                        editKind: current.editKind,
+                        verificationState: current.verificationState,
+                        releaseState: "draft",
+                        verificationSummary: current.verificationSummary,
+                      },
+                      preserveRepairPayload: current.verificationState === "repairing",
+                    },
+                  );
+                }
+              } else {
+                reverifyCurrent = true;
+              }
+            } else {
+              integrationMigrationStop = "unavailable";
+            }
+          }
+          return {
+            promoted: false,
+            stop: true,
+            payload: {
+              reason: "integration_migration_required",
+              holdResult,
+            },
+          };
+        } else {
+          await persistF3ReadinessHold({
+            chatId,
+            versionId,
+            filesRevision: repairedRevision,
+            result: readiness,
+            at: "after_repair",
+          });
+        }
+        return { promoted: false };
       }
     }
     if (
@@ -334,11 +483,14 @@ export async function tryServerRepairLoop(params: {
       ]).catch((err) => {
         console.warn("[server-verify] Failed to persist stillMissing protected-path log:", err);
       });
-      return false;
+      return { promoted: false };
     }
     const exportableForGate = await buildExportableProject(repairedFiles, {
       verbatimRepo: repairVerbatimRepo,
     });
+    const verifyDeadlineEpochMs = repairDeadlineEpochMs === undefined ? options?.verifyDeadlineEpochMs
+      : Math.min(repairDeadlineEpochMs, options?.verifyDeadlineEpochMs ?? Infinity);
+    checkRepairDeadline(verifyDeadlineEpochMs);
     const decision = await withRepairPhaseSignal(
       { chatId, versionId, phase: "preview_verify" },
       () =>
@@ -356,7 +508,7 @@ export async function tryServerRepairLoop(params: {
             buildOriginated,
             previewPolicy,
           }),
-          verifyDeadlineEpochMs: options?.verifyDeadlineEpochMs,
+          verifyDeadlineEpochMs,
         }),
     );
     const visualQA = maybeAnalyzeVisualQAForPassedExportable({
@@ -370,7 +522,7 @@ export async function tryServerRepairLoop(params: {
     const postRepairLintAdvisories = collectLintAdvisories(decision.results);
     let promoted = false;
     if (decision.promote) {
-      if (!(await isLatestVersionForChat(chatId, versionId))) {
+      if (!(await isRepairTargetHead(chatId, versionId))) {
         await markVersionSupersededByRepair(versionId, null, runId).catch(() => null);
         await createEngineVersionErrorLogs([
           {
@@ -385,7 +537,7 @@ export async function tryServerRepairLoop(params: {
             },
           },
         ]).catch(() => null);
-        return false;
+        return { promoted: false };
       }
       const filesJson = JSON.stringify(repairedFiles);
       const msg =
@@ -396,7 +548,7 @@ export async function tryServerRepairLoop(params: {
       // past the TTL. Renew re-extends it while we still own it (run_id +
       // status='running'); if another run took over, saveRepairedFiles's
       // lease-conditioned write no-ops, so we never clobber a newer repair.
-      if (runId) await renewVersionLease(versionId, runId).catch(() => {});
+      await renewHeldLease();
       const saveResult = await saveRepairedFiles(
         versionId,
         filesJson,
@@ -474,7 +626,7 @@ export async function tryServerRepairLoop(params: {
     ]).catch((err) => {
       console.warn("[server-verify] Failed to persist post-repair quality gate log:", err);
     });
-    return promoted;
+    return { promoted };
   }
 
   const originatingChat = await getChat(chatId).catch(() => null);
@@ -510,7 +662,7 @@ export async function tryServerRepairLoop(params: {
   let supersededKind: "newer_version" | "files_advanced" | null = null;
   const shouldAbortSuperseded = async (): Promise<boolean> => {
     if (supersededKind) return true;
-    if (!(await isLatestVersionForChat(chatId, versionId))) {
+    if (!(await isRepairTargetHead(chatId, versionId))) {
       supersededKind = "newer_version";
       return true;
     }
@@ -522,7 +674,9 @@ export async function tryServerRepairLoop(params: {
     return false;
   };
 
-  const loopResult = await runRepairLoop({
+  let loopResult: Awaited<ReturnType<typeof runRepairLoop<{ reason: string; holdResult: string | null }>>>;
+  try {
+  loopResult = await runRepairLoop({
     initialContent,
     chatId,
     previewPolicy,
@@ -531,8 +685,9 @@ export async function tryServerRepairLoop(params: {
     contextLines: repairLogContext.contextLines,
     // Global budget (manifest `repairPolicies.serverRepairPasses`, default 2).
     maxLlmPasses: SERVER_REPAIR_MAX_PASSES,
-    llmTimeoutMs: LLM_FIXER_TIMEOUT_MS,
-    llmRetryTimeoutMs: LLM_FIXER_RETRY_TIMEOUT_MS,
+    // Resolve remaining time at each attempt, including an intra-pass retry.
+    get llmTimeoutMs() { return boundedLlmTimeout(LLM_FIXER_TIMEOUT_MS); },
+    get llmRetryTimeoutMs() { return boundedLlmTimeout(LLM_FIXER_RETRY_TIMEOUT_MS); },
     // A3: bunden till anroparens route-maxDuration för synkron deploy-repair;
     // undefined för bakgrundskörning (obundet, dagens beteende).
     repairDeadlineEpochMs,
@@ -545,8 +700,9 @@ export async function tryServerRepairLoop(params: {
     repairLedger,
     repairScopeId,
     shouldAbortSuperseded,
+    serverRepairBudget,
     onBeforePass: async () => {
-      if (runId) await renewVersionLease(versionId, runId).catch(() => {});
+      await renewHeldLease();
     },
     onPhaseSignal: (event) =>
       recordRepairPhaseSignal({
@@ -559,10 +715,28 @@ export async function tryServerRepairLoop(params: {
         finishedAt: event.finishedAt,
         passIndex: event.passIndex,
       }),
-    onAttemptPromotion: async (projectContent, method, options) => ({
-      promoted: await tryPromoteAfterGate(projectContent, method, options),
-    }),
+    onAttemptPromotion: tryPromoteAfterGate,
   });
+  } catch (error) {
+    if (!(error instanceof RepairLeaseLost) && !(error instanceof RepairDeadlineExceeded)) throw error;
+    return { stop: { reason: error instanceof RepairDeadlineExceeded ? "time_budget_exceeded" : "lease_lost", retryable: true }, reverifyCurrent: false,
+      contextCasMiss: false, buildOriginated, integrationMigrationHoldApplied: false };
+  }
+
+  if (!loopResult.promoted && !loopResult.stopped && repairDeadlineEpochMs !== undefined &&
+      (Date.now() >= repairDeadlineEpochMs || loopResult.earlyStopReason === "time_budget_exceeded")) {
+    return { stop: { reason: "time_budget_exceeded", retryable: true }, reverifyCurrent: false,
+      contextCasMiss: false, buildOriginated, integrationMigrationHoldApplied: false };
+  }
+  if (loopResult.stopped) {
+    return {
+      reverifyCurrent,
+      contextCasMiss: reverifyCurrent,
+      buildOriginated,
+      integrationMigrationHoldApplied,
+      integrationMigrationStop,
+    };
+  }
 
   if (loopResult.promoted) {
     logRepairOutcome(
@@ -577,7 +751,12 @@ export async function tryServerRepairLoop(params: {
       fixerModel,
       loopResult.errorManifest,
     );
-    return { supersededByUserEdit: false, buildOriginated };
+    return {
+      reverifyCurrent: false,
+      contextCasMiss: false,
+      buildOriginated,
+      integrationMigrationHoldApplied: false,
+    };
   }
 
   // Fas 3 (base-aware tidig abort): the loop stopped because the version got
@@ -614,7 +793,12 @@ export async function tryServerRepairLoop(params: {
         fixerModel,
         loopResult.errorManifest,
       );
-      return { supersededByUserEdit: false, buildOriginated };
+      return {
+        reverifyCurrent: false,
+        contextCasMiss: false,
+        buildOriginated,
+        integrationMigrationHoldApplied: false,
+      };
     }
     staleBaseNoOp = true;
   }
@@ -655,7 +839,12 @@ export async function tryServerRepairLoop(params: {
       fixerModel,
       loopResult.errorManifest,
     );
-    return { supersededByUserEdit: false, buildOriginated };
+    return {
+      reverifyCurrent: false,
+      contextCasMiss: false,
+      buildOriginated,
+      integrationMigrationHoldApplied: false,
+    };
   }
 
   if (finalizeAction === "skip_stale_base") {
@@ -688,7 +877,12 @@ export async function tryServerRepairLoop(params: {
       fixerModel,
       loopResult.errorManifest,
     );
-    return { supersededByUserEdit: true, buildOriginated };
+    return {
+      reverifyCurrent: true,
+      contextCasMiss: false,
+      buildOriginated,
+      integrationMigrationHoldApplied: false,
+    };
   }
 
   if (finalizeAction === "fail_syntax_clean") {
@@ -713,7 +907,12 @@ export async function tryServerRepairLoop(params: {
       loopResult.errorManifest,
       { remainingErrorsSource: "esbuild_syntax", syntaxCleanGateFailed: true },
     );
-    return { supersededByUserEdit: false, buildOriginated };
+    return {
+      reverifyCurrent: false,
+      contextCasMiss: false,
+      buildOriginated,
+      integrationMigrationHoldApplied: false,
+    };
   }
 
   const incompleteSummary =
@@ -734,7 +933,12 @@ export async function tryServerRepairLoop(params: {
     loopResult.errorManifest,
     { remainingErrorsSource: "esbuild_syntax", syntaxCleanGateFailed: false },
   );
-  return { supersededByUserEdit: false, buildOriginated };
+  return {
+    reverifyCurrent: false,
+    contextCasMiss: false,
+    buildOriginated,
+    integrationMigrationHoldApplied: false,
+  };
 }
 
 function logRepairOutcome(

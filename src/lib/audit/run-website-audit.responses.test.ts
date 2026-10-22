@@ -1,10 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { APIConnectionError, APIUserAbortError } from "openai";
-import { resolveAuditRun } from "@/lib/audit/audit-tier";
+import { AUDIT_ADVANCED_ONLY_FIELDS, resolveAuditRun } from "@/lib/audit/audit-tier";
 
 const responsesCreate = vi.hoisted(() => vi.fn());
 const openAIConstructor = vi.hoisted(() => vi.fn());
 const scrapeWebsite = vi.hoisted(() => vi.fn());
+// Explicit historical fixture for fallback/usage mechanics, never product defaults.
+const fallbackFixture = vi.hoisted(() => ({
+  enabled: false,
+  models: ["openai/gpt-6-luna", "openai/gpt-5.6-luna"],
+}));
+
+vi.mock("@/lib/audit/audit-tier", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/audit/audit-tier")>();
+  return {
+    ...actual,
+    resolveAuditRun(input: Parameters<typeof actual.resolveAuditRun>[0]) {
+      const resolved = actual.resolveAuditRun(input);
+      return fallbackFixture.enabled && resolved.workloadId === "audit_structured_public"
+        ? { ...resolved, primaryModel: fallbackFixture.models[0], modelCandidates: fallbackFixture.models }
+        : resolved;
+    },
+  };
+});
 
 vi.mock("openai", async (importOriginal) => {
   const actual = await importOriginal<typeof import("openai")>();
@@ -28,13 +46,6 @@ vi.mock("@/lib/config", () => ({
   FEATURES: { useResponsesApi: true },
   SECRETS: { openaiApiKey: "test-key" },
 }));
-vi.mock("@/lib/audit-prompts", () => ({
-  buildAuditPrompt: () => [{ role: "user", content: [{ text: "Audit this site" }] }],
-  buildPublicAnalysPrompt: () => [{ role: "user", content: [{ text: "Audit this site" }] }],
-  extractFirstJsonObject: vi.fn(),
-  parseJsonWithRepair: vi.fn(),
-}));
-
 const { runWebsiteAudit } = await import("./run-website-audit");
 
 const websiteContent = {
@@ -93,6 +104,7 @@ function runPublic(requestStartTime = Date.now()) {
 }
 
 beforeEach(() => {
+  fallbackFixture.enabled = false;
   vi.restoreAllMocks();
   vi.useRealTimers();
   responsesCreate.mockReset();
@@ -106,6 +118,57 @@ beforeEach(() => {
 });
 
 describe("runWebsiteAudit Responses fallback", () => {
+  it.each([
+    { promptKind: "product", auditMode: "basic" },
+    { promptKind: "product", auditMode: "advanced" },
+    { promptKind: "public", auditMode: "basic" },
+    { promptKind: "public", auditMode: "advanced" },
+  ] as const)("applies the resolved $promptKind/$auditMode tier through the real pipeline", async (input) => {
+    const tier = resolveAuditRun(input);
+    const advancedFields = {
+      business_profile: { industry: "Design" },
+      market_context: { primary_geography: "Sweden" },
+      customer_segments: { primary_segment: "Small businesses" },
+      competitive_landscape: { positioning: "Local specialist" },
+      competitor_insights: { industry_standards: "Accessible websites" },
+    };
+    responsesCreate.mockResolvedValueOnce(successfulResponse({
+      outputText: JSON.stringify({ company: "Example", ...advancedFields }),
+    }));
+
+    const result = await runWebsiteAudit({
+      ...input,
+      normalizedUrl: "https://example.com/",
+      requestId: "tier-behavior",
+      requestStartTime: Date.now(),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected a successful audit");
+    expect(scrapeWebsite).toHaveBeenCalledWith("https://example.com/", { maxPages: tier.maxPages });
+    expect(responsesCreate).toHaveBeenCalledTimes(1);
+    const request = responsesCreate.mock.calls[0][0];
+    expect(request.model).toBe(tier.modelCandidates[0].replace(/^openai\//, ""));
+    expect(request.text.format.schema).toEqual(tier.schema);
+    expect(request.tools).toEqual(tier.allowWebSearch
+      ? [{ type: "web_search_preview", search_context_size: "low" }]
+      : undefined);
+    expect(request.input[0].content).toContain(websiteContent.description);
+    expect(result.result.audit_mode).toBe(tier.mode);
+    expect(result.result.company).toBe("Example");
+    for (const field of AUDIT_ADVANCED_ONLY_FIELDS) {
+      if (tier.schemaKind === "core") expect(result.result).not.toHaveProperty(field);
+      else expect(result.result[field]).toEqual(advancedFields[field]);
+    }
+    const costLine = vi.mocked(console.info).mock.calls
+      .map(([message]) => String(message))
+      .find((message) => message.includes("Audit cost summary:"));
+    expect(costLine).toContain(`mode=${tier.mode}`);
+    expect(costLine).toContain(`pages=${tier.maxPages}`);
+    expect(costLine).toContain(`web_search=${tier.allowWebSearch}`);
+    expect(costLine).toContain(`model=${result.usedModel}`);
+  });
+
   it("uses SDK retries zero and the manifest primary model with a bounded request timeout", async () => {
     const result = await runPublic();
     const candidates = resolveAuditRun({
@@ -146,7 +209,35 @@ describe("runWebsiteAudit Responses fallback", () => {
     expect(responsesCreate).not.toHaveBeenCalled();
   });
 
-  it("falls back across exactly the two manifest candidates for a transient error", async () => {
+  it("real public policy sends only Sol medium", async () => {
+    expect(resolveAuditRun({ promptKind: "public", auditMode: "basic" }).modelCandidates)
+      .toEqual(["openai/gpt-6.1-sol"]);
+    expect((await runPublic()).ok).toBe(true);
+    expect(responsesCreate).toHaveBeenCalledTimes(1);
+    expect(responsesCreate.mock.calls[0][0]).toMatchObject({
+      model: "gpt-6.1-sol", reasoning: { effort: "medium" },
+    });
+  });
+
+  it.each(["transient provider error", "empty completed output"])(
+    "real public Sol-only policy does not add a model for %s",
+    async (failure) => {
+      if (failure === "transient provider error") {
+        responsesCreate.mockRejectedValueOnce(Object.assign(new Error("rate limited"), { status: 429 }));
+      } else {
+        responsesCreate.mockResolvedValueOnce(successfulResponse({ outputText: "" }));
+      }
+      responsesCreate.mockResolvedValueOnce(successfulResponse());
+      expect(await runPublic()).toMatchObject({ ok: false, status: 502 });
+      expect(responsesCreate).toHaveBeenCalledTimes(1);
+      expect(responsesCreate.mock.calls[0][0].model).toBe("gpt-6.1-sol");
+    },
+  );
+
+  describe("explicit historical two-candidate fixture, not public defaults", () => {
+  beforeEach(() => { fallbackFixture.enabled = true; });
+
+  it("falls back across exactly the two declared fixture candidates for a transient error", async () => {
     responsesCreate
       .mockRejectedValueOnce(Object.assign(new Error("rate limited"), { status: 429 }))
       .mockResolvedValueOnce(successfulResponse());
@@ -377,7 +468,9 @@ describe("runWebsiteAudit Responses fallback", () => {
     if (!result.ok) throw new Error("expected success");
 
     expect(result.usedModel).toBe(candidates[1]);
-    expect(result.result.cost).toEqual({ tokens: 450, usd: 0.0015, sek: 0.02 });
+    // GPT-6 Luna (100 in / 50 out) + GPT-5.6 Luna (200 in / 100 out) at the
+    // shared pricing.json rates: $0.000035 + $0.00016.
+    expect(result.result.cost).toEqual({ tokens: 450, usd: 0.0002, sek: 0 });
     expect(result.result.scrape_summary?.web_search_calls).toBe(3);
     expect(responsesCreate).toHaveBeenCalledTimes(2);
   });
@@ -465,5 +558,6 @@ describe("runWebsiteAudit Responses fallback", () => {
     const result = await runPublic();
     expect(result).toEqual(expect.objectContaining({ ok: true, usedFallback: true }));
     expect(responsesCreate).toHaveBeenCalledTimes(1);
+  });
   });
 });

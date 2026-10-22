@@ -4,6 +4,11 @@ import OpenAI from "openai";
 import { FEATURES, SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rate-limit";
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
+import { workloadResponsesReasoning } from "@/lib/ai-models/workload-reasoning";
+
+export const maxDuration = 45;
+const REQUEST_TIMEOUT_MS = 30_000;
+const MAX_OUTPUT_TOKENS = 8_192;
 
 /**
  * Text Analysis API
@@ -24,7 +29,9 @@ interface TextSuggestion {
   prompt: string;
 }
 
-const ANALYSIS_MODEL = getWorkloadDefaultModelFromManifest("text_analyze") ?? "gpt-5-nano";
+const TEXT_ANALYZE_WORKLOAD_ID = "text_analyze";
+const ANALYSIS_MODEL =
+  getWorkloadDefaultModelFromManifest(TEXT_ANALYZE_WORKLOAD_ID) ?? "gpt-6.1-sol";
 
 const TEXT_ANALYZE_SCHEMA = {
   type: "object" as const,
@@ -125,6 +132,8 @@ ${truncatedContent}`;
 
       const response = await openai.responses.create({
         model: ANALYSIS_MODEL,
+        max_output_tokens: MAX_OUTPUT_TOKENS,
+        ...workloadResponsesReasoning(TEXT_ANALYZE_WORKLOAD_ID, ANALYSIS_MODEL),
         instructions,
         input: inputText,
         text: {
@@ -136,7 +145,7 @@ ${truncatedContent}`;
           },
         },
         store: false,
-      });
+      }, { signal: request.signal, timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 });
 
       const parsed: { summary: string; suggestions: TextSuggestion[] } = JSON.parse(
         response.output_text,
@@ -165,6 +174,8 @@ ${truncatedContent}`;
 
     const response = await fallbackClient.client.responses.create({
       model: fallbackClient.modelId,
+      max_output_tokens: MAX_OUTPUT_TOKENS,
+      ...workloadResponsesReasoning(TEXT_ANALYZE_WORKLOAD_ID, fallbackClient.modelId),
       instructions,
       input: `${inputText}
 
@@ -181,7 +192,7 @@ Svara ENDAST med giltig JSON i detta format:
   ]
 }`,
       store: false,
-    });
+    }, { signal: request.signal, timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 });
 
     let responseText = response.output_text || "";
 
@@ -346,3 +357,4 @@ function getDefaultSuggestions(content: string, contentType: string): TextSugges
     },
   ];
 }
+

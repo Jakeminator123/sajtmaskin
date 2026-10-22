@@ -115,6 +115,7 @@ describe("POST /api/kostnadsfri", () => {
     getKostnadsfriPageBySlug.mockResolvedValueOnce(pageRow());
     markKostnadsfriPageSent.mockResolvedValueOnce(
       pageRow({
+        industry: "Snickeri/Inredning",
         sent_at: new Date("2026-09-14T08:30:00.000Z"),
         source: "python-utskick",
         contact_email: "hej@acme.se",
@@ -124,6 +125,7 @@ describe("POST /api/kostnadsfri", () => {
     const res = await POST(
       postRequest({
         companyName: "Acme AB",
+        industry: "Snickeri/Inredning",
         contactEmail: "hej@acme.se",
         sentAt: "2026-09-14T10:30:00+02:00",
         source: "python-utskick",
@@ -135,6 +137,7 @@ describe("POST /api/kostnadsfri", () => {
     expect(markKostnadsfriPageSent).toHaveBeenCalledWith("acme-ab", {
       sentAt: new Date("2026-09-14T08:30:00.000Z"),
       source: "python-utskick",
+      industry: "Snickeri/Inredning",
       contactEmail: "hej@acme.se",
     });
     expect(createKostnadsfriPage).not.toHaveBeenCalled();
@@ -173,6 +176,7 @@ describe("POST /api/kostnadsfri", () => {
     expect(markKostnadsfriPageSent).toHaveBeenCalledWith("acme-ab", {
       sentAt: new Date("2026-09-14T08:30:00.000Z"),
       source: "python-utskick",
+      industry: undefined,
       contactEmail: undefined,
     });
     expect(createKostnadsfriPage).not.toHaveBeenCalled();
@@ -200,6 +204,7 @@ describe("POST /api/kostnadsfri", () => {
       pageRow({
         slug: data.slug,
         company_name: data.companyName,
+        industry: data.industry,
         sent_at: data.sentAt,
         source: data.source,
       }),
@@ -208,6 +213,7 @@ describe("POST /api/kostnadsfri", () => {
     const res = await POST(
       postRequest({
         companyName: "Acme AB",
+        industry: "IT – AI/Data",
         sentAt: "2026-09-14T08:30:00.000Z",
         source: "python-utskick",
       }),
@@ -218,6 +224,7 @@ describe("POST /api/kostnadsfri", () => {
     expect(createKostnadsfriPage).toHaveBeenCalledWith(
       expect.objectContaining({
         slug: "acme-ab",
+        industry: "IT – AI/Data",
         sentAt: new Date("2026-09-14T08:30:00.000Z"),
         source: "python-utskick",
       }),
@@ -262,6 +269,7 @@ describe("POST /api/kostnadsfri", () => {
     const res = await POST(
       postRequest({
         companyName: "Acme AB",
+        industry: "IT – Webb/Utveckling",
         contactEmail: "hej@acme.se",
         sentAt: "2026-10-03T08:30:00.000Z",
         source: "render-mail-flow:animated",
@@ -288,7 +296,10 @@ describe("POST /api/kostnadsfri", () => {
         variant: "animated",
       }),
       // A follow-up never touches the cohort but still carries contact data.
-      { firstSend: undefined, metadata: { contactEmail: "hej@acme.se" } },
+      {
+        firstSend: undefined,
+        metadata: { industry: "IT – Webb/Utveckling", contactEmail: "hej@acme.se" },
+      },
     );
     expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
     expect(body.mailEvent).toEqual({ messageId: "a".repeat(32), status: "duplicate" });
@@ -393,6 +404,7 @@ describe("POST /api/kostnadsfri", () => {
     const res = await POST(
       postRequest({
         companyName: "Acme AB",
+        industry: "IT – AI/Data",
         sentAt: "2026-10-03T08:30:00.000Z",
         source: "render-mail-flow:text",
         mailEvent: {
@@ -410,7 +422,11 @@ describe("POST /api/kostnadsfri", () => {
 
     expect(res.status).toBe(409);
     expect(createKostnadsfriPageWithMailEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ slug: "acme-ab", source: "render-mail-flow:text" }),
+      expect.objectContaining({
+        slug: "acme-ab",
+        industry: "IT – AI/Data",
+        source: "render-mail-flow:text",
+      }),
       expect.objectContaining({ messageId: "d".repeat(32), step: "first" }),
     );
     // The non-transactional create is never used when a mailEvent is present.
@@ -429,6 +445,7 @@ describe("POST /api/kostnadsfri", () => {
     const res = await POST(
       postRequest({
         companyName: "Acme AB",
+        industry: "IT – AI/Data",
         sentAt: "2026-10-03T08:30:00.000Z",
         source: "render-mail-flow:text",
         mailEvent: {
@@ -497,6 +514,7 @@ describe("POST /api/kostnadsfri", () => {
     const res = await POST(
       postRequest({
         companyName: "Acme AB",
+        industry: "IT – AI/Data",
         sentAt: "2026-10-03T08:30:00.000Z",
         source: "render-mail-flow:text",
         mailEvent: {
@@ -520,7 +538,7 @@ describe("POST /api/kostnadsfri", () => {
           sentAt: new Date("2026-10-03T08:30:00.000Z"),
           source: "render-mail-flow:text",
         }),
-        metadata: { contactEmail: undefined },
+        metadata: { industry: "IT – AI/Data", contactEmail: undefined },
       },
     );
     // The unconditional, unlocked compatibility update is never used here.
@@ -538,6 +556,7 @@ describe("POST /api/kostnadsfri", () => {
     const res = await POST(
       postRequest({
         companyName: "Acme AB",
+        industry: "Snickeri/Inredning",
         sentAt: "2026-10-03T08:30:00.000Z",
         source: "render-mail-flow:text",
         mailEvent: {
@@ -554,6 +573,12 @@ describe("POST /api/kostnadsfri", () => {
     );
 
     expect(res.status).toBe(409);
+    expect(recordKostnadsfriMailEventForSubscribedPage).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        metadata: expect.objectContaining({ industry: "Snickeri/Inredning" }),
+      }),
+    );
     expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
   });
 
@@ -568,6 +593,7 @@ describe("POST /api/kostnadsfri", () => {
     const res = await POST(
       postRequest({
         companyName: "Acme AB",
+        industry: "Snickeri/Inredning",
         mailEvent: {
           messageId: "e".repeat(32),
           flowId: "flow_1",

@@ -38,10 +38,18 @@ function providerErrorPayload(
   };
 }
 
+type StreamUsageLike = {
+  inputTokens: number | undefined;
+  outputTokens: number | undefined;
+};
+
 /**
  * Structural type covering the subset of a `streamText()` result
  * that the SSE formatter needs.  Using structural typing avoids
  * coupling to the exact generic signature of `StreamTextResult<TOOLS>`.
+ *
+ * `usage` is the last step. `totalUsage`, when the SDK provides it, is the
+ * aggregate across every step and is the telemetry source.
  */
 interface StreamTextLike {
   fullStream: AsyncIterable<{
@@ -59,7 +67,12 @@ interface StreamTextLike {
     inputTextDelta?: string;
     finishReason?: string | null;
   }>;
-  usage: PromiseLike<{ inputTokens: number | undefined; outputTokens: number | undefined }>;
+  usage: PromiseLike<StreamUsageLike>;
+  totalUsage?: PromiseLike<StreamUsageLike>;
+}
+
+function aggregateUsage(result: StreamTextLike): PromiseLike<StreamUsageLike> {
+  return result.totalUsage != null ? result.totalUsage : result.usage;
 }
 
 function resolveStreamText(part: { text?: string; textDelta?: string }): string | undefined {
@@ -276,6 +289,22 @@ export interface CreateCodeGenSSEStreamOptions {
    */
   usageModelId?: string;
   /**
+   * Snapshot taken from the engine call that produced this stream.
+   * Recorded on the single llm_usage row; absent for legacy callers.
+   */
+  usageMeta?: {
+    requestedModelId: string | null;
+    resolvedModelId: string;
+    requestedReasoningEffort: string | null;
+    effectiveReasoningEffort: string | null;
+    reasoningClampReason:
+      | "thinking_disabled_minimum"
+      | "model_capability_clamp"
+      | "provider_effort_mapping"
+      | "default_effort"
+      | null;
+  } | null;
+  /**
    * Invoked when the stream finishes (success, abort, or error) with
    * the concatenated reasoning/`thinking-delta` text observed during the
    * run, or `null` if no reasoning deltas were seen. Callers use this
@@ -290,7 +319,8 @@ export function createCodeGenSSEStream(
   options: CreateCodeGenSSEStreamOptions = {},
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
-  const { thinking = false, meta, onAccumulatedThinking, usagePhase, usageModelId } = options;
+  const { thinking = false, meta, onAccumulatedThinking, usagePhase, usageModelId, usageMeta } =
+    options;
   const stripLeadingThinkingLeak = createLeadingThinkingLeakFilter(!thinking);
 
   return new ReadableStream({
@@ -318,7 +348,7 @@ export function createCodeGenSSEStream(
         codegenUsageRecorded = true;
         let usage = knownUsage;
         if (usage === undefined) {
-          usage = await Promise.resolve(result.usage).catch(() => null);
+          usage = await Promise.resolve(aggregateUsage(result)).catch(() => null);
         }
         recordLlmUsage({
           phase: usagePhase ?? "codegen",
@@ -330,6 +360,7 @@ export function createCodeGenSSEStream(
           errorCode,
           chatId: typeof meta?.chatId === "string" ? meta.chatId : null,
           versionId: typeof meta?.versionId === "string" ? meta.versionId : null,
+          ...(usageMeta ? { meta: usageMeta } : {}),
         });
       };
       const eventCounts = new Map<string, number>();
@@ -349,6 +380,7 @@ export function createCodeGenSSEStream(
       let sawContentEvent = false;
       let abortedByProvider = false;
       let truncatedByLength = false;
+      let finishedCleanly = false;
       /**
        * Sant så snart strömmen sagt VARFÖR den föll. Klienten behåller bara
        * det sista error-eventet, så en generisk rad efteråt raderar diagnosen.
@@ -462,13 +494,7 @@ export function createCodeGenSSEStream(
         return true;
       };
 
-      const summarizeStream = (
-        phase: "done" | "error",
-        usage?: {
-          inputTokens: number | undefined;
-          outputTokens: number | undefined;
-        },
-      ) => {
+      const summarizeStream = (phase: "done" | "error", usage?: StreamUsageLike) => {
         const streamEndedAt = Date.now();
         const streamTiming = computeStreamPhaseTiming({
           streamStartedAt,
@@ -530,6 +556,10 @@ export function createCodeGenSSEStream(
               ensureGenerationStarted();
               if (part.finishReason === "length") {
                 truncatedByLength = true;
+              }
+              if (part.type === "finish") {
+                finishedCleanly =
+                  part.finishReason === "stop" || part.finishReason === "tool-calls";
               }
               break;
             }
@@ -799,7 +829,20 @@ export function createCodeGenSSEStream(
           }
         }
 
-        const usage = await result.usage;
+        if (sawContentEvent && (abortedByProvider || (providerErrorEmitted && !finishedCleanly))) {
+          // No `done`, like the truncation path: the caller's no-done fallback
+          // stores partial output as failed verification instead of a normal
+          // version. A provider error followed by a clean finish still ends
+          // as designed and keeps `done`. Without content there is nothing to
+          // recover, and `done` must still reach the caller's empty-generation
+          // handling, which persists the F3 continuation marker.
+          await recordCodegenUsage("provider_stream_error");
+          summarizeStream("error");
+          reportAccumulatedThinking();
+          return;
+        }
+
+        const usage = await aggregateUsage(result);
         const streamTiming = summarizeStream("done", usage);
         await recordCodegenUsage(null, usage, streamTiming.durationMs);
         devLogAppend("in-progress", {

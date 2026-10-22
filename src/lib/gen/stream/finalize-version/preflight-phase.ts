@@ -1,8 +1,7 @@
 /**
  * Parse + merge + preflight phase for `runFinalizeFastPath`. Handles:
  *
- *  - CodeProject → files JSON parsing (via `parseFilesFromContent`)
- *  - `mergeGeneratedProjectFiles` against scaffold/previous
+ *  - `prepareGeneratedProjectCandidate` against scaffold/previous
  *  - OMTAG 1·05 scaffold-default block (missing emitted essentials)
  *  - `injectIntegrationManifestIntoFilesJson` + project env injection
  *  - `runFinalizePreflight`
@@ -19,14 +18,15 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
-import type { CodeFile } from "@/lib/gen/parser";
+import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
+import { isEnvArtifactPath } from "@/lib/integrations/stub-env-filter";
+import { mergeVersionFilesWithWarnings } from "@/lib/gen/version-file-merge";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import type { ScaffoldRetrySuggestion } from "@/lib/gen/scaffolds/scaffold-aware-retry";
 import { inferScaffoldRetrySuggestion } from "@/lib/gen/scaffolds/scaffold-aware-retry";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import type { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
-import { parseFilesFromContent } from "@/lib/gen/version-manager";
 import { warnLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
@@ -35,7 +35,15 @@ import {
   injectProjectEnvFileIntoFilesJson,
   resolveDossierEnvScopeForFinalize,
 } from "@/lib/gen/preview/project-env-file";
-import { mergeGeneratedProjectFiles } from "../finalize-merge";
+import {
+  prepareGeneratedProjectCandidate,
+  serializeProjectCandidateForVerifier,
+  updateEmittedFilesAfterRepair,
+} from "../finalize-merge";
+import {
+  assertPreservedDossierVerbatimFiles,
+  capturePreservedDossierVerbatimSnapshot,
+} from "@/lib/gen/dossiers/verbatim-policy";
 import {
   runFinalizePreflight,
   type FinalizePreflightIssue,
@@ -74,6 +82,10 @@ function buildThreeDStubIssues(
 
 export interface PreflightPhaseResult {
   contentForVersion: string;
+  emittedFiles: CodeFile[];
+  importedRepoMode: boolean;
+  /** Earlier raw-output risk evidence cannot authorize a skip after candidate changes. */
+  candidateChangedByPreflight: boolean;
   filesJson: string;
   preflightResult: FinalizePreflightResult;
   preflightIssues: FinalizePreflightIssue[];
@@ -124,6 +136,8 @@ export async function runPreflightPhase(params: {
   /** Keys from that same base row. When set, skip any version re-read. */
   previousSelectedDossierEnvKeys?: string[];
   contentForVersion: string;
+  /** Source emissions remain separate when semantic repairs return a complete project. */
+  emittedFiles?: CodeFile[];
   onProgress?: FinalizeProgressCallback;
   /**
    * Dossiers vars verbatim-filer ska skyddas mot LLM-omskrivning i merge.
@@ -131,6 +145,8 @@ export async function runPreflightPhase(params: {
    * Om tom: verbatim-policy körs men hittar inga dossiers att skydda.
    */
   selectedDossiers?: DossierEntry[];
+  /** Existing proven dossiers whose previous verbatim bytes stay frozen. */
+  preservedDossiers?: DossierEntry[];
   /** Dossiers explicitly removed by this follow-up. */
   removedDossiers?: DossierEntry[];
   repairLedger?: RepairLedger;
@@ -157,36 +173,32 @@ export async function runPreflightPhase(params: {
     previousSelectedDossierEnvKeys,
     onProgress,
     selectedDossiers,
+    preservedDossiers,
     removedDossiers,
     repairLedger,
     repairScopeId,
     importedRepoModeHint,
   } = params;
   let contentForVersion = params.contentForVersion;
+  let emittedFiles = params.emittedFiles ?? parseCodeProject(contentForVersion).files;
 
   const parseMergePreflightStartedAt = Date.now();
   onProgress?.("parse_merge_preflight", { phase: "start" });
 
-  let filesJson = parseFilesFromContent(contentForVersion);
-  const generatedFiles = (
-    JSON.parse(filesJson) as Array<{
-      path: string;
-      content: string;
-      language?: string;
-    }>
-  ).map((f) => ({ ...f, language: f.language || "tsx" }));
-
-  const mergeResult = mergeGeneratedProjectFiles({
+  const mergeResult = prepareGeneratedProjectCandidate({
     chatId,
-    originalFilesJson: filesJson,
-    generatedFiles,
+    contentForVersion,
+    emittedFiles,
     resolvedScaffold,
     previousFiles,
     selectedDossiers,
+    preservedDossiers,
     removedDossiers,
     routePlan,
   });
-  filesJson = mergeResult.filesJson;
+  let filesJson = mergeResult.filesJson;
+  const inputCandidateForVerification = serializeProjectCandidateForVerifier(parseCodeProject(contentForVersion).files);
+  const generatedFiles = emittedFiles;
   let rejectedShrinks = mergeResult.rejectedShrinks;
   let rejectedStructural = mergeResult.rejectedStructural;
   let crossFileStubs = mergeResult.crossFileStubs;
@@ -295,6 +307,14 @@ export async function runPreflightPhase(params: {
     // being stubbed (prod chat 4d6b5546: imported template's 1.3 MB texture).
     previousFiles,
   });
+  const preservedVerbatim = capturePreservedDossierVerbatimSnapshot({
+    previousFiles: previousFiles ?? [],
+    preservedDossiers: preservedDossiers ?? [],
+  });
+  assertPreservedDossierVerbatimFiles({
+    files: JSON.parse(preflightResult.filesJson) as CodeFile[],
+    snapshot: preservedVerbatim,
+  });
   filesJson = preflightResult.filesJson;
   // OMTAG 1·05: scaffold-default blocking on LLM-only paths surfaces as a
   // hard preflight error so the version is marked verification-blocked
@@ -375,7 +395,7 @@ export async function runPreflightPhase(params: {
     });
 
     const partialRepair = await tryRepairPartialFileOutput({
-      contentForVersion,
+      contentForVersion: serializeProjectCandidateForVerifier(JSON.parse(filesJson) as CodeFile[]),
       chatId,
       resolvedTier,
       partialFileIssues,
@@ -386,23 +406,34 @@ export async function runPreflightPhase(params: {
     const repairedContent = partialRepair.repairedContent;
 
     if (repairedContent) {
-      contentForVersion = repairedContent;
-      filesJson = parseFilesFromContent(contentForVersion);
-      const reGeneratedFiles = (
-        JSON.parse(filesJson) as Array<{ path: string; content: string; language?: string }>
-      ).map((f) => ({ ...f, language: f.language || "tsx" }));
-
-      const remergeResult = mergeGeneratedProjectFiles({
+      const currentFiles = JSON.parse(filesJson) as CodeFile[];
+      // The model sees requirement keys, never persisted values. Its env echo
+      // is not an edit; preserve those bytes while applying only code repairs.
+      const repairedFiles = parseCodeProject(repairedContent).files.filter((file) => !isEnvArtifactPath(file.path));
+      emittedFiles = updateEmittedFilesAfterRepair(
+        emittedFiles,
+        currentFiles,
+        repairedFiles,
+        "llm",
+      );
+      contentForVersion = serializeProjectCandidateForVerifier(emittedFiles);
+      const remergeResult = prepareGeneratedProjectCandidate({
         chatId,
-        originalFilesJson: filesJson,
-        generatedFiles: reGeneratedFiles,
+        contentForVersion: serializeCodeProject(mergeVersionFilesWithWarnings(currentFiles, repairedFiles).files),
+        emittedFiles,
         resolvedScaffold,
         previousFiles,
         selectedDossiers,
+        preservedDossiers,
         removedDossiers,
         routePlan,
       });
-      filesJson = remergeResult.filesJson;
+      // Parsing deliberately excludes dot-env paths. Keep the authoritative
+      // pre-repair artifacts even on init without a previous version fallback.
+      filesJson = JSON.stringify(mergeVersionFilesWithWarnings(
+        JSON.parse(remergeResult.filesJson) as CodeFile[],
+        currentFiles.filter((file) => isEnvArtifactPath(file.path)),
+      ).files);
       // Concat shrink/structural rejections from the remerge so the SSE
       // payload reflects the full picture across both merge passes.
       rejectedShrinks = [...rejectedShrinks, ...remergeResult.rejectedShrinks];
@@ -423,6 +454,10 @@ export async function runPreflightPhase(params: {
         importedRepoMode,
         projectEnvLocalOptions,
         previousFiles,
+      });
+      assertPreservedDossierVerbatimFiles({
+        files: JSON.parse(preflightResult.filesJson) as CodeFile[],
+        snapshot: preservedVerbatim,
       });
       filesJson = preflightResult.filesJson;
       // OMTAG 1·05: re-check LLM-only paths after the partial-file repair
@@ -519,6 +554,11 @@ export async function runPreflightPhase(params: {
     }
   }
 
+  assertPreservedDossierVerbatimFiles({
+    files: JSON.parse(filesJson) as CodeFile[],
+    snapshot: preservedVerbatim,
+  });
+
   const stepTelemetry = createFinalizeStepTelemetry(
     parseMergePreflightStartedAt,
     "done",
@@ -532,6 +572,9 @@ export async function runPreflightPhase(params: {
 
   return {
     contentForVersion,
+    emittedFiles,
+    importedRepoMode,
+    candidateChangedByPreflight: inputCandidateForVerification !== serializeProjectCandidateForVerifier(JSON.parse(filesJson) as CodeFile[]),
     filesJson,
     preflightResult,
     preflightIssues,

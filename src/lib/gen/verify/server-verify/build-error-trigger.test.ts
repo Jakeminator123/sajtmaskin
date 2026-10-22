@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const failVersionVerification = vi.hoisted(() => vi.fn());
 const failVersionVerificationIfUnleased = vi.hoisted(() => vi.fn());
+const resetVersionVerificationToPending = vi.hoisted(() => vi.fn());
 const getRunningVersionLease = vi.hoisted(() => vi.fn());
 const getVersionById = vi.hoisted(() => vi.fn());
 const getVersionFilesSnapshot = vi.hoisted(() => vi.fn());
@@ -18,19 +19,26 @@ const tryServerRepairLoop = vi.hoisted(() => vi.fn());
 const triggerServerVerification = vi.hoisted(() => vi.fn());
 const acquireVerifyLease = vi.hoisted(() => vi.fn());
 const releaseVerifyLease = vi.hoisted(() => vi.fn());
-const isLatestVersionForChat = vi.hoisted(() => vi.fn());
+const isRepairTargetHead = vi.hoisted(() => vi.fn());
 const isServerVerifyEligible = vi.hoisted(() => vi.fn());
 const logQualityGateFailuresBestEffort = vi.hoisted(() => vi.fn());
 const emitBusEvent = vi.hoisted(() => vi.fn());
 const loadServerVerifyF3ReadinessContext = vi.hoisted(() => vi.fn());
 const evaluateServerOwnedF3Readiness = vi.hoisted(() => vi.fn());
 const persistF3ReadinessHold = vi.hoisted(() => vi.fn());
+const holdVersionForIntegrationMigration = vi.hoisted(() => vi.fn());
+const readServerRepairBudget = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/db/services/server-repair-budget", () => ({ readServerRepairBudget }));
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   failVersionVerification,
   failVersionVerificationIfUnleased,
+  resetVersionVerificationToPending,
   getRunningVersionLease,
   getVersionById,
+}));
+vi.mock("@/lib/db/chat-repository/version-lifecycle", () => ({
+  holdVersionForIntegrationMigration,
 }));
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFilesSnapshot }));
 vi.mock("./repair-execution", () => ({ tryServerRepairLoop }));
@@ -40,7 +48,7 @@ vi.mock("./lease", () => ({
   inflight: new Set<string>(),
   acquireVerifyLease,
   releaseVerifyLease,
-  isLatestVersionForChat,
+  isRepairTargetHead,
   isServerVerifyEligible,
 }));
 vi.mock("@/lib/logging/event-bus", () => ({ emit: emitBusEvent }));
@@ -59,7 +67,7 @@ vi.mock("./f3-readiness", () => ({
   }) => filesRevision?.trim() || `md5:${filesJson.length}`,
 }));
 
-import { isAutoRepairBuildErrorEnabled, triggerBuildErrorRepair } from "./build-error-trigger";
+import { isAutoRepairBuildErrorEnabled, triggerBuildErrorRepair, repairBuildErrorUnderLease } from "./build-error-trigger";
 
 const chatId = "chat-be";
 const versionId = "version-be";
@@ -70,6 +78,10 @@ function snapshot(filesJson: string) {
     files: [{ path: "app/page.tsx", content: "x", language: "tsx" }],
     filesJson,
     lifecycleStage: "design",
+    filesRevision: "rev-a",
+    verificationState: "failed",
+    parentVersionId: null,
+    editKind: null,
   };
 }
 
@@ -84,12 +96,14 @@ function run() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  readServerRepairBudget.mockResolvedValue({ status: "history_unknown" });
   isServerVerifyEligible.mockReturnValue(true);
-  isLatestVersionForChat.mockResolvedValue(true);
+  isRepairTargetHead.mockResolvedValue(true);
   acquireVerifyLease.mockResolvedValue({ proceed: true, runId: "run-1" });
   releaseVerifyLease.mockResolvedValue(undefined);
   failVersionVerification.mockResolvedValue(undefined);
   failVersionVerificationIfUnleased.mockResolvedValue(null);
+  resetVersionVerificationToPending.mockResolvedValue({ id: versionId });
   getRunningVersionLease.mockResolvedValue(null);
   getVersionById.mockResolvedValue({
     id: versionId,
@@ -108,9 +122,87 @@ beforeEach(() => {
     spec: { requirements: [] },
   });
   persistF3ReadinessHold.mockResolvedValue(undefined);
+  holdVersionForIntegrationMigration.mockResolvedValue("applied");
 });
 
 describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => {
+  it.each(["lease_lost", "time_budget_exceeded"] as const)(
+    "leaves repairing when %s cannot be reset under the lost holder",
+    async (reason) => {
+      resetVersionVerificationToPending.mockResolvedValue(null);
+      tryServerRepairLoop.mockResolvedValue({ stop: { reason, retryable: true }, reverifyCurrent: false });
+      const outcome = await repairBuildErrorUnderLease({ chatId, versionId, holderRunId: "existing-holder",
+        snapshot: snapshot(BASE_FILES_JSON) as never, force: true,
+        buildError: { stage: "next-build", message: "boom" } });
+      expect(outcome.verification).toEqual({ kind: "stop", reason, retryable: true });
+      expect(failVersionVerification).not.toHaveBeenCalled();
+      expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith(versionId, expect.any(String), {
+        verificationState: "repairing", filesRevision: "rev-a",
+      });
+    },
+  );
+
+  it("held build-error repair returns lease STOP without wrapper acquisition/release or terminal failure", async () => {
+    tryServerRepairLoop.mockResolvedValue({ stop: { reason: "lease_lost", retryable: true }, reverifyCurrent: false });
+    const outcome = await repairBuildErrorUnderLease({ chatId, versionId, holderRunId: "existing-holder",
+      snapshot: snapshot(BASE_FILES_JSON) as never, force: true, contextRetryUsed: true,
+      buildError: { stage: "next-build", message: "boom" } });
+    expect(outcome.verification).toEqual({ kind: "stop", reason: "lease_lost", retryable: true });
+    expect(resetVersionVerificationToPending).toHaveBeenCalledWith(versionId, expect.any(String), "existing-holder");
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+    expect(tryServerRepairLoop).toHaveBeenCalledWith(expect.objectContaining({
+      runId: "existing-holder", baseFilesJson: BASE_FILES_JSON, baseFilesRevision: "rev-a",
+      forceBuildGate: true, repairAuthority: "manual", contextRetryUsed: true,
+    }));
+    for (const mock of [acquireVerifyLease, releaseVerifyLease, getVersionFilesSnapshot, failVersionVerification,
+      triggerServerVerification, readServerRepairBudget]) expect(mock).not.toHaveBeenCalled();
+  });
+  it("reads persisted automatic bootstrap on the actual revision without seeding before repair", async () => {
+    tryServerRepairLoop.mockResolvedValue({ reverifyCurrent: false, buildOriginated: true });
+    await triggerBuildErrorRepair({ chatId, versionId, buildError: { stage: "next-build", message: "boom" } });
+    expect(readServerRepairBudget).toHaveBeenCalledWith({ chatId, versionId, runId: "run-1", filesRevision: "rev-a" });
+    expect(readServerRepairBudget.mock.invocationCallOrder[0]).toBeLessThan(tryServerRepairLoop.mock.invocationCallOrder[0]);
+    expect(tryServerRepairLoop).toHaveBeenCalledWith(expect.objectContaining({ repairAuthority: "automatic" }));
+  });
+
+  it("manual force never initializes/resets automatic capacity or grants future cron authority", async () => {
+    tryServerRepairLoop.mockResolvedValue({ reverifyCurrent: true, buildOriginated: true });
+    const result = await triggerBuildErrorRepair({ chatId, versionId, force: true, buildError: { stage: "next-build", message: "boom" } });
+    expect(readServerRepairBudget).not.toHaveBeenCalled();
+    expect(tryServerRepairLoop).toHaveBeenCalledWith(expect.objectContaining({ repairAuthority: "manual" }));
+    expect(triggerServerVerification).not.toHaveBeenCalled();
+    expect(result.verification).toEqual({ kind: "superseded", cause: "files", forceBuildCheck: true, contextRetryUsed: false });
+    expect(resetVersionVerificationToPending).toHaveBeenCalledWith(versionId, expect.any(String), "run-1");
+    expect(failVersionVerification).not.toHaveBeenCalled();
+  });
+
+  it("durably holds a before-first F3 migration decision and skips the repair loop", async () => {
+    getVersionFilesSnapshot.mockResolvedValue({
+      ...snapshot(BASE_FILES_JSON),
+      lifecycleStage: "integrations",
+    });
+    evaluateServerOwnedF3Readiness.mockResolvedValue({
+      ready: false,
+      ok: false,
+      reason: "integration_migration_required",
+      retryable: false,
+    });
+
+    const result = await run();
+
+    expect(holdVersionForIntegrationMigration).toHaveBeenCalledWith(
+      versionId,
+      expect.objectContaining({
+        filesJson: BASE_FILES_JSON,
+        editKind: null,
+        orchestrationSnapshot: null,
+      }),
+      "run-1",
+    );
+    expect(result.skippedReason).toBe("f3_readiness_hold");
+    expect(tryServerRepairLoop).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+  });
   it("failar versionen när repair-loopen kraschar och filerna står kvar", async () => {
     tryServerRepairLoop.mockRejectedValue(new Error("repair exploded"));
 
@@ -126,20 +218,20 @@ describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => 
     expect(releaseVerifyLease).toHaveBeenCalledWith(versionId, "run-1");
   });
 
-  it("re-verifierar i stället för att faila när en redigering flyttat files_json", async () => {
+  it("returns typed supersession instead of re-entering after release when files advance", async () => {
     tryServerRepairLoop.mockRejectedValue(new Error("repair exploded"));
     getVersionFilesSnapshot
       .mockResolvedValueOnce(snapshot(BASE_FILES_JSON))
       .mockResolvedValueOnce(snapshot(JSON.stringify([{ path: "app/page.tsx", content: "B" }])));
 
-    await run();
+    const result = await run();
 
     // B får nå ett ärligt terminalt tillstånd på egna meriter — den får aldrig
     // failas från en överkörd repair av A.
     expect(failVersionVerification).not.toHaveBeenCalled();
-    expect(triggerServerVerification).toHaveBeenCalledWith(
-      expect.objectContaining({ chatId, versionId, forceBuildCheck: true }),
-    );
+    expect(triggerServerVerification).not.toHaveBeenCalled();
+    expect(result.verification).toEqual({ kind: "superseded", cause: "files", forceBuildCheck: true, contextRetryUsed: false });
+    expect(resetVersionVerificationToPending).toHaveBeenCalledWith(versionId, expect.any(String), "run-1");
   });
 
   it("failar inte en version som aldrig nådde repair-loopen", async () => {
@@ -172,7 +264,10 @@ describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => 
 
   it("lämnar ett lyckat utfall orört", async () => {
     tryServerRepairLoop.mockResolvedValue({
-      supersededByUserEdit: false,
+      reverifyCurrent: false,
+      contextCasMiss: false,
+      integrationMigrationHoldApplied: false,
+      integrationMigrationStop: null,
       buildOriginated: true,
     });
 
@@ -180,6 +275,43 @@ describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => 
 
     expect(failVersionVerification).not.toHaveBeenCalled();
     expect(outcome.started).toBe(true);
+  });
+
+  it("maps an applied after-repair migration hold to the existing readiness hold outcome", async () => {
+    tryServerRepairLoop.mockResolvedValue({
+      reverifyCurrent: false,
+      contextCasMiss: false,
+      integrationMigrationHoldApplied: true,
+      integrationMigrationStop: "applied",
+      buildOriginated: true,
+    });
+
+    const outcome = await run();
+
+    expect(outcome).toEqual({
+      started: false,
+      repairAvailable: false,
+      skippedReason: "f3_readiness_hold",
+      verification: { kind: "stop", reason: "integration_migration_required", retryable: false },
+    });
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(triggerServerVerification).not.toHaveBeenCalled();
+  });
+
+  it("maps an unavailable stopped migration hold without reporting an ordinary repair failure", async () => {
+    tryServerRepairLoop.mockResolvedValue({
+      reverifyCurrent: false,
+      contextCasMiss: false,
+      integrationMigrationHoldApplied: false,
+      integrationMigrationStop: "unavailable",
+      buildOriginated: true,
+    });
+
+    const outcome = await run();
+
+    expect(outcome.skippedReason).toBe("f3_readiness_hold");
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(triggerServerVerification).not.toHaveBeenCalled();
   });
 
   it("L1: F3-readiness-hold startar ingen repair och promoverar inte", async () => {
@@ -204,6 +336,7 @@ describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => 
       started: false,
       repairAvailable: false,
       skippedReason: "f3_readiness_hold",
+      verification: { kind: "stop", reason: "missing_env", retryable: false },
     });
     expect(tryServerRepairLoop).not.toHaveBeenCalled();
     expect(persistF3ReadinessHold).toHaveBeenCalledWith(

@@ -640,13 +640,13 @@ class IndexGateQueueTests(unittest.TestCase):
     def test_every_step_republishes_to_blob_fail_closed(self) -> None:
         """Delete får inte publiceras genom att ladda upp en lokal cache.
 
-        En misslyckad `embeddings:sync` gör cachen inaktuell, och `embeddings:push`
+        En misslyckad `embeddings:sync` gör cachen inaktuell, och `embeddings:promote`
         skulle då skriva över Blob för scaffolds som aldrig rörts.
         """
         for new_scaffold in (True, False):
             for step in self.ig.indexing_steps(new_scaffold=new_scaffold):
                 self.assertIn("--require-blob", step["command"])
-                self.assertNotIn("embeddings:push", step["command"])
+                self.assertNotIn("embeddings:promote", step["command"])
                 self.assertTrue(step["needs_blob"])
 
 

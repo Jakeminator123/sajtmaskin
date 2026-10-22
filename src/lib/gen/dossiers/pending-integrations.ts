@@ -3,7 +3,11 @@ import {
     readF3ApprovedFromSnapshot,
     readMutedCapabilitiesFromSnapshot,
     readMutedDossierIdsFromSnapshot,
+    readProviderContractsFromSnapshot,
 } from "@/lib/gen/orchestration-snapshot";
+import { buildDossierIntegrationPlan } from "@/lib/gen/contract/provider-compatibility";
+import { detectProjectProviderEvidence } from "@/lib/gen/contract/project-provider-evidence";
+import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
 import type { CodeFile } from "@/lib/gen/parser";
 import { mapProviderKeysToBackingDossierIds } from "@/lib/integrations/tier3-build-spec";
 import { getDossierById } from "./registry";
@@ -83,6 +87,12 @@ export function resolvePendingIntegrationDossiers(params: {
   );
 
   const approved = readF3ApprovedFromSnapshot(params.snapshot);
+  const providerContracts = readProviderContractsFromSnapshot(params.snapshot);
+  const contractByCapability = new Map(
+    providerContracts
+      .filter((contract) => contract.dossierCapability)
+      .map((contract) => [contract.dossierCapability!.toLowerCase(), contract]),
+  );
   // Durable F3 approvals survive an incomplete/failed integrations build.
   // Its chat-global file evidence may already have cleared the old muted
   // markers, so retry authority must come from the selected design version's
@@ -124,16 +134,36 @@ export function resolvePendingIntegrationDossiers(params: {
       ...approved.capabilities,
     ]),
   ).filter((capability) => !exactCapabilityIds.has(capability.toLowerCase()));
-  if (uncoveredLegacyCapabilities.length === 0) return exactSelections;
-  const legacySelections = selectDossiersForRequest({
-    requestedCapabilities: uncoveredLegacyCapabilities,
-    disableBriefFallback: true,
-    configuredEnvKeys: params.configuredEnvKeys,
-  }).selected.filter(
-    (selected) =>
-      !presentIds.has(selected.entry.id) && !providerAlreadyBuiltByModel(selected.entry),
-  );
-  return [...exactSelections, ...legacySelections];
+  const legacySelections = uncoveredLegacyCapabilities.flatMap((capability) => {
+    const contract = contractByCapability.get(capability.toLowerCase());
+    return selectDossiersForRequest({
+      requestedCapabilities: [capability],
+      disableBriefFallback: true,
+      promptText: contract?.providerKey,
+      configuredEnvKeys: params.configuredEnvKeys,
+    }).selected;
+  }).filter(
+      (selected) =>
+        !presentIds.has(selected.entry.id) && !providerAlreadyBuiltByModel(selected.entry),
+    );
+  const combined = [...exactSelections, ...legacySelections];
+  if (providerContracts.length === 0) return combined;
+  return buildDossierIntegrationPlan({
+    contracts: { dataMode: "unknown", integrations: providerContracts, envVars: [] },
+    dossierSelection: {
+      selected: combined,
+      poolSize: 0,
+      byCapability: {},
+    },
+    projectFiles: versionFiles,
+    projectProviderEvidence: detectProjectProviderEvidence(
+      versionFiles,
+      getPreGenerationContractsConfigFromManifest().providerRules,
+    ),
+    // Old snapshots had no typed provider/capability metadata. Preserve their
+    // capability fallback after the owned-path gate above has proved it safe.
+    allowLegacyMissingContracts: true,
+  }).dossierSelection.selected;
 }
 
 /**

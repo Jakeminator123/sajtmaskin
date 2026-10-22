@@ -187,10 +187,8 @@ google-services.json
 # README:n committas så konventionen är synlig för agenter på andra maskiner.
 .cursor/logg-internet/*
 !.cursor/logg-internet/README.md
-# Sparade kandidat-diffar från /kedja (fix-pipeline, per-maskin — vinnaren lever i sin worktree).
-# README:n committas så konventionen är synlig för agenter på andra maskiner.
-.cursor/kedja/*
-!.cursor/kedja/README.md
+# Delad agentinkorg (npm run inbox) — självrensande, per maskin, delas av alla worktrees.
+.cursor/inbox.md*
 
 # Logs
 *.log
@@ -336,7 +334,7 @@ docs/plans/**/run.log.jsonl
 # workflows belong in git.
 #
 # Why they must be tracked (2026-08-20): a cloud agent gets the repo, nothing
-# else. While these files were ignored, `/kedja`, `/automat`, `/818` and `/logg`
+# else. While these files were ignored, `/automat` and `/logg`
 # existed on one laptop only — so a cloud agent asked to follow them silently
 # had no such file, and they were invisible to codebase
 # search on every machine. Adding a skill without a line here makes it local
@@ -345,17 +343,13 @@ docs/plans/**/run.log.jsonl
 .agents/*
 !.agents/skills/
 .agents/skills/*
-!.agents/skills/818-swarm-decide/
-!.agents/skills/818-swarm-decide/**
 !.agents/skills/automat-swarm/
 !.agents/skills/automat-swarm/**
+!.agents/skills/bug-koll/
+!.agents/skills/bug-koll/**
 # Streamlit installer drops a machine-local symlink:
 # `.agents/skills/developing-with-streamlit` → site-packages.
 # Do not add a `!` allowlist — it must stay ignored.
-!.agents/skills/godnatt-bugg/
-!.agents/skills/godnatt-bugg/**
-!.agents/skills/kedja-fix-pipeline/
-!.agents/skills/kedja-fix-pipeline/**
 !.agents/skills/logg/
 !.agents/skills/logg/**
 !.agents/skills/logg-internet/

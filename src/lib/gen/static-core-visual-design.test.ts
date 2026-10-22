@@ -1,20 +1,46 @@
+// @vitest-environment node
+import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
-import { getStaticCoreFromWorkspace } from "./static-core-loader";
-import { SYSTEM_PROMPT_SEPARATOR } from "./system-prompt";
+const dynamicContexts = [
+  "## Design Priority\n\ntest dynamic context",
+  "## Aktuell instruktion\n\nÄndra bara kontakttexten. Bevara övrigt innehåll och utseende.",
+];
+
+// Exercise the production CJS loader through tsx, as the CLI/preflight does.
+// Do not reconstruct the composer in the test to work around Vitest ESM.
+const composed = JSON.parse(
+  execFileSync(
+    process.execPath,
+    [
+      "--import", "tsx", "-e",
+      [
+        'const { getStaticCoreFromWorkspace } = require("./src/lib/gen/static-core-loader.ts");',
+        'const { composeEngineSystemPrompt, getSystemPromptLengths, SYSTEM_PROMPT_SEPARATOR } = require("./src/lib/gen/system-prompt/compose.ts");',
+        "const contexts = JSON.parse(process.argv[1]);",
+        "const results = contexts.map((dynamic) => {",
+        "  const prompt = composeEngineSystemPrompt(dynamic);",
+        "  return { prompt, lengths: getSystemPromptLengths(prompt) };",
+        "});",
+        "console.log(JSON.stringify({ core: getStaticCoreFromWorkspace(), separator: SYSTEM_PROMPT_SEPARATOR, results }));",
+      ].join("\n"),
+      JSON.stringify(dynamicContexts),
+    ],
+    { cwd: process.cwd(), encoding: "utf8" },
+  ),
+) as {
+  core: string;
+  separator: string;
+  results: { prompt: string; lengths: { total: number; static: number; dynamic: number } }[];
+};
 
 /**
- * Guards the assembled static core after 03-visual-design text changes.
+ * Guards the actual composed prompt after 03-visual-design text changes.
  * Technical color/font/contrast/chart/follow-up protections must survive;
  * universal look recipes must not return as quality requirements.
- *
- * `composeEngineSystemPrompt()` is not called here: its CJS `require` of
- * the loader does not resolve under Vitest ESM. Assembly is the same
- * concatenation the composer uses (`core + separator + dynamic`).
  */
 describe("static core visual-design contract", () => {
-  const core = getStaticCoreFromWorkspace();
-  const assembled = `${core}${SYSTEM_PROMPT_SEPARATOR}## Design Priority\n\ntest dynamic context`;
+  const core = composed.results[0].prompt;
 
   it("keeps neighboring core contracts when 03 changes", () => {
     expect(core).toContain("Respond exclusively in **CodeProject** format");
@@ -54,10 +80,18 @@ describe("static core visual-design contract", () => {
     expect(core).toMatch(/font pairings are the default/i);
   });
 
-  it("assembles ahead of request-specific context without dropping 03", () => {
-    expect(assembled).toContain(SYSTEM_PROMPT_SEPARATOR);
-    expect(assembled).toContain(core);
-    expect(assembled).toContain("test dynamic context");
-    expect(assembled.indexOf(core)).toBe(0);
-  });
+  it.each(dynamicContexts.map((dynamic, index) => ({ dynamic, index })))(
+    "preserves core, changed request context and real length accounting ($index)",
+    ({ dynamic, index }) => {
+      const { prompt, lengths } = composed.results[index];
+      expect(composed.core.length).toBeGreaterThan(0);
+      expect(prompt.startsWith(composed.core + composed.separator)).toBe(true);
+      expect(prompt.slice(composed.core.length + composed.separator.length)).toBe(dynamic);
+      expect(lengths).toEqual({
+        total: prompt.length,
+        static: composed.core.length,
+        dynamic: dynamic.length,
+      });
+    },
+  );
 });

@@ -152,11 +152,11 @@ blockera på det som verkligen kräver en riktig integration.
 - **Enforcement styr blockering, inte "finns nyckeln i `env.example`".**
   `buildBlockingKeys` (`src/lib/projects/project-env-resolver.ts`) = de build-enforced
   nycklar som saknar både ett riktigt projektvärde och en godkänd
-  katalog-placeholder. Efter #468 är `clerk-auth` den enda dossiern med
-  `build`-nycklar (`CLERK_SECRET_KEY` +
-  `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`), men båda har i dag katalogstöd och kan
-  därför köra demo utan att automatiskt blockera. `openai-chat`s
-  `OPENAI_API_KEY` flyttades `build` → `feature-runtime`.
+  katalog-placeholder. Ingen levererad dossier har i dag `build`-nycklar:
+  `clerk-auth` (`CLERK_SECRET_KEY` + `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) och
+  `openai-chat` (`OPENAI_API_KEY`) är `feature-runtime`. Utan Clerk-nycklar kör
+  sajten Clerks demoläge, och skyddade routes är då öppna. Grinden finns kvar
+  för en framtida dossier som behöver den.
 - **Deploy-grind:** `POST /api/v0/deployments` ger `409 DEPLOY_MISSING_ENV` på
   `buildBlockingKeys` i **F3** — där blockerar `feature-runtime`/placeholder-nycklar
   aldrig; de surfar som icke-blockerande `EnvDegradationWarning`
@@ -188,6 +188,12 @@ blockera på det som verkligen kräver en riktig integration.
   Eftersom filträdet bevaras exakt kan F2:s `env.example` följa med i denna
   deterministiska F3-rad; stub-vokabulären filtreras fortsatt ur
   integrationsbevis och är aldrig ett riktigt runtime-värde.
+
+Generated code that creates Redis, SQL or Auth0 clients at module scope and
+connects eagerly can still time out on placeholder URLs. Prefer lazy clients
+or skip initialization for a known preview sentinel. The Postgres-shaped URLs
+in `41-tier3-stub-placeholders.env.txt` are local-only so importing `postgres`
+does not crash `next dev`.
 
 ## Sources of truth at a glance
 

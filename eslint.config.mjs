@@ -4,6 +4,10 @@ import nextTypescript from "eslint-config-next/typescript";
 import prettier from "eslint-config-prettier/flat";
 import reactHooks from "eslint-plugin-react-hooks";
 
+// eslint-config-next 16.4.x wants eslint-plugin-react-hooks ^7.1.0.
+// 7.1.x flags 100+ existing compiler-era findings; `--max-warnings=0` would
+// fail the Next security bump. Root pins 7.0.1 via package.json overrides.
+// Generated sites keep 16.4 + 7.1 and treat the same rules as warn (F3).
 const nextRules = [...nextCoreWebVitals, ...nextTypescript].map((config) => ({
   ...config,
   plugins: {
@@ -64,7 +68,6 @@ export default defineConfig([
     ".cursor/tmp/**/*",
     ".cursor/bugs/**/*",
     ".cursor/handoffs/**/*",
-    ".cursor/kedja/**/*",
     ".cursor/logg-internet/**/*",
     ".cursor/plans/**/*",
     ".cursor/swarms/**/*",

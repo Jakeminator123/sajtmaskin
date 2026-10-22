@@ -10,19 +10,24 @@ describe("builder model options", () => {
     expect(MODEL_TIER_OPTIONS.some((option) => option.value === "premium")).toBe(true);
     expect(MODEL_TIER_OPTIONS.some((option) => (option.value as string) === "fast")).toBe(false);
     expect(MODEL_TIER_OPTIONS.some((option) => option.value === "codex")).toBe(false);
+    expect(MODEL_TIER_OPTIONS.some((option) => option.value === "anthropic")).toBe(false);
+    expect(MODEL_TIER_OPTIONS.at(-1)?.value).toBe("ultra");
     for (const option of MODEL_TIER_OPTIONS) {
-      if (option.value === "anthropic") {
-        expect(option.description).not.toContain("GPT-5.6 Sol");
-      } else {
-        expect(option.description).toContain("GPT-5.6 Sol");
-      }
+      expect(option.description).toContain(option.value === "ultra" ? "GPT-6 Astra" : "GPT-6.1 Sol");
     }
   });
 
-  it("offers every GPT-5.6 family variant for prompt assist", () => {
+  it("offers GPT-6.1 Sol, GPT-6 Luna and the retained GPT-5.6 family for prompt assist", () => {
     const values = PROMPT_ASSIST_MODEL_OPTIONS.map((option) => option.value);
     expect(values).toEqual(
-      expect.arrayContaining(["openai/gpt-5.6-sol", "openai/gpt-5.6-terra", "openai/gpt-5.6-luna"]),
+      expect.arrayContaining([
+        "openai/gpt-6.1-sol",
+        "openai/gpt-6-luna",
+        "openai/gpt-5.6-sol",
+        "openai/gpt-5.6-terra",
+        "openai/gpt-5.6-luna",
+      ]),
     );
+    expect(values).not.toContain("openai/gpt-5.3-codex");
   });
 });

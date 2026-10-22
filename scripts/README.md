@@ -8,7 +8,8 @@ scriptinventariet eller historiken för borttagna pipelines.
 
 | Behov                              | Kommando eller ägare                                                                                                                                                                                                      |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Repo-verifiering                   | `npm run typecheck`, `npm run lint`, `npm run test:ci`                                                                                                                                                                    |
+| Ändringsstyrd verifiering | `npm run verify:pr -- --plan` väljer berörda kontroller; [workflow](../.cursor/rules/workflow.mdc) avgör miniminivån. |
+| Buggpass och direktpreview | [`workflow/`](workflow/) — [Buggpass-runbook](../docs/runbooks/buggpass.md); ingen egen API-granskare. |
 | Genererade kontraktsdocs           | `npm run docs:generate`, `npm run docs:check`, `npm run docs:test`                                                                                                                                                        |
 | Aktiva dokumentationslänkar        | `npm run docs:links`                                                                                                                                                                                                      |
 | Historiska planstatusar            | `npm run plans:history:check`, [`plans/`](plans/)                                                                                                                                                                         |

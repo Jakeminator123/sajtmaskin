@@ -11,29 +11,29 @@ alwaysApply: false
 
 # Dossier-regler
 
-Runtime läser **bara** `data/dossiers/{hard,soft}/`. Övriga mappar är andra lager.
+Runtime läser **bara** `data/dossiers/{hard,soft}/<id>/`
+(`src/lib/gen/dossiers/registry.ts`). Övriga lager:
 
-| Yta | Path | Roll |
-|---|---|---|
-| Runtime dossiers | `data/dossiers/{hard,soft}/<id>/` | Enda runtime-sanning (`src/lib/gen/dossiers/registry.ts`) |
-| Capability map | `data/dossiers/_index/capability-map.json` | Genererad vy — bär även `dossiers`, `labelsSv`, `policy`, `f2Policy`. Läses inte i runtime |
-| Scripts | `scripts/dossiers/` | Validera/kurera/regenerera |
-| Backoffice | `backoffice/pages/dossiers.py` | Adminvy: Lista, AI-kuration, Systemkarta |
-| Template refs | `_template_refs/dossier-references/repos/<id>/` | Rå input. Syskonmapp **utanför** checkouten — klona aldrig tillbaka under `data/` |
-| Variants | `config/scaffold-variants/<scaffold>/<variant>.json` | Eget subsystem; `sourceTemplateIds` slås upp mot Blob-manifestet |
+- `data/dossiers/_index/capability-map.json`: genererad vy (även `dossiers`,
+  `labelsSv`, `policy`, `f2Policy`). Läses inte i runtime, men Backoffice
+  konsumerar den, så `dossiers:capability-map:check` är blockerande CI.
+- `scripts/dossiers/` validerar/kurerar/regenererar;
+  `backoffice/pages/dossiers.py` är adminvyn (Lista, AI-kuration, Systemkarta).
+- `_template_refs/dossier-references/repos/<id>/` är rå input i en syskonmapp
+  **utanför** checkouten. Klona den aldrig under `data/` och flytta aldrig runtime
+  dossiers dit.
+- `config/scaffold-variants/<scaffold>/<variant>.json` är ett eget subsystem.
 
-- Flytta inte runtime dossiers till template-reference-mappar.
-- `groups` ägs av `src/lib/builder/dossier-groups.ts` och härleds till vyn.
-  Duplicera aldrig den mappningen i Python.
+Regler:
+
+- `groups` ägs av `src/lib/builder/dossier-groups.ts` och härleds till vyn;
+  duplicera aldrig mappningen i Python.
 - Efter manifeständring: `npm run dossiers:validate-all` +
-  `npm run dossiers:capability-map:write`. Vyn läses inte i runtime, men
-  `dossiers:capability-map:check` är **blockerande CI** eftersom Backoffice
-  konsumerar den.
+  `npm run dossiers:capability-map:write`.
 - `sourceTemplateIds` är ordnade kandidater; runtime väljer **högst en**
-  inspirationsmall via `src/lib/templates/template-blob-manifest.json`
-  (trackad i git). Kandidater med `disabled` addendum väljs aldrig; ett id i
-  en aldrig valbar kategori avvisas av integritetsgrinden. Ingen join mot
-  dossiers och inget nytt beroende mot `catalog.json` — den togs bort
-  2026-07-09.
-- Vid radering: kolla capability, defaultForCapability, envVars, dependencies
-  och capability-map.
+  inspirationsmall via spårade `src/lib/templates/template-blob-manifest.json`.
+  `disabled`-addendum väljs aldrig och ett id i en aldrig valbar kategori avvisas
+  av integritetsgrinden. Ingen join mot dossiers och inget beroende mot
+  `catalog.json` (borttagen 2026-07-09).
+- Vid radering: kolla capability, defaultForCapability, envVars, dependencies och
+  capability-map.

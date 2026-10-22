@@ -82,8 +82,8 @@ transaktion som mejlraden skrivs, så en samtidig avregistrering kan inte
 smita förbi kontrollen.
 Företagets `sentAt/source` fylls i samma låsta transaktion och bara medan
 `sent_at` är tomt, så två samtidiga första mejl kan inte skriva över varandras
-kohort. Kontaktadress och profil är separat företagsmetadata: varje accepterat
-mejl (`first` eller `follow`) får uppdatera dem under samma lås och
+kohort. Bransch, kontaktadress och profil är separat företagsmetadata: varje
+accepterat mejl (`first` eller `follow`) får uppdatera dem under samma lås och
 avregistreringskontroll, utan att röra `sentAt/source`. En konflikt eller en
 avregistrering ändrar ingenting. A/B-nämnaren `firstAccepted` räknar företag
 med minst ett accepterat första mejl, i den kohort som företagsradens bevarade

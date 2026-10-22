@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  bindAdsClickParamPassthrough,
+  captureAdsClickParamsFromLocation,
+} from "@/lib/ads/ads-click-params";
 import {
   flushPendingGoogleAdsConversions,
   hasAcceptedCookieConsent,
@@ -9,13 +13,14 @@ import {
   noteAccountCreatedFromLocation,
   noteBuilderStartFromLocation,
   subscribeCookieConsent,
+  syncGoogleAdsConsent,
 } from "@/lib/ads/fire-google-ads-conversion";
 import {
   getGoogleAdsConfig,
-  conversionId,
   GOOGLE_ADS_CONVERSION_EVENTS,
   isAdminAppPath,
   isGoogleAdsEnabled,
+  isGoogleAdsQueueableEvent,
 } from "@/lib/ads/google-ads";
 import { loadGoogleAdsTag } from "@/lib/ads/load-google-ads-tag";
 
@@ -31,6 +36,7 @@ function subscribeConsent(onStoreChange: () => void): () => void {
 
 export function GoogleAdsTag({ nonce }: { nonce?: string }) {
   const pathname = usePathname();
+  const router = useRouter();
   const consentAccepted = useSyncExternalStore(
     subscribeConsent,
     hasAcceptedCookieConsent,
@@ -38,10 +44,17 @@ export function GoogleAdsTag({ nonce }: { nonce?: string }) {
   );
 
   useEffect(() => {
+    if (isAdminAppPath(pathname)) return;
+    captureAdsClickParamsFromLocation();
+    return bindAdsClickParamPassthrough((href) => {
+      router.push(href);
+    });
+  }, [pathname, router]);
+
+  useEffect(() => {
     const config = getGoogleAdsConfig();
     if (!isGoogleAdsEnabled(config) || !config.adsId) return;
     if (isAdminAppPath(pathname)) return;
-    if (!consentAccepted) return;
 
     noteBuilderStartFromLocation(pathname);
     noteAccountCreatedFromLocation();
@@ -56,17 +69,19 @@ export function GoogleAdsTag({ nonce }: { nonce?: string }) {
       } catch {
         /* retry, never claim */
       }
-      if (stopped || !hasAcceptedCookieConsent() || isAdminAppPath(window.location.pathname))
-        return;
+      if (stopped || isAdminAppPath(window.location.pathname)) return;
       if (loaded) {
-        flushPendingGoogleAdsConversions();
+        syncGoogleAdsConsent();
+        if (hasAcceptedCookieConsent()) {
+          flushPendingGoogleAdsConversions();
+        }
       }
-      if (
-        !loaded ||
+      const pendingAfterConsent =
+        hasAcceptedCookieConsent() &&
         GOOGLE_ADS_CONVERSION_EVENTS.some(
-          (event) => Boolean(conversionId(event)) && isGoogleAdsPending(event),
-        )
-      ) {
+          (event) => isGoogleAdsQueueableEvent(event) && isGoogleAdsPending(event),
+        );
+      if (!loaded || pendingAfterConsent) {
         retry = setTimeout(() => {
           void attempt();
         }, delay);

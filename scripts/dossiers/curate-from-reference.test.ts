@@ -3,12 +3,15 @@ import { describe, expect, it } from "vitest";
 import {
   allowedCurationModels,
   applyCuratorCapabilityChoice,
+  assertCurationOutput,
+  buildCurationChatRequest,
   curationAllocateArgs,
   curationCleanupArgs,
   curationEnvRule,
   curationEnvSchemaLine,
   curationTransactionArgs,
   CURATION_CLASS_RULE,
+  CURATION_MAX_COMPLETION_TOKENS,
   CURATION_MOCK_RULE,
   CURATION_WORKLOAD_ID,
   parseArgs,
@@ -79,6 +82,53 @@ describe("curation model resolution", () => {
     expect(allowedCurationModels()).not.toContain("gpt-4o");
   });
 
+  it("does not offer a hidden Luna fallback when the manifest lists only Sol", () => {
+    const fallbacks = getWorkloadFallbackModelsFromManifest(CURATION_WORKLOAD_ID);
+    expect(fallbacks).not.toContain("gpt-6-luna");
+    expect(allowedCurationModels()).not.toContain("gpt-6-luna");
+    expect(allowedCurationModels()).toEqual(["gpt-6.1-sol"]);
+  });
+
+  it("rejects an unlisted model id before a chat request exists", () => {
+    expect(allowedCurationModels()).not.toContain("gpt-6-luna");
+    expect(() =>
+      buildCurationChatRequest(
+        {
+          reference: "ai-fal-image-generator",
+          class: "soft",
+          id: "example-id",
+          model: "gpt-6-luna",
+        },
+        [{ name: "README.md", body: "# ref" }],
+      ),
+    ).toThrow(/not listed for workload "backoffice_dossier_curation"/);
+  });
+
+  it("builds a Sol medium chat payload with a 32768 total output ceiling", () => {
+    const model = resolveCurationModel(undefined);
+    const payload = buildCurationChatRequest(
+      {
+        reference: "ai-fal-image-generator",
+        class: "soft",
+        id: "example-id",
+        model,
+      },
+      [{ name: "README.md", body: "# ref" }],
+    );
+    expect(model).toBe("gpt-6.1-sol");
+    expect(payload.model).toBe("gpt-6.1-sol");
+    expect(payload.max_completion_tokens).toBe(CURATION_MAX_COMPLETION_TOKENS);
+    expect(payload.max_completion_tokens).toBe(32_768);
+    expect(payload.reasoning_effort).toBe("medium");
+    expect(payload).not.toHaveProperty("temperature");
+    expect(payload).not.toHaveProperty("max_tokens");
+    expect(payload.response_format).toMatchObject({
+      type: "json_schema",
+      json_schema: { name: "DossierCuration", strict: false },
+    });
+    expect(payload.messages).toHaveLength(2);
+  });
+
   it("still enforces the pre-existing argument rules", () => {
     expect(() => parseArgs(["node", "s.ts", "--class=hard", "--id=x"])).toThrow(
       /--reference=<id> is required/,
@@ -136,6 +186,53 @@ describe("curator capability enforcement", () => {
     expect(() =>
       applyCuratorCapabilityChoice({ capability: "cms", defaultForCapability: false }, "Not Valid"),
     ).toThrow(/--capability must be kebab-case/);
+  });
+
+  it("accepts hard-only non-env code inputs and ordered provider setup guidance", () => {
+    const value = {
+      manifest: {
+        id: "wrong-id",
+        label: "Example checkout",
+        capability: "payments",
+        providers: ["example"],
+        codeFidelity: "rewritable",
+        complexity: "simple",
+        summary: "A provider checkout fixture used to validate curation metadata output.",
+        lastVerified: "2026-10-04",
+        envVars: [
+          {
+            key: "EXAMPLE_SECRET",
+            required: true,
+            purpose: "Authenticates server-side requests to the example checkout provider.",
+          },
+        ],
+        configInputs: [
+          {
+            id: "price-id",
+            label: "Price id",
+            target: "component-prop",
+            binding: "priceId",
+            purpose: "Selects which provider price the project checkout should purchase.",
+          },
+        ],
+        providerSetup: [
+          {
+            id: "create-price",
+            title: "Create a checkout price",
+            instruction: "Create a price in the provider dashboard and bind its id in code.",
+            references: {
+              envVarKeys: ["EXAMPLE_SECRET"],
+              configInputIds: ["price-id"],
+            },
+          },
+        ],
+      },
+      instructions: "# When to use\n- Use it.\n# How to integrate\n- Wire it.\n# Avoid\n- Avoid drift.",
+    };
+
+    expect(() => assertCurationOutput(value, "example-checkout", "hard")).not.toThrow();
+    expect(value.manifest.id).toBe("example-checkout");
+    expect((value.manifest as Record<string, unknown>).verificationStatus).toBe("unverified");
   });
 });
 

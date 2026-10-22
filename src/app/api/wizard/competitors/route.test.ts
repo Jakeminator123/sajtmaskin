@@ -12,6 +12,7 @@ const config = vi.hoisted(() => ({
 const requireNotBot = vi.hoisted(() => vi.fn());
 const authorizeWizardRun = vi.hoisted(() => vi.fn());
 const generateText = vi.hoisted(() => vi.fn());
+const responsesCreate = vi.hoisted(() => vi.fn());
 const createDirectModel = vi.hoisted(() => vi.fn(() => "model"));
 const braveWebSearch = vi.hoisted(() => vi.fn());
 const debugLog = vi.hoisted(() => vi.fn());
@@ -37,6 +38,9 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 vi.mock("@/lib/wizard/authorize-wizard-run", () => ({ authorizeWizardRun }));
 vi.mock("ai", () => ({ generateText }));
+vi.mock("openai", () => ({
+  default: class { responses = { create: responsesCreate }; },
+}));
 vi.mock("@/lib/builder/direct-model", () => ({ createDirectModel }));
 vi.mock("@/lib/brave-search", () => ({ braveWebSearch }));
 vi.mock("@/lib/utils/debug", () => ({ debugLog, errorLog }));
@@ -67,6 +71,22 @@ function makeRequest(body: unknown): Request {
 }
 
 describe("POST /api/wizard/competitors", () => {
+  it("bounds the active Responses path and keeps the wizard abort signal", async () => {
+    config.features.useResponsesApi = true;
+    responsesCreate.mockResolvedValue({ output_text: '{"competitors":[],"marketInsight":"Svar"}' });
+    const response = await POST(makeRequest({ companyName: "Sajtstudio", industry: "Webb" }));
+    expect(response.status).toBe(200);
+    expect(responsesCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "gpt-6.1-sol",
+        max_output_tokens: 8192,
+        reasoning: { effort: "medium" },
+      }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     config.features.useResponsesApi = false;
@@ -160,14 +180,17 @@ describe("POST /api/wizard/competitors", () => {
       marketInsight: "Tydlig lokal konkurrens",
     });
     expect(braveWebSearch).toHaveBeenCalledWith("Sajtstudio Webb Stockholm konkurrenter", 8);
-    expect(createDirectModel).toHaveBeenCalledWith("openai/gpt-5-mini");
+    expect(createDirectModel).toHaveBeenCalledWith("openai/gpt-6.1-sol");
     expect(generateText).toHaveBeenCalledWith(
       expect.objectContaining({
+        maxOutputTokens: 8_192,
         model: "model",
         prompt: expect.stringContaining("https://konkurrent.example"),
         abortSignal: expect.any(AbortSignal),
+        providerOptions: { openai: { reasoningEffort: "medium" } },
       }),
     );
+    expect(generateText.mock.calls[0][0]).not.toHaveProperty("temperature");
     expect(authorizeWizardRun).toHaveBeenCalledWith(expect.any(Request), WIZARD_RUN_ID);
     expect(emitWizardRouteTerminal).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -178,11 +201,11 @@ describe("POST /api/wizard/competitors", () => {
     );
   });
 
-  it("keeps the 25s route budget and emits a terminal event on validation failure", async () => {
+  it("keeps the 35s route budget and emits a terminal event on validation failure", async () => {
     const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "route.ts"), "utf8");
-    expect(maxDuration).toBe(25);
+    expect(maxDuration).toBe(35);
     expect(maxDuration).toBe(WIZARD_COMPETITORS_MAX_DURATION_S);
-    expect(source.match(/export const maxDuration = 25;/g)).toHaveLength(1);
+    expect(source.match(/export const maxDuration = 35;/g)).toHaveLength(1);
 
     await POST(makeRequest({ companyName: "Sajtstudio" }));
     expect(emitWizardRouteTerminal).toHaveBeenCalledWith(
@@ -212,3 +235,4 @@ describe("POST /api/wizard/competitors", () => {
     );
   });
 });
+

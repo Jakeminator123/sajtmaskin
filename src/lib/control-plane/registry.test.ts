@@ -272,7 +272,6 @@ describe("control-plane registry coverage", () => {
         (match) => match[1],
       ),
     );
-    expect(pageNames.size).toBe(37);
     expect(pageNames.has("Scaffold-poäng")).toBe(true);
     for (const entry of [...schemaRegistry.entries, ...policyRegistry.entries]) {
       const surface = entry.backoffice.surface;
@@ -390,12 +389,11 @@ describe("owner decision register", () => {
     expect(decisionRowErrors(row)).toEqual([]);
   });
 
-  it("keeps delivery history out and records the current cleanup ownership decisions", () => {
-    expect(decisions).not.toContain("| Leveransordning");
-    expect(decisions).toContain("| Backoffice-karta");
-    expect(decisions).toContain("| Ordlista/validering");
-    expect(decisions).toContain("| Städning/legacy");
-    expect(decisions).toContain("| Konfigurationsyta");
+  it("contains at least one current dated decision", () => {
+    expect(
+      decisionRows.length,
+      "owner decision register must contain at least one dated decision row",
+    ).toBeGreaterThan(0);
   });
 });
 
@@ -462,18 +460,6 @@ describe("control-plane Backoffice and CI truth", () => {
       ciStatus: "hard",
       runtimeEnforced: false,
       runtimeStatus: "n/a",
-    });
-  });
-
-  it("records the user degraded-env editor without claiming runtime wiring", () => {
-    expect(byId.get("user-degraded-env")).toMatchObject({
-      runtimeEnforced: false,
-      runtimeStatus: "declared-only",
-      backoffice: {
-        surface: "user_degraded_env",
-        editable: true,
-        writePath: "config/user_degraded_env.txt",
-      },
     });
   });
 

@@ -19,6 +19,16 @@
 
 ---
 
+## Återanvändbart pipelinetestkonto
+
+Återanvändbart pipelinetestkonto: `PIPELINE_TEST_ACCOUNT_EMAIL` och
+`PIPELINE_TEST_ACCOUNT_PASSWORD` är operatörs-/testvariabler, inte appberoenden.
+De sparas i ignorerad `.env.local` och krypterat i Vercels tre miljöer, aldrig
+som `NEXT_PUBLIC_*` eller i Git. Kontot finns i DEV, som även används av Preview;
+env-värden i Production skapar inget konto där. Variablerna ger inga admin- eller
+gratisprivilegier och ska inte ersättas med de privilegierade `TEST_USER_*`.
+De aktiverar inte schemaläggning eller automatiska tester.
+
 ## Måste i praktiken (normal drift)
 
 Utan dessa brukar kärnan inte vara användbar i **preview + production**:
@@ -32,18 +42,53 @@ Utan dessa brukar kärnan inte vara användbar i **preview + production**:
 
 Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** för `development` / `preview` / `production` enligt behov.
 
-> **CI read-only DB-secret — `POSTGRES_URL_PROD`:** GitHub Actions läser prod-ledger och dev/prod-paritet, men push eller vanlig dispatch applicerar inte migrationer/index. På huvudrepot är saknad secret ett hårt fel, aldrig ett grönt live-kvitto. Preview och Production delar fortfarande samma databas. Live DDL är ett separat uppdrag och kräver verifierad direkt/session-mode-anslutning; anta inte att runtime-poolad URL är rätt för sessionslås. Detaljer: [`DB-runbook`](runbooks/db-migrations.md).
+> **CI read-only DB-secret — `POSTGRES_URL_PROD`:** GitHub Actions läser prod-ledger och dev/prod-paritet, men push eller vanlig dispatch applicerar inte migrationer/index. På huvudrepot är saknad secret ett hårt fel, aldrig ett grönt live-kvitto. Preview och Development delar DEV; Production använder PROD. Live DDL är ett separat uppdrag och kräver verifierad direkt/session-mode-anslutning; anta inte att runtime-poolad URL är rätt för sessionslås. Detaljer: [`DB-runbook`](runbooks/db-migrations.md).
 
 ---
 
 ## Vanliga tillägg (funktioner ovanpå)
+
+### Automatisk återkoll av ofärdiga efterkontroller
+
+Builderns versionspoll kan väcka den befintliga serverkedjan via
+`POST /api/engine/chats/[chatId]/postchecks` när senaste designversionen har
+väntat minst fem minuter. Det fungerar även efter omladdning. Klienten skickar
+bara versions-ID; servern kontrollerar ägarskap, senaste version, lease,
+ursprunglig budget, ålder och backoff igen. Anropet skapar ingen ny generering
+och ändrar inga kostnadstak. Återupptagen kontroll/reparation kan fortfarande
+kosta enligt den befintliga budgeten. Denna reservväg kräver en öppen builder;
+med alla flikar stängda väntar den till återbesök eller separat schemaläggning.
+
+`SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED=0` är av; exakt `1` tillåter arbete i
+`/api/engine/postchecks`. Saknat eller annat värde är av. Det är inte ett datum
+eller en engångskörning. Vanlig generering och dess direkta efterkontroller
+fortsätter oberoende av denna flagga.
+
+Avsikten är en återkommande återkoll, inte att skapa nya sajter. Routen väljer
+högst två berättigade versioner per anrop och behåller befintliga försöks- och
+kostnadstak. Återupptagen LiveReview/reparation kan fortfarande vara betald.
+`CRON_SECRET` krävs även när funktionen är avstängd.
+
+Flaggan skapar inget schema: `vercel.json` saknar ännu en post för routen.
+Före aktivering krävs separat godkänd schemaläggning, konfigurerad autentisering,
+verifierad plattformstid och runtimeprov. Vercels env-ändringar gäller nya
+deployments, inte redan driftsatta versioner. Lokalt skapas inget cron-jobb.
+Vercel Cron anropar produktionsdeploymenten; en cron-post i en Preview-build
+är därför inte ett Preview-prov. Prova först återupptagning av en bestämd
+testversion i Preview/DEV och kontrollera budgetkvitton och slutstatus.
+En tom återkoll anropar ingen AI. Routen har gränser för urval, försök och
+körtid, men inget eget månadstak i pengar; server-/DB-förbrukning och eventuell
+LiveReview/reparation måste räknas separat.
+Se [pipelineöversikten](architecture/llm-pipeline.md) för den gemensamma ägaren.
+
+### Övriga tillägg
 
 | Område | Exempel på variabler | Kommentar |
 |--------|----------------------|-----------|
 | Cache / genereringslås / rate limit | `REDIS_URL` (alternativt `KV_URL`), `UPSTASH_REDIS_REST_URL` + token | Create/follow-up kräver fungerande Redis i preview/production och svarar 503 om kontolåset inte kan tas. Miljöer som delar användare och credits i samma databas måste använda samma Redis-backend för kontolåset; miljöprefixen för vanliga cache-/chatnycklar är fortsatt separata. Upstash REST används separat för rate limiting; `SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD` kringgår inte kontolåset. |
 | Blob / uppladdning | `BLOB_READ_WRITE_TOKEN` | Vercel Blob (media + **platform embeddings** under `embeddings/*.json`). Lokalt: embeddings-cache på disk; CI syncar via public URL i `config/embeddings-blob-manifest.json`. Backoffice-knapparna (Pipeline Health + scaffold-wizard) kör generate med `--require-blob` så saknad token inte ser ut som en lyckad publicering. Streamlit laddar `.env` sedan `.env.local` (local vinner), samma ordning som embeddings-skripten. |
 | Betalning | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, valfria `STRIPE_PRICE_STARTER` / `POPULAR` / `PRO` | Credits-checkout. Nycklarna ska vara delade per Vercel-mål: `sk_test`/`pk_test` + test-`whsec` i development/preview, live i production. Inte samma värde i alla miljöer. Spara som encrypted `--no-sensitive` (inte Sensitive) så prefix och targeting går att inspektera. Runtime (`env.ts`) nekar `sk_test_`/`pk_test_` när `VERCEL_ENV=production` och nyckeln är satt. `STRIPE_PRICE_*` ska vara **osatta** — checkout bygger `price_data` från `credit-packages.ts` (49/99/179 kr = credits). Sätt bara ett `price_`-id om beloppet i Stripe-dashboarden matchar paketet. |
-| Google Ads (första part, appen) | `NEXT_PUBLIC_GOOGLE_ADS_ID`, `NEXT_PUBLIC_GOOGLE_ADS_BUILDER_START_LABEL`, `NEXT_PUBLIC_GOOGLE_ADS_ACCOUNT_CREATED_LABEL`, `NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL` | Valfria, tomma = av. Bara Sajtmaskin-appens root layout; aldrig preview-host eller genererade sajter. Operativ yta: [`runbooks/google-ads-search-test.md`](runbooks/google-ads-search-test.md). |
+| Google Ads (första part, appen) | `NEXT_PUBLIC_GOOGLE_ADS_ENABLED`, `NEXT_PUBLIC_GOOGLE_ADS_ID`, `NEXT_PUBLIC_GOOGLE_ADS_BUILDER_START_LABEL`, `NEXT_PUBLIC_GOOGLE_ADS_ACCOUNT_CREATED_LABEL`, `NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL` | Koddefault på produktionshosts (`sajtmaskin.se` / `.com` / `sajtmaskin.vercel.app`). Preview/localhost av. `ENABLED=1` för QA, `=0` kill-switch. Labels: tom = default för builder_start/account_created; `FIRST_GENERATION` tom = gtag-event `first_site_generated` utan send_to. Aldrig preview-host eller genererade sajter. Operativ yta: [`runbooks/google-ads-search-test.md`](runbooks/google-ads-search-test.md). |
 | E-post | `RESEND_API_KEY` | Utan: vissa mailflöden noop:ar. |
 | Kostnadsfri-länkar (mejlflödet) | `KOSTNADSFRI_PASSWORD_SEED`, `KOSTNADSFRI_API_KEY` | `KOSTNADSFRI_PASSWORD_SEED` är HMAC-nyckeln som `generatePassword` härleder sidlösenordet ur (slug + seed → lösenord). **Måste vara identisk i varje miljö där ett lösenord räknas ut eller verifieras** — skapar admin länken i en miljö med annan seed än den som verifierar, avvisas lösenordet. **Byte av seed bryter alla redan utskickade lösenord** (inget lösenord lagras i klartext; hashen i `kostnadsfri_pages.password_hash` matchar bara den gamla seeden). `KOSTNADSFRI_API_KEY` autentiserar maskinvägen `POST`/`GET /api/kostnadsfri` via headern `x-api-key` — det är den nyckel det externa utskicksverktyget använder för att registrera utskick (`sentAt`/`source`). Obs kopplingen: `generatePassword` faller tillbaka på `KOSTNADSFRI_API_KEY` när seeden är osatt, så en rotation av API-nyckeln utan satt seed bryter lösenorden. Är ingen av dem satt visar `/admin/kostnadsfri` "Lösenordsseed saknas" och länkar kan varken skapas eller verifieras. Källa: `src/lib/kostnadsfri/index.ts`, `src/app/api/kostnadsfri/route.ts`. |
 | Kostnadsfri-profilfallback | `KOSTNADSFRI_LOOKUP_SECRET`, valfri `KOSTNADSFRI_LOOKUP_URL` | **Valfri, default av.** Efter ett korrekt lösenord på `/kostnadsfri/[slug]` hämtar verify-routen bolagsprofilen från utskicksverktyget (`GET <URL>/api/kostnadsfri/lookup?slug=`, header `x-api-key`) — men bara när `extra_data.profile` saknas. Push via `POST /api/kostnadsfri` förblir huvudvägen; fallbacken täcker rader skapade i `/admin`, `--no-register`, registreringsfel och äldre inbjudningar. `KOSTNADSFRI_LOOKUP_SECRET` måste vara **samma värde** som dashens `KOSTNADSFRI_LOOKUP_SECRET` i Render — en egen nyckel, **inte** `KOSTNADSFRI_API_KEY` (den är vår inbound). Utan secret körs inget anrop. `KOSTNADSFRI_LOOKUP_URL` default `https://sajtmaskin-dash.onrender.com`; samma tjänst i preview och prod. Budget 8 s i kundens väntan, alla utfall degraderar till dagens tomma wizard. Svaret körs genom våra egna PII-guards och träffen skrivs tillbaka till raden så anropet sker en gång per inbjudan. Källa: `src/lib/kostnadsfri/profile-lookup.ts`, `src/app/api/kostnadsfri/[slug]/verify/route.ts`. |
@@ -125,7 +170,7 @@ Appen läser alltid **`POSTGRES_URL`** (resolver: [`src/lib/db/env.ts`](../src/l
 | Yta | Env-variabel | Supabase-projekt | Region |
 |---|---|---|---|
 | Vercel **Development** | `POSTGRES_URL` | dev: `yubbckduwblyrbnlglwf` | `eu-north-1` |
-| Vercel **Preview** (`preview.sajtmaskin.se` / `preview`-branchen) | `POSTGRES_URL` | prod: `egcitvwgettkftkyzbvn` | `us-east-1` |
+| Vercel **Preview** (`preview.sajtmaskin.se` / `preview`-branchen) | `POSTGRES_URL` | dev: `yubbckduwblyrbnlglwf` | `eu-north-1` |
 | Vercel **Production** | `POSTGRES_URL` | prod: `egcitvwgettkftkyzbvn` | `us-east-1` |
 | Lokal dev (**`.env.local`**) | `POSTGRES_URL` | dev (eller lokal throwaway-Postgres) | `eu-north-1` |
 | GitHub Actions (CI) | `POSTGRES_URL_DEV` **och** `POSTGRES_URL_PROD` (secrets) | Read-only ledger-/live-paritetskontroller. Ingen automatisk dev/prod-apply. Efemär CI-testdatabas är separat och behöver inga live-secrets. | resp. ovan |
@@ -133,6 +178,8 @@ Appen läser alltid **`POSTGRES_URL`** (resolver: [`src/lib/db/env.ts`](../src/l
 | Supabase-MCP (IDE-tooling) | — | scoped till **dev**-projektet, read-only | `eu-north-1` |
 
 - **Maskinläsbar sanning:** [`config/db-targets.json`](../config/db-targets.json).
+- **Deployment-grind:** `prebuild` kör guarden med `--vercel`. Den läser miljömappningen från `config/db-targets.json` och kontrollerar alla satta DB-URL:er, inklusive fallback-/non-pooling-alias. Vercel Preview med en PROD-URL stoppas; lokal/no-secret CI-build använder inte deployment-grinden.
+- Preview och Development delar testkonton och testdata. Produktionskonton, kundprojekt och credits kopieras inte till DEV. Byte av DB-pekare kräver en ny Preview-deploy; äldre deployment-URL:er behåller sin tidigare miljö. Gemensam Redis/Blob innebär inte full resursisolering.
 - **Guard:** `npm run db:check-target -- --expect=dev|prod` verifierar att processens `POSTGRES_URL` pekar på rätt projekt och skriver en **sanitiserad** identitet (miljö + host + db + project ref — aldrig lösenord eller hela connection-strängen). CI kör guarden mot `POSTGRES_URL_PROD` före read-only ledgerkontroll; live-paritet kontrollerar båda målen internt. Fel projekt ⇒ hårt rött.
 - Next.js-runtime läser **aldrig** `POSTGRES_URL_DEV`/`POSTGRES_URL_PROD` — de finns bara i CI.
 
@@ -199,7 +246,7 @@ När `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt behandlar appen preview-host 
 | Project env vars (`projectEnvVars`) | Effektiva runtime-värden för F3/deploy | Ja, om dossier-nyckeln har `enforcement: "build"` och saknar både riktigt värde och katalog-godkänd placeholder |
 | Preview-host `.env.local` | Faktisk runtime-fil inne i preview-VM | Speglar lagren ovan via `buildPreviewEnvLocalContents()` |
 
-F3-readiness ska alltså spegla **verkliga integrationkrav**, inte om en nyckel råkar finnas i `env.example`. `feature-runtime` rapporteras som warning och `warn-only` som info; bara `build`-enforcement kan blockera, och då endast när både riktigt projektvärde och godkänd katalog-placeholder saknas. Efter #468 är `clerk-auth` den enda hard-dossiern med `build`-nycklar. Dess två nycklar (`CLERK_SECRET_KEY` + `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) har i dag katalog-placeholder, så en saknad riktig Clerk-konfiguration ger demo/advisory i stället för ett automatiskt F3-stopp.
+F3-readiness ska alltså spegla **verkliga integrationkrav**, inte om en nyckel råkar finnas i `env.example`. `feature-runtime` rapporteras som warning och `warn-only` som info; bara `build`-enforcement kan blockera, och då endast när både riktigt projektvärde och godkänd katalog-placeholder saknas. Ingen levererad dossier har i dag `build`-nycklar. `clerk-auth` (`CLERK_SECRET_KEY` + `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) är `feature-runtime`, så en saknad riktig Clerk-konfiguration ger demoläge och en varning i stället för ett F3-stopp. Skyddade routes är då öppna.
 
 Om F3-specen helt saknar `requiredRealEnvKeys` är detta inte signal att
 capabilityn saknas. `finalize-design` forkar då en ny `integrations`-version
@@ -241,7 +288,7 @@ Varje genererad sajt får en egen `env.example`-fil i projektets filträd (syns 
 
 Filen tar bort behovet av att fråga användaren om env-variabler i chatten under F2:
 
-**Dossier-scopad:** `env.example` dumpar inte längre hela placeholder-katalogerna. Preflight skickar **alltid** in de valda dossiers env-nycklar (`dossierEnvScope`, även tom lista) i `injectProjectEnvFileIntoFilesJson` → `buildProjectEnvFileContents`, så filen bara listar (a) nycklar modellen själv skrev i `.env.local`, (b) projekt-preview-tokens och (c) env-nycklar för de **valda** dossiers. Sparade `projectEnvVars` laddas eller dekrypteras aldrig av den här byggaren. En sajt utan dossiers får alltså ingen katalogdump. Det F2-only "Upptäckta integrationer (kommenterade)"-blocket (redan projekt-scopat) behålls. Utan scope (äldre/okända callsites) faller det tillbaka på full dump av säkra placeholders — fortfarande utan sparade projektvärden.
+**Dossier-scopad:** `dossierEnvScope` är obligatoriskt i `injectProjectEnvFileIntoFilesJson` → `buildProjectEnvFileContents`; ett tomt scope ger ingen katalogdump. `env.example` listar modell-emitterade env-nycklar, projekt-preview-tokens och de valda dossiers env-nycklar. Sparade `projectEnvVars` laddas eller dekrypteras aldrig av byggaren. Det F2-only "Upptäckta integrationer (kommenterade)"-blocket behålls. Detta ändrar inte runtime-resolvern i `env-local.ts`: utelämnat `scopePlaceholdersToFiles` eller en tom fillista behåller där fulla placeholder-kataloger. `env.example` saknar däremot en scope-lös fallback.
 
 > **Provenance-vakt (2026-07-09):** "(b) modell-emitterad `.env.local`" gäller INTE den placeholder-`.env.local` som Sajtmaskins egen scaffold-merge injicerar i filträdet — den identifieras via markörraden `PIPELINE_ENV_LOCAL_MARKER` ([`env-local.ts`](../src/lib/gen/preview/env-local.ts)) och hoppas över både i `env.example`-byggaren och i preview-VM:ens `.env.local`-merge. Utan vakten läckte hela katalogen tillbaka som "generated"-lager vid varje regenerering och besegrade dossier-scopingen (och kunde skugga användarens env-panel-värden i preview:n).
 

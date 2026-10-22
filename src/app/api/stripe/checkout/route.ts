@@ -12,6 +12,10 @@ import { getPackageById } from "@/lib/billing/stripe";
 import { URLS, SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rate-limit";
 import { getTransactionByStripeSession } from "@/lib/db/services/transactions";
+import {
+  campaignAccountBlockedBody,
+  isCampaignAccountProvider,
+} from "@/lib/kostnadsfri/campaign-account";
 import Stripe from "stripe";
 
 // Initialize Stripe
@@ -78,6 +82,9 @@ export async function POST(req: NextRequest) {
           },
           { status: 401 },
         );
+      }
+      if (isCampaignAccountProvider(user.provider)) {
+        return NextResponse.json(campaignAccountBlockedBody("payment"), { status: 403 });
       }
 
       const body = await req.json();

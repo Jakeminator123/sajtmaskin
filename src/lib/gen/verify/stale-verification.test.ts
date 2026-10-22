@@ -3,6 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
 import { STALE_VERIFICATION_TIMEOUT_MS } from "@/lib/gen/defaults";
 import {
+  applyCurrentIntegrationMigrationHold,
+  buildIntegrationMigrationHoldSummary,
+  isCurrentIntegrationMigrationHold,
   isFreshVersionLease,
   isNonTerminalVerificationState,
   isTimedOutVerificationState,
@@ -33,6 +36,57 @@ describe("isNonTerminalVerificationState", () => {
     for (const s of ["repair_available", "passed", "failed", null, undefined, "weird"]) {
       expect(isNonTerminalVerificationState(s)).toBe(false);
     }
+  });
+});
+
+describe("durable integration migration hold", () => {
+  const revision = "a".repeat(32);
+  const row = {
+    release_state: "draft",
+    verification_state: "pending",
+    verification_summary: buildIntegrationMigrationHoldSummary(revision),
+    files_revision: revision,
+  };
+
+  it("is active only for the exact pending draft revision", () => {
+    expect(isCurrentIntegrationMigrationHold(row)).toBe(true);
+    expect(isCurrentIntegrationMigrationHold({ ...row, files_revision: "b".repeat(32) })).toBe(
+      false,
+    );
+    expect(isCurrentIntegrationMigrationHold({ ...row, verification_state: "verifying" })).toBe(
+      false,
+    );
+    expect(isCurrentIntegrationMigrationHold({ ...row, release_state: "promoted" })).toBe(false);
+  });
+
+  it.each([
+    makeStatus({ phase: "idle" }),
+    makeStatus({ phase: "verifying" }),
+    makeStatus({ phase: "done", done: true }),
+    makeStatus({ phase: "failed" }),
+  ])("overlays cold, warm and stale terminal bus state as blocked", (status) => {
+    const out = applyCurrentIntegrationMigrationHold(status, row);
+    expect(out).toMatchObject({
+      phase: "blocked",
+      done: false,
+      verificationBlocked: true,
+      verifierOutcome: "pending",
+      lastBuildError: {
+        stage: "promotion",
+        failureCode: "integration_migration_required",
+      },
+    });
+    expect(out.lastBuildError?.message).toContain("Providerbytet");
+  });
+
+  it("leaves status untouched when the revision-bound marker is stale", () => {
+    const status = makeStatus({ phase: "done", done: true });
+    expect(
+      applyCurrentIntegrationMigrationHold(status, {
+        ...row,
+        files_revision: "b".repeat(32),
+      }),
+    ).toBe(status);
   });
 });
 

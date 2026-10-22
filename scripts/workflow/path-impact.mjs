@@ -78,8 +78,9 @@ export const PATH_GROUP_FLOORS = Object.freeze({
     "requirements*.txt",
     ".node-version",
   ]),
-  ci: Object.freeze([".github/**", "scripts/ci/**", "scripts/pr-review/**"]),
+  ci: Object.freeze([".github/**", "scripts/ci/**"]),
   previewHost: Object.freeze(["preview-host/**"]),
+  bugBacklog: Object.freeze(["BUG-SWARM-BACKLOG.md", "docs/canvases/**"]),
   observability: Object.freeze(["scripts/observability/**", "requirements.genlogs.txt"]),
   e2e: Object.freeze(["e2e/**", "playwright*.config.ts"]),
 });
@@ -268,14 +269,17 @@ export function collectImpact({
   );
   const unclassifiedFiles = files.filter((file) => !classifiedFiles.has(file));
 
-  // Only genuinely unclassified paths fail safe into the supplemental full
-  // profile. `authorities` and Backoffice's domain map are curated contract
-  // registries, not a complete CODEOWNERS map, so an ordinary runtime file can
-  // legitimately be absent from `ownedFiles`. The code-owned runtime floor has
-  // already selected typecheck, tests and lint for those files.
+  // Only genuinely unclassified paths fail safe into every non-docs profile.
+  // `authorities` and Backoffice's domain map are curated contract registries,
+  // not a complete CODEOWNERS map, so an ordinary runtime file can legitimately
+  // be absent from `ownedFiles`. An actually unknown area is different: limiting
+  // it to the default JS suite would silently omit Python, Playwright,
+  // preview-host and other separately owned harnesses.
   if (unclassifiedFiles.length > 0) {
-    for (const command of policy.verificationProfiles.runtime) commands.add(command);
-    for (const command of policy.verificationProfiles.full) commands.add(command);
+    for (const [profile, profileCommands] of Object.entries(policy.verificationProfiles)) {
+      if (profile === "docs") continue;
+      for (const command of profileCommands) commands.add(command);
+    }
   }
 
   return {
@@ -302,3 +306,4 @@ export function loadWorkflowInputs(root = process.cwd()) {
     domainMap: readJson("config/backoffice/domain-map.json"),
   };
 }
+

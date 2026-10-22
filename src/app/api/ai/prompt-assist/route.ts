@@ -53,9 +53,10 @@ export async function POST(req: Request) {
         ],
         ...buildPromptAssistModelOptions(modelId),
       });
-      // The 3,072-token ceiling is an intentional cost guard. A long or
-      // token-dense draft may reach it; fail closed instead of writing a
-      // syntactically valid but incomplete rewrite back into the editor.
+      // The canonical total output cap is 8,192 tokens, including reasoning.
+      // It is a ceiling, not a measured cost. A long or token-dense draft may
+      // reach it; fail closed instead of writing a syntactically valid but
+      // incomplete rewrite back into the editor.
       if (result.finishReason === "length") {
         return NextResponse.json({ error: "rewrite_output_limit" }, { status: 502 });
       }

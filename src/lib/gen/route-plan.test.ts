@@ -188,6 +188,21 @@ describe("buildRoutePlan", () => {
     expect(plan.routes.some((r) => r.path === "/cart")).toBe(false);
   });
 
+  it("still plans an explicitly requested ecommerce /om page without a baseline stub", () => {
+    const ecommerce = getScaffoldById("ecommerce")!;
+    const init = buildRoutePlan({
+      ...websiteBase, resolvedScaffold: ecommerce,
+      prompt: "Skapa en webbshop med en separat sida om oss på /om.",
+    });
+    expect(init.routes.some((route) => route.path === "/om")).toBe(true);
+    const followUp = buildRoutePlan({
+      ...websiteBase, resolvedScaffold: ecommerce,
+      prompt: "Lägg till en separat sida om oss på /om.",
+      generationMode: "followUp", existingRoutePaths: ["/", "/products"],
+    });
+    expect(followUp.routes.map((route) => route.path)).toEqual(expect.arrayContaining(["/", "/products", "/om"]));
+  });
+
   it("follow-up keeps existing routes and does not add scaffold defaults by default", () => {
     const ecommerceScaffold = getScaffoldById("ecommerce");
     expect(ecommerceScaffold).not.toBeNull();
@@ -275,6 +290,43 @@ describe("buildRoutePlan", () => {
       existingRoutePaths: ["/"],
     });
     expect(plan.routes.some((r) => r.path === "/bilder")).toBe(true);
+  });
+
+  it.each([
+    ["Lägg till en ny sida som heter Våra hundar och länka den i menyn", "Våra hundar", "/vara-hundar"],
+    ['Skapa en sida kallad "Galleri"', "Galleri", "/galleri"],
+    ["Gör en ny sida döpt till Recensioner", "Recensioner", "/recensioner"],
+    ["Jag vill ha en ny sida som heter Event, tack", "Event", "/event"],
+    ["Kan du lägga till en sida som heter Kampanjer", "Kampanjer", "/kampanjer"],
+    ["Skulle du kunna bygga en sida kallad Butik", "Butik", "/butik"],
+    ["Vill du göra en ny sida döpt till Nyheter", "Nyheter", "/nyheter"],
+  ])("extracts the Swedish named-page phrasing %s", (prompt, name, path) => {
+    expect(extractExplicitNamedPages(prompt)).toEqual([{ name, path }]);
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt,
+      generationMode: "followUp",
+      existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.some((r) => r.path === path)).toBe(true);
+  });
+
+  it("does not plan a route when the phrasing points at an existing page or describes form fields", () => {
+    for (const prompt of [
+      "Ändra texten på sidan som heter Om oss",
+      "Byt bild på sidan kallad Tjänster",
+      "Lägg till en sida med namnet och e-post för medlemmar",
+      "Skapa en inloggningssida med fält för användarnamn och lösenord",
+    ]) {
+      expect(extractExplicitNamedPages(prompt)).toEqual([]);
+      const plan = buildRoutePlan({
+        ...websiteBase,
+        prompt,
+        generationMode: "followUp",
+        existingRoutePaths: ["/"],
+      });
+      expect(plan.routes.map((r) => r.path)).toEqual(["/"]);
+    }
   });
 
   it("does not treat copy-edit ska heta as a new page", () => {

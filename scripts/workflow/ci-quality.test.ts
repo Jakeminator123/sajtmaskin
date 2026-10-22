@@ -1,15 +1,16 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { parse } from "yaml";
+import { runInNewContext } from "node:vm";
+import { parse, stringify } from "yaml";
 import { describe, expect, it } from "vitest";
 
 import { evaluateCiScopeWorkflow, evaluateDossierAcceptanceWorkflow } from "./check-contract.mjs";
 
 const source = readFileSync(".github/workflows/ci.yml", "utf8");
 const scripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
-const workflow = parse(source) as {
-  jobs: Record<string, { steps?: Array<{ name: string; run: string }> }>;
-};
+type WorkflowStep = { name: string; run: string; if?: string; "continue-on-error"?: boolean };
+type WorkflowJob = { if?: string; steps?: WorkflowStep[]; "continue-on-error"?: boolean };
+const workflow = parse(source) as { jobs: Record<string, WorkflowJob> };
 const aggregate = workflow.jobs.quality.steps?.find(
   (step) => step.name === "Aggregate required quality result",
 )?.run;
@@ -20,6 +21,7 @@ const success = {
   RUN_HEAVY: "true",
   CORE_RESULT: "success",
   TESTS_RESULT: "success",
+  PERSISTENCE_RESULT: "success",
   CONTRACTS_RESULT: "success",
   PREVIEW_HOST_RESULT: "success",
   DEAD_CODE_RESULT: "success",
@@ -58,8 +60,16 @@ describe.skipIf(process.platform === "win32")("required quality aggregate", () =
   );
 
   it("accepts skipped runtime jobs only after an explicit successful light decision", () => {
-    expect(run({ RUN_HEAVY: "false", CORE_RESULT: "skipped", TESTS_RESULT: "skipped" })).toBe(0);
+    expect(run({ RUN_HEAVY: "false", CORE_RESULT: "skipped", TESTS_RESULT: "skipped", PERSISTENCE_RESULT: "skipped" })).toBe(0);
   });
+
+  it.each(["failure", "cancelled", "skipped", "", "unknown"])(
+    "blocks missing/failed real persistence on heavy and fallback: %s", (PERSISTENCE_RESULT) => {
+      expect(run({ PERSISTENCE_RESULT })).toBe(1);
+      expect(run({ SCOPE_RESULT: "failure", RUN_HEAVY: "false", PERSISTENCE_RESULT })).toBe(1);
+      if (PERSISTENCE_RESULT !== "skipped") expect(run({ RUN_HEAVY: "false", PERSISTENCE_RESULT })).toBe(1);
+    },
+  );
 
   it.each(["failure", "cancelled", "", "unknown"])(
     "does not hide a failed shard matrix under light scope: %s",
@@ -87,6 +97,130 @@ describe.skipIf(process.platform === "win32")("required quality aggregate", () =
   );
 });
 
+describe("single blocking owner for repeated quality checks", () => {
+  const scopeTests = "npm run test:workflow";
+  const routeCheck = "npm run route-timeouts:check";
+
+  // These workflow conditions use only boolean operators and string comparisons,
+  // which have the same semantics in JS for these producer values. Evaluate the
+  // committed expression, not a reimplemented heavy/light decision function.
+  function scheduled(jobName: string, command: string, result: string, heavy: string, cancelled = false) {
+    const job = workflow.jobs[jobName];
+    const context = { needs: { scope: { result, outputs: { run_heavy: heavy } } }, cancelled: () => cancelled };
+    const enabled = (condition?: string) => condition === undefined || runInNewContext(
+      condition.replace(/^\$\{\{\s*|\s*\}\}$/gu, ""), context, { timeout: 100 },
+    );
+    return enabled(job.if) && job.steps?.some((step) => step.run === command && enabled(step.if));
+  }
+
+  it.each([
+    ["heavy", "success", "true", false],
+    ["explicit light", "success", "false", true],
+    ["failed scope", "failure", "false", false],
+    ["skipped scope", "skipped", "false", false],
+    ["missing scope", "", "false", false],
+    ["missing output", "success", "", false],
+    ["invalid output", "success", "unknown", false],
+  ])("retains exactly one quality owner on %s", (_label, result, heavy, light) => {
+    const fullSuite = scheduled("quality-tests", "npm run test:ci -- --shard=${{ matrix.shard }}/4", result, heavy);
+    const targetedTests = scheduled("quality-contracts", scopeTests, result, heavy);
+    const preflight = scheduled("quality-core", "npm run preflight:common", result, heavy);
+    const targetedRoutes = scheduled("quality-contracts", routeCheck, result, heavy);
+    expect([fullSuite, targetedTests]).toEqual([!light, light]);
+    expect([preflight, targetedRoutes]).toEqual([!light, light]);
+    expect([
+      scheduled("quality-contracts", "npm run scaffolds:validate", result, heavy),
+      scheduled("quality-contracts", "npm run scaffolds:client-list:check", result, heavy),
+    ]).toEqual([light, !light]);
+    if (!light) {
+      expect(scheduled("quality-tests", "npm run embeddings:ensure", result, heavy)).toBe(true);
+    }
+    // The runtime validator is not a duplicate of its tests: always retain it.
+    expect(scheduled("quality-contracts", "npm run workflow:contract", result, heavy)).toBe(true);
+  });
+
+  it("does not keep targeted work alive after cancellation", () => {
+    expect(scheduled("quality-contracts", scopeTests, "success", "false", true)).toBe(false);
+    expect(scheduled("quality-contracts", routeCheck, "success", "false", true)).toBe(false);
+    expect(scheduled("quality-contracts", "npm run scaffolds:validate", "success", "false", true)).toBe(false);
+    expect(scheduled("quality-contracts", "npm run scaffolds:client-list:check", "success", "true", true)).toBe(false);
+  });
+
+  it("removes only duplicate stability work and preserves advisory terminology", () => {
+    expect(workflow.jobs.stability).toBeUndefined();
+    const terms = workflow.jobs["quality-contracts"].steps!
+      .filter((step) => step.run === "npm run check:terms");
+    expect(terms).toHaveLength(1);
+    expect(terms[0]["continue-on-error"]).toBe(true);
+    expect(scheduled("quality-contracts", "npm run check:terms", "success", "false")).toBe(true);
+    expect(scheduled("quality-contracts", "npm run check:terms", "failure", "false")).toBe(true);
+  });
+
+  it.each([scopeTests, routeCheck, "npm run scaffolds:validate", "npm run scaffolds:client-list:check"])("rejects missing, skipped or nonblocking coverage: %s", (command) => {
+    for (const change of ["remove", "skip", "allow-failure", "duplicate"]) {
+      const changed = structuredClone(workflow);
+      const job = changed.jobs["quality-contracts"];
+      const step = job.steps!.find((candidate) => candidate.run === command)!;
+      if (change === "remove") job.steps = job.steps!.filter((candidate) => candidate !== step);
+      if (change === "skip") step.if = "${{ false }}";
+      if (change === "allow-failure") step["continue-on-error"] = true;
+      if (change === "duplicate") job.steps!.push({ ...step });
+      expect(evaluateCiScopeWorkflow(stringify(changed), scripts), change).not.toEqual([]);
+    }
+  });
+
+  it("keeps the advisory scan nonblocking, present and unconditional except cancellation", () => {
+    for (const change of ["remove", "skip", "blocking", "duplicate"]) {
+      const changed = structuredClone(workflow);
+      const job = changed.jobs["quality-contracts"];
+      const step = job.steps!.find((candidate) => candidate.run === "npm run check:terms")!;
+      if (change === "remove") job.steps = job.steps!.filter((candidate) => candidate !== step);
+      if (change === "skip") step.if = "${{ false }}";
+      if (change === "blocking") delete step["continue-on-error"];
+      if (change === "duplicate") job.steps!.push({ ...step });
+      expect(evaluateCiScopeWorkflow(stringify(changed), scripts), change).not.toEqual([]);
+    }
+  });
+
+  it.each(["quality-core", "quality-tests"])("retains blocking materialization in %s", (jobName) => {
+    for (const change of ["remove", "skip", "allow-failure", "duplicate", "after-tests"]) {
+      const changed = structuredClone(workflow);
+      const job = changed.jobs[jobName];
+      const step = job.steps!.find((candidate) => candidate.run === "npm run embeddings:ensure")!;
+      if (change === "remove" || change === "after-tests") job.steps = job.steps!.filter((candidate) => candidate !== step);
+      if (change === "skip") step.if = "${{ false }}";
+      if (change === "allow-failure") step["continue-on-error"] = true;
+      if (change === "duplicate" || change === "after-tests") job.steps!.push({ ...step });
+      expect(evaluateCiScopeWorkflow(stringify(changed), scripts), change).not.toEqual([]);
+    }
+  });
+
+  it("rejects reintroducing the broad duplicate under any job name", () => {
+    const changed = structuredClone(workflow);
+    changed.jobs.duplicate = { steps: [{ name: "duplicate", run: "npm run test:stability" }] };
+    expect(evaluateCiScopeWorkflow(stringify(changed), scripts)).not.toEqual([]);
+  });
+
+  it.each(["same job", "another job"])("rejects a duplicate blocking stability owner in %s", (where) => {
+    const changed = structuredClone(workflow);
+    const steps = changed.jobs["quality-core"].steps!;
+    const blocking = steps.find((step) => step.run === "npm run test:stability:blocking")!;
+    if (where === "same job") steps.push({ ...blocking });
+    else changed.jobs.duplicate = { steps: [{ ...blocking }] };
+    expect(evaluateCiScopeWorkflow(stringify(changed), scripts)).not.toEqual([]);
+  });
+
+  it("rejects loss of the heavy preflight or its Vercel route check", () => {
+    const changed = structuredClone(workflow);
+    changed.jobs["quality-core"].steps = changed.jobs["quality-core"].steps!
+      .filter((step) => step.run !== "npm run preflight:common");
+    expect(evaluateCiScopeWorkflow(stringify(changed), scripts)).not.toEqual([]);
+    for (const name of ["preflight:common", "prebuild", "route-timeouts:check"]) {
+      expect(evaluateCiScopeWorkflow(source, { ...scripts, [name]: "echo skipped" }), name).not.toEqual([]);
+    }
+  });
+});
+
 describe("complete native test sharding contract", () => {
   it("accepts the current workflow", () => {
     expect(evaluateCiScopeWorkflow(source, scripts)).toEqual([]);
@@ -103,7 +237,27 @@ describe("complete native test sharding contract", () => {
     ["      - name: Test shard (blocking)", "      - name: Test shard (blocking)\n        continue-on-error: true"],
     ["  quality-tests:\n", "  quality-tests:\n    continue-on-error: true\n"],
     ["quality-core, quality-tests, quality-contracts", "quality-core, quality-contracts"],
+    ["SCOPE_RESULT: ${{ needs.scope.result }}", "SCOPE_RESULT: success"],
+    ["RUN_HEAVY: ${{ needs.scope.outputs.run_heavy }}", "RUN_HEAVY: true"],
+    ["CORE_RESULT: ${{ needs['quality-core'].result }}", "CORE_RESULT: success"],
     ["TESTS_RESULT: ${{ needs['quality-tests'].result }}", "TESTS_RESULT: success"],
+    ["PERSISTENCE_RESULT: ${{ needs['quality-project-persistence'].result }}", "PERSISTENCE_RESULT: success"],
+    ["quality-contracts, quality-project-persistence, preview-host", "quality-contracts, preview-host"],
+    ["run: npm run test:e2e:project-persistence\n", "run: npm run test:e2e:project-persistence:list\n"],
+    ["      - name: Real isolated project persistence (blocking)", "      - name: Real isolated project persistence (blocking)\n        continue-on-error: true"],
+    ["  quality-project-persistence:\n", "  quality-project-persistence:\n    continue-on-error: true\n"],
+    ["CONTRACTS_RESULT: ${{ needs['quality-contracts'].result }}", "CONTRACTS_RESULT: success"],
+    ["PREVIEW_HOST_RESULT: ${{ needs['preview-host-guards'].result }}", "PREVIEW_HOST_RESULT: success"],
+    ["DEAD_CODE_RESULT: ${{ needs['dead-code'].result }}", "DEAD_CODE_RESULT: success"],
+    [
+      "run_preview_host: ${{ steps.classify.outputs.run_preview_host }}",
+      "run_preview_host: ${{ steps.classify.outputs.safe_docs_only }}",
+    ],
+    [
+      "RUN_PREVIEW_HOST: ${{ needs.scope.result != 'success' || needs.scope.outputs.run_preview_host != 'false' }}",
+      "RUN_PREVIEW_HOST: false",
+    ],
+    ["run: npm run test:discovery:check", "run: echo discovery-skipped"],
     ["types: [opened, synchronize, reopened, ready_for_review]", "types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]"],
   ])("rejects incomplete or nonblocking sharding: %s", (before, after) => {
     const changed = source.replace(before, after);
@@ -112,16 +266,36 @@ describe("complete native test sharding contract", () => {
   });
 
   it("does not let a filtered package script replace the full suite", () => {
+    expect(evaluateCiScopeWorkflow(source, { ...scripts, "test:workflow": "echo skipped" }))
+      .not.toEqual([]);
     expect(evaluateCiScopeWorkflow(source, { ...scripts, "test:ci": "vitest run src/components" }))
       .not.toEqual([]);
+    expect(evaluateCiScopeWorkflow(source, { ...scripts, "test:discovery:check": "echo skipped" }))
+      .not.toEqual([]);
+    expect(evaluateCiScopeWorkflow(source, { ...scripts, "test:e2e:project-persistence": "playwright test --list" }))
+      .not.toEqual([]);
+  });
+
+  it("requires the exact pre-push tip in both scope jobs", () => {
+    expect(evaluateCiScopeWorkflow(source.replace(
+      "SAJTMASKIN_PUSH_BASE_SHA: ${{ github.event.before }}",
+      "SAJTMASKIN_PUSH_BASE_SHA: ${{ github.sha }}",
+    ), scripts)).not.toEqual([]);
+    const dossier = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
+    expect(evaluateDossierAcceptanceWorkflow(dossier.replace(
+      "SAJTMASKIN_PUSH_BASE_SHA: ${{ github.event.before }}",
+      "SAJTMASKIN_PUSH_BASE_SHA: ${{ github.sha }}",
+    ))).not.toEqual([]);
   });
 
   it("does not restart dossier builds when switching unchanged code back to draft", () => {
     const dossier = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
     expect(evaluateDossierAcceptanceWorkflow(dossier)).toEqual([]);
-    expect(evaluateDossierAcceptanceWorkflow(dossier.replace(
+    const changed = dossier.replace(
       "reopened, ready_for_review]",
       "reopened, ready_for_review, converted_to_draft]",
-    ))).not.toEqual([]);
+    );
+    expect(changed).not.toBe(dossier);
+    expect(evaluateDossierAcceptanceWorkflow(changed)).not.toEqual([]);
   });
 });

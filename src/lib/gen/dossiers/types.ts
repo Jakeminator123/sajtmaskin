@@ -101,6 +101,38 @@ export interface DossierEnvVar {
   enforcement?: DossierEnvVarEnforcement;
 }
 
+/**
+ * A project-specific code value that is not environment-backed. Examples are
+ * a provider price id passed through a component prop or a named export in a
+ * project config module. This is guidance only: it deliberately has no
+ * required/readiness/completion fields; {@link DossierEnvVar} remains the
+ * canonical runtime-configuration owner.
+ */
+export interface DossierConfigInput {
+  id: string;
+  label: string;
+  target: "component-prop" | "code-config";
+  /** Component prop or exported config binding. */
+  binding: string;
+  purpose: string;
+}
+
+export interface DossierProviderSetupReferences {
+  /** References existing {@link DossierEnvVar.key} values. */
+  envVarKeys?: string[];
+  /** References existing {@link DossierConfigInput.id} values. */
+  configInputIds?: string[];
+}
+
+/** Ordered provider-side setup guidance; never evidence that setup is complete. */
+export interface DossierProviderSetupStep {
+  id: string;
+  title: string;
+  instruction: string;
+  setupUrl?: string;
+  references?: DossierProviderSetupReferences;
+}
+
 export interface DossierFile {
   /** Path relative to the dossier directory. Usually under "components/". */
   path: string;
@@ -152,6 +184,10 @@ export interface DossierEntry {
    */
   summarySv?: string;
   envVars?: DossierEnvVar[];
+  /** Hard-only, non-env project code values. Omission is backward compatible. */
+  configInputs?: DossierConfigInput[];
+  /** Hard-only ordered provider guidance. Omission is backward compatible. */
+  providerSetup?: DossierProviderSetupStep[];
   dependencies?: string[];
   files?: DossierFile[];
   exposes?: DossierExposes[];

@@ -54,6 +54,8 @@ export type ProductPostcheckPreviewProbe = {
   readinessState: "starting" | "ready" | "failed" | null;
   /** Host traffic gate. `null` when the host omitted the field. */
   httpReady: boolean | null;
+  /** Host verdict text when `readinessState` is `failed`. */
+  readinessError?: string | null;
 };
 
 export type ProductPostcheckPreviewWaitResult =
@@ -354,8 +356,11 @@ export async function waitForProductPostcheckPreviewRunning(
 export async function readProductPostcheckPreviewProbe(params: {
   chatId: string;
   expectedVersionId: string;
+  deadlineEpochMs?: number;
 }): Promise<ProductPostcheckPreviewProbe> {
+  if (params.deadlineEpochMs !== undefined && Date.now() >= params.deadlineEpochMs) throw new Error("Preview time budget exhausted");
   const session = await getActivePreviewSessionAsync(params.chatId);
+  if (params.deadlineEpochMs !== undefined && Date.now() >= params.deadlineEpochMs) throw new Error("Preview time budget exhausted");
   if (!session) {
     return {
       running: false,
@@ -375,6 +380,7 @@ export async function readProductPostcheckPreviewProbe(params: {
   let running = false;
   let readinessState: ProductPostcheckPreviewProbe["readinessState"] = null;
   let httpReady: boolean | null = null;
+  let readinessError: string | null = null;
   let versionId = sessionVersionId;
   let lifecycleToken = session.lifecycleToken?.trim() || null;
   let mutationRevision = session.mutationRevision ?? null;
@@ -383,10 +389,12 @@ export async function readProductPostcheckPreviewProbe(params: {
     const verdict = await fetchPreviewHostReadinessVerdict(previewSessionId, {
       expectedVersionId: params.expectedVersionId,
       expectedLifecycleToken: session.lifecycleToken?.trim() || null,
+      ...(params.deadlineEpochMs !== undefined ? { previewDeadlineEpochMs: params.deadlineEpochMs } : {}),
     });
     if (verdict) {
       readinessState = verdict.readinessState;
       httpReady = verdict.httpReady;
+      readinessError = verdict.readinessError ?? null;
       versionId = verdict.versionId?.trim() || sessionVersionId;
       running =
         verdict.running === true && versionId === params.expectedVersionId;
@@ -409,5 +417,6 @@ export async function readProductPostcheckPreviewProbe(params: {
     previewUrl: session.previewUrl?.trim() || null,
     readinessState,
     httpReady,
+    readinessError,
   };
 }

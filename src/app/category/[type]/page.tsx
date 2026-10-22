@@ -34,6 +34,7 @@ import {
   getTemplateImageUrl,
   type Template,
 } from "@/lib/templates/template-data";
+import { toBuilderStartHref } from "@/lib/ads/ads-click-params";
 import { createProject } from "@/lib/projects/project-client";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { getTemplateCatalogItemById } from "@/lib/templates/template-catalog";
@@ -138,7 +139,7 @@ export default function CategoryPage() {
         params.set("promptId", promptId);
         params.set("buildIntent", buildIntent);
         params.set("buildMethod", "category");
-        router.push(`/builder?${params.toString()}`);
+        router.push(toBuilderStartHref(params));
       } catch (error) {
         console.error("Failed to create project:", error);
         setIsCreating(false);
@@ -167,7 +168,7 @@ export default function CategoryPage() {
       params.set("promptId", promptId);
       params.set("buildIntent", buildIntent);
       params.set("buildMethod", "category");
-      router.push(`/builder?${params.toString()}`);
+      router.push(toBuilderStartHref(params));
     } catch (error) {
       console.error("Failed to create project:", error);
       setIsCreating(false);
@@ -237,7 +238,7 @@ export default function CategoryPage() {
       params.set("promptId", promptId);
       params.set("buildIntent", buildIntent);
       params.set("buildMethod", "category");
-      router.push(`/builder?${params.toString()}`);
+      router.push(toBuilderStartHref(params));
     } catch (error) {
       console.error("Failed to create project:", error);
       setIsCreating(false);
@@ -440,7 +441,7 @@ function V0TemplateCard({
       params.set("templateId", template.id);
       params.set("buildIntent", resolvedIntent);
       params.set("buildMethod", "category");
-      router.push(`/builder?${params.toString()}`);
+      router.push(toBuilderStartHref(params));
     } catch (error) {
       console.error("Failed to create project from template:", error);
       setIsCreating(false);

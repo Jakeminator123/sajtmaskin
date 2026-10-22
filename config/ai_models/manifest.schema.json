@@ -48,12 +48,12 @@
       "properties": {
         "defaults": {
           "type": "object",
-          "required": ["premium", "pro", "max", "codex", "anthropic"],
+          "required": ["premium", "pro", "max", "codex", "anthropic", "ultra"],
           "additionalProperties": { "type": "string" }
         },
         "envKeys": {
           "type": "object",
-          "required": ["premium", "pro", "max", "codex", "anthropic"],
+          "required": ["premium", "pro", "max", "codex", "anthropic", "ultra"],
           "additionalProperties": { "type": "string" }
         }
       }
@@ -116,24 +116,26 @@
       "properties": {
         "defaultByTier": {
           "type": "object",
-          "required": ["premium", "pro", "max", "codex", "anthropic"],
+          "required": ["premium", "pro", "max", "codex", "anthropic", "ultra"],
           "properties": {
             "premium": { "$ref": "#/$defs/phaseRoutingTier" },
             "pro": { "$ref": "#/$defs/phaseRoutingTier" },
             "max": { "$ref": "#/$defs/phaseRoutingTier" },
             "codex": { "$ref": "#/$defs/phaseRoutingTier" },
-            "anthropic": { "$ref": "#/$defs/phaseRoutingTier" }
+            "anthropic": { "$ref": "#/$defs/phaseRoutingTier" },
+            "ultra": { "$ref": "#/$defs/phaseRoutingTier" }
           }
         },
         "thinkingByTier": {
           "type": "object",
-          "required": ["premium", "pro", "max", "codex", "anthropic"],
+          "required": ["premium", "pro", "max", "codex", "anthropic", "ultra"],
           "properties": {
             "premium": { "$ref": "#/$defs/phaseThinkingTier" },
             "pro": { "$ref": "#/$defs/phaseThinkingTier" },
             "max": { "$ref": "#/$defs/phaseThinkingTier" },
             "codex": { "$ref": "#/$defs/phaseThinkingTier" },
-            "anthropic": { "$ref": "#/$defs/phaseThinkingTier" }
+            "anthropic": { "$ref": "#/$defs/phaseThinkingTier" },
+            "ultra": { "$ref": "#/$defs/phaseThinkingTier" }
           }
         },
         "notes": { "type": "string" }
@@ -169,13 +171,14 @@
     "perTierBriefing": {
       "type": "object",
       "description": "Runtime-wired per-tier auto-brief model defaults. Explicit Deep Brief selection (legacy wire field promptAssistModel) and the selected provider's auto-brief env override take precedence; global briefing defaults are the compatibility fallback.",
-      "required": ["premium", "pro", "max", "codex", "anthropic"],
+      "required": ["premium", "pro", "max", "codex", "anthropic", "ultra"],
       "properties": {
         "premium": { "$ref": "#/$defs/perTierBriefingEntry" },
         "pro": { "$ref": "#/$defs/perTierBriefingEntry" },
         "max": { "$ref": "#/$defs/perTierBriefingEntry" },
         "codex": { "$ref": "#/$defs/perTierBriefingEntry" },
-        "anthropic": { "$ref": "#/$defs/perTierBriefingEntry" }
+        "anthropic": { "$ref": "#/$defs/perTierBriefingEntry" },
+        "ultra": { "$ref": "#/$defs/perTierBriefingEntry" }
       }
     },
     "promptOrchestration": {
@@ -266,17 +269,22 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["kind", "provider", "name", "envVars", "matchPatterns", "reason"],
+            "required": ["kind", "providerKey", "provider", "name", "envVars", "matchPatterns", "reason"],
             "properties": {
               "kind": {
                 "type": "string",
                 "enum": ["database", "auth", "payment", "integration"]
               },
+              "providerKey": { "type": "string" },
+              "dossierCapability": { "type": "string" },
+              "methodOnly": { "type": "boolean" },
+              "packageRoots": { "type": "array", "items": { "type": "string" } },
               "provider": { "type": "string" },
               "name": { "type": "string" },
               "envVars": { "type": "array", "items": { "type": "string" } },
               "matchPatterns": { "type": "array", "items": { "type": "string" } },
-              "status": { "type": "string", "enum": ["chosen", "optional"] },
+              "purposePatterns": { "type": "array", "items": { "type": "string" } },
+              "status": { "type": "string", "enum": ["chosen", "unresolved", "optional"] },
               "reason": { "type": "string" }
             }
           }
@@ -368,6 +376,11 @@
           "followUpModel": { "type": "string" },
           "fallbackModels": { "type": "array", "items": { "type": "string" } },
           "visionModels": { "type": "array", "items": { "type": "string" } },
+          "reasoningEffort": {
+            "type": "string",
+            "enum": ["none", "low", "medium", "high", "xhigh", "max"],
+            "description": "Requested OpenAI reasoning effort for this workload. Callers clamp it to what each model accepts (GPT-6.1 Sol has no `none`)."
+          },
           "envOverrides": { "type": "object", "additionalProperties": { "type": "string" } },
           "tokenBudget": {
             "type": "object",

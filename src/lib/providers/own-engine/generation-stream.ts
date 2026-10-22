@@ -8,6 +8,7 @@ import {
   type FinalizeResult,
 } from "@/lib/gen/stream/finalize-version";
 import type { BuildSpec } from "@/lib/gen/build-spec";
+import type { GenerationFinalizeInput } from "@/lib/gen/generation-input-package";
 import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import { finalizeOrHandleEmptyGeneration } from "@/lib/gen/stream/shared-own-engine-helpers";
 import { applyPostMergeF3DetailCardEvidence } from "@/lib/gen/stream/f3-detail-card";
@@ -138,6 +139,7 @@ export interface GenerationStreamMeta extends Record<string, unknown> {
 }
 
 export interface GenerationStreamParams {
+  requestDeadlineEpochMs: number;
   chatId: string;
   pipelineStream: ReadableStream<Uint8Array>;
   abortSignal?: AbortSignal;
@@ -146,6 +148,8 @@ export interface GenerationStreamParams {
   optimizedMessage: string;
   rawPrompt?: string;
   engineIntent: BuildIntent;
+  /** Modern callers carry the decided package; absent only on legacy calls. */
+  generationInput?: GenerationFinalizeInput;
   buildSpec: BuildSpec;
   routePlan: RoutePlan | null;
   orchestrationContract?: OrchestrationContract | null;
@@ -204,6 +208,7 @@ export function createOwnEngineGenerationStream(
     optimizedMessage,
     rawPrompt,
     engineIntent,
+    generationInput,
     buildSpec,
     routePlan,
     orchestrationContract,
@@ -220,6 +225,7 @@ export function createOwnEngineGenerationStream(
     f3PriorSuggestedProviders,
     f3PriorRequestedEnvKeys,
     accumulatedThinkingRef,
+    requestDeadlineEpochMs,
   } = params;
 
   const engineStartedAt = Date.now();
@@ -675,6 +681,7 @@ export function createOwnEngineGenerationStream(
         resolvedTier,
         originalPrompt: rawPrompt ?? optimizedMessage,
         buildIntent: engineIntent,
+        generationInput,
         buildSpec,
         routePlan,
         orchestrationContract,
@@ -741,6 +748,7 @@ export function createOwnEngineGenerationStream(
             accumulatedContent,
             toolSignaledProviders,
             engineStartedAt,
+            requestDeadlineEpochMs,
             commitCredits,
             buildSpec,
             onDoneEmitted: () => {
@@ -1016,15 +1024,45 @@ export function createOwnEngineGenerationStream(
                 handlePartialFileOutput,
               });
               if (fallbackFinalized) {
-                await chatRepo
-                  .failVersionVerification(
+                // The saved row is not a recovered failure until the mark is
+                // confirmed. Null and thrown marks leave passed/promoted
+                // untouched — emitting that stale version, or running
+                // post-finalize from it, would claim a clean finish. Keep the
+                // one saved version, write its credit marker once, and fail
+                // the stream. Do not invent a persisted failed status.
+                let failedVersion: Awaited<
+                  ReturnType<typeof chatRepo.failVersionVerification>
+                > = null;
+                let verificationMarkError: unknown = null;
+                try {
+                  failedVersion = await chatRepo.failVersionVerification(
                     fallbackFinalized.version.id,
                     fallbackVerificationSummary,
-                  )
-                  .catch(() => null);
-                await emitDoneWithVersion(fallbackFinalized, {
-                  recoveredAfterStreamAbort: true,
-                });
+                  );
+                } catch (error) {
+                  verificationMarkError = error;
+                }
+                if (!failedVersion) {
+                  try {
+                    await commitCredits({
+                      chatId,
+                      versionId: fallbackFinalized.version.id,
+                    });
+                  } catch (markerError) {
+                    postFinalizeError = markerError;
+                    safeError(markerError);
+                    return;
+                  }
+                  safeError(
+                    verificationMarkError ??
+                      new Error("Recovered version verification was not confirmed"),
+                  );
+                  return;
+                }
+                await emitDoneWithVersion(
+                  { ...fallbackFinalized, version: failedVersion },
+                  { recoveredAfterStreamAbort: true },
+                );
               }
             } catch {
               if (postFinalizeError) {

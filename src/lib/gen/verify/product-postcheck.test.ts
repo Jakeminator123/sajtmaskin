@@ -44,6 +44,7 @@ import {
   CRAWL_DEADLINE_MS,
   isAllowedProductPostcheckUrl,
   isMeaningfulCtaHref,
+  hasHtmlFragmentTarget,
   isProductPostcheckAttestation,
   isHydrationConsoleError,
   extractServerCtaBaseline,
@@ -143,6 +144,27 @@ describe("isMeaningfulCtaHref", () => {
     for (const href of ["#kontakt", "#/about", "/om-oss", "https://example.com/x"]) {
       expect(isMeaningfulCtaHref(href), href).toBe(true);
     }
+  });
+});
+
+describe("hasHtmlFragmentTarget", () => {
+  it.each(["#top", "#TOP", "#Top", "#%74op"])("accepts the native document-top destination %s without an id", (href) => {
+    const doc = document.implementation.createHTMLDocument();
+    expect(hasHtmlFragmentTarget(href, doc)).toBe(true);
+  });
+
+  it("accepts exact ids, decoded ids and legacy named anchors while retaining real missing-target warnings", () => {
+    const doc = document.implementation.createHTMLDocument();
+    doc.body.innerHTML = '<section id="meny"></section><section id="vår meny"></section><a name="kontakt"></a><input name="not-an-anchor" />';
+    for (const href of ["#meny", "#v%C3%A5r%20meny", "#kontakt"]) expect(hasHtmlFragmentTarget(href, doc), href).toBe(true);
+    for (const href of ["#missing", "#not-an-anchor", "#top-missing", "#%ZZ"]) expect(hasHtmlFragmentTarget(href, doc), href).toBe(false);
+  });
+
+  it("runs the exact serialized helper used in the real browser probe", () => {
+    const probe = new Function(`return (${hasHtmlFragmentTarget.toString()});`)() as typeof hasHtmlFragmentTarget;
+    const doc = document.implementation.createHTMLDocument();
+    expect(probe("#top", doc)).toBe(true);
+    expect(probe("#missing", doc)).toBe(false);
   });
 });
 
@@ -948,7 +970,15 @@ describe("runProductPostcheck browser-startpunkt", () => {
       versionId: "v1",
     });
 
-    expect(detectAndPruneChromiumCoreDumpsMock).toHaveBeenCalledWith("product-postcheck");
+    expect(detectAndPruneChromiumCoreDumpsMock).toHaveBeenCalledWith(
+      "product-postcheck",
+      expect.objectContaining({
+        captureRunId: expect.any(String),
+        chatId: "chat_1",
+        versionId: "v1",
+        phase: "dump_detection",
+      }),
+    );
     expect(result.skipped).toBe(false);
     expect(result.productBlocked).toBe(false);
     expect(result.warnings).toEqual(
@@ -960,6 +990,103 @@ describe("runProductPostcheck browser-startpunkt", () => {
       ]),
     );
     expect(result.warningCount).toBe(result.warnings.length);
+  });
+
+  it("loggar close-fel med körnings-ID men fortsätter hela städningen utan att blockera produkten", async () => {
+    const desktop = fakePage([
+      liveBootProbe,
+      { anchors: [], images: [], ctas: [], forms: [] },
+      false,
+    ]);
+    const mobile = fakePage([{ status: "not_applicable" }, false]);
+    mobile.close.mockRejectedValueOnce(new Error("mobile context close failed"));
+    const browserClose = vi.fn(async () => {});
+    let nextPage = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => [desktop, mobile][nextPage++]),
+      close: browserClose,
+    });
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    try {
+      const result = await runProductPostcheck({
+        previewUrl: "http://127.0.0.1:3000/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+        verificationRunId: "verify-1",
+      });
+      expect(result.skipped).toBe(false);
+      expect(result.productBlocked).toBe(false);
+      expect(desktop.close).toHaveBeenCalledOnce();
+      expect(browserClose).toHaveBeenCalledOnce();
+      expect(log).toHaveBeenCalledWith(
+        "[product-postcheck] capture lifecycle",
+        expect.objectContaining({
+          phase: "mobile.close",
+          event: "close_error",
+          message: "mobile context close failed",
+          captureRunId: expect.any(String),
+          verificationRunId: "verify-1",
+          chatId: "chat_1",
+          versionId: "v1",
+        }),
+      );
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it("synliggör browserfrånkoppling vid mobile.close även när Playwright inte kastar", async () => {
+    const desktop = fakePage([
+      liveBootProbe,
+      { anchors: [], images: [], ctas: [], forms: [] },
+      false,
+    ]);
+    const mobile = fakePage([{ status: "not_applicable" }, false]);
+    let connected = true;
+    let disconnected!: () => void;
+    mobile.close.mockImplementationOnce(async () => {
+      connected = false;
+      disconnected();
+    });
+    let nextPage = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => [desktop, mobile][nextPage++]),
+      close: vi.fn(async () => {}),
+      isConnected: () => connected,
+      version: () => "149.0.7827.0",
+      on: vi.fn((_event: string, listener: () => void) => {
+        disconnected = listener;
+      }),
+    });
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    try {
+      const result = await runProductPostcheck({
+        previewUrl: "http://127.0.0.1:3000/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+      });
+      expect(result.productBlocked).toBe(false);
+      expect(log).toHaveBeenCalledWith(
+        "[product-postcheck] capture lifecycle",
+        expect.objectContaining({
+          phase: "mobile.close",
+          event: "browser_disconnected",
+          expectedDuringBrowserClose: false,
+          browserConnected: false,
+          browserVersion: "149.0.7827.0",
+        }),
+      );
+      expect(log).toHaveBeenCalledWith(
+        "[product-postcheck] capture lifecycle",
+        expect.objectContaining({
+          phase: "mobile.close",
+          event: "after_close",
+          browserConnected: false,
+        }),
+      );
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it("lägger SSRF-grinden på båda viewporterna", async () => {
@@ -2250,13 +2377,22 @@ describe("outputFileTracingIncludes för browser-routes", () => {
   const routesThatLaunchChromium = [
     "/api/projects/*/thumbnail",
     "/api/inspector-capture",
+    "/api/inspector-element-map",
     "/api/engine/chats/*/product-postcheck",
+    // runVersionPostchecks kör produktkontrollen inne i genererings- och cron-funktionerna.
+    "/api/engine/chats/stream",
+    "/api/engine/chats/*/stream",
+    "/api/engine/postchecks",
   ];
 
   it("ger varje Chromium-route en egen spårningspost", () => {
     const config = readFileSync(path.join(process.cwd(), "next.config.ts"), "utf8");
     for (const route of routesThatLaunchChromium) {
-      expect(config).toContain(`"${route}"`);
+      const start = config.indexOf(`"${route}": [`);
+      expect(start, route).toBeGreaterThan(-1);
+      const entry = config.slice(start, config.indexOf("]", start));
+      expect(entry, route).toContain("./node_modules/playwright-core/browsers.json");
+      expect(entry, route).toContain("./node_modules/@sparticuz/chromium/bin/**");
     }
   });
 });

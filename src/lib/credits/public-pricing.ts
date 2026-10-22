@@ -34,7 +34,10 @@ export function toPublicPricing(input: {
   };
 }
 
-function parseTierPrices(value: unknown): Record<ModelTier, number> | null {
+function parseTierPrices(
+  value: unknown,
+  defaults: Record<ModelTier, number>,
+): Record<ModelTier, number> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
   const premium = record.premium;
@@ -42,23 +45,26 @@ function parseTierPrices(value: unknown): Record<ModelTier, number> | null {
   const max = record.max;
   const codex = record.codex;
   const anthropic = record.anthropic;
+  // A payload from a server that predates the `ultra` tier omits it.
+  const ultra = record.ultra ?? defaults.ultra;
   if (
     !isValidCreditPrice(premium) ||
     !isValidCreditPrice(pro) ||
     !isValidCreditPrice(max) ||
     !isValidCreditPrice(codex) ||
-    !isValidCreditPrice(anthropic)
+    !isValidCreditPrice(anthropic) ||
+    !isValidCreditPrice(ultra)
   ) {
     return null;
   }
-  return { premium, pro, max, codex, anthropic };
+  return { premium, pro, max, codex, anthropic, ultra };
 }
 
 function parseCredits(value: unknown): CreditActionPrices | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
-  const promptCreate = parseTierPrices(record.promptCreate);
-  const promptRefine = parseTierPrices(record.promptRefine);
+  const promptCreate = parseTierPrices(record.promptCreate, DEFAULT_CREDIT_ACTION_PRICES.promptCreate);
+  const promptRefine = parseTierPrices(record.promptRefine, DEFAULT_CREDIT_ACTION_PRICES.promptRefine);
   if (!promptCreate || !promptRefine) return null;
   if (
     !isValidCreditPrice(record.wizard) ||
@@ -100,9 +106,11 @@ export function publicPricingToBreakdown(pricing: PublicPricing): CreditCostBrea
     generatePremium: pricing.credits.promptCreate.premium,
     generatePro: pricing.credits.promptCreate.pro,
     generateMax: pricing.credits.promptCreate.max,
+    generateUltra: pricing.credits.promptCreate.ultra,
     refinePremium: pricing.credits.promptRefine.premium,
     refinePro: pricing.credits.promptRefine.pro,
     refineMax: pricing.credits.promptRefine.max,
+    refineUltra: pricing.credits.promptRefine.ultra,
     wizard: pricing.credits.wizard,
     auditBasic: pricing.credits.auditBasic,
     auditAdvanced: pricing.credits.auditAdvanced,

@@ -12,8 +12,8 @@
     },
     {
       "vendor": "OpenAI",
-      "title": "GPT-5.6 Sol model reference (direct API)",
-      "url": "https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+      "title": "GPT-6.1 Sol model reference (direct API)",
+      "url": "https://developers.openai.com/api/docs/models/gpt-6.1-sol",
       "appliesTo": "direct_provider_api"
     },
     {
@@ -49,33 +49,35 @@
   ],
   "buildProfiles": {
     "defaults": {
-      "premium": "gpt-5.6-sol",
-      "pro": "gpt-5.6-sol",
-      "max": "gpt-5.6-sol",
-      "codex": "gpt-5.6-sol",
-      "anthropic": "claude-opus-4.8"
+      "premium": "gpt-6.1-sol",
+      "pro": "gpt-6.1-sol",
+      "max": "gpt-6.1-sol",
+      "codex": "gpt-6.1-sol",
+      "anthropic": "claude-opus-4.8",
+      "ultra": "gpt-6-astra"
     },
-    "notes": "Tier ladder 2026-09-02 (ägarbeslut): pro = «Låg», max = «Mellan», premium = «Hög». Alla tre kör GPT-5.6 Sol som byggmodell; skillnaden ligger i phaseRouting.thinkingByTier (reasoningEffort medium → high → xhigh, alltid reasoningMode standard) och i vilka 5.6-syskon (Terra/Luna) som tar fixer/verifier/brief. `codex` är en dold kompatibilitetsprofil (samma routing som max) som inte visas i UI. `anthropic` är orörd.",
+    "notes": "Tier ladder 2026-09-02 (ägarbeslut): pro = «Låg», max = «Mellan», premium = «Hög». Alla tre kör GPT-6.1 Sol som byggmodell (sedan 2026-10-17, tidigare GPT-5.6 Sol); skillnaden ligger i phaseRouting.thinkingByTier (generatorns reasoningEffort medium → high → xhigh, alltid reasoningMode standard) och i fixerns effort. `ultra` = «Extra hög» (ägarbeslut 2026-10-18) bygger planner och generator med GPT-6 Astra på high; fixer, verifier, deploy-assistant och Deep Brief stannar på GPT-6.1 Sol så att bara kodgenereringen bär Astras pris. Mellan är standardnivån sedan 2026-10-18. Det finns ingen GPT-6 Terra; Terra-arbete flyttades till Sol, som har lägre outputpris. `codex` är en dold kompatibilitetsprofil (samma routing som max) som inte visas i UI. `anthropic` är dold i reglaget sedan 2026-10-18 men bygger fortfarande med Opus 4.8 för sparade val.",
     "envKeys": {
       "premium": "SAJTMASKIN_MODEL_PREMIUM",
       "pro": "SAJTMASKIN_MODEL_PRO",
       "max": "SAJTMASKIN_MODEL_MAX",
       "codex": "SAJTMASKIN_MODEL_CODEX",
-      "anthropic": "SAJTMASKIN_MODEL_ANTHROPIC"
+      "anthropic": "SAJTMASKIN_MODEL_ANTHROPIC",
+      "ultra": "SAJTMASKIN_MODEL_ULTRA"
     }
   },
   "qualityToOwnEngineModel": {
-    "light": "gpt-5.6-sol",
-    "standard": "gpt-5.6-sol",
-    "pro": "gpt-5.6-sol",
-    "premium": "gpt-5.6-sol",
-    "max": "gpt-5.6-sol"
+    "light": "gpt-6.1-sol",
+    "standard": "gpt-6.1-sol",
+    "pro": "gpt-6.1-sol",
+    "premium": "gpt-6.1-sol",
+    "max": "gpt-6.1-sol"
   },
   "briefing": {
     "defaults": {
-      "assist": "openai/gpt-5.6-sol",
-      "requestModel": "openai/gpt-5.6-sol",
-      "serverAutoOpenAI": "openai/gpt-5.6-sol",
+      "assist": "openai/gpt-6.1-sol",
+      "requestModel": "openai/gpt-6.1-sol",
+      "serverAutoOpenAI": "openai/gpt-6.1-sol",
       "serverAutoAnthropic": "anthropic/claude-opus-4.8"
     },
     "envKeys": {
@@ -86,12 +88,13 @@
     },
     "allowed": {
       "gatewayClassModels": [
+        "openai/gpt-6.1-sol",
+        "openai/gpt-6-luna",
         "openai/gpt-5.6-sol",
         "openai/gpt-5.6-terra",
         "openai/gpt-5.6-luna",
         "openai/gpt-5.5",
         "openai/gpt-5.4",
-        "openai/gpt-5.3-codex",
         "openai/gpt-5.2",
         "anthropic/claude-opus-4.8",
         "anthropic/claude-opus-4.6"
@@ -102,12 +105,13 @@
         "anthropic-direct/claude-opus-4-6"
       ],
       "models": [
+        "openai/gpt-6.1-sol",
+        "openai/gpt-6-luna",
         "openai/gpt-5.6-sol",
         "openai/gpt-5.6-terra",
         "openai/gpt-5.6-luna",
         "openai/gpt-5.5",
         "openai/gpt-5.4",
-        "openai/gpt-5.3-codex",
         "openai/gpt-5.2",
         "anthropic/claude-opus-4.8",
         "anthropic/claude-opus-4.6",
@@ -116,36 +120,36 @@
         "anthropic-direct/claude-opus-4-6"
       ]
     },
-    "notes": "Briefing layer before the code generator. assist is the client's selectable Deep Brief model (default for promptAssistModel in builder-state). requestModel is the server default for /api/ai/brief when the caller sends none. They are not duplicates. serverAuto* control create-chat fallback when the client did not already send a brief. allowed is the Deep Brief allow-list consumed by getPromptAssistAllowedFromManifest(). Provider id \"gateway\" in api/ai/chat means OpenAI-class assist models; the route calls createDirectModel() which uses OPENAI_API_KEY for openai/* and ANTHROPIC_API_KEY for anthropic/*. GPT-5.6 Sol, Terra and Luna are all allowed; Sol is the default. Back-compat (MB-1): openai/gpt-5.5, openai/gpt-5.4, anthropic/claude-opus-4.6 and anthropic-direct/claude-opus-4-6 are retained so persisted/env values keep passing isPromptAssistModelAllowed(). Sonnet 4.6 remains retired and aliases to Opus 4.8."
+    "notes": "Briefing layer before the code generator. assist is the client's selectable Deep Brief model (default for promptAssistModel in builder-state). requestModel is the server default for /api/ai/brief when the caller sends none. They are not duplicates. serverAuto* control create-chat fallback when the client did not already send a brief. allowed is the Deep Brief allow-list consumed by getPromptAssistAllowedFromManifest(). Provider id \"gateway\" in api/ai/chat means OpenAI-class assist models; the route calls createDirectModel() which uses OPENAI_API_KEY for openai/* and ANTHROPIC_API_KEY for anthropic/*. GPT-6.1 Sol (default) and GPT-6 Luna are allowed. Back-compat (MB-1): the GPT-5.6 family, openai/gpt-5.5, openai/gpt-5.4, openai/gpt-5.2, anthropic/claude-opus-4.6 and anthropic-direct/claude-opus-4-6 are retained so persisted/env values keep passing isPromptAssistModelAllowed(). Sonnet 4.6 remains retired and aliases to Opus 4.8. openai/gpt-5.3-codex is deprecated by OpenAI (2026-10-17) and aliases to openai/gpt-6.1-sol."
   },
   "phaseRouting": {
     "defaultByTier": {
       "premium": {
         "planner": "selected_build_model",
         "generator": "selected_build_model",
-        "fixer": "gpt-5.6-sol",
-        "verifier": "gpt-5.6-terra",
+        "fixer": "gpt-6.1-sol",
+        "verifier": "gpt-6.1-sol",
         "deploy-assistant": "selected_build_model"
       },
       "pro": {
         "planner": "selected_build_model",
         "generator": "selected_build_model",
-        "fixer": "gpt-5.6-terra",
-        "verifier": "gpt-5.6-luna",
-        "deploy-assistant": "gpt-5.6-terra"
+        "fixer": "gpt-6.1-sol",
+        "verifier": "gpt-6.1-sol",
+        "deploy-assistant": "gpt-6.1-sol"
       },
       "max": {
         "planner": "selected_build_model",
         "generator": "selected_build_model",
-        "fixer": "gpt-5.6-sol",
-        "verifier": "gpt-5.6-terra",
+        "fixer": "gpt-6.1-sol",
+        "verifier": "gpt-6.1-sol",
         "deploy-assistant": "selected_build_model"
       },
       "codex": {
         "planner": "selected_build_model",
         "generator": "selected_build_model",
-        "fixer": "gpt-5.6-sol",
-        "verifier": "gpt-5.6-terra",
+        "fixer": "gpt-6.1-sol",
+        "verifier": "gpt-6.1-sol",
         "deploy-assistant": "selected_build_model"
       },
       "anthropic": {
@@ -154,6 +158,13 @@
         "fixer": "selected_build_model",
         "verifier": "selected_build_model",
         "deploy-assistant": "claude-opus-4.8"
+      },
+      "ultra": {
+        "planner": "selected_build_model",
+        "generator": "selected_build_model",
+        "fixer": "gpt-6.1-sol",
+        "verifier": "gpt-6.1-sol",
+        "deploy-assistant": "gpt-6.1-sol"
       }
     },
     "thinkingByTier": {
@@ -174,7 +185,7 @@
         },
         "verifier": {
           "thinking": false,
-          "reasoningEffort": "low"
+          "reasoningEffort": "medium"
         },
         "deploy-assistant": {
           "thinking": false,
@@ -198,11 +209,11 @@
         },
         "verifier": {
           "thinking": false,
-          "reasoningEffort": "low"
+          "reasoningEffort": "medium"
         },
         "deploy-assistant": {
           "thinking": false,
-          "reasoningEffort": "low"
+          "reasoningEffort": "medium"
         }
       },
       "max": {
@@ -222,7 +233,7 @@
         },
         "verifier": {
           "thinking": false,
-          "reasoningEffort": "low"
+          "reasoningEffort": "medium"
         },
         "deploy-assistant": {
           "thinking": false,
@@ -246,7 +257,7 @@
         },
         "verifier": {
           "thinking": false,
-          "reasoningEffort": "low"
+          "reasoningEffort": "medium"
         },
         "deploy-assistant": {
           "thinking": false,
@@ -274,25 +285,52 @@
           "thinking": false,
           "reasoningEffort": "medium"
         }
+      },
+      "ultra": {
+        "planner": {
+          "thinking": true,
+          "reasoningEffort": "high",
+          "reasoningMode": "standard"
+        },
+        "generator": {
+          "thinking": true,
+          "reasoningEffort": "high",
+          "reasoningMode": "standard"
+        },
+        "fixer": {
+          "thinking": false,
+          "reasoningEffort": "high"
+        },
+        "verifier": {
+          "thinking": false,
+          "reasoningEffort": "medium"
+        },
+        "deploy-assistant": {
+          "thinking": false,
+          "reasoningEffort": "medium"
+        }
       }
     },
-    "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override. Tier ladder (owner decision 2026-09-02): pro=«Låg», max=«Mellan», premium=«Hög» all build with GPT-5.6 Sol; the tiers differ by generator reasoningEffort (medium / high / xhigh) and by which 5.6 sibling handles the side phases (Låg: Terra fixer + deploy-assistant, Luna verifier; Mellan/Hög: Sol fixer, Terra verifier). reasoningMode is always `standard`: prod llm_usage (28 jul–1 sep 2026) showed Premium's `pro` mode inflating billed input ~6x (142k vs 22k p50, 40% cache) for identical prompts — OpenAI's reasoning guide confirms pro mode «aggregates the model work performed» and bills all of it. Verifiers run without a thinking stream at low effort: the previous Sol/high verifier spent 26 s p50 with 90% of its output being reasoning for a ~200-token verdict. Fixers keep thinking:false but honor the manifest effort (llm-fixer.ts passes it for gpt-5.6 models). `codex` is a hidden compatibility tier that mirrors Mellan. Persisted `fast` selections are accepted only as a compatibility alias and canonicalized to `premium`. The persisted chat.model remains the tier build model so repair and background verification can recover the tier; generated-version telemetry records the resolved phase model."
+    "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override. Tier ladder (owner decision 2026-09-02): pro=«Låg», max=«Mellan», premium=«Hög» all build with GPT-6.1 Sol (since 2026-10-17); the tiers differ by generator reasoningEffort (medium / high / xhigh) and fixer effort. ultra=«Extra hög» (2026-10-18) builds planner and generator with GPT-6 Astra at high; its fixer, verifier and deploy-assistant stay on GPT-6.1 Sol. GPT-6.1 Sol also takes fixer, deploy-assistant and every tier's verifier (Låg moved off GPT-6 Luna 2026-10-18 so no tier reviews code below the former Terra level). GPT-6.1 Sol has no `none` effort, so callers clamp every requested effort to the model's range (src/lib/models/openai-capabilities.ts). reasoningMode is always `standard`: prod llm_usage (28 jul–1 sep 2026) showed Premium's `pro` mode inflating billed input ~6x (142k vs 22k p50, 40% cache) for identical prompts — OpenAI's reasoning guide confirms pro mode «aggregates the model work performed» and bills all of it. OpenAI-tier verifiers run without a thinking stream at medium effort, and Låg deploy-assistant uses medium like the other tiers. The previous Sol/high verifier spent 26 s p50 with 90% of its output being reasoning for a ~200-token verdict. Fixers keep thinking:false but honor the manifest effort (llm-fixer.ts passes it for registered GPT-5.6/GPT-6 models). `codex` is a hidden compatibility tier that mirrors Mellan. Persisted `fast` selections are accepted only as a compatibility alias and canonicalized to `premium`. The persisted chat.model remains the tier build model so repair and background verification can recover the tier; generated-version telemetry records the resolved phase model."
   },
   "perTierBriefing": {
     "premium": {
-      "briefingModel": "openai/gpt-5.6-sol"
+      "briefingModel": "openai/gpt-6.1-sol"
     },
     "pro": {
-      "briefingModel": "openai/gpt-5.6-terra"
+      "briefingModel": "openai/gpt-6.1-sol"
     },
     "max": {
-      "briefingModel": "openai/gpt-5.6-sol"
+      "briefingModel": "openai/gpt-6.1-sol"
     },
     "codex": {
-      "briefingModel": "openai/gpt-5.6-sol"
+      "briefingModel": "openai/gpt-6.1-sol"
     },
     "anthropic": {
       "briefingModel": "anthropic/claude-opus-4.8"
+    },
+    "ultra": {
+      "briefingModel": "openai/gpt-6.1-sol"
     }
   },
   "repairPolicies": {
@@ -427,13 +465,15 @@
   },
   "preGenerationContracts": {
     "defaults": {
-      "fallbackDatabaseProvider": "SQLite",
-      "fallbackAuthProvider": "NextAuth / Auth.js",
+      "fallbackDatabaseProvider": "Postgres / DATABASE_URL",
+      "fallbackAuthProvider": "Clerk",
       "fallbackPaymentProvider": "Stripe"
     },
     "providerRules": [
       {
         "kind": "database",
+        "providerKey": "supabase",
+        "dossierCapability": "database",
         "provider": "Supabase",
         "name": "Supabase",
         "envVars": ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
@@ -441,7 +481,25 @@
         "reason": "Prompten nämner Supabase eller ett tydligt Supabase-flöde."
       },
       {
+        "kind": "auth",
+        "providerKey": "supabase",
+        "dossierCapability": "auth",
+        "packageRoots": ["@supabase/ssr"],
+        "provider": "Supabase",
+        "name": "Supabase Auth",
+        "envVars": ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
+        "matchPatterns": [
+          "\\bsupabase[-\\s]?(?:auth|login|inloggning)\\b",
+          "\\b(?:auth|authentication|login|inloggning|sign[-\\s]?in|logga\\s+in)\\b.{0,32}\\bsupabase\\b",
+          "\\bsupabase\\b.{0,24}\\b(?:for|för|till)\\s+(?:auth|authentication|login|inloggning|sign[-\\s]?in)\\b",
+          "\\bsupabase\\b[^.!?\\n]{0,48}\\b(?:auth|authentication|login|inloggning|sign[-\\s]?in)\\b"
+        ],
+        "reason": "Prompten väljer uttryckligen Supabase för inloggning."
+      },
+      {
         "kind": "database",
+        "providerKey": "prisma",
+        "packageRoots": ["@prisma/client"],
         "provider": "Prisma",
         "name": "Prisma",
         "envVars": ["DATABASE_URL"],
@@ -450,6 +508,8 @@
       },
       {
         "kind": "database",
+        "providerKey": "drizzle",
+        "packageRoots": ["drizzle-orm"],
         "provider": "Drizzle",
         "name": "Drizzle",
         "envVars": ["DATABASE_URL"],
@@ -458,6 +518,9 @@
       },
       {
         "kind": "database",
+        "providerKey": "sqlite",
+        "dossierCapability": "database",
+        "packageRoots": ["better-sqlite3"],
         "provider": "SQLite",
         "name": "SQLite",
         "envVars": ["DATABASE_URL"],
@@ -466,6 +529,9 @@
       },
       {
         "kind": "database",
+        "providerKey": "postgres",
+        "dossierCapability": "database",
+        "packageRoots": ["postgres", "pg", "@neondatabase/serverless"],
         "provider": "Postgres / DATABASE_URL",
         "name": "Postgres",
         "envVars": ["DATABASE_URL"],
@@ -473,7 +539,21 @@
         "reason": "Prompten nämner Postgres eller DATABASE_URL uttryckligen."
       },
       {
+        "kind": "database",
+        "providerKey": "mongodb",
+        "dossierCapability": "database",
+        "packageRoots": ["mongodb", "mongoose"],
+        "provider": "MongoDB",
+        "name": "MongoDB",
+        "envVars": ["MONGODB_URI"],
+        "matchPatterns": ["\\bmongodb\\b", "\\bmongoose\\b"],
+        "reason": "Prompten nämner MongoDB uttryckligen."
+      },
+      {
         "kind": "auth",
+        "providerKey": "clerk",
+        "dossierCapability": "auth",
+        "packageRoots": ["@clerk/nextjs"],
         "provider": "Clerk",
         "name": "Clerk",
         "envVars": ["CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"],
@@ -482,6 +562,9 @@
       },
       {
         "kind": "auth",
+        "providerKey": "next-auth",
+        "dossierCapability": "auth",
+        "packageRoots": ["next-auth"],
         "provider": "NextAuth / Auth.js",
         "name": "NextAuth / Auth.js",
         "envVars": ["AUTH_SECRET", "NEXTAUTH_URL"],
@@ -490,6 +573,9 @@
       },
       {
         "kind": "auth",
+        "providerKey": "auth0",
+        "dossierCapability": "auth",
+        "packageRoots": ["@auth0/nextjs-auth0"],
         "provider": "Auth0",
         "name": "Auth0",
         "envVars": [
@@ -503,7 +589,57 @@
         "reason": "Prompten nämner Auth0 uttryckligen."
       },
       {
+        "kind": "auth",
+        "providerKey": "firebase",
+        "dossierCapability": "auth",
+        "provider": "Firebase",
+        "name": "Firebase",
+        "envVars": [],
+        "matchPatterns": [
+          "\\bfirebase\\b[^.!?;\\n]{0,40}\\b(?:auth|authentication|login|inloggning|sign[-\\s]?in)\\b",
+          "\\b(?:auth|authentication|login|inloggning|sign[-\\s]?in)\\b[^.!?;\\n]{0,40}\\bfirebase\\b"
+        ],
+        "purposePatterns": [
+          "\\b(?:auth|authentication|login|inloggning|sign[-\\s]?in)\\b"
+        ],
+        "status": "unresolved",
+        "reason": "Prompten väljer Firebase för auth, men någon levererbar implementation är ännu inte vald."
+      },
+      {
+        "kind": "database",
+        "providerKey": "firebase",
+        "dossierCapability": "database",
+        "provider": "Firebase",
+        "name": "Firebase",
+        "envVars": [],
+        "matchPatterns": [
+          "\\bfirebase\\b[^.!?;\\n]{0,40}\\b(?:database|databas(?:en)?)\\b",
+          "\\b(?:database|databas(?:en)?)\\b[^.!?;\\n]{0,40}\\bfirebase\\b"
+        ],
+        "purposePatterns": ["\\b(?:database|databas(?:en)?)\\b"],
+        "status": "unresolved",
+        "reason": "Prompten väljer Firebase som databas, men någon levererbar implementation är ännu inte vald."
+      },
+      {
+        "kind": "database",
+        "providerKey": "firebase",
+        "dossierCapability": "database",
+        "provider": "Firestore",
+        "name": "Firestore",
+        "envVars": [],
+        "matchPatterns": [
+          "\\bfirestore\\b[^.!?;\\n]{0,40}\\b(?:database|databas(?:en)?)\\b",
+          "\\b(?:database|databas(?:en)?)\\b[^.!?;\\n]{0,40}\\bfirestore\\b"
+        ],
+        "purposePatterns": ["\\b(?:database|databas(?:en)?)\\b"],
+        "status": "unresolved",
+        "reason": "Prompten väljer Firestore som databas, men någon levererbar implementation är ännu inte vald."
+      },
+      {
         "kind": "payment",
+        "providerKey": "stripe",
+        "dossierCapability": "payments",
+        "packageRoots": ["stripe"],
         "provider": "Stripe",
         "name": "Stripe",
         "envVars": ["STRIPE_SECRET_KEY", "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"],
@@ -511,15 +647,96 @@
         "reason": "Prompten pekar på checkout eller Stripe."
       },
       {
+        "kind": "payment",
+        "providerKey": "stripe-elements",
+        "methodOnly": true,
+        "packageRoots": ["@stripe/react-stripe-js", "@stripe/stripe-js"],
+        "provider": "Stripe Elements",
+        "name": "Stripe Elements",
+        "envVars": [],
+        "matchPatterns": ["\\bstripe\\s+elements\\b"],
+        "reason": "Prompten eller projektkoden väljer Stripe Elements i stället för hosted Checkout."
+      },
+      {
+        "kind": "payment",
+        "providerKey": "swish",
+        "dossierCapability": "payments",
+        "provider": "Swish",
+        "name": "Swish",
+        "envVars": [],
+        "matchPatterns": ["\\bswish\\b"],
+        "status": "unresolved",
+        "reason": "Prompten nämner Swish uttryckligen; implementationen måste väljas innan F3."
+      },
+      {
+        "kind": "payment",
+        "providerKey": "paypal",
+        "dossierCapability": "payments",
+        "provider": "PayPal",
+        "name": "PayPal",
+        "envVars": [],
+        "matchPatterns": ["\\bpaypal\\b"],
+        "status": "unresolved",
+        "reason": "Prompten väljer PayPal för betalning, men någon levererbar implementation är ännu inte vald."
+      },
+      {
         "kind": "integration",
+        "providerKey": "calcom",
+        "dossierCapability": "booking",
+        "packageRoots": [
+          "@calcom/embed-react"
+        ],
+        "provider": "Cal.com",
+        "name": "Cal.com",
+        "envVars": [],
+        "matchPatterns": [],
+        "reason": "Existing project code imports the canonical Cal.com embed package."
+      },
+      {
+        "kind": "integration",
+        "providerKey": "mailchimp",
+        "dossierCapability": "newsletter-subscribe",
+        "provider": "Mailchimp",
+        "name": "Mailchimp",
+        "envVars": ["MAILCHIMP_API_KEY", "MAILCHIMP_AUDIENCE_ID", "MAILCHIMP_DC"],
+        "matchPatterns": ["\\bmailchimp\\b"],
+        "purposePatterns": ["\\b(?:newsletter(?:\\s+signup)?|nyhetsbrev)\\b"],
+        "reason": "Prompten väljer Mailchimp uttryckligen för nyhetsbrev."
+      },
+      {
+        "kind": "integration",
+        "providerKey": "resend",
+        "dossierCapability": "newsletter-subscribe",
+        "provider": "Resend",
+        "name": "Resend",
+        "envVars": [],
+        "matchPatterns": [
+          "\\bresend\\b[^.!?;\\n]{0,48}\\bfor\\s+(?:the\\s+)?newsletter(?:\\s+signup)?\\b",
+          "\\bresend\\b[^.!?;\\n]{0,48}\\bför\\s+(?:ett\\s+)?nyhetsbrev\\b"
+        ],
+        "purposePatterns": ["\\b(?:newsletter(?:\\s+signup)?|nyhetsbrev)\\b"],
+        "status": "unresolved",
+        "reason": "Prompten väljer Resend för nyhetsbrev, men den katalogiserade Resend-integrationen är ett kontaktformulär och ingen nyhetsbrevsimplementation är vald."
+      },
+      {
+        "kind": "integration",
+        "providerKey": "resend",
+        "dossierCapability": "contact-form",
+        "packageRoots": ["resend"],
         "provider": "Resend",
         "name": "Resend",
         "envVars": ["RESEND_API_KEY"],
         "matchPatterns": ["\\bresend\\b"],
+        "purposePatterns": [
+          "\\b(?:contact[-\\s]?form|kontaktform(?:ulär)?)\\b"
+        ],
         "reason": "Prompten nämner Resend uttryckligen."
       },
       {
         "kind": "integration",
+        "providerKey": "openai",
+        "dossierCapability": "ai-chat",
+        "packageRoots": ["openai", "@ai-sdk/openai"],
         "provider": "OpenAI",
         "name": "OpenAI",
         "envVars": ["OPENAI_API_KEY"],
@@ -528,6 +745,9 @@
       },
       {
         "kind": "integration",
+        "providerKey": "vercel-blob",
+        "dossierCapability": "media-storage",
+        "packageRoots": ["@vercel/blob"],
         "provider": "Vercel Blob",
         "name": "Vercel Blob",
         "envVars": ["BLOB_READ_WRITE_TOKEN"],
@@ -536,6 +756,36 @@
       },
       {
         "kind": "integration",
+        "providerKey": "upstash",
+        "dossierCapability": "database",
+        "provider": "Upstash",
+        "name": "Upstash",
+        "envVars": [],
+        "matchPatterns": [
+          "\\bupstash\\b[^.!?;\\n]{0,48}\\b(?:as|for)\\s+(?:the\\s+|a\\s+)?database\\b",
+          "\\bupstash\\b[^.!?;\\n]{0,48}\\bsom\\s+(?:en\\s+)?databas\\b"
+        ],
+        "status": "unresolved",
+        "reason": "Prompten väljer Upstash som databas, men ingen katalogiserad databasimplementation är vald."
+      },
+      {
+        "kind": "integration",
+        "providerKey": "upstash",
+        "dossierCapability": "database",
+        "provider": "Redis",
+        "name": "Redis",
+        "envVars": [],
+        "matchPatterns": [
+          "\\bredis\\b[^.!?;\\n]{0,48}\\b(?:as|for)\\s+(?:the\\s+|a\\s+)?database\\b",
+          "\\bredis\\b[^.!?;\\n]{0,48}\\bsom\\s+(?:en\\s+)?databas\\b"
+        ],
+        "status": "unresolved",
+        "reason": "Prompten väljer Redis som databas, men ingen katalogiserad databasimplementation är vald."
+      },
+      {
+        "kind": "integration",
+        "providerKey": "upstash",
+        "packageRoots": ["@upstash/redis"],
         "provider": "Upstash",
         "name": "Upstash",
         "envVars": ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
@@ -544,6 +794,8 @@
       },
       {
         "kind": "integration",
+        "providerKey": "google-analytics",
+        "dossierCapability": "analytics",
         "provider": "Google Analytics 4",
         "name": "Google Analytics 4",
         "envVars": ["NEXT_PUBLIC_GA_ID"],
@@ -552,6 +804,8 @@
       },
       {
         "kind": "integration",
+        "providerKey": "gtm",
+        "dossierCapability": "analytics",
         "provider": "Google Tag Manager",
         "name": "Google Tag Manager",
         "envVars": ["NEXT_PUBLIC_GTM_ID"],
@@ -560,6 +814,8 @@
       },
       {
         "kind": "integration",
+        "providerKey": "plausible",
+        "dossierCapability": "analytics",
         "provider": "Plausible",
         "name": "Plausible",
         "envVars": ["NEXT_PUBLIC_PLAUSIBLE_DOMAIN"],
@@ -568,6 +824,9 @@
       },
       {
         "kind": "integration",
+        "providerKey": "posthog",
+        "dossierCapability": "analytics",
+        "packageRoots": ["posthog-js"],
         "provider": "PostHog",
         "name": "PostHog",
         "envVars": ["NEXT_PUBLIC_POSTHOG_KEY", "NEXT_PUBLIC_POSTHOG_HOST"],
@@ -576,6 +835,9 @@
       },
       {
         "kind": "integration",
+        "providerKey": "vercel-analytics",
+        "dossierCapability": "analytics",
+        "packageRoots": ["@vercel/analytics"],
         "provider": "Vercel Analytics",
         "name": "Besöksstatistik",
         "envVars": [],
@@ -674,7 +936,8 @@
         "pro": "SAJTMASKIN_MODEL_PRO",
         "max": "SAJTMASKIN_MODEL_MAX",
         "codex": "SAJTMASKIN_MODEL_CODEX",
-        "anthropic": "SAJTMASKIN_MODEL_ANTHROPIC"
+        "anthropic": "SAJTMASKIN_MODEL_ANTHROPIC",
+        "ultra": "SAJTMASKIN_MODEL_ULTRA"
       },
       "tokenBudget": {
         "envKey": "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
@@ -747,7 +1010,8 @@
       "provider": "openai_anthropic_direct",
       "codeEntry": ["src/app/api/ai/brief/route.ts", "src/lib/builder/site-brief-generation.ts"],
       "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
-      "defaultModel": "openai/gpt-5.6-sol",
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium",
       "tokenBudget": {
         "envKey": "SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS",
         "default": 82768,
@@ -784,22 +1048,6 @@
       "notes": "Uses the verifier phase from phaseRouting for the active build tier. Read-only; telemetry and optional future UX."
     },
     {
-      "id": "github_pr_reviewer",
-      "title": "GitHub pull request reviewer",
-      "description": "Event-driven exhaustive PR bug review plus at most two finding-specific follow-ups.",
-      "invocation": "openai_responses_create",
-      "provider": "openai_direct",
-      "codeEntry": [
-        "scripts/pr-review/run.mjs",
-        "scripts/pr-review/automation.mjs",
-        "scripts/pr-review/core.mjs"
-      ],
-      "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-5.6-sol",
-      "followUpModel": "gpt-5.6-luna",
-      "notes": "The exhaustive pass uses high reasoning. Follow-ups use low reasoning and a schema that can only classify existing finding IDs; model selection is read here at runtime and is not duplicated in the workflow."
-    },
-    {
       "id": "runtime_embeddings_query",
       "title": "Runtime embedding queries",
       "description": "OpenAI SDK embeddings.create for live query vectors against precomputed scaffold/gallery indexes.",
@@ -819,7 +1067,8 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/projects/[id]/analyze/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-5-mini"
+      "defaultModel": "gpt-6.1-sol",
+      "reasoningEffort": "medium"
     },
     {
       "id": "text_analyze",
@@ -829,7 +1078,8 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/text/analyze/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-5-nano"
+      "defaultModel": "gpt-6.1-sol",
+      "reasoningEffort": "medium"
     },
     {
       "id": "wizard_enrich_competitors",
@@ -841,7 +1091,10 @@
         "src/app/api/wizard/enrich/route.ts",
         "src/app/api/wizard/competitors/route.ts"
       ],
-      "authEnv": ["OPENAI_API_KEY"]
+      "authEnv": ["OPENAI_API_KEY"],
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium",
+      "notes": "GPT-6.1 Sol medium (owner decision 2026-10-19; was low on 2026-10-18): follow-up questions and the competitor list are visible to the customer in the wizard. Sol has no `none`, and reasoning tokens count toward maxOutputTokens, so the routes reserve headroom and run with maxDuration 40 s (enrich) / 35 s (competitors)."
     },
     {
       "id": "audit_structured",
@@ -851,21 +1104,22 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/audit/route.ts"],
       "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
-      "defaultModel": "openai/gpt-5.6-sol",
-      "fallbackModels": ["openai/gpt-5.5"],
-      "notes": "Inloggad produkt-audit. Responses path uses defaultModel (gpt-5.6-sol: structured outputs + optional web_search)."
+      "defaultModel": "openai/gpt-6.1-sol",
+      "fallbackModels": ["openai/gpt-5.6-sol"],
+      "reasoningEffort": "medium",
+      "notes": "Inloggad produkt-audit. Responses path uses defaultModel (gpt-6.1-sol: structured outputs + optional web_search). gpt-5.6-sol is the proven fallback if GPT-6.1 Sol fails transiently."
     },
     {
       "id": "audit_structured_public",
       "title": "Public /analys lead magnet (structured JSON)",
-      "description": "Same scrape + JSON schema as product audit, cheaper model, no web_search.",
+      "description": "Same scrape + JSON schema as product audit, no web_search.",
       "invocation": "openai_responses_create_or_ai_sdk_generateText",
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/analys/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "openai/gpt-5.6-luna",
-      "fallbackModels": ["openai/gpt-5-mini"],
-      "notes": "Gratis /analys. gpt-5.6-luna (~$0.20/$1.20) i stället för Sol. Ingen web_search."
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium",
+      "notes": "Gratis /analys och betald Vanlig. GPT-6.1 Sol med medium. Ingen Luna-reserv och ingen web_search. Den äldre Sol-reserven gpt-5.6-sol hör bara till audit_structured."
     },
     {
       "id": "analyze_presentation",
@@ -875,7 +1129,8 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/analyze-presentation/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "openai/gpt-5-mini"
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium"
     },
     {
       "id": "transcribe",
@@ -894,7 +1149,8 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/inspector-ai-match/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-5-mini"
+      "defaultModel": "gpt-6.1-sol",
+      "reasoningEffort": "medium"
     },
     {
       "id": "analyze_website",
@@ -904,7 +1160,8 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/analyze-website/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "openai/gpt-5-mini"
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium"
     },
     {
       "id": "company_lookup",
@@ -914,7 +1171,9 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/wizard/company-lookup/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "openai/gpt-5-mini"
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium",
+      "notes": "GPT-6.1 Sol medium since 2026-10-19, same as the other wizard workloads. The lookup fallback has no web-search tool, so it can only answer from model knowledge; reasoning tokens count toward maxOutputTokens."
     },
     {
       "id": "domain_suggestions",
@@ -924,7 +1183,8 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/domain-suggestions/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "openai/gpt-5.2"
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium"
     },
     {
       "id": "prompt_rewrite",
@@ -937,11 +1197,12 @@
         "src/lib/builder/prompt-assist-pre-send.ts"
       ],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "openai/gpt-5.6-terra",
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "low",
       "envOverrides": {
         "model": "SAJTMASKIN_PROMPT_REWRITE_MODEL"
       },
-      "notes": "Not promptAssist / SAJTMASKIN_ASSIST_MODEL (those belong to Deep Brief)."
+      "notes": "Low effort for the lightweight pre-send rewrite. Not promptAssist / SAJTMASKIN_ASSIST_MODEL (those belong to Deep Brief)."
     },
     {
       "id": "analyze_presentation_vision",
@@ -951,10 +1212,10 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/analyze-presentation/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-5.6-terra",
-      "fallbackModels": ["gpt-5.6-sol"],
-      "visionModels": ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-luna"],
-      "notes": "gpt-4o retired from this workload 2026-09-02: every GPT-5.6 model accepts image input (OpenAI model pages), Terra is the cost/quality balance."
+      "defaultModel": "gpt-6.1-sol",
+      "visionModels": ["gpt-6.1-sol", "gpt-6-luna"],
+      "reasoningEffort": "medium",
+      "notes": "gpt-4o retired from this workload 2026-09-02: every GPT-5.6 model accepts image input (OpenAI model pages), GPT-6.1 Sol replaced Terra 2026-10-17 (no GPT-6 Terra; Sol has the lower output price). Default is GPT-6.1 Sol at medium. visionModels still lists GPT-6 Luna as an explicit selectable id, not an automatic fallback."
     },
     {
       "id": "backoffice_scaffold_wizard_persona",
@@ -964,21 +1225,21 @@
       "provider": "openai_direct",
       "codeEntry": ["backoffice/wizard_support.py", "backoffice/pages/scaffold_wizard.py"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-5.6-terra",
-      "fallbackModels": ["gpt-5.6-sol"],
-      "visionModels": ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-luna"],
-      "notes": "Own entry on purpose: the wizard must NOT inherit analyze_presentation_vision, which belongs to the body-language feature in src/app/api/analyze-presentation/route.ts. Sharing it would tie two unrelated features to one model decision. Kept separate from backoffice_scaffold_wizard_guide because this path needs vision and the guide does not. gpt-4o retired 2026-09-02 — all GPT-5.6 models accept image input."
+      "defaultModel": "gpt-6.1-sol",
+      "visionModels": ["gpt-6.1-sol", "gpt-6-luna"],
+      "reasoningEffort": "medium",
+      "notes": "Own entry on purpose: the wizard must NOT inherit analyze_presentation_vision, which belongs to the body-language feature in src/app/api/analyze-presentation/route.ts. Sharing it would tie two unrelated features to one model decision. Kept separate from backoffice_scaffold_wizard_guide because this path needs vision and the guide does not. gpt-4o retired 2026-09-02; Terra replaced by GPT-6.1 Sol 2026-10-17. GPT-6.1 Sol and GPT-6 Luna accept image input. Default is GPT-6.1 Sol at medium. Luna stays in visionModels as an explicit selectable id, not an automatic fallback."
     },
     {
       "id": "backoffice_scaffold_wizard_guide",
       "title": "Backoffice scaffold wizard — step guide (text only)",
-      "description": "Short Swedish Q&A helper inside the wizard steps. Text only, no images — a cheap model is enough, which is why it is not merged with backoffice_scaffold_wizard_persona.",
+      "description": "Short Swedish Q&A helper inside the wizard steps. Text only, no images, which is why it is not merged with backoffice_scaffold_wizard_persona.",
       "invocation": "openai_chat_completions",
       "provider": "openai_direct",
       "codeEntry": ["backoffice/wizard_support.py", "backoffice/pages/scaffold_wizard.py"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-5.6-luna",
-      "fallbackModels": ["gpt-5.6-terra"]
+      "defaultModel": "gpt-6.1-sol",
+      "reasoningEffort": "medium"
     },
     {
       "id": "backoffice_dossier_curation",
@@ -988,9 +1249,9 @@
       "provider": "openai_direct",
       "codeEntry": ["scripts/dossiers/curate-from-reference.ts", "backoffice/pages/dossiers.py"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-5.6-sol",
-      "fallbackModels": ["gpt-5.6-terra"],
-      "notes": "Replaces the hardcoded gpt-4o-mini in curate-from-reference.ts. The script takes --model=<id> and rejects an id that is not defaultModel or one of fallbackModels BEFORE the LLM call."
+      "defaultModel": "gpt-6.1-sol",
+      "reasoningEffort": "medium",
+      "notes": "Replaces the hardcoded gpt-4o-mini in curate-from-reference.ts. The script takes --model=<id> and rejects an id that is not defaultModel or one of fallbackModels BEFORE the LLM call. Active default is GPT-6.1 Sol at medium; there is no automatic Luna fallback."
     },
     {
       "id": "match_classifier",
@@ -1003,7 +1264,8 @@
         "src/lib/providers/own-engine/follow-up-intent-router.ts"
       ],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "openai/gpt-5-mini"
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium"
     },
     {
       "id": "seo_publish_copy",
@@ -1013,7 +1275,9 @@
       "provider": "openai_direct",
       "codeEntry": ["src/lib/seo/llm-copy.ts", "src/lib/seo/index.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "openai/gpt-5.2"
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium",
+      "notes": "GPT-6.1 Sol medium since 2026-10-18 (owner decision): title and description are the customer-visible search snippet, and the pass runs at most once per publish. Reasoning tokens count toward maxOutputTokens, so llm-copy.ts reserves headroom for them. Site creation has no separate SEO model: the Deep Brief and the build model write metadata."
     },
     {
       "id": "live_review",
@@ -1026,10 +1290,46 @@
         "src/lib/gen/verify/product-postcheck.ts"
       ],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-5.6-terra",
-      "fallbackModels": ["gpt-5.6-luna"],
-      "visionModels": ["gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.6-sol"],
-      "notes": "Reuses the vision slugs listed on backoffice_scaffold_wizard_persona and analyze_presentation_vision. Do not invent a new model id. Etapp 1 is critic only. gpt-4o retired 2026-09-02: Terra reads the desktop+mobile screenshots at ~1/5 of gpt-4o's output price, Luna is the cheap fallback."
+      "defaultModel": "gpt-6.1-sol",
+      "visionModels": ["gpt-6.1-sol", "gpt-6-luna"],
+      "reasoningEffort": "medium",
+      "notes": "Reuses the vision slugs listed on backoffice_scaffold_wizard_persona and analyze_presentation_vision. Do not invent a new model id. Etapp 1 is critic only. gpt-4o retired 2026-09-02; Terra replaced by GPT-6.1 Sol 2026-10-17. Default is GPT-6.1 Sol at medium. visionModels still lists GPT-6 Luna as an explicit selectable id, not an automatic fallback."
+    },
+    {
+      "id": "qa_short_circuit",
+      "title": "QA short-circuit",
+      "description": "Small generateText answer when a follow-up is classified as qa-or-score, instead of a full codegen round.",
+      "invocation": "ai_sdk_generateText",
+      "provider": "openai_direct",
+      "codeEntry": ["src/lib/api/engine/chats/chat-message-stream/qa-short-circuit.ts"],
+      "authEnv": ["OPENAI_API_KEY"],
+      "defaultModel": "gpt-6.1-sol",
+      "reasoningEffort": "medium",
+      "notes": "Read-only answer workload for follow-ups classified as qa-or-score, separate from code generation."
+    },
+    {
+      "id": "shadcn_describe_queries",
+      "title": "shadcn describe — search queries",
+      "description": "generateObject that turns a UI description into 1–3 registry search queries.",
+      "invocation": "ai_generateObject",
+      "provider": "openai_anthropic_direct",
+      "codeEntry": ["src/lib/shadcn/describe.ts"],
+      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium",
+      "notes": "Explicit AUTO_BRIEF overrides and existing Anthropic failover share the original query deadline. No automatic Luna reserve."
+    },
+    {
+      "id": "shadcn_describe_ranking",
+      "title": "shadcn describe — candidate ranking",
+      "description": "generateObject that ranks real shadcn registry candidates against the description.",
+      "invocation": "ai_generateObject",
+      "provider": "openai_anthropic_direct",
+      "codeEntry": ["src/lib/shadcn/describe.ts"],
+      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "defaultModel": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium",
+      "notes": "Same caller file as shadcn_describe_queries. Default is GPT-6.1 Sol at medium. No automatic fallback is declared here."
     }
   ]
 }

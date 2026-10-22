@@ -3,9 +3,8 @@
 Fokus: preview-etiketter (M#pv1 cutoff), tidstolkning, kortning och
 read-only Node-script-wrapper (mockad subprocess).
 
-Sedan P2-4 grindas även kolumnrubrikerna, men bara via modulens konstanter — de
-gamla legacy-orden ("Quality gate", "Autofix", "Syntax-fixer") får inte komma
-tillbaka som fria strängar, och DB-nycklarna ska vara oförändrade.
+Även tabellens synliga kolumnrubriker och legendens koppling till DB-nycklarna
+kontrolleras genom den faktiska dataframen, utan att låsa källkodens formulering.
 """
 
 from __future__ import annotations
@@ -324,19 +323,6 @@ class GlossaryColumnHeaderTests(unittest.TestCase):
         self.assertEqual(gh._repair_helped_label(True, False), "nej")
         self.assertEqual(gh._repair_helped_label(False, True), "—")
         self.assertEqual(gh._repair_helped_label(None, None), "—")
-
-    def test_no_legacy_header_literal_left_in_the_code(self) -> None:
-        """Bara koden granskas — kommentaren som förklarar bytet nämner
-        legacy-orden med flit, och att förbjuda det vore att förbjuda historiken."""
-        code_lines = [
-            line
-            for line in Path(gh.__file__).read_text(encoding="utf-8").splitlines()
-            if not line.lstrip().startswith("#")
-        ]
-        code = "\n".join(code_lines)
-        for legacy in ('"Quality gate"', '"Autofix"', '"Syntax-fixer"'):
-            self.assertNotIn(legacy, code, f"{legacy} kvar som fri sträng i koden")
-
 
 if __name__ == "__main__":
     unittest.main()

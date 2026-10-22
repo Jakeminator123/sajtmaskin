@@ -22,7 +22,7 @@ const mockTmpdir = vi.hoisted(() => vi.fn(() => "/tmp"));
 
 vi.mock("@sparticuz/chromium", () => ({
   default: {
-    args: ["--no-sandbox"],
+    args: ["--no-sandbox", "--single-process", "--in-process-gpu"],
     executablePath: async () => "/tmp/chromium",
   },
 }));
@@ -119,6 +119,10 @@ describe("launchCaptureBrowser", () => {
     expect(sparticuzLaunch).toHaveBeenCalledTimes(1);
     expect(localLaunch).not.toHaveBeenCalled();
     expect(sparticuzLaunch.mock.calls[0][0]).toMatchObject({
+      // SM-072 native repro: disposing the owned mobile context with
+      // --single-process exits Chromium via SIGTRAP after both shots succeeded.
+      // Keep the other Sparticuz flags (including graphics) unchanged.
+      args: ["--no-sandbox", "--in-process-gpu"],
       executablePath: "/tmp/chromium",
       headless: true,
     });
@@ -281,9 +285,68 @@ describe("launchCaptureBrowser", () => {
     expect(fs.existsSync(duringRun)).toBe(false);
     expect(errorSpy).toHaveBeenCalledWith(
       "[capture-browser] Chromium core dump detected (2 MB) during product-postcheck",
+      expect.objectContaining({
+        coreFile: "core.chromium.29",
+        logicalSizeBytes: 2 * 1_048_576,
+        pruned: true,
+      }),
     );
     warnSpy.mockRestore();
     errorSpy.mockRestore();
+  });
+
+  it("rapporterar upptäckt även om dumpen inte kunde raderas", async () => {
+    const tmp = createSweepTmp();
+    const core = path.join(tmp, "core.chromium.42");
+    fs.writeFileSync(core, Buffer.alloc(2 * 1_048_576));
+    const removeSpy = vi.spyOn(fs, "rmSync").mockImplementationOnce(() => {
+      throw new Error("EACCES");
+    });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const { detectAndPruneChromiumCoreDumps } = await import("./browser");
+      expect(detectAndPruneChromiumCoreDumps("postcheck")).toEqual({ count: 1, totalMb: 2 });
+      expect(fs.existsSync(core)).toBe(true);
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("core dump detected"),
+        expect.objectContaining({ pruned: false }),
+      );
+    } finally {
+      removeSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("skiljer dumpens logiska storlek från allokerade block och binder diagnostiken till körningen", async () => {
+    const tmp = createSweepTmp();
+    const core = path.join(tmp, "core.chromium.43");
+    fs.writeFileSync(core, "small sparse-file stand-in");
+    const originalStat = fs.statSync(core);
+    const statSpy = vi.spyOn(fs, "statSync").mockReturnValueOnce({
+      ...originalStat,
+      size: 407 * 1_048_576,
+      blocks: 8,
+      mtimeMs: 1234,
+    } as fs.Stats);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const { detectAndPruneChromiumCoreDumps } = await import("./browser");
+      expect(detectAndPruneChromiumCoreDumps("postcheck", { captureRunId: "capture-1" })).toEqual({
+        count: 1,
+        totalMb: 407,
+      });
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("407 MB"), {
+        captureRunId: "capture-1",
+        coreFile: "core.chromium.43",
+        logicalSizeBytes: 407 * 1_048_576,
+        allocatedSizeBytes: 4096,
+        modifiedAtMs: 1234,
+        pruned: true,
+      });
+    } finally {
+      statSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
   });
 
   it("raderar Chromium-core-dumps oavsett ålder före serverless-launch (SM-072)", async () => {

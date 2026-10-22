@@ -20,6 +20,7 @@ describe("resolveChatModelTier — shared Sol build model", () => {
 
   it("falls back to the model heuristic without a usable snapshot tier", () => {
     expect(resolveChatModelTier({ model: "gpt-5.6-sol", orchestration_snapshot: null })).toBe("max");
+    expect(resolveChatModelTier({ model: "gpt-6.1-sol", orchestration_snapshot: null })).toBe("max");
     expect(
       resolveChatModelTier({ model: "gpt-5.6-sol", orchestration_snapshot: { modelTier: "nope" } }),
     ).toBe("max");
@@ -33,14 +34,20 @@ describe("retired cheap model → shared Sol / Mellan", () => {
     const previous = process.env.SAJTMASKIN_MODEL_PREMIUM;
     process.env.SAJTMASKIN_MODEL_PREMIUM = "gpt-5.5";
     try {
-      expect(aliasRetiredModelId("gpt-5.4-mini")).toBe("gpt-5.6-sol");
-      expect(aliasRetiredModelId("openai/gpt-5.4-mini")).toBe("openai/gpt-5.6-sol");
+      expect(aliasRetiredModelId("gpt-5.4-mini")).toBe("gpt-6.1-sol");
+      expect(aliasRetiredModelId("openai/gpt-5.4-mini")).toBe("openai/gpt-6.1-sol");
       expect(ownModelIdToCanonicalModelId("fast")).toBe("premium");
       expect(ownModelIdToCanonicalModelId("gpt-5.4-mini")).toBe("max");
+      // Both the pre-2026-10-17 and the current shared Sol resolve to Mellan
+      // instead of the first tier that happens to share the model.
       expect(ownModelIdToCanonicalModelId("gpt-5.6-sol")).toBe("max");
+      expect(ownModelIdToCanonicalModelId("gpt-6.1-sol")).toBe("max");
+      // Astra is built only by Extra hög, so it maps back to that tier.
+      expect(ownModelIdToCanonicalModelId("gpt-6-astra")).toBe("ultra");
       // Terra/Luna are side-phase siblings, not a persisted build-tier id.
       expect(ownModelIdToCanonicalModelId("gpt-5.6-terra")).toBeNull();
       expect(ownModelIdToCanonicalModelId("gpt-5.6-luna")).toBeNull();
+      expect(ownModelIdToCanonicalModelId("gpt-6-luna")).toBeNull();
     } finally {
       if (previous === undefined) {
         delete process.env.SAJTMASKIN_MODEL_PREMIUM;
@@ -81,7 +88,9 @@ describe("aliasRetiredModelId — retired Sonnet 4.6 → Opus 4.8", () => {
       "anthropic/claude-opus-4.8",
       "anthropic-direct/claude-opus-4-8",
       "openai/gpt-5.5",
-      "gpt-5.3-codex",
+      "gpt-5.6-sol",
+      "gpt-6.1-sol",
+      "openai/gpt-6-luna",
     ]) {
       expect(aliasRetiredModelId(id)).toBe(id);
     }
@@ -90,5 +99,23 @@ describe("aliasRetiredModelId — retired Sonnet 4.6 → Opus 4.8", () => {
   it("returns an empty string for null/undefined", () => {
     expect(aliasRetiredModelId(null)).toBe("");
     expect(aliasRetiredModelId(undefined)).toBe("");
+  });
+});
+
+describe("aliasRetiredModelId — OpenAI-deprecated models", () => {
+  it.each([
+    ["gpt-5.3-codex", "gpt-6.1-sol"],
+    ["openai/gpt-5.3-codex", "openai/gpt-6.1-sol"],
+    ["gpt-5.3-codex-max", "gpt-6.1-sol"],
+    ["gpt-4.1", "gpt-6.1-sol"],
+    ["openai/gpt-4.1", "openai/gpt-6.1-sol"],
+    ["gpt-4o-mini", "gpt-6.1-sol"],
+    ["openai/gpt-4o-mini", "openai/gpt-6.1-sol"],
+  ])("maps %s -> %s", (input, expected) => {
+    expect(aliasRetiredModelId(input)).toBe(expected);
+  });
+
+  it("resolves a persisted deprecated build model to the shared Sol tier", () => {
+    expect(ownModelIdToCanonicalModelId("gpt-5.3-codex")).toBe("max");
   });
 });

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -182,14 +183,14 @@ describe("COUNT_TREES — swarms/logg-internet", () => {
 describe("--only — en körning rensar bara sin egen yta", () => {
   it("prunar den valda ytan och lämnar grannytorna orörda", () => {
     // Regressionen som motiverar flaggan: /automat körde global :apply och tog
-    // därmed kedja-kandidatdiffar och .cursor/tmp, som körningen inte äger. En
-    // förlorardiff kan vara enda kopian av den kandidaten.
+    // därmed buggrapporter och .cursor/tmp, som körningen inte äger. En
+    // rapport kan vara enda kopian av en repro.
     const root = makeTempRepo();
     const swarmRuns = path.join(root, ".cursor", "swarms", "runs");
-    const kedja = path.join(root, ".cursor", "kedja");
+    const bugs = path.join(root, ".cursor", "bugs");
     const tmp = path.join(root, ".cursor", "tmp");
     fs.mkdirSync(swarmRuns, { recursive: true });
-    fs.mkdirSync(kedja, { recursive: true });
+    fs.mkdirSync(bugs, { recursive: true });
     fs.mkdirSync(tmp, { recursive: true });
 
     const now = Date.now();
@@ -197,7 +198,7 @@ describe("--only — en körning rensar bara sin egen yta", () => {
     for (const [i, name] of names.entries()) {
       touchFile(path.join(swarmRuns, name), now - (names.length - i) * 60_000);
     }
-    const loserDiff = path.join(kedja, "2026-07-01_1200");
+    const loserDiff = path.join(bugs, "2026-07-01_1200");
     touchDir(loserDiff, now - (RETAIN_DAYS + 6) * 24 * 60 * 60 * 1000);
     const scratch = path.join(tmp, "commit-msg.txt");
     touchFile(scratch, now - 60_000);
@@ -222,8 +223,8 @@ describe("--only — en körning rensar bara sin egen yta", () => {
     );
     expect(parseOnlyTrees(["--only", "src/lib"])).toHaveProperty("error");
     expect(parseOnlyTrees(["--only"])).toHaveProperty("error");
-    expect(parseOnlyTrees(["--only", ".cursor\\kedja\\"])).toEqual({
-      only: [".cursor/kedja"],
+    expect(parseOnlyTrees(["--only", ".cursor\\bugs\\"])).toEqual({
+      only: [".cursor/bugs"],
     });
     expect(parseOnlyTrees(["--apply"])).toEqual({ only: [] });
   });

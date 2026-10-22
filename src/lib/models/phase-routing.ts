@@ -7,19 +7,22 @@ import {
   type ReasoningEffortFromManifest,
   type ReasoningModeFromManifest,
 } from "@/lib/ai-models/load-manifest";
+import {
+  clampOpenAIReasoningEffort,
+  supportsOpenAIReasoningMode,
+} from "@/lib/models/openai-capabilities";
 
 /**
  * Phase routing resolves which model handles each generation phase per tier.
  * `selected_build_model` means the tier's primary model; explicit IDs override.
  *
- * Tier ladder (2026-09-02): Låg (`pro`), Mellan (`max`) and Hög (`premium`)
- * all build with GPT-5.6 Sol; they differ by generator effort
- * (medium/high/xhigh, always `reasoningMode: "standard"`) and by which 5.6
- * sibling takes the side phases — Låg uses Terra for fixer/deploy-assistant
- * and Luna for verifier, Mellan/Hög use Sol fixer and Terra verifier.
+ * Tier ladder: Låg (`pro`), Mellan (`max`) and Hög (`premium`) all build
+ * with GPT-6.1 Sol; they differ by generator effort (medium/high/xhigh,
+ * always `reasoningMode: "standard"`) and by fixer effort. Extra hög (`ultra`)
+ * builds planner and generator with GPT-6 Astra. Sol takes every side phase.
  * Fixers run without a thinking stream but honor the manifest effort.
- * `codex` mirrors Mellan and is hidden from the UI. Anthropic keeps a single
- * model across phases. The concrete values live in the manifest, not here.
+ * `codex` mirrors Mellan; it and Anthropic (one model across phases) are hidden
+ * from the UI. The concrete values live in the manifest, not here.
  */
 const SELECTED_BUILD_MODEL_REF = "selected_build_model";
 
@@ -99,11 +102,11 @@ export function resolvePhaseThinking(
     );
   }
   const phaseModelId = resolvePhaseModel(selectedTier, phase).modelId;
-  const supportsReasoningMode = phaseModelId.startsWith("gpt-5.6-");
+  const supportsReasoningMode = supportsOpenAIReasoningMode(phaseModelId);
   return {
     phase,
     thinking: config.thinking,
-    reasoningEffort: config.reasoningEffort,
+    reasoningEffort: clampOpenAIReasoningEffort(phaseModelId, config.reasoningEffort),
     ...(config.reasoningMode && supportsReasoningMode
       ? { reasoningMode: config.reasoningMode }
       : {}),

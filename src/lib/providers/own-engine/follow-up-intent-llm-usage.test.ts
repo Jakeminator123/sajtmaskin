@@ -13,9 +13,15 @@ const generateObject = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/observability/llm-usage", () => ({ recordLlmUsage }));
 vi.mock("ai", () => ({ generateObject }));
 vi.mock("@/lib/builder/direct-model", () => ({ createDirectModel: () => "model" }));
-vi.mock("@/lib/ai-models/load-manifest", () => ({
-  getWorkloadDefaultModelFromManifest: () => "openai/gpt-5-mini",
-}));
+vi.mock("@/lib/ai-models/load-manifest", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/ai-models/load-manifest")>();
+  return {
+    ...actual,
+    // Explicit compatibility fixture for usage accounting, not a product default.
+    getWorkloadDefaultModelFromManifest: () => "openai/gpt-6-luna",
+    getWorkloadReasoningEffortFromManifest: () => "none",
+  };
+});
 
 const { llmClassifyFollowUpIntent } = await import("./follow-up-intent-llm-classifier");
 

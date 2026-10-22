@@ -58,9 +58,12 @@ export const FIXED_SOURCE_PATHS = [
   "src/lib/builder/dossier-axes.ts",
   "src/lib/builder/dossier-groups.ts",
   "src/lib/gen/dossiers/f2-mute.ts",
+  "src/lib/gen/dossiers/output-path.ts",
   "src/lib/gen/dossiers/registry.ts",
   "src/lib/gen/dossiers/types.ts",
   "src/lib/gen/dossiers/validate-manifest.ts",
+  "src/lib/gen/scaffolds/protected-paths.ts",
+  "src/lib/gen/security/path-validator.ts",
 ] as const;
 
 const MOCK_MODE_VALUES = ["canned", "seed", "success", "visual", "none"] as const satisfies readonly DossierMockMode[];
@@ -97,6 +100,8 @@ export type DossierTruthView = {
     required: boolean;
     enforcement: "build" | "feature-runtime" | "warn-only";
   }>;
+  configInputs: NonNullable<DossierEntry["configInputs"]>;
+  providerSetup: NonNullable<DossierEntry["providerSetup"]>;
   fileRoles: Record<string, number>;
   dependencies: string[];
   summarySv: string;
@@ -248,6 +253,22 @@ export function buildDossierTruth(
             enforcement: envVar.enforcement ?? "build",
           }))
           .sort((left, right) => left.key.localeCompare(right.key)),
+        configInputs: (dossier.configInputs ?? []).map((input) => ({ ...input })),
+        providerSetup: (dossier.providerSetup ?? []).map((step) => ({
+          ...step,
+          ...(step.references
+            ? {
+                references: {
+                  ...(step.references.envVarKeys
+                    ? { envVarKeys: [...step.references.envVarKeys] }
+                    : {}),
+                  ...(step.references.configInputIds
+                    ? { configInputIds: [...step.references.configInputIds] }
+                    : {}),
+                },
+              }
+            : {}),
+        })),
         fileRoles: Object.fromEntries(
           Object.entries(fileRoles).sort(([left], [right]) => left.localeCompare(right)),
         ),

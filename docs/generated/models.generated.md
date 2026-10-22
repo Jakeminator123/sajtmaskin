@@ -5,9 +5,9 @@
 > Source: `src/**/*.{ts,tsx}#resolvePhaseModel-literals`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: config/ai_models/manifest.json#full-manifest sha256:3198f091d58d6844 -->
-<!-- source-fingerprint: config/ai_models/manifest.json#model-summary sha256:29ce856496533bd1 -->
-<!-- source-fingerprint: src/**/*.{ts,tsx}#resolvePhaseModel-literals sha256:df1d0e127dc60443 -->
+<!-- source-fingerprint: config/ai_models/manifest.json#full-manifest sha256:fd67f7fcda8ef9f7 -->
+<!-- source-fingerprint: config/ai_models/manifest.json#model-summary sha256:ac8596cfe6bd1d51 -->
+<!-- source-fingerprint: src/**/*.{ts,tsx}#resolvePhaseModel-literals sha256:c3fa26a9212483b9 -->
 
 # Models
 
@@ -19,20 +19,21 @@ Canonical owner: committed AI-model manifest. Validator/runtime consumer: `getAi
 | Profile     | Default model     | Override env key             |
 | ----------- | ----------------- | ---------------------------- |
 | `anthropic` | `claude-opus-4.8` | `SAJTMASKIN_MODEL_ANTHROPIC` |
-| `codex`     | `gpt-5.6-sol`     | `SAJTMASKIN_MODEL_CODEX`     |
-| `max`       | `gpt-5.6-sol`     | `SAJTMASKIN_MODEL_MAX`       |
-| `premium`   | `gpt-5.6-sol`     | `SAJTMASKIN_MODEL_PREMIUM`   |
-| `pro`       | `gpt-5.6-sol`     | `SAJTMASKIN_MODEL_PRO`       |
+| `codex`     | `gpt-6.1-sol`     | `SAJTMASKIN_MODEL_CODEX`     |
+| `max`       | `gpt-6.1-sol`     | `SAJTMASKIN_MODEL_MAX`       |
+| `premium`   | `gpt-6.1-sol`     | `SAJTMASKIN_MODEL_PREMIUM`   |
+| `pro`       | `gpt-6.1-sol`     | `SAJTMASKIN_MODEL_PRO`       |
+| `ultra`     | `gpt-6-astra`     | `SAJTMASKIN_MODEL_ULTRA`     |
 
 ## Quality mapping
 
 | Quality    | Own-engine model |
 | ---------- | ---------------- |
-| `light`    | `gpt-5.6-sol`    |
-| `max`      | `gpt-5.6-sol`    |
-| `premium`  | `gpt-5.6-sol`    |
-| `pro`      | `gpt-5.6-sol`    |
-| `standard` | `gpt-5.6-sol`    |
+| `light`    | `gpt-6.1-sol`    |
+| `max`      | `gpt-6.1-sol`    |
+| `premium`  | `gpt-6.1-sol`    |
+| `pro`      | `gpt-6.1-sol`    |
+| `standard` | `gpt-6.1-sol`    |
 
 ## Briefing
 
@@ -42,20 +43,20 @@ This is **not** the Prompt-assist button in the chat input — that one is the `
 
 | Workload              | Default model               | Override env key                        |
 | --------------------- | --------------------------- | --------------------------------------- |
-| `assist`              | `openai/gpt-5.6-sol`        | `SAJTMASKIN_ASSIST_MODEL`               |
-| `requestModel`        | `openai/gpt-5.6-sol`        | `SAJTMASKIN_BRIEF_MODEL`                |
+| `assist`              | `openai/gpt-6.1-sol`        | `SAJTMASKIN_ASSIST_MODEL`               |
+| `requestModel`        | `openai/gpt-6.1-sol`        | `SAJTMASKIN_BRIEF_MODEL`                |
 | `serverAutoAnthropic` | `anthropic/claude-opus-4.8` | `SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC` |
-| `serverAutoOpenAI`    | `openai/gpt-5.6-sol`        | `SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI`    |
+| `serverAutoOpenAI`    | `openai/gpt-6.1-sol`        | `SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI`    |
 
 ## Phase routing
 
 A runtime caller is a non-test `src/` call to `resolvePhaseModel` or `resolvePhaseThinking` with this phase as a string literal.
 `src/lib/models/phase-routing.ts` is excluded because it resolves and summarizes routing; it does not invoke a phase.
 
-| Phase              | `anthropic`            | `codex`                | `max`                  | `premium`              | `pro`                  | Runtime caller                                                                                                                                                                                                                                 |
-| ------------------ | ---------------------- | ---------------------- | ---------------------- | ---------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `deploy-assistant` | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `gpt-5.6-terra`        | No                                                                                                                                                                                                                                             |
-| `fixer`            | `selected_build_model` | `gpt-5.6-sol`          | `gpt-5.6-sol`          | `gpt-5.6-sol`          | `gpt-5.6-terra`        | Yes (`src/app/api/engine/chats/[chatId]/repair/route.ts`, `src/lib/gen/autofix/llm-repair-gate.ts`, `src/lib/gen/verify/server-verify/repair-execution.ts`)                                                                                    |
-| `generator`        | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `selected_build_model` | Yes (`src/lib/api/engine/chats/chat-message-stream/codegen-turn.ts`, `src/lib/api/engine/chats/create-chat-stream-post.ts`, `src/lib/own-engine/generate-site-from-prompt.ts`, `src/lib/own-engine/session/own-engine-pipeline-generation.ts`) |
-| `planner`          | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `selected_build_model` | Yes (`src/lib/own-engine/session/own-engine-plan-mode.ts`, `src/lib/providers/own-engine/plan-mode-response.ts`)                                                                                                                               |
-| `verifier`         | `selected_build_model` | `gpt-5.6-terra`        | `gpt-5.6-terra`        | `gpt-5.6-terra`        | `gpt-5.6-luna`         | Yes (`src/lib/gen/verify/verifier-pass.ts`)                                                                                                                                                                                                    |
+| Phase              | `anthropic`            | `codex`                | `max`                  | `premium`              | `pro`                  | `ultra`                | Runtime caller                                                                                                                                                                              |
+| ------------------ | ---------------------- | ---------------------- | ---------------------- | ---------------------- | ---------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deploy-assistant` | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `gpt-6.1-sol`          | `gpt-6.1-sol`          | No                                                                                                                                                                                          |
+| `fixer`            | `selected_build_model` | `gpt-6.1-sol`          | `gpt-6.1-sol`          | `gpt-6.1-sol`          | `gpt-6.1-sol`          | `gpt-6.1-sol`          | Yes (`src/app/api/engine/chats/[chatId]/repair/route.ts`, `src/lib/gen/autofix/llm-repair-gate.ts`, `src/lib/gen/verify/server-verify/repair-execution.ts`)                                 |
+| `generator`        | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `selected_build_model` | `selected_build_model` | Yes (`src/lib/api/engine/chats/chat-message-stream/codegen-turn.ts`, `src/lib/api/engine/chats/create-chat-stream-post.ts`, `src/lib/own-engine/session/own-engine-pipeline-generation.ts`) |
+| `planner`          | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `selected_build_model` | `selected_build_model` | Yes (`src/lib/own-engine/session/own-engine-plan-mode.ts`, `src/lib/providers/own-engine/plan-mode-response.ts`)                                                                            |
+| `verifier`         | `selected_build_model` | `gpt-6.1-sol`          | `gpt-6.1-sol`          | `gpt-6.1-sol`          | `gpt-6.1-sol`          | `gpt-6.1-sol`          | Yes (`src/lib/gen/verify/verifier-pass.ts`)                                                                                                                                                 |

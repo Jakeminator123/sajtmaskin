@@ -1,20 +1,32 @@
-import type { ScaffoldManifest, ScaffoldRouteContract } from "@/lib/gen/scaffolds";
+import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
+import { isUnderRoutePath, resolveScaffoldRouteDelivery } from "@/lib/gen/scaffolds/route-delivery";
 import { checkCrossFileImports } from "@/lib/gen/autofix/rules/cross-file-import-checker";
 import { fixTypeOnlyModuleDefaultImports } from "@/lib/gen/autofix/rules/type-only-module-default-import-fixer";
-import type { CodeFile } from "@/lib/gen/parser";
-import { mergeVersionFilesWithWarnings } from "@/lib/gen/version-manager";
+import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
+import { isEnvArtifactPath } from "@/lib/integrations/stub-env-filter";
+import { mergeVersionFilesWithWarnings } from "@/lib/gen/version-file-merge";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { warnLog } from "@/lib/utils/debug";
 import { deriveFollowUpStateFromInputs } from "@/lib/gen/follow-up-predicate";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
-import { applyDossierVerbatimPolicy } from "@/lib/gen/dossiers/verbatim-policy";
-import { mapDossierPathToOutput } from "@/lib/gen/dossiers/output-path";
+import {
+  applyDossierCanonicalPathPolicy,
+  applyDossierVerbatimPolicy,
+  assertCompatibleDossierOutputClaims,
+  assertPreservedDossierVerbatimFiles,
+  capturePreservedDossierVerbatimSnapshot,
+  restorePreservedDossierVerbatimFiles,
+} from "@/lib/gen/dossiers/verbatim-policy";
+import {
+  dossierOutputPathIdentity,
+  mapDossierPathToOutput,
+  normalizeDossierProjectPath,
+} from "@/lib/gen/dossiers/output-path";
 import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
 import { syncNavItemsFromRoutePlan } from "@/lib/gen/scaffolds/sync-nav-from-route-plan";
 import {
   extractAppRoutePathsFromFilePaths,
   findSupersededScaffoldRoutes,
-  normalizeRoutePath,
   type RoutePlan,
 } from "@/lib/gen/route-plan";
 
@@ -82,6 +94,8 @@ export interface MergeGeneratedProjectFilesParams {
   chatId: string;
   originalFilesJson: string;
   generatedFiles: CodeFile[];
+  /** Actual source emissions; assembled files and unchanged repair echoes are not emissions. */
+  emittedFiles?: CodeFile[];
   resolvedScaffold: ScaffoldManifest | null;
   previousFiles?: CodeFile[];
   /**
@@ -92,6 +106,8 @@ export interface MergeGeneratedProjectFilesParams {
    * `selectedDossierIds`; legacy/eval paths may still pass [].
    */
   selectedDossiers?: DossierEntry[];
+  /** Proven existing dossiers whose actual previous verbatim bytes stay frozen. */
+  preservedDossiers?: DossierEntry[];
   /** File-evidenced dossiers explicitly removed by this follow-up. */
   removedDossiers?: DossierEntry[];
   /**
@@ -162,19 +178,75 @@ export interface MergeGeneratedProjectFilesResult {
   }>;
 }
 
+/** Shared preparation for production, partial-file retries and offline eval. */
+export function prepareGeneratedProjectCandidate({
+  contentForVersion,
+  ...mergeInput
+}: Omit<MergeGeneratedProjectFilesParams, "originalFilesJson" | "generatedFiles"> & {
+  contentForVersion: string;
+}): MergeGeneratedProjectFilesResult & { generatedFiles: CodeFile[] } {
+  const parsedFiles = parseCodeProject(contentForVersion).files;
+  const generatedFiles = parsedFiles.map((file) => ({
+    ...file,
+    language: file.language || "tsx",
+  }));
+  return {
+    ...mergeGeneratedProjectFiles({
+      ...mergeInput,
+      originalFilesJson: JSON.stringify(parsedFiles),
+      generatedFiles,
+    }),
+    generatedFiles,
+  };
+}
+
+/** Preserve source provenance when a repair works on the assembled project. */
+export function updateEmittedFilesAfterRepair(
+  emittedFiles: CodeFile[],
+  candidateFiles: CodeFile[],
+  repairedFiles: CodeFile[],
+  source: "llm" | "mechanical",
+): CodeFile[] {
+  const emitted = new Map(emittedFiles.map((file) => [file.path, file]));
+  const candidate = new Map(candidateFiles.map((file) => [file.path, file]));
+  for (const file of repairedFiles) {
+    if (isEnvArtifactPath(file.path)) continue;
+    if (emitted.has(file.path) || (source === "llm" && candidate.get(file.path)?.content !== file.content)) {
+      emitted.set(file.path, file);
+    }
+  }
+  return [...emitted.values()];
+}
+
+/** Env requirements may be judged, but stored values must never reach a model. */
+export function serializeProjectCandidateForVerifier(files: CodeFile[]): string {
+  return serializeCodeProject(files.map((file) => !isEnvArtifactPath(file.path) ? file : {
+    ...file,
+    content: file.content.split(/\r?\n/).flatMap((line) => {
+      const key = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/.exec(line)?.[1];
+      return key ? [`${key}=`] : [];
+    }).join("\n"),
+  }));
+}
+
 function normalizeDossierPath(path: string): string {
-  return path.replace(/\\/g, "/").replace(/^\.?\//, "");
+  return normalizeDossierProjectPath(path);
+}
+
+function dossierPathOwnershipIdentity(path: string): string {
+  return dossierOutputPathIdentity(normalizeDossierPath(path));
 }
 
 export function removeExplicitlyRemovedDossierFiles(params: {
   files: CodeFile[];
   removedDossiers: readonly DossierEntry[];
   selectedDossiers: readonly DossierEntry[];
+  preservedDossiers?: readonly DossierEntry[];
 }): { files: CodeFile[]; removedPaths: string[] } {
   const activePaths = new Set(
-    params.selectedDossiers.flatMap((dossier) =>
+    [...params.selectedDossiers, ...(params.preservedDossiers ?? [])].flatMap((dossier) =>
       (dossier.files ?? []).map((file) =>
-        normalizeDossierPath(mapDossierPathToOutput(file.path)),
+        dossierPathOwnershipIdentity(mapDossierPathToOutput(file.path)),
       ),
     ),
   );
@@ -182,7 +254,7 @@ export function removeExplicitlyRemovedDossierFiles(params: {
     params.removedDossiers.flatMap((dossier) =>
       (dossier.files ?? [])
         .map((file) =>
-          normalizeDossierPath(mapDossierPathToOutput(file.path)),
+          dossierPathOwnershipIdentity(mapDossierPathToOutput(file.path)),
         )
         .filter((path) => !activePaths.has(path)),
     ),
@@ -193,7 +265,7 @@ export function removeExplicitlyRemovedDossierFiles(params: {
   const removedPaths: string[] = [];
   const files = params.files.filter((file) => {
     const path = normalizeDossierPath(file.path);
-    if (!removablePaths.has(path)) return true;
+    if (!removablePaths.has(dossierOutputPathIdentity(path))) return true;
     removedPaths.push(path);
     return false;
   });
@@ -213,23 +285,6 @@ export function removeExplicitlyRemovedDossierFiles(params: {
  * defaults since LLMs emit them inconsistently and they rarely cause
  * brand-leak bugs.
  */
-/**
- * True when `filePath` is an App Router file living under one of `routePaths`
- * (e.g. `app/blog/page.tsx` and `app/blog/[slug]/page.tsx` for `/blog`).
- * Handles both `app/` and `src/app/` layouts.
- */
-export function isUnderRoutePath(
-  filePath: string,
-  routePaths: readonly string[],
-): boolean {
-  if (routePaths.length === 0) return false;
-  const normalized = filePath.replace(/\\/g, "/").replace(/^src\//, "");
-  if (!normalized.startsWith("app/")) return false;
-  const relative = `/${normalized.slice("app/".length)}`;
-  return routePaths.some(
-    (route) => relative === route || relative.startsWith(`${route}/`),
-  );
-}
 
 const LLM_ONLY_PATHS: ReadonlySet<string> = new Set([
   "app/page.tsx",
@@ -240,102 +295,6 @@ function isLlmOnlyPath(path: string): boolean {
   return LLM_ONLY_PATHS.has(path.replace(/\\/g, "/"));
 }
 
-type ScaffoldRouteCategory = "required" | "optional" | "declared" | "dynamic";
-
-export interface ScaffoldRouteDelivery {
-  /** Normalized route paths present in the plan (input to the decision). */
-  plannedRoutePaths: string[];
-  /**
-   * Returns drop info when `filePath` belongs to a contract route the plan
-   * did not deliver, otherwise null (keep the file). Files that belong to no
-   * contract route are SHARED (layout, globals, api, …) and always kept.
-   */
-  classifyDrop(
-    filePath: string,
-  ): { routePath: string; category: ScaffoldRouteCategory } | null;
-}
-
-/**
- * SM-048 — the route plan decides which of the scaffold's ROUTE files are
- * materialized on init. A contract route's files are delivered when the
- * route is in the plan, or when any member of its `deliveryGroups` group is
- * (auth-pages' interlinked trio, ecommerce's dynamic detail templates).
- * Required routes are contributed to every plan by contract, so they are
- * effectively always delivered — except when the plan explicitly excludes
- * them (an explicit one-page cap, the prod `90624ed9` case), and then the
- * plan wins by owner decision 2026-08-14.
- *
- * Fail-open: no contract, an empty contract, or a missing/empty plan
- * disables the filter entirely (returns null → keep everything). Only files
- * under `app/**` can ever be owned by a contract route (`isUnderRoutePath`),
- * so SHARED files (app/layout.tsx, app/globals.css, app/api/**, components/**,
- * app/icon.svg) are never dropped by construction.
- */
-export function resolveScaffoldRouteDelivery(
-  contract: ScaffoldRouteContract | undefined,
-  routePlan: RoutePlan | null | undefined,
-): ScaffoldRouteDelivery | null {
-  if (!contract) return null;
-  const entries: Array<{ path: string; category: ScaffoldRouteCategory }> = [];
-  const pushRoutes = (routes: unknown, category: ScaffoldRouteCategory): void => {
-    if (!Array.isArray(routes)) return;
-    for (const route of routes) {
-      const rawPath =
-        typeof route === "string"
-          ? route
-          : typeof (route as { path?: unknown })?.path === "string"
-            ? (route as { path: string }).path
-            : null;
-      if (rawPath === null) continue;
-      const path = normalizeRoutePath(rawPath);
-      if (path === "/") continue;
-      entries.push({ path, category });
-    }
-  };
-  pushRoutes(contract.requiredRoutes, "required");
-  pushRoutes(contract.optionalRoutes, "optional");
-  pushRoutes(contract.declaredRoutePaths, "declared");
-  pushRoutes(contract.dynamicRoutePatterns, "dynamic");
-  if (entries.length === 0) return null;
-
-  const plannedRoutePaths = Array.isArray(routePlan?.routes)
-    ? routePlan.routes
-        .map((route) => normalizeRoutePath(route.path))
-        .filter((path, index, all) => all.indexOf(path) === index)
-    : [];
-  if (plannedRoutePaths.length === 0) return null;
-  const planned = new Set(plannedRoutePaths);
-
-  const delivered = new Set(
-    entries.map((entry) => entry.path).filter((path) => planned.has(path)),
-  );
-  for (const group of Array.isArray(contract.deliveryGroups)
-    ? contract.deliveryGroups
-    : []) {
-    if (!Array.isArray(group)) continue;
-    const members = group
-      .filter((member): member is string => typeof member === "string")
-      .map(normalizeRoutePath);
-    if (members.some((member) => planned.has(member))) {
-      for (const member of members) delivered.add(member);
-    }
-  }
-
-  // Deepest-first so the reported owner of e.g. app/blog/[slug]/page.tsx is
-  // the dynamic entry "/blog/[slug]", not its "/blog" prefix.
-  const byDepth = [...entries].sort((a, b) => b.path.length - a.path.length);
-  return {
-    plannedRoutePaths,
-    classifyDrop(filePath) {
-      const owners = byDepth.filter((entry) =>
-        isUnderRoutePath(filePath, [entry.path]),
-      );
-      if (owners.length === 0) return null;
-      if (owners.some((owner) => delivered.has(owner.path))) return null;
-      return { routePath: owners[0]!.path, category: owners[0]!.category };
-    },
-  };
-}
 
 function applyNavPlanSync(
   files: CodeFile[],
@@ -368,23 +327,40 @@ export function mergeGeneratedProjectFiles({
   chatId,
   originalFilesJson,
   generatedFiles: rawGeneratedFiles,
+  emittedFiles,
   resolvedScaffold,
   previousFiles,
   selectedDossiers,
+  preservedDossiers,
   removedDossiers,
   routePlan,
 }: MergeGeneratedProjectFilesParams): MergeGeneratedProjectFilesResult {
+  const emittedPaths = new Set((emittedFiles ?? rawGeneratedFiles).map((file) => file.path.replace(/\\/g, "/")));
+  const candidateFiles = emittedFiles && resolvedScaffold && !previousFiles?.length
+    ? rawGeneratedFiles.filter((file) => !isLlmOnlyPath(file.path) || emittedPaths.has(file.path.replace(/\\/g, "/")))
+    : rawGeneratedFiles;
   // B05: ids of the dossiers selected for THIS generation. Threaded into
   // checkCrossFileImports so the refuseDossierStubs gate only fires for an
   // unresolved import owned by a selected dossier (not any registry-wide match).
-  const selectedDossierIds = selectedDossiers?.map((dossier) => dossier.id);
+  const removedDossierIds = new Set(
+    (removedDossiers ?? []).map((dossier) => dossier.id),
+  );
+  const effectivePreservedDossiers = (preservedDossiers ?? []).filter(
+    (dossier) => !removedDossierIds.has(dossier.id),
+  );
+  const selectedDossierIds = Array.from(
+    new Set([
+      ...(selectedDossiers ?? []).map((dossier) => dossier.id),
+      ...effectivePreservedDossiers.map((dossier) => dossier.id),
+    ]),
+  );
 
   // SCAFFOLD_PROTECTED_PATHS: drop LLM emissions targeting paths that must
   // come from the scaffold default. This guard runs BEFORE merge so both the
   // init branch (scaffold-base wins) and the follow-up branch (previousFiles
   // wins) keep the canonical version. See note on `SCAFFOLD_PROTECTED_PATHS`.
   const protectedPartition =
-    partitionGeneratedFilesForProtectedPaths(rawGeneratedFiles);
+    partitionGeneratedFilesForProtectedPaths(candidateFiles);
   if (protectedPartition.dropped.length > 0) {
     const droppedPaths = protectedPartition.dropped.map((f) => f.path);
     warnLog(
@@ -414,7 +390,26 @@ export function mergeGeneratedProjectFiles({
       rejectSignificantShrinks: true,
       rejectDroppedStructuralElements: true,
     });
-    const mergedFiles = mergeResult.files;
+    const preservedVerbatim = capturePreservedDossierVerbatimSnapshot({
+      previousFiles: previousFiles!,
+      preservedDossiers: effectivePreservedDossiers,
+    });
+    assertCompatibleDossierOutputClaims({
+      files: mergeResult.files,
+      selectedDossiers: selectedDossiers ?? [],
+      preservedVerbatim,
+    });
+    const canonicalInstall = applyDossierVerbatimPolicy({
+      llmFiles: mergeResult.files,
+      selectedDossiers: selectedDossiers ?? [],
+      preservedVerbatim,
+      chatId,
+    });
+    const preservedPrepass = restorePreservedDossierVerbatimFiles({
+      files: canonicalInstall.files,
+      snapshot: preservedVerbatim,
+    });
+    const mergedFiles = preservedPrepass.files;
     const rejectedShrinks = mergeResult.warnings
       .filter((w) => w.type === "significant-shrink")
       .map((w) => ({ file: w.file, previousSize: w.previousSize, newSize: w.newSize }));
@@ -442,6 +437,10 @@ export function mergeGeneratedProjectFiles({
     }
 
     const crossFileResult = checkCrossFileImports(mergedFiles, selectedDossierIds);
+    assertPreservedDossierVerbatimFiles({
+      files: crossFileResult.files,
+      snapshot: preservedVerbatim,
+    });
     let finalFiles = crossFileResult.files;
     if (crossFileResult.fixes.length > 0) {
       devLogAppend("in-progress", {
@@ -464,6 +463,7 @@ export function mergeGeneratedProjectFiles({
         fixes: typeOnlyModuleResult.fixes,
       });
     }
+    assertPreservedDossierVerbatimFiles({ files: finalFiles, snapshot: preservedVerbatim });
 
     if (resolvedScaffold) {
       const importResult = checkScaffoldImports(finalFiles, resolvedScaffold);
@@ -476,16 +476,19 @@ export function mergeGeneratedProjectFiles({
         });
       }
     }
+    assertPreservedDossierVerbatimFiles({ files: finalFiles, snapshot: preservedVerbatim });
 
     const verbatimResult1 = applyDossierVerbatimPolicy({
       llmFiles: finalFiles,
       selectedDossiers: selectedDossiers ?? [],
+      preservedVerbatim,
       chatId,
     });
     const removalResult = removeExplicitlyRemovedDossierFiles({
       files: verbatimResult1.files,
       removedDossiers: removedDossiers ?? [],
       selectedDossiers: selectedDossiers ?? [],
+      preservedDossiers: effectivePreservedDossiers,
     });
     if (removalResult.removedPaths.length > 0) {
       devLogAppend("in-progress", {
@@ -503,6 +506,10 @@ export function mergeGeneratedProjectFiles({
       removalResult.removedPaths.length > 0
         ? checkCrossFileImports(removalResult.files, selectedDossierIds)
         : { files: removalResult.files, fixes: [] };
+    assertPreservedDossierVerbatimFiles({
+      files: postRemovalCrossFileResult.files,
+      snapshot: preservedVerbatim,
+    });
     if (postRemovalCrossFileResult.fixes.length > 0) {
       devLogAppend("in-progress", {
         type: "post-removal-cross-file-import-checker",
@@ -510,9 +517,31 @@ export function mergeGeneratedProjectFiles({
         fixes: postRemovalCrossFileResult.fixes,
       });
     }
+    const finalDossierResult =
+      removalResult.removedPaths.length > 0
+        ? applyDossierVerbatimPolicy({
+            llmFiles: postRemovalCrossFileResult.files,
+            selectedDossiers: selectedDossiers ?? [],
+            preservedVerbatim,
+          })
+        : { files: postRemovalCrossFileResult.files, restored: [] };
+    const postRemovalVerbatimDrift = finalDossierResult.restored.filter(
+      (event) => event.reason === "verbatim_content_drift",
+    );
+    if (postRemovalVerbatimDrift.length > 0) {
+      throw new Error(
+        `[dossiers] post-removal-verbatim-mutation: cross-file repair mutated canonical bytes for ${postRemovalVerbatimDrift
+          .map((event) => `${event.dossierId}:${event.path}`)
+          .join(", ")}`,
+      );
+    }
+    assertPreservedDossierVerbatimFiles({
+      files: finalDossierResult.files,
+      snapshot: preservedVerbatim,
+    });
 
     return {
-      filesJson: JSON.stringify(postRemovalCrossFileResult.files),
+      filesJson: JSON.stringify(finalDossierResult.files),
       rejectedShrinks,
       rejectedStructural,
       scaffoldDefaultsBlocked: [],
@@ -535,7 +564,7 @@ export function mergeGeneratedProjectFiles({
     // (scaffold `/blog` vs generated `/blogg`, or the reverse). Keeping both
     // leaves the scaffold's copy in the project with nothing linking to it.
     const supersededRoutes = findSupersededScaffoldRoutes(
-      extractAppRoutePathsFromFilePaths(generatedFiles.map((file) => file.path)),
+      extractAppRoutePathsFromFilePaths((emittedFiles ?? generatedFiles).map((file) => file.path)),
       extractAppRoutePathsFromFilePaths(resolvedScaffold.files.map((file) => file.path)),
     );
     const supersededScaffoldPaths: string[] = [];
@@ -609,7 +638,6 @@ export function mergeGeneratedProjectFiles({
 
     // Which LLM-only paths did the generator actually emit? (Used both for
     // observability logging and for the missingEmittedEssentials signal.)
-    const emittedPaths = new Set(generatedFiles.map((f) => f.path.replace(/\\/g, "/")));
     const scaffoldDefaultsBlocked = llmOnlyScaffoldPaths.map((path) => ({
       path,
       emittedByLlm: emittedPaths.has(path.replace(/\\/g, "/")),
@@ -634,7 +662,11 @@ export function mergeGeneratedProjectFiles({
       });
     }
 
-    const crossFileResult = checkCrossFileImports(mergedFiles, selectedDossierIds);
+    const canonicalPathResult = applyDossierCanonicalPathPolicy({
+      llmFiles: mergedFiles,
+      selectedDossiers: selectedDossiers ?? [],
+    });
+    const crossFileResult = checkCrossFileImports(canonicalPathResult.files, selectedDossierIds);
     let afterCrossFile = crossFileResult.files;
     if (crossFileResult.fixes.length > 0) {
       devLogAppend("in-progress", {
@@ -688,7 +720,11 @@ export function mergeGeneratedProjectFiles({
     };
   }
 
-  const crossFileResult = checkCrossFileImports(generatedFiles, selectedDossierIds);
+  const canonicalPathResult = applyDossierCanonicalPathPolicy({
+    llmFiles: generatedFiles,
+    selectedDossiers: selectedDossiers ?? [],
+  });
+  const crossFileResult = checkCrossFileImports(canonicalPathResult.files, selectedDossierIds);
   let crossFileFiles = crossFileResult.files;
   if (crossFileResult.fixes.length > 0) {
     devLogAppend("in-progress", {
@@ -768,11 +804,10 @@ export function mergeGeneratedProjectFiles({
     selectedDossiers: selectedDossiers ?? [],
     chatId,
   });
-  const hasVerbatimRestorations = verbatimResult4.restored.length > 0;
   const hasFilteredOriginal = originalPartition.dropped.length > 0;
   return {
     filesJson:
-      hasVerbatimRestorations || hasFilteredOriginal || navSyncedFallback.changed
+      verbatimResult4.changed || hasFilteredOriginal || navSyncedFallback.changed
         ? JSON.stringify(verbatimResult4.files)
         : originalFilesJson,
     rejectedShrinks: [],

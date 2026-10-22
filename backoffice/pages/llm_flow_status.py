@@ -136,7 +136,7 @@ def render(ctx: BackofficeContext) -> None:
                 ]
             ),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
 
     risks = data.get("topOpenRisks") or []
@@ -154,7 +154,7 @@ def render(ctx: BackofficeContext) -> None:
                 ]
             ),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
         omitted = data.get("topOpenRisksOmitted") or 0
         if omitted:
@@ -184,7 +184,7 @@ def render(ctx: BackofficeContext) -> None:
                 ]
             ),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
 
     st.divider()

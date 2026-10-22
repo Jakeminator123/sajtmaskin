@@ -304,6 +304,88 @@ describe("createCodeGenSSEStream", () => {
     ).toBe(true);
   });
 
+  // A `done` after a provider abort/error let the caller persist partial
+  // output as a normal version; without it the caller's no-done fallback
+  // stores it as failed verification (`recoveredAfterStreamAbort`).
+  it("ends without done after a provider abort mid-content", async () => {
+    const events = await collectEvents([
+      { type: "start" },
+      { type: "text-delta", textDelta: "<main>Hel" },
+      { type: "abort" },
+    ]);
+
+    expect(events.some((event) => event.event === "error")).toBe(true);
+    expect(events.some((event) => event.event === "done")).toBe(false);
+  });
+
+  it("ends without done after a provider error without a clean finish", async () => {
+    const events = await collectEvents([
+      { type: "start" },
+      { type: "text-delta", textDelta: "<main>Hel" },
+      { type: "error", error: new Error("upstream reset") },
+      { type: "finish", finishReason: "error" },
+    ]);
+
+    expect(events.some((event) => event.event === "error")).toBe(true);
+    expect(events.some((event) => event.event === "done")).toBe(false);
+  });
+
+  it.each([
+    ["abort", [{ type: "start" }, { type: "abort" }]],
+    [
+      "provider error without clean finish",
+      [
+        { type: "start" },
+        { type: "error", error: new Error("upstream reset") },
+        { type: "finish", finishReason: "error" },
+      ],
+    ],
+  ])("keeps done after an empty %s so empty-generation handling still runs", async (_name, parts) => {
+    const events = await collectEvents(parts as StreamPart[]);
+
+    expect(events.some((event) => event.event === "error")).toBe(true);
+    expect(events.at(-1)?.event).toBe("done");
+  });
+
+  it("keeps done when the run finishes cleanly after a provider error", async () => {
+    const events = await collectEvents([
+      { type: "start" },
+      { type: "error", error: new Error("transient upstream blip") },
+      { type: "text-delta", textDelta: "<main>Hello</main>" },
+      { type: "finish", finishReason: "stop" },
+    ]);
+
+    expect(events.at(-1)?.event).toBe("done");
+  });
+
+  it("prefers aggregate totalUsage for done tokens and falls back to the last step", async () => {
+    const stream = createCodeGenSSEStream(
+      {
+        fullStream: (async function* () {
+          yield { type: "text-delta", text: "ok" };
+          yield { type: "finish", finishReason: "stop" };
+        })(),
+        usage: Promise.resolve({ inputTokens: 20, outputTokens: 6 }),
+        totalUsage: Promise.resolve({ inputTokens: 30, outputTokens: 10 }),
+      },
+      { meta: { chatId: "chat_test" } },
+    );
+    const preferred = await collectFromReadableStream(stream);
+    expect(preferred.find((event) => event.event === "done")?.data).toEqual({
+      promptTokens: 30,
+      completionTokens: 10,
+    });
+
+    const fallback = await collectEvents([
+      { type: "text-delta", text: "ok" },
+      { type: "finish", finishReason: "stop" },
+    ]);
+    expect(fallback.find((event) => event.event === "done")?.data).toEqual({
+      promptTokens: 11,
+      completionTokens: 7,
+    });
+  });
+
   it("still explains a genuinely silent stream when no provider error was seen", async () => {
     const events = await collectEvents([
       { type: "start" },

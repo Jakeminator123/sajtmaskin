@@ -7,6 +7,7 @@
  */
 import { generateObject } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
+import { resolveWorkloadReasoningEffort } from "@/lib/ai-models/workload-reasoning";
 import {
   getAiModelsManifest,
   getWorkloadDefaultModelFromManifest,
@@ -77,7 +78,8 @@ const SENSOR_CODES = new Set([
 export const LIVE_REVIEW_ATTEMPT_TIMEOUT_MS = 45_000;
 /** Wall-clock cap for the whole default + fallback chain. */
 export const LIVE_REVIEW_TOTAL_TIMEOUT_MS = 90_000;
-const MAX_OUTPUT_TOKENS = 1200;
+/** Total output ceiling for Sol medium, including reasoning tokens. Not measured usage. */
+const MAX_OUTPUT_TOKENS = 8192;
 const MAX_USER_REQUEST_CHARS = 4000;
 const MAX_BRIEF_CHARS = 1200;
 
@@ -669,6 +671,7 @@ async function reviewWithModel(
     };
   }
 
+  const reasoningEffort = resolveWorkloadReasoningEffort(LIVE_REVIEW_WORKLOAD_ID, modelId);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   const startedAt = Date.now();
@@ -692,7 +695,12 @@ async function reviewWithModel(
       maxOutputTokens: MAX_OUTPUT_TOKENS,
       maxRetries: 0,
       abortSignal: controller.signal,
-      providerOptions: { openai: { strictJsonSchema: false } },
+      providerOptions: {
+        openai: {
+          strictJsonSchema: false,
+          ...(reasoningEffort ? { reasoningEffort } : {}),
+        },
+      },
     });
     const decision = tryParseReviewDecision(result.object);
     if (!decision) {
@@ -741,7 +749,8 @@ async function reviewWithModel(
 
 export async function runLiveReview(
   bundle: ReviewBundle,
-  opts: { timeoutMs?: number; totalTimeoutMs?: number; modelId?: string } = {},
+  opts: { timeoutMs?: number; totalTimeoutMs?: number; modelId?: string;
+    deadlineAt?: number; isTargetCurrent?: () => Promise<boolean> } = {},
 ): Promise<LiveReviewResult> {
   const modelIds = resolveLiveReviewModelIds(opts.modelId);
   if (modelIds.length === 0) {
@@ -750,6 +759,7 @@ export async function runLiveReview(
 
   const chainStartedAt = Date.now();
   const totalTimeoutMs = opts.totalTimeoutMs ?? LIVE_REVIEW_TOTAL_TIMEOUT_MS;
+  const deadlineAt = Math.min(chainStartedAt + totalTimeoutMs, opts.deadlineAt ?? Infinity);
   const perAttemptMs = opts.timeoutMs ?? LIVE_REVIEW_ATTEMPT_TIMEOUT_MS;
   let last: LiveReviewResult = {
     status: "skipped",
@@ -758,8 +768,11 @@ export async function runLiveReview(
   };
 
   for (const modelId of modelIds) {
-    const remaining = totalTimeoutMs - (Date.now() - chainStartedAt);
-    if (remaining <= 0) {
+    if (opts.isTargetCurrent && !(await opts.isTargetCurrent().catch(() => false))) {
+      return { status: "skipped", reason: "preview_superseded" };
+    }
+    const remaining = deadlineAt - Date.now();
+    if (!Number.isFinite(remaining) || remaining <= 0) {
       return { status: "skipped", reason: "review_error", detail: "total review timeout" };
     }
     last = await reviewWithModel(bundle, modelId, Math.min(perAttemptMs, remaining));
@@ -817,6 +830,8 @@ export async function maybeAttachLiveReview(params: {
   briefSummary: string;
   enabled?: boolean;
   filesRevision?: string | null;
+  deadlineAt?: number;
+  isTargetCurrent?: () => Promise<boolean>;
 }): Promise<LiveReviewResult> {
   const isFollowUp =
     isChatFollowUpVersion(params.versionNumber) || Boolean(params.previousVersionId);
@@ -887,7 +902,7 @@ export async function maybeAttachLiveReview(params: {
   });
 
   try {
-    return await runLiveReview(bundle);
+    return await runLiveReview(bundle, { deadlineAt: params.deadlineAt, isTargetCurrent: params.isTargetCurrent });
   } catch (error) {
     return {
       status: "skipped",

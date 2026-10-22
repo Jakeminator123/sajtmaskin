@@ -12,6 +12,7 @@ const config = vi.hoisted(() => ({
 const requireNotBot = vi.hoisted(() => vi.fn());
 const authorizeWizardRun = vi.hoisted(() => vi.fn());
 const generateText = vi.hoisted(() => vi.fn());
+const responsesCreate = vi.hoisted(() => vi.fn());
 const createDirectModel = vi.hoisted(() => vi.fn(() => "model"));
 const scrapeWebsite = vi.hoisted(() => vi.fn());
 const debugLog = vi.hoisted(() => vi.fn());
@@ -37,6 +38,9 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 vi.mock("@/lib/wizard/authorize-wizard-run", () => ({ authorizeWizardRun }));
 vi.mock("ai", () => ({ generateText }));
+vi.mock("openai", () => ({
+  default: class { responses = { create: responsesCreate }; },
+}));
 vi.mock("@/lib/builder/direct-model", () => ({ createDirectModel }));
 vi.mock("@/lib/webscraper", () => ({ scrapeWebsite }));
 vi.mock("@/lib/utils/debug", () => ({ debugLog, errorLog }));
@@ -79,6 +83,22 @@ function validBody(overrides: Record<string, unknown> = {}) {
 }
 
 describe("POST /api/wizard/enrich", () => {
+  it("bounds the active Responses path and keeps the wizard abort signal", async () => {
+    config.features.useResponsesApi = true;
+    responsesCreate.mockResolvedValue({ output_text: '{"questions":[],"suggestions":[],"insightSummary":"Svar"}' });
+    const response = await POST(makeRequest(validBody()));
+    expect(response.status).toBe(200);
+    expect(responsesCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "gpt-6.1-sol",
+        max_output_tokens: 8192,
+        reasoning: { effort: "medium" },
+      }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     config.features.useResponsesApi = false;
@@ -187,11 +207,11 @@ describe("POST /api/wizard/enrich", () => {
     );
   });
 
-  it("keeps the 30s route budget and emits a terminal event on validation failure", async () => {
+  it("keeps the 40s route budget and emits a terminal event on validation failure", async () => {
     const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "route.ts"), "utf8");
-    expect(maxDuration).toBe(30);
+    expect(maxDuration).toBe(40);
     expect(maxDuration).toBe(WIZARD_ENRICH_MAX_DURATION_S);
-    expect(source.match(/export const maxDuration = 30;/g)).toHaveLength(1);
+    expect(source.match(/export const maxDuration = 40;/g)).toHaveLength(1);
 
     await POST(makeRequest({ step: 9, data: {} }));
     expect(emitWizardRouteTerminal).toHaveBeenCalledWith(
@@ -226,3 +246,4 @@ describe("POST /api/wizard/enrich", () => {
     );
   });
 });
+

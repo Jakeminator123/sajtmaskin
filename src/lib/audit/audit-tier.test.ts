@@ -15,11 +15,12 @@ import {
 } from "./audit-tier";
 
 describe("resolveAuditRun", () => {
-  it("makes paid Vanlig a smaller Luna run without research or Advanced-only fields", () => {
+  it("makes paid Vanlig a smaller Sol run without research or Advanced-only fields", () => {
     const run = resolveAuditRun({ promptKind: "product", auditMode: "basic" });
     expect(run.mode).toBe("basic");
     expect(run.primaryModel).toBe(AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL);
-    expect(run.primaryModel).toBe("openai/gpt-5.6-luna");
+    expect(run.primaryModel).toBe("openai/gpt-6.1-sol");
+    expect(run.workloadId).toBe("audit_structured_public");
     expect(run.maxPages).toBe(2);
     expect(run.allowWebSearch).toBe(false);
     expect(run.schemaKind).toBe("core");
@@ -35,7 +36,9 @@ describe("resolveAuditRun", () => {
     const run = resolveAuditRun({ promptKind: "product", auditMode: "advanced" });
     expect(run.mode).toBe("advanced");
     expect(run.primaryModel).toBe(AUDIT_STRUCTURED_DEFAULT_MODEL);
-    expect(run.primaryModel).toBe("openai/gpt-5.6-sol");
+    expect(run.primaryModel).toBe("openai/gpt-6.1-sol");
+    expect(run.workloadId).toBe("audit_structured");
+    expect(run.modelCandidates[0]).toBe(run.primaryModel);
     expect(run.maxPages).toBe(4);
     expect(run.allowWebSearch).toBe(true);
     expect(run.schemaKind).toBe("full");
@@ -47,11 +50,15 @@ describe("resolveAuditRun", () => {
     }
   });
 
-  it("keeps public /analys as a separate Luna lead magnet on the full schema", () => {
+  it("keeps public /analys as a separate Sol workload on the full schema", () => {
     const run = resolveAuditRun({ promptKind: "public", auditMode: "advanced" });
     expect(run.mode).toBe("basic");
     expect(run.promptKind).toBe("public");
-    expect(run.primaryModel).toBe("openai/gpt-5.6-luna");
+    expect(run.primaryModel).toBe("openai/gpt-6.1-sol");
+    expect(run.workloadId).toBe("audit_structured_public");
+    expect(run.primaryModel).toBe(AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL);
+    expect(run.modelCandidates[0]).toBe(run.primaryModel);
+    expect(run.modelCandidates).toEqual([AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL]);
     expect(run.maxPages).toBe(4);
     expect(run.allowWebSearch).toBe(false);
     expect(run.schemaKind).toBe("full");

@@ -6,12 +6,13 @@ import {
   getCurrentInitBuildChoices,
   resetInitBuildChoices,
 } from "@/lib/builder/init-build-choices";
+import { appendStreamWarning } from "@/lib/builder/stream-warning";
 import { normalizePlanArtifact } from "@/lib/gen/plan/schema";
 import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
 import { debugLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
-import type { AutoFixPayload, MessageOptions, ChatMessagingParams } from "./types";
+import type { MessageOptions, ChatMessagingParams } from "./types";
 import {
   appendAttachmentPrompt,
   appendModelInfoPart,
@@ -30,8 +31,6 @@ import {
   updateCreateChatLockChatId,
   writeCreateChatLock,
 } from "./helpers";
-import { runSerializedGenerationTail } from "./stream-handlers-post-stream";
-import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
 import { ENGINE_CHATS_API_PREFIX } from "@/lib/api/engine-chats-path";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
@@ -46,7 +45,6 @@ export function useCreateChat(
   deps: {
     buildBuilderParams: (entries: Record<string, string | null | undefined>) => URLSearchParams;
     streamAbortRef: React.MutableRefObject<AbortController | null>;
-    autoFixHandlerRef: React.MutableRefObject<(payload: AutoFixPayload) => void>;
     lastSentSystemPromptRef: React.MutableRefObject<string | null>;
     startStreamSafetyTimer: (timeoutMs?: number) => void;
     touchStreamSafetyTimer: () => void;
@@ -100,7 +98,6 @@ export function useCreateChat(
   const {
     buildBuilderParams,
     streamAbortRef,
-    autoFixHandlerRef,
     lastSentSystemPromptRef,
     startStreamSafetyTimer,
     touchStreamSafetyTimer,
@@ -252,7 +249,9 @@ export function useCreateChat(
                   domain: auditHandoffDomain ?? null,
                 },
               ]
-            : undefined,
+            : buildMethod === "kostnadsfri" && promptHandoffId
+              ? [{ type: "prompt-source", sourceKind: "kostnadsfri" }]
+              : undefined,
         },
         {
           id: assistantMessageId,
@@ -392,7 +391,6 @@ export function useCreateChat(
           data.id || data.chatId || (data.chat as Record<string, unknown>)?.id;
         const newLinkedProjectId =
           data.projectId || data.v0ProjectId || data.v0_project_id || null;
-        const preflight = readPreviewPreflight(data);
         const latestVersion = data.latestVersion as Record<string, unknown> | undefined;
         const resolvedVersionId =
           data.versionId || latestVersion?.id || latestVersion?.versionId || null;
@@ -442,23 +440,7 @@ export function useCreateChat(
           previewUrl: resolvedDemoUrl ?? undefined,
         });
         mutateVersions();
-        if (resolvedVersionId) {
-          const tailChatId = String(newChatId);
-          const tailVersionId = String(resolvedVersionId);
-          void runSerializedGenerationTail({
-            chatId: tailChatId,
-            versionId: tailVersionId,
-            demoUrl: resolvedDemoUrl,
-            preflight,
-            assistantMessageId,
-            setMessages,
-            mutateVersions,
-            onAutoFix: (payload) => autoFixHandlerRef.current(payload),
-            onComplete: onVersionStatusRefresh,
-            enableImageMaterialization,
-            materialize: true,
-          });
-        }
+        onVersionStatusRefresh?.();
 
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
@@ -529,7 +511,7 @@ export function useCreateChat(
           promptMeta.scaffoldId = effectiveScaffoldId;
         }
         if (appProjectId) promptMeta.appProjectId = appProjectId;
-        if (designThemePreset) promptMeta.designTheme = designThemePreset;
+        if (designThemePreset && designThemePreset !== "off") promptMeta.designTheme = designThemePreset;
         if (themeColors) promptMeta.themeColors = themeColors;
         if (paletteState?.selections?.length) promptMeta.palette = paletteState;
         if (initChoicesMeta.pageCountHint) {
@@ -575,6 +557,7 @@ export function useCreateChat(
           modelId: selectedModelTier,
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
+          materializeImages: enableImageMaterialization,
           chatPrivacy: chatPrivacy || "private",
           meta: promptMeta,
         };
@@ -686,8 +669,6 @@ export function useCreateChat(
               onGenerationComplete,
               onPreviewSessionMeta,
               mutateVersions,
-              enableImageMaterialization,
-              autoFixHandlerRef,
               promptAssistModel,
               promptAssistDeep,
               briefUsedThisTurn: requestIncludedBrief,
@@ -740,9 +721,7 @@ export function useCreateChat(
             m.id === assistantMessageId
               ? {
                   ...m,
-                  content: m.content?.trim()
-                    ? `${m.content}\n\nVarning: ${message}`
-                    : `Varning: ${message}`,
+                  content: appendStreamWarning(m.content, message),
                   isStreaming: false,
                 }
               : m,
@@ -803,7 +782,6 @@ export function useCreateChat(
       touchStreamSafetyTimer,
       clearStreamSafetyTimer,
       streamAbortRef,
-      autoFixHandlerRef,
       lastSentSystemPromptRef,
       setPreviewPending,
       isAuthReady,

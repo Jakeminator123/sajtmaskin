@@ -7,43 +7,24 @@ alwaysApply: true
 
 `förstå scope → hitta owner/callers → ändra → synka referenser → verifiera → rapportera`
 
-Kör `npm run verify:pr -- --plan` när diffen fått form. Den gemensamma
-path-impactmotorn läser control-plane, Backoffice-kartan och
-`config/agent-workflow.json`; skapa ingen egen pathmatris i prose eller hook.
-
-## Ändring
-
 1. Sök referenser före flytt/radering; 0 sökträffar i ett kallt index är inte bevis.
-2. Rör bara uppgiftens filer och bevara orelaterade ändringar.
+2. Rör bara uppgiftens filer och bevara orelaterade ändringar. Stage exakta
+   paths; undvik bred formattering.
 3. Ersätt stale text/kod; skapa inte parallella sanningslager eller backupdocs.
-4. Uppdatera länkar, tester, schema/genererade projektioner i samma diff när de
-   faktiskt ägs av ändringen.
-5. Undvik bred formattering och stage bara exakta paths.
+4. Uppdatera länkar, tester, schema och genererade projektioner i samma diff när
+   ändringen äger dem; `npm run sync:derived` när en generatorowner ändrats.
 
-## Minsta verifiering
+## Verifiera
 
-| Diff                     | Kör minst                                                                  |
-| ------------------------ | -------------------------------------------------------------------------- |
-| Docs/regler/agentkontext | plan + relevant kontrakt (`docs:*`, `workflow:contract` eller motsvarande) |
-| TypeScript/runtime       | `npm run typecheck` + riktade tester                                       |
-| Backoffice/Python        | `npm run backoffice:test`                                                  |
-| Scaffold                 | ovan + `npm run scaffolds:validate`                                        |
-| Dossier                  | `npm run dossiers:validate-all` + `npm run dossiers:capability-map:check`  |
-| Pipeline/status          | typecheck + relevant Vitest + docs-/canvas-sync                            |
-| Stor flytt               | referenssökning + typecheck                                                |
-
-Kommandon ägs av `package.json`. Före push körs alltid
-`npm run verify:pr -- --plan`; den rapporterar berörda ytor och vad den fulla
-profilen omfattar. Kör relevanta riktade kontroller lokalt och redovisa dem i
-PR:n. GitHub Actions publicerar required checks på varje PR-head: tung profil
-körs för ready runtime, högrisk och `master`, medan bevisat safe docs och vanliga
-drafts får ett explicit grönt light-kvitto. Bare `npm run verify:pr` är frivillig
-felsökning/reproduktion, utom när själva CI-/verifieringsmotorn ändras. Skrivande
-generatorer körs uttryckligt med `sync:derived` när deras owner ändrats.
-Validators kan uppdatera lokala gitignorerade cacheartefakter och lintcache.
+Kör `npm run verify:pr -- --plan` när diffen fått form; path-impactmotorn väljer
+ytor och CI-profil, så skapa ingen egen pathmatris. Kör och redovisa
+riktade kontroller lokalt, minst: TypeScript → `typecheck` + riktade tester; Python →
+`backoffice:test`; scaffold → `scaffolds:validate`; dossier →
+`dossiers:validate-all` + `dossiers:capability-map:check`; docs/regler →
+relevant `docs:*` eller `workflow:contract`. Full regression ägs av CI; profiler
+i `pr-workflow` § 3.
 
 ## Pausa
 
 Pausa vid dataförlust, security/cross-tenant, oklar canonical owner, bred rename,
-arkitekturbeslut eller oväntat scope över cirka 40 filer. PR-/mergekontroller
-finns i `git.mdc` och `pr-merge.mdc`.
+arkitekturbeslut eller oväntat scope över cirka 40 filer.

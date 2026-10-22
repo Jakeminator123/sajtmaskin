@@ -11,6 +11,74 @@ import {
 import { resolveSelectedDossiersWithVersionPresence } from "./version-presence";
 
 describe("provider-specific pending integration dossiers", () => {
+  it("does not resurrect a capability default for an unresolved durable contract", () => {
+    const pending = resolvePendingIntegrationDossiers({
+      snapshot: {
+        mutedCapabilities: ["auth"],
+        contractIntegrations: [
+          {
+            kind: "auth",
+            dossierCapability: "auth",
+            selectionSource: "explicit",
+            provider: "Authentication provider not selected",
+            name: "Authentication provider not selected",
+            reason: "Clerk was rejected",
+            status: "unresolved",
+          },
+        ],
+      },
+      versionFiles: [],
+    });
+    expect(pending).toEqual([]);
+  });
+
+  it.each([
+    ["database", "mongodb", "MongoDB"],
+    ["auth", "auth0", "Auth0"],
+    ["payments", "swish", "Swish"],
+  ])("does not resurrect a %s dossier default for a dossierless provider", (capability, providerKey, provider) => {
+    const pending = resolvePendingIntegrationDossiers({
+      snapshot: {
+        mutedCapabilities: [capability],
+        contractIntegrations: [
+          {
+            kind: capability === "payments" ? "payment" : capability,
+            providerKey,
+            dossierCapability: capability,
+            selectionSource: "explicit",
+            provider,
+            name: provider,
+            reason: "Explicit provider",
+            status: "chosen",
+          },
+        ],
+      },
+      versionFiles: [],
+    });
+    expect(pending).toEqual([]);
+  });
+
+  it("selects the exact supported provider from a contract-backed legacy capability", () => {
+    const pending = resolvePendingIntegrationDossiers({
+      snapshot: {
+        mutedCapabilities: ["auth"],
+        contractIntegrations: [
+          {
+            kind: "auth",
+            providerKey: "supabase",
+            dossierCapability: "auth",
+            selectionSource: "explicit",
+            provider: "Supabase",
+            name: "Supabase",
+            reason: "Explicit provider",
+            status: "chosen",
+          },
+        ],
+      },
+      versionFiles: [],
+    });
+    expect(pending.map((selected) => selected.entry.id)).toEqual(["supabase-auth"]);
+  });
   it("preserves the exact auth provider selected in F2", () => {
     const pending = resolvePendingIntegrationDossiers({
       snapshot: {
@@ -30,6 +98,69 @@ describe("provider-specific pending integration dossiers", () => {
     });
 
     expect(pending.map((selected) => selected.entry.id)).toEqual(["postgres-drizzle"]);
+  });
+
+  it("keeps a legacy provider contract without optional metadata backward compatible", () => {
+    const pending = resolvePendingIntegrationDossiers({
+      snapshot: {
+        mutedCapabilities: ["payments"],
+        contractIntegrations: [
+          {
+            provider: "Stripe",
+            name: "Stripe checkout",
+            reason: "Legacy selected provider",
+            status: "chosen",
+          },
+        ],
+      },
+      versionFiles: [],
+    });
+
+    expect(pending.map((selected) => selected.entry.id)).toEqual(["stripe-checkout"]);
+  });
+
+  it("keeps a legacy capability fallback in a mixed typed snapshot", () => {
+    const pending = resolvePendingIntegrationDossiers({
+      snapshot: {
+        mutedCapabilities: ["payments"],
+        contractIntegrations: [
+          {
+            kind: "auth",
+            providerKey: "auth0",
+            dossierCapability: "auth",
+            selectionSource: "explicit",
+            provider: "Auth0",
+            name: "Auth0",
+            reason: "Typed provider",
+            status: "chosen",
+          },
+          {
+            provider: "Stripe",
+            name: "Stripe checkout",
+            reason: "Legacy selected provider",
+            status: "chosen",
+          },
+        ],
+      },
+      versionFiles: [],
+    });
+
+    expect(pending.map((selected) => selected.entry.id)).toEqual(["stripe-checkout"]);
+  });
+
+  it("still blocks a divergent owned path for a legacy fallback", () => {
+    const pending = resolvePendingIntegrationDossiers({
+      snapshot: { mutedCapabilities: ["payments"] },
+      versionFiles: [
+        {
+          path: "app/api/checkout-session/route.ts",
+          content: "export const POST = customCheckout;",
+          language: "ts",
+        },
+      ],
+    });
+
+    expect(pending).toEqual([]);
   });
 
   it("keeps a policy-deferred client-only integration for the F3 build", () => {
@@ -100,6 +231,42 @@ describe("provider-specific pending integration dossiers", () => {
 
     expect(pending.map((selected) => selected.entry.id)).toEqual(["stripe-checkout"]);
   });
+
+  it.each(["@stripe/react-stripe-js", "@stripe/stripe-js"])(
+    "does not layer hosted Checkout over an existing %s Elements implementation",
+    (packageRoot) => {
+      const pending = resolvePendingIntegrationDossiers({
+        snapshot: {
+          mutedCapabilities: ["payments"],
+          contractIntegrations: [
+            {
+              kind: "payment",
+              providerKey: "stripe",
+              dossierCapability: "payments",
+              selectionSource: "explicit",
+              provider: "Stripe",
+              name: "Stripe",
+              reason: "Explicit provider",
+              status: "chosen",
+            },
+          ],
+        },
+        versionFiles: [
+          {
+            path: "package.json",
+            content: JSON.stringify({ dependencies: { [packageRoot]: "1" } }),
+            language: "json",
+          },
+          {
+            path: "components/payment.tsx",
+            content: `import { loadStripe } from "${packageRoot}"; export { loadStripe };`,
+            language: "tsx",
+          },
+        ],
+      });
+      expect(pending).toEqual([]);
+    },
+  );
 
   it("combines exact and legacy pending selections in a rollout-era hybrid snapshot", () => {
     const pending = resolvePendingIntegrationDossiers({

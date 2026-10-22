@@ -1,0 +1,266 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getAiModelsManifest } from "@/lib/ai-models/load-manifest";
+
+const resolvedEngineBudget = vi.hoisted(() => ({ seconds: undefined as number | undefined }));
+vi.mock("@/lib/gen/defaults", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/gen/defaults")>();
+  return { ...actual, get ENGINE_ROUTE_MAX_DURATION_SECONDS() {
+    return resolvedEngineBudget.seconds ?? actual.ENGINE_ROUTE_MAX_DURATION_SECONDS;
+  } };
+});
+
+vi.mock("next/server", () => ({ after: vi.fn() }));
+vi.mock("@/lib/db/chat-repository-pg", () => ({ addMessage: vi.fn() }));
+vi.mock("@/lib/gen/orchestrate", () => ({ resolveOrchestrationBase: vi.fn(),
+  finalizeOrchestrationPrompts: vi.fn(), buildGenerationInputPackage: vi.fn(), writeOrchestrationDynamicDump: vi.fn() }));
+vi.mock("../configured-env-keys", () => ({
+  resolveConfiguredEnvKeys: vi.fn(async () => new Set<string>()),
+}));
+vi.mock("../request-kind-log", () => ({
+  logRequestKindClassification: vi.fn(() => ({ kind: "code-edit" })),
+}));
+vi.mock("@/lib/models/phase-routing", () => ({
+  resolvePhaseModel: vi.fn(() => ({ modelId: "gpt-5.4" })),
+  resolvePhaseThinking: vi.fn(() => ({ thinking: false })),
+}));
+vi.mock("@/lib/own-engine/session/own-engine-pipeline-generation", () => ({
+  createOwnEnginePipelineAndGenerationStream: vi.fn(),
+}));
+vi.mock("./qa-short-circuit", () => ({
+  generateQaShortCircuitText: vi.fn(),
+  buildQaShortCircuitStream: vi.fn(),
+}));
+
+import { addMessage } from "@/lib/db/chat-repository-pg";
+import { resolveOrchestrationBase, finalizeOrchestrationPrompts, buildGenerationInputPackage } from "@/lib/gen/orchestrate";
+import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
+import { parseChatRequestMeta } from "../parse-chat-request-meta";
+import { logRequestKindClassification } from "../request-kind-log";
+import { runCodegenTurn } from "./codegen-turn";
+import { buildQaShortCircuitStream, generateQaShortCircuitText } from "./qa-short-circuit";
+import { orchestratePromptMessage } from "@/lib/builder/prompt-orchestration";
+
+const stopAtBoundary = new Error("keyless orchestration boundary captured");
+
+function params(
+  buildMethod: string,
+  importedRepoMode = false,
+): Parameters<typeof runCodegenTurn>[0] {
+  const parsedMeta = parseChatRequestMeta({
+    buildMethod,
+    buildIntent: "website",
+    scaffoldMode: "manual",
+    scaffoldId: "dashboard",
+  });
+  return {
+    req: new Request("https://example.com/api/engine/chats/test/stream"),
+    chatId: "test",
+    promptStartedAt: 0,
+    attachSessionCookie: (response) => response,
+    engineChat: {
+      id: "test", project_id: "app_test", messages: [], orchestration_snapshot: null,
+      title: "Test", model: "max", system_prompt: null, scaffold_id: null,
+      created_at: "1970-01-01T00:00:00Z", updated_at: "1970-01-01T00:00:00Z",
+    },
+    message: "Byt rubriken",
+    optimizedMessage: "Byt rubriken",
+    followUpIntentMessage: "Byt rubriken",
+    system: undefined,
+    metaBuildIntent: parsedMeta.buildIntent,
+    metaBuildMethod: parsedMeta.buildMethod,
+    metaPromptSourceKind: null,
+    metaEngineBaseVersionId: null,
+    parsedMeta,
+    metaBrief: null,
+    deltaBriefSkipReason: null,
+    hasPersistedBrief: false,
+    resolvedModelId: "max",
+    resolvedModelTier: "max",
+    resolvedThinking: false,
+    resolvedImageGenerations: false,
+    buildProfileId: "max",
+    requestAttachments: [],
+    designReferences: [],
+    promptOrchestration: orchestratePromptMessage({
+      message: "Byt rubriken",
+      isFirstPrompt: false,
+    }),
+    previousFiles: [],
+    hasFollowUpBase: false,
+    existingRoutePaths: [],
+    existingShellRoutePaths: [],
+    followUpCapabilityDetection: {
+      capabilities: [],
+      capabilityIds: [],
+      tierByCapability: {},
+      wordCount: 0,
+      referencesExistingCapability: false,
+      modifyReferenceMatches: [],
+    },
+    followUpIntent: "neutral",
+    persistedScaffoldId: null,
+    importedRepoMode,
+    ignorePersistedScaffoldForMatch: false,
+    f3ContinuationDecision: null,
+    f3ApprovalBuildRound: false,
+    f3ApprovedDossierCapabilities: [],
+    f3EffectiveApprovedProviders: [],
+    fileDerivedTier3BuildSpec: null,
+    f3ResolvedBaseVersionId: null,
+    commitCreditsOnce: vi.fn(),
+    prewarmLeaseKey: "test",
+    versionsQuerySucceeded: true,
+    existingVersionsForChat: [],
+  };
+}
+
+describe("codegen consumes the same effective metadata without late promotion", () => {
+  afterEach(() => { vi.restoreAllMocks(); resolvedEngineBudget.seconds = undefined; });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(resolveOrchestrationBase).mockRejectedValue(stopAtBoundary);
+  });
+  it.each([120, 1800])("preserves the original followup deadline with resolved env budget %is", async (seconds) => {
+    resolvedEngineBudget.seconds = seconds;
+    vi.spyOn(Date, "now").mockReturnValue(120_000);
+    vi.mocked(resolveOrchestrationBase).mockResolvedValue({ resolvedScaffold: null, routePlan: { routes: [] },
+      preGenerationContracts: { contracts: { dataMode: "none", integrations: [], envVars: [] }, unresolvedDecisions: [] },
+      buildSpec: { qualityTarget: "standard", contextPolicy: "normal" } } as never);
+    vi.mocked(finalizeOrchestrationPrompts).mockResolvedValue({ engineSystemPrompt: "fixed prompt", variantId: null,
+      variantTemplateReferenceAttachments: [] } as never);
+    vi.mocked(buildGenerationInputPackage).mockReturnValue({} as never);
+    const boundary = new Error("deadline captured without provider work");
+    vi.mocked(createOwnEnginePipelineAndGenerationStream).mockImplementation(() => { throw boundary; });
+    await expect(runCodegenTurn({ ...params("audit"), promptStartedAt: 1_000, hasFollowUpBase: true })).rejects.toBe(boundary);
+    expect(createOwnEnginePipelineAndGenerationStream).toHaveBeenCalledWith(expect.objectContaining({
+      requestDeadlineEpochMs: 1_000 + Math.min(seconds, getAiModelsManifest().routeTimeouts.engineRouteMaxDurationSeconds.default) * 1000,
+    }));
+  });
+  it.each([[true, false], [false, false], [undefined, false], [true, true]] as const)(
+    "passes typed image choice %s to the package factory (import=%s), never to prompt inputs", async (choice, imported) => {
+      const input = { ...params("audit", imported), materializeImages: choice };
+      const stop = new Error("keyless package boundary");
+      vi.mocked(resolveOrchestrationBase).mockResolvedValue({ resolvedScaffold: null, routePlan: { routes: [] },
+        preGenerationContracts: { contracts: { dataMode: "none", integrations: [], envVars: [] }, unresolvedDecisions: [] },
+        buildSpec: { qualityTarget: "standard", contextPolicy: "normal" } } as never);
+      vi.mocked(finalizeOrchestrationPrompts).mockResolvedValue({ engineSystemPrompt: "fixed prompt", variantId: null } as never);
+      vi.mocked(buildGenerationInputPackage).mockImplementation(() => { throw stop; });
+      await expect(runCodegenTurn(input)).rejects.toBe(stop);
+      expect(buildGenerationInputPackage).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(buildGenerationInputPackage).mock.calls[0][1]).toMatchObject({ materializeImages: choice === true && !imported });
+      expect(vi.mocked(resolveOrchestrationBase).mock.calls[0][0]).not.toHaveProperty("materializeImages");
+      expect(vi.mocked(finalizeOrchestrationPrompts).mock.calls[0][1]).not.toHaveProperty("materializeImages");
+      expect(createOwnEnginePipelineAndGenerationStream).not.toHaveBeenCalled();
+    },
+  );
+  it.each([
+    ["freeform", "app"],
+    ["audit", "website"],
+    ["kostnadsfri", "website"],
+    ["category", "template"],
+  ])("forwards %s as %s", async (method, intent) => {
+    await expect(runCodegenTurn(params(method))).rejects.toBe(stopAtBoundary);
+    expect(vi.mocked(resolveOrchestrationBase).mock.calls[0][0]).toMatchObject({
+      buildMethod: method,
+      buildIntent: intent,
+      scaffoldMode: "manual",
+      scaffoldId: "dashboard",
+    });
+    expect(createOwnEnginePipelineAndGenerationStream).not.toHaveBeenCalled();
+  });
+  it("keeps import mode scaffold-less despite a stale manual app selection", async () => {
+    await expect(runCodegenTurn(params("audit", true))).rejects.toBe(stopAtBoundary);
+    expect(vi.mocked(resolveOrchestrationBase).mock.calls[0][0]).toMatchObject({
+      importedRepoMode: true,
+      scaffoldMode: "off",
+      scaffoldId: null,
+      buildIntent: "website",
+    });
+  });
+  it("does not materialize when the versions/provenance query was unavailable", async () => {
+    vi.mocked(resolveOrchestrationBase).mockResolvedValue({ resolvedScaffold: null, routePlan: { routes: [] },
+      preGenerationContracts: { contracts: { dataMode: "none", integrations: [], envVars: [] }, unresolvedDecisions: [] },
+      buildSpec: { qualityTarget: "standard", contextPolicy: "normal" } } as never);
+    vi.mocked(finalizeOrchestrationPrompts).mockResolvedValue({ engineSystemPrompt: "fixed", variantId: null } as never);
+    const stop = new Error("keyless package boundary");
+    vi.mocked(buildGenerationInputPackage).mockImplementation(() => { throw stop; });
+    await expect(runCodegenTurn({ ...params("audit"), materializeImages: true, versionsQuerySucceeded: false })).rejects.toBe(stop);
+    expect(vi.mocked(buildGenerationInputPackage).mock.calls[0][1]).toMatchObject({ materializeImages: false });
+    expect(createOwnEnginePipelineAndGenerationStream).not.toHaveBeenCalled();
+  });
+});
+
+describe("qa-or-score does not fall through into codegen", () => {
+  function qaTurn() {
+    return {
+      ...params("audit"),
+      hasFollowUpBase: true,
+      message: "Hur promptar jag för parallax?",
+      optimizedMessage: "Hur promptar jag för parallax?",
+      followUpIntentMessage: "Hur promptar jag för parallax?",
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(logRequestKindClassification).mockReturnValue({ kind: "qa-or-score" } as never);
+  });
+
+  it("persists one assistant answer and does not build", async () => {
+    const input = qaTurn();
+    vi.mocked(generateQaShortCircuitText).mockResolvedValue("Kort svar om parallax.");
+    vi.mocked(buildQaShortCircuitStream).mockReturnValue(
+      new ReadableStream({
+        start(controller) {
+          controller.close();
+        },
+      }),
+    );
+    vi.mocked(addMessage).mockResolvedValue({} as never);
+
+    const response = await runCodegenTurn(input);
+
+    expect(response.status).toBe(200);
+    expect(generateQaShortCircuitText).toHaveBeenCalledTimes(1);
+    expect(generateQaShortCircuitText).toHaveBeenCalledWith({
+      optimizedMessage: input.optimizedMessage,
+      signal: input.req.signal,
+    });
+    expect(addMessage).toHaveBeenCalledTimes(1);
+    expect(addMessage).toHaveBeenCalledWith("test", "assistant", "Kort svar om parallax.");
+    expect(buildQaShortCircuitStream).toHaveBeenCalledTimes(1);
+    expect(resolveOrchestrationBase).not.toHaveBeenCalled();
+    expect(finalizeOrchestrationPrompts).not.toHaveBeenCalled();
+    expect(buildGenerationInputPackage).not.toHaveBeenCalled();
+    expect(createOwnEnginePipelineAndGenerationStream).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["provider rejection", Object.assign(new Error("provider rejected the QA call"), { name: "AI_APICallError" })],
+    ["AbortError", Object.assign(new Error("The operation was aborted"), { name: "AbortError" })],
+  ])("%s rejects before orchestration, generation, or a saved version", async (_label, error) => {
+    vi.mocked(generateQaShortCircuitText).mockRejectedValue(error);
+
+    await expect(runCodegenTurn(qaTurn())).rejects.toBe(error);
+
+    expect(addMessage).not.toHaveBeenCalled();
+    expect(buildQaShortCircuitStream).not.toHaveBeenCalled();
+    expect(resolveOrchestrationBase).not.toHaveBeenCalled();
+    expect(finalizeOrchestrationPrompts).not.toHaveBeenCalled();
+    expect(buildGenerationInputPackage).not.toHaveBeenCalled();
+    expect(createOwnEnginePipelineAndGenerationStream).not.toHaveBeenCalled();
+  });
+
+  it("fails empty QA text without codegen", async () => {
+    vi.mocked(generateQaShortCircuitText).mockResolvedValue("   ");
+
+    await expect(runCodegenTurn(qaTurn())).rejects.toThrow(/empty text/);
+
+    expect(addMessage).not.toHaveBeenCalled();
+    expect(buildQaShortCircuitStream).not.toHaveBeenCalled();
+    expect(resolveOrchestrationBase).not.toHaveBeenCalled();
+    expect(finalizeOrchestrationPrompts).not.toHaveBeenCalled();
+    expect(buildGenerationInputPackage).not.toHaveBeenCalled();
+    expect(createOwnEnginePipelineAndGenerationStream).not.toHaveBeenCalled();
+  });
+});

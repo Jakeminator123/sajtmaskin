@@ -237,6 +237,27 @@ describe("settleStaleVerificationIfNeeded", () => {
     expect(failVersionVerificationIfUnleased).toHaveBeenCalledOnce();
   });
 
+  it("keeps a durable integration migration hold pending instead of failing or retrying", async () => {
+    const v = makeVersion({
+      release_state: "draft",
+      verification_state: "pending",
+      lifecycle_stage: "integrations",
+      verification_summary:
+        "integration_migration_required:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      files_revision: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    });
+    const promoteReconciledVersion = vi
+      .fn()
+      .mockResolvedValue("integration_migration_required");
+    const res = await settleStaleVerificationIfNeeded(v, {
+      resolveLatestGateGreen: () => true,
+      promoteReconciledVersion,
+    });
+    expect(res).toEqual({ version: v, failed: false });
+    expect(promoteReconciledVersion).not.toHaveBeenCalled();
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+  });
+
   it("no-ops (never fails) a green row when the guarded promote throws", async () => {
     const v = makeVersion();
     const promoteReconciledVersion = vi.fn().mockRejectedValue(new Error("db timeout"));

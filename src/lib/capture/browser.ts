@@ -232,26 +232,42 @@ async function pruneLeakedPlaywrightProfilesBestEffort(
 const CHROMIUM_CORE_DUMP_PREFIX = "core.chromium.";
 
 export type ChromiumCoreDumpDetection = {
+  /** Detected files, including those whose best-effort deletion failed. */
   count: number;
+  /** Logical file size, NOT allocated disk or measured process memory. */
   totalMb: number;
 };
 
-function listChromiumCoreDumpsBestEffort(): Array<{ filePath: string; mb: number }> {
+type ChromiumCoreDump = {
+  filePath: string;
+  mb: number;
+  logicalSizeBytes: number | null;
+  allocatedSizeBytes: number | null;
+  modifiedAtMs: number | null;
+};
+
+function listChromiumCoreDumpsBestEffort(): ChromiumCoreDump[] {
   try {
     const tmp = os.tmpdir();
     const entries = fs.readdirSync(tmp, { withFileTypes: true });
-    const dumps: Array<{ filePath: string; mb: number }> = [];
+    const dumps: ChromiumCoreDump[] = [];
     for (const entry of entries) {
       if (!entry.isFile()) continue;
       if (!entry.name.startsWith(CHROMIUM_CORE_DUMP_PREFIX)) continue;
       const filePath = path.join(tmp, entry.name);
-      let mb = 0;
+      let stat: fs.Stats | null = null;
       try {
-        mb = Math.round(fs.statSync(filePath).size / 1_048_576);
+        stat = fs.statSync(filePath);
       } catch {
-        mb = 0;
+        // Keep the detection even when metadata is unavailable.
       }
-      dumps.push({ filePath, mb });
+      dumps.push({
+        filePath,
+        mb: stat ? Math.round(stat.size / 1_048_576) : 0,
+        logicalSizeBytes: stat?.size ?? null,
+        allocatedSizeBytes: stat && Number.isFinite(stat.blocks) ? stat.blocks * 512 : null,
+        modifiedAtMs: stat?.mtimeMs ?? null,
+      });
     }
     return dumps;
   } catch {
@@ -283,21 +299,29 @@ function pruneChromiumCoreDumpsBestEffort(): number {
  * såg dumpen först och hade dött på `/tmp`-slut utan pruningen.
  * Fail-open — svepet får aldrig stoppa en capture.
  */
-export function detectAndPruneChromiumCoreDumps(context: string): ChromiumCoreDumpDetection {
+export function detectAndPruneChromiumCoreDumps(
+  context: string,
+  diagnostics?: Record<string, string | null>,
+): ChromiumCoreDumpDetection {
   const dumps = listChromiumCoreDumpsBestEffort();
   if (dumps.length === 0) return { count: 0, totalMb: 0 };
-  let pruned = 0;
   let totalMb = 0;
   for (const dump of dumps) {
+    const pruned = removeChromiumCoreDumpBestEffort(dump.filePath);
+    totalMb += dump.mb;
     console.error(
       `[capture-browser] Chromium core dump detected (${dump.mb} MB) during ${context}`,
+      {
+        ...diagnostics,
+        coreFile: path.basename(dump.filePath),
+        logicalSizeBytes: dump.logicalSizeBytes,
+        allocatedSizeBytes: dump.allocatedSizeBytes,
+        modifiedAtMs: dump.modifiedAtMs,
+        pruned,
+      },
     );
-    if (removeChromiumCoreDumpBestEffort(dump.filePath)) {
-      pruned += 1;
-      totalMb += dump.mb;
-    }
   }
-  return { count: pruned, totalMb };
+  return { count: dumps.length, totalMb };
 }
 
 /**
@@ -388,7 +412,12 @@ async function launchCaptureBrowserUnscoped(): Promise<Browser> {
     const chromium = (await import("@sparticuz/chromium")).default;
     const { chromium: pw } = await import("playwright-core");
     return pw.launch({
-      args: chromium.args,
+      // SM-072: with the locked Chromium 149 / Playwright-core 1.61.1 pair,
+      // --single-process reproducibly SIGTRAPs on owned-context disposal (or
+      // browser shutdown), even after successful offline screenshots. Removing
+      // only this flag gives normal exit=0; keep graphics/security flags intact.
+      // See scripts/dev/repro-capture-teardown.mjs and the D1 investigation.
+      args: chromium.args.filter((arg) => arg !== "--single-process"),
       executablePath: await chromium.executablePath(),
       headless: true,
     });

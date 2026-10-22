@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 
 import { checkV0ChatBoundary } from "./check-v0-chat-boundary.mjs";

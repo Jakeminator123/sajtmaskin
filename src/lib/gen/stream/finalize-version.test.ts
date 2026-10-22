@@ -12,6 +12,8 @@ const isVerifierPassEnabled = vi.hoisted(() => vi.fn());
 const buildPreviewHtml = vi.hoisted(() => vi.fn());
 const repairGeneratedFiles = vi.hoisted(() => vi.fn());
 const buildCompleteProject = vi.hoisted(() => vi.fn());
+const projectAssembly = vi.hoisted(() => ({ implementation: null as null |
+  typeof import("@/lib/gen/export/project-scaffold").buildCompleteProject }));
 const addAssistantMessageAndCreateDraftVersion = vi.hoisted(() => vi.fn());
 const addAssistantMessageAndUpdateExistingVersion = vi.hoisted(() => vi.fn());
 const updateChatOrchestrationSnapshot = vi.hoisted(() => vi.fn());
@@ -23,7 +25,6 @@ const logGeneration = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const createGenerationTelemetryRecord = vi.hoisted(() => vi.fn());
-const parseFilesFromContent = vi.hoisted(() => vi.fn());
 const mergeVersionFilesWithWarnings = vi.hoisted(() => vi.fn());
 const validateGeneratedCode = vi.hoisted(() => vi.fn());
 const emitBusEvent = vi.hoisted(() => vi.fn());
@@ -129,6 +130,7 @@ vi.mock("@/lib/gen/autofix/repair-generated-files", () => ({
 
 vi.mock("@/lib/gen/export/project-scaffold", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/gen/export/project-scaffold")>();
+  projectAssembly.implementation = actual.buildCompleteProject;
   return {
     ...actual,
     buildCompleteProject,
@@ -167,8 +169,8 @@ vi.mock("@/lib/db/services/generation-telemetry", () => ({
   createGenerationTelemetryRecord,
 }));
 
-vi.mock("@/lib/gen/version-manager", () => ({
-  parseFilesFromContent,
+vi.mock("@/lib/gen/version-file-merge", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/gen/version-file-merge")>(),
   mergeVersionFilesWithWarnings,
 }));
 
@@ -217,10 +219,26 @@ vi.mock("@/lib/observability/metrics", () => ({
 import { finalizeAndSaveVersion } from "./finalize-version";
 import { persistOrchestrationSnapshot } from "./finalize-version/persist-side-effects";
 import type { BuildSpec } from "@/lib/gen/build-spec";
-import { parseCodeProject } from "@/lib/gen/parser";
+import type { GenerationFinalizeInput } from "@/lib/gen/generation-input-package";
+import { buildOrchestrationContract } from "@/lib/gen/orchestration-contract";
+import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
+import { serializeProjectCandidateForVerifier } from "./finalize-merge";
+import { appendStreamWarning } from "@/lib/builder/stream-warning";
+import { parseGenerationContent } from "@/components/builder/chat/generation-content";
 
 const BASIC_GENERATED_CONTENT =
   '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```';
+
+/** Fixture source bytes after the existing model/validation phases, not a parser override. */
+function mockFinalizeEmissions(files: CodeFile[]): string {
+  const content = serializeCodeProject(files);
+  runAutoFix.mockResolvedValue({ fixedContent: content, fixes: [], warnings: [], dependencies: [] });
+  validateAndFix.mockResolvedValue({ content, hadErrors: false, fixerUsed: false, fixerImproved: false,
+    errorsBefore: 0, errorsAfter: 0, passes: 1, status: "passed", pipelineError: null, earlyStopReason: null });
+  materializeImages.mockResolvedValue({ content, replacedCount: 0, skippedCount: 0,
+    resolvedUrls: new Set<string>(), queries: [] });
+  return content;
+}
 
 function baseBuildSpec(overrides: Partial<BuildSpec> = {}): BuildSpec {
   return {
@@ -283,7 +301,6 @@ describe("finalizeAndSaveVersion", () => {
     pruneStaleVersionErrorLogs.mockReset();
     pruneStaleVersionErrorLogs.mockResolvedValue(0);
     createGenerationTelemetryRecord.mockReset();
-    parseFilesFromContent.mockReset();
     mergeVersionFilesWithWarnings.mockReset();
     validateGeneratedCode.mockReset();
     emitBusEvent.mockReset();
@@ -335,37 +352,6 @@ describe("finalizeAndSaveVersion", () => {
       blocking: [],
       quality: [],
     });
-    parseFilesFromContent.mockReturnValue(
-      JSON.stringify([
-        {
-          path: "package.json",
-          content: JSON.stringify(
-            {
-              name: "unit-test",
-              version: "0.0.0",
-              private: true,
-              scripts: { dev: "next dev", build: "next build" },
-              dependencies: { next: "15.0.0", react: "19.0.0", "react-dom": "19.0.0" },
-              devDependencies: { typescript: "5.6.0" },
-            },
-            null,
-            2,
-          ),
-          language: "json",
-        },
-        {
-          path: "next-env.d.ts",
-          content: '/// <reference types="next" />\n',
-          language: "ts",
-        },
-        {
-          path: "src/app/page.tsx",
-          content:
-            "export default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }",
-          language: "tsx",
-        },
-      ]),
-    );
     mergeVersionFilesWithWarnings.mockImplementation((_base: unknown, files: unknown) => ({
       files,
       warnings: [],
@@ -379,7 +365,9 @@ describe("finalizeAndSaveVersion", () => {
       fixes: [],
     }));
     buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
-    buildCompleteProject.mockImplementation((files: unknown) => files);
+    // A2 verifies the assembled candidate, not a fake parser projection.
+    // Use the actual local assembler so package/config/env preparation remains visible.
+    buildCompleteProject.mockImplementation(projectAssembly.implementation!);
     validateGeneratedCode.mockResolvedValue({
       valid: true,
       errors: [],
@@ -405,6 +393,53 @@ describe("finalizeAndSaveVersion", () => {
     failVersionVerification.mockResolvedValue({});
     createEngineVersionErrorLogs.mockResolvedValue([]);
     createGenerationTelemetryRecord.mockResolvedValue({ id: "telemetry_1" });
+  });
+
+  describe("atomic bootstrap threading", () => {
+    function input(): GenerationFinalizeInput {
+      const buildSpec = baseBuildSpec();
+      const routePlan = { provenance: { primarySource: "prompt" as const, sources: ["prompt" as const] },
+        siteType: "one-page" as const, reason: "decided", routes: [] };
+      return { buildSpec, routePlan, resolvedScaffold: null, lineageHash: "decided-lineage", variantId: null,
+        orchestrationContract: buildOrchestrationContract({ buildSpec, routePlan, resolvedScaffold: null }),
+        dossierSelection: { selected: [], poolSize: 0, byCapability: {} },
+        preGenerationContracts: { contracts: { dataMode: "none", integrations: [], envVars: [] }, unresolvedDecisions: [] },
+        removedCapabilities: [], removedDossierIds: [] };
+    }
+    const args = () => ({ accumulatedContent: BASIC_GENERATED_CONTENT, chatId: "chat_1", model: "gpt-5.4",
+      urlMap: {}, startedAt: Date.now() - 500, resolvedScaffold: null });
+
+    it("passes decided typed inputs and actual observations to the atomic creator before post-commit work", async () => {
+      const generationInput = input();
+      const result = await finalizeAndSaveVersion({ ...args(), generationInput,
+        buildSpec: baseBuildSpec({ previewPolicy: "fidelity3" }),
+        willRunQualityGate: true, qualityGatePlanned: true });
+      const bootstrap = addAssistantMessageAndCreateDraftVersion.mock.calls[0][3].finalizeBootstrap;
+      expect(bootstrap).toMatchObject({ source: "trusted_new_finalize", scopeId: "decided-lineage:root",
+        willRunQualityGate: true, qualityGatePlanned: true, finalize: [] });
+      expect(bootstrap.buildSpec).toBe(generationInput.buildSpec);
+      expect(bootstrap.preflight.previewStart).toBe(result.preflight.previewStart);
+      expect(bootstrap.finalize).toEqual(result.repairLedger?.exportInvocations("chat_1", "decided-lineage:root"));
+      expect(addAssistantMessageAndCreateDraftVersion.mock.invocationCallOrder[0])
+        .toBeLessThan(createGenerationTelemetryRecord.mock.invocationCallOrder[0]);
+      expect(addAssistantMessageAndUpdateExistingVersion).not.toHaveBeenCalled();
+    });
+
+    it.each(["legacy", "replace", "repair"])("does not bootstrap %s", async (mode) => {
+      await finalizeAndSaveVersion({ ...args(), generationInput: mode === "legacy" ? undefined : input(),
+        targetVersionId: mode === "replace" ? "ver_1" : undefined, repairPassIndex: mode === "repair" ? 1 : 0 });
+      const options = (mode === "replace" ? addAssistantMessageAndUpdateExistingVersion.mock.calls[0][4]
+        : addAssistantMessageAndCreateDraftVersion.mock.calls[0][3]);
+      expect(options.finalizeBootstrap).toBeUndefined();
+    });
+
+    it("propagates creation/receipt failure without running post-persist completion", async () => {
+      addAssistantMessageAndCreateDraftVersion.mockRejectedValueOnce(new Error("receipt unavailable"));
+      await expect(finalizeAndSaveVersion({ ...args(), generationInput: input() })).rejects.toThrow("receipt unavailable");
+      expect(createGenerationTelemetryRecord).not.toHaveBeenCalled();
+      expect(logGeneration).not.toHaveBeenCalled();
+      expect(updateChatOrchestrationSnapshot).not.toHaveBeenCalled();
+    });
   });
 
   describe("verifier package.json imported-repo detection", () => {
@@ -450,7 +485,6 @@ describe("finalizeAndSaveVersion", () => {
         pipelineError: null,
         earlyStopReason: null,
       });
-      parseFilesFromContent.mockReturnValueOnce(JSON.stringify(importedFiles));
     }
 
     function verifierPackage(): Record<string, unknown> {
@@ -462,7 +496,7 @@ describe("finalizeAndSaveVersion", () => {
       return JSON.parse(packageFile!.content) as Record<string, unknown>;
     }
 
-    it("fails closed on an initial lookup error when later preflight confirms an imported repo", async () => {
+    it("fails closed after the shared lookup error and latches imported mode", async () => {
       mockImportedContentThroughFinalize();
       chatHasImportedRepoVersion
         .mockRejectedValueOnce(new Error("temporary imported-repo lookup failure"))
@@ -479,15 +513,15 @@ describe("finalizeAndSaveVersion", () => {
         startedAt: Date.now() - 500,
       });
 
-      expect(chatHasImportedRepoVersion).toHaveBeenCalledTimes(2);
+      expect(chatHasImportedRepoVersion).toHaveBeenCalledTimes(1);
       expect(verifierPackage()).toEqual(importedPackage);
       expect(buildCompleteProject).not.toHaveBeenCalled();
       expect(devLogAppend).toHaveBeenCalledWith(
         "in-progress",
         expect.objectContaining({
-          type: "verifier.package-json.imported-repo-lookup-failed",
+          type: "preflight.imported-repo-lookup-failed",
           chatId: "chat_imported_lookup_retry",
-          fallback: "skip-baseline-merge",
+          fallback: "imported-repo-mode",
         }),
       );
     });
@@ -514,7 +548,7 @@ describe("finalizeAndSaveVersion", () => {
       expect(buildCompleteProject).not.toHaveBeenCalled();
     });
 
-    it("keeps an imported manifest verbatim when both detection attempts fail", async () => {
+    it("keeps an imported manifest verbatim when shared detection fails", async () => {
       mockImportedContentThroughFinalize();
       chatHasImportedRepoVersion
         .mockRejectedValueOnce(new Error("verifier lookup failed"))
@@ -531,7 +565,7 @@ describe("finalizeAndSaveVersion", () => {
         startedAt: Date.now() - 500,
       });
 
-      expect(chatHasImportedRepoVersion).toHaveBeenCalledTimes(2);
+      expect(chatHasImportedRepoVersion).toHaveBeenCalledTimes(1);
       expect(verifierPackage()).toEqual(importedPackage);
       expect(buildCompleteProject).not.toHaveBeenCalled();
       expect(devLogAppend).toHaveBeenCalledWith(
@@ -599,15 +633,6 @@ export default function Page() {
       earlyStopReason: null,
     });
     getKnownBrokenImageReplacements.mockResolvedValueOnce({ [deadUrl]: replacementUrl });
-    parseFilesFromContent.mockImplementationOnce((value: string) =>
-      JSON.stringify([
-        {
-          path: "src/app/page.tsx",
-          content: value,
-          language: "tsx",
-        },
-      ]),
-    );
 
     await finalizeAndSaveVersion({
       accumulatedContent: content,
@@ -667,6 +692,92 @@ export default function Page() {
       expect(result.turnSummary).toBeNull();
       const call = addAssistantMessageAndCreateDraftVersion.mock.calls[0];
       expect(call?.[1] as string).not.toContain("Klart — jag har byggt");
+    });
+
+    it("keeps the original Swedish explanation once when repaired files drop the raw prose", async () => {
+      const explanation = [
+        "Jag har byggt en landningssida med hero, tjänster och kontaktformulär.",
+        "",
+        "Säg till om du vill justera färgerna eller texterna.",
+      ].join("\n");
+      const warning = "Anslutningen bröts innan svaret var klart.";
+      const originalPage =
+        "export default function Page() { return (<main><h1>ORIGINAL_UNREPAIRED_HERO</h1><p>Den gamla ofixade texten ska inte följa med.</p></main>); }";
+      const repairedPage =
+        "export default function Page() { return (<main><h1>REPAIRED_FINAL_HERO</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }";
+      const repairedCode = `\`\`\`tsx file="src/app/page.tsx"\n${repairedPage}\n\`\`\``;
+      const accumulatedContent = appendStreamWarning(
+        [
+          "<Thinking>THINKING_CHAIN_MARKER planera hero utan att spara kedjan.</Thinking>",
+          explanation,
+          '```env file=".env.local"\nSECRET_MARKER=sk_live_should_not_leak\n```',
+          `\`\`\`tsx file="src/app/page.tsx"\n${originalPage}\n\`\`\``,
+          '```tsx file="src/app/open-tail.tsx"\nconst OPEN_FENCE_TAIL = true;',
+          `tsx file="src/app/bare-tail.tsx"\nconst BARE_STREAM_TAIL = ${"x".repeat(80)};`,
+        ].join("\n\n"),
+        warning,
+      );
+      runAutoFix.mockResolvedValue({
+        fixedContent: repairedCode,
+        fixes: [],
+        warnings: [],
+        dependencies: [],
+      });
+      validateAndFix.mockResolvedValue({
+        content: repairedCode,
+        hadErrors: false,
+        fixerUsed: false,
+        fixerImproved: false,
+        errorsBefore: 0,
+        errorsAfter: 0,
+        passes: 1,
+        status: "passed",
+        pipelineError: null,
+        earlyStopReason: null,
+      });
+
+      const result = await finalizeAndSaveVersion({
+        accumulatedContent,
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      expect(result.turnSummary).toBeNull();
+      const call = addAssistantMessageAndCreateDraftVersion.mock.calls[0];
+      const persisted = call?.[1] as string;
+      const filesJson = call?.[2] as string;
+      const times = (haystack: string, needle: string) => haystack.split(needle).length - 1;
+
+      expect(times(persisted, explanation)).toBe(1);
+      expect(persisted.startsWith(`${explanation}\n\n`)).toBe(true);
+      expect(parseGenerationContent(persisted).proseText).toBe(
+        parseGenerationContent(accumulatedContent).proseText,
+      );
+      expect(persisted).toContain("REPAIRED_FINAL_HERO");
+      expect(persisted.trimEnd().endsWith(`Varning: ${warning}`)).toBe(true);
+      expect(times(persisted, `Varning: ${warning}`)).toBe(1);
+      expect(persisted).not.toContain("Klart — jag har byggt");
+      expect(persisted).not.toContain("ORIGINAL_UNREPAIRED_HERO");
+      expect(persisted).not.toContain("SECRET_MARKER");
+      expect(persisted).not.toContain("OPEN_FENCE_TAIL");
+      expect(persisted).not.toContain("BARE_STREAM_TAIL");
+      expect(persisted).not.toContain("THINKING_CHAIN_MARKER");
+
+      expect(result.contentForVersion).toContain("REPAIRED_FINAL_HERO");
+      expect(result.contentForVersion).not.toContain("ORIGINAL_UNREPAIRED_HERO");
+      expect(result.contentForVersion).not.toContain("Säg till om du vill justera");
+      expect(result.contentForVersion).not.toContain("SECRET_MARKER");
+      expect(result.contentForVersion).not.toContain("THINKING_CHAIN_MARKER");
+      expect(filesJson).toContain("REPAIRED_FINAL_HERO");
+      expect(filesJson).not.toContain("ORIGINAL_UNREPAIRED_HERO");
+      expect(filesJson).not.toContain("Säg till om du vill justera");
+      expect(filesJson).not.toContain("SECRET_MARKER");
+      expect(filesJson).not.toContain("THINKING_CHAIN_MARKER");
+      expect(filesJson).not.toContain("OPEN_FENCE_TAIL");
+      expect(filesJson).not.toContain("BARE_STREAM_TAIL");
     });
   });
 
@@ -961,9 +1072,10 @@ export default function Page() {
     });
   });
 
-  it("skips verifier for safe-only autofix and records safe_fixes_only", async () => {
+  it("does not let safe-only fixes skip verification after project preparation changes the candidate", async () => {
+    const preparedContent = mockFinalizeEmissions(projectAssembly.implementation!(parseCodeProject(BASIC_GENERATED_CONTENT).files));
     runAutoFix.mockResolvedValueOnce({
-      fixedContent: BASIC_GENERATED_CONTENT,
+      fixedContent: preparedContent,
       fixes: Array.from({ length: 24 }, (_, index) => ({
         fixer: "use-client-fixer",
         category: "mechanical",
@@ -974,7 +1086,7 @@ export default function Page() {
       dependencies: {},
     });
 
-    await finalizeAndSaveVersion({
+    const result = await finalizeAndSaveVersion({
       accumulatedContent: BASIC_GENERATED_CONTENT,
       chatId: "chat_1",
       model: "gpt-5.4",
@@ -985,17 +1097,14 @@ export default function Page() {
       startedAt: Date.now() - 500,
     });
 
-    expect(runVerifierPass).not.toHaveBeenCalled();
-    expect(emitBusEvent).toHaveBeenCalledWith(
+    expect(runVerifierPass).toHaveBeenCalledTimes(1);
+    const judgedContent = String(runVerifierPass.mock.calls[0][0]);
+    expect(judgedContent).not.toBe(preparedContent);
+    expect(judgedContent).toBe(serializeProjectCandidateForVerifier(JSON.parse(result.filesJson)));
+    expect(emitBusEvent).not.toHaveBeenCalledWith(
       expect.objectContaining({
         t: "version.degraded",
         kind: "verifier_skipped_safe_fixes_only",
-        message: expect.stringContaining("säkra hygienfixar"),
-        meta: expect.objectContaining({
-          safeFixCount: 24,
-          riskyFixCount: 0,
-          riskyFixerIds: [],
-        }),
       }),
     );
     expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
@@ -1008,8 +1117,8 @@ export default function Page() {
           }),
           postStreamSteps: expect.objectContaining({
             verifier: expect.objectContaining({
-              status: "skipped",
-              reason: "safe_fixes_only",
+              status: "done",
+              trigger: "high_quality_target",
             }),
           }),
         }),
@@ -2173,23 +2282,15 @@ export default function Page() {
     expect(result.preflight.verificationBlocked).toBe(true);
   });
 
-  it("SM-023: stale verifier finding resolved in the MERGED files no longer fails the version (F3)", async () => {
-    // Prod chat 3a6c5472 v3 (2026-08-05): the verifier judged PRE-merge model
-    // output, phase 4 (merge + import-validator + dep-completion) fixed every
-    // blocker in the persisted files_json, but the stale verdict still
-    // terminally failed the paid F3 pass. The post-merge stale-check must
-    // drop a missing-import finding whose symbol IS bound in the final files.
-    runVerifierPass.mockResolvedValueOnce({
-      blocking: [
-        {
-          id: "missing-resend-import",
-          detail: "app/api/contact/route.ts: uses `Resend` but does not import it.",
-        },
-      ],
-      quality: [],
+  it("SM-023: verifier judges the complete merged Resend import before persistence (F3)", async () => {
+    // The old post-merge stale-finding path is no longer the contract:
+    // semantic verification must see the same complete candidate we persist.
+    runVerifierPass.mockImplementationOnce(async (content: string) => {
+      const contactRoute = parseCodeProject(content).files.find((file) => file.path === "app/api/contact/route.ts");
+      expect(contactRoute?.content).toContain('import { Resend } from "resend";');
+      return { blocking: [], quality: [], llmAvailability: "completed" };
     });
-    parseFilesFromContent.mockReturnValue(
-      JSON.stringify([
+    mockFinalizeEmissions([
         {
           path: "package.json",
           content: JSON.stringify({
@@ -2214,8 +2315,7 @@ export default function Page() {
             'import { Resend } from "resend";\nexport async function POST() { const resend = new Resend(process.env.RESEND_API_KEY); return Response.json({ ok: Boolean(resend) }); }',
           language: "ts",
         },
-      ]),
-    );
+      ]);
 
     const result = await finalizeAndSaveVersion({
       accumulatedContent:
@@ -2256,14 +2356,11 @@ export default function Page() {
     expect(result.preflight.verificationBlocked).toBe(false);
     expect(failVersionVerification).not.toHaveBeenCalled();
     expect(result.verifierBlockingFindings).toEqual([]);
-    // The drop is observable (devLog row with the finding id + reason).
-    expect(devLogAppend).toHaveBeenCalledWith(
-      "in-progress",
-      expect.objectContaining({
-        type: "verifier-pass.stale-findings-dropped",
-        droppedCount: 1,
-      }),
+    expect(runVerifierPass).toHaveBeenCalledTimes(1);
+    expect(String(runVerifierPass.mock.calls[0][0])).toBe(
+      serializeProjectCandidateForVerifier(JSON.parse(result.filesJson)),
     );
+    expect(runLlmFixer).not.toHaveBeenCalled();
   });
 
   it("SM-023 control: the same finding still fails the version when the merged files do NOT resolve it", async () => {
@@ -2276,8 +2373,7 @@ export default function Page() {
       ],
       quality: [],
     });
-    parseFilesFromContent.mockReturnValue(
-      JSON.stringify([
+    mockFinalizeEmissions([
         {
           path: "package.json",
           content: JSON.stringify({
@@ -2302,8 +2398,7 @@ export default function Page() {
             "export async function POST() { const resend = new Resend(process.env.RESEND_API_KEY); return Response.json({ ok: Boolean(resend) }); }",
           language: "ts",
         },
-      ]),
-    );
+      ]);
 
     const result = await finalizeAndSaveVersion({
       accumulatedContent:
@@ -2355,8 +2450,7 @@ export default function Page() {
     // instead of persisting/serving the bloat or churning the preflight repair.
     // The home page stays valid so only the degeneracy issue blocks.
     const huge = "z".repeat(800_000); // > 768 KB single-file ceiling
-    parseFilesFromContent.mockReturnValue(
-      JSON.stringify([
+    mockFinalizeEmissions([
         {
           path: "package.json",
           content: JSON.stringify({
@@ -2380,8 +2474,7 @@ export default function Page() {
           content: `export function CredentialDeck() { return (<div>${huge}</div>); }`,
           language: "tsx",
         },
-      ]),
-    );
+      ]);
 
     const result = await finalizeAndSaveVersion({
       accumulatedContent:
@@ -2556,6 +2649,16 @@ export default function Page() {
   it("repairs partial file output via LLM fixer and persists when second preflight passes", async () => {
     const cleanContent =
       '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```';
+    const page = parseCodeProject(cleanContent).files[0];
+    const partialContent = mockFinalizeEmissions([page, { path: "components/trailer-dialog.tsx", language: "tsx",
+      content: 'import { useState } from "react";\nimport import { useEffect } from "react";' }]);
+    runAutoFix.mockImplementation(async (content: string) => ({
+      fixedContent: content, fixes: [], warnings: [], dependencies: [],
+    })).mockResolvedValueOnce({ fixedContent: partialContent, fixes: [], warnings: [], dependencies: [] });
+    const actualMerge = await vi.importActual<typeof import("@/lib/gen/version-file-merge")>("@/lib/gen/version-file-merge");
+    mergeVersionFilesWithWarnings.mockImplementation(actualMerge.mergeVersionFilesWithWarnings);
+    const repairedFile = { path: "components/trailer-dialog.tsx", language: "tsx",
+      content: "export default function TrailerDialog() { return <dialog>Trailer</dialog>; }" };
     runProjectSanityChecks
       .mockReturnValueOnce({
         valid: false,
@@ -2572,7 +2675,7 @@ export default function Page() {
       .mockReturnValueOnce({ valid: true, issues: [] });
 
     runLlmFixer.mockResolvedValueOnce({
-      fixedContent: cleanContent,
+      fixedContent: serializeCodeProject([page, repairedFile]),
       fixedFiles: ["components/trailer-dialog.tsx"],
       missingFiles: [],
       partial: false,
@@ -2591,7 +2694,10 @@ export default function Page() {
 
     expect(result.version.id).toBe("ver_1");
     expect(addAssistantMessageAndCreateDraftVersion).toHaveBeenCalled();
-    expect(runLlmFixer).toHaveBeenCalledTimes(1);
+    expect(runLlmFixer, JSON.stringify(runLlmFixer.mock.calls.map((call) => ({
+      errors: call[1], requiredFiles: call[2]?.requiredFiles,
+    })))).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(result.filesJson)).toContainEqual(expect.objectContaining(repairedFile));
   });
 
   it("skips deep-path image materialization and verifier for light follow-up finalize", async () => {

@@ -12,7 +12,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { createDirectModel } from "@/lib/builder/direct-model";
+import { createDirectModel, getTemperatureConfig } from "@/lib/builder/direct-model";
+import { workloadOpenAIProviderOptions } from "@/lib/ai-models/workload-reasoning";
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
 import { withRateLimit } from "@/lib/rate-limit";
 
@@ -61,10 +62,10 @@ Return ONLY a JSON array of 5 domain names (without TLD), like:
 ["example1", "example2", "example3", "example4", "example5"]`;
 
   try {
+    const modelId =
+      getWorkloadDefaultModelFromManifest("domain_suggestions") ?? "openai/gpt-6.1-sol";
     const result = await generateText({
-      model: createDirectModel(
-        getWorkloadDefaultModelFromManifest("domain_suggestions") ?? "openai/gpt-5.2",
-      ),
+      model: createDirectModel(modelId),
       messages: [
         {
           role: "system",
@@ -72,7 +73,9 @@ Return ONLY a JSON array of 5 domain names (without TLD), like:
         },
         { role: "user", content: prompt },
       ],
-      temperature: 0.8,
+      maxOutputTokens: 8_192,
+      ...getTemperatureConfig(modelId, 0.8),
+      ...workloadOpenAIProviderOptions("domain_suggestions", modelId),
     });
     const content = result.text || "[]";
 

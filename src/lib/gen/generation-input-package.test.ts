@@ -19,6 +19,11 @@ function lineageInput(overrides: Record<string, unknown> = {}) {
 }
 
 describe("computeLineageHash imported repo contract", () => {
+  it("keeps the existing prompt lineage identical across post-processing image choices", () => {
+    const before = computeLineageHash(lineageInput());
+    expect(computeLineageHash(lineageInput({ materializeImages: true }))).toBe(before);
+    expect(computeLineageHash(lineageInput({ materializeImages: false }))).toBe(before);
+  });
   it("changes when the current imported-repo structure changes", () => {
     const before = computeLineageHash(lineageInput());
     const after = computeLineageHash(lineageInput({ importedRepoCurrentHash: "c".repeat(64) }));

@@ -75,3 +75,14 @@ export async function isLatestVersionForChat(
     (await getLatestVersion(chatId).catch(() => null));
   return !preferred || preferred.id === versionId;
 }
+
+/**
+ * Repair targets: the preferred head, or the newest row even when it failed.
+ * The preferred head skips failed rows, so a failed newest version would
+ * otherwise look superseded by the older working version beneath it.
+ */
+export async function isRepairTargetHead(chatId: string, versionId: string): Promise<boolean> {
+  if (await isLatestVersionForChat(chatId, versionId)) return true;
+  const newest = await getLatestVersion(chatId).catch(() => null);
+  return newest?.id === versionId;
+}

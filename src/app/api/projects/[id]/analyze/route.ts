@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/auth";
 import { getProjectByIdForOwner, getProjectData } from "@/lib/db/services/projects";
 import OpenAI from "openai";
 import { PROJECT_ANALYZE_DEFAULT_MODEL } from "@/lib/gen/defaults";
+import { workloadResponsesReasoning } from "@/lib/ai-models/workload-reasoning";
 
 /**
  * Project Analysis API
@@ -181,6 +182,7 @@ Ge en strukturerad analys enligt formatet.`;
     const openAiConfig = getOpenAIClientConfig(PROJECT_ANALYZE_DEFAULT_MODEL);
     const response = await openAiConfig.client.responses.create({
       model: openAiConfig.modelId,
+      ...workloadResponsesReasoning("project_analyze", openAiConfig.modelId),
       instructions: ANALYSIS_SYSTEM_PROMPT,
       input: analysisPrompt,
       store: false, // Don't store analysis for privacy

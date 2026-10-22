@@ -16,6 +16,7 @@
     "LOOPIA_API_USER",
     "NEXT_PUBLIC_GOOGLE_ADS_ACCOUNT_CREATED_LABEL",
     "NEXT_PUBLIC_GOOGLE_ADS_BUILDER_START_LABEL",
+    "NEXT_PUBLIC_GOOGLE_ADS_ENABLED",
     "NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL",
     "NEXT_PUBLIC_GOOGLE_ADS_ID",
     "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
@@ -43,6 +44,7 @@
     "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
     "SAJTMASKIN_REFUSE_DOSSIER_STUBS",
     "SAJTMASKIN_PREVIEW_PREWARM",
+    "SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED",
     "SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS",
@@ -156,6 +158,7 @@
     "NEXT_PUBLIC_ELASTICSEARCH_SEARCH_API_KEY",
     "NEXT_PUBLIC_GOOGLE_ADS_ACCOUNT_CREATED_LABEL",
     "NEXT_PUBLIC_GOOGLE_ADS_BUILDER_START_LABEL",
+    "NEXT_PUBLIC_GOOGLE_ADS_ENABLED",
     "NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL",
     "NEXT_PUBLIC_GOOGLE_ADS_ID",
     "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
@@ -188,6 +191,8 @@
     "OPENCLAW_GATEWAY_URL",
     "OPENCLAW_MODEL_ROUTING_ENABLED",
     "PEXELS_API_KEY",
+    "PIPELINE_TEST_ACCOUNT_EMAIL",
+    "PIPELINE_TEST_ACCOUNT_PASSWORD",
     "POSTGRES_CONNECT_TIMEOUT_MS",
     "POSTGRES_POOL_IDLE_TIMEOUT_MS",
     "POSTGRES_POOL_MAX",
@@ -203,6 +208,7 @@
     "SAJTMASKIN_BLOCKING_ESLINT",
     "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
     "SAJTMASKIN_BRIEF_MODEL",
+    "SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED",
     "SAJTMASKIN_BUILDER_INSPECTOR",
     "SAJTMASKIN_BRANDED_LIVE_URLS",
     "SAJTMASKIN_BRANDED_PILOT_ALLOWLIST",
@@ -227,6 +233,7 @@
     "SAJTMASKIN_MODEL_PREMIUM",
     "SAJTMASKIN_MODEL_MAX",
     "SAJTMASKIN_MODEL_PRO",
+    "SAJTMASKIN_MODEL_ULTRA",
     "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
     "SAJTMASKIN_MAX_PROMPT_HANDOFF_CHARS",
     "SAJTMASKIN_MAX_SYSTEM_LENGTH",
@@ -318,13 +325,13 @@
       "key": "POSTGRES_URL",
       "classification": "shared_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Primary database connection for the app."
+      "notes": "Primary database connection for the app. Target identity and Vercel environment mapping are owned by config/db-targets.json: Development and Preview use DEV; Production uses PROD."
     },
     {
       "key": "POSTGRES_URL_NON_POOLING",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Direct non-pooled database URL."
+      "notes": "Direct/session-mode database URL for the same project as POSTGRES_URL. Target mapping is owned by config/db-targets.json. Verify session mode on port 5432 before authorized DDL."
     },
     {
       "key": "POSTGRES_CONNECT_TIMEOUT_MS",
@@ -390,7 +397,7 @@
       "key": "SAJTMASKIN_MODEL_PREMIUM",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Optional override for the GPT-5.6 Sol Premium profile used by own-engine model resolution."
+      "notes": "Optional override for the Premium (Hög) profile model used by own-engine model resolution. Default is the manifest's GPT-6.1 Sol."
     },
     {
       "key": "SAJTMASKIN_MODEL_PRO",
@@ -414,7 +421,13 @@
       "key": "SAJTMASKIN_MODEL_ANTHROPIC",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Optional Anthropic profile override used by capability routing and legacy fallback paths."
+      "notes": "Optional Anthropic profile override used by capability routing and legacy fallback paths. Leave unset so the manifest default (Claude Opus 4.8) applies in every environment."
+    },
+    {
+      "key": "SAJTMASKIN_MODEL_ULTRA",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Optional override for the Extra hög (ultra) profile model used by own-engine model resolution. Default is the manifest's GPT-6 Astra."
     },
     {
       "key": "SAJTMASKIN_ASSIST_MODEL",
@@ -523,6 +536,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Controls the post-VM `triggerBuildErrorRepair` loop in `src/lib/gen/verify/server-verify/build-error-trigger.ts`. Default ON in every environment since 2026-09-11 (production was OFF until 40 days of prod showed 3/3 bounded repairs). Explicit `0`/`false`/`off`/`no` is the kill-switch; `1`/`true`/`on`/`yes` is a no-op. Same `inflight` dedup as server-verify so the same versionId never repairs twice in parallel."
+    },
+    {
+      "key": "SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Server-only opt-in for /api/engine/postchecks recovery work: exactly 1 enables it; unset, empty, 0 or any other value skips before candidate selection. Default OFF. Not a date, expiry, one-shot trigger or cron registration. Requires CRON_SECRET and separately approved scheduling/deployment; ordinary generation postchecks and existing cost/attempt caps are unchanged."
     },
     {
       "key": "SAJTMASKIN_METRICS_TOKEN",
@@ -636,25 +655,31 @@
       "key": "NEXT_PUBLIC_GOOGLE_ADS_ID",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["production"],
-      "notes": "Optional first-party Google Ads account tag (AW-…). Empty = tag off. Production-targeted; knownEmptyOk until the owner sets it. Read by src/lib/ads/google-ads.ts. Never inject into preview-host or generated sites."
+      "notes": "Optional override for the first-party Google Ads account tag (AW-…). Empty uses the code default from src/lib/ads/google-ads.ts on production hosts. Kill-switch: NEXT_PUBLIC_GOOGLE_ADS_ENABLED. Never inject into preview-host or generated sites."
+    },
+    {
+      "key": "NEXT_PUBLIC_GOOGLE_ADS_ENABLED",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["preview"],
+      "notes": "Ads kill-switch. Unset = on for production hosts only (sajtmaskin.se/.com/sajtmaskin.vercel.app), off on preview/localhost. 1/true = QA on. 0/false/off = always off. Read by src/lib/ads/google-ads.ts."
     },
     {
       "key": "NEXT_PUBLIC_GOOGLE_ADS_BUILDER_START_LABEL",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["production"],
-      "notes": "Optional conversion label for builder_start (the part after AW-id/). Empty = that event is a no-op even if the account tag is set."
+      "notes": "Optional override for the builder_start conversion label (the part after AW-id/). Empty uses the code default from #1480. Invalid value (slash or AW- prefix) disables that conversion."
     },
     {
       "key": "NEXT_PUBLIC_GOOGLE_ADS_ACCOUNT_CREATED_LABEL",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["production"],
-      "notes": "Optional conversion label for account_created. Empty = that event is a no-op."
+      "notes": "Optional override for the account_created conversion label. Empty uses the code default from #1480. Invalid value disables that conversion."
     },
     {
       "key": "NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["production"],
-      "notes": "Optional conversion label for first_generation. Empty = that event is a no-op."
+      "notes": "Optional conversion label for first_generation / first_site_generated. Empty = gtag event first_site_generated without send_to. Set a label in Ads and here to count it as a conversion. No default label exists yet."
     },
     {
       "key": "NEXT_PUBLIC_BASE_URL",
@@ -781,6 +806,18 @@
       "classification": "local_only",
       "recommendedVercelTargets": [],
       "notes": "D-ID server-API-nyckel (API_USER:API_PASSWORD) för credits-saldot i last-generated-usersite.py. Appens avatar använder de publika NEXT_PUBLIC_AVATAR_*-client-nycklarna, så den här hör bara lokalt."
+    },
+    {
+      "key": "PIPELINE_TEST_ACCOUNT_EMAIL",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Operator-only reusable pipeline-test login, stored encrypted in Vercel and in ignored local env files. Not consumed by app authentication or account bootstrap; grants no admin or free-billing privilege. Current account exists in DEV/Preview only; storing this key for Production does not provision a Production account. Separate from privileged TEST_USER_EMAIL."
+    },
+    {
+      "key": "PIPELINE_TEST_ACCOUNT_PASSWORD",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Operator-only pipeline-test password; keep encrypted in Vercel and out of tracked files and NEXT_PUBLIC variables. Not consumed by app authentication or account bootstrap. Saving this secret does not create an account, change its password, grant privileges or activate scheduling. Separate from privileged TEST_USER_PASSWORD."
     },
     {
       "key": "TEST_USER_EMAIL",

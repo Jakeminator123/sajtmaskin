@@ -10,6 +10,7 @@
     "schemaVersion",
     "trunk",
     "deliveryBranch",
+    "directPreview",
     "allowedBranchPrefixes",
     "branchPrefixExemptActors",
     "immutableRemoteBranchPatterns",
@@ -28,6 +29,20 @@
     "schemaVersion": { "const": 1 },
     "trunk": { "const": "master" },
     "deliveryBranch": { "const": "preview" },
+    "directPreview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed", "prepareCommand", "pushCommand", "confirmation", "reviewName", "reviewTiming", "remoteChecks"],
+      "properties": {
+        "allowed": { "const": true },
+        "prepareCommand": { "const": "preview:prepare" },
+        "pushCommand": { "const": "preview:push" },
+        "confirmation": { "const": "exact-head-after-human-confirmation" },
+        "reviewName": { "const": "Buggpass" },
+        "reviewTiming": { "const": "before-push" },
+        "remoteChecks": { "const": "after-push" }
+      }
+    },
     "allowedBranchPrefixes": {
       "type": "array",
       "minItems": 0,
@@ -149,6 +164,7 @@
         "dependencies",
         "ci",
         "previewHost",
+        "bugBacklog",
         "observability",
         "e2e"
       ],
@@ -162,6 +178,7 @@
         "dependencies": { "$ref": "#/$defs/pathPatterns" },
         "ci": { "$ref": "#/$defs/pathPatterns" },
         "previewHost": { "$ref": "#/$defs/pathPatterns" },
+        "bugBacklog": { "$ref": "#/$defs/pathPatterns" },
         "observability": { "$ref": "#/$defs/pathPatterns" },
         "e2e": { "$ref": "#/$defs/pathPatterns" }
       }
@@ -180,6 +197,7 @@
         "dependencies",
         "ci",
         "previewHost",
+        "bugBacklog",
         "observability",
         "e2e",
         "full"
@@ -195,6 +213,7 @@
         "dependencies": { "$ref": "#/$defs/commands" },
         "ci": { "$ref": "#/$defs/commands" },
         "previewHost": { "$ref": "#/$defs/commands" },
+        "bugBacklog": { "$ref": "#/$defs/commands" },
         "observability": { "$ref": "#/$defs/commands" },
         "e2e": { "$ref": "#/$defs/commands" },
         "full": { "$ref": "#/$defs/commands" }

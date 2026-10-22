@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const getKostnadsfriPageBySlug = vi.hoisted(() => vi.fn());
@@ -9,6 +9,38 @@ const recordPageView = vi.hoisted(() => vi.fn(async () => undefined));
 const verifyPassword = vi.hoisted(() => vi.fn(() => false));
 const isKostnadsfriLookupConfigured = vi.hoisted(() => vi.fn(() => false));
 const lookupKostnadsfriProfile = vi.hoisted(() => vi.fn());
+const getCurrentUser = vi.hoisted(() => vi.fn(async (): Promise<unknown> => null));
+const setAuthCookie = vi.hoisted(() => vi.fn(async () => undefined));
+const clearAuthCookie = vi.hoisted(() => vi.fn(async () => undefined));
+const createToken = vi.hoisted(() => vi.fn(() => "campaign-token"));
+const CAMPAIGN_USER = vi.hoisted(() => ({
+  id: "user_campaign",
+  email: "kostnadsfri+zax-2-0-ab@kampanj.sajtmaskin.invalid",
+  provider: "kostnadsfri",
+}));
+const findOrCreateKostnadsfriCampaignUser = vi.hoisted(() =>
+  vi.fn(async (): Promise<unknown> => CAMPAIGN_USER),
+);
+
+vi.mock("@/lib/db/services/kostnadsfri-account", () => ({
+  findOrCreateKostnadsfriCampaignUser,
+}));
+
+const getKostnadsfriBoundProjectIdForOwner = vi.hoisted(() =>
+  vi.fn(async (): Promise<string | null> => null),
+);
+vi.mock("@/lib/db/services/kostnadsfri-campaign", () => ({
+  getKostnadsfriBoundProjectIdForOwner,
+}));
+
+vi.mock("@/lib/db/services/users", () => ({
+  updateUserLastLogin: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/lib/rate-limit", () => ({
+  withRateLimit: (_request: unknown, _endpoint: string, handler: () => Promise<Response>) =>
+    handler(),
+}));
 
 vi.mock("@/lib/db/services/kostnadsfri", () => ({
   getKostnadsfriPageBySlug,
@@ -22,6 +54,10 @@ vi.mock("@/lib/db/services/analytics", () => ({
 }));
 
 vi.mock("@/lib/auth/auth", () => ({
+  clearAuthCookie,
+  createToken,
+  getCurrentUser,
+  setAuthCookie,
   verifyPassword,
 }));
 
@@ -49,6 +85,14 @@ afterEach(() => {
   vi.clearAllMocks();
   verifyPassword.mockReturnValue(false);
   isKostnadsfriLookupConfigured.mockReturnValue(false);
+  getCurrentUser.mockResolvedValue(null);
+  findOrCreateKostnadsfriCampaignUser.mockResolvedValue(CAMPAIGN_USER);
+  getKostnadsfriBoundProjectIdForOwner.mockResolvedValue(null);
+  delete process.env.KOSTNADSFRI_PASSWORD_SEED;
+  delete process.env.KOSTNADSFRI_API_KEY;
+});
+
+beforeEach(() => {
   delete process.env.KOSTNADSFRI_PASSWORD_SEED;
   delete process.env.KOSTNADSFRI_API_KEY;
 });
@@ -94,8 +138,6 @@ function verifyRequest(
     headers: {
       "content-type": "application/json",
       "x-real-ip": "10.0.0.1",
-      // Rate-limitern nycklar på x-forwarded-for + slug (5/timme, in-memory).
-      // Tester som delar slug måste därför skilja sig här.
       ...(forwardedFor ? { "x-forwarded-for": forwardedFor } : {}),
       cookie: `sajtmaskin_session=${SESSION_ID}`,
     },
@@ -412,5 +454,154 @@ describe("kostnadsfri verify route — profilfallback", () => {
     expect(body.companyData.profile).toEqual({ city: "Kista", orgNumber: "559599-5639" });
     expect(lookupKostnadsfriProfile).not.toHaveBeenCalled();
     expect(backfillKostnadsfriPageProfile).not.toHaveBeenCalled();
+  });
+});
+
+// Ägarbeslut 2026-10-17 «Kostnadsfri / kampanjkonto».
+describe("kostnadsfri verify route — kampanjkonto", () => {
+  const params = { params: Promise.resolve({ slug: "zax-2-0-ab" }) };
+
+  function verifyOverHttps(password: string) {
+    return new NextRequest("https://sajtmaskin.se/api/kostnadsfri/zax-2-0-ab/verify", {
+      method: "POST",
+      body: JSON.stringify({ password }),
+      headers: { "content-type": "application/json", "x-real-ip": "10.0.0.3" },
+    });
+  }
+
+  it("loggar in en utloggad besökare i sidans kampanjkonto", async () => {
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+
+    const res = await POST(verifyOverHttps("rätt"), params);
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ success: true, account: "campaign" });
+    expect(findOrCreateKostnadsfriCampaignUser).toHaveBeenCalledWith({
+      email: CAMPAIGN_USER.email,
+      companyName: "Zax 2.0 AB",
+    });
+    expect(createToken).toHaveBeenCalledWith(CAMPAIGN_USER.id, CAMPAIGN_USER.email);
+    expect(setAuthCookie).toHaveBeenCalledWith("campaign-token", { secure: true });
+  });
+
+  it("behåller besökarens eget konto och rör inte kampanjkontot", async () => {
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+    getCurrentUser.mockResolvedValue({ id: "user_own", provider: "google" });
+
+    const res = await POST(verifyOverHttps("rätt"), params);
+
+    await expect(res.json()).resolves.toMatchObject({ success: true, account: "existing" });
+    expect(findOrCreateKostnadsfriCampaignUser).not.toHaveBeenCalled();
+    expect(setAuthCookie).not.toHaveBeenCalled();
+  });
+
+  it.each(["kostnadsfri_claimed", "email"])(
+    "loggar inte in när adressen ägs av provider %s",
+    async (provider) => {
+      verifyPassword.mockReturnValue(true);
+      getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+      findOrCreateKostnadsfriCampaignUser.mockResolvedValue({ ...CAMPAIGN_USER, provider });
+
+      const res = await POST(verifyOverHttps("rätt"), params);
+
+      await expect(res.json()).resolves.toMatchObject({ success: true, account: "claimed" });
+      expect(setAuthCookie).not.toHaveBeenCalled();
+      expect(clearAuthCookie).not.toHaveBeenCalled();
+    },
+  );
+
+  it("loggar ut en annan inbjudans kampanjsession när den här redan är sparad", async () => {
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+    getCurrentUser.mockResolvedValue({ id: "user_other_campaign", provider: "kostnadsfri" });
+    findOrCreateKostnadsfriCampaignUser.mockResolvedValue({
+      ...CAMPAIGN_USER,
+      provider: "kostnadsfri_claimed",
+    });
+
+    const res = await POST(verifyOverHttps("rätt"), params);
+
+    await expect(res.json()).resolves.toMatchObject({ success: true, account: "claimed" });
+    expect(clearAuthCookie).toHaveBeenCalledWith({ secure: true });
+    expect(setAuthCookie).not.toHaveBeenCalled();
+  });
+
+  it("verifierar inbjudan även när kontot inte kan skapas", async () => {
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+    findOrCreateKostnadsfriCampaignUser.mockRejectedValue(new Error("db down"));
+
+    const res = await POST(verifyOverHttps("rätt"), params);
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ success: true, account: "unavailable" });
+    expect(setAuthCookie).not.toHaveBeenCalled();
+  });
+
+  it("loggar ut en annan inbjudans kampanjsession när kontot för den här inte kan slås upp", async () => {
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+    getCurrentUser.mockResolvedValue({
+      id: "user_other_campaign",
+      email: "kostnadsfri+annan-ab@kampanj.sajtmaskin.invalid",
+      provider: "kostnadsfri",
+    });
+    findOrCreateKostnadsfriCampaignUser.mockRejectedValue(new Error("db timeout"));
+
+    const res = await POST(verifyOverHttps("rätt"), params);
+
+    await expect(res.json()).resolves.toMatchObject({ success: true, account: "unavailable" });
+    expect(clearAuthCookie).toHaveBeenCalledWith({ secure: true });
+    expect(setAuthCookie).not.toHaveBeenCalled();
+  });
+
+  it("behåller den här inbjudans egen kampanjsession vid ett tillfälligt uppslagsfel", async () => {
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+    getCurrentUser.mockResolvedValue({ ...CAMPAIGN_USER });
+    findOrCreateKostnadsfriCampaignUser.mockRejectedValue(new Error("db timeout"));
+
+    const res = await POST(verifyOverHttps("rätt"), params);
+
+    await expect(res.json()).resolves.toMatchObject({ success: true, account: "unavailable" });
+    expect(clearAuthCookie).not.toHaveBeenCalled();
+  });
+
+  it("skickar med projektet inbjudan redan är bunden till, slaget mot den inloggade ägaren", async () => {
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+    getKostnadsfriBoundProjectIdForOwner.mockResolvedValue("proj_original");
+
+    const res = await POST(verifyOverHttps("rätt"), params);
+
+    await expect(res.json()).resolves.toMatchObject({
+      success: true,
+      account: "campaign",
+      boundProjectId: "proj_original",
+    });
+    expect(getKostnadsfriBoundProjectIdForOwner).toHaveBeenCalledWith("zax-2-0-ab", CAMPAIGN_USER.id);
+  });
+
+  it("slår inte upp något bundet projekt när ingen användare är inloggad efteråt", async () => {
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+    findOrCreateKostnadsfriCampaignUser.mockResolvedValue({ ...CAMPAIGN_USER, provider: "kostnadsfri_claimed" });
+
+    const body = await (await POST(verifyOverHttps("rätt"), params)).json();
+
+    expect(body).not.toHaveProperty("boundProjectId");
+    expect(getKostnadsfriBoundProjectIdForOwner).not.toHaveBeenCalled();
+  });
+
+  it("skapar inget konto vid fel lösenord", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+
+    const res = await POST(verifyOverHttps("fel"), params);
+
+    expect(res.status).toBe(401);
+    expect(findOrCreateKostnadsfriCampaignUser).not.toHaveBeenCalled();
+    expect(setAuthCookie).not.toHaveBeenCalled();
   });
 });

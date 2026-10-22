@@ -316,7 +316,7 @@ def _render_scaffold_dump_panel(dump: dict[str, Any] | None) -> None:
         ]
         if rows:
             st.markdown("**Topp-kandidater** (högst score vann)")
-            st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+            st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
     keyword_scores = selection.get("keywordScores")
     if isinstance(keyword_scores, dict) and keyword_scores:
@@ -330,7 +330,7 @@ def _render_scaffold_dump_panel(dump: dict[str, Any] | None) -> None:
         )[:15]
         if kw_rows:
             with st.expander("Keyword-scores (topp 15)", expanded=False):
-                st.dataframe(pd.DataFrame(kw_rows), hide_index=True, use_container_width=True)
+                st.dataframe(pd.DataFrame(kw_rows), hide_index=True, width="stretch")
 
     # buildSpec → modell/tier-relaterad rationale (qualityTarget styr build-modell).
     if build_spec:
@@ -351,7 +351,7 @@ def _render_scaffold_dump_panel(dump: dict[str, Any] | None) -> None:
             if key in build_spec
         ]
         if bs_rows:
-            st.dataframe(pd.DataFrame(bs_rows), hide_index=True, use_container_width=True)
+            st.dataframe(pd.DataFrame(bs_rows), hide_index=True, width="stretch")
 
     _render_sources_table(payload)
 
@@ -389,7 +389,7 @@ def _render_sources_table(payload: dict[str, Any]) -> None:
                 }
             )
     if rows:
-        st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+        st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
         return
     st.info("Inga valda källor i dumpen (tom lista eller äldre dump utan `sources`).")
 
@@ -442,12 +442,12 @@ def _render_run_picker(ctx: BackofficeContext, run_dirs: list[Path]) -> None:
         {"fält": "versionId", "värde": _txt(meta.get("versionId"))},
     ]
     with st.expander("Kontext för körningen", expanded=False):
-        st.dataframe(pd.DataFrame(detail_rows), hide_index=True, use_container_width=True)
+        st.dataframe(pd.DataFrame(detail_rows), hide_index=True, width="stretch")
 
     retries = signals.get("scaffoldRetries") or []
     if retries:
         st.markdown("**Scaffold-retry-förslag** (`scaffold-retry.suggested` — drift-liknande, fil-tillgänglig)")
-        st.dataframe(pd.DataFrame(retries), hide_index=True, use_container_width=True)
+        st.dataframe(pd.DataFrame(retries), hide_index=True, width="stretch")
     else:
         st.caption("Inga `scaffold-retry.suggested`-events i denna körning.")
 
@@ -475,7 +475,7 @@ def _render_recent_runs_table(run_dirs: list[Path]) -> None:
                 "Retries": len(signals.get("scaffoldRetries") or []),
             }
         )
-    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
 
 def _render_dossier_note(ctx: BackofficeContext) -> None:
@@ -541,10 +541,10 @@ def _render_dossier_note(ctx: BackofficeContext) -> None:
         {"Dossier": dossier_id, "Antal": count}
         for dossier_id, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
     ]
-    st.dataframe(pd.DataFrame(count_rows), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(count_rows), hide_index=True, width="stretch")
 
     st.markdown("**Senaste rader med dossier-val**")
-    st.dataframe(pd.DataFrame(detail_rows[:100]), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(detail_rows[:100]), hide_index=True, width="stretch")
 
 
 # ---------------------------------------------------------------------------

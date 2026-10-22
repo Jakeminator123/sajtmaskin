@@ -19,9 +19,16 @@ export function DashboardSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-full w-(--sidebar-width) flex-col border-r border-border bg-card">
+    <aside className="border-border bg-card flex h-full w-(--sidebar-width) flex-col border-r">
       <div className="flex h-16 items-center px-6">
         <span className="text-lg font-bold tracking-tight">Instrumentpanel</span>
+      </div>
+
+      <div className="space-y-1 px-6 pb-4">
+        <p className="text-sm font-medium">Demodata — inte ansluten</p>
+        <p className="text-muted-foreground text-xs">
+          Mätetal, användare och aktivitet är exempel.
+        </p>
       </div>
 
       <Separator />
@@ -35,7 +42,9 @@ export function DashboardSidebar() {
               variant={active ? "secondary" : "ghost"}
               className={cn(
                 "w-full justify-start gap-3 text-sm",
-                active ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:text-foreground"
+                active
+                  ? "bg-secondary text-secondary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
               asChild
             >
@@ -54,9 +63,9 @@ export function DashboardSidebar() {
         <Avatar className="h-8 w-8">
           <AvatarFallback className="bg-primary/20 text-primary text-xs">AD</AvatarFallback>
         </Avatar>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">Admin</p>
-          <p className="text-xs text-muted-foreground truncate">admin@example.com</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium">Demoanvändare — ingen session</p>
+          <p className="text-muted-foreground truncate text-xs">admin@example.com</p>
         </div>
       </div>
     </aside>

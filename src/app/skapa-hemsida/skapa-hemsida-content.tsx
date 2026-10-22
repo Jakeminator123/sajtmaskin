@@ -72,7 +72,7 @@ const PREP_ITEMS = [
   "Bilder ni har rätt att använda",
 ] as const;
 
-const FAQS = [
+export const FAQS = [
   {
     q: "Måste jag kunna koda för att skapa en hemsida?",
     a: "Nej. En tydlig företagssida kräver inte att du skriver kod. Kod ger mer kontroll senare, men första versionen kan tas fram med byrå, ett hemsideprogram eller en builder där du styr med vanliga meningar.",
@@ -429,7 +429,7 @@ export function SkapaHemsidaContent() {
               <p className="mt-4 text-pretty leading-relaxed text-muted-foreground">
                 I Sajtmaskin betalar du credits som engångsköp, utan prenumeration. Publicering
                 debiterar credits. Aktuella paket finns på{" "}
-                <Link href="/#priser" className="text-foreground underline-offset-4 hover:underline">
+                <Link href="/priser" className="text-foreground underline-offset-4 hover:underline">
                   prissidan
                 </Link>
                 .

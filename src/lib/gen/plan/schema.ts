@@ -62,6 +62,12 @@ export type PlanPage = {
 };
 
 export type PlanIntegrationContract = {
+  kind?: "database" | "auth" | "payment" | "integration";
+  /** Canonical machine identity. Absent while the provider choice is unresolved. */
+  providerKey?: string;
+  /** Dossier capability governed by this provider decision. */
+  dossierCapability?: string;
+  selectionSource?: "explicit" | "legacy-preserved" | "dossier-default" | "generic-default";
   provider: string;
   name: string;
   reason: string;
@@ -168,7 +174,7 @@ function normalizePage(value: unknown, index: number): PlanPage | null {
   };
 }
 
-function normalizeIntegrationContract(value: unknown): PlanIntegrationContract | null {
+export function normalizePlanIntegrationContract(value: unknown): PlanIntegrationContract | null {
   if (!isRecord(value)) return null;
   const statusValue = asString(value.status);
   const status =
@@ -179,7 +185,26 @@ function normalizeIntegrationContract(value: unknown): PlanIntegrationContract |
   const name = asString(value.name) || provider;
   const reason = asString(value.reason);
   if (!provider && !name) return null;
+  const kindValue = asString(value.kind);
+  const kind = ["database", "auth", "payment", "integration"].includes(kindValue)
+    ? (kindValue as PlanIntegrationContract["kind"])
+    : undefined;
+  const selectionSourceValue = asString(value.selectionSource);
+  const selectionSource = [
+    "explicit",
+    "legacy-preserved",
+    "dossier-default",
+    "generic-default",
+  ].includes(selectionSourceValue)
+    ? (selectionSourceValue as PlanIntegrationContract["selectionSource"])
+    : undefined;
   return {
+    kind,
+    ...(asString(value.providerKey)
+      ? { providerKey: asString(value.providerKey).toLowerCase() }
+      : {}),
+    dossierCapability: asString(value.dossierCapability).toLowerCase() || undefined,
+    selectionSource,
     provider: provider || name,
     name: name || provider,
     reason,
@@ -217,7 +242,7 @@ function normalizeContracts(value: unknown): PlanContracts | undefined {
     paymentProvider: asString(value.paymentProvider) || undefined,
     integrations: Array.isArray(value.integrations)
       ? value.integrations
-          .map((item) => normalizeIntegrationContract(item))
+          .map((item) => normalizePlanIntegrationContract(item))
           .filter((item): item is PlanIntegrationContract => Boolean(item))
       : [],
     envVars: Array.isArray(value.envVars)

@@ -3,11 +3,17 @@ import { runWithGenerationWork } from "@/lib/gen/stream/generation-work";
 import { parseSSEBuffer } from "@/lib/gen/stream/sse-parser";
 import { formatSSEEvent } from "@/lib/streaming";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
+import type { GenerationFinalizeInput } from "@/lib/gen/generation-input-package";
+import { buildOrchestrationContract } from "@/lib/gen/orchestration-contract";
 
 const finalizeAndSaveVersionMock = vi.hoisted(() => vi.fn());
 const addMessageMock = vi.hoisted(() => vi.fn());
 const failVersionVerificationMock = vi.hoisted(() => vi.fn());
 const logGenerationMock = vi.hoisted(() => vi.fn());
+vi.mock("./generation-stream-post-finalize", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./generation-stream-post-finalize")>();
+  return { ...actual, runOwnEngineStreamPostFinalize: vi.fn(actual.runOwnEngineStreamPostFinalize) };
+});
 
 vi.mock("@/lib/db/client", () => ({
   db: new Proxy({}, { get() { return vi.fn(); } }),
@@ -45,7 +51,14 @@ vi.mock("@/lib/utils/debug", () => ({
 }));
 
 import { createOwnEngineGenerationStream } from "./generation-stream";
+import { runOwnEngineStreamPostFinalize } from "./generation-stream-post-finalize";
 import { devLogAppend } from "@/lib/logging/dev-log";
+import { createCodeGenSSEStream } from "@/lib/gen/stream/stream-format";
+import { buildMeta } from "@/lib/logging/generation-log-writer/status";
+import {
+  F3_CONTINUATION_EMPTY_QUESTION,
+  F3_EMPTY_NO_CODE_REASON,
+} from "@/lib/gen/stream/f3-continuation";
 
 async function collectSseEvents(stream: ReadableStream<Uint8Array>): Promise<
   Array<{ event: string; data: unknown }>
@@ -150,7 +163,15 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     addMessageMock.mockReset();
     addMessageMock.mockResolvedValue(null);
     failVersionVerificationMock.mockReset();
-    failVersionVerificationMock.mockResolvedValue(true);
+    // Confirmed failed draft. Explicit null/throw cases override this; a
+    // missing mark must not be treated as a successful recovery.
+    failVersionVerificationMock.mockImplementation(async (versionId: string, summary: string) => ({
+      id: versionId,
+      release_state: "draft",
+      verification_state: "failed",
+      verification_summary: summary,
+      promoted_at: null,
+    }));
     logGenerationMock.mockReset();
     logGenerationMock.mockResolvedValue(null);
     commitCredits.mockClear();
@@ -159,6 +180,51 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ["done", formatSSEEvent("done", {}), undefined],
+    ["fallback flush", "", "Done from fallback flush"],
+  ])("carries the same decided package through %s without emitting it in SSE", async (_name, ending, logNote) => {
+    const params = providerFaultParams("chat_decided", {});
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_800_000);
+    finalizeAndSaveVersionMock.mockImplementationOnce(async () => {
+      vi.mocked(Date.now).mockReturnValue(1_700_000_899_999);
+      return mockFinalizeResult;
+    });
+    const routePlan: GenerationFinalizeInput["routePlan"] = {
+      provenance: { primarySource: "prompt", sources: ["prompt"] },
+      siteType: "one-page",
+      reason: "decided empty routes",
+      routes: [],
+    };
+    const generationInput: GenerationFinalizeInput = {
+      buildSpec: params.buildSpec,
+      resolvedScaffold: null,
+      routePlan,
+      orchestrationContract: buildOrchestrationContract({ buildSpec: params.buildSpec, resolvedScaffold: null, routePlan }),
+      variantId: null,
+      lineageHash: "decided-lineage",
+      dossierSelection: { selected: [], poolSize: 0, byCapability: {} },
+      preGenerationContracts: { contracts: { dataMode: "none", integrations: [], envVars: [] }, unresolvedDecisions: [] },
+      removedCapabilities: [],
+      removedDossierIds: [],
+    };
+    const events = await collectSseEvents(createOwnEngineGenerationStream({
+      ...params,
+      generationInput,
+      pipelineStream: pipelineStreamFromSsePayload(formatSSEEvent("content", { text: "generated" }) + ending),
+    }));
+    expect(finalizeAndSaveVersionMock).toHaveBeenCalledTimes(1);
+    expect(finalizeAndSaveVersionMock.mock.calls[0]?.[0].generationInput).toBe(generationInput);
+    expect(finalizeAndSaveVersionMock.mock.calls[0]?.[0].logNote).toBe(logNote);
+    expect(events.find((event) => event.event === "meta")?.data).not.toHaveProperty("generationInput");
+    expect(runOwnEngineStreamPostFinalize).toHaveBeenCalledWith(expect.objectContaining({
+      requestDeadlineEpochMs: params.requestDeadlineEpochMs,
+      recoveredAfterStreamAbort: ending === "",
+    }));
+    expect(events.find((event) => event.event === "meta")?.data).not.toHaveProperty("requestDeadlineEpochMs");
   });
 
   it("emits chatId, meta, forwarded content, then done with version after pipeline done", async () => {
@@ -178,6 +244,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         thinking: false,
       },
       engineModel: "gpt-5.4",
+      requestDeadlineEpochMs: 1_700_000_900_000,
       optimizedMessage: "build me a page",
       engineIntent: "website",
       buildSpec: {
@@ -261,6 +328,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         thinking: true,
       },
       engineModel: "gpt-5.4",
+      requestDeadlineEpochMs: 1_700_000_900_000,
       optimizedMessage: "build me a page",
       engineIntent: "website",
       buildSpec: {
@@ -327,6 +395,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         thinking: false,
       },
       engineModel: "gpt-5.4",
+      requestDeadlineEpochMs: 1_700_000_900_000,
       optimizedMessage: "bygg integrationer",
       engineIntent: "website",
       buildSpec: {
@@ -441,6 +510,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         thinking: false,
       },
       engineModel: "gpt-5.4",
+      requestDeadlineEpochMs: 1_700_000_900_000,
       optimizedMessage: "uppdatera hero",
       engineIntent: "website",
       buildSpec: {
@@ -512,6 +582,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         thinking: false,
       },
       engineModel: "gpt-5.4",
+      requestDeadlineEpochMs: 1_700_000_900_000,
       optimizedMessage: "Bygg integrationer nu",
       engineIntent: "website",
       buildSpec: {
@@ -587,6 +658,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         thinking: false,
       },
       engineModel: "gpt-5.4",
+      requestDeadlineEpochMs: 1_700_000_900_000,
       optimizedMessage: "Bygg integrationer nu utifrån den finaliserade designversionen.",
       engineIntent: "website",
       buildSpec: {
@@ -672,6 +744,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         thinking: false,
       },
       engineModel: "gpt-5.4",
+      requestDeadlineEpochMs: 1_700_000_900_000,
       optimizedMessage: "Godkänn förslag",
       engineIntent: "website",
       buildSpec: f3ToolOnlyBuildSpec,
@@ -915,6 +988,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         thinking: false,
       },
       engineModel: "gpt-5.4",
+      requestDeadlineEpochMs: 1_700_000_900_000,
       optimizedMessage: "build me a page",
       engineIntent: "website",
       buildSpec: {
@@ -942,6 +1016,38 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
       commitCredits,
     };
   }
+
+  it("settles one persisted version after multiple tool steps and one final completion", async () => {
+    const chatId = "chat_multi_step_billing";
+    const params = providerFaultParams(chatId, {});
+    const pipelineStream = createCodeGenSSEStream({
+      fullStream: (async function* () {
+        yield { type: "tool-call", toolCallId: "lookup-1", toolName: "inspect", input: {} };
+        yield { type: "tool-result", toolCallId: "lookup-1", toolName: "inspect" };
+        yield { type: "finish-step", finishReason: "tool-calls" };
+        yield { type: "tool-call", toolCallId: "lookup-2", toolName: "inspect", input: {} };
+        yield { type: "tool-result", toolCallId: "lookup-2", toolName: "inspect" };
+        yield { type: "finish-step", finishReason: "tool-calls" };
+        yield {
+          type: "text-delta",
+          text: '```tsx file="app/page.tsx"\nexport default function Page(){return <main>Klar</main>}\n```',
+        };
+        yield { type: "finish", finishReason: "stop" };
+      })(),
+      usage: Promise.resolve({ inputTokens: 20, outputTokens: 6 }),
+      totalUsage: Promise.resolve({ inputTokens: 30, outputTokens: 10 }),
+    }, { meta: { chatId } });
+
+    const events = await collectSseEvents(createOwnEngineGenerationStream({
+      ...params,
+      pipelineStream,
+    }));
+
+    expect(finalizeAndSaveVersionMock).toHaveBeenCalledTimes(1);
+    expect(events.filter((event) => event.event === "done")).toHaveLength(1);
+    expect(commitCredits).toHaveBeenCalledTimes(1);
+    expect(commitCredits).toHaveBeenCalledWith({ chatId, versionId: "ver_golden_1" });
+  });
 
   it("a provider fault (revoked key) charges no credits and leaves a failed generation row", async () => {
     const out = createOwnEngineGenerationStream(
@@ -1169,5 +1275,201 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     // marker failure; the version is already persisted and reconcilable only
     // after the marker succeeds on a later explicit retry.
     expect(finalizeAndSaveVersionMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("stores a provider abort with partial files as a failed recovered version, never as site.done", async () => {
+    failVersionVerificationMock.mockImplementationOnce(async (versionId: string, summary: string) => ({
+      ...mockFinalizeResult.version,
+      id: versionId,
+      release_state: "draft",
+      verification_state: "failed",
+      verification_summary: summary,
+      promoted_at: null,
+    }));
+    const pipelineStream = createCodeGenSSEStream(
+      {
+        fullStream: (async function* () {
+          yield { type: "start" };
+          yield {
+            type: "text-delta",
+            textDelta: '```tsx file="app/page.tsx"\nexport default function Page(){return <main>Hel</main>}\n```',
+          };
+          yield { type: "abort" };
+        })(),
+        usage: Promise.resolve({ inputTokens: 11, outputTokens: 7 }),
+      },
+      { meta: { chatId: "chat_provider_abort" } },
+    );
+
+    const events = await collectSseEvents(
+      createOwnEngineGenerationStream({
+        ...providerFaultParams("chat_provider_abort", {}),
+        pipelineStream,
+      }),
+    );
+
+    expect(finalizeAndSaveVersionMock).toHaveBeenCalledTimes(1);
+    expect(finalizeAndSaveVersionMock.mock.calls[0]?.[0]).toMatchObject({
+      runAutofix: false,
+      logNote: "Done from fallback flush",
+    });
+    expect(failVersionVerificationMock).toHaveBeenCalledWith(
+      "ver_golden_1",
+      expect.stringContaining("Återställd ofullständig version efter streamfel"),
+    );
+    expect(runOwnEngineStreamPostFinalize).toHaveBeenCalledWith(
+      expect.objectContaining({ recoveredAfterStreamAbort: true }),
+    );
+
+    const doneEvents = events.filter((event) => event.event === "done");
+    expect(doneEvents).toHaveLength(1);
+    expect(doneEvents[0]?.data).toMatchObject({
+      versionId: "ver_golden_1",
+      releaseState: "draft",
+      verificationState: "failed",
+      verificationSummary: expect.stringContaining("Återställd ofullständig version efter streamfel"),
+    });
+
+    const logged = vi
+      .mocked(devLogAppend)
+      .mock.calls.map(([, payload]) => payload as Record<string, unknown>);
+    expect(logged.some((entry) => entry.type === "site.done")).toBe(false);
+    expect(logged).toContainEqual(
+      expect.objectContaining({
+        type: "site.aborted",
+        versionId: "ver_golden_1",
+        reason: "stream_closed_without_done",
+      }),
+    );
+    const meta = buildMeta(
+      logged.map((data) => ({
+        ts: new Date().toISOString(),
+        target: "in-progress",
+        slug: null,
+        summary: null,
+        data,
+      })),
+    );
+    expect(meta).toMatchObject({ status: "aborted", versionId: "ver_golden_1" });
+  });
+
+  it.each(["null", "throws"] as const)(
+    "fails closed when recovered verification marking %s, without emitting stale passed/promoted",
+    async (mode) => {
+      const markError = new Error("verification mark failed");
+      const staleVersion = {
+        id: "ver_stale_promoted",
+        release_state: "promoted" as const,
+        verification_state: "passed" as const,
+        verification_summary: "looks done",
+        promoted_at: "2026-10-01T00:00:00.000Z",
+      };
+      finalizeAndSaveVersionMock.mockResolvedValueOnce({
+        ...mockFinalizeResult,
+        version: staleVersion as FinalizeResult["version"],
+      });
+      if (mode === "null") {
+        failVersionVerificationMock.mockResolvedValueOnce(null);
+      } else {
+        failVersionVerificationMock.mockRejectedValueOnce(markError);
+      }
+      const chatId = `chat_unconfirmed_${mode}`;
+      const params = providerFaultParams(chatId, {});
+      const out = createOwnEngineGenerationStream({
+        ...params,
+        pipelineStream: pipelineStreamFromSsePayload(
+          formatSSEEvent("content", {
+            text: '```tsx file="app/page.tsx"\nexport default function Page(){return null}\n```',
+          }),
+        ),
+      });
+
+      const result = await collectSseEventsUntilError(out);
+
+      if (mode === "throws") {
+        expect(result.error).toBe(markError);
+      } else {
+        expect(result.error).toBeInstanceOf(Error);
+        expect((result.error as Error).message).toContain("not confirmed");
+      }
+      expect(result.events.filter((event) => event.event === "done")).toHaveLength(0);
+      expect(result.events.filter((event) => event.event === "preview-ready")).toHaveLength(0);
+      for (const event of result.events) {
+        if (!event.data || typeof event.data !== "object") continue;
+        const data = event.data as Record<string, unknown>;
+        expect(data.verificationState).not.toBe("passed");
+        expect(data.releaseState).not.toBe("promoted");
+        expect(data.promotedAt).toBeUndefined();
+        expect(data.step).not.toBe("preview");
+      }
+      expect(finalizeAndSaveVersionMock).toHaveBeenCalledTimes(1);
+      expect(failVersionVerificationMock).toHaveBeenCalledTimes(1);
+      expect(failVersionVerificationMock).toHaveBeenCalledWith(
+        "ver_stale_promoted",
+        expect.any(String),
+      );
+      expect(commitCredits).toHaveBeenCalledTimes(1);
+      expect(commitCredits).toHaveBeenCalledWith({
+        chatId,
+        versionId: "ver_stale_promoted",
+      });
+      expect(runOwnEngineStreamPostFinalize).not.toHaveBeenCalled();
+      const logged = vi
+        .mocked(devLogAppend)
+        .mock.calls.map(([, payload]) => payload as Record<string, unknown>);
+      expect(logged.some((entry) => entry.type === "site.done")).toBe(false);
+      expect(logged.some((entry) => entry.type === "site.aborted")).toBe(false);
+      expect(logged.some((entry) => entry.type === "server-verify.policy")).toBe(false);
+    },
+  );
+
+  it.each([
+    ["abort", [{ type: "start" }, { type: "abort" }]],
+    [
+      "provider error without clean finish",
+      [
+        { type: "start" },
+        { type: "error", error: new Error("upstream reset") },
+        { type: "finish", finishReason: "error" },
+      ],
+    ],
+  ])("keeps the F3 continuation marker after an empty %s", async (_name, parts) => {
+    const { EmptyGenerationError } = await import("@/lib/gen/stream/finalize-version");
+    finalizeAndSaveVersionMock.mockRejectedValueOnce(
+      new EmptyGenerationError("chat_f3_empty_abort", null),
+    );
+    const params = providerFaultParams("chat_f3_empty_abort", {});
+    const pipelineStream = createCodeGenSSEStream(
+      {
+        fullStream: (async function* () {
+          for (const part of parts) yield part;
+        })(),
+        usage: Promise.resolve({ inputTokens: 11, outputTokens: 0 }),
+      },
+      { meta: { chatId: "chat_f3_empty_abort" } },
+    );
+
+    const events = await collectSseEvents(
+      createOwnEngineGenerationStream({
+        ...params,
+        buildSpec: { ...params.buildSpec, previewPolicy: "fidelity3" },
+        pipelineStream,
+      }),
+    );
+
+    const doneEvents = events.filter((event) => event.event === "done");
+    expect(doneEvents).toHaveLength(1);
+    expect(doneEvents[0]?.data).toMatchObject({
+      versionId: null,
+      awaitingInput: true,
+      reason: F3_EMPTY_NO_CODE_REASON,
+    });
+    expect(addMessageMock).toHaveBeenCalledWith(
+      "chat_f3_empty_abort",
+      "assistant",
+      F3_CONTINUATION_EMPTY_QUESTION,
+      undefined,
+      [expect.objectContaining({ type: expect.any(String) })],
+    );
   });
 });

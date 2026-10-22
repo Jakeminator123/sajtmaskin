@@ -567,14 +567,14 @@ describe("completeProjectDependencies", () => {
       },
     ]);
 
-    expect(result.pinnedDependencies["radix-ui"]).toBe("1.6.7");
+    expect(result.pinnedDependencies["radix-ui"]).toBe("1.8.1");
     const pkg = JSON.parse(
       result.files.find((file) => file.path === "package.json")!.content,
     ) as {
       dependencies: Record<string, string>;
       devDependencies: Record<string, string>;
     };
-    expect(pkg.dependencies["radix-ui"]).toBe("1.6.7");
+    expect(pkg.dependencies["radix-ui"]).toBe("1.8.1");
     expect(pkg.dependencies.next).toBe("14.2.0");
     expect(pkg.dependencies.react).toBe("^18");
     expect(pkg.dependencies["kept-template-package"]).toBe("~2.3.4");

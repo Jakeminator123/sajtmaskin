@@ -60,15 +60,24 @@ vi.mock("@/lib/db/client", async () => {
               }),
             }),
             select: () => ({
-              from: () => ({
-                where: () => ({
-                  for: async (strength: string) => {
-                    if (strength === "update") state.locks += 1;
-                    return state.lockedPageExists
-                      ? [{ ...state.lockedPage, extra_data: state.lockedPageExtra }]
-                      : [];
-                  },
-                }),
+              from: (table: PgTable) => ({
+                where: (clause: SQL) => {
+                  if (table === schema.kostnadsfriMailEvents) {
+                    const [messageId] = new PgDialect().sqlToQuery(clause).params;
+                    return {
+                      limit: async () =>
+                        state.events.filter((event) => event.message_id === messageId).slice(0, 1),
+                    };
+                  }
+                  return {
+                    for: async (strength: string) => {
+                      if (strength === "update") state.locks += 1;
+                      return state.lockedPageExists
+                        ? [{ ...state.lockedPage, extra_data: state.lockedPageExtra }]
+                        : [];
+                    },
+                  };
+                },
               }),
             }),
           });
@@ -276,7 +285,11 @@ describe("countFirstAcceptedCohorts", () => {
 });
 
 describe("company metadata vs protected cohort fields", () => {
-  const metadata = { contactEmail: "ny@acme.se", extraDataPatch: { profile: { city: "Lund" } } };
+  const metadata = {
+    industry: "IT – AI/Data",
+    contactEmail: "ny@acme.se",
+    extraDataPatch: { profile: { city: "Lund" } },
+  };
   const sent = {
     id: 1,
     sent_at: new Date("2026-10-01T08:00:00.000Z"),
@@ -292,6 +305,7 @@ describe("company metadata vs protected cohort fields", () => {
 
     expect(result.status).toBe("created");
     expect(state.pageUpdateValues).toHaveLength(1);
+    expect(state.pageUpdateValues[0]).toHaveProperty("industry", "IT – AI/Data");
     expect(state.pageUpdateValues[0]).toHaveProperty("contact_email", "ny@acme.se");
     expect(state.pageUpdateValues[0]).toHaveProperty("extra_data");
     expect(state.pageUpdateValues[0]).not.toHaveProperty("sent_at");
@@ -315,7 +329,43 @@ describe("company metadata vs protected cohort fields", () => {
       sent_at: sent.sent_at,
       source: "render-mail-flow:text",
       contact_email: "ny@acme.se",
+      industry: "IT – AI/Data",
     });
+  });
+
+  it("does not erase a stored industry when accepted metadata omits it or sends whitespace", async () => {
+    state.lockedPage = { ...sent, industry: "Snickeri/Inredning" };
+
+    await recordKostnadsfriMailEventForSubscribedPage(
+      { ...mailEvent, pageId: 1, slug: "acme-ab" },
+      { metadata: { industry: "   " } },
+    );
+
+    expect(state.pageUpdateValues).toEqual([]);
+    expect(state.lockedPage).toHaveProperty("industry", "Snickeri/Inredning");
+  });
+
+  it("changes no metadata when a messageId conflicts", async () => {
+    state.lockedPage = { ...sent, industry: "Snickeri/Inredning" };
+    await recordKostnadsfriMailEventForSubscribedPage({
+      ...mailEvent,
+      pageId: 1,
+      slug: "acme-ab",
+    });
+
+    const conflict = await recordKostnadsfriMailEventForSubscribedPage(
+      {
+        ...mailEvent,
+        recipient: "annan@acme.se",
+        pageId: 1,
+        slug: "acme-ab",
+      },
+      { metadata },
+    );
+
+    expect(conflict.status).toBe("conflict");
+    expect(state.pageUpdateValues).toEqual([]);
+    expect(state.lockedPage).toHaveProperty("industry", "Snickeri/Inredning");
   });
 
   it("changes no metadata after opt-out", async () => {

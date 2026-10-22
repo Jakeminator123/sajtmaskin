@@ -188,7 +188,7 @@ def _render_generator_chain(
 
     st.markdown("### Byggprofiler (own-engine, den som skriver sajtens kod)")
     profile_inputs: dict[str, str] = {}
-    cols = st.columns(5, gap="small")
+    cols = st.columns(len(BUILD_PROFILE_ORDER), gap="small")
     for col, key in zip(cols, BUILD_PROFILE_ORDER):
         with col:
             profile_inputs[key] = st.text_input(
@@ -255,7 +255,7 @@ def _render_generator_chain(
                     if model_value == "selected_build_model"
                     else model_value
                 )
-                supports_reasoning_mode = resolved_model_value.startswith("gpt-5.6-")
+                supports_reasoning_mode = resolved_model_value.startswith(("gpt-5.6-", "gpt-6"))
                 with c2:
                     thinking_value = st.toggle(
                         "Thinking",

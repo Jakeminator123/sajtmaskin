@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Loader2, AlertCircle, Check } from "lucide-react";
 import type { KostnadsfriCompanyData } from "@/lib/kostnadsfri";
 import { KOSTNADSFRI_INFORMATION_PATH } from "@/lib/kostnadsfri/analytics-paths";
+import type { CampaignAccountStatus } from "@/lib/kostnadsfri/campaign-account";
 import { KOSTNADSFRI_INTRO_DURATION_LABEL } from "@/lib/kostnadsfri/media";
 import { IntroVideo } from "./intro-video";
 
@@ -23,17 +24,30 @@ const STEPS = [
   "Ni behöver inte installera något — allt sker i webbläsaren.",
 ];
 
+/** Visas bara när den delade spärren närmar sig gränsen. */
+const ATTEMPTS_LEFT_WARNING = 3;
+
+function readAccountStatus(value: unknown): CampaignAccountStatus {
+  return value === "existing" || value === "campaign" || value === "claimed"
+    ? value
+    : "unavailable";
+}
+
 interface PasswordGateProps {
   slug: string;
   companyName: string;
-  onSuccess: (data: KostnadsfriCompanyData) => void;
+  onSuccess: (
+    data: KostnadsfriCompanyData,
+    account: CampaignAccountStatus,
+    boundProjectId: string | null,
+  ) => void | Promise<void>;
 }
 
 export function PasswordGate({ slug, companyName, onSuccess }: PasswordGateProps) {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [attempts, setAttempts] = useState(0);
+  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
   const passwordId = useId();
   const errorId = useId();
   const headingId = useId();
@@ -60,15 +74,27 @@ export function PasswordGate({ slug, companyName, onSuccess }: PasswordGateProps
           }),
         });
 
+        if (response.status === 429) {
+          setAttemptsLeft(0);
+          setError("För många försök. Vänta en stund och försök igen.");
+          return;
+        }
+
         const data = await response.json();
 
         if (!response.ok || !data.success) {
-          setAttempts((prev) => prev + 1);
+          const remainingHeader = response.headers?.get("X-RateLimit-Remaining");
+          const remaining = remainingHeader ? Number(remainingHeader) : Number.NaN;
+          setAttemptsLeft(Number.isFinite(remaining) ? remaining : null);
           setError(data.error || "Felaktigt lösenord.");
           return;
         }
 
-        onSuccess(data.companyData);
+        await onSuccess(
+          data.companyData,
+          readAccountStatus(data.account),
+          typeof data.boundProjectId === "string" && data.boundProjectId ? data.boundProjectId : null,
+        );
       } catch {
         setError("Kunde inte ansluta. Kontrollera din internetanslutning.");
       } finally {
@@ -158,9 +184,9 @@ export function PasswordGate({ slug, companyName, onSuccess }: PasswordGateProps
                 >
                   <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
                   <span>{error}</span>
-                  {attempts >= 3 && (
+                  {attemptsLeft !== null && attemptsLeft > 0 && attemptsLeft <= ATTEMPTS_LEFT_WARNING && (
                     <span className="ml-auto shrink-0 text-xs opacity-70">
-                      {5 - attempts} försök kvar
+                      {attemptsLeft} försök kvar
                     </span>
                   )}
                 </div>
@@ -184,6 +210,19 @@ export function PasswordGate({ slug, companyName, onSuccess }: PasswordGateProps
                 )}
               </button>
             </form>
+
+            <p className="mt-4 text-xs text-pretty text-muted-foreground">
+              När du går vidare skapar vi ett konto åt {companyName} så att bygget sparas. Du
+              godkänner då våra{" "}
+              <Link href="/terms" className="text-primary underline-offset-2 hover:underline">
+                användarvillkor
+              </Link>{" "}
+              och vår{" "}
+              <Link href="/privacy" className="text-primary underline-offset-2 hover:underline">
+                integritetspolicy
+              </Link>
+              .
+            </p>
 
             <p className="mt-5 text-sm text-pretty text-muted-foreground">
               Vill du veta mer får du gärna läsa mer om erbjudandet{" "}

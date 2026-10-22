@@ -1,4 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/gen/dossiers/registry", async (importOriginal) =>
+  (await import("./build-enforced-dossier-mock")).withBuildEnforcedDossier(
+    await importOriginal<typeof import("@/lib/gen/dossiers/registry")>(),
+    "clerk-auth",
+  ),
+);
+
 import { deriveTier3BuildSpecForDossierIds } from "./tier3-build-spec";
 
 describe("deriveTier3BuildSpecForDossierIds", () => {

@@ -1,4 +1,6 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
+import { BACKUP_RETIREMENTS } from "./backup-retirements.mjs";
 
 import {
   BASE_REF,
@@ -14,10 +16,14 @@ import {
   isNextCacheStale,
   isProtectedBranch,
   isPrunablePorcelainLine,
+  isRemoteDeleteRefused,
   isWorktreeDirty,
+  parseDeleteRemoteArgs,
+  parseLsRemote,
   parsePrLifecycle,
   parsePrLifecycleTsv,
   parsePorcelainWorktrees,
+  runDeleteRemote,
 } from "./tidy.mjs";
 
 /**
@@ -342,6 +348,234 @@ describe("dedupeVercelIgnoreLines", () => {
     // Vercel-CLI:n skriver CRLF på Windows, men `.gitattributes` kräver LF.
     const { content } = dedupeVercelIgnoreLines(".env*\r\n\r\n.env*\r\n");
     expect(content).toBe(".env*\n");
+  });
+});
+
+describe("--delete-remote", () => {
+  const tip = "a".repeat(40);
+  const other = "b".repeat(40);
+  type Call = { cmd: string; args: string[]; env?: Record<string, string> };
+  type Reply = { status: number | null; stdout: string; stderr: string };
+
+  /**
+   * Fejkad git/gh. `tips` är remote-tipet som varje `ls-remote` av branchen ser
+   * i tur och ordning, så ett tip som ändras mellan plan och delete går att
+   * simulera. Allt som skriver loggas i `calls` och utförs aldrig.
+   */
+  function fakeRunner({
+    tips = [tip],
+    tag = null as string | null,
+    prs = "[]" as string | null,
+    tagAfterPush = tip as string | null,
+  } = {}) {
+    const calls: Call[] = [];
+    let lsCount = 0;
+    let tagPushed = false;
+    const run = (cmd: string, args: string[], opts: { env?: Record<string, string> } = {}): Reply => {
+      calls.push({ cmd, args, env: opts.env });
+      if (cmd === "gh") {
+        return prs === null
+          ? { status: 1, stdout: "", stderr: "gh: offline" }
+          : { status: 0, stdout: prs, stderr: "" };
+      }
+      if (args[0] === "ls-remote") {
+        const lines: string[] = [];
+        if (args.some((a) => a.startsWith("refs/heads/"))) {
+          const current = tips[Math.min(lsCount, tips.length - 1)];
+          lsCount += 1;
+          const head = args.find((a) => a.startsWith("refs/heads/"));
+          if (current) lines.push(`${current}\t${head}`);
+        }
+        const tagRef = args.find((a) => a.startsWith("refs/tags/") && !a.endsWith("^{}"));
+        const tagSha = tagPushed ? tagAfterPush : tag;
+        if (tagRef && tagSha) lines.push(`${tagSha}\t${tagRef}`);
+        return { status: 0, stdout: lines.join("\n"), stderr: "" };
+      }
+      if (args[0] === "push" && args[2]?.includes(":refs/tags/")) tagPushed = true;
+      return { status: 0, stdout: "", stderr: "" };
+    };
+    return { run, calls };
+  }
+
+  const writes = (calls: Call[]) =>
+    calls.filter((c) => c.cmd === "git" && (c.args[0] === "push" || c.args[0] === "fetch"));
+  const silent = () => {};
+
+  it("parsar flaggan i alla former och bara när den är begärd", () => {
+    expect(parseDeleteRemoteArgs(["--apply"])).toBeNull();
+    expect(parseDeleteRemoteArgs(["--delete-remote", "a,b", "--apply"])).toEqual(["a", "b"]);
+    expect(parseDeleteRemoteArgs(["--delete-remote=a", "--delete-remote", "b,a"])).toEqual(["a", "b"]);
+    expect(parseDeleteRemoteArgs(["--delete-remote", "--apply"])).toEqual([]);
+  });
+
+  it("peelar annoterade taggar och avvisar trasiga ls-remote-rader", () => {
+    const refs = parseLsRemote(`${other}\trefs/tags/archive/x\n${tip}\trefs/tags/archive/x^{}`);
+    expect(refs.get("refs/tags/archive/x")).toBe(tip);
+    expect(() => parseLsRemote("nonsense")).toThrow("ogiltig ls-remote-rad");
+  });
+
+  it("nekar skyddade och oföränderliga brancher utan att fråga remote", () => {
+    for (const name of ["master", "main", "preview", "JAKOB_BRA_1", "rescue/x", "archive/x"]) {
+      expect(isRemoteDeleteRefused(name), name).toBe(true);
+      const { run, calls } = fakeRunner();
+      const { ok, results } = runDeleteRemote({ branches: [name], apply: true, run, log: silent });
+      expect(ok).toBe(false);
+      expect(results[0].outcome).toBe("refused");
+      expect(calls).toEqual([]);
+    }
+    expect(isRemoteDeleteRefused("builder-branch")).toBe(false);
+  });
+
+  it("nekar namn som kan tolkas som flagga eller refspec", () => {
+    for (const name of ["-f", "a:b", "refs/heads/x", "a..b", "+x"]) {
+      const { run, calls } = fakeRunner();
+      expect(runDeleteRemote({ branches: [name], apply: true, run, log: silent }).ok).toBe(false);
+      expect(calls).toEqual([]);
+    }
+  });
+
+  it("raderar bara de sex beslutade backup-tipsen med befintligt remote-arkiv", () => {
+    expect(Object.keys(BACKUP_RETIREMENTS)).toHaveLength(6);
+    for (const [branch, sha] of Object.entries(BACKUP_RETIREMENTS)) {
+      const { run, calls } = fakeRunner({ tips: [sha], tag: sha });
+      expect(runDeleteRemote({ branches: [branch], apply: true, run, log: silent }).ok).toBe(true);
+      expect(
+        writes(calls)
+          .filter((call) => call.args[0] === "push")
+          .map((call) => call.args),
+      ).toEqual([["push", "origin", "--delete", `refs/heads/${branch}`]]);
+      // Implicit local cleanup still cannot delete any backup branch.
+      expect(isProtectedBranch(branch)).toBe(true);
+    }
+  });
+
+  it("nekar backup-undantaget vid saknat/fel arkiv, ändrad tip, öppen PR eller API-fel", () => {
+    const branch = "BRA_19191919";
+    const sha = BACKUP_RETIREMENTS[branch];
+    const scenarios = [
+      { tips: [sha], tag: null },
+      { tips: [sha], tag: other },
+      { tips: [other], tag: other },
+      { tips: [sha, other], tag: sha },
+      { tips: [sha], tag: sha, prs: null },
+      {
+        tips: [sha],
+        tag: sha,
+        prs: JSON.stringify([
+          { headRefName: branch, headRefOid: sha, state: "OPEN", mergedAt: null },
+        ]),
+      },
+    ];
+    for (const scenario of scenarios) {
+      const { run, calls } = fakeRunner(scenario);
+      expect(runDeleteRemote({ branches: [branch], apply: true, run, log: silent }).ok).toBe(false);
+      expect(writes(calls)).toEqual([]);
+    }
+    const { run, calls } = fakeRunner({ tips: [sha], tag: sha });
+    expect(
+      runDeleteRemote({ branches: ["BRA_BRA_backup_1337"], apply: true, run, log: silent }).ok,
+    ).toBe(false);
+    expect(calls).toEqual([]);
+  });
+
+  it("nekar en branch med öppen PR", () => {
+    const prs = JSON.stringify([{ headRefName: "fix/x", headRefOid: tip, state: "OPEN", mergedAt: null }]);
+    const { run, calls } = fakeRunner({ tag: tip, prs });
+    const { ok, results } = runDeleteRemote({ branches: ["fix/x"], apply: true, run, log: silent });
+    expect(ok).toBe(false);
+    expect(results[0].reason).toContain("ÖPPEN PR");
+    expect(writes(calls)).toEqual([]);
+  });
+
+  it("faller stängt när gh misslyckas eller svarar trasigt", () => {
+    for (const prs of [null, "not json", "{}"]) {
+      const { run, calls } = fakeRunner({ tag: tip, prs });
+      const { ok, results } = runDeleteRemote({ branches: ["fix/x"], apply: true, run, log: silent });
+      expect(ok).toBe(false);
+      expect(results[0].outcome).toBe("refused");
+      expect(writes(calls)).toEqual([]);
+    }
+  });
+
+  it("nekar när archive-taggen pekar på en annan commit", () => {
+    const { run, calls } = fakeRunner({ tag: other });
+    const { ok, results } = runDeleteRemote({ branches: ["fix/x"], apply: true, run, log: silent });
+    expect(ok).toBe(false);
+    expect(results[0].reason).toContain("pekar på");
+    expect(writes(calls)).toEqual([]);
+  });
+
+  it("dry-run skriver ingenting och beskriver planen", () => {
+    const lines: string[] = [];
+    const { run, calls } = fakeRunner();
+    const { ok, results } = runDeleteRemote({
+      branches: ["fix/x"],
+      run,
+      log: (s) => lines.push(s),
+    });
+    expect(ok).toBe(true);
+    expect(results[0].outcome).toBe("planned");
+    expect(writes(calls)).toEqual([]);
+    expect(lines.join("\n")).toContain("skulle skapa");
+    expect(lines.join("\n")).toContain(`skulle radera origin/fix/x @ ${tip}`);
+  });
+
+  it("skapar saknad archive-tagg på exakt tip och raderar sedan med bevis-env", () => {
+    const { run, calls } = fakeRunner({ tag: null });
+    const { ok, results } = runDeleteRemote({ branches: ["fix/x"], apply: true, run, log: silent });
+    expect(ok).toBe(true);
+    expect(results[0]).toMatchObject({ outcome: "deleted", tip, tag: "archive/fix/x" });
+    const pushes = writes(calls).filter((c) => c.args[0] === "push");
+    expect(pushes.map((c) => c.args)).toEqual([
+      ["push", "origin", `${tip}:refs/tags/archive/fix/x`],
+      ["push", "origin", "--delete", "refs/heads/fix/x"],
+    ]);
+    expect(pushes[1].env).toEqual({
+      SAJTMASKIN_PROVEN_REMOTE_DELETE_BRANCH: "fix/x",
+      SAJTMASKIN_PROVEN_REMOTE_DELETE_SHA: tip,
+    });
+    for (const c of calls) {
+      expect(c.args.join(" ")).not.toMatch(/--force|--no-verify|(^|\s)-f(\s|$)/u);
+    }
+  });
+
+  it("använder befintlig matchande tagg utan att pusha en ny", () => {
+    const { run, calls } = fakeRunner({ tag: tip });
+    expect(runDeleteRemote({ branches: ["fix/x"], apply: true, run, log: silent }).ok).toBe(true);
+    expect(writes(calls).map((c) => c.args)).toEqual([["push", "origin", "--delete", "refs/heads/fix/x"]]);
+  });
+
+  it("räknar mergad PR med exakt head som bevis utan tagg", () => {
+    const prs = JSON.stringify([
+      { headRefName: "fix/x", headRefOid: tip, state: "MERGED", mergedAt: "2026-10-01T00:00:00Z" },
+    ]);
+    const { run, calls } = fakeRunner({ tag: null, prs });
+    const { results } = runDeleteRemote({ branches: ["fix/x"], apply: true, run, log: silent });
+    expect(results[0].outcome).toBe("deleted");
+    expect(writes(calls).map((c) => c.args)).toEqual([["push", "origin", "--delete", "refs/heads/fix/x"]]);
+  });
+
+  it("avbryter om remote-tipet ändras mellan plan och delete", () => {
+    const { run, calls } = fakeRunner({ tag: tip, tips: [tip, other] });
+    const { ok, results } = runDeleteRemote({ branches: ["fix/x"], apply: true, run, log: silent });
+    expect(ok).toBe(false);
+    expect(results[0].reason).toContain("remote-tip ändrades");
+    expect(writes(calls).some((c) => c.args.includes("--delete"))).toBe(false);
+  });
+
+  it("avbryter om den nya taggen inte kan verifieras på origin", () => {
+    const { run, calls } = fakeRunner({ tag: null, tagAfterPush: null });
+    const { ok } = runDeleteRemote({ branches: ["fix/x"], apply: true, run, log: silent });
+    expect(ok).toBe(false);
+    expect(writes(calls).some((c) => c.args.includes("--delete"))).toBe(false);
+  });
+
+  it("en saknad remote-branch är inget fel och skriver ingenting", () => {
+    const { run, calls } = fakeRunner({ tips: [""] });
+    const { ok, results } = runDeleteRemote({ branches: ["fix/x"], apply: true, run, log: silent });
+    expect(ok).toBe(true);
+    expect(results[0].outcome).toBe("absent");
+    expect(writes(calls)).toEqual([]);
   });
 });
 

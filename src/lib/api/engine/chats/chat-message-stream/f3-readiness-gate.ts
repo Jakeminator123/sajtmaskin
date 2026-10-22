@@ -242,6 +242,21 @@ export async function runF3ReadinessGate(params: {
             ),
           );
         }
+        if (!gate.ok && gate.reason === "integration_migration_required") {
+          return attachSessionCookie(
+            NextResponse.json(
+              {
+                error: "integration_migration_required",
+                ready: false,
+                parentVersionId: gateVersionId,
+                retryable: false,
+                message:
+                  "Den valda providern ersätter en befintlig integration. Gör migreringen uttryckligen innan integrationsbygget fortsätter.",
+              },
+              { status: 409 },
+            ),
+          );
+        }
         if (!gate.ok) {
           return attachSessionCookie(
             NextResponse.json(

@@ -1,3 +1,5 @@
+import { splitTrailingStreamWarning } from "@/lib/builder/stream-warning";
+
 interface GeneratedFile {
   path: string;
   language: string;
@@ -12,8 +14,9 @@ interface ParsedContent {
   totalCodeLines: number;
 }
 
-const CODE_BLOCK_RE = /```(\w+)\s+file="([^"]+)"[^\n]*\n([\s\S]*?)```/g;
-const GENERIC_CODE_BLOCK_RE = /```(\w+)?[^\n]*\n([\s\S]*?)```/g;
+// A closing fence occupies its own line; backticks inside file strings are code.
+const CODE_BLOCK_RE = /```(\w+)\s+file="([^"]+)"[^\n]*\n([\s\S]*?)^```[ \t]*\r?$/gm;
+const GENERIC_CODE_BLOCK_RE = /```(\w+)?[^\n]*\n([\s\S]*?)^```[ \t]*\r?$/gm;
 const THINKING_RE = /<Thinking>([\s\S]*?)<\/Thinking>/gi;
 const OPEN_FENCE_RE = /```(\w+)?[^\n]*(?:\n|$)/;
 const STREAM_FILE_HEADER_RE = /(?:^|\n)([a-z0-9]+) file="([^"]+)"[^\n]*(?:\n|$)/;
@@ -89,7 +92,8 @@ function collectTailFiles(tail: string): GeneratedFile[] {
   }));
 }
 
-export function parseGenerationContent(raw: string): ParsedContent {
+export function parseGenerationContent(content: string): ParsedContent {
+  const { body: raw, warning } = splitTrailingStreamWarning(content);
   const files: GeneratedFile[] = [];
   let genericCodeBlocks = 0;
   let totalCodeLines = 0;
@@ -134,8 +138,9 @@ export function parseGenerationContent(raw: string): ParsedContent {
     }
   }
 
+  const prose = residual.replace(/\n{3,}/g, "\n\n").trim();
   return {
-    proseText: residual.replace(/\n{3,}/g, "\n\n").trim(),
+    proseText: warning ? (prose ? `${prose}\n\n${warning}` : warning) : prose,
     files,
     hasCodeBlocks: genericCodeBlocks > 0,
     genericCodeBlocks,

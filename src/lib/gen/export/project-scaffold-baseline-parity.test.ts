@@ -290,6 +290,7 @@ function minimalGeneratedFiles(): CodeFile[] {
 
 describe("exported generated-project baseline (not just the root app)", () => {
   const platform = readPlatformDeps();
+  const generated = readGeneratedBaselineDeps();
   const exported = parseExportedPackageJson(buildCompleteProject(minimalGeneratedFiles()));
 
   it("emits next matching the platform major.minor", () => {
@@ -297,7 +298,7 @@ describe("exported generated-project baseline (not just the root app)", () => {
     const pv = parseVersion(platform.next);
     const ev = parseVersion(exported.dependencies!.next);
     expect({ major: ev.major, minor: ev.minor }).toEqual({ major: pv.major, minor: pv.minor });
-    expect(exported.dependencies!.next).toBe("16.3.8");
+    expect(exported.dependencies!.next).toBe(generated.next);
   });
 
   it("emits eslint-config-next matching the platform major.minor", () => {
@@ -308,7 +309,7 @@ describe("exported generated-project baseline (not just the root app)", () => {
     const pv = parseVersion(platform["eslint-config-next"]);
     const ev = parseVersion(exported.devDependencies!["eslint-config-next"]);
     expect({ major: ev.major, minor: ev.minor }).toEqual({ major: pv.major, minor: pv.minor });
-    expect(exported.devDependencies!["eslint-config-next"]).toBe("16.3.8");
+    expect(exported.devDependencies!["eslint-config-next"]).toBe(generated["eslint-config-next"]);
   });
 
   it("force-pins next even when the model emits an older range", () => {
@@ -320,7 +321,7 @@ describe("exported generated-project baseline (not just the root app)", () => {
       },
       ...minimalGeneratedFiles(),
     ]);
-    expect(parseExportedPackageJson(files).dependencies?.next).toBe("16.3.8");
+    expect(parseExportedPackageJson(files).dependencies?.next).toBe(generated.next);
   });
 
   it("force-pins eslint-config-next even when the model emits an older range", () => {
@@ -328,7 +329,7 @@ describe("exported generated-project baseline (not just the root app)", () => {
       {
         path: "package.json",
         content: JSON.stringify({
-          dependencies: { next: "16.3.8" },
+          dependencies: { next: generated.next },
           devDependencies: { "eslint-config-next": "16.2.9" },
         }),
         language: "json",
@@ -336,7 +337,7 @@ describe("exported generated-project baseline (not just the root app)", () => {
       ...minimalGeneratedFiles(),
     ]);
     expect(parseExportedPackageJson(files).devDependencies?.["eslint-config-next"]).toBe(
-      "16.3.8",
+      generated["eslint-config-next"],
     );
   });
 
@@ -352,8 +353,8 @@ describe("exported generated-project baseline (not just the root app)", () => {
       ...minimalGeneratedFiles(),
     ]);
     const pkg = parseExportedPackageJson(files);
-    expect(pkg.dependencies?.next).toBe("16.3.8");
-    expect(pkg.devDependencies?.["eslint-config-next"]).toBe("16.3.8");
+    expect(pkg.dependencies?.next).toBe(generated.next);
+    expect(pkg.devDependencies?.["eslint-config-next"]).toBe(generated["eslint-config-next"]);
     expect(pkg.dependencies?.["eslint-config-next"]).toBeUndefined();
     expect(pkg.devDependencies?.next).toBeUndefined();
   });
@@ -371,8 +372,8 @@ describe("exported generated-project baseline (not just the root app)", () => {
       ...minimalGeneratedFiles(),
     ]);
     const pkg = parseExportedPackageJson(files);
-    expect(pkg.dependencies?.next).toBe("16.3.8");
-    expect(pkg.devDependencies?.["eslint-config-next"]).toBe("16.3.8");
+    expect(pkg.dependencies?.next).toBe(generated.next);
+    expect(pkg.devDependencies?.["eslint-config-next"]).toBe(generated["eslint-config-next"]);
     expect(pkg.dependencies?.["eslint-config-next"]).toBeUndefined();
     expect(pkg.devDependencies?.next).toBeUndefined();
   });

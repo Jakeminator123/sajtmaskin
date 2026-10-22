@@ -6,7 +6,7 @@ WHAT THIS IS (kort svensk forklaring)
 Det har ar ett ordningstest (regression-/sanity-test) som verifierar att de tva
 Supabase-Postgres-databaserna (dev + prod) och den enda Vercel Blob-storen ar i
 forvantat lage. DEV ar en anvand development-DB (lokal dev kan skriva dit
-efter verifierat mal); Preview delar for narvarande PROD. EMPTY-grupp-rader ar
+efter verifierat mal); Preview delar DEV enligt config/db-targets.json. EMPTY-grupp-rader ar
 en Advisory (WARN) dar - inte ett hard fel. PROD bar riktig anvandardata, sa dar
 ar EMPTY-radantal informationella (den gamla "prod ar ocksa tom"-forvantan var
 forlegad; samma forlegade "dev ar alltid tom"-forvantan gjorde forut gaten rod pa

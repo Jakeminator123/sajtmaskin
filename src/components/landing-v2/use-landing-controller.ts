@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { toBuilderStartHref } from "@/lib/ads/ads-click-params"
 import { createProject, deleteProject } from "@/lib/projects/project-client"
 import { resolveLandingRouteTarget } from "@/components/landing-v2/route-target"
 import { trackHomepageEvent } from "@/components/landing-v2/landing-analytics"
 import { categories, siteTypes } from "@/components/landing-v2/landing-chat-data"
 import {
+  readHowItWorksStaticOnly,
   use3DTilt,
   usePrefersReducedMotion,
   useRotatingText,
@@ -46,16 +48,13 @@ export function useLandingController({
   const rotatingType = useRotatingText(siteTypes)
   const headlineTilt = use3DTilt(10)
 
-  // Statiskt läge (reduced-motion / save-data / svagt nät) laddar aldrig WebGL-scenen,
-  // så hovern ska inte heller föhämta den tunga three.js-chunken på svaga nät.
   const reduceMotion = usePrefersReducedMotion()
   const saveData = useSaveData()
-  const staticOnly = reduceMotion || saveData
 
   const preloadHowItWorksScene = useCallback(() => {
-    if (staticOnly) return
+    if (readHowItWorksStaticOnly(reduceMotion, saveData)) return
     void import("./how-it-works-scene")
-  }, [staticOnly])
+  }, [reduceMotion, saveData])
 
   const pickCategory = useCallback(
     (id: string | null) => {
@@ -161,7 +160,7 @@ export function useLandingController({
         // Reached the navigation step — the project is now in use, so don't roll
         // it back if router.push were to throw.
         createdProjectId = null
-        router.push(`/builder?${params.toString()}`)
+        router.push(toBuilderStartHref(params))
       } catch (error) {
         console.error("[LandingV2] Failed to start builder flow:", error)
         // Roll back the orphaned project created above (best-effort) so a failed

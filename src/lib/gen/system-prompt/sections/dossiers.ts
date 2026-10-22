@@ -5,20 +5,16 @@
  * Split out of `system-prompt.ts` (OMTAG-03 wave-rest) — no behavior change.
  */
 
-import { debugLog } from "@/lib/utils/debug";
 import {
-  defaultInjectionMode,
-  dossierRequiresF3,
   getDossierFileContent,
   type DossierEntry,
   type DossierSelectionResult,
 } from "../../dossiers";
-import { mapDossierPathToOutput } from "../../dossiers/output-path";
-
-// Paths that belong to the scaffold and are dangerous to overwrite via a
-// dossier verbatim block (would clobber fonts, providers, metadata). We
-// skip these even if a dossier asks for verbatim — log so we can spot
-// dossier-data that needs fixing.
+import { projectDossierIntegration } from "../../dossiers/integration";
+import {
+  findDivergentDossierOutputPathConflicts,
+  resolveDossierFilePath,
+} from "../../dossiers/output-path";
 /**
  * Capabilities whose dossiers ship Vercel AI SDK 6 (ai@^6) code. When one is
  * selected we inject an explicit banned-symbols block (see
@@ -42,27 +38,11 @@ function renderAiSdkVersionGuardrail(): string[] {
     "",
     "- Do NOT import or use `CoreMessage`. Use `UIMessage` at the client/route boundary, then call `const modelMessages = await convertToModelMessages(messages)` before the model call (`ModelMessage[]`). The conversion is async in AI SDK 6; omitting `await` is a build/runtime defect.",
     "- Do NOT pass `maxSteps` to `streamText`/`generateText`. Use `stopWhen: stepCountIs(n)` (import `stepCountIs` from `ai`).",
-    "- Do NOT read `chunk.textDelta` from the stream. Text is delivered as `text-delta` parts whose payload is `part.delta` (use `part.type === \"text-delta\"` and `part.delta`).",
+    '- Do NOT read `chunk.textDelta` from the stream. Text is delivered as `text-delta` parts whose payload is `part.delta` (use `part.type === "text-delta"` and `part.delta`).',
     "- Return the stream with `result.toUIMessageStreamResponse()`; on the client consume it with `useChat` from `@ai-sdk/react`.",
     "",
   ];
 }
-
-const SCAFFOLD_RESERVED_PATHS = new Set([
-  "app/layout.tsx",
-  "app/globals.css",
-  "app/loading.tsx",
-  "app/error.tsx",
-  "app/not-found.tsx",
-  "app/template.tsx",
-  "package.json",
-  "tsconfig.json",
-  "next.config.js",
-  "next.config.mjs",
-  "next.config.ts",
-  "tailwind.config.ts",
-  "postcss.config.mjs",
-]);
 
 interface VerbatimFile {
   dossierId: string;
@@ -73,6 +53,29 @@ interface VerbatimFile {
   /** File extension fence language for CodeProject blocks. */
   fence: string;
   content: string;
+}
+
+function assertSelectedOutputPathsDoNotConflict(dossierSel: DossierSelectionResult): void {
+  const conflicts = findDivergentDossierOutputPathConflicts(
+    dossierSel.selected.flatMap((selection) =>
+      (selection.entry.files ?? []).map((file) => ({
+        dossierId: selection.entry.id,
+        capability: selection.entry.capability,
+        sourcePath: file.path,
+        content: getDossierFileContent(selection.entry.class, selection.entry.id, file.path),
+      })),
+    ),
+  );
+  if (conflicts.length === 0) return;
+  const details = conflicts
+    .map(
+      (conflict) =>
+        `${conflict.outputPath} <- ${conflict.claims
+          .map((claim) => `${claim.dossierId}:${claim.sourcePath}`)
+          .join(", ")}`,
+    )
+    .join("; ");
+  throw new Error(`[dossiers] selected-output-conflict: ${details}`);
 }
 
 interface DossierRenderOptions {
@@ -135,8 +138,7 @@ function renderCompactDossierInstructions(
       const required = envVar.required ? "required" : "optional";
       const enforcement = envVar.enforcement ?? "build";
       const purpose = envVar.purpose.trim();
-      const compactPurpose =
-        purpose.length > 180 ? `${purpose.slice(0, 177).trimEnd()}…` : purpose;
+      const compactPurpose = purpose.length > 180 ? `${purpose.slice(0, 177).trimEnd()}…` : purpose;
       return `${envVar.key} (${required}; ${enforcement}) — ${compactPurpose}`;
     })
     .join("; ");
@@ -153,8 +155,10 @@ function renderCompactDossierInstructions(
     `- ${sel.entry.summary}`,
     configuredLine,
     ...(sel.entry.class === "hard" ? [`- ${describeMockMode(sel.entry.mock)}`] : []),
-    `- Capability: \`${sel.entry.capability}\`; class: ${sel.entry.class}; requires F3: ${dossierRequiresF3(sel.entry) ? "yes" : "no"}; code fidelity: ${sel.entry.codeFidelity}.`,
-    dependencies ? `- Dependencies if used: ${dependencies}.` : "- Dependencies: none beyond the scaffold baseline.",
+    `- Capability: \`${sel.entry.capability}\`; class: ${sel.entry.class}; requires F3: ${projectDossierIntegration(sel.entry).requiresF3 ? "yes" : "no"}; code fidelity: ${sel.entry.codeFidelity}.`,
+    dependencies
+      ? `- Dependencies if used: ${dependencies}.`
+      : "- Dependencies: none beyond the scaffold baseline.",
     envVars ? `- Env vars: ${envVars}.` : "- Env vars: none.",
     exposed ? `- Preserve exposed import(s): ${exposed}.` : "- No exposed imports.",
     "- Use this dossier only for the selected capability; do not let it expand unrelated scope.",
@@ -327,7 +331,7 @@ function renderCapabilitySurfaceOwnership(
       if (!projectPath) continue;
       const serverPaths = (entry.files ?? [])
         .filter((file) => file.role === "server")
-        .map((file) => mapDossierPathToOutput(file.path).replace(/\\/g, "/"));
+        .map((file) => resolveDossierFilePath(file.path).outputPath);
       const alreadyPresent = projectPathPresent(previousPaths, projectPath);
       // Soft/UI-only surface already on disk → ownership is noise.
       // Hard dossiers with a server contract must keep emitting a rewire check:
@@ -384,10 +388,45 @@ function renderCapabilitySurfaceOwnership(
     "",
     "Two hard rules for either choice:",
     "",
-    "- Every component must call a route that EXISTS in your output. Do not leave a `fetch(\"/api/…\")` pointing at a path you removed or never emitted.",
+    '- Every component must call a route that EXISTS in your output. Do not leave a `fetch("/api/…")` pointing at a path you removed or never emitted.',
     "- Do not add a second route under `app/api/**` for a capability whose dossier already ships one.",
     "",
   );
+  return parts;
+}
+
+function renderDossierConfigurationGuidance(dossierSel: DossierSelectionResult): string[] {
+  const withGuidance = dossierSel.selected
+    .map((selection) => ({
+      entry: selection.entry,
+      view: projectDossierIntegration(selection.entry),
+    }))
+    .filter(({ view }) => view.configInputs.length > 0 || view.providerSetup.length > 0);
+  if (withGuidance.length === 0) return [];
+  const parts = [
+    "## Dossier Configuration Guidance — project values and provider steps",
+    "",
+    "These are owner setup instructions, not readiness or live acceptance evidence. Do not claim steps are completed, invent provider values or perform external setup on the owner's behalf. Env requirements remain owned by envVars; code inputs are project code, not new env keys.",
+    "",
+  ];
+  for (const { entry, view } of withGuidance) {
+    parts.push(`### \`${entry.id}\``, "");
+    for (const input of view.configInputs) {
+      parts.push(
+        `- Project code input \`${input.id}\` (${input.label}; ${input.target}; binding \`${input.binding}\`): ${input.purpose}`,
+      );
+    }
+    for (const [index, step] of view.providerSetup.entries()) {
+      const refs = [
+        ...step.referencedEnvVars.map((env) => `env \`${env.key}\``),
+        ...step.referencedConfigInputs.map((input) => `code input \`${input.id}\``),
+      ];
+      parts.push(
+        `${index + 1}. ${step.title}: ${step.instruction}${refs.length ? ` References: ${refs.join(", ")}.` : ""}${step.setupUrl ? ` Setup: ${step.setupUrl}` : ""}`,
+      );
+    }
+    parts.push("");
+  }
   return parts;
 }
 
@@ -396,6 +435,7 @@ export function renderDossierBlocks(
   opts: DossierRenderOptions = {},
 ): string[] {
   if (!dossierSel || dossierSel.selected.length === 0) return [];
+  assertSelectedOutputPathsDoNotConflict(dossierSel);
 
   const parts: string[] = [];
 
@@ -415,11 +455,12 @@ export function renderDossierBlocks(
   );
   for (const sel of dossierSel.selected) {
     const e = sel.entry;
-    const configBadge = e.class === "hard"
-      ? sel.configured
-        ? " [configured]"
-        : " [UNCONFIGURED — render placeholder UI]"
-      : "";
+    const configBadge =
+      e.class === "hard"
+        ? sel.configured
+          ? " [configured]"
+          : " [UNCONFIGURED — render placeholder UI]"
+        : "";
     parts.push(
       `- **${e.label}** \`${e.id}\` (${e.class}, capability: ${e.capability}, ${e.codeFidelity})${configBadge}`,
     );
@@ -455,13 +496,12 @@ export function renderDossierBlocks(
       parts.push(...renderCompactDossierInstructions(sel));
     }
   }
+  parts.push(...renderDossierConfigurationGuidance(dossierSel));
 
   // AI-SDK v4-drift guardrail (Task 5): only when an AI dossier is selected, so
   // the banned-symbols block is scoped and never bloats non-AI prompts.
   if (
-    dossierSel.selected.some((sel) =>
-      AI_SDK_CAPABILITIES.has(sel.entry.capability.toLowerCase()),
-    )
+    dossierSel.selected.some((sel) => AI_SDK_CAPABILITIES.has(sel.entry.capability.toLowerCase()))
   ) {
     parts.push(...renderAiSdkVersionGuardrail());
   }
@@ -472,12 +512,14 @@ export function renderDossierBlocks(
   // codegen LLM exactly as given. This protects integration glue (Stripe
   // webhook signing, auth middleware, SDK init) from accidental rewrites.
   const verbatimFiles: VerbatimFile[] = [];
-  const skippedExistingFiles: Array<Pick<VerbatimFile, "dossierId" | "dossierLabel" | "outputPath">> = [];
+  const skippedExistingFiles: Array<
+    Pick<VerbatimFile, "dossierId" | "dossierLabel" | "outputPath">
+  > = [];
   const existingFilePaths = new Set(opts.previousFilePaths ?? []);
   for (const sel of dossierSel.selected) {
-    const files = sel.entry.files ?? [];
+    const files = projectDossierIntegration(sel.entry).files;
     for (const file of files) {
-      const mode = defaultInjectionMode(file, sel.entry);
+      const mode = file.injectionMode;
       if (mode !== "verbatim") continue;
       const content = getDossierFileContent(sel.entry.class, sel.entry.id, file.path);
       if (content === null) {
@@ -486,18 +528,11 @@ export function renderDossierBlocks(
         );
       }
       // Dossier files live under data/dossiers/<id>/components/<path-in-project>.
-      // `mapDossierPathToOutput` translates the staging path to the path the
+      // `resolveDossierFilePath` translates the staging path to the path the
       // user project expects (UI components keep `components/`, API routes
       // move to `app/api/`, middleware/instrumentation/sentry-config land at
       // root). See `dossiers/output-path.ts` for the rotorsaks-historik.
-      const outputPath = mapDossierPathToOutput(file.path);
-      if (SCAFFOLD_RESERVED_PATHS.has(outputPath)) {
-        debugLog(
-          "GEN",
-          `[verbatim-skip] ${sel.entry.id}: refusing to emit verbatim file at scaffold-reserved path '${outputPath}'`,
-        );
-        continue;
-      }
+      const outputPath = file.outputPath;
       // On follow-up / auto-repair the file is already in the user's
       // project — re-shipping the full CodeProject block wastes ~2-5k
       // chars and tempts the LLM to return it unchanged when its real
@@ -610,7 +645,7 @@ export function renderCapabilityModifyHintBlock(
   const referenceList =
     references.length > 0
       ? references.map((ref) => `\`${ref}\``).join(", ")
-      : "(no explicit token captured — the user used a generic deictic such as \"den\")";
+      : '(no explicit token captured — the user used a generic deictic such as "den")';
 
   const parts: string[] = [];
   parts.push(

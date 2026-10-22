@@ -19,8 +19,7 @@
         "config/integrations/tier3-sdk-deny.json",
         "config/ai_models/",
         "config/env-policy.json",
-        "config/shadcn-mirror-audit-policy.json",
-        "config/user_degraded_env.txt"
+        "config/shadcn-mirror-audit-policy.json"
       ],
       "docsPaths": [
         "docs/architecture/code-map.md",
@@ -338,22 +337,6 @@
       "humanSchemaPaths": [],
       "strictSchemaPaths": ["docs/schemas/strict/redis-health-check-report.schema.json"],
       "codeReaders": ["backoffice/test_database_health_smoke.py", "src/app/api/health/route.ts"]
-    },
-    "user_degraded_env": {
-      "summary": "Policytext för degraded/placeholder-miljö i användarprojekt. Lista med nycklar pekas från manifest m.m.",
-      "canonicalPaths": [
-        "config/user_degraded_env.txt",
-        "config/ai_models/40-harmless-placeholders.env.txt",
-        "config/ai_models/41-tier3-stub-placeholders.env.txt"
-      ],
-      "docsPaths": ["docs/schemas/integrations-and-data.md"],
-      "humanSchemaPaths": ["docs/schemas/integrations-and-data.md"],
-      "codeReaders": [
-        "src/lib/gen/contract/pre-generation-contracts.ts",
-        "src/lib/ai-models/load-generated-site-placeholders.ts",
-        "src/lib/gen/preview/env-local.ts",
-        "src/lib/gen/preview/project-preview-env.ts"
-      ]
     },
     "Generation History": {
       "summary": "Read-only genererings-historik per användarsida + vad varje steg gjorde (scaffold, model, retry/Normalize, preflight, RenderGate/ReleaseGate, preview-utfall). Kör scripts/db/generation-history.mjs via subprocess read-only mot DB:n som .env.local pekar på. Källor: generation_telemetry, engine_versions, engine_version_error_logs, engine_generation_logs.",

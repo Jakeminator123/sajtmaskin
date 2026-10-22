@@ -7,7 +7,7 @@
  * confidence, posture, and eye contact.
  *
  * When frames are provided, uses the analyze_presentation_vision workload
- * (gpt-5.6-terra by default) via OpenAI Chat Completions with image_url parts.
+ * (gpt-6.1-sol by default) via OpenAI Chat Completions with image_url parts.
  * Text-only path also prefers direct provider calls.
  */
 
@@ -23,6 +23,11 @@ import {
   ANALYZE_PRESENTATION_FALLBACK_MODELS,
 } from "@/lib/gen/defaults";
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
+import {
+  workloadChatReasoningEffort,
+  workloadOpenAIProviderOptions,
+} from "@/lib/ai-models/workload-reasoning";
+import { isOpenAIReasoningModelId } from "@/lib/models/openai-capabilities";
 
 export const runtime = "nodejs";
 export const maxDuration = 45;
@@ -31,9 +36,11 @@ function toOpenAiDirectModelId(model: string): string {
   return model.replace(/^openai\//, "");
 }
 
+const TEXT_WORKLOAD_ID = "analyze_presentation";
+const VISION_WORKLOAD_ID = "analyze_presentation_vision";
+
 function isReasoningChatModel(model: string): boolean {
-  const id = toOpenAiDirectModelId(model).toLowerCase();
-  return id.startsWith("gpt-5") || id.startsWith("o1") || id.startsWith("o3") || id.startsWith("o4");
+  return isOpenAIReasoningModelId(toOpenAiDirectModelId(model));
 }
 
 const DATA_IMAGE_RE = /^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=\s]+$/i;
@@ -232,7 +239,7 @@ async function handlePOST(req: Request) {
     let analysisText: string;
 
     if (hasFrames) {
-      // Use OpenAI directly with vision (GPT-4o supports images)
+      // Use OpenAI directly with vision (the vision workload model reads images)
       analysisText = await analyzeWithVision(userTextContent, frames ?? []);
     } else {
       // Text-only path (direct provider)
@@ -267,7 +274,7 @@ async function handlePOST(req: Request) {
   }
 }
 
-/** Analyze with the vision workload model (gpt-5.6-terra default) -- reads images */
+/** Analyze with the vision workload model (gpt-6.1-sol default) -- reads images */
 async function analyzeWithVision(userText: string, frames: string[]): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
@@ -288,7 +295,7 @@ async function analyzeWithVision(userText: string, frames: string[]): Promise<st
   }));
 
   const model = toOpenAiDirectModelId(
-    getWorkloadDefaultModelFromManifest("analyze_presentation_vision") ?? "gpt-5.6-terra",
+    getWorkloadDefaultModelFromManifest(VISION_WORKLOAD_ID) ?? "gpt-6.1-sol",
   );
   const completion = await openai.chat.completions.create({
     model,
@@ -302,10 +309,13 @@ async function analyzeWithVision(userText: string, frames: string[]): Promise<st
         ],
       },
     ],
-    // GPT-5.x rejects `max_tokens` + custom temperature (same class as
-    // backoffice/wizard_support.py). Chat Completions still accepts image_url.
-    max_completion_tokens: isReasoningChatModel(model) ? 2_400 : 600,
-    ...(isReasoningChatModel(model) ? {} : { temperature: 0.7 }),
+    // Reasoning models reject `max_tokens` + custom temperature. 8192 is the
+    // total output ceiling, including Sol medium reasoning. Classic models keep
+    // their smaller cap and temperature. Chat Completions still accepts image_url.
+    max_completion_tokens: isReasoningChatModel(model) ? 8_192 : 600,
+    ...(isReasoningChatModel(model)
+      ? workloadChatReasoningEffort(VISION_WORKLOAD_ID, model)
+      : { temperature: 0.7 }),
   });
 
   return completion.choices[0]?.message?.content?.trim() || "";
@@ -320,7 +330,8 @@ async function analyzeTextOnly(userText: string): Promise<string> {
         { role: "system", content: TEXT_ONLY_PROMPT },
         { role: "user", content: userText },
       ],
-      maxOutputTokens: 500,
+      maxOutputTokens: 8_192,
+      ...workloadOpenAIProviderOptions(TEXT_WORKLOAD_ID, ANALYZE_PRESENTATION_DEFAULT_MODEL),
     });
     return result.text?.trim() || "";
   } catch {
@@ -343,8 +354,10 @@ async function analyzeTextOnly(userText: string): Promise<string> {
       { role: "system", content: TEXT_ONLY_PROMPT },
       { role: "user", content: userText },
     ],
-    max_completion_tokens: isReasoningChatModel(fallbackModel) ? 2_000 : 500,
-    ...(isReasoningChatModel(fallbackModel) ? {} : { temperature: 0.7 }),
+    max_completion_tokens: isReasoningChatModel(fallbackModel) ? 8_192 : 500,
+    ...(isReasoningChatModel(fallbackModel)
+      ? workloadChatReasoningEffort(TEXT_WORKLOAD_ID, fallbackModel)
+      : { temperature: 0.7 }),
   });
 
   return completion.choices[0]?.message?.content?.trim() || "";

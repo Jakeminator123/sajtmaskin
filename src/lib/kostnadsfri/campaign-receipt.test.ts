@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createKostnadsfriCampaignReceipt,
+  readSignedKostnadsfriCampaignReceipt,
   readVerifiedKostnadsfriCampaignReceipt,
   verifyKostnadsfriCampaignReceipt,
 } from "./campaign-receipt";
@@ -24,6 +25,7 @@ describe("kostnadsfri campaign receipt", () => {
     expect(
       verifyKostnadsfriCampaignReceipt(receipt, { slug: "acme-ab", sessionId: "sess_2", now }),
     ).toBe(false);
+    expect(readSignedKostnadsfriCampaignReceipt(receipt, now)?.slug).toBe("acme-ab");
   });
 
   it("rejects tampering and expired receipts", () => {

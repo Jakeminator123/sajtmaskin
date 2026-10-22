@@ -3,6 +3,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 
+import { MASTER_ONLY_REQUIRED_CHECK_OWNERS, REQUIRED_CHECK_OWNERS, requiredCheckOwnerSpec } from "./required-check-owners.mjs";
+
 import {
   collectEsmSpecifiers,
   evaluateCiBranch,
@@ -10,7 +12,9 @@ import {
   evaluateDependencyFreeImportGraph,
   evaluateDossierAcceptanceWorkflow,
   evaluatePolicyFloors,
+  evaluatePrBaseGuardWorkflow,
   evaluatePrHeadWorkflowPermissions,
+  evaluatePullRequestTargetWorkflows,
   evaluateReservedWorkflowCheckNames,
   evaluateRetiredBugIdFloor,
   evaluateSecretWorkflowDispatches,
@@ -115,7 +119,8 @@ describe("agent workflow impact", () => {
     expect(scripts).not.toHaveProperty("test:agent-bridge");
     const ci = readFileSync(".github/workflows/ci.yml", "utf8");
     expect(ci).not.toContain("test:agent-bridge");
-    expect(ci).toContain("scripts/workflow/workflow.test.ts scripts/workflow/ci-scope.test.ts");
+    expect(ci).toContain("npm run test:workflow");
+    expect(scripts["test:workflow"]).toContain("vitest run scripts/workflow");
     for (const pattern of [
       ".agent-bridge/**",
       "scripts/agent_bridge.py",
@@ -149,7 +154,7 @@ describe("agent workflow impact", () => {
   it("finds the Cursor-agenter Backoffice surface after the skill move", () => {
     const impact = collectImpact({
       ...inputs,
-      changedFiles: [".agents/skills/godnatt-bugg/SKILL.md", "AGENTS.md"],
+      changedFiles: [".agents/skills/bug-koll/SKILL.md", "AGENTS.md"],
     });
     expect(impact.backofficePages).toContain("Cursor-agenter");
     expect(impact.commands).toContain("check:agent-context");
@@ -435,6 +440,33 @@ describe("agent workflow impact", () => {
     }
   });
 
+  it("routes an unknown path through every separately owned test harness", () => {
+    const impact = collectImpact({ ...inputs, changedFiles: ["new-zone/value.custom"] });
+
+    expect(impact.unclassifiedFiles).toEqual(["new-zone/value.custom"]);
+    expect(impact.commands).toEqual(
+      expect.arrayContaining([
+        "test:discovery:check",
+        "test:ci",
+        "backoffice:test",
+        "db:blob-sync-unit",
+        "observability:test",
+        "preview-host:verify",
+        "test:e2e:contract",
+      ]),
+    );
+  });
+
+  it("routes an unprotected backlog edit to its validators without the full profile", () => {
+    const impact = collectImpact({ ...inputs, changedFiles: ["BUG-SWARM-BACKLOG.md"] });
+    expect(impact.protectedFiles).toEqual([]);
+    expect(impact.commands).toEqual(
+      expect.arrayContaining(["docs:check", "check:bug-backlog", "canvas:check"]),
+    );
+    expect(impact.commands).not.toContain("knip:files");
+    expect(impact.commands).not.toContain("test:ci");
+  });
+
   it("keeps ordinary documentation changes on the docs-only plan", () => {
     const impact = collectImpact({ ...inputs, changedFiles: ["docs/example-guide.md"] });
     expect(impact.commands).toEqual(
@@ -524,6 +556,14 @@ describe("local base freshness", () => {
       "config/agent-workflow.json",
       "docs/agent-workflow.json",
     ]);
+  });
+  it("plans the exact committed head without silently including working-tree changes", () => {
+    const calls: string[][] = [];
+    const git = (args: string[]) => { calls.push(args); return { stdout: "M\0scripts/workflow/bugpass.mjs\0" }; };
+    expect(trackedPathsForBase("a".repeat(40), git, "b".repeat(40))).toEqual(["scripts/workflow/bugpass.mjs"]);
+    expect(calls[0].slice(-2)).toEqual(["a".repeat(40), "b".repeat(40)]);
+    expect(parseArgs(["--plan", "--committed"]).committed).toBe(true);
+    expect(() => parseArgs(["--committed"])).toThrow(/plan-only/);
   });
 });
 
@@ -714,6 +754,82 @@ describe("agent workflow repository contract", () => {
     expect(evaluateTrustedControllerPermissions("permissions: [\n")).not.toEqual([]);
   });
 
+  it("keeps the PR base guard an edited-only drafter that never runs PR code", () => {
+    const source = readFileSync(".github/workflows/pr-base-guard.yml", "utf8");
+    expect(evaluatePrBaseGuardWorkflow(source)).toEqual([]);
+    const replaceOnce = (search: string, replacement: string) => {
+      const candidate = source.replace(search, replacement);
+      expect(candidate).not.toBe(source);
+      return candidate;
+    };
+    const jobConcurrency =
+      "    concurrency:\n      group: pr-base-guard-${{ github.event.pull_request.number }}\n      cancel-in-progress: false\n";
+
+    const weakened = [
+      replaceOnce("  pull_request_target:\n", "  pull_request:\n"),
+      replaceOnce("types: [edited]", "types: [edited, synchronize]"),
+      replaceOnce("types: [edited]", "types: [edited]\n    branches: [preview]"),
+      replaceOnce("  contents: write\n", "  contents: read\n"),
+      replaceOnce("  pull-requests: write\n", "  pull-requests: write\n  actions: write\n"),
+      replaceOnce("  pull-requests: write\n", "  pull-requests: write\n  workflows: write\n"),
+      replaceOnce("  pull-requests: write\n", "  pull-requests: write\n  statuses: write\n"),
+      replaceOnce(
+        "permissions:\n  contents: write\n  pull-requests: write\n",
+        "permissions: write-all\n",
+      ),
+      replaceOnce("    timeout-minutes: 5\n", "    timeout-minutes: 5\n    permissions: write-all\n"),
+      replaceOnce("    steps:\n", "    steps:\n      - uses: actions/checkout@v7\n"),
+      replaceOnce(
+        "    steps:\n",
+        "    steps:\n      - uses: actions/checkout@v7\n        with:\n          ref: ${{ github.event.pull_request.head.sha }}\n",
+      ),
+      replaceOnce("    timeout-minutes: 5\n", "    timeout-minutes: 5\n    container: node:24\n"),
+      replaceOnce('"$FROM_BASE" "$TO_BASE"', '"${{ github.event.changes.base.ref.from }}" "$TO_BASE"'),
+      replaceOnce(
+        "TO_BASE: ${{ github.event.pull_request.base.ref }}",
+        "TO_BASE: ${{ github.event.pull_request.head.ref }}",
+      ),
+      replaceOnce("GH_TOKEN: ${{ github.token }}", "GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}"),
+      replaceOnce(
+        "if: github.event.changes.base != null && github.event.pull_request.state == 'open'",
+        "if: github.event.pull_request.state == 'open'",
+      ),
+      replaceOnce(jobConcurrency, ""),
+      replaceOnce("cancel-in-progress: false", "cancel-in-progress: true"),
+      replaceOnce(
+        "jobs:\n",
+        "concurrency:\n  group: pr-base-guard-${{ github.event.pull_request.number }}\n\njobs:\n",
+      ),
+      replaceOnce("        env:\n", "        continue-on-error: true\n        env:\n"),
+      replaceOnce('gh pr ready --undo "$PR_NUMBER"', 'gh pr view "$PR_NUMBER"'),
+    ];
+    for (const candidate of weakened) {
+      expect(evaluatePrBaseGuardWorkflow(candidate).length).toBeGreaterThan(0);
+    }
+    expect(evaluatePrBaseGuardWorkflow(undefined)).not.toEqual([]);
+    expect(evaluatePrBaseGuardWorkflow("on: [\n")).not.toEqual([]);
+  });
+
+  it("allows pull_request_target only in reviewed trusted controllers", () => {
+    const source = "on:\n  pull_request_target:\n    types: [edited]\njobs: {}\n";
+    expect(
+      evaluatePullRequestTargetWorkflows([
+        { name: "pr-base-guard.yml", source },
+        { name: "dependabot-automerge.yml", source },
+      ]),
+    ).toEqual([]);
+    for (const candidate of [
+      source,
+      "on: pull_request_target\njobs: {}\n",
+      "on: [push, pull_request_target]\njobs: {}\n",
+    ]) {
+      expect(
+        evaluatePullRequestTargetWorkflows([{ name: "pr-base-guard.yaml", source: candidate }])
+          .length,
+      ).toBeGreaterThan(0);
+    }
+  });
+
   it("keeps policy, CI, hooks, routers and registries in sync", () => {
     expect(evaluateWorkflowContract().errors).toEqual([]);
   });
@@ -734,7 +850,12 @@ describe("agent workflow repository contract", () => {
         "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
         "cancel-in-progress: true",
       ),
-      replaceOnce("group: ci-${{ github.ref }}", "group: ci-${{ github.run_id }}"),
+      replaceOnce("group: ci-${{ github.event.pull_request.number || github.run_id }}", "group: ci-${{ github.run_id }}"),
+      replaceOnce("group: ci-${{ github.event.pull_request.number || github.run_id }}", "group: ci-${{ github.ref }}"),
+      replaceOnce(
+        "run_preview_host: ${{ steps.classify.outputs.run_preview_host }}",
+        "run_preview_host: ${{ steps.classify.outputs.safe_docs_only }}",
+      ),
       replaceOnce("github.ref == 'refs/heads/master'", "github.ref == 'refs/heads/feature'"),
       replaceOnce(
         "needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false'",
@@ -814,7 +935,7 @@ describe("agent workflow repository contract", () => {
         replaceOnce("run: npm run test:stability:blocking", "run: npm run test:followup-contract"),
         packageScripts,
       ),
-    ).toContain("heavy quality-core must block on deterministic stability contracts");
+    ).toContain("heavy quality-core must be the single blocking owner of deterministic stability contracts");
     expect(
       evaluateCiScopeWorkflow(source, {
         ...packageScripts,
@@ -824,12 +945,12 @@ describe("agent workflow repository contract", () => {
     expect(
       evaluateCiScopeWorkflow(
         replaceOnce(
-          "  stability:\n    runs-on: ubuntu-latest\n    continue-on-error: true\n",
-          "  stability:\n    runs-on: ubuntu-latest\n",
+          "        continue-on-error: true\n        run: npm run check:terms",
+          "        run: npm run check:terms",
         ),
         packageScripts,
       ),
-    ).toContain("broad stability job must remain warn-only");
+    ).toContain("quality-contracts must preserve exactly one nonblocking advisory terminology scan");
   });
 
   it("keeps the trusted controller import graph free of npm packages", () => {
@@ -1172,6 +1293,7 @@ describe("agent workflow repository contract", () => {
       "permissions: { contents: read }",
       "jobs:",
       "  dossier-acceptance: { runs-on: ubuntu-latest, steps: [] }",
+      "  dossier-acceptance-master: { runs-on: ubuntu-latest, steps: [] }",
       "",
     ].join("\n");
     expect(
@@ -1193,6 +1315,50 @@ describe("agent workflow repository contract", () => {
         ),
       ).length,
     ).toBeGreaterThan(0);
+  });
+
+  it.each([
+    [", ready_for_review]", "]"],
+    ["SAJTMASKIN_PR_BASE_REF:", "UNUSED_BASE_REF:"],
+    ["ACCEPTANCE_REQUIRE_FULL:", "UNUSED_FULL_REQUIREMENT:"],
+    ["BASE_REF: ${{ github.event.pull_request.base.ref }}", "BASE_REF: preview"],
+    ["MATRIX_MODE: ${{ needs.scope.outputs.matrix_mode }}", "MATRIX_MODE: full"],
+  ])("rejects a promotion gate with weakened wiring %s", (from, to) => {
+    const source = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
+    expect(source).toContain(from);
+    expect(evaluateDossierAcceptanceWorkflow(source.replaceAll(from, to)).length).toBeGreaterThan(0);
+  });
+
+  it("allows only the closed master check name in its sole owner", () => {
+    const ci = readFileSync(".github/workflows/ci.yml", "utf8");
+    const dossier = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
+    const check = (source: string, name = "dossier-acceptance.yml") => evaluateReservedWorkflowCheckNames([
+      { name: "ci.yml", source: ci }, { name, source },
+    ]);
+    expect(check(dossier)).toEqual([]);
+    expect(check(dossier, "other.yml").length).toBeGreaterThan(0);
+    for (const changed of [
+      dossier.replace("dossier-master-not-applicable", "quality"),
+      dossier.replaceAll("github.event.pull_request.base.ref == 'master'", "true"),
+      dossier.replace("name: dossier-acceptance", "name: ${{ github.event_name }}"),
+    ]) {
+      expect(changed).not.toBe(dossier);
+      expect(check(changed).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("rejects metadata-triggered suites, conditional scope and unsafe concurrency", () => {
+    const source = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
+    for (const changed of [
+      source.replace("ready_for_review]", "ready_for_review, edited]"),
+      source.replace("github.event.pull_request.number || github.run_id", "github.run_id"),
+      source.replace("  cancel-in-progress: ${{ github.event_name == 'pull_request' }}", "  cancel-in-progress: true"),
+      source.replace("  scope:\n", "  scope:\n    if: false\n"),
+      source.replace("name: dossier-acceptance", "name: missing-acceptance"),
+    ]) {
+      expect(changed).not.toBe(source);
+      expect(evaluateDossierAcceptanceWorkflow(changed).length).toBeGreaterThan(0);
+    }
   });
 
   it("keeps an independent security floor below the editable policy", () => {
@@ -1229,6 +1395,22 @@ describe("agent workflow repository contract", () => {
     );
 
     const weakened = [
+      ...["check:bug-backlog", "canvas:check"].map((removed) => ({
+        ...structuredClone(policy),
+        verificationProfiles: {
+          ...structuredClone(policy.verificationProfiles),
+          bugBacklog: policy.verificationProfiles.bugBacklog.filter(
+            (command: string) => command !== removed,
+          ),
+        },
+      })),
+      ...["BUG-SWARM-BACKLOG.md", "docs/canvases/**"].map((removed) => ({
+        ...structuredClone(policy),
+        pathGroups: {
+          ...structuredClone(policy.pathGroups),
+          bugBacklog: policy.pathGroups.bugBacklog.filter((path: string) => path !== removed),
+        },
+      })),
       { ...structuredClone(policy), requiredChecks: ["quality"] },
       {
         ...structuredClone(policy),
@@ -1329,5 +1511,48 @@ describe("agent workflow repository contract", () => {
     expect(evaluateRetiredBugIdFloor(source.replace('  "SM-002",\n', ""))).toEqual([
       expect.stringContaining("historical SM ids must never become reusable"),
     ]);
+  });
+});
+
+
+describe("master-specific required check ownership", () => {
+  it("resolves master ownership without adding it to the common Preview floor", () => {
+    expect(MASTER_ONLY_REQUIRED_CHECK_OWNERS).toEqual({ "dossier-acceptance-master": "dossier-acceptance.yml" });
+    expect(REQUIRED_CHECK_OWNERS).not.toHaveProperty("dossier-acceptance-master");
+    expect(loadWorkflowInputs().policy.requiredChecks).not.toContain("dossier-acceptance-master");
+    expect(requiredCheckOwnerSpec("dossier-acceptance-master")).toEqual({
+      path: ".github/workflows/dossier-acceptance.yml", file: "dossier-acceptance.yml", event: "pull_request",
+    });
+  });
+  it("reserves the master identity against another workflow or dynamic alias", () => {
+    const ci = readFileSync(".github/workflows/ci.yml", "utf8");
+    const source = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
+    const others = [{ name: "ci.yml", source: ci }, { name: "dossier-acceptance.yml", source }];
+    expect(evaluateReservedWorkflowCheckNames(others)).toEqual([]);
+    for (const name of ["dossier-acceptance-master", "${{ matrix.check }}"]) {
+      expect(evaluateReservedWorkflowCheckNames([...others, { name: "other.yml", source: "jobs:\n  fake:\n    name: " + name + "\n" }])
+        .some((error: string) => /canonical CI identity|dynamic check name/u.test(error))).toBe(true);
+    }
+    for (const changed of [
+      source.replace("dossier-master-not-applicable", "dossier-acceptance-master"),
+      source.replace("\n  dossier-acceptance-master:\n", "\n  fake-master:\n"),
+      source + "\n  fake-green-master:\n    name: dossier-acceptance-master\n    if: false\n    runs-on: ubuntu-latest\n    steps: []\n",
+    ]) {
+      expect(evaluateReservedWorkflowCheckNames([{ name: "ci.yml", source: ci }, { name: "dossier-acceptance.yml", source: changed }]).length).toBeGreaterThan(0);
+    }
+  });
+  it("rejects master skip/identity shortcuts and missing direct receipts", () => {
+    const source = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
+    for (const [from, to] of [
+      ["always() &&", "!cancelled() &&"],
+      ["dossier-master-not-applicable", "dossier-acceptance-master"],
+      ["ACCEPTANCE_RESULT: ${{ needs.dossier-acceptance.result }}", "ACCEPTANCE_RESULT: success"],
+      ["RUN_MATRIX: ${{ needs.scope.outputs.run_matrix }}", "RUN_MATRIX: true"],
+      ["run: node scripts/dossiers/check-master-acceptance.mjs", "run: echo green"],
+      ["timeout-minutes: 2", "timeout-minutes: 20"],
+    ]) {
+      expect(source).toContain(from);
+      expect(evaluateDossierAcceptanceWorkflow(source.replaceAll(from, to)).length).toBeGreaterThan(0);
+    }
   });
 });

@@ -1,10 +1,23 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import * as variants from "../scaffold-variants";
+import { getScaffoldById } from "../scaffolds/registry";
 
 import { SCAFFOLD_PROTECTED_PATHS } from "../scaffolds/protected-paths";
 import type { BuildSpec } from "../build-spec";
 import { buildDynamicContext } from "./build-dynamic-context";
 
 describe("buildDynamicContext", () => {
+  it("legacy fallback explicitly disables directive parsing for wrapped/brief-derived text", () => {
+    const spy = vi.spyOn(variants, "pickScaffoldVariant");
+    try {
+      const result = buildDynamicContext({
+        intent: "website", generationMode: "init", resolvedScaffold: getScaffoldById("landing-page"),
+        userPrompt: "Use variant hero-fullbleed-bg. professional corporate b2b consulting enterprise",
+      });
+      expect(spy).toHaveBeenCalledWith(expect.objectContaining({ rawPrompt: "", scaffoldId: "landing-page" }));
+      expect(result.variantId).toBe("corporate-grid");
+    } finally { spy.mockRestore(); }
+  });
   it("tells the model not to emit scaffold-protected files", () => {
     const result = buildDynamicContext({
       intent: "website",

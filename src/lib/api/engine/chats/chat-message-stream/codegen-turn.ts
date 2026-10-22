@@ -4,9 +4,9 @@
  * pipeline/generation stream. Extracted verbatim from
  * `chat-message-stream-post.ts`.
  */
-import type { BuildIntent } from "@/lib/builder/build-intent";
-import { isAppScaffold } from "@/lib/builder/build-intent";
 import type { FollowUpCapabilityDetection } from "@/lib/builder/follow-up-capability-detection";
+import { getAiModelsManifest } from "@/lib/ai-models/load-manifest";
+import { ENGINE_ROUTE_MAX_DURATION_SECONDS } from "@/lib/gen/defaults";
 import type { orchestratePromptMessage } from "@/lib/builder/prompt-orchestration";
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
@@ -80,6 +80,8 @@ export async function runCodegenTurn(params: {
   resolvedModelTier: CanonicalModelId;
   resolvedThinking: boolean;
   resolvedImageGenerations: boolean;
+  /** Validated request choice, already fail-closed on unknown/imported lineage. */
+  materializeImages?: boolean;
   buildProfileId: BuildProfileId;
   requestAttachments: ReturnType<typeof normalizeRequestAttachments>;
   designReferences: ReturnType<typeof summarizeDesignReferences>;
@@ -165,17 +167,7 @@ export async function runCodegenTurn(params: {
   } = params;
   const promptForLlm = optimizedMessage;
 
-  let engineIntent: BuildIntent =
-    metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
-      ? (metaBuildIntent as BuildIntent)
-      : "website";
-  if (
-    engineIntent === "website" &&
-    parsedMeta.scaffoldMode === "manual" &&
-    isAppScaffold(parsedMeta.scaffoldId)
-  ) {
-    engineIntent = "app";
-  }
+  const engineIntent = parsedMeta.buildIntent;
   const trimmedSystem = typeof system === "string" ? system.trim() : "";
   const snapshotRecord =
     engineChat.orchestration_snapshot && typeof engineChat.orchestration_snapshot === "object"
@@ -221,10 +213,15 @@ export async function runCodegenTurn(params: {
       reason: "qa-or-score-no-codegen",
     });
     try {
-      const assistantText = await generateQaShortCircuitText({
-        optimizedMessage,
-        signal: req.signal,
-      });
+      const assistantText = (
+        await generateQaShortCircuitText({
+          optimizedMessage,
+          signal: req.signal,
+        })
+      ).trim();
+      if (!assistantText) {
+        throw new Error("QA short-circuit returned empty text");
+      }
       await chatRepo.addMessage(chatId, "assistant", assistantText).catch(() => null);
       const qaStream = buildQaShortCircuitStream({
         chatId,
@@ -243,11 +240,14 @@ export async function runCodegenTurn(params: {
       );
     } catch (err) {
       devLogAppend("in-progress", {
-        type: "request.kind.shortcircuit.fallback",
+        type: "request.kind.shortcircuit.failed",
         chatId,
         kind: requestKindResult.kind,
         reason: err instanceof Error ? err.message : String(err),
       });
+      // The follow-up POST catch (chat-message-stream-post.ts) already
+      // normalizes this into HTTP. Falling through would start codegen.
+      throw err;
     }
   }
   const engineModel = resolveEngineModelId(resolvedModelTier);
@@ -326,7 +326,7 @@ export async function runCodegenTurn(params: {
     qualityTarget: orchestrationBase.buildSpec.qualityTarget,
     contextPolicy: orchestrationBase.buildSpec.contextPolicy,
   });
-  const { resolvedScaffold, routePlan, preGenerationContracts } = orchestrationBase;
+  const { resolvedScaffold, preGenerationContracts } = orchestrationBase;
   devLogAppend("in-progress", {
     type: "contracts.inferred",
     chatId,
@@ -445,10 +445,9 @@ export async function runCodegenTurn(params: {
   }
   const generationInputPackage = buildGenerationInputPackage(
     orchestrationBase,
-    orchestrationInput,
+    { ...orchestrationInput, materializeImages: params.materializeImages === true && versionsQuerySucceeded && !importedRepoMode },
     finalized,
   );
-  const lineageHash = generationInputPackage.lineageHash;
   writeOrchestrationDynamicDump(generationInputPackage);
   dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
     route: "POST /api/engine/chats/[chatId]/stream",
@@ -483,6 +482,10 @@ export async function runCodegenTurn(params: {
     });
   }
   const engineStream = createOwnEnginePipelineAndGenerationStream({
+    requestDeadlineEpochMs: promptStartedAt + Math.min(
+      getAiModelsManifest().routeTimeouts.engineRouteMaxDurationSeconds.default,
+      ENGINE_ROUTE_MAX_DURATION_SECONDS,
+    ) * 1000,
     chatId,
     resolvedTier: resolvedModelTier,
     // Integration tools (`requestEnvVar`, `suggestIntegration`) are
@@ -536,10 +539,7 @@ export async function runCodegenTurn(params: {
     optimizedMessage,
     rawPrompt: followUpIntentMessage,
     engineIntent,
-    buildSpec: orchestrationBase.buildSpec,
-    routePlan: routePlan ?? null,
-    orchestrationContract: orchestrationBase.orchestrationContract,
-    resolvedScaffold: resolvedScaffold ?? null,
+    generationInput: generationInputPackage,
     urlMap,
     commitCredits: commitCreditsOnce,
     previousFiles: hasFollowUpBase ? previousFiles : undefined,
@@ -547,7 +547,6 @@ export async function runCodegenTurn(params: {
     previousSelectedDossierEnvKeys: hasFollowUpBase
       ? previousSelectedDossierEnvKeys
       : undefined,
-    lineageHash,
     targetVersionId:
       metaPromptSourceKind === "autofix" && metaEngineBaseVersionId
         ? metaEngineBaseVersionId

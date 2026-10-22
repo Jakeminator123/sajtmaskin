@@ -450,6 +450,23 @@ describe("selectVersionStatus", () => {
     expect(status.verifierOutcome).toBe("pending");
   });
 
+  it("F2 postchecks_pending keeps polling, and skipped settles only afterwards", () => {
+    const pending = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.verifier.done", { outcome: "pending", blocked: false, reason: "postchecks_pending" }),
+    ]);
+    expect(pending.phase).toBe("verifying");
+    expect(pending.done).toBe(false);
+    const settled = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.verifier.done", { outcome: "pending", blocked: false, reason: "postchecks_pending" }),
+      ev("version.verifier.done", { outcome: "skipped", blocked: false, reason: "design_preview_skip_verify" }),
+    ]);
+    expect(settled.phase).toBe("done");
+    expect(settled.done).toBe(true);
+    expect(settled.verifierOutcome).toBe("skipped");
+  });
+
   it("F2 design-skip path (verifier skipped + degraded, no version.done) settles to done", () => {
     const status = selectVersionStatus([
       ev("version.started", { generationKind: "create" }),

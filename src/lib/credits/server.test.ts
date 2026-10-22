@@ -135,6 +135,31 @@ describe("prepareCredits kostnadsfri campaign", () => {
   });
 });
 
+describe("prepareCredits campaign accounts", () => {
+  it("blocks hosting until the campaign account is saved, even with credits", async () => {
+    for (const provider of ["kostnadsfri", "kostnadsfri_claimed"]) {
+      getCurrentUser.mockResolvedValue(account({ diamonds: 500, provider }));
+      for (const action of ["deploy.production", "deploy.preview"] as const) {
+        const prepared = await prepareCredits(new Request("https://example.test"), action);
+        expect(prepared.ok).toBe(false);
+        if (!prepared.ok) {
+          expect(prepared.response.status).toBe(403);
+          await expect(prepared.response.json()).resolves.toMatchObject({
+            code: "campaign_account_unclaimed",
+          });
+        }
+      }
+    }
+    expect(createTransaction).not.toHaveBeenCalled();
+  });
+
+  it("does not block a normal account from deploying", async () => {
+    getCurrentUser.mockResolvedValue(account({ diamonds: 500, provider: "email" }));
+    const prepared = await prepareCredits(new Request("https://example.test"), "deploy.production");
+    expect(prepared.ok).toBe(true);
+  });
+});
+
 describe("prepareCredits account-bound free generation", () => {
   it("requires an account for generation", async () => {
     getCurrentUser.mockResolvedValue(null);

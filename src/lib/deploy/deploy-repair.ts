@@ -124,6 +124,16 @@ export async function runDeployBuildRepair(
     };
   }
 
+  if (outcome.verification?.kind === "superseded") {
+    return { status: "superseded", skippedReason: outcome.skippedReason ?? outcome.verification.cause };
+  }
+  if (
+    outcome.verification?.kind === "stop" &&
+    (outcome.verification.reason === "lease_lost" || outcome.verification.reason === "time_budget_exceeded")
+  ) {
+    return { status: "unavailable", skippedReason: outcome.verification.reason };
+  }
+
   switch (outcome.skippedReason) {
     case "lease_busy":
     case "not_eligible":

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -28,6 +29,36 @@ def _manifest_uri_format_is_valid(value: object) -> bool:
     except ValueError:
         return False
     return bool(parsed.scheme and parsed.netloc)
+
+
+def _provider_setup_url_format_is_valid(value: object) -> bool:
+    """HTTPS parsing plus the canonical dossier setup-link pattern (also UI)."""
+    if not isinstance(value, str):
+        return True
+    try:
+        schema = read_json(
+            Path(__file__).resolve().parents[2]
+            / "docs/schemas/strict/dossier.schema.json"
+        )
+        field = schema["properties"]["providerSetup"]["items"]["properties"]["setupUrl"]
+        pattern = field["pattern"]
+        if (
+            len(value) > field["maxLength"]
+            or not isinstance(pattern, str)
+            or re.fullmatch(pattern, value) is None
+        ):
+            return False
+        parsed = urlparse(value)
+        _ = parsed.port
+        return bool(
+            parsed.scheme == "https"
+            and parsed.hostname
+            and parsed.hostname.strip(".")
+            and not parsed.username
+            and not parsed.password
+        )
+    except (OSError, ValueError, KeyError, TypeError, re.error):
+        return False
 
 
 def validate_json_against_schema(data: Any, schema_path: Path) -> list[str]:
@@ -72,6 +103,7 @@ def validate_json_against_schema(data: Any, schema_path: Path) -> list[str]:
     # use `format: "uri"` (the check is simply never invoked).
     format_checker = FormatChecker()
     format_checker.checks("uri")(_manifest_uri_format_is_valid)
+    format_checker.checks("https-provider-setup")(_provider_setup_url_format_is_valid)
 
     validator = Draft202012Validator(schema, format_checker=format_checker)
     messages: list[str] = []

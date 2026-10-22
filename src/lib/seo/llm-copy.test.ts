@@ -64,7 +64,7 @@ describe("improveSeoCopyWithLlm", () => {
   });
 
   it("builds the model through the provider-aware factory", async () => {
-    // The manifest stores `openai/gpt-5.2`. `getOpenAIModel` would forward
+    // The manifest stores `openai/gpt-6.1-sol`. `getOpenAIModel` would forward
     // that verbatim as a model NAME, so every call would fail and the pass
     // would silently degrade to no rewrite — invisible unless asserted here.
     generateObjectMock.mockResolvedValue({
@@ -72,8 +72,14 @@ describe("improveSeoCopyWithLlm", () => {
       usage: {},
     });
     const files = project();
-    await improveSeoCopyWithLlm(files, auditOf(files), { modelId: "openai/gpt-5.2" });
-    expect(createDirectModelMock).toHaveBeenCalledWith("openai/gpt-5.2");
+    await improveSeoCopyWithLlm(files, auditOf(files), { modelId: "openai/gpt-6.1-sol" });
+    expect(createDirectModelMock).toHaveBeenCalledWith("openai/gpt-6.1-sol");
+    expect(generateObjectMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerOptions: { openai: { reasoningEffort: "medium" } },
+        maxOutputTokens: 4_000,
+      }),
+    );
   });
 
   it("does nothing when the audit found no copy problem", async () => {

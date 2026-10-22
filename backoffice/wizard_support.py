@@ -28,6 +28,14 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+from backoffice.ai_workloads import (
+    WORKLOAD_SCAFFOLD_WIZARD_GUIDE,
+    WORKLOAD_SCAFFOLD_WIZARD_PERSONA,
+    resolve_reasoning_effort,
+)
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
 BLOB_MANIFEST_REL = "src/lib/templates/template-blob-manifest.json"
 DRAFTS_DIR_REL = "data/scaffold-wizard-drafts"
 
@@ -303,25 +311,29 @@ def _parse_json_reply(raw: str) -> dict[str, Any]:
 
 
 def _is_reasoning_model(model: str) -> bool:
-    """GPT-5 family and the o-series are reasoning models: they reject
-    `max_tokens` (require `max_completion_tokens`) and only accept the default
-    temperature (custom values return HTTP 400)."""
+    """GPT-5 and later (GPT-6 Sol/Luna/Astra) and the o-series are reasoning
+    models: they reject `max_tokens` (require `max_completion_tokens`) and only
+    accept the default temperature (custom values return HTTP 400)."""
     m = model.strip().lower()
-    return m.startswith(("gpt-5", "o1", "o3", "o4"))
+    return m.startswith(("gpt-5", "gpt-6", "o1", "o3", "o4"))
 
 
 # Reasoning-modeller räknar sina DOLDA reasoning-tokens mot
 # `max_completion_tokens`. En budget som räckte för en klassisk chat-modell kan
 # därför konsumeras helt av tänkandet innan ett enda synligt tecken skrivs —
-# svaret blir tomt `content` och `_post_openai_chat` kastar. Guidens default är
-# nu gpt-5.6-luna (persona: gpt-5.6-terra). Faktorn ger plats för
-# resonemanget; det synliga svaret är fortfarande kort.
+# svaret blir tomt `content` och `_post_openai_chat` kastar. Persona och guide
+# defaultar till gpt-6.1-sol. Faktorn ger plats för resonemanget, och golvet
+# 8192 är ett totalt outputtak (inte uppmätt förbrukning). Klassiska modeller
+# behåller den synliga budgeten.
 _REASONING_TOKEN_HEADROOM = 4
+_REASONING_COMPLETION_FLOOR = 8192
 
 
 def _completion_budget(model: str, visible_tokens: int) -> int:
     """Budget för `max_completion_tokens` givet önskad synlig svarslängd."""
-    return visible_tokens * _REASONING_TOKEN_HEADROOM if _is_reasoning_model(model) else visible_tokens
+    if not _is_reasoning_model(model):
+        return visible_tokens
+    return max(visible_tokens * _REASONING_TOKEN_HEADROOM, _REASONING_COMPLETION_FLOOR)
 
 
 def _chat_payload(
@@ -330,12 +342,15 @@ def _chat_payload(
     messages: list[dict[str, Any]],
     max_tokens: int,
     temperature: float,
+    workload_id: str,
     response_format: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a Chat Completions payload valid for both classic and
-    reasoning (gpt-5.6 terra/sol/luna) models. Uses `max_completion_tokens`
+    reasoning (gpt-6.1-sol, gpt-6-luna, gpt-5.6-*) models. Uses `max_completion_tokens`
     (accepted by all current chat models); omits the custom `temperature` for
-    reasoning models that only allow the default."""
+    reasoning models that only allow the default. Reasoning-modeller får
+    manifestets `reasoning_effort` (medium för Sol 6.1) i stället för
+    providerns default. Klassiska och okända id:n får ingen effort."""
     payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
@@ -343,6 +358,10 @@ def _chat_payload(
     }
     if not _is_reasoning_model(model):
         payload["temperature"] = temperature
+    else:
+        effort = resolve_reasoning_effort(_REPO_ROOT, workload_id, model)
+        if effort:
+            payload["reasoning_effort"] = effort
     if response_format is not None:
         payload["response_format"] = response_format
     return payload
@@ -435,6 +454,7 @@ def run_persona_analysis(
         ],
         max_tokens=_completion_budget(model, 2000),
         temperature=0.6,
+        workload_id=WORKLOAD_SCAFFOLD_WIZARD_PERSONA,
         response_format={"type": "json_object"},
     )
     return _parse_json_reply(_post_openai_chat(payload, api_key))
@@ -452,7 +472,7 @@ def ask_guide(
 
     Svaret ska vara kort (max 6 meningar), men budgeten skalas för
     reasoning-modeller — se :data:`_REASONING_TOKEN_HEADROOM`. Guidens
-    manifest-default är en gpt-5-modell, så utan skalningen kunde tänkandet äta
+    manifest-default är en reasoning-modell, så utan skalningen kunde tänkandet äta
     hela taket och lämna ett tomt svar.
     """
     payload = _chat_payload(
@@ -471,6 +491,7 @@ def ask_guide(
         ],
         max_tokens=_completion_budget(model, 500),
         temperature=0.4,
+        workload_id=WORKLOAD_SCAFFOLD_WIZARD_GUIDE,
     )
     return _post_openai_chat(payload, api_key).strip()
 

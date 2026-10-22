@@ -8,9 +8,10 @@
  *
  * Owner decision 2026-07-13 (supersedes the earlier catalog/status-only
  * contract): expanded hard-dossier rows carry masked env-key inputs in BOTH
- * F2 and F3, saving to the canonical project env-vars API. Saving a
- * feature-runtime key flips the dossier from "Byggd — demo aktiv" to
- * "Byggd — live" without a new LLM round. The chat stays silent about env
+ * F2 and F3, saving to the canonical project env-vars API. Once the declared
+ * project/code requirements are satisfied, the status can change from "Demo"
+ * to "Konfigurerad" without a new LLM round; this is not live-provider proof.
+ * The chat stays silent about env
  * (F2-mute is about chat traffic, not voluntary configuration), and secrets
  * are write-only: the panel only ever reads boolean `hasRealValue` flags.
  * A finalize-design 412 focuses the affected dossier here (pure UI action —

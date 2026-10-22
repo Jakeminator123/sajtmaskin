@@ -1,6 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  getBriefingDefaultsFromManifest,
+  getBriefingEnvKeysFromManifest,
+  getWorkloadDefaultModelFromManifest,
+} from "@/lib/ai-models/load-manifest";
 import type { RegistryIndexItem } from "@/lib/shadcn/registry-service";
 import type { ShadcnRegistryItem } from "@/lib/shadcn/registry-types";
+
+const generateObject = vi.hoisted(() => vi.fn());
+const createDirectModel = vi.hoisted(() => vi.fn((modelId: string) => ({ modelId })));
+const recordLlmUsage = vi.hoisted(() => vi.fn());
+
+vi.mock("ai", () => ({ generateObject }));
+vi.mock("@/lib/builder/direct-model", () => ({ createDirectModel }));
+vi.mock("@/lib/observability/llm-usage", () => ({ recordLlmUsage }));
+
 import {
   buildAddCommand,
   describeComponents,
@@ -12,6 +26,8 @@ import {
   matchOfficialIndex,
   mergeCommunityRegistries,
   OFFICIAL_REGISTRY,
+  QUERY_LLM_TIMEOUT_MS,
+  RANK_LLM_TIMEOUT_MS,
   rankCandidatesWithLlm,
   simplifyQueries,
   simplifyQuery,
@@ -21,6 +37,32 @@ import {
   type DescribeCandidate,
   type DescribeDeps,
 } from "@/lib/shadcn/describe";
+
+const QUERY_WORKLOAD = "shadcn_describe_queries";
+const RANK_WORKLOAD = "shadcn_describe_ranking";
+
+function clearAutoBriefEnv() {
+  const keys = getBriefingEnvKeysFromManifest();
+  vi.stubEnv(keys.serverAutoOpenAI, "");
+  vi.stubEnv(keys.serverAutoAnthropic, "");
+}
+
+function sampleCandidates(): DescribeCandidate[] {
+  return [
+    {
+      name: "pricing-table",
+      registry: OFFICIAL_REGISTRY,
+      description: "A pricing table",
+      addCommand: "npx shadcn@latest add pricing-table",
+    },
+    {
+      name: "table",
+      registry: OFFICIAL_REGISTRY,
+      description: "A data table",
+      addCommand: "npx shadcn@latest add table",
+    },
+  ];
+}
 
 // ---------------------------------------------------------------------------
 // Query generation (deterministic fallback)
@@ -141,6 +183,7 @@ describe("LLM provider failover", () => {
   });
 
   it("tries Anthropic when the preferred OpenAI attempt fails", async () => {
+    clearAutoBriefEnv();
     vi.stubEnv("OPENAI_API_KEY", "openai-test-key");
     vi.stubEnv("ANTHROPIC_API_KEY", "anthropic-test-key");
     const attemptedModels: string[] = [];
@@ -156,11 +199,14 @@ describe("LLM provider failover", () => {
     );
 
     expect(result).toBe("anthropic-result");
-    expect(attemptedModels).toHaveLength(2);
-    expect(attemptedModels[0]).not.toBe(attemptedModels[1]);
+    expect(attemptedModels).toEqual([
+      getWorkloadDefaultModelFromManifest(QUERY_WORKLOAD),
+      getBriefingDefaultsFromManifest().serverAutoAnthropic,
+    ]);
   });
 
   it("returns null only after every configured provider fails", async () => {
+    clearAutoBriefEnv();
     vi.stubEnv("OPENAI_API_KEY", "openai-test-key");
     vi.stubEnv("ANTHROPIC_API_KEY", "anthropic-test-key");
     const attemptedModels: string[] = [];
@@ -175,7 +221,166 @@ describe("LLM provider failover", () => {
     );
 
     expect(result).toBeNull();
-    expect(attemptedModels).toHaveLength(2);
+    expect(attemptedModels).toEqual([
+      getWorkloadDefaultModelFromManifest(RANK_WORKLOAD),
+      getBriefingDefaultsFromManifest().serverAutoAnthropic,
+    ]);
+  });
+
+  it("shares one deadline so the second provider does not get a fresh full budget", async () => {
+    clearAutoBriefEnv();
+    vi.stubEnv("OPENAI_API_KEY", "openai-test-key");
+    vi.stubEnv("ANTHROPIC_API_KEY", "anthropic-test-key");
+    let now = 1_000_000;
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => now);
+    const seen: number[] = [];
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation((ms: number) => {
+      seen.push(ms);
+      return new AbortController().signal;
+    });
+    try {
+      const result = await withDescribeModelFailover("query generation", 1_000, async () => {
+        if (seen.length === 1) {
+          now += 600;
+          throw new Error("429");
+        }
+        return "anthropic-ok";
+      });
+      expect(result).toBe("anthropic-ok");
+      expect(seen).toEqual([1_000, 400]);
+    } finally {
+      dateNow.mockRestore();
+      timeout.mockRestore();
+    }
+  });
+});
+
+describe("LLM call options", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    generateObject.mockReset();
+    createDirectModel.mockClear();
+    recordLlmUsage.mockClear();
+  });
+
+  it("sends Sol medium and an 8192 ceiling for both describe steps", async () => {
+    clearAutoBriefEnv();
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    generateObject
+      .mockResolvedValueOnce({
+        object: { queries: ["pricing table"] },
+        usage: { inputTokens: 2, outputTokens: 3 },
+      })
+      .mockResolvedValueOnce({
+        object: { picks: [{ index: 0, reason: "matches pricing" }] },
+        usage: { inputTokens: 4, outputTokens: 5 },
+      });
+
+    await expect(generateQueriesWithLlm("a pricing table")).resolves.toEqual(["pricing table"]);
+    const ranked = await rankCandidatesWithLlm("a pricing table", sampleCandidates(), 2);
+
+    expect(QUERY_LLM_TIMEOUT_MS).toBe(20_000);
+    expect(RANK_LLM_TIMEOUT_MS).toBe(25_000);
+    expect(createDirectModel).toHaveBeenNthCalledWith(
+      1,
+      getWorkloadDefaultModelFromManifest(QUERY_WORKLOAD),
+    );
+    expect(createDirectModel).toHaveBeenNthCalledWith(
+      2,
+      getWorkloadDefaultModelFromManifest(RANK_WORKLOAD),
+    );
+    expect(generateObject).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        maxRetries: 1,
+        maxOutputTokens: 8192,
+        providerOptions: { openai: { reasoningEffort: "medium" } },
+      }),
+    );
+    expect(generateObject).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        maxRetries: 1,
+        maxOutputTokens: 8192,
+        providerOptions: { openai: { reasoningEffort: "medium" } },
+      }),
+    );
+    expect(ranked.ranking).toBe("llm");
+    expect(ranked.candidates[0]?.name).toBe("pricing-table");
+    expect(recordLlmUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "describe",
+        workload: QUERY_WORKLOAD,
+        model: "openai/gpt-6.1-sol",
+        usage: { inputTokens: 2, outputTokens: 3 },
+      }),
+    );
+    expect(recordLlmUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "describe",
+        workload: RANK_WORKLOAD,
+        usage: { inputTokens: 4, outputTokens: 5 },
+      }),
+    );
+  });
+
+  it("uses an explicit AUTO_BRIEF override and keeps the classic output cap", async () => {
+    const keys = getBriefingEnvKeysFromManifest();
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    vi.stubEnv(keys.serverAutoOpenAI, "gpt-4o");
+    generateObject.mockResolvedValue({
+      object: { queries: ["login"] },
+      usage: { inputTokens: 1, outputTokens: 1 },
+    });
+
+    await expect(generateQueriesWithLlm("login form")).resolves.toEqual(["login"]);
+    expect(createDirectModel).toHaveBeenCalledWith("gpt-4o");
+    const options = generateObject.mock.calls[0]?.[0] as { maxOutputTokens?: number; providerOptions?: unknown };
+    expect(options.maxOutputTokens).toBe(512);
+    expect(options.providerOptions).toBeUndefined();
+  });
+
+  it.each([
+    ["gpt-4o-mini", "gpt-6.1-sol"],
+    ["openai/gpt-4o-mini", "openai/gpt-6.1-sol"],
+    ["gpt-4.1", "gpt-6.1-sol"],
+    ["openai/gpt-4.1", "openai/gpt-6.1-sol"],
+  ])("resolves retired override %s before both payload and usage decisions", async (requested, resolved) => {
+    clearAutoBriefEnv();
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    vi.stubEnv(getBriefingEnvKeysFromManifest().serverAutoOpenAI, requested);
+    generateObject
+      .mockResolvedValueOnce({ object: { queries: ["pricing"] }, usage: {} })
+      .mockResolvedValueOnce({ object: { picks: [{ index: 0, reason: "pricing" }] }, usage: {} });
+    await expect(generateQueriesWithLlm("pricing table")).resolves.toEqual(["pricing"]);
+    expect((await rankCandidatesWithLlm("pricing table", sampleCandidates(), 1)).ranking).toBe("llm");
+    for (const [options] of generateObject.mock.calls) {
+      expect(options).toMatchObject({
+        model: { modelId: resolved }, maxOutputTokens: 8192,
+        providerOptions: { openai: { reasoningEffort: "medium" } },
+      });
+    }
+    expect(recordLlmUsage).toHaveBeenCalledTimes(2);
+    for (const [usage] of recordLlmUsage.mock.calls) expect(usage.model).toBe(resolved);
+  });
+
+  it("falls back to the heuristic when every provider call fails", async () => {
+    clearAutoBriefEnv();
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("ANTHROPIC_API_KEY", "anthropic-test-key");
+    generateObject.mockRejectedValue(new Error("429 rate limited"));
+    const description = "a pricing table with three tiers";
+
+    await expect(generateQueriesWithLlm(description)).resolves.toEqual(
+      fallbackQueriesFromDescription(description),
+    );
+    const ranked = await rankCandidatesWithLlm(description, sampleCandidates(), 2);
+    expect(ranked.ranking).toBe("heuristic");
+    expect(ranked.candidates[0]?.name).toBe("pricing-table");
+    expect(generateObject.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 });
 

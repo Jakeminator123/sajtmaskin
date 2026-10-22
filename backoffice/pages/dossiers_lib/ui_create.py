@@ -432,7 +432,7 @@ def _section_legacy_prospect(dossiers: list[dict[str, Any]]) -> None:
         "Modell för normalisering", _facade()._NORMALIZE_MODELS, key="prospect_model"
     )
     st.caption(
-        "`gpt-5.5` = bäst omdöme (default). `gpt-5.4-mini` = billigare/snabbare. "
+        "`gpt-6.1-sol` = bäst omdöme (default). `gpt-6-luna` = billigare/snabbare. "
         "Körningen blockerar UI:t tills den är klar."
     )
     batch_cols = st.columns(2)

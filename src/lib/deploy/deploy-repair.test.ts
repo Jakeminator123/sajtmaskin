@@ -136,6 +136,39 @@ describe("runDeployBuildRepair", () => {
     expect(result.status).toBe("superseded");
   });
 
+  it("maps file or context supersession to superseded", async () => {
+    triggerBuildErrorRepair.mockResolvedValue({
+      started: true,
+      repairAvailable: false,
+      verification: { kind: "superseded", cause: "files", forceBuildCheck: true, contextRetryUsed: false },
+    });
+    const result = await runDeployBuildRepair({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      deploymentId: "dep_1",
+      fallbackMessage: "fallback",
+    });
+    expect(result).toMatchObject({ status: "superseded", skippedReason: "files" });
+  });
+
+  it.each(["lease_lost", "time_budget_exceeded"] as const)(
+    "maps retryable %s to unavailable instead of a stuck failure",
+    async (reason) => {
+      triggerBuildErrorRepair.mockResolvedValue({
+        started: true,
+        repairAvailable: false,
+        verification: { kind: "stop", reason, retryable: true },
+      });
+      const result = await runDeployBuildRepair({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        deploymentId: "dep_1",
+        fallbackMessage: "fallback",
+      });
+      expect(result).toEqual({ status: "unavailable", skippedReason: reason });
+    },
+  );
+
   it("returns failed when the loop ran but could not fix the build", async () => {
     triggerBuildErrorRepair.mockResolvedValue({ started: true, repairAvailable: false });
     const result = await runDeployBuildRepair({
