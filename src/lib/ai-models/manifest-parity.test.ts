@@ -265,7 +265,7 @@ describe("config/ai_models/manifest.json parity", () => {
     const rewrite = m.workloads.find((w) => w.id === "prompt_rewrite");
 
     expect(rewrite?.defaultModel).toBe("openai/gpt-6.1-sol");
-    expect(rewrite?.reasoningEffort).toBe("medium");
+    expect(rewrite?.reasoningEffort).toBe("low");
     expect(rewrite?.envOverrides?.model).toBe("SAJTMASKIN_PROMPT_REWRITE_MODEL");
     expect(rewrite?.codeEntry).toContain("src/app/api/ai/prompt-assist/route.ts");
     expect(rewrite?.id).not.toBe("prompt_assist");
