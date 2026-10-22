@@ -43,7 +43,7 @@ körning otillräcklig när integrationsbasen har flyttat sig.
 | `backoffice-tests`            | Ja                                                                                   | **Ja**                                                       |
 | `schema-drift`                | Ja                                                                                   | **Ja**                                                       |
 | `build`                       | Ja                                                                                   | **Ja** — tillagd i rulesetet 2026-07-30 (#660)               |
-| `dossier-acceptance`          | Ja, med explicit grönt no-op-kvitto utanför dossier-scope                           | **Ja**                                                       |
+| `dossier-acceptance`          | Ja; mot `preview` alltid grönt `deferred-to-promote`-kvitto, full matris mot `master` | **Ja**                                                       |
 | `preview-host-guards`         | Ja                                                                                   | **Ja, via `quality`-aggregatet**                             |
 | `dead-code` (orphan-filgrind) | Ja                                                                                   | **Ja, via `quality`-aggregatet**                             |
 

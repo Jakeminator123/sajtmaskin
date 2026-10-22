@@ -130,7 +130,10 @@ export async function startFakeFlyMachinesApi({
       const url = new URL(req.url ?? "/", "http://fake.invalid");
       calls.push({ method: req.method, path: url.pathname, query: Object.fromEntries(url.searchParams) });
       const auth = req.headers.authorization ?? "";
-      if (auth !== `Bearer ${apiToken}`) return json(res, 401, { error: "unauthorized" });
+      // Same scheme rule as the real API: `fly tokens create` macaroons are
+      // FlyV1, only `flyctl auth token` output is Bearer.
+      const expectedAuth = /^FlyV1\s+/i.test(apiToken) ? apiToken : `Bearer ${apiToken}`;
+      if (auth !== expectedAuth) return json(res, 401, { error: "unauthorized" });
       const prefix = `/v1/apps/${encodeURIComponent(appName)}/machines`;
       if (!url.pathname.startsWith(prefix)) return json(res, 404, { error: "app not found" });
       const rest = url.pathname.slice(prefix.length);
