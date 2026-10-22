@@ -35,12 +35,6 @@ import {
   validateDossierManifest,
 } from "./validate-manifest";
 import type { DossierMockFallbackEntry } from "./validate-manifest";
-import {
-  buildSystemPrompt as buildNormalizerSystemPrompt,
-  runMechanicalChecks as runNormalizerMechanicalChecks,
-  type ProspectPlan,
-  type ReviewOutput,
-} from "../../../../scripts/dossiers/normalize-legacy-prospect";
 
 const VALID_MANIFEST = {
   $schema: "../../../../docs/schemas/strict/dossier.schema.json",
@@ -59,24 +53,6 @@ const VALID_HARD_MANIFEST = {
   ...VALID_MANIFEST,
   providers: ["example-provider"],
 };
-
-const NORMALIZER_HARD_PLAN: ProspectPlan = {
-  legacyId: "legacy-stripe",
-  targetId: "stripe-checkout",
-  targetClass: "hard",
-  targetCapability: "payments",
-  defaultForCapability: true,
-};
-
-function normalizerReviewOutput(manifest: Record<string, unknown>): ReviewOutput {
-  return {
-    verdict: "accept",
-    manifest,
-    instructions:
-      "# When to use\n\n- Use it.\n\n# How to integrate\n\n- Wire it.\n\n# UX rules\n\n- Be clear.\n\n# Avoid\n\n- Avoid secrets.\n\n# Verification\n\n- Test it.",
-    keepFiles: [],
-  };
-}
 
 describe("validateDossierManifest — happy path", () => {
   it("accepts a minimal valid manifest", () => {
@@ -543,54 +519,6 @@ describe("validateDossierManifest — provider ownership", () => {
       { expectedId: "example-dossier", class: "hard" },
     );
     expect(result.valid).toBe(true);
-  });
-});
-
-describe("legacy normalizer — provider ownership", () => {
-  it("asks hard normalization to re-derive explicit providers", () => {
-    const prompt = buildNormalizerSystemPrompt(NORMALIZER_HARD_PLAN);
-    expect(prompt).toContain('"providers": ["canonical-kebab-provider-id"]');
-    expect(prompt).toContain("legacy provider claims MUST NOT be copied blindly");
-  });
-
-  it("omits providers from the soft manifest shape", () => {
-    const prompt = buildNormalizerSystemPrompt({
-      ...NORMALIZER_HARD_PLAN,
-      targetClass: "soft",
-    });
-    expect(prompt).not.toContain('"providers": ["canonical-kebab-provider-id"]');
-  });
-
-  it("fails hard output without providers and soft output that declares providers or envVars", () => {
-    const hard = runNormalizerMechanicalChecks(
-      NORMALIZER_HARD_PLAN,
-      normalizerReviewOutput({}),
-      "/tmp/prospect",
-    );
-    expect(hard.errors).toContain("hard dossier must declare a non-empty providers array");
-
-    const soft = runNormalizerMechanicalChecks(
-      { ...NORMALIZER_HARD_PLAN, targetClass: "soft" },
-      normalizerReviewOutput({ providers: ["stripe"] }),
-      "/tmp/prospect",
-    );
-    expect(soft.errors).toContain("soft dossier must omit providers");
-
-    const softWithEnv = runNormalizerMechanicalChecks(
-      { ...NORMALIZER_HARD_PLAN, targetClass: "soft" },
-      normalizerReviewOutput({
-        envVars: [
-          {
-            key: "PUBLIC_MAP_TOKEN",
-            required: false,
-            purpose: "Configures the remote map service.",
-            enforcement: "warn-only",
-          },
-        ],
-      }),
-      "/tmp/prospect",
-    );
-    expect(softWithEnv.errors).toContain("soft dossier must not declare non-empty envVars");
   });
 });
 

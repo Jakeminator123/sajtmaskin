@@ -183,10 +183,6 @@ vi.mock("@/lib/utils/debug", () => ({
   warnLog: vi.fn(),
 }));
 
-vi.mock("@/lib/sanitize/sanitize-metadata", () => ({
-  sanitizeMetadata: vi.fn(),
-}));
-
 vi.mock("@/lib/db/services/prompt-logs", () => ({
   createPromptLog,
   attachPromptLogChatId: vi.fn().mockResolvedValue(undefined),

@@ -32,6 +32,7 @@ const SKIP_DIRS = new Set([
   ".venv",
   "venv",
   ".cursor",
+  ".claude",
   ".tmp",
   "data",
   "logs",

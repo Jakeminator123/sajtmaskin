@@ -5,16 +5,10 @@
  * filesystem-backed search or server-only providers.
  */
 export {
-  CATEGORIES,
-  CATEGORY_IDS,
   CATEGORY_TITLES,
-  COMPONENT_CATEGORIES,
-  COMPONENTS,
   TEMPLATES,
   V0_CATEGORIES,
   getAllV0Categories,
-  getCategory,
-  getQuickPromptsForCategory,
   getTemplateById,
   getTemplateCategoryId,
   getTemplateCategoryTitle,
@@ -24,7 +18,6 @@ export {
   type CategoryInfo,
   type QuickPrompt,
   type Template,
-  type TemplateComponentCategory,
 } from "./template-data";
 
 export {

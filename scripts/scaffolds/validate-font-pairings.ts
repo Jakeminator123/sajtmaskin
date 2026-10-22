@@ -7,7 +7,7 @@
  * (which exports both import keys and displayNames).
  *
  * CLI:
- *   npx tsx scripts/typography/validate-font-pairings.ts
+ *   npx tsx scripts/scaffolds/validate-font-pairings.ts
  *   npm run typography:validate-pairings
  *
  * Exit code 0 when all variants resolve cleanly, 1 when any violation is

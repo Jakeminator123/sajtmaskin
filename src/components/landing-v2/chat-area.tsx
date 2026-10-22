@@ -63,7 +63,7 @@ function revealLandingFreeformPrompt(): boolean {
 /* ──────────────────── MAIN COMPONENT ──────────────────── */
 
 export function ChatArea(props: ChatAreaProps = {}) {
-  const { expandedContent, onPlayIntro } = props
+  const { expandedContent } = props
   // /#hur-det-fungerar och /#priser bor i den inre scroll-containern som
   // Nexts hash-hantering inte scrollar — lös hash-länkarna här.
   useHashScroll()
@@ -127,7 +127,6 @@ export function ChatArea(props: ChatAreaProps = {}) {
 
         <LandingHero
           expandedContent={expandedContent}
-          onPlayIntro={onPlayIntro}
           selectedCategory={selectedCategory}
           pickCategory={pickCategory}
           showVoiceRecorder={showVoiceRecorder}

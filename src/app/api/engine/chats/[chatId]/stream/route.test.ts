@@ -115,10 +115,6 @@ vi.mock("@/lib/utils/debug", () => ({
   warnLog: vi.fn(),
 }));
 
-vi.mock("@/lib/sanitize/sanitize-metadata", () => ({
-  sanitizeMetadata: vi.fn(),
-}));
-
 vi.mock("@/lib/providers/errors/normalize-provider-error", () => ({
   normalizeProviderError: (error: unknown) => ({
     message: error instanceof Error ? error.message : "Unknown error",

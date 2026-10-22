@@ -766,7 +766,7 @@ async function main() {
 
 // Only run when invoked directly, so the regression test can import
 // parseArgs/resolveCurationModel without starting a curation run. Same
-// URL-string comparison as normalize-legacy-prospect.ts (robust across Windows
+// URL-string comparison as check-sdk-versions.mjs (robust across Windows
 // backslash/drive-letter differences).
 function isInvokedDirectly(): boolean {
   const entry = process.argv[1];

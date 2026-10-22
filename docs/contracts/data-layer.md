@@ -76,7 +76,6 @@ De manuella ingångarna har olika scope:
 ```
 predev = preflight:common
       && shadcn:sync:soft         ← failar tyst, dev startar ändå
-      && refresh-token            ← hard
       && hooks:install:soft
       && doctor:soft
 ```
@@ -356,7 +355,6 @@ Mappade mot Redis-skill-reglerna:
 
 | Verktyg                        | Var            | Använd när                                                                                   |
 | ------------------------------ | -------------- | -------------------------------------------------------------------------------------------- |
-| `npm run db:rows`              | CLI            | Snabb rad-överblick utan backoffice                                                          |
 | `npm run db:health`            | CLI            | Samma som backofficen, JSON-svar i terminal                                                  |
 | `npm run db:perf-indexes:dry`  | CLI            | Read-only plan: se vilka index som skulle skapas                                              |
 | `npm run db:perf-indexes -- --reason "manual: …"` | CLI | Explicit DDL efter dry-run och verifierat mål; idempotens gör inte prod automatiskt säkert   |

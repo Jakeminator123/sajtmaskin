@@ -3,7 +3,7 @@
  * predev wrapper (replaces the old inline `&&` chain in package.json).
  *
  * Why this exists:
- *  - SKIP_PREDEV=1 -> skip ALL preflight/token steps (fast iteration).
+ *  - SKIP_PREDEV=1 -> skip ALL preflight steps (fast iteration).
  *    npm always runs `predev` before `dev`, so the only reliable escape hatch
  *    is to short-circuit here.
  *  - Otherwise run the predev chain. `preflight:common` is the only HARD gate
@@ -18,14 +18,13 @@
 import { spawnSync } from "node:child_process";
 
 if (process.env.SKIP_PREDEV) {
-  console.log("[predev] SKIP_PREDEV satt - hoppar over preflight/token (snabb iteration)");
+  console.log("[predev] SKIP_PREDEV satt - hoppar over preflight (snabb iteration)");
   process.exit(0);
 }
 
 const chain = [
   "npm run preflight:common",
   "npm run shadcn:sync:soft",
-  "node scripts/dev/refresh-token.mjs",
   // Installerar read-only DB-hooks om de saknas. Tyst när de redan finns, så
   // en färsk clone/worktree får dem utan att någon behöver komma ihåg det.
   "npm run hooks:install:soft",

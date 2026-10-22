@@ -108,7 +108,7 @@ def render(ctx: BackofficeContext) -> None:
 - `src/lib/models/catalog.ts` — kanoniska byggprofiler, `DEFAULT_MODEL_ID`  
 - `src/lib/gen/orchestrate.ts` — orkestrering och kontext  
 - `src/lib/providers/own-engine/generation-stream.ts` — codegen-ström  
-- `src/lib/gen/stream/finalize-version.ts` — finalize efter stream  
+- `src/lib/gen/stream/finalize-version/` — finalize efter stream  
         """
     )
 

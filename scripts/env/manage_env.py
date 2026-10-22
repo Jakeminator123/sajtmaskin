@@ -47,7 +47,6 @@ ENV_POLICY_FILE = REPO_ROOT / "config" / "env-policy.json"
 ENV_TS_FILE = REPO_ROOT / "src" / "lib" / "env.ts"
 
 VERCEL_API_BASE = "https://api.vercel.com"
-V0_API_BASE = "https://api.v0.dev/v1"
 
 BOLD = "\033[1m"
 RED = "\033[31m"
@@ -240,31 +239,6 @@ def delete_vercel_env_by_id(token: str, project_id: str, team_id: str | None, en
         return True
     print(f"  {RED}Vercel API {resp.status_code}: {resp.text[:200]}{RESET}")
     return False
-
-
-def fetch_v0_envs(api_key: str, project_id: str) -> list[dict[str, Any]] | None:
-    url = f"{V0_API_BASE}/projects/{project_id}/env-vars"
-    try:
-        resp = requests.get(
-            url,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            timeout=15,
-        )
-    except requests.RequestException as e:
-        print(f"  {RED}v0 API error: {e}{RESET}")
-        return None
-
-    if resp.status_code != 200:
-        print(f"  {RED}v0 API {resp.status_code}: {resp.text[:200]}{RESET}")
-        return None
-
-    data = resp.json()
-    if isinstance(data, list):
-        return data
-    return data.get("envVars", data.get("data", []))
 
 
 def push_to_vercel(token: str, project_id: str, team_id: str | None,
@@ -961,7 +935,6 @@ def cmd_audit(args: argparse.Namespace) -> int:
     vercel_token = env_dict.get("VERCEL_TOKEN", "").strip()
     vercel_project_id = env_dict.get("VERCEL_PROJECT_ID", "").strip()
     vercel_team_id = env_dict.get("VERCEL_TEAM_ID", "").strip() or None
-    v0_api_key = env_dict.get("V0_API_KEY", "").strip()
 
     all_local_keys = set(audit_entries_to_dict(entries_local).keys()) | set(audit_entries_to_dict(entries_prod).keys())
 
@@ -1008,32 +981,6 @@ def cmd_audit(args: argparse.Namespace) -> int:
                 print(f"  {RED}Failed to fetch Vercel env vars (see error above){RESET}")
                 total_issues += 1
 
-        if args.v0_project_id:
-            print_audit_section("4. Local vs v0")
-            if not v0_api_key:
-                print(f"  {YELLOW}Skipped: V0_API_KEY not found in local env files{RESET}")
-            else:
-                print(f"  {DIM}Fetching env vars from v0 project {args.v0_project_id}...{RESET}")
-                v0_envs = fetch_v0_envs(v0_api_key, args.v0_project_id)
-                if v0_envs is not None:
-                    remote_keys = set()
-                    for item in v0_envs:
-                        key = item.get("key") or item.get("name", "")
-                        if key:
-                            remote_keys.add(key)
-                    print(f"  {DIM}Found {len(v0_envs)} env vars on v0{RESET}\n")
-                    issues = audit_local_vs_remote(
-                        policy,
-                        runtime_only,
-                        all_local_keys,
-                        remote_keys,
-                        "v0",
-                        strict=False,
-                    )
-                    total_issues += print_audit_issues(issues)
-                else:
-                    print(f"  {RED}Failed to fetch v0 env vars (see error above){RESET}")
-                    total_issues += 1
     else:
         print(f"\n{DIM}  (API checks skipped: --local-only){RESET}")
 
@@ -1159,7 +1106,6 @@ def cmd_interactive(_args: argparse.Namespace) -> int:
             cmd_audit(
                 argparse.Namespace(
                     local_only=False,
-                    v0_project_id=None,
                     verbose=False,
                     strict=False,
                     env_local=str(ENV_LOCAL),
@@ -1170,7 +1116,6 @@ def cmd_interactive(_args: argparse.Namespace) -> int:
             cmd_audit(
                 argparse.Namespace(
                     local_only=False,
-                    v0_project_id=None,
                     verbose=False,
                     strict=True,
                     env_local=str(ENV_LOCAL),
@@ -1213,7 +1158,6 @@ def main() -> int:
     sub.add_parser("pull", help="Check what Vercel has that local doesn't")
     p_audit = sub.add_parser("audit", help="Run read-only audit")
     p_audit.add_argument("--local-only", action="store_true", help="Skip API calls")
-    p_audit.add_argument("--v0-project-id", help="v0 project ID to compare against")
     p_audit.add_argument("--verbose", action="store_true", help="Show local value mismatches")
     p_audit.add_argument("--strict", action="store_true", help="Also flag over-target and local-only remote drift")
     p_audit.add_argument("--env-local", default=str(ENV_LOCAL), help="Path to .env.local")

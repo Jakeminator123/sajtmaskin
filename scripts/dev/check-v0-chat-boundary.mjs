@@ -11,7 +11,6 @@ const NON_RUNTIME_CODE_PREFIXES = Object.freeze([
   "docs/",
   "archive/",
   ".cursor/",
-  "grandmaster/",
 ]);
 const HISTORICAL_DOC_PREFIXES = Object.freeze([
   "docs/plans/archived/",

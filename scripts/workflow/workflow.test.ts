@@ -916,7 +916,6 @@ describe("agent workflow repository contract", () => {
         "npm run db:init",
         "npm run db:ensure",
         "npm run db:perf-indexes",
-        "npm run db:push",
       ].map((command) =>
         replaceOnce("run: npm run db:schema-parity -- --require", `run: ${command}`),
       ),
