@@ -55,7 +55,7 @@ function receipt(change: Partial<ReceiptFields> = {}) {
   return formatReceipt({ head, base, tree, profile: "heavy", previewHost: false, ...change });
 }
 
-/** Routes the three GitHub endpoints to in-memory fixtures. */
+/** Routes the GitHub endpoints (commit check-runs → run → jobs → annotations, pulls) to fixtures. */
 function github({
   runs,
   jobs = {},
@@ -70,7 +70,18 @@ function github({
   return vi.fn<typeof fetch>(async (input) => {
     const url = String(input);
     const json = (body: unknown) => new Response(JSON.stringify(body));
-    if (url.includes("/actions/workflows/ci.yml/runs?")) return json({ workflow_runs: runs });
+    if (/\/commits\/[0-9a-f]{40}\/check-runs\?/u.test(url)) {
+      const checkRuns = runs.map((entry) => ({
+        app: { slug: "github-actions" },
+        details_url: `https://github.com/${repository}/actions/runs/${entry.id}/job/${entry.id}000`,
+      }));
+      return json({ total_count: checkRuns.length, check_runs: checkRuns });
+    }
+    const runMatch = /\/actions\/runs\/(\d+)$/u.exec(url);
+    if (runMatch) {
+      const found = runs.find((entry) => String(entry.id) === runMatch[1]);
+      return found ? json(found) : new Response(null, { status: 404 });
+    }
     const jobMatch = /\/actions\/runs\/(\d+)\/jobs\?/u.exec(url);
     if (jobMatch) return json({ jobs: jobs[Number(jobMatch[1])] ?? [] });
     const checkMatch = /\/check-runs\/(\d+)000\/annotations\?/u.exec(url);
@@ -140,7 +151,9 @@ describe("reusable green receipt", () => {
   it("reuses a successful full run on the exact same head, base and tree", async () => {
     const fetchImpl = github({ runs: [run(101)], jobs: { 101: heavyJobs(101) }, annotations: { 101: [notice(receipt())] } });
     expect(await find(fetchImpl)).toEqual({ reuse: { runId: "101", previewHost: false }, detail: "reused" });
-    expect(String(fetchImpl.mock.calls[0][0])).toContain(`event=pull_request&head_sha=${head}`);
+    // Not the flaky runs search: commit check-runs → run ids → direct run lookups.
+    expect(String(fetchImpl.mock.calls[0][0])).toContain(`/commits/${head}/check-runs?check_name=scope&filter=all`);
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("/actions/workflows/"))).toBe(false);
   });
 
   it.each([
@@ -267,7 +280,9 @@ describe("reusable green receipt", () => {
   it("fails closed on API errors, malformed listings and missing input", async () => {
     expect((await find(vi.fn<typeof fetch>(async () => new Response(null, { status: 403 })))).detail).toMatch(/^api-error:/u);
     expect((await find(vi.fn<typeof fetch>(async () => { throw new Error("timeout"); })))).toMatchObject({ reuse: null });
-    expect((await find(vi.fn<typeof fetch>(async () => new Response("{}"))))).toMatchObject({ reuse: null, detail: "malformed-run-listing" });
+    const malformed = await find(vi.fn<typeof fetch>(async () => new Response("{}")));
+    expect(malformed.reuse).toBeNull();
+    expect(malformed.detail).toMatch(/^api-error:check-run listing is malformed/u);
     const unused = vi.fn<typeof fetch>();
     expect(await find(unused, { token: "" })).toMatchObject({ reuse: null, detail: "missing-input" });
     expect(await find(unused, { tree: "nope" })).toMatchObject({ reuse: null, detail: "missing-input" });
