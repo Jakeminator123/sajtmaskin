@@ -449,16 +449,14 @@ export function evaluatePrBaseGuardWorkflow(source) {
   return errors;
 }
 
-// The sole dynamic check-name exception is a closed pair of literal names.
-// Metadata edits cannot publish a skipped success under the required identity.
-const DOSSIER_METADATA_EDIT = "github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && (github.event.changes.body != null || github.event.changes.title != null)";
-const DOSSIER_CHECK_NAME = "${{ (" + DOSSIER_METADATA_EDIT + ") && 'dossier-metadata-edit' || 'dossier-acceptance' }}";
-const DOSSIER_SCOPE_IF = "${{ !(" + DOSSIER_METADATA_EDIT + ") }}";
-const DOSSIER_AGGREGATE_IF = "${{ !cancelled() && !(" + DOSSIER_METADATA_EDIT + ") }}";
-const DOSSIER_CONCURRENCY_GROUP = "dossier-acceptance-${{ (" + DOSSIER_METADATA_EDIT + ") && format('metadata-{0}', github.run_id) || github.event.pull_request.number || github.run_id }}";
-const DOSSIER_CANCEL = "${{ github.event_name == 'pull_request' && !(" + DOSSIER_METADATA_EDIT + ") }}";
+// Only the master-only receipt may switch between two closed literal names.
+// Ordinary acceptance uses a static name and never starts on metadata edits.
+const DOSSIER_CHECK_NAME = "dossier-acceptance";
+const DOSSIER_AGGREGATE_IF = "${{ !cancelled() }}";
+const DOSSIER_CONCURRENCY_GROUP = "dossier-acceptance-${{ github.event.pull_request.number || github.run_id }}";
+const DOSSIER_CANCEL = "${{ github.event_name == 'pull_request' }}";
 
-const DOSSIER_MASTER_EVENT = "github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'master' && !(" + DOSSIER_METADATA_EDIT + ")";
+const DOSSIER_MASTER_EVENT = "github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'master'";
 const DOSSIER_MASTER_NAME = "${{ (" + DOSSIER_MASTER_EVENT + ") && 'dossier-acceptance-master' || 'dossier-master-not-applicable' }}";
 const DOSSIER_MASTER_IF = "${{ always() && (" + DOSSIER_MASTER_EVENT + ") }}";
 
@@ -487,18 +485,14 @@ export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POL
     }
     for (const [jobId, job] of Object.entries(document?.jobs ?? {})) {
       const publishedName = String(job?.name ?? jobId).trim();
-      const closedDossierName = workflow.name === "dossier-acceptance.yml" && jobId === "dossier-acceptance" &&
-        hasExactExpression(publishedName, DOSSIER_CHECK_NAME);
       const closedMasterName = workflow.name === "dossier-acceptance.yml" && jobId === "dossier-acceptance-master" &&
         hasExactExpression(publishedName, DOSSIER_MASTER_NAME);
-      if (publishedName.includes("${{") && !closedDossierName && !closedMasterName) {
+      if (publishedName.includes("${{") && !closedMasterName) {
         errors.push(
           `${workflow.name} job ${jobId} has a dynamic check name that cannot be proven non-reserved`,
         );
       }
-      const publishedNames = new Set(closedDossierName
-        ? ["dossier-acceptance", "dossier-metadata-edit"]
-        : closedMasterName ? ["dossier-acceptance-master", "dossier-master-not-applicable"] : [publishedName.toLowerCase()]);
+      const publishedNames = new Set(closedMasterName ? ["dossier-acceptance-master", "dossier-master-not-applicable"] : [publishedName.toLowerCase()]);
       const identities = new Set([String(jobId).trim().toLowerCase(), ...publishedNames]);
       for (const identity of identities) {
         if (reservedNames.has(identity)) {
@@ -649,24 +643,21 @@ export function evaluateDossierAcceptanceWorkflow(source) {
     "synchronize",
     "reopened",
     "ready_for_review",
-    "edited",
   ];
   if (
-    pullRequest &&
-    typeof pullRequest === "object" &&
-    !includesEvery(pullRequest.types, requiredTypes)
+    !hasExactStringSet(pullRequest?.types, requiredTypes)
   ) {
-    errors.push("dossier-acceptance must run on new heads, ready_for_review and base edits");
+    errors.push("dossier-acceptance must run only on new heads/readiness, never metadata edits");
   }
   if (values(pullRequest?.types).includes("converted_to_draft")) {
     errors.push("dossier-acceptance must not restart unchanged work on converted_to_draft");
   }
 
   const scope = document?.jobs?.scope;
-  if (!hasExactExpression(scope?.if, DOSSIER_SCOPE_IF) ||
+  if (scope?.if !== undefined ||
       !hasExactExpression(document?.concurrency?.group, DOSSIER_CONCURRENCY_GROUP) ||
       !hasExactExpression(document?.concurrency?.["cancel-in-progress"], DOSSIER_CANCEL)) {
-    errors.push("dossier metadata edits must skip work in isolated non-cancelling groups");
+    errors.push("dossier scope must always classify; only PR runs may replace stale runs");
   }
   if (
     !scope ||
@@ -737,7 +728,7 @@ export function evaluateDossierAcceptanceWorkflow(source) {
   if (!hasExactExpression(aggregate?.name, DOSSIER_CHECK_NAME) ||
       !hasExactExpression(aggregate?.if, DOSSIER_AGGREGATE_IF)) {
     errors.push(
-      "dossier-acceptance must publish after failed/skipped dependencies, but never publish the required identity for metadata or survive cancellation",
+      "dossier-acceptance must keep a static identity and report failed/skipped dependencies without surviving cancellation",
     );
   }
 
