@@ -343,16 +343,21 @@ export async function getServerPostcheckTarget(chatId: string, versionId: string
 }
 
 /** Latest version_number per chat FIRST. Walk past unknown/not-due rows before filling the small batch. */
-export async function listServerPostcheckCandidates(limit: number, deadlineEpochMs: number): Promise<Array<{ chatId: string; versionId: string }>> {
+export async function listServerPostcheckCandidates(limit: number, deadlineEpochMs: number,
+  scope?: { chatId: string; versionId: string },
+): Promise<Array<{ chatId: string; versionId: string }>> {
   const candidates: Array<{ chatId: string; versionId: string }> = [];
   const take = Math.min(2, Math.max(0, Math.floor(limit)));
   if (!Number.isFinite(deadlineEpochMs) || !take) return candidates;
+  if (scope && (!scope.chatId.trim() || !scope.versionId.trim())) return candidates;
   const latest = db.selectDistinctOn([engineVersions.chatId]).from(engineVersions)
     .orderBy(engineVersions.chatId, desc(engineVersions.versionNumber)).as("latest_postcheck_version");
   let cursor: string | undefined;
   while (candidates.length < take && Date.now() < deadlineEpochMs) {
     const now = Date.now();
     const page = await db.select().from(latest).where(and(
+      scope ? eq(latest.chatId, scope.chatId) : undefined,
+      scope ? eq(latest.id, scope.versionId) : undefined,
       eq(latest.releaseState, "draft"), inArray(latest.verificationState, ["pending", "verifying", "repairing"]), eq(latest.lifecycleStage, "design"),
       isNull(latest.repairedFilesJson),
       or(isNull(latest.editKind), eq(latest.editKind, "imported_repo")),
