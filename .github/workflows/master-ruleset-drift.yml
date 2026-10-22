@@ -1,6 +1,9 @@
 name: master-ruleset-drift
 
-# Read-only desired-state audit for GitHub configuration that lives outside Git.
+# Read-only desired-state audit for master and working-branch deletion protection.
+# GitHub configuration lives outside Git. This token detects disabled rules and
+# scope drift; GitHub hides bypass actors from read-only tokens. The audit warns
+# that this field is unverified. Operators run the default full audit after changes.
 # Not a pull_request check: desired != live until the owner updates Protect
 # master after merge, so a PR trigger would fail this C1 PR (and later policy
 # PRs) before that manual step. Runs on master (post-merge remaining drift),
@@ -30,3 +33,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/ci/check-master-ruleset.mjs
+
+      - name: Compare visible working-branch rules (bypass actors may be unavailable)
+        if: ${{ !cancelled() }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/ci/check-working-branches-ruleset.mjs --read-only

@@ -444,11 +444,11 @@ describe("dossier acceptance workflow contract", () => {
     const pullRequestBlock = workflow.slice(start, end);
     expect(pullRequestBlock).not.toContain("    paths:");
     expect(pullRequestBlock).toContain("ready_for_review");
-    expect(parse(workflow).on.pull_request.types).toContain("edited");
+    expect(parse(workflow).on.pull_request.types).not.toContain("edited");
     expect(pullRequestBlock).not.toContain("converted_to_draft");
     expect(workflow).toContain('    - cron: "17 3 * * 2"');
     expect(parse(workflow).on.workflow_dispatch.inputs.cold_cache).toMatchObject({ type: "boolean", default: false });
-    expect(parse(workflow).concurrency.group).toContain("metadata-{0}");
+    expect(parse(workflow).concurrency.group).toBe("dossier-acceptance-${{ github.event.pull_request.number || github.run_id }}");
   });
 
   it.each([
@@ -541,72 +541,54 @@ describe("dossier acceptance workflow contract", () => {
 
 describe("PR metadata and retargeting regression", () => {
   const document = parse(workflow);
-  // Evaluate the committed boolean/string expressions. Missing GitHub properties
-  // are represented by absent JS properties; the null comparisons cover both.
-  function decision(eventName = "pull_request", action = "edited", changes: Record<string, unknown> = {}, runId = 100, cancelled = false) {
+  function decision(eventName = "pull_request", runId = 100, cancelled = false) {
     const context = {
-      github: { event_name: eventName, run_id: runId, event: { action, changes, pull_request: { number: eventName === "pull_request" ? 42 : null } } },
+      github: { event_name: eventName, run_id: runId, event: { pull_request: { number: eventName === "pull_request" ? 42 : null } } },
       cancelled: () => cancelled,
-      format: (pattern: string, value: unknown) => pattern.replace("{0}", String(value)),
     };
     const evaluate = (expression: string) => runInNewContext(
       expression.replace(/^\$\{\{\s*|\s*\}\}$/gu, ""), context, { timeout: 100 },
     );
     return {
-      scope: Boolean(evaluate(document.jobs.scope.if)),
       aggregate: Boolean(evaluate(document.jobs["dossier-acceptance"].if)),
-      checkName: evaluate(document.jobs["dossier-acceptance"].name),
       group: document.concurrency.group.replace(/\$\{\{([\s\S]*?)\}\}/gu, (_match: string, expression: string) => String(evaluate(expression))),
       cancel: Boolean(evaluate(document.concurrency["cancel-in-progress"])),
     };
   }
-  it.each([
-    { body: { from: "old checklist" } },
-    { title: { from: "old title" } },
-    { title: { from: "old title" }, body: { from: "" } },
-  ])("metadata %j neither cancels work nor publishes a skipped required check", changes => {
-    const edit = decision("pull_request", "edited", changes);
-    expect(edit).toEqual({ scope: false, aggregate: false, checkName: "dossier-metadata-edit", group: "dossier-acceptance-metadata-100", cancel: false });
-    expect(edit.group).not.toBe(decision("pull_request", "synchronize").group);
-    expect(edit.group).not.toBe(decision("pull_request", "edited", changes, 101).group);
+  it("never creates a new acceptance suite when the title or checklist changes", () => {
+    // GitHub can leave the required identity Expected when a newer edited suite
+    // is entirely skipped. Simulating a dynamic job name did not catch that.
+    expect(document.on.pull_request.types).toEqual(["opened", "synchronize", "reopened", "ready_for_review"]);
+    expect(document.jobs["dossier-acceptance"].name).toBe("dossier-acceptance");
+    expect(document.jobs.scope.if).toBeUndefined();
+    expect(workflow).not.toContain("github.event.changes");
   });
-  it.each([
-    { base: { ref: { from: "preview" } } },
-    { base: { ref: { from: "preview" } }, body: { from: "also edited" } },
-    {},
-    { unknown: { from: "unknown edit" } },
-  ])("base, mixed or unclassified edit %j keeps the blocking check and replaces stale work", changes => {
-    expect(decision("pull_request", "edited", changes)).toEqual({
-      scope: true, aggregate: true, checkName: "dossier-acceptance", group: "dossier-acceptance-42", cancel: true,
-    });
-    expect(decideAcceptanceScope({ eventName: "pull_request", baseRef: "master" })).toMatchObject({
-      runMatrix: true, matrixMode: "full", dossiers: acceptanceCatalog().map(entry => entry.id),
-    });
-  });
-  it.each(["opened", "synchronize", "reopened", "ready_for_review"])("retains required coverage on %s", action => {
-    expect(document.on.pull_request.types).toContain(action);
-    expect(decision("pull_request", action, { body: { from: "ignored outside edited" } })).toMatchObject({
-      scope: true, aggregate: true, checkName: "dossier-acceptance", group: "dossier-acceptance-42", cancel: true,
-    });
+  it("replaces stale PR work while keeping a stable required identity", () => {
+    expect(decision()).toEqual({ aggregate: true, group: "dossier-acceptance-42", cancel: true });
   });
   it.each(["push", "schedule", "workflow_dispatch"])("preserves unique non-cancelling %s receipts", eventName => {
-    expect(decision(eventName, "")).toEqual({
-      scope: true, aggregate: true, checkName: "dossier-acceptance", group: "dossier-acceptance-100", cancel: false,
-    });
-    expect(decision(eventName, "").group).not.toBe(decision(eventName, "", {}, 101).group);
+    expect(decision(eventName)).toEqual({ aggregate: true, group: "dossier-acceptance-100", cancel: false });
+    expect(decision(eventName).group).not.toBe(decision(eventName, 101).group);
   });
   it("does not keep an aggregate alive after cancellation", () => {
-    expect(decision("pull_request", "synchronize", {}, 100, true).aggregate).toBe(false);
+    expect(decision("pull_request", 100, true).aggregate).toBe(false);
   });
-  it("retains the separate base guard for rerunning the main CI profile", () => {
+  it("drafts only a base change, then readiness reruns CI and dossiers for the new base", () => {
     const guard = parse(readFileSync(".github/workflows/pr-base-guard.yml", "utf8"));
+    const ci = parse(readFileSync(".github/workflows/ci.yml", "utf8"));
     const job = guard.jobs["draft-on-base-change"];
     const shouldDraft = (changes: Record<string, unknown>) => runInNewContext(job.if, {
       github: { event: { changes, pull_request: { state: "open" } } },
     }, { timeout: 100 });
     expect(shouldDraft({ body: { from: "text" } })).toBe(false);
     expect(shouldDraft({ base: { ref: { from: "preview" } } })).toBe(true);
+    expect(shouldDraft({ base: {}, body: {} })).toBe(true);
     expect(job.concurrency["cancel-in-progress"]).toBe(false);
+    expect(ci.on.pull_request.types).toContain("ready_for_review");
+    expect(document.on.pull_request.types).toContain("ready_for_review");
+    expect(decideAcceptanceScope({ eventName: "pull_request", baseRef: "master" })).toMatchObject({
+      runMatrix: true, matrixMode: "full", dossiers: acceptanceCatalog().map(entry => entry.id),
+    });
   });
 });
 
@@ -624,19 +606,11 @@ describe("master-only acceptance receipt", () => {
   it.each(["opened", "synchronize", "ready_for_review", "reopened"])("requires a separate full receipt for master %s", action => {
     expect(receipt("master", action)).toEqual({ name: "dossier-acceptance-master", run: true });
   });
-  it("publishes the master identity on retarget, including mixed and unclassified edits", () => {
-    for (const changes of [{ base: { ref: { from: "preview" } } }, { base: {}, body: {} }, {}, { unknown: {} }]) {
-      expect(receipt("master", "edited", changes)).toEqual({ name: "dossier-acceptance-master", run: true });
-    }
-  });
   it.each(["preview", "release", ""])("never publishes even a skipped master identity on base %s", base => {
     expect(receipt(base)).toEqual({ name: "dossier-master-not-applicable", run: false });
   });
   it.each(["push", "schedule", "workflow_dispatch"])("cannot reuse a %s receipt as the master gate", eventName => {
     expect(receipt("master", "", {}, eventName)).toEqual({ name: "dossier-master-not-applicable", run: false });
-  });
-  it.each([{ body: {} }, { title: {} }, { body: {}, title: {} }])("metadata %j never replaces the master receipt", changes => {
-    expect(receipt("master", "edited", changes)).toEqual({ name: "dossier-master-not-applicable", run: false });
   });
   it("still evaluates failed or cancelled dependencies instead of publishing a skipped green", () => {
     expect(receipt("master", "synchronize", {}, "pull_request", true)).toEqual({ name: "dossier-acceptance-master", run: true });

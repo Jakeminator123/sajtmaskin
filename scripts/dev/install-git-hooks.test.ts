@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
+import { BACKUP_RETIREMENTS } from "./backup-retirements.mjs";
 
 import {
   HOOK_MARKER,
@@ -100,6 +101,7 @@ function runHookSync(
 // självt. `for-each-ref` avgör om commiten redan finns på push-remoten.
 const FAKE_GIT = [
   "#!/bin/sh",
+  'if [ "$1" = "ls-remote" ]; then [ "$HOOK_GIT_ARCHIVE_FAIL" = "1" ] && exit 1; [ -n "$HOOK_GIT_ARCHIVE_SHA" ] && printf "%s\\t%s\\n" "$HOOK_GIT_ARCHIVE_SHA" "$3"; exit 0; fi',
   'if [ "$1" = "rev-parse" ] && [ "$2" = "HEAD" ]; then printf "%s\\n" "$HOOK_GIT_HEAD"; exit 0; fi',
   'if [ "$1" = "rev-parse" ] && [ "$2" = "--show-toplevel" ]; then printf "%s\\n" "$HOOK_GIT_TOPLEVEL"; exit 0; fi',
   'if [ "$1" = "rev-parse" ] && [ "$2" = "--local-env-vars" ]; then printf "GIT_ALTERNATE_OBJECT_DIRECTORIES\\nGIT_CONFIG\\nGIT_CONFIG_PARAMETERS\\nGIT_CONFIG_COUNT\\nGIT_OBJECT_DIRECTORY\\nGIT_DIR\\nGIT_WORK_TREE\\nGIT_IMPLICIT_WORK_TREE\\nGIT_GRAFT_FILE\\nGIT_INDEX_FILE\\nGIT_NO_REPLACE_OBJECTS\\nGIT_REPLACE_REF_BASE\\nGIT_PREFIX\\nGIT_SHALLOW_FILE\\nGIT_COMMON_DIR\\n"; exit 0; fi',
@@ -120,7 +122,7 @@ describe("renderHookScript", () => {
   });
 
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(23);
+    expect(HOOK_VERSION).toBe(24);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
@@ -612,6 +614,70 @@ describe("renderHookScript", () => {
     POSIX_HOOK_TEST_TIMEOUT_MS,
   );
 
+  itWithPosixShell(
+    "backup-retirement requires exact tip, remote archive and tidy proof; updates stay blocked",
+    () => {
+      const root = mkdtempSync(join(tmpdir(), "sajtmaskin-retire-backup-"));
+      const bin = join(root, "bin");
+      mkdirSync(join(root, "scripts", "dev"), { recursive: true });
+      mkdirSync(bin);
+      writeFileSync(join(root, "scripts", "dev", "install-git-hooks.mjs"), "marker\n");
+      writeFileSync(join(bin, "git"), FAKE_GIT);
+      writeFileSync(join(bin, "npm"), "#!/bin/sh\nexit 99\n");
+      chmodSync(join(bin, "git"), 0o755);
+      chmodSync(join(bin, "npm"), 0o755);
+      const hook = join(root, "pre-push");
+      writeFileSync(hook, renderHookScript("pre-push"));
+      const zero = "0".repeat(40);
+      const other = "c".repeat(40);
+      const invoke = (branch: string, remoteSha: string, localSha = zero, overrides = {}) =>
+        runHookSync(hook, {
+          cwd: root,
+          input: `refs/heads/${branch} ${localSha} refs/heads/${branch} ${remoteSha}\n`,
+          env: {
+            ...process.env,
+            HOOK_GIT_HEAD: other,
+            HOOK_GIT_TOPLEVEL: root,
+            HOOK_GIT_ANCESTOR: "1",
+            HOOK_GIT_ARCHIVE_SHA: remoteSha,
+            SAJTMASKIN_PROVEN_REMOTE_DELETE_BRANCH: branch,
+            SAJTMASKIN_PROVEN_REMOTE_DELETE_SHA: remoteSha,
+            CI: "true",
+            SAJTMASKIN_SKIP_VERIFY_HOOKS: "1",
+            ...overrides,
+          },
+          encoding: "utf8",
+          testBin: bin,
+          remote: "origin",
+        });
+      for (const [branch, sha] of Object.entries(BACKUP_RETIREMENTS)) {
+        expect(invoke(branch, sha).status, branch).toBe(0);
+        expect(invoke(branch, sha, other).status, `${branch} update`).toBe(1);
+      }
+      const branch = "BRA_19191919";
+      const sha = BACKUP_RETIREMENTS[branch];
+      expect(invoke(branch, other).status).toBe(1);
+      for (const overrides of [
+        { HOOK_GIT_ARCHIVE_SHA: "" },
+        { HOOK_GIT_ARCHIVE_SHA: other },
+        { HOOK_GIT_ARCHIVE_FAIL: "1" },
+        { SAJTMASKIN_PROVEN_REMOTE_DELETE_SHA: other },
+        { SAJTMASKIN_PROVEN_REMOTE_DELETE_BRANCH: "" },
+      ])
+        expect(invoke(branch, sha, zero, overrides).status).toBe(1);
+      for (const protectedBranch of [
+        "BRA_BRA_backup_1337",
+        "BRA_new",
+        "rescue/keep",
+        "master",
+        "preview",
+      ]) {
+        expect(invoke(protectedBranch, sha).status, protectedBranch).toBe(1);
+      }
+    },
+    POSIX_HOOK_TEST_TIMEOUT_MS,
+  );
+
   // Annoterade taggar var omöjliga att pusha härifrån: git skickar
   // TAGG-objektets sha, hooken jämförde det rakt mot HEAD:s commit-sha, och de
   // två kan aldrig vara lika. En snapshot-tagg av master fastnade alltså i den
@@ -771,8 +837,9 @@ describe("decideHookInstall", () => {
     expect(decideHookInstall({ existing: desired, desired }).action).toBe("skip");
   });
 
-  it("uppgraderar exakt känd v19/v20/v21/v22, men bevarar äldre lokala tillägg", () => {
-    const v22 = desired.replace(`v${HOOK_VERSION}`, "v22")
+  it("uppgraderar exakt känd v19/v20/v21/v22/v23, men bevarar äldre lokala tillägg", () => {
+    const v23 = readFileSync(new URL("./fixtures/pre-push-v23.sh", import.meta.url), "utf8");
+    const v22 = v23.replace("v23", "v22")
       .replace(
         "  # bevisat exakt tip (mergad PR-head eller archive/<branch>-tagg). Ett vanligt\n  # git push --delete far aldrig kunna radera en annan agents oppna branch.",
         "  # bevisat exakt terminal PR/head. Ett vanligt git push --delete far aldrig\n  # kunna radera en annan agents oppna branch.",
@@ -793,7 +860,7 @@ describe("decideHookInstall", () => {
     // Reconstruct v19; the installer's frozen SHA-256 proves full-file identity.
     const outdated = v22.replace("v22", "v19")
       .replace(/\n  # Direkt preview:[\s\S]+?\n  fi\n/, "\n");
-    for (const body of [outdated, v20, v21, v22].flatMap((value) => [value, value.replace(/\n/g, "\r\n")])) {
+    for (const body of [outdated, v20, v21, v22, v23].flatMap((value) => [value, value.replace(/\n/g, "\r\n")])) {
       expect(decideHookInstall({ existing: body, desired }).action).toBe("write");
       expect(decideHookInstall({ existing: body + "echo local-security-check\n", desired }).action).toBe("conflict");
     }
