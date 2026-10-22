@@ -102,29 +102,54 @@ export function selectRequestedFiles(
   return { files: selected, missing };
 }
 
-/** Den interna turen modellen får tillbaka. Får inte tolkas som armering/stopp. */
+const TURN_INTRO = `${READ_FILES_TURN_PREFIX} Här är innehållet i de filer du bad om. Svara nu på användarens fråga med koden framför dig; citera sökvägar.`;
+const TRUNCATED_MARK = " (klippt vid teckenbudgeten — be om resten i en ny runda om det behövs)";
+const PART_SEPARATOR = "\n\n";
+
+function fileHeader(name: string, truncated: boolean): string {
+  return `--- ${name}${truncated ? TRUNCATED_MARK : ""} ---\n`;
+}
+
+/**
+ * Den interna turen modellen får tillbaka. Får inte tolkas som armering/stopp.
+ *
+ * Taket gäller den FÄRDIGA turen, inte bara filinnehållet: rubriken,
+ * filhuvudena (med sina sökvägar, som kan vara långa) och raden om saknade
+ * filer räknas av först, och innehållet får det som blir över. Därför kan
+ * ingen kombination av namnlängder och klippningar trycka turen över
+ * `OPENCLAW_CHAT_MAX_CONTENT_CHARS` — det låses av ett test.
+ */
 export function buildReadFilesTurn(selection: ReadFilesSelection): string {
-  const parts: string[] = [];
   if (selection.files.length === 0) {
-    parts.push(
+    return (
       `${READ_FILES_TURN_PREFIX} Ingen av de begärda filerna finns i versionen.` +
-        (selection.missing.length > 0 ? ` Saknas: ${selection.missing.join(", ")}.` : "") +
-        " Svara utifrån manifestet och säg vad du inte kunde läsa.",
+      (selection.missing.length > 0 ? ` Saknas: ${selection.missing.join(", ")}.` : "") +
+      " Svara utifrån manifestet och säg vad du inte kunde läsa."
     );
-    return parts.join("\n");
   }
-  parts.push(
-    `${READ_FILES_TURN_PREFIX} Här är innehållet i de filer du bad om. Svara nu på användarens fråga med koden framför dig; citera sökvägar.`,
-  );
+  const missingLine =
+    selection.missing.length > 0
+      ? `Filer som inte finns i versionen: ${selection.missing.join(", ")}.`
+      : null;
+
+  // Fasta kostnader: intro, separatorer, varje filhuvud (räknat som klippt,
+  // så markören alltid får plats) och saknade-raden.
+  let fixed = TURN_INTRO.length + (missingLine ? PART_SEPARATOR.length + missingLine.length : 0);
   for (const file of selection.files) {
-    parts.push(
-      `--- ${file.name}${file.truncated ? " (klippt vid teckenbudgeten — be om resten i en ny runda om det behövs)" : ""} ---\n${file.content}`,
-    );
+    fixed += PART_SEPARATOR.length + fileHeader(file.name, true).length;
   }
-  if (selection.missing.length > 0) {
-    parts.push(`Filer som inte finns i versionen: ${selection.missing.join(", ")}.`);
+  let remaining = Math.max(0, OPENCLAW_CHAT_MAX_CONTENT_CHARS - fixed);
+
+  const parts: string[] = [TURN_INTRO];
+  for (const file of selection.files) {
+    const budget = Math.min(file.content.length, remaining);
+    const truncated = file.truncated || budget < file.content.length;
+    const content = truncated ? file.content.slice(0, budget) : file.content;
+    remaining -= content.length;
+    parts.push(`${fileHeader(file.name, truncated)}${content}`);
   }
-  return parts.join("\n\n");
+  if (missingLine) parts.push(missingLine);
+  return parts.join(PART_SEPARATOR);
 }
 
 /** Beskedet när agenten slagit i rundtaket för en och samma användarfråga. */

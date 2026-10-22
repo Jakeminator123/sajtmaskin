@@ -195,14 +195,25 @@ export function SajtagentProvider({
   }, [activeVersionId]);
   const agentStreaming = chat.isStreaming;
   const agentMessages = chat.messages;
+  // Nycklat på senaste radens id, inte på hela listan: strömchunkar till samma
+  // svar ska inte starta om effekten, men en NY rad (användaren skrev igen)
+  // avbryter en pågående hämtning — då gäller den nya frågan.
+  const lastAgentMessageId = agentMessages[agentMessages.length - 1]?.id ?? null;
+  const agentMessagesRef = useRef(agentMessages);
   useEffect(() => {
-    if (agentStreaming || !chatId) return;
-    const last = agentMessages[agentMessages.length - 1];
-    if (!last || last.role !== "assistant" || last.hydrated) return;
+    agentMessagesRef.current = agentMessages;
+  }, [agentMessages]);
+  useEffect(() => {
+    if (agentStreaming || !chatId || !lastAgentMessageId) return;
+    const agentMessagesNow = agentMessagesRef.current;
+    const last = agentMessagesNow[agentMessagesNow.length - 1];
+    if (!last || last.id !== lastAgentMessageId) return;
+    if (last.role !== "assistant" || last.hydrated) return;
     if (handledReadIdsRef.current.has(last.id) || inFlightReadIdRef.current === last.id) return;
     const parsed = parseOpenClawMessage(last.content);
     if (parsed.action?.type !== "read_files") return;
     const action = parsed.action;
+    const agentMessages = agentMessagesNow;
 
     // Rundräknare nollställs vid varje riktig användarfråga.
     let lastUserChatId: string | null = null;
@@ -259,15 +270,23 @@ export function SajtagentProvider({
         if (inFlightReadIdRef.current === last.id) inFlightReadIdRef.current = null;
       }
       if (cancelled || chatIdRef.current !== chatId) return;
-      handledReadIdsRef.current.add(last.id);
-      readRoundsRef.current.rounds += 1;
       const turn = buildReadFilesTurn(selectRequestedFiles(files, action.paths));
-      void sendRef.current(turn, internalOptions);
+      // Hanterat och räknat först när turen faktiskt nått servern: ett utskick
+      // som aldrig startade (agenten hann börja strömma igen) lämnar svaret
+      // obehandlat så nästa effekt kan försöka om.
+      void sendRef.current(turn, {
+        ...internalOptions,
+        onDispatchOutcome: (outcome) => {
+          if (outcome === "not-started") return;
+          handledReadIdsRef.current.add(last.id);
+          readRoundsRef.current.rounds += 1;
+        },
+      });
     })();
     return () => {
       cancelled = true;
     };
-  }, [agentMessages, agentStreaming, chatId]);
+  }, [lastAgentMessageId, agentStreaming, chatId]);
 
   // «Nästa bästa steg» efter ett bygge (E6). Ren beslutsmodul; här finns bara
   // strömkanterna och utskicket. En väckning kräver att en builder-ström setts

@@ -480,6 +480,13 @@ function OpenClawFillTextFieldCard({ action }: { action: OpenClawFillTextFieldAc
       return;
     }
     setActionState("sent");
+    // Same honesty as the direct-build card: a refusal is not a start.
+    const outcome = await result.outcome;
+    const rejection = outcome ? describeRejectedOutcome(outcome) : null;
+    if (rejection) {
+      setActionState("failed");
+      setActionError(rejection);
+    }
   };
 
   const handleDecline = () => {

@@ -146,7 +146,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   // En nedfälld chatt döljer utdatan men inte den flytande komposern, som kan
   // skicka till Sajtagenten. Svaret får inte landa i en dold yta: fäll ut när
   // en ny agentrad kommer (samma skäl som tips-popovern förut expanderade).
-  const agentMessageCount = useOpenClawStore((s) => s.messages.length);
+  // Hydrerad historik räknas inte — att öppna en chatt får inte skriva över
+  // användarens sparade nedfällda läge.
+  const agentMessageCount = useOpenClawStore((s) =>
+    s.messages.reduce((count, message) => count + (message.hydrated ? 0 : 1), 0),
+  );
   const prevAgentMessageCountRef = useRef(agentMessageCount);
   const expandChatOutput = chatOutputCollapse.expand;
   useEffect(() => {

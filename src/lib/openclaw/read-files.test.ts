@@ -78,22 +78,29 @@ describe("buildReadFilesTurn", () => {
   });
 
   it("ryms alltid under chat-transportens tak så inget klipps tyst på vägen till modellen", () => {
-    // Värsta fallet: maxantal filer, alla större än budgeten, långa namn, plus
-    // saknade sökvägar. Transporten (`normalizeOpenClawClientMessages`) får
-    // inte ändra ett enda tecken.
-    const big = Array.from({ length: READ_FILES_MAX_PATHS }, (_, index) => ({
-      name: `components/sections/some-long-directory-name/${"segment-".repeat(6)}${index}.tsx`,
-      content: "y".repeat(50_000),
-    }));
-    const selection = selectRequestedFiles(big, [
-      ...big.map((file) => file.name),
-      "app/missing-one.tsx",
-      "app/missing-two.tsx",
-    ]);
-    const turn = buildReadFilesTurn(selection);
-    expect(turn.length).toBeLessThanOrEqual(OPENCLAW_CHAT_MAX_CONTENT_CHARS);
-    const [normalized] = normalizeOpenClawClientMessages([{ role: "user", content: turn }]);
-    expect(normalized.content).toBe(turn);
+    // Värsta fallet: maxantal filer, alla större än budgeten, sökvägar vid
+    // parserns namntak (200 tecken), plus saknade sökvägar med långa namn.
+    // Transporten (`normalizeOpenClawClientMessages`) får inte ändra ett enda
+    // tecken, oavsett hur namnen ser ut.
+    for (const nameLength of [40, 100, 150, 200]) {
+      const big = Array.from({ length: READ_FILES_MAX_PATHS }, (_, index) => ({
+        name: `${"d".repeat(nameLength - 8)}/f${index}.tsx`,
+        content: "y".repeat(50_000),
+      }));
+      const selection = selectRequestedFiles(big, [
+        ...big.map((file) => file.name),
+        `${"m".repeat(nameLength - 4)}.tsx`,
+        `${"n".repeat(nameLength - 4)}.tsx`,
+      ]);
+      const turn = buildReadFilesTurn(selection);
+      expect(turn.length, `namnlängd ${nameLength}`).toBeLessThanOrEqual(
+        OPENCLAW_CHAT_MAX_CONTENT_CHARS,
+      );
+      const [normalized] = normalizeOpenClawClientMessages([{ role: "user", content: turn }]);
+      expect(normalized.content).toBe(turn);
+      expect(turn).toContain("klippt vid teckenbudgeten");
+      expect(turn).toContain(`--- ${big[0].name}`);
+    }
   });
 
   it("är interna turer som varken armerar eller stoppar", () => {

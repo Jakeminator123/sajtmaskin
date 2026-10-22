@@ -14,21 +14,66 @@ function Probe({ onValue }: { onValue: (available: boolean) => void }) {
   return null;
 }
 
-function renderProvider(chatId: string | null = "chat_1") {
+type ProviderProps = {
+  chatId: string | null;
+  activeVersionId: string | null;
+  activeVersionStatus: string | null;
+  isAnyStreaming: boolean;
+  digestEnabled: boolean;
+};
+
+function renderProvider(
+  chatId: string | null = "chat_1",
+  overrides: Partial<ProviderProps> = {},
+) {
   const seen: boolean[] = [];
-  const utils = render(
+  const build = (props: ProviderProps) => (
     <SajtagentProvider
-      chatId={chatId}
-      activeVersionId="v1"
-      activeVersionStatus={null}
+      chatId={props.chatId}
+      activeVersionId={props.activeVersionId}
+      activeVersionStatus={props.activeVersionStatus}
       activeVersionIsLatest
-      isAnyStreaming={false}
-      digestEnabled={false}
+      isAnyStreaming={props.isAnyStreaming}
+      digestEnabled={props.digestEnabled}
     >
       <Probe onValue={(available) => seen.push(available)} />
-    </SajtagentProvider>,
+    </SajtagentProvider>
   );
-  return { ...utils, seen };
+  const initial: ProviderProps = {
+    chatId,
+    activeVersionId: "v1",
+    activeVersionStatus: null,
+    isAnyStreaming: false,
+    digestEnabled: false,
+    ...overrides,
+  };
+  const utils = render(build(initial));
+  return {
+    ...utils,
+    seen,
+    rerenderWith: (next: Partial<ProviderProps>) =>
+      utils.rerender(build({ ...initial, ...next })),
+  };
+}
+
+function healthOkFetch(chatCalls: string[]) {
+  return async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith("/api/openclaw/health")) {
+      return new Response(
+        JSON.stringify({ surfaceEnabled: true, editEnabled: false, debugEnabled: false }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    if (url.includes("/agent-messages")) {
+      return new Response(JSON.stringify({ messages: [] }), { status: 200 });
+    }
+    if (url === "/api/openclaw/chat") {
+      chatCalls.push(String(init?.body ?? ""));
+      return new Response("", { status: 503 });
+    }
+    return new Response("{}", { status: 200 });
+  };
 }
 
 beforeEach(() => {
@@ -174,6 +219,50 @@ describe("SajtagentProvider — anrop bara när ytan finns", () => {
     });
     const fileFetches = fetchMock.mock.calls.filter((call) => String(call[0]).includes("/files"));
     expect(fileFetches).toHaveLength(1);
+    expect(chatCalls).toHaveLength(1);
+  });
+
+  it("väcker en digest bara när en sedd ström gav en ny version", async () => {
+    document.body.setAttribute(OPENCLAW_SURFACE_BODY_ATTR, "1");
+    const chatCalls: string[] = [];
+    fetchMock.mockImplementation(healthOkFetch(chatCalls));
+
+    const { seen, rerenderWith } = renderProvider("chat_1", {
+      digestEnabled: true,
+      activeVersionStatus: "ready",
+    });
+    await waitFor(() => expect(seen.at(-1)).toBe(true));
+
+    // Sidladdning / navigering: terminal version utan ström → ingen digest.
+    rerenderWith({ activeVersionId: "v2", activeVersionStatus: "ready", digestEnabled: true });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+    expect(chatCalls).toHaveLength(0);
+
+    // En ström som lämnar versionen orörd (plan, motfråga, avslag) → ingen digest.
+    rerenderWith({ activeVersionId: "v2", activeVersionStatus: "verifying", isAnyStreaming: true, digestEnabled: true });
+    rerenderWith({ activeVersionId: "v2", activeVersionStatus: "ready", isAnyStreaming: false, digestEnabled: true });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+    expect(chatCalls).toHaveLength(0);
+
+    // En ström som gav en ny version → exakt en digest, som intern tur.
+    rerenderWith({ activeVersionId: "v2", activeVersionStatus: "generating", isAnyStreaming: true, digestEnabled: true });
+    rerenderWith({ activeVersionId: "v3", activeVersionStatus: "ready", isAnyStreaming: false, digestEnabled: true });
+    await waitFor(() => expect(chatCalls).toHaveLength(1));
+    const digest = useOpenClawStore
+      .getState()
+      .messages.find((message) => message.content.startsWith("[Byggresultat]"));
+    expect(digest?.kind).toBe("internal");
+    expect(digest?.content).toContain("status: ready");
+
+    // Samma version igen (omrendering, navigering fram och tillbaka) → ingen ny.
+    rerenderWith({ activeVersionId: "v3", activeVersionStatus: "ready", isAnyStreaming: false, digestEnabled: true });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
     expect(chatCalls).toHaveLength(1);
   });
 
