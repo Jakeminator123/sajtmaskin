@@ -14,9 +14,10 @@
  *     (Supabase presents a self-signed cert chain).
  *
  * run-migrations applies only files missing from the schema_migrations ledger,
- * each in one transaction with its ledger row, and stops when an object already
- * exists without a ledger entry. Read the pending plan first with
- * `npm run db:migrate:check:prod`.
+ * each in one transaction with its ledger row, and refuses a missing ledger.
+ * It does not validate historical checksums or detect every idempotent no-op.
+ * Inspect the pending plan (`npm run db:migrate:check:prod`) and existing schema
+ * before applying; see the runbook for reconciliation requirements.
  */
 import { spawnSync } from "child_process";
 import { existsSync, readFileSync } from "fs";

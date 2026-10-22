@@ -114,6 +114,7 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "v0:deployments-events": { maxRequests: 60, windowMs: 60 * 1000 },
   "engine:quality-gate": { maxRequests: 12, windowMs: 60 * 1000 },
   "engine:repair": { maxRequests: 12, windowMs: 60 * 1000 },
+  "engine:postchecks": { maxRequests: 2, windowMs: 60 * 1000 },
   "engine:readiness": { maxRequests: 60, windowMs: 60 * 1000 },
   // Polled by `useVersionStatus` (default 4s while a version is non-terminal).
   // 60/min matches engine:readiness — same client cadence pattern.

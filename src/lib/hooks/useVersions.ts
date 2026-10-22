@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import useSWR from "swr";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+import { createPostcheckRecovery } from "@/lib/hooks/postcheck-recovery";
 import {
   createPollErrorRetry,
   pollJsonFetcher,
@@ -107,6 +108,7 @@ export function useVersions(chatId: string | null, options: UseVersionsOptions =
   const lastActivityAtRef = useRef(0);
   const versionsFingerprintRef = useRef<string | null>(null);
   const prevIsGeneratingRef = useRef(isGenerating);
+  const recoverPostchecks = useMemo(() => chatId ? createPostcheckRecovery(chatId) : null, [chatId]);
 
   useEffect(() => {
     // Generering → klar är exakt ögonblicket då promoted/superseded/degraded
@@ -157,6 +159,7 @@ export function useVersions(chatId: string | null, options: UseVersionsOptions =
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
       onSuccess: (latest: unknown) => {
+        if (enabled && !isGenerating) void recoverPostchecks?.(latest);
         consecutiveErrorsRef.current = 0;
         lastErrorRef.current = null;
         // Radbyte (ny version eller nytt verifierings-/release-tillstånd)

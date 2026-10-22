@@ -89,6 +89,21 @@ export function planPendingMigrations(
   return resolveMigrationRunOrder([...filesOnDisk]).filter((file: string) => !applied.has(file));
 }
 
+export async function requireExistingMigrationLedger(client: Pick<Client, "query">) {
+  // Inspect before any DDL: creating an empty ledger loses the distinction
+  // between a new database and an existing schema with missing history.
+  const applied = await readAppliedMigrations(client);
+  if (applied === null) {
+    throw new Error(
+      "schema_migrations ledger is missing; refusing to run. " +
+        "Use db:init only for an empty database; reconcile existing schema/history manually.",
+    );
+  }
+  // Preserve the existing ledger's RLS/ACL hardening, without bootstrapping it.
+  await ensureMigrationLedger(client);
+  return applied;
+}
+
 async function main() {
   assertSafeWriteTarget({ commandName: "db:migrate", env: process.env });
   const connStr = resolveConnectionString();
@@ -120,12 +135,7 @@ async function main() {
     }
 
     try {
-      // Fail-closed: without a ledger we cannot tell pending from applied.
-      await ensureMigrationLedger(client);
-      const applied = await readAppliedMigrations(client);
-      if (applied === null) {
-        throw new Error("schema_migrations ledger is missing after ensure; refusing to run.");
-      }
+      const applied = await requireExistingMigrationLedger(client);
 
       const pending = planPendingMigrations(await readdir(MIGRATIONS_DIR), applied);
       if (pending.length === 0) {

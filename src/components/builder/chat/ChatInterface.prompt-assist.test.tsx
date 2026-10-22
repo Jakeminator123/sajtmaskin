@@ -39,7 +39,7 @@ describe("ChatInterface — Prompt-assist", () => {
     const onCreateChat = vi.fn();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ text: "En café-sajt i Malmö" }),
+      json: async () => ({ text: "En café-sajt i Malmö utan betalningar" }),
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -56,16 +56,22 @@ describe("ChatInterface — Prompt-assist", () => {
     expect(screen.getByRole("button", { name: "Plan" })).toBeTruthy();
     expect(assist.getAttribute("title")).toBe("Rätta och strukturera utkastet utan att skicka");
 
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "en cafe sida i malmo, inga betalningar" },
+    });
     fireEvent.click(assist);
 
     await waitFor(() => {
       expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe(
-        "En café-sajt i Malmö",
+        "En café-sajt i Malmö utan betalningar",
       );
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/ai/prompt-assist",
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ draft: "en cafe sida i malmo, inga betalningar" }),
+      }),
     );
     expect(onSendMessage).not.toHaveBeenCalled();
     expect(onCreateChat).not.toHaveBeenCalled();
