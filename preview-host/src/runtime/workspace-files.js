@@ -52,8 +52,7 @@ const NEXT_CONFIG_ENV_SNIPPET =
   "(()=>{const o={};if(process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim())o.basePath=process.env.SAJTMASKIN_PREVIEW_BASE_PATH.trim();if(process.env.SAJTMASKIN_PREVIEW_DISABLE_HMR===\"true\"){o.webpack=(c)=>{c.plugins=(c.plugins||[]).filter((p)=>!(p&&p.constructor&&p.constructor.name===\"HotModuleReplacementPlugin\"));return c;};}return o;})()";
 
 function findNextConfigPath(workspaceDir) {
-  const candidates = ["next.config.ts", "next.config.mjs", "next.config.js"];
-  for (const name of candidates) {
+  for (const name of NEXT_CONFIG_CANDIDATES) {
     const p = path.join(workspaceDir, name);
     if (fs.existsSync(p)) return p;
   }
@@ -155,18 +154,18 @@ function findConfigObjectExpression(program) {
  * snapshot test in scripts/test-patch.mjs). Callers that don't care about the
  * outcome can ignore the return value.
  */
-function patchNextConfigViaAst(workspaceDir) {
-  const cfgPath = findNextConfigPath(workspaceDir);
-  if (!cfgPath) return { applied: false, reason: "no_config_file" };
-  const original = fs.readFileSync(cfgPath, "utf8");
+const NEXT_CONFIG_CANDIDATES = ["next.config.ts", "next.config.mjs", "next.config.js"];
+
+/** Pure variant: patch `original` (the content of `fileName`) in memory. */
+function patchNextConfigSourceViaAst(fileName, original) {
   if (original.includes("SAJTMASKIN_PREVIEW_BASE_PATH")) {
-    return { applied: false, reason: "already_patched" };
+    return { applied: false, reason: "already_patched", source: original };
   }
   if (/\bbasePath\s*:/.test(original)) {
-    return { applied: false, reason: "basePath_already_present" };
+    return { applied: false, reason: "basePath_already_present", source: original };
   }
 
-  const isTypeScript = cfgPath.endsWith(".ts");
+  const isTypeScript = fileName.endsWith(".ts");
   const parseable = isTypeScript ? stripTsToWhitespace(original) : original;
   let program;
   try {
@@ -179,12 +178,13 @@ function patchNextConfigViaAst(workspaceDir) {
     return {
       applied: false,
       reason: `ast_parse_failed:${error instanceof Error ? error.message : "unknown"}`,
+      source: original,
     };
   }
 
   const target = findConfigObjectExpression(program);
   if (!target) {
-    return { applied: false, reason: "no_target_object" };
+    return { applied: false, reason: "no_target_object", source: original };
   }
 
   // target.start points at the opening `{` in the (preprocessed) source. Since
@@ -195,22 +195,28 @@ function patchNextConfigViaAst(workspaceDir) {
     original.slice(0, insertAt) +
     `\n  ...${NEXT_CONFIG_ENV_SNIPPET},` +
     original.slice(insertAt);
-  fs.writeFileSync(cfgPath, patched, "utf8");
-  return { applied: true, method: "ast", file: path.basename(cfgPath) };
+  return { applied: true, method: "ast", file: fileName, source: patched };
+}
+
+function patchNextConfigViaAst(workspaceDir) {
+  const cfgPath = findNextConfigPath(workspaceDir);
+  if (!cfgPath) return { applied: false, reason: "no_config_file" };
+  const original = fs.readFileSync(cfgPath, "utf8");
+  const { source, ...result } = patchNextConfigSourceViaAst(path.basename(cfgPath), original);
+  if (result.applied) fs.writeFileSync(cfgPath, source, "utf8");
+  return result;
 }
 
 // Regex fallback retained for shapes the AST walker doesn't recognise (e.g.
 // `withSentryConfig({...})`, `withMDX({...})` wrappers we haven't taught the
 // AST walker about yet). Same skip rules as the AST patcher.
-function patchNextConfigViaRegex(workspaceDir) {
-  const cfgPath = findNextConfigPath(workspaceDir);
-  if (!cfgPath) return { applied: false, reason: "no_config_file" };
-  let s = fs.readFileSync(cfgPath, "utf8");
+function patchNextConfigSourceViaRegex(fileName, original) {
+  let s = original;
   if (s.includes("SAJTMASKIN_PREVIEW_BASE_PATH")) {
-    return { applied: false, reason: "already_patched" };
+    return { applied: false, reason: "already_patched", source: original };
   }
   if (/\bbasePath\s*:/.test(s)) {
-    return { applied: false, reason: "basePath_already_present" };
+    return { applied: false, reason: "basePath_already_present", source: original };
   }
   const tries = [
     /(const\s+\w+\s*(?::\s*\w+\s*)?=\s*\{)/,
@@ -220,11 +226,48 @@ function patchNextConfigViaRegex(workspaceDir) {
   for (const pattern of tries) {
     if (pattern.test(s)) {
       s = s.replace(pattern, `$1\n  ...${NEXT_CONFIG_ENV_SNIPPET},`);
-      fs.writeFileSync(cfgPath, s, "utf8");
-      return { applied: true, method: "regex", file: path.basename(cfgPath) };
+      return { applied: true, method: "regex", file: fileName, source: s };
     }
   }
-  return { applied: false, reason: "no_pattern_matched" };
+  return { applied: false, reason: "no_pattern_matched", source: original };
+}
+
+function patchNextConfigViaRegex(workspaceDir) {
+  const cfgPath = findNextConfigPath(workspaceDir);
+  if (!cfgPath) return { applied: false, reason: "no_config_file" };
+  const original = fs.readFileSync(cfgPath, "utf8");
+  const { source, ...result } = patchNextConfigSourceViaRegex(path.basename(cfgPath), original);
+  if (result.applied) fs.writeFileSync(cfgPath, source, "utf8");
+  return result;
+}
+
+/**
+ * In-memory equivalent of `patchNextConfigForPreviewBasePath` for runtimes
+ * whose workspace is not on this host (SM-080 guest machines). Same AST →
+ * regex fallback rules; returns the (possibly unchanged) source.
+ */
+function patchNextConfigSource(fileName, original) {
+  const astResult = patchNextConfigSourceViaAst(fileName, original);
+  if (astResult.applied) return astResult;
+  const fallbackable =
+    astResult.reason &&
+    (astResult.reason.startsWith("ast_parse_failed") ||
+      astResult.reason === "no_target_object");
+  if (!fallbackable) return astResult;
+  return patchNextConfigSourceViaRegex(fileName, original);
+}
+
+/** Apply the preview basePath patch to a file map; returns a new map. */
+function patchNextConfigInFilesJson(filesJson) {
+  const out = { ...filesJson };
+  for (const name of NEXT_CONFIG_CANDIDATES) {
+    if (typeof out[name] !== "string") continue;
+    const result = patchNextConfigSource(name, out[name]);
+    if (result.applied) out[name] = result.source;
+    // Mirror on-disk precedence: only the first existing candidate is patched.
+    break;
+  }
+  return out;
 }
 
 function patchNextConfigForPreviewBasePath(workspaceDir) {
@@ -567,6 +610,10 @@ function patchTouchesStructuralPath(paths) {
 }
 
 module.exports = {
+  BINARY_BASE64_PREFIX,
+  materializeBinaryContent,
+  patchNextConfigInFilesJson,
+  patchNextConfigSource,
   patchNextConfigViaAst,
   patchNextConfigViaRegex,
   patchNextConfigForPreviewBasePath,
