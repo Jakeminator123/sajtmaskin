@@ -290,7 +290,11 @@ async function main() {
     ["CURATED_UI_COLLECTIONS", CURATED_UI_COLLECTIONS.flatMap((c) => c.itemNames)],
     [
       "legacy UI-recipe candidates",
-      buildLegacyCandidates(allCapabilitiesOn(), "").map((c) => c.name),
+      // Some candidates (e.g. `tabs`) only come from prompt keywords, so the
+      // prompt must hit every keyword branch in buildLegacyCandidates.
+      buildLegacyCandidates(allCapabilitiesOn(), "modal dashboard login pricing").map(
+        (c) => c.name,
+      ),
     ],
   ];
   const officialTasks = officialGroups.flatMap(([group, names]) =>
