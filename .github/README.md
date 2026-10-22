@@ -16,6 +16,12 @@ workflowkälla (`.github/workflows/ci.yml` + `pull_request`) ägs av
 `npm run workflow:contract` stoppar drift mellan policy, workflow, hook och
 router. Lokalt körs `npm run verify:pr -- --plan` och relevanta riktade
 kontroller före push; CI publicerar tung profil eller ett explicit light-kvitto.
+Ett grönt fullt kvitto för exakt samma testade träd (ready/reopened med samma
+head och bas, eller preview-push efter merge av en uppdaterad PR) återanvänds i
+stället för att köra om samma kod; se `scripts/workflow/ci-receipt.mjs`. Lätta
+kvitton och aggregatet körs på `ubuntu-slim`; tunga jobb alltid på
+`ubuntu-latest`. Dependabot-controllerns jobb startar bara efter CI på
+`dependabot/`-grenar.
 
 Required checks publiceras en gång per aktuell PR-head. Strict/up-to-date i
 ruleset gör gamla basresultat ogiltiga. PR-head-workflows är explicit read-only;

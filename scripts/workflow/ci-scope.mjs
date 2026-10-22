@@ -4,6 +4,14 @@ import { appendFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  applyReceipt,
+  findMergedPreviewPullRequest,
+  findReusableReceipt,
+  formatReceipt,
+  readTestedCommit,
+  RECEIPT_TITLE,
+} from "./ci-receipt.mjs";
 import { collectImpact, loadWorkflowInputs, parseGitNameStatus } from "./path-impact.mjs";
 import { verifiedPushBaseline } from "./push-baseline.mjs";
 
@@ -270,17 +278,73 @@ export function resolveCiScope({
   }
 }
 
+const RECEIPT_ACTIONS = new Set(["ready_for_review", "reopened"]);
+
+/**
+ * Återanvänd ett grönt fullt kvitto i stället för att köra samma träd igen:
+ * - ready_for_review/reopened mot preview: samma head, bas och testade träd.
+ * - push till preview: tipets träd är identiskt med det träd som en grön full
+ *   PR-körning testade för den PR vars merge skapade tipet.
+ * Master, lätta beslut och allt som inte kan bevisas behåller beslutet.
+ */
+export async function resolveReceiptReuse({
+  decision,
+  eventName,
+  eventAction = "",
+  ref = "",
+  baseRef = "",
+  tested,
+  prHeadSha,
+  pushSha,
+  api = {},
+}) {
+  const keep = (detail) => ({ decision, detail });
+  if (!decision?.runHeavy || decision.classificationError || !tested?.tree) return keep("not-eligible");
+
+  if (eventName === "pull_request") {
+    if (baseRef === "master" || !RECEIPT_ACTIONS.has(String(eventAction)) ||
+        !tested.head || tested.head !== prHeadSha) {
+      return keep("not-eligible");
+    }
+    const { reuse, detail } = await findReusableReceipt({
+      ...api,
+      headSha: tested.head,
+      base: tested.base,
+      tree: tested.tree,
+    });
+    return reuse ? { decision: applyReceipt(decision, reuse), detail } : keep(detail);
+  }
+
+  if (eventName === "push" && ref === "refs/heads/preview") {
+    const pr = await findMergedPreviewPullRequest({ ...api, sha: pushSha });
+    if (!pr) return keep("no-merged-preview-pr");
+    const { reuse, detail } = await findReusableReceipt({ ...api, headSha: pr.headSha, tree: tested.tree });
+    return reuse
+      ? { decision: applyReceipt(decision, reuse), detail: `${detail}:pr-${pr.number}` }
+      : keep(`${detail}:pr-${pr.number}`);
+  }
+  return keep("not-eligible");
+}
+
+/** Kvittoprofil för den här körningen; bara `heavy` kan återanvändas senare. */
+export function receiptProfile(decision) {
+  if (decision.receiptReused) return "reused";
+  return decision.runHeavy ? "heavy" : "light";
+}
+
 function writeOutput(path, key, value) {
   appendFileSync(path, `${key}=${String(value)}\n`, "utf8");
 }
 
 async function main() {
-  const baselineVerified = process.env.GITHUB_EVENT_NAME === "push" &&
-    process.env.GITHUB_REF === "refs/heads/preview" &&
+  const eventName = process.env.GITHUB_EVENT_NAME;
+  const ref = process.env.GITHUB_REF;
+  const baselineVerified = eventName === "push" &&
+    ref === "refs/heads/preview" &&
     await verifiedPushBaseline({ workflow: "ci.yml" });
-  const decision = resolveCiScope({
+  const classified = resolveCiScope({
     baselineVerified,
-    eventName: process.env.GITHUB_EVENT_NAME,
+    eventName,
     eventAction: process.env.SAJTMASKIN_PR_ACTION,
     isDraft: process.env.SAJTMASKIN_PR_DRAFT,
     ref: process.env.GITHUB_REF,
@@ -294,6 +358,34 @@ async function main() {
         ? process.env.GITHUB_SHA
         : process.env.SAJTMASKIN_PR_HEAD_SHA,
   });
+
+  const isPullRequest = eventName === "pull_request";
+  const tested = isPullRequest || (eventName === "push" && ref === "refs/heads/preview")
+    ? readTestedCommit({ sha: process.env.GITHUB_SHA, merge: isPullRequest, cwd: REPO_ROOT })
+    : null;
+  const { decision, detail } = await resolveReceiptReuse({
+    decision: classified,
+    eventName,
+    eventAction: process.env.SAJTMASKIN_PR_ACTION,
+    ref,
+    baseRef: process.env.GITHUB_BASE_REF,
+    tested,
+    prHeadSha: process.env.SAJTMASKIN_PR_HEAD_SHA,
+    pushSha: process.env.GITHUB_SHA,
+  });
+  if (detail !== "not-eligible") console.log(`[ci-receipt] ${detail.replace(/[\r\n]+/gu, " ")}`);
+
+  // Kvittot skrivs bara när merge-committens head är exakt PR:ens head.
+  if (isPullRequest && tested?.head && tested.head === process.env.SAJTMASKIN_PR_HEAD_SHA) {
+    const receipt = formatReceipt({
+      head: tested.head,
+      base: tested.base,
+      tree: tested.tree,
+      profile: receiptProfile(decision),
+      previewHost: decision.runPreviewHost,
+    });
+    console.log(`::notice title=${RECEIPT_TITLE}::${receipt}`);
+  }
 
   if (decision.classificationError) {
     console.warn(

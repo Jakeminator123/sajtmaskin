@@ -17,8 +17,9 @@ PR-skillen. Proceduren heter **Buggpass**; Codex, Cursor Bugbot eller annan
 oberoende granskare kan utföra den. Ett produktnamn är inget eget krav.
 
 1. Håll PR:n draft medan arbete eller kända fynd återstår. Draft→ready startar
-   den fulla CI-profilen; lokalt körs plan och riktade kontroller, inte samma
-   fulla profil en gång till.
+   den fulla CI-profilen, utom när samma head, bas och testade träd redan har en
+   grön full körning (då publiceras lätta kvitton); lokalt körs plan och riktade
+   kontroller, inte samma fulla profil en gång till.
 2. Läs GitHubs merge box, required GitHub-checks, reviews, kommentarer och deployment
    för aktuell head. Ny head gör äldre resultat stale; strict/up-to-date-ruleset
    binder merge till aktuell integrationsbas.

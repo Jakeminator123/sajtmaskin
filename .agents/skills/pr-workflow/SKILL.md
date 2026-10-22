@@ -52,6 +52,12 @@ runtime-enforcement; läs rapportens `runtimeStatus`.
   pågående eller fallerad bas kör full profil. `test:ci` delas på fyra
   parallella jobb som `quality` kräver. Återgång till draft startar ingen ny
   körning. Samla kända rättningar före push.
+- Grönt kvitto: varje PR-körning skriver head, bas och testat träd som
+  annotation på `scope`. `ready_for_review`/`reopened` med samma head, bas och
+  träd som en grön full körning, och en preview-push vars träd är identiskt med
+  den mergade PR:ens gröna fulla körning, publicerar lätta required checks i
+  stället för att köra samma träd igen (`scripts/workflow/ci-receipt.mjs`).
+  Rött, okänt eller avvikande träd kör full profil; `master` är alltid full.
 - Fixa eller avfärda riktiga reviewfynd; kör om berörda riktade kontroller.
 
 ## 4. Leverera: direkt preview eller PR
