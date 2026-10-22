@@ -32,6 +32,7 @@ inte hela katalogen. Arkitektur och kontrakt finns via [docs-routern](../README.
 | --- | --- |
 | DB-mål, schema, granskad migration och separat apply-mandat | [DB-migrationer](db-migrations.md) |
 | Aktivering och verifiering av användardomäner | [Branded URL:er](branded-user-urls.md) |
+| GitHub-organisation och App för kundsajters kodbackup och överlämning | [GitHub sites-org](github-sites-org.md) |
 | Publika exempel och deras livebevis | [Showcase](showcase-exempel.md) |
 | Avgränsat Search Ads-test | [Google Ads](google-ads-search-test.md) |
 

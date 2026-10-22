@@ -43,6 +43,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       site: {
         ...overview,
         liveAt: overview.liveAt ? overview.liveAt.toISOString() : null,
+        codeBackupAt: overview.codeBackupAt ? overview.codeBackupAt.toISOString() : null,
       },
     });
   } catch (error: unknown) {

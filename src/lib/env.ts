@@ -85,6 +85,15 @@ export const serverSchema = z.object({
   GITHUB_CLIENT_SECRET_DEV: z.string().optional(),
   GITHUB_REDIRECT_URI: z.string().optional(),
   /**
+   * GitHub App owned by Sajtmaskin's sites organisation (planned backup of
+   * published sites + repo hand-over). All four must be set for the feature to
+   * exist; see `docs/runbooks/github-sites-org.md`.
+   */
+  GITHUB_APP_ID: z.string().optional(),
+  GITHUB_APP_PRIVATE_KEY: z.string().optional(),
+  GITHUB_APP_INSTALLATION_ID: z.string().optional(),
+  GITHUB_SITES_ORG: z.string().optional(),
+  /**
    * Comma-separated exact first-party origins allowed as OAuth start / relay
    * destinations, in addition to `URLS.baseUrl` and the intended Vercel origin.
    * Wildcards are ignored. Unset = only those two built-in origins.

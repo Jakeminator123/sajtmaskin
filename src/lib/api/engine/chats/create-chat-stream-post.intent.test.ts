@@ -6,6 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _key: string, run: () => unknown) => run(),
 }));
+// Företagsuppgifter read the DB; this test has no POSTGRES_URL.
+vi.mock("@/lib/projects/business-facts-loader", () => ({
+  loadBusinessFactsForProject: vi.fn(async () => null),
+}));
 vi.mock("@/lib/gen/stream/generation-work", () => ({
   runWithGenerationWork: (run: (done: () => Promise<void>) => unknown) =>
     run(() => Promise.resolve()),
