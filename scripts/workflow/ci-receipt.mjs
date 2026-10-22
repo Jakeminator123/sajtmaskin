@@ -8,10 +8,14 @@ import { spawnSync } from "node:child_process";
 
 export const RECEIPT_TITLE = "sajtmaskin-ci-receipt";
 export const QUALITY_TEST_SHARDS = 4;
+// Externa indata (Blob-manifest, rörliga image-taggar, runnerimage) ligger utanför
+// trädet. Ett gammalt kvitto återanvänds därför inte.
+export const MAX_RECEIPT_AGE_MS = 3 * 24 * 60 * 60 * 1000;
 
 // Jobb som måste ha lyckats i en full körning för att den ska räknas som kvitto.
 // Lätta stubbar publicerar också success, därför krävs även profile=heavy i
 // kvittot och att de tunga jobben (som annars är skipped) faktiskt lyckades.
+// ci-receipt.test.ts håller listan i synk med ci.yml.
 export const HEAVY_RECEIPT_JOBS = Object.freeze([
   "scope",
   "quality-core",
@@ -36,6 +40,10 @@ function validSha(value) {
   return SHA.test(String(value ?? "")) && !/^0+$/u.test(value);
 }
 
+/**
+ * @param {{ head: string, base: string, tree: string,
+ *   profile: "heavy" | "light" | "reused", previewHost: boolean }} receipt
+ */
 export function formatReceipt({ head, base, tree, profile, previewHost }) {
   return `v1 head=${head} base=${base} tree=${tree} profile=${profile} preview_host=${previewHost === true}`;
 }
@@ -114,9 +122,14 @@ function provesFullRun(jobs) {
 
 /**
  * Leta upp ett grönt fullt kvitto för exakt `tree` bland CI:s PR-körningar på
- * `headSha`. Nyaste icke-avbrutna körning med samma träd avgör: ett rött eller
- * okänt utfall stoppar återanvändning, en lätt eller återanvänd grön körning
- * bevisar inget själv men får inte heller dölja en äldre full körning.
+ * `headSha`. Nyaste körning med samma träd avgör: ett rött, pågående eller okänt
+ * utfall stoppar återanvändning, en lätt eller återanvänd grön körning bevisar
+ * inget själv men får inte heller dölja en äldre full körning. En avbruten
+ * körning räknas bara som neutral om inget av dess jobb hann bli rött.
+ *
+ * @param {{ repository?: string, token?: string, apiUrl?: string, fetchImpl?: typeof fetch,
+ *   headSha: string, tree: string, base?: string | null, currentRunId?: string,
+ *   now?: number }} input
  */
 export async function findReusableReceipt({
   repository = process.env.GITHUB_REPOSITORY,
@@ -127,12 +140,15 @@ export async function findReusableReceipt({
   tree,
   base = null,
   currentRunId = process.env.GITHUB_RUN_ID,
+  now = Date.now(),
 }) {
   if (!token || !/^[\w.-]+\/[\w.-]+$/u.test(repository ?? "") ||
       !validSha(headSha) || !validSha(tree) || (base !== null && !validSha(base))) {
     return { reuse: null, detail: "missing-input" };
   }
   const api = { apiUrl, repository, token, fetchImpl };
+  const sameTree = (receipt) =>
+    receipt.head === headSha && receipt.tree === tree && (base === null || receipt.base === base);
   try {
     const listing = await getJson(
       `${apiUrl}/repos/${repository}/actions/workflows/ci.yml/runs?event=pull_request&head_sha=${headSha}&per_page=30`,
@@ -147,25 +163,33 @@ export async function findReusableReceipt({
       if (String(run?.id) === String(currentRunId ?? "")) continue;
       if (run?.head_sha !== headSha || run?.event !== "pull_request" ||
           run?.path !== CI_WORKFLOW_PATH || run?.head_repository?.full_name !== repository) continue;
-      if (run.status !== "completed") continue;
-      if (run.conclusion === "cancelled" || run.conclusion === "skipped") continue;
+      // En pågående körning (även en omkörning av ett gammalt kvitto) kan bli röd.
+      if (run.status !== "completed") return { reuse: null, detail: `run-not-completed:${run.id}` };
+      if (run.conclusion === "skipped") continue;
       if (++inspected > MAX_INSPECTED_RUNS) return { reuse: null, detail: "inspection-limit" };
 
       const { receipt, jobs } = await readRunReceipt({ run, api });
+      if (run.conclusion === "cancelled") {
+        const failed = jobs.some((job) => job?.conclusion === "failure" || job?.conclusion === "timed_out");
+        if (failed && (!receipt || sameTree(receipt))) {
+          return { reuse: null, detail: `cancelled-after-failure:${run.id}` };
+        }
+        continue;
+      }
       if (!receipt) {
         // Ett grönt resultat utan kvitto (äldre format) bevisar inget men
         // motsäger inget. Ett rött resultat med okänt träd stoppar.
         if (run.conclusion === "success") continue;
         return { reuse: null, detail: `unknown-tree-${run.conclusion}:${run.id}` };
       }
-      if (receipt.head !== headSha || receipt.tree !== tree || (base !== null && receipt.base !== base)) {
-        continue;
-      }
+      if (!sameTree(receipt)) continue;
       if (run.conclusion !== "success") {
         return { reuse: null, detail: `same-tree-${run.conclusion}:${run.id}` };
       }
       if (receipt.profile !== "heavy") continue;
       if (!provesFullRun(jobs)) return { reuse: null, detail: `incomplete-heavy-run:${run.id}` };
+      const age = now - Date.parse(String(run.created_at ?? ""));
+      if (!(age >= 0 && age <= MAX_RECEIPT_AGE_MS)) return { reuse: null, detail: `receipt-too-old:${run.id}` };
       return { reuse: { runId: String(run.id), previewHost: receipt.previewHost }, detail: "reused" };
     }
     return { reuse: null, detail: "no-matching-receipt" };

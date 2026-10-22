@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -10,6 +11,7 @@ import {
   findReusableReceipt,
   formatReceipt,
   HEAVY_RECEIPT_JOBS,
+  MAX_RECEIPT_AGE_MS,
   parseReceipt,
   readTestedCommit,
   RECEIPT_TITLE,
@@ -29,6 +31,7 @@ function run(id: number, change: Record<string, unknown> = {}): Run {
   return {
     id, head_sha: head, event: "pull_request", path: ".github/workflows/ci.yml",
     head_repository: { full_name: repository }, status: "completed", conclusion: "success",
+    created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
     ...change,
   };
 }
@@ -44,7 +47,11 @@ function notice(message: string) {
   return { title: RECEIPT_TITLE, annotation_level: "notice", message };
 }
 
-function receipt(change: Partial<Parameters<typeof formatReceipt>[0]> = {}) {
+type ReceiptFields = {
+  head: string; base: string; tree: string; profile: "heavy" | "light" | "reused"; previewHost: boolean;
+};
+
+function receipt(change: Partial<ReceiptFields> = {}) {
   return formatReceipt({ head, base, tree, profile: "heavy", previewHost: false, ...change });
 }
 
@@ -176,7 +183,58 @@ describe("reusable green receipt", () => {
     });
     expect(await find(fetchImpl)).toEqual({ reuse: { runId: "101", previewHost: true }, detail: "reused" });
     expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("/runs/999/"))).toBe(false);
-    expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("/runs/104/"))).toBe(false);
+  });
+
+  it("stops on a newer run that is still running, e.g. a re-run of the receipt itself", async () => {
+    const fetchImpl = github({
+      runs: [run(101), run(102, { status: "in_progress", conclusion: null })],
+      jobs: { 101: heavyJobs(101) }, annotations: { 101: [notice(receipt())] },
+    });
+    expect(await find(fetchImpl)).toMatchObject({ reuse: null, detail: "run-not-completed:102" });
+  });
+
+  it("stops on a cancelled run whose jobs already failed on the same or an unknown tree", async () => {
+    const failedShard = (jobs: Job[]) =>
+      jobs.map((job) => job.name === "quality-tests (2)" ? { ...job, conclusion: "failure" } : job);
+    for (const annotations of [[notice(receipt())], []]) {
+      const fetchImpl = github({
+        runs: [run(101), run(102, { conclusion: "cancelled" })],
+        jobs: { 101: heavyJobs(101), 102: heavyJobs(102, failedShard) },
+        annotations: { 101: [notice(receipt())], 102: annotations },
+      });
+      expect(await find(fetchImpl)).toMatchObject({ reuse: null, detail: "cancelled-after-failure:102" });
+    }
+    const otherTreeFailure = github({
+      runs: [run(101), run(102, { conclusion: "cancelled" })],
+      jobs: { 101: heavyJobs(101), 102: heavyJobs(102, failedShard) },
+      annotations: { 101: [notice(receipt())], 102: [notice(receipt({ tree: otherTree }))] },
+    });
+    expect((await find(otherTreeFailure)).reuse).toEqual({ runId: "101", previewHost: false });
+  });
+
+  it("does not reuse a receipt older than the age limit or with an unreadable age", async () => {
+    const old = new Date(Date.now() - MAX_RECEIPT_AGE_MS - 60_000).toISOString();
+    for (const created_at of [old, "not-a-date", new Date(Date.now() + 3_600_000).toISOString()]) {
+      const fetchImpl = github({
+        runs: [run(101, { created_at })], jobs: { 101: heavyJobs(101) }, annotations: { 101: [notice(receipt())] },
+      });
+      expect(await find(fetchImpl)).toMatchObject({ reuse: null, detail: "receipt-too-old:101" });
+    }
+  });
+
+  it("lists exactly the jobs a full pull_request run of ci.yml produces", () => {
+    const yaml = createRequire(import.meta.url)("js-yaml") as { load: (source: string) => unknown };
+    const document = yaml.load(readFileSync(".github/workflows/ci.yml", "utf8")) as {
+      jobs: Record<string, { if?: string; strategy?: { matrix?: { shard?: number[] } } }>;
+    };
+    const pushOnly = new Set(["prod-migrations-applied", "db-schema-parity"]);
+    const names = Object.entries(document.jobs).flatMap(([name, job]) => {
+      if (pushOnly.has(name)) return [];
+      const shards = job.strategy?.matrix?.shard;
+      return shards ? shards.map((shard) => `${name} (${shard})`) : [name];
+    });
+    expect([...HEAVY_RECEIPT_JOBS].sort()).toEqual(names.sort());
+    for (const name of pushOnly) expect(document.jobs[name]?.if).toContain("github.event_name == 'push'");
   });
 
   it.each([

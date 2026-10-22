@@ -338,6 +338,32 @@ export function evaluatePrHeadWorkflowPermissions(workflowSources) {
   return errors;
 }
 
+/**
+ * CI-kvitton (ci-receipt.mjs) litar på notice-annotationer på scope-jobbet.
+ * Inget workflow får därför kunna skriva check runs/annotationer i repot.
+ */
+export function evaluateCheckWriteGrants(workflowSources) {
+  const errors = [];
+  for (const workflow of workflowSources) {
+    let document;
+    try {
+      document = yaml.load(workflow.source);
+    } catch {
+      continue;
+    }
+    const grants = [
+      ["workflow", document?.permissions],
+      ...Object.entries(document?.jobs ?? {}).map(([jobName, job]) => [`job ${jobName}`, job?.permissions]),
+    ];
+    for (const [label, permission] of grants) {
+      if (grantsWrite(permission, ["checks"])) {
+        errors.push(`${workflow.name} ${label} must not grant checks: write (CI receipts trust annotations)`);
+      }
+    }
+  }
+  return errors;
+}
+
 // pull_request_target får skrivtoken även på fork-PR:er; varje lyssnare måste
 // ha ett eget granskat kontrakt i den här filen.
 const TRUSTED_PULL_REQUEST_TARGET_WORKFLOWS = Object.freeze([
@@ -1731,6 +1757,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   errors.push(...evaluateRetiredApiReviewWorkflows(workflowSources));
   errors.push(...evaluateReservedWorkflowCheckNames(workflowSources, policy));
   errors.push(...evaluatePrHeadWorkflowPermissions(workflowSources));
+  errors.push(...evaluateCheckWriteGrants(workflowSources));
   errors.push(...evaluatePullRequestTargetWorkflows(workflowSources));
   errors.push(
     ...evaluatePrBaseGuardWorkflow(

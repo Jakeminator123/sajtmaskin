@@ -12,6 +12,7 @@ import {
   evaluateDependencyFreeImportGraph,
   evaluateDossierAcceptanceWorkflow,
   evaluatePolicyFloors,
+  evaluateCheckWriteGrants,
   evaluatePrBaseGuardWorkflow,
   evaluatePrHeadWorkflowPermissions,
   evaluatePullRequestTargetWorkflows,
@@ -1257,6 +1258,17 @@ describe("agent workflow repository contract", () => {
     ],
   ])("parses every PR-head trigger/permission form fail-closed: %s", (name, source) => {
     expect(evaluatePrHeadWorkflowPermissions([{ name, source }]).length).toBeGreaterThan(0);
+  });
+
+  it("forbids checks: write anywhere because CI receipts trust scope annotations", () => {
+    for (const source of [
+      "on: push\npermissions: { checks: write }\njobs: {}\n",
+      "on: schedule\npermissions: write-all\njobs: {}\n",
+      "on: push\npermissions: {}\njobs:\n  x:\n    permissions: { checks: 'write' }\n",
+    ]) expect(evaluateCheckWriteGrants([{ name: "x.yml", source }]).length).toBeGreaterThan(0);
+    expect(evaluateCheckWriteGrants([
+      { name: "ok.yml", source: "on: push\npermissions: { checks: read, contents: write }\njobs: {}\n" },
+    ])).toEqual([]);
   });
 
   it("allows an explicit read-only pull_request workflow and ignores comments", () => {

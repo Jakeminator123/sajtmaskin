@@ -286,6 +286,18 @@ const RECEIPT_ACTIONS = new Set(["ready_for_review", "reopened"]);
  * - push till preview: tipets träd är identiskt med det träd som en grön full
  *   PR-körning testade för den PR vars merge skapade tipet.
  * Master, lätta beslut och allt som inte kan bevisas behåller beslutet.
+ *
+ * @param {{
+ *   decision: any,
+ *   eventName: string,
+ *   eventAction?: string,
+ *   ref?: string,
+ *   baseRef?: string,
+ *   tested?: { tree: string, base?: string | null, head?: string | null } | null,
+ *   prHeadSha?: string,
+ *   pushSha?: string,
+ *   api?: Record<string, unknown>,
+ * }} input
  */
 export async function resolveReceiptReuse({
   decision,
@@ -293,9 +305,9 @@ export async function resolveReceiptReuse({
   eventAction = "",
   ref = "",
   baseRef = "",
-  tested,
-  prHeadSha,
-  pushSha,
+  tested = null,
+  prHeadSha = "",
+  pushSha = "",
   api = {},
 }) {
   const keep = (detail) => ({ decision, detail });
