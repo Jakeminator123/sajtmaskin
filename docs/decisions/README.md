@@ -20,6 +20,33 @@ i backloggen — registret finns för att beslut ska kunna stängas.
 
 ## Gällande beslut
 
+### 2026-10-22: arbetsgrenar skyddas mot botars radering
+
+Jakob bad om orsaksutredning och skydd efter att `cursor[bot]` raderat grenarna
+för öppna #1649, #1655 och #1656 kl. 02:10 svensk tid. GitHubs regelhistorik
+visar att samma aktör försökte radera master, senaste BRA och fem rescue-grenar;
+befintliga raderingsskydd nekade dessa försök. Cursor-körningens interna logg
+är inte tillgänglig, så exakt instruktion/kommando och eventuell indirekt
+koppling till den tidigare branchstädningen är inte fastställda.
+
+[`protect-working-branches.expected.json`](../../.github/rulesets/protect-working-branches.expected.json)
+äger ett separat serverbaserat raderingsskydd för alla arbetsgrenar. Master och
+preview behåller sina befintliga regler. Inga GitHub-appar får undantag; endast
+repo-administratörens befintliga, uttryckligt beställda `tidy`-väg behålls.
+Administratörsbehörighet är inte tekniskt begränsad till skriptet och ska inte
+ges till review-automationer. `tidy` nekar öppen PR och okänt PR-tillstånd.
+
+GitHub-regeln kan inte välja enbart öppna PR-grenar. Därför gäller skyddet även
+efter merge, och automatisk branchstädning kan behöva ersättas av verifierad
+`tidy`. Vanlig branchskapning, push och merge begränsas inte. Den befintliga
+read-only-kontrollen för rulesets verifierar även detta skydds synliga fält.
+GitHub döljer undantagslistan för dess token; då visas uttryckligen en partiell
+kontroll med undantagen **ej verifierade**, inte ett fullständigt grönt kvitto.
+Efter regeländringar kör operatören `node scripts/ci/check-working-branches-ruleset.mjs`
+med behörighet att läsa listan; standardläget nekar saknade fält och app-undantag.
+Ingen ny schemaläggning, token eller produktionsändring. Den nattliga kontrollen
+får denna ändring först när workflowet senare når default-grenen genom vanlig promote.
+
 ### 2026-10-22: sex äldre BRA-backuper ersätts av arkivtaggar
 
 Jakob godkände uttryckligen ett avgränsat, testat och granskat raderingsundantag
