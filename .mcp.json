@@ -1,0 +1,36 @@
+{
+  "mcpServers": {
+    "shadcn": {
+      "command": "node",
+      "args": ["${CLAUDE_PROJECT_DIR:-.}/scripts/cursor/shadcn-mcp.cjs"]
+    },
+    "vercel": {
+      "type": "http",
+      "url": "https://mcp.vercel.com/jakeminator123s-projects/sajtmaskin"
+    },
+    "user-vercel": {
+      "type": "http",
+      "url": "https://mcp.vercel.com"
+    },
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=yubbckduwblyrbnlglwf&read_only=true"
+    },
+    "supabase-prod": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=egcitvwgettkftkyzbvn&read_only=true"
+    },
+    "openai-docs": {
+      "type": "http",
+      "url": "https://developers.openai.com/mcp"
+    },
+    "openclaw-docs": {
+      "type": "http",
+      "url": "https://docs.openclaw.ai/mcp"
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    }
+  }
+}
