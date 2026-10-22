@@ -12,6 +12,7 @@ handskrivna guider förklarar ansvar och stabila kontrakt.
 | Huvudflöde och kodens placering | [Systemöversikt](architecture/system-overview.md) · [Kodkarta](architecture/code-map.md) |
 | Begrepp och arbetsmodell | [Mental modell](concepts/mental-model.md) · [Ordlista](architecture/glossary.md) |
 | Init, follow-up, design och integration | [Init/follow-up](concepts/init-and-follow-up.md) · [F2/F3](concepts/f2-and-f3.md) |
+| Sajtagenten i builderchatten | [Sajtagenten](concepts/sajtagenten.md) |
 | Byggblock och dossiers | [Kortguide](llm/dossier-cheatsheet.md) · [Dossierkontrakt](contracts/dossier-system.md) · [Migrera kundsajtens OpenAI-chatt](runbooks/openai-model-migration.md) |
 | Generering och AI-debitering | [LLM-pipeline](architecture/llm-pipeline.md) |
 | Invariants och kvalitetsgrindar | [Runtime-kontrakt](architecture/runtime-contracts.md) · [Quality gate](architecture/quality-gate-flow.md) |
