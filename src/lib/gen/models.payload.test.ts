@@ -81,7 +81,7 @@ describe("OpenAI request payloads for the GPT-6 models", () => {
     expect(captured[0].body).not.toHaveProperty("temperature");
   });
 
-  it("serializes prompt-assist as Sol 6.1 medium with an 8192 cap and no sampling", async () => {
+  it("serializes prompt-assist as Sol 6.1 low with an 8192 cap and no sampling", async () => {
     const previous = process.env.SAJTMASKIN_PROMPT_REWRITE_MODEL;
     delete process.env.SAJTMASKIN_PROMPT_REWRITE_MODEL;
     const captured = captureOpenAIRequests();
@@ -101,7 +101,7 @@ describe("OpenAI request payloads for the GPT-6 models", () => {
       expect(captured).toHaveLength(1);
       expect(captured[0].url).toMatch(/\/v1\/responses$/);
       expect(captured[0].body.model).toBe("gpt-6.1-sol");
-      expect(captured[0].body.reasoning).toEqual({ effort: "medium" });
+      expect(captured[0].body.reasoning).toEqual({ effort: "low" });
       expect(captured[0].body.max_output_tokens).toBe(8192);
       expect(captured[0].body).not.toHaveProperty("temperature");
       expect(captured[0].body).not.toHaveProperty("top_p");
@@ -128,7 +128,7 @@ describe("OpenAI request payloads for the GPT-6 models", () => {
 
       expect(captured).toHaveLength(1);
       expect(captured[0].body.model).toBe(expectedModel);
-      expect(captured[0].body.reasoning).toEqual({ effort: "medium" });
+      expect(captured[0].body.reasoning).toEqual({ effort: "low" });
       expect(captured[0].body.max_output_tokens).toBe(8192);
       expect(captured[0].body).not.toHaveProperty("temperature");
       expect(captured[0].body).not.toHaveProperty("top_p");

@@ -119,8 +119,10 @@ Placeholders är aldrig integrationsbevis.
 → väntad previewpersistens/readiness → serverägt produktresultat → en relevant
 kvalitetsgrind. Samma versionslås och ursprungliga request-deadline följer kedjan.
 [generation-stream-post-finalize.ts](../../src/lib/providers/own-engine/generation-stream-post-finalize.ts)
-anropar denna ägare; klienten observerar status utan egen efterkontrollkö eller
-återstart vid återöppning. GET av filer läser bara sparad snapshot, och Spara
+anropar denna ägare; klienten observerar status utan egen efterkontrollkö.
+Versionspollens [begränsade väckning](../../src/lib/hooks/postcheck-recovery.ts)
+kan efter fem minuter be servern återuppta senaste ofärdiga designversion,
+även vid återöppning. GET av filer läser bara sparad snapshot, och Spara
 startar inget extra bildarbete. SSE-done bevisar inte färdig versionslivscykel.
 
 Klientens separata Deep Brief skickar sitt befintliga usage-kvitto i
@@ -137,9 +139,12 @@ betalt kvitto; en redan versionsbunden rad flyttas inte till en annan version.
 
 Serverns [resume-route](../../src/app/api/engine/postchecks/route.ts) använder
 samma kedja och bestående återstartsbudget. Routen är inte schemalagd i
-`vercel.json`; automatisk återstart efter avbruten serverkörning kräver separat
-godkänd schemaläggning och runtimeverifiering. Den ska inte tillskrivas en
-klientfallback som inte längre finns.
+`vercel.json`; återstart utan en öppen builder kräver separat godkänd
+schemaläggning och runtimeverifiering. Builderns autentiserade
+[POST-route](../../src/app/api/engine/chats/[chatId]/postchecks/route.ts) väljer
+endast den egna chatten/versionen och återanvänder samma serverägare, lease och
+ursprungliga kostnads-/försöksbudget. Ett accepterat väckningsanrop är inte ett
+godkänt verifieringsresultat; UI läser fortfarande det bestående resultatet.
 
 F2:s RenderGate och strömmad F3:s ReleaseGate/readiness ägs av serverkedjan.
 Den explicita deterministiska finalize-design-forken behåller sitt gate-anrop

@@ -50,6 +50,15 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 
 ### Automatisk återkoll av ofärdiga efterkontroller
 
+Builderns versionspoll kan väcka den befintliga serverkedjan via
+`POST /api/engine/chats/[chatId]/postchecks` när senaste designversionen har
+väntat minst fem minuter. Det fungerar även efter omladdning. Klienten skickar
+bara versions-ID; servern kontrollerar ägarskap, senaste version, lease,
+ursprunglig budget, ålder och backoff igen. Anropet skapar ingen ny generering
+och ändrar inga kostnadstak. Återupptagen kontroll/reparation kan fortfarande
+kosta enligt den befintliga budgeten. Denna reservväg kräver en öppen builder;
+med alla flikar stängda väntar den till återbesök eller separat schemaläggning.
+
 `SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED=0` är av; exakt `1` tillåter arbete i
 `/api/engine/postchecks`. Saknat eller annat värde är av. Det är inte ett datum
 eller en engångskörning. Vanlig generering och dess direkta efterkontroller
