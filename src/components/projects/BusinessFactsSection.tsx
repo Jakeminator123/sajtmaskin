@@ -66,6 +66,13 @@ export function supportCopy(
           "Den publicerade sajten är byggd utan automatiska företagsuppgifter. Öppna byggaren och be den uppdatera öppettider och kontakt – därefter räcker det att publicera om.",
         needsBuilder: true,
       };
+    case "imported":
+      return {
+        toast: "Sparat. Importerade projekt uppdateras inte automatiskt – ändra texterna i byggaren.",
+        footer:
+          "Den här sajten är ett importerat projekt och tar inte emot företagsuppgifter automatiskt. Ändra öppettider och kontakt direkt i byggaren.",
+        needsBuilder: true,
+      };
     default:
       return {
         toast: "Sparat. Ändringen tas med vid nästa publicering.",

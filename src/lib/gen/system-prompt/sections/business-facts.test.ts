@@ -67,6 +67,17 @@ describe("buildDynamicContext with businessFacts", () => {
     expect(block).toMatchObject({ required: true });
   });
 
+  it("renders no block for a verbatim imported repo, whose layout and alias are its own", () => {
+    const result = buildDynamicContext({
+      intent: "website",
+      userPrompt: "Uppdatera öppettiderna",
+      generationMode: "followUp",
+      importedRepoMode: true,
+      businessFacts: FACTS,
+    });
+    expect(result.context).not.toContain(BUSINESS_FACTS_BLOCK_TITLE);
+  });
+
   it("renders no block without facts", () => {
     const result = buildDynamicContext({
       intent: "website",

@@ -221,9 +221,15 @@ export type BusinessFactsSupportRecord = {
   supported: boolean;
   versionId: string;
   checkedAt: string;
+  /**
+   * Verbatim imported repo. The prompt never renders the facts block for those,
+   * so no builder round can add the module — the portal must say so instead of
+   * sending the customer to the builder.
+   */
+  importedRepo?: boolean;
 };
 
-export type BusinessFactsSupportState = "supported" | "unsupported" | "unknown";
+export type BusinessFactsSupportState = "supported" | "unsupported" | "imported" | "unknown";
 
 export function readBusinessFactsSupportFromMeta(
   meta: Record<string, unknown> | null | undefined,
@@ -239,7 +245,12 @@ export function readBusinessFactsSupportFromMeta(
   ) {
     return null;
   }
-  return { supported: record.supported, versionId: record.versionId, checkedAt: record.checkedAt };
+  return {
+    supported: record.supported,
+    versionId: record.versionId,
+    checkedAt: record.checkedAt,
+    importedRepo: record.importedRepo === true,
+  };
 }
 
 /**
@@ -251,7 +262,8 @@ export function resolveBusinessFactsSupport(
   liveVersionId: string | null | undefined,
 ): BusinessFactsSupportState {
   if (!record || !liveVersionId || record.versionId !== liveVersionId) return "unknown";
-  return record.supported ? "supported" : "unsupported";
+  if (record.supported) return "supported";
+  return record.importedRepo ? "imported" : "unsupported";
 }
 
 /** True when the owner has stated at least one fact worth rendering. */

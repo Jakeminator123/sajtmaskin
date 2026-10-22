@@ -47,16 +47,10 @@ import {
   setProjectVercelLink,
 } from "@/lib/db/services/projects";
 import { readSeoPreferencesFromMeta } from "@/lib/projects/preferences-schema";
-import {
-  BUSINESS_FACTS_SUPPORT_META_KEY,
-  readBusinessFactsForDeploy,
-} from "@/lib/projects/business-facts-schema";
-import {
-  BUSINESS_FACTS_MODULE_MARKER,
-  applyBusinessFactsToFiles,
-  isBusinessFactsModulePath,
-} from "@/lib/projects/business-facts-module";
-import { buildSeoStatus } from "@/lib/projects/seo-status";
+import { readBusinessFactsForDeploy } from "@/lib/projects/business-facts-schema";
+import { applyBusinessFactsToFiles } from "@/lib/projects/business-facts-module";
+import { chatUsesVerbatimRepo } from "@/lib/gen/export/build-exportable-project";
+import { buildPortalStatusMetaPatch } from "../portal-status";
 import { resolveDeploySeoOptions } from "../resolve-seo";
 import { runSeoPublishPass } from "@/lib/seo";
 import { resolveSeoCopyModelId, toSeoReportPayload } from "../seo-publish";
@@ -886,6 +880,14 @@ export async function POST(req: Request) {
           ...file,
           language: sourceLanguages.get(file.name),
         })));
+        // The exact text files Vercel gets — the backup and the portal's
+        // "does this site carry the business-facts module?" answer both derive
+        // from this snapshot, never from a re-read that could race a portal edit.
+        // Built before the Vercel call so it sits under the normal refund path.
+        const publishedFiles = imageAssets.files.map((file) => ({
+          path: file.name,
+          content: file.content,
+        }));
 
         const created = await createVercelDeployment({
           projectName: ensuredProject.name,
@@ -897,44 +899,26 @@ export async function POST(req: Request) {
         // failure below must not refund the charge.
         deploymentDelivered = true;
 
-        // The exact text files Vercel took — the backup and the portal's
-        // "does this site carry the business-facts module?" answer both derive
-        // from this snapshot, never from a re-read that could race a portal edit.
-        const publishedFiles = imageAssets.files.map((file) => ({
-          path: file.name,
-          content: file.content,
-        }));
-        const businessFactsSupported = publishedFiles.some(
-          (file) =>
-            isBusinessFactsModulePath(file.path) &&
-            file.content.startsWith(BUSINESS_FACTS_MODULE_MARKER),
-        );
-
-        // Portal status: persist the SEO audit of the files Vercel just took and
-        // whether the live site supports portal-driven Företagsuppgifter. Best
-        // effort after delivery — the portal reading "unknown" is a smaller
-        // failure than a publish error for a status write.
-        const portalMetaPatch: Record<string, unknown> = {};
-        if (seoPass && seoApplyResult.siteUrl) {
-          portalMetaPatch.seoStatus = buildSeoStatus(seoPass.report, {
-            siteUrl: seoApplyResult.siteUrl,
+        // Portal status: SEO audit of the files Vercel just took and whether the
+        // live site supports portal-driven Företagsuppgifter. Everything after
+        // delivery is best effort — the portal reading "unknown" is a smaller
+        // failure than a publish error for a status write, so the computation
+        // sits inside the try as well.
+        try {
+          const portalMetaPatch = buildPortalStatusMetaPatch({
+            seoReport: seoPass?.report ?? null,
+            seoSiteUrl: seoApplyResult.siteUrl,
             versionId,
-            checkedAt: new Date().toISOString(),
+            deployTarget,
+            publishedFiles,
+            importedRepo: await chatUsesVerbatimRepo(chatId),
+            now: new Date().toISOString(),
           });
-        }
-        if (deployTarget === "production") {
-          portalMetaPatch[BUSINESS_FACTS_SUPPORT_META_KEY] = {
-            supported: businessFactsSupported,
-            versionId,
-            checkedAt: new Date().toISOString(),
-          };
-        }
-        if (Object.keys(portalMetaPatch).length > 0) {
-          try {
+          if (Object.keys(portalMetaPatch).length > 0) {
             await saveProjectData({ project_id: engineProjectId, meta_patch: portalMetaPatch });
-          } catch (portalStatusErr) {
-            console.warn("[deploy] Failed to persist portal status:", portalStatusErr);
           }
+        } catch (portalStatusErr) {
+          console.warn("[deploy] Failed to persist portal status:", portalStatusErr);
         }
 
         // Code backup to Sajtmaskin's GitHub org. Runs after the response is

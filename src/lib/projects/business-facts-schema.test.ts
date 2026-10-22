@@ -190,7 +190,10 @@ describe("business facts support record", () => {
   const record = { supported: false, versionId: "ver_1", checkedAt: "2026-10-22T09:00:00.000Z" };
 
   it("reads a valid record and rejects malformed ones", () => {
-    expect(readBusinessFactsSupportFromMeta({ businessFactsSupport: record })).toEqual(record);
+    expect(readBusinessFactsSupportFromMeta({ businessFactsSupport: record })).toEqual({
+      ...record,
+      importedRepo: false,
+    });
     expect(readBusinessFactsSupportFromMeta(null)).toBeNull();
     expect(readBusinessFactsSupportFromMeta({ businessFactsSupport: { supported: "yes" } })).toBeNull();
   });
@@ -201,6 +204,16 @@ describe("business facts support record", () => {
     expect(resolveBusinessFactsSupport(record, "ver_2")).toBe("unknown");
     expect(resolveBusinessFactsSupport(record, null)).toBe("unknown");
     expect(resolveBusinessFactsSupport(null, "ver_1")).toBe("unknown");
+  });
+
+  it("separates imported repos from sites the builder can upgrade", () => {
+    expect(resolveBusinessFactsSupport({ ...record, importedRepo: true }, "ver_1")).toBe("imported");
+    expect(
+      readBusinessFactsSupportFromMeta({ businessFactsSupport: { ...record, importedRepo: true } }),
+    ).toMatchObject({ importedRepo: true });
+    expect(readBusinessFactsSupportFromMeta({ businessFactsSupport: record })).toMatchObject({
+      importedRepo: false,
+    });
   });
 });
 

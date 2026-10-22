@@ -130,6 +130,9 @@ describe("BusinessFactsSection", () => {
     expect(supportCopy("unsupported", true).needsBuilder).toBe(true);
     expect(supportCopy("unsupported", true).toast).not.toMatch(/Publicera om sajten så syns/);
     expect(supportCopy("unknown", true).footer).toMatch(/nästa publicering/);
+    // Imported repos never get the module, so no "republish afterwards" promise.
+    expect(supportCopy("imported", true).footer).not.toMatch(/publicera om/);
+    expect(supportCopy("imported", true).needsBuilder).toBe(true);
     // Before the first publish the support state is irrelevant.
     expect(supportCopy("unsupported", false)).toEqual(supportCopy("unknown", false));
   });

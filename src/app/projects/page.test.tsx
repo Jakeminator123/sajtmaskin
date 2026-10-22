@@ -72,6 +72,7 @@ function site(overrides: Partial<ProjectSite> = {}): ProjectSite {
     vercelProjectId: "prj_1",
     seoStatus: null,
     codeBackupAt: null,
+    businessFactsSupport: "unknown",
     ...overrides,
   };
 }
