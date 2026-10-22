@@ -9,6 +9,7 @@ import {
   touchPendingBuilderDraftReturnTo,
 } from "@/lib/builder/pending-builder-draft";
 import { noteGoogleAdsConversion } from "@/lib/ads/fire-google-ads-conversion";
+import { noteOpenAiRegistrationCompleted } from "@/lib/ads/fire-openai-ads";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, Mail, Lock, User, Eye, EyeOff, Loader2, Wand2 } from "lucide-react";
@@ -153,6 +154,9 @@ export function AuthModal({
 
       if (attemptMode === "register" && data.requiresEmailVerification) {
         noteGoogleAdsConversion("account_created");
+        noteOpenAiRegistrationCompleted(
+          typeof data.user?.id === "string" ? data.user.id : undefined,
+        );
         if (data.emailVerificationSent === false) {
           setError(
             data.message ||
@@ -172,6 +176,9 @@ export function AuthModal({
 
       if (attemptMode === "register") {
         noteGoogleAdsConversion("account_created");
+        noteOpenAiRegistrationCompleted(
+          typeof data.user?.id === "string" ? data.user.id : undefined,
+        );
       }
 
       // Update auth store

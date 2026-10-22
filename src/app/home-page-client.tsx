@@ -21,6 +21,7 @@ import { createAuditBuildHandoff } from "@/lib/builder/audit-handoff-client";
 import { toast } from "sonner";
 import { toBuilderStartHref } from "@/lib/ads/ads-click-params";
 import { noteAccountCreatedIfSignup } from "@/lib/ads/fire-google-ads-conversion";
+import { noteOpenAiRegistrationIfSignup } from "@/lib/ads/fire-openai-ads";
 import { createProject } from "@/lib/projects/project-client";
 import { trackHomepageEvent } from "@/components/landing-v2/landing-analytics";
 
@@ -114,6 +115,7 @@ function RootLandingContent() {
     if (!login && !signup && !authError && !verified) return;
 
     noteAccountCreatedIfSignup(signup);
+    noteOpenAiRegistrationIfSignup(signup);
 
     if (login === "success") {
       toast.success("Inloggningen lyckades.");

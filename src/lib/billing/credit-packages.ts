@@ -56,3 +56,31 @@ export function getCreditPackageById(id: string): CreditPackage | undefined {
     ? CREDIT_PACKAGES.find((pkg) => pkg.id === canonical)
     : undefined;
 }
+
+/** Webhook ledger text for a credit checkout (`Köp: ${packageId}`). */
+export function creditPackageIdFromPurchaseDescription(
+  description: string | null | undefined,
+): string | undefined {
+  if (!description) return undefined;
+  const prefix = "Köp: ";
+  if (!description.startsWith(prefix)) return undefined;
+  const packageId = description.slice(prefix.length).trim();
+  return packageId || undefined;
+}
+
+/** Client/pixel payload: Stripe minor units (öre) and ISO currency. */
+export function creditPackageMeasurement(packageId: string | undefined): {
+  packageId: CreditPackageId;
+  name: string;
+  amount: number;
+  currency: "SEK";
+} | null {
+  const pkg = packageId ? getCreditPackageById(packageId) : undefined;
+  if (!pkg) return null;
+  return {
+    packageId: pkg.id,
+    name: pkg.name,
+    amount: pkg.price * 100,
+    currency: "SEK",
+  };
+}

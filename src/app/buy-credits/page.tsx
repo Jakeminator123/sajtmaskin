@@ -8,6 +8,7 @@ import { ShaderBackground } from "@/components/layout/shader-background";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { useAuth } from "@/lib/auth/auth-store";
 import { noteAccountCreatedIfSignup } from "@/lib/ads/fire-google-ads-conversion";
+import { noteOpenAiOrderCreated, noteOpenAiRegistrationIfSignup } from "@/lib/ads/fire-openai-ads";
 import { CreditPackageGrid } from "@/components/billing/CreditPackageGrid";
 import { usePublicPricing } from "@/lib/credits/use-public-pricing";
 import { MODEL_LABELS } from "@/lib/models/catalog";
@@ -175,7 +176,10 @@ function BuyCreditsContent() {
       // from balance movement.
       purchaseSessionIdRef.current = sessionId;
       setPurchaseState("confirming");
-      // Strip the params so a refresh can't re-trigger a fake "success".
+    }
+    if (purchaseState === "confirmed" && sessionId === purchaseSessionIdRef.current) {
+      // Keep the session through slow/failed confirmation so reload can retry
+      // the tenant-scoped lookup. The URL alone never confirms a purchase.
       const cleaned = new URLSearchParams(searchParams.toString());
       cleaned.delete("success");
       cleaned.delete("session_id");
@@ -191,6 +195,7 @@ function BuyCreditsContent() {
     if (!login && !signup && !authError && !verified) return;
 
     noteAccountCreatedIfSignup(signup);
+    noteOpenAiRegistrationIfSignup(signup);
 
     if (login === "success") {
       toast.success("Inloggningen lyckades.");
@@ -248,8 +253,32 @@ function BuyCreditsContent() {
           `/api/stripe/checkout?session_id=${encodeURIComponent(sessionId)}`,
         );
         if (!response.ok) return false;
-        const data = (await response.json().catch(() => null)) as { credited?: boolean } | null;
-        return data?.credited === true;
+        const data = (await response.json().catch(() => null)) as {
+          credited?: boolean;
+          packageId?: string | null;
+          name?: string | null;
+          amount?: number | null;
+          currency?: string | null;
+        } | null;
+        if (data?.credited === true) {
+          noteOpenAiOrderCreated({
+            eventId: sessionId,
+            amount: typeof data.amount === "number" ? data.amount : undefined,
+            currency: data.currency ?? "SEK",
+            contents: data.packageId
+              ? [
+                  {
+                    id: data.packageId,
+                    name: data.name || data.packageId,
+                    content_type: "product",
+                    quantity: 1,
+                  },
+                ]
+              : undefined,
+          });
+          return true;
+        }
+        return false;
       } catch {
         return false;
       }
@@ -406,8 +435,8 @@ function BuyCreditsContent() {
             <div className="border-border bg-card/60 mb-8 flex items-center gap-3 rounded-lg border p-4">
               <Loader2 className="text-muted-foreground h-5 w-5 shrink-0" />
               <p className="text-muted-foreground text-sm">
-                Betalningen registrerades. Det kan ta en liten stund innan saldot uppdateras — ladda
-                om sidan om en stund om det inte redan syns.
+                Vi väntar fortfarande på bekräftelse av ditt köp. Ladda om sidan om en stund för
+                att kontrollera igen.
               </p>
             </div>
           )}

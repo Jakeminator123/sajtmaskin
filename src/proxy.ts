@@ -102,6 +102,15 @@ const GOOGLE_ADS_HOSTS = [
   "https://www.google.se",
 ] as const;
 
+// First-party OpenAI Ads Measurement Pixel on the Sajtmaskin app.
+// SDK + config from bzrcdn; event beacons / image fallback from bzr.
+const OPENAI_ADS_SCRIPT_HOSTS = ["https://bzrcdn.openai.com"] as const;
+const OPENAI_ADS_CONNECT_HOSTS = [
+  "https://bzrcdn.openai.com",
+  "https://bzr.openai.com",
+] as const;
+const OPENAI_ADS_IMG_HOSTS = ["https://bzr.openai.com"] as const;
+
 function isAvatarRoute(pathname: string): boolean {
   return pathname === "/avatar";
 }
@@ -164,6 +173,7 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     ...VERCEL_LIVE_HOSTS.script,
     ...GOOGLE_MAPS_HOSTS,
     ...GOOGLE_ADS_HOSTS,
+    ...OPENAI_ADS_SCRIPT_HOSTS,
   ];
   const imgSrc = [
     "'self'",
@@ -175,6 +185,7 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     "*.vercel.run",
     "*.vercel.app",
     ...GOOGLE_ADS_HOSTS,
+    ...OPENAI_ADS_IMG_HOSTS,
   ];
   const frameSrc = [
     `'self'`,
@@ -194,6 +205,7 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     ...VERCEL_LIVE_HOSTS.connect,
     ...tier2PreviewHosts,
     ...GOOGLE_ADS_HOSTS,
+    ...OPENAI_ADS_CONNECT_HOSTS,
   ];
   const mediaSrc = [`'self'`, "blob:", ...VERCEL_BLOB_MEDIA_HOSTS];
   const workerSrc = [`'self'`, "blob:"];
