@@ -41,6 +41,12 @@ const {
 
 async function destroyChatWorkspace(chatId) {
   await removeDirWithRetries(workspaceDirForChat(chatId));
+  // SM-080: the chat's guest machine goes with its session. Lazy require:
+  // machine-runtime → package-install → this module would otherwise cycle.
+  const { destroyProjectMachineForChat, isMachineRuntime } = require("./machine-runtime.js");
+  if (isMachineRuntime()) {
+    await destroyProjectMachineForChat(chatId);
+  }
 }
 
 async function cleanupDirectoryEntries(dirPath, keepEntries = null) {
@@ -313,10 +319,12 @@ async function cleanupPreviewHostStorage() {
   if (beforeWorkspaceSweepForTesting) await beforeWorkspaceSweepForTesting();
   const workspaceResult = await cleanupWorkspaceEntries(activeWorkspaceEntries);
   const cacheResult = await cleanupPackageCaches();
+  const machineResult = await reconcileGuestMachines(activeWorkspaceEntries);
 
   return {
     freedVerifyEntries: verifyResult.freedEntries,
     freedWorkspaceEntries: workspaceResult.freedEntries,
+    destroyedGuestMachines: machineResult.destroyed,
     purgedPackageCache: cacheResult.purgedCache,
     packageCacheBytesBefore: cacheResult.cacheBytesBefore,
     removedNpmLogs: cacheResult.removedNpmLogs,
@@ -328,6 +336,32 @@ async function cleanupPreviewHostStorage() {
     preservedStaleRuntimes: staleRuntimeCleanup.preservedSessionIds.size,
     preservedWorkspaceEntries: activeWorkspaceEntries.size,
   };
+}
+
+/**
+ * SM-080: destroy guest machines whose chat no longer has a usable session or
+ * an active verify. `activeWorkspaceEntries` holds safeChatKey()s; machine
+ * records are keyed by raw chatId, so decode before comparing. Best effort:
+ * a Machines API outage must not fail the host's own storage cleanup.
+ */
+async function reconcileGuestMachines(activeWorkspaceEntries) {
+  const { isMachineRuntime } = require("./machine-runtime.js");
+  if (!isMachineRuntime()) return { destroyed: 0 };
+  const { reconcileProjectMachines } = require("../machines/project-machines.js");
+  const keepChatIds = new Set();
+  for (const entry of [...activeWorkspaceEntries, ...activeVerifyChatKeys]) {
+    try {
+      keepChatIds.add(decodeURIComponent(entry));
+    } catch {
+      keepChatIds.add(entry);
+    }
+  }
+  try {
+    const result = await reconcileProjectMachines({ keepChatIds });
+    return { destroyed: result.destroyed.length };
+  } catch {
+    return { destroyed: 0 };
+  }
 }
 
 let beforeWorkspaceSweepForTesting = null;

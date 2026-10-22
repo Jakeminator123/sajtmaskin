@@ -1,0 +1,16 @@
+{
+  "name": "sajtmaskin-preview-guest",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Per-project preview guest agent; runs inside one customer's own Fly Machine (SM-080).",
+  "engines": {
+    "node": ">=22.14.0 <23"
+  },
+  "scripts": {
+    "start": "node agent.js",
+    "check": "node --check agent.js && node --check lib/workspace.js && node --check lib/process.js && node --check scripts/write-warm-state.cjs"
+  },
+  "dependencies": {
+    "http-proxy": "^1.18.1"
+  }
+}

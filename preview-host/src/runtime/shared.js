@@ -942,10 +942,17 @@ function sanitizedEnv(overrides = {}) {
   // pnpm 10+/11 blocks dependency build scripts by default (strictDepBuilds),
   // so `pnpm install` exits non-zero with ERR_PNPM_IGNORED_BUILDS for any
   // package that ships an install script — including @tailwindcss/oxide,
-  // esbuild and sharp. These preview VMs are ephemeral and already run the
-  // generated project's own code via `next dev`, so approving dependency
-  // builds adds no meaningful attack surface here. Allow them so native deps
-  // actually build/resolve instead of crash-looping the boot.
+  // esbuild and sharp. Allow them so native deps actually build/resolve
+  // instead of crash-looping the boot.
+  //
+  // SM-080, read before touching this: in `shared` mode this host is ONE
+  // long-lived machine with a persistent volume, not an ephemeral VM, and the
+  // lifecycle scripts run here as the host's own user next to every other
+  // project. Removing this flag closes nothing — npm/yarn run lifecycle
+  // scripts regardless and `next dev` executes the project anyway. The
+  // boundary is the per-project machine (PREVIEW_HOST_ISOLATION=machine,
+  // src/runtime/machine-runtime.js), where this env never applies because
+  // the guest builds its own child env.
   out.PNPM_CONFIG_DANGEROUSLY_ALLOW_ALL_BUILDS = "true";
   for (const [key, value] of Object.entries(process.env)) {
     if (typeof value !== "string") continue;

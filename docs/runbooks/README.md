@@ -19,6 +19,7 @@ inte hela katalogen. Arkitektur och kontrakt finns via [docs-routern](../README.
 | Symptom eller uppgift | Guide |
 | --- | --- |
 | Vit/stillastående builder-preview | [Preview](preview-white-screen.md) |
+| Återställa eller jämföra den delade preview-hostens uppsättning | [Preview-host baslinje](preview-host-shared-baseline.md) |
 | Livebevis som inte kan ersättas av unit-tester | [Liveverifiering](live-verifiering.md) |
 | Integrationsfel i genererad sajt | [Genererade integrationer](generated-site-integrations.md) |
 | OpenClaw-gateway, dashboard och anslutning | [OpenClaw](openclaw-gateway.md) |

@@ -237,10 +237,14 @@ async function verifyInstalledDependencies(workspaceDir, filesJson, options = {}
     const missing = required.filter((name) => !installedNames.has(name));
     return { ok: missing.length === 0, missing, checkedWith: `${packageManager}-ls`, required };
   }
-  // PM view unusable → filesystem fallback (secondary signal only).
-  const missing = required.filter(
-    (name) => !fs.existsSync(path.join(workspaceDir, "node_modules", ...name.split("/"))),
-  );
+  // PM view unusable → filesystem fallback (secondary signal only). A remote
+  // workspace (SM-080 guest) supplies its own probe; the host disk is wrong there.
+  const existsProbe =
+    typeof options.existsProbe === "function"
+      ? options.existsProbe
+      : (name) => fs.existsSync(path.join(workspaceDir, "node_modules", ...name.split("/")));
+  const probed = await Promise.all(required.map(async (name) => [name, await existsProbe(name)]));
+  const missing = probed.filter(([, present]) => !present).map(([name]) => name);
   return { ok: missing.length === 0, missing, checkedWith: "node_modules-fallback", required };
 }
 
@@ -1129,6 +1133,8 @@ module.exports = {
   classifyInstallFailure,
   collectInstallFailureDiagnostics,
   formatInstallDiagnosticsForLog,
+  isPeerDependencyInstallFailure,
+  INSTALL_TIMEOUT_MS,
   npmLogsDirForWorkspace,
   clearWorkspaceNpmLogs,
   readLatestNpmDebugLog,
