@@ -67,6 +67,17 @@ export function useBuilderDerivedState({
     return Boolean(last?.uiParts?.some((p) => p.type === "tool:awaiting-input"));
   }, [messages]);
 
+  // Plan mode: the newest assistant turn is a build plan waiting for "Godkänn
+  // plan och bygg". No version exists yet, so the preview panel must show a
+  // waiting state — not the "Preview saknas … reparera" error (2026-10-22).
+  // An approved plan is followed by a user turn + generation, which makes a
+  // newer assistant message the last one and clears this flag.
+  const isAwaitingPlanApproval = useMemo(() => {
+    const last = [...messages].reverse().find((m) => m.role === "assistant");
+    if (!last || last.isStreaming) return false;
+    return Boolean(last.uiParts?.some((p) => p.type === "plan"));
+  }, [messages]);
+
   const versionsList = useMemo(
     () => (Array.isArray(versions) ? (versions as VersionSummary[]) : []),
     [versions],
@@ -132,6 +143,7 @@ export function useBuilderDerivedState({
     chatExternalProjectId,
     isAnyStreaming,
     isAwaitingInput,
+    isAwaitingPlanApproval,
     versionsList,
     effectiveVersionsList,
     versionIdSet,
