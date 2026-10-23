@@ -12,6 +12,7 @@ import {
   evaluateDependencyFreeImportGraph,
   evaluateDossierAcceptanceWorkflow,
   evaluatePolicyFloors,
+  evaluateCheckWriteGrants,
   evaluatePrBaseGuardWorkflow,
   evaluatePrHeadWorkflowPermissions,
   evaluatePullRequestTargetWorkflows,
@@ -862,9 +863,24 @@ describe("agent workflow repository contract", () => {
         "needs.scope.outputs.run_heavy == 'true'",
       ),
       replaceOnce(
-        "if: ${{ !cancelled() }}\n    runs-on: ubuntu-latest\n    env:\n      RUN_HEAVY:",
-        "if: ${{ !cancelled() && needs.scope.outputs.run_heavy == 'true' }}\n    runs-on: ubuntu-latest\n    env:\n      RUN_HEAVY:",
+        "if: ${{ !cancelled() }}\n    # Lätt kvitto på ubuntu-slim",
+        "if: ${{ !cancelled() && needs.scope.outputs.run_heavy == 'true' }}\n    # Lätt kvitto på ubuntu-slim",
       ),
+      replaceOnce(
+        "runs-on: ${{ (needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false') && 'ubuntu-slim' || 'ubuntu-latest' }}",
+        "runs-on: ubuntu-slim",
+      ),
+      replaceOnce(
+        "runs-on: ${{ (needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false') && 'ubuntu-slim' || 'ubuntu-latest' }}",
+        "runs-on: ${{ needs.scope.outputs.run_heavy == 'false' && 'ubuntu-slim' || 'ubuntu-latest' }}",
+      ),
+      replaceOnce(
+        "runs-on: ${{ (needs.scope.result == 'success' && needs.scope.outputs.run_preview_host == 'false') && 'ubuntu-slim' || 'ubuntu-latest' }}",
+        "runs-on: ubuntu-slim",
+      ),
+      replaceOnce("      checks: read\n", "      checks: write\n"),
+      replaceOnce("      pull-requests: read\n    runs-on: ubuntu-slim", "      pull-requests: read\n      statuses: read\n    runs-on: ubuntu-slim"),
+      replaceOnce("  quality-tests:\n    needs: scope\n    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false') }}\n    runs-on: ubuntu-latest", "  quality-tests:\n    needs: scope\n    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false') }}\n    runs-on: ubuntu-slim"),
       replaceOnce(
         "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
         "cancel-in-progress: ${{ github.event_name == 'pull_request' || true }}",
@@ -1154,6 +1170,10 @@ describe("agent workflow repository contract", () => {
     expect(source).toContain("pull_request_target:");
     expect(source).toContain("workflow_run:");
     expect(source).toContain("workflows: [CI]");
+    // Bara Dependabot-grenars CI-körningar startar controllern (kostnad);
+    // grenfiltret kräver Dependabots standardgrennamn.
+    expect(source).toContain("startsWith(github.event.workflow_run.head_branch, 'dependabot/')");
+    expect(readFileSync(".github/dependabot.yml", "utf8")).not.toContain("pull-request-branch-name");
     expect(source).toContain("queue: max");
     expect(source).toContain("cancel-in-progress: false");
     expect(source).not.toMatch(/^  pull_request:\s*$/mu);
@@ -1238,6 +1258,17 @@ describe("agent workflow repository contract", () => {
     ],
   ])("parses every PR-head trigger/permission form fail-closed: %s", (name, source) => {
     expect(evaluatePrHeadWorkflowPermissions([{ name, source }]).length).toBeGreaterThan(0);
+  });
+
+  it("forbids checks: write anywhere because CI receipts trust scope annotations", () => {
+    for (const source of [
+      "on: push\npermissions: { checks: write }\njobs: {}\n",
+      "on: schedule\npermissions: write-all\njobs: {}\n",
+      "on: push\npermissions: {}\njobs:\n  x:\n    permissions: { checks: 'write' }\n",
+    ]) expect(evaluateCheckWriteGrants([{ name: "x.yml", source }]).length).toBeGreaterThan(0);
+    expect(evaluateCheckWriteGrants([
+      { name: "ok.yml", source: "on: push\npermissions: { checks: read, contents: write }\njobs: {}\n" },
+    ])).toEqual([]);
   });
 
   it("allows an explicit read-only pull_request workflow and ignores comments", () => {
