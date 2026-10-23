@@ -29,10 +29,18 @@ export async function listWorkflowRunsForCommit({ apiUrl, repository, token, fet
   );
   if (!Array.isArray(listing?.check_runs)) throw new Error("check-run listing is malformed");
   if (Number(listing.total_count) > listing.check_runs.length) throw new Error("check-run listing is truncated");
+  // Ett okänt URL-format får inte tyst dölja en nyare körning: då kastas felet
+  // och anroparen kör full CI. En körning som aldrig fått något scope-jobb
+  // (startup_failure, väntande godkännande) syns inte här; för baslinjen finns
+  // bara en push-körning per SHA och kvittot kräver exakt head, bas och träd.
   const runIds = [...new Set(listing.check_runs
     .filter((checkRun) => checkRun?.app?.slug === "github-actions")
-    .map((checkRun) => /\/actions\/runs\/(\d+)\/job\/\d+$/u.exec(String(checkRun.details_url ?? ""))?.[1])
-    .filter(Boolean))]
+    .map((checkRun) => {
+      const id = /^https:\/\/[^/]+\/[\w.-]+\/[\w.-]+\/actions\/runs\/(\d+)\/job\/\d+$/u
+        .exec(String(checkRun.details_url ?? ""))?.[1];
+      if (!id) throw new Error("unrecognised check-run details_url");
+      return id;
+    }))]
     .sort((left, right) => Number(right) - Number(left));
   if (runIds.length > MAX_LISTED_RUNS) throw new Error("too many runs on one commit");
   const runs = [];

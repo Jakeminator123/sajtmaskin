@@ -78,4 +78,26 @@ describe("verified incremental push baseline", () => {
       : new Response(JSON.stringify({ ...run, id: 99 })));
     await expect(listWorkflowRunsForCommit({ ...api, fetchImpl: lying })).rejects.toThrow("another run");
   });
+  it("fails closed on an unrecognised Actions details_url instead of hiding a newer run", async () => {
+    const newer = { ...run, id: 9, conclusion: "failure" };
+    const checkRuns = [
+      { app: { slug: "github-actions" }, details_url: "https://github.com/owner/repo/actions/runs/7/job/70" },
+      { app: { slug: "github-actions" }, details_url: "https://github.com/owner/repo/actions/runs/9/job/90?pr=5" },
+    ];
+    expect(await verifiedPushBaseline({ ...input, fetchImpl: github([run, newer], checkRuns) })).toBe(false);
+    await expect(listWorkflowRunsForCommit({
+      apiUrl: "https://api.github.com", repository: "owner/repo", token: "t", sha, workflow: "ci.yml",
+      fetchImpl: github([run, newer], checkRuns),
+    })).rejects.toThrow("details_url");
+  });
+  it("de-duplicates re-run attempts and refuses commits with too many runs", async () => {
+    const attempts = [70, 71, 72].map((job) => ({
+      app: { slug: "github-actions" }, details_url: `https://github.com/owner/repo/actions/runs/7/job/${job}`,
+    }));
+    const fetchImpl = github([run], attempts);
+    expect(await verifiedPushBaseline({ ...input, fetchImpl })).toBe(true);
+    expect(fetchImpl.mock.calls.filter(([url]) => /\/actions\/runs\/7$/u.test(String(url)))).toHaveLength(1);
+    const many = Array.from({ length: 17 }, (_, index) => ({ ...run, id: index + 1 }));
+    expect(await verifiedPushBaseline({ ...input, fetchImpl: github(many) })).toBe(false);
+  });
 });
