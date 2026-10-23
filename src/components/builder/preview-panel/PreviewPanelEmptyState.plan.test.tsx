@@ -31,6 +31,11 @@ function renderEmptyState(
       previewBuildError={props.previewBuildError}
       onFixPreview={props.onFixPreview ?? vi.fn()}
       isGenerating={props.isGenerating ?? false}
+      versionlessAborted={props.versionlessAborted}
+      onRestartGeneration={props.onRestartGeneration}
+      previewLifecycle={props.previewLifecycle}
+      activeVersionStatus={props.activeVersionStatus}
+      activeVersionIsLatest={props.activeVersionIsLatest}
     />,
   );
 }
@@ -86,5 +91,23 @@ describe("PreviewPanelEmptyState — plan awaiting approval (2026-10-22)", () =>
     });
     expect(screen.queryByText("Planen väntar på ditt godkännande")).toBeNull();
     expect(screen.getByText("Bygget misslyckades.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: FIX_LABEL })).toBeTruthy();
+    expect(screen.queryByText(/Planen och knappen finns/)).toBeNull();
+  });
+
+  it.each([
+    { versionlessAborted: true, onRestartGeneration: () => undefined },
+    { previewPending: true },
+    { previewLifecycle: "recovering" as const },
+    { activeVersionStatus: "verifying" as const },
+    { activeVersionStatus: "retrying" as const, activeVersionIsLatest: false },
+    { externalLoading: true },
+    { isGenerating: true },
+    { versionId: "existing-version" },
+  ])("visar inte planhänvisningen när ett annat tillstånd gäller: %j", (props) => {
+    renderEmptyState({ awaitingPlanApproval: true, ...props });
+    expect(screen.queryByText("Planen väntar på ditt godkännande")).toBeNull();
+    expect(screen.queryByText(/Planen och knappen finns/)).toBeNull();
   });
 });
+

@@ -152,6 +152,15 @@ export function PreviewPanelEmptyState({
               ? activeVersionSummary ||
                 "Versionen repareras i bakgrunden innan nästa användbara preview blir aktiv."
               : null;
+  // Use one winning-state predicate for copy, icon, hint and repair controls.
+  // A stale plan must never hide recovery when a higher-priority state wins.
+  const showPlanApproval = Boolean(
+    awaitingPlanApproval && chatId && !versionId &&
+    !previewBuildError && !pendingTemplateInit && !versionlessAborted &&
+    !(activeVersionStatus === "retrying" && !activeVersionIsLatest) &&
+    previewLifecycle !== "recovering" && !activeStatusTitle &&
+    !previewPending && !awaitingInput && !externalLoading && !repairBlocked,
+  );
   const title = previewBuildError
     ? previewBuildErrorTitle(previewBuildError)
     : templateInitFailed
@@ -169,7 +178,7 @@ export function PreviewPanelEmptyState({
               ? "Läser in templaten"
             : awaitingInput
               ? "AI väntar på ditt svar"
-              : awaitingPlanApproval
+              : showPlanApproval
                 ? "Planen väntar på ditt godkännande"
               : isInitialEmpty
                 ? "Välkommen"
@@ -195,7 +204,7 @@ export function PreviewPanelEmptyState({
               ? "Templaten importeras och förhandsvisningen öppnas strax."
             : awaitingInput
               ? "AI behöver ditt svar innan nästa preview kan genereras."
-              : awaitingPlanApproval
+              : showPlanApproval
                 ? "Läs igenom planen i chatten till vänster och klicka på Godkänn plan och bygg, eller skriv vad du vill ändra. Förhandsvisningen skapas när bygget startar."
               : externalLoading
                 ? "AI tänker... preview kommer strax."
@@ -222,7 +231,7 @@ export function PreviewPanelEmptyState({
       // No chat exists yet during a template init — nothing to repair.
       !pendingTemplateInit &&
       !awaitingInput &&
-      !awaitingPlanApproval &&
+      !showPlanApproval &&
       !previewPending,
   );
   const EmptyIcon = previewBuildError
@@ -235,7 +244,7 @@ export function PreviewPanelEmptyState({
       ? RotateCcw
       : previewPending || pendingTemplateInit
         ? Loader2
-        : awaitingInput || awaitingPlanApproval
+        : awaitingInput || showPlanApproval
           ? MessageCircleQuestion
           : isInitialEmpty
             ? Wand2
@@ -298,7 +307,7 @@ export function PreviewPanelEmptyState({
       <p className="text-sm" suppressHydrationWarning>
         {subtitle}
       </p>
-      {awaitingPlanApproval && !awaitingInput ? (
+      {showPlanApproval ? (
         <p className="text-muted-foreground mt-4 inline-flex items-center gap-1.5 text-xs">
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
           Planen och knappen finns i chatten till vänster
@@ -348,3 +357,4 @@ export function PreviewPanelEmptyState({
     </PreviewBackdropStage>
   );
 }
+
