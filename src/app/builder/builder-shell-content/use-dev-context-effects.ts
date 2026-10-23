@@ -100,6 +100,10 @@ export function useShellDevContextEffects(
       // Monotonic, unlike the truncated `recentMessages` — growth is how the
       // handshake recognises a turn too short to catch mid-stream.
       chatMessageCount: vm.messages.length,
+      // Ankare för Sajtagentens rader i den gemensamma tidslinjen
+      // (`unified-timeline.ts`): en agentrad placeras efter det buildermeddelande
+      // som var senast när raden skapades.
+      lastMessageId: vm.messages[vm.messages.length - 1]?.id ?? null,
       // A pending question or plan approval belongs to the user, not to armed
       // autonomy: sending past it would start a new generation and drop the
       // plan the builder is holding. Both halves are needed — `isAwaitingInput`

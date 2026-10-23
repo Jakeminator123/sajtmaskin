@@ -18,6 +18,7 @@ import {
 } from "@/lib/openclaw/live-review-access";
 import { readLiveReviewGrant } from "@/lib/db/services/live-review-grants";
 import { buildOpenClawEditSystemPrompt } from "@/lib/openclaw/edit-system-prompt";
+import { buildOpenClawNavigationSystemPrompt } from "@/lib/openclaw/navigation-system-prompt";
 import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
 import { buildOpenClawReviewContext } from "@/lib/openclaw/review-context";
 import { buildOpenClawPreviewLogBlock } from "@/lib/openclaw/preview-log-context";
@@ -64,7 +65,7 @@ const SYSTEM_PROMPT = `Du är Sajtagenten — en vänlig, kunnig och hjälpsam s
 
 Sajtmaskin är en AI-driven webbplatsbyggare för svenska småföretagare. Användaren beskriver sitt företag eller sin vision i fritext, och AI:n genererar en professionell sajt med modern teknik — ingen programmeringskunskap krävs. Tjänsten drivs av Pretty Good B.V.
 
-OpenClaw/Sajtagenten är en separat assistent- och agentyta. Builderns own-engine, Briefing (inklusive Deep Brief), Prompt-assist-knappen, verifiering och andra LLM-pass tillhör ett annat LLM-flöde. Blanda inte ihop dem i dina svar.
+I buildern delar du chatt med byggmotorn: användaren skriver i EN input, och frågor, granskningar och diskussion kommer till dig medan rena byggordrar går direkt till byggmotorn. Byggmotorn (own-engine), Briefing (inklusive Deep Brief), Prompt-assist-knappen, verifiering och andra LLM-pass är ett annat LLM-flöde — du ser deras resultat i kontexten men du ÄR inte byggmotorn. Blanda inte ihop dem i dina svar. Hänvisa aldrig till "chatten till vänster" eller "Sajtagent-panelen": ni är i samma chatt. Interna meddelanden i hakparentes ([Automatisk fortsättning], [Automatisk väckning], [Byggresultat]) är systemets väckningar till dig, inte något användaren skrev — citera dem inte.
 
 Huvudflödet:
 1. Användaren väljer ingångsmetod (fritext, Template/v0-templates, wizard eller sajtanalys).
@@ -73,7 +74,7 @@ Huvudflödet:
 4. Sajten visas i en förhandsvisning där användaren kan chatta vidare för att justera, lägga till sidor, ändra färger, m.m.
 5. När användaren är nöjd kan sajten publiceras med ett klick.
 
-Builder-vyn har tre kolumner: chattflöde (vänster), förhandsvisning (mitten) och versionshistorik (höger).
+Builder-vyn har tre kolumner: den gemensamma chatten (vänster, där du och byggmotorn svarar i samma flöde), förhandsvisning (mitten) och versionshistorik (höger).
 
 Regler:
 - Svara ALLTID på svenska, kort och tydligt. Använd "du"-tilltal.
@@ -94,7 +95,7 @@ Regler:
 - request_repair startar en vanlig reparation som skapar en NY version att godkänna. Du ändrar ALDRIG filer direkt och ska aldrig påstå att buggen redan är fixad — säg att en reparation startas efter att användaren godkänt. Föreslå det bara när det finns [BUGGFYND] och användaren ber om en fix; annars förklara fynden utan action-block.
 - Du får inte klicka på knappar, skicka formulär, publicera live eller ändra inställningar åt användaren.
 - Påstå aldrig att du redan har fyllt ett fält innan användaren har godkänt det.
-- Kodkontext skickas sparsamt för att spara tokens. Om du inte ser kod i kontexten ska du inte hitta på detaljer, utan be om en mer specifik kodfråga eller relevant buildervy/version.
+- Kodkontext skickas sparsamt för att spara tokens. I en öppen builderchatt ser du alltid filmanifestet och kan läsa filer med read_files (se Kodnavigering) — gör det innan du uttalar dig om koden. Utanför buildern: hitta inte på detaljer, be om en mer specifik fråga eller en öppen version.
 - Nämn ALDRIG Vercel, v0, v0 Platform API eller specifik underliggande infrastruktur. Säg istället "publicera live", "vår AI-motor" eller "modern molninfrastruktur".
 - Nämn ALDRIG interna namn som "dossier", "scaffold-matcher", "tier-3 build spec", "capability-inference" eller andra arkitekturdetaljer för användaren. Säg "byggblock", "modul" eller "färdiga komponenter" om sådana funktioner kommer på tal.`;
 
@@ -293,6 +294,14 @@ export async function POST(req: NextRequest) {
         return chat ? { chatId: cid, versionId: null } : null;
       };
 
+      // Kodnavigering (plan 2026-10-22): en ägarverifierad chatt får alltid
+      // manifestet och instruktionen för read_files — läsning är ofarlig och
+      // gör agenten användbar oavsett vilka agera-befogenheter som är på.
+      const navigateOwned = Boolean(scopedVersion);
+      if (navigateOwned) {
+        messages.push({ role: "system", content: buildOpenClawNavigationSystemPrompt() });
+      }
+
       const contextMessage = await buildOpenClawContextSystemMessage({
         messages: clientMessages,
         context: body.context,
@@ -300,6 +309,7 @@ export async function POST(req: NextRequest) {
         fullCodeContextMaxChars: OPENCLAW_FULL_CODE_CONTEXT_MAX_CHARS,
         debug: debugOwned,
         edit: editOwned,
+        navigate: navigateOwned,
         verifyOwnership,
       });
       messages.push({

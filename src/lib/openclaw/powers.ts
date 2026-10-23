@@ -36,6 +36,18 @@ export const OPENCLAW_POWER_IDS = ["armed_autonomy", "quick_edit", "live_review"
 
 export type OpenClawPowerId = (typeof OPENCLAW_POWER_IDS)[number];
 
+/**
+ * Befogenheter som en builderchatt får när `OC_EDIT` är på och chatten ännu
+ * inte har någon persisterad grant (ägarbeslut 2026-10-22: Sajtagenten äger
+ * sajten i buildern och ska kunna agera direkt). Sköldknappen stänger av per
+ * chatt som förut; en explicit av-grant respekteras alltid.
+ */
+export const OPENCLAW_BUILDER_DEFAULT_POWERS: readonly OpenClawPowerId[] = [
+  "armed_autonomy",
+  "quick_edit",
+  "live_review",
+];
+
 /** Swedish menu copy. Kept next to the ids so a new power cannot ship unlabelled. */
 export const OPENCLAW_POWER_META: Record<
   OpenClawPowerId,

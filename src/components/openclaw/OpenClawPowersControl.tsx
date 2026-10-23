@@ -60,6 +60,9 @@ export function OpenClawPowersControl() {
   const setPowersOn = useOpenClawStore((s) => s.setPowersOn);
   const setEditEnabled = useOpenClawStore((s) => s.setEditEnabled);
   const toggleGrantedPower = useOpenClawStore((s) => s.toggleGrantedPower);
+  // Scope-bytet i `OpenClawChat` nollar grantet; en hydrering som hann före
+  // bytet måste göras om, därför följer effekten även `scopeKey`.
+  const scopeKey = useOpenClawStore((s) => s.scopeKey);
   const powers = useOpenClawPowers();
   const [builderChatId, setBuilderChatId] = useState<string | null>(null);
 
@@ -72,8 +75,9 @@ export function OpenClawPowersControl() {
 
   useEffect(() => {
     if (!builderChatId || !editEnabled) return;
+    if (!scopeKey.endsWith(`::${builderChatId}`)) return;
     void hydrateOpenClawPowersForChat(builderChatId);
-  }, [builderChatId, editEnabled]);
+  }, [builderChatId, editEnabled, scopeKey]);
 
   if (!editEnabled) return null;
 
