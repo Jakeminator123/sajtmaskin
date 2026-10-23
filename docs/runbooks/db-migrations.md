@@ -101,13 +101,15 @@ public-schema-avvikelsen. Behåll den additiva mejlmigrationen och dess ledgerpo
    indexkod. Ledgerstatus ensam bevisar inte faktiskt schema.
 2. Kräv fail-closed körplan/ledgerhantering: bara pending ska köras, checksum-
    eller ledgeroklarhet ska stoppa, och `already-exists` är inte ett apply-kvitto.
-   `db:migrate` och `db:migrate:prod` kräver en befintlig ledger och kör bara
-   filnamn som saknas där, med SQL och ledgerrad i samma transaktion under ett
-   sessionsbundet advisory lock. Runnern validerar inte historiska checksums
-   och kan inte generellt upptäcka redan befintliga objekt när SQL använder
-   `IF NOT EXISTS` eller andra idempotensvakter. Separat schemainspektion och
-   granskning av pending-planen krävs därför fortfarande före live-apply.
-   `db:init` och `db:ensure` har egen semantik och granskas separat.
+   `db:migrate` (och därmed `db:ensure` och `db:migrate:prod`) kräver en
+   befintlig ledger och kör bara filnamn som saknas där, med SQL och ledgerrad i
+   samma transaktion under ett sessionsbundet advisory lock som delas med
+   `db:align-dev-preview`. URL:en är `POSTGRES_URL_NON_POOLING` när den finns,
+   och port 6543 nekas. Runnern validerar inte historiska checksums och kan inte
+   generellt upptäcka redan befintliga objekt när SQL använder `IF NOT EXISTS`
+   eller andra idempotensvakter. Separat schemainspektion och granskning av
+   pending-planen krävs därför fortfarande före live-apply. `db:init` har egen
+   semantik och granskas separat.
 3. Bevara historisk ledger. Backfyll inte gamla NULL-checksums med dagens
    filhashar och kör inte om redan ledgerförda migrationer för att få grönt.
 4. Använd verifierad direkt eller **session-mode** Postgres-anslutning för DDL
