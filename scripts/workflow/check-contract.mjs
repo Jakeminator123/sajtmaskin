@@ -68,6 +68,7 @@ export const POLICY_FLOORS = Object.freeze({
     "scripts/workflow/check-contract.mjs",
     "scripts/workflow/required-check-owners.mjs",
     "scripts/workflow/ci-scope.mjs",
+    "scripts/workflow/ci-receipt.mjs",
     "scripts/workflow/path-impact.mjs",
     "config/agent-workflow.json",
     "config/control-plane/policy-registry.json",
@@ -331,6 +332,32 @@ export function evaluatePrHeadWorkflowPermissions(workflowSources) {
         errors.push(
           `${workflow.name} job ${jobName} runs PR-head workflow code and must not receive write permissions`,
         );
+      }
+    }
+  }
+  return errors;
+}
+
+/**
+ * CI-kvitton (ci-receipt.mjs) litar på notice-annotationer på scope-jobbet.
+ * Inget workflow får därför kunna skriva check runs/annotationer i repot.
+ */
+export function evaluateCheckWriteGrants(workflowSources) {
+  const errors = [];
+  for (const workflow of workflowSources) {
+    let document;
+    try {
+      document = yaml.load(workflow.source);
+    } catch {
+      continue;
+    }
+    const grants = [
+      ["workflow", document?.permissions],
+      ...Object.entries(document?.jobs ?? {}).map(([jobName, job]) => [`job ${jobName}`, job?.permissions]),
+    ];
+    for (const [label, permission] of grants) {
+      if (grantsWrite(permission, ["checks"])) {
+        errors.push(`${workflow.name} ${label} must not grant checks: write (CI receipts trust annotations)`);
       }
     }
   }
@@ -615,6 +642,30 @@ function hasPushBaselineReader(scope) {
       hasExactExpression(step.env?.GITHUB_TOKEN, "${{ github.token }}"));
 }
 
+// CI:s scope läser även kvittoannotationer (checks) och mergad PR (pull-requests).
+// Fortfarande enbart läsrätt; inget annat får läggas till.
+function hasCiReceiptReader(scope) {
+  return isDeepStrictEqual(scope?.permissions, {
+    contents: "read",
+    actions: "read",
+    checks: "read",
+    "pull-requests": "read",
+  }) &&
+    scope.steps?.some((step) =>
+      hasExactExpression(step.env?.GITHUB_TOKEN, "${{ github.token }}"));
+}
+
+// Tunga jobb får aldrig hamna på 1-vCPU-runnern: slim väljs bara vid ett lyckat,
+// uttryckligt lätt scopebeslut.
+function lightRunnerExpression(output) {
+  return `\${{ (needs.scope.result == 'success' && needs.scope.outputs.${output} == 'false') && 'ubuntu-slim' || 'ubuntu-latest' }}`;
+}
+
+function hasHeavySafeRunner(job, output) {
+  const runner = job?.["runs-on"];
+  return runner === "ubuntu-latest" || hasExactExpression(runner, lightRunnerExpression(output));
+}
+
 export function evaluateDossierAcceptanceWorkflow(source) {
   const errors = [];
   let document;
@@ -798,7 +849,7 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   if (
     !scope ||
     !hasExactExpression(scope.outputs?.run_heavy, "${{ steps.classify.outputs.run_heavy }}") ||
-    !hasPushBaselineReader(scope) ||
+    !hasCiReceiptReader(scope) ||
     !hasExactExpression(
       scope.outputs?.safe_docs_only,
       "${{ steps.classify.outputs.safe_docs_only }}",
@@ -1020,6 +1071,9 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     if (!hasExactExpression(job.env?.RUN_HEAVY, heavyFallback)) {
       errors.push(`${jobName} must fall back to heavy when CI scope is missing or failed`);
     }
+    if (!hasHeavySafeRunner(job, "run_heavy")) {
+      errors.push(`${jobName} may use ubuntu-slim only for an explicit successful light scope`);
+    }
     const report = job.steps?.find((step) => step.name === "Report light CI scope");
     if (!hasExactExpression(report?.if, "${{ env.RUN_HEAVY == 'false' }}")) {
       errors.push(`${jobName} must run an explicit successful light-scope receipt`);
@@ -1079,6 +1133,14 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     !hasExactExpression(previewHost?.env?.RUN_PREVIEW_HOST, previewHostFallback)
   ) {
     errors.push("preview-host must consume the shared fail-closed CI scope");
+  }
+  if (!hasHeavySafeRunner(previewHost, "run_preview_host")) {
+    errors.push("preview-host-guards may use ubuntu-slim only for an explicit successful skip");
+  }
+  for (const jobName of ["quality-core", "quality-tests", "quality-contracts"]) {
+    if (String(document?.jobs?.[jobName]?.["runs-on"] ?? "").includes("slim")) {
+      errors.push(`${jobName} runs heavy work and must not use ubuntu-slim`);
+    }
   }
   const previewHostReceipt = previewHost?.steps?.find(
     (step) => step.name === "Report skipped preview-host scope",
@@ -1697,6 +1759,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   errors.push(...evaluateRetiredApiReviewWorkflows(workflowSources));
   errors.push(...evaluateReservedWorkflowCheckNames(workflowSources, policy));
   errors.push(...evaluatePrHeadWorkflowPermissions(workflowSources));
+  errors.push(...evaluateCheckWriteGrants(workflowSources));
   errors.push(...evaluatePullRequestTargetWorkflows(workflowSources));
   errors.push(
     ...evaluatePrBaseGuardWorkflow(
@@ -1785,6 +1848,16 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   ) {
     errors.push(
       "Dependabot auto-merge must run trusted default-branch code, validate content and use native auto-merge",
+    );
+  }
+  // Grenfiltret sparar ett jobb per CI-körning men förutsätter Dependabots
+  // standardgrennamn (`dependabot/<ekosystem>/...`).
+  if (
+    !dependabotWorkflow.includes("startsWith(github.event.workflow_run.head_branch, 'dependabot/')") ||
+    read(root, ".github/dependabot.yml").includes("pull-request-branch-name")
+  ) {
+    errors.push(
+      "Dependabot controller must skip non-Dependabot CI runs and keep Dependabot's default branch names",
     );
   }
   errors.push(...evaluateTrustedControllerImportGraph(root));

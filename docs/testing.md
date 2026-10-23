@@ -5,7 +5,10 @@ Repots tester körs med [Vitest](https://vitest.dev). Den fulla sviten
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml): ready runtime,
 högrisk-PR:ar och `master`. Bevisat safe docs och vanliga drafts får i stället
 ett explicit light-kvitto; required checknamn publiceras fortfarande för varje
-PR-head. Ovanpå den finns smalare lanes:
+PR-head. Ett träd som redan passerat full profil körs inte om: ready/reopened
+med samma head, bas och träd samt preview-push med identiskt träd återanvänder
+det gröna kvittot (`scripts/workflow/ci-receipt.mjs`). Ovanpå den finns smalare
+lanes:
 
 | Lane                      | Kommando                               | Filnamn                            | Blockerar merge?                                                  |
 | ------------------------- | -------------------------------------- | ---------------------------------- | ----------------------------------------------------------------- |
