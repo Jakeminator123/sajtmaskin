@@ -12,12 +12,16 @@ function assistant(uiParts: UiMessagePart[] = [readyPlan]): ChatMessage {
   return { id: "plan", role: "assistant", content: "Plan", uiParts };
 }
 
-function readState(messages: ChatMessage[]) {
+function readDerivedState(messages: ChatMessage[]) {
   return renderHook(() => useBuilderDerivedState({
     chatId: "chat_1", messages, selectedVersionId: null, chat: null, versions: [],
     templateId: null, resolvedPrompt: null, auditPromptLoaded: true,
     isMediaEnabled: false, enableBlobMedia: false,
-  })).result.current.isAwaitingPlanApproval;
+  })).result.current;
+}
+
+function readState(messages: ChatMessage[]) {
+  return readDerivedState(messages).isAwaitingPlanApproval;
 }
 
 describe("plan approval preview state", () => {
@@ -53,8 +57,29 @@ describe("plan approval preview state", () => {
     expect(readState([question, assistant()])).toBe(false);
   });
 
-  it("does not reuse an older plan after a newer assistant answer", () => {
-    expect(readState([assistant(), { id: "answer", role: "assistant", content: "Done" }])).toBe(false);
+  it("keeps the chat's actionable older plan after a newer assistant answer", () => {
+    expect(readState([assistant(), { id: "answer", role: "assistant", content: "Done" }])).toBe(true);
+  });
+
+  it("shows input waiting for an older pending reply followed by a plan", () => {
+    const question = assistant([{ type: "tool-custom", state: "approval-requested" }]);
+    const state = readDerivedState([question, assistant()]);
+    expect(state.isAwaitingInput).toBe(true);
+    expect(state.isAwaitingPlanApproval).toBe(false);
+  });
+
+  it("stops input waiting when a later user consumes the question", () => {
+    const question = assistant([{ type: "tool:awaiting-input" }]);
+    const state = readDerivedState([question, { id: "reply", role: "user", content: "Yes" }]);
+    expect(state.isAwaitingInput).toBe(false);
+    expect(state.isAwaitingPlanApproval).toBe(false);
+  });
+
+  it("does not revive an older plan after a user and then an assistant", () => {
+    expect(readState([
+      assistant(), { id: "reply", role: "user", content: "Build" },
+      { id: "answer", role: "assistant", content: "Done" },
+    ])).toBe(false);
   });
 
   it("accepts the flat persisted plan shape used by the message adapter", () => {

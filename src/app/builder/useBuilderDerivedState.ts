@@ -2,7 +2,7 @@
 
 import type { ChatMessage } from "@/lib/builder/types";
 import { planIsVerifiedReady, toAIElementsFormat } from "@/lib/builder/message-adapter";
-import { getLatestPendingReply } from "@/components/builder/chat/tooling/pending-replies";
+import { getLatestPendingReply, hasUserMessageAfter } from "@/components/builder/chat/tooling/pending-replies";
 import { selectPreferredEngineVersion } from "@/lib/db/engine-version-lifecycle";
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
 import { useMemo } from "react";
@@ -64,25 +64,27 @@ export function useBuilderDerivedState({
     [messages],
   );
 
-  const isAwaitingInput = useMemo(() => {
-    const last = [...messages].reverse().find((m) => m.role === "assistant");
-    return Boolean(last?.uiParts?.some((p) => p.type === "tool:awaiting-input"));
-  }, [messages]);
+  const adaptedMessages = useMemo(() => messages.map(toAIElementsFormat), [messages]);
+  const pendingReply = useMemo(
+    () => getLatestPendingReply(adaptedMessages),
+    [adaptedMessages],
+  );
+  const isAwaitingInput = Boolean(pendingReply);
 
-  // Plan mode: the newest assistant turn is a build plan waiting for "Godkänn
-  // plan och bygg". No version exists yet, so the preview panel must show a
-  // waiting state — not the "Preview saknas … reparera" error (2026-10-22).
-  // Use the chat card's canonical readiness guard. A later user turn consumes
-  // the plan even before the next assistant message has been created.
+  // Match MessageList: a pending reply wins over approval, and a later user
+  // turn consumes a plan. A later assistant answer alone does not consume it.
   const isAwaitingPlanApproval = useMemo(() => {
-    const adaptedMessages = messages.map(toAIElementsFormat);
-    const last = adaptedMessages.at(-1);
-    if (!last || last.role !== "assistant" || last.isStreaming) return false;
-    if (getLatestPendingReply(adaptedMessages)) return false;
-    return last.parts.some(
-      (part) => part.type === "plan" && !part.isStreaming && planIsVerifiedReady(part.plan),
+    if (pendingReply) return false;
+    return adaptedMessages.some(
+      (message, index) =>
+        message.role === "assistant" &&
+        !message.isStreaming &&
+        !hasUserMessageAfter(adaptedMessages, index) &&
+        message.parts.some(
+          (part) => part.type === "plan" && !part.isStreaming && planIsVerifiedReady(part.plan),
+        ),
     );
-  }, [messages]);
+  }, [adaptedMessages, pendingReply]);
 
   const versionsList = useMemo(
     () => (Array.isArray(versions) ? (versions as VersionSummary[]) : []),

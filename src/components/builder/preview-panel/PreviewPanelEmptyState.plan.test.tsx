@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, renderHook, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const searchParamsMock = vi.hoisted(() => ({ current: new URLSearchParams() }));
@@ -12,8 +12,27 @@ import {
   type FakeIntersectionObserver,
 } from "./PreviewBackdrop.test-support";
 import { resetF3FinalizeActivity } from "@/lib/builder/repair-blocked";
+import { useBuilderDerivedState } from "@/app/builder/useBuilderDerivedState";
+import type { ChatMessage } from "@/lib/builder/types";
 
 const FIX_LABEL = "Försök reparera preview";
+
+function renderMessageState(messages: ChatMessage[]) {
+  const { result } = renderHook(() => useBuilderDerivedState({
+    chatId: "chat_1", messages, selectedVersionId: null, chat: null, versions: [],
+    templateId: null, resolvedPrompt: null, auditPromptLoaded: true,
+    isMediaEnabled: false, enableBlobMedia: false,
+  }));
+  return renderEmptyState({
+    awaitingInput: result.current.isAwaitingInput,
+    awaitingPlanApproval: result.current.isAwaitingPlanApproval,
+  });
+}
+
+const readyPlanMessage: ChatMessage = {
+  id: "plan", role: "assistant", content: "Plan",
+  uiParts: [{ type: "plan", plan: { awaitingInput: false, raw: { blockers: [] } } }],
+};
 
 function renderEmptyState(
   props: Partial<React.ComponentProps<typeof PreviewPanelEmptyState>> = {},
@@ -56,6 +75,26 @@ afterEach(() => {
 });
 
 describe("PreviewPanelEmptyState — plan awaiting approval (2026-10-22)", () => {
+  it("en äldre obesvarad fråga håller preview väntande utan reparation", () => {
+    renderMessageState([
+      { id: "question", role: "assistant", content: "Question",
+        uiParts: [{ type: "tool-custom", state: "approval-requested" }] },
+      readyPlanMessage,
+    ]);
+    expect(screen.getByText("AI väntar på ditt svar")).toBeTruthy();
+    expect(screen.queryByText("Planen väntar på ditt godkännande")).toBeNull();
+    expect(screen.queryByRole("button", { name: FIX_LABEL })).toBeNull();
+  });
+
+  it("en senare assistentrad konsumerar inte chattens godkännandeknapp", () => {
+    renderMessageState([
+      readyPlanMessage,
+      { id: "answer", role: "assistant", content: "More information" },
+    ]);
+    expect(screen.getByText("Planen väntar på ditt godkännande")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: FIX_LABEL })).toBeNull();
+  });
+
   it("visar ett väntande tillstånd i stället för felet «Preview saknas»", () => {
     renderEmptyState({ awaitingPlanApproval: true });
     expect(screen.getByText("Planen väntar på ditt godkännande")).toBeTruthy();
