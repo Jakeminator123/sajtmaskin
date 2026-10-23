@@ -27,11 +27,18 @@ jobs:
   # En enda fail-closed klassificerare äger vilka PR-/preview-diffar som får ta den
   # lätta profilen. Den återanvänder samma path-impactmotor som lokal verify:pr.
   # Saknat/fallerat scope-resultat tolkas som FULL körning av alla konsumenter.
+  # Varje PR-körning skriver ett kvitto (head, bas, testat träd, profil) som
+  # notice-annotation. ready_for_review/reopened och preview-push efter merge får
+  # återanvända ett grönt fullt kvitto för exakt samma träd (ci-receipt.mjs);
+  # därför läsrätt till checks (annotationer) och PR:er (merge → PR-head).
+  # ubuntu-slim (1 vCPU) räcker för klassificering och kostar en tredjedel.
   scope:
     permissions:
       contents: read
       actions: read
-    runs-on: ubuntu-latest
+      checks: read
+      pull-requests: read
+    runs-on: ubuntu-slim
     outputs:
       run_heavy: ${{ steps.classify.outputs.run_heavy }}
       safe_docs_only: ${{ steps.classify.outputs.safe_docs_only }}
@@ -384,7 +391,7 @@ jobs:
     # Kör efter failed/skipped dependencies för att publicera grinden, men låt
     # en stale concurrency-cancelled PR-run dö i stället för att leva vidare.
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - name: Aggregate required quality result
         env:
@@ -439,7 +446,8 @@ jobs:
   build:
     needs: scope
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    # Lätt kvitto på ubuntu-slim; tung körning och saknat scope alltid ubuntu-latest.
+    runs-on: ${{ (needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false') && 'ubuntu-slim' || 'ubuntu-latest' }}
     env:
       RUN_HEAVY: ${{ needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false' }}
 
@@ -485,7 +493,8 @@ jobs:
   backoffice-tests:
     needs: scope
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    # Lätt kvitto på ubuntu-slim; tung körning och saknat scope alltid ubuntu-latest.
+    runs-on: ${{ (needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false') && 'ubuntu-slim' || 'ubuntu-latest' }}
     env:
       RUN_HEAVY: ${{ needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false' }}
 
@@ -547,7 +556,8 @@ jobs:
   schema-drift:
     needs: scope
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    # Lätt kvitto på ubuntu-slim; tung körning och saknat scope alltid ubuntu-latest.
+    runs-on: ${{ (needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false') && 'ubuntu-slim' || 'ubuntu-latest' }}
     env:
       RUN_HEAVY: ${{ needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false' }}
 
@@ -591,7 +601,7 @@ jobs:
   preview-host-guards:
     needs: scope
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ (needs.scope.result == 'success' && needs.scope.outputs.run_preview_host == 'false') && 'ubuntu-slim' || 'ubuntu-latest' }}
     env:
       RUN_PREVIEW_HOST: ${{ needs.scope.result != 'success' || needs.scope.outputs.run_preview_host != 'false' }}
 
@@ -640,7 +650,8 @@ jobs:
   dead-code:
     needs: scope
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    # Lätt kvitto på ubuntu-slim; tung körning och saknat scope alltid ubuntu-latest.
+    runs-on: ${{ (needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false') && 'ubuntu-slim' || 'ubuntu-latest' }}
     env:
       RUN_HEAVY: ${{ needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false' }}
 

@@ -30,7 +30,8 @@ extra pass.
 2. Åtgärda/triagera fynd och kör berört riktat. Ny head/base kräver uppföljning.
    Dokumentera faktisk modell, reasoning, SHA:n och utfall.
 3. Klart arbete, inga blockers och gröna draft-checks: ready for review startar
-   full CI. Ready är inte mergegodkännande (`pr-merge.mdc` och mandat gäller).
+   full CI (eller återanvänder ett grönt fullt kvitto för exakt samma träd).
+   Ready är inte mergegodkännande (`pr-merge.mdc` och mandat gäller).
 
 ChatGPT-webben har Jakobs stående `gpt-5.6-sol`/`high`-mandat för oberoende
 bugggranskning när modellen finns; fråga inte igen för att Cursors modell saknas

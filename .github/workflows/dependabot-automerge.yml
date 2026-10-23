@@ -22,9 +22,13 @@ concurrency:
 jobs:
   classify:
     runs-on: ubuntu-latest
+    # workflow_run startar efter VARJE CI-körning; jobbet körs bara när den
+    # utlösande körningen gällde en Dependabot-gren. Övriga skippas (0 minuter).
+    # Skriptet nedan kräver ändå att PR-författaren är dependabot[bot].
     if: >
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.event == 'pull_request' &&
+       startsWith(github.event.workflow_run.head_branch, 'dependabot/') &&
        github.event.workflow_run.head_repository.full_name == github.repository) ||
       (github.event_name == 'pull_request_target' && github.actor != 'dependabot[bot]' &&
        github.event.pull_request.user.login == 'dependabot[bot]' &&
