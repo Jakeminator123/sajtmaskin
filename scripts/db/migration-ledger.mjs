@@ -19,6 +19,13 @@ import { MIGRATION_ORDER } from "./migration-order.mjs";
 export const LEDGER_TABLE = "schema_migrations";
 
 /**
+ * Advisory-lock key shared by every runner that writes migrations to the ledger
+ * (`run-migrations.ts`, `align-dev-preview.mjs`), so they can never apply the
+ * same file concurrently.
+ */
+export const MIGRATION_LOCK_KEY = "sajtmaskin:db:migrate";
+
+/**
  * Create the ledger AND lock it down, deny-by-default (SM-057).
  *
  * The `public` schema's default privileges grant ALL to `anon` and
