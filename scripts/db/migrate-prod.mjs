@@ -23,6 +23,7 @@ import { spawnSync } from "child_process";
 import { existsSync, readFileSync } from "fs";
 import { checkDbEnvTarget, loadDbTargets } from "./check-db-env-target.mjs";
 import { normalizeEnvUrl } from "./db-target-guard.mjs";
+import { buildProdMigrationEnv } from "./prod-migration-env.mjs";
 
 const SNAPSHOT = ".env.vercel.production.pulled";
 
@@ -93,15 +94,9 @@ console.log("===================================================================
 const res = spawnSync("npx", ["tsx", "scripts/db/run-migrations.ts"], {
   stdio: "inherit",
   shell: process.platform === "win32",
-  env: {
-    ...process.env,
-    // run-migrations loads .env.local via dotenv, which does NOT override
-    // already-set process.env, and POSTGRES_URL is the first alias it reads,
-    // so this prod URL wins.
-    POSTGRES_URL: prodUrl,
-    DB_ALLOW_PROD_LIKE_WRITE: "1",
-    DB_SSL_REJECT_UNAUTHORIZED: "false",
-  },
+  // Every URL alias the runner can read is set to prod, so no dev value from
+  // .env.local can win (see prod-migration-env.mjs).
+  env: buildProdMigrationEnv(process.env, prodUrl),
 });
 
 process.exit(res.status ?? 1);

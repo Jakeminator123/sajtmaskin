@@ -8,8 +8,10 @@ import {
   planPendingMigrations,
   requireExistingMigrationLedger,
   resolveConnectionString,
+  resolveMigrationConnectionString,
   resolveMigrationRunOrder,
 } from "./run-migrations";
+import { buildProdMigrationEnv } from "./prod-migration-env.mjs";
 import { isAlreadyExistsError } from "./migration-order.mjs";
 
 // Anchor against env-convention drift for the manual-run migration script.
@@ -188,6 +190,46 @@ describe("scripts/db/run-migrations fail-closed plan", () => {
 
   it("refuses an unparseable URL instead of guessing", () => {
     expect(() => assertSessionModeTarget("not a url")).toThrow(/could not parse/);
+  });
+});
+
+// The standard Supabase dev env has POSTGRES_URL on the transaction pooler
+// (6543) and POSTGRES_URL_NON_POOLING on session mode (5432). Migrations must
+// pick the latter, or `db:migrate`/`db:ensure` refuse on every dev checkout.
+describe("scripts/db/run-migrations connection precedence", () => {
+  const POOLED = "postgresql://u:p@aws-1-eu-north-1.pooler.supabase.com:6543/postgres";
+  const SESSION = "postgresql://u:p@aws-1-eu-north-1.pooler.supabase.com:5432/postgres";
+
+  it("prefers the non-pooling alias over the pooled POSTGRES_URL", () => {
+    const env = {
+      POSTGRES_URL: POOLED,
+      POSTGRES_URL_NON_POOLING: SESSION,
+    } as unknown as NodeJS.ProcessEnv;
+    expect(resolveMigrationConnectionString(env)).toBe(SESSION);
+    expect(() => assertSessionModeTarget(resolveMigrationConnectionString(env))).not.toThrow();
+  });
+
+  it("falls back to the normal precedence without a non-pooling alias", () => {
+    const env = { POSTGRES_URL: "postgresql://localhost:5432/ci" } as unknown as NodeJS.ProcessEnv;
+    expect(resolveMigrationConnectionString(env)).toBe("postgresql://localhost:5432/ci");
+  });
+
+  it("lets migrate-prod's child env win over every dev value dotenv fills in", () => {
+    const PROD = "postgresql://u:p@aws-0-eu-north-1.pooler.supabase.com:5432/postgres?prod";
+    const devFromEnvLocal = {
+      POSTGRES_URL: POOLED,
+      POSTGRES_URL_NON_POOLING: SESSION,
+      STORAGE_POSTGRES_URL: POOLED,
+      STORAGE_POSTGRES_URL_NON_POOLING: SESSION,
+      DATABASE_URL: SESSION,
+    };
+    // dotenv only fills keys the process env does not already have.
+    const effective = {
+      ...devFromEnvLocal,
+      ...buildProdMigrationEnv({}, PROD),
+    } as unknown as NodeJS.ProcessEnv;
+    expect(resolveMigrationConnectionString(effective)).toBe(PROD);
+    expect(effective.DB_ALLOW_PROD_LIKE_WRITE).toBe("1");
   });
 });
 

@@ -11,7 +11,11 @@ import {
   resolveConfiguredDbUrl,
 } from "./check-db-env-target.mjs";
 import { connectionStringForPg, resolveSslConfig } from "./db-ssl.mjs";
-import { readAppliedMigrations, recordAppliedMigration } from "./migration-ledger.mjs";
+import {
+  MIGRATION_LOCK_KEY,
+  readAppliedMigrations,
+  recordAppliedMigration,
+} from "./migration-ledger.mjs";
 
 export const MAIL_MIGRATION = "add-kostnadsfri-mail-events.sql";
 export const ARCHIVE_SCHEMA = "sajtmaskin_dev_archive";
@@ -105,7 +109,7 @@ export async function applyAlignment(client, migrationSql = readFileSync(migrati
   try {
     await client.query("SET LOCAL lock_timeout = '5s'");
     await client.query("SET LOCAL statement_timeout = '30s'");
-    await client.query("SELECT pg_advisory_xact_lock(hashtext('sajtmaskin:db:dev-preview-align'))");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [MIGRATION_LOCK_KEY]);
     await client.query("LOCK TABLE public.schema_migrations IN EXCLUSIVE MODE");
     let plan = await inspectAlignment(client);
     for (const table of plan.legacyTables.filter((entry) => entry.present)) {

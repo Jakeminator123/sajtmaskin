@@ -1259,8 +1259,10 @@ function containsForbiddenLiveDbWrite(value) {
   for (const step of value?.steps ?? []) {
     for (const line of String(step?.run ?? "").split(/\r?\n/u)) {
       const command = line.trim().toLowerCase();
-      if (/scripts[\\/]db[\\/]run-migrations(?:\.ts)?\b/u.test(command)) return true;
-      if (/\bnpm\s+run\s+db:migrate(?:\s|$|--)/u.test(command)) return true;
+      if (/scripts[\\/]db[\\/](?:run-migrations(?:\.ts)?|migrate-prod(?:\.mjs)?)\b/u.test(command)) {
+        return true;
+      }
+      if (/\bnpm\s+run\s+db:migrate(?::prod)?(?:\s|$|--)/u.test(command)) return true;
       if (/\bnpm\s+run\s+db:init(?:\s|$|--)/u.test(command)) return true;
       if (/\bnpm\s+run\s+db:ensure\b/u.test(command) && !/--check-only\b/u.test(command)) {
         return true;
