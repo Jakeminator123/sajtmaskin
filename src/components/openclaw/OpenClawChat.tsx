@@ -284,6 +284,12 @@ export function OpenClawChat() {
   // den Skicka.
   const sharesBottomEdgeWithInput = isBuilderSurface;
 
+  // Plan 2026-10-22 «En chatt»: i buildern bor Sajtagenten i builderchatten
+  // (`SajtagentProvider`), så den flytande bubblan renderas inte där. Hooks
+  // ovan körs fortfarande — scope-synken och kampanjtriggarna äger storen
+  // oavsett yta.
+  if (isBuilderSurface) return null;
+
   return (
     <div
       className={cn(

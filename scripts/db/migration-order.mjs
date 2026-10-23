@@ -162,6 +162,9 @@ export const MIGRATION_ORDER = [
   // Structured audit→builder handoff: payload stays server-side; GET only
   // exposes payloadKind + domain for the composer chip.
   "add-prompt-handoffs-payload.sql",
+  // Sajtagentens beständiga historik i buildern (plan 2026-10-22 «En chatt»).
+  // Additiv: CREATE TABLE IF NOT EXISTS + RLS. Klienten är fail-soft tills apply.
+  "add-agent-messages.sql",
 ];
 
 /**

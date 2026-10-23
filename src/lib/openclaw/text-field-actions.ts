@@ -62,10 +62,38 @@ export interface OpenClawStartBugHuntAction {
   reason?: string;
 }
 
+/**
+ * Direktbygg: Sajtagenten startar en byggtur i den gemensamma chatten utan
+ * att gå via komposern. Körs genom builder-bryggan (`builder-bridge.ts`) —
+ * samma inlindade `sendMessage` som Skicka-knappen — så pipeline, kreditgrind
+ * och stale-base-skydd är oförändrade. Med armerad autonomi beviljad körs den
+ * direkt; annars visas ett kort som användaren godkänner. Utanför buildern
+ * (ingen brygga) degraderar den till ett fältförslag.
+ */
+export interface OpenClawStartBuildAction {
+  type: "start_build";
+  prompt: string;
+  label?: string;
+  reason?: string;
+}
+
+/**
+ * Kodnavigering: agenten ber om innehållet i några av versionens filer innan
+ * den svarar. Ren läsning — klienten hämtar filerna (ägarverifierat) och
+ * skickar tillbaka dem som en intern `[Filinnehåll]`-tur (`read-files.ts`).
+ */
+export interface OpenClawReadFilesAction {
+  type: "read_files";
+  paths: string[];
+  reason?: string;
+}
+
 export type OpenClawAction =
   | OpenClawFillTextFieldAction
   | OpenClawRequestRepairAction
   | OpenClawStartBugHuntAction
+  | OpenClawStartBuildAction
+  | OpenClawReadFilesAction
   | OpenClawApplyQuickEditAction;
 
 export interface ParsedOpenClawMessage {
@@ -270,6 +298,18 @@ function parseOpenClawAction(value: unknown): OpenClawActionParseResult {
       ? { action: parsed, error: null }
       : { action: null, error: "Buggjaktsförslaget gick inte att tolka." };
   }
+  if (type === "start_build") {
+    const parsed = parseOpenClawStartBuildAction(value);
+    return parsed
+      ? { action: parsed, error: null }
+      : { action: null, error: "Byggförslaget saknar en prompt att skicka." };
+  }
+  if (type === "read_files") {
+    const parsed = parseOpenClawReadFilesAction(value);
+    return parsed
+      ? { action: parsed, error: null }
+      : { action: null, error: "Läsförfrågan saknar giltiga filsökvägar." };
+  }
   if (type === "apply_quick_edit") {
     // Validera i stället för att parsa: förfiltret har redan tydliga svenska
     // fel (skyddad sökväg, för många ops, okänd op-typ …) som ska visas ordagrant.
@@ -305,6 +345,57 @@ function parseOpenClawStartBugHuntAction(
   const reason =
     typeof candidate.reason === "string" ? candidate.reason.trim().slice(0, 400) : undefined;
   return { type: "start_bug_hunt", mode, count, reason: reason || undefined };
+}
+
+const READ_FILES_MAX_PATHS_PARSED = 12;
+const READ_FILES_PATH_MAX_CHARS = 200;
+
+function isSafeRelativePath(path: string): boolean {
+  if (!path) return false;
+  if (path.startsWith("/") || /^[a-zA-Z]:/.test(path)) return false;
+  return !path.split("/").some((segment) => segment === "..");
+}
+
+function parseOpenClawReadFilesAction(value: unknown): OpenClawReadFilesAction | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  if (candidate.type !== "read_files") return null;
+  if (!Array.isArray(candidate.paths)) return null;
+  const paths: string[] = [];
+  for (const entry of candidate.paths) {
+    if (typeof entry !== "string") continue;
+    const path = entry.replace(/\\/g, "/").trim().replace(/^(\.\/)+/, "").slice(0, READ_FILES_PATH_MAX_CHARS);
+    if (!isSafeRelativePath(path) || paths.includes(path)) continue;
+    paths.push(path);
+    if (paths.length >= READ_FILES_MAX_PATHS_PARSED) break;
+  }
+  if (paths.length === 0) return null;
+  const reason =
+    typeof candidate.reason === "string" ? candidate.reason.trim().slice(0, 400) : "";
+  return { type: "read_files", paths, reason: reason || undefined };
+}
+
+const START_BUILD_PROMPT_MAX_CHARS = 6_000;
+
+function parseOpenClawStartBuildAction(value: unknown): OpenClawStartBuildAction | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  if (candidate.type !== "start_build") return null;
+  const prompt =
+    typeof candidate.prompt === "string"
+      ? candidate.prompt.trim().slice(0, START_BUILD_PROMPT_MAX_CHARS)
+      : "";
+  if (!prompt) return null;
+  const label =
+    typeof candidate.label === "string" ? candidate.label.trim().slice(0, 160) : "";
+  const reason =
+    typeof candidate.reason === "string" ? candidate.reason.trim().slice(0, 400) : "";
+  return {
+    type: "start_build",
+    prompt,
+    label: label || undefined,
+    reason: reason || undefined,
+  };
 }
 
 function parseOpenClawRequestRepairAction(

@@ -961,6 +961,7 @@ const ALL_TABLES = [
   "oc_debug_findings",
   "live_review_grants",
   "live_review_runs",
+  "agent_messages",
   "product_postcheck_runs",
   "llm_usage",
   "generation_billing_settings",

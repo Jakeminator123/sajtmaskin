@@ -168,4 +168,33 @@ describe("OpenClawPowersControl", () => {
     expect(useOpenClawStore.getState().editEnabled).toBe(true);
     expect(useOpenClawStore.getState().powersOn).toBe(true);
   });
+
+  // Scope-bytet i OpenClawChat nollar grantet, så hydreringen väntar på att
+  // scopen pekar på builderchatten och görs om när den byts.
+  it("hydrerar befogenheter först när scopen pekar på builderchatten", async () => {
+    const fetchMock = stubHealth({ editEnabled: true });
+    window.__SITEMASKIN_CONTEXT = { chatId: "chat_1" };
+    try {
+      act(() => {
+        useOpenClawStore.setState({ editEnabled: true, scopeKey: "global" });
+      });
+      render(<OpenClawPowersControl />);
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      });
+      const powersCalls = () =>
+        fetchMock.mock.calls.filter((call) =>
+          String((call as unknown[])[0]).startsWith("/api/openclaw/powers?chatId=chat_1"),
+        );
+      expect(powersCalls()).toHaveLength(0);
+
+      act(() => {
+        useOpenClawStore.getState().setScope("/builder::builder::chat_1");
+      });
+      await waitFor(() => expect(powersCalls()).toHaveLength(1));
+    } finally {
+      delete window.__SITEMASKIN_CONTEXT;
+    }
+  });
+
 });

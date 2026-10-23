@@ -17,7 +17,6 @@ import type { BuilderViewModel } from "../useBuilderPageController";
 export function useShellPreviewLayout(
   vm: BuilderViewModel,
   options: {
-    tipPanelOpen: boolean;
     setEnableAutofix: Dispatch<SetStateAction<boolean>>;
     setF3Requirements: Dispatch<
       SetStateAction<{
@@ -36,7 +35,6 @@ export function useShellPreviewLayout(
   },
 ) {
   const {
-    tipPanelOpen,
     setEnableAutofix,
     setF3Requirements,
     setF3Status,
@@ -168,12 +166,6 @@ export function useShellPreviewLayout(
 
   const chatOutputCollapse = useChatOutputCollapse(vm.chatId);
   const isChatOutputCollapsed = chatOutputCollapse.isCollapsed && vm.messages.length > 0;
-  // Tipsrutan renderas ovanpå utdataytan. Utan detta hade ett tips som öppnas
-  // medan chatten är nedfälld hamnat i en dold yta och sett ut att försvinna.
-  const expandChatOutput = chatOutputCollapse.expand;
-  useEffect(() => {
-    if (tipPanelOpen) expandChatOutput();
-  }, [tipPanelOpen, expandChatOutput]);
   return {
     persistPreviewOverride,
     handleClearPreview,
