@@ -46,8 +46,9 @@ runtime-enforcement; läs rapportens `runtimeStatus`.
   typecheck och berörda integrationstester.
 - GitHub Actions publicerar required checks på varje head: tung profil för ready
   runtime, högrisk och `master`; explicit light-kvitto för safe docs (även
-  preview-push) och vanliga drafts. Dossiermatrisen väljs av beroendekontraktet
-  på PR och preview-push; schemalagd/manuell körning är komplett.
+  preview-push) och vanliga drafts. Dossiermatrisen körs bara vid promote (PR
+  mot `master`), veckovis och manuellt; PR och push mot `preview` skjuter upp
+  den (ägarbeslut 2026-10-22).
   Preview-genvägar kräver grön föregående push för respektive workflow; okänd,
   pågående eller fallerad bas kör full profil. `test:ci` delas på fyra
   parallella jobb som `quality` kräver. Återgång till draft startar ingen ny

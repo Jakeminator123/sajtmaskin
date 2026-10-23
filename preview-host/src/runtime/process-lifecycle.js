@@ -384,7 +384,7 @@ async function probeReadinessAfterPatch({
   );
   const url = `${target.http}/${encodeURIComponent(chatId)}/`;
   try {
-    await waitForReady(url, { headers: target.headers });
+    await waitForReady(url, { headers: target.headers, redirectBase: target.http });
     let applied = false;
     await updateSessionById(sessionId, (stored) => {
       if (stored.versionId !== versionId || !sameSessionLifecycle(stored, probeLifecycle)) return;
@@ -684,7 +684,40 @@ const READINESS_MAX_BUILD_ERROR_RETRIES = 4;
  */
 const READINESS_VERDICT_RE = /build error overlay|empty body for \d+ms|never accepted HTTP/i;
 
-async function waitForReady(url, { headers = null } = {}) {
+const READINESS_MAX_REDIRECTS = 5;
+
+/**
+ * Follow redirects, but resolve ROOT-RELATIVE `Location` headers against
+ * `redirectBase` instead of the URL's origin. `next dev` answers
+ * `/<chatId>/` with `308 Location: /<chatId>` (trailing-slash policy). On the
+ * shared host the runtime IS the origin, so a plain follow works. In machine
+ * mode (SM-080) the runtime sits behind the guest agent's `/proxy` prefix:
+ * a plain follow drops the prefix, lands on the agent's own 404 and readiness
+ * then loops until its deadline (first seen in the Fly pilot 2026-10-22).
+ */
+async function fetchFollowingRootRedirects(url, init, redirectBase = null) {
+  let current = url;
+  for (let hop = 0; hop <= READINESS_MAX_REDIRECTS; hop += 1) {
+    const res = await fetch(current, { ...init, redirect: "manual" });
+    const location = res.headers.get("location");
+    if (![301, 302, 303, 307, 308].includes(res.status) || !location) return res;
+    if (hop === READINESS_MAX_REDIRECTS) return res;
+    try {
+      await res.arrayBuffer();
+    } catch {
+      // body of a redirect is irrelevant
+    }
+    if (location.startsWith("/") && !location.startsWith("//")) {
+      const base = (redirectBase || new URL(current).origin).replace(/\/$/, "");
+      current = `${base}${location}`;
+    } else {
+      current = new URL(location, current).toString();
+    }
+  }
+  throw new Error("Readiness redirect loop.");
+}
+
+async function waitForReady(url, { headers = null, redirectBase = null } = {}) {
   // Empty HTML body is treated like any other "not ready yet" signal: keep
   // polling until meaningful visible text appears. Accepting after a handful of
   // empty polls (~6s) was a false-green — cold starts routinely compile longer
@@ -718,15 +751,14 @@ async function waitForReady(url, { headers = null } = {}) {
     const tid = setTimeout(() => ctrl.abort(), fetchTimeoutMs);
     const attemptStartedAt = Date.now();
     try {
-      const res = await fetch(url, {
+      const res = await fetchFollowingRootRedirects(url, {
         method: "GET",
-        redirect: "follow",
         signal: ctrl.signal,
         headers: {
           Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
           ...(headers && typeof headers === "object" ? headers : {}),
         },
-      });
+      }, redirectBase);
       if (!responseHeadersLookLikeHtmlDocument(res)) {
         buildErrorStreak = 0;
         firstEmptyBodyAt = null;
@@ -1330,7 +1362,7 @@ async function bootRuntimeForSession(session, options = {}) {
 
       const readiness = waitForReady(
         `${readinessTarget.http}/${encodeURIComponent(chatId)}/`,
-        { headers: readinessTarget.headers },
+        { headers: readinessTarget.headers, redirectBase: readinessTarget.http },
       );
       // Record the readiness OUTCOME into the session for non-prewarm boots.
       // Previously the normal path fired readiness fire-and-forget and only

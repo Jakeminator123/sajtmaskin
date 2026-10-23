@@ -51,6 +51,9 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "text:analyze": { maxRequests: 20, windowMs: 60 * 1000 },
   "openclaw:chat": { maxRequests: 20, windowMs: 60 * 1000 },
   "openclaw:tips": { maxRequests: 20, windowMs: 60 * 1000 },
+  // Sajtagentens beständiga historik i buildern: en läsning per chattbyte och
+  // en skrivning per avslutad tur, så bucketen är rymligare än chat-routen.
+  "openclaw:agent-messages": { maxRequests: 60, windowMs: 60 * 1000 },
   // OC_DEBUG Mode B bug-hunt: each call drives real generation/repair for up to
   // maxDuration, so a tight bucket caps runaway cost/load even if the operator
   // token leaks. Without an explicit entry it would inherit the 90/min default.

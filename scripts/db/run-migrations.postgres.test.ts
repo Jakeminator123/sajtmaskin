@@ -64,6 +64,7 @@ if (!target.url) {
 const RUN = randomUUID().replace(/-/g, "").slice(0, 10);
 const TABLE_OK = `zz_runner_ok_${RUN}`;
 const TABLE_BAD = `zz_runner_bad_${RUN}`;
+const TABLE_DUP = `zz_runner_dup_${RUN}`;
 const FILE_OK = `zz-runner-${RUN}-ok.sql`;
 const FILE_BAD = `zz-runner-${RUN}-bad.sql`;
 const FILE_DUP = `zz-runner-${RUN}-dup.sql`;
@@ -100,7 +101,7 @@ describe.skipIf(!target.url)("runPendingMigrations mot riktig Postgres", () => {
       `CREATE TABLE ${TABLE_BAD} (id int);\nSELECT * FROM zz_missing_${RUN};`,
     );
     // Non-idempotent DDL on an object that already exists without a ledger row.
-    writeFileSync(join(dir, FILE_DUP), `CREATE TABLE ${TABLE_OK} (id int);`);
+    writeFileSync(join(dir, FILE_DUP), `CREATE TABLE ${TABLE_DUP} (id int);`);
     client = newClient();
     other = newClient();
     await client.connect();
@@ -112,7 +113,7 @@ describe.skipIf(!target.url)("runPendingMigrations mot riktig Postgres", () => {
       await other
         .query("DELETE FROM schema_migrations WHERE filename LIKE $1", [`zz-runner-${RUN}-%`])
         .catch(() => {});
-      await other.query(`DROP TABLE IF EXISTS ${TABLE_OK}, ${TABLE_BAD}`).catch(() => {});
+      await other.query(`DROP TABLE IF EXISTS ${TABLE_OK}, ${TABLE_BAD}, ${TABLE_DUP}`).catch(() => {});
       await other.end().catch(() => {});
     }
     await client?.end().catch(() => {});
@@ -135,6 +136,7 @@ describe.skipIf(!target.url)("runPendingMigrations mot riktig Postgres", () => {
   });
 
   it("stops when an object already exists without a ledger entry", async () => {
+    await other.query(`CREATE TABLE ${TABLE_DUP} (id int);`);
     await expect(runPendingMigrations({ client, dir, files: [FILE_DUP], log: quiet })).rejects.toThrow(
       /already exists but the ledger has no entry/,
     );
@@ -142,6 +144,7 @@ describe.skipIf(!target.url)("runPendingMigrations mot riktig Postgres", () => {
   });
 
   it("releases the lock after a failed run", async () => {
+    await expect(runPendingMigrations({ client, dir, files: [FILE_BAD], log: quiet })).rejects.toThrow();
     const res = await other.query("SELECT pg_try_advisory_lock(hashtext($1)) AS locked", [
       MIGRATION_LOCK_KEY,
     ]);

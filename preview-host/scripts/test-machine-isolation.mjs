@@ -30,7 +30,8 @@ const tmp = mkdtempSync(join(tmpdir(), "preview-host-isolation-"));
 const dataDir = join(tmp, "host-data");
 const guestsDir = join(tmp, "guests");
 const HOST_API_KEY = "host-secret-must-not-leak-0001";
-const FLY_TOKEN = "fake-fly-token";
+// Shaped like a `fly tokens create deploy` macaroon so the FlyV1 path is exercised.
+const FLY_TOKEN = "FlyV1 fm2_fake-guest-app-deploy-token";
 const APP_NAME = "guests-test";
 
 function freePort() {
@@ -86,6 +87,14 @@ function check(label, condition) {
   }
 }
 
+// Fly auth scheme (found in the pilot 2026-10-22): macaroons need FlyV1.
+{
+  const { flyAuthorizationHeader } = require("../src/machines/fly-machines-client.js");
+  check("FlyV1-prefixed macaroon is sent as FlyV1", flyAuthorizationHeader("FlyV1 fm2_abc") === "FlyV1 fm2_abc");
+  check("bare fm2_ macaroon gets the FlyV1 scheme", flyAuthorizationHeader("fm2_abc") === "FlyV1 fm2_abc");
+  check("flyctl auth token stays Bearer", flyAuthorizationHeader("abc123") === "Bearer abc123");
+}
+
 async function api(method, path, body) {
   const res = await fetch(`${base}${path}`, {
     method,
@@ -125,6 +134,14 @@ function projectFiles(message) {
       "const port = Number(process.env.PORT || 3000);",
       "const host = process.env.HOSTNAME || '127.0.0.1';",
       "http.createServer((req, res) => {",
+      "  // Same trailing-slash policy as next dev: /<chatId>/ -> 308 /<chatId>.",
+      "  // Readiness must follow that root-relative redirect THROUGH the guest's",
+      "  // /proxy prefix (Fly pilot finding 2026-10-22).",
+      "  if (req.url.length > 1 && req.url.endsWith('/')) {",
+      "    res.writeHead(308, { location: req.url.slice(0, -1) });",
+      "    res.end();",
+      "    return;",
+      "  }",
       "  res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });",
       "  res.end(`<html><body><h1>${fs.readFileSync('message.txt', 'utf8')}</h1><p>${req.url}</p><p>Readiness filler so the visible body text exceeds the preview-host threshold.</p></body></html>`);",
       "}).listen(port, host);",

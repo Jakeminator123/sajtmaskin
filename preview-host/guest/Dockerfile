@@ -5,9 +5,11 @@
 # project at runtime; sharing happens only at image-build time, read-only.
 FROM node:22-alpine
 
+# node:22-alpine already ships a system user named `guest` (uid 405), so the
+# project user gets its own name. Found by the first real image build.
 RUN corepack enable \
-  && addgroup -S guest \
-  && adduser -S -G guest -h /home/guest guest
+  && addgroup -S sajtguest \
+  && adduser -S -G sajtguest -h /home/sajtguest sajtguest
 
 WORKDIR /opt/sajtmaskin-guest
 COPY package.json package-lock.json ./
@@ -29,10 +31,10 @@ RUN node scripts/write-warm-state.cjs /opt/sajtmaskin-warm \
   && rm -f package-lock.json
 
 RUN mkdir -p /workspace \
-  && chown -R guest:guest /workspace /opt/sajtmaskin-warm /home/guest
+  && chown -R sajtguest:sajtguest /workspace /opt/sajtmaskin-warm /home/sajtguest
 
-USER guest
-ENV HOME=/home/guest \
+USER sajtguest
+ENV HOME=/home/sajtguest \
     SAJTMASKIN_GUEST_ROOT=/workspace \
     SAJTMASKIN_GUEST_WARM_DIR=/opt/sajtmaskin-warm \
     SAJTMASKIN_GUEST_PORT=7070 \

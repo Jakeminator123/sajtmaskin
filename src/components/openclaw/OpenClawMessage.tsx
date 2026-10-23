@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import {
   applyOpenClawTextFieldAction,
@@ -8,10 +8,18 @@ import {
   isOpenClawSendReady,
   parseOpenClawMessage,
   triggerOpenClawSend,
+  type OpenClawAction,
   type OpenClawFillTextFieldAction,
   type OpenClawRequestRepairAction,
+  type OpenClawReadFilesAction,
   type OpenClawStartBugHuntAction,
+  type OpenClawStartBuildAction,
 } from "@/lib/openclaw/text-field-actions";
+import { getBuilderBridge, waitForBuilderSend } from "@/lib/openclaw/builder-bridge";
+import { resolveOpenClawPreparedPromptSource } from "@/lib/openclaw/prepared-prompt";
+import { classifyAgentMessage } from "@/lib/openclaw/agent-message-kind";
+import { READ_FILES_TURN_PREFIX } from "@/lib/openclaw/read-files";
+import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
 import {
   describeOpenClawQuickEditOp,
   type OpenClawApplyQuickEditAction,
@@ -54,6 +62,72 @@ import { useSmoothText } from "./useSmoothText";
  */
 const consumedArmedSends = new Set<string>();
 
+/** Same idempotency for direct builds (`start_build`). */
+const consumedStartBuilds = new Set<string>();
+/** At most ONE automatic direct build per user question (keyed by the user turn). */
+const autoStartBuildsByUserTurn = new Set<string>();
+
+/** Module-scoped idempotency ledgers survive across tests — clear them per test. */
+export function resetOpenClawActionLedgersForTests(): void {
+  consumedArmedSends.clear();
+  consumedStartBuilds.clear();
+  autoStartBuildsByUserTurn.clear();
+}
+
+/**
+ * Whether a `start_build` reply may run on its own: only when it answers a
+ * real user turn (or the file-content turn that serves that question) — never
+ * a machine wake-up such as `[Byggresultat]` or a continuation. Otherwise the
+ * digest after a build could trigger the next build, and so on, with nothing
+ * but the prompt text holding the chain back.
+ */
+export function resolveStartBuildAutoRun(
+  messages: readonly Msg[],
+  messageId: string,
+): { allowed: boolean; userTurnId: string | null } {
+  const index = messages.findIndex((message) => message.id === messageId);
+  if (index === -1) return { allowed: false, userTurnId: null };
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    const candidate = messages[cursor];
+    if (candidate.role !== "user") continue;
+    const isChatTurn = classifyAgentMessage(candidate) === "chat";
+    const isFileTurn = candidate.content.trimStart().startsWith(READ_FILES_TURN_PREFIX);
+    if (!isChatTurn && !isFileTurn) return { allowed: false, userTurnId: candidate.id };
+    if (isFileTurn) continue; // the real question sits further back
+    return { allowed: true, userTurnId: candidate.id };
+  }
+  return { allowed: false, userTurnId: null };
+}
+
+/** Swedish status for a builder send that did not run (`SendMessageOutcome`). */
+function describeRejectedOutcome(outcome: SendMessageOutcome): string | null {
+  switch (outcome.status) {
+    case "started":
+    case "settled":
+      return null;
+    case "rejected":
+      return `Buildern tog inte emot bygget (${outcome.reason}).`;
+    case "aborted":
+      return "Bygget avbröts innan det startade.";
+    case "failed":
+      return `Bygget kunde inte startas: ${outcome.message}`;
+  }
+}
+
+/**
+ * Only a message created in THIS session may act on its own. Persisted
+ * history (`agent-history.ts`) carries the server timestamp and the
+ * `hydrated` flag; an older row re-rendered after a reload must never start
+ * another build.
+ */
+const SESSION_STARTED_AT = Date.now();
+
+function isLiveMessage(msg: Pick<Msg, "timestamp" | "hydrated">): boolean {
+  return !msg.hydrated && msg.timestamp >= SESSION_STARTED_AT;
+}
+
+export type OpenClawMessageAppearance = "panel" | "builder";
+
 /**
  * Record a successful builder-composer fill so the composer can tag an
  * UNEDITED send of exactly this content as `promptSource: "openclaw-prepared"`
@@ -70,12 +144,22 @@ function recordOpenClawPreparedFill(action: OpenClawFillTextFieldAction) {
 export function OpenClawMessage({
   msg,
   streaming = false,
+  appearance = "panel",
+  renderText,
 }: {
   msg: Msg;
   /** True only for the assistant message currently receiving SSE chunks. */
   streaming?: boolean;
+  /**
+   * `panel` = the floating dark bubble; `builder` = a row inside the builder's
+   * own chat column (the row wrapper owns alignment and the agent label).
+   */
+  appearance?: OpenClawMessageAppearance;
+  /** Builder rows render markdown; the panel keeps plain text. */
+  renderText?: (text: string, isAnimating: boolean) => ReactNode;
 }) {
   const isUser = msg.role === "user";
+  const isBuilderAppearance = appearance === "builder";
   const powers = useOpenClawPowers();
   const armedMandate = useOpenClawStore((s) => s.armedMandate);
   // SM-026: parse:n måste vara stabil för samma content. Utan memo föds ett
@@ -126,28 +210,62 @@ export function OpenClawMessage({
     // mandate means "review my next MANUAL message" — it must never drive
     // builder generations via submit:true.
     armedMandate.mode === "followups" &&
-    msg.timestamp >= armedMandate.createdAt;
+    msg.timestamp >= armedMandate.createdAt &&
+    !msg.hydrated;
+
+  // Direct build (`start_build`): decided once per message, at mount — the
+  // card auto-runs on mount, so a later store change must not re-decide it.
+  const startBuildAuto = useMemo(
+    () =>
+      !isUser && action?.type === "start_build"
+        ? resolveStartBuildAutoRun(useOpenClawStore.getState().messages, msg.id)
+        : { allowed: false, userTurnId: null },
+    [isUser, action?.type, msg.id],
+  );
+
+  // A row hydrated from history must never act again: its cards become a
+  // read-only receipt. Powers are default-on, so a clickable «Starta bygget»
+  // from last week would otherwise re-run a build on reload.
+  const interactive = !isUser && !msg.hydrated;
+  const historicAction =
+    !isUser &&
+    msg.hydrated &&
+    action &&
+    (action.type === "fill_text_field" ||
+      action.type === "request_repair" ||
+      action.type === "start_build" ||
+      action.type === "apply_quick_edit")
+      ? action
+      : null;
 
   return (
     <div
-      className={cn("animate-fadeIn flex w-full min-w-0", isUser ? "justify-end" : "justify-start")}
+      className={cn(
+        "animate-fadeIn flex w-full min-w-0",
+        isBuilderAppearance ? "flex-col" : isUser ? "justify-end" : "justify-start",
+      )}
     >
-      <div className="max-w-[85%] min-w-0 space-y-2">
+      <div className={cn("min-w-0 space-y-2", isBuilderAppearance ? "w-full" : "max-w-[85%]")}>
         {shouldRenderBubble ? (
           <div
             className={cn(
-              "min-w-0 overflow-hidden rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed wrap-break-word whitespace-pre-wrap",
-              isUser
-                ? "rounded-br-md bg-cyan-400 text-slate-950"
-                : "rounded-bl-md border border-white/10 bg-white/5 text-slate-100",
+              "min-w-0 overflow-hidden rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed wrap-break-word",
+              renderText ? null : "whitespace-pre-wrap",
+              isBuilderAppearance
+                ? isUser
+                  ? "bg-brand-blue/85 self-end rounded-br-md text-white"
+                  : "border-border bg-card text-foreground rounded-bl-md border"
+                : isUser
+                  ? "rounded-br-md bg-cyan-400 text-slate-950"
+                  : "rounded-bl-md border border-white/10 bg-white/5 text-slate-100",
             )}
           >
             {parsed.visibleContent ? (
               // Gate on the FULL content (not the eased slice) so the waiting
               // dots never reappear after real text has already arrived.
               <>
-                {displayedContent}
-                {isTyping ? (
+                {renderText ? renderText(displayedContent, isTyping) : displayedContent}
+                {isTyping && !renderText ? (
                   <span
                     aria-hidden
                     className="ml-0.5 inline-block h-3.5 w-0.5 animate-pulse rounded-full bg-cyan-300/80 align-text-bottom"
@@ -166,7 +284,11 @@ export function OpenClawMessage({
           </div>
         ) : null}
 
-        {!isUser && action?.type === "fill_text_field" ? (
+        {historicAction ? (
+          <OpenClawHistoricActionChip key="historic_action" action={historicAction} />
+        ) : null}
+
+        {interactive && action?.type === "fill_text_field" ? (
           canArmedSend ? (
             <OpenClawArmedSendCard key={`armed:${msg.id}`} action={action} messageId={msg.id} />
           ) : (
@@ -174,7 +296,7 @@ export function OpenClawMessage({
           )
         ) : null}
 
-        {!isUser && action?.type === "request_repair" ? (
+        {interactive && action?.type === "request_repair" ? (
           <OpenClawRepairRequestCard key="request_repair" action={action} />
         ) : null}
 
@@ -186,7 +308,21 @@ export function OpenClawMessage({
           />
         ) : null}
 
-        {!isUser && action?.type === "apply_quick_edit" ? (
+        {interactive && action?.type === "start_build" ? (
+          <OpenClawStartBuildCard
+            key={`start_build:${msg.id}`}
+            action={action}
+            messageId={msg.id}
+            autoRun={powers.armedAutonomy && isLiveMessage(msg) && startBuildAuto.allowed}
+            userTurnId={startBuildAuto.userTurnId}
+          />
+        ) : null}
+
+        {!isUser && action?.type === "read_files" ? (
+          <OpenClawReadFilesChip key="read_files" action={action} />
+        ) : null}
+
+        {interactive && action?.type === "apply_quick_edit" ? (
           <OpenClawQuickEditCard
             key="apply_quick_edit"
             action={action}
@@ -199,6 +335,58 @@ export function OpenClawMessage({
           <OpenClawRejectedActionCard key="rejected_action" reason={rejectedActionReason} />
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Read-only receipt for an action card that came from persisted history.
+ * Says what the agent proposed back then; offers no buttons.
+ */
+function OpenClawHistoricActionChip({ action }: { action: OpenClawAction }) {
+  const label =
+    action.type === "start_build"
+      ? action.label || "Startade ett bygge"
+      : action.type === "fill_text_field"
+        ? action.label || "Föreslog en byggprompt"
+        : action.type === "request_repair"
+          ? action.label || "Föreslog en reparation"
+          : action.type === "apply_quick_edit"
+            ? action.label || "Föreslog en snabbändring"
+            : "Åtgärd";
+  return (
+    <div
+      className="min-w-0 rounded-xl border border-white/10 bg-slate-900/50 px-3 py-2 text-slate-300"
+      data-testid="openclaw-historic-action"
+    >
+      <p className="text-[11px] font-medium tracking-[0.16em] text-slate-400 uppercase">
+        Från tidigare session
+      </p>
+      <p className="mt-0.5 text-xs leading-5">{label}</p>
+    </div>
+  );
+}
+
+/**
+ * Kodnavigering: agenten bad om filer. Själva läsningen utförs av
+ * `SajtagentProvider` (hämtar innehållet och skickar en intern tur); det här
+ * är bara en synlig kvittens så användaren ser vad som lästes.
+ */
+function OpenClawReadFilesChip({ action }: { action: OpenClawReadFilesAction }) {
+  return (
+    <div
+      className="min-w-0 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-slate-200"
+      data-testid="openclaw-read-files"
+    >
+      <p className="text-[11px] font-medium tracking-[0.16em] text-slate-300/80 uppercase">
+        Läser {action.paths.length === 1 ? "fil" : `${action.paths.length} filer`}
+      </p>
+      <p className="mt-0.5 truncate font-mono text-[11px] leading-5 text-slate-200">
+        {action.paths.join(", ")}
+      </p>
+      {action.reason ? (
+        <p className="mt-0.5 text-xs leading-5 text-slate-300">{action.reason}</p>
+      ) : null}
     </div>
   );
 }
@@ -219,13 +407,56 @@ function OpenClawRejectedActionCard({ reason }: { reason: string }) {
   );
 }
 
+/**
+ * Send `text` to the builder through the bridge: wait for a free builder,
+ * tag the send as OpenClaw-prepared when the text passes the structure
+ * check, and drop the fill marker once the send has been consumed. Shared by
+ * the direct-build card and the manual «Skicka till buildern» button.
+ */
+async function sendViaBuilderBridge(
+  text: string,
+  options: { isCancelled?: () => boolean } = {},
+): Promise<
+  | { ok: true; outcome: Promise<SendMessageOutcome | null> }
+  | { ok: false; error: string }
+> {
+  const wait = await waitForBuilderSend({ isCancelled: options.isCancelled });
+  if (!wait.ok) {
+    return {
+      ok: false,
+      error:
+        wait.reason === "busy"
+          ? "Buildern är upptagen just nu — försök igen när bygget är klart."
+          : wait.reason === "cancelled"
+            ? "Sändningen avbröts."
+            : "Hittar ingen builder att skicka till.",
+    };
+  }
+  const promptSource = resolveOpenClawPreparedPromptSource({
+    editEnabled: readOpenClawPowers().any,
+    preparedFill: { target: OPENCLAW_BUILDER_CHAT_TARGET, value: text },
+    message: text,
+    hasAttachments: false,
+  });
+  const outcome = wait.bridge
+    .sendMessage(text, promptSource ? { promptSource } : undefined)
+    .catch((): SendMessageOutcome | null => null)
+    .finally(() => {
+      const live = useOpenClawStore.getState();
+      if (live.preparedFill?.value === text) live.setPreparedFill(null);
+    });
+  return { ok: true, outcome };
+}
+
 function OpenClawFillTextFieldCard({ action }: { action: OpenClawFillTextFieldAction }) {
-  const [actionState, setActionState] = useState<"pending" | "approved" | "declined" | "failed">(
-    "pending",
-  );
+  const [actionState, setActionState] = useState<
+    "pending" | "approved" | "sent" | "declined" | "failed"
+  >("pending");
   const [actionError, setActionError] = useState<string | null>(null);
   const targetContext = getOpenClawTextFieldContext(action.target);
   const actionLabel = action.label || targetContext?.label || action.target;
+  const canSendDirect =
+    action.target === OPENCLAW_BUILDER_CHAT_TARGET && getBuilderBridge() !== null;
 
   const handleApprove = () => {
     const result = applyOpenClawTextFieldAction(action);
@@ -237,6 +468,25 @@ function OpenClawFillTextFieldCard({ action }: { action: OpenClawFillTextFieldAc
     recordOpenClawPreparedFill(action);
     setActionState("approved");
     setActionError(null);
+  };
+
+  const handleSendDirect = async () => {
+    setActionError(null);
+    recordOpenClawPreparedFill(action);
+    const result = await sendViaBuilderBridge(action.value);
+    if (!result.ok) {
+      setActionState("failed");
+      setActionError(result.error);
+      return;
+    }
+    setActionState("sent");
+    // Same honesty as the direct-build card: a refusal is not a start.
+    const outcome = await result.outcome;
+    const rejection = outcome ? describeRejectedOutcome(outcome) : null;
+    if (rejection) {
+      setActionState("failed");
+      setActionError(rejection);
+    }
   };
 
   const handleDecline = () => {
@@ -261,13 +511,27 @@ function OpenClawFillTextFieldCard({ action }: { action: OpenClawFillTextFieldAc
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {actionState === "pending" ? (
           <>
+            {canSendDirect ? (
+              <button
+                type="button"
+                onClick={() => void handleSendDirect()}
+                className="rounded-full bg-cyan-300 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-cyan-200"
+              >
+                Skicka till buildern
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={handleApprove}
               disabled={targetContext?.canWrite === false}
-              className="rounded-full bg-cyan-300 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className={cn(
+                "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+                canSendDirect
+                  ? "border border-white/10 text-slate-200 hover:bg-white/5"
+                  : "bg-cyan-300 text-slate-950 hover:bg-cyan-200",
+              )}
             >
-              Godkänn och fyll
+              {canSendDirect ? "Lägg i fältet" : "Godkänn och fyll"}
             </button>
             <button
               type="button"
@@ -281,6 +545,10 @@ function OpenClawFillTextFieldCard({ action }: { action: OpenClawFillTextFieldAc
 
         {actionState === "approved" ? (
           <p className="text-xs text-emerald-300">Texten lades in i {actionLabel.toLowerCase()}.</p>
+        ) : null}
+
+        {actionState === "sent" ? (
+          <p className="text-xs text-emerald-300">Skickad till buildern — bygget startar.</p>
         ) : null}
 
         {actionState === "declined" ? (
@@ -397,10 +665,62 @@ function OpenClawArmedSendCard({
     const MAX_ATTEMPTS = 25; // ~2.5s waiting for React to enable the send button
     let timer: ReturnType<typeof setTimeout> | null = null;
 
+    // Consume one authorized step and hand the builder turn over to the
+    // continuation handshake. Shared by the bridge path and the DOM fallback,
+    // and run BEFORE dispatch in both so the wrapped `sendMessage` finds the
+    // watch when it binds its send id.
+    const markSent = () => {
+      consumedArmedSends.add(messageId);
+      setState("sent");
+      const nextMandate = consumeMandateStep(useOpenClawStore.getState().armedMandate);
+      setArmedMandate(nextMandate);
+      // Only while the mandate still authorizes another step — an exhausted
+      // mandate must end here, not wake OpenClaw one more time.
+      if (nextMandate) {
+        setArmedContinuation(createArmedContinuationWatch(readBuilderTurnSnapshot()));
+      }
+    };
+
+    // Builder bridge (the unified chat): no DOM fill, no overwritten draft —
+    // the same wrapped `sendMessage` the composer uses, straight from here.
+    const sendThroughBridge = async () => {
+      recordOpenClawPreparedFill(actionRef.current);
+      const wait = await waitForBuilderSend({ isCancelled: () => cancelled });
+      if (cancelled) return;
+      if (!wait.ok) {
+        setState("failed");
+        setError(
+          wait.reason === "busy"
+            ? "Buildern blev aldrig ledig (en tur pågår redan)."
+            : "Hittar ingen builder att skicka till.",
+        );
+        return;
+      }
+      const text = actionRef.current.value;
+      markSent();
+      const promptSource = resolveOpenClawPreparedPromptSource({
+        editEnabled: readOpenClawPowers().any,
+        preparedFill: { target: OPENCLAW_BUILDER_CHAT_TARGET, value: text },
+        message: text,
+        hasAttachments: false,
+      });
+      void wait.bridge
+        .sendMessage(text, promptSource ? { promptSource } : undefined)
+        .catch(() => undefined)
+        .finally(() => {
+          const live = useOpenClawStore.getState();
+          if (live.preparedFill?.value === text) live.setPreparedFill(null);
+        });
+    };
+
     // All state updates run inside async callbacks (never synchronously in the
     // effect body) so we don't trigger cascading renders.
     const begin = () => {
       if (cancelled) return;
+      if (getBuilderBridge()) {
+        void sendThroughBridge();
+        return;
+      }
       const fill = applyOpenClawTextFieldAction(actionRef.current);
       if (!fill.ok) {
         setState("failed");
@@ -418,20 +738,10 @@ function OpenClawArmedSendCard({
         const result = triggerOpenClawSend(actionRef.current.target);
         if (result.ok) {
           // Mark consumed BEFORE state/mandate updates so a remount triggered by
-          // the resulting re-render can't replay this same auto-send.
-          consumedArmedSends.add(messageId);
-          setState("sent");
-          // Consume one authorized step; clears the mandate when exhausted.
-          const nextMandate = consumeMandateStep(useOpenClawStore.getState().armedMandate);
-          setArmedMandate(nextMandate);
-          // Hand the builder turn over to the continuation handshake, but only
-          // while the mandate still authorizes another step — an exhausted
-          // mandate must end here, not wake OpenClaw one more time.
-          if (nextMandate) {
-            // The watch registers without a send id; the send this click just
-            // started binds its own once it reaches the builder.
-            setArmedContinuation(createArmedContinuationWatch(readBuilderTurnSnapshot()));
-          }
+          // the resulting re-render can't replay this same auto-send. The watch
+          // registers without a send id; the send this click just started binds
+          // its own once it reaches the builder.
+          markSent();
           return;
         }
       }
@@ -474,6 +784,182 @@ function OpenClawArmedSendCard({
         ) : null}
         {state === "failed" ? (
           <p className="text-xs text-rose-300">{error ?? "Kunde inte skicka automatiskt."}</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Direct build (`start_build`). With armed autonomy granted and a message
+ * from this session it runs on mount through the builder bridge; otherwise it
+ * is a card the user approves. Never spends a mandate step and never
+ * registers a continuation watch — the post-build digest (SajtagentProvider)
+ * wakes the agent when the turn is done.
+ */
+function OpenClawStartBuildCard({
+  action,
+  messageId,
+  autoRun,
+  userTurnId,
+}: {
+  action: OpenClawStartBuildAction;
+  messageId: string;
+  autoRun: boolean;
+  /** The user question this reply answers — one automatic build per question. */
+  userTurnId: string | null;
+}) {
+  const [state, setState] = useState<"pending" | "sending" | "sent" | "failed">(
+    consumedStartBuilds.has(messageId) ? "sent" : autoRun ? "sending" : "pending",
+  );
+  const [error, setError] = useState<string | null>(null);
+  const startedRef = useRef(false);
+  const actionRef = useRef(action);
+  useEffect(() => {
+    actionRef.current = action;
+  }, [action]);
+
+  // The per-user-turn claim happens HERE, in commit order, not during render:
+  // two replies mounted in the same commit would otherwise both read an
+  // unclaimed turn and both auto-run. The claim is also kept out of the deps so
+  // a re-render after it cannot cancel the run it just started.
+  useEffect(() => {
+    if (!autoRun) return;
+    if (consumedStartBuilds.has(messageId)) return;
+    if (startedRef.current) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    if (userTurnId && autoStartBuildsByUserTurn.has(userTurnId)) {
+      // Another reply already built for this question — this one is a proposal.
+      timer = setTimeout(() => setState("pending"), 0);
+      return () => {
+        if (timer) clearTimeout(timer);
+      };
+    }
+    startedRef.current = true;
+    if (userTurnId) autoStartBuildsByUserTurn.add(userTurnId);
+    let cancelled = false;
+    void (async () => {
+      const result = await startBuild(() => cancelled);
+      if (cancelled) return;
+      if (!result.ok) {
+        setState("failed");
+        setError(result.error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the message, not the parsed action object
+  }, [messageId, autoRun]);
+
+  const startBuild = async (
+    isCancelled?: () => boolean,
+  ): Promise<{ ok: true } | { ok: false; error: string }> => {
+    const prompt = actionRef.current.prompt;
+    if (getBuilderBridge()) {
+      const result = await sendViaBuilderBridge(prompt, { isCancelled });
+      if (!result.ok) return result;
+      consumedStartBuilds.add(messageId);
+      setState("sent");
+      // The bridge resolves with the builder's own verdict (`SendMessageOutcome`):
+      // a refusal (credits, stale base, F3 gate) must not read as «started».
+      const outcome = await result.outcome;
+      if (isCancelled?.()) return { ok: true };
+      const rejection = outcome ? describeRejectedOutcome(outcome) : null;
+      if (rejection) {
+        setState("failed");
+        setError(rejection);
+      }
+      return { ok: true };
+    }
+    // Outside the builder bridge: fall back to the composer DOM path.
+    const fill = applyOpenClawTextFieldAction({
+      type: "fill_text_field",
+      target: OPENCLAW_BUILDER_CHAT_TARGET,
+      value: prompt,
+      focus: false,
+    });
+    if (!fill.ok) return { ok: false, error: fill.error ?? "Hittar ingen builder att skicka till." };
+    recordOpenClawPreparedFill({
+      type: "fill_text_field",
+      target: OPENCLAW_BUILDER_CHAT_TARGET,
+      value: prompt,
+    });
+    for (let attempt = 0; attempt < 25; attempt += 1) {
+      if (isCancelled?.()) return { ok: false, error: "Sändningen avbröts." };
+      if (isOpenClawSendReady(OPENCLAW_BUILDER_CHAT_TARGET)) {
+        const sent = triggerOpenClawSend(OPENCLAW_BUILDER_CHAT_TARGET);
+        if (sent.ok) {
+          consumedStartBuilds.add(messageId);
+          setState("sent");
+          return { ok: true };
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return { ok: false, error: "Send-knappen blev aldrig klar (composern kan vara upptagen)." };
+  };
+
+  const handleApprove = async () => {
+    if (state !== "pending") return;
+    setState("sending");
+    setError(null);
+    const result = await startBuild();
+    if (!result.ok) {
+      setState("failed");
+      setError(result.error);
+    }
+  };
+
+  return (
+    <div className="min-w-0 rounded-2xl border border-fuchsia-400/25 bg-slate-900/70 p-3 text-slate-100">
+      <p className="text-[11px] font-medium tracking-[0.16em] text-fuchsia-200/80 uppercase">
+        {autoRun ? "Direktbygg" : "Byggförslag"}
+      </p>
+      <p className="mt-1 text-sm font-semibold text-white">
+        {action.label || "Starta ett bygge i buildern"}
+      </p>
+      {action.reason ? (
+        <p className="mt-1 text-xs leading-5 text-slate-300">{action.reason}</p>
+      ) : null}
+      <details className="mt-2 rounded-xl border border-white/10 bg-black/20 p-2">
+        <summary className="cursor-pointer text-[11px] text-slate-300 select-none">
+          Visa byggprompten
+        </summary>
+        <pre className="mt-1 max-h-40 overflow-x-hidden overflow-y-auto font-sans text-xs leading-5 wrap-break-word whitespace-pre-wrap text-slate-200">
+          {action.prompt}
+        </pre>
+      </details>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {state === "pending" ? (
+          <>
+            <button
+              type="button"
+              onClick={() => void handleApprove()}
+              className="rounded-full bg-fuchsia-300 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-fuchsia-200"
+            >
+              Starta bygget
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setState("failed");
+                setError("Förslaget avböjdes.");
+              }}
+              className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
+            >
+              Avböj
+            </button>
+          </>
+        ) : null}
+        {state === "sending" ? (
+          <p className="text-xs text-slate-300">Skickar till buildern…</p>
+        ) : null}
+        {state === "sent" ? (
+          <p className="text-xs text-emerald-300">Bygget är startat — följ det i byggkortet.</p>
+        ) : null}
+        {state === "failed" ? (
+          <p className="text-xs text-rose-300">{error ?? "Kunde inte starta bygget."}</p>
         ) : null}
       </div>
     </div>

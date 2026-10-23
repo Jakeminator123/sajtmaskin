@@ -86,6 +86,8 @@ const EXPECTED_TABLES = [
   "oc_debug_findings",
   "live_review_grants",
   "live_review_runs",
+  // Sajtagentens beständiga historik i buildern (plan 2026-10-22)
+  "agent_messages",
   "product_postcheck_runs",
   // Tokenförbrukning per LLM-anrop
   "llm_usage",
