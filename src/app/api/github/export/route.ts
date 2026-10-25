@@ -12,6 +12,7 @@ import {
 import { GitHubExportPathConflictError } from "@/lib/gen/export/github-tree-plan";
 import {
   GitHubExportNoFilesError,
+  GitHubExportTreeTooLargeError,
   commitExportToGitHub,
   sanitizeRepoName,
 } from "@/lib/github/git-data-export";
@@ -26,13 +27,14 @@ import {
 export const runtime = "nodejs";
 
 const exportSchema = z.object({
-  chatId: z.string().min(1, "chatId is required"),
-  versionId: z.string().min(1, "versionId is required"),
-  repo: z.string().min(1, "repo is required"),
+  chatId: z.string().min(1, "chatId is required").max(128),
+  versionId: z.string().min(1, "versionId is required").max(128),
+  repo: z.string().min(1, "repo is required").max(256),
   private: z.boolean().optional(),
-  projectId: z.string().trim().min(1).optional(),
+  projectId: z.string().trim().min(1).max(128).optional(),
   siteUrl: z
     .url()
+    .max(2_048)
     .refine((value) => {
       const url = new URL(value);
       const hostname = url.hostname.replace(/\.+$/, "");
@@ -194,11 +196,14 @@ export async function POST(request: NextRequest) {
       if (error instanceof OwnerTransferSiteUrlRequiredError) {
         return NextResponse.json({ success: false, error: error.message }, { status: 400 });
       }
+      if (error instanceof GitHubExportTreeTooLargeError) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 409 });
+      }
       console.error("[API/GitHub Export] Error:", error);
       return NextResponse.json(
         {
           success: false,
-          error: error instanceof Error ? error.message : "Unknown error",
+          error: "GitHub-exporten misslyckades. Försök igen senare.",
         },
         { status: 500 },
       );

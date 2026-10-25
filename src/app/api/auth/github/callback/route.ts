@@ -13,6 +13,7 @@ import { updateUserGitHub } from "@/lib/db/services/users";
 const MAX_OAUTH_CODE_CHARS = 4_096;
 const MAX_GITHUB_ACCESS_TOKEN_CHARS = 4_096;
 const MAX_GITHUB_LOGIN_CHARS = 100;
+const GITHUB_OAUTH_TIMEOUT_MS = 10_000;
 
 interface GitHubTokenResponse {
   access_token?: string;
@@ -174,6 +175,7 @@ export async function GET(request: NextRequest) {
           redirect_uri: URLS.githubCallbackUrl,
           code_verifier: flow.codeVerifier,
         }),
+        signal: AbortSignal.timeout(GITHUB_OAUTH_TIMEOUT_MS),
       },
     );
 
@@ -200,6 +202,7 @@ export async function GET(request: NextRequest) {
         Authorization: `Bearer ${tokenData.access_token}`,
         Accept: "application/vnd.github.v3+json",
       },
+      signal: AbortSignal.timeout(GITHUB_OAUTH_TIMEOUT_MS),
     });
 
     if (!userResponse.ok) {

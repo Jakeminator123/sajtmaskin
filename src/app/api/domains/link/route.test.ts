@@ -75,6 +75,14 @@ beforeEach(() => {
 });
 
 describe("POST /api/domains/link", () => {
+  it("rejects non-string input before resolving a project", async () => {
+    const res = await POST(linkRequest({ domain: 42, chatId: "chat_1" }));
+
+    expect(res.status).toBe(400);
+    expect(resolveVercelProjectForChat).not.toHaveBeenCalled();
+    expect(linkCustomerDomain).not.toHaveBeenCalled();
+  });
+
   it("returns 404 for a chat the caller does not own", async () => {
     resolveVercelProjectForChat.mockResolvedValue({
       ok: false,
@@ -129,5 +137,40 @@ describe("POST /api/domains/link", () => {
     expect(res.status).toBe(200);
     expect(addZoneRecord).toHaveBeenCalled();
     expect(body.dnsSetup).toMatchObject({ success: true, method: "loopia" });
+  });
+
+  it("does not expose Loopia provider errors", async () => {
+    dbSelect.mockReturnValue(dbRows([{ id: "ord_1" }]));
+    isLoopiaConfigured.mockReturnValue(true);
+    addZoneRecord.mockRejectedValue(new Error("provider token secret"));
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      const res = await POST(linkRequest({ domain: "mittforetag.se", chatId: "chat_1" }));
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.dnsSetup).toEqual({
+        success: false,
+        method: "loopia",
+        error: "DNS setup failed",
+      });
+      expect(JSON.stringify(body)).not.toContain("provider token secret");
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it("does not expose project resolution failures", async () => {
+    resolveVercelProjectForChat.mockRejectedValue(new Error("provider token secret"));
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      const res = await POST(linkRequest({ domain: "site.example", chatId: "chat_1" }));
+      expect(res.status).toBe(500);
+      expect(await res.json()).toEqual({ error: "Could not link domain" });
+    } finally {
+      error.mockRestore();
+    }
   });
 });

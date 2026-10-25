@@ -7,6 +7,7 @@ import { calculateModelCost } from "@/lib/billing/model-cost";
 import { INSPECTOR_AI_MATCH_DEFAULT_MODEL } from "@/lib/gen/defaults";
 import { isOpenAIReasoningModelId } from "@/lib/models/openai-capabilities";
 import { withRateLimit } from "@/lib/rate-limit";
+import { z } from "zod";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,13 +42,21 @@ function createClientConfig(): ClientConfig | null {
   return null;
 }
 
-type RequestBody = {
-  xPercent: number;
-  yPercent: number;
-  viewportWidth: number;
-  viewportHeight: number;
-  files: Array<{ name: string; content: string }>;
-};
+const requestSchema = z.object({
+  xPercent: z.number().finite().min(0).max(100),
+  yPercent: z.number().finite().min(0).max(100),
+  viewportWidth: z.number().finite().min(0).max(100_000).optional().default(0),
+  viewportHeight: z.number().finite().min(0).max(100_000).optional().default(0),
+  files: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(1_000),
+        content: z.string().max(2_000_000),
+      }),
+    )
+    .min(1)
+    .max(1_000),
+});
 
 function truncateCode(files: Array<{ name: string; content: string }>): string {
   const eligible = files
@@ -66,17 +75,6 @@ function truncateCode(files: Array<{ name: string; content: string }>): string {
   return parts.join("\n\n");
 }
 
-async function requireInspectorIdentity(req: Request): Promise<Response | null> {
-  const user = await getCurrentUser(req);
-  if (!user) {
-    return NextResponse.json(
-      { success: false, error: "Logga in för att använda AI-matchning." },
-      { status: 401 },
-    );
-  }
-  return null;
-}
-
 export async function POST(req: Request) {
   const user = await getCurrentUser(req);
   if (!user) {
@@ -89,9 +87,6 @@ export async function POST(req: Request) {
 }
 
 async function handlePOST(req: Request) {
-  const authError = await requireInspectorIdentity(req);
-  if (authError) return authError;
-
   if (!isBuilderInspectorEnabled()) {
     return NextResponse.json(
       { success: false, error: getBuilderInspectorDisabledMessage() },
@@ -110,13 +105,14 @@ async function handlePOST(req: Request) {
     );
   }
 
-  const body = (await req.json().catch(() => null)) as RequestBody | null;
-  if (!body?.files?.length || !Number.isFinite(body.xPercent) || !Number.isFinite(body.yPercent)) {
+  const parsedBody = requestSchema.safeParse(await req.json().catch(() => null));
+  if (!parsedBody.success) {
     return NextResponse.json(
-      { success: false, error: "Kräver xPercent, yPercent och files[]." },
+      { success: false, error: "Kräver giltiga xPercent, yPercent, viewport och files[]." },
       { status: 400 },
     );
   }
+  const body = parsedBody.data;
 
   const codeBlock = truncateCode(body.files);
   if (!codeBlock) {
@@ -221,8 +217,11 @@ ${codeBlock}`;
             },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "AI-matchning misslyckades";
-    return NextResponse.json({ success: false, error: message }, { status: 502 });
+    console.error("[API/inspector-ai-match] Provider request failed:", err);
+    return NextResponse.json(
+      { success: false, error: "AI-matchning misslyckades" },
+      { status: 502 },
+    );
   }
 }
 
