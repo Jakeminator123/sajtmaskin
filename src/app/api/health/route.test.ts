@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const ping = vi.hoisted(() => vi.fn());
 
@@ -23,6 +23,10 @@ describe("GET /api/health", () => {
     ping.mockResolvedValue("PONG");
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("checks Redis without writing and exposes no connection metadata", async () => {
     const response = await GET();
     const body = await response.json();
@@ -34,15 +38,19 @@ describe("GET /api/health", () => {
     expect(ping).toHaveBeenCalledOnce();
   });
 
-  it("masks Redis connection failures", async () => {
+  it.each([
+    new Error("redis://user:secret@private-host:6379", { cause: new Error("nested-secret") }),
+    "redis://user:secret@private-host:6379",
+    { connection: "redis://user:secret@private-host:6379" },
+  ])("masks Redis failures in both the response and server logs (%#)", async (failure) => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    ping.mockRejectedValueOnce(new Error("redis://user:secret@private-host:6379"));
+    ping.mockRejectedValueOnce(failure);
 
     const response = await GET();
     const body = await response.json();
 
     expect(body).toMatchObject({ redis: { status: "error" } });
     expect(JSON.stringify(body)).not.toContain("private-host");
-    consoleError.mockRestore();
+    expect(consoleError.mock.calls).toEqual([["[API/health] Redis check failed"]]);
   });
 });

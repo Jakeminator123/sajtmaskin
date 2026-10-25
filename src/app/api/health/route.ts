@@ -43,8 +43,9 @@ export async function GET() {
           error: "Redis client returned null",
         };
       }
-    } catch (error) {
-      console.error("[API/health] Redis check failed:", error);
+    } catch {
+      // Connection errors can contain credentials in message, stack or cause.
+      console.error("[API/health] Redis check failed");
       checks.redis = {
         status: "error",
       };
