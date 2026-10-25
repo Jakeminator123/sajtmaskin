@@ -98,6 +98,17 @@ describe("acceptClientErrorReport", () => {
     expect(acceptClientErrorReport("ver_b", "err-0")).toBe(true);
   });
 
+  it("begränsar versionsgaten och behåller dedup för de senaste versionerna", () => {
+    expect(acceptClientErrorReport("ver_old", "Hydration failed")).toBe(true);
+    expect(acceptClientErrorReport("ver_old", "Hydration failed")).toBe(false);
+    for (let i = 0; i < 100; i++) {
+      expect(acceptClientErrorReport(`ver_${i}`, "Hydration failed")).toBe(true);
+    }
+
+    expect(acceptClientErrorReport("ver_99", "Hydration failed")).toBe(false);
+    expect(acceptClientErrorReport("ver_old", "Hydration failed")).toBe(true);
+  });
+
   it("nollställer kvoten när promotionsfasen ändras", () => {
     for (let i = 0; i < 5; i++) {
       expect(acceptClientErrorReport("ver_quota", `pre-${i}`, null)).toBe(true);

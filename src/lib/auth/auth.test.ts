@@ -127,6 +127,8 @@ describe("auth token security", () => {
     const tampered = `${header}.${body}.${tamperedSignature}`;
 
     expect(auth.verifyToken(tampered)).toBeNull();
+    expect(auth.verifyToken(`${token}.extra`)).toBeNull();
+    expect(auth.verifyToken(`${"x".repeat(8_193)}.body.signature`)).toBeNull();
   });
 
   it("rejects expired JWT tokens", () => {

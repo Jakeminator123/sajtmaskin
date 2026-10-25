@@ -13,12 +13,21 @@ const SESSION_VERSION_DEFAULT = "1";
 // In-memory rate limiter for brute-force protection
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 const MAX_ATTEMPTS = 5;
+const MAX_TRACKED_IPS = 10_000;
 const WINDOW_MS = 15 * 60 * 1000; // 15 min
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const entry = loginAttempts.get(ip);
   if (!entry || now > entry.resetAt) {
+    for (const [trackedIp, tracked] of loginAttempts) {
+      if (tracked.resetAt <= now) loginAttempts.delete(trackedIp);
+    }
+    while (loginAttempts.size >= MAX_TRACKED_IPS) {
+      const oldestIp = loginAttempts.keys().next().value;
+      if (typeof oldestIp !== "string") break;
+      loginAttempts.delete(oldestIp);
+    }
     loginAttempts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
     return true;
   }
@@ -87,7 +96,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { password } = await req.json();
+    const body = await req.json().catch(() => null);
+    if (
+      !body ||
+      typeof body !== "object" ||
+      Array.isArray(body) ||
+      typeof (body as { password?: unknown }).password !== "string"
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Ogiltig begäran" },
+        { status: 400 }
+      );
+    }
+    const password = (body as { password: string }).password;
     const correctPassword = process.env.BACKOFFICE_PASSWORD;
 
     if (!correctPassword) {

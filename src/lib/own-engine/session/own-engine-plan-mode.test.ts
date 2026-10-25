@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SYSTEM_PROMPT_SEPARATOR } from "@/lib/gen/system-prompt";
 import { computePlanModePlannerPrompts } from "./own-engine-plan-mode";
 
 describe("computePlanModePlannerPrompts", () => {
@@ -8,8 +9,6 @@ describe("computePlanModePlannerPrompts", () => {
       resolvedScaffold: null,
     });
     expect(planPreamble.length).toBeGreaterThan(20);
-    expect(planSystemPrompt).toContain(planPreamble);
-    expect(planSystemPrompt).toContain("---");
-    expect(planSystemPrompt).toContain("DYNAMIC_CTX");
+    expect(planSystemPrompt).toBe(`${planPreamble}${SYSTEM_PROMPT_SEPARATOR}DYNAMIC_CTX`);
   });
 });

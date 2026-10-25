@@ -64,6 +64,7 @@ export function verifyPassword(password: string, storedHash: string): boolean {
 // JWT configuration - use centralized secrets
 const JWT_SECRET = SECRETS.jwtSecret;
 const JWT_EXPIRY = 7 * 24 * 60 * 60; // 7 days in seconds
+const MAX_JWT_CHARS = 8_192;
 
 // Google OAuth configuration - use centralized secrets
 const GOOGLE_CLIENT_ID = SECRETS.googleClientId;
@@ -114,7 +115,10 @@ export function createToken(userId: string, email: string): string {
  */
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    const [header, body, signature] = token.split(".");
+    if (token.length > MAX_JWT_CHARS) return null;
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const [header, body, signature] = parts;
     if (!header || !body || !signature) return null;
 
     // Verify signature
@@ -123,7 +127,12 @@ export function verifyToken(token: string): JWTPayload | null {
       .update(`${header}.${body}`)
       .digest("base64url");
 
-    if (signature !== expectedSignature) {
+    const actualBytes = Buffer.from(signature);
+    const expectedBytes = Buffer.from(expectedSignature);
+    if (
+      actualBytes.length !== expectedBytes.length ||
+      !crypto.timingSafeEqual(actualBytes, expectedBytes)
+    ) {
       return null;
     }
 
@@ -131,7 +140,16 @@ export function verifyToken(token: string): JWTPayload | null {
     const payload = JSON.parse(Buffer.from(body, "base64url").toString()) as JWTPayload;
 
     // Check expiry
-    if (payload.exp < Math.floor(Date.now() / 1000)) {
+    if (
+      typeof payload.userId !== "string" ||
+      !payload.userId ||
+      typeof payload.email !== "string" ||
+      !payload.email ||
+      !Number.isInteger(payload.iat) ||
+      !Number.isInteger(payload.exp) ||
+      payload.exp < payload.iat ||
+      payload.exp < Math.floor(Date.now() / 1000)
+    ) {
       return null;
     }
 

@@ -3,6 +3,10 @@ import {
   isImageRequestAttachment,
   type RequestAttachment,
 } from "./request-metadata";
+import { safeFetch } from "@/lib/ssrf-guard";
+
+// Match the upload byte budget; the smaller prompt budget only limits excerpts.
+const MAX_ATTACHMENT_FETCH_BYTES = 4 * 1024 * 1024;
 
 export type HydrateTextAttachmentsOptions = {
   signal?: AbortSignal;
@@ -66,14 +70,13 @@ export async function appendHydratedTextAttachmentExcerpts(
     const budget = Math.min(maxPerFile, maxTotal - used);
     if (budget < 200) break;
 
-    const ac = new AbortController();
-    const t = setTimeout(() => ac.abort(), timeoutMs);
     try {
-      const res = await fetch(attachment.url, {
-        signal: signal ? AbortSignal.any([signal, ac.signal]) : ac.signal,
+      const res = await safeFetch(attachment.url, {
+        signal,
+        timeoutMs,
+        maxBodyBytes: MAX_ATTACHMENT_FETCH_BYTES,
         headers: { Accept: "text/*, application/json, application/xml, */*" },
       });
-      clearTimeout(t);
       if (!res.ok) {
         sections.push(`### ${label}`, "", `_Fetch failed (${res.status})_`, "");
         continue;
@@ -83,7 +86,6 @@ export async function appendHydratedTextAttachmentExcerpts(
       used += excerpt.length;
       sections.push(`### ${label}`, "", "```", excerpt, "```", "");
     } catch {
-      clearTimeout(t);
       sections.push(`### ${label}`, "", `_Could not load attachment text._`, "");
     }
   }

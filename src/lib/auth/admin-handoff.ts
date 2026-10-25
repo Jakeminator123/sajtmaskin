@@ -7,6 +7,7 @@ export const HANDOFF_AUDIENCE = "sajtmaskin-admin";
 export const HANDOFF_TTL_SECONDS = 60;
 export const DEFAULT_HANDOFF_NEXT = "/admin/kostnadsfri";
 export const MIN_HANDOFF_SECRET_LENGTH = 32;
+const MAX_HANDOFF_TOKEN_CHARS = 4_096;
 
 const JTI_PATTERN = /^[0-9a-f]{32}$/;
 const JTI_TTL_MS = 2 * 60 * 1000;
@@ -46,7 +47,7 @@ export function verifyAdminHandoff(
   secret: string,
   now = Date.now(),
 ): HandoffPayload | null {
-  if (!secret.trim()) return null;
+  if (!secret.trim() || token.length > MAX_HANDOFF_TOKEN_CHARS) return null;
   const parts = token.split(".");
   if (parts.length !== 2) return null;
   const [body, signature] = parts;

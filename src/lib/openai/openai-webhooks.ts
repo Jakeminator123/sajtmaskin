@@ -20,6 +20,11 @@ import { pool, dbConfigured } from "@/lib/db/client";
 
 /** Replay-protection window, per the Standard Webhooks recommendation. */
 export const OPENAI_WEBHOOK_TOLERANCE_SECONDS = 300;
+const MAX_WEBHOOK_ID_CHARS = 200;
+const MAX_WEBHOOK_TIMESTAMP_CHARS = 20;
+const MAX_WEBHOOK_SIGNATURE_CHARS = 8_192;
+const MAX_EVENT_TYPE_CHARS = 200;
+const MAX_OBJECT_ID_CHARS = 200;
 
 export type OpenAiWebhookVerification = { ok: true } | { ok: false; reason: string };
 
@@ -35,6 +40,13 @@ export function verifyOpenAiWebhookSignature(params: {
   const { rawBody, webhookId, webhookTimestamp, signatureHeader, secret } = params;
   if (!webhookId || !webhookTimestamp || !signatureHeader) {
     return { ok: false, reason: "missing webhook headers" };
+  }
+  if (
+    webhookId.length > MAX_WEBHOOK_ID_CHARS ||
+    webhookTimestamp.length > MAX_WEBHOOK_TIMESTAMP_CHARS ||
+    signatureHeader.length > MAX_WEBHOOK_SIGNATURE_CHARS
+  ) {
+    return { ok: false, reason: "webhook header too large" };
   }
 
   const timestampSeconds = Number.parseInt(webhookTimestamp, 10);
@@ -80,14 +92,19 @@ export interface ParsedOpenAiWebhookEvent {
 export function parseOpenAiWebhookEvent(body: unknown): ParsedOpenAiWebhookEvent | null {
   if (!body || typeof body !== "object") return null;
   const b = body as Record<string, unknown>;
-  if (typeof b.id !== "string" || b.id.length === 0) return null;
-  if (typeof b.type !== "string" || b.type.length === 0) return null;
+  if (typeof b.id !== "string" || b.id.length === 0 || b.id.length > MAX_WEBHOOK_ID_CHARS) {
+    return null;
+  }
+  if (typeof b.type !== "string" || b.type.length === 0 || b.type.length > MAX_EVENT_TYPE_CHARS) {
+    return null;
+  }
   const data = b.data && typeof b.data === "object" ? (b.data as Record<string, unknown>) : null;
+  const objectId = data && typeof data.id === "string" ? data.id : null;
   return {
     eventId: b.id,
     eventType: b.type,
     createdAt: typeof b.created_at === "number" ? b.created_at : null,
-    objectId: data && typeof data.id === "string" ? data.id : null,
+    objectId: objectId && objectId.length <= MAX_OBJECT_ID_CHARS ? objectId : null,
   };
 }
 

@@ -225,10 +225,12 @@ function encodeCookie(nonce: string, codeVerifier: string): string {
   return Buffer.from(JSON.stringify({ nonce, codeVerifier })).toString("base64url");
 }
 
+const MAX_OAUTH_STATE_CHARS = 4_096;
+
 function decodeCookie(
   rawCookie: string | undefined,
 ): { nonce: string; codeVerifier: string } | null {
-  if (!rawCookie) return null;
+  if (!rawCookie || rawCookie.length > MAX_OAUTH_STATE_CHARS) return null;
   try {
     const value = JSON.parse(Buffer.from(rawCookie, "base64url").toString()) as {
       nonce?: unknown;
@@ -304,6 +306,9 @@ export function parseOAuthState(
   now = Date.now(),
 ): ParsedOAuthState {
   if (!rawState) return { ok: false, reason: "state_missing" };
+  if (rawState.length > MAX_OAUTH_STATE_CHARS) {
+    return { ok: false, reason: "state_malformed" };
+  }
 
   const [body, suppliedSignature, extra] = rawState.split(".");
   if (!body || !suppliedSignature || extra) {

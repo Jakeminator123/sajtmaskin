@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_AUDIT_HANDOFF_JSON_CHARS,
   auditHandoffPayloadSchema,
   buildAuditBriefContext,
   buildAuditCodegenPrompt,
@@ -83,6 +84,14 @@ describe("auditHandoffPayloadSchema", () => {
     expect(payload.company).toBe("Granit & Co");
     expect(payload.source_images).toHaveLength(2);
     expect(auditHandoffPayloadSchema.safeParse({ ...payload, extra: true }).success).toBe(false);
+  });
+
+  it("rejects an oversized structured handoff", () => {
+    expect(
+      auditHandoffPayloadSchema.safeParse({
+        company: "x".repeat(MAX_AUDIT_HANDOFF_JSON_CHARS + 1),
+      }).success,
+    ).toBe(false);
   });
 });
 

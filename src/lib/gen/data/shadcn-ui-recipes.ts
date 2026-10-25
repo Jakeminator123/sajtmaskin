@@ -76,6 +76,7 @@ interface CacheEntry {
 }
 
 const remoteCache = new Map<string, CacheEntry>();
+const MAX_REMOTE_CACHE_ENTRIES = 256;
 let communityRegistriesCache: CommunityRegistry[] | null = null;
 
 /** @internal Test helper. */
@@ -95,7 +96,27 @@ function getCached(key: string): ShadcnUiRecipe | null | undefined {
 }
 
 function setCached(key: string, recipe: ShadcnUiRecipe | null): void {
-  remoteCache.set(key, { recipe, ts: Date.now() });
+  const now = Date.now();
+  for (const [cachedKey, entry] of remoteCache) {
+    if (now - entry.ts > CACHE_TTL_MS) remoteCache.delete(cachedKey);
+  }
+  remoteCache.delete(key);
+  remoteCache.set(key, { recipe, ts: now });
+  while (remoteCache.size > MAX_REMOTE_CACHE_ENTRIES) {
+    const oldestKey = remoteCache.keys().next().value;
+    if (typeof oldestKey !== "string") break;
+    remoteCache.delete(oldestKey);
+  }
+}
+
+/** @internal Test helper for the bounded negative-cache path. */
+export function _setShadcnUiRecipeCacheEntryForTests(key: string): void {
+  setCached(key, null);
+}
+
+/** @internal Test helper. */
+export function _shadcnUiRecipeCacheSizeForTests(): number {
+  return remoteCache.size;
 }
 
 function registryItemType(rawType: string | undefined, source: ShadcnUiRecipeSource): ShadcnUiRecipe["itemType"] {
