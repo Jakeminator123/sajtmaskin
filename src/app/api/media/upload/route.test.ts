@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
@@ -51,6 +52,7 @@ beforeEach(() => {
     storageType: "blob",
   });
   deleteBlob.mockResolvedValue(true);
+  saveMediaLibraryItem.mockResolvedValue({ id: "media_1", file_type: "image" });
   getMediaLibraryByUser.mockResolvedValue([]);
   getMediaLibraryCounts.mockResolvedValue({ images: 0, videos: 0, other: 0 });
 });
@@ -76,6 +78,17 @@ describe("POST /api/media/upload", () => {
 
     expect(response.status).toBe(413);
     expect(uploadBlob).not.toHaveBeenCalled();
+  });
+
+  it.each([null, "1"])("limits actual multipart bytes with Content-Length %s", async (declaredLength) => {
+    const request = uploadRequestWithMetadata("ignored-padding", "x".repeat(5 * 1024 * 1024));
+    if (declaredLength !== null) request.headers.set("content-length", declaredLength);
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(413);
+    expect(uploadBlob).not.toHaveBeenCalled();
+    expect(saveMediaLibraryItem).not.toHaveBeenCalled();
   });
 
   it("preserves the blob when the metadata write outcome is unknown", async () => {

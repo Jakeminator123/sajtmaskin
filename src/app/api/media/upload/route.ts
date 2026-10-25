@@ -9,6 +9,7 @@ import {
 import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
 import { withRateLimit } from "@/lib/rate-limit";
 import { errorLog, warnLog } from "@/lib/utils/debug";
+import { readRequestFormDataWithLimit } from "@/lib/api/read-limited-body";
 
 /**
  * Media Library Upload API
@@ -107,15 +108,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const contentLength = request.headers.get("content-length");
-    if (contentLength && /^\d+$/.test(contentLength) && Number(contentLength) > MAX_UPLOAD_BODY_BYTES) {
+    const body = await readRequestFormDataWithLimit(request, MAX_UPLOAD_BODY_BYTES);
+    if (!body.ok) {
       return NextResponse.json(
         { success: false, error: "Uppladdningen är för stor" },
         { status: 413 },
       );
     }
 
-    const formData = await request.formData();
+    const { formData } = body;
     const file = formData.get("file");
     const projectId = formData.get("projectId");
     const description = formData.get("description");

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
@@ -80,6 +81,20 @@ describe("POST /api/text/extract", () => {
     const res = await POST(req);
 
     expect(res.status).toBe(413);
+    expect(pdfParse).not.toHaveBeenCalled();
+  });
+
+  it.each([null, "1"])("limits actual multipart bytes with Content-Length %s", async (declaredLength) => {
+    getSessionIdFromRequest.mockReturnValue("sess_1");
+    const form = new FormData();
+    form.append("file", new File(["%PDF-1.7"], "document.pdf", { type: "application/pdf" }));
+    form.append("ignored-padding", "x".repeat(11 * 1024 * 1024));
+    const request = new NextRequest("http://localhost/api/text/extract", { method: "POST", body: form });
+    if (declaredLength !== null) request.headers.set("content-length", declaredLength);
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(413);
     expect(pdfParse).not.toHaveBeenCalled();
   });
 

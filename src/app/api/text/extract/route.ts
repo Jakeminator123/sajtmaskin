@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { withRateLimit } from "@/lib/rate-limit";
+import { readRequestFormDataWithLimit } from "@/lib/api/read-limited-body";
 
 const CONTROL_CHARS_EXCEPT_WHITESPACE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
 const MAX_PDF_SIZE = 10 * 1024 * 1024;
@@ -46,19 +47,15 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const contentLength = request.headers.get("content-length");
-      if (
-        contentLength &&
-        /^\d+$/.test(contentLength) &&
-        Number(contentLength) > MAX_PDF_UPLOAD_BODY_BYTES
-      ) {
+      const body = await readRequestFormDataWithLimit(request, MAX_PDF_UPLOAD_BODY_BYTES);
+      if (!body.ok) {
         return NextResponse.json(
           { success: false, error: "Uppladdningen är för stor" },
           { status: 413 },
         );
       }
 
-      const formData = await request.formData();
+      const { formData } = body;
       const file = formData.get("file");
 
       if (!isUploadedFile(file)) {

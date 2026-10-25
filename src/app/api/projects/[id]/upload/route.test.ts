@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getProjectByIdForOwner = vi.hoisted(() => vi.fn());
@@ -52,6 +53,7 @@ describe("POST /api/projects/[id]/upload", () => {
       storageType: "blob",
     });
     deleteBlob.mockResolvedValue(true);
+    saveImage.mockResolvedValue({ id: "image_1" });
   });
 
   it("rejects SVG uploads like the canonical media upload route", async () => {
@@ -75,10 +77,8 @@ describe("POST /api/projects/[id]/upload", () => {
     const longName = new File([new Uint8Array([1])], `${"x".repeat(300)}.png`, {
       type: "image/png",
     });
-    const longNameForm = new FormData();
-    longNameForm.append("file", longName);
     const badName = await POST(
-      { formData: async () => longNameForm, headers: new Headers() } as never,
+      makeUploadRequest(longName) as never,
       makeParams(),
     );
     expect(badName.status).toBe(400);
@@ -97,11 +97,26 @@ describe("POST /api/projects/[id]/upload", () => {
     expect(uploadBlob).not.toHaveBeenCalled();
   });
 
+  it.each([null, "1"])("limits actual multipart bytes with Content-Length %s", async (declaredLength) => {
+    const form = new FormData();
+    form.append("file", new File([new Uint8Array([1])], "project.png", { type: "image/png" }));
+    form.append("ignored-padding", "x".repeat(5 * 1024 * 1024));
+    const request = new Request("http://localhost/api/projects/proj_1/upload", { method: "POST", body: form });
+    if (declaredLength !== null) request.headers.set("content-length", declaredLength);
+
+    const response = await POST(request as never, makeParams());
+
+    expect(response.status).toBe(413);
+    expect(uploadBlob).not.toHaveBeenCalled();
+    expect(saveImage).not.toHaveBeenCalled();
+  });
+
   it("rejects a text form field in place of a file", async () => {
     const formData = new FormData();
     formData.append("file", "not-a-file");
 
-    const res = await POST({ formData: async () => formData, headers: new Headers() } as never, makeParams());
+    const request = new Request("http://localhost/api/projects/proj_1/upload", { method: "POST", body: formData });
+    const res = await POST(request as never, makeParams());
 
     expect(res.status).toBe(400);
     expect(uploadBlob).not.toHaveBeenCalled();

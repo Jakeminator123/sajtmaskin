@@ -3,6 +3,7 @@ import { getProjectByIdForOwner } from "@/lib/db/services/projects";
 import { saveImage } from "@/lib/db/services/media";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
+import { readRequestFormDataWithLimit } from "@/lib/api/read-limited-body";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -57,12 +58,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
-    const contentLength = request.headers.get("content-length");
-    if (contentLength && /^\d+$/.test(contentLength) && Number(contentLength) > MAX_UPLOAD_BODY_BYTES) {
+    const body = await readRequestFormDataWithLimit(request, MAX_UPLOAD_BODY_BYTES);
+    if (!body.ok) {
       return NextResponse.json({ success: false, error: "Upload too large" }, { status: 413 });
     }
 
-    const formData = await request.formData();
+    const { formData } = body;
     const file = formData.get("file");
 
     if (!isUploadedFile(file)) {
