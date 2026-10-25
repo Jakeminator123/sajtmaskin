@@ -110,7 +110,9 @@ async function processDownload(
       const normalizedZipPath = relativePath.split("\\").join("/");
       const safeName = sanitizeProjectPath(normalizedZipPath);
       if (!safeName) {
-        console.warn(`[API/download] Skipping unsafe zip path: ${relativePath}`);
+        console.warn(
+          `[API/download] Skipping unsafe zip path: ${JSON.stringify(relativePath.slice(0, 200))}`,
+        );
         return;
       }
       if (

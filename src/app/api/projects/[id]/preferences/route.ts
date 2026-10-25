@@ -41,6 +41,12 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+const MAX_PROJECT_ID_CHARS = 200;
+
+function invalidProjectId(id: string): boolean {
+  return !id || id.length > MAX_PROJECT_ID_CHARS;
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? { ...(value as Record<string, unknown>) }
@@ -78,6 +84,9 @@ export async function PATCH(request: NextRequest, routeContext: RouteParams) {
 async function handlePATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    if (invalidProjectId(id)) {
+      return NextResponse.json({ success: false, error: "Invalid project ID" }, { status: 400 });
+    }
     const user = await getCurrentUser(request);
     const sessionId = getSessionIdFromRequest(request);
 
@@ -141,7 +150,7 @@ async function handlePATCH(request: NextRequest, { params }: RouteParams) {
   } catch (error) {
     console.error("[API] /api/projects/[id]/preferences PATCH failed:", error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { success: false, error: "Failed to update project preferences" },
       { status: 500 },
     );
   }
@@ -156,6 +165,9 @@ export async function GET(request: NextRequest, routeContext: RouteParams) {
 async function handleGET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    if (invalidProjectId(id)) {
+      return NextResponse.json({ success: false, error: "Invalid project ID" }, { status: 400 });
+    }
     const user = await getCurrentUser(request);
     const sessionId = getSessionIdFromRequest(request);
 
@@ -184,7 +196,7 @@ async function handleGET(request: NextRequest, { params }: RouteParams) {
   } catch (error) {
     console.error("[API] /api/projects/[id]/preferences GET failed:", error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { success: false, error: "Failed to get project preferences" },
       { status: 500 },
     );
   }

@@ -27,6 +27,7 @@ describe("GET /api/template-image/[templateId]", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("image/svg+xml");
     expect(response.headers.get("x-template-image-fallback")).toBe("1");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(body).toContain("missing_image");
   });
 
@@ -34,6 +35,15 @@ describe("GET /api/template-image/[templateId]", () => {
     const response = await GET(
       new Request("https://example.com/api/template-image/../bad") as never,
       { params: Promise.resolve({ templateId: "../bad" }) },
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it("rejects an oversized template id before template lookup", async () => {
+    const response = await GET(
+      new Request("https://example.com/api/template-image/oversized") as never,
+      { params: Promise.resolve({ templateId: "x".repeat(129) }) },
     );
 
     expect(response.status).toBe(400);

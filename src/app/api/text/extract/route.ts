@@ -107,9 +107,11 @@ export async function POST(request: NextRequest) {
         charCount: extractedText.length,
       });
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Okänt fel";
       console.error("[API/Text/Extract] Error:", error);
-      return NextResponse.json({ success: false, error: message }, { status: 500 });
+      return NextResponse.json(
+        { success: false, error: "Kunde inte läsa PDF-filen" },
+        { status: 500 },
+      );
     }
   });
 }

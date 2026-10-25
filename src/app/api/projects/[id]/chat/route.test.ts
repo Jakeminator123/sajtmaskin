@@ -12,14 +12,19 @@ const getEngineChat = vi.hoisted(() => vi.fn());
 const listEngineChatsByProject = vi.hoisted(() => vi.fn());
 const updateEngineChatProjectId = vi.hoisted(() => vi.fn());
 const getAppProjectByIdForRequest = vi.hoisted(() => vi.fn());
-const dbSelect = vi.hoisted(() => vi.fn());
+const getChatByIdForRequest = vi.hoisted(() => vi.fn());
+const getChatByV0ChatIdForRequest = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/services/projects", () => ({
   getProjectByIdForOwner,
   getProjectData,
 }));
 
-vi.mock("@/lib/tenant", () => ({ getAppProjectByIdForRequest }));
+vi.mock("@/lib/tenant", () => ({
+  getAppProjectByIdForRequest,
+  getChatByIdForRequest,
+  getChatByV0ChatIdForRequest,
+}));
 
 vi.mock("@/lib/auth/auth", () => ({ getCurrentUser }));
 
@@ -33,8 +38,6 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   updateChatProjectId: updateEngineChatProjectId,
 }));
 
-vi.mock("@/lib/db/client", () => ({ db: { select: dbSelect } }));
-
 import { GET } from "./route";
 
 const PROJECT_ID = "proj_1";
@@ -46,15 +49,8 @@ function makeRequest(): Request {
   });
 }
 
-function makeParams() {
-  return { params: Promise.resolve({ id: PROJECT_ID }) };
-}
-
-/** Mimics a resolved drizzle `db.select(...).from(...).where(...).limit(1)` chain. */
-function dbRows(rows: unknown[]) {
-  return {
-    from: () => ({ where: () => ({ limit: () => Promise.resolve(rows) }) }),
-  };
+function makeParams(id = PROJECT_ID) {
+  return { params: Promise.resolve({ id }) };
 }
 
 type ChatResponse = {
@@ -72,7 +68,8 @@ beforeEach(() => {
   listEngineChatsByProject.mockReset();
   updateEngineChatProjectId.mockReset();
   getAppProjectByIdForRequest.mockReset();
-  dbSelect.mockReset();
+  getChatByIdForRequest.mockReset();
+  getChatByV0ChatIdForRequest.mockReset();
 
   getCurrentUser.mockResolvedValue({ id: "user_1" });
   getProjectByIdForOwner.mockResolvedValue({ id: PROJECT_ID });
@@ -80,10 +77,19 @@ beforeEach(() => {
   getEngineChat.mockResolvedValue(null);
   listEngineChatsByProject.mockResolvedValue([]);
   getAppProjectByIdForRequest.mockResolvedValue(null);
-  dbSelect.mockReturnValue(dbRows([]));
+  getChatByIdForRequest.mockResolvedValue(null);
+  getChatByV0ChatIdForRequest.mockResolvedValue(null);
 });
 
 describe("GET /api/projects/[id]/chat — response contract (no v0ChatId)", () => {
+  it("rejects an oversized project id before ownership lookup", async () => {
+    const res = await GET(makeRequest() as never, makeParams("x".repeat(201)));
+
+    expect(res.status).toBe(400);
+    expect(getCurrentUser).not.toHaveBeenCalled();
+    expect(getProjectByIdForOwner).not.toHaveBeenCalled();
+  });
+
   it("returns chatId+internalChatId null and no v0ChatId when project is not accessible", async () => {
     getProjectByIdForOwner.mockResolvedValue(null);
 
@@ -97,9 +103,11 @@ describe("GET /api/projects/[id]/chat — response contract (no v0ChatId)", () =
 
   it("restores from project_data.chat_id using chatId(v0)+internalChatId, no v0ChatId key", async () => {
     getProjectData.mockResolvedValue({ chat_id: "v0_abc" });
-    dbSelect.mockReturnValue(
-      dbRows([{ id: "internal_1", v0ChatId: "v0_abc", createdAt: new Date() }]),
-    );
+    getChatByV0ChatIdForRequest.mockResolvedValue({
+      id: "internal_1",
+      v0ChatId: "v0_abc",
+      createdAt: new Date(),
+    });
 
     const res = await GET(makeRequest() as never, makeParams());
     expect(res.status).toBe(200);
@@ -133,6 +141,22 @@ describe("GET /api/projects/[id]/chat — response contract (no v0ChatId)", () =
 });
 
 describe("GET /api/projects/[id]/chat — cross-tenant remap guard (P11)", () => {
+  it("does not restore a foreign legacy chat referenced by project_data", async () => {
+    getProjectData.mockResolvedValue({ chat_id: "victim_v0_chat" });
+
+    const res = await GET(makeRequest() as never, makeParams());
+    const body = (await res.json()) as ChatResponse;
+
+    expect(res.status).toBe(200);
+    expect(body.chatId).toBeNull();
+    expect(body.internalChatId).toBeNull();
+    expect(getChatByV0ChatIdForRequest).toHaveBeenCalledWith(
+      expect.anything(),
+      "victim_v0_chat",
+      { sessionId: "sess_1" },
+    );
+  });
+
   it("refuses to remap an engine chat the caller does not own (no steal, returns null)", async () => {
     // project_data.chat_id points at an engine chat whose project belongs to
     // ANOTHER tenant (attacker-supplied reference via /save).
@@ -169,5 +193,15 @@ describe("GET /api/projects/[id]/chat — cross-tenant remap guard (P11)", () =>
     expect(body.chatId).toBe("engine_x");
     expect(body.internalChatId).toBe("engine_x");
     expect(updateEngineChatProjectId).toHaveBeenCalledWith("engine_x", PROJECT_ID);
+  });
+
+  it("does not expose lookup failures", async () => {
+    getProjectData.mockResolvedValue({ chat_id: "v0_abc" });
+    getChatByV0ChatIdForRequest.mockRejectedValue(new Error("database host secret"));
+
+    const res = await GET(makeRequest() as never, makeParams());
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ success: false, error: "Failed to get project chat" });
   });
 });

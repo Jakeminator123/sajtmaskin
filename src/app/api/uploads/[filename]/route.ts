@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFileSync, existsSync } from "fs";
+import { readFile } from "node:fs/promises";
 import path from "path";
 import { PATHS } from "@/lib/config";
+
+const MAX_UPLOAD_FILENAME_CHARS = 255;
 
 /**
  * GET /api/uploads/[filename]
@@ -22,7 +24,13 @@ export async function GET(
     // Security: Prevent directory traversal. Substring check is safe here:
     // `/` and `\` are rejected on the same line, so no path segments can
     // exist and the conservative match cannot drop legit route files.
-    if (filename.includes("..") || filename.includes("/") || filename.includes("\\")) { // traversal-substring-allow
+    if (
+      !filename ||
+      filename.length > MAX_UPLOAD_FILENAME_CHARS ||
+      filename.includes("..") || // traversal-substring-allow: single filename; separators rejected below
+      filename.includes("/") ||
+      filename.includes("\\")
+    ) {
       return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
     }
 
@@ -30,24 +38,31 @@ export async function GET(
     const uploadsDir = PATHS.uploads;
     const filePath = path.join(uploadsDir, filename);
 
-    // Check if file exists
-    if (!existsSync(filePath)) {
-      console.error("[API/uploads] File not found:", filePath);
-      return NextResponse.json({ error: "File not found" }, { status: 404 });
+    // Never serve active document types from same-origin local storage. This
+    // matches the scoped /api/uploads/media route and protects legacy files.
+    const ext = path.extname(filename).toLowerCase();
+    if (ext === ".svg" || ext === ".html") {
+      return NextResponse.json({ error: "File type not allowed" }, { status: 415 });
     }
 
-    // Read file
-    const fileBuffer = readFileSync(filePath);
+    // Read asynchronously so large local assets do not block unrelated requests.
+    let fileBuffer: Buffer;
+    try {
+      fileBuffer = await readFile(filePath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return NextResponse.json({ error: "File not found" }, { status: 404 });
+      }
+      throw error;
+    }
 
     // Determine content type from extension
-    const ext = path.extname(filename).toLowerCase();
     const contentTypeMap: Record<string, string> = {
       ".jpg": "image/jpeg",
       ".jpeg": "image/jpeg",
       ".png": "image/png",
       ".gif": "image/gif",
       ".webp": "image/webp",
-      ".svg": "image/svg+xml",
       ".pdf": "application/pdf",
       ".txt": "text/plain",
     };
@@ -55,9 +70,10 @@ export async function GET(
     const contentType = contentTypeMap[ext] || "application/octet-stream";
 
     // Return file with proper headers
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(new Uint8Array(fileBuffer), {
       headers: {
         "Content-Type": contentType,
+        "X-Content-Type-Options": "nosniff",
         "Cache-Control": "public, max-age=31536000, immutable", // 1 year cache
       },
     });

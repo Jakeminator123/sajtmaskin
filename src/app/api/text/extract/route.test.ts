@@ -73,4 +73,21 @@ describe("POST /api/text/extract", () => {
     expect(body.success).toBe(false);
     expect(body.error).toContain("bättre PDF-parser");
   });
+
+  it("does not expose malformed form-data parser failures", async () => {
+    getSessionIdFromRequest.mockReturnValue("sess_1");
+    const req = new NextRequest("http://localhost/api/text/extract", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "not multipart form data",
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({
+      success: false,
+      error: "Kunde inte läsa PDF-filen",
+    });
+  });
 });

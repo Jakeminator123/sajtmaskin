@@ -5,8 +5,8 @@ import { resolvePricingSettings } from "@/lib/db/services/pricing-settings";
 import { validateAndNormalizeUrl, getCanonicalUrlKey } from "@/lib/webscraper";
 import { withRateLimit } from "@/lib/rate-limit";
 import { resolveAuditMode } from "@/lib/audit/audit-tier";
-import type { AuditRequest, AuditResult } from "@/types/audit";
-import { inFlightAudits } from "./in-flight";
+import type { AuditRequest } from "@/types/audit";
+import { cleanupStaleInFlightAudits, inFlightAudits } from "./in-flight";
 import { mapWebsiteAuditException, runWebsiteAudit } from "@/lib/audit/run-website-audit";
 
 export async function POST(request: NextRequest) {
@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
       );
 
       inFlightKey = `${user.id}:${canonicalKey}`;
+      cleanupStaleInFlightAudits();
       const existingAudit = inFlightAudits.get(inFlightKey);
       if (existingAudit) {
         const ageMs = Date.now() - existingAudit.startTime;
@@ -92,8 +93,6 @@ export async function POST(request: NextRequest) {
 
       inFlightAudits.set(inFlightKey, {
         startTime: Date.now(),
-        userId: user.id,
-        promise: Promise.resolve({} as AuditResult),
       });
 
       try {
