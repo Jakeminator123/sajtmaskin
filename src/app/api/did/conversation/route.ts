@@ -34,12 +34,12 @@ const didWebhookMessageSchema = z.object({
 });
 
 const didWebhookSchema = z.object({
-  event_type: z.string().optional(),
-  agent_id: z.string().optional(),
-  chat_id: z.string().optional(),
+  event_type: z.string().max(200).optional(),
+  agent_id: z.string().max(200).optional(),
+  chat_id: z.string().max(200).optional(),
   chat_history: z
     .object({
-      messages: z.array(didWebhookMessageSchema).optional().default([]),
+      messages: z.array(didWebhookMessageSchema).max(50).optional().default([]),
     })
     .optional(),
 });
@@ -54,7 +54,8 @@ function buildTranscript(messages: z.infer<typeof didWebhookMessageSchema>[]): s
   if (!messages.length) return "";
   return messages
     .map((m) => `${m.role === "user" ? "Besökare" : "Avatar"}: ${m.content}`)
-    .join("\n");
+    .join("\n")
+    .slice(0, 12_000);
 }
 
 function normalizePayload(raw: Record<string, unknown>): {

@@ -62,6 +62,27 @@ describe("POST /api/text/extract", () => {
     expect(body.content).toBe("Hej 日本 😀 ny rad");
   });
 
+  it("preserves long text from an accepted PDF instead of imposing a new prompt limit", async () => {
+    getSessionIdFromRequest.mockReturnValue("sess_1");
+    pdfParse.mockResolvedValue({ text: "x".repeat(100_001) });
+
+    const res = await POST(makePdfRequest());
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ success: true, content: "x".repeat(100_001) });
+  });
+
+  it("rejects an oversized declared multipart body before parsing it", async () => {
+    getSessionIdFromRequest.mockReturnValue("sess_1");
+    const req = makePdfRequest();
+    req.headers.set("content-length", String(11 * 1024 * 1024 + 1));
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(413);
+    expect(pdfParse).not.toHaveBeenCalled();
+  });
+
   it("returns unsupported instead of guessing text with the basic PDF regex fallback", async () => {
     getSessionIdFromRequest.mockReturnValue("sess_1");
     pdfParse.mockRejectedValue(new Error("unsupported xref"));

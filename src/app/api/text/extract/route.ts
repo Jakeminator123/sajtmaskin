@@ -4,6 +4,20 @@ import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { withRateLimit } from "@/lib/rate-limit";
 
 const CONTROL_CHARS_EXCEPT_WHITESPACE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
+const MAX_PDF_SIZE = 10 * 1024 * 1024;
+const MAX_PDF_UPLOAD_BODY_BYTES = 11 * 1024 * 1024;
+const MAX_PDF_FILENAME_CHARS = 255;
+
+function isUploadedFile(value: FormDataEntryValue | null): value is File {
+  return (
+    value !== null &&
+    typeof value !== "string" &&
+    typeof value.name === "string" &&
+    typeof value.type === "string" &&
+    typeof value.size === "number" &&
+    typeof value.arrayBuffer === "function"
+  );
+}
 
 /**
  * Text Extraction API
@@ -32,11 +46,27 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const formData = await request.formData();
-      const file = formData.get("file") as File;
+      const contentLength = request.headers.get("content-length");
+      if (
+        contentLength &&
+        /^\d+$/.test(contentLength) &&
+        Number(contentLength) > MAX_PDF_UPLOAD_BODY_BYTES
+      ) {
+        return NextResponse.json(
+          { success: false, error: "Uppladdningen är för stor" },
+          { status: 413 },
+        );
+      }
 
-      if (!file) {
+      const formData = await request.formData();
+      const file = formData.get("file");
+
+      if (!isUploadedFile(file)) {
         return NextResponse.json({ success: false, error: "Ingen fil bifogad" }, { status: 400 });
+      }
+
+      if (!file.name || file.name.length > MAX_PDF_FILENAME_CHARS) {
+        return NextResponse.json({ success: false, error: "Ogiltigt filnamn" }, { status: 400 });
       }
 
       // Check file type
@@ -48,8 +78,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Check file size (max 10MB for PDFs)
-      const maxSize = 10 * 1024 * 1024;
-      if (file.size > maxSize) {
+      if (file.size > MAX_PDF_SIZE) {
         return NextResponse.json(
           { success: false, error: "Filen är för stor (max 10MB)" },
           { status: 400 },
@@ -98,7 +127,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      console.info(`[Text/Extract] Extracted ${extractedText.length} chars from ${file.name}`);
+      console.info(`[Text/Extract] Extracted ${extractedText.length} chars`);
 
       return NextResponse.json({
         success: true,

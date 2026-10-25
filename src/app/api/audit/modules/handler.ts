@@ -8,6 +8,11 @@ import { resolveAuditMode } from "@/lib/audit/audit-tier";
 import type { AuditRequest } from "@/types/audit";
 import { cleanupStaleInFlightAudits, inFlightAudits } from "./in-flight";
 import { mapWebsiteAuditException, runWebsiteAudit } from "@/lib/audit/run-website-audit";
+import { urlForLog } from "@/lib/utils/url-for-log";
+import { readRequestJsonWithLimit } from "@/lib/api/read-limited-body";
+
+const MAX_AUDIT_BODY_BYTES = 16_384;
+const MAX_AUDIT_URL_CHARS = 2_048;
 
 export async function POST(request: NextRequest) {
   return withRateLimit(request, "audit:create", async () => {
@@ -17,17 +22,38 @@ export async function POST(request: NextRequest) {
     let inFlightKey: string | null = null;
 
     try {
-      let body: AuditRequest;
-      try {
-        body = await request.json();
-      } catch {
+      const bodyResult = await readRequestJsonWithLimit<unknown>(request, MAX_AUDIT_BODY_BYTES);
+      if (!bodyResult.ok) {
         return NextResponse.json(
-          { success: false, error: "Ogiltig JSON i förfrågan" },
+          {
+            success: false,
+            error:
+              bodyResult.reason === "too_large"
+                ? "Förfrågan är för stor"
+                : "Ogiltig JSON i förfrågan",
+          },
+          { status: bodyResult.reason === "too_large" ? 413 : 400 },
+        );
+      }
+      if (
+        bodyResult.value === null ||
+        typeof bodyResult.value !== "object" ||
+        Array.isArray(bodyResult.value)
+      ) {
+        return NextResponse.json(
+          { success: false, error: "Ogiltig förfrågan" },
           { status: 400 },
         );
       }
-
-      const { url, auditMode } = body;
+      const body = bodyResult.value as Partial<AuditRequest>;
+      const url = typeof body.url === "string" ? body.url : "";
+      const auditMode = body.auditMode;
+      if (!url || url.length > MAX_AUDIT_URL_CHARS) {
+        return NextResponse.json(
+          { success: false, error: "Ogiltig URL" },
+          { status: 400 },
+        );
+      }
       const resolvedAuditMode = resolveAuditMode("product", auditMode);
       const auditAction: CreditAction =
         resolvedAuditMode === "advanced" ? "audit.advanced" : "audit.basic";
@@ -48,7 +74,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      console.info(`[${requestId}] Audit request for: ${normalizedUrl}`);
+      console.info(`[${requestId}] Audit request for: ${urlForLog(normalizedUrl)}`);
 
       const canonicalKey = getCanonicalUrlKey(normalizedUrl);
 

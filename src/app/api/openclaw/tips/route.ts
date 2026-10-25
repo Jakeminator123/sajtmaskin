@@ -66,7 +66,7 @@ function buildTipsContextBlock(ctx: Record<string, unknown>): string {
   const latestAssistantMessage = normalizeText(ctx.latestAssistantMessage, 800);
   const latestUserMessage = normalizeText(ctx.latestUserMessage, 500);
   const uiSurfaces = Array.isArray(ctx.uiSurfaces)
-    ? ctx.uiSurfaces.map((value) => normalizeText(value, 120)).filter(Boolean)
+    ? ctx.uiSurfaces.slice(0, 20).map((value) => normalizeText(value, 120)).filter(Boolean)
     : DEFAULT_UI_SURFACES;
 
   if (page) parts.push(`Sida: ${page}`);
@@ -294,11 +294,12 @@ export async function POST(req: NextRequest) {
         cost: creditCheck.cost,
       });
     } catch (error) {
+      console.warn("[openclaw/tips] gateway unreachable:", error);
       return NextResponse.json(
         {
           success: false,
           error: "Gateway unreachable",
-          detail: error instanceof Error ? error.message : "unknown",
+          detail: "Upstream request failed",
         },
         { status: 502 },
       );

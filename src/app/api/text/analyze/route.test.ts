@@ -87,6 +87,20 @@ describe("POST /api/text/analyze", () => {
     expect(responsesCreate).not.toHaveBeenCalled();
   });
 
+  it("rejects an oversized declared body before calling OpenAI", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user_1" });
+    const req = new NextRequest("http://localhost/api/text/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "content-length": String(512 * 1024 + 1) },
+      body: "{}",
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(413);
+    expect(responsesCreate).not.toHaveBeenCalled();
+  });
+
   it("returns a failing HTTP status when OpenAI fails", async () => {
     config.features.useResponsesApi = true;
     config.secrets.openaiApiKey = "test-key";

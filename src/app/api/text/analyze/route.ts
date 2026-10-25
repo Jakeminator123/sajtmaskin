@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
+import { readRequestJsonWithLimit } from "@/lib/api/read-limited-body";
 import OpenAI from "openai";
 import { FEATURES, SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -9,6 +10,7 @@ import { workloadResponsesReasoning } from "@/lib/ai-models/workload-reasoning";
 export const maxDuration = 45;
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_OUTPUT_TOKENS = 8_192;
+const MAX_ANALYZE_BODY_BYTES = 512 * 1024;
 const MAX_CONTENT_CHARS = 100_000;
 const MAX_FILENAME_CHARS = 255;
 const MAX_CONTENT_TYPE_CHARS = 100;
@@ -92,7 +94,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
       }
 
-      const body = asRecord(await request.json().catch(() => null));
+      const bodyResult = await readRequestJsonWithLimit<unknown>(request, MAX_ANALYZE_BODY_BYTES);
+      if (!bodyResult.ok && bodyResult.reason === "too_large") {
+        return NextResponse.json(
+          { success: false, error: "Förfrågan är för stor" },
+          { status: 413 },
+        );
+      }
+      const body = bodyResult.ok ? asRecord(bodyResult.value) : null;
       if (!body) {
         return NextResponse.json({ success: false, error: "Ogiltig förfrågan" }, { status: 400 });
       }
