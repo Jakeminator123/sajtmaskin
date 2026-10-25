@@ -11,28 +11,34 @@ import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 
+const MAX_ENV_VARS_PER_REQUEST = 100;
+const MAX_ENV_KEY_CHARS = 128;
+const MAX_ENV_VALUE_CHARS = 100_000;
+const MAX_PROJECT_ID_CHARS = 200;
+const envKeySchema = z
+  .string()
+  .min(1, "Key is required")
+  .max(MAX_ENV_KEY_CHARS)
+  .regex(/^[A-Z][A-Z0-9_]*$/, "Use UPPER_SNAKE_CASE for env keys");
+
 const createEnvVarsSchema = z.object({
   vars: z
     .array(
       z.object({
-        key: z
-          .string()
-          .min(1, "Key is required")
-          .regex(/^[A-Z][A-Z0-9_]*$/, "Use UPPER_SNAKE_CASE for env keys"),
-        value: z.string(),
+        key: envKeySchema,
+        value: z.string().max(MAX_ENV_VALUE_CHARS),
         sensitive: z.boolean().optional(),
       }),
     )
-    .min(1, "At least one env var is required"),
+    .min(1, "At least one env var is required")
+    .max(MAX_ENV_VARS_PER_REQUEST),
   upsert: z.boolean().optional(),
 });
 
 const deleteEnvVarsSchema = z
   .object({
-    ids: z.array(z.string().min(1)).optional(),
-    keys: z
-      .array(z.string().regex(/^[A-Z][A-Z0-9_]*$/, "Use UPPER_SNAKE_CASE for env keys"))
-      .optional(),
+    ids: z.array(z.string().min(1).max(200)).max(MAX_ENV_VARS_PER_REQUEST).optional(),
+    keys: z.array(envKeySchema).max(MAX_ENV_VARS_PER_REQUEST).optional(),
   })
   .refine((value) => (value.ids?.length ?? 0) > 0 || (value.keys?.length ?? 0) > 0, {
     message: "Provide ids or keys",
@@ -53,10 +59,17 @@ async function resolveOwnedAppProject(req: Request, projectId: string) {
   return project ?? null;
 }
 
+function invalidProjectId(projectId: string): boolean {
+  return projectId.length === 0 || projectId.length > MAX_PROJECT_ID_CHARS;
+}
+
 export async function GET(req: Request, ctx: { params: Promise<{ projectId: string }> }) {
   return withRateLimit(req, "projects:env-vars:list", async () => {
     try {
       const { projectId } = await ctx.params;
+      if (invalidProjectId(projectId)) {
+        return NextResponse.json({ error: "Invalid project id" }, { status: 400 });
+      }
       const appProject = await resolveOwnedAppProject(req, projectId);
       if (appProject) {
         const envVars = await getStoredProjectEnvVars(appProject.id);
@@ -70,10 +83,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ projectId: stri
       return NextResponse.json({ error: LEGACY_ENV_SYNC_REMOVED }, { status: 410 });
     } catch (error) {
       errorLog("env-vars", "Failed to list project env vars", error);
-      return NextResponse.json(
-        { error: error instanceof Error ? error.message : "Failed to list env vars" },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: "Failed to list env vars" }, { status: 500 });
     }
   });
 }
@@ -91,6 +101,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ projectId: str
       }
 
       const { projectId } = await ctx.params;
+      if (invalidProjectId(projectId)) {
+        return NextResponse.json({ error: "Invalid project id" }, { status: 400 });
+      }
       const appProject = await resolveOwnedAppProject(req, projectId);
       if (appProject) {
         const envVars = await upsertStoredProjectEnvVars(
@@ -111,10 +124,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ projectId: str
       return NextResponse.json({ error: LEGACY_ENV_SYNC_REMOVED }, { status: 410 });
     } catch (error) {
       errorLog("env-vars", "Failed to create/update project env vars", error);
-      return NextResponse.json(
-        { error: error instanceof Error ? error.message : "Failed to create env vars" },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: "Failed to create env vars" }, { status: 500 });
     }
   });
 }
@@ -132,6 +142,9 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ projectId: s
       }
 
       const { projectId } = await ctx.params;
+      if (invalidProjectId(projectId)) {
+        return NextResponse.json({ error: "Invalid project id" }, { status: 400 });
+      }
       const appProject = await resolveOwnedAppProject(req, projectId);
       if (appProject) {
         const nextEnvVars = await deleteStoredProjectEnvVars(appProject.id, {
@@ -153,10 +166,7 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ projectId: s
       return NextResponse.json({ error: LEGACY_ENV_SYNC_REMOVED }, { status: 410 });
     } catch (error) {
       errorLog("env-vars", "Failed to delete project env vars", error);
-      return NextResponse.json(
-        { error: error instanceof Error ? error.message : "Failed to delete env vars" },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: "Failed to delete env vars" }, { status: 500 });
     }
   });
 }

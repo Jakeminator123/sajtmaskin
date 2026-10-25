@@ -13,37 +13,55 @@ import {
 import { getVersionFiles, parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { runQuickEdit } from "@/lib/gen/quick-edit";
 import type { QuickEditOp } from "@/lib/gen/quick-edit";
+import {
+  PREVIEW_HOST_FILE_BUDGET,
+  isSafeRelativePath,
+} from "../../../../../../../preview-host/src/files-contract.js";
 
 export const runtime = "nodejs";
+
+const editPathSchema = z
+  .string()
+  .min(1)
+  .max(PREVIEW_HOST_FILE_BUDGET.maxPathLength)
+  .refine(isSafeRelativePath, "path must stay inside the project");
+const editContentSchema = z.string().refine(
+  (content) => Buffer.byteLength(content, "utf8") <= PREVIEW_HOST_FILE_BUDGET.maxFileBytes,
+  "content is too large",
+);
+const nonEmptyEditContentSchema = z.string().min(1).refine(
+  (content) => Buffer.byteLength(content, "utf8") <= PREVIEW_HOST_FILE_BUDGET.maxFileBytes,
+  "content is too large",
+);
 
 const opSchema = z.union([
   z.object({
     kind: z.literal("replace_content"),
-    path: z.string().min(1),
-    content: z.string(),
+    path: editPathSchema,
+    content: editContentSchema,
   }),
   z.object({
     kind: z.literal("replace_text"),
-    path: z.string().min(1),
-    find: z.string().min(1),
-    replace: z.string(),
+    path: editPathSchema,
+    find: nonEmptyEditContentSchema,
+    replace: editContentSchema,
     occurrence: z.number().int().positive().optional(),
   }),
   z.object({
     kind: z.literal("delete_file"),
-    path: z.string().min(1),
+    path: editPathSchema,
   }),
   z.object({
     kind: z.literal("delete_jsx_node"),
-    path: z.string().min(1),
+    path: editPathSchema,
     lineNumber: z.number().int().positive(),
     tagName: z.string().max(200),
   }),
 ]);
 
 const bodySchema = z.object({
-  baseVersionId: z.string().min(1).optional(),
-  engineLatestKnownVersionId: z.string().min(1).optional(),
+  baseVersionId: z.string().min(1).max(200).optional(),
+  engineLatestKnownVersionId: z.string().min(1).max(200).optional(),
   summary: z.string().max(300).optional(),
   ops: z.array(opSchema).min(1).max(50),
   /**
@@ -204,10 +222,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         ...(result.previewError ? { previewError: result.previewError } : {}),
       });
     } catch (err) {
-      return NextResponse.json(
-        { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
-        { status: 500 },
-      );
+      console.error("[quick-edit] Unexpected error:", err);
+      return NextResponse.json({ ok: false, error: "Quick edit failed" }, { status: 500 });
     }
   });
 }

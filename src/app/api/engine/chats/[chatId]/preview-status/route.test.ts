@@ -77,6 +77,15 @@ vi.mock("@/lib/gen/preview/lifecycle-telemetry", () => ({
 import { GET } from "./route";
 
 describe("GET preview-status (engine)", () => {
+  it("does not expose unexpected internal errors", async () => {
+    const response = await GET(new Request("http://localhost/api"), {
+      params: Promise.reject(new Error("postgres://user:secret@private-db/internal")),
+    });
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ ok: false, message: "Preview status failed." });
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     afterCallbacks.value = [];
@@ -92,6 +101,23 @@ describe("GET preview-status (engine)", () => {
       { params: Promise.resolve({ chatId: "chat_1" }) },
     );
     expect(res.status).toBe(400);
+  });
+
+  it.each([
+    ["chatId", { chatId: "x".repeat(201) }, "?versionId=v1"],
+    ["versionId", { chatId: "chat_1" }, `?versionId=${"x".repeat(201)}`],
+    ["previewSessionId", { chatId: "chat_1" }, `?versionId=v1&previewSessionId=${"x".repeat(201)}`],
+  ])("rejects an oversized %s before checking preview configuration", async (_field, params, query) => {
+    isTier2PreviewConfigured.mockReturnValue(false);
+
+    const res = await GET(
+      new Request(`http://localhost/api/engine/chats/chat_1/preview-status${query}`),
+      { params: Promise.resolve(params) },
+    );
+
+    expect(res.status).toBe(400);
+    expect(isTier2PreviewConfigured).not.toHaveBeenCalled();
+    expect(getEngineChatByIdForRequest).not.toHaveBeenCalled();
   });
 
   it("returns missing + preview_session_not_configured when tier-2 is disabled", async () => {

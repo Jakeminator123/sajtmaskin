@@ -89,6 +89,19 @@ describe("POST validate-images — autoFix gating of the known-dead map", () => 
     });
   });
 
+  it("does not expose unexpected internal errors", async () => {
+    getEngineVersionForChatByIdForRequest.mockRejectedValue(
+      new Error("postgres://user:secret@private-db/internal"),
+    );
+
+    const response = await POST(postRequest({ versionId: "ver_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "Image validation failed" });
+  });
+
   it("dry-run (autoFix: false) records nothing and writes nothing", async () => {
     const res = await POST(postRequest({ versionId: "ver_1", autoFix: false }), {
       params: Promise.resolve({ chatId: "chat_1" }),

@@ -4,6 +4,9 @@ import { createComment, getCommentsForVersion, resolveComment } from "@/lib/db/s
 
 type RouteParams = { params: Promise<{ chatId: string; versionId: string }> };
 
+const MAX_COMMENT_LENGTH = 5_000;
+const MAX_AUTHOR_NAME_LENGTH = 100;
+
 export async function GET(_request: Request, ctx: RouteParams) {
   try {
     const { chatId, versionId } = await ctx.params;
@@ -15,10 +18,7 @@ export async function GET(_request: Request, ctx: RouteParams) {
     return NextResponse.json({ comments });
   } catch (error) {
     console.error("[API] Failed to list comments:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to list comments" }, { status: 500 });
   }
 }
 
@@ -34,19 +34,24 @@ export async function POST(request: Request, ctx: RouteParams) {
     if (!content) {
       return NextResponse.json({ error: "Missing content" }, { status: 400 });
     }
+    if (content.length > MAX_COMMENT_LENGTH) {
+      return NextResponse.json({ error: "Comment is too long" }, { status: 400 });
+    }
+    const authorName =
+      typeof body?.authorName === "string" ? body.authorName.trim() || undefined : undefined;
+    if (authorName && authorName.length > MAX_AUTHOR_NAME_LENGTH) {
+      return NextResponse.json({ error: "Author name is too long" }, { status: 400 });
+    }
     const comment = await createComment({
       versionId: scopedVersion.version.id,
       chatId: scopedVersion.chat.id,
       content,
-      authorName: typeof body?.authorName === "string" ? body.authorName.trim() || undefined : undefined,
+      authorName,
     });
     return NextResponse.json({ comment });
   } catch (error) {
     console.error("[API] Failed to create comment:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to create comment" }, { status: 500 });
   }
 }
 
@@ -62,16 +67,13 @@ export async function PATCH(request: Request, ctx: RouteParams) {
     if (!commentId) {
       return NextResponse.json({ error: "Missing commentId" }, { status: 400 });
     }
-    const updated = await resolveComment(commentId);
+    const updated = await resolveComment(commentId, scopedVersion.version.id);
     if (!updated) {
       return NextResponse.json({ error: "Comment not found" }, { status: 404 });
     }
     return NextResponse.json({ comment: updated });
   } catch (error) {
     console.error("[API] Failed to resolve comment:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to resolve comment" }, { status: 500 });
   }
 }
