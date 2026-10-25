@@ -10,21 +10,35 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { registerUser } from "@/lib/auth/auth";
-import {
-  createVerificationToken,
-  isAdminEmail,
-} from "@/lib/db/services/users";
+import { createVerificationToken, isAdminEmail } from "@/lib/db/services/users";
 import { sendVerificationEmail } from "@/lib/email/send";
 import { withRateLimit } from "@/lib/rate-limit";
 import { URLS } from "@/lib/config";
 import { sanitizeAuthReturnTo } from "@/lib/auth/auth-return";
+import { readRequestJsonWithLimit } from "@/lib/api/read-limited-body";
+
+const MAX_EMAIL_LENGTH = 254;
+const MAX_PASSWORD_LENGTH = 1_024;
+const MAX_NAME_LENGTH = 200;
+const MAX_RETURN_TO_LENGTH = 2_048;
+const MAX_REGISTER_BODY_BYTES = 8_192;
 
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "auth:register", async () => {
     try {
-      const body = await req.json().catch(() => null);
+      const parsedBody = await readRequestJsonWithLimit<unknown>(req, MAX_REGISTER_BODY_BYTES);
+      if (!parsedBody.ok && parsedBody.reason === "too_large") {
+        return NextResponse.json(
+          { success: false, error: "För stor request body" },
+          { status: 413 },
+        );
+      }
+      const body = parsedBody.ok ? parsedBody.value : null;
       if (!body || typeof body !== "object") {
-        return NextResponse.json({ success: false, error: "Ogiltig request body" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, error: "Ogiltig request body" },
+          { status: 400 },
+        );
       }
       const { email, password, name, returnTo } = body as {
         email?: string;
@@ -32,15 +46,25 @@ export async function POST(req: NextRequest) {
         name?: string;
         returnTo?: string;
       };
-      const safeReturnTo = sanitizeAuthReturnTo(returnTo, URLS.baseUrl);
 
       // Validate input
-      if (!email || !password) {
+      if (
+        typeof email !== "string" ||
+        typeof password !== "string" ||
+        !email.trim() ||
+        !password ||
+        email.length > MAX_EMAIL_LENGTH ||
+        password.length > MAX_PASSWORD_LENGTH ||
+        (name !== undefined && (typeof name !== "string" || name.length > MAX_NAME_LENGTH)) ||
+        (returnTo !== undefined &&
+          (typeof returnTo !== "string" || returnTo.length > MAX_RETURN_TO_LENGTH))
+      ) {
         return NextResponse.json(
           { success: false, error: "E-post och lösenord krävs" },
           { status: 400 },
         );
       }
+      const safeReturnTo = sanitizeAuthReturnTo(returnTo, URLS.baseUrl);
 
       const normalizedEmail = email.trim().toLowerCase();
       if (isAdminEmail(normalizedEmail)) {
@@ -63,11 +87,8 @@ export async function POST(req: NextRequest) {
       // Regular users must verify by email before login.
       let emailVerificationSent = true;
       let emailVerificationReason:
-        | "provider_missing"
-        | "recipient_restricted"
-        | "sender_not_verified"
-        | "send_failed"
-        | null = null;
+        "provider_missing" | "recipient_restricted" | "sender_not_verified" | "send_failed" | null =
+        null;
       try {
         const token = await createVerificationToken(result.user.id);
         const sendResult = await sendVerificationEmail(normalizedEmail, token, {
@@ -101,7 +122,7 @@ export async function POST(req: NextRequest) {
             ? "Konto skapat, men e-posttjänsten är i testläge. Verifiera domänen i Resend för att skicka till andra mottagare."
             : emailVerificationReason === "sender_not_verified"
               ? "Konto skapat, men avsändaradressen är inte verifierad i Resend."
-          : "Konto skapat, men verifieringsmail kunde inte skickas. Försök igen via 'Skicka verifieringsmail igen'.";
+              : "Konto skapat, men verifieringsmail kunde inte skickas. Försök igen via 'Skicka verifieringsmail igen'.";
 
       return NextResponse.json({
         success: true,

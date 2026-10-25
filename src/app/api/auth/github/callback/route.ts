@@ -10,6 +10,10 @@ import {
 import { FEATURES, SECRETS, URLS } from "@/lib/config";
 import { updateUserGitHub } from "@/lib/db/services/users";
 
+const MAX_OAUTH_CODE_CHARS = 4_096;
+const MAX_GITHUB_ACCESS_TOKEN_CHARS = 4_096;
+const MAX_GITHUB_LOGIN_CHARS = 100;
+
 interface GitHubTokenResponse {
   access_token?: string;
   token_type?: string;
@@ -118,15 +122,15 @@ export async function GET(request: NextRequest) {
   const returnTo = flow.payload.returnTo;
 
   if (providerError) {
-    console.error("[GitHub OAuth] Error from GitHub:", providerError);
+    console.error("[GitHub OAuth] GitHub returned an OAuth error");
     return finishOAuthResponse(
-      redirectWithGitHubError(origin, returnTo, providerError),
+      redirectWithGitHubError(origin, returnTo, "provider_error"),
       request,
       true,
     );
   }
 
-  if (!code) {
+  if (!code || code.length > MAX_OAUTH_CODE_CHARS) {
     console.error("[GitHub OAuth] No authorization code received");
     return finishOAuthResponse(
       redirectWithGitHubError(origin, returnTo, "no_code"),
@@ -174,17 +178,18 @@ export async function GET(request: NextRequest) {
     );
 
     const tokenData: GitHubTokenResponse = await tokenResponse.json();
-    if (tokenData.error || !tokenData.access_token) {
+    if (
+      tokenData.error ||
+      typeof tokenData.access_token !== "string" ||
+      tokenData.access_token.length === 0 ||
+      tokenData.access_token.length > MAX_GITHUB_ACCESS_TOKEN_CHARS
+    ) {
       console.error(
-        "[GitHub OAuth] Token exchange failed:",
-        tokenData.error ?? `HTTP ${tokenResponse.status}`,
+        "[GitHub OAuth] Token exchange failed with status",
+        tokenResponse.status,
       );
       return finishOAuthResponse(
-        redirectWithGitHubError(
-          origin,
-          returnTo,
-          tokenData.error ?? "token_exchange_failed",
-        ),
+        redirectWithGitHubError(origin, returnTo, "token_exchange_failed"),
         request,
         true,
       );
@@ -207,6 +212,18 @@ export async function GET(request: NextRequest) {
     }
 
     const githubUser: GitHubUser = await userResponse.json();
+    if (
+      typeof githubUser.login !== "string" ||
+      githubUser.login.length === 0 ||
+      githubUser.login.length > MAX_GITHUB_LOGIN_CHARS
+    ) {
+      console.error("[GitHub OAuth] Invalid user info response");
+      return finishOAuthResponse(
+        redirectWithGitHubError(origin, returnTo, "invalid_user_response"),
+        request,
+        true,
+      );
+    }
     await updateUserGitHub(
       user.id,
       tokenData.access_token,

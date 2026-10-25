@@ -6,7 +6,7 @@
 
 import { NextResponse } from "next/server";
 import { getRedis } from "@/lib/data/redis";
-import { FEATURES, REDIS_CONFIG } from "@/lib/config";
+import { FEATURES } from "@/lib/config";
 
 export async function GET() {
   const imageGenReason = FEATURES.useBuilderImageGenerations
@@ -32,23 +32,10 @@ export async function GET() {
     try {
       const redis = getRedis();
       if (redis) {
-        const testKey = "health:test";
-        const testValue = `test-${Date.now()}`;
-
-        // Write test
-        await redis.setex(testKey, 10, testValue);
-
-        // Read test
-        const readValue = await redis.get(testKey);
-
-        // Delete test
-        await redis.del(testKey);
+        const pong = await redis.ping();
 
         checks.redis = {
-          status: "connected",
-          host: REDIS_CONFIG.host,
-          port: REDIS_CONFIG.port,
-          writeTest: readValue === testValue ? "OK" : "FAILED",
+          status: pong === "PONG" ? "connected" : "degraded",
         };
       } else {
         checks.redis = {
@@ -57,9 +44,9 @@ export async function GET() {
         };
       }
     } catch (error) {
+      console.error("[API/health] Redis check failed:", error);
       checks.redis = {
         status: "error",
-        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   } else {
@@ -69,5 +56,7 @@ export async function GET() {
     };
   }
 
-  return NextResponse.json(checks);
+  return NextResponse.json(checks, {
+    headers: { "Cache-Control": "no-store" },
+  });
 }
