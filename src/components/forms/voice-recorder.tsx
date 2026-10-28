@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useVoiceRecorder } from "./use-voice-recorder";
 import { Mic, MicOff, Loader2, Square, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import styles from "./voice-recorder.module.css";
@@ -25,11 +25,16 @@ export function VoiceRecorder({
   compact = false,
   disabled = false,
 }: VoiceRecorderProps) {
-  const [isRecording, setIsRecording] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [audioLevel, setAudioLevel] = useState(0);
+  const {
+    isStarting,
+    isRecording,
+    isTranscribing,
+    recordingTime,
+    audioLevel,
+    error,
+    startRecording,
+    stopRecording,
+  } = useVoiceRecorder({ onTranscript, onRecordingChange, language, disabled });
   const audioLevelStep = Math.max(0, Math.min(10, Math.round(audioLevel * 10)));
   const levelClasses = [
     styles.level0,
@@ -53,151 +58,6 @@ export function VoiceRecorder({
   ];
   const levelClass = levelClasses[audioLevelStep];
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const animationRef = useRef<number | null>(null);
-  const transcribeAudioRef = useRef<((audioBlob: Blob) => Promise<void>) | null>(null);
-
-  // Start recording
-  const startRecording = useCallback(async () => {
-    try {
-      setError(null);
-
-      // Request microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100,
-        },
-      });
-
-      // Setup audio analysis for visual feedback
-      const audioContext = new AudioContext();
-      const analyser = audioContext.createAnalyser();
-      const source = audioContext.createMediaStreamSource(stream);
-      source.connect(analyser);
-      analyser.fftSize = 256;
-      analyserRef.current = analyser;
-
-      // Animate audio level
-      const updateAudioLevel = () => {
-        if (analyserRef.current) {
-          const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-          analyserRef.current.getByteFrequencyData(dataArray);
-          const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-          setAudioLevel(average / 255);
-        }
-        animationRef.current = requestAnimationFrame(updateAudioLevel);
-      };
-      updateAudioLevel();
-
-      // Setup MediaRecorder
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: "audio/webm;codecs=opus",
-      });
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        // Stop audio analysis
-        if (animationRef.current) {
-          cancelAnimationFrame(animationRef.current);
-        }
-        setAudioLevel(0);
-
-        // Stop all tracks
-        stream.getTracks().forEach((track) => track.stop());
-
-        // Create blob from chunks
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: "audio/webm",
-        });
-
-        // Transcribe the audio
-        await transcribeAudioRef.current?.(audioBlob);
-      };
-
-      // Start recording
-      mediaRecorder.start(1000); // Collect data every second
-      setIsRecording(true);
-      setRecordingTime(0);
-      onRecordingChange?.(true);
-
-      // Start timer
-      timerRef.current = setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
-      }, 1000);
-    } catch (err) {
-      console.error("Failed to start recording:", err);
-      if (err instanceof Error && err.name === "NotAllowedError") {
-        setError("Mikrofon-åtkomst nekad. Tillåt mikrofonen i webbläsaren.");
-      } else {
-        setError("Kunde inte starta inspelning. Kontrollera din mikrofon.");
-      }
-    }
-  }, [onRecordingChange]);
-
-  // Transcribe audio using Whisper API
-  const transcribeAudio = useCallback(
-    async (audioBlob: Blob) => {
-      setIsTranscribing(true);
-      setError(null);
-
-      try {
-        const formData = new FormData();
-        formData.append("audio", audioBlob, "recording.webm");
-        formData.append("language", language);
-
-        const response = await fetch("/api/transcribe", {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = await response.json();
-
-        if (!response.ok || !data.success) {
-          throw new Error(data.error || "Transkribering misslyckades");
-        }
-
-        if (data.transcript) {
-          onTranscript(data.transcript);
-        } else {
-          setError("Inget tal upptäcktes. Försök igen.");
-        }
-      } catch (err) {
-        console.error("Transcription error:", err);
-        setError(err instanceof Error ? err.message : "Kunde inte transkribera. Försök igen.");
-      } finally {
-        setIsTranscribing(false);
-      }
-    },
-    [language, onTranscript],
-  );
-  transcribeAudioRef.current = transcribeAudio;
-
-  // Stop recording
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      onRecordingChange?.(false);
-
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    }
-  }, [isRecording, onRecordingChange]);
-
   // Format recording time
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -212,13 +72,15 @@ export function VoiceRecorder({
         <button
           type="button"
           onClick={isRecording ? stopRecording : startRecording}
-          disabled={isTranscribing || disabled}
+          disabled={!isRecording && (isStarting || isTranscribing || disabled)}
           title={
-            isTranscribing
-              ? "Transkriberar..."
-              : isRecording
-                ? `Stoppa inspelning (${formatTime(recordingTime)})`
-                : "Spela in röstmeddelande"
+            isStarting
+              ? "Väntar på mikrofon..."
+              : isTranscribing
+                ? "Transkriberar..."
+                : isRecording
+                  ? `Stoppa inspelning (${formatTime(recordingTime)})`
+                  : "Spela in röstmeddelande"
           }
           className={`relative inline-flex h-7 w-7 items-center justify-center rounded-md border transition-all ${
             isRecording
@@ -228,7 +90,7 @@ export function VoiceRecorder({
                 : "border-border text-muted-foreground hover:bg-accent hover:text-foreground"
           } disabled:opacity-50`}
         >
-          {isTranscribing ? (
+          {isStarting || isTranscribing ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : isRecording ? (
             <Square className="h-3 w-3 fill-current" />
@@ -244,7 +106,9 @@ export function VoiceRecorder({
 
         {/* Show timer when recording */}
         {isRecording && (
-          <span className="text-xs font-mono text-red-400">{formatTime(recordingTime)}</span>
+          <span className="text-xs font-mono text-red-400">
+            {formatTime(recordingTime)}
+          </span>
         )}
 
         {/* Compact audio bars */}
@@ -280,7 +144,7 @@ export function VoiceRecorder({
         <Button
           type="button"
           onClick={isRecording ? stopRecording : startRecording}
-          disabled={isTranscribing || disabled}
+          disabled={!isRecording && (isStarting || isTranscribing || disabled)}
           variant={isRecording ? "destructive" : "outline"}
           size="lg"
           className={`relative min-w-[180px] gap-2 transition-all ${
@@ -289,10 +153,10 @@ export function VoiceRecorder({
               : "border-brand-teal/50 text-brand-teal hover:bg-brand-teal/10 hover:text-brand-teal/80"
           }`}
         >
-          {isTranscribing ? (
+          {isStarting || isTranscribing ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" />
-              Transkriberar...
+              {isStarting ? "Väntar på mikrofon..." : "Transkriberar..."}
             </>
           ) : isRecording ? (
             <>
@@ -338,7 +202,7 @@ export function VoiceRecorder({
       )}
 
       {/* Recording hint */}
-      {!isRecording && !isTranscribing && !error && (
+      {!isStarting && !isRecording && !isTranscribing && !error && (
         <p className="text-xs text-gray-500">
           <Volume2 className="mr-1 inline h-3 w-3" />
           Beskriv din webbplats med rösten – vi transkriberar automatiskt
