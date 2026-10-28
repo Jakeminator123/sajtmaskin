@@ -338,6 +338,12 @@ export function SajtagentProvider({
       isStreaming: isAnyStreaming,
     };
     const live = useOpenClawStore.getState();
+    // Continuation owns this build result. Do not enqueue a second summary
+    // once its own agent reply settles and releases the streaming lock.
+    if (!isAnyStreaming && live.armedContinuation) {
+      track.streamed = false;
+      return;
+    }
     const decision = decidePostBuildDigest({
       next,
       enabled: digestEnabled,
@@ -363,6 +369,7 @@ export function SajtagentProvider({
     activeVersionIsLatest,
     isAnyStreaming,
     digestEnabled,
+    agentStreaming,
   ]);
 
   const value = useMemo<SajtagentContextValue>(

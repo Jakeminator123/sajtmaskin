@@ -82,6 +82,12 @@ describe("resolveComposerRoute", () => {
     ).toBe("agent");
   });
 
+  it("håller svar på byggmotorns motfråga/plan i samma flöde, med Fråga som uttryckligt undantag", () => {
+    expect(resolveComposerRoute({ ...base, text: "Ja gärna", builderAwaitingReply: true })).toBe("build");
+    expect(resolveComposerRoute({ ...base, builderAwaitingReply: true })).toBe("build");
+    expect(resolveComposerRoute({ ...base, mode: "agent", builderAwaitingReply: true })).toBe("agent");
+  });
+
   it("går alltid till byggmotorn utan chatt, med bilagor eller utan agent", () => {
     expect(resolveComposerRoute({ ...base, hasChat: false })).toBe("build");
     expect(resolveComposerRoute({ ...base, hasAttachments: true })).toBe("build");

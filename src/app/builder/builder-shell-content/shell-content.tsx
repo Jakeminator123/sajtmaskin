@@ -418,6 +418,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               isPreparingPrompt={vm.isPreparingPrompt}
               mediaEnabled={vm.mediaEnabled}
               continuePlanMode={Boolean(latestPendingReply?.planMode)}
+              builderAwaitingReply={vm.isAwaitingInput || Boolean(latestPendingReply)}
               followUpBaseInfo={followUpBaseInfo}
               selectedModelTier={vm.selectedModelTier}
               onSelectedModelTierChange={vm.setSelectedModelTier}

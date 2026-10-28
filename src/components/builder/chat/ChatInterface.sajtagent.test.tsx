@@ -160,4 +160,17 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     await typeAndSend("Vad tycker du om startsidan?");
     expect(onSendMessage).toHaveBeenCalledTimes(1);
   });
+
+  it.each(["plan", "question"])("behåller ett svar på en väntande %s hos byggmotorn", async (kind) => {
+    const agent = makeAgent();
+    sajtagent.value = agent;
+    const onSendMessage = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
+    render(<ChatInterface chatId="chat_1" onSendMessage={onSendMessage}
+      continuePlanMode={kind === "plan"} builderAwaitingReply={kind === "question"} />);
+    await typeAndSend("Blått, fungerar det?");
+    expect(agent.send).not.toHaveBeenCalled();
+    expect(onSendMessage).toHaveBeenCalledWith("Blått, fungerar det?", expect.objectContaining({
+      planMode: kind === "plan" ? true : undefined,
+    }));
+  });
 });
