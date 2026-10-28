@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ArrowLeft, ArrowRight, ChevronDown } from "lucide-react";
 import { FaqPageJsonLd } from "@/components/layout/json-ld";
 import { Button } from "@/components/ui/button";
-import { getSeoLandingHubLinks } from "@/lib/seo-landing-pages/registry";
+import { getSeoLandingCompareLinks, getSeoLandingHubLinks } from "@/lib/seo-landing-pages/registry";
 
 const faqs = [
   {
@@ -149,6 +149,21 @@ export default function FAQPage() {
             </h2>
             <ul className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
               {getSeoLandingHubLinks().map((link) => (
+                <li key={link.slug}>
+                  <Link
+                    href={link.href}
+                    className="text-foreground text-sm underline-offset-4 hover:underline"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <h2 className="text-foreground font-(--font-heading) mt-8 text-xl tracking-tight">
+              Jämför verktyg
+            </h2>
+            <ul className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
+              {getSeoLandingCompareLinks().map((link) => (
                 <li key={link.slug}>
                   <Link
                     href={link.href}

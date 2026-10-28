@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { LandingFooter } from "@/components/landing-v2/landing-footer";
 import { SiteBackground } from "@/components/layout/site-background";
 import { Button } from "@/components/ui/button";
+import { ToolComparisonTable } from "@/lib/seo-landing-pages/tool-comparison-table";
 import {
   getReadyRelatedSeoLandingSlugs,
   getSeoLandingEntry,
@@ -71,6 +72,10 @@ const STEPS = [
 
 export const FAQS = [
   {
+    q: "Vad är ett alternativ till WordPress?",
+    a: "Ett annat arbetssätt: visuell builder (Wix, Squarespace), AI-builder som Sajtmaskin, eller kod från start. WordPress är rätt när plugins och redaktörsflöden är poängen. Ett alternativ passar när ni vill ha snabbare utkast och mindre drift.",
+  },
+  {
     q: "Måste jag lämna WordPress?",
     a: "Nej. Om ekosystem och plugins är poängen är WordPress ofta rätt. Ett annat arbetssätt är aktuellt när behoven är enklare.",
   },
@@ -83,8 +88,16 @@ export const FAQS = [
     a: "wordpress.org är den fria GPL-programvaran ni installerar hos en host ni väljer. WordPress.com är Automattic’s hostade tjänst, med egna planer. Påståenden om den ena gäller inte automatiskt den andra. Inga belopp här.",
   },
   {
-    q: "Kan ni migrera automatiskt?",
-    a: "Nej. Planera innehåll, media och SEO-titlar som ett projektsteg. I Sajtmaskin kan inloggad ägare exportera ZIP eller GitHub — inte databas, nycklar eller domän.",
+    q: "Finns det WordPress-alternativ utan månadsavgift?",
+    a: "Ja, beroende på modell. wordpress.org är gratis programvara men ni betalar hosting. Sajtmaskin säljer credits som engångsköp, utan prenumeration — credits går inte ut. Aktuella paket finns på prissidan. Wix och Squarespace är typiskt prenumeration.",
+  },
+  {
+    q: "Får jag riktig kod om jag byter från WordPress?",
+    a: "I Sajtmaskin får ni ett utkast i Next.js och React. Inloggad ägare kan exportera ZIP eller GitHub — inte databas, nycklar eller domän. Vi lovar ingen automatisk migration från WordPress.",
+  },
+  {
+    q: "Kan jag ha egen domän utan WordPress?",
+    a: "Ja. I Sajtmaskin kan egen domän kopplas med HTTPS. Utan egen adress får en publicerad sajt en Vercel-URL. Koppling kan vara stängd i vissa miljöer. Preview är inte publicering.",
   },
   {
     q: "Vem har skrivit sidan?",
@@ -171,6 +184,12 @@ export function WordpressAlternativContent() {
           </Link>
           <div className="flex items-center gap-4">
             <Link
+              href="/priser"
+              className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:inline"
+            >
+              Priser
+            </Link>
+            <Link
               href="/teknik"
               className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:inline"
             >
@@ -203,9 +222,9 @@ export function WordpressAlternativContent() {
                   {entry.plannedH1}
                 </h1>
                 <p className="mt-5 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground md:text-lg">
-                  WordPress är starkt när ni vill ha ekosystem och plugins. Ett annat arbetssätt
-                  kan passa bättre när ni vill ha snabbare första utkast med mindre driftansvar.
-                  Den här sidan är skriven av Sajtmaskin.
+                  WordPress är starkt när ni vill ha ekosystem och plugins. Ett alternativ till
+                  WordPress kan passa bättre när ni vill ha snabbare första utkast med mindre
+                  driftansvar. Den här sidan är skriven av Sajtmaskin.
                 </p>
                 <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
                   <CtaButton>Prova med er beskrivning</CtaButton>
@@ -222,6 +241,8 @@ export function WordpressAlternativContent() {
               <ComparePreview />
             </div>
           </section>
+
+          <ToolComparisonTable heading="Sajtmaskin, WordPress, Wix och Squarespace i samma tabell" />
 
           <section className="border-t border-border/15 px-6 py-16 md:py-24">
             <div className="mx-auto grid max-w-6xl gap-3 lg:grid-cols-2">
@@ -348,7 +369,11 @@ export function WordpressAlternativContent() {
                 <Link href="/priser" className="text-foreground underline-offset-4 hover:underline">
                   prissidan
                 </Link>
-                .
+                . Guiderna på{" "}
+                <Link href="/blogg" className="text-foreground underline-offset-4 hover:underline">
+                  bloggen
+                </Link>{" "}
+                tar upp kostnad och AI-flödet mer i prosa.
               </p>
             </div>
           </section>
@@ -382,7 +407,22 @@ export function WordpressAlternativContent() {
                   Relaterat
                 </p>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                  Verktygstyperna, no-code-sidan och AI-flödet ligger på egna sidor.
+                  Verktygstyperna, andra varumärken och företagssidan ligger på egna URL:er. För
+                  branschsidor, se{" "}
+                  <Link
+                    href="/hemsida-konsult"
+                    className="text-foreground underline-offset-4 hover:underline"
+                  >
+                    hemsida för konsult
+                  </Link>{" "}
+                  eller{" "}
+                  <Link
+                    href="/hemsida-hantverkare"
+                    className="text-foreground underline-offset-4 hover:underline"
+                  >
+                    hemsida för hantverkare
+                  </Link>
+                  .
                 </p>
                 <ul className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
                   {readyRelated.map((slug) => (

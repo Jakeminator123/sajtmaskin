@@ -47,11 +47,16 @@ describe("WixAlternativContent", () => {
     expect(body).not.toMatch(/\d+\s*kr\b/i);
     expect(body).not.toMatch(/\b(?:49|99|179)\b/);
     expect(screen.getByRole("link", { name: "prissidan" }).getAttribute("href")).toBe("/priser");
-    expect(within(screen.getByRole("main")).queryByRole("link", { name: /wordpress|lovable/i })).toBeNull();
+    expect(within(screen.getByRole("main")).queryByRole("link", { name: /lovable/i })).toBeNull();
 
     const readyRelated = readyRelatedSeoLandingSlugs(entry.relatedSlugs);
     expect(readyRelated).toEqual(
-      expect.arrayContaining(["hemsideprogram", "ai-hemsidebyggare", "skapa-hemsida"]),
+      expect.arrayContaining([
+        "hemsideprogram",
+        "wordpress-alternativ",
+        "ai-hemsidebyggare",
+        "skapa-hemsida",
+      ]),
     );
     for (const slug of readyRelated) {
       const related = getSeoLandingEntry(slug);

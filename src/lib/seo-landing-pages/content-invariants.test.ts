@@ -31,6 +31,9 @@ function resolvedContent(slug: string) {
   if (content.includes("ComparisonLandingContent")) {
     return `${content}\n${readFileSync(join(LIB_DIR, "comparison-landing.tsx"), "utf8")}`;
   }
+  if (content.includes("ToolComparisonTable")) {
+    return `${content}\n${readFileSync(join(LIB_DIR, "tool-comparison-table.tsx"), "utf8")}\n${readFileSync(join(LIB_DIR, "tool-comparison.ts"), "utf8")}`;
+  }
   return content;
 }
 
