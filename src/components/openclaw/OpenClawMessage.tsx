@@ -226,7 +226,8 @@ export function OpenClawMessage({
   // A row hydrated from history must never act again: its cards become a
   // read-only receipt. Powers are default-on, so a clickable «Starta bygget»
   // from last week would otherwise re-run a build on reload.
-  const interactive = !isUser && !msg.hydrated;
+  const interactive = !isUser && !msg.hydrated && !streaming &&
+    msg.delivery !== "streaming" && msg.delivery !== "interrupted";
   const historicAction =
     !isUser &&
     msg.hydrated &&
@@ -286,6 +287,12 @@ export function OpenClawMessage({
 
         {historicAction ? (
           <OpenClawHistoricActionChip key="historic_action" action={historicAction} />
+        ) : null}
+
+        {!isUser && !msg.hydrated && msg.delivery === "interrupted" && action ? (
+          <p className="text-muted-foreground text-xs" role="status">
+            Svaret avbröts. Förslaget har inte körts.
+          </p>
         ) : null}
 
         {interactive && action?.type === "fill_text_field" ? (
