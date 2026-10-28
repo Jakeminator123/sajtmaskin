@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   bindAdsClickParamPassthrough,
   captureAdsClickParamsFromLocation,
@@ -11,6 +11,7 @@ import {
   hasAcceptedCookieConsent,
   isGoogleAdsPending,
   noteAccountCreatedFromLocation,
+  noteAccountCreatedIfSignup,
   noteBuilderStartFromLocation,
   subscribeCookieConsent,
   syncGoogleAdsConsent,
@@ -37,6 +38,8 @@ function subscribeConsent(onStoreChange: () => void): () => void {
 export function GoogleAdsTag({ nonce }: { nonce?: string }) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const signup = searchParams.get("signup");
   const consentAccepted = useSyncExternalStore(
     subscribeConsent,
     hasAcceptedCookieConsent,
@@ -51,13 +54,20 @@ export function GoogleAdsTag({ nonce }: { nonce?: string }) {
     });
   }, [pathname, router]);
 
+  // App Router snapshot — survive child effects that router.replace away signup=1
+  // before window.location.search is read. Document URL is the fallback.
+  useEffect(() => {
+    if (isAdminAppPath(pathname)) return;
+    noteAccountCreatedIfSignup(signup);
+    noteAccountCreatedFromLocation();
+  }, [pathname, signup]);
+
   useEffect(() => {
     const config = getGoogleAdsConfig();
     if (!isGoogleAdsEnabled(config) || !config.adsId) return;
     if (isAdminAppPath(pathname)) return;
 
     noteBuilderStartFromLocation(pathname);
-    noteAccountCreatedFromLocation();
     let stopped = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
     let delay = 1_000;
