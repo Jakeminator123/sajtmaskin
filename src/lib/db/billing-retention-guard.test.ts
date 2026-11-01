@@ -114,6 +114,20 @@ describe("countProtectedBillingRows", () => {
 });
 
 describe("countProtectedBillingRows — kundraderna räknas där användare raderas", () => {
+  it("begränsar en riktad kontoradering till just den användarens bokföring", async () => {
+    await countProtectedBillingRows({ kind: "userIds", userIds: ["person"] });
+    const { sql: text, params } = compiledQuery();
+    expect(countSubqueries(text)).toBe(4);
+    expect(text).toContain("s.user_id = ANY(");
+    expect(text).toContain("c.user_id = ANY(");
+    expect(params).toEqual([["person"], ["person"], ["person"], ["person"]]);
+  });
+
+  it("kör ingen global fråga för en tom användarlista", async () => {
+    await countProtectedBillingRows({ kind: "userIds", userIds: [] });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it("räknar dem för nollställningen och för användarrensningen", async () => {
     // Fyra delfrågor: abonnemang, grants, jobb OCH kundrader.
     const scopes: BillingRetentionScope[] = [
