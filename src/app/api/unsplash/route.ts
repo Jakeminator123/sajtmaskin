@@ -1,4 +1,6 @@
 import { FEATURES, SECRETS } from "@/lib/config";
+import { readRequestJsonWithLimit } from "@/lib/api/read-limited-body";
+import { withRateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
@@ -52,14 +54,19 @@ interface UnsplashSearchResponse {
 }
 
 const MAX_UNSPLASH_IMAGES = 12;
+const MAX_SEARCH_TERM_CHARS = 80;
+const MAX_CUSTOM_SEARCH_TERMS = 5;
+const MAX_UNSPLASH_SEARCH_BODY_BYTES = 8_192;
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
 
 function clampImageCount(value: unknown, fallback = 5): number {
   const count =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? parseInt(value, 10)
-        : fallback;
+    typeof value === "number" ? value : typeof value === "string" ? parseInt(value, 10) : fallback;
 
   if (!Number.isFinite(count)) return fallback;
   return Math.min(MAX_UNSPLASH_IMAGES, Math.max(1, Math.floor(count)));
@@ -109,10 +116,43 @@ function getSearchTerms(industry: string, customTerms?: string[]): string[] {
   return industryTerms.length > 0 ? industryTerms : defaultTerms;
 }
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { industry, customTerms } = body;
+    const bodyResult = await readRequestJsonWithLimit<unknown>(req, MAX_UNSPLASH_SEARCH_BODY_BYTES);
+    const body = bodyResult.ok ? asRecord(bodyResult.value) : null;
+    if (!body) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: bodyResult.ok ? "Invalid request body" : "Invalid or oversized request body",
+        },
+        { status: 400 },
+      );
+    }
+    if (
+      (body.industry !== undefined &&
+        body.industry !== null &&
+        typeof body.industry !== "string") ||
+      (body.customTerms !== undefined && !Array.isArray(body.customTerms)) ||
+      (Array.isArray(body.customTerms) &&
+        body.customTerms.some((term) => typeof term !== "string")) ||
+      (body.count !== undefined && typeof body.count !== "number" && typeof body.count !== "string")
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Invalid search parameters" },
+        { status: 400 },
+      );
+    }
+    const industry =
+      typeof body.industry === "string"
+        ? body.industry.trim().toLowerCase().slice(0, MAX_SEARCH_TERM_CHARS) || "other"
+        : "other";
+    const customTerms = Array.isArray(body.customTerms)
+      ? body.customTerms
+          .map((term) => (term as string).trim().slice(0, MAX_SEARCH_TERM_CHARS))
+          .filter(Boolean)
+          .slice(0, MAX_CUSTOM_SEARCH_TERMS)
+      : undefined;
     const count = clampImageCount(body.count);
 
     // Use centralized config
@@ -148,7 +188,7 @@ export async function POST(req: NextRequest) {
         );
 
         if (!response.ok) {
-          console.error(`[API/unsplash] Unsplash API error for "${term}":`, response.status);
+          console.error("[API/unsplash] Unsplash API error:", response.status);
           continue;
         }
 
@@ -175,13 +215,13 @@ export async function POST(req: NextRequest) {
           marker++;
         }
       } catch (error) {
-        console.error(`[API/unsplash] Error searching for "${term}":`, error);
+        console.error("[API/unsplash] Search failed:", error);
       }
 
       if (allImages.length >= count) break;
     }
 
-    console.info(`[API/unsplash] Found ${allImages.length} images for industry: ${industry}`);
+    console.info(`[API/unsplash] Found ${allImages.length} images`);
 
     return NextResponse.json({
       success: true,
@@ -194,10 +234,14 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function POST(req: NextRequest) {
+  return withRateLimit(req, "unsplash:search", () => handlePost(req));
+}
+
 // GET endpoint for simple queries
-export async function GET(req: NextRequest) {
+async function handleGet(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
-  const query = searchParams.get("query") || "business";
+  const query = searchParams.get("query")?.trim().slice(0, MAX_SEARCH_TERM_CHARS) || "business";
   const count = clampImageCount(searchParams.get("count"));
 
   // Use centralized config
@@ -255,6 +299,10 @@ export async function GET(req: NextRequest) {
     console.error("[API/unsplash] Error:", error);
     return NextResponse.json({ success: false, error: "Failed to fetch images" }, { status: 500 });
   }
+}
+
+export async function GET(req: NextRequest) {
+  return withRateLimit(req, "unsplash:search", () => handleGet(req));
 }
 
 // Generate fallback placeholder images when no API key

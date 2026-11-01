@@ -17,15 +17,24 @@ import { applyPreviewReadinessOutcome } from "@/lib/gen/preview/readiness-stamp"
 import type { PreviewHeartbeatApiJson } from "@/lib/gen/preview/preview-contract";
 
 const bodySchema = z.object({
-  versionId: z.string().min(1),
-  previewSessionId: z.string().min(1),
-  viewerId: z.string().min(1),
+  versionId: z.string().trim().min(1).max(200),
+  previewSessionId: z.string().trim().min(1).max(200),
+  viewerId: z.string().trim().min(1).max(200),
 });
+
+const MAX_PREVIEW_RESOURCE_ID_CHARS = 200;
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   return withRateLimit(req, "preview-session:heartbeat", async () => {
     try {
       const { chatId } = await ctx.params;
+
+      if (!chatId || chatId.length > MAX_PREVIEW_RESOURCE_ID_CHARS) {
+        return NextResponse.json(
+          { ok: false, reason: "invalid_body" } satisfies PreviewHeartbeatApiJson,
+          { status: 400 },
+        );
+      }
 
       if (!isTier2PreviewConfigured()) {
         const body: PreviewHeartbeatApiJson = { ok: false, reason: "preview_session_not_configured" };
@@ -166,7 +175,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       return NextResponse.json(
         {
           ok: false,
-          reason: err instanceof Error ? err.message : "unknown",
+          reason: "heartbeat_failed",
         } satisfies PreviewHeartbeatApiJson,
         { status: 500 },
       );

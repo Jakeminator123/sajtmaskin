@@ -31,8 +31,8 @@ function makeRequest(body?: unknown): Request {
   });
 }
 
-function makeParams() {
-  return { params: Promise.resolve({ id: PROJECT_ID }) };
+function makeParams(id = PROJECT_ID) {
+  return { params: Promise.resolve({ id }) };
 }
 
 beforeEach(() => {
@@ -45,6 +45,14 @@ beforeEach(() => {
 });
 
 describe("GET /api/projects/[id]/preferences", () => {
+  it("rejects an oversized project id before ownership lookup", async () => {
+    const res = await GET(makeRequest() as never, makeParams("x".repeat(201)));
+
+    expect(res.status).toBe(400);
+    expect(getCurrentUser).not.toHaveBeenCalled();
+    expect(getProjectByIdForOwner).not.toHaveBeenCalled();
+  });
+
   it("returns SEO defaults when project has no meta yet", async () => {
     getProjectData.mockResolvedValue(null);
 
@@ -104,9 +112,45 @@ describe("GET /api/projects/[id]/preferences", () => {
     const res = await GET(makeRequest() as never, makeParams());
     expect(res.status).toBe(404);
   });
+
+  it("does not expose read failures", async () => {
+    getProjectData.mockRejectedValue(new Error("database host secret"));
+
+    const res = await GET(makeRequest() as never, makeParams());
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      success: false,
+      error: "Failed to get project preferences",
+    });
+  });
 });
 
 describe("PATCH /api/projects/[id]/preferences — seo", () => {
+  it("rejects an oversized project id before ownership lookup", async () => {
+    const res = await PATCH(
+      makeRequest({ seo: { optIn: true } }) as never,
+      makeParams("x".repeat(201)),
+    );
+
+    expect(res.status).toBe(400);
+    expect(getCurrentUser).not.toHaveBeenCalled();
+    expect(getProjectByIdForOwner).not.toHaveBeenCalled();
+  });
+
+  it("does not expose write failures", async () => {
+    getProjectData.mockResolvedValue(null);
+    saveProjectData.mockRejectedValue(new Error("database host secret"));
+
+    const res = await PATCH(makeRequest({ seo: { optIn: true } }) as never, makeParams());
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      success: false,
+      error: "Failed to update project preferences",
+    });
+  });
+
   it("persists a complete seo opt-in payload", async () => {
     getProjectData.mockResolvedValue(null);
 

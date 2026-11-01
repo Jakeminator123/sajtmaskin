@@ -9,6 +9,7 @@ const getCurrentUser = vi.hoisted(() => vi.fn());
 const getSessionIdFromRequest = vi.hoisted(() => vi.fn());
 const getCompanyProfileByNameForOwner = vi.hoisted(() => vi.fn());
 const getProjectByIdForOwner = vi.hoisted(() => vi.fn());
+const searchCompanyProfiles = vi.hoisted(() => vi.fn());
 const saveCompanyProfile = vi.hoisted(() => vi.fn());
 const linkCompanyProfileToProject = vi.hoisted(() => vi.fn());
 
@@ -26,7 +27,7 @@ vi.mock("@/lib/db/services/company-profiles", () => ({
   getCompanyProfileByProjectId: vi.fn(),
   linkCompanyProfileToProject,
   saveCompanyProfile,
-  searchCompanyProfiles: vi.fn(),
+  searchCompanyProfiles,
 }));
 
 vi.mock("@/lib/db/services/projects", () => ({
@@ -69,6 +70,19 @@ describe("GET /api/company-profile", () => {
 
     expect(res.status).toBe(404);
   });
+
+  it.each([
+    `?projectId=${"p".repeat(257)}`,
+    `?companyName=${"x".repeat(501)}`,
+    `?search=${"x".repeat(501)}`,
+  ])("rejects oversized lookup queries before database work: %s", async (query) => {
+    const res = await GET(new NextRequest(`http://localhost/api/company-profile${query}`));
+
+    expect(res.status).toBe(400);
+    expect(getProjectByIdForOwner).not.toHaveBeenCalled();
+    expect(getCompanyProfileByNameForOwner).not.toHaveBeenCalled();
+    expect(searchCompanyProfiles).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/company-profile", () => {
@@ -93,6 +107,44 @@ describe("POST /api/company-profile", () => {
     expect(saveCompanyProfile).not.toHaveBeenCalled();
   });
 
+  it.each([
+    "not-json",
+    "null",
+    "[]",
+    '{"company_name":{}}',
+    '{"company_name":"Acme","project_id":"proj_1","industry":{}}',
+  ])("rejects malformed profile payload %s before project lookup", async (body) => {
+    const req = new NextRequest("http://localhost/api/company-profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(400);
+    expect(getProjectByIdForOwner).not.toHaveBeenCalled();
+    expect(saveCompanyProfile).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { company_name: "x".repeat(501), project_id: "proj_1" },
+    { company_name: "Acme", project_id: "p".repeat(257) },
+    { company_name: "Acme", project_id: "proj_1", industry: "x".repeat(100_001) },
+  ])("rejects oversized profile fields before project lookup", async (body) => {
+    const req = new NextRequest("http://localhost/api/company-profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(400);
+    expect(getProjectByIdForOwner).not.toHaveBeenCalled();
+    expect(saveCompanyProfile).not.toHaveBeenCalled();
+  });
+
   it("saves when the caller owns the project", async () => {
     const req = new NextRequest("http://localhost/api/company-profile", {
       method: "POST",
@@ -105,6 +157,22 @@ describe("POST /api/company-profile", () => {
     expect(res.status).toBe(200);
     expect(saveCompanyProfile).toHaveBeenCalled();
   });
+
+  it.each([undefined, null])("preserves omitted fields and explicit null separately: %s", async (industry) => {
+    const req = new NextRequest("http://localhost/api/company-profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ company_name: "Acme", project_id: "proj_1", industry }),
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(200);
+    const saved = saveCompanyProfile.mock.calls[0]?.[0];
+    expect(saved.industry).toBe(industry);
+    expect(saved.voice_transcript).toBeUndefined();
+    expect(saved.website_analysis).toBeUndefined();
+  });
 });
 
 describe("PATCH /api/company-profile", () => {
@@ -114,6 +182,29 @@ describe("PATCH /api/company-profile", () => {
     getSessionIdFromRequest.mockReturnValue("session_1");
     getProjectByIdForOwner.mockResolvedValue({ id: "proj_mine" });
   });
+
+  it.each([
+    "not-json",
+    "null",
+    "[]",
+    '{"profileId":"1x","projectId":"proj_mine"}',
+    '{"profileId":"123456789012345678901","projectId":"proj_mine"}',
+  ])(
+    "rejects malformed link payload %s before project lookup",
+    async (body) => {
+      const req = new NextRequest("http://localhost/api/company-profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+
+      const res = await PATCH(req);
+
+      expect(res.status).toBe(400);
+      expect(getProjectByIdForOwner).not.toHaveBeenCalled();
+      expect(linkCompanyProfileToProject).not.toHaveBeenCalled();
+    },
+  );
 
   it("does not claim an unattached profile", async () => {
     linkCompanyProfileToProject.mockRejectedValue(new CompanyProfileAccessDeniedError());

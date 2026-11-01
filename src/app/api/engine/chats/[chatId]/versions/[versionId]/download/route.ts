@@ -49,9 +49,6 @@ export async function GET(
     return NextResponse.json({ error: "No files found for version" }, { status: 404 });
   } catch (err) {
     console.error("Download error:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to download version" }, { status: 500 });
   }
 }

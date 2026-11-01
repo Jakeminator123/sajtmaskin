@@ -688,12 +688,11 @@ async function handlePOST(req: Request) {
       clip,
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown capture error";
+    console.error("[API/inspector-capture] Capture failed:", err);
     return NextResponse.json(
       {
         success: false,
         error: "Kunde inte skapa punktbild. Kontrollera att URL:en är publik och att Playwright Chromium finns installerad.",
-        details: message,
       },
       { status: 502 },
     );

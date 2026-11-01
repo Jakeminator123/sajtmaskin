@@ -89,6 +89,15 @@ describe("GET /api/v0/deployments/[deploymentId]/events auth (A#3)", () => {
     dbState.rows = [failedDeployment];
   });
 
+  it("rejects an oversized deployment id before tenant lookup", async () => {
+    const { req, ctx } = makeRequest("d".repeat(201));
+    const res = await GET(req, ctx);
+
+    expect(res.status).toBe(400);
+    expect(getEngineChatByIdForRequest).not.toHaveBeenCalled();
+    expect(getChatByIdForRequest).not.toHaveBeenCalled();
+  });
+
   it("authorizes own-engine chats (engine-first lookup)", async () => {
     getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
     getChatByIdForRequest.mockResolvedValue(null);

@@ -78,6 +78,15 @@ describe("POST /api/wizard/company-lookup", () => {
     expect(authorizeWizardRun).not.toHaveBeenCalled();
   });
 
+  it("rejects an oversized body before authorizing the run", async () => {
+    const req = makeRequest({ companyName: "Sajtstudio" });
+    req.headers.set("content-length", "8193");
+    const response = await POST(req);
+
+    expect(response.status).toBe(413);
+    expect(authorizeWizardRun).not.toHaveBeenCalled();
+  });
+
   it("forwards a run rejection without invoking lookup providers", async () => {
     authorizeWizardRun.mockResolvedValue({
       ok: false,

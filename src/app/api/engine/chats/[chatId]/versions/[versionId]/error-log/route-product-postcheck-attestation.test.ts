@@ -48,7 +48,7 @@ function request(attestation: {
   );
 }
 
-function unattestedRequest(payload: Record<string, unknown>) {
+function unattestedRequest(payload: unknown) {
   return new Request(
     "http://localhost/api/engine/chats/chat_1/versions/v1/error-log",
     {
@@ -62,6 +62,35 @@ function unattestedRequest(payload: Record<string, unknown>) {
 const ctx = {
   params: Promise.resolve({ chatId: "chat_1", versionId: "v1" }),
 };
+
+describe("POST generic error-log payload validation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat_1" },
+      version: { id: "v1", files_revision: "rev_1" },
+    });
+  });
+
+  it.each([
+    [],
+    { level: "fatal", message: "bad level" },
+    { level: "error", message: 42 },
+    { level: "error", message: "bad meta", meta: [] },
+    { logs: "not-an-array" },
+    { logs: [null] },
+    { logs: [{ level: "error", message: 42 }] },
+  ])("rejects malformed input without a DB write: %j", async (payload) => {
+    const response = await POST(unattestedRequest(payload), ctx);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      stored: false,
+      code: "invalid_error_log_payload",
+    });
+    expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
+  });
+});
 
 describe("POST product-postcheck-attested error log", () => {
   it.each([true, false])("rejects a whole attested budget-forgery batch before attestation branching (valid=%s)", async (valid) => {
