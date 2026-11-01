@@ -418,6 +418,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               isPreparingPrompt={vm.isPreparingPrompt}
               mediaEnabled={vm.mediaEnabled}
               continuePlanMode={Boolean(latestPendingReply?.planMode)}
+              builderAwaitingReply={vm.isAwaitingInput || Boolean(latestPendingReply)}
               followUpBaseInfo={followUpBaseInfo}
               selectedModelTier={vm.selectedModelTier}
               onSelectedModelTierChange={vm.setSelectedModelTier}
@@ -493,6 +494,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               awaitingInput={vm.isAwaitingInput}
               awaitingInputQuestion={latestPendingReply?.question ?? null}
               awaitingInputOptions={latestPendingReply?.options ?? []}
+              awaitingPlanApproval={vm.isAwaitingPlanApproval}
               onFixPreview={vm.handleFixPreview}
               versionlessAborted={vm.versionlessAborted}
               onRestartGeneration={vm.handleRestartGeneration}
