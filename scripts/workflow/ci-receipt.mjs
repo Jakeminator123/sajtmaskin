@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
 
+import { listWorkflowRunsForCommit } from "./push-baseline.mjs";
+
 // Ett grönt CI-kvitto gäller exakt ett testat träd. Varje PR-körning skriver ett
 // kvitto som notice-annotation på scope-jobbet: head, bas och träd tas från den
 // merge-commit som faktiskt checkades ut. Senare körningar får hoppa över tunga
@@ -150,13 +152,8 @@ export async function findReusableReceipt({
   const sameTree = (receipt) =>
     receipt.head === headSha && receipt.tree === tree && (base === null || receipt.base === base);
   try {
-    const listing = await getJson(
-      `${apiUrl}/repos/${repository}/actions/workflows/ci.yml/runs?event=pull_request&head_sha=${headSha}&per_page=30`,
-      api,
-    );
-    const runs = Array.isArray(listing?.workflow_runs) ? [...listing.workflow_runs] : null;
-    if (!runs) return { reuse: null, detail: "malformed-run-listing" };
-    runs.sort((left, right) => Number(right?.id ?? 0) - Number(left?.id ?? 0));
+    // Nyaste först; sökendpointen för körningar är opålitlig (se push-baseline.mjs).
+    const runs = await listWorkflowRunsForCommit({ ...api, sha: headSha, workflow: "ci.yml" });
 
     let inspected = 0;
     for (const run of runs) {

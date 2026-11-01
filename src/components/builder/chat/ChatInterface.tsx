@@ -1242,6 +1242,7 @@ export function ChatInterface({
                 </>
               )}
               <VoiceRecorder
+                key={chatId ?? "new-chat"}
                 compact
                 disabled={inputDisabled}
                 onTranscript={(text) =>

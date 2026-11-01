@@ -43,7 +43,7 @@ import { STREAMDOWN_PLAIN_COMPONENTS } from "./message-markdown";
 import { GenerationSurface } from "./GenerationSurface";
 import { isGenerationReviewPart, type GenerationTurnKind } from "./generation-surface-state";
 import { code as streamdownCode } from "@streamdown/code";
-import { toAIElementsFormat } from "@/lib/builder/message-adapter";
+import { planIsVerifiedReady, toAIElementsFormat } from "@/lib/builder/message-adapter";
 import type { MessagePart } from "@/lib/builder/message-adapter";
 import {
   getAuditPromptDomain,
@@ -134,16 +134,6 @@ function resolveGenerationTurnKind(
     }
   }
   return "initial";
-}
-
-function planIsVerifiedReady(plan: Extract<MessagePart, { type: "plan" }>["plan"]): boolean {
-  // Missing state means legacy persisted data whose server outcome cannot be
-  // reconstructed after reload. Only an explicit canonical `false` may start
-  // codegen; raw blockers remain a fail-closed guard for inconsistent/old data.
-  return (
-    plan.awaitingInput === false &&
-    (!Array.isArray(plan.raw?.blockers) || plan.raw.blockers.length === 0)
-  );
 }
 
 const MessageListComponent = ({
@@ -1129,3 +1119,4 @@ function dedupeSources(sources: Array<{ url: string; title?: string }>) {
   });
   return Array.from(seen.values());
 }
+

@@ -493,6 +493,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               awaitingInput={vm.isAwaitingInput}
               awaitingInputQuestion={latestPendingReply?.question ?? null}
               awaitingInputOptions={latestPendingReply?.options ?? []}
+              awaitingPlanApproval={vm.isAwaitingPlanApproval}
               onFixPreview={vm.handleFixPreview}
               versionlessAborted={vm.versionlessAborted}
               onRestartGeneration={vm.handleRestartGeneration}

@@ -110,6 +110,8 @@ export interface PreviewPanelProps {
   awaitingInput?: boolean;
   awaitingInputQuestion?: string | null;
   awaitingInputOptions?: string[];
+  /** Plan mode: a build plan in the chat is waiting for approval; no version yet. */
+  awaitingPlanApproval?: boolean;
   /** Last SSE preview/build failure for this session (cleared on `preview-ready` or version change). */
   previewBuildError?: PreviewBuildErrorState | null;
   /** `npm run build` result in the tier-2 preview runtime after dev; separate from dev-preview. */
