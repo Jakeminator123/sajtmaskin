@@ -54,6 +54,23 @@ describe("admin users API", () => {
     expect(response.headers.get("cache-control")).toBe("no-store");
   });
 
+  it.each([POST, PATCH, DELETE])("bounds actual mutation bytes without trusting Content-Length", async (handler) => {
+    const response = await handler(new NextRequest("https://sajtmaskin.se/api/admin/users", {
+      method: "POST", headers: { "Content-Type": "application/json", "content-length": "2" },
+      body: JSON.stringify({ text: "å".repeat(9_000) }),
+    }));
+    expect(response.status).toBe(413);
+    Object.values(services).forEach((service) => expect(service).not.toHaveBeenCalled());
+  });
+
+  it.each([POST, PATCH, DELETE])("rejects malformed JSON before writes", async (handler) => {
+    const response = await handler(new NextRequest("https://sajtmaskin.se/api/admin/users", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: "{",
+    }));
+    expect(response.status).toBe(400);
+    Object.values(services).forEach((service) => expect(service).not.toHaveBeenCalled());
+  });
+
   it.each([
     { ...input, password: "short" },
     { ...input, credits: -100 },

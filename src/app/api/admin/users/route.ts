@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { requireAdminAccess } from "@/lib/auth/admin";
+import { readRequestJsonWithLimit } from "@/lib/api/read-limited-body";
 import { BillingRetentionError } from "@/lib/db/billing-retention-guard";
 import {
   AdminUserError,
@@ -17,6 +18,17 @@ export const runtime = "nodejs";
 
 function reply(body: unknown, status = 200) {
   return NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
+}
+
+async function readInput(req: NextRequest) {
+  const parsed = await readRequestJsonWithLimit<unknown>(req, 16_384);
+  if (!parsed.ok) {
+    throw new AdminUserError(
+      parsed.reason === "too_large" ? "Begäran är för stor." : "Ogiltig JSON.",
+      parsed.reason === "too_large" ? 413 : 400,
+    );
+  }
+  return parsed.value;
 }
 
 function failure(error: unknown) {
@@ -66,7 +78,7 @@ export async function POST(req: NextRequest) {
   const admin = await requireAdminAccess(req);
   if (!admin.ok) return admin.response;
   try {
-    const input = createAdminUserSchema.parse(await req.json().catch(() => null));
+    const input = createAdminUserSchema.parse(await readInput(req));
     const user = await createAdminUser(input, admin.user.id);
     return reply({ success: true, user }, 201);
   } catch (error) {
@@ -78,7 +90,7 @@ export async function PATCH(req: NextRequest) {
   const admin = await requireAdminAccess(req);
   if (!admin.ok) return admin.response;
   try {
-    const input = grantAdminCreditsSchema.parse(await req.json().catch(() => null));
+    const input = grantAdminCreditsSchema.parse(await readInput(req));
     const transaction = await grantAdminCredits(input, admin.user.id);
     return reply({ success: true, credits: transaction.balance_after });
   } catch (error) {
@@ -90,7 +102,7 @@ export async function DELETE(req: NextRequest) {
   const admin = await requireAdminAccess(req);
   if (!admin.ok) return admin.response;
   try {
-    const input = deleteAdminUserSchema.parse(await req.json().catch(() => null));
+    const input = deleteAdminUserSchema.parse(await readInput(req));
     await deleteAdminUser(input, admin.user.id);
     return reply({ success: true });
   } catch (error) {
