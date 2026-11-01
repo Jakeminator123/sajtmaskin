@@ -47,7 +47,7 @@ const PACKAGE = {
   popular: true,
 };
 
-function postCheckout(body: { packageId?: string } = { packageId: "popular" }): NextRequest {
+function postCheckout(body: unknown = { packageId: "popular" }): NextRequest {
   return new NextRequest("http://localhost/api/stripe/checkout", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -99,6 +99,17 @@ describe("POST /api/stripe/checkout", () => {
     expect(createSession).not.toHaveBeenCalled();
   });
 
+  it.each([null, [], { packageId: 42 }, { packageId: "   " }])(
+    "returnerar 400 för ogiltig checkout-payload: %j",
+    async (body) => {
+      const response = await POST(postCheckout(body));
+
+      expect(response.status).toBe(400);
+      expect(getPackageById).not.toHaveBeenCalled();
+      expect(createSession).not.toHaveBeenCalled();
+    },
+  );
+
   it("faller tillbaka på price_data när price-id saknas i Stripe-kontot", async () => {
     createSession
       .mockRejectedValueOnce(missingPriceError())
@@ -126,7 +137,7 @@ describe("POST /api/stripe/checkout", () => {
     warnSpy.mockRestore();
   });
 
-  it("returnerar 400 för andra Stripe-fel utan fallback", async () => {
+  it("maskerar andra Stripe-fel utan fallback", async () => {
     const authError = new Stripe.errors.StripeAuthenticationError({
       type: "authentication_error",
       message: "Invalid API Key provided",
@@ -136,9 +147,10 @@ describe("POST /api/stripe/checkout", () => {
     const response = await POST(postCheckout());
     const body = await response.json();
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(502);
     expect(body.success).toBe(false);
-    expect(body.error).toContain("Betalningsfel");
+    expect(body.error).toBe("Betaltjänsten kunde inte starta checkout.");
+    expect(JSON.stringify(body)).not.toContain("Invalid API Key");
     expect(createSession).toHaveBeenCalledTimes(1);
   });
 });
@@ -148,6 +160,15 @@ describe("GET /api/stripe/checkout", () => {
     vi.clearAllMocks();
     getCurrentUser.mockResolvedValue({ id: "user-1", email: "buyer@example.com" });
     getTransactionByStripeSession.mockResolvedValue(null);
+  });
+
+  it("rejects an oversized session id before database lookup", async () => {
+    const response = await GET(
+      new NextRequest(`http://localhost/api/stripe/checkout?session_id=cs_${"x".repeat(254)}`),
+    );
+
+    expect(response.status).toBe(400);
+    expect(getTransactionByStripeSession).not.toHaveBeenCalled();
   });
 
   it("returnerar credited=false utan pixelpayload när sessionen saknas", async () => {

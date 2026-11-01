@@ -500,9 +500,6 @@ export async function POST(
     });
   } catch (err) {
     console.error("[finalize-design] Error:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to finalize design" }, { status: 500 });
   }
 }

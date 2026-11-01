@@ -93,6 +93,19 @@ describe("admin pricing-settings route", () => {
     expect(updatePricingSettings).not.toHaveBeenCalled();
   });
 
+  it.each([null, []])("rejects invalid settings payload: %j", async (body) => {
+    const response = await PATCH(
+      new NextRequest("http://localhost/api/admin/pricing-settings", {
+        method: "PATCH",
+        body: JSON.stringify(body),
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(updatePricingSettings).not.toHaveBeenCalled();
+  });
+
   it("maps RangeError to 400", async () => {
     updatePricingSettings.mockRejectedValueOnce(new RangeError("Domänpåslaget måste vara mellan X1,0 och X10,0."));
     const response = await PATCH(

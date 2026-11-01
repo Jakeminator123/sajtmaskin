@@ -38,6 +38,19 @@ vi.mock("@/lib/gen/preview/preview-host-client", () => ({
 import { POST } from "./route";
 
 describe("POST preview-destroy", () => {
+  it("does not expose unexpected internal errors", async () => {
+    const response = await POST(new Request("http://localhost/api", { method: "POST" }), {
+      params: Promise.reject(new Error("postgres://user:secret@private-db/internal")),
+    });
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      reason: "unknown",
+      message: "Preview destroy failed.",
+    });
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     getEngineChatByIdForRequest.mockResolvedValue({ id: "c1" });
@@ -47,6 +60,35 @@ describe("POST preview-destroy", () => {
     updateVersionPreviewUrl.mockResolvedValue(true);
     clearPreviewSessionAsync.mockResolvedValue(true);
   });
+
+  it("rejects an oversized chat id before tenant lookup", async () => {
+    const res = await POST(new Request("http://localhost/api", { method: "POST" }), {
+      params: Promise.resolve({ chatId: "x".repeat(201) }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(getEngineChatByIdForRequest).not.toHaveBeenCalled();
+  });
+
+  it.each(["versionId", "previewSessionId"])(
+    "rejects an oversized %s before version lookup",
+    async (field) => {
+      const body: Record<string, string> = { versionId: "v1" };
+      body[field] = "x".repeat(201);
+      const res = await POST(
+        new Request("http://localhost/api", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }),
+        { params: Promise.resolve({ chatId: "c1" }) },
+      );
+
+      expect(res.status).toBe(400);
+      expect(getEngineVersionForChatByIdForRequest).not.toHaveBeenCalled();
+      expect(destroyPreviewHostSession).not.toHaveBeenCalled();
+    },
+  );
 
   it("destroys preview_host sessions and clears stored preview url", async () => {
     getActivePreviewSessionAsync.mockResolvedValue({
@@ -278,7 +320,11 @@ describe("POST preview-destroy", () => {
     );
 
     expect(res.status).toBe(500);
-    expect(await res.json()).toMatchObject({ ok: false, reason: "session_store_failed" });
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      reason: "session_store_failed",
+      message: "Preview session store failed.",
+    });
     expect(updateVersionPreviewUrl.mock.calls).toEqual([
       ["v1", null],
       ["v1", "https://preview.example/current"],

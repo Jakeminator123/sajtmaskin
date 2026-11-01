@@ -7,6 +7,7 @@ import {
   Key,
   LayoutDashboard,
   Link2,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -73,6 +74,13 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     description: "Skapa mejllänkar med lösenord och se vilka företag som besökt sin länk.",
     icon: Link2,
     kind: "write",
+  },
+  {
+    href: "/admin/anvandare",
+    label: "Användare",
+    description: "Sök konton, skapa testanvändare och tilldela krediter. Radera oanvända konton.",
+    icon: Users,
+    kind: "danger",
   },
   {
     href: "/admin/data",

@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     } catch (err) {
       errorLog("shadcn-describe", "describe route error", err);
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Unknown error" },
+        { error: "Component discovery failed" },
         { status: 500 },
       );
     }

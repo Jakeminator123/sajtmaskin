@@ -96,4 +96,16 @@ describe("POST /api/shadcn/describe", () => {
     expect(body.ranking).toBe("heuristic");
     expect(response.headers.get("X-Describe-Ranking")).toBe("heuristic");
   });
+
+  it("does not expose discovery backend errors", async () => {
+    describeComponents.mockRejectedValue(new Error("secret registry credential"));
+
+    const response = await POST(makeRequest({ description: "a login form" }));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: "Component discovery failed" });
+    expect(JSON.stringify(body)).not.toContain("credential");
+    expect(errorLog).toHaveBeenCalled();
+  });
 });

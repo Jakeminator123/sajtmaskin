@@ -102,7 +102,7 @@ vi.mock("drizzle-orm", () => ({
   }),
 }));
 
-import { GET, PATCH } from "./route";
+import { GET, PATCH, POST } from "./route";
 
 const REVISION_N = "1".repeat(32);
 const REVISION_N_PLUS_1 = "2".repeat(32);
@@ -148,6 +148,20 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
       })),
     }));
     delete process.env.SAJTMASKIN_CONTENT_REVISION_GATE;
+  });
+
+  it.each([
+    ["GET", GET, undefined, "Failed to list versions"],
+    ["PATCH", PATCH, { method: "PATCH" }, "Failed to update version"],
+    ["POST", POST, { method: "POST" }, "Failed to restore version"],
+  ] as const)("does not expose unexpected %s errors", async (_method, handler, init, error) => {
+    const response = await handler(
+      new Request("https://example.com/api/engine/chats/chat_1/versions", init),
+      { params: Promise.reject(new Error("postgres://user:secret@private-db/internal")) },
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error });
   });
 
   afterEach(() => {

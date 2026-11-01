@@ -29,6 +29,23 @@ interface BootstrapData {
   services: Array<[string[], string[]]>;
 }
 
+function isBootstrapData(value: unknown): value is BootstrapData {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const services = (value as { services?: unknown }).services;
+  return (
+    Array.isArray(services) &&
+    services.every(
+      (service) =>
+        Array.isArray(service) &&
+        service.length >= 2 &&
+        Array.isArray(service[0]) &&
+        service[0].every((tld) => typeof tld === "string") &&
+        Array.isArray(service[1]) &&
+        service[1].every((url) => typeof url === "string"),
+    )
+  );
+}
+
 let bootstrapCache: BootstrapCacheEntry | null = null;
 let bootstrapInflight: Promise<BootstrapData> | null = null;
 
@@ -47,7 +64,10 @@ async function loadBootstrap(): Promise<BootstrapData> {
     if (!res.ok) {
       throw new Error(`[RDAP] bootstrap failed: HTTP ${res.status}`);
     }
-    const data = (await res.json()) as BootstrapData;
+    const data: unknown = await res.json();
+    if (!isBootstrapData(data)) {
+      throw new Error("[RDAP] bootstrap returned an invalid payload");
+    }
     bootstrapCache = { data, fetchedAt: Date.now() };
     return data;
   })();
@@ -111,6 +131,7 @@ interface RdapResponseBody {
 function eventMap(events: RdapEvent[]): Record<string, string> {
   const out: Record<string, string> = {};
   for (const event of events) {
+    if (!event || typeof event !== "object" || Array.isArray(event)) continue;
     if (event.eventAction && event.eventDate) {
       out[event.eventAction] = event.eventDate;
     }
@@ -144,6 +165,7 @@ interface ParsedEntities {
 function parseEntities(entities: RdapEntity[]): ParsedEntities {
   const result: ParsedEntities = { registrar: null, registrant: null };
   for (const entity of entities) {
+    if (!entity || typeof entity !== "object" || Array.isArray(entity)) continue;
     const roles = entity.roles ?? [];
     const names = vcardField(entity.vcardArray, "fn");
     const emails = vcardField(entity.vcardArray, "email");
@@ -274,7 +296,11 @@ export async function lookupWhois(domain: string): Promise<WhoisLookupResult> {
 
   let body: RdapResponseBody;
   try {
-    body = (await response.json()) as RdapResponseBody;
+    const parsed: unknown = await response.json();
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("RDAP-svaret har ogiltigt JSON-format");
+    }
+    body = parsed as RdapResponseBody;
   } catch (err) {
     return emptyResult(normalized, {
       queryUrl,
@@ -283,16 +309,16 @@ export async function lookupWhois(domain: string): Promise<WhoisLookupResult> {
     });
   }
 
-  const events = eventMap(body.events ?? []);
-  const entities = parseEntities(body.entities ?? []);
-  const nameservers = (body.nameservers ?? [])
-    .map((ns) => ns.ldhName)
+  const events = eventMap(Array.isArray(body.events) ? body.events : []);
+  const entities = parseEntities(Array.isArray(body.entities) ? body.entities : []);
+  const nameservers = (Array.isArray(body.nameservers) ? body.nameservers : [])
+    .map((ns) => (ns && typeof ns === "object" && !Array.isArray(ns) ? ns.ldhName : undefined))
     .filter((name): name is string => Boolean(name));
 
   return {
     ok: true,
     registered: true,
-    domain: body.ldhName?.toLowerCase() ?? normalized,
+    domain: typeof body.ldhName === "string" ? body.ldhName.toLowerCase() : normalized,
     queryUrl,
     registrarName: entities.registrar?.name ?? null,
     registrarHandle: entities.registrar?.handle ?? null,
@@ -300,7 +326,9 @@ export async function lookupWhois(domain: string): Promise<WhoisLookupResult> {
     created: events["registration"] ?? null,
     updated: events["last changed"] ?? events["last update of RDAP database"] ?? null,
     expires: events["expiration"] ?? null,
-    status: body.status ?? [],
+    status: Array.isArray(body.status)
+      ? body.status.filter((status): status is string => typeof status === "string")
+      : [],
     nameservers,
     rdapSupported: true,
     error: null,

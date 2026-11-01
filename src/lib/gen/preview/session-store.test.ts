@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   clearPreviewSession,
   getActivePreviewSession,
+  PREVIEW_SESSION_HARD_CAP_MS,
   resetPreviewSessionStoreForTests,
   touchPreviewSession,
   touchPreviewSessionAsync,
@@ -45,6 +46,29 @@ describe("preview-session-store", () => {
     const idleMs = 30 * 60 * 1000;
     expect(getActivePreviewSession("c1", { now: t0 + idleMs - 1, idleMs })).not.toBeNull();
     expect(getActivePreviewSession("c1", { now: t0 + idleMs + 1, idleMs })).toBeNull();
+  });
+
+  it("prunes expired local sessions on a deterministic write interval", () => {
+    const now = Date.now();
+    const expiredAt = now - PREVIEW_SESSION_HARD_CAP_MS - 1;
+    touchPreviewSession({
+      chatId: "expired",
+      previewSessionId: "expired-session",
+      previewUrl: "https://expired.run",
+      now: expiredAt,
+    });
+
+    for (let index = 1; index < 128; index += 1) {
+      touchPreviewSession({
+        chatId: `active-${index}`,
+        previewSessionId: `session-${index}`,
+        previewUrl: `https://active-${index}.run`,
+        now,
+      });
+    }
+
+    expect(getActivePreviewSession("expired", { now: expiredAt })).toBeNull();
+    expect(getActivePreviewSession("active-127", { now })).not.toBeNull();
   });
 
   it("stores versionId when provided", () => {

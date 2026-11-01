@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
@@ -62,6 +63,41 @@ describe("POST /api/text/extract", () => {
     expect(body.content).toBe("Hej 日本 😀 ny rad");
   });
 
+  it("preserves long text from an accepted PDF instead of imposing a new prompt limit", async () => {
+    getSessionIdFromRequest.mockReturnValue("sess_1");
+    pdfParse.mockResolvedValue({ text: "x".repeat(100_001) });
+
+    const res = await POST(makePdfRequest());
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ success: true, content: "x".repeat(100_001) });
+  });
+
+  it("rejects an oversized declared multipart body before parsing it", async () => {
+    getSessionIdFromRequest.mockReturnValue("sess_1");
+    const req = makePdfRequest();
+    req.headers.set("content-length", String(11 * 1024 * 1024 + 1));
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(413);
+    expect(pdfParse).not.toHaveBeenCalled();
+  });
+
+  it.each([null, "1"])("limits actual multipart bytes with Content-Length %s", async (declaredLength) => {
+    getSessionIdFromRequest.mockReturnValue("sess_1");
+    const form = new FormData();
+    form.append("file", new File(["%PDF-1.7"], "document.pdf", { type: "application/pdf" }));
+    form.append("ignored-padding", "x".repeat(11 * 1024 * 1024));
+    const request = new NextRequest("http://localhost/api/text/extract", { method: "POST", body: form });
+    if (declaredLength !== null) request.headers.set("content-length", declaredLength);
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(413);
+    expect(pdfParse).not.toHaveBeenCalled();
+  });
+
   it("returns unsupported instead of guessing text with the basic PDF regex fallback", async () => {
     getSessionIdFromRequest.mockReturnValue("sess_1");
     pdfParse.mockRejectedValue(new Error("unsupported xref"));
@@ -72,5 +108,22 @@ describe("POST /api/text/extract", () => {
     expect(res.status).toBe(422);
     expect(body.success).toBe(false);
     expect(body.error).toContain("bättre PDF-parser");
+  });
+
+  it("does not expose malformed form-data parser failures", async () => {
+    getSessionIdFromRequest.mockReturnValue("sess_1");
+    const req = new NextRequest("http://localhost/api/text/extract", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "not multipart form data",
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({
+      success: false,
+      error: "Kunde inte läsa PDF-filen",
+    });
   });
 });

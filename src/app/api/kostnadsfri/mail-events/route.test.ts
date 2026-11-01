@@ -91,6 +91,21 @@ describe("GET /api/kostnadsfri/mail-events", () => {
     expect(listKostnadsfriMailEventsAfter).not.toHaveBeenCalled();
   });
 
+  it("rejects an oversized cursor before decoding it", async () => {
+    const res = await GET(request(`?cursor=${"a".repeat(129)}`));
+    expect(res.status).toBe(400);
+    expect(listKostnadsfriMailEventsAfter).not.toHaveBeenCalled();
+  });
+
+  it.each(["0", "-1", "1.5", "1e2", "10rows", "999999999999999999999"])(
+    "rejects a non-canonical page limit: %s",
+    async (limit) => {
+      const res = await GET(request(`?limit=${encodeURIComponent(limit)}`));
+      expect(res.status).toBe(400);
+      expect(listKostnadsfriMailEventsAfter).not.toHaveBeenCalled();
+    },
+  );
+
   it("rejects calendar-invalid cursor timestamps with 400 instead of a database 500", async () => {
     for (const time of [
       "2026-02-31T08:31:00.123456Z",

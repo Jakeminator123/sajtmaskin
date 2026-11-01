@@ -4,6 +4,7 @@ import {
   readAvailableDevLogSlugs,
   readDevLogEntries,
 } from "@/lib/logging/dev-log-reader";
+import { parseBoundedPositiveInteger } from "@/lib/api/bounded-query-integer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,10 +23,10 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const slug = searchParams.get("slug");
-  const limitParam = Number(searchParams.get("limit"));
-  const limit = Number.isFinite(limitParam)
-    ? Math.min(Math.max(limitParam, 1), 500)
-    : 200;
+  const limit = parseBoundedPositiveInteger(searchParams.get("limit"), {
+    fallback: 200,
+    max: 500,
+  });
 
   const entries = readDevLogEntries({
     slug,

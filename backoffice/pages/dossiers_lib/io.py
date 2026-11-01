@@ -839,32 +839,6 @@ def _save_raw_manifest(
     )
 
 
-def _summarize_enforcement(data: dict[str, Any]) -> str:
-    """Compact `Bx Fy Wz` (build / feature-runtime / warn-only) tag for the
-    listing view so curators can spot suspicious enforcement profiles at a
-    glance without opening each manifest."""
-    counts = {"build": 0, "feature-runtime": 0, "warn-only": 0}
-    env_vars = data.get("envVars") or []
-    if not isinstance(env_vars, list):
-        return ""
-    for ev in env_vars:
-        if not isinstance(ev, dict):
-            continue
-        tag = ev.get("enforcement", "build")
-        if tag in counts:
-            counts[tag] += 1
-        else:
-            counts["build"] += 1
-    parts = []
-    if counts["build"]:
-        parts.append(f"B{counts['build']}")
-    if counts["feature-runtime"]:
-        parts.append(f"F{counts['feature-runtime']}")
-    if counts["warn-only"]:
-        parts.append(f"W{counts['warn-only']}")
-    return " ".join(parts)
-
-
 def _load_group_view() -> dict[str, Any]:
     """Load the group projection using the facade's late-bound map path."""
     return _capability_projection._load_group_view(_facade().CAPABILITY_MAP_PATH)
@@ -2856,48 +2830,6 @@ def _apply_capability_override(
         )
     return _commit_single_manifest(
         manifest_path, manifest, original, operation="capability-bytet"
-    )
-
-
-def _describe_capability_group_hint(
-    decided_capability: str, chosen_group_id: str | None, groups: dict[str, Any]
-) -> str:
-    """Honest group hint for the AI-curation category picker (coach review on
-    #500). The group is ALWAYS derived from `dossier-groups.ts` at regenerate
-    time — the picker never moves a capability. Three cases:
-
-    1. Capability belongs to the CHOSEN group → show the chosen group.
-    2. Capability already exists in ANOTHER group (e.g. group "AI" picked but
-       `payments` typed in the free field) → show its REAL group and say the
-       group choice does not move it. Previously this case was misreported
-       as "ny capability → Övrigt".
-    3. Capability is unknown everywhere → genuinely new → lands under
-       "Övrigt" until `CAPABILITY_TO_GROUP_ID` is updated + map regenerated.
-    """
-    chosen_capabilities = (
-        groups.get(chosen_group_id, {}).get("capabilities") or []
-        if chosen_group_id
-        else []
-    )
-    if decided_capability in chosen_capabilities:
-        label = (
-            (groups.get(chosen_group_id, {}).get("label") or "Övrigt")
-            if chosen_group_id
-            else "Övrigt"
-        )
-        return f"Beslutad capability vid skapande: `{decided_capability}` (grupp: {label})."
-    real_label = _group_label_for_capability(decided_capability, groups)
-    if real_label != "Övrigt":
-        return (
-            f"Beslutad capability vid skapande: `{decided_capability}` — **befintlig "
-            f"capability i gruppen {real_label}**; den ligger kvar där (gruppvalet "
-            "ovan flyttar inget, det styr bara förslagslistan)."
-        )
-    return (
-        f"Beslutad capability vid skapande: `{decided_capability}` — **ny capability**, "
-        "hamnar under **Övrigt** tills den mappas i "
-        "`src/lib/builder/dossier-groups.ts` (`CAPABILITY_TO_GROUP_ID`) och "
-        "capability-map byggs om. Gruppvalet ovan styr bara förslagslistan."
     )
 
 

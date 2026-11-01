@@ -149,6 +149,43 @@ describe("POST /api/engine/chats/init", () => {
     recordImportedRepoPreviewOutcome.mockResolvedValue(false);
   });
 
+  it("does not expose unexpected internal errors", async () => {
+    getCurrentUser.mockRejectedValue(
+      new Error("postgres://user:secret@private-db/internal"),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: { type: "zip", content: "eA==" } }),
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({
+      success: false,
+      error: "Importen misslyckades.",
+      code: "import_failed",
+    });
+  });
+
+  it("rejects oversized import metadata before authentication", async () => {
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: { type: "zip", content: "eA==" },
+          message: "x".repeat(4_001),
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(getCurrentUser).not.toHaveBeenCalled();
+  });
+
   it("imports ZIP content into an own-engine chat and first version", async () => {
     const zip = new JSZip();
     zip.file(

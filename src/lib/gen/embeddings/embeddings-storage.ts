@@ -8,6 +8,7 @@
  */
 import { promises as fs } from "fs";
 import path from "path";
+import { safeFetch } from "@/lib/ssrf-guard";
 import { LocalFsProvider } from "@/lib/storage/local-fs-provider";
 import { VercelBlobProvider } from "@/lib/storage/vercel-blob-provider";
 
@@ -59,6 +60,8 @@ export type EmbeddingsBlobManifest = {
 };
 
 type CacheEntry = { data: unknown };
+
+const MAX_PUBLIC_ARTIFACT_BYTES = 20 * 1024 * 1024;
 
 const memoryCache = new Map<EmbeddingsArtifactId, CacheEntry>();
 const inflightLoads = new Map<EmbeddingsArtifactId, Promise<unknown | null>>();
@@ -167,7 +170,10 @@ async function loadFromPublicManifest(id: EmbeddingsArtifactId): Promise<unknown
   const url = manifest?.artifacts?.[id]?.url?.trim();
   if (!url) return null;
   try {
-    const response = await fetch(url, { cache: "no-store" });
+    const response = await safeFetch(url, {
+      cache: "no-store",
+      maxBodyBytes: MAX_PUBLIC_ARTIFACT_BYTES,
+    });
     if (!response.ok) return null;
     return (await response.json()) as unknown;
   } catch (err) {

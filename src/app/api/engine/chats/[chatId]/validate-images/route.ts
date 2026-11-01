@@ -41,9 +41,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
     const busy = versionBusyResponseIfLeaseHeld(err);
     if (busy) return busy;
     console.error("[validate-images] Error:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Image validation failed" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Image validation failed" }, { status: 500 });
   }
 }

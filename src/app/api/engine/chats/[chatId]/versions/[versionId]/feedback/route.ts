@@ -11,6 +11,10 @@ type FeedbackBody = {
   comment?: string;
 };
 
+const MAX_FEEDBACK_CATEGORIES = 10;
+const MAX_FEEDBACK_CATEGORY_LENGTH = 100;
+const MAX_FEEDBACK_COMMENT_LENGTH = 2_000;
+
 export async function POST(request: Request, ctx: RouteParams) {
   try {
     const { chatId, versionId } = await ctx.params;
@@ -23,7 +27,29 @@ export async function POST(request: Request, ctx: RouteParams) {
       );
     }
 
-    const { rating, categories = [], comment } = body;
+    if (
+      body.categories !== undefined &&
+      (!Array.isArray(body.categories) ||
+        body.categories.length > MAX_FEEDBACK_CATEGORIES ||
+        body.categories.some(
+          (category) =>
+            typeof category !== "string" ||
+            category.trim().length === 0 ||
+            category.trim().length > MAX_FEEDBACK_CATEGORY_LENGTH,
+        ))
+    ) {
+      return NextResponse.json({ error: "Invalid categories" }, { status: 400 });
+    }
+    if (
+      body.comment !== undefined &&
+      (typeof body.comment !== "string" || body.comment.trim().length > MAX_FEEDBACK_COMMENT_LENGTH)
+    ) {
+      return NextResponse.json({ error: "Invalid comment" }, { status: 400 });
+    }
+
+    const rating = body.rating;
+    const categories = (body.categories ?? []).map((category) => category.trim());
+    const comment = body.comment?.trim() || undefined;
 
     const scopedVersion = await getEngineVersionForChatByIdForRequest(
       request,
@@ -62,9 +88,6 @@ export async function POST(request: Request, ctx: RouteParams) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[API] Failed to store version feedback:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to store version feedback" }, { status: 500 });
   }
 }

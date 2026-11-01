@@ -57,9 +57,13 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      const body = await req.json();
-      const rawDomain = (body.domain ?? "").trim().toLowerCase();
-      const chatId = (body.chatId ?? "").trim();
+      const body = await req.json().catch(() => null);
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return NextResponse.json({ error: "invalid request" }, { status: 400 });
+      }
+      const payload = body as Record<string, unknown>;
+      const rawDomain = typeof payload.domain === "string" ? payload.domain.trim().toLowerCase() : "";
+      const chatId = typeof payload.chatId === "string" ? payload.chatId.trim() : "";
 
       if (!rawDomain) {
         return NextResponse.json({ error: "domain is required" }, { status: 400 });
@@ -141,14 +145,14 @@ export async function POST(req: NextRequest) {
           dnsSetup = {
             success: !failed,
             method: "loopia",
-            error: failed,
+            error: failed ? "DNS setup failed" : undefined,
           };
         } catch (err) {
           console.error("[domains/link] Loopia DNS setup error:", err);
           dnsSetup = {
             success: false,
             method: "loopia",
-            error: err instanceof Error ? err.message : "DNS setup failed",
+            error: "DNS setup failed",
           };
         }
       }
@@ -175,7 +179,7 @@ export async function POST(req: NextRequest) {
     } catch (error) {
       console.error("[domains/link] Error:", error);
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : "Unknown error" },
+        { error: "Could not link domain" },
         { status: 500 },
       );
     }

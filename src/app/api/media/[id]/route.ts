@@ -32,9 +32,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params;
-    const mediaId = parseInt(id, 10);
+    const mediaId = id.length <= 16 && /^\d+$/.test(id) ? Number(id) : Number.NaN;
 
-    if (isNaN(mediaId)) {
+    if (!Number.isSafeInteger(mediaId) || mediaId <= 0) {
       return NextResponse.json({ success: false, error: "Ogiltigt fil-ID" }, { status: 400 });
     }
 
@@ -60,8 +60,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Okänt fel";
     console.error("[API/Media/Delete] Error:", error);
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: "Kunde inte ta bort filen" },
+      { status: 500 },
+    );
   }
 }

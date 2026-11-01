@@ -1,6 +1,8 @@
 "use client";
 
 import type { ChatMessage } from "@/lib/builder/types";
+import { planIsVerifiedReady, toAIElementsFormat } from "@/lib/builder/message-adapter";
+import { getLatestPendingReply, hasUserMessageAfter } from "@/components/builder/chat/tooling/pending-replies";
 import { selectPreferredEngineVersion } from "@/lib/db/engine-version-lifecycle";
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
 import { useMemo } from "react";
@@ -62,10 +64,27 @@ export function useBuilderDerivedState({
     [messages],
   );
 
-  const isAwaitingInput = useMemo(() => {
-    const last = [...messages].reverse().find((m) => m.role === "assistant");
-    return Boolean(last?.uiParts?.some((p) => p.type === "tool:awaiting-input"));
-  }, [messages]);
+  const adaptedMessages = useMemo(() => messages.map(toAIElementsFormat), [messages]);
+  const pendingReply = useMemo(
+    () => getLatestPendingReply(adaptedMessages),
+    [adaptedMessages],
+  );
+  const isAwaitingInput = Boolean(pendingReply);
+
+  // Match MessageList: a pending reply wins over approval, and a later user
+  // turn consumes a plan. A later assistant answer alone does not consume it.
+  const isAwaitingPlanApproval = useMemo(() => {
+    if (pendingReply) return false;
+    return adaptedMessages.some(
+      (message, index) =>
+        message.role === "assistant" &&
+        !message.isStreaming &&
+        !hasUserMessageAfter(adaptedMessages, index) &&
+        message.parts.some(
+          (part) => part.type === "plan" && !part.isStreaming && planIsVerifiedReady(part.plan),
+        ),
+    );
+  }, [adaptedMessages, pendingReply]);
 
   const versionsList = useMemo(
     () => (Array.isArray(versions) ? (versions as VersionSummary[]) : []),
@@ -132,6 +151,7 @@ export function useBuilderDerivedState({
     chatExternalProjectId,
     isAnyStreaming,
     isAwaitingInput,
+    isAwaitingPlanApproval,
     versionsList,
     effectiveVersionsList,
     versionIdSet,
@@ -141,3 +161,4 @@ export function useBuilderDerivedState({
     initialPrompt: auditPromptLoaded ? initialPrompt : null,
   };
 }
+

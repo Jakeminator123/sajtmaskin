@@ -9,8 +9,19 @@ import {
 } from "@/lib/deployment";
 import { logDeployError } from "@/lib/deploy/deploy-error-log";
 import { createRedisPublisher, deployStatusChannel } from "@/lib/redis-pubsub";
+import { readRequestTextWithLimit } from "@/lib/api/read-limited-body";
 
 export const runtime = "nodejs";
+const MAX_WEBHOOK_BODY_BYTES = 1024 * 1024;
+const MAX_WEBHOOK_ID_CHARS = 200;
+const MAX_WEBHOOK_URL_CHARS = 4_096;
+const MAX_WEBHOOK_TYPE_CHARS = 200;
+
+function boundedString(value: unknown, maxChars: number): string | null {
+  return typeof value === "string" && value.length > 0 && value.length <= maxChars
+    ? value
+    : null;
+}
 
 function timingSafeEqualHex(a: string, b: string): boolean {
   try {
@@ -80,27 +91,27 @@ function extractDeploymentId(body: unknown): string | null {
     b?.deploymentId ||
     b?.id;
 
-  return typeof id === "string" && id.length > 0 ? id : null;
+  return boundedString(id, MAX_WEBHOOK_ID_CHARS);
 }
 
 function extractUrl(body: unknown): string | null {
   const b = body as VercelWebhookJson | null | undefined;
   const url =
     b?.payload?.deployment?.url || b?.payload?.url || b?.deployment?.url || b?.url;
-  return typeof url === "string" && url.length > 0 ? url : null;
+  return boundedString(url, MAX_WEBHOOK_URL_CHARS);
 }
 
 function extractInspectorUrl(body: unknown): string | null {
   const b = body as VercelWebhookJson | null | undefined;
   const url = b?.payload?.links?.deployment || b?.links?.deployment;
-  return typeof url === "string" && url.length > 0 ? url : null;
+  return boundedString(url, MAX_WEBHOOK_URL_CHARS);
 }
 
 function extractProjectId(body: unknown): string | null {
   const b = body as VercelWebhookJson | null | undefined;
   const id =
     b?.payload?.project?.id || b?.payload?.projectId || b?.project?.id || b?.projectId;
-  return typeof id === "string" && id.length > 0 ? id : null;
+  return boundedString(id, MAX_WEBHOOK_ID_CHARS);
 }
 
 export async function POST(req: Request) {
@@ -114,7 +125,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing x-vercel-signature" }, { status: 401 });
   }
 
-  const rawBody = await req.text();
+  const bodyResult = await readRequestTextWithLimit(req, MAX_WEBHOOK_BODY_BYTES);
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: "Webhook body too large" }, { status: 413 });
+  }
+  const rawBody = bodyResult.text;
   const expected = computeSignature(rawBody, secret);
 
   if (!timingSafeEqualHex(signature, expected)) {
@@ -131,7 +146,7 @@ export async function POST(req: Request) {
   const type =
     body && typeof body === "object" && body !== null && "type" in body
       ? typeof (body as { type?: unknown }).type === "string"
-        ? (body as { type: string }).type
+        ? boundedString((body as { type: string }).type, MAX_WEBHOOK_TYPE_CHARS)
         : null
       : null;
   if (!type) {
