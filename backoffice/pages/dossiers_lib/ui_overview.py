@@ -51,6 +51,8 @@ from .constants import (
 )
 
 from .labels import (
+    _describe_capability_group_hint,
+    _summarize_enforcement,
     class_label,
     mock_label,
     requires_f3,
@@ -67,7 +69,6 @@ from .io import (
     _list_dossier_dirs,
     _walk_all_dossiers,
     _validate_manifest,
-    _summarize_enforcement,
     _load_group_view,
     _group_label_for_capability,
     _groups_view_is_stale,
@@ -80,7 +81,6 @@ from .io import (
     _list_template_refs,
     _run_curate,
     _apply_capability_override,
-    _describe_capability_group_hint,
     _npm_binary,
     _create_dossier_skeleton,
     _run_sdk_version_check,
