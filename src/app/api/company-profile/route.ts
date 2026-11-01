@@ -29,6 +29,7 @@ import { getProjectByIdForOwner } from "@/lib/db/services/projects";
 const MAX_PROJECT_ID_CHARS = 256;
 const MAX_COMPANY_NAME_CHARS = 500;
 const MAX_PROFILE_TEXT_CHARS = 100_000;
+const MAX_PROFILE_LIST_ITEMS = 100;
 const MAX_PROFILE_SEARCH_CHARS = 500;
 const MAX_PROFILE_ID_CHARS = 20;
 const MAX_PROFILE_BODY_BYTES = 8 * 1024 * 1024;
@@ -67,6 +68,11 @@ const OPTIONAL_PROFILE_TEXT_FIELDS = [
   "inspiration_sites",
   "voice_transcript",
 ] as const;
+
+// WizardData sends these fields as lists; the database stores their JSON text.
+const PROFILE_LIST_FIELDS = new Set<string>([
+  "site_likes", "site_dislikes", "purposes", "inspiration_sites",
+]);
 
 // GET - Retrieve company profiles
 export async function GET(req: NextRequest) {
@@ -172,19 +178,20 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    if (
-      OPTIONAL_PROFILE_TEXT_FIELDS.some(
-        (field) =>
-          rawBody[field] !== undefined &&
-          rawBody[field] !== null &&
-          (typeof rawBody[field] !== "string" ||
-            (rawBody[field] as string).length > MAX_PROFILE_TEXT_CHARS),
-      )
-    ) {
-      return NextResponse.json(
-        { success: false, error: "Profile fields must be text" },
-        { status: 400 },
-      );
+    const profileText: Record<string, unknown> = {};
+    for (const field of OPTIONAL_PROFILE_TEXT_FIELDS) {
+      let value = rawBody[field];
+      if (PROFILE_LIST_FIELDS.has(field) && Array.isArray(value) &&
+          value.length <= MAX_PROFILE_LIST_ITEMS && value.every((item) => typeof item === "string")) {
+        value = JSON.stringify(value);
+      }
+      if (value != null && (typeof value !== "string" || value.length > MAX_PROFILE_TEXT_CHARS)) {
+        return NextResponse.json(
+          { success: false, error: "Profile fields must be bounded text or supported string lists" },
+          { status: 400 },
+        );
+      }
+      profileText[field] = value;
     }
 
     const scope = { userId: user?.id ?? null, sessionId };
@@ -199,25 +206,25 @@ export async function POST(req: NextRequest) {
     const profileData: SaveCompanyProfileInput = {
       project_id: normalizedProjectId,
       company_name: company_name.trim(),
-      industry: optionalText(rawBody.industry),
-      location: optionalText(rawBody.location),
-      existing_website: optionalText(rawBody.existing_website),
-      website_analysis: optionalText(rawBody.website_analysis),
-      site_likes: optionalText(rawBody.site_likes),
-      site_dislikes: optionalText(rawBody.site_dislikes),
-      site_feedback: optionalText(rawBody.site_feedback),
-      target_audience: optionalText(rawBody.target_audience),
-      purposes: optionalText(rawBody.purposes),
-      special_wishes: optionalText(rawBody.special_wishes),
-      color_palette_name: optionalText(rawBody.color_palette_name),
-      color_primary: optionalText(rawBody.color_primary),
-      color_secondary: optionalText(rawBody.color_secondary),
-      color_accent: optionalText(rawBody.color_accent),
-      competitor_insights: optionalText(rawBody.competitor_insights),
-      industry_trends: optionalText(rawBody.industry_trends),
-      research_sources: optionalText(rawBody.research_sources),
-      inspiration_sites: optionalText(rawBody.inspiration_sites),
-      voice_transcript: optionalText(rawBody.voice_transcript),
+      industry: optionalText(profileText.industry),
+      location: optionalText(profileText.location),
+      existing_website: optionalText(profileText.existing_website),
+      website_analysis: optionalText(profileText.website_analysis),
+      site_likes: optionalText(profileText.site_likes),
+      site_dislikes: optionalText(profileText.site_dislikes),
+      site_feedback: optionalText(profileText.site_feedback),
+      target_audience: optionalText(profileText.target_audience),
+      purposes: optionalText(profileText.purposes),
+      special_wishes: optionalText(profileText.special_wishes),
+      color_palette_name: optionalText(profileText.color_palette_name),
+      color_primary: optionalText(profileText.color_primary),
+      color_secondary: optionalText(profileText.color_secondary),
+      color_accent: optionalText(profileText.color_accent),
+      competitor_insights: optionalText(profileText.competitor_insights),
+      industry_trends: optionalText(profileText.industry_trends),
+      research_sources: optionalText(profileText.research_sources),
+      inspiration_sites: optionalText(profileText.inspiration_sites),
+      voice_transcript: optionalText(profileText.voice_transcript),
     };
 
     const savedProfile = await saveCompanyProfile(profileData, scope);
