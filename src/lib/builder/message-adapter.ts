@@ -30,6 +30,19 @@ type PlanPart = { type: "plan"; plan: PlanData; isStreaming?: boolean };
 
 export type MessagePart = TextPart | ReasoningPart | ToolPart | SourcesPart | SourcePart | PlanPart;
 
+/** Shared approval gate for the chat card and preview's waiting state. */
+export function planIsVerifiedReady(plan: PlanData): boolean {
+  // Legacy data without an explicit server assessment must not enable codegen.
+  // BuildPlanCard also needs an object to render an approval action.
+  return (
+    plan.awaitingInput === false &&
+    Boolean(plan.raw) &&
+    typeof plan.raw === "object" &&
+    !Array.isArray(plan.raw) &&
+    (!Array.isArray(plan.raw?.blockers) || plan.raw.blockers.length === 0)
+  );
+}
+
 export type AIElementsMessage = {
   id: string;
   role: "user" | "assistant";
