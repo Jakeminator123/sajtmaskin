@@ -961,6 +961,7 @@ export function useBuilderPageController() {
     // Derived
     isAnyStreaming: derived.isAnyStreaming,
     isAwaitingInput: derived.isAwaitingInput,
+    isAwaitingPlanApproval: derived.isAwaitingPlanApproval,
     activeVersionId: derived.activeVersionId,
     latestVersionId: derived.latestVersionId,
     mediaEnabled: derived.mediaEnabled,
