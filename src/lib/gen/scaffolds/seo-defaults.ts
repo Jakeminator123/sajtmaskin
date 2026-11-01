@@ -1,5 +1,11 @@
 import type { ScaffoldFile, ScaffoldManifest } from "./types";
 import type { SeoBrand } from "@/lib/projects/preferences-schema";
+import {
+  addMetadataDefaults,
+  hasMetadataKeys,
+  readMetadataExpression,
+  toSafeStringLiteral,
+} from "@/lib/seo/metadata-literal";
 
 /**
  * Scaffold SEO defaults — opt-in policy with optional per-project override.
@@ -187,104 +193,30 @@ export function buildCanonicalSeoFileContent(path: string, siteUrl: string): str
   return null;
 }
 
-function findMetadataObjectRange(layoutContent: string): { start: number; end: number } | null {
-  const marker = "export const metadata: Metadata = {";
-  const markerIndex = layoutContent.indexOf(marker);
-  if (markerIndex < 0) return null;
-
-  const start = layoutContent.indexOf("{", markerIndex);
-  if (start < 0) return null;
-
-  let depth = 0;
-  for (let index = start; index < layoutContent.length; index += 1) {
-    const char = layoutContent[index];
-    if (char === "{") depth += 1;
-    if (char === "}") {
-      depth -= 1;
-      if (depth === 0) {
-        return { start, end: index };
-      }
-    }
-  }
-
-  return null;
-}
-
-function extractMetadataExpression(
-  metadataBody: string,
-  key: "title" | "description",
-  fallback: string,
-): string {
-  // SAJ-39: only single-line, single-token values are safe to splice into
-  // the enriched metadata block. Multi-line template literals, object
-  // expressions, and trailing-comment patterns get the fallback so we
-  // never produce broken JS by capturing only the first line.
-  const pattern = new RegExp(`${key}:\\s*([^\\n,]+)`);
-  const match = metadataBody.match(pattern);
-  const rawValue = match?.[1]?.trim() ?? "";
-  if (!rawValue) return fallback;
-
-  const startsWithBacktick = rawValue.startsWith("`");
-  const endsWithBacktick = rawValue.endsWith("`");
-  if (startsWithBacktick !== endsWithBacktick) return fallback;
-
-  const startsWithBrace = rawValue.startsWith("{");
-  const endsWithBrace = rawValue.endsWith("}");
-  if (startsWithBrace !== endsWithBrace) return fallback;
-
-  return rawValue;
-}
-
-function jsonStringSafe(value: string): string {
-  return JSON.stringify(value);
-}
-
-function enrichLayoutMetadata(
-  layoutContent: string,
-  siteUrl: string,
-  brand?: SeoBrand,
-): string {
-  const range = findMetadataObjectRange(layoutContent);
-  if (!range) return layoutContent;
-
-  const metadataBody = layoutContent.slice(range.start + 1, range.end);
-  if (
-    metadataBody.includes("metadataBase:") &&
-    metadataBody.includes("alternates:") &&
-    metadataBody.includes("openGraph:") &&
-    metadataBody.includes("twitter:")
-  ) {
+function enrichLayoutMetadata(layoutContent: string, siteUrl: string, brand?: SeoBrand): string {
+  if (hasMetadataKeys(layoutContent, ["metadataBase", "alternates", "openGraph", "twitter"])) {
     return layoutContent;
   }
-
   // Brand-data fills the title/description fallbacks (existing content
-  // wins via `extractMetadataExpression` if it already declares either).
+  // wins via the shared AST metadata reader if it already declares either).
   // Locale is the exception: brand wins because the scaffold metadata
   // has no locale field today, so `brand.locale` replaces the previous
   // hardcoded "sv_SE".
-  const titleFallback = brand?.companyName
-    ? jsonStringSafe(brand.companyName)
-    : `"Website"`;
+  const titleFallback = brand?.companyName ? toSafeStringLiteral(brand.companyName) : `"Website"`;
   const descriptionSource = brand?.tagline ?? brand?.description;
   const descriptionFallback = descriptionSource
-    ? jsonStringSafe(descriptionSource)
+    ? toSafeStringLiteral(descriptionSource)
     : `"Generated website with Next.js"`;
   const locale = brand?.locale ?? "sv_SE";
 
-  const titleExpr = extractMetadataExpression(metadataBody, "title", titleFallback);
-  const descriptionExpr = extractMetadataExpression(
-    metadataBody,
-    "description",
-    descriptionFallback,
-  );
-  const enrichedMetadata = `{
-  title: ${titleExpr},
-  description: ${descriptionExpr},
-  metadataBase: new URL("${siteUrl}"),
-  alternates: {
-    canonical: "/",
-  },
-  openGraph: {
+  const titleExpr = readMetadataExpression(layoutContent, "title", titleFallback);
+  const descriptionExpr = readMetadataExpression(layoutContent, "description", descriptionFallback);
+  return addMetadataDefaults(layoutContent, {
+    title: titleFallback,
+    description: descriptionFallback,
+    metadataBase: `new URL(${toSafeStringLiteral(siteUrl)})`,
+    alternates: `{ canonical: "/" }`,
+    openGraph: `{
     title: ${titleExpr},
     description: ${descriptionExpr},
     url: "/",
@@ -296,18 +228,16 @@ function enrichLayoutMetadata(
         alt: "Website preview image",
       },
     ],
-    locale: "${locale}",
+    locale: ${toSafeStringLiteral(locale)},
     type: "website",
-  },
-  twitter: {
+  }`,
+    twitter: `{
     card: "summary_large_image",
     title: ${titleExpr},
     description: ${descriptionExpr},
     images: ["/opengraph-image"],
-  },
-}`;
-
-  return `${layoutContent.slice(0, range.start)}${enrichedMetadata}${layoutContent.slice(range.end + 1)}`;
+  }`,
+  });
 }
 
 const LAYOUT_PATHS = new Set(["app/layout.tsx", "src/app/layout.tsx"]);

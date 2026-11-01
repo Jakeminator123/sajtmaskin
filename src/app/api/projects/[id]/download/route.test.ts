@@ -15,6 +15,14 @@ describe("owner project ZIP binary transport", () => {
     getCurrentUser.mockResolvedValue({ id: "user_1" });
     getProjectByIdForOwner.mockResolvedValue({ id: "project_1", name: "Demo" });
   });
+  it("rejects an oversized project id before authentication", async () => {
+    const response = await GET(new NextRequest("http://localhost/api/projects/x/download"), {
+      params: Promise.resolve({ id: "x".repeat(201) }),
+    });
+    expect(response.status).toBe(400);
+    expect(getCurrentUser).not.toHaveBeenCalled();
+    expect(getProjectByIdForOwner).not.toHaveBeenCalled();
+  });
   it("preserves binary bytes, text and placeholder filtering", async () => {
     const files = [
       { name: "public/logo.png", content: "base64:iVBORwD/" },
@@ -35,6 +43,31 @@ describe("owner project ZIP binary transport", () => {
     expect(await zip.file("README.md")!.async("string")).toBe("base64:YWJj");
     expect(zip.file("public/missing.png")).toBeNull();
     expect(JSON.stringify(files)).toBe(before);
+  });
+  it("rejects invalid file records instead of building a partial archive", async () => {
+    getProjectData.mockResolvedValue({ files: [{ name: { nested: true }, content: "text" }] });
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/projects/project_1/download"),
+      { params: Promise.resolve({ id: "project_1" }) },
+    );
+
+    expect(response.status).toBe(400);
+  });
+  it("bounds the number of files before ZIP generation", async () => {
+    getProjectData.mockResolvedValue({
+      files: Array.from({ length: 601 }, (_, index) => ({
+        name: `file-${index}.txt`,
+        content: "x",
+      })),
+    });
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/projects/project_1/download"),
+      { params: Promise.resolve({ id: "project_1" }) },
+    );
+
+    expect(response.status).toBe(413);
   });
   it("does not load project data without an owned project", async () => {
     getProjectByIdForOwner.mockResolvedValue(null);

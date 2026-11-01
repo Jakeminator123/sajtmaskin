@@ -146,6 +146,17 @@ describe("POST /api/analys", () => {
     expect(prepareCredits).not.toHaveBeenCalled();
   });
 
+  it("rejects an oversized body without spending the daily quota", async () => {
+    const req = request({ url: "https://example.com" });
+    req.headers.set("content-length", "8193");
+    const response = await POST(req);
+
+    expect(response.status).toBe(413);
+    expect(withRateLimit).not.toHaveBeenCalled();
+    expect(runWebsiteAudit).not.toHaveBeenCalled();
+    expect(acquirePublicAnalysQuota).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["null", "null"],
     ["an array", "[]"],

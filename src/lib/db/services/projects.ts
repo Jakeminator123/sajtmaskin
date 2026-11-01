@@ -11,6 +11,7 @@ import {
   promptHandoffs,
 } from "@/lib/db/schema";
 import { assertDbConfigured } from "./shared";
+import { withProjectOwner } from "./project-owner";
 import type { Project, ProjectData, PromptHandoff } from "./shared";
 import {
   buildBrandedLiveDomain,
@@ -135,19 +136,21 @@ export async function createProject(
   }
   const id = preallocatedId ?? allocateProjectId();
   const now = new Date();
-  const rows = await db
-    .insert(appProjects)
-    .values({
-      id,
-      name,
-      category: category || null,
-      description: description || null,
-      session_id: sessionId || null,
-      user_id: userId || null,
-      created_at: now,
-      updated_at: now,
-    })
-    .returning();
+  const rows = await withProjectOwner(userId, (tx) =>
+    tx
+      .insert(appProjects)
+      .values({
+        id,
+        name,
+        category: category || null,
+        description: description || null,
+        session_id: sessionId || null,
+        user_id: userId || null,
+        created_at: now,
+        updated_at: now,
+      })
+      .returning(),
+  );
   return rows[0];
 }
 
@@ -217,11 +220,13 @@ export async function claimUnclaimedSessionProjects(
   const owner = userId.trim();
   if (!session || !owner) return [];
 
-  const rows = await db
-    .update(appProjects)
-    .set({ user_id: owner, updated_at: new Date() })
-    .where(and(isNull(appProjects.user_id), eq(appProjects.session_id, session)))
-    .returning({ id: appProjects.id });
+  const rows = await withProjectOwner(owner, (tx) =>
+    tx
+      .update(appProjects)
+      .set({ user_id: owner, updated_at: new Date() })
+      .where(and(isNull(appProjects.user_id), eq(appProjects.session_id, session)))
+      .returning({ id: appProjects.id }),
+  );
 
   return rows.map((row) => row.id);
 }
@@ -245,13 +250,19 @@ export async function getProjectByIdForOwner(
   const sessionId = scope.sessionId?.trim() || project?.session_id || null;
   if (project && userId && !project.user_id) {
     const claimWhere = sessionId
-      ? and(eq(appProjects.id, id), isNull(appProjects.user_id), eq(appProjects.session_id, sessionId))
+      ? and(
+          eq(appProjects.id, id),
+          isNull(appProjects.user_id),
+          eq(appProjects.session_id, sessionId),
+        )
       : and(eq(appProjects.id, id), isNull(appProjects.user_id));
-    const claimedRows = await db
-      .update(appProjects)
-      .set({ user_id: userId, updated_at: new Date() })
-      .where(claimWhere)
-      .returning();
+    const claimedRows = await withProjectOwner(userId, (tx) =>
+      tx
+        .update(appProjects)
+        .set({ user_id: userId, updated_at: new Date() })
+        .where(claimWhere)
+        .returning(),
+    );
     const claimedProject = claimedRows[0] ?? null;
     if (claimedProject) {
       console.info("[DB] Claimed session project", id, "for user", userId);
@@ -738,13 +749,10 @@ export async function saveProjectData(data: {
     updateValues.meta = sql`COALESCE(${projectData.meta}, ${JSON.stringify(data.meta ?? null)}::jsonb)`;
   }
 
-  await db
-    .insert(projectData)
-    .values(insertValues)
-    .onConflictDoUpdate({
-      target: projectData.project_id,
-      set: updateValues,
-    });
+  await db.insert(projectData).values(insertValues).onConflictDoUpdate({
+    target: projectData.project_id,
+    set: updateValues,
+  });
 
   if ("files" in data && Array.isArray(data.files)) {
     await db.delete(projectFiles).where(eq(projectFiles.project_id, data.project_id));

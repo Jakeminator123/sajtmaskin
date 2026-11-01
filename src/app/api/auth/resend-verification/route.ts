@@ -12,21 +12,34 @@ import { sendVerificationEmail } from "@/lib/email/send";
 import { withRateLimit } from "@/lib/rate-limit";
 import { URLS } from "@/lib/config";
 import { sanitizeAuthReturnTo } from "@/lib/auth/auth-return";
+import { readRequestJsonWithLimit } from "@/lib/api/read-limited-body";
+
+const MAX_EMAIL_LENGTH = 254;
+const MAX_RETURN_TO_LENGTH = 2_048;
+const MAX_RESEND_BODY_BYTES = 4_096;
 
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "auth:resend-verification", async () => {
     try {
-      const body = await req.json().catch(() => null);
+      const parsedBody = await readRequestJsonWithLimit<Record<string, unknown> | null>(
+        req,
+        MAX_RESEND_BODY_BYTES,
+      );
+      if (!parsedBody.ok && parsedBody.reason === "too_large") {
+        return NextResponse.json(
+          { success: false, error: "För stor request body" },
+          { status: 413 },
+        );
+      }
+      const body = parsedBody.ok ? parsedBody.value : null;
       const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+      const rawReturnTo = typeof body?.returnTo === "string" ? body.returnTo : null;
       const safeReturnTo = sanitizeAuthReturnTo(
-        typeof body?.returnTo === "string" ? body.returnTo : null,
+        rawReturnTo && rawReturnTo.length <= MAX_RETURN_TO_LENGTH ? rawReturnTo : null,
         URLS.baseUrl,
       );
-      if (!email) {
-        return NextResponse.json(
-          { success: false, error: "E-post krävs" },
-          { status: 400 },
-        );
+      if (!email || email.length > MAX_EMAIL_LENGTH) {
+        return NextResponse.json({ success: false, error: "E-post krävs" }, { status: 400 });
       }
 
       const user = await getUserByEmail(email);
@@ -78,10 +91,7 @@ export async function POST(req: NextRequest) {
       });
     } catch (error) {
       console.error("[API/auth/resend-verification] Error:", error);
-      return NextResponse.json(
-        { success: false, error: "Något gick fel" },
-        { status: 500 },
-      );
+      return NextResponse.json({ success: false, error: "Något gick fel" }, { status: 500 });
     }
   });
 }

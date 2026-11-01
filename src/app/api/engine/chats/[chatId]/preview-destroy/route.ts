@@ -14,14 +14,22 @@ import { destroyPreviewHostSession } from "@/lib/gen/preview/preview-host-client
 import type { PreviewDestroyApiJson } from "@/lib/gen/preview/preview-contract";
 
 const bodySchema = z.object({
-  versionId: z.string().min(1),
-  previewSessionId: z.string().min(1).optional(),
+  versionId: z.string().trim().min(1).max(200),
+  previewSessionId: z.string().trim().min(1).max(200).optional(),
 });
+
+const MAX_PREVIEW_RESOURCE_ID_CHARS = 200;
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   return withRateLimit(req, "preview-session:destroy", async () => {
     try {
       const { chatId } = await ctx.params;
+      if (!chatId || chatId.length > MAX_PREVIEW_RESOURCE_ID_CHARS) {
+        return NextResponse.json(
+          { ok: false, reason: "invalid_body", message: "Invalid chat ID." } satisfies PreviewDestroyApiJson,
+          { status: 400 },
+        );
+      }
       const chat = await getEngineChatByIdForRequest(req, chatId);
       if (!chat) {
         return NextResponse.json(
@@ -119,7 +127,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             expectedPreviewSessionId: matchedSession.previewSessionId,
             expectedLifecycleToken: matchedSession.lifecycleToken,
           });
-        } catch (error) {
+        } catch {
           const active = await getActivePreviewSessionAsync(chatId).catch(() => null);
           const restoreUrl =
             active?.versionId === requestedVersion.version.id
@@ -130,7 +138,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             {
               ok: false,
               reason: "session_store_failed",
-              message: error instanceof Error ? error.message : "Preview session store failed.",
+              message: "Preview session store failed.",
             } satisfies PreviewDestroyApiJson,
             { status: 500 },
           );
@@ -205,12 +213,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           : {}),
       };
       return NextResponse.json(response);
-    } catch (err) {
+    } catch {
       return NextResponse.json(
         {
           ok: false,
           reason: "unknown",
-          message: err instanceof Error ? err.message : "Unknown error",
+          message: "Preview destroy failed.",
         } satisfies PreviewDestroyApiJson,
         { status: 500 },
       );

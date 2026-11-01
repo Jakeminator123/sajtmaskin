@@ -89,6 +89,15 @@ describe("POST finalize-design", () => {
     });
   });
 
+  it("does not expose unexpected internal errors", async () => {
+    const res = await POST(request({ versionId: "ver_current" }), {
+      params: Promise.reject(new Error("postgres://user:secret@private-db/internal")),
+    });
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Failed to finalize design" });
+  });
+
   it("blocks an unresolved provider contract before readiness or a deterministic fork", async () => {
     getEngineChatByIdForRequest.mockResolvedValue({
       id: "chat_1",

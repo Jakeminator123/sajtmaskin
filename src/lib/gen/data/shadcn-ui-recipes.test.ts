@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   _clearShadcnUiRecipeCachesForTests,
+  _setShadcnUiRecipeCacheEntryForTests,
+  _shadcnUiRecipeCacheSizeForTests,
   buildLegacyCandidates,
   resolveShadcnUiRecipes,
 } from "./shadcn-ui-recipes";
@@ -75,6 +77,16 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+});
+
+describe("recipe memory cache", () => {
+  it("evicts oldest entries above the fixed capacity", () => {
+    for (let i = 0; i < 300; i++) {
+      _setShadcnUiRecipeCacheEntryForTests(`recipe-${i}`);
+    }
+
+    expect(_shadcnUiRecipeCacheSizeForTests()).toBe(256);
+  });
 });
 
 describe("resolveShadcnUiRecipes", () => {

@@ -197,6 +197,37 @@ describe("POST quality-gate", () => {
     describeQualityGateVerification.mockReturnValue("Automatic verification passed.");
     isQualityGateDisabledByEnv.mockReturnValue(false);
   });
+
+  it("does not expose unexpected internal errors", async () => {
+    const res = await POST(new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ versionId: "ver-1" }),
+    }), {
+      params: Promise.reject(new Error("database host: secret.internal")),
+    });
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Quality gate failed" });
+  });
+
+  it.each([
+    ["chatId", "x".repeat(201), { versionId: "ver-1" }],
+    ["versionId", "chat-1", { versionId: "x".repeat(201) }],
+  ])("rejects an oversized %s before user or tenant lookup", async (_field, chatId, body) => {
+    const res = await POST(
+      new Request("http://localhost/api", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+      { params: Promise.resolve({ chatId }) },
+    );
+
+    expect(res.status).toBe(400);
+    expect(getRequestUserId).not.toHaveBeenCalled();
+    expect(getEngineVersionForChatByIdForRequest).not.toHaveBeenCalled();
+  });
   afterEach(() => expect(automaticRepair).not.toHaveBeenCalled());
 
   it("maps a null helper result to 501/pending, not a product failure", async () => {

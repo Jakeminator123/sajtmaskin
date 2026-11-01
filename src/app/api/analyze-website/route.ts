@@ -14,6 +14,7 @@ import { workloadOpenAIProviderOptions } from "@/lib/ai-models/workload-reasonin
 import { quickScrapeWebsite } from "@/lib/webscraper";
 import { withRateLimit } from "@/lib/rate-limit";
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
+import { urlForLog } from "@/lib/utils/url-for-log";
 
 export const maxDuration = 60;
 
@@ -53,6 +54,54 @@ interface AnalysisResponse {
   scraped: boolean;
 }
 
+type ScrapedContent = {
+  title?: string;
+  description?: string;
+  headings?: string[];
+  wordCount?: number;
+  textSummary?: string;
+};
+
+const MAX_SCRAPED_SUMMARY_CHARS = 12_000;
+
+function normalizeScrapedContent(value: unknown): ScrapedContent | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const input = value as Record<string, unknown>;
+  const textSummary =
+    typeof input.textSummary === "string"
+      ? input.textSummary
+          .trim()
+          .split(/\s+/)
+          .slice(0, 200)
+          .join(" ")
+          .slice(0, MAX_SCRAPED_SUMMARY_CHARS)
+      : "";
+  if (!textSummary) return undefined;
+
+  const title = typeof input.title === "string" ? input.title.trim().slice(0, 300) : "";
+  const description =
+    typeof input.description === "string" ? input.description.trim().slice(0, 1_000) : "";
+  const headings = Array.isArray(input.headings)
+    ? input.headings
+        .filter((heading): heading is string => typeof heading === "string")
+        .map((heading) => heading.trim().slice(0, 300))
+        .filter(Boolean)
+        .slice(0, 20)
+    : [];
+  const wordCount =
+    typeof input.wordCount === "number" && Number.isFinite(input.wordCount) && input.wordCount >= 0
+      ? Math.trunc(input.wordCount)
+      : undefined;
+
+  return {
+    ...(title ? { title } : {}),
+    ...(description ? { description } : {}),
+    ...(headings.length > 0 ? { headings } : {}),
+    ...(wordCount !== undefined ? { wordCount } : {}),
+    textSummary,
+  };
+}
+
 function hasOpenAIApiKey(): boolean {
   return Boolean(process.env.OPENAI_API_KEY?.trim());
 }
@@ -69,21 +118,16 @@ export async function POST(req: NextRequest) {
     console.info("[API/analyze-website] Request received");
 
     try {
-    const body = (await req.json()) as {
-      url: string;
-      deepAnalysis?: boolean;
-      scrapedContent?: {
-        title?: string;
-        description?: string;
-        headings?: string[];
-        wordCount?: number;
-        textSummary?: string;
-      };
-    };
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ success: false, error: "Invalid request" }, { status: 400 });
+    }
+    const payload = body as Record<string, unknown>;
+    const url = typeof payload.url === "string" ? payload.url.trim() : "";
+    const deepAnalysis = typeof payload.deepAnalysis === "boolean" ? payload.deepAnalysis : true;
+    const scrapedContent = normalizeScrapedContent(payload.scrapedContent);
 
-    const { url, deepAnalysis = true, scrapedContent } = body;
-
-    if (!url) {
+    if (!url || url.length > 2_048) {
       return NextResponse.json({ success: false, error: "URL is required" }, { status: 400 });
     }
 
@@ -91,6 +135,13 @@ export async function POST(req: NextRequest) {
     try {
       parsedUrl = new URL(url);
     } catch {
+      return NextResponse.json({ success: false, error: "Invalid URL format" }, { status: 400 });
+    }
+    if (
+      !["http:", "https:"].includes(parsedUrl.protocol) ||
+      parsedUrl.username ||
+      parsedUrl.password
+    ) {
       return NextResponse.json({ success: false, error: "Invalid URL format" }, { status: 400 });
     }
 
@@ -102,7 +153,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.info("[API/analyze-website] Analyzing URL:", url);
+    console.info("[API/analyze-website] Analyzing URL:", urlForLog(parsedUrl));
 
     let scraped = false;
     let contentForAnalysis = scrapedContent;

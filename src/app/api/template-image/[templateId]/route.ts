@@ -28,6 +28,7 @@ const MIME_TYPES: Record<string, string> = {
 
 const CACHE_HEADER = "public, max-age=86400, stale-while-revalidate=604800";
 const FALLBACK_CACHE_HEADER = "public, max-age=3600, stale-while-revalidate=86400";
+const MAX_TEMPLATE_ID_CHARS = 128;
 
 async function canAccess(filePath: string): Promise<boolean> {
   try {
@@ -101,6 +102,7 @@ function fallbackImageResponse(templateId: string): NextResponse {
     status: 200,
     headers: {
       "Content-Type": "image/svg+xml; charset=utf-8",
+      "X-Content-Type-Options": "nosniff",
       "Cache-Control": FALLBACK_CACHE_HEADER,
       "X-Template-Image-Fallback": "1",
     },
@@ -112,7 +114,11 @@ export async function GET(
   { params }: { params: Promise<{ templateId: string }> },
 ) {
   const { templateId } = await params;
-  if (!templateId || !/^[A-Za-z0-9_-]+$/.test(templateId)) {
+  if (
+    !templateId ||
+    templateId.length > MAX_TEMPLATE_ID_CHARS ||
+    !/^[A-Za-z0-9_-]+$/.test(templateId)
+  ) {
     return NextResponse.json({ error: "Invalid template ID" }, { status: 400 });
   }
 
@@ -124,6 +130,7 @@ export async function GET(
   return new NextResponse(new Uint8Array(image.buffer), {
     headers: {
       "Content-Type": image.contentType,
+      "X-Content-Type-Options": "nosniff",
       "Cache-Control": CACHE_HEADER,
     },
   });

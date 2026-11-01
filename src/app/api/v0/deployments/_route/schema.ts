@@ -2,12 +2,12 @@ import { z } from "zod/v4";
 import { seoPreferencesSchema } from "@/lib/projects/preferences-schema";
 
 export const createDeploymentSchema = z.object({
-  chatId: z.string().min(1, "chatId is required"),
-  versionId: z.string().min(1, "versionId is required"),
-  projectName: z.string().optional(),
+  chatId: z.string().min(1, "chatId is required").max(128),
+  versionId: z.string().min(1, "versionId is required").max(128),
+  projectName: z.string().max(100).optional(),
   target: z.enum(["production", "preview"]).optional(),
   imageStrategy: z.enum(["external", "blob"]).optional(),
-  projectId: z.string().optional(),
+  projectId: z.string().max(128).optional(),
   /** Kör samma preflight som deploy (fixar + env-krav) utan Vercel-anrop, credits eller deployment-rad. */
   precheckOnly: z.boolean().optional(),
   /** Felsökning: hoppa över applyPreDeployFixes; env-krav beräknas på rå snapshot. */

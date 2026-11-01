@@ -7,6 +7,8 @@ import type { PreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";
 import { isShimPreviewDisabled } from "@/lib/gen/preview/legacy/compatibility-shim";
 
 export const runtime = "nodejs";
+const MAX_PREVIEW_ID_CHARS = 200;
+const MAX_PREVIEW_ROUTE_CHARS = 2_048;
 
 /**
  * Serves a self-contained HTML preview of generated code (legacy / fast path).
@@ -42,8 +44,13 @@ export async function GET(req: Request) {
   const versionId = searchParams.get("versionId");
   const routePath = searchParams.get("route");
 
-  if (!chatId) {
-    return NextResponse.json({ error: "chatId is required" }, { status: 400 });
+  if (
+    !chatId ||
+    chatId.length > MAX_PREVIEW_ID_CHARS ||
+    (versionId?.length ?? 0) > MAX_PREVIEW_ID_CHARS ||
+    (routePath?.length ?? 0) > MAX_PREVIEW_ROUTE_CHARS
+  ) {
+    return NextResponse.json({ error: "Invalid preview parameters" }, { status: 400 });
   }
 
   console.info("[telemetry:legacy-preview-render]", {

@@ -23,15 +23,30 @@ import {
   referenceWholesaleSek,
 } from "@/lib/domains/pricing";
 import { resolvePricingSettings } from "@/lib/db/services/pricing-settings";
+import { normalizeDomainHostname } from "@/lib/live-site-url";
+import { withRateLimit } from "@/lib/rate-limit";
+
+const MAX_DOMAIN_INPUT_CHARS = 253;
 
 export async function GET(request: NextRequest) {
+  return withRateLimit(request, "domains:price", () => handleGET(request));
+}
+
+async function handleGET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const domain = searchParams.get("domain");
-
-    if (!domain) {
+    const rawDomain = searchParams.get("domain")?.trim().toLowerCase() ?? "";
+    if (rawDomain.length > MAX_DOMAIN_INPUT_CHARS) {
       return NextResponse.json(
-        { success: false, error: "Domain parameter is required" },
+        { success: false, error: "A valid domain parameter is required" },
+        { status: 400 },
+      );
+    }
+    const domain = normalizeDomainHostname(rawDomain);
+
+    if (!domain || domain !== rawDomain || !domain.includes(".")) {
+      return NextResponse.json(
+        { success: false, error: "A valid domain parameter is required" },
         { status: 400 },
       );
     }
@@ -94,7 +109,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "Domain price lookup failed",
       },
       { status: 500 },
     );

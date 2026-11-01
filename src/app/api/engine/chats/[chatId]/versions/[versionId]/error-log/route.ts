@@ -27,6 +27,45 @@ type ErrorLogBatchPayload = {
   productPostcheckAttestation?: ProductPostcheckAttestation | null;
 };
 
+const MAX_ERROR_LOGS_PER_REQUEST = 100;
+const MAX_ERROR_LOG_MESSAGE_CHARS = 20_000;
+const MAX_ERROR_LOG_CATEGORY_CHARS = 200;
+const MAX_ERROR_LOG_META_CHARS = 50_000;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isErrorLogPayload(value: unknown): value is ErrorLogPayload {
+  if (!isRecord(value)) return false;
+  if (value.level !== "info" && value.level !== "warning" && value.level !== "error") {
+    return false;
+  }
+  if (
+    typeof value.message !== "string" ||
+    value.message.length === 0 ||
+    value.message.length > MAX_ERROR_LOG_MESSAGE_CHARS
+  ) {
+    return false;
+  }
+  if (
+    value.category !== undefined &&
+    value.category !== null &&
+    (typeof value.category !== "string" || value.category.length > MAX_ERROR_LOG_CATEGORY_CHARS)
+  ) {
+    return false;
+  }
+  if (value.meta === undefined || value.meta === null) return true;
+  return isRecord(value.meta) && JSON.stringify(value.meta).length <= MAX_ERROR_LOG_META_CHARS;
+}
+
+function invalidPayloadResponse() {
+  return NextResponse.json(
+    { success: false, stored: false, code: "invalid_error_log_payload" },
+    { status: 400 },
+  );
+}
+
 function isProductPostcheckCategory(value: unknown): boolean {
   return typeof value === "string" && value.startsWith("product_postcheck.");
 }
@@ -89,13 +128,12 @@ export async function POST(request: Request, ctx: RouteParams) {
     }
     const internalChatId = scopedVersion.chat.id;
     const internalVersionId = scopedVersion.version.id;
-    const body = (await request.json().catch(() => null)) as
-      | ErrorLogBatchPayload
-      | ErrorLogPayload
-      | null;
-    if (!body) {
+    const parsed = await request.json().catch(() => null);
+    if (!parsed) {
       return NextResponse.json({ error: "Missing payload" }, { status: 400 });
     }
+    if (!isRecord(parsed)) return invalidPayloadResponse();
+    const body = parsed as ErrorLogBatchPayload | ErrorLogPayload;
 
     // Attestation authorizes preview observations, never paid-budget receipts.
     // Reject the entire payload before choosing singleton/batch/attested paths.
@@ -159,7 +197,14 @@ export async function POST(request: Request, ctx: RouteParams) {
       return NextResponse.json({ success: true, stored: true, logs });
     }
 
-    if ("logs" in body && Array.isArray(body.logs)) {
+    if ("logs" in body) {
+      if (
+        !Array.isArray(body.logs) ||
+        body.logs.length > MAX_ERROR_LOGS_PER_REQUEST ||
+        !body.logs.every(isErrorLogPayload)
+      ) {
+        return invalidPayloadResponse();
+      }
       // Product results have exactly one server writer. Generic diagnostics
       // remain writable, but a client can never create a release-domain row.
       if (body.logs.some((log) => isProductPostcheckCategory(log.category))) {
@@ -185,7 +230,8 @@ export async function POST(request: Request, ctx: RouteParams) {
       return NextResponse.json({ success: true, stored: true, logs: rows });
     }
 
-    const payload = body as ErrorLogPayload;
+    if (!isErrorLogPayload(body)) return invalidPayloadResponse();
+    const payload = body;
     if (isProductPostcheckCategory(payload.category)) {
       return productPostcheckAttestationRequiredResponse();
     }
@@ -208,10 +254,7 @@ export async function POST(request: Request, ctx: RouteParams) {
     return NextResponse.json({ success: true, stored: true, log: rows[0] });
   } catch (error) {
     console.error("[API] Failed to store version error log:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to store version error log" }, { status: 500 });
   }
 }
 
@@ -226,9 +269,6 @@ export async function GET(request: Request, ctx: RouteParams) {
     return NextResponse.json({ success: true, stored: true, logs, summary: buildErrorLogSummary(logs) });
   } catch (error) {
     console.error("[API] Failed to load version error logs:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to load version error logs" }, { status: 500 });
   }
 }

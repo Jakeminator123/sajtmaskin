@@ -14,6 +14,7 @@ import type {
   VersionSummary,
 } from "./types";
 import { buildVersionLabelMap, versionRowSortKey } from "./helpers";
+import { fetchCollaborationSummaries } from "./collaboration-summaries";
 
 export function useVersionHistoryActions({
   chatId,
@@ -82,13 +83,9 @@ export function useVersionHistoryActions({
     .filter((id): id is string => !!id);
   const { data: collaborationData } = useSWR<{ summaries?: Record<string, { approvalStatus: string | null; unresolvedCount: number }> }>(
     chatId && collaborationVersionIds.length > 0
-      ? `${engineChatBaseUrl(chatId)}/versions/collaboration-summaries?versionIds=${encodeURIComponent(collaborationVersionIds.join(","))}`
+      ? ["collaboration-summaries", chatId, collaborationVersionIds]
       : null,
-    async (url) => {
-      const res = await fetch(url);
-      if (!res.ok) return { summaries: {} };
-      return res.json();
-    },
+    ([, summaryChatId, ids]: [string, string, string[]]) => fetchCollaborationSummaries(summaryChatId, ids),
     { revalidateOnFocus: false, dedupingInterval: 10000 },
   );
   const collaborationSummaries = collaborationData?.summaries ?? {};

@@ -8,6 +8,8 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+const MAX_PROJECT_ID_CHARS = 200;
+
 /**
  * GET /api/projects/[id]/site — address and publish state for the portal.
  *
@@ -21,6 +23,9 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    if (!id || id.length > MAX_PROJECT_ID_CHARS) {
+      return NextResponse.json({ success: false, error: "Invalid project ID" }, { status: 400 });
+    }
     const user = await getCurrentUser(request);
     const sessionId = getSessionIdFromRequest(request);
 

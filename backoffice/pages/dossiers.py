@@ -51,6 +51,8 @@ from .dossiers_lib.constants import (
 )
 
 from .dossiers_lib.labels import (
+    _describe_capability_group_hint,
+    _summarize_enforcement,
     class_description,
     class_hint,
     class_label,
@@ -72,7 +74,6 @@ from .dossiers_lib.io import (
     _walk_all_dossiers,
     _validate_manifest,
     _save_raw_manifest,
-    _summarize_enforcement,
     _load_group_view,
     _ensure_capability_map_current,
     _render_dossier_flash,
@@ -87,7 +88,6 @@ from .dossiers_lib.io import (
     _list_template_refs,
     _run_curate,
     _apply_capability_override,
-    _describe_capability_group_hint,
     _npm_binary,
     _create_dossier_skeleton,
     _run_sdk_version_check,

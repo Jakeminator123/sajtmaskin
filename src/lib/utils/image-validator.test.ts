@@ -1,4 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const { safeFetchMock } = vi.hoisted(() => ({
+  safeFetchMock: vi.fn((url: string, init?: RequestInit & { headersOnly?: boolean }) => globalThis.fetch(url, init)),
+}));
+
+vi.mock("@/lib/ssrf-guard", () => ({
+  safeFetch: safeFetchMock,
+}));
+
 import {
   applyKnownImageReplacementsToFiles,
   buildKnownImageReplacementMap,
@@ -297,6 +306,7 @@ describe("validateImages", () => {
     let fetchSpy: ReturnType<typeof vi.spyOn>;
 
     beforeEach(() => {
+      safeFetchMock.mockClear();
       fetchSpy = vi.spyOn(globalThis, "fetch");
     });
 
@@ -407,14 +417,19 @@ describe("validateImages", () => {
 
     it("HEAD 200 → ingen broken (1 fetch-anrop, bara HEAD)", async () => {
       fetchSpy.mockResolvedValue(new Response(null, { status: 200 }));
+      const url = "https://cdn.example.com/ok.jpg";
       const result = await validateImages({
-        files: filesForUrl("https://cdn.example.com/ok.jpg"),
+        files: filesForUrl(url),
         autoFix: false,
         unsplashAccessKey: null,
       });
       expect(result.broken).toHaveLength(0);
       expect(fetchSpy).toHaveBeenCalledTimes(1);
       expect(fetchSpy.mock.calls[0]?.[1]).toMatchObject({ method: "HEAD" });
+      expect(safeFetchMock).toHaveBeenCalledWith(
+        url,
+        expect.objectContaining({ method: "HEAD", timeoutMs: 3_000, headersOnly: true }),
+      );
     });
 
     it("HEAD 404 → broken (ingen GET-fallback för 4xx-status)", async () => {
@@ -464,6 +479,28 @@ describe("validateImages", () => {
       expect(result.broken).toHaveLength(0);
       expect(fetchSpy).toHaveBeenCalledTimes(2);
       expect(fetchSpy.mock.calls[1]?.[1]).toMatchObject({ method: "GET" });
+    });
+
+    it("keeps a valid image when the GET fallback server ignores Range", async () => {
+      safeFetchMock
+        .mockResolvedValueOnce(new Response(null, { status: 405 }))
+        .mockImplementationOnce(async (_url, init) =>
+          // A full image would exceed the old 1 KiB body budget. A status probe
+          // must stop at the headers, independently of Range support.
+          new Response(null, { status: init?.headersOnly ? 200 : 413 }),
+        );
+
+      const result = await validateImages({
+        files: filesForUrl("https://cdn.example.com/full-size.jpg"),
+        autoFix: false,
+        unsplashAccessKey: null,
+      });
+
+      expect(result.broken).toHaveLength(0);
+      expect(safeFetchMock).toHaveBeenLastCalledWith(
+        "https://cdn.example.com/full-size.jpg",
+        expect.objectContaining({ method: "GET", headersOnly: true }),
+      );
     });
 
     it("HEAD 405 + GET 404 → fortfarande broken", async () => {

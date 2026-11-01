@@ -52,9 +52,9 @@ export function isAllowedPresentationFrame(value: string): boolean {
 
 const requestSchema = z.object({
   transcript: z.string().min(1, "Transcript required").max(20_000),
-  companyName: z.string().optional().default(""),
-  industry: z.string().optional().default(""),
-  language: z.string().optional().default("sv"),
+  companyName: z.string().max(300).optional().default(""),
+  industry: z.string().max(200).optional().default(""),
+  language: z.string().max(20).optional().default("sv"),
   frames: z.array(z.string().max(MAX_FRAME_CHARS)).max(6).optional(),
 });
 
@@ -268,7 +268,7 @@ async function handlePOST(req: Request) {
   } catch (err) {
     errorLog("PRESENTATION", "Analysis error", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Unknown error" },
+      { error: "Presentation analysis failed" },
       { status: 500 },
     );
   }

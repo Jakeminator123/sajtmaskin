@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getCurrentUser = vi.hoisted(() => vi.fn());
+const generateText = vi.hoisted(() => vi.fn());
 const withRateLimit = vi.hoisted(() =>
   vi.fn((_req: Request, _bucket: string, handler: () => Promise<Response>) => handler()),
 );
@@ -18,7 +19,7 @@ vi.mock("@/lib/builder/direct-model", () => ({
 }));
 
 vi.mock("ai", () => ({
-  generateText: vi.fn(),
+  generateText,
 }));
 
 import { isAllowedPresentationFrame, POST } from "./route";
@@ -38,6 +39,10 @@ describe("POST /api/analyze-presentation", () => {
     withRateLimit.mockImplementation(
       (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
     );
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("requires a logged-in user before calling the vision model", async () => {
@@ -96,5 +101,40 @@ describe("POST /api/analyze-presentation", () => {
     );
 
     expect(res.status).toBe(400);
+  });
+
+  it("rejects oversized company context before calling a model", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user_1" });
+
+    const res = await POST(
+      new Request("http://localhost/api/analyze-presentation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transcript: "Hej och välkommen till vår presentation av företaget",
+          companyName: "x".repeat(301),
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
+  it("does not expose provider failures", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user_1" });
+    generateText.mockRejectedValue(new Error("provider secret response"));
+    vi.stubEnv("OPENAI_API_KEY", "");
+
+    const res = await POST(
+      new Request("http://localhost/api/analyze-presentation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript: "En tillräckligt lång presentation för analys" }),
+      }),
+    );
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Presentation analysis failed" });
   });
 });

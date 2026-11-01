@@ -208,6 +208,39 @@ describe("POST repair — lease before snapshot (Codex P2)", () => {
     expect(runRepairLoop).not.toHaveBeenCalled();
   });
 
+  it("rejects oversized repair diagnostics before reading tenant state", async () => {
+    const res = await POST(req({
+      versionId: "ver-1",
+      repairContext: {
+        qualityGate: [{ check: "build", exitCode: 1, output: "x".repeat(256_001) }],
+      },
+    }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(getRequestUserId).not.toHaveBeenCalled();
+    expect(getEngineVersionForChatByIdForRequest).not.toHaveBeenCalled();
+    expect(acquireVersionLease).not.toHaveBeenCalled();
+  });
+
+  it("accepts diagnostics up to the preview-host output budget", async () => {
+    getVersionFilesSnapshot.mockResolvedValue({ files: [], filesJson: "[]" });
+
+    const res = await POST(req({
+      versionId: "ver-1",
+      repairContext: {
+        qualityGate: [{ check: "build", exitCode: 1, output: "x".repeat(256_000) }],
+      },
+    }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+
+    // Empty files stop the test after validation, ownership, and lease acquisition.
+    expect(res.status).toBe(404);
+    expect(acquireVersionLease).toHaveBeenCalledWith("ver-1", "manual_repair");
+  });
+
   it("acquires the lease BEFORE reading version files", async () => {
     getVersionFilesSnapshot.mockResolvedValue({ files: [], filesJson: "[]" }); // empty -> early 404 after acquire+read
 
@@ -1091,8 +1124,13 @@ describe("POST repair — catch re-reads base when the crash precedes staleBaseN
     );
 
     expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Repair failed" });
     // No concurrent edit -> the crash legitimately fails the version.
-    expect(failVersionVerification).toHaveBeenCalledTimes(1);
+    expect(failVersionVerification).toHaveBeenCalledWith(
+      "ver-1",
+      "Repair crashed unexpectedly.",
+      "run-1",
+    );
     expect(afterCallbacks.value).toHaveLength(0);
   });
 
