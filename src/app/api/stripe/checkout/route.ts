@@ -24,6 +24,7 @@ import Stripe from "stripe";
 
 // Initialize Stripe
 const stripe = SECRETS.stripeSecretKey ? new Stripe(SECRETS.stripeSecretKey) : null;
+const MAX_STRIPE_SESSION_ID_CHARS = 255;
 
 /**
  * Purchase confirmation for the buy-credits redirect (#36, Codex P2 on PR
@@ -42,7 +43,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Inte inloggad" }, { status: 401 });
     }
     const sessionId = req.nextUrl.searchParams.get("session_id");
-    if (!sessionId || !/^cs_[A-Za-z0-9_]+$/.test(sessionId)) {
+    if (
+      !sessionId ||
+      sessionId.length > MAX_STRIPE_SESSION_ID_CHARS ||
+      !/^cs_[A-Za-z0-9_]+$/.test(sessionId)
+    ) {
       return NextResponse.json(
         { success: false, error: "Ogiltigt session-id" },
         { status: 400 },
@@ -104,8 +109,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(campaignAccountBlockedBody("payment"), { status: 403 });
       }
 
-      const body = await req.json();
-      const { packageId } = body as { packageId?: string };
+      const body = await req.json().catch(() => null);
+      const packageId =
+        body && typeof body === "object" && !Array.isArray(body) &&
+        typeof (body as Record<string, unknown>).packageId === "string"
+          ? ((body as Record<string, unknown>).packageId as string).trim()
+          : "";
 
       if (!packageId) {
         return NextResponse.json({ success: false, error: "Paket-ID saknas" }, { status: 400 });
@@ -143,8 +152,8 @@ export async function POST(req: NextRequest) {
 
       if (error instanceof Stripe.errors.StripeError) {
         return NextResponse.json(
-          { success: false, error: "Betalningsfel: " + error.message },
-          { status: 400 },
+          { success: false, error: "Betaltjänsten kunde inte starta checkout." },
+          { status: 502 },
         );
       }
 

@@ -75,6 +75,9 @@ export function verifyVercelDrainSignature(params: {
 }): VercelDrainVerification {
   const { rawBody, signatureHeader, secret } = params;
   if (!signatureHeader) return { ok: false, reason: "missing x-vercel-signature" };
+  if (signatureHeader.length !== 40 || !/^[a-f0-9]{40}$/i.test(signatureHeader)) {
+    return { ok: false, reason: "signature mismatch" };
+  }
 
   const expected = createHmac("sha1", secret).update(rawBody, "utf8").digest("hex");
   const candidate = Buffer.from(signatureHeader, "utf8");

@@ -788,11 +788,21 @@ export async function GET(request: Request, ctx: { params: Promise<{ chatId: str
   return withRateLimit(request, "engine:readiness", () => handleGET(request, ctx));
 }
 
+const MAX_READINESS_ID_CHARS = 200;
+
 async function handleGET(request: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
     const { chatId } = await ctx.params;
     const { searchParams } = new URL(request.url);
     const requestedVersionId = searchParams.get("versionId");
+
+    if (
+      !chatId ||
+      chatId.length > MAX_READINESS_ID_CHARS ||
+      (requestedVersionId?.length ?? 0) > MAX_READINESS_ID_CHARS
+    ) {
+      return NextResponse.json({ error: "Invalid readiness parameters" }, { status: 400 });
+    }
 
     const readiness = await buildEngineReadiness(request, chatId, requestedVersionId);
 
@@ -810,9 +820,6 @@ async function handleGET(request: Request, ctx: { params: Promise<{ chatId: stri
     const degraded = transientDbResponseIfRetryable(error, "[API] readiness");
     if (degraded) return degraded;
     console.error("[API] Failed to build chat readiness:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to build chat readiness" }, { status: 500 });
   }
 }

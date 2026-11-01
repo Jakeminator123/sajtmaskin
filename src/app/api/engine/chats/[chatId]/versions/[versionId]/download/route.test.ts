@@ -75,4 +75,18 @@ describe("GET owner version download zip", () => {
     expect(res.status).toBe(404);
     expect(buildExportableProject).not.toHaveBeenCalled();
   });
+
+  it("does not expose unexpected internal errors", async () => {
+    getEngineVersionForChatByIdForRequest.mockRejectedValue(
+      new Error("postgres://user:secret@private-db/internal"),
+    );
+
+    const res = await GET(
+      new Request("http://localhost/api/engine/chats/chat-1/versions/ver-1/download"),
+      { params: Promise.resolve({ chatId: "chat-1", versionId: "ver-1" }) },
+    );
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Failed to download version" });
+  });
 });

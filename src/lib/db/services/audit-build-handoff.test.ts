@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PgDialect } from "drizzle-orm/pg-core";
 import type { SQL } from "drizzle-orm";
+vi.mock("./project-owner", () => ({ lockProjectOwner: vi.fn(async () => undefined) }));
 const state = vi.hoisted(() => ({
   projects: [] as Record<string, unknown>[],
   handoffs: [] as Record<string, unknown>[],
@@ -129,10 +130,16 @@ describe("atomic audit build handoff (mock transaction, never live DB)", () => {
     expect(state.projects).toHaveLength(1);
     expect(state.handoffs).toHaveLength(1);
     state.projects = [];
-    await expect(createAuditProjectHandoff(input)).rejects.toMatchObject({ status: 409, code: "AUDIT_HANDOFF_PROJECT_MISSING" });
+    await expect(createAuditProjectHandoff(input)).rejects.toMatchObject({
+      status: 409,
+      code: "AUDIT_HANDOFF_PROJECT_MISSING",
+    });
     expect(state.projects).toHaveLength(0);
     expect(state.handoffs).toHaveLength(1);
-    const replacement = await createAuditProjectHandoff({ ...input, attemptId: "22222222-2222-4222-8222-222222222222" });
+    const replacement = await createAuditProjectHandoff({
+      ...input,
+      attemptId: "22222222-2222-4222-8222-222222222222",
+    });
     expect(replacement.projectId).not.toBe(state.handoffs[0].project_id);
     expect(state.projects).toHaveLength(1);
     expect(state.handoffs).toHaveLength(2);
@@ -146,9 +153,19 @@ describe("atomic audit build handoff (mock transaction, never live DB)", () => {
   it("reuses owner/canonical-payload identity without comparing or overwriting display copy", async () => {
     const first = await createAuditProjectHandoff(input);
     state.handoffs[0].prompt = "Display copy from the deployment that accepted this attempt";
-    const replay = await createAuditProjectHandoff({ ...input, payload: { company: input.payload.company, audit_scores: input.payload.audit_scores, url: input.payload.url, domain: input.payload.domain } });
+    const replay = await createAuditProjectHandoff({
+      ...input,
+      payload: {
+        company: input.payload.company,
+        audit_scores: input.payload.audit_scores,
+        url: input.payload.url,
+        domain: input.payload.domain,
+      },
+    });
     expect(replay).toEqual(first);
-    expect(state.handoffs[0].prompt).toBe("Display copy from the deployment that accepted this attempt");
+    expect(state.handoffs[0].prompt).toBe(
+      "Display copy from the deployment that accepted this attempt",
+    );
     expect(state.handoffs).toHaveLength(1);
     expect(state.projects).toHaveLength(1);
     expect(canCreateProject).toHaveBeenCalledTimes(1);

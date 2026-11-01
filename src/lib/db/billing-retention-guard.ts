@@ -94,6 +94,7 @@ export type BillingRetentionCounts = {
 export type BillingRetentionScope =
   | { kind: "allProjects" }
   | { kind: "projectIds"; projectIds: string[] }
+  | { kind: "userIds"; userIds: string[] }
   | { kind: "usersExcept"; keepEmails: string[] }
   | { kind: "everything"; keepEmails: string[] };
 
@@ -114,10 +115,7 @@ export class BillingRetentionError extends Error {
   }
 }
 
-export function billingRetentionMessage(
-  action: string,
-  counts: BillingRetentionCounts,
-): string {
+export function billingRetentionMessage(action: string, counts: BillingRetentionCounts): string {
   return (
     `${action} avbröts innan något raderades: ${counts.subscriptions} abonnemang, ` +
     `${counts.grants} kreditgrant(er), ${counts.jobs} betalningsjobb och ` +
@@ -151,6 +149,8 @@ function scopePredicate(scope: BillingRetentionScope): SQL {
       return sql`true`;
     case "projectIds":
       return sql`s.project_id = ANY(${textArray(scope.projectIds)})`;
+    case "userIds":
+      return sql`s.user_id = ANY(${textArray(scope.userIds)})`;
     case "usersExcept":
       return scope.keepEmails.length === 0
         ? sql`true`
@@ -168,6 +168,7 @@ function scopePredicate(scope: BillingRetentionScope): SQL {
  * farozonen där och ska inte kunna låsa den.
  */
 function customerPredicate(scope: BillingRetentionScope): SQL | null {
+  if (scope.kind === "userIds") return sql`c.user_id = ANY(${textArray(scope.userIds)})`;
   if (scope.kind !== "usersExcept" && scope.kind !== "everything") return null;
   return scope.keepEmails.length === 0
     ? sql`true`
@@ -186,6 +187,7 @@ export async function countProtectedBillingRows(
   scope: BillingRetentionScope,
 ): Promise<BillingRetentionCounts> {
   if (scope.kind === "projectIds" && scope.projectIds.length === 0) return EMPTY;
+  if (scope.kind === "userIds" && scope.userIds.length === 0) return EMPTY;
 
   const predicate = scopePredicate(scope);
   const customers = customerPredicate(scope);

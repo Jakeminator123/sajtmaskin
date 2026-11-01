@@ -12,6 +12,16 @@
 
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rate-limit";
+import { readRequestJsonWithLimit } from "@/lib/api/read-limited-body";
+
+const MAX_LOG_FIELD_LENGTH = 500;
+const MAX_CSP_REPORT_BODY_BYTES = 65_536;
+
+function formatReportLogValue(value: unknown): string {
+  return String(value)
+    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .slice(0, MAX_LOG_FIELD_LENGTH);
+}
 
 function summarizeReport(payload: unknown): string {
   if (!payload || typeof payload !== "object") return "non-object payload";
@@ -24,7 +34,7 @@ function summarizeReport(payload: unknown): string {
   const directive = r["violated-directive"] ?? r["effective-directive"] ?? "?";
   const blocked = r["blocked-uri"] ?? "?";
   const docUri = r["document-uri"] ?? "?";
-  return `directive=${String(directive)} blocked=${String(blocked)} doc=${String(docUri)}`;
+  return `directive=${formatReportLogValue(directive)} blocked=${formatReportLogValue(blocked)} doc=${formatReportLogValue(docUri)}`;
 }
 
 function isReportOnlyEvalNoise(payload: unknown): boolean {
@@ -45,7 +55,9 @@ function isReportOnlyEvalNoise(payload: unknown): boolean {
 export async function POST(req: Request) {
   return withRateLimit(req, "csp:report", async () => {
     try {
-      const body = await req.json();
+      const bodyResult = await readRequestJsonWithLimit<unknown>(req, MAX_CSP_REPORT_BODY_BYTES);
+      if (!bodyResult.ok) return new NextResponse(null, { status: 204 });
+      const body = bodyResult.value;
       if (process.env.NODE_ENV === "production" && isReportOnlyEvalNoise(body)) {
         return new NextResponse(null, { status: 204 });
       }

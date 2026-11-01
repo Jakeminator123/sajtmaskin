@@ -292,11 +292,12 @@ export async function POST(req: NextRequest) {
         text: reply,
       });
     } catch (error) {
+      console.warn("[did/chat] gateway unreachable:", error);
       return NextResponse.json(
         {
           success: false,
           error: "Gateway unreachable",
-          detail: error instanceof Error ? error.message : "unknown",
+          detail: "Upstream request failed",
         },
         { status: 502 },
       );

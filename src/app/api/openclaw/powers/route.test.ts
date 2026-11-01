@@ -35,6 +35,14 @@ afterEach(() => {
 });
 
 describe("GET /api/openclaw/powers", () => {
+  it("rejects an oversized chat id before ownership lookup", async () => {
+    const res = await GET(
+      req(`http://localhost/api/openclaw/powers?chatId=${"x".repeat(201)}`),
+    );
+    expect(res.status).toBe(400);
+    expect(getChat).not.toHaveBeenCalled();
+  });
+
   it("404 när chatten inte ägs", async () => {
     getChat.mockResolvedValue(null);
     const res = await GET(req("http://localhost/api/openclaw/powers?chatId=x"));
@@ -67,6 +75,20 @@ describe("GET /api/openclaw/powers", () => {
 });
 
 describe("POST /api/openclaw/powers", () => {
+  it("avvisar obegränsade grant-listor före ägarskapsuppslag", async () => {
+    const res = await POST(
+      req("http://localhost/api/openclaw/powers", {
+        chatId: "chat_1",
+        powersOn: true,
+        granted: Array.from({ length: 21 }, (_, index) => `power_${index}`),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(getChat).not.toHaveBeenCalled();
+    expect(writeGrant).not.toHaveBeenCalled();
+  });
+
   it("ignorerar förfalskad grant mot en chatt som inte ägs", async () => {
     getChat.mockResolvedValue(null);
     const res = await POST(

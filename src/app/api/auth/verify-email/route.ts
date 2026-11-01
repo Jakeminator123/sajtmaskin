@@ -15,6 +15,8 @@ import {
 import { URLS } from "@/lib/config";
 import { sanitizeAuthReturnTo } from "@/lib/auth/auth-return";
 
+const MAX_VERIFICATION_TOKEN_LENGTH = 256;
+
 function verifiedRedirect(
   appOrigin: string,
   path: string,
@@ -38,6 +40,11 @@ export async function GET(req: NextRequest) {
   if (!token) {
     return NextResponse.redirect(
       verifiedRedirect(appOrigin, returnTo, "error", "missing_token"),
+    );
+  }
+  if (token.length > MAX_VERIFICATION_TOKEN_LENGTH) {
+    return NextResponse.redirect(
+      verifiedRedirect(appOrigin, returnTo, "error", "invalid_or_expired"),
     );
   }
 

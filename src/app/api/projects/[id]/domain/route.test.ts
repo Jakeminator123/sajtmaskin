@@ -95,6 +95,14 @@ beforeEach(() => {
 });
 
 describe("GET /api/projects/[id]/domain", () => {
+  it("rejects an oversized project id before ownership lookup", async () => {
+    const { req, params } = getReq("x".repeat(129));
+    const response = await GET(req, { params });
+    expect(response.status).toBe(400);
+    expect(getProjectByIdForOwner).not.toHaveBeenCalled();
+    expect(resolveVercelProjectForAppProject).not.toHaveBeenCalled();
+  });
+
   it("returns 404 for a foreign project before any hosting lookup", async () => {
     getProjectByIdForOwner.mockResolvedValue(null);
     const { req, params } = getReq("foreign");
@@ -138,6 +146,23 @@ describe("POST /api/projects/[id]/domain", () => {
     expect(linkCustomerDomain).not.toHaveBeenCalled();
     expect(unlinkCustomerDomain).not.toHaveBeenCalled();
   });
+
+  it.each([null, [], { action: 42, domain: "exempel.se" }])(
+    "rejects an invalid payload before hosting resolution: %j",
+    async (body) => {
+      const req = new NextRequest("https://sajtmaskin.se/api/projects/proj_1/domain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", origin: "https://sajtmaskin.se" },
+        body: JSON.stringify(body),
+      });
+
+      const response = await POST(req, { params: Promise.resolve({ id: "proj_1" }) });
+
+      expect(response.status).toBe(400);
+      expect(resolveVercelProjectForAppProject).not.toHaveBeenCalled();
+      expect(linkCustomerDomain).not.toHaveBeenCalled();
+    },
+  );
 
   it("unlinks through the owned project only", async () => {
     const { req, params } = postReq("proj_1", { action: "unlink" });
