@@ -38,17 +38,17 @@ export async function POST(req: NextRequest) {
 
 async function handlePOST(req: NextRequest) {
   try {
-    const parsed = await parseJsonBody<{ path?: string; referrer?: string }>(req);
+    const parsed = await parseJsonBody<{ path?: string; referrer?: string | null }>(req);
     if (!parsed.ok) {
       return NextResponse.json({ success: false, error: "Payload too large" }, { status: 413 });
     }
-    const { path, referrer } = parsed.body as { path?: string; referrer?: string };
+    const { path, referrer } = parsed.body as { path?: string; referrer?: string | null };
 
     if (!path || typeof path !== "string" || path.length > MAX_ANALYTICS_URL_CHARS) {
       return NextResponse.json({ success: false, error: "Path required" }, { status: 400 });
     }
     if (
-      referrer !== undefined &&
+      referrer != null &&
       (typeof referrer !== "string" || referrer.length > MAX_ANALYTICS_URL_CHARS)
     ) {
       return NextResponse.json({ success: false, error: "Invalid referrer" }, { status: 400 });
@@ -73,7 +73,7 @@ async function handlePOST(req: NextRequest) {
           user?.id,
           ipAddress,
           userAgent,
-          referrer,
+          referrer ?? undefined,
         );
       } catch (error) {
         console.error("[API/analytics] Error recording page view:", error);

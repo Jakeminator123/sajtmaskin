@@ -158,6 +158,45 @@ describe("POST /api/company-profile", () => {
     expect(saveCompanyProfile).toHaveBeenCalled();
   });
 
+  it.each([{ list: [] }, { list: ["Snabb", "Tydlig, enkel", "https://example.com/"] }])(
+    "preserves empty and populated WizardData lists in text storage: %j", async ({ list }) => {
+      const lists = Object.fromEntries(
+        ["site_likes", "site_dislikes", "purposes", "inspiration_sites"].map((key) => [key, list]),
+      );
+      const res = await POST(new NextRequest("http://localhost/api/company-profile", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company_name: "Acme", project_id: "proj_1", ...lists }),
+      }));
+      expect(res.status).toBe(200);
+      const saved = saveCompanyProfile.mock.calls[0]?.[0];
+      for (const key of Object.keys(lists)) expect(JSON.parse(saved[key])).toEqual(list);
+    },
+  );
+
+  it.each([
+    { site_likes: ["ok", 123] },
+    { site_likes: Array.from({ length: 101 }, () => "ok") },
+    { purposes: ["x".repeat(100_000)] },
+    { industry: ["unsupported list"] },
+  ])("rejects malformed or oversized lists before ownership lookup", async (fields) => {
+    const res = await POST(new NextRequest("http://localhost/api/company-profile", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ company_name: "Acme", project_id: "proj_1", ...fields }),
+    }));
+    expect(res.status).toBe(400);
+    expect(getProjectByIdForOwner).not.toHaveBeenCalled();
+    expect(saveCompanyProfile).not.toHaveBeenCalled();
+  });
+
+  it("continues accepting legacy text for list fields", async () => {
+    const res = await POST(new NextRequest("http://localhost/api/company-profile", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ company_name: "Acme", project_id: "proj_1", site_likes: "Enkel" }),
+    }));
+    expect(res.status).toBe(200);
+    expect(saveCompanyProfile.mock.calls[0]?.[0].site_likes).toBe("Enkel");
+  });
+
   it.each([undefined, null])("preserves omitted fields and explicit null separately: %s", async (industry) => {
     const req = new NextRequest("http://localhost/api/company-profile", {
       method: "POST",
