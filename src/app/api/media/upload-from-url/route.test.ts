@@ -33,6 +33,14 @@ function makeRequest(url: string): NextRequest {
   });
 }
 
+function makeRawRequest(body: string): NextRequest {
+  return new NextRequest("http://localhost/api/media/upload-from-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+  });
+}
+
 describe("POST /api/media/upload-from-url", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -83,5 +91,55 @@ describe("POST /api/media/upload-from-url", () => {
       "https://images.example/huge.png",
       expect.objectContaining({ maxBodyBytes: 4 * 1024 * 1024 }),
     );
+  });
+
+  it.each([
+    ["invalid JSON", "not-json"],
+    ["null", "null"],
+    ["array", "[]"],
+    ["object URL", '{"url":{}}'],
+    ["object source", '{"url":"https://images.example/a.png","source":{}}'],
+    ["object photographer", '{"url":"https://images.example/a.png","photographer":{}}'],
+  ])("rejects %s before fetching", async (_label, body) => {
+    const res = await POST(makeRawRequest(body));
+
+    expect(res.status).toBe(400);
+    expect(safeFetch).not.toHaveBeenCalled();
+    expect(uploadBlob).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { url: `https://images.example/${"x".repeat(4_100)}` },
+    { url: "https://images.example/a.png", filename: "x".repeat(256) },
+    { url: "https://images.example/a.png", source: "x".repeat(101) },
+    { url: "https://images.example/a.png", photographer: "x".repeat(201) },
+  ])("rejects oversized remote image fields before fetching", async (body) => {
+    const res = await POST(makeRawRequest(JSON.stringify(body)));
+
+    expect(res.status).toBe(400);
+    expect(safeFetch).not.toHaveBeenCalled();
+    expect(uploadBlob).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized request body before fetching", async () => {
+    const request = makeRawRequest("{}");
+    request.headers.set("content-length", "16385");
+
+    const res = await POST(request);
+
+    expect(res.status).toBe(413);
+    expect(safeFetch).not.toHaveBeenCalled();
+    expect(uploadBlob).not.toHaveBeenCalled();
+  });
+
+  it("does not expose unexpected fetch errors", async () => {
+    safeFetch.mockRejectedValue(new Error("internal proxy credential"));
+
+    const res = await POST(makeRequest("https://images.example/failure.png"));
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body).toEqual({ success: false, error: "Kunde inte spara bilden" });
+    expect(JSON.stringify(body)).not.toContain("credential");
   });
 });

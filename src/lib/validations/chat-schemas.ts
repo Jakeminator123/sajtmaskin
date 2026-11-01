@@ -9,14 +9,18 @@ import {
 export type ModelTier = CanonicalModelId;
 
 const MAX_ATTACHMENTS_PER_MESSAGE = 24;
+const MAX_ATTACHMENT_URL_CHARS = 16_384;
+const MAX_ATTACHMENT_FILENAME_CHARS = 512;
+const MAX_ATTACHMENT_LABEL_CHARS = 200;
+const MAX_CHAT_ID_CHARS = 128;
 
 const attachmentSchema = z.object({
-  type: z.string().optional(),
-  url: z.string().url("Attachment must have a valid URL"),
-  filename: z.string().optional(),
-  mimeType: z.string().optional(),
+  type: z.string().max(64).optional(),
+  url: z.string().max(MAX_ATTACHMENT_URL_CHARS).url("Attachment must have a valid URL"),
+  filename: z.string().max(MAX_ATTACHMENT_FILENAME_CHARS).optional(),
+  mimeType: z.string().max(128).optional(),
   size: z.number().nonnegative().optional(),
-  purpose: z.string().optional(),
+  purpose: z.string().max(MAX_ATTACHMENT_LABEL_CHARS).optional(),
 });
 
 const modelIdSchema = z.enum(
@@ -62,13 +66,13 @@ export const createChatSchema = z.object({
     .max(MAX_CHAT_MESSAGE_CHARS, `Message too long (max ${MAX_CHAT_MESSAGE_CHARS} chars)`),
   attachments: z.array(attachmentSchema).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
   system: z.string().max(MAX_CHAT_SYSTEM_CHARS).optional(),
-  projectId: z.string().optional(),
+  projectId: z.string().max(MAX_CHAT_ID_CHARS).optional(),
   modelId: modelIdSchema.optional().default(DEFAULT_MODEL_ID),
   thinking: z.boolean().optional(),
   imageGenerations: z.boolean().optional(),
   materializeImages: z.boolean().default(false),
   chatPrivacy: z.enum(["public", "private", "team-edit", "team", "unlisted"]).optional(),
-  designSystemId: z.string().optional(),
+  designSystemId: z.string().max(MAX_CHAT_ID_CHARS).optional(),
   meta: promptMetaSchema.optional(),
 });
 
@@ -84,7 +88,7 @@ export const sendMessageSchema = z.object({
   thinking: z.boolean().optional(),
   imageGenerations: z.boolean().optional(),
   materializeImages: z.boolean().default(false),
-  designSystemId: z.string().optional(),
+  designSystemId: z.string().max(MAX_CHAT_ID_CHARS).optional(),
   /**
    * OpenClaw prepared-prompt fast lane: `"openclaw-prepared"` marks a
    * follow-up whose message is EXACTLY what OpenClaw filled into the builder

@@ -68,6 +68,7 @@ describe("campaign claim ticket", () => {
     expect(readCampaignClaimTicket(`${forged}.${signature}`, now)).toBeNull();
     expect(readCampaignClaimTicket(`${encoded}.${signature}.x`, now)).toBeNull();
     expect(readCampaignClaimTicket(`${encoded}.`, now)).toBeNull();
+    expect(readCampaignClaimTicket(`${"x".repeat(4_097)}.sig`, now)).toBeNull();
     expect(readCampaignClaimTicket(null, now)).toBeNull();
     expect(
       readCampaignClaimTicket(ticket, new Date(now.getTime() + (CAMPAIGN_CLAIM_MAX_AGE + 1) * 1000)),

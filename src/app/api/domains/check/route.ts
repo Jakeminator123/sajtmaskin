@@ -24,6 +24,7 @@ import { resolveDomainOffer, type DomainOffer } from "@/lib/domains/registrar";
 import { resolvePricingSettings } from "@/lib/db/services/pricing-settings";
 import { lookupWhois, summarizeWhois, type WhoisSummary } from "@/lib/domains/rdap-client";
 import { withRateLimit } from "@/lib/rate-limit";
+import { normalizeDomainHostname } from "@/lib/live-site-url";
 
 export const maxDuration = 20;
 
@@ -107,23 +108,32 @@ async function enrichWithWhois(result: DomainCheckResult): Promise<DomainCheckRe
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "domains:check", async () => {
     try {
-      const body = await req.json();
-      const rawQuery = (body.query ?? "").trim().toLowerCase();
+      const body = await req.json().catch(() => null);
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return NextResponse.json({ error: "invalid request" }, { status: 400 });
+      }
+      const query = (body as Record<string, unknown>).query;
+      const rawQuery = typeof query === "string" ? query.trim().toLowerCase() : "";
 
       if (!rawQuery) {
         return NextResponse.json({ error: "query is required" }, { status: 400 });
       }
 
-      const hasTld = rawQuery.includes(".");
+      const normalizedQuery = normalizeDomainHostname(rawQuery);
+      if (!normalizedQuery) {
+        return NextResponse.json({ error: "invalid domain query" }, { status: 400 });
+      }
+
+      const hasTld = normalizedQuery.includes(".");
       const domains = hasTld
-        ? [rawQuery]
+        ? [normalizedQuery]
         : [
-            `${rawQuery}.se`,
-            `${rawQuery}.com`,
-            `${rawQuery}.nu`,
-            `${rawQuery}.io`,
-            `${rawQuery}.app`,
-            `${rawQuery}.net`,
+            `${normalizedQuery}.se`,
+            `${normalizedQuery}.com`,
+            `${normalizedQuery}.nu`,
+            `${normalizedQuery}.io`,
+            `${normalizedQuery}.app`,
+            `${normalizedQuery}.net`,
           ];
 
       // En gång för hela svaret: alla TLD-förslag ska prissättas på samma
@@ -151,7 +161,7 @@ export async function POST(req: NextRequest) {
     } catch (error) {
       console.error("[domains/check] Error:", error);
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : "Unknown error" },
+        { error: "Domain check failed" },
         { status: 500 },
       );
     }

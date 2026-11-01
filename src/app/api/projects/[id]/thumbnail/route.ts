@@ -42,6 +42,9 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+const MAX_PROJECT_ID_CHARS = 200;
+const MAX_PREVIEW_URL_CHARS = 4_096;
+
 /**
  * Blob paths are PUBLIC URLs — never embed the raw session cookie value (it is
  * an ownership credential for guest projects; Codex/VADE P1 on PR #426). Use
@@ -90,6 +93,9 @@ async function handlePOST(
   try {
     const { id } = await params;
     const { user, sessionId } = identity;
+    if (!id || id.length > MAX_PROJECT_ID_CHARS) {
+      return NextResponse.json({ success: false, error: "Invalid project ID" }, { status: 400 });
+    }
     if (!user && !sessionId) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
@@ -114,6 +120,9 @@ async function handlePOST(
         { success: false, error: "Ingen preview-URL att fota. Generera en preview först." },
         { status: 409 },
       );
+    }
+    if (sourceUrl.length > MAX_PREVIEW_URL_CHARS) {
+      return NextResponse.json({ success: false, error: "Preview-URL är för lång." }, { status: 400 });
     }
 
     let target: URL;
@@ -180,7 +189,6 @@ async function handlePOST(
         {
           success: false,
           error: "Kunde inte spara thumbnail i projektet.",
-          details: persistError instanceof Error ? persistError.message : "Unknown persistence error",
         },
         { status: 500 },
       );
@@ -255,7 +263,6 @@ async function handlePOST(
       {
         success: false,
         error: "Kunde inte skapa thumbnail.",
-        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 502 },
     );

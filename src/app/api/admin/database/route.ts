@@ -160,26 +160,47 @@ export async function GET(req: NextRequest) {
     }
 
     const uploadsInfo = getUploadsInfo();
-    const templateCacheCount = await countTable(templateCache);
-    const templateCacheExpiredRows = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(templateCache)
-      .where(lt(templateCache.expires_at, new Date()));
+    const [
+      templateCacheCount,
+      templateCacheExpiredRows,
+      usersCount,
+      projectsCount,
+      pageViewsCount,
+      transactionsCount,
+      guestUsageCount,
+      companyProfilesCount,
+      redisInfo,
+      dbFileSize,
+    ] = await Promise.all([
+      countTable(templateCache),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(templateCache)
+        .where(lt(templateCache.expires_at, new Date())),
+      countTable(users),
+      countTable(appProjects),
+      countTable(pageViews),
+      countTable(transactions),
+      countTable(guestUsage),
+      countTable(companyProfiles),
+      getRedisInfo(),
+      getDbFileSize(),
+    ]);
     const templateCacheExpired = templateCacheExpiredRows[0]?.count ?? 0;
 
     const stats = {
       database: {
-        users: await countTable(users),
-        projects: await countTable(appProjects),
-        pageViews: await countTable(pageViews),
-        transactions: await countTable(transactions),
-        guestUsage: await countTable(guestUsage),
-        companyProfiles: await countTable(companyProfiles),
+        users: usersCount,
+        projects: projectsCount,
+        pageViews: pageViewsCount,
+        transactions: transactionsCount,
+        guestUsage: guestUsageCount,
+        companyProfiles: companyProfilesCount,
         templateCache: templateCacheCount,
         templateCacheExpired: templateCacheExpired,
       },
-      redis: await getRedisInfo(),
-      dbFileSize: await getDbFileSize(),
+      redis: redisInfo,
+      dbFileSize,
       uploads: uploadsInfo,
       dataDir: PATHS.dataDir,
     };
@@ -202,7 +223,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ success: false, error: "Invalid request" }, { status: 400 });
+    }
     const { action } = body as { action?: string };
     const table = (body as { table?: string }).table;
 
@@ -530,9 +554,16 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "cleanup-anonymous-projects") {
-      const days = (body as { days?: number })?.days || 7;
+      const requestedDays = (body as { days?: unknown }).days;
+      const days = requestedDays === undefined ? 7 : requestedDays;
+      if (!Number.isInteger(days) || (days as number) < 1 || (days as number) > 3_650) {
+        return NextResponse.json(
+          { success: false, error: "days must be an integer between 1 and 3650" },
+          { status: 400 },
+        );
+      }
       const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - days);
+      cutoff.setDate(cutoff.getDate() - (days as number));
 
       // Först vilka rader det gäller, sedan spärren, sedan raderingen — så
       // spärren prövas mot exakt de projekt som är på väg bort.

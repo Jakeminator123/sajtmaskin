@@ -42,6 +42,13 @@ const OBSERVATION = {
 };
 
 describe("GET /api/domains/status", () => {
+  it("rejects an oversized chat id before project resolution", async () => {
+    const response = await GET(request(`domain=customer.com&chatId=${"x".repeat(129)}`));
+    expect(response.status).toBe(400);
+    expect(resolveVercelProjectForChat).not.toHaveBeenCalled();
+    expect(observeVercelDomain).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     getCurrentUser.mockResolvedValue({ id: "user_1" });

@@ -3,6 +3,7 @@ import { SECRETS } from "@/lib/config";
 
 const CAMPAIGN_EMAIL_DOMAIN = "kampanj.sajtmaskin.invalid";
 const READABLE_SLUG = /^[a-z0-9][a-z0-9-]{0,62}$/;
+const MAX_CLAIM_TICKET_CHARS = 4_096;
 
 /**
  * Kampanjkontots e-post: en per sida, så samma lösenord alltid når samma konto.
@@ -56,7 +57,7 @@ export function readCampaignClaimTicket(
   ticket: string | null | undefined,
   now: Date = new Date(),
 ): { campaignUserId: string; slug: string } | null {
-  if (!ticket) return null;
+  if (!ticket || ticket.length > MAX_CLAIM_TICKET_CHARS) return null;
   const [encoded, signature, extra] = ticket.split(".");
   if (!encoded || !signature || extra !== undefined) return null;
   try {

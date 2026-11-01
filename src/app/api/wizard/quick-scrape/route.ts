@@ -13,6 +13,7 @@ import { requireNotBot } from "@/lib/bot-protection";
 import { withRateLimit } from "@/lib/rate-limit";
 import { quickScrapeWebsite } from "@/lib/webscraper";
 import { debugLog } from "@/lib/utils/debug";
+import { readRequestJsonWithLimit } from "@/lib/api/read-limited-body";
 
 export const runtime = "nodejs";
 export const maxDuration = 10;
@@ -20,6 +21,7 @@ export const maxDuration = 10;
 const requestSchema = z.object({
   url: z.string().min(4).max(2048),
 });
+const MAX_QUICK_SCRAPE_BODY_BYTES = 4_096;
 
 export async function POST(req: Request) {
   const botError = requireNotBot(req);
@@ -29,7 +31,11 @@ export async function POST(req: Request) {
 
 async function handlePOST(req: Request) {
   try {
-    const body = await req.json().catch(() => null);
+    const bodyResult = await readRequestJsonWithLimit<unknown>(req, MAX_QUICK_SCRAPE_BODY_BYTES);
+    if (!bodyResult.ok && bodyResult.reason === "too_large") {
+      return NextResponse.json({ success: false, error: "Request too large" }, { status: 413 });
+    }
+    const body = bodyResult.ok ? bodyResult.value : null;
     const parsed = requestSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ success: false, error: "Invalid URL" }, { status: 400 });
@@ -52,9 +58,9 @@ async function handlePOST(req: Request) {
     debugLog("WIZARD", "Quick scrape failed", {
       error: err instanceof Error ? err.message : String(err),
     });
-    return NextResponse.json({
-      success: false,
-      error: err instanceof Error ? err.message : "Scrape failed",
-    });
+    return NextResponse.json(
+      { success: false, error: "Website scrape failed" },
+      { status: 502 },
+    );
   }
 }

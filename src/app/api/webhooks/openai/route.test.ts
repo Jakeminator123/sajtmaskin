@@ -9,7 +9,10 @@ vi.mock("@/lib/db/client", () => ({
 }));
 
 import { POST } from "./route";
-import { verifyOpenAiWebhookSignature } from "@/lib/openai/openai-webhooks";
+import {
+  parseOpenAiWebhookEvent,
+  verifyOpenAiWebhookSignature,
+} from "@/lib/openai/openai-webhooks";
 
 const TEST_SECRET = `whsec_${Buffer.from("sajtmaskin-test-signing-secret").toString("base64")}`;
 
@@ -58,6 +61,22 @@ afterEach(() => {
 });
 
 describe("POST /api/webhooks/openai", () => {
+  it("rejects an oversized webhook before signature or database work", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/webhooks/openai", {
+        method: "POST",
+        body: "{}",
+        headers: {
+          "content-length": String(1024 * 1024 + 1),
+          "webhook-id": "wh_test",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(413);
+    expect(query).not.toHaveBeenCalled();
+  });
+
   it("stores a correctly signed event and acks", async () => {
     query.mockResolvedValueOnce({ rowCount: 1 });
 
@@ -101,9 +120,7 @@ describe("POST /api/webhooks/openai", () => {
 
   it("rejects a stale timestamp (replay) with 401", async () => {
     const stale = Math.floor(Date.now() / 1000) - 3600;
-    const res = await POST(
-      makeRequest(EVENT_BODY, signHeaders(EVENT_BODY, { timestamp: stale })),
-    );
+    const res = await POST(makeRequest(EVENT_BODY, signHeaders(EVENT_BODY, { timestamp: stale })));
 
     expect(res.status).toBe(401);
     expect(query).not.toHaveBeenCalled();
@@ -167,5 +184,34 @@ describe("verifyOpenAiWebhookSignature", () => {
     });
 
     expect(result.ok).toBe(false);
+  });
+
+  it("rejects oversized signature headers before parsing candidates", () => {
+    const result = verifyOpenAiWebhookSignature({
+      rawBody: EVENT_BODY,
+      webhookId: "wh_test_1",
+      webhookTimestamp: String(Math.floor(Date.now() / 1000)),
+      signatureHeader: "s".repeat(8_193),
+      secret: TEST_SECRET,
+    });
+
+    expect(result).toEqual({ ok: false, reason: "webhook header too large" });
+  });
+});
+
+describe("parseOpenAiWebhookEvent", () => {
+  it("rejects oversized event identifiers and types", () => {
+    expect(parseOpenAiWebhookEvent({ id: "e".repeat(201), type: "response.completed" })).toBeNull();
+    expect(parseOpenAiWebhookEvent({ id: "evt_1", type: "t".repeat(201) })).toBeNull();
+  });
+
+  it("drops an oversized optional object id", () => {
+    expect(
+      parseOpenAiWebhookEvent({
+        id: "evt_1",
+        type: "response.completed",
+        data: { id: "o".repeat(201) },
+      }),
+    ).toMatchObject({ eventId: "evt_1", objectId: null });
   });
 });

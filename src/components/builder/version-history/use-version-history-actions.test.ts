@@ -4,7 +4,8 @@ import type { MouseEvent } from "react";
 import type { VersionSummary } from "./types";
 import { useVersionHistoryActions } from "./use-version-history-actions";
 
-vi.mock("swr", () => ({ default: () => ({ data: undefined }) }));
+const swr = vi.hoisted(() => vi.fn((_key: unknown, _fetcher: unknown, _config: unknown) => ({ data: undefined })));
+vi.mock("swr", () => ({ default: swr }));
 vi.mock("@/lib/hooks/useVersions", () => ({
   useVersions: () => ({ versions: [], isLoading: false, mutate: vi.fn() }),
 }));
@@ -12,7 +13,26 @@ vi.mock("@/lib/auth/auth-store", () => ({
   useAuth: () => ({ user: null, isAuthenticated: true, hasGitHub: false, isInitialized: true, fetchUser: vi.fn() }),
 }));
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); swr.mockClear(); });
+
+it("connects the history's IDs and chat to the bounded summary fetcher", async () => {
+  const fetchMock = vi.fn<typeof fetch>(async () => Response.json({
+    summaries: { v1: { approvalStatus: "approved", unresolvedCount: 1 } },
+  }));
+  vi.stubGlobal("fetch", fetchMock);
+  renderHook(() => useVersionHistoryActions({
+    chatId: "chat_actual", selectedVersionId: null,
+    versions: [{ id: "v1" }, { versionId: "v2" }] as VersionSummary[],
+    onVersionSelect: vi.fn(),
+  }));
+  const [key, fetcher] = swr.mock.calls.find(([key]) =>
+    Array.isArray(key) && key[0] === "collaboration-summaries")!;
+  const result = await (fetcher as (key: unknown) => Promise<unknown>)(key);
+  expect(result).toEqual({ summaries: { v1: { approvalStatus: "approved", unresolvedCount: 1 } } });
+  const url = new URL(String(fetchMock.mock.calls[0][0]), "http://localhost");
+  expect(url.pathname).toBe("/api/engine/chats/chat_actual/versions/collaboration-summaries");
+  expect(url.searchParams.get("versionIds")).toBe("v1,v2");
+});
 
 describe("manual server repair acceptance", () => {
   it("does not accept on reopen; the explicit click accepts and clears loading", async () => {

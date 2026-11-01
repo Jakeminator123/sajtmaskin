@@ -125,4 +125,17 @@ describe("brief cost receipt", () => {
     expect(generateSiteBriefObject).not.toHaveBeenCalled();
     expect(flushPendingUsageWrites).not.toHaveBeenCalled();
   });
+
+  it("does not expose provider failures", async () => {
+    generateSiteBriefObject.mockRejectedValue(new Error("provider key secret"));
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toEqual({
+      error: "AI kunde inte generera brief. Försök igen eller förenkla prompten.",
+      details: "Modellen kunde inte skapa en giltig brief.",
+      suggestion: "Prova att korta ner eller förtydliga din beskrivning.",
+    });
+  });
 });

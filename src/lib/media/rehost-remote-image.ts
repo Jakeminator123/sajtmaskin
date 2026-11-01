@@ -8,6 +8,7 @@ import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
 import { validateSsrfTarget, safeFetch } from "@/lib/ssrf-guard";
 import type { RequestAttachment } from "@/lib/gen/request-metadata";
 import type { AuditSourceImage } from "@/lib/builder/audit-handoff";
+import { urlForLog } from "@/lib/utils/url-for-log";
 
 export const MAX_REMOTE_IMAGE_BYTES = 4 * 1024 * 1024;
 export const ALLOWED_REMOTE_IMAGE_TYPES = new Map([
@@ -32,7 +33,7 @@ export function getRemoteImageContentLengthBytes(response: Response): number | n
 }
 
 export function describeRemoteImageUrl(url: URL): string {
-  return `${url.protocol}//${url.host}${url.pathname}`.slice(0, 160);
+  return urlForLog(url);
 }
 
 export async function readRemoteImageBodyWithLimit(

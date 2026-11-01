@@ -331,24 +331,40 @@ async function runWarmTscPass(
       });
       const repaired = repairGate.result;
       if (repaired.success && repaired.fixedContent) {
-        llmFixesAdded += repaired.fixedFiles.length;
         const reFixed = await runAutoFix(repaired.fixedContent, {
           chatId: opts.chatId,
           model: opts.model,
           previewPolicy: opts.previewPolicy,
         });
-        mechanicalFixesAdded += reFixed.fixes.length;
-        return {
-          content: reFixed.fixedContent,
-          tsc: {
-            ran: true,
-            diagnosticCount: result.diagnostics.length,
-            repaired: true,
-            durationMs: Date.now() - startedAt,
-          },
-          mechanicalFixesAdded,
-          llmFixesAdded,
-        };
+        if (!isBudgetExceeded(opts.budgetDeadline)) {
+          const recheck = await runPreVmTypecheck({
+            scaffoldId: opts.resolvedScaffold?.id ?? null,
+            files: parseCodeProject(reFixed.fixedContent).files,
+            force: opts.forceTsc === true,
+          });
+          if (!recheck.skipped && recheck.ok) {
+            llmFixesAdded += repaired.fixedFiles.length;
+            mechanicalFixesAdded += reFixed.fixes.length;
+            opts.onProgress?.({ pass: opts.pass, phase: "tsc-passed", errorCount: 0 });
+            return {
+              content: reFixed.fixedContent,
+              tsc: {
+                ran: true,
+                diagnosticCount: result.diagnostics.length,
+                repaired: true,
+                durationMs: Date.now() - startedAt,
+              },
+              mechanicalFixesAdded,
+              llmFixesAdded,
+            };
+          }
+          devLogAppend("in-progress", {
+            type: "validate.tsc.repair-unverified",
+            chatId: opts.chatId,
+            reason: recheck.skipped ?? "residual_diagnostics",
+            diagnosticCount: recheck.diagnostics.length,
+          });
+        }
       }
     } catch (repairErr) {
       devLogAppend("in-progress", {

@@ -48,6 +48,13 @@ describe("kostnadsfri campaign receipt", () => {
         now: new Date("2026-09-22T12:00:01Z"),
       }),
     ).toBe(false);
+    expect(
+      verifyKostnadsfriCampaignReceipt(`${"x".repeat(4_097)}.sig`, {
+        slug: "acme-ab",
+        sessionId: "sess_1",
+        now,
+      }),
+    ).toBe(false);
   });
 
   it("preserves a validated mail correlation without making it authorization", () => {

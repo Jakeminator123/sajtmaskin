@@ -372,9 +372,41 @@ describe("POST /api/github/export", () => {
     const res = await POST(exportRequest());
     const body = await res.json();
 
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(409);
     expect(body.error).toMatch(/too large to export safely/);
     expect(recorded.tree).toBeNull();
+  });
+
+  it.each([
+    { chatId: "x".repeat(129) },
+    { versionId: "x".repeat(129) },
+    { repo: "x".repeat(257) },
+    { projectId: "x".repeat(129) },
+  ])("rejects oversized export identifiers before ownership lookup", async (overrides) => {
+    const res = await POST(exportRequest(overrides));
+
+    expect(res.status).toBe(400);
+    expect(getEngineChatByIdForRequest).not.toHaveBeenCalled();
+  });
+
+  it("does not expose unexpected export failures", async () => {
+    buildPortableExportProject.mockRejectedValueOnce(
+      new Error("postgres://secret-user:secret-pass@internal-host/export"),
+    );
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const res = await POST(exportRequest());
+      const body = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(body).toEqual({
+        success: false,
+        error: "GitHub-exporten misslyckades. Försök igen senare.",
+      });
+      expect(JSON.stringify(body)).not.toContain("secret-pass");
+    } finally {
+      error.mockRestore();
+    }
   });
 
   it("deletes a previous manifest file so a directory can occupy the same path", async () => {

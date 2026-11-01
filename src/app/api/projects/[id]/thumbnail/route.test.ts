@@ -68,6 +68,23 @@ describe("POST /api/projects/[id]/thumbnail", () => {
     captureThumbnailScreenshot.mockResolvedValue(Buffer.from("jpeg"));
   });
 
+  it("rejects oversized project ids and preview URLs before capture work", async () => {
+    const badProject = await POST(thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }), {
+      params: Promise.resolve({ id: "x".repeat(201) }),
+    });
+    expect(badProject.status).toBe(400);
+    expect(getProjectByIdForOwner).not.toHaveBeenCalled();
+
+    const badUrl = await POST(
+      thumbnailRequest({ previewUrl: `https://preview-host.example.com/${"x".repeat(4_097)}` }),
+      routeParams,
+    );
+    expect(badUrl.status).toBe(400);
+    expect(captureThumbnailScreenshot).not.toHaveBeenCalled();
+    expect(uploadBlob).not.toHaveBeenCalled();
+  });
+
+
   afterAll(() => {
     if (ORIGINAL_PREVIEW_HOST_BASE_URL === undefined) {
       delete process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL;
@@ -254,6 +271,10 @@ describe("POST /api/projects/[id]/thumbnail", () => {
       routeParams,
     );
     expect(res.status).toBe(502);
+    await expect(res.json()).resolves.toEqual({
+      success: false,
+      error: "Kunde inte skapa thumbnail.",
+    });
     expect(setProjectThumbnail).not.toHaveBeenCalled();
   });
 
@@ -325,6 +346,10 @@ describe("POST /api/projects/[id]/thumbnail", () => {
       routeParams,
     );
     expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({
+      success: false,
+      error: "Kunde inte spara thumbnail i projektet.",
+    });
     expect(deleteBlob).toHaveBeenCalledWith("https://blob.example/thumb.jpg");
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("Thumbnail persist"), { projectId: "proj_1" });
     warn.mockRestore();
@@ -339,6 +364,10 @@ describe("POST /api/projects/[id]/thumbnail", () => {
       routeParams,
     );
     expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({
+      success: false,
+      error: "Kunde inte spara thumbnail i projektet.",
+    });
     expect(deleteBlob).toHaveBeenCalledWith("https://blob.example/thumb.jpg");
     expect(error).toHaveBeenCalledWith(expect.stringContaining("Thumbnail persist failed"), {
       projectId: "proj_1",

@@ -15,27 +15,63 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { versionBusyResponseIfLeaseHeld } from "@/lib/api/version-busy-response";
+import {
+  PREVIEW_HOST_FILE_BUDGET,
+  isSafeRelativePath,
+  validateFilesJson,
+} from "../../../../../../../preview-host/src/files-contract.js";
 
 function engineErrorResponse(err: unknown, fallbackMessage: string) {
   const info = normalizeProviderError(err);
   return NextResponse.json(
-    { error: info.message || fallbackMessage, code: info.code },
+    { error: info.code === "error" ? fallbackMessage : info.message || fallbackMessage, code: info.code },
     { status: info.status },
   );
 }
 
+const filePathSchema = z
+  .string()
+  .min(1, "File name is required")
+  .max(PREVIEW_HOST_FILE_BUDGET.maxPathLength)
+  .refine(isSafeRelativePath, "File path must be relative and stay inside the project");
+const fileContentSchema = z.string().refine(
+  (content) => Buffer.byteLength(content, "utf8") <= PREVIEW_HOST_FILE_BUDGET.maxFileBytes,
+  "File content is too large",
+);
+
 const updateFilesSchema = z.object({
-  versionId: z.string().min(1, "Version ID is required"),
+  versionId: z.string().min(1, "Version ID is required").max(200),
   files: z
     .array(
       z.object({
-        name: z.string().min(1, "File name is required"),
-        content: z.string(),
+        name: filePathSchema,
+        content: fileContentSchema,
         locked: z.boolean().optional(),
       }),
     )
-    .min(1, "At least one file is required"),
+    .min(1, "At least one file is required")
+    .max(PREVIEW_HOST_FILE_BUDGET.maxFiles),
 });
+
+const singleFileSchema = z.object({
+  versionId: z.string().min(1).max(200),
+  fileName: filePathSchema,
+  content: fileContentSchema,
+  locked: z.boolean().optional(),
+});
+const resourceIdSchema = z.string().min(1).max(200);
+
+function fitsPreviewFileBudget(files: CodeFile[]): boolean {
+  try {
+    validateFilesJson(
+      Object.fromEntries(files.map((file) => [file.path, file.content])),
+      "filesJson",
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function loadOwnEngineFilesForChat(req: Request, chatId: string, versionId: string) {
   const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
@@ -69,6 +105,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
 
     const { searchParams } = new URL(req.url);
     const requestedVersionId = searchParams.get("versionId");
+    if (
+      !resourceIdSchema.safeParse(chatId).success ||
+      (requestedVersionId !== null && !resourceIdSchema.safeParse(requestedVersionId).success)
+    ) {
+      return NextResponse.json({ error: "Invalid chat or version ID" }, { status: 400 });
+    }
     const engineChat = await getEngineChatByIdForRequest(req, chatId);
 
     if (!engineChat) {
@@ -125,7 +167,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
 export async function PUT(req: Request, { params }: { params: Promise<{ chatId: string }> }) {
   try {
     const { chatId } = await params;
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
 
     const validationResult = updateFilesSchema.safeParse(body);
     if (!validationResult.success) {
@@ -160,6 +202,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ chatId: 
       }
     }
 
+    if (!fitsPreviewFileBudget(nextFiles)) {
+      return NextResponse.json({ error: "Updated files exceed the preview file budget" }, { status: 400 });
+    }
+
     const updated = await saveOwnEngineFiles(scopedVersion.version.id, nextFiles);
     if (!updated) {
       return NextResponse.json({ error: "Failed to update version files" }, { status: 500 });
@@ -187,14 +233,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ chatId: 
 export async function PATCH(req: Request, { params }: { params: Promise<{ chatId: string }> }) {
   try {
     const { chatId } = await params;
-    const body = await req.json();
-
-    const singleFileSchema = z.object({
-      versionId: z.string().min(1),
-      fileName: z.string().min(1),
-      content: z.string(),
-      locked: z.boolean().optional(),
-    });
+    const body = await req.json().catch(() => null);
 
     const validationResult = singleFileSchema.safeParse(body);
     if (!validationResult.success) {
@@ -229,6 +268,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ chatId
       });
     }
 
+    if (!fitsPreviewFileBudget(nextFiles)) {
+      return NextResponse.json({ error: "Updated files exceed the preview file budget" }, { status: 400 });
+    }
+
     const updated = await saveOwnEngineFiles(loaded.scopedVersion.version.id, nextFiles);
     if (!updated) {
       return NextResponse.json({ error: "Failed to update version files" }, { status: 500 });
@@ -261,7 +304,12 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ chatI
     const versionId = searchParams.get("versionId");
     const fileName = searchParams.get("fileName");
 
-    if (!versionId || !fileName) {
+    if (
+      !versionId ||
+      !fileName ||
+      !resourceIdSchema.safeParse(versionId).success ||
+      !filePathSchema.safeParse(fileName).success
+    ) {
       return NextResponse.json(
         { error: "versionId and fileName are required query parameters" },
         { status: 400 },

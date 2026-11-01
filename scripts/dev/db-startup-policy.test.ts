@@ -5,8 +5,11 @@ import { describe, expect, it } from "vitest";
 describe("DB startup policy", () => {
   it("dev setup has no implicit DB writer", () => {
     const source = readFileSync("scripts/dev/predev.mjs", "utf8");
+    const pkg = JSON.parse(readFileSync("package.json", "utf8"));
     expect(source).not.toMatch(/"(?:npm run db:|node scripts\/db\/)/u);
     expect(source).toContain('"npm run hooks:install:soft"');
+    expect(pkg.scripts["hooks:install:soft"]).toContain("[hooks] VARNING:");
+    expect(pkg.scripts["hooks:install:soft"]).toContain("npm run hooks:install manuellt");
   });
 
   it("Cursor cloud start and Postgres pretest are check-only", () => {

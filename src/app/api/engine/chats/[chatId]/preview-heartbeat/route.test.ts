@@ -95,6 +95,15 @@ async function runAfterCallbacks(): Promise<void> {
 import { POST } from "./route";
 
 describe("POST preview-heartbeat", () => {
+  it("does not expose unexpected internal errors", async () => {
+    const response = await POST(new Request("http://localhost/api", { method: "POST" }), {
+      params: Promise.reject(new Error("postgres://user:secret@private-db/internal")),
+    });
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ ok: false, reason: "heartbeat_failed" });
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     afterCallbacks.value = [];
@@ -103,6 +112,35 @@ describe("POST preview-heartbeat", () => {
     shouldVerifyPreviewRuntimeReceipt.mockResolvedValue(true);
     tryResumeTier2Runtime.mockResolvedValue(null);
   });
+
+  it("rejects an oversized chat id before checking preview configuration", async () => {
+    const res = await POST(new Request("http://localhost/api", { method: "POST" }), {
+      params: Promise.resolve({ chatId: "x".repeat(201) }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(isTier2PreviewConfigured).not.toHaveBeenCalled();
+    expect(getEngineChatByIdForRequest).not.toHaveBeenCalled();
+  });
+
+  it.each(["versionId", "previewSessionId", "viewerId"])(
+    "rejects an oversized %s before session lookup",
+    async (field) => {
+      const body = { versionId: "v1", previewSessionId: "ps1", viewerId: "tab1" };
+      body[field as keyof typeof body] = "x".repeat(201);
+      const res = await POST(
+        new Request("http://localhost/api", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }),
+        { params: Promise.resolve({ chatId: "c1" }) },
+      );
+
+      expect(res.status).toBe(400);
+      expect(getActivePreviewSessionAsync).not.toHaveBeenCalled();
+    },
+  );
 
   it("rejects when session missing", async () => {
     getActivePreviewSessionAsync.mockResolvedValue(null);

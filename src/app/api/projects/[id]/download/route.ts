@@ -3,7 +3,11 @@ import { getCurrentUser } from "@/lib/auth/auth";
 import { getProjectByIdForOwner, getProjectData } from "@/lib/db/services/projects";
 import { sanitizeProjectPath } from "@/lib/utils/path-utils";
 import JSZip from "jszip";
-import { importedFileContentForExport } from "@/lib/import/extract-imported-archive";
+import {
+  importedFileContentForExport,
+  MAX_IMPORTED_FILES,
+  MAX_IMPORTED_TEXT_BYTES,
+} from "@/lib/import/extract-imported-archive";
 
 /**
  * GET /api/projects/[id]/download
@@ -16,9 +20,16 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+const MAX_PROJECT_ID_CHARS = 200;
+const MAX_PROJECT_FILE_PATH_CHARS = 1_024;
+
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: projectId } = await params;
+
+    if (!projectId || projectId.length > MAX_PROJECT_ID_CHARS) {
+      return NextResponse.json({ success: false, error: "Ogiltigt projekt-ID" }, { status: 400 });
+    }
 
     // Get current user
     const user = await getCurrentUser(request);
@@ -49,13 +60,46 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Convert v0 file format
-    const files = rawFiles
-      .filter(
-        (f): f is { name: string; content: string; language?: unknown } =>
-          f !== null && typeof f === "object" && "name" in f && "content" in f,
-      )
-      .map((f) => ({ path: f.name, content: f.content, language: typeof f.language === "string" ? f.language : undefined }));
+    if (rawFiles.length > MAX_IMPORTED_FILES) {
+      return NextResponse.json(
+        { success: false, error: "Projektet innehåller för många filer" },
+        { status: 413 },
+      );
+    }
+
+    // Convert v0 file format while bounding the in-memory ZIP workload.
+    const files: Array<{ path: string; content: string; language?: string }> = [];
+    let totalTextBytes = 0;
+    for (const file of rawFiles) {
+      if (
+        file === null ||
+        typeof file !== "object" ||
+        !("name" in file) ||
+        typeof file.name !== "string" ||
+        file.name.length === 0 ||
+        file.name.length > MAX_PROJECT_FILE_PATH_CHARS ||
+        !("content" in file) ||
+        typeof file.content !== "string"
+      ) {
+        return NextResponse.json(
+          { success: false, error: "Projektet innehåller en ogiltig fil" },
+          { status: 400 },
+        );
+      }
+      totalTextBytes += Buffer.byteLength(file.content, "utf8");
+      if (totalTextBytes > MAX_IMPORTED_TEXT_BYTES) {
+        return NextResponse.json(
+          { success: false, error: "Projektet är för stort för nedladdning" },
+          { status: 413 },
+        );
+      }
+      files.push({
+        path: file.name,
+        content: file.content,
+        language:
+          "language" in file && typeof file.language === "string" ? file.language : undefined,
+      });
+    }
 
     if (!files || files.length === 0) {
       return NextResponse.json(

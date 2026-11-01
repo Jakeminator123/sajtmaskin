@@ -63,13 +63,13 @@ const initChatSchema = z.object({
     }),
     z.object({
       type: z.literal("zip"),
-      url: z.string().url("Invalid ZIP URL"),
+      url: z.string().url("Invalid ZIP URL").max(MAX_GITHUB_IMPORT_URL_LENGTH),
     }),
   ]),
-  message: z.string().optional(),
-  projectId: z.string().optional(),
+  message: z.string().max(4_000).optional(),
+  projectId: z.string().max(200).optional(),
   lockConfigFiles: z.boolean().default(false),
-  lockedFiles: z.array(z.string()).optional(),
+  lockedFiles: z.array(z.string().min(1).max(500)).max(100).optional(),
 });
 
 function toErrorResponse(
@@ -474,12 +474,11 @@ export async function POST(req: Request) {
       if (err instanceof ImportInitError) {
         return toErrorResponse(err, attachSessionCookie);
       }
-      const message = err instanceof Error ? err.message : "Importen misslyckades.";
       return attachSessionCookie(
         NextResponse.json(
           {
             success: false,
-            error: message,
+            error: "Importen misslyckades.",
             code: "import_failed",
             step: "persist",
           },

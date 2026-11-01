@@ -9,6 +9,7 @@ import {
 import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
 import { withRateLimit } from "@/lib/rate-limit";
 import { errorLog, warnLog } from "@/lib/utils/debug";
+import { readRequestFormDataWithLimit } from "@/lib/api/read-limited-body";
 
 /**
  * Media Library Upload API
@@ -42,6 +43,27 @@ import { errorLog, warnLog } from "@/lib/utils/debug";
 const MAX_IMAGES = 10; // Includes logos
 const MAX_VIDEOS = 3;
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB (Blob-safe for preview reliability)
+const MAX_UPLOAD_BODY_BYTES = 5 * 1024 * 1024;
+const MAX_PROJECT_ID_LENGTH = 200;
+const MAX_DESCRIPTION_LENGTH = 5_000;
+const MAX_TAG_LENGTH = 100;
+const MEDIA_FILE_TYPES = ["image", "video", "pdf", "text", "logo", "other"] as const;
+type MediaFileType = (typeof MEDIA_FILE_TYPES)[number];
+
+function isMediaFileType(value: string): value is MediaFileType {
+  return MEDIA_FILE_TYPES.some((fileType) => fileType === value);
+}
+
+function isUploadedFile(value: FormDataEntryValue | null): value is File {
+  return (
+    value !== null &&
+    typeof value !== "string" &&
+    typeof value.name === "string" &&
+    typeof value.type === "string" &&
+    typeof value.size === "number" &&
+    typeof value.arrayBuffer === "function"
+  );
+}
 
 const ALLOWED_MIME_TYPES = [
   // Images
@@ -86,14 +108,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const formData = await request.formData();
-    const file = formData.get("file") as File;
-    const projectId = formData.get("projectId") as string | null;
-    const description = formData.get("description") as string | null;
-    const tagsStr = formData.get("tags") as string | null;
+    const body = await readRequestFormDataWithLimit(request, MAX_UPLOAD_BODY_BYTES);
+    if (!body.ok) {
+      return NextResponse.json(
+        { success: false, error: "Uppladdningen är för stor" },
+        { status: 413 },
+      );
+    }
 
-    if (!file) {
+    const { formData } = body;
+    const file = formData.get("file");
+    const projectId = formData.get("projectId");
+    const description = formData.get("description");
+    const tagsStr = formData.get("tags");
+
+    if (!isUploadedFile(file)) {
       return NextResponse.json({ success: false, error: "Ingen fil bifogad" }, { status: 400 });
+    }
+    if (
+      (projectId !== null &&
+        (typeof projectId !== "string" || projectId.length > MAX_PROJECT_ID_LENGTH)) ||
+      (description !== null &&
+        (typeof description !== "string" || description.length > MAX_DESCRIPTION_LENGTH)) ||
+      (tagsStr !== null && typeof tagsStr !== "string")
+    ) {
+      return NextResponse.json({ success: false, error: "Ogiltig metadata" }, { status: 400 });
     }
 
     // Validate file type
@@ -137,7 +176,7 @@ export async function POST(request: NextRequest) {
           tags = parsed
             .filter((tag): tag is string => typeof tag === "string")
             .map((tag) => tag.trim())
-            .filter(Boolean)
+            .filter((tag) => tag.length > 0 && tag.length <= MAX_TAG_LENGTH)
             .slice(0, 20);
         }
       } catch {
@@ -171,21 +210,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.info(`[Media/Upload] ✅ Saved (${uploadResult.storageType}):`, uploadResult.url);
+    console.info(`[Media/Upload] Saved (${uploadResult.storageType})`);
 
     // Save metadata to database
-    const mediaItem = await saveMediaLibraryItem(
-      user.id,
-      filename,
-      file.name,
-      uploadResult.path,
-      file.type,
-      file.size,
-      uploadResult.url,
-      projectId || undefined,
-      description || undefined,
-      tags,
-    );
+    let mediaItem: Awaited<ReturnType<typeof saveMediaLibraryItem>>;
+    try {
+      mediaItem = await saveMediaLibraryItem(
+        user.id,
+        filename,
+        file.name,
+        uploadResult.path,
+        file.type,
+        file.size,
+        uploadResult.url,
+        projectId || undefined,
+        description || undefined,
+        tags,
+      );
+    } catch (persistError) {
+      errorLog("Media", "Metadata persistence failed after upload", persistError);
+      // The insert may have committed before the connection failed. Preserve
+      // the blob until persistence can be reconciled, rather than lose user data.
+      return NextResponse.json(
+        { success: false, error: "Kunde inte spara filen" },
+        { status: 500 },
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -204,9 +254,11 @@ export async function POST(request: NextRequest) {
           : undefined,
     });
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Okänt fel";
       errorLog("Media", "Upload error", error);
-      return NextResponse.json({ success: false, error: message }, { status: 500 });
+      return NextResponse.json(
+        { success: false, error: "Kunde inte ladda upp filen" },
+        { status: 500 },
+      );
     }
   });
 }
@@ -227,21 +279,25 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const fileType = searchParams.get("fileType") as
-      | "image"
-      | "video"
-      | "pdf"
-      | "text"
-      | "logo"
-      | "other"
-      | null;
+    const rawFileType = searchParams.get("fileType");
+    let fileType: MediaFileType | undefined;
+    if (rawFileType) {
+      if (!isMediaFileType(rawFileType)) {
+        return NextResponse.json(
+          { success: false, error: "Ogiltig filtyp" },
+          { status: 400 },
+        );
+      }
+      fileType = rawFileType;
+    }
 
     // SECURITY: Only return the current user's files
     // projectId filter removed - users should only see their own files
-    const items = await getMediaLibraryByUser(user.id, fileType || undefined);
-
-    // Also return counts for limit display in UI
-    const counts = await getMediaLibraryCounts(user.id);
+    const [items, counts] = await Promise.all([
+      getMediaLibraryByUser(user.id, fileType),
+      // Also return counts for limit display in UI.
+      getMediaLibraryCounts(user.id),
+    ]);
 
     return NextResponse.json({
       success: true,
@@ -263,8 +319,10 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Okänt fel";
     console.error("[API/Media/Upload] Error:", error);
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: "Kunde inte hämta mediebiblioteket" },
+      { status: 500 },
+    );
   }
 }

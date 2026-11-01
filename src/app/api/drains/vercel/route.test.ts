@@ -91,6 +91,22 @@ afterEach(() => {
 });
 
 describe("POST /api/drains/vercel", () => {
+  it("rejects an oversized delivery before signature or database work", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/drains/vercel", {
+        method: "POST",
+        body: "{}",
+        headers: {
+          "content-length": String(5 * 1024 * 1024 + 1),
+          "x-vercel-signature": "invalid",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(413);
+    expect(query).not.toHaveBeenCalled();
+  });
+
   it("echoes x-vercel-verify for the unsigned ownership probe", async () => {
     delete process.env.VERCEL_LOG_DRAIN_SECRET;
     const res = await POST(
@@ -102,6 +118,19 @@ describe("POST /api/drains/vercel", () => {
     );
     expect(res.status).toBe(200);
     expect(res.headers.get("x-vercel-verify")).toBe("probe-token-abc");
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("does not echo an oversized ownership token", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/drains/vercel", {
+        method: "POST",
+        headers: { "x-vercel-verify": "v".repeat(257) },
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.headers.get("x-vercel-verify")).toBeNull();
     expect(query).not.toHaveBeenCalled();
   });
   it("stores the interesting lines of a signed delivery", async () => {
