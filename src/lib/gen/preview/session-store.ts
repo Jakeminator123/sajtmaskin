@@ -36,6 +36,22 @@ const LEGACY_REDIS_SESSION_PREFIX = `${REDIS_KEY_PREFIX}sandbox-preview:session:
 const REDIS_TTL_SECONDS = Math.ceil(DEFAULT_HARD_CAP_MS / 1000);
 
 const sessions = new Map<string, PreviewSessionEntry>();
+const SESSION_CACHE_PRUNE_INTERVAL = 128;
+let sessionCacheWrites = 0;
+
+function cachePreviewSession(chatId: string, entry: PreviewSessionEntry): void {
+  sessionCacheWrites += 1;
+  if (sessionCacheWrites >= SESSION_CACHE_PRUNE_INTERVAL) {
+    sessionCacheWrites = 0;
+    const now = Date.now();
+    for (const [cachedChatId, cachedEntry] of sessions) {
+      if (isExpired(cachedEntry, now, DEFAULT_IDLE_MS, DEFAULT_HARD_CAP_MS)) {
+        sessions.delete(cachedChatId);
+      }
+    }
+  }
+  sessions.set(chatId, entry);
+}
 
 function redisSessionKey(chatId: string): string {
   return `${REDIS_SESSION_PREFIX}${encodeURIComponent(chatId)}`;
@@ -346,12 +362,12 @@ export function touchPreviewSession(params: TouchPreviewSessionParams): boolean 
       prev.previewSessionId !== params.previewSessionId ||
       prev.lifecycleToken !== nonEmptyString(params.lifecycleToken)
     ) return false;
-    sessions.set(params.chatId, { ...prev, lastUsedAt: params.now ?? Date.now() });
+    cachePreviewSession(params.chatId, { ...prev, lastUsedAt: params.now ?? Date.now() });
     return true;
   }
   const entry = buildTouchedPreviewSession(params, prev);
   if (receiptOrder(entry, prev) === "stale") return false;
-  sessions.set(
+  cachePreviewSession(
     params.chatId,
     entry,
   );
@@ -408,12 +424,12 @@ export async function getActivePreviewSessionAsync(
           // cleanup. Re-read once so this request can observe lifecycle N+1.
           const refreshed = await readPreviewSessionFromRedis(chatId);
           if (refreshed && !isExpired(refreshed, now, idleMs, hardCapMs)) {
-            sessions.set(chatId, refreshed);
+            cachePreviewSession(chatId, refreshed);
             return refreshed;
           }
         }
       } else {
-        sessions.set(chatId, fromRedis);
+        cachePreviewSession(chatId, fromRedis);
         return fromRedis;
       }
     }
@@ -461,18 +477,18 @@ export async function touchPreviewSessionAsync(
       ) return false;
       const entry = { ...prev, lastUsedAt: params.now ?? Date.now() };
       if (await writePreviewSessionToRedis(params.chatId, entry, snapshot)) {
-        sessions.set(params.chatId, entry);
+        cachePreviewSession(params.chatId, entry);
         return true;
       }
       snapshot = await readRedisSessionSnapshot(params.chatId);
-      if (snapshot.entry) sessions.set(params.chatId, snapshot.entry);
+      if (snapshot.entry) cachePreviewSession(params.chatId, snapshot.entry);
       return false;
     }
 
     const entry = buildTouchedPreviewSession(params, prev);
     const order = receiptOrder(entry, prev);
     if (order === "stale") {
-      if (prev) sessions.set(params.chatId, prev);
+      if (prev) cachePreviewSession(params.chatId, prev);
       return false;
     }
     const previousToken = prev?.lifecycleToken ?? null;
@@ -485,7 +501,7 @@ export async function touchPreviewSessionAsync(
         previousToken !== requestedToken &&
         previousToken !== expectedPreviousLifecycleToken
       ) {
-        sessions.set(params.chatId, prev);
+        cachePreviewSession(params.chatId, prev);
         return false;
       }
     }
@@ -495,7 +511,7 @@ export async function touchPreviewSessionAsync(
       prev.lifecycleToken !== requestedToken &&
       params.allowLifecycleAdvance !== true
     ) {
-      sessions.set(params.chatId, prev);
+      cachePreviewSession(params.chatId, prev);
       return false;
     }
     if (order === "legacy" && attempt > 0) {
@@ -511,7 +527,7 @@ export async function touchPreviewSessionAsync(
       }
     }
     if (await writePreviewSessionToRedis(params.chatId, entry, snapshot)) {
-      sessions.set(params.chatId, entry);
+      cachePreviewSession(params.chatId, entry);
       return true;
     }
 
@@ -519,7 +535,7 @@ export async function touchPreviewSessionAsync(
     // mutation receipt is authoritative for its lifecycle and may retry a
     // compatible heartbeat conflict, but never a different lifecycle/token.
     snapshot = await readRedisSessionSnapshot(params.chatId);
-    if (snapshot.entry) sessions.set(params.chatId, snapshot.entry);
+    if (snapshot.entry) cachePreviewSession(params.chatId, snapshot.entry);
     if (writeIntent !== "authoritative") return false;
   }
   throw new Error("Preview session Redis CAS remained contended after authoritative host receipt.");
@@ -550,6 +566,7 @@ export async function clearPreviewSessionAsync(
 /** @internal */
 export function resetPreviewSessionStoreForTests(): void {
   sessions.clear();
+  sessionCacheWrites = 0;
 }
 
 export const PREVIEW_SESSION_IDLE_MS = DEFAULT_IDLE_MS;

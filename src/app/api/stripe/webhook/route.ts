@@ -12,12 +12,14 @@ import { getUserById } from "@/lib/db/services/users";
 import { SECRETS } from "@/lib/config";
 import { fulfilDomainOrder, refundDomainOrder } from "@/lib/domains/fulfilment";
 import { markDomainOrderExpired, markDomainOrderPaid } from "@/lib/db/services/domain-orders";
+import { readRequestTextWithLimit } from "@/lib/api/read-limited-body";
 import Stripe from "stripe";
 
 // Initialize Stripe
 const stripe = SECRETS.stripeSecretKey ? new Stripe(SECRETS.stripeSecretKey) : null;
 
 const webhookSecret = SECRETS.stripeWebhookSecret;
+const MAX_STRIPE_WEBHOOK_BYTES = 1_048_576;
 
 type CheckoutCompletedDispatch = "legacy_credits" | "domain_purchase" | "ignored_setup" | "blocked";
 
@@ -70,8 +72,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
   }
 
-  // Get raw body for signature verification
-  const body = await req.text();
+  // Preserve the exact raw bytes-as-text required by Stripe while bounding the
+  // memory an unauthenticated request can make this route retain.
+  const bodyResult = await readRequestTextWithLimit(req, MAX_STRIPE_WEBHOOK_BYTES);
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+  }
+  const body = bodyResult.text;
   const signature = req.headers.get("stripe-signature");
 
   if (!signature) {

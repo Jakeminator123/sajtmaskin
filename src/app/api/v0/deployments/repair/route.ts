@@ -20,8 +20,8 @@ export const maxDuration = 950;
 // aktiva version kan vara en nyare follow-up och får inte styra repairen.
 // Okända fält (t.ex. ett gammalt klient-`versionId`) strippas av zod.
 const requestSchema = z.object({
-  chatId: z.string().min(1, "chatId is required"),
-  deploymentId: z.string().min(1, "deploymentId is required"),
+  chatId: z.string().min(1, "chatId is required").max(128),
+  deploymentId: z.string().min(1, "deploymentId is required").max(128),
 });
 
 /**
@@ -170,10 +170,7 @@ export async function POST(req: Request) {
       }
     } catch (err) {
       console.error("[deploy-repair] Error:", err);
-      return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Deploy repair failed" },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: "Deploy repair failed" }, { status: 500 });
     }
   });
 }

@@ -89,6 +89,109 @@ describe("POST /api/analyze-website", () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
+  it.each([null, [], { url: 42 }])(
+    "rejects an invalid payload before scraping or spending an LLM call: %j",
+    async (body) => {
+      getCurrentUser.mockResolvedValue({ id: "user_1" });
+
+      const res = await POST(
+        new NextRequest("http://localhost/api/analyze-website", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      expect(quickScrapeWebsite).not.toHaveBeenCalled();
+      expect(generateText).not.toHaveBeenCalled();
+    },
+  );
+
+  it("caps client-supplied scrape text to the server-owned 200-word budget", async () => {
+    const previousKey = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = "test-key";
+    getCurrentUser.mockResolvedValue({ id: "user_1" });
+    generateText.mockResolvedValue({ text: "Kort analys." });
+    const words = Array.from({ length: 220 }, (_, index) => `word-${index + 1}`);
+
+    try {
+      const res = await POST(
+        new NextRequest("http://localhost/api/analyze-website", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: "https://example.com",
+            scrapedContent: { textSummary: words.join(" ") },
+          }),
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(quickScrapeWebsite).not.toHaveBeenCalled();
+      const options = generateText.mock.calls[0][0] as {
+        messages: Array<{ role: string; content: string }>;
+      };
+      const prompt = options.messages.find((message) => message.role === "user")?.content ?? "";
+      expect(prompt).toContain("word-200");
+      expect(prompt).not.toContain("word-201");
+    } finally {
+      if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = previousKey;
+    }
+  });
+
+  it("also caps a single unbroken scrape token by characters", async () => {
+    const previousKey = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = "test-key";
+    getCurrentUser.mockResolvedValue({ id: "user_1" });
+    generateText.mockResolvedValue({ text: "Kort analys." });
+
+    try {
+      const res = await POST(
+        new NextRequest("http://localhost/api/analyze-website", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: "https://example.com",
+            scrapedContent: { textSummary: `start-${"x".repeat(20_000)}-end` },
+          }),
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const options = generateText.mock.calls[0][0] as {
+        messages: Array<{ role: string; content: string }>;
+      };
+      const prompt = options.messages.find((message) => message.role === "user")?.content ?? "";
+      expect(prompt).toContain("start-");
+      expect(prompt).not.toContain("-end");
+      expect(prompt.length).toBeLessThan(13_000);
+    } finally {
+      if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = previousKey;
+    }
+  });
+
+  it.each(["file:///etc/passwd", "https://user:secret@example.com/"])(
+    "rejects unsafe URL forms before scraping: %s",
+    async (url) => {
+      getCurrentUser.mockResolvedValue({ id: "user_1" });
+
+      const res = await POST(
+        new NextRequest("http://localhost/api/analyze-website", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url, scrapedContent: { textSummary: "Client supplied text" } }),
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      expect(quickScrapeWebsite).not.toHaveBeenCalled();
+      expect(generateText).not.toHaveBeenCalled();
+    },
+  );
+
   it("sends Sol medium with an 8192 total output cap and no temperature", async () => {
     const previousKey = process.env.OPENAI_API_KEY;
     process.env.OPENAI_API_KEY = "test-key";

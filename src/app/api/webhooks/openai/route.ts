@@ -4,8 +4,10 @@ import {
   parseOpenAiWebhookEvent,
   verifyOpenAiWebhookSignature,
 } from "@/lib/openai/openai-webhooks";
+import { readRequestTextWithLimit } from "@/lib/api/read-limited-body";
 
 export const runtime = "nodejs";
+const MAX_WEBHOOK_BODY_BYTES = 1024 * 1024;
 
 /**
  * Receiver for OpenAI platform webhooks (see `src/lib/openai/openai-webhooks.ts`).
@@ -19,7 +21,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing OPENAI_WEBHOOK" }, { status: 500 });
   }
 
-  const rawBody = await req.text();
+  const bodyResult = await readRequestTextWithLimit(req, MAX_WEBHOOK_BODY_BYTES);
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: "Webhook body too large" }, { status: 413 });
+  }
+  const rawBody = bodyResult.text;
   const verification = verifyOpenAiWebhookSignature({
     rawBody,
     webhookId: req.headers.get("webhook-id"),

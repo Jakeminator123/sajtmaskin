@@ -10,6 +10,15 @@ import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { buildPortableExportProject } from "@/lib/gen/export/build-portable-export-project";
 
+const MAX_DOWNLOAD_ID_CHARS = 128;
+const MAX_BACKOFFICE_PASSWORD_CHARS = 256;
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
 /**
  * Download endpoint with optional backoffice injection
  *
@@ -58,7 +67,7 @@ async function processDownload(
       const errorMessage = downloadError instanceof Error ? downloadError.message : "Okänt fel";
       console.error("[API/download] Failed to build ZIP:", errorMessage);
       return NextResponse.json(
-        { success: false, error: `Kunde inte ladda ner ZIP: ${errorMessage}` },
+        { success: false, error: "Nedladdning misslyckades." },
         { status: 500 },
       );
     }
@@ -89,7 +98,7 @@ async function processDownload(
       const errorMessage = zipError instanceof Error ? zipError.message : "Okänt fel";
       console.error("[API/download] Failed to load ZIP:", errorMessage);
       return NextResponse.json(
-        { success: false, error: `Ogiltig ZIP-fil: ${errorMessage}` },
+        { success: false, error: "Ogiltig ZIP-fil." },
         { status: 400 },
       );
     }
@@ -101,7 +110,9 @@ async function processDownload(
       const normalizedZipPath = relativePath.split("\\").join("/");
       const safeName = sanitizeProjectPath(normalizedZipPath);
       if (!safeName) {
-        console.warn(`[API/download] Skipping unsafe zip path: ${relativePath}`);
+        console.warn(
+          `[API/download] Skipping unsafe zip path: ${JSON.stringify(relativePath.slice(0, 200))}`,
+        );
         return;
       }
       if (
@@ -159,7 +170,7 @@ async function processDownload(
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("[API/download] Unexpected error:", errorMessage);
     return NextResponse.json(
-      { success: false, error: `Nedladdning misslyckades: ${errorMessage}` },
+      { success: false, error: "Nedladdning misslyckades." },
       { status: 500 },
     );
   }
@@ -169,24 +180,51 @@ export async function POST(request: NextRequest) {
   return withRateLimit(request, "download:create", async () => {
     const user = await getCurrentUser(request);
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 },
-      );
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
     try {
-      const body = await request.json();
+      const body = asRecord(await request.json().catch(() => null));
+      if (!body) {
+        return NextResponse.json(
+          { success: false, error: "Invalid request body" },
+          { status: 400 },
+        );
+      }
       const { chatId, versionId, includeBackoffice, password } = body;
 
-      if (!chatId || !versionId) {
+      if (
+        typeof chatId !== "string" ||
+        !chatId.trim() ||
+        chatId.length > MAX_DOWNLOAD_ID_CHARS ||
+        typeof versionId !== "string" ||
+        !versionId.trim() ||
+        versionId.length > MAX_DOWNLOAD_ID_CHARS
+      ) {
         return NextResponse.json(
           { success: false, error: "chatId and versionId are required" },
           { status: 400 },
         );
       }
+      if (
+        (includeBackoffice !== undefined && typeof includeBackoffice !== "boolean") ||
+        (password !== undefined &&
+          password !== null &&
+          (typeof password !== "string" || password.length > MAX_BACKOFFICE_PASSWORD_CHARS))
+      ) {
+        return NextResponse.json(
+          { success: false, error: "Invalid download options" },
+          { status: 400 },
+        );
+      }
 
-      return processDownload(request, chatId, versionId, !!includeBackoffice, password);
+      return processDownload(
+        request,
+        chatId.trim(),
+        versionId.trim(),
+        includeBackoffice === true,
+        typeof password === "string" ? password : undefined,
+      );
     } catch (error) {
       console.error("[API/download] POST error:", error);
       return NextResponse.json({ success: false, error: "Invalid request body" }, { status: 400 });
@@ -198,10 +236,7 @@ export async function GET(request: NextRequest) {
   return withRateLimit(request, "download:create", async () => {
     const user = await getCurrentUser(request);
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 },
-      );
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
     const searchParams = request.nextUrl.searchParams;
@@ -210,7 +245,13 @@ export async function GET(request: NextRequest) {
     const includeBackoffice = searchParams.get("includeBackoffice") === "true";
     const password = searchParams.get("password");
 
-    if (!chatId || !versionId) {
+    if (
+      !chatId ||
+      chatId.length > MAX_DOWNLOAD_ID_CHARS ||
+      !versionId ||
+      versionId.length > MAX_DOWNLOAD_ID_CHARS ||
+      (password !== null && password.length > MAX_BACKOFFICE_PASSWORD_CHARS)
+    ) {
       return NextResponse.json(
         { success: false, error: "chatId and versionId are required" },
         { status: 400 },

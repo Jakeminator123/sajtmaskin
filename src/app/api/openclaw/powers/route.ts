@@ -12,9 +12,9 @@ import { sanitizeOpenClawPowerIds } from "@/lib/openclaw/powers";
 export const runtime = "nodejs";
 
 const bodySchema = z.object({
-  chatId: z.string().min(1),
+  chatId: z.string().min(1).max(200),
   powersOn: z.boolean(),
-  granted: z.array(z.unknown()).optional(),
+  granted: z.array(z.string().max(100)).max(20).optional(),
 });
 
 async function scopedChat(req: Request, chatId: string) {
@@ -24,7 +24,7 @@ async function scopedChat(req: Request, chatId: string) {
 export async function GET(req: Request) {
   return withRateLimit(req, "openclaw:powers", async () => {
     const chatId = new URL(req.url).searchParams.get("chatId")?.trim() ?? "";
-    if (!chatId) {
+    if (!chatId || chatId.length > 200) {
       return NextResponse.json({ error: "chatId required" }, { status: 400 });
     }
     const chat = await scopedChat(req, chatId);

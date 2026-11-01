@@ -7,6 +7,7 @@ const safeFetch = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/config", () => ({
   FEATURES: config,
   SECRETS: { unsplashAccessKey: "unsplash-test-key" },
+  REDIS_KEY_PREFIX: "test:",
 }));
 
 vi.mock("@/lib/ssrf-guard", async (importOriginal) => {
@@ -44,6 +45,50 @@ describe("POST /api/unsplash/download", () => {
 
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ error: "Download URL is not allowed" });
+    expect(safeFetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "https://api.unsplash.com/users/attacker",
+    "https://api.unsplash.com/photos/abc123",
+    "https://api.unsplash.com/photos/../users/attacker",
+  ])("does not send the Client-ID to another Unsplash API path: %s", async (downloadLocation) => {
+    const response = await POST(makeRequest({ downloadLocation }));
+
+    expect(response.status).toBe(400);
+    expect(safeFetch).not.toHaveBeenCalled();
+  });
+
+  it.each(["../users/attacker", "abc/metadata", "", "a".repeat(65)])(
+    "rejects an invalid photo id: %s",
+    async (photoId) => {
+      const response = await POST(makeRequest({ photoId }));
+
+      expect(response.status).toBe(400);
+      expect(safeFetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["not-json", "null", "[]"])("rejects malformed JSON payload %s", async (body) => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/unsplash/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(safeFetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized body without calling Unsplash", async () => {
+    const request = makeRequest({ photoId: "abc123" });
+    request.headers.set("content-length", "8193");
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(400);
     expect(safeFetch).not.toHaveBeenCalled();
   });
 

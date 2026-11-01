@@ -3,10 +3,18 @@ import { createHash } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { importedFileContentForExport } from "@/lib/import/extract-imported-archive";
 import { toVercelFilesFromTextFiles } from "@/lib/vercel/vercel-deploy";
 import { buildGitHubExportPlan } from "@/lib/gen/export/github-tree-plan";
+
+const { safeFetchMock } = vi.hoisted(() => ({
+  safeFetchMock: vi.fn((url: string, init?: RequestInit) => globalThis.fetch(url, init)),
+}));
+
+vi.mock("@/lib/ssrf-guard", () => ({
+  safeFetch: safeFetchMock,
+}));
 
 import {
   extractV0TemplateArchiveFiles,
@@ -281,6 +289,10 @@ describe("extractV0TemplateReferenceFiles", () => {
 });
 
 describe("readArchiveBuffer", () => {
+  beforeEach(() => {
+    safeFetchMock.mockClear();
+  });
+
   it("discards a stale local archive and re-fetches the manifest-bound Blob archive", async () => {
     const stale = await buildArchive("old");
     const fresh = await buildArchive("new");
@@ -301,6 +313,10 @@ describe("readArchiveBuffer", () => {
       );
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(safeFetchMock).toHaveBeenCalledWith(
+        "https://blob.example/template-a.zip",
+        expect.objectContaining({ maxBodyBytes: 50 * 1024 * 1024 }),
+      );
       expect(buffer.equals(fresh)).toBe(true);
     } finally {
       vi.unstubAllGlobals();
@@ -395,5 +411,18 @@ describe("readArchiveBuffer", () => {
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
+  });
+
+  it("reports the pinned fetch body limit as an oversized archive", async () => {
+    safeFetchMock.mockResolvedValueOnce(new Response("too large", { status: 413 }));
+
+    await expect(
+      readArchiveBuffer(
+        localSource({
+          sourceKind: "blob",
+          archiveUrl: "https://blob.example/template-a.zip",
+        }),
+      ),
+    ).rejects.toThrow("Template archive is too large for import");
   });
 });

@@ -112,6 +112,15 @@ describe("POST /api/wizard/competitors", () => {
     expect(authorizeWizardRun).not.toHaveBeenCalled();
   });
 
+  it("rejects an oversized body before authorizing the run", async () => {
+    const req = makeRequest({ companyName: "Sajtstudio", industry: "Webb" });
+    req.headers.set("content-length", "8193");
+    const response = await POST(req);
+
+    expect(response.status).toBe(413);
+    expect(authorizeWizardRun).not.toHaveBeenCalled();
+  });
+
   it("forwards bot protection and run rejections without calling the model", async () => {
     requireNotBot.mockReturnValue(Response.json({ error: "Bot blocked" }, { status: 403 }));
     const blocked = await POST(makeRequest({ companyName: "Sajtstudio", industry: "Webb" }));

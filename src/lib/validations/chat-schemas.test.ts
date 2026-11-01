@@ -50,4 +50,29 @@ describe("chatSchemas prompt metadata guards", () => {
 
     expect(result.success).toBe(true);
   });
+
+  for (const [name, schema] of [["create", createChatSchema], ["followup", sendMessageSchema]] as const) {
+    it.each([
+      { url: `https://example.com/${"x".repeat(16_384)}` },
+      { url: "https://example.com/file", filename: "x".repeat(513) },
+      { url: "https://example.com/file", mimeType: "x".repeat(129) },
+      { url: "https://example.com/file", purpose: "x".repeat(201) },
+    ])(`${name}: rejects oversized attachment fields`, (attachment) => {
+      expect(
+        schema.safeParse({ message: "Build a site", attachments: [attachment] }).success,
+      ).toBe(false);
+    });
+
+    it(`${name}: rejects oversized referenced ids`, () => {
+      expect(
+        schema.safeParse({ message: "Build a site", designSystemId: "x".repeat(129) }).success,
+      ).toBe(false);
+    });
+  }
+
+  it("rejects an oversized create-chat project id", () => {
+    expect(
+      createChatSchema.safeParse({ message: "Build a site", projectId: "x".repeat(129) }).success,
+    ).toBe(false);
+  });
 });

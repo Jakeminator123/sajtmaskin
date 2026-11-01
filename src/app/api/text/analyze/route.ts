@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
+import { readRequestJsonWithLimit } from "@/lib/api/read-limited-body";
 import OpenAI from "openai";
 import { FEATURES, SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -9,6 +10,16 @@ import { workloadResponsesReasoning } from "@/lib/ai-models/workload-reasoning";
 export const maxDuration = 45;
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_OUTPUT_TOKENS = 8_192;
+const MAX_ANALYZE_BODY_BYTES = 512 * 1024;
+const MAX_CONTENT_CHARS = 100_000;
+const MAX_FILENAME_CHARS = 255;
+const MAX_CONTENT_TYPE_CHARS = 100;
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
 
 /**
  * Text Analysis API
@@ -83,29 +94,59 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
       }
 
-    const body = await request.json();
-    const { content, filename, contentType } = body;
+      const bodyResult = await readRequestJsonWithLimit<unknown>(request, MAX_ANALYZE_BODY_BYTES);
+      if (!bodyResult.ok && bodyResult.reason === "too_large") {
+        return NextResponse.json(
+          { success: false, error: "Förfrågan är för stor" },
+          { status: 413 },
+        );
+      }
+      const body = bodyResult.ok ? asRecord(bodyResult.value) : null;
+      if (!body) {
+        return NextResponse.json({ success: false, error: "Ogiltig förfrågan" }, { status: 400 });
+      }
+      const { content, filename, contentType } = body;
 
-    if (!content || typeof content !== "string") {
-      return NextResponse.json(
-        { success: false, error: "Inget innehåll att analysera" },
-        { status: 400 },
-      );
-    }
+      if (typeof content !== "string" || !content.trim()) {
+        return NextResponse.json(
+          { success: false, error: "Inget innehåll att analysera" },
+          { status: 400 },
+        );
+      }
+      if (
+        (filename !== undefined && filename !== null && typeof filename !== "string") ||
+        (contentType !== undefined && contentType !== null && typeof contentType !== "string")
+      ) {
+        return NextResponse.json({ success: false, error: "Ogiltig filmetadata" }, { status: 400 });
+      }
+      if (content.length > MAX_CONTENT_CHARS) {
+        return NextResponse.json(
+          { success: false, error: "Texten är för stor för analys" },
+          { status: 413 },
+        );
+      }
+      const normalizedFilename =
+        typeof filename === "string"
+          ? filename.trim().slice(0, MAX_FILENAME_CHARS) || "textfil.txt"
+          : "textfil.txt";
+      const normalizedContentType =
+        typeof contentType === "string"
+          ? contentType.trim().toLowerCase().slice(0, MAX_CONTENT_TYPE_CHARS) || "text"
+          : "text";
 
-    // Gate: without OPENAI_API_KEY we fall back to deterministic suggestions.
-    if (!SECRETS.openaiApiKey) {
-      console.info("[Text/Analyze] No AI keys configured, using defaults");
-      return NextResponse.json({
-        success: true,
-        summary: `${filename || "Textfil"} (${content.length} tecken)`,
-        suggestions: getDefaultSuggestions(content, contentType),
-      });
-    }
+      // Gate: without OPENAI_API_KEY we fall back to deterministic suggestions.
+      if (!SECRETS.openaiApiKey) {
+        console.info("[Text/Analyze] No AI keys configured, using defaults");
+        return NextResponse.json({
+          success: true,
+          summary: `${normalizedFilename} (${content.length} tecken)`,
+          suggestions: getDefaultSuggestions(content, normalizedContentType),
+        });
+      }
 
-    const truncatedContent = content.substring(0, 4000);
+      const truncatedContent = content.substring(0, 4000);
 
-    const instructions = `Du är en webbutvecklare som hjälper användare lägga till textinnehåll på webbplatser.
+      const instructions = `Du är en webbutvecklare som hjälper användare lägga till textinnehåll på webbplatser.
 
 Analysera texten och föreslå 3-4 sätt att använda den i en modern webbdesign.
 
@@ -120,64 +161,68 @@ Regler:
 - Svara på svenska
 - Ge 3-4 varierande förslag`;
 
-    const inputText = `Filnamn: ${filename || "textfil.txt"}
-Filtyp: ${contentType || "text"}
+      const inputText = `Filnamn: ${normalizedFilename}
+Filtyp: ${normalizedContentType}
 
 Innehåll:
 ${truncatedContent}`;
 
-    // ── Responses API path (structured output) ──────────────────
-    if (FEATURES.useResponsesApi) {
-      const openai = new OpenAI({ apiKey: SECRETS.openaiApiKey });
+      // ── Responses API path (structured output) ──────────────────
+      if (FEATURES.useResponsesApi) {
+        const openai = new OpenAI({ apiKey: SECRETS.openaiApiKey });
 
-      const response = await openai.responses.create({
-        model: ANALYSIS_MODEL,
-        max_output_tokens: MAX_OUTPUT_TOKENS,
-        ...workloadResponsesReasoning(TEXT_ANALYZE_WORKLOAD_ID, ANALYSIS_MODEL),
-        instructions,
-        input: inputText,
-        text: {
-          format: {
-            type: "json_schema",
-            name: "text_analysis",
-            schema: TEXT_ANALYZE_SCHEMA,
-            strict: true,
+        const response = await openai.responses.create(
+          {
+            model: ANALYSIS_MODEL,
+            max_output_tokens: MAX_OUTPUT_TOKENS,
+            ...workloadResponsesReasoning(TEXT_ANALYZE_WORKLOAD_ID, ANALYSIS_MODEL),
+            instructions,
+            input: inputText,
+            text: {
+              format: {
+                type: "json_schema",
+                name: "text_analysis",
+                schema: TEXT_ANALYZE_SCHEMA,
+                strict: true,
+              },
+            },
+            store: false,
           },
-        },
-        store: false,
-      }, { signal: request.signal, timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 });
+          { signal: request.signal, timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 },
+        );
 
-      const parsed: { summary: string; suggestions: TextSuggestion[] } = JSON.parse(
-        response.output_text,
-      );
+        const parsed: { summary: string; suggestions: TextSuggestion[] } = JSON.parse(
+          response.output_text,
+        );
 
-      console.info(
-        `[Text/Analyze] Responses API: ${parsed.suggestions.length} suggestions for ${filename}`,
-      );
+        console.info(
+          `[Text/Analyze] Responses API: ${parsed.suggestions.length} suggestions for ${normalizedFilename}`,
+        );
 
-      return NextResponse.json({
-        success: true,
-        summary: parsed.summary,
-        suggestions: parsed.suggestions,
-      });
-    }
+        return NextResponse.json({
+          success: true,
+          summary: parsed.summary,
+          suggestions: parsed.suggestions,
+        });
+      }
 
-    // ── Fallback path: direct OpenAI Responses call ───────────────
-    const fallbackClient = createFallbackClientConfig();
-    if (!fallbackClient) {
-      return NextResponse.json({
-        success: true,
-        summary: `${filename || "Textfil"} (${content.length} tecken)`,
-        suggestions: getDefaultSuggestions(content, contentType),
-      });
-    }
+      // ── Fallback path: direct OpenAI Responses call ───────────────
+      const fallbackClient = createFallbackClientConfig();
+      if (!fallbackClient) {
+        return NextResponse.json({
+          success: true,
+          summary: `${normalizedFilename} (${content.length} tecken)`,
+          suggestions: getDefaultSuggestions(content, normalizedContentType),
+        });
+      }
 
-    const response = await fallbackClient.client.responses.create({
-      model: fallbackClient.modelId,
-      max_output_tokens: MAX_OUTPUT_TOKENS,
-      ...workloadResponsesReasoning(TEXT_ANALYZE_WORKLOAD_ID, fallbackClient.modelId),
-      instructions,
-      input: `${inputText}
+      const response = await fallbackClient.client.responses.create(
+        {
+          model: fallbackClient.modelId,
+          max_output_tokens: MAX_OUTPUT_TOKENS,
+          ...workloadResponsesReasoning(TEXT_ANALYZE_WORKLOAD_ID, fallbackClient.modelId),
+          instructions,
+          input: `${inputText}
 
 Svara ENDAST med giltig JSON i detta format:
 {
@@ -191,89 +236,94 @@ Svara ENDAST med giltig JSON i detta format:
     }
   ]
 }`,
-      store: false,
-    }, { signal: request.signal, timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 });
+          store: false,
+        },
+        { signal: request.signal, timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 },
+      );
 
-    let responseText = response.output_text || "";
+      let responseText = response.output_text || "";
 
-    try {
-      const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (jsonMatch) {
-        responseText = jsonMatch[1];
-      }
-      const parsed = JSON.parse(responseText.trim());
+      try {
+        const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch) {
+          responseText = jsonMatch[1];
+        }
+        const parsed = JSON.parse(responseText.trim());
 
-      if (!parsed.suggestions || !Array.isArray(parsed.suggestions)) {
-        throw new Error("Invalid response structure");
-      }
+        if (!parsed.suggestions || !Array.isArray(parsed.suggestions)) {
+          throw new Error("Invalid response structure");
+        }
 
-      const validSuggestions = parsed.suggestions
-        .filter(
-          (
-            s: unknown,
-          ): s is {
-            id: string;
-            label: string;
-            description: string;
-            prompt: string;
-          } =>
-            typeof s === "object" &&
-            s !== null &&
-            "id" in s &&
-            "label" in s &&
-            "description" in s &&
-            "prompt" in s &&
-            typeof (s as { id: unknown }).id === "string" &&
-            typeof (s as { label: unknown }).label === "string" &&
-            typeof (s as { description: unknown }).description === "string" &&
-            typeof (s as { prompt: unknown }).prompt === "string",
-        )
-        .map(
-          (
-            s: {
+        const validSuggestions = parsed.suggestions
+          .filter(
+            (
+              s: unknown,
+            ): s is {
               id: string;
               label: string;
               description: string;
               prompt: string;
-            },
-            index: number,
-          ) => ({
-            id: s.id || `suggestion-${index}`,
-            label: s.label,
-            description: s.description,
-            prompt: s.prompt,
-          }),
+            } =>
+              typeof s === "object" &&
+              s !== null &&
+              "id" in s &&
+              "label" in s &&
+              "description" in s &&
+              "prompt" in s &&
+              typeof (s as { id: unknown }).id === "string" &&
+              typeof (s as { label: unknown }).label === "string" &&
+              typeof (s as { description: unknown }).description === "string" &&
+              typeof (s as { prompt: unknown }).prompt === "string",
+          )
+          .map(
+            (
+              s: {
+                id: string;
+                label: string;
+                description: string;
+                prompt: string;
+              },
+              index: number,
+            ) => ({
+              id: s.id || `suggestion-${index}`,
+              label: s.label,
+              description: s.description,
+              prompt: s.prompt,
+            }),
+          );
+
+        if (validSuggestions.length === 0) {
+          throw new Error("No valid suggestions");
+        }
+
+        console.info(
+          `[Text/Analyze] Legacy fallback: ${validSuggestions.length} suggestions for ${normalizedFilename}`,
         );
 
-      if (validSuggestions.length === 0) {
-        throw new Error("No valid suggestions");
+        return NextResponse.json({
+          success: true,
+          summary: parsed.summary || `${normalizedFilename} analyserad`,
+          suggestions: validSuggestions,
+        });
+      } catch (parseError) {
+        console.error("[Text/Analyze] Failed to parse fallback AI response:", parseError);
+        return NextResponse.json({
+          success: true,
+          summary: `${normalizedFilename} (${content.length} tecken)`,
+          suggestions: getDefaultSuggestions(content, normalizedContentType),
+        });
       }
-
-      console.info(
-        `[Text/Analyze] Legacy fallback: ${validSuggestions.length} suggestions for ${filename}`,
-      );
-
-      return NextResponse.json({
-        success: true,
-        summary: parsed.summary || `${filename} analyserad`,
-        suggestions: validSuggestions,
-      });
-    } catch (parseError) {
-      console.error("[Text/Analyze] Failed to parse fallback AI response:", parseError);
-      return NextResponse.json({
-        success: true,
-        summary: `${filename || "Textfil"} (${content.length} tecken)`,
-        suggestions: getDefaultSuggestions(content, contentType),
-      });
-    }
     } catch (error: unknown) {
       console.error("[API/Text/Analyze] Error:", error);
 
-      return NextResponse.json({
-        success: false,
-        summary: "Kunde inte analysera filen automatiskt",
-        suggestions: getDefaultSuggestions("", "text"),
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          summary: "Kunde inte analysera filen automatiskt",
+          suggestions: getDefaultSuggestions("", "text"),
+        },
+        { status: 500 },
+      );
     }
   });
 }
@@ -357,4 +407,3 @@ function getDefaultSuggestions(content: string, contentType: string): TextSugges
     },
   ];
 }
-

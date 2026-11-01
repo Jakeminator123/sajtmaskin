@@ -22,6 +22,7 @@ export type SanitizedClientErrorPayload = {
 const MESSAGE_MAX = 500;
 const STACK_MAX = 1000;
 const MAX_PER_VERSION = 5;
+const MAX_TRACKED_VERSIONS = 100;
 
 export type ClientErrorPromotionPhase = string | Date | null | undefined;
 
@@ -30,6 +31,19 @@ type GateEntry = { phase: ResolvedPromotionPhase; count: number; messages: Set<s
 
 const gateByVersion = new Map<string, GateEntry>();
 const promotedVersionIds = new Set<string>();
+const trackedVersionIds = new Set<string>();
+
+function rememberTrackedVersion(versionId: string): void {
+  trackedVersionIds.delete(versionId);
+  trackedVersionIds.add(versionId);
+  while (trackedVersionIds.size > MAX_TRACKED_VERSIONS) {
+    const oldestVersionId = trackedVersionIds.values().next().value;
+    if (typeof oldestVersionId !== "string") break;
+    trackedVersionIds.delete(oldestVersionId);
+    gateByVersion.delete(oldestVersionId);
+    promotedVersionIds.delete(oldestVersionId);
+  }
+}
 
 function hasPromotionBoundary(promotedAt: ClientErrorPromotionPhase): boolean {
   if (promotedAt instanceof Date) {
@@ -42,6 +56,7 @@ function resolvePromotionPhase(
   versionId: string,
   promotedAt: ClientErrorPromotionPhase,
 ): ResolvedPromotionPhase {
+  rememberTrackedVersion(versionId);
   if (hasPromotionBoundary(promotedAt)) {
     promotedVersionIds.add(versionId);
   }
@@ -82,7 +97,10 @@ function releaseClientErrorReportForPhase(
  * stale SWR-render med `promotedAt=null` får aldrig flytta tillbaka gaten.
  */
 export function markClientErrorVersionPromoted(versionId: string): void {
-  if (versionId) promotedVersionIds.add(versionId);
+  if (versionId) {
+    rememberTrackedVersion(versionId);
+    promotedVersionIds.add(versionId);
+  }
 }
 
 function isClientErrorKind(value: unknown): value is ClientErrorKind {
@@ -147,6 +165,7 @@ export function releaseClientErrorReport(
 export function resetClientErrorReportGateForTests(): void {
   gateByVersion.clear();
   promotedVersionIds.clear();
+  trackedVersionIds.clear();
 }
 
 /**

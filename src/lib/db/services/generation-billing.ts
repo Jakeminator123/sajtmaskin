@@ -199,6 +199,8 @@ export async function establishGenerationBilling(input: GenerationBillingTarget)
         chat_id: input.chatId,
         user_id: sql`COALESCE(${generationBillings.user_id}, ${input.userId ?? null})`,
         status: "pending",
+        campaign_entitlement_id: sql`COALESCE(${generationBillings.campaign_entitlement_id}, ${campaignEntitlementId})`,
+        campaign_phase: sql`COALESCE(${generationBillings.campaign_phase}, ${campaignPhase})`,
         claim_keys: claimKeys.length > 0
           ? sql`(
               SELECT jsonb_agg(DISTINCT receipt.value ORDER BY receipt.value)

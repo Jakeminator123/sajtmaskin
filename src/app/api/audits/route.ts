@@ -12,6 +12,12 @@ import { getCachedUserAuditList, cacheUserAuditList, cacheAudit } from "@/lib/da
 // Maximum audits per user (to prevent abuse)
 const MAX_AUDITS_PER_USER = 50;
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
 /**
  * GET - List user's saved audits
  */
@@ -84,15 +90,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    const body = asRecord(await request.json().catch(() => null));
+    if (!body) {
+      return NextResponse.json({ success: false, error: "Ogiltig förfrågan." }, { status: 400 });
+    }
     const { url, domain, auditResult } = body;
+    const normalizedAuditResult = asRecord(auditResult);
 
-    if (!url || !domain || !auditResult) {
+    if (
+      typeof url !== "string" ||
+      !url.trim() ||
+      typeof domain !== "string" ||
+      !domain.trim() ||
+      !normalizedAuditResult
+    ) {
       return NextResponse.json(
         { success: false, error: "Saknar nödvändig data." },
         { status: 400 },
       );
     }
+    let normalizedUrl: string;
+    try {
+      const parsedUrl = new URL(url.trim());
+      if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") throw new Error();
+      normalizedUrl = parsedUrl.toString();
+    } catch {
+      return NextResponse.json({ success: false, error: "Ogiltig audit-URL." }, { status: 400 });
+    }
+    const normalizedDomain = domain.trim().toLowerCase();
 
     // Check audit limit
     const auditCount = await getUserAuditCount(user.id);
@@ -107,10 +132,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Save to database
-    const savedAudit = await saveUserAudit(user.id, url, domain, auditResult);
+    const savedAudit = await saveUserAudit(
+      user.id,
+      normalizedUrl,
+      normalizedDomain,
+      normalizedAuditResult,
+    );
 
     // Cache the audit
-    await cacheAudit(savedAudit.id, user.id, auditResult);
+    await cacheAudit(savedAudit.id, user.id, normalizedAuditResult);
 
     console.info(`[API/audits] Saved audit ${savedAudit.id} for user ${user.id}: ${domain}`);
 

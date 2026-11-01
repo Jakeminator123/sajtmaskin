@@ -71,13 +71,8 @@ export async function POST(req: Request) {
       }
       return NextResponse.json({ text, model: modelId });
     } catch (error) {
-      return NextResponse.json(
-        {
-          error: "rewrite_failed",
-          details: error instanceof Error ? error.message : String(error),
-        },
-        { status: 502 },
-      );
+      console.error("[API/ai/prompt-assist] Rewrite failed:", error);
+      return NextResponse.json({ error: "rewrite_failed" }, { status: 502 });
     }
   });
 }

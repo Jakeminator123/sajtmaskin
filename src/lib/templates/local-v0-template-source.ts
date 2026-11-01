@@ -7,6 +7,7 @@ import type { CodeFile } from "@/lib/gen/parser";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { isBlockedEnvImportFilename } from "@/lib/templates/env-import-guard";
 import { normalizeImportedRepoFiles } from "@/lib/templates/normalize-imported-package-json";
+import { safeFetch } from "@/lib/ssrf-guard";
 import blobManifestData from "./template-blob-manifest.json";
 
 const DOWNLOADED_LOG_PATH = resolve(process.cwd(), "templates_v0/out/downloaded.jsonl");
@@ -525,7 +526,10 @@ async function readLocalArchiveBuffer(path: string): Promise<Buffer> {
 }
 
 async function readRemoteArchiveBuffer(url: string, signal?: AbortSignal): Promise<Buffer> {
-  const response = await fetch(url, { signal });
+  const response = await safeFetch(url, { signal, maxBodyBytes: MAX_ARCHIVE_BYTES });
+  if (response.status === 413) {
+    throw new Error("Template archive is too large for import");
+  }
   if (!response.ok) {
     throw new Error(`Template archive fetch failed (${response.status})`);
   }

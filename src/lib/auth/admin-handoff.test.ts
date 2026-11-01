@@ -88,6 +88,7 @@ describe("verifyAdminHandoff", () => {
     expect(verifyAdminHandoff(forged, SECRET)).toBeNull();
     expect(verifyAdminHandoff(token, "")).toBeNull();
     expect(verifyAdminHandoff(token, "   ")).toBeNull();
+    expect(verifyAdminHandoff(`${"x".repeat(4_097)}.sig`, SECRET)).toBeNull();
 
     const iat = Math.floor(Date.now() / 1000) - 120;
     expect(verifyAdminHandoff(sign({ iat, exp: iat + 60 }), SECRET)).toBeNull();

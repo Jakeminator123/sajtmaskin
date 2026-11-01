@@ -4,8 +4,13 @@ import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import { appProjects, promptHandoffs } from "@/lib/db/schema";
 import { canCreateProject } from "@/lib/projects/project-cleanup";
-import { buildAuditDisplayPrompt, serializeAuditHandoffIdentity, type AuditHandoffPayload } from "@/lib/builder/audit-handoff";
+import {
+  buildAuditDisplayPrompt,
+  serializeAuditHandoffIdentity,
+  type AuditHandoffPayload,
+} from "@/lib/builder/audit-handoff";
 import { assertDbConfigured } from "./shared";
+import { lockProjectOwner } from "./project-owner";
 
 export class AuditBuildHandoffError extends Error {
   constructor(
@@ -35,6 +40,7 @@ export async function createAuditProjectHandoff(params: {
     .update(JSON.stringify([params.userId, params.attemptId.toLowerCase()]))
     .digest("hex")}`;
   return db.transaction(async (tx) => {
+    await lockProjectOwner(tx, params.userId);
     // Serialize this owner's audit attempts, including quota count + insert.
     // The lock lasts only for the transaction, not for browser/network/cache work.
     await tx.execute(
@@ -48,7 +54,8 @@ export async function createAuditProjectHandoff(params: {
     if (existing) {
       if (
         existing.source !== "audit" ||
-        serializeAuditHandoffIdentity(existing.payload) !== serializeAuditHandoffIdentity(params.payload) ||
+        serializeAuditHandoffIdentity(existing.payload) !==
+          serializeAuditHandoffIdentity(params.payload) ||
         !existing.project_id
       ) {
         throw new AuditBuildHandoffError("Byggförsöket matchar inte denna analys.", 409);
@@ -59,7 +66,11 @@ export async function createAuditProjectHandoff(params: {
         .where(and(eq(appProjects.id, existing.project_id), eq(appProjects.user_id, params.userId)))
         .limit(1);
       if (!project)
-        throw new AuditBuildHandoffError("Projektet för byggförsöket finns inte längre.", 409, "AUDIT_HANDOFF_PROJECT_MISSING");
+        throw new AuditBuildHandoffError(
+          "Projektet för byggförsöket finns inte längre.",
+          409,
+          "AUDIT_HANDOFF_PROJECT_MISSING",
+        );
       return { projectId: project.id, promptId, consumed: Boolean(existing.consumed_at) };
     }
     const limit = await canCreateProject(params.userId, null, params.isPaidUser, tx);

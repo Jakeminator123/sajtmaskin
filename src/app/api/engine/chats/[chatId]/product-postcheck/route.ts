@@ -14,8 +14,8 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const requestSchema = z.object({
-  versionId: z.string().min(1),
-  previewUrl: z.string().trim().optional().nullable(),
+  versionId: z.string().trim().min(1).max(200),
+  previewUrl: z.string().trim().max(4_096).optional().nullable(),
   /**
    * Exact `files_revision` the caller confirmed persisted. When set, a DB
    * mismatch is `preview_superseded` — never an attestation of a stale
@@ -24,11 +24,16 @@ const requestSchema = z.object({
   filesRevision: z.string().trim().min(1).max(160).optional(),
 });
 
+const MAX_ENGINE_RESOURCE_ID_CHARS = 200;
+
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   return withRateLimit(req, "engine:product-postcheck", () =>
     runWithLlmUsageContext({}, async () => {
       const { chatId } = await ctx.params;
+      if (!chatId || chatId.length > MAX_ENGINE_RESOURCE_ID_CHARS) {
+        return NextResponse.json({ ok: false, error: "Invalid chat ID" }, { status: 400 });
+      }
       const parsed = requestSchema.safeParse(await req.json().catch(() => ({})));
       if (!parsed.success) return NextResponse.json({ ok: false, error: "Validation failed", details: parsed.error.issues }, { status: 400 });
       const userId = await safeUsageOwnerId(() => getRequestUserId(req));

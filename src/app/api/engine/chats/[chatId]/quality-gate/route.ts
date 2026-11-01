@@ -11,7 +11,7 @@ import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS, QUALITY_GATE_CHECK_VALUES } from "@
 export const runtime = "nodejs";
 export const maxDuration = 950;
 const requestSchema = z.object({
-  versionId: z.string().min(1),
+  versionId: z.string().trim().min(1).max(200),
   /**
    * Explicit canonical gate selection for deterministic F3 release checks.
    * `integrationsBuild` is accepted only for a tenant-scoped integrations row
@@ -29,6 +29,8 @@ const requestSchema = z.object({
     .default([...DESIGN_PREVIEW_QUALITY_GATE_CHECKS]),
 });
 
+const MAX_ENGINE_RESOURCE_ID_CHARS = 200;
+
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   // Quality-gaten är VM-baserad och gör inga LLM-anrop. Kontexten behåller
@@ -42,6 +44,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
     const { chatId } = await ctx.params;
+
+    if (!chatId || chatId.length > MAX_ENGINE_RESOURCE_ID_CHARS) {
+      return NextResponse.json({ error: "Invalid chat ID" }, { status: 400 });
+    }
 
     const body = await req.json().catch(() => ({}));
     const validation = requestSchema.safeParse(body);
@@ -98,6 +104,6 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     }
   } catch (err) {
     console.error("[quality-gate] Error:", err);
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Quality gate failed" }, { status: 500 });
+    return NextResponse.json({ error: "Quality gate failed" }, { status: 500 });
   }
 }
