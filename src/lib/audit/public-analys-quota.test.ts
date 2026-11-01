@@ -108,6 +108,20 @@ describe("public analys daily quota", () => {
     expect(results.filter((result) => result.status === "reserved")).toHaveLength(1);
   });
 
+  it("prunes expired memory reservations on a deterministic write interval", async () => {
+    const firstTime = new Date("2026-06-01T10:00:00.000Z");
+    const afterExpiry = new Date(firstTime.getTime() + 361_000);
+    expect((await acquirePublicAnalysQuota("expired-client", firstTime)).status).toBe("acquired");
+
+    for (let index = 1; index < 128; index += 1) {
+      expect((await acquirePublicAnalysQuota(`active-client-${index}`, afterExpiry)).status).toBe(
+        "acquired",
+      );
+    }
+
+    expect((await acquirePublicAnalysQuota("expired-client", firstTime)).status).toBe("acquired");
+  });
+
   it("admits exactly one Redis-backed concurrent reservation with NX and a 360s TTL", async () => {
     process.env.UPSTASH_REDIS_REST_URL = "https://redis.example";
     process.env.UPSTASH_REDIS_REST_TOKEN = "secret";

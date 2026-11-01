@@ -74,7 +74,7 @@ const PACKAGE_JSON = `{
     "@tanstack/react-virtual": "3.14.4"
   },
   "devDependencies": {
-    "eslint": "9.39.2",
+    "eslint": "9.39.4",
     "eslint-config-next": "16.4.2",
     "typescript": "5.9.3",
     "@types/node": "22.19.17",

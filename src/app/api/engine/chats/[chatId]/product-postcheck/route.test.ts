@@ -263,6 +263,18 @@ describe("POST product-postcheck", () => {
       version: { id: "v1", chat_id: "chat_1", files_revision: "rev_n", files_json: "[]" } });
   });
 
+  it.each([
+    ["chatId", "x".repeat(201), { versionId: "v1" }],
+    ["versionId", "chat_1", { versionId: "x".repeat(201) }],
+    ["previewUrl", "chat_1", { versionId: "v1", previewUrl: `https://example.com/${"x".repeat(4_097)}` }],
+  ])("rejects an oversized %s before usage or version lookup", async (_field, chatId, body) => {
+    const response = await POST(req(body), { params: Promise.resolve({ chatId }) });
+
+    expect(response.status).toBe(400);
+    expect(getRequestUserId).not.toHaveBeenCalled();
+    expect(getVersion).not.toHaveBeenCalled();
+  });
+
   it("feature flag off => auth + canonical server receipt, no Playwright/critic/claim", async () => {
     const res = await POST(req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }), {
       params: Promise.resolve({ chatId: "chat_1" }),

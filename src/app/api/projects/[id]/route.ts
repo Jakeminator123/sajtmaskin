@@ -14,6 +14,24 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+const MAX_PROJECT_ID_CHARS = 200;
+const PROJECT_FIELD_LIMITS = {
+  name: 200,
+  category: 100,
+  description: 5_000,
+  thumbnail_path: 4_096,
+} as const;
+
+function invalidProjectId(id: string): boolean {
+  return !id || id.length > MAX_PROJECT_ID_CHARS;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
 function getOwnerCacheSegment(userId: string | null, sessionId: string | null): string {
   if (userId && sessionId) return `user:${userId}:session:${sessionId}`;
   if (userId) return `user:${userId}`;
@@ -34,6 +52,9 @@ function getOwnerCacheSegments(userId: string | null, sessionId: string | null):
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    if (invalidProjectId(id)) {
+      return NextResponse.json({ success: false, error: "Invalid project ID" }, { status: 400 });
+    }
     const user = await getCurrentUser(request);
     const sessionId = getSessionIdFromRequest(request);
     const ownerKey = getOwnerCacheSegment(user?.id ?? null, sessionId);
@@ -77,7 +98,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "Failed to get project",
       },
       { status: 500 },
     );
@@ -88,7 +109,24 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const body = await request.json();
+    if (invalidProjectId(id)) {
+      return NextResponse.json({ success: false, error: "Invalid project ID" }, { status: 400 });
+    }
+    const body = asRecord(await request.json().catch(() => null));
+    if (!body) {
+      return NextResponse.json({ success: false, error: "Invalid request body" }, { status: 400 });
+    }
+    const updateFields = ["name", "category", "description", "thumbnail_path"] as const;
+    if (updateFields.some((field) => field in body && typeof body[field] !== "string")) {
+      return NextResponse.json({ success: false, error: "Invalid project data" }, { status: 400 });
+    }
+    if (
+      updateFields.some(
+        (field) => typeof body[field] === "string" && body[field].length > PROJECT_FIELD_LIMITS[field],
+      )
+    ) {
+      return NextResponse.json({ success: false, error: "Project data is too long" }, { status: 400 });
+    }
     const user = await getCurrentUser(request);
     const sessionId = getSessionIdFromRequest(request);
     const ownerKeys = getOwnerCacheSegments(user?.id ?? null, sessionId);
@@ -115,7 +153,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "Failed to update project",
       },
       { status: 500 },
     );
@@ -126,6 +164,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    if (invalidProjectId(id)) {
+      return NextResponse.json({ success: false, error: "Invalid project ID" }, { status: 400 });
+    }
     const user = await getCurrentUser(request);
     const sessionId = getSessionIdFromRequest(request);
     const ownerKeys = getOwnerCacheSegments(user?.id ?? null, sessionId);
@@ -156,7 +197,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "Failed to delete project",
       },
       { status: 500 },
     );

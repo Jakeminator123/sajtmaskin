@@ -58,15 +58,18 @@ describe("/api/audits/[id]", () => {
     expect(deleteUserAudit).not.toHaveBeenCalled();
   });
 
-  it("rejects a non-numeric id before storage access", async () => {
-    const getResponse = await GET(request("GET"), context("not-a-number"));
-    const deleteResponse = await DELETE(request("DELETE"), context("not-a-number"));
+  it.each(["not-a-number", "7extra", "0", "-1", "9007199254740992"])(
+    "rejects the invalid id %s before storage access",
+    async (id) => {
+      const getResponse = await GET(request("GET"), context(id));
+      const deleteResponse = await DELETE(request("DELETE"), context(id));
 
-    expect(getResponse.status).toBe(400);
-    expect(deleteResponse.status).toBe(400);
-    expect(getCachedAudit).not.toHaveBeenCalled();
-    expect(deleteUserAudit).not.toHaveBeenCalled();
-  });
+      expect(getResponse.status).toBe(400);
+      expect(deleteResponse.status).toBe(400);
+      expect(getCachedAudit).not.toHaveBeenCalled();
+      expect(deleteUserAudit).not.toHaveBeenCalled();
+    },
+  );
 
   it("verifies ownership even when a cached result exists", async () => {
     getCachedAudit.mockResolvedValue({ source: "cache" });
@@ -76,6 +79,7 @@ describe("/api/audits/[id]", () => {
 
     expect(response.status).toBe(404);
     expect(getUserAuditById).toHaveBeenCalledWith(7, "user_1");
+    expect(getCachedAudit).not.toHaveBeenCalled();
   });
 
   it("returns the owned audit with the cached result", async () => {

@@ -127,6 +127,8 @@ describe("auth token security", () => {
     const tampered = `${header}.${body}.${tamperedSignature}`;
 
     expect(auth.verifyToken(tampered)).toBeNull();
+    expect(auth.verifyToken(`${token}.extra`)).toBeNull();
+    expect(auth.verifyToken(`${"x".repeat(8_193)}.body.signature`)).toBeNull();
   });
 
   it("rejects expired JWT tokens", () => {
@@ -163,6 +165,40 @@ describe("auth token security", () => {
     expect(url.searchParams.get("redirect_uri")).toBe(
       "https://sajtmaskin.se/api/auth/google/callback",
     );
+  });
+
+  it("rejects malformed or oversized Google token responses", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ access_token: "access-only" }))
+      .mockResolvedValueOnce(
+        Response.json({ access_token: "a".repeat(8_193), id_token: "id-token" }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await expect(auth.exchangeGoogleCode("code")).resolves.toBeNull();
+      await expect(auth.exchangeGoogleCode("code")).resolves.toBeNull();
+      expect(fetchMock.mock.calls[0]?.[1]).toEqual(
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("rejects malformed Google user profiles", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({ id: "google-id", email: "person@example.com", name: { nested: true } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await expect(auth.getGoogleUserInfo("access-token")).resolves.toBeNull();
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://www.googleapis.com/oauth2/v2/userinfo",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("extracts token from authorization header and cookie", () => {

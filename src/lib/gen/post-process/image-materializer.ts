@@ -12,9 +12,20 @@ function parseParams(qs: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const pair of qs.split("&")) {
     const [k, v] = pair.split("=");
-    if (k && v) out[k] = decodeURIComponent(v.replace(/\+/g, " "));
+    if (!k || !v) continue;
+    try {
+      out[k] = decodeURIComponent(v.replace(/\+/g, " "));
+    } catch {
+      // Generated placeholder markup can contain malformed percent escapes.
+      // Ignore that field instead of aborting the entire post-processing pass.
+    }
   }
   return out;
+}
+
+function parseDimension(value: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 && parsed <= 4_096 ? parsed : fallback;
 }
 
 interface UnsplashSearchHit {
@@ -34,6 +45,24 @@ export type UnsplashSearchFailReason =
 interface UnsplashSearchResult {
   hit: UnsplashSearchHit | null;
   failReason?: UnsplashSearchFailReason;
+}
+
+function trustedUnsplashUrl(value: string, hostname: "api.unsplash.com" | "images.unsplash.com") {
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== "https:" ||
+      url.hostname !== hostname ||
+      url.port ||
+      url.username ||
+      url.password
+    ) {
+      return null;
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
 }
 
 async function searchUnsplash(
@@ -70,9 +99,11 @@ async function searchUnsplash(
     };
     const photo = data.results?.[0];
     if (!photo?.urls?.raw) return { hit: null, failReason: "no_results" };
+    const rawUrl = trustedUnsplashUrl(photo.urls.raw, "images.unsplash.com");
+    if (!rawUrl) return { hit: null, failReason: "network_or_provider_error" };
     return {
       hit: {
-        rawUrl: photo.urls.raw,
+        rawUrl,
         downloadLocation: photo.links?.download_location ?? null,
       },
     };
@@ -84,7 +115,9 @@ async function searchUnsplash(
 }
 
 function trackUnsplashDownload(downloadLocation: string, accessKey: string): void {
-  fetch(downloadLocation, {
+  const url = trustedUnsplashUrl(downloadLocation, "api.unsplash.com");
+  if (!url) return;
+  fetch(url, {
     headers: {
       Authorization: `Client-ID ${accessKey}`,
       "Accept-Version": "v1",
@@ -211,8 +244,8 @@ export async function materializeImages(
     matches.push({
       fullMatch: m[0],
       text: rawText,
-      width: parseInt(params.width || "800", 10),
-      height: parseInt(params.height || "600", 10),
+      width: parseDimension(params.width, 800),
+      height: parseDimension(params.height, 600),
     });
   }
 

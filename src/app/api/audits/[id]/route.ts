@@ -13,6 +13,12 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
+function parseAuditId(id: string): number | null {
+  if (!/^\d+$/.test(id)) return null;
+  const auditId = Number(id);
+  return Number.isSafeInteger(auditId) && auditId > 0 ? auditId : null;
+}
+
 /**
  * GET - Get a specific audit with full data
  */
@@ -28,21 +34,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const { id } = await context.params;
-    const auditId = parseInt(id, 10);
+    const auditId = parseAuditId(id);
 
-    if (isNaN(auditId)) {
+    if (auditId === null) {
       return NextResponse.json({ success: false, error: "Ogiltigt audit-ID." }, { status: 400 });
     }
 
-    // Try cache first for the audit result
-    const cachedResult = await getCachedAudit(auditId);
-
-    // Get audit metadata from database (to verify ownership)
+    // Verify ownership before touching the shared result cache.
     const audit = await getUserAuditById(auditId, user.id);
 
     if (!audit) {
       return NextResponse.json({ success: false, error: "Audit hittades inte." }, { status: 404 });
     }
+
+    const cachedResult = await getCachedAudit(auditId);
 
     // Parse audit result - use cache if available, otherwise from DB
     let auditResult;
@@ -94,9 +99,9 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
 
     const { id } = await context.params;
-    const auditId = parseInt(id, 10);
+    const auditId = parseAuditId(id);
 
-    if (isNaN(auditId)) {
+    if (auditId === null) {
       return NextResponse.json({ success: false, error: "Ogiltigt audit-ID." }, { status: 400 });
     }
 

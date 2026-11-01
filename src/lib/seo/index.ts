@@ -24,6 +24,7 @@ import { auditProjectSeo } from "./audit";
 import { applyDeterministicSeoImprovements } from "./improve";
 import { improveSeoCopyWithLlm } from "./llm-copy";
 import type { SeoImprovement, SeoPublishReport } from "./types";
+import { countParseErrors, isGuardablePath } from "@/lib/gen/autofix/rules/import-binding-ast";
 
 export { auditProjectSeo, scoreFromFindings, PLACEHOLDER_SITE_URL } from "./audit";
 export { applyDeterministicSeoImprovements } from "./improve";
@@ -52,6 +53,22 @@ export interface SeoPublishPassResult {
 
 function toAuditFiles(files: ReadonlyArray<ProjectTextFile>) {
   return files.map((f) => ({ path: f.name, content: f.content }));
+}
+
+function assertSeoSyntax(
+  before: ReadonlyArray<ProjectTextFile>,
+  after: ReadonlyArray<ProjectTextFile>,
+) {
+  const original = new Map(before.map((file) => [file.name, file.content]));
+  for (const file of after) {
+    if (
+      isGuardablePath(file.name) &&
+      original.get(file.name) !== file.content &&
+      countParseErrors(file.content, file.name) > 0
+    ) {
+      throw new Error("SEO changes failed syntax validation");
+    }
+  }
 }
 
 /**
@@ -116,6 +133,7 @@ export async function runSeoPublishPass(
     });
 
     let working = deterministic.files;
+    assertSeoSyntax(files, working);
     let improvements: SeoImprovement[] = [...deterministic.improvements];
     let llmSkippedReason: string | null = null;
 
@@ -131,6 +149,7 @@ export async function runSeoPublishPass(
         language: options.language,
       });
       working = copy.files;
+      assertSeoSyntax(files, working);
       improvements = [...improvements, ...copy.improvements];
       llmSkippedReason = copy.skippedReason;
     } else {

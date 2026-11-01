@@ -14,6 +14,7 @@ import { z } from "zod";
 import { SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rate-limit";
 import { debugLog, errorLog } from "@/lib/utils/debug";
+import { readRequestJsonWithLimit } from "@/lib/api/read-limited-body";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
@@ -21,11 +22,18 @@ export const maxDuration = 15;
 const RECIPIENTS = ["hej@sajtmaskin.se", "erik@sajtstudio.se"];
 
 const FROM_ADDRESS = SECRETS.emailFrom;
+const MAX_CONTACT_BODY_BYTES = 16_384;
 
 const contactSchema = z.object({
   name: z.string().min(1).max(100),
-  email: z.string().email(),
-  subject: z.string().min(1).max(200).optional().default("Kontaktformulär"),
+  email: z.string().trim().max(254).email(),
+  subject: z
+    .string()
+    .min(1)
+    .max(200)
+    .regex(/^[^\r\n]*$/)
+    .optional()
+    .default("Kontaktformulär"),
   message: z.string().min(5).max(5000),
   type: z.enum(["feedback", "bug", "question", "other"]).optional().default("other"),
 });
@@ -33,7 +41,11 @@ const contactSchema = z.object({
 export async function POST(req: Request) {
   return withRateLimit(req, "contact:submit", async () => {
     try {
-      const body = await req.json().catch(() => null);
+      const bodyResult = await readRequestJsonWithLimit<unknown>(req, MAX_CONTACT_BODY_BYTES);
+      if (!bodyResult.ok && bodyResult.reason === "too_large") {
+        return NextResponse.json({ error: "För stor request body" }, { status: 413 });
+      }
+      const body = bodyResult.ok ? bodyResult.value : null;
       const parsed = contactSchema.safeParse(body);
 
       if (!parsed.success) {

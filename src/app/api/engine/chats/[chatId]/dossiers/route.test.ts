@@ -254,10 +254,29 @@ describe("GET dossiers overview", () => {
     resolveDossiersPresentInVersion.mockReturnValue([]);
   });
 
+  it("does not expose unexpected internal errors", async () => {
+    const res = await GET(request(), {
+      params: Promise.reject(new Error("postgres://user:secret@private-db/internal")),
+    });
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Failed to build dossier overview" });
+  });
+
   it("returns 404 when the chat is not visible to the caller", async () => {
     getEngineChatByIdForRequest.mockResolvedValue(null);
     const res = await GET(request(), ctx);
     expect(res.status).toBe(404);
+  });
+
+  it.each([
+    ["chatId", { params: Promise.resolve({ chatId: "x".repeat(201) }) }, request()],
+    ["versionId", ctx, request("x".repeat(201))],
+  ])("rejects an oversized %s before tenant lookup", async (_field, requestCtx, req) => {
+    const res = await GET(req, requestCtx);
+
+    expect(res.status).toBe(400);
+    expect(getEngineChatByIdForRequest).not.toHaveBeenCalled();
   });
 
   it("returns 404 when a requested versionId is not visible to the caller", async () => {

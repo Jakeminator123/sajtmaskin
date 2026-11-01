@@ -25,6 +25,53 @@ describe("public budget receipt rejection", () => {
     expect(await response.json()).toMatchObject({ stored: false, code: "server_repair_budget_server_owned" });
     expect(genericWrite).not.toHaveBeenCalled();
   });
+
+  it.each([
+    {
+      level: "error",
+      category: "diagnostic",
+      message: "x".repeat(20_001),
+    },
+    {
+      logs: Array.from({ length: 101 }, () => ({
+        level: "warning",
+        category: "diagnostic",
+        message: "bounded",
+      })),
+    },
+  ])("rejects oversized diagnostic payloads", async (payload) => {
+    vi.clearAllMocks();
+    const { POST } = await import("./route");
+    const response = await POST(
+      new Request("http://localhost/error-log", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+      { params: Promise.resolve({ chatId: "c1", versionId: "v1" }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: "invalid_error_log_payload" });
+    expect(genericWrite).not.toHaveBeenCalled();
+  });
+});
+
+describe("error-log internal failures", () => {
+  it.each([
+    ["POST", "Failed to store version error log"],
+    ["GET", "Failed to load version error logs"],
+  ] as const)("does not expose unexpected %s errors", async (method, message) => {
+    const route = await import("./route");
+    const response = await route[method](
+      new Request("http://localhost/error-log", { method }),
+      {
+        params: Promise.reject(new Error("postgres://user:secret@private-db/internal")),
+      },
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: message });
+  });
 });
 
 describe("partitionErrorLogsByPass", () => {

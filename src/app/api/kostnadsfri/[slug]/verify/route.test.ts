@@ -145,6 +145,35 @@ function verifyRequest(
 }
 
 describe("kostnadsfri verify route", () => {
+  it("rejects an invalid slug before lookup", async () => {
+    const slug = `acme-${"x".repeat(121)}`;
+    const res = await POST(verifyRequest(slug, "secret"), {
+      params: Promise.resolve({ slug }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(getKostnadsfriPageBySlug).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized request body before lookup", async () => {
+    const request = verifyRequest("acme", "secret");
+    request.headers.set("content-length", "4097");
+    const res = await POST(request, { params: Promise.resolve({ slug: "acme" }) });
+
+    expect(res.status).toBe(413);
+    expect(getKostnadsfriPageBySlug).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized password before lookup or hashing", async () => {
+    const res = await POST(verifyRequest("acme", "x".repeat(257)), {
+      params: Promise.resolve({ slug: "acme" }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(getKostnadsfriPageBySlug).not.toHaveBeenCalled();
+    expect(verifyPassword).not.toHaveBeenCalled();
+  });
+
   it("returns a generic 503 when deterministic verification is not configured", async () => {
     getKostnadsfriPageBySlug.mockResolvedValueOnce(null);
 

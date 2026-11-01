@@ -30,6 +30,7 @@ export function serializeAuditHandoffIdentity(value: unknown): string {
 const TOP_ISSUES = 8;
 const TOP_IMPROVEMENTS = 8;
 const MAX_SECTION_CONTENT_CHARS = 1_200;
+export const MAX_AUDIT_HANDOFF_JSON_CHARS = 1_000_000;
 const MAX_KEYWORD_HINTS = 8;
 const PUBLIC_SCORE_KEYS = [
   "seo",
@@ -181,7 +182,11 @@ export const auditHandoffPayloadSchema = z
     template_data: templateDataSchema.optional(),
     source_images: z.array(auditSourceImageSchema).max(8).optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (payload) => JSON.stringify(payload).length <= MAX_AUDIT_HANDOFF_JSON_CHARS,
+    "Audit handoff payload is too large",
+  );
 
 export type AuditHandoffPayload = z.infer<typeof auditHandoffPayloadSchema>;
 export type AuditSourceImage = z.infer<typeof auditSourceImageSchema>;

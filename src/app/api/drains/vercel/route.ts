@@ -7,8 +7,11 @@ import {
   selectDrainRowsToStore,
   verifyVercelDrainSignature,
 } from "@/lib/vercel/vercel-log-drain";
+import { readRequestTextWithLimit } from "@/lib/api/read-limited-body";
 
 export const runtime = "nodejs";
+const MAX_DRAIN_BODY_BYTES = 5 * 1024 * 1024;
+const MAX_VERIFY_TOKEN_CHARS = 256;
 
 /**
  * True only when `VERCEL_LOG_DRAIN_ENABLED` is exactly `"true"`.
@@ -45,11 +48,18 @@ export async function POST(req: Request) {
   // `x-vercel-verify`. Echo the header and 200 so dashboard Verify/Create works
   // before ENABLED + secret are wired. Real deliveries always carry a signature.
   const verifyToken = req.headers.get("x-vercel-verify");
-  if (verifyToken && !req.headers.get("x-vercel-signature")) {
+  if (
+    verifyToken &&
+    verifyToken.length <= MAX_VERIFY_TOKEN_CHARS &&
+    !req.headers.get("x-vercel-signature")
+  ) {
     return new NextResponse("OK", {
       status: 200,
       headers: { "x-vercel-verify": verifyToken },
     });
+  }
+  if (verifyToken && !req.headers.get("x-vercel-signature")) {
+    return NextResponse.json({ error: "Verification token too large" }, { status: 400 });
   }
 
   if (!isVercelLogDrainEnabled()) {
@@ -75,7 +85,11 @@ export async function POST(req: Request) {
     );
   }
 
-  const rawBody = await req.text();
+  const bodyResult = await readRequestTextWithLimit(req, MAX_DRAIN_BODY_BYTES);
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: "Drain body too large" }, { status: 413 });
+  }
+  const rawBody = bodyResult.text;
   const verification = verifyVercelDrainSignature({
     rawBody,
     signatureHeader: req.headers.get("x-vercel-signature"),
