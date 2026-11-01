@@ -158,8 +158,8 @@ describe("POST /api/company-profile", () => {
     expect(saveCompanyProfile).toHaveBeenCalled();
   });
 
-  it.each([[], ["Snabb", "Tydlig, enkel", "https://example.com/"]])(
-    "preserves empty and populated WizardData lists in text storage: %j", async (list) => {
+  it.each([{ list: [] }, { list: ["Snabb", "Tydlig, enkel", "https://example.com/"] }])(
+    "preserves empty and populated WizardData lists in text storage: %j", async ({ list }) => {
       const lists = Object.fromEntries(
         ["site_likes", "site_dislikes", "purposes", "inspiration_sites"].map((key) => [key, list]),
       );
