@@ -156,6 +156,34 @@ describe("resolveStartBuildAutoRun", () => {
 });
 
 describe("OpenClawMessage — direktbygg via bryggan", () => {
+  it("väntar tills svaret är färdigt även när hela action-blocket redan kommit", async () => {
+    grantPowers();
+    const bridge = makeBridge();
+    registerBuilderBridge(bridge);
+    const reply = startBuildReply("streamed-build", { delivery: "streaming" });
+    act(() => {
+      useOpenClawStore.setState({ messages: [userTurn("u-stream", "Gör hero tydligare"), reply] });
+    });
+    const { rerender } = render(<OpenClawMessage msg={reply} streaming />);
+    expect(bridge.sendMessage).not.toHaveBeenCalled();
+    rerender(<OpenClawMessage msg={{ ...reply, delivery: "complete" }} />);
+    await waitFor(() => expect(bridge.sendMessage).toHaveBeenCalledTimes(1));
+  });
+
+  it("kör aldrig ett komplett byggförslag från ett avbrutet svar", async () => {
+    grantPowers();
+    const bridge = makeBridge();
+    registerBuilderBridge(bridge);
+    const reply = startBuildReply("interrupted-build", { delivery: "interrupted" });
+    act(() => {
+      useOpenClawStore.setState({ messages: [userTurn("u-interrupted", "Gör hero tydligare"), reply] });
+    });
+    render(<OpenClawMessage msg={reply} />);
+    expect(screen.getByRole("status").textContent).toContain("Förslaget har inte körts");
+    expect(bridge.sendMessage).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /Starta/ })).toBeNull();
+  });
+
   it("startar bygget genom bryggan exakt en gång, utan att röra DOM:en, och överlever remount", async () => {
     grantPowers();
     const bridge = makeBridge();
