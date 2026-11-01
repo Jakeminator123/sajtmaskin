@@ -44,6 +44,7 @@ import { OpenClawPowersControl } from "@/components/openclaw/OpenClawPowersContr
 import { useOpenClawPowers } from "@/components/openclaw/useOpenClawPowers";
 import { ComposerModeToggle } from "./sajtagent/ComposerModeToggle";
 import { useSajtagent } from "./sajtagent/SajtagentProvider";
+import { SajtagentAvatar } from "./sajtagent/SajtagentAvatar";
 import type { AuditComposerToken } from "@/lib/builder/audit-handoff";
 import { builderModeToggleClassName } from "@/lib/builder/icon-language";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
@@ -161,6 +162,7 @@ interface ChatInterfaceProps {
   isPreparingPrompt?: boolean;
   mediaEnabled?: boolean;
   continuePlanMode?: boolean;
+  builderAwaitingReply?: boolean;
   /**
    * P19 Steg 3 — basversions-indikator. When the active (selected) version
    * differs from the preferred usable version (`selectPreferredEngineVersion`),
@@ -268,6 +270,7 @@ export function ChatInterface({
   isPreparingPrompt = false,
   mediaEnabled = false,
   continuePlanMode = false,
+  builderAwaitingReply = false,
   followUpBaseInfo,
   previewModes,
   selectedModelTier,
@@ -808,6 +811,7 @@ export function ChatInterface({
       hasAttachments: hasComposerAttachments,
       agentAvailable,
       agentCanBuild,
+      builderAwaitingReply: builderAwaitingReply || continuePlanMode,
     });
   };
 
@@ -877,6 +881,7 @@ export function ChatInterface({
 
   return (
     <div className="border-border bg-background border-t p-4">
+      {agentAvailable ? <SajtagentAvatar key={chatId} /> : null}
       {followUpBaseInfo && (
         // P19 Steg 3 — basversions-indikator. The composer sends the next
         // follow-up against the currently active version (see
@@ -1242,6 +1247,7 @@ export function ChatInterface({
                 </>
               )}
               <VoiceRecorder
+                key={chatId ?? "new-chat"}
                 compact
                 disabled={inputDisabled}
                 onTranscript={(text) =>
