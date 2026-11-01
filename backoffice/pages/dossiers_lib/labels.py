@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .capability_projection import _group_label_for_capability
 from .constants import CAPABILITY_MAP_PATH
 
 
@@ -150,3 +151,71 @@ def is_default_for_capability(manifest: dict[str, Any] | None) -> bool:
     genom denna hjälpare, aldrig med en rå truthiness-koll.
     """
     return (manifest or {}).get("defaultForCapability") is True
+
+
+def _summarize_enforcement(data: dict[str, Any]) -> str:
+    """Compact `Bx Fy Wz` (build / feature-runtime / warn-only) tag for the
+    listing view so curators can spot suspicious enforcement profiles at a
+    glance without opening each manifest."""
+    counts = {"build": 0, "feature-runtime": 0, "warn-only": 0}
+    env_vars = data.get("envVars") or []
+    if not isinstance(env_vars, list):
+        return ""
+    for ev in env_vars:
+        if not isinstance(ev, dict):
+            continue
+        tag = ev.get("enforcement", "build")
+        if tag in counts:
+            counts[tag] += 1
+        else:
+            counts["build"] += 1
+    parts = []
+    if counts["build"]:
+        parts.append(f"B{counts['build']}")
+    if counts["feature-runtime"]:
+        parts.append(f"F{counts['feature-runtime']}")
+    if counts["warn-only"]:
+        parts.append(f"W{counts['warn-only']}")
+    return " ".join(parts)
+
+
+def _describe_capability_group_hint(
+    decided_capability: str, chosen_group_id: str | None, groups: dict[str, Any]
+) -> str:
+    """Honest group hint for the AI-curation category picker (coach review on
+    #500). The group is ALWAYS derived from `dossier-groups.ts` at regenerate
+    time — the picker never moves a capability. Three cases:
+
+    1. Capability belongs to the CHOSEN group → show the chosen group.
+    2. Capability already exists in ANOTHER group (e.g. group "AI" picked but
+       `payments` typed in the free field) → show its REAL group and say the
+       group choice does not move it. Previously this case was misreported
+       as "ny capability → Övrigt".
+    3. Capability is unknown everywhere → genuinely new → lands under
+       "Övrigt" until `CAPABILITY_TO_GROUP_ID` is updated + map regenerated.
+    """
+    chosen_capabilities = (
+        groups.get(chosen_group_id, {}).get("capabilities") or []
+        if chosen_group_id
+        else []
+    )
+    if decided_capability in chosen_capabilities:
+        label = (
+            (groups.get(chosen_group_id, {}).get("label") or "Övrigt")
+            if chosen_group_id
+            else "Övrigt"
+        )
+        return f"Beslutad capability vid skapande: `{decided_capability}` (grupp: {label})."
+    real_label = _group_label_for_capability(decided_capability, groups)
+    if real_label != "Övrigt":
+        return (
+            f"Beslutad capability vid skapande: `{decided_capability}` — **befintlig "
+            f"capability i gruppen {real_label}**; den ligger kvar där (gruppvalet "
+            "ovan flyttar inget, det styr bara förslagslistan)."
+        )
+    return (
+        f"Beslutad capability vid skapande: `{decided_capability}` — **ny capability**, "
+        "hamnar under **Övrigt** tills den mappas i "
+        "`src/lib/builder/dossier-groups.ts` (`CAPABILITY_TO_GROUP_ID`) och "
+        "capability-map byggs om. Gruppvalet ovan styr bara förslagslistan."
+    )
