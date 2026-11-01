@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import {
@@ -13,6 +13,7 @@ import {
   KOSTNADSFRI_CAMPAIGN_PROVIDER,
 } from "@/lib/kostnadsfri/campaign-account";
 import { assertDbConfigured, type User } from "./shared";
+import { ProjectOwnerNotFoundError } from "./project-owner";
 
 /**
  * Hämtar eller skapar sidans kampanjkonto. Raden kan redan finnas med en annan
@@ -67,14 +68,15 @@ export async function transferKostnadsfriCampaignAccount(input: {
   if (input.campaignUserId === input.targetUserId) return { status: "not_campaign" };
   return db.transaction(async (tx) => {
     const rows = await tx
-      .select({ provider: users.provider })
+      .select({ id: users.id, provider: users.provider })
       .from(users)
-      .where(eq(users.id, input.campaignUserId))
-      .limit(1)
+      .where(inArray(users.id, [input.campaignUserId, input.targetUserId]))
+      .orderBy(users.id)
       .for("update");
-    const provider = rows[0]?.provider;
+    const provider = rows.find((row) => row.id === input.campaignUserId)?.provider;
     if (provider === KOSTNADSFRI_CAMPAIGN_CLAIMED_PROVIDER) return { status: "already_claimed" };
     if (provider !== KOSTNADSFRI_CAMPAIGN_PROVIDER) return { status: "not_campaign" };
+    if (!rows.some((row) => row.id === input.targetUserId)) throw new ProjectOwnerNotFoundError();
 
     const now = new Date();
     const moved = await tx
