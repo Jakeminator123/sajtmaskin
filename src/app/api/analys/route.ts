@@ -22,11 +22,13 @@ import {
   releasePublicAnalysQuota,
   type PublicAnalysQuotaReservation,
 } from "@/lib/audit/public-analys-quota";
+import { readRequestJsonWithLimit } from "@/lib/api/read-limited-body";
 
 export const maxDuration = 300;
 
 /** Longer than any real site URL; keeps normalization off absurd input. */
 const MAX_URL_LENGTH = 2048;
+const MAX_ANALYS_BODY_BYTES = 8_192;
 
 const PUBLIC_RESPONSE_HEADERS = {
   // A guest report is per-caller and must never be stored by a shared cache.
@@ -49,12 +51,14 @@ export async function POST(request: NextRequest) {
   const requestId = `analys_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   const requestStartTime = Date.now();
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
+  const bodyResult = await readRequestJsonWithLimit<unknown>(request, MAX_ANALYS_BODY_BYTES);
+  if (!bodyResult.ok && bodyResult.reason === "too_large") {
+    return errorResponse(413, "Förfrågan är för stor.");
+  }
+  if (!bodyResult.ok) {
     return errorResponse(400, "Ogiltig JSON i förfrågan");
   }
+  const body = bodyResult.value;
 
   if (body === null || typeof body !== "object" || Array.isArray(body)) {
     return errorResponse(400, "Förfrågan måste vara ett JSON-objekt.");

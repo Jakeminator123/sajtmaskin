@@ -3,6 +3,7 @@ import { getProjectByIdForOwner } from "@/lib/db/services/projects";
 import { saveImage } from "@/lib/db/services/media";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
+import { readRequestFormDataWithLimit } from "@/lib/api/read-limited-body";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -11,6 +12,9 @@ interface RouteParams {
 // Mirror media-upload limits so project image uploads can't bypass them
 // by hitting the legacy project-scoped endpoint.
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4 MB (matches Vercel Blob preview budget)
+const MAX_UPLOAD_BODY_BYTES = 5 * 1024 * 1024;
+const MAX_PROJECT_ID_CHARS = 200;
+const MAX_FILENAME_CHARS = 255;
 const ALLOWED_MIME_TYPES: ReadonlyArray<string> = [
   "image/jpeg",
   "image/jpg",
@@ -21,10 +25,24 @@ const ALLOWED_MIME_TYPES: ReadonlyArray<string> = [
   "image/vnd.microsoft.icon",
 ];
 
+function isUploadedFile(value: FormDataEntryValue | null): value is File {
+  return (
+    value !== null &&
+    typeof value !== "string" &&
+    typeof value.name === "string" &&
+    typeof value.type === "string" &&
+    typeof value.size === "number" &&
+    typeof value.arrayBuffer === "function"
+  );
+}
+
 // POST /api/projects/[id]/upload - Upload image
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    if (!id || id.length > MAX_PROJECT_ID_CHARS) {
+      return NextResponse.json({ success: false, error: "Invalid project ID" }, { status: 400 });
+    }
 
     // Require authentication
     const user = await getCurrentUser(request);
@@ -40,11 +58,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
-    const formData = await request.formData();
-    const file = formData.get("file") as File;
+    const body = await readRequestFormDataWithLimit(request, MAX_UPLOAD_BODY_BYTES);
+    if (!body.ok) {
+      return NextResponse.json({ success: false, error: "Upload too large" }, { status: 413 });
+    }
 
-    if (!file) {
+    const { formData } = body;
+    const file = formData.get("file");
+
+    if (!isUploadedFile(file)) {
       return NextResponse.json({ success: false, error: "No file provided" }, { status: 400 });
+    }
+
+    if (!file.name || file.name.length > MAX_FILENAME_CHARS) {
+      return NextResponse.json({ success: false, error: "Invalid filename" }, { status: 400 });
     }
 
     if (file.size > MAX_FILE_SIZE) {
@@ -86,17 +113,28 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, error: "Failed to upload file" }, { status: 500 });
     }
 
-    console.info(`[Upload] Image uploaded (${uploadResult.storageType}):`, uploadResult.url);
+    console.info(`[Upload] Image uploaded (${uploadResult.storageType})`);
 
     // Save metadata to database
-    const imageRecord = await saveImage(
-      id,
-      filename,
-      uploadResult.path,
-      file.name,
-      file.type,
-      file.size,
-    );
+    let imageRecord: Awaited<ReturnType<typeof saveImage>>;
+    try {
+      imageRecord = await saveImage(
+        id,
+        filename,
+        uploadResult.path,
+        file.name,
+        file.type,
+        file.size,
+      );
+    } catch (persistError) {
+      console.error("[API] Failed to persist uploaded image:", persistError);
+      // A failed response does not prove the insert rolled back. Preserve the
+      // file in case the database already references it.
+      return NextResponse.json(
+        { success: false, error: "Failed to save uploaded file" },
+        { status: 500 },
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -107,8 +145,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[API] Failed to upload image:", error);
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: "Failed to upload image" },
+      { status: 500 },
+    );
   }
 }

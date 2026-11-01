@@ -10,8 +10,10 @@ import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 
 const requestSchema = z.object({
-  versionId: z.string().min(1),
+  versionId: z.string().trim().min(1).max(200),
 });
+
+const MAX_ENGINE_RESOURCE_ID_CHARS = 200;
 
 /** Same fail-closed contract as POST /repair when the lease cannot be proven. */
 function leaseUnavailableResponse() {
@@ -32,6 +34,9 @@ export async function POST(
 ) {
   try {
     const { chatId } = await ctx.params;
+    if (!chatId || chatId.length > MAX_ENGINE_RESOURCE_ID_CHARS) {
+      return NextResponse.json({ error: "Invalid chat ID" }, { status: 400 });
+    }
     const body = await req.json().catch(() => ({}));
     const validation = requestSchema.safeParse(body);
     if (!validation.success) {
@@ -127,9 +132,7 @@ export async function POST(
       promotedAt: accepted.promoted_at,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Accept repair failed" },
-      { status: 500 },
-    );
+    console.error("[accept-repair] Unexpected error:", error);
+    return NextResponse.json({ error: "Accept repair failed" }, { status: 500 });
   }
 }

@@ -11,6 +11,8 @@ export const runtime = "nodejs";
 export const revalidate = 300;
 
 const ITEM_TIMEOUT_MS = 8_000;
+const MAX_REGISTRY_PARAM_CHARS = 128;
+const MAX_ITEM_NAME_CHARS = 200;
 
 const NAMESPACE_URL_TEMPLATES: Record<string, string> = {
   [SHADCNBLOCKS_NAMESPACE]: "https://www.shadcnblocks.com/r/{name}.json",
@@ -51,6 +53,12 @@ export async function GET(req: Request) {
       if (!name) {
         return NextResponse.json({ error: "name is required" }, { status: 400 });
       }
+      if (
+        registry.length > MAX_REGISTRY_PARAM_CHARS ||
+        name.length > MAX_ITEM_NAME_CHARS
+      ) {
+        return NextResponse.json({ error: "Invalid registry item query" }, { status: 400 });
+      }
 
       const urlTemplate = NAMESPACE_URL_TEMPLATES[registry];
       if (!urlTemplate) {
@@ -69,9 +77,9 @@ export async function GET(req: Request) {
       try {
         response = await fetch(request.url, request.init);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Network error";
+        console.error("[API/shadcn/community/item] Fetch failed:", err);
         return NextResponse.json(
-          { error: `Community registry fetch failed: ${msg}` },
+          { error: "Community registry fetch failed" },
           { status: 502 },
         );
       }

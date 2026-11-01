@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     const chatId = (url.searchParams.get("chatId") ?? "").trim();
     const normalized = normalizeObservedDomain(url.searchParams.get("domain") ?? "");
 
-    if (!chatId) {
+    if (!chatId || chatId.length > 128) {
       return NextResponse.json({ error: "chatId is required" }, { status: 400 });
     }
     if (!normalized.ok) {

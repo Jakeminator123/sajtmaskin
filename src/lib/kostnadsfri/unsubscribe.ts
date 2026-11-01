@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 const TOKEN_PREFIX = "kostnadsfri-unsub-v1:";
+const MAX_UNSUBSCRIBE_TOKEN_CHARS = 4_096;
 
 export type UnsubscribePayload = {
   email: string;
@@ -46,7 +47,7 @@ export function verifyUnsubscribeToken(
   token: string | null | undefined,
   env: UnsubscribeEnvLookup = process.env,
 ): UnsubscribePayload | null {
-  if (!token) return null;
+  if (!token || token.length > MAX_UNSUBSCRIBE_TOKEN_CHARS) return null;
   const secret = unsubscribeSecret(env);
   if (!secret) return null;
   const [encoded, signature, extra] = token.split(".");

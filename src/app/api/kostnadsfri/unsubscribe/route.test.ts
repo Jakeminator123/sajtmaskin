@@ -49,6 +49,7 @@ describe("POST /api/kostnadsfri/unsubscribe", () => {
   it("rejects a missing or forged token without touching the register", async () => {
     expect((await POST(post(null))).status).toBe(400);
     expect((await POST(post("not-a-token"))).status).toBe(400);
+    expect((await POST(post(`${"x".repeat(4_097)}.sig`))).status).toBe(400);
     expect(markKostnadsfriPageUnsubscribed).not.toHaveBeenCalled();
   });
 

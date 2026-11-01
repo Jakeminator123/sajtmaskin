@@ -36,6 +36,19 @@ vi.mock("@/lib/gen/preview/tier2-config", () => ({
 import { POST } from "./route";
 
 describe("POST preview-hibernate", () => {
+  it("does not expose unexpected internal errors", async () => {
+    const response = await POST(new Request("http://localhost/api", { method: "POST" }), {
+      params: Promise.reject(new Error("postgres://user:secret@private-db/internal")),
+    });
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      reason: "unknown",
+      message: "Preview hibernation failed.",
+    });
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     isTier2PreviewConfigured.mockReturnValue(true);
@@ -43,6 +56,37 @@ describe("POST preview-hibernate", () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       version: { id: "v1" },
     });
+  });
+
+  it("rejects an oversized chat id before checking preview configuration", async () => {
+    const res = await POST(new Request("http://localhost/api", { method: "POST" }), {
+      params: Promise.resolve({ chatId: "x".repeat(201) }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(isTier2PreviewConfigured).not.toHaveBeenCalled();
+    expect(getEngineChatByIdForRequest).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["versionId", 201],
+    ["previewSessionId", 201],
+    ["lifecycleToken", 1_001],
+  ])("rejects an oversized %s before version lookup", async (field, length) => {
+    const body: Record<string, string> = { versionId: "v1" };
+    body[field] = "x".repeat(length);
+    const res = await POST(
+      new Request("http://localhost/api", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+      { params: Promise.resolve({ chatId: "c1" }) },
+    );
+
+    expect(res.status).toBe(400);
+    expect(getEngineVersionForChatByIdForRequest).not.toHaveBeenCalled();
+    expect(hibernatePreviewHostSession).not.toHaveBeenCalled();
   });
 
   it("returns 503 when tier-2 preview is not configured", async () => {

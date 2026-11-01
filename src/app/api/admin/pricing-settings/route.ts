@@ -42,7 +42,14 @@ export async function PATCH(req: NextRequest) {
   if (!admin.ok) return admin.response;
 
   try {
-    const body = (await req.json()) as Record<string, unknown>;
+    const parsed = await req.json().catch(() => null);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return NextResponse.json(
+        { success: false, error: "Ogiltig begäran." },
+        { status: 400 },
+      );
+    }
+    const body = parsed as Record<string, unknown>;
     const input: {
       domainMarkup?: number;
       domainUsdToSek?: number;

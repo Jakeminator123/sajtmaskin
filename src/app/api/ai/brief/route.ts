@@ -268,13 +268,11 @@ export async function POST(req: Request) {
           headers: buildBriefHeaders(payload, cacheState, result.trace),
         });
       } catch (briefErr) {
-        const errMsg = briefErr instanceof Error ? briefErr.message : String(briefErr);
+        errorLog("AI", "AI brief generation failed", briefErr);
         return NextResponse.json(
           {
             error: "AI kunde inte generera brief. Försök igen eller förenkla prompten.",
-            details: errMsg.includes("could not parse")
-              ? "Modellen returnerade ett ogiltigt svar."
-              : errMsg,
+            details: "Modellen kunde inte skapa en giltig brief.",
             suggestion: "Prova att korta ner eller förtydliga din beskrivning.",
           },
           { status: 422 },
@@ -287,7 +285,7 @@ export async function POST(req: Request) {
         message: err instanceof Error ? err.message : "Unknown error",
       });
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Unknown error" },
+        { error: "Kunde inte generera brief" },
         { status: 500 },
       );
     }

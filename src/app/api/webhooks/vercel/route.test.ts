@@ -78,6 +78,68 @@ describe("POST /api/webhooks/vercel", () => {
     updateDeploymentStatus.mockResolvedValue({ transitionedToError: false });
   });
 
+  it("rejects an oversized webhook before signature or database work", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/webhooks/vercel", {
+        method: "POST",
+        body: "{}",
+        headers: {
+          "content-length": String(1024 * 1024 + 1),
+          "x-vercel-signature": "invalid",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(413);
+    expect(updateDeploymentStatus).not.toHaveBeenCalled();
+  });
+
+  it("ignores oversized provider identifiers before database work", async () => {
+    const response = await POST(
+      signedRequest({
+        type: "deployment.succeeded",
+        payload: { deployment: { id: "d".repeat(201) } },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      ok: true,
+      ignored: true,
+      reason: "missing deployment id",
+    });
+    expect(updateDeploymentStatus).not.toHaveBeenCalled();
+  });
+
+  it("drops oversized provider metadata instead of persisting it", async () => {
+    dbSelectResult.rows = [{ id: "dep_row_bounded", chatId: "chat_1", versionId: "ver_1" }];
+
+    const response = await POST(
+      signedRequest({
+        type: "deployment.succeeded",
+        payload: {
+          deployment: { id: "dpl_bounded", url: "u".repeat(4_097) },
+          project: { id: "p".repeat(201) },
+          links: { deployment: "i".repeat(4_097) },
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(resolveDeploymentLiveUrlForChat).toHaveBeenCalledWith(
+      expect.objectContaining({ providerUrl: null }),
+    );
+    expect(updateDeploymentStatus).toHaveBeenCalledWith(
+      "dep_row_bounded",
+      "ready",
+      expect.not.objectContaining({
+        providerUrl: expect.anything(),
+        inspectorUrl: expect.anything(),
+        vercelProjectId: expect.anything(),
+      }),
+    );
+  });
+
   // BUG-fix (confirmed in prod): every generated site deploys to its OWN
   // per-customer Vercel project (`sajtmaskin-<chatId>`), never the shared
   // workspace `VERCEL_PROJECT_ID`. A prior version of this handler discarded
