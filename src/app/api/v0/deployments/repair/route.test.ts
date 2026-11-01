@@ -103,6 +103,19 @@ describe("POST /api/v0/deployments/repair", () => {
     });
   });
 
+  it("does not expose unexpected internal errors", async () => {
+    runDeployBuildRepair.mockRejectedValue(
+      new Error("postgres://user:secret@private-db/internal"),
+    );
+
+    const res = await POST(
+      repairRequest({ chatId: "chat_1", versionId: "ver_1", deploymentId: "dep_1" }),
+    );
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Deploy repair failed" });
+  });
+
   it("runs the repair and returns repair_available (no redeploy, no promote)", async () => {
     const res = await POST(repairRequest({ chatId: "chat_1", versionId: "ver_1", deploymentId: "dep_1" }));
     expect(res.status).toBe(200);
@@ -251,6 +264,15 @@ describe("POST /api/v0/deployments/repair", () => {
 
   it("returns 400 on a missing deploymentId", async () => {
     const res = await POST(repairRequest({ chatId: "chat_1", versionId: "ver_1" }));
+    expect(res.status).toBe(400);
+    expect(runDeployBuildRepair).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { chatId: "x".repeat(129), deploymentId: "dep_1" },
+    { chatId: "chat_1", deploymentId: "x".repeat(129) },
+  ])("returns 400 on oversized repair identifiers", async (body) => {
+    const res = await POST(repairRequest(body));
     expect(res.status).toBe(400);
     expect(runDeployBuildRepair).not.toHaveBeenCalled();
   });

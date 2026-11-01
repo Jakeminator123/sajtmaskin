@@ -627,6 +627,45 @@ describe("POST /api/kostnadsfri", () => {
     expect((await res.json()).error).toBe("Validation failed");
     expect(getKostnadsfriPageBySlug).not.toHaveBeenCalled();
   });
+
+  it("rejects an oversized password before database work", async () => {
+    const res = await POST(
+      postRequest({ companyName: "Acme AB", password: "x".repeat(257) }),
+    );
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Validation failed");
+    expect(getKostnadsfriPageBySlug).not.toHaveBeenCalled();
+    expect(createKostnadsfriPage).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { companyName: "x".repeat(201) },
+    { companyName: "Acme AB", industry: "x".repeat(201) },
+    { companyName: "Acme AB", website: `https://example.com/${"x".repeat(2_100)}` },
+    { companyName: "Acme AB", contactName: "x".repeat(201) },
+    { companyName: "Acme AB", expiresInDays: 3_651 },
+    { companyName: "Acme AB", expiresInDays: 1.5 },
+  ])("rejects oversized or unsafe campaign fields before database work", async (body) => {
+    const res = await POST(postRequest(body));
+
+    expect(res.status).toBe(400);
+    expect(getKostnadsfriPageBySlug).not.toHaveBeenCalled();
+    expect(createKostnadsfriPage).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized profile payload without echoing it", async () => {
+    const sentinel = `private-${"x".repeat(100_001)}`;
+    const res = await POST(
+      postRequest({ companyName: "Acme AB", profile: { businessDescription: sentinel } }),
+    );
+    const raw = await res.text();
+
+    expect(res.status).toBe(400);
+    expect(raw).not.toContain(sentinel);
+    expect(getKostnadsfriPageBySlug).not.toHaveBeenCalled();
+    expect(createKostnadsfriPage).not.toHaveBeenCalled();
+  });
 });
 
 // Ägarbeslut 2026-09-15: utskicksverktyget får pusha in en allowlistad
@@ -1061,6 +1100,16 @@ describe("GET /api/kostnadsfri", () => {
     }
     expect(listKostnadsfriPagesAfterId).not.toHaveBeenCalled();
   });
+
+  it.each(["0", "-1", "1.5", "1e2", "10rows", "999999999999999999999"])(
+    "rejects a non-canonical registry limit: %s",
+    async (limit) => {
+      const res = await GET(getRequest(API_KEY, `?limit=${encodeURIComponent(limit)}`));
+      expect(res.status).toBe(400);
+      expect(listKostnadsfriPages).not.toHaveBeenCalled();
+      expect(listKostnadsfriPagesAfterId).not.toHaveBeenCalled();
+    },
+  );
 
   it("emits a response that satisfies the published contract, also when partially unavailable", async () => {
     listKostnadsfriPages.mockResolvedValueOnce([pageRow({ id: 5 }), pageRow({ id: 3, slug: "beta-ab" })]);

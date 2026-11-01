@@ -58,6 +58,15 @@ export class GitHubExportNoFilesError extends Error {
   }
 }
 
+/** The recursive GitHub tree was truncated, so an incremental export cannot be proven safe. */
+export class GitHubExportTreeTooLargeError extends Error {
+  readonly code = "github_export_tree_too_large" as const;
+  constructor() {
+    super("Existing GitHub tree is too large to export safely");
+    this.name = "GitHubExportTreeTooLargeError";
+  }
+}
+
 export async function githubRequest<T>(
   token: string,
   path: string,
@@ -186,7 +195,7 @@ async function getBaseTree(params: {
     throw new Error("Failed to inspect existing GitHub tree");
   }
   if (tree.data.truncated) {
-    throw new Error("Existing GitHub tree is too large to export safely");
+    throw new GitHubExportTreeTooLargeError();
   }
   return tree.data.tree;
 }

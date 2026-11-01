@@ -26,6 +26,8 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+const MAX_PROJECT_ID_CHARS = 200;
+
 function getDirectApiKey(): string | null {
   const key = process.env.OPENAI_API_KEY;
   return key?.trim() || null;
@@ -81,6 +83,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: projectId } = await params;
 
+    if (!projectId || projectId.length > MAX_PROJECT_ID_CHARS) {
+      return NextResponse.json({ success: false, error: "Ogiltigt projekt-ID" }, { status: 400 });
+    }
+
     console.info("[Analyze] Starting analysis for project:", projectId);
 
     // 1. Verify user is authenticated
@@ -116,9 +122,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const files = rawFiles
       .filter(
         (f): f is { name: string; content: string } =>
-          f !== null && typeof f === "object" && "name" in f && "content" in f,
+          f !== null &&
+          typeof f === "object" &&
+          "name" in f &&
+          typeof f.name === "string" &&
+          "content" in f &&
+          typeof f.content === "string",
       )
       .map((f) => ({ path: f.name, content: f.content }));
+
+    if (files.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Inga giltiga filer hittades i projektet" },
+        { status: 422 },
+      );
+    }
 
     console.info("[Analyze] Found", files.length, "files");
 
@@ -208,8 +226,10 @@ Ge en strukturerad analys enligt formatet.`;
       tokensUsed: response.usage?.total_tokens,
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("[Analyze] Error:", error);
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: "Kunde inte analysera projektet" },
+      { status: 500 },
+    );
   }
 }

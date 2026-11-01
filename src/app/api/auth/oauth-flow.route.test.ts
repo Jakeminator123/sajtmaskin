@@ -380,6 +380,90 @@ describe("OAuth route handlers", () => {
     expect(callback.headers.get("location")).toContain("signup=1");
   });
 
+  it("rejects an oversized Google authorization code before exchange", async () => {
+    const origin = "https://sajtmaskin.se";
+    const started = await startProvider("google", origin);
+    const callback = await googleCallback(
+      req(
+        `${origin}/api/auth/google/callback?code=${"x".repeat(4_097)}&state=${encodeURIComponent(started.state!)}`,
+        { [oauthCookieName("google")]: started.cookie! },
+      ),
+    );
+
+    expect(callback.headers.get("location")).toContain("error=");
+    expect(handleGoogleCallback).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized GitHub authorization code before exchange", async () => {
+    const origin = "https://sajtmaskin.se";
+    const started = await startProvider("github", origin);
+    const callback = await githubCallback(
+      req(
+        `${origin}/api/auth/github/callback?code=${"x".repeat(4_097)}&state=${encodeURIComponent(started.state!)}`,
+        {
+          [AUTH_COOKIE_HOST_NAME]: "session-a",
+          [oauthCookieName("github")]: started.cookie!,
+        },
+      ),
+    );
+
+    expect(callback.headers.get("location")).toContain("github_error=no_code");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not reflect provider-controlled GitHub errors", async () => {
+    const origin = "https://sajtmaskin.se";
+    const started = await startProvider("github", origin);
+    const callback = await githubCallback(
+      req(
+        `${origin}/api/auth/github/callback?error=${encodeURIComponent("forged\r\nerror")}&state=${encodeURIComponent(started.state!)}`,
+        {
+          [AUTH_COOKIE_HOST_NAME]: "session-a",
+          [oauthCookieName("github")]: started.cookie!,
+        },
+      ),
+    );
+
+    const location = callback.headers.get("location") ?? "";
+    expect(location).toContain("github_error=provider_error");
+    expect(location).not.toContain("forged");
+  });
+
+  it("rejects oversized GitHub response fields before persistence", async () => {
+    fetchMock
+      .mockResolvedValueOnce(Response.json({ access_token: "t".repeat(4_097) }))
+      .mockResolvedValueOnce(Response.json({ access_token: "valid-token" }))
+      .mockResolvedValueOnce(Response.json({ login: "x".repeat(101) }));
+    const origin = "https://sajtmaskin.se";
+    const first = await startProvider("github", origin);
+    const firstCallback = await githubCallback(
+      req(
+        `${origin}/api/auth/github/callback?code=first&state=${encodeURIComponent(first.state!)}`,
+        {
+          [AUTH_COOKIE_HOST_NAME]: "session-a",
+          [oauthCookieName("github")]: first.cookie!,
+        },
+      ),
+    );
+
+    expect(firstCallback.headers.get("location")).toContain("token_exchange_failed");
+    expect(updateUserGitHub).not.toHaveBeenCalled();
+
+    const second = await startProvider("github", origin);
+    const secondCallback = await githubCallback(
+      req(
+        `${origin}/api/auth/github/callback?code=second&state=${encodeURIComponent(second.state!)}`,
+        {
+          [AUTH_COOKIE_HOST_NAME]: "session-a",
+          [oauthCookieName("github")]: second.cookie!,
+        },
+      ),
+    );
+
+    expect(secondCallback.headers.get("location")).toContain("invalid_user_response");
+    expect(updateUserGitHub).not.toHaveBeenCalled();
+  });
+
   it.each([
     "https://sajtmaskin.se",
     "https://sajtmaskin.com",

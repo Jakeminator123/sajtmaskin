@@ -43,6 +43,7 @@ const MAX_QUESTION_OPTIONS = 8;
 const MAX_UNKNOWNS = 4;
 const MAX_FOLLOWUP_QUESTIONS = 4;
 const MAX_SUGGESTIONS = 4;
+const MAX_PREVIOUS_FOLLOWUPS = 50;
 
 const enrichRequestSchema = z.object({
   wizardRunId: z.string().uuid(),
@@ -61,18 +62,19 @@ const enrichRequestSchema = z.object({
     specialWishes: z.string().max(MAX_LONG_TEXT).optional().default(""),
     previousFollowUps: z
       .record(z.string().max(MAX_SHORT_TEXT), z.string().max(MAX_MEDIUM_TEXT))
+      .refine((value) => Object.keys(value).length <= MAX_PREVIOUS_FOLLOWUPS)
       .optional()
       .default({}),
     companyLookup: z.object({
       found: z.boolean(),
       employees: z.number().optional(),
       revenueKsek: z.number().optional(),
-      industries: z.array(z.string()).optional(),
-      purpose: z.string().optional(),
+      industries: z.array(z.string().max(MAX_SHORT_TEXT)).max(20).optional(),
+      purpose: z.string().max(MAX_MEDIUM_TEXT).optional(),
     }).optional(),
     competitors: z.array(z.object({
-      name: z.string(),
-      website: z.string().optional(),
+      name: z.string().min(1).max(MAX_SHORT_TEXT),
+      website: z.string().max(MAX_URL_LENGTH).optional(),
     })).max(6).optional(),
   }),
   scrapeUrl: z.string().max(MAX_URL_LENGTH).optional(),
@@ -559,7 +561,7 @@ ${suggestionRule}
           }
           setOutcome("error");
           errorLog("WIZARD", "Enrich error", err);
-          return emptyEnrichError(err instanceof Error ? err.message : "Unknown error", 500);
+          return emptyEnrichError("Kunde inte berika underlaget. Försök igen.", 500);
         }
       },
     ),

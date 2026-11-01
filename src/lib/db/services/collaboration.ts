@@ -42,12 +42,17 @@ export async function getCommentsForVersion(versionId: string) {
     .orderBy(desc(versionComments.createdAt));
 }
 
-export async function resolveComment(commentId: string) {
+export async function resolveComment(commentId: string, versionId: string) {
   assertDbConfigured();
   const [row] = await db
     .update(versionComments)
     .set({ resolved: true, updatedAt: new Date() })
-    .where(eq(versionComments.id, commentId))
+    .where(
+      and(
+        eq(versionComments.id, commentId),
+        eq(versionComments.versionId, versionId),
+      ),
+    )
     .returning();
   return row ?? null;
 }

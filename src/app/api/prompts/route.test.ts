@@ -82,6 +82,15 @@ describe("POST /api/prompts — kostnadsfri funnel", () => {
   const auditBody = { prompt: "Bygg en sajt", source: "audit",
     auditBuildAttemptId: "11111111-1111-4111-8111-111111111111",
     payload: { domain: "example.se", url: "https://example.se", company: "Example AB", audit_scores: { seo: 70 } } };
+  it.each([
+    { prompt: "Bygg en sajt", source: "x".repeat(65) },
+    { prompt: "Bygg en sajt", projectId: "x".repeat(129) },
+    { prompt: "Bygg en sajt", wizardSnapshot: { extra: "x".repeat(16_385) } },
+  ])("rejects oversized handoff metadata before persistence", async (body) => {
+    const response = await POST(promptRequest(body));
+    expect(response.status).toBe(400);
+    expect(createPromptHandoff).not.toHaveBeenCalled();
+  });
   it("requires authenticated ownership before atomic audit creation", async () => {
     expect((await POST(promptRequest(auditBody))).status).toBe(401);
     expect(createAuditProjectHandoff).not.toHaveBeenCalled();
@@ -223,6 +232,20 @@ describe("POST /api/prompts — kostnadsfri funnel", () => {
     await POST(promptRequest({ prompt: "Bygg en sajt", source: "kostnadsfri" }));
 
     expect(recordPageView).not.toHaveBeenCalled();
+  });
+
+  it("does not expose prompt persistence failures", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    createPromptHandoff.mockRejectedValueOnce(new Error("database host secret"));
+
+    const res = await POST(promptRequest({ prompt: "Bygg en sajt" }));
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({
+      success: false,
+      error: "Kunde inte skapa promptöverlämningen",
+    });
+    error.mockRestore();
   });
 
   it("rejects a slug that is not slug-shaped", async () => {

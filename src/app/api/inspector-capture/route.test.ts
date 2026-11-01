@@ -168,4 +168,27 @@ describe("POST /api/inspector-capture", () => {
     expect(launchCaptureBrowser).toHaveBeenCalledTimes(1);
     expect(res.status).toBe(502);
   });
+
+  it("exponerar inte interna browserfel i 502-svaret", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user-1" });
+    launchCaptureBrowser.mockRejectedValue(new Error("C:\\secret\\chromium-profile"));
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      const res = await POST(captureRequest("https://preview.example/p/abc"));
+      expect(res.status).toBe(502);
+      const body = await res.json();
+      expect(body).toEqual({
+        success: false,
+        error: "Kunde inte skapa punktbild. Kontrollera att URL:en är publik och att Playwright Chromium finns installerad.",
+      });
+      expect(JSON.stringify(body)).not.toContain("secret");
+      expect(error).toHaveBeenCalledWith(
+        "[API/inspector-capture] Capture failed:",
+        expect.any(Error),
+      );
+    } finally {
+      error.mockRestore();
+    }
+  });
 });

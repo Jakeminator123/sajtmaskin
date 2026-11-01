@@ -7,6 +7,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { loginUser, setAuthCookie } from "@/lib/auth/auth";
 import { withRateLimit } from "@/lib/rate-limit";
 
+const MAX_EMAIL_LENGTH = 254;
+const MAX_PASSWORD_LENGTH = 1_024;
+
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "auth:login", async () => {
     try {
@@ -20,7 +23,14 @@ export async function POST(req: NextRequest) {
       };
 
       // Validate input
-      if (!email || !password) {
+      if (
+        typeof email !== "string" ||
+        typeof password !== "string" ||
+        !email.trim() ||
+        !password ||
+        email.length > MAX_EMAIL_LENGTH ||
+        password.length > MAX_PASSWORD_LENGTH
+      ) {
         return NextResponse.json(
           { success: false, error: "E-post och lösenord krävs" },
           { status: 400 },

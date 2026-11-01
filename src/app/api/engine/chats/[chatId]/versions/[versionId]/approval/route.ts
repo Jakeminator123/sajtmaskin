@@ -5,6 +5,7 @@ import { getApprovalStatus, requestApproval, submitApproval } from "@/lib/db/ser
 type RouteParams = { params: Promise<{ chatId: string; versionId: string }> };
 
 type ApprovalAction = "request" | "approve" | "reject" | "changes_requested";
+const MAX_APPROVAL_COMMENT_LENGTH = 5_000;
 
 export async function GET(_request: Request, ctx: RouteParams) {
   try {
@@ -17,10 +18,7 @@ export async function GET(_request: Request, ctx: RouteParams) {
     return NextResponse.json({ approval: approval ?? null });
   } catch (error) {
     console.error("[API] Failed to get approval status:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to get approval status" }, { status: 500 });
   }
 }
 
@@ -37,6 +35,9 @@ export async function POST(request: Request, ctx: RouteParams) {
       return NextResponse.json({ error: "Missing or invalid action" }, { status: 400 });
     }
     const comment = typeof body?.comment === "string" ? body.comment.trim() || undefined : undefined;
+    if (comment && comment.length > MAX_APPROVAL_COMMENT_LENGTH) {
+      return NextResponse.json({ error: "Comment is too long" }, { status: 400 });
+    }
 
     if (action === "request") {
       const approval = await requestApproval(scopedVersion.version.id, scopedVersion.chat.id);
@@ -52,9 +53,6 @@ export async function POST(request: Request, ctx: RouteParams) {
     return NextResponse.json({ approval: updated });
   } catch (error) {
     console.error("[API] Failed to submit approval:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to submit approval" }, { status: 500 });
   }
 }

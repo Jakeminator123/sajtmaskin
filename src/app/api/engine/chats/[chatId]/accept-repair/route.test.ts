@@ -43,6 +43,16 @@ describe("POST /accept-repair — lease fail-closed (L4)", () => {
     createEngineVersionErrorLogs.mockResolvedValue(undefined);
   });
 
+  it.each([
+    ["chatId", "x".repeat(201), { versionId: "ver-1" }],
+    ["versionId", "chat-1", { versionId: "x".repeat(201) }],
+  ])("rejects an oversized %s before tenant lookup", async (_field, chatId, body) => {
+    const res = await POST(req(body), { params: Promise.resolve({ chatId }) });
+
+    expect(res.status).toBe(400);
+    expect(getEngineVersionForChatByIdForRequest).not.toHaveBeenCalled();
+  });
+
   it("returns retryable 503 lease_unavailable when the lease probe throws — never accepts", async () => {
     hasActiveVersionLease.mockRejectedValue(new Error("connection reset"));
 
@@ -60,6 +70,19 @@ describe("POST /accept-repair — lease fail-closed (L4)", () => {
     expect(res.headers.get("Retry-After")).toBe("3");
     expect(acceptRepair).not.toHaveBeenCalled();
     expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
+  });
+
+  it("does not expose unexpected internal errors", async () => {
+    getEngineVersionForChatByIdForRequest.mockRejectedValue(
+      new Error("postgres://user:secret@private-db/internal"),
+    );
+
+    const res = await POST(req({ versionId: "ver-1" }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Accept repair failed" });
   });
 
   it("returns retryable 503 lease_unavailable when acceptRepair cannot prove the lease table", async () => {

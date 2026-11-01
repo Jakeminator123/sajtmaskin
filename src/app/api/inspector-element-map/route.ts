@@ -11,6 +11,7 @@ import {
 import { hostResolvesToPrivate, isDisallowedHost, isLoopbackHost } from "@/lib/ssrf-guard";
 import { withRateLimit } from "@/lib/rate-limit";
 import { applyCaptureRequestGate, launchCaptureBrowser } from "@/lib/capture/browser";
+import { getFreshCacheEntry, setBoundedCacheEntry } from "@/lib/bounded-ttl-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,8 +35,15 @@ type MapRequest = {
 };
 
 
-const cache = new Map<string, { data: unknown; ts: number }>();
+const cache = new Map<string, { data: unknown; expiresAt: number }>();
 const CACHE_TTL_MS = 60_000;
+const MAX_CACHE_ENTRIES = 100;
+
+function boundedInteger(value: unknown, fallback: number, min: number, max: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(parsed)));
+}
 
 function cacheKey(
   url: string,
@@ -182,10 +190,15 @@ async function handlePOST(req: Request) {
     );
   }
 
-  const body = (await req.json().catch(() => null)) as MapRequest | null;
-  if (!body?.url?.trim()) {
+  const rawBody: unknown = await req.json().catch(() => null);
+  const rawUrl =
+    rawBody && typeof rawBody === "object" && !Array.isArray(rawBody)
+      ? (rawBody as { url?: unknown }).url
+      : null;
+  if (typeof rawUrl !== "string" || !rawUrl.trim() || rawUrl.length > 4_096) {
     return NextResponse.json({ success: false, error: "Missing url." }, { status: 400 });
   }
+  const body = { ...(rawBody as Record<string, unknown>), url: rawUrl.trim() } as MapRequest;
   const parsedIdentity = parseInspectorPreviewIdentity(body as Record<string, unknown>);
   if (parsedIdentity.status === "invalid") {
     return NextResponse.json(
@@ -237,9 +250,9 @@ async function handlePOST(req: Request) {
     return NextResponse.json({ success: false, error: "Otillåten host för capture." }, { status: 403 });
   }
 
-  const vpW = Math.round(Number(body.viewportWidth) || 1280);
-  const vpH = Math.round(Number(body.viewportHeight) || 800);
-  const maxElements = body.maxElements || 300;
+  const vpW = boundedInteger(body.viewportWidth, 1280, 320, 3840);
+  const vpH = boundedInteger(body.viewportHeight, 800, 240, 2160);
+  const maxElements = boundedInteger(body.maxElements, 300, 1, 1000);
   const key = cacheKey(
     body.url,
     vpW,
@@ -247,8 +260,8 @@ async function handlePOST(req: Request) {
     maxElements,
     inspectorPreviewIdentityCacheKey(parsedIdentity.identity),
   );
-  const cached = cache.get(key);
-  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+  const cached = getFreshCacheEntry(cache, key);
+  if (cached) {
     return NextResponse.json(cached.data);
   }
 
@@ -279,7 +292,12 @@ async function handlePOST(req: Request) {
     // Only cache real captures; expected unavailable responses must not
     // starve the client's retry loop.
     if (data.success === true) {
-      cache.set(key, { data, ts: Date.now() });
+      setBoundedCacheEntry(
+        cache,
+        key,
+        { data },
+        { ttlMs: CACHE_TTL_MS, maxEntries: MAX_CACHE_ENTRIES },
+      );
     }
     return NextResponse.json(data);
   }

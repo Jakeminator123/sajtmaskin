@@ -13,6 +13,9 @@ export type OwnerScope = {
   sessionId?: string | null;
 };
 
+export type SaveCompanyProfileInput = Pick<CompanyProfile, "project_id" | "company_name"> &
+  Partial<Omit<CompanyProfile, "id" | "created_at" | "updated_at" | "project_id" | "company_name">>;
+
 export { CompanyProfileAccessDeniedError, CompanyProfileNotFoundError };
 
 function buildOwnerCondition(scope: OwnerScope) {
@@ -49,7 +52,7 @@ async function getOwnedProjectIds(scope: OwnerScope): Promise<string[]> {
 }
 
 export async function saveCompanyProfile(
-  profile: Omit<CompanyProfile, "id" | "created_at" | "updated_at">,
+  profile: SaveCompanyProfileInput,
   scope: OwnerScope,
 ): Promise<CompanyProfile> {
   assertDbConfigured();

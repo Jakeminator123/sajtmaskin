@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/auth";
 import { requireNotBot } from "@/lib/bot-protection";
 import { FIGMA_PREVIEW_NOT_CONFIGURED } from "@/lib/api/figma-preview-contract";
 import { withRateLimit } from "@/lib/rate-limit";
+import { getFreshCacheEntry, setBoundedCacheEntry } from "@/lib/bounded-ttl-cache";
 import { NextRequest, NextResponse } from "next/server";
 import { parseFigmaUrl } from "./figma-url";
 
@@ -27,6 +28,7 @@ type FigmaImagesResponse = {
 
 const FIGMA_API_BASE = "https://api.figma.com/v1";
 const CACHE_TTL_MS = 10 * 60 * 1000;
+const MAX_CACHE_ENTRIES = 100;
 const REQUEST_TIMEOUT_MS = 8000;
 
 type PreviewCacheEntry = {
@@ -61,30 +63,6 @@ function sanitizeFileName(value: string | undefined): string {
   const base = (value || "figma-preview").trim();
   const normalized = base.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "");
   return normalized.length > 0 ? normalized.slice(0, 40) : "figma-preview";
-}
-
-function getCacheEntry<T extends { expiresAt: number }>(
-  store: Map<string, T>,
-  key: string,
-): T | null {
-  const entry = store.get(key);
-  if (!entry) return null;
-  if (entry.expiresAt <= Date.now()) {
-    store.delete(key);
-    return null;
-  }
-  return entry;
-}
-
-function setCacheEntry<T extends { expiresAt: number }>(
-  store: Map<string, T>,
-  key: string,
-  entry: Omit<T, "expiresAt">,
-): void {
-  store.set(key, {
-    ...entry,
-    expiresAt: Date.now() + CACHE_TTL_MS,
-  } as T);
 }
 
 async function fetchWithTimeout(url: string, options: RequestInit) {
@@ -140,7 +118,7 @@ export async function POST(request: NextRequest) {
       let fileName = "figma-preview";
 
       if (!nodeId) {
-        const cachedMeta = getCacheEntry(fileMetaCache, parsed.fileKey);
+        const cachedMeta = getFreshCacheEntry(fileMetaCache, parsed.fileKey);
         if (cachedMeta) {
           nodeId = cachedMeta.nodeId;
           fileName = cachedMeta.fileName;
@@ -175,10 +153,12 @@ export async function POST(request: NextRequest) {
         fileName = sanitizeFileName(fileData?.name);
         nodeId = findFirstCanvasId(fileData?.document) || undefined;
         if (nodeId) {
-          setCacheEntry(fileMetaCache, parsed.fileKey, {
-            nodeId,
-            fileName,
-          });
+          setBoundedCacheEntry(
+            fileMetaCache,
+            parsed.fileKey,
+            { nodeId, fileName },
+            { ttlMs: CACHE_TTL_MS, maxEntries: MAX_CACHE_ENTRIES },
+          );
         }
       }
 
@@ -193,7 +173,7 @@ export async function POST(request: NextRequest) {
       }
 
       const cacheKey = `${parsed.fileKey}:${nodeId}`;
-      const cachedPreview = getCacheEntry(previewCache, cacheKey);
+      const cachedPreview = getFreshCacheEntry(previewCache, cacheKey);
       if (cachedPreview) {
         return NextResponse.json({
           success: true,
@@ -244,12 +224,12 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      setCacheEntry(previewCache, cacheKey, {
-        imageUrl,
-        nodeId,
-        fileKey: parsed.fileKey,
-        fileName,
-      });
+      setBoundedCacheEntry(
+        previewCache,
+        cacheKey,
+        { imageUrl, nodeId, fileKey: parsed.fileKey, fileName },
+        { ttlMs: CACHE_TTL_MS, maxEntries: MAX_CACHE_ENTRIES },
+      );
 
       return NextResponse.json({
         success: true,

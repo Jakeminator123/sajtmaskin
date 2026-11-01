@@ -3,11 +3,14 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { getUploadsDir } from "@/lib/db/services/shared";
 import { hasTraversalSegment } from "@/lib/utils/path-utils";
-import { existsSync } from "fs";
 
 interface RouteParams {
   params: Promise<{ path: string[] }>;
 }
+
+const MAX_MEDIA_PATH_SEGMENTS = 16;
+const MAX_MEDIA_PATH_CHARS = 512;
+const MAX_MEDIA_SEGMENT_CHARS = 255;
 
 /**
  * Media File Serving API
@@ -54,7 +57,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { path: pathSegments } = await params;
 
     // Validate path structure: need at least [userId]/[filename]
-    if (!pathSegments || pathSegments.length < 2) {
+    if (
+      !pathSegments ||
+      pathSegments.length < 2 ||
+      pathSegments.length > MAX_MEDIA_PATH_SEGMENTS ||
+      pathSegments.join("/").length > MAX_MEDIA_PATH_CHARS ||
+      pathSegments.some((segment) => segment.length > MAX_MEDIA_SEGMENT_CHARS)
+    ) {
       return NextResponse.json({ error: "Ogiltig sökväg" }, { status: 400 });
     }
 
@@ -102,11 +111,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Åtkomst nekad" }, { status: 403 });
     }
 
-    // Check if file exists
-    if (!existsSync(filePath)) {
-      return NextResponse.json({ error: "Filen hittades inte" }, { status: 404 });
-    }
-
     // Determine content type from extension. Never serve active/scriptable
     // document types from local fallback storage.
     const ext = path.extname(filename).toLowerCase();
@@ -115,13 +119,23 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
     const contentType = CONTENT_TYPE_MAP[ext] || "application/octet-stream";
 
-    // Read file
-    const fileBuffer = await readFile(filePath);
+    // Read once: a separate existsSync check blocks the event loop and creates
+    // a race where the file can disappear between checking and reading.
+    let fileBuffer: Buffer;
+    try {
+      fileBuffer = await readFile(filePath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return NextResponse.json({ error: "Filen hittades inte" }, { status: 404 });
+      }
+      throw error;
+    }
 
     // Return file with appropriate headers
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(new Uint8Array(fileBuffer), {
       headers: {
         "Content-Type": contentType,
+        "X-Content-Type-Options": "nosniff",
         // Aggressive caching since filenames are unique (timestamp + random)
         "Cache-Control": "public, max-age=31536000, immutable",
         // Allow cross-origin access (needed for live preview).

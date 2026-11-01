@@ -11,6 +11,8 @@ import {
   verifyOAuthFlow,
 } from "@/lib/auth/oauth-state";
 
+const MAX_OAUTH_CODE_CHARS = 4_096;
+
 function buildRedirectUrl(
   path: string,
   origin: string,
@@ -78,7 +80,7 @@ export async function GET(req: NextRequest) {
     const redirectPath = flow.payload.returnTo;
 
     if (error) {
-      console.error("[API/auth/google/callback] Google error:", error);
+      console.error("[API/auth/google/callback] Google returned an OAuth error");
       return finishOAuthResponse(
         NextResponse.redirect(
           buildRedirectUrl(redirectPath, origin, {
@@ -90,7 +92,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    if (!code) {
+    if (!code || code.length > MAX_OAUTH_CODE_CHARS) {
       return finishOAuthResponse(
         NextResponse.redirect(
           buildRedirectUrl(redirectPath, origin, {

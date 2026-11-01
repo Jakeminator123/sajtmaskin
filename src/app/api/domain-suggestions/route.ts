@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
+import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { createDirectModel, getTemperatureConfig } from "@/lib/builder/direct-model";
 import { workloadOpenAIProviderOptions } from "@/lib/ai-models/workload-reasoning";
@@ -19,6 +20,12 @@ import { withRateLimit } from "@/lib/rate-limit";
 
 // Allow 30 seconds for domain checks
 export const maxDuration = 30;
+
+const requestSchema = z.object({
+  companyName: z.string().trim().min(1).max(200),
+  industry: z.string().trim().max(200).optional(),
+  keywords: z.array(z.string().trim().min(1).max(100)).max(10).optional(),
+});
 
 interface DomainSuggestion {
   domain: string;
@@ -82,8 +89,17 @@ Return ONLY a JSON array of 5 domain names (without TLD), like:
     // Parse JSON from response
     const jsonMatch = content.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
-      const names = JSON.parse(jsonMatch[0]);
-      return names.map((n: string) => n.toLowerCase().replace(/[^a-z0-9-]/g, ""));
+      const parsed: unknown = JSON.parse(jsonMatch[0]);
+      if (!Array.isArray(parsed)) throw new Error("Domain names were not an array");
+      const names = Array.from(
+        new Set(
+          parsed
+            .filter((name): name is string => typeof name === "string")
+            .map((name) => name.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+            .filter(Boolean),
+        ),
+      ).slice(0, 5);
+      if (names.length > 0) return names;
     }
 
     throw new Error("Could not parse domain names");
@@ -185,12 +201,11 @@ export async function POST(req: NextRequest) {
   }
   return withRateLimit(req, "domains:suggest", async () => {
     try {
-      const body = await req.json();
-      const { companyName, industry, keywords } = body;
-
-      if (!companyName || typeof companyName !== "string") {
-        return NextResponse.json({ error: "companyName is required" }, { status: 400 });
+      const parsed = requestSchema.safeParse(await req.json().catch(() => null));
+      if (!parsed.success) {
+        return NextResponse.json({ error: "invalid request" }, { status: 400 });
       }
+      const { companyName, industry, keywords } = parsed.data;
 
       console.info("[domain-suggestions] Generating suggestions for:", companyName);
 
