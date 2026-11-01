@@ -119,6 +119,26 @@ describe("POST /api/wizard/enrich", () => {
     expect(authorizeWizardRun).not.toHaveBeenCalled();
   });
 
+  it("bounds client-supplied lookup context before authorization and AI work", async () => {
+    const response = await POST(
+      makeRequest(
+        validBody({
+          data: {
+            companyName: "Sajtstudio",
+            companyLookup: {
+              found: true,
+              industries: Array.from({ length: 21 }, (_, index) => `Bransch ${index}`),
+            },
+          },
+        }),
+      ),
+    );
+
+    expect(response.status).toBe(400);
+    expect(authorizeWizardRun).not.toHaveBeenCalled();
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
   it("forwards bot protection and run rejections", async () => {
     requireNotBot.mockReturnValue(Response.json({ error: "Bot blocked" }, { status: 403 }));
     const blocked = await POST(makeRequest(validBody()));
@@ -244,6 +264,21 @@ describe("POST /api/wizard/enrich", () => {
         outcome: "deadline",
       }),
     );
+  });
+
+  it("does not expose provider failures", async () => {
+    generateText.mockRejectedValueOnce(new Error("provider key sk-secret-value is invalid"));
+
+    const response = await POST(makeRequest(validBody()));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toMatchObject({
+      error: "Kunde inte berika underlaget. Försök igen.",
+      questions: [],
+      suggestions: [],
+    });
+    expect(JSON.stringify(body)).not.toContain("sk-secret-value");
   });
 });
 

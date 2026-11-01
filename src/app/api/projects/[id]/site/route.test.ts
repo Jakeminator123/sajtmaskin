@@ -35,6 +35,15 @@ beforeEach(() => {
 });
 
 describe("GET /api/projects/[id]/site", () => {
+  it("rejects an oversized project id before ownership lookup", async () => {
+    const { req, params } = request("x".repeat(201));
+    const response = await GET(req, { params });
+
+    expect(response.status).toBe(400);
+    expect(getCurrentUser).not.toHaveBeenCalled();
+    expect(getProjectByIdForOwner).not.toHaveBeenCalled();
+  });
+
   it("returns 404 for a project the requester does not own", async () => {
     // Ownership is resolved server-side; the id in the URL is never authority.
     getProjectByIdForOwner.mockResolvedValue(null);

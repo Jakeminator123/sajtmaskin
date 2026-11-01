@@ -12,11 +12,15 @@ import { getChatByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant
 import { withRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
+const MAX_DEPLOYMENT_ID_CHARS = 200;
 
 export async function GET(req: Request, ctx: { params: Promise<{ deploymentId: string }> }) {
   return withRateLimit(req, "v0:deployments-single", async () => {
     try {
       const { deploymentId } = await ctx.params;
+      if (!deploymentId || deploymentId.length > MAX_DEPLOYMENT_ID_CHARS) {
+        return NextResponse.json({ error: "Invalid deployment id" }, { status: 400 });
+      }
 
       const result = await db
         .select()
@@ -118,10 +122,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ deploymentId: s
       });
     } catch (err) {
       console.error("Get deployment error:", err);
-      return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Unknown error" },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: "Failed to load deployment" }, { status: 500 });
     }
   });
 }

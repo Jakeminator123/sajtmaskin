@@ -110,6 +110,19 @@ vi.mock("@/lib/gen/preview/session-store", () => ({
 import { POST } from "./route";
 
 describe("POST preview-session (engine)", () => {
+  it("does not expose unexpected internal errors", async () => {
+    const response = await POST(new Request("http://localhost/api", { method: "POST" }), {
+      params: Promise.reject(new Error("postgres://user:secret@private-db/internal")),
+    });
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      message: "Preview session failed.",
+      retryable: true,
+    });
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     afterCallbacks.value = [];
@@ -152,6 +165,31 @@ describe("POST preview-session (engine)", () => {
       },
     });
     updateVersionPreviewUrl.mockResolvedValue(true);
+  });
+
+  it("rejects an oversized chat id before checking preview configuration", async () => {
+    const res = await POST(new Request("http://localhost/api", { method: "POST" }), {
+      params: Promise.resolve({ chatId: "x".repeat(201) }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(isTier2PreviewConfigured).not.toHaveBeenCalled();
+    expect(getEngineChatByIdForRequest).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized version id before starting a preview", async () => {
+    const res = await POST(
+      new Request("http://localhost/api", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "x".repeat(201) }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(res.status).toBe(400);
+    expect(getEngineVersionForChatByIdForRequest).not.toHaveBeenCalled();
+    expect(startPreviewSession).not.toHaveBeenCalled();
   });
 
   it("returns 503 with setup hint when tier-2 preview is not configured", async () => {

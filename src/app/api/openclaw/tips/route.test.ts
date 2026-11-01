@@ -103,4 +103,38 @@ describe("POST /api/openclaw/tips", () => {
     expect(contextMessage).not.toContain("MALICIOUS CLIENT MANIFEST");
     expect(upstreamBody.model).toBe("openclaw:sajtagenten-fast");
   });
+
+  it("bounds client-supplied UI surfaces in the prompt", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ choices: [{ message: { content: "Justera rubriken." } }] }),
+    );
+
+    const response = await POST(
+      request({
+        uiSurfaces: Array.from({ length: 25 }, (_, index) => `surface-${index}`),
+      }),
+    );
+    const upstreamBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    const contextMessage = upstreamBody.messages[1].content as string;
+
+    expect(response.status).toBe(200);
+    expect(contextMessage).toContain("surface-19");
+    expect(contextMessage).not.toContain("surface-20");
+  });
+
+  it("does not expose gateway failure details", async () => {
+    mocks.latestVersion.mockResolvedValue(null);
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(
+      new Error("connect ECONNREFUSED gateway.internal:443 token=secret"),
+    );
+
+    const response = await POST(request({}));
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toMatchObject({
+      success: false,
+      error: "Gateway unreachable",
+      detail: "Upstream request failed",
+    });
+  });
 });

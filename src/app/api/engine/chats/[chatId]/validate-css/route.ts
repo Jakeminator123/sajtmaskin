@@ -118,9 +118,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
     const busy = versionBusyResponseIfLeaseHeld(err);
     if (busy) return busy;
     console.error("CSS validation error:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Validation failed" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Validation failed" }, { status: 500 });
   }
 }

@@ -240,19 +240,21 @@ describe("validateAndFix", () => {
     const cleanContent =
       '```tsx file="app/page.tsx"\nexport default function P(){return <main/>}\n```';
     validateGeneratedCode.mockResolvedValueOnce({ valid: true, errors: [] });
-    runPreVmTypecheck.mockResolvedValueOnce({
-      ok: false,
-      diagnostics: [
-        {
-          filePath: "app/page.tsx",
-          line: 1,
-          column: 1,
-          code: "TS2304",
-          message: "Cannot find name 'Foo'.",
-        },
-      ],
-      durationMs: 12,
-    });
+    runPreVmTypecheck
+      .mockResolvedValueOnce({
+        ok: false,
+        diagnostics: [
+          {
+            filePath: "app/page.tsx",
+            line: 1,
+            column: 1,
+            code: "TS2304",
+            message: "Cannot find name 'Foo'.",
+          },
+        ],
+        durationMs: 12,
+      })
+      .mockResolvedValueOnce({ ok: true, diagnostics: [], durationMs: 6 });
     runLlmFixer.mockResolvedValueOnce({
       fixedContent: cleanContent,
       fixedFiles: ["app/page.tsx"],
@@ -287,7 +289,54 @@ describe("validateAndFix", () => {
     expect(result.tsc).toEqual(
       expect.objectContaining({ ran: true, repaired: true, diagnosticCount: 1 }),
     );
+    expect(runPreVmTypecheck).toHaveBeenCalledTimes(2);
     expect(result.fixerUsed).toBe(true);
+  });
+
+  it("does not accept an LLM warm-tsc fix until the repaired content passes tsc", async () => {
+    const originalContent =
+      '```tsx file="app/page.tsx"\nexport default function P(){return <main/>}\n```';
+    const proposedContent =
+      '```tsx file="app/page.tsx"\nexport default function P(){return <main>{missing}</main>}\n```';
+    const diagnostic = {
+      filePath: "app/page.tsx",
+      line: 1,
+      column: 1,
+      code: "TS2304",
+      message: "Cannot find name 'missing'.",
+    };
+    validateGeneratedCode.mockResolvedValueOnce({ valid: true, errors: [] });
+    runPreVmTypecheck
+      .mockResolvedValueOnce({ ok: false, diagnostics: [diagnostic], durationMs: 12 })
+      .mockResolvedValueOnce({ ok: false, diagnostics: [diagnostic], durationMs: 6 });
+    runLlmFixer.mockResolvedValueOnce({
+      fixedContent: proposedContent,
+      fixedFiles: ["app/page.tsx"],
+      missingFiles: [],
+      partial: false,
+      success: true,
+      durationMs: 30,
+    });
+    runAutoFix.mockResolvedValueOnce({
+      fixedContent: proposedContent,
+      fixes: [],
+      warnings: [],
+      dependencies: {},
+    });
+
+    const result = await validateAndFix(originalContent, {
+      chatId: "chat_tsc_residual",
+      model: "gpt-5.4",
+      alreadyMechanicallyFixed: true,
+      resolvedScaffold: { id: "scaffold_x", files: [] } as never,
+    });
+
+    expect(runPreVmTypecheck).toHaveBeenCalledTimes(2);
+    expect(result.content).toBe(originalContent);
+    expect(result.tsc).toEqual(
+      expect.objectContaining({ ran: true, repaired: false, diagnosticCount: 1 }),
+    );
+    expect(result.llmFixCount).toBe(0);
   });
 
   it("resolves warm-tsc import diagnostics deterministically WITHOUT any LLM call", async () => {
@@ -394,7 +443,8 @@ describe("validateAndFix", () => {
           },
         ],
         durationMs: 5,
-      });
+      })
+      .mockResolvedValueOnce({ ok: true, diagnostics: [], durationMs: 4 });
     runDeterministicImportRepair.mockReturnValueOnce({
       content: partiallyRepaired,
       fixed: true,

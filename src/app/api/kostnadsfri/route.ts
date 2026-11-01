@@ -46,13 +46,17 @@ import {
  */
 
 const createSchema = z.object({
-  companyName: z.string().min(1, "Company name is required"),
-  industry: z.string().trim().optional(),
-  website: z.string().optional(),
-  contactEmail: z.string().email().optional(),
-  contactName: z.string().optional(),
-  password: z.string().min(4, "Password must be at least 4 characters").optional(),
-  expiresInDays: z.number().positive().optional(),
+  companyName: z.string().trim().min(1, "Company name is required").max(200),
+  industry: z.string().trim().max(200).optional(),
+  website: z.string().max(2_048).optional(),
+  contactEmail: z.string().max(320).email().optional(),
+  contactName: z.string().max(200).optional(),
+  password: z
+    .string()
+    .min(4, "Password must be at least 4 characters")
+    .max(256, "Password is too long")
+    .optional(),
+  expiresInDays: z.number().int().min(1).max(3_650).optional(),
   /**
    * When the invite mail went out. ISO 8601 **with** timezone (`Z` or `±HH:MM`):
    * a timezone-aware Python `datetime.now(timezone.utc).isoformat()` passes,
@@ -78,7 +82,10 @@ const createSchema = z.object({
    * requesten i stället för att tyst försvinna. Fältlista och motiv:
    * `src/lib/kostnadsfri/company-profile.ts`.
    */
-  profile: z.record(z.string(), z.unknown()).optional(),
+  profile: z
+    .record(z.string(), z.unknown())
+    .refine((profile) => JSON.stringify(profile).length <= 100_000, "Profile payload is too large")
+    .optional(),
   /** Additive one-row-per-message receipt. Old callers may omit it. */
   mailEvent: z
     .object({
@@ -86,8 +93,8 @@ const createSchema = z.object({
       flowId: z.string().trim().min(1).max(120),
       step: z.enum(["first", "follow"]),
       variant: z.enum(["text", "animated"]),
-      sender: z.email(),
-      recipient: z.email(),
+      sender: z.email().max(320),
+      recipient: z.email().max(320),
       scheduledAt: z.string().datetime({ offset: true }).nullable().optional(),
       smtpAcceptedAt: z.string().datetime({ offset: true }).nullable().optional(),
       deliveredAt: z.string().datetime({ offset: true }).nullable().optional(),
@@ -494,9 +501,13 @@ export async function GET(request: NextRequest) {
     if (rawCursor !== null && (afterId === null || !Number.isSafeInteger(afterId))) {
       return NextResponse.json({ success: false, error: "Invalid cursor" }, { status: 400 });
     }
-    const rawLimit = Number.parseInt(request.nextUrl.searchParams.get("limit") || "", 10);
-    const pageLimit = Number.isFinite(rawLimit)
-      ? Math.min(Math.max(rawLimit, 1), LIST_LIMIT)
+    const rawLimit = request.nextUrl.searchParams.get("limit");
+    const parsedLimit = rawLimit === null || !/^[1-9]\d*$/.test(rawLimit) ? null : Number(rawLimit);
+    if (rawLimit !== null && (parsedLimit === null || !Number.isSafeInteger(parsedLimit))) {
+      return NextResponse.json({ success: false, error: "Invalid limit" }, { status: 400 });
+    }
+    const pageLimit = parsedLimit !== null
+      ? Math.min(parsedLimit, LIST_LIMIT)
       : rawCursor === null
         ? LIST_LIMIT
         : 500;

@@ -70,4 +70,16 @@ describe("GET /api/auth/verify-email", () => {
       "https://example.test/analys?resume=build&verified=error&reason=invalid_or_expired",
     );
   });
+
+  it("rejects an oversized token before database lookup", async () => {
+    const token = "x".repeat(257);
+    const response = await GET(
+      new NextRequest(`https://example.test/api/auth/verify-email?token=${token}`),
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "https://example.test/?verified=error&reason=invalid_or_expired",
+    );
+    expect(getUserByVerificationToken).not.toHaveBeenCalled();
+  });
 });

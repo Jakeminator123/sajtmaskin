@@ -58,6 +58,12 @@ async function requireOwnedProject(
   request: NextRequest,
   projectId: string,
 ): Promise<{ ok: true; project: Project } | { ok: false; response: NextResponse }> {
+  if (!projectId || projectId.length > 128) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Ogiltigt projekt-id." }, { status: 400 }),
+    };
+  }
   const user = await getCurrentUser(request);
   if (!user) {
     return {
@@ -156,6 +162,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const owned = await requireOwnedProject(request, id);
     if (!owned.ok) return owned.response;
 
+    const body = await request.json().catch(() => null);
+    const payload =
+      body && typeof body === "object" && !Array.isArray(body)
+        ? (body as Record<string, unknown>)
+        : null;
+    const action = typeof payload?.action === "string" ? payload.action.trim() : "";
+    const domain = typeof payload?.domain === "string" ? payload.domain.trim() : "";
+
+    if (action !== "link" && action !== "verify" && action !== "activate" && action !== "unlink") {
+      return NextResponse.json(
+        { error: "action måste vara link, verify, activate eller unlink." },
+        { status: 400 },
+      );
+    }
+
     const resolution = await resolveVercelProjectForAppProject(request, owned.project.id);
     if (!resolution.ok) {
       return NextResponse.json({ error: resolution.error }, { status: resolution.status });
@@ -164,13 +185,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!hosting) {
       return NextResponse.json({ error: "Projektet hittades inte." }, { status: 404 });
     }
-
-    const body = (await request.json().catch(() => null)) as {
-      action?: string;
-      domain?: string;
-    } | null;
-    const action = (body?.action ?? "").trim();
-    const domain = (body?.domain ?? "").trim();
 
     if (action === "link") {
       return jsonResult(await linkCustomerDomain({ hosting, domain }));
@@ -181,13 +195,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (action === "activate") {
       return jsonResult(await activateCustomerDomain({ hosting, domain }));
     }
-    if (action === "unlink") {
-      return jsonResult(await unlinkCustomerDomain({ hosting, domain }));
-    }
-
-    return NextResponse.json(
-      { error: "action måste vara link, verify, activate eller unlink." },
-      { status: 400 },
-    );
+    return jsonResult(await unlinkCustomerDomain({ hosting, domain }));
   });
 }

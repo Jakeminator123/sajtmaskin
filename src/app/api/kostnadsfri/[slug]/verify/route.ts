@@ -27,7 +27,8 @@ import {
   verifyDeterministicPassword,
   type KostnadsfriCompanyData,
 } from "@/lib/kostnadsfri";
-import { kostnadsfriEventPath } from "@/lib/kostnadsfri/analytics-paths";
+import { isInviteSlug, kostnadsfriEventPath } from "@/lib/kostnadsfri/analytics-paths";
+import { readRequestTextWithLimit } from "@/lib/api/read-limited-body";
 import {
   isCampaignAccountProvider,
   isUnclaimedCampaignAccount,
@@ -49,6 +50,8 @@ import {
   lookupKostnadsfriProfile,
 } from "@/lib/kostnadsfri/profile-lookup";
 import { withRateLimit } from "@/lib/rate-limit";
+
+const MAX_VERIFY_BODY_BYTES = 4_096;
 
 /**
  * POST /api/kostnadsfri/[slug]/verify — Verify password for a kostnadsfri page
@@ -155,7 +158,7 @@ function recordVerified(request: NextRequest, slug: string, sessionId: string) {
 }
 
 const verifySchema = z.object({
-  password: z.string().min(1, "Password is required"),
+  password: z.string().min(1, "Password is required").max(256, "Password is too long"),
   mailId: z.string().regex(/^[a-f0-9]{32}$/).optional(),
   variant: z.enum(["rent", "animated"]).optional(),
 });
@@ -226,6 +229,9 @@ async function verifyInvitation(
 ): Promise<Response> {
   try {
     const { slug } = await params;
+    if (!isInviteSlug(slug)) {
+      return NextResponse.json({ success: false, error: "Ogiltig länk." }, { status: 400 });
+    }
     const session = ensureSessionIdFromRequest(request);
     const verifiedResponse = async (
       companyData: ReturnType<typeof companyDataFromSlug>,
@@ -283,7 +289,16 @@ async function verifyInvitation(
     };
 
     // Parse body
-    const body = await request.json().catch(() => ({}));
+    const bodyResult = await readRequestTextWithLimit(request, MAX_VERIFY_BODY_BYTES);
+    if (!bodyResult.ok) {
+      return NextResponse.json({ success: false, error: "För stor begäran." }, { status: 413 });
+    }
+    let body: unknown = {};
+    try {
+      body = bodyResult.text ? JSON.parse(bodyResult.text) : {};
+    } catch {
+      // The schema below preserves the existing generic 400 for malformed JSON.
+    }
     const validation = verifySchema.safeParse(body);
 
     if (!validation.success) {

@@ -4,6 +4,9 @@ import { withRateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 
+const MAX_FETCH_HTML_URL_CHARS = 4_096;
+const MAX_FETCH_HTML_BYTES = 5 * 1024 * 1024;
+
 /**
  * Server-side fetch of external HTML pages.
  *
@@ -135,6 +138,9 @@ export async function GET(req: Request) {
     if (!url) {
       return NextResponse.json({ error: "Missing ?url= parameter" }, { status: 400 });
     }
+    if (url.length > MAX_FETCH_HTML_URL_CHARS) {
+      return NextResponse.json({ error: "URL is too long" }, { status: 400 });
+    }
 
     // Active third-party HTML must never be transported from the app origin.
     // Hydrated inspection belongs on the isolated preview host instead.
@@ -163,6 +169,7 @@ export async function GET(req: Request) {
     try {
       const res = await safeFetch(target.toString(), {
         timeoutMs: 15_000,
+        maxBodyBytes: MAX_FETCH_HTML_BYTES,
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
@@ -170,6 +177,9 @@ export async function GET(req: Request) {
         },
       });
 
+      if (res.status === 413) {
+        return NextResponse.json({ error: "HTML page is too large" }, { status: 413 });
+      }
       if (!res.ok) {
         return NextResponse.json({ error: `Failed to fetch: HTTP ${res.status}` }, { status: 502 });
       }
@@ -201,8 +211,8 @@ export async function GET(req: Request) {
         },
       });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Unknown fetch error";
-      return NextResponse.json({ error: message }, { status: 502 });
+      console.error("[API/fetch-html] Fetch failed:", err);
+      return NextResponse.json({ error: "Failed to fetch page" }, { status: 502 });
     }
   });
 }

@@ -10,6 +10,12 @@ import { canCreateProject } from "@/lib/projects/project-cleanup";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest, getSessionIdFromRequest } from "@/lib/auth/session";
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
 function getOwnerCacheSegment(userId: string | null, sessionId: string | null): string {
   if (userId && sessionId) return `user:${userId}:session:${sessionId}`;
   if (userId) return `user:${userId}`;
@@ -65,9 +71,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ success: true, projects: projectsWithPreview, cached: false });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[API] Failed to get projects:", error);
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Failed to get projects" }, { status: 500 });
   }
 }
 
@@ -83,19 +88,36 @@ export async function POST(request: NextRequest) {
     return response;
   };
   try {
-    const body = await request.json();
+    const body = asRecord(await request.json().catch(() => null));
+    if (!body) {
+      return attachSessionCookie(
+        NextResponse.json({ success: false, error: "Invalid request body" }, { status: 400 }),
+      );
+    }
     const { name, category, description } = body;
 
-    if (!name) {
+    if (typeof name !== "string" || !name.trim()) {
       return attachSessionCookie(
         NextResponse.json({ success: false, error: "Project name is required" }, { status: 400 }),
       );
     }
+    if (
+      (category !== undefined && category !== null && typeof category !== "string") ||
+      (description !== undefined && description !== null && typeof description !== "string")
+    ) {
+      return attachSessionCookie(
+        NextResponse.json({ success: false, error: "Invalid project data" }, { status: 400 }),
+      );
+    }
+    const normalizedCategory =
+      typeof category === "string" ? category.trim() || undefined : undefined;
+    const normalizedDescription =
+      typeof description === "string" ? description.trim() || undefined : undefined;
 
     // Get user and session from request (cookies, not body)
     const user = await getCurrentUser(request);
     const sessionId = session.sessionId;
-    if (category === "kostnadsfri" && !user?.id) {
+    if (normalizedCategory === "kostnadsfri" && !user?.id) {
       return attachSessionCookie(
         NextResponse.json(
           {
@@ -133,9 +155,9 @@ export async function POST(request: NextRequest) {
     }
 
     const project = await createProject(
-      name,
-      category,
-      description,
+      name.trim(),
+      normalizedCategory,
+      normalizedDescription,
       user ? undefined : sessionId || undefined, // sessionId only for anonymous
       user?.id, // userId for authenticated
     );
@@ -155,8 +177,9 @@ export async function POST(request: NextRequest) {
       }),
     );
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[API] Failed to create project:", error);
-    return attachSessionCookie(NextResponse.json({ success: false, error: message }, { status: 500 }));
+    return attachSessionCookie(
+      NextResponse.json({ success: false, error: "Failed to create project" }, { status: 500 }),
+    );
   }
 }

@@ -8,23 +8,19 @@ function escapeXml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function parseDimension(value: string | null, fallback: number): number {
+  const normalized = value?.trim() ?? "";
+  if (!/^-?\d+$/.test(normalized)) return fallback;
+  const parsed = Number(normalized);
+  if (!Number.isSafeInteger(parsed) || parsed === 0) return fallback;
+  return Math.min(Math.max(parsed, 1), 2000);
+}
+
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
-  const width = Math.min(
-    Math.max(
-      parseInt(params.get("width") || params.get("w") || "600", 10) || 600,
-      1,
-    ),
-    2000,
-  );
-  const height = Math.min(
-    Math.max(
-      parseInt(params.get("height") || params.get("h") || "400", 10) || 400,
-      1,
-    ),
-    2000,
-  );
-  const text = params.get("label") || params.get("text") || `${width} × ${height}`;
+  const width = parseDimension(params.get("width") || params.get("w"), 600);
+  const height = parseDimension(params.get("height") || params.get("h"), 400);
+  const text = (params.get("label") || params.get("text") || `${width} × ${height}`).slice(0, 200);
   const fontSize = Math.max(12, Math.min(24, width / 20));
   const subFontSize = Math.max(10, Math.min(14, width / 30));
 
@@ -48,6 +44,7 @@ export async function GET(request: NextRequest) {
   return new Response(svg, {
     headers: {
       "Content-Type": "image/svg+xml",
+      "X-Content-Type-Options": "nosniff",
       "Cache-Control": "public, max-age=31536000, immutable",
     },
   });

@@ -19,6 +19,8 @@ interface RateLimitEntry {
 }
 
 const rateLimitStore = new Map<string, RateLimitEntry>();
+const MEMORY_STORE_CLEANUP_INTERVAL = 128;
+let memoryStoreOperations = 0;
 
 interface RateLimitConfig {
   maxRequests: number;
@@ -46,6 +48,8 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "kostnadsfri:unsubscribe": { maxRequests: 30, windowMs: 60 * 60 * 1000 },
   "media:upload": { maxRequests: 20, windowMs: 60 * 1000 },
   "media:upload-url": { maxRequests: 12, windowMs: 60 * 1000 },
+  "unsplash:search": { maxRequests: 30, windowMs: 60 * 1000 },
+  "unsplash:download": { maxRequests: 60, windowMs: 60 * 1000 },
   "audio:transcribe": { maxRequests: 10, windowMs: 60 * 1000 },
   "text:extract": { maxRequests: 20, windowMs: 60 * 1000 },
   "text:analyze": { maxRequests: 20, windowMs: 60 * 1000 },
@@ -230,8 +234,10 @@ export function checkRateLimit(
   const key = `${clientId}:${endpoint}`;
   const limits = config || RATE_LIMITS[endpoint] || RATE_LIMITS["default"];
 
-  if (Math.random() < 0.01) {
-    cleanupExpiredEntries();
+  memoryStoreOperations += 1;
+  if (memoryStoreOperations >= MEMORY_STORE_CLEANUP_INTERVAL) {
+    memoryStoreOperations = 0;
+    cleanupExpiredEntries(now);
   }
 
   const entry = rateLimitStore.get(key);
@@ -268,13 +274,23 @@ export function checkRateLimit(
   };
 }
 
-function cleanupExpiredEntries(): void {
-  const now = Date.now();
+function cleanupExpiredEntries(now: number): void {
   for (const [key, entry] of rateLimitStore.entries()) {
     if (entry.resetAt <= now) {
       rateLimitStore.delete(key);
     }
   }
+}
+
+/** @internal Test-only visibility for deterministic memory-store cleanup. */
+export function resetMemoryRateLimitStoreForTests(): void {
+  rateLimitStore.clear();
+  memoryStoreOperations = 0;
+}
+
+/** @internal Test-only visibility for deterministic memory-store cleanup. */
+export function memoryRateLimitEntryCountForTests(): number {
+  return rateLimitStore.size;
 }
 
 function createRateLimitHeaders(result: {

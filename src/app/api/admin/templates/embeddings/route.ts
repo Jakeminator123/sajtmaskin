@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Kunde inte bygga om inbäddningar",
+        error: "Kunde inte bygga om inbäddningar",
       },
       { status: 500 },
     );

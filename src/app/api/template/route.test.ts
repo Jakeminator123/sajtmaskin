@@ -362,6 +362,44 @@ describe("POST /api/template", () => {
     recordImportedRepoPreviewOutcome.mockResolvedValue(false);
   });
 
+  it.each([
+    ["invalid JSON", "not-json"],
+    ["null", "null"],
+    ["array", "[]"],
+    ["invalid quality", '{"templateId":"tmpl_1","quality":"ultra"}'],
+    ["object project id", '{"templateId":"tmpl_1","projectId":{}}'],
+  ])("rejects %s before template lookup side effects", async (_label, body) => {
+    const response = await POST(
+      new Request("https://example.com/api/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      }) as never,
+    );
+
+    expect(response.status).toBe(400);
+    expect(getLocalV0TemplateSourceById).not.toHaveBeenCalled();
+    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(createProject).not.toHaveBeenCalled();
+  });
+
+  it("does not expose unexpected template initialization errors", async () => {
+    getLocalV0TemplateSourceById.mockRejectedValue(new Error("secret archive path"));
+
+    const response = await POST(
+      new Request("https://example.com/api/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId: "tmpl_1", quality: "standard" }),
+      }) as never,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ success: false, error: "Kunde inte ladda template." });
+    expect(JSON.stringify(body)).not.toContain("archive");
+  });
+
   it("rejects v0 templates that are not available as local repo zips", async () => {
     const response = await POST(
       new Request("https://example.com/api/template", {

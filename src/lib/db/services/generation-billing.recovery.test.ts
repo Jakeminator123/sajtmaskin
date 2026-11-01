@@ -120,6 +120,30 @@ describe("generation billing recovery", () => {
     expect(conflict.params).toContain(JSON.stringify(["generation-claim", "brief-claim"]));
   });
 
+  it("fills a missing campaign binding on conflict without replacing an existing one", async () => {
+    await establishGenerationBilling({
+      chatId: "chat-1",
+      versionId: "version-1",
+      userId: "user-1",
+      campaignEntitlementId: "campaign-1",
+      campaignPhase: "initial",
+    });
+
+    expect(insertedValues[1]).toMatchObject({
+      campaign_entitlement_id: "campaign-1",
+      campaign_phase: "initial",
+    });
+    const conflictSet = conflictConfigs[0]?.set as Record<string, unknown>;
+    const entitlement = renderSql(conflictSet.campaign_entitlement_id);
+    const phase = renderSql(conflictSet.campaign_phase);
+    expect(entitlement.sql).toContain("coalesce");
+    expect(entitlement.sql).toContain("campaign_entitlement_id");
+    expect(entitlement.params).toContain("campaign-1");
+    expect(phase.sql).toContain("coalesce");
+    expect(phase.sql).toContain("campaign_phase");
+    expect(phase.params).toContain("initial");
+  });
+
   it("persists a non-free policy for markerless post-processing", async () => {
     await establishGenerationBilling({
       chatId: "chat-1",

@@ -89,4 +89,20 @@ describe("POST public version export zip", () => {
     expect(envExample).toContain("STRIPE_SECRET_KEY=");
     expect(envExample).not.toContain("sk_live_real");
   });
+
+  it("does not expose unexpected internal errors", async () => {
+    getEngineVersionForChatByIdForRequest.mockRejectedValue(
+      new Error("postgres://user:secret@private-db/internal"),
+    );
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/versions/ver-1/export", {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ chatId: "chat-1", versionId: "ver-1" }) },
+    );
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Failed to export version" });
+  });
 });
