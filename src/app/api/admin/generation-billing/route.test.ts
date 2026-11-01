@@ -104,6 +104,19 @@ describe("admin generation billing route", () => {
     expect(updateGenerationBillingSettings).not.toHaveBeenCalled();
   });
 
+  it.each([null, []])("rejects invalid settings payload: %j", async (body) => {
+    const response = await PATCH(
+      new NextRequest("http://localhost/api/admin/generation-billing", {
+        method: "PATCH",
+        body: JSON.stringify(body),
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(updateGenerationBillingSettings).not.toHaveBeenCalled();
+  });
+
   it("runs explicit idempotent reconciliation", async () => {
     const response = await POST(
       new NextRequest("http://localhost/api/admin/generation-billing", { method: "POST" }),

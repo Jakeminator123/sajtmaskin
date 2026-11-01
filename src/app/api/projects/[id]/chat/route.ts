@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
-import { db } from "@/lib/db/client";
-import { chats } from "@/lib/db/schema";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getProjectByIdForOwner, getProjectData } from "@/lib/db/services/projects";
-import { getAppProjectByIdForRequest } from "@/lib/tenant";
+import {
+  getAppProjectByIdForRequest,
+  getChatByIdForRequest,
+  getChatByV0ChatIdForRequest,
+} from "@/lib/tenant";
 import {
   getChat as getEngineChat,
   listChatsByProject as listEngineChatsByProject,
@@ -15,6 +16,8 @@ import {
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
+
+const MAX_PROJECT_ID_CHARS = 200;
 
 type ChatRow = {
   id: string;
@@ -31,30 +34,15 @@ async function findChatFromProjectData(
   const persistedChatId =
     typeof data?.chat_id === "string" ? data.chat_id.trim() : "";
   if (!persistedChatId) return null;
+  const ownerOptions = sessionId ? { sessionId } : undefined;
 
   // Preferred path: project_data.chat_id stores the v0 chat ID.
-  const byV0ChatId = await db
-    .select({
-      id: chats.id,
-      v0ChatId: chats.v0ChatId,
-      createdAt: chats.createdAt,
-    })
-    .from(chats)
-    .where(eq(chats.v0ChatId, persistedChatId))
-    .limit(1);
-  if (byV0ChatId[0]) return byV0ChatId[0];
+  const byV0ChatId = await getChatByV0ChatIdForRequest(request, persistedChatId, ownerOptions);
+  if (byV0ChatId) return byV0ChatId;
 
   // Legacy fallback: older rows may have stored the internal DB chat ID.
-  const byInternalId = await db
-    .select({
-      id: chats.id,
-      v0ChatId: chats.v0ChatId,
-      createdAt: chats.createdAt,
-    })
-    .from(chats)
-    .where(eq(chats.id, persistedChatId))
-    .limit(1);
-  if (byInternalId[0]) return byInternalId[0];
+  const byInternalId = await getChatByIdForRequest(request, persistedChatId, ownerOptions);
+  if (byInternalId) return byInternalId;
 
   const engineChat = await getEngineChat(persistedChatId);
   if (engineChat) {
@@ -66,7 +54,7 @@ async function findChatFromProjectData(
       const currentProjectId =
         typeof engineChat.project_id === "string" ? engineChat.project_id.trim() : "";
       const ownsCurrent = currentProjectId
-        ? Boolean(await getAppProjectByIdForRequest(request, currentProjectId, sessionId ? { sessionId } : undefined))
+        ? Boolean(await getAppProjectByIdForRequest(request, currentProjectId, ownerOptions))
         : false; // unverifiable (no current project) → refuse to remap
       if (!ownsCurrent) {
         console.warn("[API/projects/:id/chat] Refusing cross-tenant chat remap", {
@@ -113,6 +101,9 @@ async function findChatFromProjectData(
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: projectId } = await params;
+    if (!projectId || projectId.length > MAX_PROJECT_ID_CHARS) {
+      return NextResponse.json({ success: false, error: "Invalid project ID" }, { status: 400 });
+    }
     const user = await getCurrentUser(request);
     const sessionId = getSessionIdFromRequest(request);
 
@@ -165,7 +156,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "Failed to get project chat",
       },
       { status: 500 },
     );

@@ -127,8 +127,32 @@ describe("GET /api/fetch-html", () => {
       expectInertHeaders(res);
       expectSanitizedBody(body);
       expect(safeFetch).toHaveBeenCalledTimes(1);
+      expect(safeFetch).toHaveBeenCalledWith(
+        "https://remote.example/path/page",
+        expect.objectContaining({ maxBodyBytes: 5 * 1024 * 1024 }),
+      );
     },
   );
+
+  it("rejects an oversized URL before validation or fetching", async () => {
+    const oversized = `https://remote.example/${"x".repeat(4_100)}`;
+    const res = await GET(
+      new Request(`http://localhost/api/fetch-html?url=${encodeURIComponent(oversized)}`),
+    );
+
+    expect(res.status).toBe(400);
+    expect(validateSsrfTarget).not.toHaveBeenCalled();
+    expect(safeFetch).not.toHaveBeenCalled();
+  });
+
+  it("maps the bounded fetch response to a page-too-large error", async () => {
+    safeFetch.mockResolvedValue(new Response("Response exceeded maxBodyBytes", { status: 413 }));
+
+    const res = await GET(request());
+
+    expect(res.status).toBe(413);
+    await expect(res.json()).resolves.toEqual({ error: "HTML page is too large" });
+  });
 
   it.each([
     ["<img/onerror=alert(1) src=x>", /onerror/i],
@@ -193,5 +217,17 @@ describe("GET /api/fetch-html", () => {
     expect(() => JSON.parse(body)).toThrow();
     expect(body).toContain("<h1>Visible copy</h1>");
     expect(res.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+  });
+
+  it("does not expose fetch failures", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    safeFetch.mockRejectedValue(new Error("connect ECONNREFUSED 10.0.0.5:443"));
+
+    const res = await GET(request());
+
+    expect(res.status).toBe(502);
+    await expect(res.json()).resolves.toEqual({ error: "Failed to fetch page" });
+    expect(error).toHaveBeenCalledWith("[API/fetch-html] Fetch failed:", expect.any(Error));
+    error.mockRestore();
   });
 });

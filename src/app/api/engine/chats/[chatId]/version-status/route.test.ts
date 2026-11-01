@@ -84,7 +84,20 @@ describe("GET version-status (engine)", () => {
     expect(res.status).toBe(400);
     const body = (await res.json()) as { ok: boolean; error?: string };
     expect(body.ok).toBe(false);
-    expect(body.error).toMatch(/versionId/);
+    expect(body.error).toMatch(/parameters/);
+  });
+
+  it.each([
+    ["chatId", { chatId: "x".repeat(201) }, "?versionId=v1"],
+    ["versionId", { chatId: "chat_1" }, `?versionId=${"x".repeat(201)}`],
+  ])("rejects an oversized %s before tenant lookup", async (_field, params, query) => {
+    const res = await GET(
+      new Request(`http://localhost/api/engine/chats/chat_1/version-status${query}`),
+      { params: Promise.resolve(params) },
+    );
+
+    expect(res.status).toBe(400);
+    expect(getEngineVersionForChatByIdForRequest).not.toHaveBeenCalled();
   });
 
   // A1: a pool connect-timeout during a redeploy must not look like a permanent
@@ -120,6 +133,7 @@ describe("GET version-status (engine)", () => {
 
     expect(res.status).toBe(500);
     expect(res.headers.get("Retry-After")).toBeNull();
+    expect(await res.json()).toEqual({ ok: false, error: "Failed to load version status" });
     error.mockRestore();
   });
 

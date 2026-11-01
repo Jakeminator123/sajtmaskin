@@ -201,6 +201,22 @@ describe("stripe webhook — checkout dispatch boundary", () => {
     expect(invalidSignature.status).toBe(400);
     expectNoCheckoutDispatch();
   });
+
+  it("rejects an oversized body before signature verification", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/stripe/webhook", {
+        method: "POST",
+        body: "x",
+        headers: {
+          "content-length": "1048577",
+          "stripe-signature": "t=1,v1=deadbeef",
+        },
+      }) as never,
+    );
+
+    expect(res.status).toBe(413);
+    expectNoCheckoutDispatch();
+  });
 });
 
 describe("stripe webhook — domain purchase", () => {

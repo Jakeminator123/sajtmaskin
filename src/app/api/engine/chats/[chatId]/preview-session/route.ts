@@ -8,14 +8,23 @@ import { ensureVersionPreview, persistVersionPreviewOutcome } from "@/lib/gen/pr
 import { isTier2PreviewConfigured, TIER2_PREVIEW_SETUP_HINT } from "@/lib/gen/preview/tier2-config";
 
 const postBodySchema = z.object({
-  versionId: z.string().min(1).optional(),
+  versionId: z.string().trim().min(1).max(200).optional(),
   forceRestart: z.boolean().optional(),
 });
+
+const MAX_PREVIEW_RESOURCE_ID_CHARS = 200;
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   return withRateLimit(req, "preview-session:create", async () => {
     try {
       const { chatId } = await ctx.params;
+
+      if (!chatId || chatId.length > MAX_PREVIEW_RESOURCE_ID_CHARS) {
+        return NextResponse.json(
+          { ok: false, message: "Invalid chat ID.", retryable: false },
+          { status: 400 },
+        );
+      }
 
       if (!isTier2PreviewConfigured()) {
         return NextResponse.json(
@@ -146,7 +155,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       return NextResponse.json(
         {
           ok: false,
-          message: err instanceof Error ? err.message : "Unknown error",
+          message: "Preview session failed.",
           retryable: true,
         },
         { status: 500 },

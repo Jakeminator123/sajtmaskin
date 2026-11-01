@@ -55,6 +55,20 @@ import {
   recordImportedRepoPreviewOutcome,
 } from "@/lib/templates/imported-repo-initialization";
 
+const TEMPLATE_QUALITY_LEVELS: ReadonlySet<string> = new Set([
+  "light",
+  "standard",
+  "pro",
+  "premium",
+  "max",
+]);
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
 // Allow 5 minutes for own-engine generation
 export const maxDuration = 300;
 
@@ -426,14 +440,31 @@ export async function POST(request: NextRequest) {
       setCookies =
         session.setCookies ?? (session.setCookie ? [session.setCookie] : []);
 
-      const body = await request.json();
-      const { templateId, quality = "max" } = body as {
-        templateId?: string;
-        quality?: QualityLevel;
-        projectId?: string;
-      };
+      const body = asRecord(await request.json().catch(() => null));
+      if (!body) {
+        return attachSessionCookie(
+          NextResponse.json({ success: false, error: "Invalid request body" }, { status: 400 }),
+        );
+      }
+      const templateId = typeof body.templateId === "string" ? body.templateId.trim() : "";
+      const rawQuality = body.quality ?? "max";
+      if (typeof rawQuality !== "string" || !TEMPLATE_QUALITY_LEVELS.has(rawQuality)) {
+        return attachSessionCookie(
+          NextResponse.json({ success: false, error: "Invalid quality" }, { status: 400 }),
+        );
+      }
+      const quality = rawQuality as QualityLevel;
+      if (
+        body.projectId !== undefined &&
+        body.projectId !== null &&
+        typeof body.projectId !== "string"
+      ) {
+        return attachSessionCookie(
+          NextResponse.json({ success: false, error: "Invalid project ID" }, { status: 400 }),
+        );
+      }
       const requestedProjectId =
-        typeof body?.projectId === "string" && body.projectId.trim() ? body.projectId.trim() : null;
+        typeof body.projectId === "string" && body.projectId.trim() ? body.projectId.trim() : null;
 
       if (!templateId) {
         return attachSessionCookie(
@@ -924,7 +955,7 @@ export async function POST(request: NextRequest) {
         NextResponse.json(
           {
             success: false,
-            error: `Kunde inte ladda template: ${errorMessage}`,
+            error: "Kunde inte ladda template.",
           },
           { status: 500 },
         ),

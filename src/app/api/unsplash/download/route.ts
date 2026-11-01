@@ -1,12 +1,22 @@
 import { FEATURES, SECRETS } from "@/lib/config";
+import { readRequestJsonWithLimit } from "@/lib/api/read-limited-body";
+import { withRateLimit } from "@/lib/rate-limit";
 import { safeFetch, validateSsrfTarget } from "@/lib/ssrf-guard";
 import { NextRequest, NextResponse } from "next/server";
 
 const UNSPLASH_DOWNLOAD_MAX_BYTES = 256_000;
+const UNSPLASH_DOWNLOAD_BODY_MAX_BYTES = 8_192;
 const UNSPLASH_DOWNLOAD_HOSTS = new Set(["api.unsplash.com"]);
+const UNSPLASH_PHOTO_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
 function isAllowedUnsplashDownloadUrl(url: URL): boolean {
-  return url.protocol === "https:" && UNSPLASH_DOWNLOAD_HOSTS.has(url.hostname.toLowerCase());
+  const pathMatch = url.pathname.match(/^\/photos\/([^/]+)\/download\/?$/);
+  return (
+    url.protocol === "https:" &&
+    UNSPLASH_DOWNLOAD_HOSTS.has(url.hostname.toLowerCase()) &&
+    pathMatch !== null &&
+    UNSPLASH_PHOTO_ID_PATTERN.test(pathMatch[1] ?? "")
+  );
 }
 
 /**
@@ -31,9 +41,18 @@ function isAllowedUnsplashDownloadUrl(url: URL): boolean {
  * Body: { photoId: "abc123" }
  */
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   try {
-    const body = await req.json();
+    const bodyResult = await readRequestJsonWithLimit<unknown>(req, UNSPLASH_DOWNLOAD_BODY_MAX_BYTES);
+    const parsed: unknown = bodyResult.ok ? bodyResult.value : null;
+    const body =
+      parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null;
+
+    if (!body) {
+      return NextResponse.json({ success: false, error: "Invalid request body" }, { status: 400 });
+    }
     const { downloadLocation, photoId } = body;
 
     if (!FEATURES.useUnsplash) {
@@ -61,8 +80,8 @@ export async function POST(req: NextRequest) {
         );
       }
       trackUrl = parsed.toString();
-    } else if (typeof photoId === "string" && photoId.trim()) {
-      trackUrl = `https://api.unsplash.com/photos/${photoId}/download`;
+    } else if (typeof photoId === "string" && UNSPLASH_PHOTO_ID_PATTERN.test(photoId.trim())) {
+      trackUrl = `https://api.unsplash.com/photos/${photoId.trim()}/download`;
     }
 
     if (!trackUrl) {
@@ -104,4 +123,8 @@ export async function POST(req: NextRequest) {
     // Don't fail the request - tracking is best-effort
     return NextResponse.json({ success: true, tracked: false });
   }
+}
+
+export async function POST(req: NextRequest) {
+  return withRateLimit(req, "unsplash:download", () => handlePost(req));
 }

@@ -62,4 +62,24 @@ describe("POST /api/did/chat", () => {
     expect(upstreamBody).not.toHaveProperty("user");
     expect(upstreamBody.model).toBe("openclaw:sajtagenten-fast");
   });
+
+  it("does not expose gateway failure details", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(
+      new Error("connect ECONNREFUSED gateway.internal:443 token=secret"),
+    );
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/did/chat", {
+        method: "POST",
+        body: JSON.stringify({ sessionId: "session-1", message: "Hej" }),
+      }),
+    );
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toMatchObject({
+      success: false,
+      error: "Gateway unreachable",
+      detail: "Upstream request failed",
+    });
+  });
 });

@@ -4,8 +4,12 @@ const snapshot = vi.hoisted(() => vi.fn());
 const write = vi.hoisted(() => vi.fn());
 const record = vi.hoisted(() => vi.fn());
 const imported = vi.hoisted(() => vi.fn());
+const safeFetch = vi.hoisted(() => vi.fn((url: string, init?: RequestInit) => globalThis.fetch(url, init)));
 
 vi.mock("@/lib/config", () => ({ FEATURES: { useUnsplash: true }, SECRETS: { unsplashAccessKey: "test-key" } }));
+// Image probes use the pinned SSRF transport, not global fetch. Keep both
+// transport boundaries offline while exercising the real replacement flow.
+vi.mock("@/lib/ssrf-guard", () => ({ safeFetch }));
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFilesSnapshot: snapshot }));
 vi.mock("@/lib/gen/autofix/repair-generated-files", () => ({
   repairGeneratedFiles: (files: unknown) => ({ files, fixes: [] }),
@@ -60,6 +64,11 @@ describe("prepareVersionImages broken URL replacement", () => {
 
     expect(outcome).toMatchObject({ kind: "prepared", persisted: true, filesRevision: "rev_new" });
     expect(fetchSpy).toHaveBeenCalled();
+    expect(safeFetch).toHaveBeenCalledWith(deadUrl, expect.objectContaining({ method: "HEAD", headersOnly: true }));
+    expect(safeFetch).toHaveBeenCalledWith(
+      "https://images.unsplash.com/photo-live-candidate?w=800",
+      expect.objectContaining({ method: "HEAD", headersOnly: true }),
+    );
     const written = String(write.mock.calls[0]?.[1]);
     expect(written).toContain("photo-live-candidate");
     expect(written).not.toContain("photo-original-broken");

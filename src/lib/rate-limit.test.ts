@@ -27,7 +27,14 @@ vi.mock("@upstash/redis", () => ({
   Redis: class MockRedis {},
 }));
 
-import { RATE_LIMITS, checkRateLimit, getClientId, withRateLimit } from "./rate-limit";
+import {
+  RATE_LIMITS,
+  checkRateLimit,
+  getClientId,
+  memoryRateLimitEntryCountForTests,
+  resetMemoryRateLimitStoreForTests,
+  withRateLimit,
+} from "./rate-limit";
 
 const originalUpstashUrl = process.env.UPSTASH_REDIS_REST_URL;
 const originalUpstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -37,6 +44,7 @@ const originalAllowMemoryProd = process.env.SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_I
 const originalTrustForwardedFor = process.env.SAJTMASKIN_TRUST_X_FORWARDED_FOR;
 
 afterEach(() => {
+  resetMemoryRateLimitStoreForTests();
   ratelimitControl.throwOnConstruct = false;
   vi.clearAllMocks();
   vi.unstubAllEnvs();
@@ -114,6 +122,17 @@ describe("rateLimit", () => {
     expect(RATE_LIMITS["analys:public:attempt"]).toEqual({
       maxRequests: 3,
       windowMs: 10 * 60 * 1000,
+    });
+  });
+
+  it("gives public Unsplash operations explicit provider budgets", () => {
+    expect(RATE_LIMITS["unsplash:search"]).toEqual({
+      maxRequests: 30,
+      windowMs: 60 * 1000,
+    });
+    expect(RATE_LIMITS["unsplash:download"]).toEqual({
+      maxRequests: 60,
+      windowMs: 60 * 1000,
     });
   });
 
@@ -228,6 +247,21 @@ describe("rateLimit", () => {
     await new Promise((resolve) => setTimeout(resolve, 30));
     const allowedAgain = checkRateLimit(client, endpoint, cfg);
     expect(allowedAgain.allowed).toBe(true);
+  });
+
+  it("cleans expired memory buckets on a deterministic interval", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    checkRateLimit("expired", "unit:cleanup", { maxRequests: 1, windowMs: 1 });
+
+    vi.mocked(Date.now).mockReturnValue(2_000);
+    for (let index = 1; index < 128; index += 1) {
+      checkRateLimit(`active-${index}`, "unit:cleanup", {
+        maxRequests: 1,
+        windowMs: 10_000,
+      });
+    }
+
+    expect(memoryRateLimitEntryCountForTests()).toBe(127);
   });
 
   it("returns 429 and rate limit headers in withRateLimit", async () => {

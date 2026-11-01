@@ -2,6 +2,7 @@
  * Shared plan-mode planner wiring for POST /chats/stream and POST /chats/[chatId]/stream.
  */
 import { buildPlannerSystemPrompt } from "@/lib/gen/plan/prompt";
+import { SYSTEM_PROMPT_SEPARATOR } from "@/lib/gen/system-prompt";
 import {
   createGenerationPipeline,
   type PipelineOptions,
@@ -27,7 +28,7 @@ export function computePlanModePlannerPrompts(
   planOrchestration: PlanModePlannerOrchestrationSlice,
 ): { planPreamble: string; planSystemPrompt: string } {
   const planPreamble = buildPlannerSystemPrompt();
-  const planSystemPrompt = `${planPreamble}\n\n---\n\n${planOrchestration.dynamicContext}`;
+  const planSystemPrompt = `${planPreamble}${SYSTEM_PROMPT_SEPARATOR}${planOrchestration.dynamicContext}`;
   return { planPreamble, planSystemPrompt };
 }
 

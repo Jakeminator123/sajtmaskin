@@ -10,6 +10,9 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+const MAX_PROJECT_ID_CHARS = 200;
+const MAX_CHAT_ID_CHARS = 200;
+
 function getOwnerCacheSegment(userId: string | null, sessionId: string | null): string {
   if (userId && sessionId) return `user:${userId}:session:${sessionId}`;
   if (userId) return `user:${userId}`;
@@ -44,7 +47,13 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const body = await request.json();
+    if (!id || id.length > MAX_PROJECT_ID_CHARS) {
+      return NextResponse.json({ success: false, error: "Invalid project ID" }, { status: 400 });
+    }
+    const body = asRecord(await request.json().catch(() => null));
+    if (!body) {
+      return NextResponse.json({ success: false, error: "Invalid request body" }, { status: 400 });
+    }
     const user = await getCurrentUser(request);
     const sessionId = getSessionIdFromRequest(request);
     const ownerKeys = getOwnerCacheSegments(user?.id ?? null, sessionId);
@@ -67,12 +76,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         // Clearing the reference is always allowed.
         payload.chat_id = null;
       } else {
+        if (
+          typeof chatId !== "string" ||
+          !chatId.trim() ||
+          chatId.length > MAX_CHAT_ID_CHARS
+        ) {
+          return NextResponse.json({ success: false, error: "Invalid chat ID" }, { status: 400 });
+        }
         // Cross-tenant guard (P11): never persist a reference to a chat that
         // belongs to another tenant. An unresolved id ("not_found") can't leak
         // anything, so it's allowed through (e.g. a not-yet-persisted chat).
         const ownership = await resolveEngineChatOwnershipForRequest(
           request,
-          String(chatId),
+          chatId,
           sessionId ? { sessionId } : undefined,
         );
         if (ownership === "forbidden") {
@@ -87,6 +103,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       payload.demo_url = resolveInboundPreviewUrl(body as { previewUrl?: unknown; demoUrl?: unknown });
     }
     if (Object.prototype.hasOwnProperty.call(body, "currentCode")) {
+      if (currentCode !== null && currentCode !== undefined && typeof currentCode !== "string") {
+        return NextResponse.json({ success: false, error: "Invalid current code" }, { status: 400 });
+      }
       payload.current_code = currentCode ?? null;
     }
     if (Object.prototype.hasOwnProperty.call(body, "files")) {
@@ -138,7 +157,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "Failed to save project data",
       },
       { status: 500 },
     );

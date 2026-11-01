@@ -74,8 +74,9 @@ vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
 
 const { GET } = await import("./route");
 
-function readinessRequest(chatId = "chat_1") {
-  const req = new Request(`http://localhost/api/engine/chats/${chatId}/readiness`);
+function readinessRequest(chatId = "chat_1", versionId?: string) {
+  const query = versionId ? `?versionId=${encodeURIComponent(versionId)}` : "";
+  const req = new Request(`http://localhost/api/engine/chats/${chatId}/readiness${query}`);
   return { req, ctx: { params: Promise.resolve({ chatId }) } };
 }
 
@@ -137,6 +138,18 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     createEngineVersionErrorLogs.mockResolvedValue(undefined);
     deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
   });
+
+  it.each([
+    ["chatId", "x".repeat(201), undefined],
+    ["versionId", "chat_1", "x".repeat(201)],
+  ])("rejects an oversized %s before tenant lookup", async (_field, chatId, versionId) => {
+    const { req, ctx } = readinessRequest(chatId, versionId);
+    const response = await GET(req, ctx);
+
+    expect(response.status).toBe(400);
+    expect(getEngineChatByIdForRequest).not.toHaveBeenCalled();
+  });
+
   it.each(["pnpm-lock.yaml", "yarn.lock"])("checks the ordinary deploy transformation instead of discarded %s evidence", async (path) => {
     vi.stubEnv("SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX", "");
     vi.stubEnv("DEPLOY_DISABLE_AUTO_FIX", "");
@@ -192,6 +205,7 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
 
     expect(res.status).toBe(500);
     expect(res.headers.get("Retry-After")).toBeNull();
+    expect(await res.json()).toEqual({ error: "Failed to build chat readiness" });
     error.mockRestore();
   });
 

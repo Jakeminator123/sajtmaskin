@@ -30,16 +30,16 @@ import { POST } from "./route";
 
 const PROJECT_ID = "proj_1";
 
-function makeRequest(body: Record<string, unknown>): Request {
+function makeRequest(body: Record<string, unknown> | string): Request {
   return new Request(`http://localhost/api/projects/${PROJECT_ID}/save`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: typeof body === "string" ? body : JSON.stringify(body),
   });
 }
 
-function makeParams() {
-  return { params: Promise.resolve({ id: PROJECT_ID }) };
+function makeParams(id = PROJECT_ID) {
+  return { params: Promise.resolve({ id }) };
 }
 
 type SaveResponse = { success: boolean; error?: string };
@@ -59,6 +59,43 @@ beforeEach(() => {
 });
 
 describe("POST /api/projects/[id]/save — chat ownership guard", () => {
+  it("rejects malformed JSON before ownership reads", async () => {
+    const res = await POST(makeRequest("not-json") as never, makeParams());
+
+    expect(res.status).toBe(400);
+    expect(getProjectByIdForOwner).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-string currentCode before persistence", async () => {
+    const res = await POST(makeRequest({ currentCode: { source: "x" } }) as never, makeParams());
+
+    expect(res.status).toBe(400);
+    expect(saveProjectData).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized project and chat ids before dependent work", async () => {
+    const badProject = await POST(makeRequest({}) as never, makeParams("x".repeat(201)));
+    expect(badProject.status).toBe(400);
+    expect(getCurrentUser).not.toHaveBeenCalled();
+
+    const badChat = await POST(
+      makeRequest({ chatId: "x".repeat(201) }) as never,
+      makeParams(),
+    );
+    expect(badChat.status).toBe(400);
+    expect(resolveEngineChatOwnershipForRequest).not.toHaveBeenCalled();
+    expect(saveProjectData).not.toHaveBeenCalled();
+  });
+
+  it("does not expose persistence failures", async () => {
+    saveProjectData.mockRejectedValue(new Error("postgres://user:secret@private-db/internal"));
+
+    const res = await POST(makeRequest({ files: [] }) as never, makeParams());
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ success: false, error: "Failed to save project data" });
+  });
+
   it("rejects a foreign chatId with 403 and does not persist anything", async () => {
     resolveEngineChatOwnershipForRequest.mockResolvedValue("forbidden");
 

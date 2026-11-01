@@ -19,11 +19,13 @@ import { authorizeWizardRun } from "@/lib/wizard/authorize-wizard-run";
 import { braveWebSearch } from "@/lib/brave-search";
 import { safeFetch } from "@/lib/ssrf-guard";
 import { ALLABOLAG_BASE, resolveAllabolagCompanyUrl } from "./allabolag-url";
+import { readRequestJsonWithLimit } from "@/lib/api/read-limited-body";
 
 export const runtime = "nodejs";
 export const maxDuration = 35;
 
 const ALLABOLAG_PAGE_MAX_BYTES = 1_500_000;
+const MAX_COMPANY_LOOKUP_BODY_BYTES = 8_192;
 
 const requestSchema = z.object({
   wizardRunId: z.string().uuid(),
@@ -193,7 +195,14 @@ export async function POST(req: Request) {
       const botError = requireNotBot(req);
       if (botError) return botError;
 
-      const body = await req.json().catch(() => null);
+      const bodyResult = await readRequestJsonWithLimit<unknown>(
+        req,
+        MAX_COMPANY_LOOKUP_BODY_BYTES,
+      );
+      if (!bodyResult.ok && bodyResult.reason === "too_large") {
+        return NextResponse.json({ error: "Request too large", ...EMPTY_RESULT }, { status: 413 });
+      }
+      const body = bodyResult.ok ? bodyResult.value : null;
       const parsed = requestSchema.safeParse(body);
       if (!parsed.success) {
         return NextResponse.json({ error: "Validation failed", ...EMPTY_RESULT }, { status: 400 });

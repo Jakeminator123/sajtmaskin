@@ -358,10 +358,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
     // SWR poller backs off instead of surfacing a hard 500.
     const degraded = transientDbResponseIfRetryable(err, "[API] versions");
     if (degraded) return degraded;
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
+    console.error("[API] Failed to list versions:", err);
+    return NextResponse.json({ error: "Failed to list versions" }, { status: 500 });
   }
 }
 
@@ -434,10 +432,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ chatId: strin
 
     return NextResponse.json({ error: "Chat not found" }, { status: 404 });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
+    console.error("[API] Failed to update version:", err);
+    return NextResponse.json({ error: "Failed to update version" }, { status: 500 });
   }
 }
 
@@ -496,9 +492,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       ...previewUrlField(null),
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
+    console.error("[API] Failed to restore version:", err);
+    return NextResponse.json({ error: "Failed to restore version" }, { status: 500 });
   }
 }

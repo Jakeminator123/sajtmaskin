@@ -31,6 +31,7 @@ describe("admin navigation", () => {
       "/admin/genereringar",
       "/admin/priser",
       "/admin/kostnadsfri",
+      "/admin/anvandare",
       "/admin/data",
       "/admin/miljo",
       "/admin/loggar",

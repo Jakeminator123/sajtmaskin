@@ -70,6 +70,8 @@ export type VersionStatusApiResponse =
       retryable?: false;
     };
 
+const MAX_STATUS_ID_CHARS = 200;
+
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   return withRateLimit(req, "engine:version-status", () => handleGET(req, ctx));
 }
@@ -80,9 +82,14 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
     const url = new URL(req.url);
     const versionId = url.searchParams.get("versionId")?.trim();
 
-    if (!versionId) {
+    if (
+      !chatId ||
+      chatId.length > MAX_STATUS_ID_CHARS ||
+      !versionId ||
+      versionId.length > MAX_STATUS_ID_CHARS
+    ) {
       return NextResponse.json<VersionStatusApiResponse>(
-        { ok: false, error: "versionId query parameter is required." },
+        { ok: false, error: "Invalid version status parameters." },
         { status: 400 },
       );
     }
@@ -314,7 +321,7 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
     return NextResponse.json<VersionStatusApiResponse>(
       {
         ok: false,
-        error: err instanceof Error ? err.message : "Unknown error",
+        error: "Failed to load version status",
       },
       { status: 500 },
     );

@@ -80,44 +80,61 @@ import { triggerServerVerification } from "@/lib/gen/verify/server-verify";
 export const runtime = "nodejs";
 export const maxDuration = 950;
 
+// The debug client forwards verify-lane output verbatim. Match
+// preview-host/guest/lib/process.js so valid build failures remain repairable.
+const MAX_REPAIR_OUTPUT_CHARS = 256_000;
+const MAX_REPAIR_DETAIL_CHARS = 4_000;
+const MAX_REPAIR_ERROR_LINES = 12;
+
 const qualityGateFailureSchema = z.object({
   check: z.enum(["typecheck", "build", "lint"]),
-  exitCode: z.number(),
-  output: z.string(),
-  errorCount: z.number().optional(),
-  durationMs: z.number().nullable().optional(),
+  exitCode: z.number().int(),
+  output: z.string().max(MAX_REPAIR_OUTPUT_CHARS),
+  errorCount: z.number().int().nonnegative().optional(),
+  durationMs: z.number().nonnegative().nullable().optional(),
 });
 
 const repairContextSchema = z.object({
-  qualityGate: z.array(qualityGateFailureSchema).optional(),
+  qualityGate: z.array(qualityGateFailureSchema).max(3).optional(),
   qualityGateMeta: z
     .object({
-      verifyLaneDurationMs: z.number().nullable().optional(),
-      firstFailureCheck: z.string().nullable().optional(),
-      jobStartedAt: z.string().nullable().optional(),
-      jobFinishedAt: z.string().nullable().optional(),
+      verifyLaneDurationMs: z.number().nonnegative().nullable().optional(),
+      firstFailureCheck: z.enum(["typecheck", "build", "lint"]).nullable().optional(),
+      jobStartedAt: z.string().max(64).nullable().optional(),
+      jobFinishedAt: z.string().max(64).nullable().optional(),
     })
     .optional(),
   visualQA: z
-    .array(z.object({ check: z.string(), score: z.number(), detail: z.string() }))
+    .array(z.object({
+      check: z.string().max(100),
+      score: z.number().min(0).max(100),
+      detail: z.string().max(MAX_REPAIR_DETAIL_CHARS),
+    }))
+    .max(6)
     .optional(),
-  previousVersionErrors: z.array(z.string()).optional(),
-  currentVersionErrors: z.array(z.string()).optional(),
+  previousVersionErrors: z
+    .array(z.string().max(MAX_REPAIR_DETAIL_CHARS))
+    .max(MAX_REPAIR_ERROR_LINES)
+    .optional(),
+  currentVersionErrors: z
+    .array(z.string().max(MAX_REPAIR_DETAIL_CHARS))
+    .max(MAX_REPAIR_ERROR_LINES)
+    .optional(),
   scaffoldRetry: z
     .object({
-      labels: z.array(z.string()).optional(),
-      currentScaffoldId: z.string().optional(),
-      currentScaffoldLabel: z.string().optional(),
-      suggestedScaffoldId: z.string().optional(),
-      suggestedScaffoldLabel: z.string().optional(),
-      reason: z.string(),
+      labels: z.array(z.string().max(200)).max(20).optional(),
+      currentScaffoldId: z.string().max(200).optional(),
+      currentScaffoldLabel: z.string().max(200).optional(),
+      suggestedScaffoldId: z.string().max(200).optional(),
+      suggestedScaffoldLabel: z.string().max(200).optional(),
+      reason: z.string().max(MAX_REPAIR_DETAIL_CHARS),
     })
     .nullable()
     .optional(),
 });
 
 const requestSchema = z.object({
-  versionId: z.string().min(1),
+  versionId: z.string().min(1).max(200),
   repairContext: repairContextSchema,
 });
 
@@ -936,15 +953,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       );
     }
     if (dbConfigured && internalVersionId && !staleBaseNoOp) {
-      await failAfterRepair(
-        internalVersionId,
-        `Repair crashed: ${err instanceof Error ? err.message : "unknown"}`,
-      );
+      await failAfterRepair(internalVersionId, "Repair crashed unexpectedly.");
     }
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Repair failed" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Repair failed" }, { status: 500 });
   } finally {
     if (leaseRunId && internalVersionId) {
       await releaseVersionLease(internalVersionId, leaseRunId).catch(() => {});

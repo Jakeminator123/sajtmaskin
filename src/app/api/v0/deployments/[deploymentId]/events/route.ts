@@ -17,6 +17,7 @@ export const maxDuration = 120;
 
 const TERMINAL_STATUSES = new Set(["ready", "error", "cancelled"]);
 const POLL_INTERVAL_MS = 4000;
+const MAX_DEPLOYMENT_ID_CHARS = 200;
 
 export async function GET(
   req: NextRequest,
@@ -24,6 +25,12 @@ export async function GET(
 ) {
   return withRateLimit(req, "v0:deployments-events", async () => {
     const { deploymentId } = await params;
+    if (!deploymentId || deploymentId.length > MAX_DEPLOYMENT_ID_CHARS) {
+      return new Response(JSON.stringify({ error: "Invalid deployment id" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
     const result = await db
       .select()
