@@ -169,11 +169,10 @@ export async function deleteAdminUser(
   const parsed = deleteAdminUserSchema.parse(input);
   await assertNoProtectedBillingRows("Raderingen", { kind: "userIds", userIds: [parsed.userId] });
   await db.transaction(async (tx) => {
-    // app_projects has no user FK. Serialize its writes during this short delete
-    // so a concurrent project creation cannot leave an orphaned project owner.
+    // Project creation/claim takes KEY SHARE on this same user row and checks
+    // existence in its write transaction. FOR UPDATE below serializes deletion.
     await tx.execute(sql`SET LOCAL lock_timeout = '2s'`);
     await tx.execute(sql`SET LOCAL statement_timeout = '5s'`);
-    await tx.execute(sql`LOCK TABLE app_projects IN SHARE MODE`);
     const [user] = await tx
       .select({ id: users.id, email: users.email })
       .from(users)
