@@ -102,6 +102,7 @@ export function PreviewPanel({
   awaitingInput = false,
   awaitingInputQuestion = null,
   awaitingInputOptions = [],
+  awaitingPlanApproval = false,
   previewBuildError = null,
   previewProdBuild = null,
   previewPending = false,
@@ -987,6 +988,7 @@ export function PreviewPanel({
         awaitingInput={awaitingInput}
         awaitingInputQuestion={awaitingInputQuestion}
         awaitingInputOptions={awaitingInputOptions}
+        awaitingPlanApproval={awaitingPlanApproval}
         previewPending={previewPending}
         previewBuildError={previewBuildError}
         previewLifecycle={previewLifecycle}

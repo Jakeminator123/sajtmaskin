@@ -83,4 +83,19 @@ describe("POST /api/ai/prompt-assist", () => {
     expect(response.status).toBe(502);
     await expect(response.json()).resolves.toEqual({ error: "rewrite_char_limit" });
   });
+
+  it("does not expose provider failures", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    generateText.mockRejectedValue(new Error("provider key secret"));
+
+    const response = await POST(request({ draft: "cafe malmo" }));
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({ error: "rewrite_failed" });
+    expect(error).toHaveBeenCalledWith(
+      "[API/ai/prompt-assist] Rewrite failed:",
+      expect.any(Error),
+    );
+    error.mockRestore();
+  });
 });

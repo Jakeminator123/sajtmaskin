@@ -80,6 +80,15 @@ describe("POST /api/wizard/quick-scrape", () => {
     expect(quickScrapeWebsite).not.toHaveBeenCalled();
   });
 
+  it("rejects an oversized body before scraping", async () => {
+    const req = makeRequest({ url: "https://sajtstudio.se" });
+    req.headers.set("content-length", "4097");
+    const response = await POST(req);
+
+    expect(response.status).toBe(413);
+    expect(quickScrapeWebsite).not.toHaveBeenCalled();
+  });
+
   it("returns the scraper result and records completion telemetry", async () => {
     const data = {
       title: "Sajtstudio",
@@ -108,15 +117,15 @@ describe("POST /api/wizard/quick-scrape", () => {
     );
   });
 
-  it("returns a stable failure envelope when scraping fails", async () => {
-    quickScrapeWebsite.mockRejectedValue(new Error("Blockerad URL"));
+  it("returns a stable failure envelope without exposing scraper details", async () => {
+    quickScrapeWebsite.mockRejectedValue(new Error("connect ECONNREFUSED 10.0.0.5:443"));
 
     const response = await POST(makeRequest({ url: "http://localhost" }));
 
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ success: false, error: "Blockerad URL" });
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ success: false, error: "Website scrape failed" });
     expect(debugLog).toHaveBeenCalledWith("WIZARD", "Quick scrape failed", {
-      error: "Blockerad URL",
+      error: "connect ECONNREFUSED 10.0.0.5:443",
     });
   });
 });

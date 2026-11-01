@@ -109,6 +109,10 @@ describe("OAuth state binding", () => {
         flow.payload.issuedAt + OAUTH_STATE_MAX_AGE_SECONDS * 1_000 + 1,
       ),
     ).toEqual({ ok: false, reason: "state_expired" });
+    expect(parseOAuthState("google", `${"x".repeat(4_097)}.sig`)).toEqual({
+      ok: false,
+      reason: "state_malformed",
+    });
   });
 
   it("rejects replay after the one-time host cookie is consumed", () => {

@@ -5,6 +5,8 @@ const getSessionIdFromRequest = vi.hoisted(() => vi.fn());
 const getActivePreviewSessionAsync = vi.hoisted(() => vi.fn());
 const applyCaptureRequestGate = vi.hoisted(() => vi.fn());
 const launchBrowser = vi.hoisted(() => vi.fn());
+const newPage = vi.hoisted(() => vi.fn());
+const pageEvaluate = vi.hoisted(() => vi.fn());
 const pageGoto = vi.hoisted(() => vi.fn());
 const pageUrl = vi.hoisted(() => vi.fn());
 
@@ -48,14 +50,16 @@ describe("POST /api/inspector-element-map", () => {
     getSessionIdFromRequest.mockReturnValue(null);
     pageGoto.mockResolvedValue(null);
     pageUrl.mockReturnValue("https://vm.fly.dev/chat_1");
+    pageEvaluate.mockResolvedValue([]);
+    newPage.mockResolvedValue({
+      goto: pageGoto,
+      url: pageUrl,
+      waitForLoadState: vi.fn().mockResolvedValue(undefined),
+      waitForFunction: vi.fn().mockResolvedValue(undefined),
+      evaluate: pageEvaluate,
+    });
     launchBrowser.mockResolvedValue({
-      newPage: vi.fn().mockResolvedValue({
-        goto: pageGoto,
-        url: pageUrl,
-        waitForLoadState: vi.fn().mockResolvedValue(undefined),
-        waitForFunction: vi.fn().mockResolvedValue(undefined),
-        evaluate: vi.fn().mockResolvedValue([]),
-      }),
+      newPage,
       close: vi.fn().mockResolvedValue(undefined),
     });
   });
@@ -109,6 +113,22 @@ describe("POST /api/inspector-element-map", () => {
 
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual(expect.objectContaining({ staleIdentity: true }));
+    expect(launchBrowser).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-string URL without throwing", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user_1" });
+
+    const res = await POST(
+      new Request("http://localhost/api/inspector-element-map", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: 123 }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual(expect.objectContaining({ error: "Missing url." }));
     expect(launchBrowser).not.toHaveBeenCalled();
   });
 
@@ -185,6 +205,40 @@ describe("POST /api/inspector-element-map", () => {
       pageGoto.mock.invocationCallOrder[0]!,
     );
     expect(pageUrl).toHaveBeenCalled();
+  });
+
+  it("bounds hostile viewport and element-count values before Chromium work", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user_1" });
+    getActivePreviewSessionAsync.mockResolvedValue({
+      previewSessionId: "ps_bounds",
+      lifecycleToken: "life_bounds",
+      versionId: "v_bounds",
+      previewUrl: "https://vm.fly.dev/chat_bounds",
+    });
+    pageUrl.mockReturnValue("https://vm.fly.dev/chat_bounds");
+
+    const response = await POST(
+      new Request("http://localhost/api/inspector-element-map", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          url: "https://vm.fly.dev/chat_bounds",
+          viewportWidth: 100_000,
+          viewportHeight: -5,
+          maxElements: 50_000,
+          chatId: "chat_bounds",
+          versionId: "v_bounds",
+          previewSessionId: "ps_bounds",
+          lifecycleToken: "life_bounds",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(newPage).toHaveBeenCalledWith(expect.objectContaining({
+      viewport: { width: 3840, height: 240 },
+    }));
+    expect(pageEvaluate).toHaveBeenCalledWith(expect.any(Function), 1000);
   });
 
   it("rejects a redirect away from the attested preview before caching", async () => {

@@ -12,6 +12,7 @@
  * Both are asserted here so they cannot come back.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
 
 const requireAdminAccess = vi.hoisted(() => vi.fn());
 const flushRedisCache = vi.hoisted(() => vi.fn());
@@ -128,7 +129,7 @@ vi.mock("@/lib/db/services/shared", () => ({
   getUploadsDir: () => "/tmp/sajtmaskin-uploads-test-does-not-exist",
 }));
 
-const { POST } = await import("./route");
+const { GET, POST } = await import("./route");
 
 const ADMIN_EMAIL = "riktig.admin@sajtmaskin.se";
 
@@ -184,7 +185,45 @@ beforeEach(() => {
   getRedisInfo.mockResolvedValue({ connected: false });
 });
 
+describe("GET /api/admin/database", () => {
+  it("returns the complete database, Redis and storage summary", async () => {
+    const response = await GET(
+      new NextRequest("http://localhost/api/admin/database"),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      stats: {
+        database: {
+          users: 0,
+          projects: 0,
+          templateCache: 0,
+          templateCacheExpired: 0,
+        },
+        redis: { connected: false },
+        dbFileSize: "1 MB",
+      },
+    });
+    expect(getRedisInfo).toHaveBeenCalledOnce();
+  });
+});
+
 describe("POST /api/admin/database — Vercel self-destruct is gone", () => {
+  it.each([null, []])("rejects invalid action payload without deleting data: %j", async (body) => {
+    const response = await POST(
+      new Request("http://localhost/api/admin/database", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }) as never,
+    );
+
+    expect(response.status).toBe(400);
+    expect(deleteCalls).toHaveLength(0);
+    expect(flushRedisCache).not.toHaveBeenCalled();
+  });
+
   it("retires the bulk Vercel cleanup action instead of deleting projects", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
@@ -197,6 +236,19 @@ describe("POST /api/admin/database — Vercel self-destruct is gone", () => {
     expect(body.error).toMatch(/borttagen/i);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+
+  it.each([-1, 0, 1.5, 3651, "30"])(
+    "rejects unsafe anonymous-project cutoff days before database deletion: %j",
+    async (days) => {
+      const response = await POST(
+        actionRequest({ action: "cleanup-anonymous-projects", days }),
+      );
+
+      expect(response.status).toBe(400);
+      expect(deleteCalls).toHaveLength(0);
+      expect(guardQueries).toHaveLength(0);
+    },
+  );
 
   it("deletes tables in FK-safe order (children before app_projects, users last)", async () => {
     // Bugbot medium on #611: mega-cleanup used to fire the same deletes

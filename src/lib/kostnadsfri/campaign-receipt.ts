@@ -3,6 +3,7 @@ import { SECRETS } from "@/lib/config";
 
 export const KOSTNADSFRI_CAMPAIGN_COOKIE = "sajtmaskin_kostnadsfri_campaign";
 export const KOSTNADSFRI_CAMPAIGN_RECEIPT_MAX_AGE = 7 * 24 * 60 * 60;
+const MAX_CAMPAIGN_RECEIPT_CHARS = 4_096;
 
 export type CampaignReceiptPayload = {
   slug: string;
@@ -50,7 +51,7 @@ function parseSignedReceipt(
   receipt: string | null | undefined,
   now: Date,
 ): CampaignReceiptPayload | null {
-  if (!receipt) return null;
+  if (!receipt || receipt.length > MAX_CAMPAIGN_RECEIPT_CHARS) return null;
   const [encoded, signature, extra] = receipt.split(".");
   if (!encoded || !signature || extra) return null;
   try {

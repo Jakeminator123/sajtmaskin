@@ -87,9 +87,7 @@ export function normalizeProviderError(err: unknown): ProviderErrorInfo {
     return {
       status: 401,
       code: "unauthorized",
-      message: rawMessage
-        ? `${rawMessage} – ${setup}`
-        : `API-nyckel saknas eller är ogiltig. ${setup}`,
+      message: `API-nyckel saknas eller är ogiltig. ${setup}`,
       retryAfter,
     };
   }
@@ -103,10 +101,14 @@ export function normalizeProviderError(err: unknown): ProviderErrorInfo {
     };
   }
 
+  const status = statusHint ?? 500;
   return {
-    status: statusHint ?? 500,
+    status,
     code: "error",
-    message: rawMessage || "Okänt fel",
+    message:
+      status >= 500
+        ? "Ett oväntat fel uppstod. Försök igen."
+        : rawMessage || "Ogiltig begäran.",
     retryAfter,
   };
 }

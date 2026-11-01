@@ -19,13 +19,19 @@ const createPromptSchema = z.object({
     .string()
     .min(1, "Prompt is required")
     .max(MAX_PROMPT_HANDOFF_CHARS, `Prompt too long (max ${MAX_PROMPT_HANDOFF_CHARS} chars)`),
-  source: z.string().optional(),
-  projectId: z.string().optional(),
+  source: z.string().max(64).optional(),
+  projectId: z.string().max(128).optional(),
   payload: auditHandoffPayloadSchema.optional(),
   auditBuildAttemptId: z.string().uuid().optional(),
   auditBuildOwnerId: z.string().min(1).max(256).optional(),
   /** Fail-closed MiniWizard receipt; stored on the existing handoff payload. */
-  wizardSnapshot: z.record(z.string(), z.unknown()).optional(),
+  wizardSnapshot: z
+    .record(z.string(), z.unknown())
+    .refine(
+      (snapshot) => JSON.stringify(snapshot).length <= 16_384,
+      "Wizard snapshot is too large",
+    )
+    .optional(),
   /** Kostnadsfri flow only: the invited slug, so "skapad" is recorded server-side. */
   kostnadsfriSlug: z
     .string()
@@ -226,10 +232,12 @@ export async function POST(request: NextRequest) {
 
       return attachSessionCookie(NextResponse.json({ success: true, promptId: created.id }));
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Unknown error";
       console.error("[API/prompts] Failed to create prompt handoff:", error);
       return attachSessionCookie(
-        NextResponse.json({ success: false, error: message }, { status: 500 }),
+        NextResponse.json(
+          { success: false, error: "Kunde inte skapa promptöverlämningen" },
+          { status: 500 },
+        ),
       );
     }
   });

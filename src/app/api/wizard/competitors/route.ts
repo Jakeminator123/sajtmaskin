@@ -24,6 +24,7 @@ import { FEATURES, SECRETS } from "@/lib/config";
 import { braveWebSearch } from "@/lib/brave-search";
 import { withWizardRouteBudget } from "@/lib/wizard/route-budget";
 import { isWizardAbortError, raceWizardDeadline } from "@/lib/wizard/route-deadline";
+import { readRequestJsonWithLimit } from "@/lib/api/read-limited-body";
 
 export const runtime = "nodejs";
 /** Keep as a numeric literal — Next bakes `maxDuration` at build time. Do not raise without p95/p99. */
@@ -33,6 +34,7 @@ const WIZARD_WORKLOAD_ID = "wizard_enrich_competitors";
 const COMPETITORS_MODEL =
   getWorkloadDefaultModelFromManifest(WIZARD_WORKLOAD_ID) ?? "openai/gpt-6.1-sol";
 const RESPONSES_MODEL = COMPETITORS_MODEL.replace(/^openai\//, "");
+const MAX_COMPETITORS_BODY_BYTES = 8_192;
 
 const requestSchema = z.object({
   wizardRunId: z.string().uuid(),
@@ -133,7 +135,15 @@ export async function POST(req: Request) {
             return botError;
           }
 
-          const body = await req.json().catch(() => null);
+          const bodyResult = await readRequestJsonWithLimit<unknown>(
+            req,
+            MAX_COMPETITORS_BODY_BYTES,
+          );
+          if (!bodyResult.ok && bodyResult.reason === "too_large") {
+            setOutcome("client_error");
+            return NextResponse.json({ error: "Request too large", ...EMPTY }, { status: 413 });
+          }
+          const body = bodyResult.ok ? bodyResult.value : null;
           const parsed = requestSchema.safeParse(body);
           if (!parsed.success) {
             setOutcome("client_error");

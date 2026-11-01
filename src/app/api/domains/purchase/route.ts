@@ -30,6 +30,7 @@ import { withRateLimit } from "@/lib/rate-limit";
 import { resolveDomainOffer } from "@/lib/domains/registrar";
 import { sekToOre } from "@/lib/domains/pricing";
 import { resolveChatProjectContext } from "@/lib/domains/resolve-vercel-project";
+import { normalizeDomainHostname } from "@/lib/live-site-url";
 import {
   DomainAlreadyOrderedError,
   attachStripeSession,
@@ -43,8 +44,7 @@ import {
 } from "@/lib/kostnadsfri/campaign-account";
 
 export const maxDuration = 20;
-
-const DOMAIN_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9-]+)+$/;
+const MAX_DOMAIN_RESOURCE_ID_CHARS = 128;
 
 const stripe = SECRETS.stripeSecretKey ? new Stripe(SECRETS.stripeSecretKey) : null;
 
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Du måste vara inloggad." }, { status: 401 });
     }
     const orderId = req.nextUrl.searchParams.get("orderId")?.trim();
-    if (!orderId) {
+    if (!orderId || orderId.length > MAX_DOMAIN_RESOURCE_ID_CHARS) {
       return NextResponse.json({ error: "orderId krävs." }, { status: 400 });
     }
     // Scoped to the caller: order ids are short and an unscoped read would let
@@ -113,13 +113,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Ogiltig begäran." }, { status: 400 });
     }
 
-    const domain = String(body.domain ?? "").trim().toLowerCase();
-    const chatId = String(body.chatId ?? "").trim();
+    const domainInput = typeof body.domain === "string" ? body.domain.trim().toLowerCase() : "";
+    const domain = normalizeDomainHostname(domainInput);
+    const chatId = typeof body.chatId === "string" ? body.chatId.trim() : "";
 
-    if (!domain || !DOMAIN_RE.test(domain)) {
+    if (!domain || domain !== domainInput || !domain.includes(".")) {
       return NextResponse.json({ error: "Ogiltigt domännamn." }, { status: 400 });
     }
-    if (!chatId) {
+    if (!chatId || chatId.length > MAX_DOMAIN_RESOURCE_ID_CHARS) {
       return NextResponse.json({ error: "chatId krävs." }, { status: 400 });
     }
 

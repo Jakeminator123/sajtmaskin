@@ -2,8 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { withRateLimit } from "@/lib/rate-limit";
+import { readRequestFormDataWithLimit } from "@/lib/api/read-limited-body";
 
 const CONTROL_CHARS_EXCEPT_WHITESPACE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
+const MAX_PDF_SIZE = 10 * 1024 * 1024;
+const MAX_PDF_UPLOAD_BODY_BYTES = 11 * 1024 * 1024;
+const MAX_PDF_FILENAME_CHARS = 255;
+
+function isUploadedFile(value: FormDataEntryValue | null): value is File {
+  return (
+    value !== null &&
+    typeof value !== "string" &&
+    typeof value.name === "string" &&
+    typeof value.type === "string" &&
+    typeof value.size === "number" &&
+    typeof value.arrayBuffer === "function"
+  );
+}
 
 /**
  * Text Extraction API
@@ -32,11 +47,23 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const formData = await request.formData();
-      const file = formData.get("file") as File;
+      const body = await readRequestFormDataWithLimit(request, MAX_PDF_UPLOAD_BODY_BYTES);
+      if (!body.ok) {
+        return NextResponse.json(
+          { success: false, error: "Uppladdningen är för stor" },
+          { status: 413 },
+        );
+      }
 
-      if (!file) {
+      const { formData } = body;
+      const file = formData.get("file");
+
+      if (!isUploadedFile(file)) {
         return NextResponse.json({ success: false, error: "Ingen fil bifogad" }, { status: 400 });
+      }
+
+      if (!file.name || file.name.length > MAX_PDF_FILENAME_CHARS) {
+        return NextResponse.json({ success: false, error: "Ogiltigt filnamn" }, { status: 400 });
       }
 
       // Check file type
@@ -48,8 +75,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Check file size (max 10MB for PDFs)
-      const maxSize = 10 * 1024 * 1024;
-      if (file.size > maxSize) {
+      if (file.size > MAX_PDF_SIZE) {
         return NextResponse.json(
           { success: false, error: "Filen är för stor (max 10MB)" },
           { status: 400 },
@@ -98,7 +124,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      console.info(`[Text/Extract] Extracted ${extractedText.length} chars from ${file.name}`);
+      console.info(`[Text/Extract] Extracted ${extractedText.length} chars`);
 
       return NextResponse.json({
         success: true,
@@ -107,9 +133,11 @@ export async function POST(request: NextRequest) {
         charCount: extractedText.length,
       });
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Okänt fel";
       console.error("[API/Text/Extract] Error:", error);
-      return NextResponse.json({ success: false, error: message }, { status: 500 });
+      return NextResponse.json(
+        { success: false, error: "Kunde inte läsa PDF-filen" },
+        { status: 500 },
+      );
     }
   });
 }

@@ -91,6 +91,11 @@ describe("generateBackofficeFiles", () => {
     ]);
     expect(generated.envExample).toContain("BACKOFFICE_PASSWORD=säker-lösenfras");
     expect(generated.setupInstructions).toContain("lösenordet är redan satt");
+    const authRoute = generated.files.find(
+      (file) => file.path === "app/api/backoffice/auth/route.ts",
+    )?.content;
+    expect(authRoute).toContain("const MAX_TRACKED_IPS = 10_000;");
+    expect(authRoute).toContain('typeof (body as { password?: unknown }).password !== "string"');
   });
 
   it("matches the pre-split master output byte for byte", () => {
@@ -101,13 +106,13 @@ describe("generateBackofficeFiles", () => {
       generateBackofficeFiles(populatedManifest, "säker-lösenfras"),
     ];
 
-    // Golden hashes from the unsplit implementation on master eb7b1cc.
+    // Golden hashes for the complete generated artifact.
     // Change them only together with an intentional generator behavior change.
     expect(cases.map(digest)).toEqual([
-      "6632714599f26ea5f39d8f4faf4deed695d7c3b2f43b44672d6ae8802a082cdd",
-      "519d9af0b7d99bdd3c3c10d4bcc63c616ea29e0d1bf893263f83cff21a150740",
-      "43371df00ea434947ce90b0c983df1a570edf31deb6049081ee8e1754209cc2b",
-      "450836aee47bf989d54804c660781240dd07f4a0a379ae61bc2d759865b3153b",
+      "db8eadbcddca10c3113baa90ee4b6940141e7456f07002815eebb1e73a7328fb",
+      "4cc20cc51a56361aed4e47a792be83f456ea1d646117e15c403e36de424245ab",
+      "8ec642e61d99c486fa5c433b921519fee40e7ecd4f1c92168023bf4cdae11960",
+      "74eb446a604282c4965cf3f0eca4f656a73037ec94a97eccd8fc8353832516e3",
     ]);
   });
 });

@@ -4,7 +4,9 @@ import {
   buildUnsplashSearchCandidates,
   inferUnsplashOrientationFromUrl,
 } from "@/lib/images/unsplash-query-fallback";
+import { safeFetch } from "@/lib/ssrf-guard";
 import { debugLog } from "@/lib/utils/debug";
+import { urlForLog } from "@/lib/utils/url-for-log";
 
 /**
  * Image URL Validator
@@ -370,27 +372,16 @@ async function fetchStatusOnce(
   init: RequestInit,
   timeoutMs: number,
 ): Promise<number | "error"> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, {
+    const res = await safeFetch(url, {
       ...init,
-      signal: controller.signal,
+      timeoutMs,
+      // Some image hosts ignore Range. We only need status, never image bytes.
+      headersOnly: true,
     });
-    // Avbryt body-streamen direkt så vi inte buffrar hela svaret i minne
-    // när servern ignorerar Range-headern på GET-fallback (vissa CDN gör det
-    // och returnerar full bild på 200KB-2MB istället för 1KB). Vi behöver
-    // bara status-koden.
-    try {
-      await res.body?.cancel();
-    } catch {
-      // ignore — vi har redan vad vi behöver
-    }
     return res.status;
   } catch {
     return "error";
-  } finally {
-    clearTimeout(timer);
   }
 }
 
@@ -438,7 +429,7 @@ async function headCheck(url: string): Promise<number | "error"> {
     }
   }
   if (result === "error" || (typeof result === "number" && result >= 400)) {
-    console.warn(`[image-validator] Broken image: ${url} (status: ${result})`);
+    console.warn(`[image-validator] Broken image: ${urlForLog(url)} (status: ${result})`);
   }
   return result;
 }

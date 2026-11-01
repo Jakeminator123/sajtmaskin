@@ -169,4 +169,17 @@ describe("GET /api/engine/chats/[chatId]", () => {
 
     expect(response.status).toBe(404);
   });
+
+  it("does not expose chat repository failures", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    getEngineChatByIdForRequest.mockRejectedValue(new Error("database host secret"));
+
+    const response = await GET(new Request("https://example.com/api/engine/chats/chat_1"), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({ error: "Failed to load chat" });
+    error.mockRestore();
+  });
 });
