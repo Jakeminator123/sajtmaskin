@@ -68,11 +68,36 @@ function getSslMode(connStr: string): string | null {
   }
 }
 
-function resolvePoolSslConfig(connStr: string): false | { rejectUnauthorized: boolean } {
+/** @internal exported for TLS configuration tests; this trust is scoped to the DB pool. */
+export function resolvePoolSslConfig(
+  connStr: string,
+  env: Record<string, string | undefined> = process.env,
+): false | { rejectUnauthorized: boolean; ca?: string } {
   const configuredRejectUnauthorized = parseBooleanEnv(
-    process.env.DB_SSL_REJECT_UNAUTHORIZED,
+    env.DB_SSL_REJECT_UNAUTHORIZED,
   );
   const sslMode = getSslMode(connStr);
+  const ca = env.DB_SSL_CA_CERT?.replace(/\\n/g, "\n").trim();
+
+  if (ca) {
+    if (sslMode === "disable" || configuredRejectUnauthorized === false) {
+      throw new Error("DB_SSL_CA_CERT requires TLS certificate verification to remain enabled.");
+    }
+    let url: URL;
+    try {
+      url = new URL(connStr);
+    } catch {
+      throw new Error("DB_SSL_CA_CERT requires a valid database connection URL.");
+    }
+    // pg parses URL SSL inputs after the Pool options, replacing the entire ssl
+    // object. Reject mixed owners instead of silently losing CA/hostname checks.
+    // sslmode is safe here because cleanConnectionString removes it below.
+    const conflictingInputs = ["ssl", "sslcert", "sslkey", "sslrootcert", "sslnegotiation"];
+    if (conflictingInputs.some((key) => url.searchParams.has(key))) {
+      throw new Error("DB_SSL_CA_CERT cannot be combined with SSL inputs in the database URL (except sslmode).");
+    }
+    return { ca, rejectUnauthorized: true };
+  }
 
   if (sslMode === "disable") {
     return false;
@@ -102,7 +127,8 @@ function resolvePoolSslConfig(connStr: string): false | { rejectUnauthorized: bo
 }
 
 // Clean connection string for Supabase pooler compatibility
-function cleanConnectionString(connStr: string): string {
+/** @internal exported to verify the final pg connection options without connecting. */
+export function cleanConnectionString(connStr: string): string {
   try {
     const url = new URL(connStr);
     // Remove sslmode from search params - we handle it via ssl option

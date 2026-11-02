@@ -256,6 +256,8 @@ export const serverSchema = z.object({
   LOG_PROMPTS: z.string().optional(),
   CSP_ENFORCE: z.string().optional(),
   DB_SSL_REJECT_UNAUTHORIZED: z.string().optional(),
+  /** PEM CA for the app's Postgres pool; supplying it requires strict TLS. */
+  DB_SSL_CA_CERT: z.string().optional(),
   AUTH_DEBUG: z.string().optional(),
   DEBUG: z.string().optional(),
   SAJTMASKIN_DEV_LOG: z.string().optional(),

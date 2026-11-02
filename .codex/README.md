@@ -12,18 +12,19 @@ vinner. Modellregler och ChatGPT-webbens granskningsmandat:
 Värdena ägs av `.codex/config.toml`. Ändras de där ska listan ändras i samma
 diff — `npm run workflow:contract` jämför filerna.
 
-- `approval_policy = "on-request"` — **den enda kvarvarande grinden.** Codex
-  frågar innan ett kommando körs. Sänk den aldrig till `never`.
-- `sandbox_mode = "danger-full-access"` — ägarbeslut 2026-09-11. Windows-sandboxen
-  är opålitlig här och en halvt fungerande sandbox ger falsk trygghet; skyddet
-  ligger hos godkännandesteget och repots grindar (git-hooks, `verify:pr`,
-  PR-grinden), inte processisolering.
+- `approval_policy = "on-request"` — behåll denna projektpolicy. Den betyder
+  inte godkännande före varje kommando; när och hur godkännande krävs avgörs
+  av den effektiva sessionspolicyn. Sänk den aldrig till `never`.
+- `sandbox_mode = "danger-full-access"` — projektinställning enligt ägarbeslut
+  2026-09-11, inte ett löfte om en startad sessions behörigheter. Repots
+  mandat och grindar (git-hooks, `verify:pr`, PR-grinden) gäller fortfarande.
 - `web_search = "live"` — färska svar före cachens säkerhet.
 - `model_verbosity = "low"` — korta svar.
-- Gäller nya Codex-uppgifter; en startad uppgift med host-managed sandbox kan
-  fortfarande kräva värdens godkännanden. Branch-, worktree-, verifierings- och
-  destructive-action-reglerna gäller alltid. Autentisering och tokens ligger
-  utanför repot.
+- Värden kan ersätta projektets inställningar med en hanterad sandbox och
+  automatisk eller mänsklig godkännandegranskning. Läs aktuell sessionspolicy;
+  anta aldrig att dessa repovärden ger full åtkomst eller en mänsklig fråga.
+  Branch-, worktree-, verifierings- och destructive-action-reglerna gäller alltid.
+  Autentisering och tokens ligger utanför repot.
 
 ## Buggpass före push
 

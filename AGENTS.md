@@ -28,8 +28,8 @@ Verktyg: [Cursor](.cursor/README.md), [Codex](.codex/README.md), [Claude](.claud
 
 ## Arbetsregel
 
-- Läs `npm run inbox` vid start; `npm run hooks:install` vid färsk clone eller
-  workflowändring (främmande hookkonflikt är stopp).
+- `npm run inbox` rensar/skriver. Read-only: läs inkorgen.
+- `npm run hooks:install` vid ny clone/hookändring; främmande hookkonflikt stoppar.
 - Jobba i den öppna checkouten och bevara andras arbete. Git-mandat, förbud och
   worktree: `git.mdc`. Ändringsflöde: `workflow.mdc`.
 - Före push: `npm run verify:pr -- --plan` + riktade kontroller; full regression

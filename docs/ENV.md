@@ -184,6 +184,27 @@ Appen läser alltid **`POSTGRES_URL`** (resolver: [`src/lib/db/env.ts`](../src/l
 - **Guard:** `npm run db:check-target -- --expect=dev|prod` verifierar att processens `POSTGRES_URL` pekar på rätt projekt och skriver en **sanitiserad** identitet (miljö + host + db + project ref — aldrig lösenord eller hela connection-strängen). CI kör guarden mot `POSTGRES_URL_PROD` före read-only ledgerkontroll; live-paritet kontrollerar båda målen internt. Fel projekt ⇒ hårt rött.
 - Next.js-runtime läser **aldrig** `POSTGRES_URL_DEV`/`POSTGRES_URL_PROD` — de finns bara i CI.
 
+### Databasens TLS-certifikat
+
+Appens Postgres-pool kan få rätt utfärdarcertifikat (CA) via `DB_SSL_CA_CERT`,
+som PEM med riktiga radbrytningar eller bokstavliga `\n`. Hämta certifikatet
+från rätt Supabase-projekts Database Settings → SSL Configuration enligt
+[Supabases TLS-guide](https://supabase.com/docs/guides/platform/ssl-enforcement).
+Ett CA-certifikat är publikt; lägg aldrig en privat nyckel i denna variabel.
+
+Satt CA kräver certifikat- och servernamnskontroll. `sslmode=require` i URL:en
+kan behållas, men `sslmode=disable`, `DB_SSL_REJECT_UNAUTHORIZED=false` och
+andra SSL-inställningar i URL:en stoppas för att undvika motstridiga ägare.
+Utan CA behålls befintligt beteende; kodändringen ensam aktiverar inte strikt
+TLS i en driftsatt miljö. Använd inte globalt avstängd TLS-verifiering.
+
+Verifiera Development/Preview mot DEV och Production separat mot PROD innan
+aktivering. Använd Vercels **All Environments** bara om samma CA har verifierats
+för båda databaserna; lokala värden behöver inte vara identiska med molnets.
+Env-ändring kräver ny deployment (lokalt omstart av dev-servern). Verifiera en
+ofarlig fråga med strikt TLS och att fel servernamn avvisas. Denna variabel
+gäller appens pool i `src/lib/db/client.ts`, inte separata DB-/CI-skript.
+
 ---
 
 ## Borttagna flaggor (omtag-04, 2026-04-23)

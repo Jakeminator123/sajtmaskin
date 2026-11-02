@@ -2074,9 +2074,8 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     );
   }
   const codexConfig = read(root, ".codex/config.toml");
-  // `approval_policy` is the one Codex control that survives an owner decision
-  // to drop the sandbox (2026-09-11): without it nothing asks before a command
-  // runs. It stays pinned. `never` is the specific value that removes the gate.
+  // Preserve the owner's project approval policy. It does not promise a prompt
+  // before every command; host-managed session policy may override these defaults.
   if (!/^approval_policy\s*=\s*"on-request"\s*$/mu.test(codexConfig)) {
     errors.push('project Codex must keep approval_policy = "on-request" as the human gate');
   }
