@@ -118,6 +118,7 @@
     "CONTACT_EMAIL_TO",
     "CRON_SECRET",
     "CSP_ENFORCE",
+    "DB_SSL_CA_CERT",
     "DB_SSL_REJECT_UNAUTHORIZED",
     "DESIGN_SYSTEM_ID",
     "DID_API_KEY",
@@ -1010,6 +1011,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Backoffice storage backend selection."
+    },
+    {
+      "key": "DB_SSL_CA_CERT",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "PEM CA certificate for the app Postgres pool, selected for each environment's database. Enables strict certificate and hostname verification; do not combine with DB_SSL_REJECT_UNAUTHORIZED=false or URL SSL inputs other than sslmode. Does not configure standalone DB/CI scripts."
     },
     {
       "key": "DB_SSL_REJECT_UNAUTHORIZED",

@@ -7,10 +7,10 @@ model = "gpt-5.6-sol"
 model_reasoning_effort = "high"
 # Ägarbeslut 2026-09-11: sandbox av, live-sök på.
 #
-# Codex sandbox på Windows är opålitlig i den här uppsättningen, och en halvt
-# fungerande sandbox ger falsk trygghet snarare än skydd. Den kvarvarande
-# grinden är därför MÄNSKLIG: `approval_policy = "on-request"` frågar innan ett
-# kommando körs. Sänk inte den till `never` — då finns ingen grind kvar alls.
+# Behåll approval_policy = "on-request"; sänk den inte till "never".
+# Det är inte en fråga före varje kommando. Värdens effektiva sessionspolicy
+# kan ersätta dessa projektvärden med en hanterad sandbox och automatisk
+# eller mänsklig godkännandegranskning. Repots mandat gäller oavsett.
 #
 # Ändras någon av raderna nedan måste `.codex/README.md` § Behörighet ändras i
 # samma diff; `npm run workflow:contract` jämför dem.

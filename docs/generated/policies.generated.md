@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:0c5db1668b06dd2a -->
+<!-- source-fingerprint: config/env-policy.json sha256:80a2a7887c8217ce -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:906768b4c309ab32 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:ed83b142db793efe -->
 
@@ -42,6 +42,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `CONTACT_EMAIL_TO`                                   | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `CSP_ENFORCE`                                        | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `DATA_DIR`                                           | `local_only`           | —                                      | Yes           | No           |
+| `DB_SSL_CA_CERT`                                     | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `DB_SSL_REJECT_UNAUTHORIZED`                         | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `DEBUG`                                              | `local_only`           | —                                      | Yes           | No           |
 | `DESIGN_SYSTEM_ID`                                   | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |

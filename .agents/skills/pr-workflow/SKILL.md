@@ -14,11 +14,14 @@ ingen tvingad worktree, inget branchprefix och ingen roll om inte Jakob nämner 
 1. `npm run hooks:install` vid ny clone eller hookändring.
 2. **Välj bas medvetet — de två är inte samma sak:**
    - *Leveransbas* = grenen PR:en ska mot, default `preview`. Branchen utgår
-     alltid från färsk `origin/preview`, även när buggen är ett
+     normalt från färsk `origin/preview`, även när buggen är ett
      produktionspåstående, så att diffen har det som redan ligger i staging.
    - *Granskningsbas* = det du bevisar mot: `origin/master` när påståendet gäller
      produktion (backloggens «Bevis på `master`», prodrepro, promote). Läs den
      read-only (`git show origin/master:<sökväg>`); bygg inte branchen på den.
+
+   Undantag: en uttryckligen beställd nödfix i produktion utgår från färsk
+   `origin/master`, så orelaterat staging-arbete inte följer med (§ 4b).
 
    Hämta den du använder och frys basens SHA när flera kandidater eller agenter
    ska jämföras.
@@ -110,7 +113,12 @@ oberoende granskare: använd PR-vägen. Fabricera aldrig ett kvitto.
 
 ## 4b. Promote till produktion
 
-Allt arbete går till `preview`, även Dependabot (`target-branch` i
+`master` är produktionsgrenen; `main` finns inte. Policyflaggorna
+`directPreview.allowed` och `directMaster.allowed` anger tekniskt tillgängliga
+vägar, inte självständigt agentmandat. Direktpush och PR till `preview` stöds
+båda enligt § 4. Produktion beslutas av Jakob.
+
+Vanligt arbete går till `preview`, även Dependabot (`target-branch` i
 `.github/dependabot.yml`). När Jakob ber om release («merga preview till
 master», «promota», «släpp skarpt») kör `npm run promote` (`promote:dry` visar
 planen). Den skapar en kortlivad `promote/<datum>`-gren vid previews tip via
@@ -119,6 +127,11 @@ produktionsvarning. Head-grenen får **aldrig** vara `preview`:
 `delete_branch_on_merge` raderade staging 2026-09-08. Kommandot mergar aldrig;
 därefter gäller `pr-merge.mdc` med gröna checks, bugkoll/triage och uttrycklig
 ägarbekräftelse.
+
+Nöd-PR eller nödpush till `master` är ett separat, uttryckligt ägaruppdrag för
+exakt ändring och leveransväg. Följ `pr-merge.mdc`: befintliga GitHub-grindar
+och mandat gäller, inga rulesets ändras och inget force-/raderingsmandat
+följer med. Återför nödfixen till `preview` via separat synk-PR.
 
 En squash-release ger master en commit som saknas i `preview`. Före nästa
 promote: synkbranch från färsk preview som tar in master med merge-commit, PR mot

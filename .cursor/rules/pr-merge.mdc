@@ -54,9 +54,17 @@ review.
 
 ## Produktion och databas
 
-`master` uppdateras endast genom separat promote-PR. Visa produktionsvarning
-och invänta en ny uttrycklig bekräftelse i samma chatt; native auto-merge används
-inte. Ancestry-synk använder dedikerad preview-PR och kommandot
+`master` är produktion; någon `main`-gren finns inte. Normalt används en separat
+promote-PR. Visa produktionsvarning och invänta Jakobs uttryckliga mandat för
+aktuell ändring; native auto-merge används inte.
+
+Nöd-PR eller nödpush till `master` kräver att Jakob uttryckligen godkänt
+ändringen och leveransvägen. Direktpush kräver ett redan befintligt
+GitHub-undantag för inloggningen; ändra inte rulesets. Nödmandat medger inte
+force-push, radering eller automatisk dispens från övriga grindar. Återför
+produktionsfixen till `preview` genom en separat synk-PR.
+
+Ancestry-synk använder dedikerad preview-PR och kommandot
 `gh pr merge --merge --match-head-commit <granskad head>` så att både ancestry
 och exakt granskad head bevaras.
 
