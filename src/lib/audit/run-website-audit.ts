@@ -277,13 +277,15 @@ export async function runWebsiteAudit(input: {
       const remainingMs = responsesDeadline - Date.now();
       if (remainingMs <= 0) break;
 
-      // A single-candidate policy has no fallback that needs a reserved slice of
-      // the total deadline. Let that one attempt use the remaining request
-      // budget instead of failing at 90 s while up to 180 s stays unused.
-      const attemptBudgetMs =
-        candidates.length === 1
-          ? remainingMs
-          : Math.min(RESPONSES_ATTEMPT_BUDGET_MS, remainingMs);
+      // Reserve one normal attempt for each remaining fallback. The current
+      // candidate gets the surplus (and at least its old 90 s when available);
+      // the last candidate can use everything left before the route deadline.
+      const reservedFallbackMs =
+        (candidates.length - candidateIndex - 1) * RESPONSES_ATTEMPT_BUDGET_MS;
+      const attemptBudgetMs = Math.min(
+        remainingMs,
+        Math.max(RESPONSES_ATTEMPT_BUDGET_MS, remainingMs - reservedFallbackMs),
+      );
       const responsesModel = toResponsesModelId(candidateModel);
       const reasoningOptions = workloadResponsesReasoning(run.workloadId, responsesModel);
       const attemptStartedAt = Date.now();
