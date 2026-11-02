@@ -303,6 +303,40 @@ export function evaluateTrustedControllerPermissions(source) {
   return errors;
 }
 
+/** Check action inputs, never comments or unrelated steps that contain the same text. */
+export function evaluateWorkflowCheckouts(source, { label = "workflow", trustedDefaultBranch = false } = {}) {
+  let document;
+  try {
+    document = yaml.load(source);
+  } catch {
+    return [`${label} checkout configuration must be valid YAML`];
+  }
+  const errors = [];
+  let checkoutCount = 0;
+  for (const [jobName, job] of Object.entries(document?.jobs ?? {})) {
+    if (!Array.isArray(job?.steps)) continue;
+    for (const step of job.steps) {
+      if (typeof step?.uses !== "string" || !/^actions\/checkout@/iu.test(step.uses)) continue;
+      checkoutCount += 1;
+      const location = `${label} job ${jobName} checkout`;
+      const inputs = step.with;
+      // Action inputs may be quoted strings or YAML booleans.
+      if (inputs?.["persist-credentials"] !== false && inputs?.["persist-credentials"] !== "false") {
+        errors.push(`${location} must disable persisted GitHub credentials`);
+      }
+      if (
+        trustedDefaultBranch &&
+        (typeof inputs?.ref !== "string" ||
+          !/^\$\{\{\s*github\.event\.repository\.default_branch\s*\}\}$/u.test(inputs.ref.trim()))
+      ) {
+        errors.push(`${location} must use the trusted default branch`);
+      }
+    }
+  }
+  if (checkoutCount === 0) errors.push(`${label} must contain a checkout step`);
+  return errors;
+}
+
 export function evaluatePrHeadWorkflowPermissions(workflowSources) {
   const errors = [];
   for (const workflow of workflowSources) {
@@ -1813,8 +1847,6 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     !dependabotEvents.has("workflow_run") ||
     dependabotEvents.size !== 2 ||
     dependabotEvents.has("pull_request") ||
-    !dependabotWorkflow.includes("ref: ${{ github.event.repository.default_branch }}") ||
-    !dependabotWorkflow.includes("persist-credentials: false") ||
     !dependabotWorkflow.includes("auto_merge_enabled") ||
     !dependabotWorkflow.includes("node scripts/ci/dependabot-automerge.mjs") ||
     !dependabotWorkflow.includes("secrets.DEPENDABOT_AUTOMERGE_TOKEN") ||
@@ -1862,6 +1894,10 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   }
   errors.push(...evaluateTrustedControllerImportGraph(root));
   errors.push(...evaluateTrustedControllerPermissions(dependabotWorkflow));
+  errors.push(...evaluateWorkflowCheckouts(dependabotWorkflow, {
+    label: "Dependabot controller",
+    trustedDefaultBranch: true,
+  }));
   const codeowners = read(root, ".github/CODEOWNERS");
   if (!codeowners.includes("/config/control-plane/schema-registry.json @Jakeminator123")) {
     errors.push("CODEOWNERS must cover the owner-reviewed control-plane schema registry");
@@ -1880,11 +1916,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   if (!/^permissions:\s*\n\s+contents:\s+read\s*\n\s+pull-requests:\s+read\s*$/mu.test(ci)) {
     errors.push("PR-head CI must have only read access to contents and pull requests");
   }
-  const checkoutCount = (ci.match(/uses:\s+actions\/checkout@v7/gu) ?? []).length;
-  const nonPersistingCheckoutCount = (ci.match(/persist-credentials:\s+false/gu) ?? []).length;
-  if (checkoutCount === 0 || nonPersistingCheckoutCount !== checkoutCount) {
-    errors.push("every PR-head CI checkout must disable persisted GitHub credentials");
-  }
+  errors.push(...evaluateWorkflowCheckouts(ci, { label: "PR-head CI" }));
   const allWorkflowJobs = `${ci}\n${dossierAcceptance}`;
   for (const check of policy.requiredChecks) {
     if (!new RegExp(`^  ${escapeRegExp(check)}:`, "m").test(allWorkflowJobs)) {

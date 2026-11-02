@@ -21,6 +21,7 @@ import {
   evaluateSecretWorkflowDispatches,
   evaluateTrustedControllerImportGraph,
   evaluateTrustedControllerPermissions,
+  evaluateWorkflowCheckouts,
   evaluateWorkflowContract,
 } from "./check-contract.mjs";
 import {
@@ -735,6 +736,91 @@ describe("verify:pr command execution", () => {
 });
 
 describe("agent workflow repository contract", () => {
+  it("validates the actual CI and trusted-controller checkout inputs", () => {
+    expect(evaluateWorkflowCheckouts(readFileSync(".github/workflows/ci.yml", "utf8"))).toEqual([]);
+    expect(evaluateWorkflowCheckouts(
+      readFileSync(".github/workflows/dependabot-automerge.yml", "utf8"),
+      { trustedDefaultBranch: true },
+    )).toEqual([]);
+  });
+
+  it.each([
+    "${{ steps.pr.outputs.head }}",
+    "${{ github.event.pull_request.head.sha }}",
+    "preview",
+    "",
+  ])("rejects an unsafe controller ref even with the trusted ref in a comment: %s", (ref) => {
+    const source = readFileSync(".github/workflows/dependabot-automerge.yml", "utf8");
+    const trustedRef = "ref: ${{ github.event.repository.default_branch }}";
+    const candidate = source.replace(trustedRef, `ref: '${ref}' # ${trustedRef}`);
+    expect(candidate).not.toBe(source);
+    expect(evaluateWorkflowCheckouts(candidate, { trustedDefaultBranch: true })).toContain(
+      "workflow job classify checkout must use the trusted default branch",
+    );
+  });
+
+  it("does not treat a comment as the controller's credentials setting", () => {
+    const source = readFileSync(".github/workflows/dependabot-automerge.yml", "utf8");
+    const candidate = source.replace("persist-credentials: false", "# persist-credentials: false");
+    expect(candidate).not.toBe(source);
+    expect(evaluateWorkflowCheckouts(candidate, { trustedDefaultBranch: true })).toContain(
+      "workflow job classify checkout must disable persisted GitHub credentials",
+    );
+  });
+
+  it.each(["", "persist-credentials: true", "persist-credentials: '${{ false }}'"])(
+    "requires disabled credentials on every checkout, ignoring decoy settings: %s",
+    (unsafeInput) => {
+      const source = `jobs:
+  safe:
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+  unsafe:
+    steps:
+      - uses: actions/checkout@v6
+        with: { ${unsafeInput} }
+      - uses: example/other-action@v1
+        with: { persist-credentials: false }
+      - run: |
+          echo 'persist-credentials: false'
+          # persist-credentials: false
+`;
+      expect(evaluateWorkflowCheckouts(source)).toEqual([
+        "workflow job unsafe checkout must disable persisted GitHub credentials",
+      ]);
+    },
+  );
+
+  it("checks every trusted-controller checkout, including later steps", () => {
+    const source = readFileSync(".github/workflows/dependabot-automerge.yml", "utf8");
+    const candidate = `${source}\n      - uses: actions/checkout@v7\n        with:\n          ref: \${{ steps.pr.outputs.head }}\n          persist-credentials: false\n`;
+    expect(evaluateWorkflowCheckouts(candidate, { trustedDefaultBranch: true })).toContain(
+      "workflow job classify checkout must use the trusted default branch",
+    );
+  });
+
+  it("accepts equivalent YAML formatting and quoted action inputs", () => {
+    const source = `jobs:
+  classify:
+    steps:
+      - with: { 'persist-credentials': 'false', ref: '\${{github.event.repository.default_branch}}' }
+        uses: 'actions/checkout@v7' # checkout remains safe after reformatting
+`;
+    expect(evaluateWorkflowCheckouts(source, { trustedDefaultBranch: true })).toEqual([]);
+    expect(evaluateWorkflowCheckouts(source)).toEqual([]);
+  });
+
+  it.each([
+    "jobs: [\n",
+    "",
+    "jobs: {}\n",
+    "jobs:\n  classify:\n    steps:\n      - run: |\n          uses: actions/checkout@v7\n          persist-credentials: false\n",
+  ])("rejects invalid or missing executable checkout configuration: %s", (source) => {
+    expect(evaluateWorkflowCheckouts(source)).not.toEqual([]);
+    expect(evaluateWorkflowCheckouts(source, { trustedDefaultBranch: true })).not.toEqual([]);
+  });
+
   it("keeps GITHUB_TOKEN read-only in the trusted Dependabot controller", () => {
     const source = readFileSync(".github/workflows/dependabot-automerge.yml", "utf8");
     expect(evaluateTrustedControllerPermissions(source)).toEqual([]);
@@ -1179,8 +1265,7 @@ describe("agent workflow repository contract", () => {
     expect(source).toContain("queue: max");
     expect(source).toContain("cancel-in-progress: false");
     expect(source).not.toMatch(/^  pull_request:\s*$/mu);
-    expect(source).toContain("ref: ${{ github.event.repository.default_branch }}");
-    expect(source).toContain("persist-credentials: false");
+    expect(evaluateWorkflowCheckouts(source, { trustedDefaultBranch: true })).toEqual([]);
     expect(source).toContain("auto_merge_enabled");
     expect(source).toContain("node scripts/ci/dependabot-automerge.mjs");
     expect(source).toContain("secrets.DEPENDABOT_AUTOMERGE_TOKEN");
