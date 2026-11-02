@@ -20,7 +20,7 @@ describe("ChatArea mobile document flow", () => {
     expect(source).not.toMatch(/<main className="[^"]*overflow-hidden"/);
   });
 
-  it("shows outcomes and price before integrations, without a brand-logo marquee", () => {
+  it("shows outcomes and the build flow before integrations, without homepage pricing", () => {
     const source = readFileSync(
       resolve(process.cwd(), "src/components/landing-v2/chat-area.tsx"),
       "utf8",
@@ -28,14 +28,16 @@ describe("ChatArea mobile document flow", () => {
     const trustAt = source.indexOf("<LandingTrustStrip");
     const examplesAt = source.indexOf("<LandingExamples");
     const howAt = source.indexOf("id=\"hur-det-fungerar\"");
-    const priceAt = source.indexOf("id=\"priser\"");
     const integrationsAt = source.indexOf("item={item}");
     expect(trustAt).toBeGreaterThan(-1);
     expect(examplesAt).toBeGreaterThan(trustAt);
     expect(howAt).toBeGreaterThan(examplesAt);
-    expect(priceAt).toBeGreaterThan(howAt);
-    expect(integrationsAt).toBeGreaterThan(priceAt);
-    expect(source).toContain("<LandingPricingExplainer");
+    expect(integrationsAt).toBeGreaterThan(howAt);
+    expect(source).not.toContain("id=\"priser\"");
+    expect(source).not.toContain("<CreditPackageGrid");
+    expect(source).not.toContain("<LandingPricingExplainer");
+    expect(source).toContain('hash === "#priser"');
+    expect(source).toContain('router.replace("/priser")');
     expect(source).not.toMatch(/trustLogos|animate-marquee/);
     expect(source).toContain("data-homepage-cta=\"bottom\"");
     expect(source).toContain("Se exempel");

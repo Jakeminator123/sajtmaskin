@@ -24,14 +24,12 @@ import {
   describeOpenClawQuickEditOp,
   type OpenClawApplyQuickEditAction,
 } from "@/lib/openclaw/quick-edit-action";
-import {
-  describeQuickEditHardError,
-  quickEditChatFiles,
-} from "@/lib/builder/engine-files-patch";
+import { describeQuickEditHardError, quickEditChatFiles } from "@/lib/builder/engine-files-patch";
 import { dispatchQuickEditAppliedEvent } from "@/lib/builder/quick-edit-applied-event";
 import {
   readActiveBuilderTarget,
   readBuilderTurnSnapshot,
+  type OpenClawBuilderTarget,
 } from "@/lib/openclaw/builder-target";
 import { createArmedContinuationWatch } from "@/lib/openclaw/debug/armed-continuation";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
@@ -61,6 +59,16 @@ import { useSmoothText } from "./useSmoothText";
  * auto-sent in this session, so each action auto-sends at most once.
  */
 const consumedArmedSends = new Set<string>();
+type ArmedSendAttempt = {
+  state: "sending" | "sent" | "failed";
+  error: string | null;
+  dispatched: boolean;
+  finished: Promise<void>;
+  finish: () => void;
+};
+// A dispatch receipt can outlive its card. Keep the reservation (and terminal
+// failure, which requires explicit retry) across remounts of the same action.
+const armedSendAttempts = new Map<string, ArmedSendAttempt>();
 
 /** Same idempotency for direct builds (`start_build`). */
 const consumedStartBuilds = new Set<string>();
@@ -70,6 +78,7 @@ const autoStartBuildsByUserTurn = new Set<string>();
 /** Module-scoped idempotency ledgers survive across tests — clear them per test. */
 export function resetOpenClawActionLedgersForTests(): void {
   consumedArmedSends.clear();
+  armedSendAttempts.clear();
   consumedStartBuilds.clear();
   autoStartBuildsByUserTurn.clear();
 }
@@ -177,11 +186,7 @@ export function OpenClawMessage({
   // A complete first block plus a truncated second must not show empty-state
   // next to the action card. Rejected blocks keep their error card.
   const isTerminalEmpty =
-    !isUser &&
-    !streaming &&
-    !parsed.visibleContent &&
-    !action &&
-    !rejectedActionReason;
+    !isUser && !streaming && !parsed.visibleContent && !action && !rejectedActionReason;
   // Utan `!rejectedActionReason` skulle ett action-block som avvisats och som
   // saknar synlig text rendera väntprickarna för alltid bredvid felkortet.
   const shouldRenderBubble = isUser
@@ -226,8 +231,12 @@ export function OpenClawMessage({
   // A row hydrated from history must never act again: its cards become a
   // read-only receipt. Powers are default-on, so a clickable «Starta bygget»
   // from last week would otherwise re-run a build on reload.
-  const interactive = !isUser && !msg.hydrated && !streaming &&
-    msg.delivery !== "streaming" && msg.delivery !== "interrupted";
+  const interactive =
+    !isUser &&
+    !msg.hydrated &&
+    !streaming &&
+    msg.delivery !== "streaming" &&
+    msg.delivery !== "interrupted";
   const historicAction =
     !isUser &&
     msg.hydrated &&
@@ -297,9 +306,18 @@ export function OpenClawMessage({
 
         {interactive && action?.type === "fill_text_field" ? (
           canArmedSend ? (
-            <OpenClawArmedSendCard key={`armed:${msg.id}`} action={action} messageId={msg.id} />
+            <OpenClawArmedSendCard
+              key={`armed:${msg.id}`}
+              action={action}
+              messageId={msg.id}
+              builderTarget={msg.builderTarget ?? null}
+            />
           ) : (
-            <OpenClawFillTextFieldCard key={`${action.target}:${action.value}`} action={action} />
+            <OpenClawFillTextFieldCard
+              key={`${action.target}:${action.value}`}
+              action={action}
+              builderTarget={msg.builderTarget ?? null}
+            />
           )
         ) : null}
 
@@ -322,6 +340,7 @@ export function OpenClawMessage({
             messageId={msg.id}
             autoRun={powers.armedAutonomy && isLiveMessage(msg) && startBuildAuto.allowed}
             userTurnId={startBuildAuto.userTurnId}
+            builderTarget={msg.builderTarget ?? null}
           />
         ) : null}
 
@@ -422,12 +441,17 @@ function OpenClawRejectedActionCard({ reason }: { reason: string }) {
  */
 async function sendViaBuilderBridge(
   text: string,
-  options: { isCancelled?: () => boolean } = {},
-): Promise<
-  | { ok: true; outcome: Promise<SendMessageOutcome | null> }
-  | { ok: false; error: string }
-> {
-  const wait = await waitForBuilderSend({ isCancelled: options.isCancelled });
+  options: {
+    isCancelled?: () => boolean;
+    expectedTarget?: OpenClawBuilderTarget | null;
+    onDispatch?: () => void;
+  } = {},
+): Promise<{ ok: true; outcome: SendMessageOutcome } | { ok: false; error: string }> {
+  const wait = await waitForBuilderSend({
+    isCancelled: options.isCancelled,
+    expectedChatId: options.expectedTarget?.chatId,
+    expectedVersionId: options.expectedTarget?.versionId,
+  });
   if (!wait.ok) {
     return {
       ok: false,
@@ -436,7 +460,32 @@ async function sendViaBuilderBridge(
           ? "Buildern är upptagen just nu — försök igen när bygget är klart."
           : wait.reason === "cancelled"
             ? "Sändningen avbröts."
-            : "Hittar ingen builder att skicka till.",
+            : wait.reason === "chat_changed"
+              ? "Builderchatten har bytts. Gå tillbaka till chatten där förslaget skapades och försök igen."
+              : wait.reason === "version_changed"
+                ? "Builderversionen har bytts. Öppna versionen där förslaget skapades och försök igen."
+                : "Hittar ingen builder att skicka till.",
+    };
+  }
+  if (options.isCancelled?.()) return { ok: false, error: "Sändningen avbröts." };
+  const liveBridge = getBuilderBridge();
+  if (liveBridge !== wait.bridge) {
+    return { ok: false, error: "Builderchatten har bytts. Förslaget skickades inte." };
+  }
+  if (options.expectedTarget && liveBridge.getChatId() !== options.expectedTarget.chatId) {
+    return {
+      ok: false,
+      error:
+        "Builderchatten har bytts. Gå tillbaka till chatten där förslaget skapades och försök igen.",
+    };
+  }
+  if (
+    options.expectedTarget &&
+    liveBridge.getActiveVersionId() !== options.expectedTarget.versionId
+  ) {
+    return {
+      ok: false,
+      error: "Builderversionen har bytts. Öppna versionen där förslaget skapades och försök igen.",
     };
   }
   const promptSource = resolveOpenClawPreparedPromptSource({
@@ -445,21 +494,45 @@ async function sendViaBuilderBridge(
     message: text,
     hasAttachments: false,
   });
-  const outcome = wait.bridge
-    .sendMessage(text, promptSource ? { promptSource } : undefined)
-    .catch((): SendMessageOutcome | null => null)
-    .finally(() => {
-      const live = useOpenClawStore.getState();
-      if (live.preparedFill?.value === text) live.setPreparedFill(null);
-    });
-  return { ok: true, outcome };
+  try {
+    // Den registrerade buildern är redan verifierad mot förslagets version.
+    // Låt den vanliga sendMessage-vägen sätta bas + latest-known så dess
+    // befintliga stale-base-grind fortsätter gälla.
+    options.onDispatch?.();
+    const outcome = await liveBridge.sendMessage(text, promptSource ? { promptSource } : undefined);
+    return { ok: true, outcome };
+  } catch {
+    return {
+      ok: false,
+      error: "Utskicket till buildern misslyckades. Förslaget har inte markerats som startat.",
+    };
+  } finally {
+    const live = useOpenClawStore.getState();
+    if (live.preparedFill?.value === text) live.setPreparedFill(null);
+  }
 }
 
-function OpenClawFillTextFieldCard({ action }: { action: OpenClawFillTextFieldAction }) {
+function OpenClawFillTextFieldCard({
+  action,
+  builderTarget,
+}: {
+  action: OpenClawFillTextFieldAction;
+  builderTarget: OpenClawBuilderTarget | null;
+}) {
   const [actionState, setActionState] = useState<
-    "pending" | "approved" | "sent" | "declined" | "failed"
+    "pending" | "sending" | "approved" | "sent" | "declined" | "failed"
   >("pending");
   const [actionError, setActionError] = useState<string | null>(null);
+  const sendInFlightRef = useRef(false);
+  const mountedRef = useRef(true);
+  const scopeKeyRef = useRef(useOpenClawStore.getState().scopeKey);
+  const targetRef = useRef(builderTarget);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   const targetContext = getOpenClawTextFieldContext(action.target);
   const actionLabel = action.label || targetContext?.label || action.target;
   const canSendDirect =
@@ -478,21 +551,32 @@ function OpenClawFillTextFieldCard({ action }: { action: OpenClawFillTextFieldAc
   };
 
   const handleSendDirect = async () => {
+    if (sendInFlightRef.current) return;
+    sendInFlightRef.current = true;
+    setActionState("sending");
     setActionError(null);
-    recordOpenClawPreparedFill(action);
-    const result = await sendViaBuilderBridge(action.value);
-    if (!result.ok) {
-      setActionState("failed");
-      setActionError(result.error);
-      return;
-    }
-    setActionState("sent");
-    // Same honesty as the direct-build card: a refusal is not a start.
-    const outcome = await result.outcome;
-    const rejection = outcome ? describeRejectedOutcome(outcome) : null;
-    if (rejection) {
-      setActionState("failed");
-      setActionError(rejection);
+    try {
+      recordOpenClawPreparedFill(action);
+      const result = await sendViaBuilderBridge(action.value, {
+        expectedTarget: targetRef.current,
+        isCancelled: () =>
+          !mountedRef.current || useOpenClawStore.getState().scopeKey !== scopeKeyRef.current,
+      });
+      if (!mountedRef.current) return;
+      if (!result.ok) {
+        setActionState("failed");
+        setActionError(result.error);
+        return;
+      }
+      const rejection = describeRejectedOutcome(result.outcome);
+      if (rejection) {
+        setActionState("failed");
+        setActionError(rejection);
+        return;
+      }
+      setActionState("sent");
+    } finally {
+      sendInFlightRef.current = false;
     }
   };
 
@@ -554,6 +638,10 @@ function OpenClawFillTextFieldCard({ action }: { action: OpenClawFillTextFieldAc
           <p className="text-xs text-emerald-300">Texten lades in i {actionLabel.toLowerCase()}.</p>
         ) : null}
 
+        {actionState === "sending" ? (
+          <p className="text-xs text-slate-300">Skickar till buildern…</p>
+        ) : null}
+
         {actionState === "sent" ? (
           <p className="text-xs text-emerald-300">Skickad till buildern — bygget startar.</p>
         ) : null}
@@ -563,7 +651,18 @@ function OpenClawFillTextFieldCard({ action }: { action: OpenClawFillTextFieldAc
         ) : null}
 
         {actionState === "failed" ? (
-          <p className="text-xs text-rose-300">{actionError ?? "Kunde inte fylla fältet."}</p>
+          <>
+            <p className="text-xs text-rose-300">{actionError ?? "Kunde inte fylla fältet."}</p>
+            {canSendDirect ? (
+              <button
+                type="button"
+                onClick={() => void handleSendDirect()}
+                className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
+              >
+                Försök igen
+              </button>
+            ) : null}
+          </>
         ) : null}
       </div>
     </div>
@@ -634,104 +733,187 @@ function OpenClawStartBugHuntCard({
 function OpenClawArmedSendCard({
   action,
   messageId,
+  builderTarget,
 }: {
   action: OpenClawFillTextFieldAction;
   messageId: string;
+  builderTarget: OpenClawBuilderTarget | null;
 }) {
   const setArmedMandate = useOpenClawStore((s) => s.setArmedMandate);
   const setArmedContinuation = useOpenClawStore((s) => s.setArmedContinuation);
   const armedMandate = useOpenClawStore((s) => s.armedMandate);
+  const scopeKey = useRef(useOpenClawStore.getState().scopeKey).current;
+  const attemptKey = useRef(JSON.stringify([
+    scopeKey,
+    builderTarget?.chatId ?? null,
+    builderTarget?.versionId ?? null,
+    messageId,
+  ])).current;
   const [state, setState] = useState<"sending" | "sent" | "failed">(
-    consumedArmedSends.has(messageId) ? "sent" : "sending",
+    consumedArmedSends.has(messageId)
+      ? "sent"
+      : (armedSendAttempts.get(attemptKey)?.state ?? "sending"),
   );
-  const [error, setError] = useState<string | null>(null);
-  const startedRef = useRef(false);
+  const [error, setError] = useState<string | null>(
+    armedSendAttempts.get(attemptKey)?.error ?? null,
+  );
+  const [retryNonce, setRetryNonce] = useState(0);
+  const sendInFlightRef = useRef(false);
 
   // SM-026: `action` kommer från förälderns parse och kan byta objektidentitet
   // vid omrendering (t.ex. medan streamen fortfarande fyller på content). Låg
-  // den i dependency-listan körde varje identitetsbyte cleanup (cancelled =
-  // true, timern rensades) medan omstarten bailade på startedRef — retryloopen
-  // dog före MAX_ATTEMPTS och kortet stod på "Fyller fältet och skickar…" för
-  // alltid. Effekten nycklas därför på messageId och läser senaste action via
-  // ref: en ren omrendering får aldrig avbryta en pågående auto-send.
+  // den i dependency-listan körde varje identitetsbyte cleanup och dödade
+  // retryloopen före MAX_ATTEMPTS. Effekten nycklas därför på messageId/retry
+  // och läser senaste action via ref: en ren omrendering får aldrig avbryta en
+  // pågående auto-send.
   const actionRef = useRef(action);
   useEffect(() => {
     actionRef.current = action;
   }, [action]);
+  const targetRef = useRef(builderTarget);
+  useEffect(() => {
+    targetRef.current = builderTarget;
+  }, [builderTarget]);
 
   useEffect(() => {
     // Idempotency across remounts (Bugbot): if this message's action already
     // auto-sent in this session, never fire (or consume a mandate step) again.
     // Initial state is already "sent" in that case, so just bail without firing.
     if (consumedArmedSends.has(messageId)) return;
-    if (startedRef.current) return;
-    startedRef.current = true;
+    const existingAttempt = armedSendAttempts.get(attemptKey);
+    if (existingAttempt && (existingAttempt.state !== "failed" || retryNonce === 0)) {
+      let mounted = true;
+      sendInFlightRef.current = existingAttempt.state === "sending";
+      void existingAttempt.finished.then(() => {
+        if (!mounted) return;
+        sendInFlightRef.current = false;
+        setState(existingAttempt.state);
+        setError(existingAttempt.error);
+      });
+      return () => {
+        mounted = false;
+        sendInFlightRef.current = false;
+      };
+    }
+    let finish = () => {};
+    const attempt: ArmedSendAttempt = {
+      state: "sending",
+      error: null,
+      dispatched: false,
+      finished: new Promise<void>((resolve) => { finish = resolve; }),
+      finish: () => finish(),
+    };
+    armedSendAttempts.set(attemptKey, attempt);
+    sendInFlightRef.current = true;
 
     let cancelled = false;
+    let authorityCancelled = false;
     let attempts = 0;
     const MAX_ATTEMPTS = 25; // ~2.5s waiting for React to enable the send button
     let timer: ReturnType<typeof setTimeout> | null = null;
+    const mandateCreatedAt = useOpenClawStore.getState().armedMandate?.createdAt ?? null;
+    const expectedTarget = targetRef.current;
+    const isAuthorityCancelled = () => {
+      const live = useOpenClawStore.getState();
+      return (
+        authorityCancelled ||
+        live.scopeKey !== scopeKey ||
+        !readOpenClawPowers().armedAutonomy ||
+        !isMandateActive(live.armedMandate) ||
+        live.armedMandate?.mode !== "followups" ||
+        live.armedMandate.createdAt !== mandateCreatedAt
+      );
+    };
+    const isCancelled = () => cancelled || isAuthorityCancelled();
+    // Revoking and restoring a grant while the card is absent must not revive
+    // authority for a dispatch whose receipt is still pending.
+    const unsubscribeAuthority = useOpenClawStore.subscribe(() => {
+      if (isAuthorityCancelled()) authorityCancelled = true;
+    });
+    const finishAttempt = (nextState: "sent" | "failed", message: string | null = null) => {
+      unsubscribeAuthority();
+      attempt.state = nextState;
+      attempt.error = message;
+      attempt.finish();
+      if (cancelled) return;
+      sendInFlightRef.current = false;
+      setState(nextState);
+      setError(message);
+    };
 
-    // Consume one authorized step and hand the builder turn over to the
-    // continuation handshake. Shared by the bridge path and the DOM fallback,
-    // and run BEFORE dispatch in both so the wrapped `sendMessage` finds the
-    // watch when it binds its send id.
-    const markSent = () => {
+    // Consume authority only after dispatch has a positive receipt. Bridge
+    // sends carry their exact outcome; the legacy DOM path has only the
+    // synchronous click receipt and lets the wrapped composer bind the watch.
+    const markSent = (continuation: ReturnType<typeof createArmedContinuationWatch>) => {
+      // Accepted sends remain consumed even if their card unmounted, or the
+      // authority was revoked while the receipt was pending. Only a still-live
+      // mandate may spend a step or register a continuation.
       consumedArmedSends.add(messageId);
-      setState("sent");
+      finishAttempt("sent");
+      if (isAuthorityCancelled()) return;
       const nextMandate = consumeMandateStep(useOpenClawStore.getState().armedMandate);
       setArmedMandate(nextMandate);
       // Only while the mandate still authorizes another step — an exhausted
       // mandate must end here, not wake OpenClaw one more time.
       if (nextMandate) {
-        setArmedContinuation(createArmedContinuationWatch(readBuilderTurnSnapshot()));
+        setArmedContinuation(continuation);
       }
+    };
+
+    const markFailed = (message: string) => {
+      finishAttempt("failed", message);
     };
 
     // Builder bridge (the unified chat): no DOM fill, no overwritten draft —
     // the same wrapped `sendMessage` the composer uses, straight from here.
     const sendThroughBridge = async () => {
-      recordOpenClawPreparedFill(actionRef.current);
-      const wait = await waitForBuilderSend({ isCancelled: () => cancelled });
-      if (cancelled) return;
-      if (!wait.ok) {
-        setState("failed");
-        setError(
-          wait.reason === "busy"
-            ? "Buildern blev aldrig ledig (en tur pågår redan)."
-            : "Hittar ingen builder att skicka till.",
-        );
-        return;
-      }
-      const text = actionRef.current.value;
-      markSent();
-      const promptSource = resolveOpenClawPreparedPromptSource({
-        editEnabled: readOpenClawPowers().any,
-        preparedFill: { target: OPENCLAW_BUILDER_CHAT_TARGET, value: text },
-        message: text,
-        hasAttachments: false,
-      });
-      void wait.bridge
-        .sendMessage(text, promptSource ? { promptSource } : undefined)
-        .catch(() => undefined)
-        .finally(() => {
-          const live = useOpenClawStore.getState();
-          if (live.preparedFill?.value === text) live.setPreparedFill(null);
+      try {
+        const currentAction = actionRef.current;
+        const snapshotAtSend = readBuilderTurnSnapshot();
+        recordOpenClawPreparedFill(currentAction);
+        const result = await sendViaBuilderBridge(currentAction.value, {
+          expectedTarget,
+          isCancelled,
+          onDispatch: () => { attempt.dispatched = true; },
         });
+        if (!result.ok) {
+          markFailed(result.error);
+          return;
+        }
+        const rejection = describeRejectedOutcome(result.outcome);
+        if (rejection) {
+          markFailed(rejection);
+          return;
+        }
+        // This caller awaited its own exact bridge send, so it can confirm the
+        // continuation directly after `started`/`settled`. Sequence 0 is the
+        // reserved marker for this direct, already-settled bridge receipt.
+        markSent({
+          ...createArmedContinuationWatch(snapshotAtSend),
+          sendSeq: 0,
+          sendOutcome: result.outcome.status,
+        });
+      } finally {
+        sendInFlightRef.current = false;
+      }
     };
 
     // All state updates run inside async callbacks (never synchronously in the
     // effect body) so we don't trigger cascading renders.
     const begin = () => {
-      if (cancelled) return;
+      if (isCancelled()) {
+        sendInFlightRef.current = false;
+        markFailed("Sändningen avbröts.");
+        return;
+      }
       if (getBuilderBridge()) {
         void sendThroughBridge();
         return;
       }
       const fill = applyOpenClawTextFieldAction(actionRef.current);
       if (!fill.ok) {
-        setState("failed");
-        setError(fill.error ?? "Kunde inte fylla fältet.");
+        sendInFlightRef.current = false;
+        markFailed(fill.error ?? "Kunde inte fylla fältet.");
         return;
       }
       recordOpenClawPreparedFill(actionRef.current);
@@ -739,22 +921,28 @@ function OpenClawArmedSendCard({
     };
 
     const trySend = () => {
-      if (cancelled) return;
+      if (isCancelled()) {
+        sendInFlightRef.current = false;
+        markFailed("Sändningen avbröts.");
+        return;
+      }
       attempts += 1;
       if (isOpenClawSendReady(actionRef.current.target)) {
         const result = triggerOpenClawSend(actionRef.current.target);
         if (result.ok) {
+          attempt.dispatched = true;
           // Mark consumed BEFORE state/mandate updates so a remount triggered by
           // the resulting re-render can't replay this same auto-send. The watch
           // registers without a send id; the send this click just started binds
           // its own once it reaches the builder.
-          markSent();
+          sendInFlightRef.current = false;
+          markSent(createArmedContinuationWatch(readBuilderTurnSnapshot()));
           return;
         }
       }
       if (attempts >= MAX_ATTEMPTS) {
-        setState("failed");
-        setError("Send-knappen blev aldrig klar (composern kan vara upptagen).");
+        sendInFlightRef.current = false;
+        markFailed("Send-knappen blev aldrig klar (composern kan vara upptagen).");
         return;
       }
       timer = setTimeout(trySend, 100);
@@ -762,10 +950,25 @@ function OpenClawArmedSendCard({
 
     timer = setTimeout(begin, 0);
     return () => {
+      authorityCancelled = isAuthorityCancelled();
       cancelled = true;
+      sendInFlightRef.current = false;
       if (timer) clearTimeout(timer);
+      // Before dispatch there is no external work to protect. Release now so
+      // StrictMode/remount and a cancelled busy wait cannot strand the claim.
+      if (!attempt.dispatched && attempt.state === "sending") {
+        if (armedSendAttempts.get(attemptKey) === attempt) armedSendAttempts.delete(attemptKey);
+        finishAttempt("failed", "Sändningen avbröts.");
+      }
     };
-  }, [setArmedMandate, setArmedContinuation, messageId]);
+  }, [setArmedMandate, setArmedContinuation, messageId, retryNonce, attemptKey, scopeKey]);
+
+  const handleRetry = () => {
+    if (sendInFlightRef.current || consumedArmedSends.has(messageId)) return;
+    setError(null);
+    setState("sending");
+    setRetryNonce((value) => value + 1);
+  };
 
   return (
     <div className="min-w-0 rounded-2xl border border-fuchsia-400/25 bg-slate-900/70 p-3 text-slate-100">
@@ -790,7 +993,16 @@ function OpenClawArmedSendCard({
           </p>
         ) : null}
         {state === "failed" ? (
-          <p className="text-xs text-rose-300">{error ?? "Kunde inte skicka automatiskt."}</p>
+          <>
+            <p className="text-xs text-rose-300">{error ?? "Kunde inte skicka automatiskt."}</p>
+            <button
+              type="button"
+              onClick={handleRetry}
+              className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
+            >
+              Försök igen
+            </button>
+          </>
         ) : null}
       </div>
     </div>
@@ -809,22 +1021,34 @@ function OpenClawStartBuildCard({
   messageId,
   autoRun,
   userTurnId,
+  builderTarget,
 }: {
   action: OpenClawStartBuildAction;
   messageId: string;
   autoRun: boolean;
   /** The user question this reply answers — one automatic build per question. */
   userTurnId: string | null;
+  builderTarget: OpenClawBuilderTarget | null;
 }) {
   const [state, setState] = useState<"pending" | "sending" | "sent" | "failed">(
     consumedStartBuilds.has(messageId) ? "sent" : autoRun ? "sending" : "pending",
   );
   const [error, setError] = useState<string | null>(null);
   const startedRef = useRef(false);
+  const approveInFlightRef = useRef(false);
+  const mountedRef = useRef(true);
+  const scopeKeyRef = useRef(useOpenClawStore.getState().scopeKey);
+  const targetRef = useRef(builderTarget);
   const actionRef = useRef(action);
   useEffect(() => {
     actionRef.current = action;
   }, [action]);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // The per-user-turn claim happens HERE, in commit order, not during render:
   // two replies mounted in the same commit would otherwise both read an
@@ -864,19 +1088,24 @@ function OpenClawStartBuildCard({
   ): Promise<{ ok: true } | { ok: false; error: string }> => {
     const prompt = actionRef.current.prompt;
     if (getBuilderBridge()) {
-      const result = await sendViaBuilderBridge(prompt, { isCancelled });
+      const result = await sendViaBuilderBridge(prompt, {
+        expectedTarget: targetRef.current,
+        isCancelled: () =>
+          Boolean(isCancelled?.()) ||
+          !mountedRef.current ||
+          useOpenClawStore.getState().scopeKey !== scopeKeyRef.current,
+      });
       if (!result.ok) return result;
-      consumedStartBuilds.add(messageId);
-      setState("sent");
       // The bridge resolves with the builder's own verdict (`SendMessageOutcome`):
       // a refusal (credits, stale base, F3 gate) must not read as «started».
-      const outcome = await result.outcome;
-      if (isCancelled?.()) return { ok: true };
-      const rejection = outcome ? describeRejectedOutcome(outcome) : null;
+      const rejection = describeRejectedOutcome(result.outcome);
       if (rejection) {
-        setState("failed");
-        setError(rejection);
+        return { ok: false, error: rejection };
       }
+      // Först builderns accepterade kvitto får göra actionen förbrukad. Ett
+      // throw/avslag lämnar kortet återförsökbart utan falskt startkvitto.
+      consumedStartBuilds.add(messageId);
+      setState("sent");
       return { ok: true };
     }
     // Outside the builder bridge: fall back to the composer DOM path.
@@ -886,7 +1115,8 @@ function OpenClawStartBuildCard({
       value: prompt,
       focus: false,
     });
-    if (!fill.ok) return { ok: false, error: fill.error ?? "Hittar ingen builder att skicka till." };
+    if (!fill.ok)
+      return { ok: false, error: fill.error ?? "Hittar ingen builder att skicka till." };
     recordOpenClawPreparedFill({
       type: "fill_text_field",
       target: OPENCLAW_BUILDER_CHAT_TARGET,
@@ -908,13 +1138,18 @@ function OpenClawStartBuildCard({
   };
 
   const handleApprove = async () => {
-    if (state !== "pending") return;
+    if (approveInFlightRef.current || (state !== "pending" && state !== "failed")) return;
+    approveInFlightRef.current = true;
     setState("sending");
     setError(null);
-    const result = await startBuild();
-    if (!result.ok) {
-      setState("failed");
-      setError(result.error);
+    try {
+      const result = await startBuild();
+      if (!result.ok && mountedRef.current) {
+        setState("failed");
+        setError(result.error);
+      }
+    } finally {
+      approveInFlightRef.current = false;
     }
   };
 
@@ -966,7 +1201,16 @@ function OpenClawStartBuildCard({
           <p className="text-xs text-emerald-300">Bygget är startat — följ det i byggkortet.</p>
         ) : null}
         {state === "failed" ? (
-          <p className="text-xs text-rose-300">{error ?? "Kunde inte starta bygget."}</p>
+          <>
+            <p className="text-xs text-rose-300">{error ?? "Kunde inte starta bygget."}</p>
+            <button
+              type="button"
+              onClick={() => void handleApprove()}
+              className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
+            >
+              Försök igen
+            </button>
+          </>
         ) : null}
       </div>
     </div>
@@ -1207,9 +1451,7 @@ function OpenClawQuickEditCard({
         } | null;
         if (res.ok && Array.isArray(data?.files)) {
           existingPaths = new Set(
-            data.files
-              .map((f) => (typeof f.name === "string" ? f.name : ""))
-              .filter(Boolean),
+            data.files.map((f) => (typeof f.name === "string" ? f.name : "")).filter(Boolean),
           );
         }
       } catch {

@@ -267,7 +267,7 @@ export function ComparisonLandingContent({ slug }: { slug: ComparisonCopy["slug"
               </h2>
               <p className="mt-4 text-pretty leading-relaxed text-muted-foreground">
                 {copy.note} Aktuella Sajtmaskin-paket finns på{" "}
-                <Link href="/#priser" className="text-foreground underline-offset-4 hover:underline">
+                <Link href="/priser" className="text-foreground underline-offset-4 hover:underline">
                   prissidan
                 </Link>
                 .
