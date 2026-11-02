@@ -73,6 +73,42 @@ async function typeAndSend(text: string) {
 }
 
 describe("ChatInterface — Sajtagenten i samma input", () => {
+  it.each([
+    ["Gör punkt två och tre", "auto"], ["Gör punkt 2 och punkt 3", "auto"],
+    ["Gör punkt två och tre", "build"], ["Gör punkt 2 och punkt 3", "build"],
+  ] as const)("clarifies multiple references without raw builder dispatch: %s, %s", async (text, mode) => {
+    window.__SITEMASKIN_CONTEXT = { page: "builder", chatId: "chat_1", activeVersionId: "v1" } as typeof window.__SITEMASKIN_CONTEXT;
+    useOpenClawStore.setState({ messages: [{ id: "advice-1", role: "assistant", timestamp: 1,
+      content: "1. Behåll färgerna\n2. Byt CTA till Boka rum\n3. Ta bort sidfoten",
+      builderTarget: { chatId: "chat_1", versionId: "v1" } }],
+      preparedFill: { target: "builder.chat.primary", value: text } });
+    const agent = makeAgent();
+    sajtagent.value = agent;
+    const build = vi.fn();
+    render(<ChatInterface chatId="chat_1" onSendMessage={build} />);
+    if (mode === "build") fireEvent.click(screen.getByRole("radio", { name: "Bygg" }));
+    await typeAndSend(text);
+    expect(build).not.toHaveBeenCalled();
+    expect(agent.send).not.toHaveBeenCalled();
+    expect((screen.getByRole("textbox", { name: "Skriv en uppdatering" }) as HTMLTextAreaElement).value).toBe(text);
+  });
+
+  it("executes the new scoped order once while revoking older automatic work", async () => {
+    useOpenClawStore.setState({ armedMandate: { mode: "followups", remaining: 3, createdAt: 1, reason: "Old order" },
+      messages: [{ id: "old-user", role: "user", content: "Byt alla färger", timestamp: 1, allowBuild: true }] });
+    const agent = makeAgent();
+    sajtagent.value = agent;
+    const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
+    render(<ChatInterface chatId="chat_1" onSendMessage={build} />);
+    const text = "Byt rubriken till Välkommen, ändra inget annat";
+    await typeAndSend(text);
+    expect(build).toHaveBeenCalledExactlyOnceWith(text, expect.anything());
+    expect(agent.send).not.toHaveBeenCalled();
+    expect(useOpenClawStore.getState().messages[0].allowBuild).toBe(false);
+    expect(useOpenClawStore.getState().armedMandate).toBeNull();
+    expect(useOpenClawStore.getState().armedContinuation).toBeNull();
+  });
+
   it("keeps an unavailable-agent question in the draft without calling the builder", async () => {
     const agent = makeAgent({ available: false, configured: true, healthStatus: "unavailable" });
     sajtagent.value = agent;

@@ -5,7 +5,7 @@ import {
   classifyAgentMessage,
 } from "@/lib/openclaw/agent-message-kind";
 import { uWordRegex } from "@/lib/utils/unicode-word-boundary";
-import { isAgentProposalReference } from "./composer-route";
+import { isSingleAgentProposalReference } from "./composer-route";
 
 export type AgentProposalReference = {
   agentMessageId: string;
@@ -107,7 +107,7 @@ export function resolveAgentProposalReference(input: {
     return clarify("Öppna den chatt och version som förslaget gäller först.");
   }
   const selections = [...input.text.replace(/\s+/gu, " ").matchAll(SELECTED_POINT)];
-  if (!isAgentProposalReference(input.text) || selections.length !== 1) {
+  if (!isSingleAgentProposalReference(input.text) || selections.length !== 1) {
     return clarify("Ange exakt en numrerad punkt från Sajtagentens senaste förslag.");
   }
   const selectedPart = pointNumber(selections[0][1]);

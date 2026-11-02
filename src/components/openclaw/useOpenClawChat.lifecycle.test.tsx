@@ -42,6 +42,19 @@ afterEach(() => {
 });
 
 describe("useOpenClawChat — turn ownership", () => {
+  it("a new scoped order revokes older grants without denying its own explicit build consent", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => reply("Nytt förslag")));
+    useOpenClawStore.setState({ armedMandate: { mode: "followups", remaining: 2, createdAt: 1, reason: "Old order" },
+      messages: [{ id: "old-order", role: "user", content: "Byt alla färger", timestamp: 1, allowBuild: true }] });
+    const { result } = renderHook(() => useOpenClawChat());
+    await act(async () => { await result.current.send("Byt rubriken till Välkommen, ändra inget annat", { allowBuild: true }); });
+    const users = useOpenClawStore.getState().messages.filter(message => message.role === "user");
+    expect(users[0].allowBuild).toBe(false);
+    expect(users[1].allowBuild).toBe(true);
+    expect(useOpenClawStore.getState().armedMandate).toBeNull();
+    expect(useOpenClawStore.getState().armedContinuation).toBeNull();
+  });
+
   it.each([
     ["Byt rubriken till Välkommen", true, true],
     ["Byt rubriken till Välkommen", undefined, false],

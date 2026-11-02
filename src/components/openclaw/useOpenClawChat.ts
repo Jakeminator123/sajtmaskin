@@ -44,7 +44,7 @@ import {
   readBuilderAnchorIndex,
 } from "@/lib/openclaw/builder-target";
 import { normalizeOpenClawClientMessages } from "@/lib/openclaw/message-validation";
-import { composerAllowsAgentBuild, isReadOnlyComposerRequest } from "@/lib/builder/composer-route";
+import { composerAllowsAgentBuild, hasScopedComposerChangeRestriction, isReadOnlyComposerRequest } from "@/lib/builder/composer-route";
 import type { AgentProposalReference } from "@/lib/builder/composer-route-reference";
 
 function makeId() {
@@ -169,7 +169,7 @@ export function useOpenClawChat() {
 
       const buildRestricted = !options?.internal &&
         (options?.restrictBuild === true || isReadOnlyComposerRequest(trimmed));
-      if (buildRestricted) {
+      if (buildRestricted || hasScopedComposerChangeRestriction(trimmed)) {
         revokeOpenClawBuildConsent();
       }
 

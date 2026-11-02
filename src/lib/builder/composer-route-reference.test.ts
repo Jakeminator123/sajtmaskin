@@ -87,6 +87,11 @@ describe("resolveAgentProposalReference", () => {
   it.each([
     "gör enligt ditt förslag",
     "gör punkt två och tre",
+    "gör punkt 2, 3",
+    "gör punkt 2–3",
+    "gör punkt 2 eller tre",
+    "gör punkt två och gör punkt tre",
+    "Apply suggestion 2 and 3",
     "gör punkt 2 och punkt 3",
     "gör punkt 2: byt rubriken till Hej",
     "Byt rubriken till Hej",

@@ -224,9 +224,28 @@ const NEGATED_BUILD = uWordRegex(
   "iu",
 );
 
+const SCOPED_CHANGE_RESTRICTION = uWordRegex("(?:ändra|andra) (?:inget|ingenting) annat", "iu");
+
+function withoutScopedRestriction(text: string): string {
+  return text.replace(new RegExp(SCOPED_CHANGE_RESTRICTION.source, "giu"), "");
+}
+
+/** A new bounded order may run, but it must stop an older autonomous chain. */
+export function hasScopedComposerChangeRestriction(rawText: string): boolean {
+  const text = normalize(rawText);
+  if (!SCOPED_CHANGE_RESTRICTION.test(text)) return false;
+  return withoutScopedRestriction(text).split(/[,;.]|\s+(?:men|utan|but|instead|och)\s+/iu).some((part) => {
+    const clause = part.trim();
+    return matchesAtStart(BUILD_OPENERS, clause) && !/[?？]/u.test(clause) &&
+      !NEGATED_BUILD.test(clause) && !ABSOLUTE_READ_ONLY.test(clause);
+  });
+}
+
 /** Explicit no-change requests must be recognized before their build verbs. */
 export function isReadOnlyComposerRequest(rawText: string): boolean {
-  const text = normalize(rawText);
+  const normalized = normalize(rawText);
+  const text = hasScopedComposerChangeRestriction(normalized)
+    ? withoutScopedRestriction(normalized) : normalized;
   if (ABSOLUTE_READ_ONLY.test(text)) return true;
   if (!NEGATED_BUILD.test(text)) return false;
 
@@ -243,14 +262,36 @@ const PROPOSAL_REFERENCE = uWordRegex(
   "iu",
 );
 
-/** An incomplete reference needs the agent's proposal context, not a raw build. */
-export function isAgentProposalReference(rawText: string): boolean {
+function matchProposalReference(rawText: string): { text: string; match: RegExpExecArray } | null {
   const text = normalize(rawText).replace(/^(?:snälla|please)\s+/iu, "");
   const match = PROPOSAL_REFERENCE.exec(text);
-  if (!match || !matchesAtStart(PROPOSAL_REFERENCE, text)) return false;
+  return match && matchesAtStart(PROPOSAL_REFERENCE, text) ? { text, match } : null;
+}
+
+/** Only this narrow grammar may resolve exactly one recommendation. */
+export function isSingleAgentProposalReference(rawText: string): boolean {
+  const result = matchProposalReference(rawText);
+  if (!result) return false;
+  const { text, match } = result;
   return /^[\s,.!?。！？]*(?:tack|please)?[\s.!?。！？]*$/iu.test(
     text.slice(match.index + match[0].length),
   );
+}
+
+/** Recognize reference intent before build verbs, including ambiguous/multiple points. */
+export function isAgentProposalReference(rawText: string): boolean {
+  const result = matchProposalReference(rawText);
+  if (!result) return false;
+  const { text, match } = result;
+  const suffix = text.slice(match.index + match[0].length).trim();
+  // A colon can supply a complete independent instruction. Additional clauses
+  // after an unresolved reference still need its source, even if a later clause
+  // happens to contain another build verb.
+  const independent = suffix.startsWith(":") ? suffix.slice(1).trim() : "";
+  if (independent && matchesAtStart(BUILD_OPENERS, independent) &&
+    !matchProposalReference(independent) && !isReadOnlyComposerRequest(independent) &&
+    !/[?？]/u.test(independent)) return false;
+  return true;
 }
 
 /**

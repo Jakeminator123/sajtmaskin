@@ -2,12 +2,32 @@ import { describe, expect, it } from "vitest";
 import {
   classifyComposerIntent,
   composerAllowsAgentBuild,
+  hasScopedComposerChangeRestriction,
   isAgentProposalReference,
   isReadOnlyComposerRequest,
   resolveComposerRoute,
 } from "./composer-route";
 
 describe("isReadOnlyComposerRequest", () => {
+  it.each([
+    "Byt rubriken till Välkommen, ändra inget annat",
+    "Byt rubriken till Välkommen, ändra ingenting annat",
+    "Ändra inget annat men byt rubriken till Välkommen",
+  ])("allows only the new bounded order and signals revocation of older work: %s", text => {
+    expect(hasScopedComposerChangeRestriction(text)).toBe(true);
+    expect(isReadOnlyComposerRequest(text)).toBe(false);
+    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(true);
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("build");
+    expect(composerAllowsAgentBuild({ mode: "agent", text })).toBe(false);
+  });
+
+  it.each(["Ändra inget annat", "Granska sidan, ändra inget annat", "Byt rubriken till X, ändra inget annat, ändra ingenting"])(
+    "does not remove an absolute prohibition without a permitted bounded order: %s", text => {
+      expect(isReadOnlyComposerRequest(text)).toBe(true);
+      expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(false);
+    },
+  );
+
   it.each([
     "Ändra ingenting, granska bara startsidan",
     "Ändra inget",
@@ -45,9 +65,23 @@ describe("isReadOnlyComposerRequest", () => {
 
 describe("isAgentProposalReference", () => {
   it.each([
+    "Gör punkt två och tre", "Gör punkt 2 och punkt 3", "Gör punkt 2, 3", "Gör punkt 2–3",
+    "Gör punkt 2 eller tre", "Gör punkt två och gör punkt tre", "Apply suggestion 2 and 3",
+    "Gör punkt två men behåll något annat", "Gör enligt ditt förslag och något mer",
+  ])("recognizes unresolved reference intent before build routing: %s", text => {
+    expect(isAgentProposalReference(text)).toBe(true);
+    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(false);
+    for (const mode of ["auto", "build", "agent"] as const) {
+      expect(resolveComposerRoute({ mode, text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("agent");
+      expect(resolveComposerRoute({ mode, text, hasChat: true, hasAttachments: false, agentAvailable: false, agentConfigured: true })).toBe("blocked");
+    }
+  });
+
+  it.each([
     "Gör punkt två",
     "gör punkt 2 i ditt förslag",
     "Gör enligt ditt förslag",
+    "Gör enligt ditt förslag och byt knapptexten till Boka",
     "Bygg enligt ditt förslag",
     "Snälla implementera förslag 2, tack",
     "Apply suggestion 2",
@@ -59,7 +93,6 @@ describe("isAgentProposalReference", () => {
 
   it.each([
     "Gör punkt två: byt rubriken till Välkommen",
-    "Gör enligt ditt förslag och byt knapptexten till Boka",
     "Byt rubriken till Välkommen enligt ditt förslag",
     "Add suggestion 2 to the list of suggestions",
     "",

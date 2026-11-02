@@ -38,6 +38,7 @@ import {
 import {
   classifyComposerIntent,
   composerAllowsAgentBuild,
+  hasScopedComposerChangeRestriction,
   isAgentProposalReference,
   isComposerMode,
   isReadOnlyComposerRequest,
@@ -836,7 +837,7 @@ export function ChatInterface({
     if (!trimmed && !hasSuccessFiles && !hasAuditToken) return;
 
     const restrictBuild = composerMode === "agent" || isReadOnlyComposerRequest(trimmed);
-    if (restrictBuild) revokeOpenClawBuildConsent();
+    if (restrictBuild || hasScopedComposerChangeRestriction(trimmed)) revokeOpenClawBuildConsent();
     const route = resolveRouteFor(trimmed);
     if (route === "blocked") {
       toast(!agentAvailable

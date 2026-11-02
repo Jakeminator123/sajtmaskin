@@ -225,7 +225,7 @@ describe("resolveStartBuildAutoRun", () => {
 });
 
 describe("OpenClawMessage — direktbygg via bryggan", () => {
-  it.each([null, "Ändra inget", "Vad tycker du om startsidan?"])(
+  it.each([null, "Ändra inget", "Vad tycker du om startsidan?", "Byt rubriken till Välkommen, ändra inget annat"])(
     "återkontrollerar väntande autobygge när buildern blir ledig (ny tur: %s)",
     async (readOnlyText) => {
       grantPowers();
@@ -247,7 +247,7 @@ describe("OpenClawMessage — direktbygg via bryggan", () => {
         act(() => {
           revokeOpenClawBuildConsent();
           useOpenClawStore.setState((state) => ({
-            messages: [...state.messages, userTurn("u-readonly", readOnlyText, "chat", { allowBuild: false })],
+            messages: [...state.messages, userTurn("u-readonly", readOnlyText, "chat", { allowBuild: readOnlyText.includes("inget annat") })],
           }));
         });
       }
@@ -513,7 +513,7 @@ describe("OpenClawMessage — armerad auto-send via bryggan", () => {
     });
   }
 
-  it.each(["Ändra inget", "Vad tycker du om startsidan?"])(
+  it.each(["Ändra inget", "Vad tycker du om startsidan?", "Byt rubriken till Välkommen, ändra inget annat"])(
     "avbryter väntande armerad sändning efter ny verklig tur: %s",
     async (readOnlyText) => {
       armFollowups();
@@ -534,7 +534,7 @@ describe("OpenClawMessage — armerad auto-send via bryggan", () => {
       act(() => {
         revokeOpenClawBuildConsent();
         useOpenClawStore.setState((state) => ({
-          messages: [...state.messages, userTurn("u-readonly", readOnlyText, "chat", { allowBuild: false })],
+          messages: [...state.messages, userTurn("u-readonly", readOnlyText, "chat", { allowBuild: readOnlyText.includes("inget annat") })],
         }));
       });
       ready = true;
