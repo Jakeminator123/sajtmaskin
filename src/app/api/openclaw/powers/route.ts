@@ -4,7 +4,7 @@ import { OPENCLAW } from "@/lib/config";
 import { withRateLimit } from "@/lib/rate-limit";
 import { getEngineChatByIdForRequest } from "@/lib/tenant";
 import {
-  readLiveReviewGrant,
+  readLiveReviewGrantState,
   writeLiveReviewGrant,
 } from "@/lib/db/services/live-review-grants";
 import { sanitizeOpenClawPowerIds } from "@/lib/openclaw/powers";
@@ -12,9 +12,9 @@ import { sanitizeOpenClawPowerIds } from "@/lib/openclaw/powers";
 export const runtime = "nodejs";
 
 const bodySchema = z.object({
-  chatId: z.string().min(1),
+  chatId: z.string().min(1).max(200),
   powersOn: z.boolean(),
-  granted: z.array(z.unknown()).optional(),
+  granted: z.array(z.string().max(100)).max(20).optional(),
 });
 
 async function scopedChat(req: Request, chatId: string) {
@@ -24,17 +24,28 @@ async function scopedChat(req: Request, chatId: string) {
 export async function GET(req: Request) {
   return withRateLimit(req, "openclaw:powers", async () => {
     const chatId = new URL(req.url).searchParams.get("chatId")?.trim() ?? "";
-    if (!chatId) {
+    if (!chatId || chatId.length > 200) {
       return NextResponse.json({ error: "chatId required" }, { status: 400 });
     }
     const chat = await scopedChat(req, chatId);
     if (!chat) {
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     }
-    const grant = (await readLiveReviewGrant(chatId)) ?? { powersOn: false, granted: [] };
+    const state = await readLiveReviewGrantState(chatId);
+    // Ett läsfel får inte se ut som «ingen grant»: klienten skulle då skriva
+    // standardbefogenheterna över ett uttryckligt av-val. 503 → klienten
+    // behåller sitt lokala läge och försöker inte persistera något.
+    if (state.status === "error") {
+      return NextResponse.json({ error: "grant_unavailable" }, { status: 503 });
+    }
+    const grant = state.status === "present" ? state.grant : { powersOn: false, granted: [] };
     return NextResponse.json({
       powersOn: OPENCLAW.editEnabled && grant.powersOn,
       granted: OPENCLAW.editEnabled ? grant.granted : [],
+      // Skiljer «ingen grant finns» från «grant uttryckligen av» så klienten
+      // kan ge en ny builderchatt standardbefogenheterna utan att återställa
+      // ett val användaren redan gjort (`OPENCLAW_BUILDER_DEFAULT_POWERS`).
+      persisted: state.status === "present",
     });
   });
 }

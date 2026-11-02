@@ -63,6 +63,8 @@ return released
 `;
 
 const memoryStore = new Map<string, MemoryEntry>();
+const MEMORY_STORE_PRUNE_INTERVAL = 128;
+let memoryStoreWrites = 0;
 let cachedRedis: QuotaBackend | null = null;
 let cachedRedisKey: string | null = null;
 
@@ -125,6 +127,17 @@ function currentMemoryEntry(key: string, nowMs: number): MemoryEntry | null {
   return null;
 }
 
+function setMemoryEntry(key: string, entry: MemoryEntry, nowMs: number): void {
+  memoryStoreWrites += 1;
+  if (memoryStoreWrites >= MEMORY_STORE_PRUNE_INTERVAL) {
+    memoryStoreWrites = 0;
+    for (const [storedKey, storedEntry] of memoryStore) {
+      if (storedEntry.expiresAt <= nowMs) memoryStore.delete(storedKey);
+    }
+  }
+  memoryStore.set(key, entry);
+}
+
 export async function acquirePublicAnalysQuota(
   clientId: string,
   now = new Date(),
@@ -145,10 +158,14 @@ export async function acquirePublicAnalysQuota(
     const current = currentMemoryEntry(key, now.getTime());
     if (current?.value.startsWith(COMMITTED_PREFIX)) return { status: "committed" };
     if (current) return { status: "reserved" };
-    memoryStore.set(key, {
-      value: token,
-      expiresAt: now.getTime() + RESERVATION_TTL_SECONDS * 1_000,
-    });
+    setMemoryEntry(
+      key,
+      {
+        value: token,
+        expiresAt: now.getTime() + RESERVATION_TTL_SECONDS * 1_000,
+      },
+      now.getTime(),
+    );
     return { status: "acquired", reservation: { key, clientHash, token, mode: "memory" } };
   }
 
@@ -186,10 +203,14 @@ export async function commitPublicAnalysQuota(
     ) {
       return "lost";
     }
-    memoryStore.set(deliveryKey, {
-      value: `${COMMITTED_PREFIX}${reservation.token}`,
-      expiresAt: now.getTime() + COMMITTED_TTL_SECONDS * 1_000,
-    });
+    setMemoryEntry(
+      deliveryKey,
+      {
+        value: `${COMMITTED_PREFIX}${reservation.token}`,
+        expiresAt: now.getTime() + COMMITTED_TTL_SECONDS * 1_000,
+      },
+      now.getTime(),
+    );
     if (deliveryKey !== reservation.key) memoryStore.delete(reservation.key);
     return "committed";
   }
@@ -261,6 +282,7 @@ export async function releasePublicAnalysQuota(
 
 export function resetPublicAnalysQuotaForTests(): void {
   memoryStore.clear();
+  memoryStoreWrites = 0;
   cachedRedis = null;
   cachedRedisKey = null;
 }

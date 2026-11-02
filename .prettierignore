@@ -12,6 +12,8 @@ node_modules/
 next-env.d.ts
 *.tsbuildinfo
 package-lock.json
+# Projektion av .cursor/rules (npm run claude:sync äger formatet)
+.claude/rules/
 
 # MCP docs
 services/mpc/docs/docgrab__*/

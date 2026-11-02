@@ -96,9 +96,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
     const busy = versionBusyResponseIfLeaseHeld(err);
     if (busy) return busy;
     console.error("Unicode normalization error:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Normalization failed" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Normalization failed" }, { status: 500 });
   }
 }

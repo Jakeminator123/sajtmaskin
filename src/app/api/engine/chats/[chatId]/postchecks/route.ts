@@ -11,7 +11,7 @@ const bodySchema = z.object({ versionId: z.string().trim().min(1).max(200) }).st
 /** The browser only wakes the existing server owner; it supplies no repair authority. */
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   const deadlineEpochMs = Date.now() + (maxDuration - 20) * 1000;
-  return withRateLimit(req, "engine:postchecks", async () => {
+  return withRateLimit(req, "engine:postchecks:request", async () => {
     const parsed = bodySchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     const { chatId } = await ctx.params;
@@ -20,20 +20,24 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       if (!(await getEngineVersionForChatByIdForRequest(req, chatId, versionId))) {
         return NextResponse.json({ error: "Version not found" }, { status: 404 });
       }
-      // Scope BEFORE pagination: this request cannot select another tenant's work.
-      const candidates = await listServerPostcheckCandidates(1, deadlineEpochMs, { chatId, versionId });
-      if (Date.now() >= deadlineEpochMs || !candidates.some(c => c.chatId === chatId && c.versionId === versionId)) {
-        return NextResponse.json({ accepted: false });
-      }
-      after(async () => {
-        try {
-          // Revalidates latest version, leases, stored policy, age, backoff and paid budget.
-          await runVersionPostchecks({ chatId, versionId, entry: "resume", deadlineEpochMs });
-        } catch (error) {
-          console.error("[postchecks recovery]", error);
+      // A tight bucket belongs to the authorized version, not everyone behind
+      // the same IP. JSON encoding keeps the two IDs unambiguous.
+      return await withRateLimit(req, "engine:postchecks", async () => {
+        // Scope BEFORE pagination: this request cannot select another tenant's work.
+        const candidates = await listServerPostcheckCandidates(1, deadlineEpochMs, { chatId, versionId });
+        if (Date.now() >= deadlineEpochMs || !candidates.some(c => c.chatId === chatId && c.versionId === versionId)) {
+          return NextResponse.json({ accepted: false });
         }
-      });
-      return NextResponse.json({ accepted: true }, { status: 202 });
+        after(async () => {
+          try {
+            // Revalidates latest version, leases, stored policy, age, backoff and paid budget.
+            await runVersionPostchecks({ chatId, versionId, entry: "resume", deadlineEpochMs });
+          } catch (error) {
+            console.error("[postchecks recovery]", error);
+          }
+        });
+        return NextResponse.json({ accepted: true }, { status: 202 });
+      }, { failClosedOnTimeout: true, verifiedResourceId: JSON.stringify([chatId, versionId]) });
     } catch {
       return NextResponse.json({ error: "Postchecks unavailable" }, { status: 503 });
     }

@@ -71,7 +71,7 @@ vi.mock("@/lib/images/image-assets", () => ({
 vi.mock("@/lib/providers/errors/normalize-provider-error", () => ({
   normalizeProviderError: (err: unknown) => ({
     message: err instanceof Error ? err.message : "Unknown error",
-    code: null,
+    code: "error",
     status: 500,
   }),
 }));
@@ -155,6 +155,130 @@ describe("own-engine file route parity", () => {
       JSON.stringify([{ path: "src/lib/util.ts", content: "util", language: "ts" }]),
       { invalidateVerification: true },
     );
+  });
+
+  it.each([
+    "?versionId=ver_1&fileName=../secret.txt",
+    `?versionId=${"x".repeat(201)}&fileName=src%2Fapp%2Fpage.tsx`,
+  ])("rejects invalid DELETE query fields before version lookup: %s", async (query) => {
+    const response = await DELETE(
+      new Request(`https://example.com/api/engine/chats/chat_1/files${query}`, {
+        method: "DELETE",
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(getEngineVersionForChatByIdForRequest).not.toHaveBeenCalled();
+    expect(updateVersionFiles).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized GET version id before chat lookup", async () => {
+    const response = await GET(
+      new Request(
+        `https://example.com/api/engine/chats/chat_1/files?versionId=${"x".repeat(201)}`,
+      ),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(getEngineChatByIdForRequest).not.toHaveBeenCalled();
+    expect(getEngineVersionForChatByIdForRequest).not.toHaveBeenCalled();
+  });
+});
+
+describe("PUT/PATCH /files request failures", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it.each([
+    ["PUT", PUT],
+    ["PATCH", PATCH],
+  ] as const)("%s rejects malformed JSON before ownership lookups", async (method, handler) => {
+    const response = await handler(
+      new Request("https://example.com/api/engine/chats/chat_1/files", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: "not-json",
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(getEngineVersionForChatByIdForRequest).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      "unsafe path",
+      PATCH,
+      { versionId: "ver_1", fileName: "../secret.txt", content: "x" },
+    ],
+    [
+      "oversized UTF-8 content",
+      PUT,
+      {
+        versionId: "ver_1",
+        files: [{ name: "app/page.tsx", content: "é".repeat(1024 * 1024 + 1) }],
+      },
+    ],
+  ] as const)("rejects %s before ownership lookups", async (_label, handler, body) => {
+    const response = await handler(
+      new Request("https://example.com/api/engine/chats/chat_1/files", {
+        method: handler === PUT ? "PUT" : "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(getEngineVersionForChatByIdForRequest).not.toHaveBeenCalled();
+  });
+
+  it("rejects an edit that would exceed the combined preview payload budget", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({ version: { id: "ver_1" } });
+    getVersionFiles.mockResolvedValue(
+      Array.from({ length: 6 }, (_, index) => ({
+        path: `src/file-${index}.ts`,
+        content: "x".repeat(2 * 1024 * 1024),
+        language: "ts",
+      })),
+    );
+
+    const response = await PATCH(
+      new Request("https://example.com/api/engine/chats/chat_1/files", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver_1", fileName: "src/extra.ts", content: "x" }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Updated files exceed the preview file budget",
+    });
+    expect(updateVersionFiles).not.toHaveBeenCalled();
+  });
+
+  it("does not expose persistence failures", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({ version: { id: "ver_1" } });
+    getVersionFiles.mockResolvedValue([]);
+    updateVersionFiles.mockRejectedValue(new Error("database host secret"));
+
+    const response = await PATCH(
+      new Request("https://example.com/api/engine/chats/chat_1/files", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver_1", fileName: "app/page.tsx", content: "x" }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "Failed to update file", code: "error" });
   });
 });
 

@@ -45,6 +45,24 @@ describe("materializeImages", () => {
     global.fetch = originalFetch;
   });
 
+  it("keeps malformed placeholder encoding without aborting post-processing", async () => {
+    const content = '<img src="/placeholder.svg?width=800&height=600&text=bad%ZZquery" />';
+
+    const result = await materializeImages(content);
+
+    expect(result).toMatchObject({ content, replacedCount: 0, skippedCount: 0 });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("falls back to bounded dimensions for invalid placeholder sizes", async () => {
+    const content =
+      '<img src="/placeholder.svg?width=999999&height=-2&text=bounded+image" />';
+
+    const result = await materializeImages(content);
+
+    expect(result.content).toContain("?w=800&h=600&fit=crop&q=80");
+  });
+
   it("limits how many placeholders are materialized per run", async () => {
     const content = [
       '<img src="/placeholder.svg?width=800&height=600&text=first+image" />',
@@ -173,5 +191,64 @@ describe("materializeImages", () => {
     expect(result.replacedCount).toBe(1);
     expect(result.content).toContain("images.unsplash.com/photo-");
     expect(result.content).not.toContain("placeholder.svg");
+  });
+
+  it("rejects untrusted image and tracking URLs from the provider response", async () => {
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("/search/photos")) {
+        return new Response(
+          JSON.stringify({
+            results: [
+              {
+                urls: { raw: "https://evil.example/stolen-image" },
+                links: { download_location: "https://evil.example/steal-key" },
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response("{}", { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await materializeImages(
+      '<img src="/placeholder.svg?width=800&height=600&text=hero+banner" />',
+      { maxReplacements: 1 },
+    );
+
+    expect(result.content).not.toContain("evil.example");
+    expect(result.content).toContain("images.unsplash.com/photo-");
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("evil.example"))).toBe(false);
+  });
+
+  it("does not forward the Unsplash key to an untrusted tracking URL", async () => {
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("/search/photos")) {
+        return new Response(
+          JSON.stringify({
+            results: [
+              {
+                urls: { raw: "https://images.unsplash.com/photo-safe" },
+                links: { download_location: "https://evil.example/steal-key" },
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response("{}", { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await materializeImages(
+      '<img src="/placeholder.svg?width=800&height=600&text=hero+banner" />',
+      { maxReplacements: 1 },
+    );
+
+    expect(result.content).toContain("https://images.unsplash.com/photo-safe");
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("evil.example"))).toBe(false);
   });
 });

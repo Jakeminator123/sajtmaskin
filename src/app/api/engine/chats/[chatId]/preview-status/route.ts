@@ -26,6 +26,7 @@ import {
 } from "@/lib/gen/preview/readiness-failure";
 
 const BOOT_GRACE_MS = 90_000;
+const MAX_STATUS_ID_CHARS = 200;
 
 /**
  * `build_error_overlay` only when the host actually saw a compile failure.
@@ -77,8 +78,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       const versionId = url.searchParams.get("versionId")?.trim();
       const clientPreviewSessionId = url.searchParams.get("previewSessionId")?.trim() || null;
 
-      if (!versionId) {
-        return NextResponse.json({ ok: false, message: "versionId query parameter is required." }, { status: 400 });
+      if (
+        !chatId ||
+        chatId.length > MAX_STATUS_ID_CHARS ||
+        !versionId ||
+        versionId.length > MAX_STATUS_ID_CHARS ||
+        (clientPreviewSessionId?.length ?? 0) > MAX_STATUS_ID_CHARS
+      ) {
+        return NextResponse.json({ ok: false, message: "Invalid preview status parameters." }, { status: 400 });
       }
 
       if (!isTier2PreviewConfigured()) {
@@ -308,7 +315,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       return NextResponse.json(
         {
           ok: false,
-          message: err instanceof Error ? err.message : "Unknown error",
+          message: "Preview status failed.",
         },
         { status: 500 },
       );

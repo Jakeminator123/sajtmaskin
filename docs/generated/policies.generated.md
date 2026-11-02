@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:ccdd23798506b73b -->
+<!-- source-fingerprint: config/env-policy.json sha256:80a2a7887c8217ce -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:906768b4c309ab32 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:ed83b142db793efe -->
 
@@ -42,6 +42,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `CONTACT_EMAIL_TO`                                   | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `CSP_ENFORCE`                                        | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `DATA_DIR`                                           | `local_only`           | —                                      | Yes           | No           |
+| `DB_SSL_CA_CERT`                                     | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `DB_SSL_REJECT_UNAUTHORIZED`                         | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `DEBUG`                                              | `local_only`           | —                                      | Yes           | No           |
 | `DESIGN_SYSTEM_ID`                                   | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
@@ -51,10 +52,14 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `ENV_VAR_ENCRYPTION_KEY`                             | `shared_runtime`       | `development`, `preview`, `production` | No            | No           |
 | `FIGMA_ACCESS_TOKEN`                                 | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `GENERATIONSLOGG`                                    | `local_only`           | —                                      | No            | Yes          |
+| `GITHUB_APP_ID`                                      | `optional_runtime`     | `preview`, `production`                | Yes           | No           |
+| `GITHUB_APP_INSTALLATION_ID`                         | `optional_runtime`     | `preview`, `production`                | Yes           | No           |
+| `GITHUB_APP_PRIVATE_KEY`                             | `optional_runtime`     | `preview`, `production`                | Yes           | No           |
 | `GITHUB_CLIENT_ID`                                   | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `GITHUB_CLIENT_ID_DEV`                               | `optional_runtime`     | `development`                          | Yes           | No           |
 | `GITHUB_CLIENT_SECRET_DEV`                           | `optional_runtime`     | `development`                          | Yes           | No           |
 | `GITHUB_REDIRECT_URI`                                | `optional_runtime`     | —                                      | Yes           | No           |
+| `GITHUB_SITES_ORG`                                   | `optional_runtime`     | `preview`, `production`                | Yes           | No           |
 | `GITHUB_TOKEN`                                       | `local_only`           | —                                      | No            | No           |
 | `GITHUB_WORKFLOW_TOKEN`                              | `local_only`           | —                                      | No            | No           |
 | `GOOGLE_CLIENT_ID`                                   | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
@@ -80,6 +85,8 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `NEXT_PUBLIC_GOOGLE_ADS_ENABLED`                     | `optional_runtime`     | `preview`                              | Yes           | No           |
 | `NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL`      | `optional_runtime`     | `production`                           | Yes           | No           |
 | `NEXT_PUBLIC_GOOGLE_ADS_ID`                          | `optional_runtime`     | `production`                           | Yes           | No           |
+| `NEXT_PUBLIC_OPENAI_ADS_ENABLED`                     | `optional_runtime`     | `preview`                              | Yes           | No           |
+| `NEXT_PUBLIC_OPENAI_ADS_PIXEL_ID`                    | `optional_runtime`     | `production`                           | Yes           | No           |
 | `NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL`                   | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE`             | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const getChat = vi.hoisted(() => vi.fn());
 const readGrant = vi.hoisted(() => vi.fn());
+const readGrantState = vi.hoisted(() => vi.fn());
 const writeGrant = vi.hoisted(() => vi.fn());
 const OPENCLAW = vi.hoisted(() => ({ editEnabled: true }));
 
@@ -14,6 +15,7 @@ vi.mock("@/lib/tenant", () => ({
 }));
 vi.mock("@/lib/db/services/live-review-grants", () => ({
   readLiveReviewGrant: readGrant,
+  readLiveReviewGrantState: readGrantState,
   writeLiveReviewGrant: writeGrant,
 }));
 
@@ -33,15 +35,60 @@ afterEach(() => {
 });
 
 describe("GET /api/openclaw/powers", () => {
+  it("rejects an oversized chat id before ownership lookup", async () => {
+    const res = await GET(
+      req(`http://localhost/api/openclaw/powers?chatId=${"x".repeat(201)}`),
+    );
+    expect(res.status).toBe(400);
+    expect(getChat).not.toHaveBeenCalled();
+  });
+
   it("404 när chatten inte ägs", async () => {
     getChat.mockResolvedValue(null);
     const res = await GET(req("http://localhost/api/openclaw/powers?chatId=x"));
     expect(res.status).toBe(404);
     expect(readGrant).not.toHaveBeenCalled();
+    expect(readGrantState).not.toHaveBeenCalled();
+  });
+
+  it("skiljer «ingen grant» (persisted:false) från en persisterad av-grant (persisted:true)", async () => {
+    getChat.mockResolvedValue({ id: "chat_1" });
+    readGrantState.mockResolvedValueOnce({ status: "absent" });
+    const absent = await (await GET(req("http://localhost/api/openclaw/powers?chatId=chat_1"))).json();
+    expect(absent).toEqual({ powersOn: false, granted: [], persisted: false });
+
+    readGrantState.mockResolvedValueOnce({
+      status: "present",
+      grant: { powersOn: false, granted: [] },
+    });
+    const off = await (await GET(req("http://localhost/api/openclaw/powers?chatId=chat_1"))).json();
+    expect(off).toEqual({ powersOn: false, granted: [], persisted: true });
+  });
+
+  it("svarar 503 vid läsfel så klienten aldrig skriver defaults över ett okänt läge", async () => {
+    getChat.mockResolvedValue({ id: "chat_1" });
+    readGrantState.mockResolvedValueOnce({ status: "error" });
+    const res = await GET(req("http://localhost/api/openclaw/powers?chatId=chat_1"));
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "grant_unavailable" });
   });
 });
 
 describe("POST /api/openclaw/powers", () => {
+  it("avvisar obegränsade grant-listor före ägarskapsuppslag", async () => {
+    const res = await POST(
+      req("http://localhost/api/openclaw/powers", {
+        chatId: "chat_1",
+        powersOn: true,
+        granted: Array.from({ length: 21 }, (_, index) => `power_${index}`),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(getChat).not.toHaveBeenCalled();
+    expect(writeGrant).not.toHaveBeenCalled();
+  });
+
   it("ignorerar förfalskad grant mot en chatt som inte ägs", async () => {
     getChat.mockResolvedValue(null);
     const res = await POST(

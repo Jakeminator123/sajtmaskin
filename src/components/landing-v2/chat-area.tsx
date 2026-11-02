@@ -2,15 +2,12 @@
 
 import { useEffect, useRef, useState } from "react"
 import { ArrowRight, Rocket } from "lucide-react"
-import { CreditPackageGrid } from "@/components/billing/CreditPackageGrid"
-import { creditPackageCopy } from "@/lib/billing/credit-package-copy"
 import { Button } from "@/components/ui/button"
 import { LandingBackground } from "@/components/landing-v2/landing-background"
 import { LandingExamples } from "@/components/landing-v2/landing-examples"
 import { LandingExempelStrip } from "@/components/landing-v2/landing-exempel-strip"
 import { LandingFooter } from "@/components/landing-v2/landing-footer"
 import { LandingHero } from "@/components/landing-v2/landing-hero"
-import { LandingPricingExplainer } from "@/components/landing-v2/landing-pricing-explainer"
 import { LandingTrustStrip } from "@/components/landing-v2/landing-trust-strip"
 import { trackHomepageEvent } from "@/components/landing-v2/landing-analytics"
 import {
@@ -63,9 +60,9 @@ function revealLandingFreeformPrompt(): boolean {
 /* ──────────────────── MAIN COMPONENT ──────────────────── */
 
 export function ChatArea(props: ChatAreaProps = {}) {
-  const { expandedContent, onPlayIntro } = props
-  // /#hur-det-fungerar och /#priser bor i den inre scroll-containern som
-  // Nexts hash-hantering inte scrollar — lös hash-länkarna här.
+  const { expandedContent } = props
+  // /#hur-det-fungerar bor i den inre scroll-containern som Nexts
+  // hash-hantering inte scrollar — lös hash-länken här.
   useHashScroll()
   const {
     router,
@@ -96,14 +93,15 @@ export function ChatArea(props: ChatAreaProps = {}) {
     pendingFreeformFocusRef.current = false
   }, [freeformFocusNonce, isAuditMode, selectedCategory, inputValue])
 
-  // Legacy-djuplänkar: #funktioner/#teknik-sektionerna flyttade till /teknik.
-  // Gamla bokmärken som /#funktioner har inget mål på startsidan längre —
-  // skicka dem vidare till motsvarande sektion på /teknik.
+  // Legacy-djuplänkar: sektioner som flyttat från startsidan ska fortfarande
+  // landa på sin nuvarande, kanoniska sida.
   useEffect(() => {
     const redirectLegacyHash = () => {
       const hash = window.location.hash
       if (hash === "#funktioner" || hash === "#teknik") {
         router.replace(`/teknik${hash}`)
+      } else if (hash === "#priser") {
+        router.replace("/priser")
       }
     }
     redirectLegacyHash()
@@ -127,7 +125,6 @@ export function ChatArea(props: ChatAreaProps = {}) {
 
         <LandingHero
           expandedContent={expandedContent}
-          onPlayIntro={onPlayIntro}
           selectedCategory={selectedCategory}
           pickCategory={pickCategory}
           showVoiceRecorder={showVoiceRecorder}
@@ -177,28 +174,6 @@ export function ChatArea(props: ChatAreaProps = {}) {
             </div>
 
             <HowItWorksLazy steps={landingJourneySteps} />
-          </div>
-        </section>
-
-        {/* ━━━ PRICING ━━━ */}
-        <section id="priser" className="[content-visibility:auto] [contain-intrinsic-size:auto_900px] overflow-visible border-t border-border/15 px-6 py-20 md:py-28">
-          <div className="mx-auto max-w-5xl">
-            <h2 className="mb-4 text-center text-2xl text-foreground font-(--font-heading) tracking-tight text-balance md:text-4xl">
-              Priser
-            </h2>
-            <p className="mx-auto mb-10 max-w-2xl text-center text-muted-foreground text-pretty">
-              Engångsköp. Du kan börja utan kreditkort. Credits används när du bygger, ändrar eller
-              publicerar — inte som en månadsavgift.
-            </p>
-            <CreditPackageGrid
-              disabled={isSubmitting}
-              onSelect={(id) => {
-                trackHomepageEvent("homepage_pricing", { package: id })
-                router.push("/buy-credits")
-              }}
-              ctaLabel={(pkg) => creditPackageCopy[pkg.id].cta}
-            />
-            <LandingPricingExplainer />
           </div>
         </section>
 

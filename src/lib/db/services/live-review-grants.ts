@@ -7,6 +7,41 @@ import {
 } from "@/lib/openclaw/live-review-access";
 import { sanitizeOpenClawPowerIds, type OpenClawPowerId } from "@/lib/openclaw/powers";
 
+export type LiveReviewGrantState =
+  | { status: "present"; grant: LiveReviewGrantRecord }
+  | { status: "absent" }
+  | { status: "error" };
+
+/**
+ * Som `readLiveReviewGrant`, men skiljer «ingen rad» från «läsfel». Powers-
+ * routen behöver skillnaden: standardbefogenheterna för en ny builderchatt får
+ * bara sättas när vi VET att ingen grant finns — aldrig över ett uttryckligt
+ * av-val som bara råkade vara oläsbart för stunden.
+ */
+export async function readLiveReviewGrantState(chatId: string): Promise<LiveReviewGrantState> {
+  const id = chatId.trim();
+  if (!id || !dbConfigured) return { status: "error" };
+  try {
+    const rows = await db
+      .select({
+        granted: liveReviewGrants.granted,
+        powersOn: liveReviewGrants.powersOn,
+      })
+      .from(liveReviewGrants)
+      .where(eq(liveReviewGrants.chatId, id))
+      .limit(1);
+    const row = rows[0];
+    if (!row) return { status: "absent" };
+    return { status: "present", grant: parsePersistedLiveReviewGrant(row) };
+  } catch (error) {
+    console.warn(
+      "[live-review-grant] read failed:",
+      error instanceof Error ? error.message : error,
+    );
+    return { status: "error" };
+  }
+}
+
 export async function readLiveReviewGrant(
   chatId: string,
 ): Promise<LiveReviewGrantRecord | null> {

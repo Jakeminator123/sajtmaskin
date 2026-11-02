@@ -188,6 +188,47 @@ describe("ssrf-guard", () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(3);
   });
 
+  it("forwards headersOnly on every safe redirect hop", async () => {
+    fetchWithPinnedDns
+      .mockResolvedValueOnce({
+        status: 302,
+        headers: { location: "https://example.org/image.jpg" },
+        body: Buffer.alloc(0),
+      })
+      .mockResolvedValueOnce({ status: 200, headers: {}, body: Buffer.alloc(0) });
+
+    const res = await safeFetch("https://example.com/image.jpg", { headersOnly: true });
+
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("");
+    expect(fetchWithPinnedDns).toHaveBeenCalledTimes(2);
+    for (const [, init] of fetchWithPinnedDns.mock.calls) {
+      expect(init).toMatchObject({ headersOnly: true });
+    }
+  });
+
+  it("still blocks private redirects for headers-only probes", async () => {
+    fetchWithPinnedDns.mockResolvedValueOnce({
+      status: 302,
+      headers: { location: "http://169.254.169.254/metadata" },
+      body: Buffer.alloc(0),
+    });
+
+    const res = await safeFetch("https://example.com/image.jpg", { headersOnly: true });
+
+    expect(res.status).toBe(403);
+    expect(fetchWithPinnedDns).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([204, 205, 304])("preserves bodyless HTTP status %i", async (status) => {
+    fetchWithPinnedDns.mockResolvedValueOnce({ status, headers: {}, body: Buffer.alloc(0) });
+
+    const res = await safeFetch("https://example.com/image.jpg", { headersOnly: true });
+
+    expect(res.status).toBe(status);
+    expect(res.body).toBeNull();
+  });
+
   it("returns 400 when redirect chain exceeds max hops", async () => {
     const redirect = () =>
       new Response(null, { status: 302, headers: { Location: "https://example.com/next" } });

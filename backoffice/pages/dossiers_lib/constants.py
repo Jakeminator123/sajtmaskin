@@ -100,17 +100,6 @@ _ALLOWED_ENFORCEMENT = {"build", "feature-runtime", "warn-only"}
 
 
 
-# ── Legacy-import (prospect → v2-utkast) ────────────────────────────────────
-# Drives scripts/dossiers/normalize-legacy-prospect.ts from the backoffice so a
-# maintainer can run the strict LLM normalizer, read its verdict/concerns, and
-# promote an accepted draft into the live pool — without touching the terminal.
-# The prospect material lives OUTSIDE the repo (kept out of Cursor's index).
-
-_NORMALIZE_MODELS = ("gpt-6.1-sol", "gpt-6-luna")
-
-
-
-
 # ── Skapa byggblock från grunden (C5) ───────────────────────────────────────
 # Formulär → manifest-skelett + instructions.md-stub. Fail-closed hela vägen:
 # id/capability valideras före allt annat, strict-schemat måste vara grönt

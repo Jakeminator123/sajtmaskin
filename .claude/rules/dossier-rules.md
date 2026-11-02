@@ -1,0 +1,39 @@
+---
+paths:
+  - "data/dossiers/**"
+  - "scripts/dossiers/**"
+  - "backoffice/pages/dossiers.py"
+  - "src/lib/gen/dossiers/**"
+  - "config/scaffold-variants/**"
+---
+
+<!-- Genererad av npm run claude:sync från .cursor/rules/dossier-rules.mdc — redigera källan, inte den här filen. -->
+
+# Dossier-regler
+
+Runtime läser **bara** `data/dossiers/{hard,soft}/<id>/`
+(`src/lib/gen/dossiers/registry.ts`). Övriga lager:
+
+- `data/dossiers/_index/capability-map.json`: genererad vy (även `dossiers`,
+  `labelsSv`, `policy`, `f2Policy`). Läses inte i runtime, men Backoffice
+  konsumerar den, så `dossiers:capability-map:check` är blockerande CI.
+- `scripts/dossiers/` validerar/kurerar/regenererar;
+  `backoffice/pages/dossiers.py` är adminvyn (Lista, AI-kuration, Systemkarta).
+- `_template_refs/dossier-references/repos/<id>/` är rå input i en syskonmapp
+  **utanför** checkouten. Klona den aldrig under `data/` och flytta aldrig runtime
+  dossiers dit.
+- `config/scaffold-variants/<scaffold>/<variant>.json` är ett eget subsystem.
+
+Regler:
+
+- `groups` ägs av `src/lib/builder/dossier-groups.ts` och härleds till vyn;
+  duplicera aldrig mappningen i Python.
+- Efter manifeständring: `npm run dossiers:validate-all` +
+  `npm run dossiers:capability-map:write`.
+- `sourceTemplateIds` är ordnade kandidater; runtime väljer **högst en**
+  inspirationsmall via spårade `src/lib/templates/template-blob-manifest.json`.
+  `disabled`-addendum väljs aldrig och ett id i en aldrig valbar kategori avvisas
+  av integritetsgrinden. Ingen join mot dossiers och inget beroende mot
+  `catalog.json` (borttagen 2026-07-09).
+- Vid radering: kolla capability, defaultForCapability, envVars, dependencies och
+  capability-map.

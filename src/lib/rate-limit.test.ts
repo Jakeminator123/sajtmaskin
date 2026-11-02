@@ -27,7 +27,14 @@ vi.mock("@upstash/redis", () => ({
   Redis: class MockRedis {},
 }));
 
-import { RATE_LIMITS, checkRateLimit, getClientId, withRateLimit } from "./rate-limit";
+import {
+  RATE_LIMITS,
+  checkRateLimit,
+  getClientId,
+  memoryRateLimitEntryCountForTests,
+  resetMemoryRateLimitStoreForTests,
+  withRateLimit,
+} from "./rate-limit";
 
 const originalUpstashUrl = process.env.UPSTASH_REDIS_REST_URL;
 const originalUpstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -37,6 +44,7 @@ const originalAllowMemoryProd = process.env.SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_I
 const originalTrustForwardedFor = process.env.SAJTMASKIN_TRUST_X_FORWARDED_FOR;
 
 afterEach(() => {
+  resetMemoryRateLimitStoreForTests();
   ratelimitControl.throwOnConstruct = false;
   vi.clearAllMocks();
   vi.unstubAllEnvs();
@@ -57,10 +65,74 @@ afterEach(() => {
 });
 
 describe("rateLimit", () => {
+  it("preserves the inner bucket headers for nested success and rejection", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    delete process.env.UPSTASH_REDIS_REST_URL;
+    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    delete process.env.KV_REST_API_URL;
+    delete process.env.KV_REST_API_TOKEN;
+    const id = `nested-postchecks:${Date.now()}`;
+    const request = new Request("https://example.com", { headers: { "x-real-ip": id } });
+    const run = () => withRateLimit(request, "engine:postchecks:request", () =>
+      withRateLimit(request, "engine:postchecks", async () => new Response("ok"), {
+        verifiedResourceId: id, failClosedOnTimeout: true,
+      }), { failClosedOnTimeout: true });
+    const first = await run();
+    expect(first.status).toBe(200);
+    expect(first.headers.get("X-RateLimit-Remaining")).toBe("1");
+    const reset = first.headers.get("X-RateLimit-Reset");
+    await run();
+    const blocked = await run();
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get("X-RateLimit-Remaining")).toBe("0");
+    expect(blocked.headers.get("X-RateLimit-Reset")).toBe(reset);
+    expect(blocked.headers.get("X-RateLimit-Mode")).toBe("memory");
+    expect(Number(blocked.headers.get("Retry-After"))).toBeGreaterThan(0);
+  });
+
+  it("isolates authorized postcheck resources behind the same IP while preserving the two-per-minute cap", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    delete process.env.UPSTASH_REDIS_REST_URL;
+    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    delete process.env.KV_REST_API_URL;
+    delete process.env.KV_REST_API_TOKEN;
+    const request = new Request("https://example.com", { headers: { "x-real-ip": "203.0.113.40" } });
+    const handler = async () => new Response("ok");
+    const resource = `postcheck-test:${Date.now()}`;
+    const run = (id: string) => withRateLimit(request, "engine:postchecks", handler, {
+      verifiedResourceId: id, failClosedOnTimeout: true,
+    });
+    expect((await run(resource)).status).toBe(200);
+    expect((await run(resource)).status).toBe(200);
+    expect((await run(resource)).status).toBe(429);
+    expect((await run(`${resource}:other`)).status).toBe(200);
+  });
+
+  it("passes the authorized resource key to the distributed limiter", async () => {
+    process.env.UPSTASH_REDIS_REST_URL = "https://redis.example";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "secret";
+    distributedLimit.mockResolvedValue({ success: true, remaining: 1, reset: Date.now() + 60_000 });
+    await withRateLimit(new Request("https://example.com"), "engine:postchecks", async () => new Response("ok"), {
+      verifiedResourceId: "verified-chat-version", failClosedOnTimeout: true,
+    });
+    expect(distributedLimit).toHaveBeenCalledWith("resource:verified-chat-version");
+  });
+
   it("configures the public attempt bucket at three requests per ten minutes", () => {
     expect(RATE_LIMITS["analys:public:attempt"]).toEqual({
       maxRequests: 3,
       windowMs: 10 * 60 * 1000,
+    });
+  });
+
+  it("gives public Unsplash operations explicit provider budgets", () => {
+    expect(RATE_LIMITS["unsplash:search"]).toEqual({
+      maxRequests: 30,
+      windowMs: 60 * 1000,
+    });
+    expect(RATE_LIMITS["unsplash:download"]).toEqual({
+      maxRequests: 60,
+      windowMs: 60 * 1000,
     });
   });
 
@@ -175,6 +247,21 @@ describe("rateLimit", () => {
     await new Promise((resolve) => setTimeout(resolve, 30));
     const allowedAgain = checkRateLimit(client, endpoint, cfg);
     expect(allowedAgain.allowed).toBe(true);
+  });
+
+  it("cleans expired memory buckets on a deterministic interval", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    checkRateLimit("expired", "unit:cleanup", { maxRequests: 1, windowMs: 1 });
+
+    vi.mocked(Date.now).mockReturnValue(2_000);
+    for (let index = 1; index < 128; index += 1) {
+      checkRateLimit(`active-${index}`, "unit:cleanup", {
+        maxRequests: 1,
+        windowMs: 10_000,
+      });
+    }
+
+    expect(memoryRateLimitEntryCountForTests()).toBe(127);
   });
 
   it("returns 429 and rate limit headers in withRateLimit", async () => {

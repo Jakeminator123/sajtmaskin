@@ -5,7 +5,10 @@ Repots tester körs med [Vitest](https://vitest.dev). Den fulla sviten
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml): ready runtime,
 högrisk-PR:ar och `master`. Bevisat safe docs och vanliga drafts får i stället
 ett explicit light-kvitto; required checknamn publiceras fortfarande för varje
-PR-head. Ovanpå den finns smalare lanes:
+PR-head. Ett träd som redan passerat full profil körs inte om: ready/reopened
+med samma head, bas och träd samt preview-push med identiskt träd återanvänder
+det gröna kvittot (`scripts/workflow/ci-receipt.mjs`). Ovanpå den finns smalare
+lanes:
 
 | Lane                      | Kommando                               | Filnamn                            | Blockerar merge?                                                  |
 | ------------------------- | -------------------------------------- | ---------------------------------- | ----------------------------------------------------------------- |
@@ -43,7 +46,7 @@ körning otillräcklig när integrationsbasen har flyttat sig.
 | `backoffice-tests`            | Ja                                                                                   | **Ja**                                                       |
 | `schema-drift`                | Ja                                                                                   | **Ja**                                                       |
 | `build`                       | Ja                                                                                   | **Ja** — tillagd i rulesetet 2026-07-30 (#660)               |
-| `dossier-acceptance`          | Ja, med explicit grönt no-op-kvitto utanför dossier-scope                           | **Ja**                                                       |
+| `dossier-acceptance`          | Ja; mot `preview` alltid grönt `deferred-to-promote`-kvitto, full matris mot `master` | **Ja**                                                       |
 | `preview-host-guards`         | Ja                                                                                   | **Ja, via `quality`-aggregatet**                             |
 | `dead-code` (orphan-filgrind) | Ja                                                                                   | **Ja, via `quality`-aggregatet**                             |
 
@@ -62,7 +65,7 @@ DB och Blob körs bara på push/dispatch till `master`.
 ## Build-grinden
 
 I den tunga profilen kör `build`-jobbet `npm run build` (som i sin tur kör
-`prebuild`: `preflight:common` + `scaffolds:embeddings:check`) **utan secrets**.
+`prebuild`: `preflight:common` + `embeddings:ensure`) **utan secrets**.
 Det finns för att `next build` ska köras nyckelfritt i CI även när en Vercel
 Preview uteblir eller misslyckas. typecheck och lint täcker inte
 build-tidsfel som route-config, RSC-gränser eller prerender-fel.

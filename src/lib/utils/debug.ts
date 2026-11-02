@@ -39,6 +39,18 @@ const DEBUG_CATEGORIES = new Set(
     .filter((s) => s && !["1", "true", "yes", "y", "on", "false", "no", "0", "off"].includes(s)),
 );
 
+const MAX_ERROR_LOG_CHARS = 2_000;
+
+export function sanitizeErrorTextForLog(value: string): string {
+  return value
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\b((?:postgres(?:ql)?|redis|https?):\/\/)[^@\s/]+@/gi, "$1[redacted]@")
+    .replace(/\b(Bearer\s+)[^\s,;]+/gi, "$1[redacted]")
+    .replace(/\b((?:sk|key)-[A-Za-z0-9_-]{12,}|gh[opsu]_[A-Za-z0-9]{12,})\b/g, "[redacted]")
+    .replace(/([?&](?:token|secret|password|api[-_]?key)=)[^&#\s]*/gi, "$1[redacted]")
+    .slice(0, MAX_ERROR_LOG_CHARS);
+}
+
 /**
  * Check if debug logging is enabled (globally or for a category)
  */
@@ -88,9 +100,9 @@ export function errorLog(category: string, message: string, error?: unknown): vo
   const prefix = `[${category}]`;
 
   if (error instanceof Error) {
-    console.error(`${prefix} ${message}:`, error.message);
+    console.error(`${prefix} ${message}:`, sanitizeErrorTextForLog(error.message));
     if (isDebugEnabled(category)) {
-      console.error(error.stack);
+      console.error(error.stack ? sanitizeErrorTextForLog(error.stack) : undefined);
     }
   } else if (error !== undefined) {
     console.error(`${prefix} ${message}:`, error);

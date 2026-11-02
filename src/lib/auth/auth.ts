@@ -64,12 +64,23 @@ export function verifyPassword(password: string, storedHash: string): boolean {
 // JWT configuration - use centralized secrets
 const JWT_SECRET = SECRETS.jwtSecret;
 const JWT_EXPIRY = 7 * 24 * 60 * 60; // 7 days in seconds
+const MAX_JWT_CHARS = 8_192;
 
 // Google OAuth configuration - use centralized secrets
 const GOOGLE_CLIENT_ID = SECRETS.googleClientId;
 const GOOGLE_CLIENT_SECRET = SECRETS.googleClientSecret;
 const GOOGLE_REDIRECT_URI = URLS.googleCallbackUrl;
 const DEFAULT_GOOGLE_REDIRECT_URI = "http://localhost:3000/api/auth/google/callback";
+const GOOGLE_OAUTH_TIMEOUT_MS = 10_000;
+const MAX_GOOGLE_TOKEN_CHARS = 8_192;
+const MAX_GOOGLE_ID_CHARS = 255;
+const MAX_GOOGLE_EMAIL_CHARS = 320;
+const MAX_GOOGLE_NAME_CHARS = 500;
+const MAX_GOOGLE_PICTURE_URL_CHARS = 2_048;
+
+function isBoundedString(value: unknown, maxLength: number): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= maxLength;
+}
 
 function resolveGoogleRedirectUri(override?: string): string {
   const candidate = override?.trim();
@@ -114,7 +125,10 @@ export function createToken(userId: string, email: string): string {
  */
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    const [header, body, signature] = token.split(".");
+    if (token.length > MAX_JWT_CHARS) return null;
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const [header, body, signature] = parts;
     if (!header || !body || !signature) return null;
 
     // Verify signature
@@ -123,7 +137,12 @@ export function verifyToken(token: string): JWTPayload | null {
       .update(`${header}.${body}`)
       .digest("base64url");
 
-    if (signature !== expectedSignature) {
+    const actualBytes = Buffer.from(signature);
+    const expectedBytes = Buffer.from(expectedSignature);
+    if (
+      actualBytes.length !== expectedBytes.length ||
+      !crypto.timingSafeEqual(actualBytes, expectedBytes)
+    ) {
       return null;
     }
 
@@ -131,7 +150,16 @@ export function verifyToken(token: string): JWTPayload | null {
     const payload = JSON.parse(Buffer.from(body, "base64url").toString()) as JWTPayload;
 
     // Check expiry
-    if (payload.exp < Math.floor(Date.now() / 1000)) {
+    if (
+      typeof payload.userId !== "string" ||
+      !payload.userId ||
+      typeof payload.email !== "string" ||
+      !payload.email ||
+      !Number.isInteger(payload.iat) ||
+      !Number.isInteger(payload.exp) ||
+      payload.exp < payload.iat ||
+      payload.exp < Math.floor(Date.now() / 1000)
+    ) {
       return null;
     }
 
@@ -621,6 +649,7 @@ export async function exchangeGoogleCode(
         grant_type: "authorization_code",
         ...(codeVerifier ? { code_verifier: codeVerifier } : {}),
       }),
+      signal: AbortSignal.timeout(GOOGLE_OAUTH_TIMEOUT_MS),
     });
 
     if (!response.ok) {
@@ -632,10 +661,19 @@ export async function exchangeGoogleCode(
       return null;
     }
 
-    const data = await response.json();
+    const data: unknown = await response.json().catch(() => null);
+    if (
+      data === null ||
+      typeof data !== "object" ||
+      !isBoundedString((data as Record<string, unknown>).access_token, MAX_GOOGLE_TOKEN_CHARS) ||
+      !isBoundedString((data as Record<string, unknown>).id_token, MAX_GOOGLE_TOKEN_CHARS)
+    ) {
+      console.error("[Auth] Google token exchange returned an invalid payload");
+      return null;
+    }
     return {
-      accessToken: data.access_token,
-      idToken: data.id_token,
+      accessToken: (data as Record<string, unknown>).access_token as string,
+      idToken: (data as Record<string, unknown>).id_token as string,
     };
   } catch (error) {
     console.error("[Auth] Google token exchange error:", error);
@@ -653,11 +691,13 @@ export async function getGoogleUserInfo(accessToken: string): Promise<{
   picture?: string;
   emailVerified: boolean;
 } | null> {
+  if (!isBoundedString(accessToken, MAX_GOOGLE_TOKEN_CHARS)) return null;
   try {
     const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
+      signal: AbortSignal.timeout(GOOGLE_OAUTH_TIMEOUT_MS),
     });
 
     if (!response.ok) {
@@ -665,13 +705,29 @@ export async function getGoogleUserInfo(accessToken: string): Promise<{
       return null;
     }
 
-    const data = await response.json();
+    const data: unknown = await response.json().catch(() => null);
+    if (data === null || typeof data !== "object" || Array.isArray(data)) {
+      console.error("[Auth] Google user info returned an invalid payload");
+      return null;
+    }
+    const user = data as Record<string, unknown>;
+    if (
+      !isBoundedString(user.id, MAX_GOOGLE_ID_CHARS) ||
+      !isBoundedString(user.email, MAX_GOOGLE_EMAIL_CHARS) ||
+      !isBoundedString(user.name, MAX_GOOGLE_NAME_CHARS) ||
+      (user.picture !== undefined &&
+        user.picture !== null &&
+        !isBoundedString(user.picture, MAX_GOOGLE_PICTURE_URL_CHARS))
+    ) {
+      console.error("[Auth] Google user info returned invalid fields");
+      return null;
+    }
     return {
-      id: data.id,
-      email: data.email,
-      name: data.name,
-      picture: data.picture,
-      emailVerified: data.verified_email === true,
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      picture: typeof user.picture === "string" ? user.picture : undefined,
+      emailVerified: user.verified_email === true,
     };
   } catch (error) {
     console.error("[Auth] Google user info error:", error);

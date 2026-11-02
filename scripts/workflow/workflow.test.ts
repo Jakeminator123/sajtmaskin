@@ -12,6 +12,7 @@ import {
   evaluateDependencyFreeImportGraph,
   evaluateDossierAcceptanceWorkflow,
   evaluatePolicyFloors,
+  evaluateCheckWriteGrants,
   evaluatePrBaseGuardWorkflow,
   evaluatePrHeadWorkflowPermissions,
   evaluatePullRequestTargetWorkflows,
@@ -20,6 +21,7 @@ import {
   evaluateSecretWorkflowDispatches,
   evaluateTrustedControllerImportGraph,
   evaluateTrustedControllerPermissions,
+  evaluateWorkflowCheckouts,
   evaluateWorkflowContract,
 } from "./check-contract.mjs";
 import {
@@ -734,6 +736,91 @@ describe("verify:pr command execution", () => {
 });
 
 describe("agent workflow repository contract", () => {
+  it("validates the actual CI and trusted-controller checkout inputs", () => {
+    expect(evaluateWorkflowCheckouts(readFileSync(".github/workflows/ci.yml", "utf8"))).toEqual([]);
+    expect(evaluateWorkflowCheckouts(
+      readFileSync(".github/workflows/dependabot-automerge.yml", "utf8"),
+      { trustedDefaultBranch: true },
+    )).toEqual([]);
+  });
+
+  it.each([
+    "${{ steps.pr.outputs.head }}",
+    "${{ github.event.pull_request.head.sha }}",
+    "preview",
+    "",
+  ])("rejects an unsafe controller ref even with the trusted ref in a comment: %s", (ref) => {
+    const source = readFileSync(".github/workflows/dependabot-automerge.yml", "utf8");
+    const trustedRef = "ref: ${{ github.event.repository.default_branch }}";
+    const candidate = source.replace(trustedRef, `ref: '${ref}' # ${trustedRef}`);
+    expect(candidate).not.toBe(source);
+    expect(evaluateWorkflowCheckouts(candidate, { trustedDefaultBranch: true })).toContain(
+      "workflow job classify checkout must use the trusted default branch",
+    );
+  });
+
+  it("does not treat a comment as the controller's credentials setting", () => {
+    const source = readFileSync(".github/workflows/dependabot-automerge.yml", "utf8");
+    const candidate = source.replace("persist-credentials: false", "# persist-credentials: false");
+    expect(candidate).not.toBe(source);
+    expect(evaluateWorkflowCheckouts(candidate, { trustedDefaultBranch: true })).toContain(
+      "workflow job classify checkout must disable persisted GitHub credentials",
+    );
+  });
+
+  it.each(["", "persist-credentials: true", "persist-credentials: '${{ false }}'"])(
+    "requires disabled credentials on every checkout, ignoring decoy settings: %s",
+    (unsafeInput) => {
+      const source = `jobs:
+  safe:
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+  unsafe:
+    steps:
+      - uses: actions/checkout@v6
+        with: { ${unsafeInput} }
+      - uses: example/other-action@v1
+        with: { persist-credentials: false }
+      - run: |
+          echo 'persist-credentials: false'
+          # persist-credentials: false
+`;
+      expect(evaluateWorkflowCheckouts(source)).toEqual([
+        "workflow job unsafe checkout must disable persisted GitHub credentials",
+      ]);
+    },
+  );
+
+  it("checks every trusted-controller checkout, including later steps", () => {
+    const source = readFileSync(".github/workflows/dependabot-automerge.yml", "utf8");
+    const candidate = `${source}\n      - uses: actions/checkout@v7\n        with:\n          ref: \${{ steps.pr.outputs.head }}\n          persist-credentials: false\n`;
+    expect(evaluateWorkflowCheckouts(candidate, { trustedDefaultBranch: true })).toContain(
+      "workflow job classify checkout must use the trusted default branch",
+    );
+  });
+
+  it("accepts equivalent YAML formatting and quoted action inputs", () => {
+    const source = `jobs:
+  classify:
+    steps:
+      - with: { 'persist-credentials': 'false', ref: '\${{github.event.repository.default_branch}}' }
+        uses: 'actions/checkout@v7' # checkout remains safe after reformatting
+`;
+    expect(evaluateWorkflowCheckouts(source, { trustedDefaultBranch: true })).toEqual([]);
+    expect(evaluateWorkflowCheckouts(source)).toEqual([]);
+  });
+
+  it.each([
+    "jobs: [\n",
+    "",
+    "jobs: {}\n",
+    "jobs:\n  classify:\n    steps:\n      - run: |\n          uses: actions/checkout@v7\n          persist-credentials: false\n",
+  ])("rejects invalid or missing executable checkout configuration: %s", (source) => {
+    expect(evaluateWorkflowCheckouts(source)).not.toEqual([]);
+    expect(evaluateWorkflowCheckouts(source, { trustedDefaultBranch: true })).not.toEqual([]);
+  });
+
   it("keeps GITHUB_TOKEN read-only in the trusted Dependabot controller", () => {
     const source = readFileSync(".github/workflows/dependabot-automerge.yml", "utf8");
     expect(evaluateTrustedControllerPermissions(source)).toEqual([]);
@@ -862,9 +949,24 @@ describe("agent workflow repository contract", () => {
         "needs.scope.outputs.run_heavy == 'true'",
       ),
       replaceOnce(
-        "if: ${{ !cancelled() }}\n    runs-on: ubuntu-latest\n    env:\n      RUN_HEAVY:",
-        "if: ${{ !cancelled() && needs.scope.outputs.run_heavy == 'true' }}\n    runs-on: ubuntu-latest\n    env:\n      RUN_HEAVY:",
+        "if: ${{ !cancelled() }}\n    # Lätt kvitto på ubuntu-slim",
+        "if: ${{ !cancelled() && needs.scope.outputs.run_heavy == 'true' }}\n    # Lätt kvitto på ubuntu-slim",
       ),
+      replaceOnce(
+        "runs-on: ${{ (needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false') && 'ubuntu-slim' || 'ubuntu-latest' }}",
+        "runs-on: ubuntu-slim",
+      ),
+      replaceOnce(
+        "runs-on: ${{ (needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false') && 'ubuntu-slim' || 'ubuntu-latest' }}",
+        "runs-on: ${{ needs.scope.outputs.run_heavy == 'false' && 'ubuntu-slim' || 'ubuntu-latest' }}",
+      ),
+      replaceOnce(
+        "runs-on: ${{ (needs.scope.result == 'success' && needs.scope.outputs.run_preview_host == 'false') && 'ubuntu-slim' || 'ubuntu-latest' }}",
+        "runs-on: ubuntu-slim",
+      ),
+      replaceOnce("      checks: read\n", "      checks: write\n"),
+      replaceOnce("      pull-requests: read\n    runs-on: ubuntu-slim", "      pull-requests: read\n      statuses: read\n    runs-on: ubuntu-slim"),
+      replaceOnce("  quality-tests:\n    needs: scope\n    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false') }}\n    runs-on: ubuntu-latest", "  quality-tests:\n    needs: scope\n    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false') }}\n    runs-on: ubuntu-slim"),
       replaceOnce(
         "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
         "cancel-in-progress: ${{ github.event_name == 'pull_request' || true }}",
@@ -913,10 +1015,11 @@ describe("agent workflow repository contract", () => {
       ),
       ...[
         "npx tsx scripts/db/run-migrations.ts",
+        "node scripts/db/migrate-prod.mjs --reason=x",
+        "npm run db:migrate:prod -- --reason=x",
         "npm run db:init",
         "npm run db:ensure",
         "npm run db:perf-indexes",
-        "npm run db:push",
       ].map((command) =>
         replaceOnce("run: npm run db:schema-parity -- --require", `run: ${command}`),
       ),
@@ -1155,11 +1258,14 @@ describe("agent workflow repository contract", () => {
     expect(source).toContain("pull_request_target:");
     expect(source).toContain("workflow_run:");
     expect(source).toContain("workflows: [CI]");
+    // Bara Dependabot-grenars CI-körningar startar controllern (kostnad);
+    // grenfiltret kräver Dependabots standardgrennamn.
+    expect(source).toContain("startsWith(github.event.workflow_run.head_branch, 'dependabot/')");
+    expect(readFileSync(".github/dependabot.yml", "utf8")).not.toContain("pull-request-branch-name");
     expect(source).toContain("queue: max");
     expect(source).toContain("cancel-in-progress: false");
     expect(source).not.toMatch(/^  pull_request:\s*$/mu);
-    expect(source).toContain("ref: ${{ github.event.repository.default_branch }}");
-    expect(source).toContain("persist-credentials: false");
+    expect(evaluateWorkflowCheckouts(source, { trustedDefaultBranch: true })).toEqual([]);
     expect(source).toContain("auto_merge_enabled");
     expect(source).toContain("node scripts/ci/dependabot-automerge.mjs");
     expect(source).toContain("secrets.DEPENDABOT_AUTOMERGE_TOKEN");
@@ -1239,6 +1345,17 @@ describe("agent workflow repository contract", () => {
     ],
   ])("parses every PR-head trigger/permission form fail-closed: %s", (name, source) => {
     expect(evaluatePrHeadWorkflowPermissions([{ name, source }]).length).toBeGreaterThan(0);
+  });
+
+  it("forbids checks: write anywhere because CI receipts trust scope annotations", () => {
+    for (const source of [
+      "on: push\npermissions: { checks: write }\njobs: {}\n",
+      "on: schedule\npermissions: write-all\njobs: {}\n",
+      "on: push\npermissions: {}\njobs:\n  x:\n    permissions: { checks: 'write' }\n",
+    ]) expect(evaluateCheckWriteGrants([{ name: "x.yml", source }]).length).toBeGreaterThan(0);
+    expect(evaluateCheckWriteGrants([
+      { name: "ok.yml", source: "on: push\npermissions: { checks: read, contents: write }\njobs: {}\n" },
+    ])).toEqual([]);
   });
 
   it("allows an explicit read-only pull_request workflow and ignores comments", () => {

@@ -47,11 +47,12 @@ from .constants import (
     _COMPLEXITY_FALLBACK,
     _MOCK_FALLBACK,
     _ALLOWED_ENFORCEMENT,
-    _NORMALIZE_MODELS,
     _INSTRUCTIONS_STUB,
 )
 
 from .labels import (
+    _describe_capability_group_hint,
+    _summarize_enforcement,
     class_label,
     mock_label,
     requires_f3,
@@ -68,7 +69,6 @@ from .io import (
     _list_dossier_dirs,
     _walk_all_dossiers,
     _validate_manifest,
-    _summarize_enforcement,
     _load_group_view,
     _group_label_for_capability,
     _groups_view_is_stale,
@@ -81,14 +81,7 @@ from .io import (
     _list_template_refs,
     _run_curate,
     _apply_capability_override,
-    _describe_capability_group_hint,
     _npm_binary,
-    _prospect_root,
-    _load_prospect_plan,
-    _load_prospect_report,
-    _read_prospect_verdict_files,
-    _run_normalize,
-    _promote_prospect,
     _create_dossier_skeleton,
     _run_sdk_version_check,
 )

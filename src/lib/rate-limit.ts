@@ -19,6 +19,8 @@ interface RateLimitEntry {
 }
 
 const rateLimitStore = new Map<string, RateLimitEntry>();
+const MEMORY_STORE_CLEANUP_INTERVAL = 128;
+let memoryStoreOperations = 0;
 
 interface RateLimitConfig {
   maxRequests: number;
@@ -46,11 +48,16 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "kostnadsfri:unsubscribe": { maxRequests: 30, windowMs: 60 * 60 * 1000 },
   "media:upload": { maxRequests: 20, windowMs: 60 * 1000 },
   "media:upload-url": { maxRequests: 12, windowMs: 60 * 1000 },
+  "unsplash:search": { maxRequests: 30, windowMs: 60 * 1000 },
+  "unsplash:download": { maxRequests: 60, windowMs: 60 * 1000 },
   "audio:transcribe": { maxRequests: 10, windowMs: 60 * 1000 },
   "text:extract": { maxRequests: 20, windowMs: 60 * 1000 },
   "text:analyze": { maxRequests: 20, windowMs: 60 * 1000 },
   "openclaw:chat": { maxRequests: 20, windowMs: 60 * 1000 },
   "openclaw:tips": { maxRequests: 20, windowMs: 60 * 1000 },
+  // Sajtagentens beständiga historik i buildern: en läsning per chattbyte och
+  // en skrivning per avslutad tur, så bucketen är rymligare än chat-routen.
+  "openclaw:agent-messages": { maxRequests: 60, windowMs: 60 * 1000 },
   // OC_DEBUG Mode B bug-hunt: each call drives real generation/repair for up to
   // maxDuration, so a tight bucket caps runaway cost/load even if the operator
   // token leaks. Without an explicit entry it would inherit the 90/min default.
@@ -97,7 +104,6 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "inspector:ai-match": { maxRequests: 10, windowMs: 60 * 1000 },
   read: { maxRequests: 150, windowMs: 60 * 1000 },
   default: { maxRequests: 90, windowMs: 60 * 1000 },
-  "webhook:v0": { maxRequests: 180, windowMs: 60 * 1000 },
   "preview-session:create": { maxRequests: 15, windowMs: 60 * 1000 },
   "preview-session:status": { maxRequests: 60, windowMs: 60 * 1000 },
   "preview-session:heartbeat": { maxRequests: 120, windowMs: 60 * 1000 },
@@ -115,6 +121,7 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "v0:deployments-events": { maxRequests: 60, windowMs: 60 * 1000 },
   "engine:quality-gate": { maxRequests: 12, windowMs: 60 * 1000 },
   "engine:repair": { maxRequests: 12, windowMs: 60 * 1000 },
+  "engine:postchecks:request": { maxRequests: 60, windowMs: 60 * 1000 },
   "engine:postchecks": { maxRequests: 2, windowMs: 60 * 1000 },
   "engine:readiness": { maxRequests: 60, windowMs: 60 * 1000 },
   // Polled by `useVersionStatus` (default 4s while a version is non-terminal).
@@ -227,8 +234,10 @@ export function checkRateLimit(
   const key = `${clientId}:${endpoint}`;
   const limits = config || RATE_LIMITS[endpoint] || RATE_LIMITS["default"];
 
-  if (Math.random() < 0.01) {
-    cleanupExpiredEntries();
+  memoryStoreOperations += 1;
+  if (memoryStoreOperations >= MEMORY_STORE_CLEANUP_INTERVAL) {
+    memoryStoreOperations = 0;
+    cleanupExpiredEntries(now);
   }
 
   const entry = rateLimitStore.get(key);
@@ -265,13 +274,23 @@ export function checkRateLimit(
   };
 }
 
-function cleanupExpiredEntries(): void {
-  const now = Date.now();
+function cleanupExpiredEntries(now: number): void {
   for (const [key, entry] of rateLimitStore.entries()) {
     if (entry.resetAt <= now) {
       rateLimitStore.delete(key);
     }
   }
+}
+
+/** @internal Test-only visibility for deterministic memory-store cleanup. */
+export function resetMemoryRateLimitStoreForTests(): void {
+  rateLimitStore.clear();
+  memoryStoreOperations = 0;
+}
+
+/** @internal Test-only visibility for deterministic memory-store cleanup. */
+export function memoryRateLimitEntryCountForTests(): number {
+  return rateLimitStore.size;
 }
 
 function createRateLimitHeaders(result: {
@@ -290,11 +309,14 @@ export async function withRateLimit(
   handler: () => Promise<Response>,
   options?: {
     userId?: string;
+    /** Only after authorizing this exact resource; never use an unverified request value. */
+    verifiedResourceId?: string;
     failClosedOnTimeout?: boolean;
     rateLimitErrorCode?: string;
   },
 ): Promise<Response> {
-  const clientId = getClientId(request, options);
+  const resourceId = options?.verifiedResourceId?.trim();
+  const clientId = resourceId ? `resource:${resourceId}` : getClientId(request, options);
   const limits = RATE_LIMITS[endpoint] || RATE_LIMITS["default"];
   let limiter: ReturnType<typeof getLimiter>;
   try {
@@ -385,10 +407,11 @@ export async function withRateLimit(
   const clonedResponse = response.clone();
 
   const headers = new Headers(clonedResponse.headers);
+  // A nested, narrower limiter owns its response metadata (including 429).
   Object.entries(createRateLimitHeaders(result)).forEach(([key, value]) => {
-    headers.set(key, value);
+    if (!headers.has(key)) headers.set(key, value);
   });
-  headers.set("X-RateLimit-Mode", rateLimitMode);
+  if (!headers.has("X-RateLimit-Mode")) headers.set("X-RateLimit-Mode", rateLimitMode);
 
   return new Response(clonedResponse.body, {
     status: clonedResponse.status,

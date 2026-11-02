@@ -8,4 +8,4 @@ Genererade eval-rapporter (markdown) från backoffice-vyn **Eval** (`backoffice/
 
 Kanonisk eval-kod: `src/lib/gen/eval/` (+ `src/lib/gen/eval/README.md`).
 
-Scaffold-selection- och variant-eval-JSON skrivs **lokalt** till `data/scaffold-eval/reports/` (gitignorerade, per-maskin). De är eval-evidens för Backoffice/verktyg och påverkar aldrig runtime-matcherns kandidatpool. Scaffold-rapporten skrivs av `npm run eval` (canonical); variant-eval körs med `npx tsx scripts/scaffolds/eval-landing-variants.ts`. Prompt-fixtures (`prompts.json`, `landing-variant-prompts.json`) ligger kvar i git under `data/scaffold-eval/`. Kanonisk eval-docs: `src/lib/gen/eval/README.md`.
+Scaffold-selection- och variant-eval-JSON skrivs **lokalt** till `data/scaffold-eval/reports/` (gitignorerade, per-maskin). De är eval-evidens för Backoffice/verktyg och påverkar aldrig runtime-matcherns kandidatpool. Scaffold-rapporten skrivs av `npm run eval` (canonical). Prompt-fixturen `prompts.json` ligger kvar i git under `data/scaffold-eval/`. Kanonisk eval-docs: `src/lib/gen/eval/README.md`.

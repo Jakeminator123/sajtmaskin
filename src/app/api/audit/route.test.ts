@@ -100,6 +100,28 @@ describe("POST /api/audit", () => {
     expect(prepareCredits).not.toHaveBeenCalled();
   });
 
+  it.each([null, [], { auditMode: "basic" }])(
+    "rejects an invalid request shape before URL and credit work",
+    async (body) => {
+      const response = await POST(request(body));
+
+      expect(response.status).toBe(400);
+      expect(validateAndNormalizeUrl).not.toHaveBeenCalled();
+      expect(prepareCredits).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects an oversized request body before parsing it", async () => {
+    const oversized = request({ url: "https://example.com" });
+    oversized.headers.set("content-length", "16385");
+
+    const response = await POST(oversized);
+
+    expect(response.status).toBe(413);
+    expect(validateAndNormalizeUrl).not.toHaveBeenCalled();
+    expect(prepareCredits).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid URLs before preparing credits", async () => {
     validateAndNormalizeUrl.mockImplementation(() => {
       throw new Error("Ogiltig URL");

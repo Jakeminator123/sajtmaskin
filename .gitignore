@@ -137,8 +137,8 @@ data/eval-runs/*
 !data/eval-runs/README.md
 
 # Scaffold-selection / variant-eval JSON reports (per-machine).
-# Prompts stay tracked: data/scaffold-eval/prompts.json + landing-variant-prompts.json.
-# Regenerate with `npm run eval` (scaffold lane) / eval-landing-variants.
+# Prompts stay tracked: data/scaffold-eval/prompts.json.
+# Regenerate with `npm run eval` (scaffold lane).
 data/scaffold-eval/reports/*
 !data/scaffold-eval/reports/README.md
 
@@ -163,6 +163,9 @@ Thumbs.db
 .cursor/documents/
 # Local Cursor MCP (IDE only; not read by Next/own-engine). May hold tokens or machine paths; template: .cursor/mcp.json.example
 .cursor/mcp.json
+# Claude Code: maskinlokala godkännanden. Delad konfiguration: CLAUDE.md, .claude/settings.json, .mcp.json
+.claude/settings.local.json
+.claude/worktrees/
 
 # OAuth / mobile secret dumps (never commit real files)
 **/client_secret*.json

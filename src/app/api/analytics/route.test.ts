@@ -53,6 +53,51 @@ describe("POST /api/analytics", () => {
     expect(res.status).toBe(400);
   });
 
+  it.each([null, undefined, "https://example.com/"])("records direct and referred visits: %s", async (referrer) => {
+    const { recordPageView } = await import("@/lib/db/services/analytics");
+    const res = await POST(new NextRequest("http://localhost/api/analytics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: "/builder", referrer }),
+    }));
+    expect(res.status).toBe(200);
+    await vi.waitFor(() => expect(recordPageView).toHaveBeenCalledWith(
+      "/builder", "sess_1", undefined, "unknown", undefined, referrer ?? undefined,
+    ));
+  });
+
+  it("rejects an oversized body before parsing or recording", async () => {
+    const { recordPageView } = await import("@/lib/db/services/analytics");
+    const res = await POST(
+      new NextRequest("http://localhost/api/analytics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "content-length": "16385" },
+        body: "{}",
+      }),
+    );
+
+    expect(res.status).toBe(413);
+    expect(recordPageView).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { path: `/${"x".repeat(2_048)}` },
+    { path: "/builder", referrer: 12 },
+    { path: "/builder", referrer: `https://example.com/${"x".repeat(2_100)}` },
+  ])("rejects oversized or malformed pageview fields", async (body) => {
+    const { recordPageView } = await import("@/lib/db/services/analytics");
+    const res = await POST(
+      new NextRequest("http://localhost/api/analytics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(recordPageView).not.toHaveBeenCalled();
+  });
+
   it("refuses the server-only kostnadsfri funnel events from the browser", async () => {
     const { recordPageView } = await import("@/lib/db/services/analytics");
     for (const path of ["/kostnadsfri/ikea-ab/verifierad", "/kostnadsfri/ikea-ab/skapad"]) {

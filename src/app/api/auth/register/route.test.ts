@@ -45,6 +45,15 @@ describe("POST /api/auth/register", () => {
     sendVerificationEmail.mockResolvedValue({ success: true });
   });
 
+  it("rejects an oversized body before registration", async () => {
+    const req = registerRequest("customer@example.test");
+    req.headers.set("content-length", "8193");
+    const response = await POST(req);
+
+    expect(response.status).toBe(413);
+    expect(registerUser).not.toHaveBeenCalled();
+  });
+
   it("rejects a privileged address before creating a user", async () => {
     const privilegedEmail = "privileged@example.test";
     isAdminEmail.mockImplementation((email: string) => email === privilegedEmail);
@@ -59,6 +68,25 @@ describe("POST /api/auth/register", () => {
     expect(registerUser).not.toHaveBeenCalled();
     expect(createVerificationToken).not.toHaveBeenCalled();
     expect(sendVerificationEmail).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { email: 42, password: "password123" },
+    { email: "customer@example.test", password: ["password123"] },
+    { email: "customer@example.test", password: "password123", name: { value: "Test" } },
+    { email: "customer@example.test", password: "password123", returnTo: { path: "/" } },
+    { email: "customer@example.test", password: "password123", returnTo: `/${"x".repeat(2_048)}` },
+  ])("rejects malformed registration fields %#", async (body) => {
+    const response = await POST(
+      new NextRequest("https://example.test/api/auth/register", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(registerUser).not.toHaveBeenCalled();
   });
 
   it("keeps the normal email-verification flow for regular users", async () => {
@@ -82,11 +110,7 @@ describe("POST /api/auth/register", () => {
       requiresEmailVerification: true,
       emailVerificationSent: true,
     });
-    expect(registerUser).toHaveBeenCalledWith(
-      "customer@example.test",
-      "password123",
-      "Test",
-    );
+    expect(registerUser).toHaveBeenCalledWith("customer@example.test", "password123", "Test");
     expect(createVerificationToken).toHaveBeenCalledWith("user_1");
     expect(sendVerificationEmail).toHaveBeenCalledWith(
       "customer@example.test",

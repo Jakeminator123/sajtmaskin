@@ -68,6 +68,7 @@ export const POLICY_FLOORS = Object.freeze({
     "scripts/workflow/check-contract.mjs",
     "scripts/workflow/required-check-owners.mjs",
     "scripts/workflow/ci-scope.mjs",
+    "scripts/workflow/ci-receipt.mjs",
     "scripts/workflow/path-impact.mjs",
     "config/agent-workflow.json",
     "config/control-plane/policy-registry.json",
@@ -302,6 +303,40 @@ export function evaluateTrustedControllerPermissions(source) {
   return errors;
 }
 
+/** Check action inputs, never comments or unrelated steps that contain the same text. */
+export function evaluateWorkflowCheckouts(source, { label = "workflow", trustedDefaultBranch = false } = {}) {
+  let document;
+  try {
+    document = yaml.load(source);
+  } catch {
+    return [`${label} checkout configuration must be valid YAML`];
+  }
+  const errors = [];
+  let checkoutCount = 0;
+  for (const [jobName, job] of Object.entries(document?.jobs ?? {})) {
+    if (!Array.isArray(job?.steps)) continue;
+    for (const step of job.steps) {
+      if (typeof step?.uses !== "string" || !/^actions\/checkout@/iu.test(step.uses)) continue;
+      checkoutCount += 1;
+      const location = `${label} job ${jobName} checkout`;
+      const inputs = step.with;
+      // Action inputs may be quoted strings or YAML booleans.
+      if (inputs?.["persist-credentials"] !== false && inputs?.["persist-credentials"] !== "false") {
+        errors.push(`${location} must disable persisted GitHub credentials`);
+      }
+      if (
+        trustedDefaultBranch &&
+        (typeof inputs?.ref !== "string" ||
+          !/^\$\{\{\s*github\.event\.repository\.default_branch\s*\}\}$/u.test(inputs.ref.trim()))
+      ) {
+        errors.push(`${location} must use the trusted default branch`);
+      }
+    }
+  }
+  if (checkoutCount === 0) errors.push(`${label} must contain a checkout step`);
+  return errors;
+}
+
 export function evaluatePrHeadWorkflowPermissions(workflowSources) {
   const errors = [];
   for (const workflow of workflowSources) {
@@ -331,6 +366,32 @@ export function evaluatePrHeadWorkflowPermissions(workflowSources) {
         errors.push(
           `${workflow.name} job ${jobName} runs PR-head workflow code and must not receive write permissions`,
         );
+      }
+    }
+  }
+  return errors;
+}
+
+/**
+ * CI-kvitton (ci-receipt.mjs) litar på notice-annotationer på scope-jobbet.
+ * Inget workflow får därför kunna skriva check runs/annotationer i repot.
+ */
+export function evaluateCheckWriteGrants(workflowSources) {
+  const errors = [];
+  for (const workflow of workflowSources) {
+    let document;
+    try {
+      document = yaml.load(workflow.source);
+    } catch {
+      continue;
+    }
+    const grants = [
+      ["workflow", document?.permissions],
+      ...Object.entries(document?.jobs ?? {}).map(([jobName, job]) => [`job ${jobName}`, job?.permissions]),
+    ];
+    for (const [label, permission] of grants) {
+      if (grantsWrite(permission, ["checks"])) {
+        errors.push(`${workflow.name} ${label} must not grant checks: write (CI receipts trust annotations)`);
       }
     }
   }
@@ -615,6 +676,30 @@ function hasPushBaselineReader(scope) {
       hasExactExpression(step.env?.GITHUB_TOKEN, "${{ github.token }}"));
 }
 
+// CI:s scope läser även kvittoannotationer (checks) och mergad PR (pull-requests).
+// Fortfarande enbart läsrätt; inget annat får läggas till.
+function hasCiReceiptReader(scope) {
+  return isDeepStrictEqual(scope?.permissions, {
+    contents: "read",
+    actions: "read",
+    checks: "read",
+    "pull-requests": "read",
+  }) &&
+    scope.steps?.some((step) =>
+      hasExactExpression(step.env?.GITHUB_TOKEN, "${{ github.token }}"));
+}
+
+// Tunga jobb får aldrig hamna på 1-vCPU-runnern: slim väljs bara vid ett lyckat,
+// uttryckligt lätt scopebeslut.
+function lightRunnerExpression(output) {
+  return `\${{ (needs.scope.result == 'success' && needs.scope.outputs.${output} == 'false') && 'ubuntu-slim' || 'ubuntu-latest' }}`;
+}
+
+function hasHeavySafeRunner(job, output) {
+  const runner = job?.["runs-on"];
+  return runner === "ubuntu-latest" || hasExactExpression(runner, lightRunnerExpression(output));
+}
+
 export function evaluateDossierAcceptanceWorkflow(source) {
   const errors = [];
   let document;
@@ -798,7 +883,7 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   if (
     !scope ||
     !hasExactExpression(scope.outputs?.run_heavy, "${{ steps.classify.outputs.run_heavy }}") ||
-    !hasPushBaselineReader(scope) ||
+    !hasCiReceiptReader(scope) ||
     !hasExactExpression(
       scope.outputs?.safe_docs_only,
       "${{ steps.classify.outputs.safe_docs_only }}",
@@ -1020,6 +1105,9 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     if (!hasExactExpression(job.env?.RUN_HEAVY, heavyFallback)) {
       errors.push(`${jobName} must fall back to heavy when CI scope is missing or failed`);
     }
+    if (!hasHeavySafeRunner(job, "run_heavy")) {
+      errors.push(`${jobName} may use ubuntu-slim only for an explicit successful light scope`);
+    }
     const report = job.steps?.find((step) => step.name === "Report light CI scope");
     if (!hasExactExpression(report?.if, "${{ env.RUN_HEAVY == 'false' }}")) {
       errors.push(`${jobName} must run an explicit successful light-scope receipt`);
@@ -1079,6 +1167,14 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     !hasExactExpression(previewHost?.env?.RUN_PREVIEW_HOST, previewHostFallback)
   ) {
     errors.push("preview-host must consume the shared fail-closed CI scope");
+  }
+  if (!hasHeavySafeRunner(previewHost, "run_preview_host")) {
+    errors.push("preview-host-guards may use ubuntu-slim only for an explicit successful skip");
+  }
+  for (const jobName of ["quality-core", "quality-tests", "quality-contracts"]) {
+    if (String(document?.jobs?.[jobName]?.["runs-on"] ?? "").includes("slim")) {
+      errors.push(`${jobName} runs heavy work and must not use ubuntu-slim`);
+    }
   }
   const previewHostReceipt = previewHost?.steps?.find(
     (step) => step.name === "Report skipped preview-host scope",
@@ -1197,8 +1293,10 @@ function containsForbiddenLiveDbWrite(value) {
   for (const step of value?.steps ?? []) {
     for (const line of String(step?.run ?? "").split(/\r?\n/u)) {
       const command = line.trim().toLowerCase();
-      if (/scripts[\\/]db[\\/]run-migrations(?:\.ts)?\b/u.test(command)) return true;
-      if (/\bnpm\s+run\s+db:migrate(?:\s|$|--)/u.test(command)) return true;
+      if (/scripts[\\/]db[\\/](?:run-migrations(?:\.ts)?|migrate-prod(?:\.mjs)?)\b/u.test(command)) {
+        return true;
+      }
+      if (/\bnpm\s+run\s+db:migrate(?::prod)?(?:\s|$|--)/u.test(command)) return true;
       if (/\bnpm\s+run\s+db:init(?:\s|$|--)/u.test(command)) return true;
       if (/\bnpm\s+run\s+db:ensure\b/u.test(command) && !/--check-only\b/u.test(command)) {
         return true;
@@ -1695,6 +1793,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   errors.push(...evaluateRetiredApiReviewWorkflows(workflowSources));
   errors.push(...evaluateReservedWorkflowCheckNames(workflowSources, policy));
   errors.push(...evaluatePrHeadWorkflowPermissions(workflowSources));
+  errors.push(...evaluateCheckWriteGrants(workflowSources));
   errors.push(...evaluatePullRequestTargetWorkflows(workflowSources));
   errors.push(
     ...evaluatePrBaseGuardWorkflow(
@@ -1748,8 +1847,6 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     !dependabotEvents.has("workflow_run") ||
     dependabotEvents.size !== 2 ||
     dependabotEvents.has("pull_request") ||
-    !dependabotWorkflow.includes("ref: ${{ github.event.repository.default_branch }}") ||
-    !dependabotWorkflow.includes("persist-credentials: false") ||
     !dependabotWorkflow.includes("auto_merge_enabled") ||
     !dependabotWorkflow.includes("node scripts/ci/dependabot-automerge.mjs") ||
     !dependabotWorkflow.includes("secrets.DEPENDABOT_AUTOMERGE_TOKEN") ||
@@ -1785,8 +1882,22 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
       "Dependabot auto-merge must run trusted default-branch code, validate content and use native auto-merge",
     );
   }
+  // Grenfiltret sparar ett jobb per CI-körning men förutsätter Dependabots
+  // standardgrennamn (`dependabot/<ekosystem>/...`).
+  if (
+    !dependabotWorkflow.includes("startsWith(github.event.workflow_run.head_branch, 'dependabot/')") ||
+    read(root, ".github/dependabot.yml").includes("pull-request-branch-name")
+  ) {
+    errors.push(
+      "Dependabot controller must skip non-Dependabot CI runs and keep Dependabot's default branch names",
+    );
+  }
   errors.push(...evaluateTrustedControllerImportGraph(root));
   errors.push(...evaluateTrustedControllerPermissions(dependabotWorkflow));
+  errors.push(...evaluateWorkflowCheckouts(dependabotWorkflow, {
+    label: "Dependabot controller",
+    trustedDefaultBranch: true,
+  }));
   const codeowners = read(root, ".github/CODEOWNERS");
   if (!codeowners.includes("/config/control-plane/schema-registry.json @Jakeminator123")) {
     errors.push("CODEOWNERS must cover the owner-reviewed control-plane schema registry");
@@ -1805,11 +1916,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   if (!/^permissions:\s*\n\s+contents:\s+read\s*\n\s+pull-requests:\s+read\s*$/mu.test(ci)) {
     errors.push("PR-head CI must have only read access to contents and pull requests");
   }
-  const checkoutCount = (ci.match(/uses:\s+actions\/checkout@v7/gu) ?? []).length;
-  const nonPersistingCheckoutCount = (ci.match(/persist-credentials:\s+false/gu) ?? []).length;
-  if (checkoutCount === 0 || nonPersistingCheckoutCount !== checkoutCount) {
-    errors.push("every PR-head CI checkout must disable persisted GitHub credentials");
-  }
+  errors.push(...evaluateWorkflowCheckouts(ci, { label: "PR-head CI" }));
   const allWorkflowJobs = `${ci}\n${dossierAcceptance}`;
   for (const check of policy.requiredChecks) {
     if (!new RegExp(`^  ${escapeRegExp(check)}:`, "m").test(allWorkflowJobs)) {
@@ -1967,9 +2074,8 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     );
   }
   const codexConfig = read(root, ".codex/config.toml");
-  // `approval_policy` is the one Codex control that survives an owner decision
-  // to drop the sandbox (2026-09-11): without it nothing asks before a command
-  // runs. It stays pinned. `never` is the specific value that removes the gate.
+  // Preserve the owner's project approval policy. It does not promise a prompt
+  // before every command; host-managed session policy may override these defaults.
   if (!/^approval_policy\s*=\s*"on-request"\s*$/mu.test(codexConfig)) {
     errors.push('project Codex must keep approval_policy = "on-request" as the human gate');
   }

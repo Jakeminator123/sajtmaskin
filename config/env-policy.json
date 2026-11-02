@@ -6,9 +6,13 @@
     "CRON_SECRET",
     "DATA_DIR",
     "DEBUG",
+    "GITHUB_APP_ID",
+    "GITHUB_APP_INSTALLATION_ID",
+    "GITHUB_APP_PRIVATE_KEY",
     "GITHUB_CLIENT_ID_DEV",
     "GITHUB_CLIENT_SECRET_DEV",
     "GITHUB_REDIRECT_URI",
+    "GITHUB_SITES_ORG",
     "GOOGLE_CLIENT_ID_DEV",
     "GOOGLE_CLIENT_SECRET_DEV",
     "GOOGLE_REDIRECT_URI",
@@ -20,6 +24,8 @@
     "NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL",
     "NEXT_PUBLIC_GOOGLE_ADS_ID",
     "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
+    "NEXT_PUBLIC_OPENAI_ADS_ENABLED",
+    "NEXT_PUBLIC_OPENAI_ADS_PIXEL_ID",
     "NEXT_PUBLIC_REGISTRY_BASE_URL",
     "NEXT_PUBLIC_REGISTRY_STYLE",
     "NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL",
@@ -112,6 +118,7 @@
     "CONTACT_EMAIL_TO",
     "CRON_SECRET",
     "CSP_ENFORCE",
+    "DB_SSL_CA_CERT",
     "DB_SSL_REJECT_UNAUTHORIZED",
     "DESIGN_SYSTEM_ID",
     "DID_API_KEY",
@@ -120,10 +127,14 @@
     "EMAIL_FROM",
     "ENABLE_PEXELS",
     "GENERATIONSLOGG",
+    "GITHUB_APP_ID",
+    "GITHUB_APP_INSTALLATION_ID",
+    "GITHUB_APP_PRIVATE_KEY",
     "GITHUB_CLIENT_ID",
     "GITHUB_CLIENT_ID_DEV",
     "GITHUB_CLIENT_SECRET",
     "GITHUB_CLIENT_SECRET_DEV",
+    "GITHUB_SITES_ORG",
     "GITHUB_TOKEN",
     "GITHUB_WORKFLOW_TOKEN",
     "GOOGLE_API_KEY",
@@ -164,6 +175,8 @@
     "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
     "NEXT_PUBLIC_MEILISEARCH_HOST",
     "NEXT_PUBLIC_MEILISEARCH_SEARCH_API_KEY",
+    "NEXT_PUBLIC_OPENAI_ADS_ENABLED",
+    "NEXT_PUBLIC_OPENAI_ADS_PIXEL_ID",
     "NEXT_PUBLIC_REGISTRY_BASE_URL",
     "NEXT_PUBLIC_REGISTRY_STYLE",
     "NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL",
@@ -682,6 +695,18 @@
       "notes": "Optional conversion label for first_generation / first_site_generated. Empty = gtag event first_site_generated without send_to. Set a label in Ads and here to count it as a conversion. No default label exists yet."
     },
     {
+      "key": "NEXT_PUBLIC_OPENAI_ADS_PIXEL_ID",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["production"],
+      "notes": "Optional override for the first-party OpenAI Ads Measurement Pixel id. Empty uses the code default from src/lib/ads/openai-ads.ts on production hosts. Kill-switch: NEXT_PUBLIC_OPENAI_ADS_ENABLED. Never inject into preview-host or generated sites."
+    },
+    {
+      "key": "NEXT_PUBLIC_OPENAI_ADS_ENABLED",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["preview"],
+      "notes": "OpenAI Ads kill-switch. Unset = on for production hosts only (sajtmaskin.se/.com/sajtmaskin.vercel.app), off on preview/localhost. 1/true = QA on. 0/false/off = always off. Read by src/lib/ads/openai-ads.ts."
+    },
+    {
       "key": "NEXT_PUBLIC_BASE_URL",
       "classification": "environment_specific",
       "recommendedVercelTargets": ["preview", "production"],
@@ -734,6 +759,30 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": [],
       "notes": "Optional override. If unset, the GitHub callback is derived from the current app base URL."
+    },
+    {
+      "key": "GITHUB_APP_ID",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["preview", "production"],
+      "notes": "GitHub App (owned by Sajtmaskin's sites organisation) numeric app id. Unset = FEATURES.useGitHubSitesOrg off; no backup/hand-over repos are touched. Runbook: docs/runbooks/github-sites-org.md."
+    },
+    {
+      "key": "GITHUB_APP_PRIVATE_KEY",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["preview", "production"],
+      "notes": "PEM private key of the GitHub App (multi-line or \\n-escaped). Signs 10-minute JWTs that are exchanged for 1-hour installation tokens; never used as a bearer token itself. Rotate from the App settings page; the old key stops working immediately."
+    },
+    {
+      "key": "GITHUB_APP_INSTALLATION_ID",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["preview", "production"],
+      "notes": "Installation id of the GitHub App on the sites organisation (from the installation URL). Tokens are scoped to that installation's repos only."
+    },
+    {
+      "key": "GITHUB_SITES_ORG",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["preview", "production"],
+      "notes": "Login of the GitHub organisation that owns customer-site backup repos (e.g. sajtmaskin-sites). Not sensitive. Must match the installation; the App never writes outside it."
     },
     {
       "key": "OAUTH_ALLOWED_ORIGINS",
@@ -962,6 +1011,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Backoffice storage backend selection."
+    },
+    {
+      "key": "DB_SSL_CA_CERT",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "PEM CA certificate for the app Postgres pool, selected for each environment's database. Enables strict certificate and hostname verification; do not combine with DB_SSL_REJECT_UNAUTHORIZED=false or URL SSL inputs other than sslmode. Does not configure standalone DB/CI scripts."
     },
     {
       "key": "DB_SSL_REJECT_UNAUTHORIZED",

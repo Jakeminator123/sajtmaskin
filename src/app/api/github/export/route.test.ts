@@ -61,6 +61,10 @@ type GitHubState = {
   truncated?: boolean;
   tree?: Array<{ path: string; type: "blob" | "tree" | "commit"; sha?: string }>;
   blobs?: Record<string, string>;
+  /** Repo exists but has no commits: Git Data endpoints answer 409 until seeded. */
+  empty?: boolean;
+  /** Repo does not exist yet: `GET /repos/alice/site` is 404 until created. */
+  missingRepo?: boolean;
 };
 
 function jsonResponse(data: unknown, status = 200): Response {
@@ -71,11 +75,25 @@ function jsonResponse(data: unknown, status = 200): Response {
 }
 
 function installGitHubMock(state: GitHubState = {}) {
-  const recorded: { tree: TreeEntry[] | null; blobs: string[] } = {
+  const recorded: {
+    tree: TreeEntry[] | null;
+    blobs: string[];
+    seedPath: string | null;
+    repoCreated: boolean;
+  } = {
     tree: null,
     blobs: [],
+    seedPath: null,
+    repoCreated: false,
   };
   let blobSeq = 0;
+  let hasCommits = !state.empty;
+  let repoExists = !state.missingRepo;
+  const repoResponse = {
+    full_name: "alice/site",
+    html_url: "https://github.com/alice/site",
+    default_branch: "main",
+  };
 
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -83,14 +101,25 @@ function installGitHubMock(state: GitHubState = {}) {
     const pathname = new URL(url).pathname.replace(/^\/+/, "");
 
     if (method === "GET" && pathname === "repos/alice/site") {
-      return jsonResponse({
-        full_name: "alice/site",
-        html_url: "https://github.com/alice/site",
-        default_branch: "main",
-      });
+      if (!repoExists) return jsonResponse({ message: "Not Found" }, 404);
+      return jsonResponse(repoResponse);
+    }
+
+    if (method === "POST" && pathname === "user/repos") {
+      repoExists = true;
+      recorded.repoCreated = true;
+      return jsonResponse(repoResponse, 201);
+    }
+
+    const contentsPut = pathname.match(/^repos\/alice\/site\/contents\/(.+)$/);
+    if (method === "PUT" && contentsPut) {
+      hasCommits = true;
+      recorded.seedPath = decodeURIComponent(contentsPut[1]);
+      return jsonResponse({ commit: { sha: "commit-base" } }, 201);
     }
 
     if (method === "GET" && pathname === "repos/alice/site/git/refs/heads/main") {
+      if (!hasCommits) return jsonResponse({ message: "Git Repository is empty." }, 409);
       return jsonResponse({ object: { sha: "commit-base" } });
     }
 
@@ -116,6 +145,7 @@ function installGitHubMock(state: GitHubState = {}) {
     }
 
     if (method === "POST" && pathname === "repos/alice/site/git/blobs") {
+      if (!hasCommits) return jsonResponse({ message: "Git Repository is empty." }, 409);
       const body = JSON.parse(String(init?.body ?? "{}")) as { content?: string };
       recorded.blobs.push(body.content ?? "");
       blobSeq += 1;
@@ -213,6 +243,45 @@ describe("POST /api/github/export", () => {
     expect(recorded.tree?.some((entry) => entry.path === GITHUB_EXPORT_MANIFEST_PATH)).toBe(true);
   });
 
+  it("seeds a brand-new empty repository before uploading, instead of failing on 409", async () => {
+    buildPortableExportProject.mockResolvedValue([
+      {
+        path: "app/page.tsx",
+        content: "export default function Page(){ return null; }",
+        language: "tsx",
+      },
+      { path: "README.md", content: "# Sajt", language: "markdown" },
+    ]);
+    const { fetchMock, recorded } = installGitHubMock({ missingRepo: true, empty: true });
+
+    const res = await POST(exportRequest());
+    const body = (await res.json()) as { success: boolean; created: boolean; commitSha: string };
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.created).toBe(true);
+    expect(recorded.repoCreated).toBe(true);
+    // The seed is one of OUR export files (never GitHub's placeholder README)
+    // and never the manifest, which must only exist as part of a full export.
+    const exportedPaths = recorded.tree?.map((entry) => entry.path) ?? [];
+    expect(recorded.seedPath).not.toBeNull();
+    expect(recorded.seedPath).not.toBe(GITHUB_EXPORT_MANIFEST_PATH);
+    expect(exportedPaths).toContain(recorded.seedPath);
+    // The export commit sits on top of the seed commit on the default branch.
+    const commitCall = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url).endsWith("/repos/alice/site/git/commits") &&
+        (init?.method || "GET").toUpperCase() === "POST",
+    );
+    const commitBody = JSON.parse(String(commitCall?.[1]?.body ?? "{}")) as { parents?: string[] };
+    expect(commitBody.parents).toEqual(["commit-base"]);
+    // The owner-transfer package adds its guide/env.example; the project files
+    // and the manifest must be in the tree regardless.
+    expect(exportedPaths).toEqual(
+      expect.arrayContaining([GITHUB_EXPORT_MANIFEST_PATH, "README.md", "app/page.tsx"]),
+    );
+  });
+
   it("deletes a previous manifest path that disappeared from the current export", async () => {
     buildPortableExportProject.mockResolvedValue([
       { path: "app/page.tsx", content: "page", language: "tsx" },
@@ -303,9 +372,41 @@ describe("POST /api/github/export", () => {
     const res = await POST(exportRequest());
     const body = await res.json();
 
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(409);
     expect(body.error).toMatch(/too large to export safely/);
     expect(recorded.tree).toBeNull();
+  });
+
+  it.each([
+    { chatId: "x".repeat(129) },
+    { versionId: "x".repeat(129) },
+    { repo: "x".repeat(257) },
+    { projectId: "x".repeat(129) },
+  ])("rejects oversized export identifiers before ownership lookup", async (overrides) => {
+    const res = await POST(exportRequest(overrides));
+
+    expect(res.status).toBe(400);
+    expect(getEngineChatByIdForRequest).not.toHaveBeenCalled();
+  });
+
+  it("does not expose unexpected export failures", async () => {
+    buildPortableExportProject.mockRejectedValueOnce(
+      new Error("postgres://secret-user:secret-pass@internal-host/export"),
+    );
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const res = await POST(exportRequest());
+      const body = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(body).toEqual({
+        success: false,
+        error: "GitHub-exporten misslyckades. Försök igen senare.",
+      });
+      expect(JSON.stringify(body)).not.toContain("secret-pass");
+    } finally {
+      error.mockRestore();
+    }
   });
 
   it("deletes a previous manifest file so a directory can occupy the same path", async () => {

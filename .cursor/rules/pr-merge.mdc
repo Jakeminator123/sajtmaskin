@@ -17,8 +17,9 @@ PR-skillen. Proceduren heter **Buggpass**; Codex, Cursor Bugbot eller annan
 oberoende granskare kan utföra den. Ett produktnamn är inget eget krav.
 
 1. Håll PR:n draft medan arbete eller kända fynd återstår. Draft→ready startar
-   den fulla CI-profilen; lokalt körs plan och riktade kontroller, inte samma
-   fulla profil en gång till.
+   den fulla CI-profilen, utom när samma head, bas och testade träd redan har en
+   grön full körning (då publiceras lätta kvitton); lokalt körs plan och riktade
+   kontroller, inte samma fulla profil en gång till.
 2. Läs GitHubs merge box, required GitHub-checks, reviews, kommentarer och deployment
    för aktuell head. Ny head gör äldre resultat stale; strict/up-to-date-ruleset
    binder merge till aktuell integrationsbas.
@@ -53,9 +54,17 @@ review.
 
 ## Produktion och databas
 
-`master` uppdateras endast genom separat promote-PR. Visa produktionsvarning
-och invänta en ny uttrycklig bekräftelse i samma chatt; native auto-merge används
-inte. Ancestry-synk använder dedikerad preview-PR och kommandot
+`master` är produktion; någon `main`-gren finns inte. Normalt används en separat
+promote-PR. Visa produktionsvarning och invänta Jakobs uttryckliga mandat för
+aktuell ändring; native auto-merge används inte.
+
+Nöd-PR eller nödpush till `master` kräver att Jakob uttryckligen godkänt
+ändringen och leveransvägen. Direktpush kräver ett redan befintligt
+GitHub-undantag för inloggningen; ändra inte rulesets. Nödmandat medger inte
+force-push, radering eller automatisk dispens från övriga grindar. Återför
+produktionsfixen till `preview` genom en separat synk-PR.
+
+Ancestry-synk använder dedikerad preview-PR och kommandot
 `gh pr merge --merge --match-head-commit <granskad head>` så att både ancestry
 och exakt granskad head bevaras.
 

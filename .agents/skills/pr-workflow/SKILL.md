@@ -11,14 +11,21 @@ ingen tvingad worktree, inget branchprefix och ingen roll om inte Jakob nämner 
 
 ## 1. Starta
 
+Vid ny chatt: `npm run handoff:list`. Tom lista kräver inget mer. Finns handoff,
+följ [val/läsning/kvittens](../../../docs/runbooks/agent-handoff.md); läs inte
+innehåll före Jakobs val. Samma runbook äger temporär agentcache och avslut.
+
 1. `npm run hooks:install` vid ny clone eller hookändring.
 2. **Välj bas medvetet — de två är inte samma sak:**
    - *Leveransbas* = grenen PR:en ska mot, default `preview`. Branchen utgår
-     alltid från färsk `origin/preview`, även när buggen är ett
+     normalt från färsk `origin/preview`, även när buggen är ett
      produktionspåstående, så att diffen har det som redan ligger i staging.
    - *Granskningsbas* = det du bevisar mot: `origin/master` när påståendet gäller
      produktion (backloggens «Bevis på `master`», prodrepro, promote). Läs den
      read-only (`git show origin/master:<sökväg>`); bygg inte branchen på den.
+
+   Undantag: en uttryckligen beställd nödfix i produktion utgår från färsk
+   `origin/master`, så orelaterat staging-arbete inte följer med (§ 4b).
 
    Hämta den du använder och frys basens SHA när flera kandidater eller agenter
    ska jämföras.
@@ -46,12 +53,19 @@ runtime-enforcement; läs rapportens `runtimeStatus`.
   typecheck och berörda integrationstester.
 - GitHub Actions publicerar required checks på varje head: tung profil för ready
   runtime, högrisk och `master`; explicit light-kvitto för safe docs (även
-  preview-push) och vanliga drafts. Dossiermatrisen väljs av beroendekontraktet
-  på PR och preview-push; schemalagd/manuell körning är komplett.
+  preview-push) och vanliga drafts. Dossiermatrisen körs bara vid promote (PR
+  mot `master`), veckovis och manuellt; PR och push mot `preview` skjuter upp
+  den (ägarbeslut 2026-10-22).
   Preview-genvägar kräver grön föregående push för respektive workflow; okänd,
   pågående eller fallerad bas kör full profil. `test:ci` delas på fyra
   parallella jobb som `quality` kräver. Återgång till draft startar ingen ny
   körning. Samla kända rättningar före push.
+- Grönt kvitto: varje PR-körning skriver head, bas och testat träd som
+  annotation på `scope`. `ready_for_review`/`reopened` med samma head, bas och
+  träd som en grön full körning, och en preview-push vars träd är identiskt med
+  den mergade PR:ens gröna fulla körning, publicerar lätta required checks i
+  stället för att köra samma träd igen (`scripts/workflow/ci-receipt.mjs`).
+  Rött, okänt eller avvikande träd kör full profil; `master` är alltid full.
 - Fixa eller avfärda riktiga reviewfynd; kör om berörda riktade kontroller.
 
 ## 4. Leverera: direkt preview eller PR
@@ -103,7 +117,12 @@ oberoende granskare: använd PR-vägen. Fabricera aldrig ett kvitto.
 
 ## 4b. Promote till produktion
 
-Allt arbete går till `preview`, även Dependabot (`target-branch` i
+`master` är produktionsgrenen; `main` finns inte. Policyflaggorna
+`directPreview.allowed` och `directMaster.allowed` anger tekniskt tillgängliga
+vägar, inte självständigt agentmandat. Direktpush och PR till `preview` stöds
+båda enligt § 4. Produktion beslutas av Jakob.
+
+Vanligt arbete går till `preview`, även Dependabot (`target-branch` i
 `.github/dependabot.yml`). När Jakob ber om release («merga preview till
 master», «promota», «släpp skarpt») kör `npm run promote` (`promote:dry` visar
 planen). Den skapar en kortlivad `promote/<datum>`-gren vid previews tip via
@@ -112,6 +131,11 @@ produktionsvarning. Head-grenen får **aldrig** vara `preview`:
 `delete_branch_on_merge` raderade staging 2026-09-08. Kommandot mergar aldrig;
 därefter gäller `pr-merge.mdc` med gröna checks, bugkoll/triage och uttrycklig
 ägarbekräftelse.
+
+Nöd-PR eller nödpush till `master` är ett separat, uttryckligt ägaruppdrag för
+exakt ändring och leveransväg. Följ `pr-merge.mdc`: befintliga GitHub-grindar
+och mandat gäller, inga rulesets ändras och inget force-/raderingsmandat
+följer med. Återför nödfixen till `preview` via separat synk-PR.
 
 En squash-release ger master en commit som saknas i `preview`. Före nästa
 promote: synkbranch från färsk preview som tar in master med merge-commit, PR mot
@@ -127,3 +151,7 @@ uttryckligt): `gh pr merge --squash --match-head-commit <granskad head>`.
 Efter merge: kör först `npm run tidy` och kräv att ytan rapporteras som `FRI`.
 Först då: `npm run worktree:remove -- <sökväg>`. Lämna huvudcheckouten på
 `preview`, inte `master`, så nästa chatt ärver leveransbasen.
+
+Vid överlämning: publicera en kort handoff med chattnamn och aktuellt kvitto
+enligt runbooken ovan. Frisläpp cachen; nästa agents läskvittens rensar den.
+Handoff-kvittens är aldrig ett bevis på merge eller mandat att radera grenar.

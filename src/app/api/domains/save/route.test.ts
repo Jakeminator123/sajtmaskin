@@ -23,6 +23,23 @@ describe("POST /api/domains/save", () => {
     getCurrentUser.mockResolvedValue({ id: "user_1" });
   });
 
+  it.each([
+    { deploymentId: "dep_1", domain: 42 },
+    { deploymentId: "dep_1", domain: "bad_label.example" },
+    { deploymentId: "x".repeat(129), domain: "site.example" },
+  ])("rejects invalid input before saving: %j", async (body) => {
+    const req = new Request("http://localhost/api/domains/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const res = await POST(req as never);
+
+    expect(res.status).toBe(400);
+    expect(setDeploymentDomainForRequest).not.toHaveBeenCalled();
+  });
+
   it("does not save a domain unless the deployment belongs to the requester", async () => {
     setDeploymentDomainForRequest.mockResolvedValue(false);
     const req = new Request("http://localhost/api/domains/save", {
@@ -50,5 +67,23 @@ describe("POST /api/domains/save", () => {
 
     expect(res.status).toBe(200);
     expect(json).toMatchObject({ success: true, deploymentId: "dep_1", domain: "site.example" });
+  });
+
+  it("does not expose deployment persistence failures", async () => {
+    setDeploymentDomainForRequest.mockRejectedValue(new Error("database secret"));
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const req = new Request("http://localhost/api/domains/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deploymentId: "dep_1", domain: "site.example" }),
+    });
+
+    try {
+      const res = await POST(req as never);
+      expect(res.status).toBe(500);
+      expect(await res.json()).toEqual({ error: "Could not save domain" });
+    } finally {
+      error.mockRestore();
+    }
   });
 });

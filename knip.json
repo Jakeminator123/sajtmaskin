@@ -5,7 +5,8 @@
     "src/lib/observability/fault-promotion-report-cli.ts",
     "src/components/ui/**",
     "src/lib/hooks/use-mobile.ts",
-    "scripts/**/*.{ts,mts,mjs,cjs,js}"
+    "scripts/**/*.{ts,mts,mjs,cjs,js}",
+    ".claude/hooks/*.mjs"
   ],
   "ignore": [
     "data/dossiers/**",

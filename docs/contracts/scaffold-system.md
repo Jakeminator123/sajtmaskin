@@ -428,7 +428,6 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 | `npm run scaffolds:client-list:check`  | Blockerar drift mellan runtime-registret och den browser-safe klientprojektionen       |
 | `npm run scaffolds:client-list:write`  | Regenererar den committade klientprojektionen från runtime-registret                   |
 | `npm run scaffolds:validate`           | Validerar klientprojektion, scaffold-manifest, embeddings-paritet och variants         |
-| `npm run scaffolds:embeddings:check`   | Kontrollerar scaffold-embeddings inför build                                           |
 | `npm run embeddings:ensure`            | Auto-synk + URL-check + registry-paritet (CI/prebuild)                                 |
 | `npm run embeddings:sync`              | Laddar ner embedding-JSON från Blob/manifest → lokal cache                             |
 | `npm run embeddings:promote`           | Laddar upp lokal cache → Blob (+ `--untrack` tar bort från git)                        |

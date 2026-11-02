@@ -19,6 +19,7 @@ inte hela katalogen. Arkitektur och kontrakt finns via [docs-routern](../README.
 | Symptom eller uppgift | Guide |
 | --- | --- |
 | Vit/stillastående builder-preview | [Preview](preview-white-screen.md) |
+| Återställa eller jämföra den delade preview-hostens uppsättning | [Preview-host baslinje](preview-host-shared-baseline.md) |
 | Livebevis som inte kan ersättas av unit-tester | [Liveverifiering](live-verifiering.md) |
 | Integrationsfel i genererad sajt | [Genererade integrationer](generated-site-integrations.md) |
 | OpenClaw-gateway, dashboard och anslutning | [OpenClaw](openclaw-gateway.md) |
@@ -31,6 +32,7 @@ inte hela katalogen. Arkitektur och kontrakt finns via [docs-routern](../README.
 | --- | --- |
 | DB-mål, schema, granskad migration och separat apply-mandat | [DB-migrationer](db-migrations.md) |
 | Aktivering och verifiering av användardomäner | [Branded URL:er](branded-user-urls.md) |
+| GitHub-organisation och App för kundsajters kodbackup och överlämning | [GitHub sites-org](github-sites-org.md) |
 | Publika exempel och deras livebevis | [Showcase](showcase-exempel.md) |
 | Avgränsat Search Ads-test | [Google Ads](google-ads-search-test.md) |
 

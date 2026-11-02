@@ -82,6 +82,15 @@ Acceptansproven ägs av
 lanseringsblocker och körs i en disposabel miljö med syntetiska data — gröna
 tester på den delade hosten kan inte godkänna arkitekturen.
 
+**Läge 2026-10-22:** maskinläget är implementerat bakom
+`PREVIEW_HOST_ISOLATION=machine` (`preview-host/src/machines/`,
+`src/runtime/machine-runtime.js`, gästagent och bild i `preview-host/guest/`)
+med fail-closed-validering, identitetsbevis per maskin och end-to-end-guard
+mot ett fejkat Machines-API. Det är inte driftsatt; piloten enligt
+`preview-host/guest/README.md` och acceptansproven ovan återstår, liksom
+beslut om size/idle/pooling. Den delade baslinjen är dokumenterad för
+återställning i `docs/runbooks/preview-host-shared-baseline.md`.
+
 ## Avgränsningar som inte får döljas
 
 En katalog per projekt och filtrerade miljövariabler är inte säker isolering.

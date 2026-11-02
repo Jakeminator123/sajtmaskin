@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+function decodeHeaderValue(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export async function GET(req: NextRequest) {
   const city = req.headers.get("x-vercel-ip-city") || null;
   const lat = parseFloat(req.headers.get("x-vercel-ip-latitude") || "");
@@ -8,7 +17,7 @@ export async function GET(req: NextRequest) {
   const country = req.headers.get("x-vercel-ip-country") || null;
 
   return NextResponse.json({
-    city: city ? decodeURIComponent(city) : null,
+    city: decodeHeaderValue(city),
     lat: Number.isFinite(lat) ? lat : null,
     lng: Number.isFinite(lng) ? lng : null,
     country,

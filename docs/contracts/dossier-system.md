@@ -669,13 +669,17 @@ Do **not** bump `lastVerified` just to make CI green. A completed pass means:
    can be obtained, and dependency/API usage still matches current official
    provider documentation.
 
-The always-on PR, weekly and manual [dossier-acceptance workflow](../../.github/workflows/dossier-acceptance.yml)
+The [dossier-acceptance workflow](../../.github/workflows/dossier-acceptance.yml)
 automates the first, keyless layer for **every dossier that ships files —
 hard AND soft** (instructions-only dossiers have nothing to build and are
-skipped). Every pull request runs a path-scope job against the materialization
-contract (`scripts/dossiers/acceptance-paths.mjs`). Hits install, typecheck and
-production-build the matrix; misses skip the matrix and still publish the
-required `dossier-acceptance` aggregate as green. The same workflow materializes
+skipped). It installs, typechecks and production-builds the full catalog on
+every PR to `master` (promote), weekly and on manual runs. PRs and pushes to
+`preview` never run the matrix (owner decision 2026-10-22): they still classify
+the diff against the materialization contract
+(`scripts/dossiers/acceptance-paths.mjs`), log which dossiers promote will
+build, and publish the required `dossier-acceptance` aggregate as green with
+reason `deferred-to-promote`. A dossier change is therefore first proven in
+the promote PR, not in its own preview PR. The same workflow materializes
 the exact dossier files on the selected existing acceptance scaffold
 (`landing-page` by default; `ecommerce` for Stripe, `dashboard` for Postgres,
 and `blog` for Mailchimp), merges the canonical export baseline and manifest
@@ -758,8 +762,8 @@ tests exercising the 503 → notice path (see
 `src/lib/gen/dossiers/dossier-config-fallback.test.tsx`).
 
 **Backoffice validation:** every class-aware write path in
-`backoffice/pages/dossiers.py` (safe edit, raw JSON, capability override,
-legacy promotion, and skeleton creation) applies the hard/soft `providers`
+`backoffice/pages/dossiers.py` (safe edit, raw JSON, capability override
+and skeleton creation) applies the hard/soft `providers`
 rule and the strict JSON schema before backup/write. The lightweight
 `_validate_manifest` still supplies immediate field-level feedback, while the
 strict-schema pass prevents the raw editor from bypassing canonical shape
@@ -817,5 +821,5 @@ Set `SAJTMASKIN_DOSSIER_PIPELINE=false` (or `0`) in any environment to skip doss
 | `src/lib/gen/dossiers/types.ts`                                                                                            | `DossierEntry`, `SelectedDossier`, `DossierSelectionResult`                                                                                                                                                                                                                                                                     |
 | `src/lib/gen/system-prompt/`                                                                                               | Renders the three dossier blocks into the system prompt                                                                                                                                                                                                                                                                         |
 | `scripts/dossiers/curate-from-reference.ts`                                                                                | AI-curation script (single dossier from a cloned reference repo). The model comes from `config/ai_models/manifest.json` → workload `backoffice_dossier_curation`; `--model=<id>` picks another id from that entry and an unlisted id is rejected before the LLM call                                                            |
-| `scripts/dossiers/inventory-legacy.mjs`, `normalize-legacy-prospect.ts`, `validate-all.ts`, `regenerate-capability-map.ts` | Legacy-import chain (PR #419): inventory a legacy v1 archive → LLM-normalize to v2 draft → validate promoted pool → rebuild the capability-map view. Backoffice UI: "Legacy-import" tab in `dossiers.py`.                                                                                                                       |
+| `scripts/dossiers/validate-all.ts`, `regenerate-capability-map.ts`                                                         | Validate the whole pool (`dossiers:validate-all`) and rebuild the capability-map view (`dossiers:capability-map:write`).                                                                                                                                                                                                        |
 | `backoffice/pages/dossiers.py`                                                                                             | Backoffice UI: browse (incl. grupperad kategorivy), edit, delete (checklista + id-bekräftelse), curate (inom vald kategori), rebuild capability-map via TS-scriptet                                                                                                                                                             |

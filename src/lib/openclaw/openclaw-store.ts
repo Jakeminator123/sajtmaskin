@@ -5,6 +5,7 @@ import type {
   ArmedContinuationWatch,
 } from "@/lib/openclaw/debug/armed-continuation";
 import type { OpenClawPreparedFill } from "@/lib/openclaw/prepared-prompt";
+import type { AgentMessageKind } from "@/lib/openclaw/agent-message-kind";
 import {
   beginCampaignFollowupSession,
   bindCampaignScriptProjectId,
@@ -43,6 +44,36 @@ export interface OpenClawMessage {
    * den kontext modellen faktiskt såg. Quick-edit-kortet binder sina ops hit
    * så ett förslag aldrig tyst appliceras mot en annan version (Bugbot). */
   builderTarget?: { chatId: string; versionId: string } | null;
+  /**
+   * `internal` = maskinskapad tur (continuation, väckning, byggresultat) som
+   * modellen ska se men som chatten visar som statusrad. Saknas → `chat`,
+   * med prefixfallback i `agent-message-kind.ts`.
+   */
+  kind?: AgentMessageKind;
+  /** Local composer consent for THIS live user turn. Never hydrated or persisted. */
+  allowBuild?: boolean;
+  /**
+   * Builderns senaste meddelande-id när den här raden skapades. Ger den
+   * gemensamma tidslinjen sin ordning (`unified-timeline.ts`). `null` = chatten
+   * hade inga meddelanden; `undefined` = rad från en yta utan builder.
+   */
+  anchorBuilderMessageId?: string | null;
+  /**
+   * Antal buildermeddelanden när raden skapades. Positionsfallback när
+   * ankar-id:t inte finns i listan (byggraderna har bytt id efter hydrering
+   * från servern, annan webbläsare, rensad storage): raden hamnar då efter
+   * buildermeddelande nummer `index` i stället för längst ner.
+   */
+  anchorBuilderMessageIndex?: number | null;
+  /**
+   * Raden kom från persisterad historik, inte från den här sessionen. Kort som
+   * agerar automatiskt (armerad auto-send, direktbygg) får aldrig köra på en
+   * hydrerad rad — annars startar varje omladdning gamla byggen igen.
+   */
+  hydrated?: boolean;
+  /** Live transport state. Only completed replies may execute action cards;
+   * historical/seeded messages without this field retain their old behavior. */
+  delivery?: "streaming" | "complete" | "interrupted";
 }
 
 interface OpenClawState {
@@ -91,7 +122,15 @@ interface OpenClawState {
   close: () => void;
   setScope: (scopeKey: string) => void;
   addMessage: (msg: OpenClawMessage) => void;
+  /**
+   * Fyll på med persisterad historik (`agent-history.ts`). Inkommande rader
+   * läggs FÖRE det som redan finns i minnet (de är äldre), och rader vars id
+   * redan finns hoppas över så en kampanjsådd eller en pågående tur aldrig
+   * dubbleras.
+   */
+  hydrateMessages: (incoming: OpenClawMessage[]) => void;
   updateAssistantMessage: (id: string, content: string) => void;
+  setAssistantDelivery: (id: string, delivery: NonNullable<OpenClawMessage["delivery"]>) => void;
   setStreaming: (v: boolean) => void;
   clearMessages: () => void;
   setAvatarMode: (v: boolean) => void;
@@ -213,10 +252,26 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
+  hydrateMessages: (incoming) =>
+    set((s) => {
+      if (incoming.length === 0) return s;
+      const known = new Set(s.messages.map((message) => message.id));
+      const fresh = incoming.filter((message) => !known.has(message.id));
+      if (fresh.length === 0) return s;
+      return { messages: [...fresh, ...s.messages] };
+    }),
+
   updateAssistantMessage: (id, content) =>
     set((s) => ({
       messages: s.messages.map((message) =>
         message.id === id && message.role === "assistant" ? { ...message, content } : message,
+      ),
+    })),
+
+  setAssistantDelivery: (id, delivery) =>
+    set((s) => ({
+      messages: s.messages.map((message) =>
+        message.id === id && message.role === "assistant" ? { ...message, delivery } : message,
       ),
     })),
 
@@ -392,6 +447,19 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
 export function readOpenClawPowers(): OpenClawPowers {
   const { editEnabled, powersOn, grantedPowers } = useOpenClawStore.getState();
   return resolveOpenClawPowers({ editEnabled, powersOn, granted: grantedPowers });
+}
+
+/** An explicit read-only turn revokes pending automatic work, including old replies. */
+export function revokeOpenClawBuildConsent(): void {
+  useOpenClawStore.setState((state) => ({
+    armedMandate: null,
+    armedContinuation: null,
+    messages: state.messages.map((message) =>
+      message.role === "user" && message.allowBuild === true
+        ? { ...message, allowBuild: false }
+        : message,
+    ),
+  }));
 }
 
 /** The live grant as ids, for the chat request body. */

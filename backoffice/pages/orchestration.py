@@ -31,7 +31,7 @@ def _orch_ts_sources(ctx: BackofficeContext) -> dict[str, Path]:
         / "builder"
         / "follow-up-capability-detection.ts",
         "SerializeMode": ctx.scaffolds_dir / "serialize.ts",
-        "BuildSpec policies": ctx.repo_root / "src" / "lib" / "gen" / "build-spec.ts",
+        "BuildSpec policies": ctx.repo_root / "src" / "lib" / "gen" / "build-spec" / "types.ts",
     }
 
 

@@ -27,7 +27,6 @@ import {
   HelpCircle,
 } from "lucide-react";
 import {
-  getCategory,
   type QuickPrompt,
   V0_CATEGORIES,
   getTemplatesByCategory,
@@ -42,7 +41,7 @@ import { PreviewModal } from "@/components/templates/preview-modal";
 import { TemplatePreviewMedia } from "@/components/templates/template-preview-media";
 import { toast } from "sonner";
 
-// Icon mapping - includes all icons used in V0_CATEGORIES and legacy CATEGORIES
+// Icon mapping - includes all icons used in V0_CATEGORIES
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   FileText,
   Globe,
@@ -67,12 +66,9 @@ export default function CategoryPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
 
-  const category = getCategory(type);
   const v0Category = V0_CATEGORIES[type];
   const v0Templates = v0Category ? getTemplatesByCategory(type) : [];
-
-  // Use v0 category if available, otherwise use legacy category
-  const displayCategory = v0Category || category;
+  const displayCategory = v0Category;
 
   if (!displayCategory) {
     return (

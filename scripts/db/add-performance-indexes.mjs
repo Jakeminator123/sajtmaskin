@@ -100,26 +100,28 @@ const PERF_INDEXES = [
     sql: `CREATE INDEX IF NOT EXISTS idx_engine_generation_logs_chat_created
           ON engine_generation_logs(chat_id, created_at DESC)`,
   },
+  // Same names and columns as add-generation-telemetry.sql, so these are no-ops
+  // on every migrated database.
   {
-    name: "idx_generation_telemetry_chat",
+    name: "idx_gen_telemetry_chat",
     table: "generation_telemetry",
     why: "Per-chat telemetri-uppslag (eval, observability)",
-    sql: `CREATE INDEX IF NOT EXISTS idx_generation_telemetry_chat
+    sql: `CREATE INDEX IF NOT EXISTS idx_gen_telemetry_chat
           ON generation_telemetry(chat_id)`,
   },
   {
-    name: "idx_generation_telemetry_version",
+    name: "idx_gen_telemetry_version",
     table: "generation_telemetry",
     why: "Per-version telemetri-uppslag (post-checks-summary)",
-    sql: `CREATE INDEX IF NOT EXISTS idx_generation_telemetry_version
+    sql: `CREATE INDEX IF NOT EXISTS idx_gen_telemetry_version
           ON generation_telemetry(version_id)`,
   },
   {
-    name: "idx_generation_telemetry_created",
+    name: "idx_gen_telemetry_created",
     table: "generation_telemetry",
     why: "Tidsserie-aggregeringar (Observability-page)",
-    sql: `CREATE INDEX IF NOT EXISTS idx_generation_telemetry_created
-          ON generation_telemetry(created_at DESC)`,
+    sql: `CREATE INDEX IF NOT EXISTS idx_gen_telemetry_created
+          ON generation_telemetry(created_at)`,
   },
 
   // -------------------------------------------------------------------------
@@ -299,8 +301,7 @@ async function indexExists(name) {
  * Returnera namnet på ett ev. existerande index som täcker EXAKT samma
  * kolumner i samma ordning på samma tabell — oavsett indexnamn. Förhindrar
  * att vi skapar duplicate-index med "skillnad bara i namnet" mot
- * tidigare manuella migrations (t.ex. `idx_gen_telemetry_chat` vs
- * `idx_generation_telemetry_chat`).
+ * tidigare manuella migrations.
  *
  * Returnerar null om inget täckande index finns.
  */

@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { rootCertificates } from "node:tls";
+import { Client } from "pg";
 
 // Importing ./client evaluates a module-level pg.Pool. Give it a resolvable
 // connection string so the import does not throw (MISSING_DB_MESSAGE); the pool
@@ -10,9 +12,63 @@ vi.mock("./env", () => ({
   }),
 }));
 
-const { parsePositiveIntEnv, resolveConnectTimeoutMs } = await import("./client");
+const {
+  parsePositiveIntEnv,
+  resolveConnectTimeoutMs,
+  resolvePoolSslConfig,
+  cleanConnectionString,
+} = await import("./client");
 
 const ENV_KEY = "POSTGRES_CONNECT_TIMEOUT_MS";
+
+describe("database CA configuration", () => {
+  const url = "postgresql://fixture:fixture@localhost:5432/test?sslmode=require";
+  const ca = rootCertificates[0];
+
+  it.each([ca, ca.replace(/\n/g, "\\n")])(
+    "passes the selected CA and strict verification to pg without a URL override",
+    (certificate) => {
+      const ssl = resolvePoolSslConfig(url, { DB_SSL_CA_CERT: certificate });
+      const client = new Client({ connectionString: cleanConnectionString(url), ssl });
+      // Client construction does not connect. Inspect pg's effective options,
+      // not only our helper, because URL parsing can replace the ssl object.
+      expect(client.ssl).toEqual({ ca: ca.trim(), rejectUnauthorized: true });
+      expect(client.ssl).not.toHaveProperty("checkServerIdentity");
+    },
+  );
+
+  it.each([
+    { connection: url, extra: { DB_SSL_REJECT_UNAUTHORIZED: "false" } },
+    { connection: url, extra: { DB_SSL_REJECT_UNAUTHORIZED: "0" } },
+    { connection: url.replace("require", "disable"), extra: {} },
+  ])("rejects a CA combined with disabled verification", ({ connection, extra }) => {
+    expect(() => resolvePoolSslConfig(connection, { DB_SSL_CA_CERT: ca, ...extra })).toThrow(
+      "DB_SSL_CA_CERT requires TLS certificate verification to remain enabled.",
+    );
+  });
+
+  it.each(["ssl=0", "sslcert=fixture.pem", "sslkey=fixture.pem", "sslrootcert=fixture.pem", "sslnegotiation=direct"])(
+    "rejects URL settings that would replace the selected CA: %s",
+    (setting) => {
+      expect(() => resolvePoolSslConfig(`${url}&${setting}`, { DB_SSL_CA_CERT: ca })).toThrow(
+        "DB_SSL_CA_CERT cannot be combined with SSL inputs in the database URL",
+      );
+    },
+  );
+
+  it("does not expose an invalid connection string in its error", () => {
+    expect(() => resolvePoolSslConfig("fixture-private-connection", { DB_SSL_CA_CERT: ca })).toThrow(
+      "DB_SSL_CA_CERT requires a valid database connection URL.",
+    );
+  });
+
+  it("preserves configurations that do not opt into a custom CA", () => {
+    expect(resolvePoolSslConfig(url.replace("require", "disable"), {})).toBe(false);
+    expect(resolvePoolSslConfig(url.replace("require", "verify-full"), {})).toEqual({ rejectUnauthorized: true });
+    expect(resolvePoolSslConfig(url, { DB_SSL_CA_CERT: "  ", DB_SSL_REJECT_UNAUTHORIZED: "false" })).toEqual({ rejectUnauthorized: false });
+    expect(resolvePoolSslConfig(url, { DB_SSL_REJECT_UNAUTHORIZED: "true" })).toEqual({ rejectUnauthorized: true });
+  });
+});
 
 describe("parsePositiveIntEnv", () => {
   it("parses a positive integer (trimmed)", () => {

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Inter, Space_Grotesk } from "next/font/google";
 import { headers } from "next/headers";
@@ -7,6 +8,7 @@ import "@/styles/landing-v2.css";
 import { AnalyticsTracker } from "@/components/layout/analytics-tracker";
 import { CookieBanner } from "@/components/layout/cookie-banner";
 import { GoogleAdsTag } from "@/components/layout/google-ads-tag";
+import { OpenAiAdsTag } from "@/components/layout/openai-ads-tag";
 import { OrganizationJsonLd } from "@/components/layout/json-ld";
 import { ThemeProvider } from "next-themes";
 import { Analytics } from "@vercel/analytics/next";
@@ -87,7 +89,12 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${spaceGrotesk.variable}`}
       suppressHydrationWarning
     >
-      <body className="font-sans antialiased">
+      {/* `data-openclaw-surface`: builderns SajtagentProvider läser flaggan
+          innan den gör något anrop (src/lib/openclaw/surface-flag.ts). */}
+      <body
+        className="font-sans antialiased"
+        data-openclaw-surface={openclawSurfaceEnabled ? "1" : undefined}
+      >
         <noscript>
           <div style={{ padding: "2rem", maxWidth: 600, margin: "0 auto", fontFamily: "system-ui, sans-serif", color: "#e5e7eb" }}>
             <p>
@@ -100,7 +107,10 @@ export default async function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} nonce={nonce}>
           <OrganizationJsonLd />
           <AnalyticsTracker />
-          <GoogleAdsTag nonce={nonce} />
+          <Suspense fallback={null}>
+            <GoogleAdsTag nonce={nonce} />
+          </Suspense>
+          <OpenAiAdsTag nonce={nonce} />
           <Analytics />
           <SpeedInsights />
           {children}

@@ -1,0 +1,27 @@
+<!-- Genererad av npm run claude:sync från .cursor/rules/workflow.mdc — redigera källan, inte den här filen. -->
+
+# Workflow
+
+Ny chatt: `npm run handoff:list`. Finns handoff, följ
+`docs/runbooks/agent-handoff.md` före läsning; annars fortsätt.
+
+1. Sök referenser före flytt/radering; 0 sökträffar i ett kallt index är inte bevis.
+2. Bevara andras ändringar. Ändra/stage uppgiftens exakta paths, utan bred formattering.
+3. Ersätt stale text/kod; skapa inte parallella sanningslager eller backupdocs.
+4. Synka berörda länkar, tester, schema/projektioner i samma diff;
+   `npm run sync:derived` när generatorowner ändrats.
+
+## Verifiera
+
+Kör `npm run verify:pr -- --plan` när diffen fått form; path-impactmotorn väljer
+ytor och CI-profil, så skapa ingen egen pathmatris. Kör och redovisa
+riktade kontroller lokalt, minst: TypeScript → `typecheck` + riktade tester; Python →
+`backoffice:test`; scaffold → `scaffolds:validate`; dossier →
+`dossiers:validate-all` + `dossiers:capability-map:check`; docs/regler →
+relevant `docs:*` eller `workflow:contract`. Full regression ägs av CI; profiler
+i `pr-workflow` § 3.
+
+## Pausa
+
+Pausa vid dataförlust, security/cross-tenant, oklar canonical owner, bred rename,
+arkitekturbeslut eller oväntat scope över cirka 40 filer.

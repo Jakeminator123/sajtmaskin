@@ -23,10 +23,12 @@ function canChangeWorkingDirectory(): boolean {
 let inputs: ContractDocInputs;
 let baselineDocs: GeneratedDocs;
 
+// Builds every generated doc family once; this takes several seconds and hit
+// the default 10 s hook timeout when the machine was busy.
 beforeAll(async () => {
   inputs = await loadContractDocInputs();
   baselineDocs = await buildGeneratedDocs(inputs);
-});
+}, 60_000);
 
 describe("contract docs source coverage", () => {
   it("declares and renders exactly the seven generated families", () => {

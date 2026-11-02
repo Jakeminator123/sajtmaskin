@@ -8,6 +8,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { createCreditCheckoutSession } from "@/lib/billing/stripe-credit-checkout";
+import {
+  creditPackageIdFromPurchaseDescription,
+  creditPackageMeasurement,
+} from "@/lib/billing/credit-packages";
 import { getPackageById } from "@/lib/billing/stripe";
 import { URLS, SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -20,6 +24,7 @@ import Stripe from "stripe";
 
 // Initialize Stripe
 const stripe = SECRETS.stripeSecretKey ? new Stripe(SECRETS.stripeSecretKey) : null;
+const MAX_STRIPE_SESSION_ID_CHARS = 255;
 
 /**
  * Purchase confirmation for the buy-credits redirect (#36, Codex P2 on PR
@@ -38,7 +43,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Inte inloggad" }, { status: 401 });
     }
     const sessionId = req.nextUrl.searchParams.get("session_id");
-    if (!sessionId || !/^cs_[A-Za-z0-9_]+$/.test(sessionId)) {
+    if (
+      !sessionId ||
+      sessionId.length > MAX_STRIPE_SESSION_ID_CHARS ||
+      !/^cs_[A-Za-z0-9_]+$/.test(sessionId)
+    ) {
       return NextResponse.json(
         { success: false, error: "Ogiltigt session-id" },
         { status: 400 },
@@ -47,7 +56,20 @@ export async function GET(req: NextRequest) {
     try {
       const transaction = await getTransactionByStripeSession(sessionId);
       const credited = Boolean(transaction && transaction.user_id === user.id);
-      return NextResponse.json({ success: true, credited });
+      if (!credited) {
+        return NextResponse.json({ success: true, credited: false });
+      }
+      const measurement = creditPackageMeasurement(
+        creditPackageIdFromPurchaseDescription(transaction?.description),
+      );
+      return NextResponse.json({
+        success: true,
+        credited: true,
+        packageId: measurement?.packageId ?? null,
+        name: measurement?.name ?? null,
+        amount: measurement?.amount ?? null,
+        currency: measurement?.currency ?? "SEK",
+      });
     } catch (error) {
       console.error("[Stripe/checkout] Confirmation lookup failed:", error);
       return NextResponse.json(
@@ -87,8 +109,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(campaignAccountBlockedBody("payment"), { status: 403 });
       }
 
-      const body = await req.json();
-      const { packageId } = body as { packageId?: string };
+      const body = await req.json().catch(() => null);
+      const packageId =
+        body && typeof body === "object" && !Array.isArray(body) &&
+        typeof (body as Record<string, unknown>).packageId === "string"
+          ? ((body as Record<string, unknown>).packageId as string).trim()
+          : "";
 
       if (!packageId) {
         return NextResponse.json({ success: false, error: "Paket-ID saknas" }, { status: 400 });
@@ -126,8 +152,8 @@ export async function POST(req: NextRequest) {
 
       if (error instanceof Stripe.errors.StripeError) {
         return NextResponse.json(
-          { success: false, error: "Betalningsfel: " + error.message },
-          { status: 400 },
+          { success: false, error: "Betaltjänsten kunde inte starta checkout." },
+          { status: 502 },
         );
       }
 

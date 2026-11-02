@@ -65,6 +65,8 @@ export default defineConfig([
     // local gate red while CI — which never sees the file — stays green. A
     // local check that can fail for reasons CI cannot reproduce is worse than
     // no local check, because it trains you to ignore it.
+    // Sanctioned local handoff evidence is not application source.
+    ".cache/agent-handoffs/**/*",
     ".cursor/tmp/**/*",
     ".cursor/bugs/**/*",
     ".cursor/handoffs/**/*",

@@ -11,15 +11,23 @@ import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import type { PreviewHibernateApiJson } from "@/lib/gen/preview/preview-contract";
 
 const bodySchema = z.object({
-  versionId: z.string().min(1),
-  previewSessionId: z.string().min(1).optional(),
-  lifecycleToken: z.string().min(1).nullable().optional(),
+  versionId: z.string().trim().min(1).max(200),
+  previewSessionId: z.string().trim().min(1).max(200).optional(),
+  lifecycleToken: z.string().trim().min(1).max(1_000).nullable().optional(),
 });
+
+const MAX_PREVIEW_RESOURCE_ID_CHARS = 200;
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   return withRateLimit(req, "preview-session:hibernate", async () => {
     try {
       const { chatId } = await ctx.params;
+      if (!chatId || chatId.length > MAX_PREVIEW_RESOURCE_ID_CHARS) {
+        return NextResponse.json(
+          { ok: false, reason: "invalid_body", message: "Invalid chat ID." } satisfies PreviewHibernateApiJson,
+          { status: 400 },
+        );
+      }
       if (!isTier2PreviewConfigured()) {
         return NextResponse.json(
           {
@@ -110,12 +118,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         ok: true,
         hibernated: hibernated.hibernated,
       } satisfies PreviewHibernateApiJson);
-    } catch (err) {
+    } catch {
       return NextResponse.json(
         {
           ok: false,
           reason: "unknown",
-          message: err instanceof Error ? err.message : "Unknown error",
+          message: "Preview hibernation failed.",
         } satisfies PreviewHibernateApiJson,
         { status: 500 },
       );

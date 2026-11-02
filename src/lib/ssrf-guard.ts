@@ -150,7 +150,8 @@ async function requestBodyToBuffer(body: BodyInit | null | undefined): Promise<B
 }
 
 function responseFromPinned(result: PinnedFetchResult, validatedUrl: URL): Response {
-  const response = new Response(new Uint8Array(result.body), {
+  const bodyless = result.status === 204 || result.status === 205 || result.status === 304;
+  const response = new Response(bodyless ? null : new Uint8Array(result.body), {
     status: result.status,
     headers: result.headers,
   });
@@ -197,12 +198,19 @@ function isPinnedBodyLimit(error: unknown): boolean {
 
 export async function safeFetch(
   url: string,
-  init?: RequestInit & { timeoutMs?: number; allowlistOnly?: boolean; maxBodyBytes?: number },
+  init?: RequestInit & {
+    timeoutMs?: number;
+    allowlistOnly?: boolean;
+    maxBodyBytes?: number;
+    /** Resolve status/headers and discard the body, including on redirects. */
+    headersOnly?: boolean;
+  },
 ): Promise<Response> {
   const {
     timeoutMs = FETCH_TIMEOUT_MS,
     allowlistOnly = false,
     maxBodyBytes,
+    headersOnly,
     ...rest
   } = init ?? {};
   const controller = new AbortController();
@@ -248,6 +256,7 @@ export async function safeFetch(
           body,
           timeoutMs,
           maxBodyBytes,
+          headersOnly,
           signal,
         });
       } catch (error) {

@@ -50,15 +50,15 @@ nedgradera den nyare hooken.
 Verifiera alltid målet först med `npm run db:check-target -- --expect=dev|prod`.
 Guarden visar sanitiserad identitet, inte lösenord eller hela URL:en.
 
-| Kommando                            | Betydelse                                                                                                                               |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run db:init`                   | Initiera en tom lokal/throwaway dev-DB efter målverifiering. Innehåller även repair/data-DDL; är inte en harmlös allmän statuskontroll. |
-| `npm run db:ensure`                 | Kontrollera → applicera pending migrationsfiler → verifiera, för en redan initierad dev-DB.                                             |
-| `npm run db:migrate:check`          | Read-only ledgerstatus. Ingen URL kan ge skip; explicit begärd env utan användbar URL ska falla.                                        |
-| `npm run db:migrate:additive-check` | Read-only riskgrind, inte ett bevis att SQL är ofarlig eller ett apply-mandat.                                                          |
-| `npm run db:perf-indexes:dry`       | Läsande plan för index.                                                                                                                 |
-| `npm run db:perf-indexes`           | Uttrycklig index-apply efter granskad plan/mål/reason. Kan låsa och ändra constraints; ingår inte i dev-start eller CI.                 |
-| `npm run db:migrate:prod`           | Separat ägarauktoriserad live-apply, aldrig en normal följd av kodmerge.                                                                |
+| Kommando                            | Betydelse                                                                                                                                              |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm run db:init`                   | Initiera en tom lokal/throwaway dev-DB efter målverifiering. Innehåller även repair/data-DDL; är inte en harmlös allmän statuskontroll.                |
+| `npm run db:ensure`                 | Kontrollera → applicera pending migrationsfiler → verifiera, för en redan initierad dev-DB.                                                            |
+| `npm run db:migrate:check`          | Read-only ledgerstatus. Ingen URL kan ge skip; explicit begärd env utan användbar URL ska falla.                                                       |
+| `npm run db:migrate:additive-check` | Read-only riskgrind, inte ett bevis att SQL är ofarlig eller ett apply-mandat.                                                                         |
+| `npm run db:perf-indexes:dry`       | Läsande plan för index.                                                                                                                                |
+| `npm run db:perf-indexes`           | Uttrycklig index-apply efter granskad plan/mål/reason. Kan låsa och ändra constraints; ingår inte i dev-start eller CI.                                |
+| `npm run db:migrate:prod`           | Separat ägarauktoriserad live-apply, aldrig en normal följd av kodmerge. Kräver `-- --reason=<ägarbeslut>` och snapshotens `POSTGRES_URL_NON_POOLING`. |
 
 ## DEV-synk för delad Preview/Development
 
@@ -101,8 +101,15 @@ public-schema-avvikelsen. Behåll den additiva mejlmigrationen och dess ledgerpo
    indexkod. Ledgerstatus ensam bevisar inte faktiskt schema.
 2. Kräv fail-closed körplan/ledgerhantering: bara pending ska köras, checksum-
    eller ledgeroklarhet ska stoppa, och `already-exists` är inte ett apply-kvitto.
-   Workflowstädningen ändrar inte runner/ledger-semantiken; de måste granskas
-   separat innan nästa live-apply.
+   `db:migrate` (och därmed `db:ensure` och `db:migrate:prod`) kräver en
+   befintlig ledger och kör bara filnamn som saknas där, med SQL och ledgerrad i
+   samma transaktion under ett sessionsbundet advisory lock som delas med
+   `db:align-dev-preview`. URL:en är `POSTGRES_URL_NON_POOLING` när den finns,
+   och port 6543 nekas. Runnern validerar inte historiska checksums och kan inte
+   generellt upptäcka redan befintliga objekt när SQL använder `IF NOT EXISTS`
+   eller andra idempotensvakter. Separat schemainspektion och granskning av
+   pending-planen krävs därför fortfarande före live-apply. `db:init` har egen
+   semantik och granskas separat.
 3. Bevara historisk ledger. Backfyll inte gamla NULL-checksums med dagens
    filhashar och kör inte om redan ledgerförda migrationer för att få grönt.
 4. Använd verifierad direkt eller **session-mode** Postgres-anslutning för DDL

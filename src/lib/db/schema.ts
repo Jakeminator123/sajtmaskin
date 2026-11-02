@@ -963,6 +963,35 @@ export const liveReviewGrants = pgTable("live_review_grants", {
 });
 
 /**
+ * Sajtagentens (OpenClaw) samtal per builderchatt — den gemensamma chattens
+ * beständiga agenthistorik (plan 2026-10-22 «En chatt»).
+ *
+ * Egen tabell, INTE `engine_messages`: byggmotorn läser den tabellen som
+ * LLM-historik (`buildBoundedChatHistory`, F3-continuation, live review), och
+ * agentens frågor och svar får aldrig hamna där. `kind = internal` är
+ * maskinskapade väckningar som chatten visar som statusrad; `meta` bär
+ * ankaret i tidslinjen (`anchorBuilderMessageId`) och versionen modellen såg
+ * (`builderTarget`).
+ */
+export const agentMessages = pgTable(
+  "agent_messages",
+  {
+    id: text("id").primaryKey(),
+    chatId: text("chat_id")
+      .notNull()
+      .references(() => engineChats.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    kind: text("kind").notNull().default("chat"),
+    content: text("content").notNull(),
+    meta: jsonb("meta").$type<Record<string, unknown> | null>(),
+    createdAt: timestamptz("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    chatCreatedIdx: index("idx_agent_messages_chat_created").on(table.chatId, table.createdAt),
+  }),
+);
+
+/**
  * One paid Live Review per (version, files_revision). Concurrent postchecks
  * share the row; JPEG URLs + TTL live here so Blob cleanup has an owner.
  */
@@ -1095,10 +1124,11 @@ export const generationTelemetry = pgTable(
     meta: jsonb("meta"),
     createdAt: timestamptz("created_at").defaultNow().notNull(),
   },
+  // Names match add-generation-telemetry.sql, which is what every database has.
   (table) => ({
-    chatIdx: index("idx_generation_telemetry_chat").on(table.chatId),
-    versionIdx: index("idx_generation_telemetry_version").on(table.versionId),
-    createdIdx: index("idx_generation_telemetry_created").on(table.createdAt),
+    chatIdx: index("idx_gen_telemetry_chat").on(table.chatId),
+    versionIdx: index("idx_gen_telemetry_version").on(table.versionId),
+    createdIdx: index("idx_gen_telemetry_created").on(table.createdAt),
   }),
 );
 

@@ -73,6 +73,7 @@ import {
   renderRequiredImportsChecklistBlock,
   renderRoutePlanBlock,
 } from "./sections/routing-and-tooling";
+import { renderBusinessFactsBlock } from "./sections/business-facts";
 import {
   renderBriefLockedDesignValuesBlock,
   renderBriefBlocks,
@@ -330,6 +331,17 @@ export function buildDynamicContext(options: DynamicContextOptions): BuildDynami
     parts.push(...renderPreGenerationContractsBlock(preGenerationContracts, buildSpec));
   }
   parts.push(...renderBriefBlocks(brief));
+  // Owner-verified hours/contact. After the brief so brand copy is already set,
+  // before visual identity so the module contract is read before layout work.
+  // Skipped for verbatim imported repos: their layout and `@/*` alias are the
+  // repo's own, so `lib/business-facts.ts` + `@/lib/business-facts` may not resolve.
+  if (!options.importedRepoMode) {
+    parts.push(
+      ...renderBusinessFactsBlock(options.businessFacts, {
+        previousFilePaths: options.previousFilePaths,
+      }),
+    );
+  }
   parts.push(...renderVisualIdentityBlock({ themeOverride, brief, designThemePreset }));
   parts.push(...renderDesignReferencesBlock(designReferences));
   parts.push(

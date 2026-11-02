@@ -53,6 +53,24 @@ beforeEach(() => {
 });
 
 describe("POST /api/domains/verify", () => {
+  it("rejects non-string input before resolving a project", async () => {
+    const res = await POST(verifyRequest({ domain: "site.example", chatId: 42 }));
+
+    expect(res.status).toBe(400);
+    expect(resolveVercelProjectForChat).not.toHaveBeenCalled();
+    expect(verifyCustomerDomain).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized chat id before resolving a project", async () => {
+    const res = await POST(
+      verifyRequest({ domain: "site.example", chatId: "x".repeat(129) }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(resolveVercelProjectForChat).not.toHaveBeenCalled();
+    expect(verifyCustomerDomain).not.toHaveBeenCalled();
+  });
+
   it("returns 404 for a chat the caller does not own", async () => {
     resolveVercelProjectForChat.mockResolvedValue({
       ok: false,
@@ -115,5 +133,18 @@ describe("POST /api/domains/verify", () => {
     expect(body.status).toBe("unknown");
     expect(clearProjectCustomDomainVerification).not.toHaveBeenCalled();
     expect(setProjectVerifiedCustomDomain).not.toHaveBeenCalled();
+  });
+
+  it("does not expose provider verification failures", async () => {
+    verifyCustomerDomain.mockRejectedValue(new Error("provider endpoint secret"));
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      const res = await POST(verifyRequest({ domain: "site.example", chatId: "chat_1" }));
+      expect(res.status).toBe(500);
+      expect(await res.json()).toEqual({ error: "Could not verify domain" });
+    } finally {
+      error.mockRestore();
+    }
   });
 });

@@ -126,9 +126,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       { status: 404 },
     );
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
+    console.error("[API/engine/chats/:chatId] Failed to load chat:", err);
+    return NextResponse.json({ error: "Failed to load chat" }, { status: 500 });
   }
 }

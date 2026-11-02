@@ -19,6 +19,9 @@ const verifyJobs = require("./runtime/verify-jobs.js");
 const processLifecycle = require("./runtime/process-lifecycle.js");
 const previewProxy = require("./runtime/preview-proxy.js");
 const storageCleanup = require("./runtime/storage-cleanup.js");
+const machineRuntime = require("./runtime/machine-runtime.js");
+const isolationConfig = require("./machines/isolation-config.js");
+const projectMachines = require("./machines/project-machines.js");
 
 module.exports = {
   buildPreviewUrl(baseUrl, chatId) {
@@ -46,7 +49,21 @@ module.exports = {
   PACKAGE_CACHE_DIR: shared.PACKAGE_CACHE_DIR,
   describePackageCacheStorage: storageCleanup.describePackageCacheStorage,
   directorySizeBytes: storageCleanup.directorySizeBytes,
+  // SM-080
+  describeIsolation: isolationConfig.describeIsolation,
+  isMachineRuntime: machineRuntime.isMachineRuntime,
+  listProjectMachineRecords: projectMachines.listProjectMachineRecords,
   __testing: {
+    runtimeTargetForTracked: processLifecycle.runtimeTargetForTracked,
+    prepareGuestFiles: machineRuntime.prepareGuestFiles,
+    createRemoteDevChild: machineRuntime.createRemoteDevChild,
+    installInGuest: machineRuntime.installInGuest,
+    setMachineClientsForTesting: projectMachines.setMachineClientsForTesting,
+    readMachineRecord: projectMachines.readMachineRecord,
+    machineConfigPayload: projectMachines.machineConfigPayload,
+    validateMachineIsolationConfig: isolationConfig.validateMachineIsolationConfig,
+    patchNextConfigSource: workspaceFiles.patchNextConfigSource,
+    patchNextConfigInFilesJson: workspaceFiles.patchNextConfigInFilesJson,
     bootRuntimeForSession: processLifecycle.bootRuntimeForSession,
     classifyRuntimeCleanExitLoop: processLifecycle.classifyRuntimeCleanExitLoop,
     RUNTIME_CLEAN_EXIT_LIMIT: processLifecycle.RUNTIME_CLEAN_EXIT_LIMIT,

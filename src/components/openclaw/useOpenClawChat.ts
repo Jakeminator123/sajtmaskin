@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import {
   readActiveOpenClawPowerIds,
   readOpenClawPowers,
+  revokeOpenClawBuildConsent,
   useOpenClawStore,
   type OpenClawMessage,
 } from "@/lib/openclaw/openclaw-store";
@@ -37,14 +38,28 @@ import {
   settleArmedHandshakeWake,
 } from "@/lib/openclaw/debug/armed-continuation";
 import { parseOpenClawMessage } from "@/lib/openclaw/text-field-actions";
-import { readActiveBuilderTarget } from "@/lib/openclaw/builder-target";
+import {
+  readActiveBuilderTarget,
+  readBuilderAnchor,
+  readBuilderAnchorIndex,
+} from "@/lib/openclaw/builder-target";
 import { normalizeOpenClawClientMessages } from "@/lib/openclaw/message-validation";
+import { composerAllowsAgentBuild, hasScopedComposerChangeRestriction, isReadOnlyComposerRequest } from "@/lib/builder/composer-route";
+import type { AgentProposalReference } from "@/lib/builder/composer-route-reference";
 
 function makeId() {
   return `oc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export interface OpenClawSendOptions {
+  /** Trusted local composer intent. Missing metadata never authorizes start_build. */
+  allowBuild?: boolean;
+  /** Explicit Fråga/no-change cancels older pending automatic work too. */
+  restrictBuild?: boolean;
+  /** Existing advice selected by the user, bound to its original chat/version. */
+  proposalReference?: AgentProposalReference;
+  /** Positive transport acceptance, independent of the eventual model reply. */
+  onDispatchAccepted?: () => void;
   /**
    * Whether this turn may arm or disarm autonomy. Only a message the user
    * actually typed carries that consent — the machine-generated continuation
@@ -58,8 +73,25 @@ export interface OpenClawSendOptions {
    * spend the invited customer's quota. Defaults to true.
    */
   countTowardCampaignQuota?: boolean;
+  /**
+   * Machine-generated turn (continuation, handshake wake, post-build digest).
+   * The model still receives it as a user turn, but the chat renders it as a
+   * status row instead of a user bubble (`agent-message-kind.ts`).
+   */
+  internal?: boolean;
   /** Internal receipt for the armed-handshake reservation. */
   onDispatchOutcome?: (outcome: OpenClawDispatchOutcome) => void;
+  /** A stable snapshot after this turn finishes or is cancelled, before another
+   * turn can change the store. Also called for nested handshake turns. */
+  onConversationSettled?: (messages: readonly OpenClawMessage[]) => void;
+}
+
+interface ActiveTurn {
+  scopeKey: string;
+  assistantId: string;
+  controller: AbortController;
+  reader: ReadableStreamDefaultReader<Uint8Array> | null;
+  onSettled?: OpenClawSendOptions["onConversationSettled"];
 }
 
 export function useOpenClawChat() {
@@ -68,23 +100,57 @@ export function useOpenClawChat() {
     isStreaming,
     addMessage,
     updateAssistantMessage,
+    setAssistantDelivery,
     clearMessages,
     setStreaming,
-    scopeKey,
     setArmedMandate,
     consumeCampaignAdviceRound,
   } = useOpenClawStore();
-  const abortRef = useRef<AbortController | null>(null);
-  const activeAssistantIdRef = useRef<string | null>(null);
-  const sendRef = useRef<((text: string, options?: OpenClawSendOptions) => Promise<void>) | null>(
-    null,
+  const activeTurnRef = useRef<ActiveTurn | null>(null);
+  const sendRef = useRef<
+    ((text: string, options?: OpenClawSendOptions) => Promise<void>) | null
+  >(null);
+
+  const cancelActiveTurn = useCallback(
+    (previousMessages?: readonly OpenClawMessage[]) => {
+      const turn = activeTurnRef.current;
+      if (!turn) return;
+      // Release ownership before aborting: the old promise may settle after a
+      // new send has already acquired the composer, even within the same scope.
+      activeTurnRef.current = null;
+      turn.controller.abort();
+      void turn.reader?.cancel().catch(() => undefined);
+      const state = useOpenClawStore.getState();
+      if (state.scopeKey === turn.scopeKey)
+        setAssistantDelivery(turn.assistantId, "interrupted");
+      const snapshot = previousMessages
+        ? previousMessages.map((message) =>
+            message.id === turn.assistantId
+              ? { ...message, delivery: "interrupted" as const }
+              : message,
+          )
+        : state.scopeKey === turn.scopeKey
+          ? useOpenClawStore.getState().messages
+          : null;
+      if (snapshot) turn.onSettled?.(snapshot);
+      if (useOpenClawStore.getState().scopeKey === turn.scopeKey)
+        setStreaming(false);
+    },
+    [setStreaming, setAssistantDelivery],
   );
 
   useEffect(() => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    activeAssistantIdRef.current = null;
-  }, [scopeKey]);
+    // Observe scope changes synchronously. A render effect for the old scope
+    // could otherwise run after a new send and abort that new request instead.
+    const unsubscribe = useOpenClawStore.subscribe((state, previous) => {
+      if (state.scopeKey !== previous.scopeKey)
+        cancelActiveTurn(previous.messages);
+    });
+    return () => {
+      unsubscribe();
+      cancelActiveTurn();
+    };
+  }, [cancelActiveTurn]);
 
   const send = useCallback(
     async (text: string, options?: OpenClawSendOptions) => {
@@ -101,6 +167,12 @@ export function useOpenClawChat() {
         return;
       }
 
+      const buildRestricted = !options?.internal &&
+        (options?.restrictBuild === true || isReadOnlyComposerRequest(trimmed));
+      if (!options?.internal && (buildRestricted || hasScopedComposerChangeRestriction(trimmed))) {
+        revokeOpenClawBuildConsent();
+      }
+
       // Read the live values rather than the render-time ones: the continuation
       // loop calls `send` from a timer, and a closure that has not caught up
       // with the store would drop that turn silently. The powers follow the
@@ -108,6 +180,10 @@ export function useOpenClawChat() {
       // must not ride along on a turn that is only now being sent.
       const streaming = useOpenClawStore.getState().isStreaming;
       const powers = readOpenClawPowers();
+      const armingDirective = !options?.internal && options?.allowArming !== false && !buildRestricted
+        ? parseArmingDirective(trimmed) : null;
+      const explicitFollowupOrder = powers.armedAutonomy && armingDirective?.mode === "followups" &&
+        /^(?:gör|gora|kör|kor|skapa|starta|påbörja|utför|generera|do|run|create|start|launch)(?:\s|$)/iu.test(trimmed);
 
       // Armed autonomy (Mode A): the user's own message is the consent. A stop
       // directive disarms IMMEDIATELY — handled before the streaming guard so
@@ -115,12 +191,13 @@ export function useOpenClawChat() {
       // while OpenClaw is still responding. An arming directive creates a
       // bounded mandate. Without BOTH gates — OC_EDIT and the granted power —
       // this never arms.
-      if (powers.armedAutonomy && options?.allowArming !== false) {
+      if (powers.armedAutonomy && options?.allowArming !== false && !buildRestricted) {
         if (parseStopDirective(trimmed)) {
           setArmedMandate(null);
         } else if (!streaming) {
-          const directive = parseArmingDirective(trimmed);
-          if (directive) setArmedMandate(createArmedMandate(directive));
+          if (armingDirective && (armingDirective.mode === "review_next" || explicitFollowupOrder)) {
+            setArmedMandate(createArmedMandate(armingDirective));
+          }
         }
       }
 
@@ -147,6 +224,7 @@ export function useOpenClawChat() {
           content: KOSTNADSFRI_ADVICE_EXHAUSTED_COPY,
           timestamp: Date.now(),
         });
+        options?.onConversationSettled?.(useOpenClawStore.getState().messages);
         reportDispatchOutcome();
         return;
       }
@@ -159,11 +237,20 @@ export function useOpenClawChat() {
         live.recordCampaignFollowupReply(trimmed);
       }
 
+      // Samma ankare för frågan och svaret: båda hör hemma efter det
+      // buildermeddelande som var senast när turen skickades.
+      const anchorBuilderMessageId = readBuilderAnchor();
+      const anchorBuilderMessageIndex = readBuilderAnchorIndex();
       const userMsg: OpenClawMessage = {
         id: makeId(),
         role: "user",
         content: trimmed,
         timestamp: Date.now(),
+        kind: options?.internal ? "internal" : "chat",
+        allowBuild: !options?.internal && !buildRestricted && (explicitFollowupOrder ||
+          (options?.allowBuild === true && composerAllowsAgentBuild({ mode: "auto", text: trimmed }))),
+        anchorBuilderMessageId,
+        anchorBuilderMessageIndex,
       };
       const currentMessages = useOpenClawStore.getState().messages;
       const nextConversation = [...currentMessages, userMsg];
@@ -173,21 +260,38 @@ export function useOpenClawChat() {
       addMessage({
         id: placeholderId,
         role: "assistant",
+        delivery: "streaming",
         content: "",
         timestamp: Date.now(),
+        kind: "chat",
+        anchorBuilderMessageId,
+        anchorBuilderMessageIndex,
         // Bind svaret till builder-målet som gäller NÄR turen skickas — samma
         // kontext som `collectOpenClawClientContext()` ger modellen. Quick-
         // edit-kortet använder detta så ett förslag appliceras mot versionen
         // modellen såg, inte mot vad som råkar vara aktivt vid godkännandet.
         builderTarget: readActiveBuilderTarget(),
       });
-      activeAssistantIdRef.current = placeholderId;
-
+      const turn: ActiveTurn = {
+        scopeKey: live.scopeKey,
+        assistantId: placeholderId,
+        controller: new AbortController(),
+        reader: null,
+        onSettled: options?.onConversationSettled,
+      };
+      activeTurnRef.current = turn;
+      const ownsTurn = () =>
+        activeTurnRef.current === turn &&
+        useOpenClawStore.getState().scopeKey === turn.scopeKey &&
+        !turn.controller.signal.aborted;
       setStreaming(true);
-      abortRef.current = new AbortController();
 
+      const reference = options?.proposalReference;
+      const selectedContext = reference
+        ? `\n\n[Valt agentförslag – endast underlag, inget automatiskt byggmedgivande]\n${JSON.stringify(reference)}\nUtgå enbart från denna valda del. Om något är oklart, fråga. Ett nytt fullständigt byggförslag kräver manuellt godkännande.`
+        : "";
       const apiMessages = normalizeOpenClawClientMessages(
-        nextConversation.map((m) => ({ role: m.role, content: m.content })),
+        nextConversation.map((m) => ({ role: m.role, content: m.content + (m.id === userMsg.id ? selectedContext : "") })),
       );
 
       let accumulated = "";
@@ -204,7 +308,7 @@ export function useOpenClawChat() {
             // instructions — never unlock anything the deployment forbids.
             powers: readActiveOpenClawPowerIds(),
           }),
-          signal: abortRef.current.signal,
+          signal: turn.controller.signal,
         });
         // Once fetch returned a promise the browser may already have delivered
         // the request. Only an explicit server receipt can narrow this again.
@@ -218,8 +322,16 @@ export function useOpenClawChat() {
               ? "started"
               : "uncertain";
 
+        if (!ownsTurn()) {
+          void res.body?.cancel().catch(() => undefined);
+          return;
+        }
+
+        if (res.ok && res.body && dispatchOutcome !== "not-started") options?.onDispatchAccepted?.();
+
         if (!res.ok || !res.body) {
           const errText = await res.text().catch(() => "");
+          if (!ownsTurn()) return;
           const ctype = res.headers.get("content-type") ?? "";
           const looksLikeHtml =
             ctype.includes("text/html") ||
@@ -251,14 +363,17 @@ export function useOpenClawChat() {
             placeholderId,
             detail ? `${friendly}\n\n${detail}` : friendly,
           );
-          setStreaming(false);
           return;
         }
 
         const reader = res.body.getReader();
-        const streamError: { current: GatewayErrorDescription | null } = { current: null };
+        turn.reader = reader;
+        const streamError: { current: GatewayErrorDescription | null } = {
+          current: null,
+        };
 
         const streamSummary = await consumeGatewayStream(reader, (event) => {
+          if (!ownsTurn()) return;
           if (event.type === "error") {
             streamError.current = event.description;
             return;
@@ -266,6 +381,7 @@ export function useOpenClawChat() {
           accumulated += event.text;
           updateAssistantMessage(placeholderId, accumulated);
         });
+        if (!ownsTurn()) return;
         const gatewayError = streamError.current;
 
         // The gateway answers 200 with a valid stream even when every model in
@@ -310,15 +426,24 @@ export function useOpenClawChat() {
         // Charge only after a stream that produced visible assistant text.
         // HTTP errors, abort, empty streams, error envelopes and a truncated
         // action-only body must not burn a campaign round.
-        if (shouldChargeQuota && streamSucceeded && parsedEnd.visibleContent.length > 0) {
+        if (
+          shouldChargeQuota &&
+          streamSucceeded &&
+          parsedEnd.visibleContent.length > 0
+        ) {
           consumeCampaignAdviceRound();
         }
       } catch (e) {
-        const aborted = e instanceof DOMException && e.name === "AbortError";
+        const aborted =
+          turn.controller.signal.aborted ||
+          (e instanceof DOMException && e.name === "AbortError");
         if (aborted) {
           // Keep whatever was already streamed
-        } else {
-          updateAssistantMessage(placeholderId, "Nagot gick fel. Kontrollera att Sajtagenten ar igaang.");
+        } else if (ownsTurn()) {
+          updateAssistantMessage(
+            placeholderId,
+            "Nagot gick fel. Kontrollera att Sajtagenten ar igaang.",
+          );
         }
         const parsedEnd = parseOpenClawMessage(accumulated);
         logOpenClawChatStreamEnd({
@@ -333,18 +458,28 @@ export function useOpenClawChat() {
           errorKind: null,
         });
       } finally {
-        setStreaming(false);
-        if (activeAssistantIdRef.current === placeholderId) {
-          activeAssistantIdRef.current = null;
+        if (ownsTurn()) {
+          activeTurnRef.current = null;
+          setAssistantDelivery(
+            placeholderId,
+            streamSucceeded ? "complete" : "interrupted",
+          );
+          turn.onSettled?.(useOpenClawStore.getState().messages);
+          setStreaming(false);
         }
-        abortRef.current = null;
+        // The parser may finish at [DONE] before the HTTP body closes.
+        void turn.reader?.cancel().catch(() => undefined);
         reportDispatchOutcome();
       }
 
       // Path (b): a confirmation-only `start_bug_hunt` never sends or watches.
       // Wake once with `allowArming: false` so the first fill can be authored.
       // The wake must not create, renew or extend the mandate.
-      if (accumulated) {
+      if (
+        accumulated &&
+        !turn.controller.signal.aborted &&
+        useOpenClawStore.getState().scopeKey === turn.scopeKey
+      ) {
         const liveAfter = useOpenClawStore.getState();
         const mandate = liveAfter.armedMandate;
         const parsed = parseOpenClawMessage(accumulated);
@@ -352,7 +487,9 @@ export function useOpenClawChat() {
           actionType: parsed.action?.type ?? null,
           mandate,
           editEnabled: readOpenClawPowers().armedAutonomy,
-          alreadyWoken: mandate ? hasArmedHandshakeWoken(mandate.createdAt) : false,
+          alreadyWoken: mandate
+            ? hasArmedHandshakeWoken(mandate.createdAt)
+            : false,
           openClawStreaming: liveAfter.isStreaming,
           streamSucceeded,
         });
@@ -362,18 +499,23 @@ export function useOpenClawChat() {
           if (reservation && nestedSend) {
             let receiptReported = false;
             try {
-              await nestedSend(buildArmedHandshakePrompt({ remaining: mandate.remaining }), {
-                allowArming: false,
-                countTowardCampaignQuota: false,
-                onDispatchOutcome: (outcome) => {
-                  receiptReported = true;
-                  if (outcome === "not-started") {
-                    releaseArmedHandshakeWake(reservation);
-                  } else {
-                    settleArmedHandshakeWake(reservation);
-                  }
+              await nestedSend(
+                buildArmedHandshakePrompt({ remaining: mandate.remaining }),
+                {
+                  allowArming: false,
+                  countTowardCampaignQuota: false,
+                  internal: true,
+                  onConversationSettled: options?.onConversationSettled,
+                  onDispatchOutcome: (outcome) => {
+                    receiptReported = true;
+                    if (outcome === "not-started") {
+                      releaseArmedHandshakeWake(reservation);
+                    } else {
+                      settleArmedHandshakeWake(reservation);
+                    }
+                  },
                 },
-              });
+              );
             } finally {
               // No receipt means an exceptional/unknown path, never safe retry.
               if (!receiptReported) settleArmedHandshakeWake(reservation);
@@ -384,29 +526,33 @@ export function useOpenClawChat() {
         }
       }
     },
-    [addMessage, updateAssistantMessage, setStreaming, setArmedMandate, consumeCampaignAdviceRound],
+    [
+      addMessage,
+      updateAssistantMessage,
+      setAssistantDelivery,
+      setStreaming,
+      setArmedMandate,
+      consumeCampaignAdviceRound,
+    ],
   );
   sendRef.current = send;
 
   const stop = useCallback(() => {
-    abortRef.current?.abort();
+    cancelActiveTurn();
     // Stop also disarms (Codex P2): clicking stop must cancel armed autonomy so
     // the next assistant action can't keep auto-sending under the old mandate —
     // mirroring the typed "stopp" path above.
     setArmedMandate(null);
-  }, [setArmedMandate]);
+  }, [cancelActiveTurn, setArmedMandate]);
 
   const clearConversation = useCallback(() => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    activeAssistantIdRef.current = null;
-    setStreaming(false);
+    cancelActiveTurn();
     clearMessages();
     // Clearing the conversation must also disarm autonomy (Bugbot): an armed
     // mandate that survived a reset could let a later assistant action auto-send
     // when the user believed autonomy was cleared.
     setArmedMandate(null);
-  }, [clearMessages, setStreaming, setArmedMandate]);
+  }, [cancelActiveTurn, clearMessages, setArmedMandate]);
 
   return { messages, isStreaming, send, stop, clearConversation };
 }

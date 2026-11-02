@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { listKostnadsfriMailEventsAfter } from "@/lib/db/services/kostnadsfri";
 
 const MAX_LIMIT = 1000;
+const MAX_CURSOR_CHARS = 128;
 
 function authorized(request: NextRequest): boolean {
   const expected = process.env.KOSTNADSFRI_API_KEY;
@@ -28,7 +29,7 @@ function isCalendarExact(createdAt: string): boolean {
 }
 
 function decodeCursor(value: string | null): { createdAt: string; messageId: string } | null {
-  if (!value) return null;
+  if (!value || value.length > MAX_CURSOR_CHARS) return null;
   try {
     const decoded = Buffer.from(value, "base64url").toString("utf8");
     const separator = decoded.indexOf("|");
@@ -64,8 +65,12 @@ export async function GET(request: NextRequest) {
   if (rawCursor && !cursor) {
     return NextResponse.json({ success: false, error: "Invalid cursor" }, { status: 400 });
   }
-  const parsedLimit = Number.parseInt(request.nextUrl.searchParams.get("limit") || "500", 10);
-  const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), MAX_LIMIT) : 500;
+  const rawLimit = request.nextUrl.searchParams.get("limit");
+  const parsedLimit = rawLimit === null || !/^[1-9]\d*$/.test(rawLimit) ? null : Number(rawLimit);
+  if (rawLimit !== null && (parsedLimit === null || !Number.isSafeInteger(parsedLimit))) {
+    return NextResponse.json({ success: false, error: "Invalid limit" }, { status: 400 });
+  }
+  const limit = parsedLimit === null ? 500 : Math.min(parsedLimit, MAX_LIMIT);
   try {
     const batch = await listKostnadsfriMailEventsAfter(
       cursor?.createdAt ?? null,

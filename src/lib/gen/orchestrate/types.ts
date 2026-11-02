@@ -28,6 +28,7 @@ import type { RequestKindClass } from "../request-kind";
 import type { FollowUpIntentMode } from "../follow-up-intent-types";
 import type { RequestAttachment } from "../request-metadata";
 import type { GenerationSource } from "../generation-input-package";
+import type { BusinessFactsPersisted } from "@/lib/projects/business-facts-schema";
 import type { ImportedRepoContractContext } from "@/lib/templates/imported-repo-contract";
 import type { CodeFile } from "../parser";
 import type { DossierIntegrationDecision } from "../contract/provider-compatibility";
@@ -148,6 +149,12 @@ export interface OrchestrationInput {
   persistedScaffoldId?: string | null;
   /** User-supplied custom instructions from the builder UI */
   customInstructions?: string;
+  /**
+   * Företagsuppgifter (`project_data.meta.business`) loaded by the stream
+   * caller via `loadBusinessFactsForProject`. Forwarded unchanged to the
+   * dynamic context; `null`/omitted renders no block.
+   */
+  businessFacts?: BusinessFactsPersisted | null;
   /**
    * `init` = first generation (Deep Brief, full scaffold selection).
    * `followUp` = editing/refining an existing generation.

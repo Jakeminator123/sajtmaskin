@@ -43,7 +43,7 @@ import { STREAMDOWN_PLAIN_COMPONENTS } from "./message-markdown";
 import { GenerationSurface } from "./GenerationSurface";
 import { isGenerationReviewPart, type GenerationTurnKind } from "./generation-surface-state";
 import { code as streamdownCode } from "@streamdown/code";
-import { toAIElementsFormat } from "@/lib/builder/message-adapter";
+import { planIsVerifiedReady, toAIElementsFormat } from "@/lib/builder/message-adapter";
 import type { MessagePart } from "@/lib/builder/message-adapter";
 import {
   getAuditPromptDomain,
@@ -54,6 +54,11 @@ import {
   type ChatMessage,
 } from "@/lib/builder/types";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
+import { buildUnifiedTimeline } from "@/lib/builder/unified-timeline";
+import type { OpenClawMessage as AgentMessage } from "@/lib/openclaw/openclaw-store";
+import { SajtagentRow } from "./sajtagent/SajtagentRow";
+import { useSajtagent } from "./sajtagent/SajtagentProvider";
+import { Bot } from "lucide-react";
 import {
   ChevronDown,
   ChevronUp,
@@ -93,7 +98,16 @@ interface MessageListProps {
    * as "live" and burn credits on an unconfirmed integrations retry).
    */
   isStreaming?: boolean;
+  /**
+   * Sajtagentens rader i samma tidslinje (plan 2026-10-22 «En chatt»).
+   * Förankras vid builderns meddelanden via `anchorBuilderMessageId`.
+   */
+  agentMessages?: AgentMessage[];
+  /** True while the agent's latest assistant row is still streaming. */
+  agentStreaming?: boolean;
 }
+
+const NO_AGENT_MESSAGES: AgentMessage[] = [];
 
 function hasGenerationContent(text: string): boolean {
   if (!text) return false;
@@ -122,16 +136,6 @@ function resolveGenerationTurnKind(
   return "initial";
 }
 
-function planIsVerifiedReady(plan: Extract<MessagePart, { type: "plan" }>["plan"]): boolean {
-  // Missing state means legacy persisted data whose server outcome cannot be
-  // reconstructed after reload. Only an explicit canonical `false` may start
-  // codegen; raw blockers remain a fail-closed guard for inconsistent/old data.
-  return (
-    plan.awaitingInput === false &&
-    (!Array.isArray(plan.raw?.blockers) || plan.raw.blockers.length === 0)
-  );
-}
-
 const MessageListComponent = ({
   chatId,
   versionId = null,
@@ -142,9 +146,28 @@ const MessageListComponent = ({
   quickReplyDisabled = false,
   lifecycleStage = null,
   isStreaming = false,
+  agentMessages: agentMessagesProp,
+  agentStreaming: agentStreamingProp,
 }: MessageListProps) => {
+  // Utan props läses Sajtagenten från providern (buildern); utan provider
+  // (tester, andra ytor) finns inga agentrader alls.
+  const sajtagent = useSajtagent();
+  const agentMessages = agentMessagesProp ?? sajtagent?.messages ?? NO_AGENT_MESSAGES;
+  const agentStreaming = agentStreamingProp ?? sajtagent?.isStreaming ?? false;
+  const showAgentIntro = Boolean(chatId && sajtagent?.available && agentMessages.length === 0);
   const isIntegrations = lifecycleStage === "integrations";
   const messages = useMemo(() => externalMessages.map(toAIElementsFormat), [externalMessages]);
+  const timeline = useMemo(
+    () => buildUnifiedTimeline(externalMessages, agentMessages),
+    [externalMessages, agentMessages],
+  );
+  const streamingAgentMessageId = useMemo(() => {
+    if (!agentStreaming) return null;
+    for (let index = agentMessages.length - 1; index >= 0; index -= 1) {
+      if (agentMessages[index].role === "assistant") return agentMessages[index].id;
+    }
+    return null;
+  }, [agentMessages, agentStreaming]);
   const [pendingQuickReplyKey, setPendingQuickReplyKey] = useState<string | null>(null);
   // Owner beslut 2026-07-09: "Svar krävs för att fortsätta" ska ALDRIG vara
   // en blockerande dialog-overlay. Frågan renderas i stället inline i chatten
@@ -406,7 +429,7 @@ const MessageListComponent = ({
     });
   };
 
-  if (!chatId && messages.length === 0) {
+  if (!chatId && messages.length === 0 && agentMessages.length === 0) {
     return (
       <div className="text-muted-foreground flex h-full flex-col items-center justify-center">
         <MessageSquare className="mb-3 h-10 w-10" />
@@ -415,7 +438,7 @@ const MessageListComponent = ({
     );
   }
 
-  if (messages.length === 0) {
+  if (messages.length === 0 && agentMessages.length === 0) {
     return (
       <div className="text-muted-foreground flex h-full flex-col items-center justify-center">
         <MessageSquare className="mb-3 h-10 w-10" />
@@ -431,7 +454,24 @@ const MessageListComponent = ({
           swapped in place on chat switch without an empty intermediate state). */}
       <Conversation key={chatId ?? "no-chat"} className="h-full">
         <ConversationContent>
-          {messages.map((message, messageIndex) => {
+          {timeline.map((entry) => {
+          if (entry.kind === "agent") {
+            const agentMessage = entry.message;
+            return (
+              <ConversationItem
+                key={`agent-${agentMessage.id}`}
+                messageId={`agent-${agentMessage.id}`}
+                scrollAnchor={agentMessage.role === "user"}
+              >
+                <SajtagentRow
+                  msg={agentMessage}
+                  streaming={agentMessage.id === streamingAgentMessageId}
+                />
+              </ConversationItem>
+            );
+          }
+          const messageIndex = entry.index;
+          const message = messages[messageIndex];
           const reasoningPart = message.parts.find(
             (p): p is Extract<MessagePart, { type: "reasoning" }> => p.type === "reasoning",
           );
@@ -723,6 +763,24 @@ const MessageListComponent = ({
             </ConversationItem>
           );
           })}
+
+          {/* Sajtagentens hälsning: en mjuk ingång i den gemensamma chatten tills
+              det första agentmeddelandet finns. Inte persisterad, inget anrop. */}
+          {showAgentIntro ? (
+            <ConversationItem messageId="sajtagent-intro">
+              <div
+                className="border-border bg-card/60 text-muted-foreground mt-2 flex items-start gap-2.5 rounded-lg border border-dashed px-3 py-2.5 text-xs leading-5"
+                data-testid="sajtagent-intro"
+              >
+                <Bot className="text-foreground mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <p>
+                  <span className="text-foreground font-medium">Hej, jag är Sajtagenten.</span>{" "}
+                  Fråga om sajten, be mig granska den eller beskriv en ändring. Jag kan läsa
+                  koden, förklara vad som hänt och starta byggen åt dig.
+                </p>
+              </div>
+            </ConversationItem>
+          ) : null}
 
           {/* Owner beslut 2026-07-09: "Svar krävs" ska ALDRIG blockera med en
               dialog-overlay. Frågan renderas som SISTA elementet i
@@ -1061,3 +1119,4 @@ function dedupeSources(sources: Array<{ url: string; title?: string }>) {
   });
   return Array.from(seen.values());
 }
+

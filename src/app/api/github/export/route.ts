@@ -9,12 +9,13 @@ import {
   OwnerTransferSiteUrlRequiredError,
   buildOwnerTransferPackage,
 } from "@/lib/gen/export/owner-transfer-package";
+import { GitHubExportPathConflictError } from "@/lib/gen/export/github-tree-plan";
 import {
-  GITHUB_EXPORT_MANIFEST_PATH,
-  GitHubExportPathConflictError,
-  buildGitHubExportPlan,
-  parseGitHubExportManifest,
-} from "@/lib/gen/export/github-tree-plan";
+  GitHubExportNoFilesError,
+  GitHubExportTreeTooLargeError,
+  commitExportToGitHub,
+  sanitizeRepoName,
+} from "@/lib/github/git-data-export";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getProjectByIdForOwner } from "@/lib/db/services/projects";
@@ -26,13 +27,14 @@ import {
 export const runtime = "nodejs";
 
 const exportSchema = z.object({
-  chatId: z.string().min(1, "chatId is required"),
-  versionId: z.string().min(1, "versionId is required"),
-  repo: z.string().min(1, "repo is required"),
+  chatId: z.string().min(1, "chatId is required").max(128),
+  versionId: z.string().min(1, "versionId is required").max(128),
+  repo: z.string().min(1, "repo is required").max(256),
   private: z.boolean().optional(),
-  projectId: z.string().trim().min(1).optional(),
+  projectId: z.string().trim().min(1).max(128).optional(),
   siteUrl: z
     .url()
+    .max(2_048)
     .refine((value) => {
       const url = new URL(value);
       const hostname = url.hostname.replace(/\.+$/, "");
@@ -52,41 +54,6 @@ const exportSchema = z.object({
     .optional(),
 });
 
-type GitHubRepoResponse = {
-  full_name: string;
-  html_url: string;
-  default_branch: string;
-};
-
-type GitHubRefResponse = {
-  object: { sha: string };
-};
-
-type GitHubCommitResponse = {
-  sha: string;
-  tree: { sha: string };
-};
-
-type GitHubTreeResponse = {
-  sha: string;
-};
-
-type GitHubTreeListingResponse = {
-  tree: Array<{
-    path: string;
-    type: "blob" | "tree" | "commit";
-    sha?: string;
-  }>;
-  truncated?: boolean;
-};
-
-type GitHubBlobResponse = {
-  content?: string;
-  encoding?: string;
-};
-
-const GITHUB_API = "https://api.github.com";
-
 function normalizeRepoInput(
   input: string,
   fallbackOwner: string,
@@ -102,141 +69,11 @@ function normalizeRepoInput(
   return { owner: fallbackOwner, repo: trimmed };
 }
 
-function sanitizeRepoName(value: string): string {
-  return value
-    .trim()
-    .replace(/[^a-z0-9-_./]+/gi, "-")
-    .replace(/\.+/g, ".")
-    .replace(/^-+/, "")
-    .replace(/-+$/, "")
-    .slice(0, 80);
-}
-
-async function githubRequest<T>(
-  token: string,
-  path: string,
-  options: RequestInit = {},
-): Promise<{ ok: boolean; status: number; data: T | null }> {
-  const response = await fetch(`${GITHUB_API}${path}`, {
-    ...options,
-    headers: {
-      Accept: "application/vnd.github+json",
-      "User-Agent": "sajtmaskin",
-      Authorization: `Bearer ${token}`,
-      "X-GitHub-Api-Version": "2022-11-28",
-      ...(options.headers || {}),
-    },
-  });
-
-  const data = (await response.json().catch(() => null)) as T | null;
-  return { ok: response.ok, status: response.status, data };
-}
-
-async function ensureRepo(params: {
-  token: string;
-  owner: string;
-  repo: string;
-  isPrivate: boolean;
-  fallbackOwner: string;
-}): Promise<{ repo: GitHubRepoResponse; created: boolean }> {
-  const { token, owner, repo, isPrivate, fallbackOwner } = params;
-  const repoPath = `/repos/${owner}/${repo}`;
-  const existing = await githubRequest<GitHubRepoResponse>(token, repoPath);
-  if (existing.ok && existing.data) {
-    return { repo: existing.data, created: false };
-  }
-
-  if (existing.status !== 404) {
-    throw new Error("Failed to access GitHub repository");
-  }
-
-  const isOrg = owner !== fallbackOwner;
-  const createPath = isOrg ? `/orgs/${owner}/repos` : "/user/repos";
-  const createRes = await githubRequest<GitHubRepoResponse>(token, createPath, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: repo,
-      private: isPrivate,
-      auto_init: false,
-    }),
-  });
-
-  if (!createRes.ok || !createRes.data) {
-    throw new Error("Failed to create GitHub repository");
-  }
-
-  return { repo: createRes.data, created: true };
-}
-
-async function getBaseCommit(params: {
-  token: string;
-  owner: string;
-  repo: string;
-  branch: string;
-}): Promise<{ commitSha: string; treeSha: string } | null> {
-  const { token, owner, repo, branch } = params;
-  const ref = await githubRequest<GitHubRefResponse>(
-    token,
-    `/repos/${owner}/${repo}/git/refs/heads/${branch}`,
-  );
-  if (!ref.ok || !ref.data) return null;
-
-  const commit = await githubRequest<GitHubCommitResponse>(
-    token,
-    `/repos/${owner}/${repo}/git/commits/${ref.data.object.sha}`,
-  );
-  if (!commit.ok || !commit.data) return null;
-
-  return { commitSha: commit.data.sha, treeSha: commit.data.tree.sha };
-}
-
-async function getBaseTree(params: {
-  token: string;
-  owner: string;
-  repo: string;
-  treeSha: string;
-}): Promise<GitHubTreeListingResponse["tree"]> {
-  const { token, owner, repo, treeSha } = params;
-  const tree = await githubRequest<GitHubTreeListingResponse>(
-    token,
-    `/repos/${owner}/${repo}/git/trees/${treeSha}?recursive=1`,
-  );
-  if (!tree.ok || !tree.data) {
-    throw new Error("Failed to inspect existing GitHub tree");
-  }
-  if (tree.data.truncated) {
-    throw new Error("Existing GitHub tree is too large to export safely");
-  }
-  return tree.data.tree;
-}
-
-async function readPreviousExportManifest(params: {
-  token: string;
-  owner: string;
-  repo: string;
-  tree: GitHubTreeListingResponse["tree"];
-}): Promise<string[]> {
-  const { token, owner, repo, tree } = params;
-  const manifestEntry = tree.find(
-    (entry) => entry.type === "blob" && entry.path === GITHUB_EXPORT_MANIFEST_PATH && entry.sha,
-  );
-  if (!manifestEntry?.sha) return [];
-
-  const blob = await githubRequest<GitHubBlobResponse>(
-    token,
-    `/repos/${owner}/${repo}/git/blobs/${manifestEntry.sha}`,
-  );
-  if (!blob.ok || !blob.data?.content) {
-    throw new Error("Failed to read previous Sajtmaskin export manifest");
-  }
-  const encoded =
-    blob.data.encoding === "base64"
-      ? blob.data.content
-      : Buffer.from(blob.data.content, "utf8").toString("base64");
-  return parseGitHubExportManifest(Buffer.from(encoded, "base64").toString("utf8"));
-}
-
+/**
+ * Export a published version to the customer's own GitHub (OAuth token).
+ * Git Data mechanics live in `@/lib/github/git-data-export`, shared with the
+ * Sajtmaskin sites-org backup; this route owns auth, scoping and HTTP mapping.
+ */
 export async function POST(request: NextRequest) {
   return withRateLimit(request, "github:export", async () => {
     try {
@@ -323,190 +160,50 @@ export async function POST(request: NextRequest) {
         siteUrl,
         providerOrigin,
       });
-      const previewFiles = buildGitHubExportPlan(transferProject).files.filter(
-        (file) => file.path !== GITHUB_EXPORT_MANIFEST_PATH,
-      );
-      if (previewFiles.length === 0) {
-        return NextResponse.json(
-          { success: false, error: "No files available to export" },
-          { status: 400 },
-        );
-      }
-      const exportLabel = `${chatId}:${versionId}`;
 
-      const token = user.github_token;
-      const repoResult = await ensureRepo({
-        token,
-        owner,
-        repo: repoName,
-        isPrivate,
-        fallbackOwner: user.github_username,
-      });
-
-      const base = await getBaseCommit({
-        token,
-        owner,
-        repo: repoName,
-        branch: repoResult.repo.default_branch || "main",
-      });
-      const existingTree = base
-        ? await getBaseTree({
-            token,
-            owner,
-            repo: repoName,
-            treeSha: base.treeSha,
-          })
-        : [];
-      const previousManifestPaths = base
-        ? await readPreviousExportManifest({
-            token,
-            owner,
-            repo: repoName,
-            tree: existingTree,
-          })
-        : [];
-      const existingBlobPaths = existingTree
-        .filter((entry) => entry.type !== "tree")
-        .map((entry) => entry.path);
-
-      let files: ReturnType<typeof buildGitHubExportPlan>["files"];
-      let deletionPaths: string[];
+      let result;
       try {
-        const plan = buildGitHubExportPlan(transferProject, {
-          previousManifestPaths,
-          existingBlobPaths,
+        result = await commitExportToGitHub({
+          token: user.github_token,
+          owner,
+          repo: repoName,
+          isPrivate,
+          ownerIsOrg: owner !== user.github_username,
+          files: transferProject,
+          commitMessage: `Export from Sajtmaskin (${chatId}:${versionId})`,
+          // Byte-exact per-file blobs: this is the customer's copy of record.
+          textTransport: "blob",
         });
-        files = plan.files;
-        deletionPaths = plan.deletionPaths;
       } catch (error) {
+        if (error instanceof GitHubExportNoFilesError) {
+          return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+        }
         if (error instanceof GitHubExportPathConflictError) {
           return NextResponse.json({ success: false, error: error.message }, { status: 409 });
         }
         throw error;
       }
 
-      const treeEntries: Array<{
-        path: string;
-        mode: "100644";
-        type: "blob";
-        sha: string | null;
-      }> = [];
-      for (const file of files) {
-        const response = await githubRequest<{ sha: string }>(
-          token,
-          `/repos/${owner}/${repoName}/git/blobs`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              content: Buffer.isBuffer(file.content)
-                ? file.content.toString("base64")
-                : Buffer.from(file.content, "utf8").toString("base64"),
-              encoding: "base64",
-            }),
-          },
-        );
-
-        if (!response.ok || !response.data) {
-          throw new Error("Failed to upload files to GitHub");
-        }
-
-        treeEntries.push({
-          path: file.path,
-          mode: "100644",
-          type: "blob",
-          sha: response.data.sha,
-        });
-      }
-      for (const path of deletionPaths) {
-        // GitHub Create-tree requires path+mode+type+sha; sha:null deletes.
-        treeEntries.push({
-          path,
-          mode: "100644",
-          type: "blob",
-          sha: null,
-        });
-      }
-
-      const treeResponse = await githubRequest<GitHubTreeResponse>(
-        token,
-        `/repos/${owner}/${repoName}/git/trees`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            tree: treeEntries,
-            ...(base?.treeSha ? { base_tree: base.treeSha } : {}),
-          }),
-        },
-      );
-
-      if (!treeResponse.ok || !treeResponse.data) {
-        throw new Error("Failed to create GitHub tree");
-      }
-
-      const commitResponse = await githubRequest<GitHubCommitResponse>(
-        token,
-        `/repos/${owner}/${repoName}/git/commits`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: `Export from Sajtmaskin (${exportLabel})`,
-            tree: treeResponse.data.sha,
-            ...(base?.commitSha ? { parents: [base.commitSha] } : {}),
-          }),
-        },
-      );
-
-      if (!commitResponse.ok || !commitResponse.data) {
-        throw new Error("Failed to create GitHub commit");
-      }
-
-      if (base?.commitSha) {
-        const updateRef = await githubRequest(
-          token,
-          `/repos/${owner}/${repoName}/git/refs/heads/${repoResult.repo.default_branch}`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sha: commitResponse.data.sha }),
-          },
-        );
-        if (!updateRef.ok) {
-          throw new Error("Failed to update GitHub branch");
-        }
-      } else {
-        const createRef = await githubRequest(token, `/repos/${owner}/${repoName}/git/refs`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ref: `refs/heads/${repoResult.repo.default_branch || "main"}`,
-            sha: commitResponse.data.sha,
-          }),
-        });
-        if (!createRef.ok) {
-          throw new Error("Failed to create GitHub branch");
-        }
-      }
-
       return NextResponse.json({
         success: true,
-        repo: repoResult.repo.full_name,
-        repoUrl: repoResult.repo.html_url,
-        created: repoResult.created,
-        commitSha: commitResponse.data.sha,
+        repo: result.repo.full_name,
+        repoUrl: result.repo.html_url,
+        created: result.created,
+        commitSha: result.commitSha,
         mediaCount: media.length,
       });
     } catch (error) {
       if (error instanceof OwnerTransferSiteUrlRequiredError) {
         return NextResponse.json({ success: false, error: error.message }, { status: 400 });
       }
+      if (error instanceof GitHubExportTreeTooLargeError) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 409 });
+      }
       console.error("[API/GitHub Export] Error:", error);
       return NextResponse.json(
         {
           success: false,
-          error: error instanceof Error ? error.message : "Unknown error",
+          error: "GitHub-exporten misslyckades. Försök igen senare.",
         },
         { status: 500 },
       );

@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { noteAccountCreatedIfSignup } from "@/lib/ads/fire-google-ads-conversion";
+import { noteOpenAiRegistrationIfSignup } from "@/lib/ads/fire-openai-ads";
 import type { ChatMessage } from "@/lib/builder/types";
 import { debugLog } from "@/lib/utils/debug";
 
@@ -60,6 +61,7 @@ export function useBuilderRouteFeedback({
     if (!hasGitHubFeedback && !hasAuthFeedback) return;
 
     noteAccountCreatedIfSignup(signup);
+    noteOpenAiRegistrationIfSignup(signup);
 
     if (connected) {
       toast.success(username ? `GitHub kopplat: @${username}` : "GitHub kopplat");

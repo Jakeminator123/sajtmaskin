@@ -48,7 +48,10 @@ vi.mock("@/lib/openclaw/gateway-client", () => ({
 vi.mock("@/lib/openclaw/model-routing", () => ({
   resolveOpenClawModelRoute: () => ({ lane: "primary", model: "test" }),
 }));
-vi.mock("@/lib/openclaw/message-validation", () => ({
+vi.mock("@/lib/openclaw/message-validation", async (importOriginal) => ({
+  // Konstanterna (t.ex. OPENCLAW_CHAT_MAX_CONTENT_CHARS, som read-files.ts
+  // härleder sin budget från) behålls från originalet; bara validatorn mockas.
+  ...(await importOriginal<typeof import("@/lib/openclaw/message-validation")>()),
   validateOpenClawChatMessages: (...args: unknown[]) => mocks.validateMessages(...args),
 }));
 vi.mock("@/lib/openclaw/chat-context-policy", () => ({

@@ -31,6 +31,14 @@ function request(method: "GET" | "POST", body?: unknown): NextRequest {
   });
 }
 
+function rawPost(body: string): NextRequest {
+  return new NextRequest("http://localhost/api/audits", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body,
+  });
+}
+
 describe("/api/audits", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -116,6 +124,34 @@ describe("/api/audits", () => {
     expect(getUserAuditCount).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["invalid JSON", "not-json"],
+    ["null", "null"],
+    ["array", "[]"],
+    ["object URL", '{"url":{},"domain":"example.com","auditResult":{}}'],
+    ["object domain", '{"url":"https://example.com","domain":{},"auditResult":{}}'],
+    ["array result", '{"url":"https://example.com","domain":"example.com","auditResult":[]}'],
+  ])("rejects %s before checking the limit", async (_label, body) => {
+    const response = await POST(rawPost(body));
+
+    expect(response.status).toBe(400);
+    expect(getUserAuditCount).not.toHaveBeenCalled();
+    expect(saveUserAudit).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-HTTP audit URLs before checking the limit", async () => {
+    const response = await POST(
+      request("POST", {
+        url: "javascript:alert(1)",
+        domain: "example.com",
+        auditResult: {},
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(getUserAuditCount).not.toHaveBeenCalled();
+  });
+
   it("enforces the per-user saved audit limit", async () => {
     getUserAuditCount.mockResolvedValue(50);
 
@@ -156,7 +192,7 @@ describe("/api/audits", () => {
     expect(response.status).toBe(200);
     expect(saveUserAudit).toHaveBeenCalledWith(
       "user_1",
-      "https://example.com",
+      "https://example.com/",
       "example.com",
       auditResult,
     );
@@ -165,5 +201,32 @@ describe("/api/audits", () => {
       success: true,
       audit: { id: 9, domain: "example.com", company_name: "Example", score_overall: 80 },
     });
+  });
+
+  it("normalizes the persisted URL and domain", async () => {
+    getUserAuditCount.mockResolvedValue(0);
+    saveUserAudit.mockResolvedValue({
+      id: 10,
+      domain: "example.com",
+      company_name: null,
+      score_overall: null,
+      created_at: new Date("2026-07-18T12:00:00.000Z"),
+    });
+
+    const response = await POST(
+      request("POST", {
+        url: " https://EXAMPLE.com/path ",
+        domain: " Example.COM ",
+        auditResult: {},
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(saveUserAudit).toHaveBeenCalledWith(
+      "user_1",
+      "https://example.com/path",
+      "example.com",
+      {},
+    );
   });
 });

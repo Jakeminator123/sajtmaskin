@@ -44,7 +44,7 @@ if (envArg) {
   }
   config({ path: envPath, override: true });
 } else {
-  // Match the other DB scripts (run-migrations.ts, db-init.mjs, check-dev-db.mjs):
+  // Match the other DB scripts (run-migrations.ts, db-init.mjs):
   // pick up the local dev connection from .env.local so `db:migrate:check` really
   // gates the dev DB instead of silently skipping. In CI there is no .env.local and
   // the connection comes from the injected POSTGRES_URL env, so this is a no-op there.
