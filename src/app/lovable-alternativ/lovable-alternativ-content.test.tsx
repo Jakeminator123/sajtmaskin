@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -47,11 +47,15 @@ describe("LovableAlternativContent", () => {
     expect(body).not.toMatch(/\d+\s*kr\b/i);
     expect(body).not.toMatch(/\b(?:49|99|179)\b/);
     expect(screen.getByRole("link", { name: "prissidan" }).getAttribute("href")).toBe("/priser");
-    expect(within(screen.getByRole("main")).queryByRole("link", { name: /wix|wordpress/i })).toBeNull();
 
     const readyRelated = readyRelatedSeoLandingSlugs(entry.relatedSlugs);
     expect(readyRelated).toEqual(
-      expect.arrayContaining(["ai-hemsidebyggare", "skapa-hemsida-med-ai", "hemsideprogram"]),
+      expect.arrayContaining([
+        "ai-hemsidebyggare",
+        "skapa-hemsida-med-ai",
+        "hemsideprogram",
+        "wordpress-alternativ",
+      ]),
     );
     for (const slug of readyRelated) {
       const related = getSeoLandingEntry(slug);

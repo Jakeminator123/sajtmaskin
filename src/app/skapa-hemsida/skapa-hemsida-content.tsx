@@ -360,6 +360,20 @@ export function SkapaHemsidaContent() {
                   </article>
                 ))}
               </div>
+              <p className="mt-8 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                Vill ni jämföra verktyg konkret? Se{" "}
+                <Link href="/hemsideprogram" className="text-foreground underline-offset-4 hover:underline">
+                  hemsideprogram
+                </Link>{" "}
+                eller{" "}
+                <Link
+                  href="/wordpress-alternativ"
+                  className="text-foreground underline-offset-4 hover:underline"
+                >
+                  alternativ till WordPress
+                </Link>
+                .
+              </p>
             </div>
           </section>
 

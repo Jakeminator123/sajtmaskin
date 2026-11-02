@@ -41,12 +41,19 @@ describe("HemsideprogramContent", () => {
     expect(screen.queryByText(/fylls på när de är klara/i)).toBeNull();
     expect(screen.getByRole("heading", { name: /Hur notan skiljer sig/i })).toBeTruthy();
     expect(
+      screen.getByRole("heading", { name: /Sajtmaskin mot WordPress, Wix och Squarespace/i }),
+    ).toBeTruthy();
+    expect(screen.getByRole("link", { name: "bloggen" }).getAttribute("href")).toBe("/blogg");
+    expect(
       screen.getByRole("link", { name: "vad en hemsida kostar" }).getAttribute("href"),
     ).toBe("/vad-kostar-en-hemsida");
     expect(screen.queryByRole("heading", { name: "Skapande" })).toBeNull();
+    expect(document.body.textContent).toMatch(/bästa hemsideprogrammet/i);
+    expect(document.body.textContent).not.toMatch(/\d+\s*kr\b/i);
 
     const readyRelated = readyRelatedSeoLandingSlugs(entry.relatedSlugs);
     expect(readyRelated).toContain("ai-hemsidebyggare");
+    expect(readyRelated).toContain("wordpress-alternativ");
     for (const slug of readyRelated) {
       const related = getSeoLandingEntry(slug);
       expect(screen.getByRole("link", { name: related.title }).getAttribute("href")).toBe(

@@ -4,6 +4,7 @@ import { ArrowRight, Check } from "lucide-react";
 import { LandingFooter } from "@/components/landing-v2/landing-footer";
 import { SiteBackground } from "@/components/layout/site-background";
 import { Button } from "@/components/ui/button";
+import { ToolComparisonTable } from "@/lib/seo-landing-pages/tool-comparison-table";
 import {
   getReadyRelatedSeoLandingSlugs,
   getSeoLandingEntry,
@@ -123,8 +124,20 @@ export const FAQS = [
     a: "Räkna tid eller arvode för innehåll och ändringar, plus hosting och eventuell byrå. Jämför arbetssätt, inte påhittade prislappar. I Sajtmaskin betalar du credits som engångsköp, utan prenumeration. Publicering debiterar credits. Aktuella paket finns på prissidan.",
   },
   {
-    q: "Vilket hemsideprogram är bäst?",
-    a: "Det finns inget ärligt “bäst i test” utan er brief. Fråga efter tempo till v1, hur ni redigerar, vad som exporteras och vem som underhåller. Den här sidan rankar inte varumärken.",
+    q: "Vilket är det bästa hemsideprogrammet?",
+    a: "Det finns inget ärligt “bästa hemsideprogrammet” utan er brief. Fråga efter tempo till v1, hur ni redigerar, vad som exporteras och vem som underhåller. Den här sidan rankar inte varumärken.",
+  },
+  {
+    q: "Finns det hemsideprogram utan prenumeration?",
+    a: "Ja. I Sajtmaskin betalar du credits som engångsköp, utan prenumeration. Credits går inte ut. Ett konto får en första slutförd generering utan kort. Wix och Squarespace är typiskt månads- eller årsplaner. Aktuella Sajtmaskin-paket finns på prissidan.",
+  },
+  {
+    q: "Är Sajtmaskin ett alternativ till WordPress, Wix och Squarespace?",
+    a: "Ja, som arbetssätt: beskrivning till utkast i Next.js-kod, inte ett CMS eller en visuell canvas. WordPress är starkare för plugins. Wix och Squarespace är starkare för punkt-och-klicka. Jämför i tabellen på den här sidan — och på sidorna om WordPress-alternativ.",
+  },
+  {
+    q: "Kan jag byta från WordPress till ett annat hemsideprogram?",
+    a: "Ja, men det är ett projekt: texter, bilder, SEO-titlar och redirects. Ingen automatisk flytt. Läs jämförelsen av alternativ till WordPress om ni väger just den flytten.",
   },
 ] as const;
 
@@ -203,6 +216,12 @@ export function HemsideprogramContent() {
           </Link>
           <div className="flex items-center gap-4">
             <Link
+              href="/priser"
+              className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:inline"
+            >
+              Priser
+            </Link>
+            <Link
               href="/teknik"
               className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:inline"
             >
@@ -236,8 +255,8 @@ export function HemsideprogramContent() {
                 </h1>
                 <p className="mt-5 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground md:text-lg">
                   “Hemsideprogram” betyder olika saker: CMS, drag-and-drop, AI-builder eller kod.
-                  Skillnaden syns i kontroll, tempo, underhåll och hur mycket ni måste äga själva
-                  efter publicering.
+                  Den som söker “bästa hemsideprogrammet” behöver först välja arbetssätt — sedan
+                  verktyg. Skillnaden syns i kontroll, tempo, underhåll och exit.
                 </p>
                 <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
                   <CtaButton>Testa AI-byggaren</CtaButton>
@@ -276,6 +295,8 @@ export function HemsideprogramContent() {
               </div>
             </div>
           </section>
+
+          <ToolComparisonTable heading="Sajtmaskin mot WordPress, Wix och Squarespace" />
 
           <section id="exempel" className="border-t border-border/15 px-6 py-16 md:py-24">
             <div className="mx-auto max-w-6xl">
@@ -395,6 +416,10 @@ export function HemsideprogramContent() {
                 <Link href="/priser" className="text-foreground underline-offset-4 hover:underline">
                   prissidan
                 </Link>
+                . Mer prosa om notan finns i{" "}
+                <Link href="/blogg" className="text-foreground underline-offset-4 hover:underline">
+                  bloggen
+                </Link>
                 .
               </p>
               <div className="mt-10 grid gap-3 md:grid-cols-2">
@@ -471,8 +496,22 @@ export function HemsideprogramContent() {
                   Relaterat
                 </p>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                  Den här sidan jämför verktygstyper. Djupare AI-kategori, utan-kod och enskilda
-                  varumärkesjämförelser ligger på egna sidor.
+                  Den här sidan jämför verktygstyper och namngivna verktyg. Djupare AI-kategori,
+                  utan-kod och branschsidor — till exempel{" "}
+                  <Link
+                    href="/hemsida-konsult"
+                    className="text-foreground underline-offset-4 hover:underline"
+                  >
+                    hemsida för konsult
+                  </Link>{" "}
+                  och{" "}
+                  <Link
+                    href="/hemsida-hantverkare"
+                    className="text-foreground underline-offset-4 hover:underline"
+                  >
+                    hemsida för hantverkare
+                  </Link>{" "}
+                  — ligger på egna URL:er.
                 </p>
                 <ul className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
                   {readyRelated.map((slug) => (

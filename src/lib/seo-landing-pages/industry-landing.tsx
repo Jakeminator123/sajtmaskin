@@ -279,10 +279,21 @@ export function IndustryLandingContent({ slug }: { slug: SeoIndustrySlug }) {
               <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
                 I Sajtmaskin betalar du credits som engångsköp, utan prenumeration. Publicering
                 debiterar credits. Aktuella paket finns på{" "}
-                <Link href="/#priser" className="text-foreground underline-offset-4 hover:underline">
+                <Link href="/priser" className="text-foreground underline-offset-4 hover:underline">
                   prissidan
                 </Link>
-                . Preview är inte publicering.
+                . Preview är inte publicering. Jämför arbetssätt i{" "}
+                <Link href="/hemsideprogram" className="text-foreground underline-offset-4 hover:underline">
+                  hemsideprogram
+                </Link>{" "}
+                eller{" "}
+                <Link
+                  href="/wordpress-alternativ"
+                  className="text-foreground underline-offset-4 hover:underline"
+                >
+                  alternativ till WordPress
+                </Link>
+                .
               </p>
             </div>
           </section>

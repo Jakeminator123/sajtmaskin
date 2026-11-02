@@ -42,18 +42,33 @@ describe("WordpressAlternativContent", () => {
     expect(body).toMatch(/skriven av Sajtmaskin/i);
     expect(body).toContain("Stanna på WordPress om");
     expect(body).toContain("Överväg Sajtmaskin om");
+    expect(body).toContain("Vad är ett alternativ till WordPress?");
     expect(body).toContain("Är WordPress osäkert?");
     expect(body).toContain("Nej");
     expect(body).toContain("Ingen automatisk flytt");
     expect(body).toContain("Preview är inte publicering");
+    expect(body).toContain("Next.js");
     expect(body).not.toMatch(/\d+\s*kr\b/i);
     expect(body).not.toMatch(/\b(?:49|99|179)\b/);
-    expect(screen.getByRole("link", { name: "prissidan" }).getAttribute("href")).toBe("/priser");
-    expect(within(screen.getByRole("main")).queryByRole("link", { name: /wix|lovable/i })).toBeNull();
+    expect(
+      screen.getAllByRole("link", { name: "prissidan" }).every(
+        (link) => link.getAttribute("href") === "/priser",
+      ),
+    ).toBe(true);
+    expect(screen.getByRole("link", { name: "bloggen" }).getAttribute("href")).toBe("/blogg");
+    expect(
+      screen.getByRole("link", { name: "hemsida för konsult" }).getAttribute("href"),
+    ).toBe("/hemsida-konsult");
+    expect(within(screen.getByRole("main")).queryByRole("link", { name: /lovable/i })).toBeNull();
 
     const readyRelated = readyRelatedSeoLandingSlugs(entry.relatedSlugs);
     expect(readyRelated).toEqual(
-      expect.arrayContaining(["hemsideprogram", "hemsida-utan-kod", "skapa-hemsida-med-ai"]),
+      expect.arrayContaining([
+        "hemsideprogram",
+        "hemsida-utan-kod",
+        "skapa-hemsida-med-ai",
+        "wix-alternativ",
+      ]),
     );
     for (const slug of readyRelated) {
       const related = getSeoLandingEntry(slug);

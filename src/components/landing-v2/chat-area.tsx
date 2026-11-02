@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import Link from "next/link"
 import { ArrowRight, Rocket } from "lucide-react"
 import { CreditPackageGrid } from "@/components/billing/CreditPackageGrid"
 import { creditPackageCopy } from "@/lib/billing/credit-package-copy"
@@ -198,6 +199,20 @@ export function ChatArea(props: ChatAreaProps = {}) {
               ctaLabel={(pkg) => creditPackageCopy[pkg.id].cta}
             />
             <LandingPricingExplainer />
+            <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-relaxed text-muted-foreground">
+              Jämför arbetssätt i{" "}
+              <Link href="/hemsideprogram" className="text-foreground underline-offset-4 hover:underline">
+                hemsideprogram
+              </Link>{" "}
+              eller se{" "}
+              <Link
+                href="/wordpress-alternativ"
+                className="text-foreground underline-offset-4 hover:underline"
+              >
+                alternativ till WordPress
+              </Link>
+              .
+            </p>
           </div>
         </section>
 
