@@ -1,15 +1,14 @@
 # Agent entry — Sajtmaskin
 
-Selektiv kontext: börja med uppgiften, nämnda sökvägar och minsta relevanta
-owner; läs aldrig en fast dokumentstack. Kod/manifest/policy äger beteende,
-genererad Markdown är projektion, handskrivna docs är mental modell och Git är
-arkivet ([livscykel](docs/documentation-lifecycle.md)).
+Börja med uppgiften och relevant owner, inte en dokumentstack. Kod/manifest/policy
+äger beteende, genererade docs är projektioner och Git är arkivet
+([livscykel](docs/documentation-lifecycle.md)).
 
 ## Router
 
 | Uppgift | Börja här |
 |---|---|
-| Okänd yta | `docs/README.md` → högst en mental modell/kodkarta → runtime-owner |
+| Okänd yta | `docs/README.md` → en kodkarta → runtime-owner |
 | LLM/generation | `src/lib/gen/`, `docs/architecture/llm-pipeline.md` |
 | Preview/VM | `preview-host/`, `src/lib/gen/preview/` |
 | Builder/chat | `src/app/builder/`, `src/components/builder/` |
@@ -28,6 +27,7 @@ Verktyg: [Cursor](.cursor/README.md), [Codex](.codex/README.md), [Claude](.claud
 
 ## Arbetsregel
 
+- Ny chatt: `npm run handoff:list`. Finns handoff, följ [val/läsning/kvittens](docs/runbooks/agent-handoff.md); annars fortsätt.
 - `npm run inbox` rensar/skriver. Read-only: läs inkorgen.
 - `npm run hooks:install` vid ny clone/hookändring; främmande hookkonflikt stoppar.
 - Jobba i den öppna checkouten och bevara andras arbete. Git-mandat, förbud och
@@ -35,7 +35,7 @@ Verktyg: [Cursor](.cursor/README.md), [Codex](.codex/README.md), [Claude](.claud
 - Före push: `npm run verify:pr -- --plan` + riktade kontroller; full regression
   ägs av CI.
 - Pausa vid dataförlust, security/cross-tenant, oklar owner eller stort scope.
-- Svara kort på svenska när användaren gör det; skilj bevis från antagande.
+- Svara kort på svenska; skilj bevis från antagande.
 
 Review: false-green, saknad verifiering och kontraktsbrott är fynd; smak och
 hypotetiska nits är inte blockers.

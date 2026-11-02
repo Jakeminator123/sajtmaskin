@@ -5,14 +5,14 @@ alwaysApply: true
 
 # Workflow
 
-`förstå scope → hitta owner/callers → ändra → synka referenser → verifiera → rapportera`
+Ny chatt: `npm run handoff:list`. Finns handoff, följ
+`docs/runbooks/agent-handoff.md` före läsning; annars fortsätt.
 
 1. Sök referenser före flytt/radering; 0 sökträffar i ett kallt index är inte bevis.
-2. Rör bara uppgiftens filer och bevara orelaterade ändringar. Stage exakta
-   paths; undvik bred formattering.
+2. Bevara andras ändringar. Ändra/stage uppgiftens exakta paths, utan bred formattering.
 3. Ersätt stale text/kod; skapa inte parallella sanningslager eller backupdocs.
-4. Uppdatera länkar, tester, schema och genererade projektioner i samma diff när
-   ändringen äger dem; `npm run sync:derived` när en generatorowner ändrats.
+4. Synka berörda länkar, tester, schema/projektioner i samma diff;
+   `npm run sync:derived` när generatorowner ändrats.
 
 ## Verifiera
 
