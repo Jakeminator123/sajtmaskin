@@ -102,6 +102,7 @@ describe("backupPublishedVersion", () => {
       owner: "sajtmaskin-sites",
       repo: "site-proj_1",
       isPrivate: true,
+      requirePrivate: true,
       ownerIsOrg: true,
       textTransport: "inline",
     });

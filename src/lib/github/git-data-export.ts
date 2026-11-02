@@ -34,6 +34,7 @@ export type GitHubRepoSummary = {
   full_name: string;
   html_url: string;
   default_branch: string;
+  private?: boolean;
 };
 
 type GitHubRefResponse = { object: { sha: string } };
@@ -55,6 +56,15 @@ export class GitHubExportNoFilesError extends Error {
   constructor() {
     super("No files available to export");
     this.name = "GitHubExportNoFilesError";
+  }
+}
+
+/** Automatic backups must never write customer source into a public or unknown-visibility repo. */
+export class GitHubExportPrivateRepoRequiredError extends Error {
+  readonly code = "github_export_private_repo_required" as const;
+  constructor() {
+    super("Automatic backup requires a private GitHub repository");
+    this.name = "GitHubExportPrivateRepoRequiredError";
   }
 }
 
@@ -103,11 +113,15 @@ async function ensureRepo(params: {
   owner: string;
   repo: string;
   isPrivate: boolean;
+  requirePrivate?: boolean;
   ownerIsOrg: boolean;
 }): Promise<{ repo: GitHubRepoSummary; created: boolean }> {
-  const { token, owner, repo, isPrivate, ownerIsOrg } = params;
+  const { token, owner, repo, isPrivate, requirePrivate, ownerIsOrg } = params;
   const existing = await githubRequest<GitHubRepoSummary>(token, `/repos/${owner}/${repo}`);
   if (existing.ok && existing.data) {
+    if (requirePrivate && existing.data.private !== true) {
+      throw new GitHubExportPrivateRepoRequiredError();
+    }
     return { repo: existing.data, created: false };
   }
   if (existing.status !== 404) {
@@ -122,6 +136,9 @@ async function ensureRepo(params: {
   });
   if (!createRes.ok || !createRes.data) {
     throw new Error("Failed to create GitHub repository");
+  }
+  if (requirePrivate && createRes.data.private !== true) {
+    throw new GitHubExportPrivateRepoRequiredError();
   }
   return { repo: createRes.data, created: true };
 }
@@ -240,6 +257,8 @@ export interface CommitExportParams {
   owner: string;
   repo: string;
   isPrivate: boolean;
+  /** Fail closed before source writes unless GitHub confirms private visibility. */
+  requirePrivate?: boolean;
   /** `true` → repos are created under `/orgs/{owner}`, else `/user/repos`. */
   ownerIsOrg: boolean;
   files: GitHubExportSourceFile[];
@@ -261,7 +280,7 @@ export interface CommitExportResult {
  * plan) or a plain `Error` with a GitHub step name; callers map those to HTTP.
  */
 export async function commitExportToGitHub(params: CommitExportParams): Promise<CommitExportResult> {
-  const { token, owner, repo, isPrivate, ownerIsOrg, files, commitMessage } = params;
+  const { token, owner, repo, isPrivate, requirePrivate, ownerIsOrg, files, commitMessage } = params;
   const textTransport = params.textTransport ?? "blob";
 
   const previewFiles = buildGitHubExportPlan(files).files.filter(
@@ -269,7 +288,7 @@ export async function commitExportToGitHub(params: CommitExportParams): Promise<
   );
   if (previewFiles.length === 0) throw new GitHubExportNoFilesError();
 
-  const repoResult = await ensureRepo({ token, owner, repo, isPrivate, ownerIsOrg });
+  const repoResult = await ensureRepo({ token, owner, repo, isPrivate, requirePrivate, ownerIsOrg });
   const defaultBranch = repoResult.repo.default_branch || "main";
 
   // Two exports to the same branch can race (e.g. two publishes close together):
