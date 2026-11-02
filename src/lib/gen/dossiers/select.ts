@@ -8,9 +8,10 @@
  *      «utan X», «byt från X», «not X», «without X», «switch from X») first.
  *      A single remaining keyword/provider hit overrides the default — e.g.
  *      "logga in med supabase" picks supabase-auth even though clerk-auth
- *      is the `auth` default (`relevance-keyword`). Ambiguous multi-hit,
- *      unknown provider, or every sibling negated falls to the capability
- *      default with `capability-match` so the pick never looks explicit.
+ *      is the `auth` default (`relevance-keyword`). Ambiguous multi-hit
+ *      or unknown provider falls to the capability default with
+ *      `capability-match` so the pick never looks explicit. If every sibling
+ *      is negated, leave the capability unselected.
  *      Otherwise pick `defaultForCapability=true`, else the first by id-sort.
  *   4. For hard dossiers, `configured` is true only when every required
  *      env key is in the caller-supplied `configuredEnvKeys` set. Omitted
@@ -303,9 +304,8 @@ function pickForCapability(
   if (promptText && sorted.length > 1) {
     const remaining = sorted.filter((c) => !isDossierNegated(c, promptText));
     if (remaining.length === 0) {
-      // Every sibling negated: a working default over nothing. Selection
-      // is a prompt signal, not a gate.
-      return pickCapabilityDefault(cap, sorted);
+      // A capability request must not revive a provider the user rejected.
+      return null;
     }
     const keywordMatches = remaining.filter((c) => matchesRelevanceKeyword(c, promptText));
     if (keywordMatches.length === 1) {
