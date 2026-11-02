@@ -292,7 +292,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
         category: isRewire ? "merge:cross-file-rewire" : "merge:cross-file-stub",
         message: isRewire
           ? `Importen "${stub.missingImport}" från ${stub.sourceFile} saknade exakt målfil — pekades om till befintliga ${rewireImportSpec}.`
-          : `Importen "${stub.missingImport}" från ${stub.sourceFile} saknade målfil — auto-stubbade ${stub.stubFile}. Komponenten renderar en synlig platshållare tills LLM emitterar en riktig implementation.`,
+          : `Importen "${stub.missingImport}" från ${stub.sourceFile} saknade målfil — auto-stubbade ${stub.stubFile}. Ersättningsfilen kan sakna funktionalitet utan att visa en synlig platshållare.`,
         meta: {
           sourceFile: stub.sourceFile,
           missingImport: stub.missingImport,
