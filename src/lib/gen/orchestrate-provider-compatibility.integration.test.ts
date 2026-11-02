@@ -113,7 +113,9 @@ describe("provider-compatible orchestration", () => {
     ).toEqual([]);
     expect(
       base.preGenerationContracts.contracts.integrations.filter(
-        (integration) => integration.kind === "auth" && integration.status === "chosen",
+        (integration) =>
+          integration.status === "chosen" &&
+          (integration.kind === "auth" || integration.dossierCapability === "auth"),
       ),
     ).toEqual([]);
   });
