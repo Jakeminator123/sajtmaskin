@@ -43,12 +43,18 @@ describe("VadKostarEnHemsidaContent", () => {
     expect(document.body.textContent ?? "").toContain("Preview är inte publicering");
     expect(screen.getByRole("link", { name: "prissidan" }).getAttribute("href")).toBe("/priser");
     expect(
-      within(screen.getByRole("main")).queryByRole("link", { name: /wix|wordpress|lovable/i }),
-    ).toBeNull();
+      screen.getByRole("link", { name: "alternativ till WordPress" }).getAttribute("href"),
+    ).toBe("/wordpress-alternativ");
+    expect(within(screen.getByRole("main")).queryByRole("link", { name: /lovable/i })).toBeNull();
 
     const readyRelated = readyRelatedSeoLandingSlugs(entry.relatedSlugs);
     expect(readyRelated).toEqual(
-      expect.arrayContaining(["skapa-hemsida", "hemsida-till-foretag", "hemsideprogram"]),
+      expect.arrayContaining([
+        "skapa-hemsida",
+        "hemsida-till-foretag",
+        "hemsideprogram",
+        "wordpress-alternativ",
+      ]),
     );
     for (const slug of readyRelated) {
       const related = getSeoLandingEntry(slug);

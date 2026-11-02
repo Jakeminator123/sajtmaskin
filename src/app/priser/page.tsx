@@ -100,6 +100,17 @@ export default function PriserPage() {
             >
               Vad kostar en hemsida?
             </Link>
+            . Jämför arbetssätt i{" "}
+            <Link href="/hemsideprogram" className="text-foreground underline-offset-4 hover:underline">
+              hemsideprogram
+            </Link>{" "}
+            eller läs{" "}
+            <Link
+              href="/wordpress-alternativ"
+              className="text-foreground underline-offset-4 hover:underline"
+            >
+              alternativ till WordPress
+            </Link>
             .
           </p>
 
