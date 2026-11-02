@@ -47,6 +47,8 @@
     "tidy": "node scripts/dev/tidy.mjs",
     "tidy:apply": "node scripts/dev/tidy.mjs --apply",
     "inbox": "node scripts/dev/agent-inbox.mjs",
+    "handoff": "node scripts/dev/agent-handoff.mjs",
+    "handoff:list": "node scripts/dev/agent-handoff.mjs list",
     "doctor": "node scripts/dev/doctor.mjs",
     "doctor:soft": "node scripts/dev/doctor.mjs --quiet || echo [doctor] skipped",
     "dev:unlock": "node scripts/dev/unlock-dev.mjs",

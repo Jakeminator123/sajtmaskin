@@ -11,6 +11,10 @@ ingen tvingad worktree, inget branchprefix och ingen roll om inte Jakob nämner 
 
 ## 1. Starta
 
+Vid ny chatt: `npm run handoff:list`. Tom lista kräver inget mer. Finns handoff,
+följ [val/läsning/kvittens](../../../docs/runbooks/agent-handoff.md); läs inte
+innehåll före Jakobs val. Samma runbook äger temporär agentcache och avslut.
+
 1. `npm run hooks:install` vid ny clone eller hookändring.
 2. **Välj bas medvetet — de två är inte samma sak:**
    - *Leveransbas* = grenen PR:en ska mot, default `preview`. Branchen utgår
@@ -147,3 +151,7 @@ uttryckligt): `gh pr merge --squash --match-head-commit <granskad head>`.
 Efter merge: kör först `npm run tidy` och kräv att ytan rapporteras som `FRI`.
 Först då: `npm run worktree:remove -- <sökväg>`. Lämna huvudcheckouten på
 `preview`, inte `master`, så nästa chatt ärver leveransbasen.
+
+Vid överlämning: publicera en kort handoff med chattnamn och aktuellt kvitto
+enligt runbooken ovan. Frisläpp cachen; nästa agents läskvittens rensar den.
+Handoff-kvittens är aldrig ett bevis på merge eller mandat att radera grenar.

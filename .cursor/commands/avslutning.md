@@ -13,6 +13,8 @@ ger mandat för commit + push av uppgiftens filer, inte för PR eller merge.
    efter fetch: verifiera det och gör en initial `git push -u origin HEAD`.
 4. Commit:a explicita paths i repots commit-stil och pusha utan force.
 5. Fetch:a och verifiera `0 0`.
+6. Vid överlämning: följ `docs/runbooks/agent-handoff.md`. Publicera kort status
+   med chattnamn och släpp egen cache; nästa agents läskvittens städar den.
 
 Rapportera kort: fixade risker, berörda Backoffice-ytor, medvetet orörda filer,
 verifiering, commit-SHA och branch. Behåll worktreet för PR-fixrundor.
