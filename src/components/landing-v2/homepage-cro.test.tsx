@@ -3,7 +3,6 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   categories,
-  homepageCreditFaq,
   homepageHeroCopy,
   homepageTrustPoints,
   landingJourneySteps,
@@ -18,7 +17,6 @@ vi.mock("@/components/forms/voice-recorder", () => ({
 vi.mock("sonner", () => ({ toast: { message: vi.fn() } }));
 
 import { LandingHero } from "./landing-hero";
-import { LandingPricingExplainer } from "./landing-pricing-explainer";
 import { LandingTrustStrip } from "./landing-trust-strip";
 
 const heroProps = {
@@ -70,17 +68,6 @@ describe("homepage CRO invariants", () => {
     expect(screen.getByRole("button", { name: /Svara på frågor/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Template/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Analysera sajt/ })).toBeTruthy();
-  });
-
-  it("states verifiable credit and start-threshold facts", () => {
-    render(<LandingPricingExplainer />);
-    expect(screen.getAllByText(/1 kr = 1 credit/).length).toBeGreaterThan(0);
-    for (const item of homepageCreditFaq) {
-      expect(screen.getByText(item.q)).toBeTruthy();
-    }
-    expect(screen.getByText(homepageCreditFaq[0].a)).toBeTruthy();
-    expect(screen.queryByText(/prompts per credit/i)).toBeNull();
-    expect(screen.queryByText(/räcker till \d+ sidor/i)).toBeNull();
   });
 
   it("does not present big tech brands as customers or partners", () => {

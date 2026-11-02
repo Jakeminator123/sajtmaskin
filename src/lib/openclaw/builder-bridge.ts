@@ -18,6 +18,8 @@ import type { MessageOptions, SendMessageOutcome } from "@/lib/hooks/chat/types"
 export interface BuilderBridge {
   /** Aktiv builderchatt, eller null före första bygget. */
   getChatId(): string | null;
+  /** Aktiv version i buildern, eller null innan en version finns. */
+  getActiveVersionId(): string | null;
   /** Sant när buildern kan ta emot ett utskick just nu (ingen pågående tur). */
   canSend(): boolean;
   /** Samma `sendMessage` som komposern använder (inlindad av builderns skal). */
@@ -51,11 +53,34 @@ export interface WaitForBuilderSendOptions {
   intervalMs?: number;
   /** Sant → avbryt väntan (komponenten avmonterad, mandat släppt …). */
   isCancelled?: () => boolean;
+  /** Målet som actionen skapades för. En annan aktiv chatt får aldrig ta över. */
+  expectedChatId?: string;
+  /** Versionen som actionen skapades mot. */
+  expectedVersionId?: string;
 }
 
 export type WaitForBuilderSendResult =
   | { ok: true; bridge: BuilderBridge }
-  | { ok: false; reason: "no_bridge" | "busy" | "cancelled" };
+  | {
+      ok: false;
+      reason: "no_bridge" | "busy" | "cancelled" | "chat_changed" | "version_changed";
+    };
+
+function targetMismatch(
+  bridge: BuilderBridge,
+  options: WaitForBuilderSendOptions,
+): "chat_changed" | "version_changed" | null {
+  if (options.expectedChatId && bridge.getChatId() !== options.expectedChatId) {
+    return "chat_changed";
+  }
+  if (
+    options.expectedVersionId &&
+    bridge.getActiveVersionId() !== options.expectedVersionId
+  ) {
+    return "version_changed";
+  }
+  return null;
+}
 
 /**
  * Vänta tills bryggan finns och buildern är ledig. Speglar den gamla
@@ -67,13 +92,31 @@ export async function waitForBuilderSend(
 ): Promise<WaitForBuilderSendResult> {
   const maxAttempts = options.maxAttempts ?? 25;
   const intervalMs = options.intervalMs ?? 100;
+  // Även äldre/indirekta callers utan explicit mål binds till bryggan de
+  // började vänta på. Ett senare globalt chattbyte får aldrig ta över.
+  const boundOptions = { ...options };
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     if (options.isCancelled?.()) return { ok: false, reason: "cancelled" };
     const bridge = activeBridge;
     if (!bridge) return { ok: false, reason: "no_bridge" };
-    if (bridge.canSend()) return { ok: true, bridge };
+    boundOptions.expectedChatId ??= bridge.getChatId() ?? undefined;
+    boundOptions.expectedVersionId ??= bridge.getActiveVersionId?.() ?? undefined;
+    const mismatch = targetMismatch(bridge, boundOptions);
+    if (mismatch) return { ok: false, reason: mismatch };
+    if (bridge.canSend()) {
+      // Kontrollera igen precis före kvittot. Anroparen gör samma kontroll
+      // synkront före `sendMessage`, så ett nytt globalt bridge-mål aldrig kan
+      // ta över en väntande action.
+      if (options.isCancelled?.()) return { ok: false, reason: "cancelled" };
+      if (activeBridge !== bridge) continue;
+      const finalMismatch = targetMismatch(bridge, boundOptions);
+      if (finalMismatch) return { ok: false, reason: finalMismatch };
+      return { ok: true, bridge };
+    }
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
   if (options.isCancelled?.()) return { ok: false, reason: "cancelled" };
-  return { ok: false, reason: activeBridge ? "busy" : "no_bridge" };
+  if (!activeBridge) return { ok: false, reason: "no_bridge" };
+  const mismatch = targetMismatch(activeBridge, boundOptions);
+  return { ok: false, reason: mismatch ?? "busy" };
 }

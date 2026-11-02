@@ -38,7 +38,7 @@ describe("SquarespaceAlternativContent", () => {
     expect(body).toContain("Välj Squarespace om");
     expect(body).not.toMatch(/\d+\s*kr\b/i);
     expect(body).not.toMatch(/\b(?:49|99|179)\b/);
-    expect(screen.getByRole("link", { name: "prissidan" }).getAttribute("href")).toBe("/#priser");
+    expect(screen.getByRole("link", { name: "prissidan" }).getAttribute("href")).toBe("/priser");
 
     const readyRelated = readyRelatedSeoLandingSlugs(entry.relatedSlugs);
     for (const slug of readyRelated) {

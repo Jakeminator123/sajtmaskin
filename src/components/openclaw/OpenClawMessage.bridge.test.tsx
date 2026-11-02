@@ -4,9 +4,10 @@
  * `registerBuilderBridge` i stället för DOM-ifyllning, och varken hydrerade
  * rader eller svar på interna turer får starta något.
  */
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
 import {
   registerBuilderBridge,
   resetBuilderBridgeForTests,
@@ -41,6 +42,7 @@ const domSendMock = vi.mocked(triggerOpenClawSend);
 function makeBridge(overrides: Partial<BuilderBridge> = {}): BuilderBridge {
   return {
     getChatId: () => "chat_1",
+    getActiveVersionId: () => "version_1",
     canSend: () => true,
     sendMessage: vi.fn(async () => ({ status: "started", via: "stream" }) as const),
     cancelGeneration: vi.fn(),
@@ -63,7 +65,8 @@ function startBuildReply(id: string, extra: Partial<Msg> = {}): Msg {
       JSON.stringify({
         type: "start_build",
         label: "Tydligare hero",
-        prompt: "Gör om hero-sektionen.\n\nMål:\n- Tydligare CTA\n\nSektioner:\n- Hero\n- Bevis\n\nDesign:\n- Behåll tema",
+        prompt:
+          "Gör om hero-sektionen.\n\nMål:\n- Tydligare CTA\n\nSektioner:\n- Hero\n- Bevis\n\nDesign:\n- Behåll tema",
       }),
       "</openclaw-action>",
     ].join("\n"),
@@ -71,7 +74,7 @@ function startBuildReply(id: string, extra: Partial<Msg> = {}): Msg {
   };
 }
 
-function armedFillReply(id: string): Msg {
+function armedFillReply(id: string, extra: Partial<Msg> = {}): Msg {
   return {
     id,
     role: "assistant",
@@ -87,6 +90,7 @@ function armedFillReply(id: string): Msg {
       }),
       "</openclaw-action>",
     ].join("\n"),
+    ...extra,
   };
 }
 
@@ -151,7 +155,10 @@ describe("resolveStartBuildAutoRun", () => {
     expect(resolveStartBuildAutoRun(messages, "a1")).toEqual({ allowed: true, userTurnId: "u1" });
     expect(resolveStartBuildAutoRun(messages, "a2")).toEqual({ allowed: true, userTurnId: "u1" });
     expect(resolveStartBuildAutoRun(messages, "a3")).toEqual({ allowed: false, userTurnId: "d1" });
-    expect(resolveStartBuildAutoRun(messages, "nope")).toEqual({ allowed: false, userTurnId: null });
+    expect(resolveStartBuildAutoRun(messages, "nope")).toEqual({
+      allowed: false,
+      userTurnId: null,
+    });
   });
 });
 
@@ -176,7 +183,9 @@ describe("OpenClawMessage — direktbygg via bryggan", () => {
     registerBuilderBridge(bridge);
     const reply = startBuildReply("interrupted-build", { delivery: "interrupted" });
     act(() => {
-      useOpenClawStore.setState({ messages: [userTurn("u-interrupted", "Gör hero tydligare"), reply] });
+      useOpenClawStore.setState({
+        messages: [userTurn("u-interrupted", "Gör hero tydligare"), reply],
+      });
     });
     render(<OpenClawMessage msg={reply} />);
     expect(screen.getByRole("status").textContent).toContain("Förslaget har inte körts");
@@ -224,6 +233,62 @@ describe("OpenClawMessage — direktbygg via bryggan", () => {
     expect(await screen.findByText(/Buildern tog inte emot bygget \(credit_gate\)/)).toBeTruthy();
   });
 
+  it("visar ett kastat bridge-fel och kan återförsöka utan falskt startkvitto", async () => {
+    grantPowers();
+    const sendMessage = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("lokalt testfel"))
+      .mockResolvedValueOnce({ status: "started", via: "stream" });
+    const bridge = makeBridge({ sendMessage });
+    registerBuilderBridge(bridge);
+    const reply = startBuildReply("sb-throw", {
+      builderTarget: { chatId: "chat_1", versionId: "version_1" },
+    });
+    act(() => {
+      useOpenClawStore.setState({ messages: [userTurn("u-throw", "Gör hero tydligare"), reply] });
+    });
+
+    render(<OpenClawMessage msg={reply} />);
+    expect(await screen.findByText(/Utskicket till buildern misslyckades/)).toBeTruthy();
+    expect(screen.queryByText(/Bygget är startat/)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Försök igen" }));
+    await waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(/Bygget är startat/)).toBeTruthy();
+  });
+
+  it("skickar inte ett manuellt byggförslag till en annan aktiv chatt", async () => {
+    const bridge = makeBridge({ getChatId: () => "chat_b" });
+    registerBuilderBridge(bridge);
+    const reply = startBuildReply("sb-wrong-chat", {
+      builderTarget: { chatId: "chat_a", versionId: "version_1" },
+    });
+    act(() => {
+      useOpenClawStore.setState({
+        messages: [userTurn("digest", "[Byggresultat] klar", "internal"), reply],
+      });
+    });
+    render(<OpenClawMessage msg={reply} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Starta bygget" }));
+    expect(await screen.findByText(/Builderchatten har bytts/)).toBeTruthy();
+    expect(bridge.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("skickar inte fill_text_field-direktknappen till en annan chatt", async () => {
+    const bridge = makeBridge({ getChatId: () => "chat_b" });
+    registerBuilderBridge(bridge);
+    const reply = {
+      ...armedFillReply("fill-wrong-chat"),
+      builderTarget: { chatId: "chat_a", versionId: "version_1" },
+    };
+    render(<OpenClawMessage msg={reply} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Skicka till buildern" }));
+    expect(await screen.findByText(/Builderchatten har bytts/)).toBeTruthy();
+    expect(bridge.sendMessage).not.toHaveBeenCalled();
+  });
+
   it("kör aldrig automatiskt på en hydrerad rad — den blir en kvittens utan knappar", async () => {
     grantPowers();
     const bridge = makeBridge();
@@ -268,7 +333,9 @@ describe("OpenClawMessage — direktbygg via bryggan", () => {
     const first = startBuildReply("sb-first");
     const second = startBuildReply("sb-second", { timestamp: Date.now() + 2 });
     act(() => {
-      useOpenClawStore.setState({ messages: [userTurn("u-once", "Gör hero tydligare"), first, second] });
+      useOpenClawStore.setState({
+        messages: [userTurn("u-once", "Gör hero tydligare"), first, second],
+      });
     });
     render(
       <>
@@ -286,24 +353,308 @@ describe("OpenClawMessage — direktbygg via bryggan", () => {
 });
 
 describe("OpenClawMessage — armerad auto-send via bryggan", () => {
-  it("skickar genom bryggan, förbrukar ett mandatsteg och registrerar en watch", async () => {
+  function armFollowups() {
+    grantPowers();
+    act(() => {
+      useOpenClawStore.setState({
+        armedMandate: {
+          mode: "followups",
+          remaining: 2,
+          reason: "gör 2 follow-ups",
+          createdAt: Date.now() - 1_000,
+        },
+      });
+    });
+  }
+
+  it.each(["started", "settled"] as const)(
+    "behåller reservationen över remount före %s-kvittot",
+    async (status) => {
+      armFollowups();
+      let resolveSend!: (outcome: SendMessageOutcome) => void;
+      let busy = false;
+      const sendMessage = vi.fn(() => {
+        busy = true;
+        return new Promise<SendMessageOutcome>((resolve) => {
+          resolveSend = (outcome) => { busy = false; resolve(outcome); };
+        });
+      });
+      registerBuilderBridge(makeBridge({ sendMessage, canSend: () => !busy }));
+      const reply = armedFillReply(`armed-pending-${status}`, {
+        builderTarget: { chatId: "chat_1", versionId: "version_1" },
+      });
+      const first = render(<OpenClawMessage msg={reply} />);
+      await waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(1));
+      expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(2);
+      first.unmount();
+      const second = render(<OpenClawMessage msg={reply} />);
+      await act(async () => {
+        resolveSend(status === "started"
+          ? { status: "started", via: "stream" }
+          : { status: "settled", as: "f3_deterministic_release" });
+      });
+      expect(await screen.findByText(/Skickad till buildern/)).toBeTruthy();
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 150)); });
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+      expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(1);
+      expect(useOpenClawStore.getState().armedContinuation?.sendOutcome).toBe(status);
+      second.unmount();
+      render(<OpenClawMessage msg={reply} />);
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("återanvänder avvisat pending-kvitto över remount och tillåter explicit retry", async () => {
+    armFollowups();
+    let resolveSend!: (outcome: SendMessageOutcome) => void;
+    const sendMessage = vi.fn()
+      .mockImplementationOnce(() => new Promise<SendMessageOutcome>((resolve) => { resolveSend = resolve; }))
+      .mockResolvedValueOnce({ status: "started", via: "stream" });
+    registerBuilderBridge(makeBridge({ sendMessage }));
+    const reply = armedFillReply("armed-pending-rejected", {
+      builderTarget: { chatId: "chat_1", versionId: "version_1" },
+    });
+    const first = render(<OpenClawMessage msg={reply} />);
+    await waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(1));
+    first.unmount();
+    const second = render(<OpenClawMessage msg={reply} />);
+    await act(async () => {
+      resolveSend({ status: "rejected", reason: "generation_in_progress", turnRecorded: false });
+    });
+    expect(await screen.findByText(/Buildern tog inte emot bygget/)).toBeTruthy();
+    second.unmount();
+    render(<OpenClawMessage msg={reply} />);
+    expect(await screen.findByText(/Buildern tog inte emot bygget/)).toBeTruthy();
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(2);
+    expect(useOpenClawStore.getState().armedContinuation).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Försök igen" }));
+    expect(await screen.findByText(/Skickad till buildern/)).toBeTruthy();
+    expect(sendMessage).toHaveBeenCalledTimes(2);
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(1);
+  });
+
+  it.each(["grant", "scope", "mandate"] as const)(
+    "släpper en väntande reservation när %s avbryts före dispatch",
+    async (cancel) => {
+      armFollowups();
+      const original = useOpenClawStore.getState();
+      let ready = false;
+      const canSend = vi.fn(() => ready);
+      const sendMessage = vi.fn(async () => ({ status: "started", via: "stream" }) as const);
+      registerBuilderBridge(makeBridge({ sendMessage, canSend }));
+      const reply = armedFillReply(`armed-cancel-wait-${cancel}`, {
+        builderTarget: { chatId: "chat_1", versionId: "version_1" },
+      });
+      const first = render(<OpenClawMessage msg={reply} />);
+      await waitFor(() => expect(canSend).toHaveBeenCalled());
+      act(() => {
+        useOpenClawStore.setState(cancel === "grant" ? { powersOn: false }
+          : cancel === "scope" ? { scopeKey: "cancelled-scope" } : { armedMandate: null });
+      });
+      first.unmount();
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 150)); });
+      expect(sendMessage).not.toHaveBeenCalled();
+      ready = true;
+      act(() => {
+        useOpenClawStore.setState({
+          scopeKey: original.scopeKey,
+          powersOn: true,
+          armedMandate: original.armedMandate,
+        });
+      });
+      render(<OpenClawMessage msg={reply} />);
+      expect(await screen.findByText(/Skickad till buildern/)).toBeTruthy();
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+      expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(1);
+    },
+  );
+
+  it.each(["grant", "scope", "mandate"] as const)(
+    "förbrukar inget efter %s-avbrott under pending-kvitto och återspelar inte ett accepterat send",
+    async (cancel) => {
+      armFollowups();
+      const original = useOpenClawStore.getState();
+      let resolveSend!: (outcome: SendMessageOutcome) => void;
+      const sendMessage = vi.fn(() => new Promise<SendMessageOutcome>((resolve) => { resolveSend = resolve; }));
+      registerBuilderBridge(makeBridge({ sendMessage }));
+      const reply = armedFillReply(`armed-cancel-receipt-${cancel}`, {
+        builderTarget: { chatId: "chat_1", versionId: "version_1" },
+      });
+      const first = render(<OpenClawMessage msg={reply} />);
+      await waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(1));
+      first.unmount();
+      act(() => {
+        useOpenClawStore.setState(cancel === "grant" ? { powersOn: false }
+          : cancel === "scope" ? { scopeKey: "cancelled-scope" } : { armedMandate: null });
+      });
+      act(() => {
+        useOpenClawStore.setState({
+          scopeKey: original.scopeKey,
+          powersOn: true,
+          armedMandate: original.armedMandate,
+        });
+      });
+      render(<OpenClawMessage msg={reply} />);
+      await act(async () => { resolveSend({ status: "started", via: "stream" }); });
+      expect(await screen.findByText(/Skickad till buildern/)).toBeTruthy();
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 150)); });
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+      expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(2);
+      expect(useOpenClawStore.getState().armedContinuation).toBeNull();
+    },
+  );
+
+  it("skickar giltigt mål exakt en gång, förbrukar ett mandatsteg och registrerar en watch", async () => {
     grantPowers();
     const armedAt = Date.now() - 1_000;
     act(() => {
       useOpenClawStore.setState({
-        armedMandate: { mode: "followups", remaining: 2, reason: "gör 2 follow-ups", createdAt: armedAt },
+        armedMandate: {
+          mode: "followups",
+          remaining: 2,
+          reason: "gör 2 follow-ups",
+          createdAt: armedAt,
+        },
       });
     });
     const bridge = makeBridge();
     registerBuilderBridge(bridge);
 
-    render(<OpenClawMessage msg={armedFillReply("armed-bridge")} />);
+    const reply = armedFillReply("armed-bridge", {
+      builderTarget: { chatId: "chat_1", versionId: "version_1" },
+    });
+    const { unmount } = render(<OpenClawMessage msg={reply} />);
     await waitFor(() => expect(bridge.sendMessage).toHaveBeenCalledTimes(1));
     expect(vi.mocked(bridge.sendMessage).mock.calls[0][0]).toBe("Gör hero-rubriken tydligare");
     expect(domFillMock).not.toHaveBeenCalled();
     expect(domSendMock).not.toHaveBeenCalled();
     expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(1);
-    expect(useOpenClawStore.getState().armedContinuation).not.toBeNull();
+    expect(useOpenClawStore.getState().armedContinuation?.sendOutcome).toBe("started");
+
+    unmount();
+    render(<OpenClawMessage msg={reply} />);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(bridge.sendMessage).toHaveBeenCalledTimes(1);
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(1);
+  });
+
+  it.each([
+    {
+      name: "annan chatt",
+      bridge: { getChatId: () => "chat_b" },
+      error: /Builderchatten har bytts/,
+    },
+    {
+      name: "annan version",
+      bridge: { getActiveVersionId: () => "version_2" },
+      error: /Builderversionen har bytts/,
+    },
+  ])(
+    "skickar inte ett armerat förslag som före mount tillhör $name",
+    async ({ bridge: overrides, error }) => {
+      grantPowers();
+      const armedAt = Date.now() - 1_000;
+      act(() => {
+        useOpenClawStore.setState({
+          armedMandate: {
+            mode: "followups",
+            remaining: 2,
+            reason: "gör 2 follow-ups",
+            createdAt: armedAt,
+          },
+        });
+      });
+      const bridge = makeBridge(overrides);
+      registerBuilderBridge(bridge);
+      const reply = armedFillReply("armed-wrong-target", {
+        builderTarget: { chatId: "chat_1", versionId: "version_1" },
+      });
+
+      render(<OpenClawMessage msg={reply} />);
+
+      expect(await screen.findByText(error)).toBeTruthy();
+      expect(bridge.sendMessage).not.toHaveBeenCalled();
+      expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(2);
+      expect(useOpenClawStore.getState().armedContinuation).toBeNull();
+    },
+  );
+
+  it("förbrukar inget på typed rejection och återförsöker bara explicit", async () => {
+    grantPowers();
+    const armedAt = Date.now() - 1_000;
+    act(() => {
+      useOpenClawStore.setState({
+        armedMandate: {
+          mode: "followups",
+          remaining: 2,
+          reason: "gör 2 follow-ups",
+          createdAt: armedAt,
+        },
+      });
+    });
+    const sendMessage = vi
+      .fn()
+      .mockResolvedValueOnce({ status: "rejected", reason: "credit_gate", turnRecorded: false })
+      .mockResolvedValueOnce({ status: "started", via: "stream" });
+    const bridge = makeBridge({ sendMessage });
+    registerBuilderBridge(bridge);
+    const reply = armedFillReply("armed-rejected", {
+      builderTarget: { chatId: "chat_1", versionId: "version_1" },
+    });
+
+    render(<OpenClawMessage msg={reply} />);
+
+    expect(await screen.findByText(/Buildern tog inte emot bygget \(credit_gate\)/)).toBeTruthy();
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(2);
+    expect(useOpenClawStore.getState().armedContinuation).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Försök igen" }));
+    await waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(/Skickad till buildern/)).toBeTruthy();
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(1);
+    expect(useOpenClawStore.getState().armedContinuation?.sendOutcome).toBe("started");
+  });
+
+  it("förbrukar inget på thrown send och återförsöker bara explicit", async () => {
+    grantPowers();
+    const armedAt = Date.now() - 1_000;
+    act(() => {
+      useOpenClawStore.setState({
+        armedMandate: {
+          mode: "followups",
+          remaining: 2,
+          reason: "gör 2 follow-ups",
+          createdAt: armedAt,
+        },
+      });
+    });
+    const sendMessage = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("lokalt testfel"))
+      .mockResolvedValueOnce({ status: "settled", via: "f3_round" });
+    const bridge = makeBridge({ sendMessage });
+    registerBuilderBridge(bridge);
+    const reply = armedFillReply("armed-throw", {
+      builderTarget: { chatId: "chat_1", versionId: "version_1" },
+    });
+
+    render(<OpenClawMessage msg={reply} />);
+
+    expect(await screen.findByText(/Utskicket till buildern misslyckades/)).toBeTruthy();
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(2);
+    expect(useOpenClawStore.getState().armedContinuation).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Försök igen" }));
+    await waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(/Skickad till buildern/)).toBeTruthy();
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(1);
+    expect(useOpenClawStore.getState().armedContinuation?.sendOutcome).toBe("settled");
   });
 
   it("faller tillbaka till DOM-vägen utan brygga", async () => {
@@ -311,7 +662,12 @@ describe("OpenClawMessage — armerad auto-send via bryggan", () => {
     const armedAt = Date.now() - 1_000;
     act(() => {
       useOpenClawStore.setState({
-        armedMandate: { mode: "followups", remaining: 2, reason: "gör 2 follow-ups", createdAt: armedAt },
+        armedMandate: {
+          mode: "followups",
+          remaining: 2,
+          reason: "gör 2 follow-ups",
+          createdAt: armedAt,
+        },
       });
     });
     render(<OpenClawMessage msg={armedFillReply("armed-dom")} />);
