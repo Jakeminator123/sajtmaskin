@@ -255,7 +255,7 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(product?.codeEntry).toContain("src/app/api/audit/route.ts");
     expect(product?.codeEntry).not.toContain("src/app/api/analys/route.ts");
     expect(pub?.defaultModel).toBe("openai/gpt-6.1-sol");
-    expect(pub?.reasoningEffort).toBe("medium");
+    expect(pub?.reasoningEffort).toBe("low");
     expect(pub?.fallbackModels).toBeUndefined();
     expect(pub?.codeEntry).toEqual(["src/app/api/analys/route.ts"]);
   });

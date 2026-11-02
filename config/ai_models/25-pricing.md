@@ -17,7 +17,7 @@ Kanonisk siffertabell för cost-scripts: [`pricing.json`](pricing.json).
 | **Låg / Mellan / Hög använder `gpt-6.1-sol`, inte ett separat `-pro`-modell-ID.** | Längre resonemang styrs med `reasoningEffort` (medium / high / xhigh) i `reasoningMode: "standard"`. |
 | **`reasoningMode: "pro"` är inte längre default.**                            | Valbart i backoffice. Prod `llm_usage` 28 jul–1 sep 2026 visade ~6× fakturerad input (142k vs 22k p50) när Premium körde pro-läge. |
 | **GPT-6.1 Sol och GPT-6 Astra saknar `none`.**                                | Runtime klampar begärd effort per modell (`openai-capabilities.ts`); Luna och GPT-5.6 har hela `none` … `max`. |
-| Små text-/visionflöden, wizard, kundanalys, prompt-assist och OpenAI-verifier kör `gpt-6.1-sol` med `medium`. | Ingen dold Luna-reserv. Vision-allowlisten kan välja Luna explicit. `gpt-4o-mini` aliasas till `gpt-6.1-sol`. Embeddings och `gpt-transcribe` blir inte Sol. |
+| Små text-/visionflöden, wizard, avancerad kundanalys, prompt-assist och OpenAI-verifier kör `gpt-6.1-sol` med `medium`; publik och vanlig kundanalys använder `low`. | Ingen dold Luna-reserv. Vision-allowlisten kan välja Luna explicit. `gpt-4o-mini` aliasas till `gpt-6.1-sol`. Embeddings och `gpt-transcribe` blir inte Sol. |
 
 ## OpenAI (per 1M tokens, standardnivå)
 
@@ -69,7 +69,7 @@ Requests över 272k input debiteras 2× input / 1,5× output.
 | `backoffice_dossier_curation` (`medium`)                                        | `gpt-6.1-sol`                          | medel      |
 | `phaseRouting.anthropic`                                                        | `claude-opus-4.8`                      | hög        |
 | `audit_structured` (inloggad Avancerad)                                         | `openai/gpt-6.1-sol` (reserv `gpt-5.6-sol`) | medel |
-| `audit_structured_public` (gratis `/analys` + betald Vanlig, `medium`, ingen Luna-reserv) | `openai/gpt-6.1-sol` | medel |
+| `audit_structured_public` (gratis `/analys` + betald Vanlig, `low`, ingen Luna-reserv) | `openai/gpt-6.1-sol` | låg |
 | utility (`project_analyze`, `text_analyze`, `inspector_ai_match`, `analyze_*`, `domain_suggestions`, `match_classifier`, `prompt_rewrite`, `medium`) | `gpt-6.1-sol` | medel |
 | `prompt_rewrite` outputtak                                                      | 8192 tokens, inkl. reasoning           | maxgräns, inte uppmätt förbrukning |
 | embeddings                                                                      | `text-embedding-3-small`               | mycket låg |

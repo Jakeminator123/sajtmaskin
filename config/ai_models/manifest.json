@@ -1118,8 +1118,8 @@
       "codeEntry": ["src/app/api/analys/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
       "defaultModel": "openai/gpt-6.1-sol",
-      "reasoningEffort": "medium",
-      "notes": "Gratis /analys och betald Vanlig. GPT-6.1 Sol med medium. Ingen Luna-reserv och ingen web_search. Den äldre Sol-reserven gpt-5.6-sol hör bara till audit_structured."
+      "reasoningEffort": "low",
+      "notes": "Gratis /analys och betald Vanlig. GPT-6.1 Sol med low för att hålla den kundsynliga rapporten inom route-deadlinen. Ingen Luna-reserv och ingen web_search. Den äldre Sol-reserven gpt-5.6-sol hör bara till audit_structured."
     },
     {
       "id": "analyze_presentation",

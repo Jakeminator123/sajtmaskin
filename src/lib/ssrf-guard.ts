@@ -149,12 +149,17 @@ async function requestBodyToBuffer(body: BodyInit | null | undefined): Promise<B
   throw new TypeError("safeFetch does not support FormData or streaming request bodies");
 }
 
-function responseFromPinned(result: PinnedFetchResult): Response {
+function responseFromPinned(result: PinnedFetchResult, validatedUrl: URL): Response {
   const bodyless = result.status === 204 || result.status === 205 || result.status === 304;
-  return new Response(bodyless ? null : new Uint8Array(result.body), {
+  const response = new Response(bodyless ? null : new Uint8Array(result.body), {
     status: result.status,
     headers: result.headers,
   });
+  // Node's synthetic Response has an empty `.url`. Carry only the URL that
+  // this loop already validated (including DNS-pinned redirect checks), so
+  // downstream parsers resolve relative links against the actual final page.
+  Object.defineProperty(response, "url", { value: validatedUrl.toString() });
+  return response;
 }
 
 function stripHeadersForRedirect(
@@ -266,7 +271,7 @@ export async function safeFetch(
         );
       }
 
-      const response = responseFromPinned(pinned);
+      const response = responseFromPinned(pinned, currentUrl);
       if (!REDIRECT_STATUSES.has(pinned.status)) return response;
 
       redirectCount += 1;

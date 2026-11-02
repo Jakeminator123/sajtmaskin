@@ -164,6 +164,7 @@ describe("ssrf-guard", () => {
 
     const res = await safeFetch("https://example.com");
     expect(res.status).toBe(200);
+    expect(res.url).toBe("https://example.org/next");
     expect(await res.text()).toBe("ok");
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
   });

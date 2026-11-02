@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { getCanonicalUrlKey, isSameSiteHost, validateAndNormalizeUrl } from "./webscraper";
 
 describe("validateAndNormalizeUrl", () => {
+  it.each([
+    ["Workershotel.se", "https://workershotel.se/"],
+    ["workershotel.se", "https://workershotel.se/"],
+    ["www.workershotel.se", "https://www.workershotel.se/"],
+    ["https://workershotel.se", "https://workershotel.se/"],
+    [" HTTPS://Workershotel.se ", "https://workershotel.se/"],
+  ])("accepts domain casing, optional www and protocol: %s", (input, expected) => {
+    expect(validateAndNormalizeUrl(input)).toBe(expected);
+  });
+
   it("adds https when protocol is missing", () => {
     expect(validateAndNormalizeUrl("example.com")).toBe("https://example.com/");
   });
@@ -19,6 +29,13 @@ describe("validateAndNormalizeUrl", () => {
   it("throws on empty input", () => {
     expect(() => validateAndNormalizeUrl("   ")).toThrow(/tom/i);
   });
+
+  it.each(["file:///etc/passwd", "ftp://example.com", "javascript:alert(1)", "https://user:secret@example.com"])(
+    "rejects unsafe forms instead of rewriting the target: %s",
+    (input) => {
+      expect(() => validateAndNormalizeUrl(input)).toThrow();
+    },
+  );
 });
 
 describe("getCanonicalUrlKey", () => {
