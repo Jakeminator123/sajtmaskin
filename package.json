@@ -239,7 +239,7 @@
     "radix-ui": "^1.8.1",
     "react": "^19.3.0",
     "react-day-picker": "^9.14.0",
-    "react-dom": "^19.3.0",
+    "react-dom": "^19.3.1",
     "react-error-boundary": "^6.1.6",
     "react-hook-form": "^7.90.0",
     "react-intersection-observer": "^10.0.3",
