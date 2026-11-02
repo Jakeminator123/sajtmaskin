@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { COMPARISON_COPY } from "./comparison-copy";
 import { INDUSTRY_COPY } from "./industry-copy";
 import { SEO_INDUSTRY_SLUGS } from "./registry";
+import {
+  TOOL_COMPARISON_FOOTNOTE_AFTER_PRICE,
+  TOOL_COMPARISON_FOOTNOTE_BEFORE_PRICE,
+  TOOL_COMPARISON_LEAD,
+  TOOL_COMPARISON_ROWS,
+} from "./tool-comparison";
 
 const VOLATILE_PRICE_PATTERNS = [/\d+\s*kr\b/i, /\b(?:49|99|179)\b/];
 
@@ -34,7 +40,12 @@ describe("industry landing copy", () => {
   });
 
   it("keeps industry and new comparison copy free of volatile package prices", () => {
-    const blob = `${flattenCopy(INDUSTRY_COPY)}\n${flattenCopy(COMPARISON_COPY)}`;
+    const blob = `${flattenCopy(INDUSTRY_COPY)}\n${flattenCopy(COMPARISON_COPY)}\n${flattenCopy({
+      TOOL_COMPARISON_LEAD,
+      TOOL_COMPARISON_FOOTNOTE_BEFORE_PRICE,
+      TOOL_COMPARISON_FOOTNOTE_AFTER_PRICE,
+      TOOL_COMPARISON_ROWS,
+    })}`;
     for (const pattern of VOLATILE_PRICE_PATTERNS) {
       expect(blob).not.toMatch(pattern);
     }

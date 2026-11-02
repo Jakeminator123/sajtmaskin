@@ -19,6 +19,20 @@ Lägesväljaren Auto · Fråga · Bygg i komposern tvingar mottagaren. Regeln bo
 [`composer-route.ts`](../../src/lib/builder/composer-route.ts); en live-hint
 under textrutan visar valet innan du skickar.
 
+När byggmotorn väntar på svar på en motfråga eller plan hör svaret fortsatt
+till byggmotorn i Auto-läget. Välj Fråga uttryckligen för att diskutera med
+Sajtagenten utan att besvara den väntande frågan.
+
+## Avatar i samma samtal
+
+Avatar-knappen vid komposern aktiverar D-ID som röst och bild för Sajtagentens
+befintliga svar. Den skapar ingen egen chatt eller modellförfrågan. Text och
+mikrofon använder samma input, och historiken ligger kvar i samma tidslinje.
+Endast nya, färdiga svar läses upp; action-block, avbrutna svar och inläst
+historik läses inte upp. Chattbyte och «Endast text» avslutar anslutningen.
+Vid anslutningsfel fungerar textchatten vidare. Knappen finns bara när de
+befintliga publika D-ID-nycklarna och avatarflaggan är konfigurerade.
+
 ## Vad Sajtagenten ser
 
 Allt skickas per tur till `/api/openclaw/chat`; servern verifierar att den som
@@ -92,4 +106,4 @@ filer och inga byggkommandon — bara samtal.
 ## Inte nu
 
 Creditmodell per agentuppdrag (chat-routen debiteras inte), sajtägarens agent
-efter publicering, projektminne och avataren i builderchatten är följduppdrag.
+efter publicering och projektminne är följduppdrag.

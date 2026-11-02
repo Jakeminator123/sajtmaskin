@@ -161,22 +161,23 @@ export function SajtagentProvider({
     void hydrateOpenClawPowersForChat(chatId);
   }, [chatId, editEnabled, scopeMatchesChat, scopeKey]);
 
-  // Efter varje avslutad tur (inklusive nästlade väckningar som sker inuti
-  // `send`) skrivs allt i storen som ännu inte kvitterats — hela listan, inte
-  // bara turens rader, så ett tidigare misslyckat försök tas med igen.
-  // `persistAgentMessages` hoppar själv över kvitterade, hydrerade och tomma rader.
+  // Transportägaren lämnar en snapshot vid avslut, stopp eller scope-byte.
+  // Läs aldrig den levande storen i ett sent finally: då kan nästa svar redan
+  // strömma, och dess halvfärdiga innehåll skulle låsas i den idempotenta DB:n.
+  // Hela snapshoten ingår så tidigare okvitterade rader kan försöka igen.
+  const chatSend = chat.send;
   const send = useCallback(
     async (text: string, options?: OpenClawSendOptions) => {
       const chatAtSend = chatIdRef.current;
-      try {
-        await chat.send(text, options);
-      } finally {
-        if (chatAtSend && chatIdRef.current === chatAtSend) {
-          void persistAgentMessages(chatAtSend, useOpenClawStore.getState().messages);
-        }
-      }
+      await chatSend(text, {
+        ...options,
+        onConversationSettled: (messages) => {
+          if (chatAtSend) void persistAgentMessages(chatAtSend, messages);
+          options?.onConversationSettled?.(messages);
+        },
+      });
     },
-    [chat],
+    [chatSend],
   );
 
   useOpenClawArmedContinuation(send);
@@ -222,7 +223,8 @@ export function SajtagentProvider({
     const agentMessagesNow = agentMessagesRef.current;
     const last = agentMessagesNow[agentMessagesNow.length - 1];
     if (!last || last.id !== lastAgentMessageId) return;
-    if (last.role !== "assistant" || last.hydrated) return;
+    if (last.role !== "assistant" || last.hydrated || last.delivery === "interrupted" ||
+        last.delivery === "streaming") return;
     if (handledReadIdsRef.current.has(last.id) || inFlightReadIdRef.current === last.id) return;
     const parsed = parseOpenClawMessage(last.content);
     if (parsed.action?.type !== "read_files") return;
@@ -336,6 +338,12 @@ export function SajtagentProvider({
       isStreaming: isAnyStreaming,
     };
     const live = useOpenClawStore.getState();
+    // Continuation owns this build result. Do not enqueue a second summary
+    // once its own agent reply settles and releases the streaming lock.
+    if (!isAnyStreaming && live.armedContinuation) {
+      track.streamed = false;
+      return;
+    }
     const decision = decidePostBuildDigest({
       next,
       enabled: digestEnabled,
@@ -361,6 +369,7 @@ export function SajtagentProvider({
     activeVersionIsLatest,
     isAnyStreaming,
     digestEnabled,
+    agentStreaming,
   ]);
 
   const value = useMemo<SajtagentContextValue>(
