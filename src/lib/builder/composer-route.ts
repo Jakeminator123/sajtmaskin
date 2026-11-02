@@ -123,7 +123,7 @@ const REVIEW_TERMS = uWordRegex(
   "iu",
 );
 
-/** Ändringsverb — texten börjar med något av dessa. */
+/** Longest first: object extraction must consume "byt ut", not only "byt". */
 const BUILD_OPENERS = uWordRegex(
   [
     "bygg",
@@ -182,7 +182,7 @@ const BUILD_OPENERS = uWordRegex(
     "fix",
     "insert",
     "implement",
-  ].join("|"),
+  ].sort((a, b) => b.length - a.length).join("|"),
   "iu",
 );
 

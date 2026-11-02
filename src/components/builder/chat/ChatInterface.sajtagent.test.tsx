@@ -78,6 +78,9 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     ["Gör punkt två och tre", "build"], ["Gör punkt 2 och punkt 3", "build"],
     ["Gör punkt 2: gör det", "auto"], ["Gör punkt 2: byt enligt ditt förslag", "auto"],
     ["Gör punkt 2: gör det", "build"], ["Gör punkt 2: byt enligt ditt förslag", "build"],
+    ["Gör punkt 2: byt ut det", "auto"], ["Gör punkt 2: byt ut det", "build"],
+    ["Gör punkt 2: gör om det", "auto"], ["Gör punkt 2: gör om det", "build"],
+    ["Gör punkt 2: gor om det", "auto"], ["Gör punkt 2: gor om det", "build"],
   ] as const)("clarifies multiple references without raw builder dispatch: %s, %s", async (text, mode) => {
     window.__SITEMASKIN_CONTEXT = { page: "builder", chatId: "chat_1", activeVersionId: "v1" } as typeof window.__SITEMASKIN_CONTEXT;
     useOpenClawStore.setState({ messages: [{ id: "advice-1", role: "assistant", timestamp: 1,
@@ -97,6 +100,9 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
 
   it.each([
     "Gör punkt 2: byt rubriken till Välkommen",
+    "Gör punkt 2: byt ut rubriken mot Välkommen",
+    "Gör punkt 2: gör om kontaktsektionen med telefon och e-post",
+    "Gör punkt 2: gor om kontaktsektionen med telefon och e-post",
     "Gör punkt 2: gör knappen större",
     "Gör punkt 2: lägg till en kontaktsektion med telefon och e-post",
     "Apply suggestion 2: add a contact section with phone and email",

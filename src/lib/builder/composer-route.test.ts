@@ -64,6 +64,27 @@ describe("isReadOnlyComposerRequest", () => {
 });
 
 describe("isAgentProposalReference", () => {
+  it.each(["byt ut", "gör om", "gor om"])("consumes the longest existing opener before checking its object: %s", opener => {
+    for (const object of ["det", "den", "detta"]) {
+      const text = `Gör punkt 2: ${opener} ${object}`;
+      expect(isAgentProposalReference(text)).toBe(true);
+      expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(false);
+      expect(classifyComposerIntent(text)).toBe("agent");
+      expect(resolveComposerRoute({ mode: "build", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("agent");
+    }
+  });
+
+  it.each([
+    "byt rubriken till Välkommen", "byt ut rubriken mot Välkommen",
+    "gör knappen större", "gör om kontaktsektionen med telefon och e-post",
+    "gor knappen större", "gor om kontaktsektionen med telefon och e-post",
+  ])("preserves named objects for both members of each existing prefix pair: %s", instruction => {
+    const text = `Gör punkt 2: ${instruction}`;
+    expect(isAgentProposalReference(text)).toBe(false);
+    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(true);
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("build");
+  });
+
   it.each([
     "Gör punkt 2: gör det", "Gör punkt 2: byt enligt ditt förslag", "Gör punkt 2: gör så",
     "Gör punkt 2: implementera detta", "Gör punkt 2: ändra den", "Gör punkt 2: gör något åt det",
