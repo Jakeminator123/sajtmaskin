@@ -9,8 +9,8 @@
  *   till agenten.
  * - En uttrycklig ändringsinstruktion («byt knapptexten till Boka tid») går
  *   direkt till byggmotorn.
- * - Bilagor, Figma-länk, inspect-punkter och en chatt som inte finns ännu
- *   (init) går alltid till byggmotorn — där finns ingen agentväg.
+ * - Bilagor och init går till byggmotorn när texten tillåter det. Ett uttryckligt
+ *   agentärende blockeras om agentvägen saknas, utan att starta en generation.
  * - Oklart → agenten. Den kan starta bygget själv (`start_build`) när den har
  *   befogenhet, och en felroutad fråga till byggmotorn kostar en generation.
  *
@@ -21,7 +21,7 @@
 import { uWordRegex } from "@/lib/utils/unicode-word-boundary";
 
 export type ComposerMode = "auto" | "agent" | "build";
-export type ComposerRoute = "agent" | "build";
+export type ComposerRoute = "agent" | "build" | "blocked";
 export type ComposerIntent = "agent" | "build" | "unsure";
 
 export const COMPOSER_MODES: readonly ComposerMode[] = ["auto", "agent", "build"];
@@ -214,6 +214,45 @@ function normalize(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
+const ABSOLUTE_READ_ONLY = uWordRegex(
+  "(?:ändra|andra) (?:inget|ingenting)|(?:gör|gor) (?:inget|ingenting|inga (?:ändringar|andringar))|only review|review only|do nothing|(?:do not|don't|don’t) (?:do anything|make any changes|change anything)",
+  "iu",
+);
+
+const NEGATED_BUILD = uWordRegex(
+  "(?:ändra|bygg|skapa|gör|gor) inte|(?:do not|don't|don’t) (?:change|build|modify|edit)",
+  "iu",
+);
+
+/** Explicit no-change requests must be recognized before their build verbs. */
+export function isReadOnlyComposerRequest(rawText: string): boolean {
+  const text = normalize(rawText);
+  if (ABSOLUTE_READ_ONLY.test(text)) return true;
+  if (!NEGATED_BUILD.test(text)) return false;
+
+  // A scoped prohibition can accompany a complete positive instruction:
+  // «Ändra inte färgerna men byt rubriken till Välkommen».
+  const clauses = text.split(/[,;]|\s+(?:men|utan|but|instead)\s+/iu);
+  return !clauses.some(
+    (clause) => matchesAtStart(BUILD_OPENERS, clause.trim()) && !NEGATED_BUILD.test(clause),
+  );
+}
+
+const PROPOSAL_REFERENCE = uWordRegex(
+  "(?:(?:gör|gor|genomför|genomfor|implementera|utför|utfor|ta) (?:punkt(?:en)?|förslag(?:et)?|forslag(?:et)?|alternativ(?:et)?) (?:nummer )?(?:[0-9]+|ett|en|två|tva|tre|fyra|fem|sex|sju|åtta|atta|nio|tio)(?: (?:i|från|fran) (?:ditt|det) (?:förslag|forslag))?|(?:gör|gor|bygg|implementera) enligt (?:ditt|det|dina) (?:förslag|forslag)|(?:apply|implement|do) (?:your (?:suggestion|proposal)|(?:suggestion|proposal|item|point) [0-9]+))",
+  "iu",
+);
+
+/** An incomplete reference needs the agent's proposal context, not a raw build. */
+export function isAgentProposalReference(rawText: string): boolean {
+  const text = normalize(rawText).replace(/^(?:snälla|please)\s+/iu, "");
+  const match = PROPOSAL_REFERENCE.exec(text);
+  if (!match || !matchesAtStart(PROPOSAL_REFERENCE, text)) return false;
+  return /^[\s,.!?。！？]*(?:tack|please)?[\s.!?。！？]*$/iu.test(
+    text.slice(match.index + match[0].length),
+  );
+}
+
 /**
  * Klassa texten i sig — utan hänsyn till läge, bilagor eller om chatten finns.
  * Exporterad för tester och för komposerns live-hint.
@@ -221,6 +260,7 @@ function normalize(text: string): string {
 export function classifyComposerIntent(rawText: string): ComposerIntent {
   const text = normalize(rawText);
   if (!text) return "unsure";
+  if (isReadOnlyComposerRequest(text) || isAgentProposalReference(text)) return "agent";
 
   const lower = text.toLowerCase();
   const endsWithQuestion = /[?？]\s*$/u.test(text);
@@ -247,15 +287,27 @@ function matchesAtStart(regex: RegExp, lower: string): boolean {
   return !/[\p{L}\p{N}]/u.test(prefix);
 }
 
+/** Build tools need a complete positive command even when the UI uses Auto. */
+export function composerAllowsAgentBuild(input: { mode: ComposerMode; text: string }): boolean {
+  return (
+    input.mode !== "agent" &&
+    !isReadOnlyComposerRequest(input.text) &&
+    !isAgentProposalReference(input.text) &&
+    classifyComposerIntent(input.text) === "build"
+  );
+}
+
 export interface ResolveComposerRouteInput {
   mode: ComposerMode;
   text: string;
-  /** `false` före första bygget — init går alltid till byggmotorn. */
+  /** `false` före första bygget — agentärenden kan inte skickas ännu. */
   hasChat: boolean;
   /** Bilagor, Figma-länk eller inspect-punkter följer bara byggmotorn. */
   hasAttachments: boolean;
   /** Sajtagentens yta är aktiverad och nåbar från den här buildern. */
   agentAvailable: boolean;
+  /** En konfigurerad men ännu otillgänglig agent får inte ersättas med bygge. */
+  agentConfigured?: boolean;
   /**
    * Agenten får starta byggen själv (`start_build` kräver armerad autonomi).
    * Utan det går oklar text till byggmotorn: en ändringsbegäran som hamnar
@@ -270,14 +322,20 @@ export interface ResolveComposerRouteInput {
 
 /** Slutgiltigt val för ett utskick från komposern. */
 export function resolveComposerRoute(input: ResolveComposerRouteInput): ComposerRoute {
-  if (!input.agentAvailable) return "build";
-  if (!input.hasChat) return "build";
-  if (input.hasAttachments) return "build";
-  if (input.mode === "agent") return "agent";
+  const agentReachable = input.agentAvailable && input.hasChat && !input.hasAttachments;
+  if (
+    input.mode === "agent" ||
+    isReadOnlyComposerRequest(input.text) ||
+    isAgentProposalReference(input.text)
+  ) {
+    return agentReachable ? "agent" : "blocked";
+  }
   if (input.mode === "build") return "build";
   if (input.builderAwaitingReply) return "build";
   const intent = classifyComposerIntent(input.text);
   if (intent === "build") return "build";
+  if (intent === "agent" && input.agentConfigured && !input.agentAvailable) return "blocked";
+  if (!agentReachable) return "build";
   if (intent === "agent") return "agent";
   return input.agentCanBuild === false ? "build" : "agent";
 }

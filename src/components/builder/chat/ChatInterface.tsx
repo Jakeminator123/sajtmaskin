@@ -36,10 +36,16 @@ import {
   X,
 } from "lucide-react";
 import {
+  classifyComposerIntent,
+  composerAllowsAgentBuild,
+  isAgentProposalReference,
   isComposerMode,
+  isReadOnlyComposerRequest,
   resolveComposerRoute,
   type ComposerMode,
 } from "@/lib/builder/composer-route";
+import { resolveAgentProposalReference, type AgentProposalReference } from "@/lib/builder/composer-route-reference";
+import { readActiveBuilderTarget } from "@/lib/openclaw/builder-target";
 import { OpenClawPowersControl } from "@/components/openclaw/OpenClawPowersControl";
 import { useOpenClawPowers } from "@/components/openclaw/useOpenClawPowers";
 import { ComposerModeToggle } from "./sajtagent/ComposerModeToggle";
@@ -61,7 +67,7 @@ import {
   resolveOpenClawPreparedPromptSource,
   type OpenClawPreparedPromptSource,
 } from "@/lib/openclaw/prepared-prompt";
-import { readOpenClawPowers, useOpenClawStore } from "@/lib/openclaw/openclaw-store";
+import { readOpenClawPowers, revokeOpenClawBuildConsent, useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import {
   INSPECT_CAPTURE_EVENT,
   type InspectCapturedElement,
@@ -277,6 +283,8 @@ export function ChatInterface({
   onSelectedModelTierChange,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
+  const activeComposerChatRef = useRef(chatId);
+  activeComposerChatRef.current = chatId;
   const [isSending, setIsSending] = useState(false);
   const [promptAssistBusy, setPromptAssistBusy] = useState(false);
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -312,6 +320,7 @@ export function ChatInterface({
   // befintlig chatt; utan den är allt som förut.
   const agent = useSajtagent();
   const agentAvailable = Boolean(agent?.available && chatId);
+  const agentConfigured = Boolean(agent?.configured ?? agent?.available);
   const agentStreaming = Boolean(agent?.isStreaming);
   // Oklar text går till agenten bara när den själv kan starta bygget
   // (`start_build` kräver armerad autonomi); annars är byggmotorn närmast.
@@ -329,7 +338,7 @@ export function ChatInterface({
   // («vad händer nu?») ska fortfarande gå att ställa. Inputen hålls därför
   // öppen när agenten finns; byggvägen spärras i handleSubmit i stället.
   const builderLocked = Boolean(isBusy);
-  const inputDisabled = isSending || promptAssistBusy || (builderLocked && !agentAvailable);
+  const inputDisabled = isSending || promptAssistBusy || (builderLocked && !agentConfigured);
   const submitDisabled = inputDisabled || hasUploading;
   const showPreparingPrompt = Boolean(isPreparingPrompt);
 
@@ -794,9 +803,13 @@ export function ChatInterface({
     hasSuccessFiles || Boolean(normalizedFigmaUrl) || inspectPoints.length > 0;
 
   const resolveRouteFor = (text: string) => {
-    // En byggprompt som Sajtagenten själv lade i fältet är ett byggkommando,
-    // oavsett hur texten läses — annars studsar den tillbaka till agenten.
+    // Prepared build instructions keep their route; a field marker cannot
+    // override a question, explicit read-only request or unresolved reference.
     if (
+      composerMode !== "agent" &&
+      classifyComposerIntent(text) !== "agent" &&
+      !isReadOnlyComposerRequest(text) &&
+      !isAgentProposalReference(text) &&
       isOpenClawPreparedSend({
         preparedFill: useOpenClawStore.getState().preparedFill,
         message: text,
@@ -810,6 +823,7 @@ export function ChatInterface({
       hasChat: Boolean(chatId),
       hasAttachments: hasComposerAttachments,
       agentAvailable,
+      agentConfigured,
       agentCanBuild,
       builderAwaitingReply: builderAwaitingReply || continuePlanMode,
     });
@@ -821,13 +835,45 @@ export function ChatInterface({
     const hasAuditToken = Boolean(auditHandoff && !chatId);
     if (!trimmed && !hasSuccessFiles && !hasAuditToken) return;
 
-    if (trimmed && agent && resolveRouteFor(trimmed) === "agent") {
+    const restrictBuild = composerMode === "agent" || isReadOnlyComposerRequest(trimmed);
+    if (restrictBuild) revokeOpenClawBuildConsent();
+    const route = resolveRouteFor(trimmed);
+    if (route === "blocked") {
+      toast(!agentAvailable
+        ? "Sajtagenten är inte tillgänglig just nu. Ditt utkast finns kvar."
+        : "Frågan kan inte skickas med dessa bilagor eller före första bygget. Ditt utkast finns kvar.");
+      return;
+    }
+    if (trimmed && agent && route === "agent") {
       if (agentStreaming) {
         toast("Sajtagenten svarar fortfarande — vänta en stund.");
         return;
       }
-      void agent.send(trimmed);
-      setInput("");
+      let proposalReference: AgentProposalReference | undefined;
+      if (isAgentProposalReference(trimmed)) {
+        const target = readActiveBuilderTarget();
+        const resolution = resolveAgentProposalReference({
+          text: trimmed,
+          messages: useOpenClawStore.getState().messages,
+          target: target?.chatId === chatId ? target : null,
+        });
+        if (resolution.kind === "clarify") {
+          toast(resolution.message);
+          return;
+        }
+        proposalReference = resolution.reference;
+      }
+      const sendingChatId = chatId;
+      void agent.send(trimmed, {
+        allowBuild: composerAllowsAgentBuild({ mode: composerMode, text: trimmed }),
+        restrictBuild,
+        proposalReference,
+        onDispatchAccepted: () => {
+          if (activeComposerChatRef.current === sendingChatId) {
+            setInput((current) => current.trim() === trimmed ? "" : current);
+          }
+        },
+      }).catch(() => toast("Sajtagenten kunde inte ta emot frågan. Ditt utkast finns kvar."));
       return;
     }
     if (builderLocked) {
@@ -927,7 +973,7 @@ export function ChatInterface({
             <p className="text-muted-foreground text-[11px] leading-4" suppressHydrationWarning>
               Verktyg
             </p>
-            {agentAvailable ? (
+            {agentConfigured ? (
               <div className="flex items-center gap-1.5">
                 <ComposerModeToggle
                   value={composerMode}
@@ -1178,7 +1224,7 @@ export function ChatInterface({
               {initBriefStatus ?? "Förbereder prompt..."}
             </div>
           )}
-          {agentAvailable && (agentStreaming || input.trim()) ? (
+          {agentConfigured && (agentStreaming || input.trim()) ? (
             <div
               className="text-muted-foreground flex items-center justify-between gap-2 text-[11px]"
               data-testid="composer-route-hint"
@@ -1189,6 +1235,8 @@ export function ChatInterface({
                   <Loader2 className="size-3 animate-spin" />
                   Sajtagenten svarar…
                 </span>
+              ) : resolveRouteFor(input) === "blocked" ? (
+                <span>Frågan kan inte skickas just nu – utkastet finns kvar</span>
               ) : resolveRouteFor(input) === "agent" ? (
                 <span className="inline-flex items-center gap-1.5">
                   <Bot className="size-3" aria-hidden="true" />

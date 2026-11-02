@@ -46,8 +46,10 @@ import {
   consumeMandateStep,
   describeMandate,
   isMandateActive,
+  parseArmingDirective,
 } from "@/lib/openclaw/debug/armed-mandate";
 import { OPENCLAW_EMPTY_REPLY_COPY } from "@/lib/openclaw/gateway-response";
+import { classifyComposerIntent, composerAllowsAgentBuild, isReadOnlyComposerRequest } from "@/lib/builder/composer-route";
 import { useSmoothText } from "./useSmoothText";
 
 /**
@@ -100,12 +102,36 @@ export function resolveStartBuildAutoRun(
     const candidate = messages[cursor];
     if (candidate.role !== "user") continue;
     const isChatTurn = classifyAgentMessage(candidate) === "chat";
-    const isFileTurn = candidate.content.trimStart().startsWith(READ_FILES_TURN_PREFIX);
+    const isFileTurn = !isChatTurn && candidate.content.trimStart().startsWith(READ_FILES_TURN_PREFIX);
     if (!isChatTurn && !isFileTurn) return { allowed: false, userTurnId: candidate.id };
     if (isFileTurn) continue; // the real question sits further back
-    return { allowed: true, userTurnId: candidate.id };
+    return {
+      allowed: candidate.allowBuild === true && !candidate.hydrated &&
+        composerAllowsAgentBuild({ mode: "auto", text: candidate.content }),
+      userTurnId: candidate.id,
+    };
   }
   return { allowed: false, userTurnId: null };
+}
+
+/** Internal followups retain their explicit bounded mandate; new questions do not. */
+function armedReplyAllowsBuild(messages: readonly Msg[], messageId: string): boolean {
+  const index = messages.findIndex((message) => message.id === messageId);
+  if (index < 0) return true; // A standalone card still requires its independent mandate.
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    const candidate = messages[cursor];
+    if (candidate.role !== "user") continue;
+    if (classifyAgentMessage(candidate) === "internal") {
+      if (candidate.content.trimStart().startsWith(READ_FILES_TURN_PREFIX)) continue;
+      return true;
+    }
+    const explicitFollowupOrder = parseArmingDirective(candidate.content)?.mode === "followups" &&
+      /^(?:gör|gora|kör|kor|skapa|starta|påbörja|utför|generera|do|run|create|start|launch)(?:\s|$)/iu.test(candidate.content);
+    return candidate.allowBuild === true && !candidate.hydrated &&
+      !isReadOnlyComposerRequest(candidate.content) &&
+      (explicitFollowupOrder || classifyComposerIntent(candidate.content) !== "agent");
+  }
+  return true;
 }
 
 /** Swedish status for a builder send that did not run (`SendMessageOutcome`). */
@@ -208,6 +234,7 @@ export function OpenClawMessage({
     !isUser &&
     action?.type === "fill_text_field" &&
     action.submit === true &&
+    armedReplyAllowsBuild(useOpenClawStore.getState().messages, msg.id) &&
     powers.armedAutonomy &&
     isMandateActive(armedMandate) &&
     !!armedMandate &&
@@ -1070,7 +1097,7 @@ function OpenClawStartBuildCard({
     if (userTurnId) autoStartBuildsByUserTurn.add(userTurnId);
     let cancelled = false;
     void (async () => {
-      const result = await startBuild(() => cancelled);
+      const result = await startBuild(() => cancelled, true);
       if (cancelled) return;
       if (!result.ok) {
         setState("failed");
@@ -1085,15 +1112,18 @@ function OpenClawStartBuildCard({
 
   const startBuild = async (
     isCancelled?: () => boolean,
+    automatic = false,
   ): Promise<{ ok: true } | { ok: false; error: string }> => {
     const prompt = actionRef.current.prompt;
+    const cancelled = () => Boolean(isCancelled?.()) || !mountedRef.current ||
+      useOpenClawStore.getState().scopeKey !== scopeKeyRef.current ||
+      (automatic && (!readOpenClawPowers().armedAutonomy ||
+        !resolveStartBuildAutoRun(useOpenClawStore.getState().messages, messageId).allowed));
+    if (cancelled()) return { ok: false, error: "Det automatiska byggmedgivandet gäller inte längre." };
     if (getBuilderBridge()) {
       const result = await sendViaBuilderBridge(prompt, {
         expectedTarget: targetRef.current,
-        isCancelled: () =>
-          Boolean(isCancelled?.()) ||
-          !mountedRef.current ||
-          useOpenClawStore.getState().scopeKey !== scopeKeyRef.current,
+        isCancelled: cancelled,
       });
       if (!result.ok) return result;
       // The bridge resolves with the builder's own verdict (`SendMessageOutcome`):
@@ -1123,7 +1153,7 @@ function OpenClawStartBuildCard({
       value: prompt,
     });
     for (let attempt = 0; attempt < 25; attempt += 1) {
-      if (isCancelled?.()) return { ok: false, error: "Sändningen avbröts." };
+      if (cancelled()) return { ok: false, error: "Sändningen avbröts." };
       if (isOpenClawSendReady(OPENCLAW_BUILDER_CHAT_TARGET)) {
         const sent = triggerOpenClawSend(OPENCLAW_BUILDER_CHAT_TARGET);
         if (sent.ok) {
