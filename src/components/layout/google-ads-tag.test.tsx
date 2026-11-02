@@ -1,10 +1,15 @@
 import { StrictMode } from "react";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-const state = vi.hoisted(() => ({ pathname: "/", routerPush: vi.fn() }));
+const state = vi.hoisted(() => ({
+  pathname: "/",
+  routerPush: vi.fn(),
+  searchParams: new URLSearchParams(),
+}));
 vi.mock("next/navigation", () => ({
   usePathname: () => state.pathname,
   useRouter: () => ({ push: state.routerPush }),
+  useSearchParams: () => state.searchParams,
 }));
 const script = () => document.getElementById("sajtmaskin-google-ads")!;
 const isArgumentsObject = (entry: unknown) =>
@@ -31,6 +36,7 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     window.sajtmaskinAdsJsQueued = false;
     state.pathname = "/";
     state.routerPush.mockReset();
+    state.searchParams = new URLSearchParams();
     window.history.replaceState({}, "", "/");
     vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_ENABLED", "1");
     vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_ID", "AW-123456789");
@@ -244,5 +250,41 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     expect(jsIdx).toBeGreaterThan(redactionIdx);
     expect(configIdx).toBeGreaterThan(jsIdx);
     expect(window.dataLayer?.every(isArgumentsObject)).toBe(true);
+  });
+
+  it("fires account_created once from App Router signup=1 after the document URL is stripped", async () => {
+    vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_ACCOUNT_CREATED_LABEL", "");
+    state.searchParams = new URLSearchParams("login=success&signup=1");
+    window.history.replaceState({}, "", "/");
+    const { GoogleAdsTag } = await import("./google-ads-tag");
+    const { GOOGLE_ADS_DEFAULT_LABELS } = await import("@/lib/ads/google-ads");
+    render(<GoogleAdsTag />);
+    await act(async () => {
+      script().dispatchEvent(new Event("load"));
+    });
+    expect(conversions()).toEqual([
+      [
+        "event",
+        "conversion",
+        { send_to: `AW-123456789/${GOOGLE_ADS_DEFAULT_LABELS.account_created}` },
+      ],
+    ]);
+    state.searchParams = new URLSearchParams();
+    window.history.replaceState({}, "", "/");
+    const ads = await import("@/lib/ads/fire-google-ads-conversion");
+    ads.noteAccountCreatedIfSignup("1");
+    ads.flushPendingGoogleAdsConversions();
+    expect(conversions()).toHaveLength(1);
+  });
+
+  it("does not treat login-only OAuth callback as account_created", async () => {
+    state.searchParams = new URLSearchParams("login=success");
+    window.history.replaceState({}, "", "/?login=success");
+    const { GoogleAdsTag } = await import("./google-ads-tag");
+    render(<GoogleAdsTag />);
+    await act(async () => {
+      script().dispatchEvent(new Event("load"));
+    });
+    expect(conversions()).toHaveLength(0);
   });
 });

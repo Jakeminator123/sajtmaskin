@@ -12,9 +12,10 @@ vi.mock("@/lib/builder/pending-builder-draft", () => ({
   touchPendingBuilderDraftReturnTo: vi.fn(),
 }));
 const noteOpenAiRegistrationCompleted = vi.hoisted(() => vi.fn());
+const noteGoogleAdsConversion = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/ads/fire-google-ads-conversion", () => ({
-  noteGoogleAdsConversion: vi.fn(),
+  noteGoogleAdsConversion,
 }));
 vi.mock("@/lib/ads/fire-openai-ads", () => ({
   noteOpenAiRegistrationCompleted,
@@ -44,6 +45,7 @@ describe("AuthModal onSuccess", () => {
     vi.restoreAllMocks();
     setUser.mockReset();
     noteOpenAiRegistrationCompleted.mockReset();
+    noteGoogleAdsConversion.mockReset();
   });
 
   it("fires exactly once after a successful login and store update", async () => {
@@ -67,6 +69,7 @@ describe("AuthModal onSuccess", () => {
       onSuccess.mock.invocationCallOrder[0],
     );
     expect(onClose).toHaveBeenCalledTimes(1);
+    expect(noteGoogleAdsConversion).not.toHaveBeenCalled();
   });
 
   it("does not fire for failed login or registration awaiting verification", async () => {
@@ -82,6 +85,7 @@ describe("AuthModal onSuccess", () => {
     fillAndSubmit();
     await screen.findByRole("alert");
     expect(onSuccess).not.toHaveBeenCalled();
+    expect(noteGoogleAdsConversion).not.toHaveBeenCalled();
 
     view.rerender(
       <AuthModal isOpen onClose={vi.fn()} defaultMode="register" onSuccess={onSuccess} />,
@@ -100,6 +104,8 @@ describe("AuthModal onSuccess", () => {
     fireEvent.click(screen.getByRole("button", { name: "Skapa konto" }));
     await screen.findByRole("status");
     expect(onSuccess).not.toHaveBeenCalled();
+    expect(noteGoogleAdsConversion).toHaveBeenCalledTimes(1);
+    expect(noteGoogleAdsConversion).toHaveBeenCalledWith("account_created");
   });
 
   it("notes OpenAI registration after account create even when verification is pending", async () => {
@@ -119,6 +125,8 @@ describe("AuthModal onSuccess", () => {
     fireEvent.click(screen.getByRole("button", { name: "Skapa konto" }));
     await screen.findByRole("status");
     expect(noteOpenAiRegistrationCompleted).toHaveBeenCalledTimes(1);
+    expect(noteGoogleAdsConversion).toHaveBeenCalledTimes(1);
+    expect(noteGoogleAdsConversion).toHaveBeenCalledWith("account_created");
   });
 
   it("does not turn an async continuation failure into an auth error", async () => {

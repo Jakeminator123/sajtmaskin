@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Inter, Space_Grotesk } from "next/font/google";
 import { headers } from "next/headers";
@@ -106,7 +107,9 @@ export default async function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} nonce={nonce}>
           <OrganizationJsonLd />
           <AnalyticsTracker />
-          <GoogleAdsTag nonce={nonce} />
+          <Suspense fallback={null}>
+            <GoogleAdsTag nonce={nonce} />
+          </Suspense>
           <OpenAiAdsTag nonce={nonce} />
           <Analytics />
           <SpeedInsights />
