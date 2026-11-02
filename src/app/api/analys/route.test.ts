@@ -180,6 +180,21 @@ describe("POST /api/analys", () => {
     expect(runWebsiteAudit).not.toHaveBeenCalled();
   });
 
+  it.each(["file:///etc/passwd", "ftp://example.com", "javascript:alert(1)", "https://user:secret@example.com"])(
+    "rejects unsafe URL input through the real normalizer before quota or engine work: %s",
+    async (url) => {
+      const actual = await vi.importActual<typeof import("@/lib/webscraper")>("@/lib/webscraper");
+      validateAndNormalizeUrl.mockImplementation(actual.validateAndNormalizeUrl);
+
+      const response = await POST(request({ url }));
+
+      expect(response.status).toBe(400);
+      expect(withRateLimit).not.toHaveBeenCalled();
+      expect(acquirePublicAnalysQuota).not.toHaveBeenCalled();
+      expect(runWebsiteAudit).not.toHaveBeenCalled();
+    },
+  );
+
   it("rejects an oversized url string before the rate limiter", async () => {
     const response = await POST(request({ url: `https://example.com/${"a".repeat(4000)}` }));
     expect(response.status).toBe(400);
