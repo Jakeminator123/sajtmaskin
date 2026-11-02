@@ -5,23 +5,23 @@
 Flöde: `.agents/skills/pr-workflow/SKILL.md`. Mergegrind: `pr-merge.mdc`.
 Worktree: `agent-worktree.mdc`. Värden: `config/agent-workflow.json`.
 
-- En skrivande session per checkout. Worktree och Scout/Builder/Steward bara
-  när Jakob ber om det.
-- Branch, commit, push, PR och rebase när Jakob ber om det. Stage bara
-  uppgiftens filer; vid oklar status: visa status och pausa.
+- En skrivande session per checkout; worktree/roller på Jakobs begäran.
+- Branch/commit/push/PR/rebase på Jakobs begäran. Stage uppgiftens filer;
+  vid oklar status: visa den och pausa.
 - Merge kräver mandat, aldrig `--admin`. Stående mandat: vanlig PR till
   `preview` squash-mergas när villkoren i `pr-merge.mdc` punkt 4 är uppfyllda;
   annars krävs uttryckligt mandat (koduppdrag räcker inte).
 - `master` är produktion (`main` finns inte). Normalt `npm run promote`, aldrig
-  `preview` som head-gren. Jakob beslutar om produktion; nöd-PR/nödpush kräver
+  `preview` som head-gren. Jakob beslutar; nöd-PR/nödpush kräver
   uttryckligt mandat för exakt ändring. Grindar och preview-synk: `pr-merge.mdc`.
 - Force-pusha aldrig `master`, `preview` eller en delad remote-branch. Rör aldrig
   `*BRA*` eller `rescue/*`; enda raderingsundantaget är de sex SHA-bundna,
   redan arkiverade backuperna i `scripts/dev/backup-retirements.mjs`
   (ägarbeslut 2026-10-22). Inga backup-tips får flyttas.
-- Remote-branch raderas bara på Jakobs begäran via
+- Remote-delete på Jakobs begäran (inklusive Grok-mandatet nedan):
   `npm run tidy -- --delete-remote <branch> --apply` (arkiverar först).
-- `preview`-grenen är staging (`preview.sajtmaskin.se`), inte builderns preview
-  eller `preview_host`. DB-apply kräver eget uppdrag.
+- Städa Groks avslutade brancher/worktrees med mergat/arkiverat arbete.
+- `preview` är staging (`preview.sajtmaskin.se`), inte builderpreview/`preview_host`.
+  DB-apply kräver eget uppdrag.
 - `.cursorignore` är secrets/Read-fällor; mönster tas bort bara på uttryckligt
   ägarbeslut i `docs/decisions/`.
