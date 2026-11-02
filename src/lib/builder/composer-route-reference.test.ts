@@ -94,6 +94,8 @@ describe("resolveAgentProposalReference", () => {
     "Apply suggestion 2 and 3",
     "gör punkt 2 och punkt 3",
     "gör punkt 2: byt rubriken till Hej",
+    "Gör punkt 2: gör det",
+    "Gör punkt 2: byt enligt ditt förslag",
     "Byt rubriken till Hej",
     "gör punkt 0",
     "",

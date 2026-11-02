@@ -65,6 +65,17 @@ describe("isReadOnlyComposerRequest", () => {
 
 describe("isAgentProposalReference", () => {
   it.each([
+    "Gör punkt 2: gör det", "Gör punkt 2: byt enligt ditt förslag", "Gör punkt 2: gör så",
+    "Gör punkt 2: implementera detta", "Gör punkt 2: ändra den", "Gör punkt 2: gör något åt det",
+    "Gör punkt 2: gör på samma sätt", "Apply suggestion 2: fix it", "Apply suggestion 2: change that",
+    "Gör punkt 2: byt rubriken enligt ditt förslag",
+  ])("keeps an anaphoric colon suffix dependent on the actual advice: %s", text => {
+    expect(isAgentProposalReference(text)).toBe(true);
+    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(false);
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("agent");
+  });
+
+  it.each([
     "Gör punkt två och tre", "Gör punkt 2 och punkt 3", "Gör punkt 2, 3", "Gör punkt 2–3",
     "Gör punkt 2 eller tre", "Gör punkt två och gör punkt tre", "Apply suggestion 2 and 3",
     "Gör punkt två men behåll något annat", "Gör enligt ditt förslag och något mer",
@@ -93,6 +104,9 @@ describe("isAgentProposalReference", () => {
 
   it.each([
     "Gör punkt två: byt rubriken till Välkommen",
+    "Gör punkt 2: gör knappen större",
+    "Gör punkt 2: lägg till en kontaktsektion med telefon och e-post",
+    "Apply suggestion 2: add a contact section with phone and email",
     "Byt rubriken till Välkommen enligt ditt förslag",
     "Add suggestion 2 to the list of suggestions",
     "",

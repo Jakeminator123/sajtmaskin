@@ -169,7 +169,7 @@ export function useOpenClawChat() {
 
       const buildRestricted = !options?.internal &&
         (options?.restrictBuild === true || isReadOnlyComposerRequest(trimmed));
-      if (buildRestricted || hasScopedComposerChangeRestriction(trimmed)) {
+      if (!options?.internal && (buildRestricted || hasScopedComposerChangeRestriction(trimmed))) {
         revokeOpenClawBuildConsent();
       }
 

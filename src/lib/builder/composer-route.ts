@@ -262,6 +262,15 @@ const PROPOSAL_REFERENCE = uWordRegex(
   "iu",
 );
 
+const DEPENDENT_BUILD_OBJECT = uWordRegex(
+  "det|den|detta|denna|dessa|dem|så|samma|ditt|dina|förslag(?:et)?|forslag(?:et)?|råd(?:et)?|radet|ovanstående|ovan|tidigare|något|någonting|allt|allting|på|som|likadant|it|this|that|these|those|them|so|same|your|suggestion|proposal|something|anything|everything|as|like|according|till|to",
+  "iu",
+);
+const CONTEXTUAL_BUILD_REFERENCE = uWordRegex(
+  "enligt|utifrån|utifran|som (?:du|vi)|(?:du|vi) (?:föreslog|foreslog|sa)|according to|as (?:discussed|suggested|above)|based on (?:your|the) (?:suggestion|proposal)",
+  "iu",
+);
+
 function matchProposalReference(rawText: string): { text: string; match: RegExpExecArray } | null {
   const text = normalize(rawText).replace(/^(?:snälla|please)\s+/iu, "");
   const match = PROPOSAL_REFERENCE.exec(text);
@@ -288,7 +297,10 @@ export function isAgentProposalReference(rawText: string): boolean {
   // after an unresolved reference still need its source, even if a later clause
   // happens to contain another build verb.
   const independent = suffix.startsWith(":") ? suffix.slice(1).trim() : "";
-  if (independent && matchesAtStart(BUILD_OPENERS, independent) &&
+  const opener = BUILD_OPENERS.exec(independent);
+  const object = opener ? independent.slice(opener.index + opener[0].length).trim() : "";
+  if (object && matchesAtStart(BUILD_OPENERS, independent) &&
+    !matchesAtStart(DEPENDENT_BUILD_OBJECT, object) && !CONTEXTUAL_BUILD_REFERENCE.test(independent) &&
     !matchProposalReference(independent) && !isReadOnlyComposerRequest(independent) &&
     !/[?？]/u.test(independent)) return false;
   return true;
