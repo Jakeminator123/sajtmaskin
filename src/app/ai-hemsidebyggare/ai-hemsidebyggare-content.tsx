@@ -491,8 +491,18 @@ export function AiHemsidebyggareContent() {
                   Relaterat
                 </p>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                  Processen i Sajtmaskin ligger på en egen sida. Jämförelser mot hemsideprogram och
-                  enskilda alternativ ligger på egna sidor.
+                  Processen i Sajtmaskin ligger på en egen sida. Jämför{" "}
+                  <Link href="/hemsideprogram" className="text-foreground underline-offset-4 hover:underline">
+                    hemsideprogram
+                  </Link>{" "}
+                  och{" "}
+                  <Link
+                    href="/wordpress-alternativ"
+                    className="text-foreground underline-offset-4 hover:underline"
+                  >
+                    alternativ till WordPress
+                  </Link>{" "}
+                  på egna URL:er.
                 </p>
                 <ul className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
                   {readyRelated.map((slug) => (

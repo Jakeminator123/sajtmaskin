@@ -495,8 +495,18 @@ export function SkapaHemsidaMedAiContent() {
                 Relaterat
               </p>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                De här ämnena hör ihop med att skapa hemsida med AI. AI-kategorin, den
-                teknikneutrala vägen och utan-kod-guiden ligger på egna sidor.
+                De här ämnena hör ihop med att skapa hemsida med AI. AI-kategorin,{" "}
+                <Link href="/hemsideprogram" className="text-foreground underline-offset-4 hover:underline">
+                  hemsideprogram
+                </Link>{" "}
+                och{" "}
+                <Link
+                  href="/wordpress-alternativ"
+                  className="text-foreground underline-offset-4 hover:underline"
+                >
+                  alternativ till WordPress
+                </Link>{" "}
+                ligger på egna sidor.
               </p>
               <ul className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
                 {readyRelated.map((slug) => (

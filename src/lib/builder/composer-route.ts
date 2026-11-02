@@ -263,6 +263,9 @@ export interface ResolveComposerRouteInput {
    * Utelämnad → behandlas som sant.
    */
   agentCanBuild?: boolean;
+  /** A reply belongs to the builder's pending question/plan until the user
+   * explicitly selects Fråga. Short answers are not new agent requests. */
+  builderAwaitingReply?: boolean;
 }
 
 /** Slutgiltigt val för ett utskick från komposern. */
@@ -272,6 +275,7 @@ export function resolveComposerRoute(input: ResolveComposerRouteInput): Composer
   if (input.hasAttachments) return "build";
   if (input.mode === "agent") return "agent";
   if (input.mode === "build") return "build";
+  if (input.builderAwaitingReply) return "build";
   const intent = classifyComposerIntent(input.text);
   if (intent === "build") return "build";
   if (intent === "agent") return "agent";

@@ -2,7 +2,7 @@
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { getSeoLandingHubLinks } from "@/lib/seo-landing-pages/registry";
+import { getSeoLandingCompareLinks, getSeoLandingHubLinks } from "@/lib/seo-landing-pages/registry";
 import FAQPage from "./page";
 
 vi.mock("next/link", () => ({
@@ -17,6 +17,10 @@ describe("FAQ public guides", () => {
 
     expect(screen.getByRole("heading", { name: "Läs vidare efter frågan" })).toBeTruthy();
     for (const link of getSeoLandingHubLinks()) {
+      expect(screen.getByRole("link", { name: link.label }).getAttribute("href")).toBe(link.href);
+    }
+    expect(screen.getByRole("heading", { name: "Jämför verktyg" })).toBeTruthy();
+    for (const link of getSeoLandingCompareLinks()) {
       expect(screen.getByRole("link", { name: link.label }).getAttribute("href")).toBe(link.href);
     }
     expect(screen.getByRole("link", { name: "Skapa din sajt nu" }).getAttribute("href")).toBe(

@@ -280,6 +280,17 @@ export function VadKostarEnHemsidaContent() {
                 <Link href="/priser" className="text-foreground underline-offset-4 hover:underline">
                   prissidan
                 </Link>
+                . Jämför verktyg i{" "}
+                <Link href="/hemsideprogram" className="text-foreground underline-offset-4 hover:underline">
+                  hemsideprogram
+                </Link>{" "}
+                och{" "}
+                <Link
+                  href="/wordpress-alternativ"
+                  className="text-foreground underline-offset-4 hover:underline"
+                >
+                  alternativ till WordPress
+                </Link>
                 .
               </p>
             </div>

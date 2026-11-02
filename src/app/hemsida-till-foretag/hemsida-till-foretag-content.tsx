@@ -386,6 +386,17 @@ export function HemsidaTillForetagContent() {
                 <Link href="/priser" className="text-foreground underline-offset-4 hover:underline">
                   prissidan
                 </Link>
+                . Jämför arbetssätt i{" "}
+                <Link href="/hemsideprogram" className="text-foreground underline-offset-4 hover:underline">
+                  hemsideprogram
+                </Link>{" "}
+                eller läs{" "}
+                <Link
+                  href="/wordpress-alternativ"
+                  className="text-foreground underline-offset-4 hover:underline"
+                >
+                  alternativ till WordPress
+                </Link>
                 .
               </p>
             </div>

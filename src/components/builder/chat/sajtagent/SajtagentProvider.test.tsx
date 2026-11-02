@@ -345,6 +345,21 @@ describe("SajtagentProvider — anrop bara när ytan finns", () => {
     expect(String(fetchMock.mock.calls[0][0])).toBe("/api/openclaw/health");
   });
 
+  it("skickar byggsammanfattningen när ett samtidigt agentsvar blir klart", async () => {
+    document.body.setAttribute(OPENCLAW_SURFACE_BODY_ATTR, "1");
+    const chatCalls: string[] = [];
+    fetchMock.mockImplementation(healthOkFetch(chatCalls));
+    const { seen, rerenderWith } = renderProvider("chat_1", { digestEnabled: true });
+    await waitFor(() => expect(seen.at(-1)).toBe(true));
+    act(() => { useOpenClawStore.getState().setStreaming(true); });
+    rerenderWith({ activeVersionId: "v1", isAnyStreaming: true, digestEnabled: true });
+    rerenderWith({ activeVersionId: "v2", activeVersionStatus: "ready", isAnyStreaming: false, digestEnabled: true });
+    expect(chatCalls).toHaveLength(0);
+    act(() => { useOpenClawStore.getState().setStreaming(false); });
+    await waitFor(() => expect(chatCalls).toHaveLength(1));
+    expect(chatCalls[0]).toContain("[Byggresultat]");
+  });
+
   it("skickar om rader som inte kvitterats när nästa tur skrivs ner", async () => {
     document.body.setAttribute(OPENCLAW_SURFACE_BODY_ATTR, "1");
     const persistBodies: Array<{ messages: Array<{ id: string }> }> = [];
