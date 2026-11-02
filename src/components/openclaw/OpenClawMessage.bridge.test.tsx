@@ -13,7 +13,11 @@ import {
   resetBuilderBridgeForTests,
   type BuilderBridge,
 } from "@/lib/openclaw/builder-bridge";
-import { useOpenClawStore, type OpenClawMessage as Msg } from "@/lib/openclaw/openclaw-store";
+import {
+  revokeOpenClawBuildConsent,
+  useOpenClawStore,
+  type OpenClawMessage as Msg,
+} from "@/lib/openclaw/openclaw-store";
 import {
   applyOpenClawTextFieldAction,
   isOpenClawSendReady,
@@ -50,8 +54,23 @@ function makeBridge(overrides: Partial<BuilderBridge> = {}): BuilderBridge {
   };
 }
 
-function userTurn(id: string, content: string, kind: "chat" | "internal" = "chat"): Msg {
-  return { id, role: "user", content, timestamp: Date.now() - 500, kind };
+function userTurn(
+  id: string,
+  content: string,
+  kind: "chat" | "internal" = "chat",
+  extra: Partial<Msg> = {},
+): Msg {
+  const message: Msg = {
+    id,
+    role: "user",
+    content,
+    timestamp: Date.now() - 500,
+    kind,
+    allowBuild: kind === "chat",
+    ...extra,
+  };
+  if (message.allowBuild === undefined) delete message.allowBuild;
+  return message;
 }
 
 function startBuildReply(id: string, extra: Partial<Msg> = {}): Msg {
@@ -143,7 +162,7 @@ afterEach(() => {
 });
 
 describe("resolveStartBuildAutoRun", () => {
-  it("tillåter bara svar på en riktig användarfråga (eller dess filtur)", () => {
+  it("tillåter bara svar på en uttrycklig byggorder (eller dess filtur)", () => {
     const messages: Msg[] = [
       userTurn("u1", "Gör hero tydligare"),
       { id: "a1", role: "assistant", content: "läser", timestamp: 1 },
@@ -160,9 +179,130 @@ describe("resolveStartBuildAutoRun", () => {
       userTurnId: null,
     });
   });
+
+  it.each([
+    { name: "nekat byggmandat", content: "Byt rubriken till Välkommen", extra: { allowBuild: false } },
+    { name: "saknad metadata", content: "Byt rubriken till Välkommen", extra: { allowBuild: undefined } },
+    { name: "Fråga-läge för byggtext", content: "Byt rubriken till Välkommen", extra: { allowBuild: false } },
+    { name: "fråga med förfalskat mandat", content: "Vad tycker du om startsidan?", extra: { allowBuild: true } },
+    { name: "no-change med förfalskat mandat", content: "Ändra inget", extra: { allowBuild: true } },
+    { name: "hydrerad byggorder", content: "Byt rubriken till Välkommen", extra: { allowBuild: true, hydrated: true } },
+  ])("nekar $name även efter read_files", ({ content, extra }) => {
+    const user = userTurn("u-denied", content, "chat", extra);
+    const reply = startBuildReply("a-denied");
+    const fileReply = startBuildReply("a-files-denied");
+    const messages = [
+      userTurn("u-earlier", "Byt rubriken till Hej"),
+      user,
+      reply,
+      userTurn("f-denied", "[Filinnehåll] --- app/page.tsx ---", "internal", { allowBuild: true }),
+      fileReply,
+    ];
+
+    expect(resolveStartBuildAutoRun(messages, reply.id)).toEqual({ allowed: false, userTurnId: user.id });
+    expect(resolveStartBuildAutoRun(messages, fileReply.id)).toEqual({ allowed: false, userTurnId: user.id });
+  });
+
+  it("låter inte ett internt byggresultat låna tidigare byggmandat", () => {
+    const reply = startBuildReply("a-digest");
+    const messages = [
+      userTurn("u-build", "Byt rubriken till Välkommen"),
+      userTurn("u-digest", "[Byggresultat] Builderturen är klar.", "internal", { allowBuild: true }),
+      userTurn("f-digest", "[Filinnehåll] --- app/page.tsx ---", "internal"),
+      reply,
+    ];
+
+    expect(resolveStartBuildAutoRun(messages, reply.id)).toEqual({ allowed: false, userTurnId: "u-digest" });
+  });
+
+  it("ger inte en ensam read_files-tur eget byggmandat", () => {
+    const reply = startBuildReply("a-orphan-files");
+    expect(resolveStartBuildAutoRun([
+      userTurn("f-orphan", "[Filinnehåll] --- app/page.tsx ---", "internal", { allowBuild: true }),
+      reply,
+    ], reply.id)).toEqual({ allowed: false, userTurnId: null });
+  });
 });
 
 describe("OpenClawMessage — direktbygg via bryggan", () => {
+  it.each([null, "Ändra inget", "Vad tycker du om startsidan?", "Byt rubriken till Välkommen, ändra inget annat"])(
+    "återkontrollerar väntande autobygge när buildern blir ledig (ny tur: %s)",
+    async (readOnlyText) => {
+      grantPowers();
+      let ready = false;
+      const canSend = vi.fn(() => ready);
+      const bridge = makeBridge({ canSend });
+      registerBuilderBridge(bridge);
+      const reply = startBuildReply("sb-pending-consent", {
+        builderTarget: { chatId: "chat_1", versionId: "version_1" },
+      });
+      act(() => {
+        useOpenClawStore.setState({ messages: [userTurn("u-pending", "Byt rubriken till Välkommen"), reply] });
+      });
+      const first = render(<OpenClawMessage msg={reply} />);
+      await waitFor(() => expect(canSend).toHaveBeenCalled());
+      expect(bridge.sendMessage).not.toHaveBeenCalled();
+
+      if (readOnlyText !== null) {
+        act(() => {
+          revokeOpenClawBuildConsent();
+          useOpenClawStore.setState((state) => ({
+            messages: [...state.messages, userTurn("u-readonly", readOnlyText, "chat", { allowBuild: readOnlyText.includes("inget annat") })],
+          }));
+        });
+      }
+      ready = true;
+
+      if (readOnlyText === null) {
+        expect(await screen.findByText(/Bygget är startat/)).toBeTruthy();
+        expect(bridge.sendMessage).toHaveBeenCalledTimes(1);
+      } else {
+        expect(await screen.findByText(/Sändningen avbröts/)).toBeTruthy();
+        expect(bridge.sendMessage).not.toHaveBeenCalled();
+        expect(useOpenClawStore.getState().messages.find((message) => message.id === "u-pending")?.allowBuild).toBe(false);
+      }
+
+      first.unmount();
+      render(<OpenClawMessage msg={reply} />);
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 150)); });
+      expect(bridge.sendMessage).toHaveBeenCalledTimes(readOnlyText === null ? 1 : 0);
+      expect(domFillMock).not.toHaveBeenCalled();
+      expect(domSendMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { name: "nekat byggmandat", content: "Byt rubriken till Välkommen", extra: { allowBuild: false } },
+    { name: "saknad metadata", content: "Byt rubriken till Välkommen", extra: { allowBuild: undefined } },
+    { name: "fråga trots metadata true", content: "Vad tycker du om startsidan?", extra: { allowBuild: true } },
+    { name: "no-change trots metadata true", content: "Ändra inget", extra: { allowBuild: true } },
+    { name: "hydrerad användartur", content: "Byt rubriken till Välkommen", extra: { allowBuild: true, hydrated: true } },
+  ])("behåller $name som manuellt förslag som kan godkännas en gång", async ({ content, extra }) => {
+    grantPowers();
+    const bridge = makeBridge();
+    registerBuilderBridge(bridge);
+    const reply = startBuildReply("sb-manual-consent", {
+      builderTarget: { chatId: "chat_1", versionId: "version_1" },
+    });
+    act(() => {
+      useOpenClawStore.setState({ messages: [userTurn("u-manual", content, "chat", extra), reply] });
+    });
+
+    const first = render(<OpenClawMessage msg={reply} />);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+    expect(bridge.sendMessage).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Starta bygget" }));
+    expect(await screen.findByText(/Bygget är startat/)).toBeTruthy();
+    expect(bridge.sendMessage).toHaveBeenCalledTimes(1);
+    expect(domFillMock).not.toHaveBeenCalled();
+    expect(domSendMock).not.toHaveBeenCalled();
+
+    first.unmount();
+    render(<OpenClawMessage msg={reply} />);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+    expect(bridge.sendMessage).toHaveBeenCalledTimes(1);
+  });
+
   it("väntar tills svaret är färdigt även när hela action-blocket redan kommit", async () => {
     grantPowers();
     const bridge = makeBridge();
@@ -193,13 +333,19 @@ describe("OpenClawMessage — direktbygg via bryggan", () => {
     expect(screen.queryByRole("button", { name: /Starta/ })).toBeNull();
   });
 
-  it("startar bygget genom bryggan exakt en gång, utan att röra DOM:en, och överlever remount", async () => {
+  it.each([false, true])("startar bygget exakt en gång utan DOM och överlever remount (read_files: %s)", async (withFiles) => {
     grantPowers();
     const bridge = makeBridge();
     registerBuilderBridge(bridge);
     const reply = startBuildReply("sb-1");
     act(() => {
-      useOpenClawStore.setState({ messages: [userTurn("u1", "Gör hero tydligare"), reply] });
+      useOpenClawStore.setState({
+        messages: [
+          userTurn("u1", "Gör hero tydligare"),
+          ...(withFiles ? [userTurn("f-build", "[Filinnehåll] --- app/page.tsx ---", "internal")] : []),
+          reply,
+        ],
+      });
     });
 
     const { unmount } = render(<OpenClawMessage msg={reply} />);
@@ -366,6 +512,45 @@ describe("OpenClawMessage — armerad auto-send via bryggan", () => {
       });
     });
   }
+
+  it.each(["Ändra inget", "Vad tycker du om startsidan?", "Byt rubriken till Välkommen, ändra inget annat"])(
+    "avbryter väntande armerad sändning efter ny verklig tur: %s",
+    async (readOnlyText) => {
+      armFollowups();
+      let ready = false;
+      const canSend = vi.fn(() => ready);
+      const bridge = makeBridge({ canSend });
+      registerBuilderBridge(bridge);
+      const reply = armedFillReply("armed-pending-readonly", {
+        builderTarget: { chatId: "chat_1", versionId: "version_1" },
+      });
+      act(() => {
+        useOpenClawStore.setState({ messages: [userTurn("u-active", "Byt rubriken till Välkommen"), reply] });
+      });
+      const first = render(<OpenClawMessage msg={reply} />);
+      await waitFor(() => expect(canSend).toHaveBeenCalled());
+      expect(bridge.sendMessage).not.toHaveBeenCalled();
+
+      act(() => {
+        revokeOpenClawBuildConsent();
+        useOpenClawStore.setState((state) => ({
+          messages: [...state.messages, userTurn("u-readonly", readOnlyText, "chat", { allowBuild: readOnlyText.includes("inget annat") })],
+        }));
+      });
+      ready = true;
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 150)); });
+      expect(screen.getByText("Fältförslag")).toBeTruthy();
+      expect(bridge.sendMessage).not.toHaveBeenCalled();
+      expect(useOpenClawStore.getState().armedMandate).toBeNull();
+      expect(useOpenClawStore.getState().armedContinuation).toBeNull();
+
+      first.unmount();
+      render(<OpenClawMessage msg={reply} />);
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 150)); });
+      expect(bridge.sendMessage).not.toHaveBeenCalled();
+      expect(domSendMock).not.toHaveBeenCalled();
+    },
+  );
 
   it.each(["started", "settled"] as const)(
     "behåller reservationen över remount före %s-kvittot",

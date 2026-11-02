@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -45,6 +45,7 @@ function submitFillMessage(timestamp: number): Msg {
 }
 
 beforeEach(() => {
+  act(() => { useOpenClawStore.setState({ messages: [] }); });
   applyMock.mockReturnValue({
     ok: true,
     field: {
@@ -64,6 +65,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => {
     useOpenClawStore.setState({
+      messages: [],
       editEnabled: false,
       powersOn: false,
       grantedPowers: [],
@@ -204,6 +206,56 @@ describe("OpenClawMessage — armed auto-send gates", () => {
     };
   }
 
+  it.each([
+    { name: "ny fråga utan mandat", content: "Vad tycker du om startsidan?", allowBuild: false },
+    { name: "no-change utan metadata", content: "Ändra inget", allowBuild: undefined },
+    { name: "byggtext utan metadata", content: "Byt rubriken till Välkommen", allowBuild: undefined },
+    { name: "Fråga-läge för byggtext", content: "Byt rubriken till Välkommen", allowBuild: false },
+    { name: "fråga med förfalskad metadata", content: "Vad tycker du om startsidan?", allowBuild: true },
+    { name: "no-change med förfalskad metadata", content: "Ändra inget", allowBuild: true },
+    { name: "hydrerad byggorder", content: "Byt rubriken till Välkommen", allowBuild: true, hydrated: true },
+  ])("behåller $name som manuellt fill trots aktivt mandat", async ({ content, allowBuild, hydrated }) => {
+    const armedAt = Date.now() - 1_000;
+    const reply = followupFillMessage("msg-new-question", Date.now() + 1);
+    const user: Msg = {
+      id: "u-new-question",
+      role: "user",
+      kind: "chat",
+      timestamp: Date.now(),
+      content,
+      ...(allowBuild === undefined ? {} : { allowBuild }),
+      ...(hydrated ? { hydrated: true } : {}),
+    };
+    act(() => {
+      useOpenClawStore.setState({
+        messages: [user, reply],
+        editEnabled: true,
+        powersOn: true,
+        grantedPowers: ["armed_autonomy"],
+        armedMandate: {
+          mode: "followups",
+          remaining: 3,
+          reason: "gör 3 follow-ups",
+          createdAt: armedAt,
+        },
+      });
+    });
+
+    render(<OpenClawMessage msg={reply} />);
+    expect(screen.getByText("Fältförslag")).toBeTruthy();
+    expect(screen.queryByText(/Armerad autonomi · auto-send/i)).toBeNull();
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 350)); });
+    expect(applyMock).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(3);
+    expect(useOpenClawStore.getState().armedContinuation).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Godkänn och fyll" }));
+    expect(applyMock).toHaveBeenCalledTimes(1);
+    expect(sendMock).not.toHaveBeenCalled();
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(3);
+  });
+
   it("never clicks send for submit:true without an active mandate", async () => {
     useOpenClawStore.setState({
       editEnabled: true,
@@ -247,6 +299,52 @@ describe("OpenClawMessage — armed auto-send gates", () => {
     expect(sendMock).toHaveBeenCalledTimes(1);
     expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(2);
   });
+
+  it.each(["[Automatisk fortsättning]", "[Automatisk väckning]"])(
+    "bevarar redan aktivt uttryckligt mandat efter %s",
+    async (prefix) => {
+      const armedAt = Date.now() - 1_000;
+      const reply = followupFillMessage(`msg-active-${prefix}`, Date.now() + 1);
+      act(() => {
+        useOpenClawStore.setState({
+          messages: [
+            {
+              id: "u-active-build",
+              role: "user",
+              kind: "chat",
+              timestamp: armedAt,
+              content: "Byt rubriken till Välkommen",
+              allowBuild: true,
+            },
+            {
+              id: "u-active-internal",
+              role: "user",
+              kind: "internal",
+              timestamp: armedAt + 500,
+              content: `${prefix} Läs byggresultatet och fortsätt uppdraget.`,
+              allowBuild: false,
+            },
+            reply,
+          ],
+          editEnabled: true,
+          powersOn: true,
+          grantedPowers: ["armed_autonomy"],
+          armedMandate: {
+            mode: "followups",
+            remaining: 3,
+            reason: "gör 3 follow-ups",
+            createdAt: armedAt,
+          },
+        });
+      });
+
+      render(<OpenClawMessage msg={reply} />);
+      expect(screen.getByText(/Armerad autonomi · auto-send/i)).toBeTruthy();
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 350)); });
+      expect(sendMock).toHaveBeenCalledTimes(1);
+      expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(2);
+    },
+  );
 
   it("does not double-send when the armed card remounts", async () => {
     const armedAt = Date.now() - 1_000;
