@@ -93,6 +93,31 @@ function supabaseContract(
 }
 
 describe("provider-compatible orchestration", () => {
+  it("does not synthesize an auth provider rejected by the current prompt in F3", async () => {
+    const base = await resolveOrchestrationBase(
+      input("Bygg en medlemssida med inloggning, men inte Clerk och inte Supabase.", {
+        capabilities: undefined,
+        requestedDossierCapabilities: ["auth"],
+        brief: { requestedCapabilities: ["auth"] },
+        scaffoldMode: "off",
+      }),
+    );
+    // Exercise real inference, selection and integration with the pipeline ON;
+    // a disabled pipeline or a dropped capability must not make this pass.
+    expect(base.dossierRequestedCapabilities).toContain("auth");
+    expect(base.dossierSelection).not.toBeNull();
+    expect(
+      base.dossierSelection?.selected
+        .filter((selected) => selected.entry.capability === "auth")
+        .map((selected) => selected.entry.id),
+    ).toEqual([]);
+    expect(
+      base.preGenerationContracts.contracts.integrations.filter(
+        (integration) => integration.kind === "auth" && integration.status === "chosen",
+      ),
+    ).toEqual([]);
+  });
+
   it.each([
     ["Use MongoDB, not Postgres", "database", "mongodb", "postgres-drizzle", { needsDatabase: true }],
     ["Use Auth0, not Clerk", "auth", "auth0", "clerk-auth", { needsAuth: true }],

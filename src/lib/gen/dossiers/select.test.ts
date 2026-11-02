@@ -569,14 +569,13 @@ describe("selectDossiersForRequest — provider negation and multi-hit (B1)", ()
     expect(isExplicitDossierChoice(result.selected[0]!.reason)).toBe(false);
   });
 
-  it("all siblings negated falls to the capability default", () => {
+  it("does not select a capability default when every sibling is explicitly rejected", () => {
     const result = selectDossiersForRequest({
       requestedCapabilities: ["auth"],
       promptText: "Använd inte Clerk och inte Supabase.",
     });
-    expect(result.selected[0]?.entry.id).toBe("clerk-auth");
-    expect(result.selected[0]?.reason).toBe("capability-match");
-    expect(isExplicitDossierChoice(result.selected[0]!.reason)).toBe(false);
+    expect(result.selected).toEqual([]);
+    expect(result.byCapability.auth).toBeUndefined();
   });
 });
 
