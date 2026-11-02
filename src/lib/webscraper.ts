@@ -5,6 +5,7 @@
 
 import type { ScrapedSiteImage, WebsiteContent } from "@/types/audit";
 import { safeFetch as guardedFetch, validateSsrfTarget } from "@/lib/ssrf-guard";
+import { normalizeWebsiteInputUrl } from "@/lib/website-input-url";
 
 // Crawl settings
 const MAX_PAGES = 4; // absolute ceiling: root + up to three strong internal pages
@@ -82,17 +83,26 @@ async function getCheerio() {
 }
 
 function normalizeInputUrl(url: string): string {
-  const trimmed = url.trim();
-  if (!trimmed) return trimmed;
-  if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
-    return `https://${trimmed}`;
-  }
-  return trimmed;
+  return normalizeWebsiteInputUrl(url);
 }
 
 function isLikelyHtml(contentType: string | null): boolean {
   if (!contentType) return false;
   return contentType.includes("text/html") || contentType.includes("application/xhtml+xml");
+}
+
+/**
+ * Prefer the page's main content, but fall back to the full body when the
+ * selected container is only an empty/thin layout shell. Shared by quick and
+ * full scrape so wizard enrichment sees the same server-rendered copy.
+ */
+function extractBodyText($: CheerioRoot): string {
+  const mainContent = $("main, article, [role='main'], .content, .main-content").first();
+  let bodyText = mainContent.length > 0 ? mainContent.text() : "";
+  if (!bodyText || bodyText.trim().length < 50) {
+    bodyText = $("body").text();
+  }
+  return bodyText.replace(/\s+/g, " ").trim();
 }
 
 function absoluteUrl(href: string, base: URL): string | null {
@@ -706,23 +716,8 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
     if (text && headings.length < 25) headings.push(text);
   });
 
-  // Extract text from body, removing script/style content
-  // Try to get text from main content areas first, fallback to body
-  let bodyText = "";
-
-  // Try main content areas (better for modern sites)
-  const mainContent = $("main, article, [role='main'], .content, .main-content").first();
-  if (mainContent.length > 0) {
-    bodyText = mainContent.text();
-  }
-
-  // Fallback to body if main content is empty or very short
-  if (!bodyText || bodyText.trim().length < 50) {
-    bodyText = $("body").text();
-  }
-
-  // Clean up whitespace
-  bodyText = bodyText.replace(/\s+/g, " ").trim();
+  // Extract text from body, preferring real main content over navigation.
+  let bodyText = extractBodyText($);
 
   // Split into words and filter out empty strings
   let words = bodyText.split(" ").filter((word) => word.trim().length > 0);
@@ -901,10 +896,7 @@ export async function quickScrapeWebsite(url: string): Promise<{
     const text = $(el).text().trim();
     if (text && headings.length < 15) headings.push(text);
   });
-  const mainEl = $("main, article, [role='main'], .content").first();
-  const bodyText = (mainEl.length > 0 ? mainEl.text() : $("body").text())
-    .replace(/\s+/g, " ")
-    .trim();
+  const bodyText = extractBodyText($);
   const words = bodyText.split(" ").filter((w) => w.length > 0);
   const hasImages = $("img").length > 0;
 
@@ -1112,10 +1104,7 @@ export function validateAndNormalizeUrl(url: string): string {
     throw new Error("URL kan inte vara tom");
   }
 
-  // Auto-add https:// if missing protocol
-  if (!normalized.match(/^https?:\/\//i)) {
-    normalized = `https://${normalized}`;
-  }
+  normalized = normalizeWebsiteInputUrl(normalized);
 
   // Validate URL format
   try {

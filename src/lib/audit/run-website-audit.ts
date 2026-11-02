@@ -79,6 +79,26 @@ type ResponsesErrorShape = {
 };
 
 type ResponsesLifecycle = "completed" | "transient" | "permanent" | "uncertain";
+type ResponsesAttemptOutcome =
+  | "completed"
+  | "empty_output"
+  | "timeout"
+  | "transient_error"
+  | "permanent_error"
+  | "transient_status"
+  | "rejected_status";
+
+function abortSignalReasonName(signal: AbortSignal | undefined): string | null {
+  if (!signal?.aborted) return null;
+  const reason = signal.reason as { name?: unknown } | null | undefined;
+  return typeof reason?.name === "string" ? reason.name : "AbortSignal";
+}
+
+function responsesErrorClass(error: unknown): string {
+  if (!error || typeof error !== "object") return typeof error;
+  const constructorName = (error as { constructor?: { name?: unknown } }).constructor?.name;
+  return typeof constructorName === "string" && constructorName ? constructorName : "Error";
+}
 
 function classifyResponsesLifecycle(response: OpenAI.Responses.Response): ResponsesLifecycle {
   if (response.status === "completed") {
@@ -257,8 +277,50 @@ export async function runWebsiteAudit(input: {
       const remainingMs = responsesDeadline - Date.now();
       if (remainingMs <= 0) break;
 
-      const attemptBudgetMs = Math.min(RESPONSES_ATTEMPT_BUDGET_MS, remainingMs);
+      // Reserve one normal attempt for each remaining fallback. The current
+      // candidate gets the surplus (and at least its old 90 s when available);
+      // the last candidate can use everything left before the route deadline.
+      const reservedFallbackMs =
+        (candidates.length - candidateIndex - 1) * RESPONSES_ATTEMPT_BUDGET_MS;
+      const attemptBudgetMs = Math.min(
+        remainingMs,
+        Math.max(RESPONSES_ATTEMPT_BUDGET_MS, remainingMs - reservedFallbackMs),
+      );
       const responsesModel = toResponsesModelId(candidateModel);
+      const reasoningOptions = workloadResponsesReasoning(run.workloadId, responsesModel);
+      const attemptStartedAt = Date.now();
+      const attemptReceipt = (
+        outcome: ResponsesAttemptOutcome,
+        details?: {
+          error?: unknown;
+          responseStatus?: string | null;
+          incompleteReason?: string | null;
+        },
+      ) => {
+        const error = details?.error;
+        const errorShape = error as ResponsesErrorShape | undefined;
+        // Content-free terminal receipt: never attach URL, prompt, response
+        // text, headers, customer data, secrets or the raw error object.
+        console.info(`[${requestId}] Audit Responses attempt receipt`, {
+          attemptIndex: candidateIndex + 1,
+          candidateCount: candidates.length,
+          workloadId: run.workloadId,
+          model: responsesModel,
+          reasoningEffort: reasoningOptions.reasoning?.effort ?? null,
+          attemptBudgetMs,
+          remainingTotalBudgetMs: Math.max(0, responsesDeadline - attemptStartedAt),
+          elapsedMs: Math.max(0, Date.now() - attemptStartedAt),
+          totalElapsedMs: Math.max(0, Date.now() - requestStartTime),
+          outcome,
+          signalReason: abortSignalReasonName(attemptSignal),
+          errorClass: error === undefined ? null : responsesErrorClass(error),
+          errorCode: error === undefined ? null : responsesErrorCode(error) || null,
+          httpStatus:
+            typeof errorShape?.status === "number" ? errorShape.status : null,
+          responseStatus: details?.responseStatus ?? null,
+          incompleteReason: details?.incompleteReason ?? null,
+        });
+      };
       console.info(
         `[${requestId}] Calling Responses API (${responsesModel}, web_search=${allowWebSearch}, prompt=${promptKind}, mode=${resolvedAuditMode}, pages=${run.maxPages})`,
       );
@@ -269,7 +331,7 @@ export async function runWebsiteAudit(input: {
         response = await openai.responses.create(
           {
             model: responsesModel,
-            ...workloadResponsesReasoning(run.workloadId, responsesModel),
+            ...reasoningOptions,
             input: [{ role: "user", content: promptContent }],
             tools: tools.length > 0 ? tools : undefined,
             text: {
@@ -289,9 +351,20 @@ export async function runWebsiteAudit(input: {
           },
         );
       } catch (error) {
-        if (!isTransientResponsesError(error, attemptSignal)) throw error;
+        const transient = isTransientResponsesError(error, attemptSignal);
+        attemptReceipt(
+          isOwnedResponsesTimeout(attemptSignal)
+            ? "timeout"
+            : transient
+              ? "transient_error"
+              : "permanent_error",
+          { error },
+        );
+        if (!transient) throw error;
         lastTransientError = error;
-        console.warn(`[${requestId}] Transient Responses failure for ${candidateModel}:`, error);
+        console.warn(
+          `[${requestId}] Transient Responses failure for ${candidateModel}; see attempt receipt`,
+        );
 
         if (candidateIndex + 1 >= candidates.length) break;
         const delayMs = retryAfterMs(error, Date.now());
@@ -323,6 +396,13 @@ export async function runWebsiteAudit(input: {
           errorCode: response.error?.code,
           incompleteReason: response.incomplete_details?.reason,
         };
+        attemptReceipt(
+          lifecycle === "transient" ? "transient_status" : "rejected_status",
+          {
+            responseStatus: response.status,
+            incompleteReason: response.incomplete_details?.reason ?? null,
+          },
+        );
 
         if (lifecycle === "transient") {
           lastTransientError = lifecycleEvidence;
@@ -345,10 +425,12 @@ export async function runWebsiteAudit(input: {
       }
 
       if (!response.output_text || response.output_text.trim().length === 0) {
+        attemptReceipt("empty_output", { responseStatus: response.status });
         console.warn(`[${requestId}] Empty response from ${candidateModel}, trying next candidate`);
         continue;
       }
 
+      attemptReceipt("completed", { responseStatus: response.status });
       selectedResponse = response;
       usedModel = candidateModel;
       break;

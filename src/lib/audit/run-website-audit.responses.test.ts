@@ -103,6 +103,35 @@ function runPublic(requestStartTime = Date.now()) {
   });
 }
 
+function runAdvanced(requestStartTime = Date.now()) {
+  return runWebsiteAudit({
+    normalizedUrl: "https://example.com/",
+    auditMode: "advanced",
+    promptKind: "product",
+    requestId: "advanced-budget-test",
+    requestStartTime,
+  });
+}
+
+function useFakeResponsesTimeouts() {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-11-02T16:30:00.000Z"));
+  return vi.spyOn(AbortSignal, "timeout").mockImplementation((timeoutMs) => {
+    const controller = new AbortController();
+    setTimeout(
+      () => controller.abort(new DOMException("The operation timed out", "TimeoutError")),
+      timeoutMs,
+    );
+    return controller.signal;
+  });
+}
+
+function rejectOnResponsesAbort(_body: unknown, options: { signal: AbortSignal }) {
+  return new Promise((_resolve, reject) => {
+    options.signal.addEventListener("abort", () => reject(new APIUserAbortError()), { once: true });
+  });
+}
+
 beforeEach(() => {
   fallbackFixture.enabled = false;
   vi.restoreAllMocks();
@@ -169,7 +198,7 @@ describe("runWebsiteAudit Responses fallback", () => {
     expect(costLine).toContain(`model=${result.usedModel}`);
   });
 
-  it("uses SDK retries zero and the manifest primary model with a bounded request timeout", async () => {
+  it("uses SDK retries zero and gives the single manifest model the remaining deadline", async () => {
     const result = await runPublic();
     const candidates = resolveAuditRun({
       promptKind: "public",
@@ -191,8 +220,8 @@ describe("runWebsiteAudit Responses fallback", () => {
         signal: expect.any(AbortSignal),
       }),
     );
-    expect(responsesCreate.mock.calls[0]?.[1].timeout).toBeGreaterThan(85_000);
-    expect(responsesCreate.mock.calls[0]?.[1].timeout).toBeLessThanOrEqual(90_000);
+    expect(responsesCreate.mock.calls[0]?.[1].timeout).toBeGreaterThan(260_000);
+    expect(responsesCreate.mock.calls[0]?.[1].timeout).toBeLessThanOrEqual(270_000);
   });
 
   it("caps each request by the remaining 270 second total deadline", async () => {
@@ -202,6 +231,215 @@ describe("runWebsiteAudit Responses fallback", () => {
     expect(responsesCreate.mock.calls[0]?.[1].timeout).toBeLessThanOrEqual(10_000);
   });
 
+  it("lets the real advanced primary complete after 100 seconds while reserving fallback time", async () => {
+    const timeoutSpy = useFakeResponsesTimeouts();
+    scrapeWebsite.mockImplementationOnce(() =>
+      new Promise((resolve) => setTimeout(() => resolve(websiteContent), 3_500)),
+    );
+    responsesCreate.mockImplementationOnce(
+      (_body: unknown, options: { signal: AbortSignal }) =>
+        new Promise((resolve, reject) => {
+          const successTimer = setTimeout(() => resolve(successfulResponse()), 100_000);
+          options.signal.addEventListener("abort", () => {
+            clearTimeout(successTimer);
+            reject(new APIUserAbortError());
+          }, { once: true });
+        }),
+    );
+
+    const pending = runAdvanced(Date.now());
+    await vi.advanceTimersByTimeAsync(3_500);
+    expect(responsesCreate).toHaveBeenCalledTimes(1);
+    expect(responsesCreate.mock.calls[0][1].timeout).toBe(176_500);
+    expect(timeoutSpy).toHaveBeenCalledWith(176_500);
+    await vi.advanceTimersByTimeAsync(100_000);
+
+    expect(await pending).toMatchObject({ ok: true, usedModel: "openai/gpt-6.1-sol" });
+    expect(responsesCreate).toHaveBeenCalledTimes(1);
+    expect(responsesCreate.mock.calls[0][0]).toMatchObject({
+      model: "gpt-6.1-sol", reasoning: { effort: "medium" },
+    });
+    vi.clearAllTimers();
+  });
+
+  it("reserves 90 seconds for advanced fallback and ends both attempts at the original route deadline", async () => {
+    const timeoutSpy = useFakeResponsesTimeouts();
+    scrapeWebsite.mockImplementationOnce(() =>
+      new Promise((resolve) => setTimeout(() => resolve(websiteContent), 3_500)),
+    );
+    responsesCreate.mockImplementation(rejectOnResponsesAbort);
+    const startedAt = Date.now();
+    const pending = runAdvanced(startedAt);
+
+    await vi.advanceTimersByTimeAsync(3_500);
+    await vi.advanceTimersByTimeAsync(176_499);
+    expect(responsesCreate).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(responsesCreate).toHaveBeenCalledTimes(2);
+    expect(responsesCreate.mock.calls.map(([body]) => body.model)).toEqual([
+      "gpt-6.1-sol", "gpt-5.6-sol",
+    ]);
+    expect(timeoutSpy.mock.calls.map(([timeoutMs]) => timeoutMs)).toEqual([176_500, 90_000]);
+    expect(responsesCreate.mock.calls[1][1].timeout).toBe(90_000);
+    await vi.advanceTimersByTimeAsync(89_999);
+    expect(responsesCreate.mock.calls[1][1].signal.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(await pending).toMatchObject({ ok: false, status: 502 });
+    expect(Date.now() - startedAt).toBe(270_000);
+    expect(responsesCreate).toHaveBeenCalledTimes(2);
+    vi.clearAllTimers();
+  });
+
+  it("gives the last advanced candidate all remaining time after an early error and Retry-After", async () => {
+    useFakeResponsesTimeouts();
+    responsesCreate
+      .mockImplementationOnce(() => new Promise((_resolve, reject) => {
+        setTimeout(() => reject(Object.assign(new Error("rate limited"), {
+          status: 429,
+          headers: { "retry-after": "2" },
+        })), 5_000);
+      }))
+      .mockImplementationOnce(rejectOnResponsesAbort);
+    const startedAt = Date.now();
+    const pending = runAdvanced(startedAt);
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(responsesCreate.mock.calls[0][1].timeout).toBe(180_000);
+    await vi.advanceTimersByTimeAsync(6_999);
+    expect(responsesCreate).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(responsesCreate).toHaveBeenCalledTimes(2);
+    expect(responsesCreate.mock.calls[1][1].timeout).toBe(263_000);
+    await vi.advanceTimersByTimeAsync(263_000);
+
+    expect(await pending).toMatchObject({ ok: false, status: 502 });
+    expect(Date.now() - startedAt).toBe(270_000);
+    vi.clearAllTimers();
+  });
+
+  it("keeps the first advanced attempt at its old floor when time is short and clamps the fallback", async () => {
+    const timeoutSpy = useFakeResponsesTimeouts();
+    responsesCreate.mockImplementation(rejectOnResponsesAbort);
+    const startedAt = Date.now() - 170_000;
+    const pending = runAdvanced(startedAt);
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(responsesCreate.mock.calls[0][1].timeout).toBe(90_000);
+    await vi.advanceTimersByTimeAsync(90_000);
+    expect(responsesCreate).toHaveBeenCalledTimes(2);
+    expect(responsesCreate.mock.calls[1][1].timeout).toBe(10_000);
+    expect(timeoutSpy.mock.calls.map(([timeoutMs]) => timeoutMs)).toEqual([90_000, 10_000]);
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    expect(await pending).toMatchObject({ ok: false, status: 502 });
+    expect(Date.now() - startedAt).toBe(270_000);
+    vi.clearAllTimers();
+  });
+
+  it("lets the real single-candidate public policy complete after 100 seconds", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-02T16:30:00.000Z"));
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout").mockImplementation((timeoutMs) => {
+      const controller = new AbortController();
+      setTimeout(
+        () => controller.abort(new DOMException("The operation timed out", "TimeoutError")),
+        timeoutMs,
+      );
+      return controller.signal;
+    });
+    responsesCreate.mockImplementationOnce(
+      (_body: unknown, options: { signal: AbortSignal }) =>
+        new Promise((resolve, reject) => {
+          const successTimer = setTimeout(() => resolve(successfulResponse()), 100_000);
+          options.signal.addEventListener(
+            "abort",
+            () => {
+              clearTimeout(successTimer);
+              reject(new APIUserAbortError());
+            },
+            { once: true },
+          );
+        }),
+    );
+
+    const pending = runPublic(Date.now());
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(100_000);
+
+    expect(await pending).toMatchObject({ ok: true });
+    expect(responsesCreate).toHaveBeenCalledTimes(1);
+    expect(timeoutSpy).toHaveBeenCalledTimes(1);
+    expect(timeoutSpy.mock.calls[0]?.[0]).toBeGreaterThan(260_000);
+    const receipt = vi.mocked(console.info).mock.calls.find(
+      ([message]) => String(message).includes("Audit Responses attempt receipt"),
+    )?.[1];
+    expect(receipt).toMatchObject({
+      attemptIndex: 1,
+      candidateCount: 1,
+      workloadId: "audit_structured_public",
+      model: "gpt-6.1-sol",
+      reasoningEffort: "medium",
+      outcome: "completed",
+      elapsedMs: 100_000,
+      totalElapsedMs: 100_000,
+      signalReason: null,
+      errorClass: null,
+    });
+    expect(receipt).not.toHaveProperty("prompt");
+    expect(receipt).not.toHaveProperty("url");
+    expect(receipt).not.toHaveProperty("headers");
+    expect(receipt).not.toHaveProperty("error");
+    expect(JSON.stringify(receipt)).not.toContain("example.com");
+    vi.clearAllTimers();
+  });
+
+  it("aborts one hanging public attempt at the total deadline", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-02T16:30:00.000Z"));
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout").mockImplementation((timeoutMs) => {
+      const controller = new AbortController();
+      setTimeout(
+        () => controller.abort(new DOMException("The operation timed out", "TimeoutError")),
+        timeoutMs,
+      );
+      return controller.signal;
+    });
+    responsesCreate.mockImplementationOnce(
+      (_body: unknown, options: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          options.signal.addEventListener(
+            "abort",
+            () => reject(new APIUserAbortError()),
+            { once: true },
+          );
+        }),
+    );
+
+    const pending = runPublic(Date.now());
+    await vi.advanceTimersByTimeAsync(0);
+    const timeoutMs = Number(timeoutSpy.mock.calls[0]?.[0]);
+    expect(timeoutMs).toBeGreaterThan(260_000);
+    expect(timeoutMs).toBeLessThanOrEqual(270_000);
+    await vi.advanceTimersByTimeAsync(timeoutMs);
+
+    expect(await pending).toMatchObject({ ok: false, status: 502 });
+    expect(responsesCreate).toHaveBeenCalledTimes(1);
+    const receipt = vi.mocked(console.info).mock.calls.find(
+      ([message]) => String(message).includes("Audit Responses attempt receipt"),
+    )?.[1];
+    expect(receipt).toMatchObject({
+      attemptIndex: 1,
+      candidateCount: 1,
+      outcome: "timeout",
+      signalReason: "TimeoutError",
+      errorClass: "APIUserAbortError",
+      elapsedMs: timeoutMs,
+      totalElapsedMs: timeoutMs,
+    });
+    vi.clearAllTimers();
+  });
+
   it("does not call a provider when scraping has consumed the total deadline", async () => {
     const result = await runPublic(Date.now() - 270_001);
 
@@ -209,7 +447,7 @@ describe("runWebsiteAudit Responses fallback", () => {
     expect(responsesCreate).not.toHaveBeenCalled();
   });
 
-  it("real public policy sends only Sol medium", async () => {
+  it("real public policy preserves Sol medium", async () => {
     expect(resolveAuditRun({ promptKind: "public", auditMode: "basic" }).modelCandidates)
       .toEqual(["openai/gpt-6.1-sol"]);
     expect((await runPublic()).ok).toBe(true);

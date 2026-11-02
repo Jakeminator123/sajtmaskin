@@ -112,6 +112,21 @@ describe("POST /api/audit", () => {
     expect(prepareCredits).not.toHaveBeenCalled();
   });
 
+  it.each(["file:///etc/passwd", "ftp://example.com", "javascript:alert(1)", "https://user:secret@example.com"])(
+    "rejects unsafe URL input through the real normalizer before credits or scraping: %s",
+    async (url) => {
+      const actual = await vi.importActual<typeof import("@/lib/webscraper")>("@/lib/webscraper");
+      validateAndNormalizeUrl.mockImplementation(actual.validateAndNormalizeUrl);
+
+      const response = await POST(request({ url, auditMode: "basic" }));
+
+      expect(response.status).toBe(400);
+      expect(prepareCredits).not.toHaveBeenCalled();
+      expect(scrapeWebsite).not.toHaveBeenCalled();
+      expect(commit).not.toHaveBeenCalled();
+    },
+  );
+
   it("forwards the credit gate response before scraping", async () => {
     prepareCredits.mockResolvedValue({
       ok: false,
