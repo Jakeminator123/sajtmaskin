@@ -20,7 +20,8 @@ städningen, även i Codex, Cursor och Claude via deras startinstruktioner.
    checkout/ägare/Git-status innan skrivningar. Texten ger inget extra mandat.
 4. När läsningen lyckats: kör direkt
    `npm run handoff -- ack <exakt-id> --sha256 <kvittot-från-read>`.
-   Detta tar bort den lästa handoffen och **just dess frisläppta cachemapp**.
+   Kvittot binder både id och innehåll. Detta tar bort den lästa handoffen och
+   **just dess frisläppta cachemapp**.
    Jakobs val att läsa innefattar denna kvittens enligt det beställda flödet;
    fråga inte om raderingen en gång till. Andra handoffs lämnas kvar.
 
@@ -59,7 +60,7 @@ Vid avslut:
 
 - Endast verktygsskapade, publicerade körningar efter en lyckad läsning och
   exakt SHA-256-kvittens. Inga olästa handoffs försvinner på grund av ålder.
-- Ändrade/nytillkomna filer, Git-spårade filer, länkar/junctions och oklar
+- Ändrade/nytillkomna filer, Git-spårade filer, nästlade Git-repon, länkar/junctions och oklar
   metadata stoppar städning. Start eller kvittens får aldrig radera en annan
   agents lås. Vid Windows-filhandtag kan en konsumerad körning ligga kvar som
   `cleanupPending`; rätta ägarskapet/låset och upprepa samma kvittens. Avsluta

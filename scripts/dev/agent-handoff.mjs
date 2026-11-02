@@ -11,6 +11,7 @@ const ID = /^\d{8}T\d{9}Z-[a-f0-9]{12}$/;
 const HASH = /^[a-f0-9]{64}$/;
 const MAX_BODY = 64 * 1024;
 const digest = (value) => createHash("sha256").update(value).digest("hex");
+const readingReceipt = (id, bodySha256) => digest(`${id}\0${bodySha256}`);
 
 function git(root, args) {
   return execFileSync("git", args, {
@@ -115,7 +116,13 @@ function inventory(ctx, dir) {
   plainPath(ctx.root, dir);
   const rows = [];
   function walk(folder) {
-    for (const entry of fs.readdirSync(folder, { withFileTypes: true })) {
+    const entries = fs.readdirSync(folder, { withFileTypes: true });
+    const names = new Set(entries.map(entry => entry.name.toLowerCase()));
+    // Includes linked worktrees (.git file), nested checkouts and bare repos.
+    if (names.has(".git") || (names.has("head") && names.has("objects") && (names.has("refs") || names.has("packed-refs")))) {
+      throw new Error("Nested Git repository is not disposable handoff cache");
+    }
+    for (const entry of entries) {
       const file = plainPath(ctx.root, path.join(folder, entry.name));
       const relative = path.relative(dir, file).replaceAll(path.sep, "/");
       if (folder === dir && ["meta.json", "inventory.json"].includes(entry.name)) {
@@ -187,6 +194,7 @@ export function publishHandoff({ cwd = process.cwd(), id, from, now = new Date()
     const body = fs.readFileSync(from, "utf8");
     if (!body.trim() || body.includes("\0")) throw new Error("Empty or binary handoff");
     assertUntracked(ctx, dir);
+    inventory(ctx, dir); // Validate disposable contents before creating the immutable body.
     plainPath(ctx.root, path.join(dir, "HANDOFF.md"));
     fs.writeFileSync(path.join(dir, "HANDOFF.md"), body, { flag: "wx" });
     const snapshot = inventory(ctx, dir);
@@ -210,7 +218,7 @@ export function readHandoff({ cwd = process.cwd(), id }) {
   if (!stat.isFile() || stat.size > MAX_BODY) throw new Error("Invalid handoff body");
   const body = fs.readFileSync(file, "utf8");
   if (digest(body) !== meta.bodySha256) throw new Error("Handoff changed after publication");
-  return { id, sender: meta.sender, gitHead: meta.gitHead, gitBranch: meta.gitBranch, body, sha256: meta.bodySha256 };
+  return { id, sender: meta.sender, gitHead: meta.gitHead, gitBranch: meta.gitBranch, body, sha256: readingReceipt(id, meta.bodySha256) };
 }
 
 /** Explicit receipt after successful reading; no age-based deletion of unread work. */
@@ -219,7 +227,7 @@ export function acknowledgeHandoff({ cwd = process.cwd(), id, sha256 }) {
   const ctx = context(cwd);
   return locked(ctx, () => {
     const { dir, meta } = metadata(ctx, id);
-    if (meta.state === "active" || meta.bodySha256 !== sha256) throw new Error("Handoff is active or the reading receipt does not match");
+    if (meta.state === "active" || readingReceipt(id, meta.bodySha256) !== sha256) throw new Error("Handoff is active or the reading receipt does not match");
     assertUntracked(ctx, dir);
     const expected = json(plainPath(ctx.root, path.join(dir, "inventory.json")));
     if (!Array.isArray(expected) || digest(JSON.stringify(expected)) !== meta.inventorySha256) throw new Error("Inventory receipt changed");

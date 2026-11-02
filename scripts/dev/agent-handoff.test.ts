@@ -83,6 +83,32 @@ describe("metadata-first handoffs and owned cache cleanup", () => {
     expect(fs.existsSync(run.cacheDirectory)).toBe(true);
   });
 
+  it("binds the reading receipt to the selected ID even when two handoffs have identical text", () => {
+    const root = fixture();
+    const first = start(root, "First");
+    const second = start(root, "Second");
+    const firstRead = publish(root, first);
+    const from = path.join(second.cacheDirectory, "summary.md");
+    fs.writeFileSync(from, firstRead.body);
+    publishHandoff({ cwd: root, id: second.id, from });
+    expect(() => acknowledgeHandoff({ cwd: root, id: second.id, sha256: firstRead.sha256 })).toThrow("receipt");
+    expect(fs.existsSync(second.cacheDirectory)).toBe(true);
+    const secondRead = readHandoff({ cwd: root, id: second.id });
+    expect(firstRead.body).toBe(secondRead.body);
+    expect(firstRead.sha256).not.toBe(secondRead.sha256);
+  });
+
+  it.each(["checkout", "worktree", "bare"])("protects nested Git metadata before publication: %s", (kind) => {
+    const root = fixture();
+    const run = start(root);
+    const nested = path.join(run.cacheDirectory, "nested");
+    fs.mkdirSync(nested);
+    if (kind === "worktree") fs.writeFileSync(path.join(nested, ".git"), `gitdir: ${path.join(root, ".git")}\n`);
+    else git(nested, "init", "--quiet", ...(kind === "bare" ? ["--bare"] : []));
+    expect(() => publish(root, run)).toThrow("Nested Git repository");
+    expect(fs.existsSync(path.join(nested, kind === "bare" ? "HEAD" : ".git"))).toBe(true);
+  });
+
   it.each(["add", "modify", "remove"])("preserves the released cache when its files change: %s", (change) => {
     const root = fixture();
     const run = start(root);
