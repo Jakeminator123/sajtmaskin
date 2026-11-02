@@ -69,6 +69,9 @@ export interface OpenClawMessage {
    * hydrerad rad — annars startar varje omladdning gamla byggen igen.
    */
   hydrated?: boolean;
+  /** Live transport state. Only completed replies may execute action cards;
+   * historical/seeded messages without this field retain their old behavior. */
+  delivery?: "streaming" | "complete" | "interrupted";
 }
 
 interface OpenClawState {
@@ -125,6 +128,7 @@ interface OpenClawState {
    */
   hydrateMessages: (incoming: OpenClawMessage[]) => void;
   updateAssistantMessage: (id: string, content: string) => void;
+  setAssistantDelivery: (id: string, delivery: NonNullable<OpenClawMessage["delivery"]>) => void;
   setStreaming: (v: boolean) => void;
   clearMessages: () => void;
   setAvatarMode: (v: boolean) => void;
@@ -259,6 +263,13 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
     set((s) => ({
       messages: s.messages.map((message) =>
         message.id === id && message.role === "assistant" ? { ...message, content } : message,
+      ),
+    })),
+
+  setAssistantDelivery: (id, delivery) =>
+    set((s) => ({
+      messages: s.messages.map((message) =>
+        message.id === id && message.role === "assistant" ? { ...message, delivery } : message,
       ),
     })),
 

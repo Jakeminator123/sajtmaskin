@@ -46,6 +46,13 @@ export default function TemplatesPage() {
               och{" "}
               <Link href="/hemsideprogram" className="text-foreground underline-offset-4 hover:underline">
                 jämför hemsideprogram
+              </Link>{" "}
+              eller{" "}
+              <Link
+                href="/wordpress-alternativ"
+                className="text-foreground underline-offset-4 hover:underline"
+              >
+                alternativ till WordPress
               </Link>
               .
             </p>

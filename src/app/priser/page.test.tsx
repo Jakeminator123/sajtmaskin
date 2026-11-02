@@ -32,5 +32,11 @@ describe("/priser", () => {
     expect(screen.getByRole("link", { name: "Kom igång" }).getAttribute("href")).toBe(
       "/builder?new=1",
     );
+    expect(screen.getByRole("link", { name: "hemsideprogram" }).getAttribute("href")).toBe(
+      "/hemsideprogram",
+    );
+    expect(
+      screen.getByRole("link", { name: "alternativ till WordPress" }).getAttribute("href"),
+    ).toBe("/wordpress-alternativ");
   });
 });

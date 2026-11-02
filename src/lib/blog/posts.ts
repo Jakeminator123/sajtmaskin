@@ -95,6 +95,7 @@ export const PUBLISHED_BLOG_POSTS: readonly PublishedBlogPost[] = [
     related: [
       { href: "/vad-kostar-en-hemsida", label: "Vad kostar en hemsida?" },
       { href: "/hemsideprogram", label: "Jämför hemsideprogram" },
+      { href: "/wordpress-alternativ", label: "Alternativ till WordPress" },
       { href: "/blogg/hemsida-enskild-firma", label: "Hemsida för enskild firma" },
     ],
   },
@@ -181,6 +182,7 @@ export const PUBLISHED_BLOG_POSTS: readonly PublishedBlogPost[] = [
     related: [
       { href: "/hemsida-till-foretag", label: "Hemsida till företag" },
       { href: "/hemsida-utan-kod", label: "Hemsida utan kod" },
+      { href: "/hemsideprogram", label: "Jämför hemsideprogram" },
       { href: "/hemsida-konsult", label: "Hemsida för konsult" },
       { href: "/skapa-hemsida", label: "Skapa hemsida" },
     ],
@@ -254,6 +256,8 @@ export const PUBLISHED_BLOG_POSTS: readonly PublishedBlogPost[] = [
     related: [
       { href: "/skapa-hemsida-med-ai", label: "Skapa hemsida med AI" },
       { href: "/ai-hemsidebyggare", label: "AI-hemsidebyggare" },
+      { href: "/hemsideprogram", label: "Jämför hemsideprogram" },
+      { href: "/wordpress-alternativ", label: "Alternativ till WordPress" },
       { href: "/hemsida-utan-kod", label: "Hemsida utan kod" },
       { href: "/blogg/vad-kostar-en-hemsida-2026", label: "Vad kostar en hemsida 2026?" },
     ],
