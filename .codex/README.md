@@ -58,6 +58,11 @@ PATH. `PWSH` injiceras via `shell_environment_policy.set`; om skalet är 5.1, k�
 `& $env:PWSH -NoLogo -NoProfile -Command '…'`. `[windows] sandbox = "elevated"`
 är avsiktligt (aliaset i WindowsApps failar där).
 
+RTK behöver den icke-hemliga sökvägsvariabeln `CLAUDE_CONFIG_DIR`. Värdet
+konfigureras globalt; projektets filter måste också tillåta den eftersom
+include-listan tillämpas efter globala `set`-värden. Agenter ska inte behöva
+sätta variabeln manuellt per kommando.
+
 `shell_environment_policy.filters` behåller de icke-hemliga `SystemDrive` och
 `ProgramData`; saknas de hamnar systemcache i en bokstavlig `%SystemDrive%`-mapp
 under arbetskatalogen (inte projektdata, committa aldrig). Kontrollera med
