@@ -84,7 +84,7 @@ export function generateRadarChartSVG(scores: Record<string, number | undefined>
     })
     .join("");
 
-  return `<svg viewBox="0 0 320 320" width="320" height="320" xmlns="http://www.w3.org/2000/svg">
+  return `<svg viewBox="-64 0 448 320" width="448" height="320" xmlns="http://www.w3.org/2000/svg">
     ${gridLines}
     ${axisLines}
     <polygon points="${points}" fill="rgba(59,130,246,0.15)" stroke="#3b82f6" stroke-width="2"/>
