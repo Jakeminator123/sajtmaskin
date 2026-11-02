@@ -231,7 +231,7 @@ describe("runWebsiteAudit Responses fallback", () => {
     expect(responsesCreate.mock.calls[0]?.[1].timeout).toBeLessThanOrEqual(10_000);
   });
 
-  it("lets the real advanced primary complete after 100 seconds while reserving fallback time", async () => {
+  it("lets the real advanced primary complete after 220 seconds within the original route deadline", async () => {
     const timeoutSpy = useFakeResponsesTimeouts();
     scrapeWebsite.mockImplementationOnce(() =>
       new Promise((resolve) => setTimeout(() => resolve(websiteContent), 3_500)),
@@ -239,7 +239,7 @@ describe("runWebsiteAudit Responses fallback", () => {
     responsesCreate.mockImplementationOnce(
       (_body: unknown, options: { signal: AbortSignal }) =>
         new Promise((resolve, reject) => {
-          const successTimer = setTimeout(() => resolve(successfulResponse()), 100_000);
+          const successTimer = setTimeout(() => resolve(successfulResponse()), 220_000);
           options.signal.addEventListener("abort", () => {
             clearTimeout(successTimer);
             reject(new APIUserAbortError());
@@ -250,9 +250,9 @@ describe("runWebsiteAudit Responses fallback", () => {
     const pending = runAdvanced(Date.now());
     await vi.advanceTimersByTimeAsync(3_500);
     expect(responsesCreate).toHaveBeenCalledTimes(1);
-    expect(responsesCreate.mock.calls[0][1].timeout).toBe(176_500);
-    expect(timeoutSpy).toHaveBeenCalledWith(176_500);
-    await vi.advanceTimersByTimeAsync(100_000);
+    expect(responsesCreate.mock.calls[0][1].timeout).toBe(266_500);
+    expect(timeoutSpy).toHaveBeenCalledWith(266_500);
+    await vi.advanceTimersByTimeAsync(220_000);
 
     expect(await pending).toMatchObject({ ok: true, usedModel: "openai/gpt-6.1-sol" });
     expect(responsesCreate).toHaveBeenCalledTimes(1);
@@ -262,7 +262,7 @@ describe("runWebsiteAudit Responses fallback", () => {
     vi.clearAllTimers();
   });
 
-  it("reserves 90 seconds for advanced fallback and ends both attempts at the original route deadline", async () => {
+  it("ends a hanging advanced primary at the original route deadline without another provider call", async () => {
     const timeoutSpy = useFakeResponsesTimeouts();
     scrapeWebsite.mockImplementationOnce(() =>
       new Promise((resolve) => setTimeout(() => resolve(websiteContent), 3_500)),
@@ -272,22 +272,18 @@ describe("runWebsiteAudit Responses fallback", () => {
     const pending = runAdvanced(startedAt);
 
     await vi.advanceTimersByTimeAsync(3_500);
-    await vi.advanceTimersByTimeAsync(176_499);
+    await vi.advanceTimersByTimeAsync(266_499);
     expect(responsesCreate).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(1);
-    expect(responsesCreate).toHaveBeenCalledTimes(2);
+    expect(responsesCreate.mock.calls[0][1].signal.aborted).toBe(false);
     expect(responsesCreate.mock.calls.map(([body]) => body.model)).toEqual([
-      "gpt-6.1-sol", "gpt-5.6-sol",
+      "gpt-6.1-sol",
     ]);
-    expect(timeoutSpy.mock.calls.map(([timeoutMs]) => timeoutMs)).toEqual([176_500, 90_000]);
-    expect(responsesCreate.mock.calls[1][1].timeout).toBe(90_000);
-    await vi.advanceTimersByTimeAsync(89_999);
-    expect(responsesCreate.mock.calls[1][1].signal.aborted).toBe(false);
+    expect(timeoutSpy.mock.calls.map(([timeoutMs]) => timeoutMs)).toEqual([266_500]);
     await vi.advanceTimersByTimeAsync(1);
 
     expect(await pending).toMatchObject({ ok: false, status: 502 });
     expect(Date.now() - startedAt).toBe(270_000);
-    expect(responsesCreate).toHaveBeenCalledTimes(2);
+    expect(responsesCreate).toHaveBeenCalledTimes(1);
     vi.clearAllTimers();
   });
 
@@ -305,7 +301,7 @@ describe("runWebsiteAudit Responses fallback", () => {
     const pending = runAdvanced(startedAt);
 
     await vi.advanceTimersByTimeAsync(0);
-    expect(responsesCreate.mock.calls[0][1].timeout).toBe(180_000);
+    expect(responsesCreate.mock.calls[0][1].timeout).toBe(270_000);
     await vi.advanceTimersByTimeAsync(6_999);
     expect(responsesCreate).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(1);
@@ -318,22 +314,41 @@ describe("runWebsiteAudit Responses fallback", () => {
     vi.clearAllTimers();
   });
 
-  it("keeps the first advanced attempt at its old floor when time is short and clamps the fallback", async () => {
+  it("deducts earlier route work from an advanced primary without renewing the deadline", async () => {
     const timeoutSpy = useFakeResponsesTimeouts();
     responsesCreate.mockImplementation(rejectOnResponsesAbort);
     const startedAt = Date.now() - 170_000;
     const pending = runAdvanced(startedAt);
 
     await vi.advanceTimersByTimeAsync(0);
-    expect(responsesCreate.mock.calls[0][1].timeout).toBe(90_000);
-    await vi.advanceTimersByTimeAsync(90_000);
-    expect(responsesCreate).toHaveBeenCalledTimes(2);
-    expect(responsesCreate.mock.calls[1][1].timeout).toBe(10_000);
-    expect(timeoutSpy.mock.calls.map(([timeoutMs]) => timeoutMs)).toEqual([90_000, 10_000]);
-    await vi.advanceTimersByTimeAsync(10_000);
+    expect(responsesCreate.mock.calls[0][1].timeout).toBe(100_000);
+    expect(timeoutSpy.mock.calls.map(([timeoutMs]) => timeoutMs)).toEqual([100_000]);
+    await vi.advanceTimersByTimeAsync(100_000);
 
     expect(await pending).toMatchObject({ ok: false, status: 502 });
     expect(Date.now() - startedAt).toBe(270_000);
+    expect(responsesCreate).toHaveBeenCalledTimes(1);
+    vi.clearAllTimers();
+  });
+
+  it("uses only the remaining time when a long advanced primary returns a transient incomplete response", async () => {
+    const timeoutSpy = useFakeResponsesTimeouts();
+    responsesCreate
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        setTimeout(() => resolve(successfulResponse({
+          status: "incomplete",
+          incompleteDetails: { reason: "max_output_tokens" },
+        })), 220_000);
+      }))
+      .mockResolvedValueOnce(successfulResponse());
+    const pending = runAdvanced(Date.now());
+
+    await vi.advanceTimersByTimeAsync(220_000);
+
+    expect(await pending).toMatchObject({ ok: true, usedModel: "openai/gpt-5.6-sol" });
+    expect(responsesCreate).toHaveBeenCalledTimes(2);
+    expect(timeoutSpy.mock.calls.map(([timeoutMs]) => timeoutMs)).toEqual([270_000, 50_000]);
+    expect(responsesCreate.mock.calls[1][1].timeout).toBe(50_000);
     vi.clearAllTimers();
   });
 

@@ -56,7 +56,6 @@ const SCORE_KEYS = [
 ] as const;
 
 const RESPONSES_TOTAL_BUDGET_MS = 270_000;
-const RESPONSES_ATTEMPT_BUDGET_MS = 90_000;
 const RESPONSES_MAX_ATTEMPTS = 2;
 const PERMANENT_QUOTA_CODES = new Set(["insufficient_quota", "billing_hard_limit_reached"]);
 const TRANSIENT_NETWORK_CODES = new Set([
@@ -277,15 +276,10 @@ export async function runWebsiteAudit(input: {
       const remainingMs = responsesDeadline - Date.now();
       if (remainingMs <= 0) break;
 
-      // Reserve one normal attempt for each remaining fallback. The current
-      // candidate gets the surplus (and at least its old 90 s when available);
-      // the last candidate can use everything left before the route deadline.
-      const reservedFallbackMs =
-        (candidates.length - candidateIndex - 1) * RESPONSES_ATTEMPT_BUDGET_MS;
-      const attemptBudgetMs = Math.min(
-        remainingMs,
-        Math.max(RESPONSES_ATTEMPT_BUDGET_MS, remainingMs - reservedFallbackMs),
-      );
+      // A valid long-running response may need the whole route budget.
+      // Fallbacks only use time left after an earlier attempt returns or fails;
+      // every candidate remains bound to the same original request deadline.
+      const attemptBudgetMs = remainingMs;
       const responsesModel = toResponsesModelId(candidateModel);
       const reasoningOptions = workloadResponsesReasoning(run.workloadId, responsesModel);
       const attemptStartedAt = Date.now();
