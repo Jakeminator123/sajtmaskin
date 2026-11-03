@@ -56,7 +56,7 @@ describe("StructuredToolParts", () => {
       screen.getAllByText("Fortsätter med nästa byggsteg.").length,
     ).toBeGreaterThanOrEqual(1);
     expect(
-      screen.queryByText("Förbereder byggunderlag och startar own-engine."),
+      screen.queryByText("Förbereder din sajt."),
     ).toBeNull();
   });
 

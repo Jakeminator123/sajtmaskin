@@ -312,17 +312,17 @@ describe("dossier acceptance scope", () => {
 
 describe("preview push dossier scope", () => {
   it.each([
-    ["src/app/builder/page.tsx", true],
-    ["README.md", true],
-    ["data/dossiers/hard/test/manifest.json", false],
-    ["src/components/ui/button.tsx", false],
-    ["scripts/workflow/ci-scope.mjs", false],
-    ["package-lock.json", false],
-  ])("defers preview push %s to promote whether or not the push baseline is verified (%s)", (path, baselineVerified) => {
+    "src/app/builder/page.tsx",
+    "README.md",
+    "data/dossiers/hard/test/manifest.json",
+    "src/components/ui/button.tsx",
+    "scripts/workflow/ci-scope.mjs",
+    "package-lock.json",
+  ])("defers preview push %s to promote", (path) => {
     expect(
       decideAcceptanceScope({
         eventName: "push",
-        ref: "refs/heads/preview", baselineVerified,
+        ref: "refs/heads/preview",
         baseSha: "a".repeat(40),
         headSha: "b".repeat(40),
         gitCommand: () => ({ status: 0, stdout: `M\0${path}\0` }),
@@ -335,7 +335,7 @@ describe("preview push dossier scope", () => {
       expect(
         decideAcceptanceScope({
           eventName: "push",
-          ref: "refs/heads/preview", baselineVerified: true,
+          ref: "refs/heads/preview",
           baseSha,
           headSha: "b".repeat(40),
           gitCommand: () => ({ status: 1, stdout: "" }),
@@ -351,7 +351,7 @@ describe("preview push dossier scope", () => {
     expect(
       decideAcceptanceScope({
         eventName: "push",
-        ref: "refs/heads/preview", baselineVerified: true,
+        ref: "refs/heads/preview",
         baseSha: "a".repeat(40),
         headSha: "b".repeat(40),
         gitCommand: () => ({

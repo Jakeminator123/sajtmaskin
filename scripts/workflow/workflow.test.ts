@@ -11,6 +11,7 @@ import {
   evaluateCiScopeWorkflow,
   evaluateDependencyFreeImportGraph,
   evaluateDossierAcceptanceWorkflow,
+  evaluateHotfixDeliveryContract,
   evaluatePolicyFloors,
   evaluateCheckWriteGrants,
   evaluatePrBaseGuardWorkflow,
@@ -48,6 +49,25 @@ import {
   trackedPathsForBase,
 } from "./verify-pr.mjs";
 import { missingCursorSecretIgnores } from "../dev/check-agent-context-budget.mjs";
+
+describe("explicit master hotfix delivery wiring", () => {
+  const hook = readFileSync("scripts/dev/install-git-hooks.mjs", "utf8");
+  const scripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
+
+  it("keeps explicit commands and checks marked receipts before skip signals", () => {
+    expect(evaluateHotfixDeliveryContract(hook, scripts)).toEqual([]);
+    expect(evaluateHotfixDeliveryContract(hook, { ...scripts, "hotfix:push": "git push origin master" })).not.toEqual([]);
+    for (const changed of [
+      hook.replace('if [ "$push_update_count" -ne 1 ]', 'if false'),
+      hook.replace("git status --porcelain --untracked-files=normal", "git status --short"),
+      hook.replace('node scripts/workflow/hotfix-push.mjs --hook "$PUSH_REMOTE" "$PUSH_URL" "$hotfix_updates"', 'exit 0'),
+      `if [ "$CI" = "true" ]; then exit 0; fi # GITHUB_ACTIONS\n${hook}`,
+    ]) {
+      expect(changed).not.toBe(hook);
+      expect(evaluateHotfixDeliveryContract(changed, scripts)).not.toEqual([]);
+    }
+  });
+});
 
 describe("agent workflow path matching", () => {
   it.each([
@@ -1419,6 +1439,19 @@ describe("agent workflow repository contract", () => {
         { name: "dossier-acceptance.yml", source: dossierAcceptance },
       ]),
     ).toEqual([]);
+  });
+
+  it("keeps the local dossier classifier free of unused Actions/API credentials", () => {
+    const source = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
+    expect(evaluateDossierAcceptanceWorkflow(source)).toEqual([]);
+    for (const changed of [
+      source.replace("  scope:\n", "  scope:\n    permissions:\n      contents: read\n      actions: read\n"),
+      source.replace("  scope:\n", "  scope:\n    env:\n      GH_TOKEN: ${{ github.token }}\n"),
+      source.replace("          SAJTMASKIN_PR_BASE_REF:", "          GITHUB_TOKEN: ${{ github.token }}\n          SAJTMASKIN_PR_BASE_REF:"),
+    ]) {
+      expect(changed).not.toBe(source);
+      expect(evaluateDossierAcceptanceWorkflow(changed).length).toBeGreaterThan(0);
+    }
   });
 
   it("rejects a path-filtered dossier-acceptance pull_request trigger", () => {

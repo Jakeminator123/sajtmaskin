@@ -52,6 +52,8 @@
     "scripts/workflow/ci-scope.mjs",
     "scripts/workflow/ci-receipt.mjs",
     "scripts/workflow/path-impact.mjs",
+    "scripts/workflow/hotfix-push.mjs",
+    "scripts/dev/install-git-hooks.mjs",
     "config/agent-workflow.json",
     "config/control-plane/policy-registry.json",
     "config/control-plane/schema-registry.json",

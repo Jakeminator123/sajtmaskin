@@ -122,7 +122,7 @@ describe("renderHookScript", () => {
   });
 
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(24);
+    expect(HOOK_VERSION).toBe(25);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
@@ -837,7 +837,8 @@ describe("decideHookInstall", () => {
     expect(decideHookInstall({ existing: desired, desired }).action).toBe("skip");
   });
 
-  it("uppgraderar exakt känd v19/v20/v21/v22/v23, men bevarar äldre lokala tillägg", () => {
+  it("uppgraderar exakt känd v19/v20/v21/v22/v23/v24, men bevarar äldre lokala tillägg", () => {
+    const v24 = readFileSync(new URL("./fixtures/pre-push-v24.sh", import.meta.url), "utf8");
     const v23 = readFileSync(new URL("./fixtures/pre-push-v23.sh", import.meta.url), "utf8");
     const v22 = v23.replace("v23", "v22")
       .replace(
@@ -860,7 +861,7 @@ describe("decideHookInstall", () => {
     // Reconstruct v19; the installer's frozen SHA-256 proves full-file identity.
     const outdated = v22.replace("v22", "v19")
       .replace(/\n  # Direkt preview:[\s\S]+?\n  fi\n/, "\n");
-    for (const body of [outdated, v20, v21, v22, v23].flatMap((value) => [value, value.replace(/\n/g, "\r\n")])) {
+    for (const body of [outdated, v20, v21, v22, v23, v24].flatMap((value) => [value, value.replace(/\n/g, "\r\n")])) {
       expect(decideHookInstall({ existing: body, desired }).action).toBe("write");
       expect(decideHookInstall({ existing: body + "echo local-security-check\n", desired }).action).toBe("conflict");
     }

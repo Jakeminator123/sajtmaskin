@@ -38,8 +38,9 @@ stoppas publiceringen — ingen full-access-fallback.
 Repo-roten är samma mapp för båda verktygen; skriv ingen maskinspecifik sökväg
 här. Arbetsyta enligt `git.mdc`, worktrees enligt
 [agent-worktree.mdc](../.cursor/rules/agent-worktree.mdc) och bas enligt
-`pr-workflow` § 1.2 (branch från `origin/preview`, `origin/master` bara som
-produktionsbevis). Vid handoff/branchbyte: kontrollera lokala ändringar och vem
+`pr-workflow` § 1.2 (normalt branch från `origin/preview`; en uttryckligen
+beställd produktionshotfix utgår från färsk `origin/master` enligt § 4b).
+Vid handoff/branchbyte: kontrollera lokala ändringar och vem
 som skriver i ytan; bara en aktör ansvarar för en merge.
 
 Ignorering: `.cursorignore` gäller Cursor; Codex har ingen `.codexignore`, så var

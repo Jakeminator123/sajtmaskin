@@ -32,7 +32,7 @@ import { tmpdir } from "node:os";
 import { BACKUP_RETIREMENTS } from "./backup-retirements.mjs";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 24;
+export const HOOK_VERSION = 25;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
@@ -68,6 +68,10 @@ export function renderHookScript(hookName) {
 
 # Global core.hooksPath delas mellan repon. Utan den har repo-signaturen ska
 # hooken inte gora nagonting i ett annat projekt.
+if [ ! -f scripts/dev/install-git-hooks.mjs ] && [ "\${SAJTMASKIN_HOTFIX_RECEIPT+x}" = "x" ]; then
+  echo "[hooks] Push stoppad: hotfixkvitto kan inte anvandas i ett annat repo." >&2
+  exit 1
+fi
 [ -f scripts/dev/install-git-hooks.mjs ] || exit 0
 
 ZERO_SHA=0000000000000000000000000000000000000000
@@ -94,6 +98,7 @@ fi
 # Git ger hooken remote-namnet som $1 och URL:en som $2. Namnet avgor vilken
 # remote-tracking-yta som far rakna som "redan publicerat" langre ner.
 PUSH_REMOTE=\${1:-}
+PUSH_URL=\${2:-}
 
 require_current_head() {
   pushed_sha="$1"
@@ -132,7 +137,18 @@ is_published_label_create() {
 }
 
 verify_needed=0
-while read -r local_ref local_sha remote_ref remote_sha; do
+push_update_count=0
+hotfix_updates=""
+while read -r local_ref local_sha remote_ref remote_sha extra_field; do
+  push_update_count=$((push_update_count + 1))
+  if [ "\${SAJTMASKIN_HOTFIX_RECEIPT+x}" = "x" ]; then
+    if [ -n "$extra_field" ]; then
+      echo "[hooks] Push stoppad: ogiltig hotfix-refuppdatering." >&2
+      exit 1
+    fi
+    hotfix_updates="$hotfix_updates$local_ref $local_sha $remote_ref $remote_sha
+"
+  fi
   # Direkt preview: aldrig delete/force, alltid exakt manniskobekraftad HEAD
   # och aktuellt review-/plankvitto fran wrappern. CI/skip far inte kringga detta.
   if [ "$remote_ref" = "refs/heads/preview" ]; then
@@ -234,7 +250,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   echo "[hooks] BREAK-GLASS non-fast-forward \${remote_ref}: \${reason}" >&2
 done
 
-if [ "$verify_needed" = "0" ]; then exit 0; fi
+if [ "$verify_needed" = "0" ] && [ "\${SAJTMASKIN_HOTFIX_RECEIPT+x}" != "x" ]; then exit 0; fi
 
 # verify:pr --plan laser arbetskopian. Om den ar smutsig kan en ocommitterad
 # fix dolja att den aldre HEAD-commiten ar det som pushas. Krav darfor exakt
@@ -249,19 +265,13 @@ if [ -n "$WORKTREE_STATUS" ]; then
   exit 1
 fi
 
-# Runner-signaler far bara hoppa over den dyra lokala verifieringen, aldrig
-# ref-sakerheten ovan. Exakt "true" gor att ett vanligt CI=false inte blir en
-# oavsiktlig bypass.
-if [ "\${GITHUB_ACTIONS:-}" = "true" ] || [ "\${CI:-}" = "true" ]; then exit 0; fi
-
-if [ "$SAJTMASKIN_SKIP_VERIFY_HOOKS" = "1" ]; then exit 0; fi
-
 # Git exporterar repository-lokala variabler till hooken. Verifieringen startar
 # tester och verktyg som avsiktligt arbetar i egna temporara repon; de maste fa
 # losa sitt repo fran cwd. Codex kan samtidigt injicera safe.directory via
 # GIT_CONFIG_COUNT, sa efter saneringen byggs exakt arbetsrotens safe-entry ater.
 # Git far sjalv kanonisera sokvagen: Git Bash pwd ger /c/... medan git.exe
 # jamfor safe.directory mot C:/..., och de formerna ar inte alltid likvardiga.
+isolate_verification_git_env() {
 VERIFY_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || {
   echo "[hooks] Push stoppad: kunde inte lasa verifieringens arbetsrot." >&2
   exit 1
@@ -281,6 +291,26 @@ GIT_CONFIG_COUNT=1
 GIT_CONFIG_KEY_0=safe.directory
 GIT_CONFIG_VALUE_0=$VERIFY_ROOT
 export GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0
+}
+
+# Ett markerat hotfixkvitto maste alltid vara giltigt, aven vid tom/mixad push
+# och under CI/skip. Hela stdin ar last och alla vanliga ref-/HEAD-/cleanvakter
+# ovan har redan korts. Ingen fri bas eller branchnamnsheuristik accepteras.
+if [ "\${SAJTMASKIN_HOTFIX_RECEIPT+x}" = "x" ]; then
+  if [ "$push_update_count" -ne 1 ]; then
+    echo "[hooks] Push stoppad: hotfixkvitto kraver exakt en feature-ref." >&2
+    exit 1
+  fi
+  isolate_verification_git_env
+  node scripts/workflow/hotfix-push.mjs --hook "$PUSH_REMOTE" "$PUSH_URL" "$hotfix_updates"
+  exit "$?"
+fi
+
+# Runner-signaler far bara hoppa over den dyra lokala verifieringen, aldrig
+# ref-sakerheten eller ett markerat hotfixkvitto. Exakt "true" kravs.
+if [ "\${GITHUB_ACTIONS:-}" = "true" ] || [ "\${CI:-}" = "true" ]; then exit 0; fi
+if [ "$SAJTMASKIN_SKIP_VERIFY_HOOKS" = "1" ]; then exit 0; fi
+isolate_verification_git_env
 
 command -v npm >/dev/null 2>&1 || {
   echo "[hooks] STOPP: npm saknas; kan inte kora npm run verify:pr -- --plan." >&2
@@ -334,7 +364,7 @@ export function decideHookRetirement({ hookName, existing }) {
   if (existing === null || existing === undefined)
     return { action: "retire", reason: "saknas; installera passivt nedgraderingsskydd" };
   if (existing === renderHookScript(hookName)) return { action: "skip", reason: "redan passiv" };
-  const legacyPassive = [18, 19, 20, 21, 22, 23].flatMap((version) => {
+  const legacyPassive = [18, 19, 20, 21, 22, 23, 24].flatMap((version) => {
     const body = `#!/bin/sh\n# ${HOOK_MARKER} v${version} (${hookName}: retired)\nexit 0\n`;
     return [body, body.replace(/\n/g, "\r\n")];
   });
@@ -384,7 +414,7 @@ export function decideHookInstall({ existing, desired }) {
       reason: `managed hook v${existingVersion} har oväntat annat innehåll`,
     };
   }
-  // Canonical v19-v23 (v23 at 713eefa9); LF and CRLF. A version marker
+  // Canonical v19-v24 (v24 at 148a8cab); LF and CRLF. A version marker
   // alone must never authorize deleting local additions or a third-party delegate.
   const knownPriorHashes = [
     "e2ea0aeeccafd2ee4c31226dd07c7924bbc4127bdc604fe025e01e018d2e582e",
@@ -397,6 +427,8 @@ export function decideHookInstall({ existing, desired }) {
     "320c7fd3524f6da46f2b856b0d000d8de1021babd7b850a1d5ad140f974a1306",
     "953e4805382936b92211176f9773086957d5761b46c5b107f7db5d3c74c8dacd",
     "1eaa3b856b81da27bc879661d35c54339bf37a62e9907972956f8d56adf0e8ee",
+    "a34a7c0149672bc269a0163b14148642454320dc4fdaa6cf61ef2c4a55b66701",
+    "7347d7c4c557ee3a2690251a8b9fce467af21460a6050c91baa223b7f7293420",
   ];
   if (!knownPriorHashes.includes(createHash("sha256").update(existing).digest("hex"))) {
     return { action: "conflict", reason: "äldre hook har okänt/modifierat fullinnehåll; rörs inte" };

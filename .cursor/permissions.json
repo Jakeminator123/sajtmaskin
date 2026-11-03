@@ -10,7 +10,8 @@
   //   - repots hookar NEKAR det farliga (force-push, *BRA*, rå worktree remove,
   //     dynamiskt git, heredoc i pwsh, secret-bärande mcp.json) — de frågar inte;
   //   - pre-push kräver ren arbetskopia + grön verify:pr --plan;
-  //   - CI kör fullprofilen på varje PR-head.
+  //   - GitHub publicerar required checks per head; profil och kvittoåterbruk
+  //     ägs av config/agent-workflow.json och workflow-skripten.
   // Klassificeraren är «best-effort, not a security boundary» enligt Cursors
   // egna docs. Hookarna är deterministiska. Därför är det hookarna som bär
   // skyddet, och allowlisten som bär vardagen.
@@ -22,7 +23,7 @@
   //   - `git push`   → worktree-force-guard nekar -f/--force*/+refspec/:refspec/
   //                    --delete/--mirror/--prune/--no-verify
   //   - `git switch` / `git checkout -b` → samma hook nekar -f/--discard-changes
-  //   - `git commit` → commit-guard nekar trunk utan break-glass, dynamiskt git
+  //   - `git commit` → commit-guard följer branchpolicy och nekar dynamiskt git
   //   - `git branch` → bara läsformer listade; -D/-m går till klassificeraren
   // `git.exe` dubbleras för att pwsh-regeln kräver explicit exe-namn ibland.
   //
@@ -167,7 +168,7 @@
       "Att skriva ett commit-meddelande till .cursor/tmp/commit-msg.txt och köra git commit -F på den är repots kanoniska commitväg, inte ett försök att smuggla något."
     ],
     "block_instructions": [
-      "gh pr merge, gh pr create, npm run promote och gh api med annan metod än GET (särskilt sökvägar som slutar på /merge) kräver ägarens uttryckliga uppdrag i chatten — fråga alltid.",
+      "gh pr merge, gh pr create, npm run promote och skrivande gh api ska följa pr-workflow och pr-merge.mdc. Vanlig preview-PR har stående mergemandat först efter aktuella gröna checks och oberoende review; produktion kräver uttryckligt ägarmandat. Fråga när giltigt mandat saknas, inte igen om samma handling redan är godkänd.",
       "npm run db:* som skriver (migrate, init, ensure, perf-indexes) mot någon databas — fråga, särskilt allt med prod i namnet.",
       "Remove-Item -Recurse, rm -rf, npm run clean:*:apply och npm run worktree:remove raderar på disk — fråga.",
       "Allt som skriver till .env*, .cursor/mcp.json, ~/.cursor/, ~/.codex/ eller ~/.claude/ — fråga."
