@@ -164,6 +164,31 @@ describe("OpenClawQuickEditCard — gating", () => {
 });
 
 describe("OpenClawQuickEditCard — execution", () => {
+  it("shows saved-with-preview-warning and cannot apply the same edit again", async () => {
+    grantQuickEdit();
+    quickEditMock.mockResolvedValue({
+      ok: true, versionId: "v-2", changedFiles: ["app/page.tsx"],
+      previewUrl: null, previewSessionId: null, lifecycleToken: null, previewMode: null,
+      previewError: "internal host failure",
+    });
+    const handler = vi.fn();
+    window.addEventListener(QUICK_EDIT_APPLIED_EVENT_NAME, handler);
+    try {
+      render(<OpenClawMessage msg={quickEditMessage()} />);
+      fireEvent.click(screen.getByRole("button", { name: "Godkänn och genomför" }));
+      await waitFor(() => {
+        expect(screen.getByText(/Ändringen är sparad, men förhandsvisningen kunde inte starta/)).toBeTruthy();
+      });
+      expect(screen.queryByText(/Klart — ny version skapad/)).toBeNull();
+      expect(screen.queryByText("internal host failure")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Godkänn och genomför" })).toBeNull();
+      expect(quickEditMock).toHaveBeenCalledTimes(1);
+      expect(readQuickEditAppliedEventPayload(handler.mock.calls[0][0]))
+        .toMatchObject({ versionId: "v-2", previewError: "internal host failure" });
+    } finally {
+      window.removeEventListener(QUICK_EDIT_APPLIED_EVENT_NAME, handler);
+    }
+  });
   it("runs quickEditChatFiles with the active chat/version on approval and shows the result", async () => {
     grantQuickEdit();
     quickEditMock.mockResolvedValue({

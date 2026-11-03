@@ -147,6 +147,41 @@ beforeEach(() => {
 });
 
 describe("runWebsiteAudit Responses fallback", () => {
+  it("records latency and token breakdown without recording response or customer text", async () => {
+    const outputText = JSON.stringify({ company: "Private customer marker", audit_scores: { seo: 80 } });
+    const response = successfulResponse({ outputText, inputTokens: 400, outputTokens: 150, webSearchCalls: 2 });
+    responsesCreate.mockResolvedValueOnce({
+      ...response,
+      usage: {
+        ...response.usage,
+        input_tokens_details: { cached_tokens: 300 },
+        output_tokens_details: { reasoning_tokens: 50 },
+      },
+    });
+    expect((await runAdvanced()).ok).toBe(true);
+    const receipt = vi.mocked(console.info).mock.calls.find(
+      ([message]) => String(message).includes("Audit Responses attempt receipt"),
+    )?.[1];
+    expect(receipt).toMatchObject({
+      outcome: "completed", scrapeElapsedMs: expect.any(Number),
+      inputTokens: 400, cachedInputTokens: 300, outputTokens: 150,
+      reasoningTokens: 50, outputTextChars: outputText.length, webSearchCalls: 2,
+    });
+    expect(JSON.stringify(receipt)).not.toContain("Private customer marker");
+    expect(JSON.stringify(receipt)).not.toContain("example.com");
+    expect(receipt).not.toHaveProperty("response");
+    expect(receipt).not.toHaveProperty("usage");
+  });
+
+  it("does not report missing provider usage as measured zero tokens", async () => {
+    responsesCreate.mockResolvedValueOnce({ ...successfulResponse(), usage: undefined });
+    await runPublic();
+    const receipt = vi.mocked(console.info).mock.calls.find(
+      ([message]) => String(message).includes("Audit Responses attempt receipt"),
+    )?.[1];
+    expect(receipt).toMatchObject({ inputTokens: null, cachedInputTokens: null, outputTokens: null, reasoningTokens: null });
+  });
+
   it.each([
     { promptKind: "product", auditMode: "basic" },
     { promptKind: "product", auditMode: "advanced" },

@@ -152,6 +152,7 @@ export function usePreviewPanelInspectorActions({
           previewSessionId: result.previewSessionId,
           lifecycleToken: result.lifecycleToken,
           previewMode: result.previewMode,
+          ...(result.previewError ? { previewError: result.previewError } : {}),
         });
         return true;
       } catch {

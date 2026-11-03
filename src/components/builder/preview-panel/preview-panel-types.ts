@@ -103,6 +103,7 @@ export interface PreviewPanelProps {
     previewSessionId?: string | null;
     lifecycleToken?: string | null;
     previewMode?: string | null;
+    previewError?: string;
   }) => void;
   imageGenerationsEnabled?: boolean;
   imageGenerationsSupported?: boolean;
