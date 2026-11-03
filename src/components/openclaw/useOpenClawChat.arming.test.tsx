@@ -244,6 +244,49 @@ describe("useOpenClawChat — arming consent", () => {
     expect(state.armedContinuation).toBeNull();
   });
 
+  it.each(["Stopp. Det räcker.", "Stop now"])(
+    "disarms before returning from an active stream without a new provider call: %s",
+    async text => {
+      act(() => {
+        useOpenClawStore.setState({
+          isStreaming: true,
+          armedMandate: {
+            mode: "followups",
+            remaining: 2,
+            reason: "gör 2 follow-ups",
+            createdAt: Date.now() - 1000,
+          },
+          armedContinuation: {
+            chatId: "chat-1",
+            versionIdAtSend: "ver-1",
+            startedAt: Date.now(),
+            messageCountAtSend: 4,
+            sendSeq: 3,
+            sendOutcome: "started",
+            observedAt: Date.now() - 5000,
+            observedStrong: true,
+            resumedAt: null,
+            quietSince: Date.now() - 5000,
+          },
+        });
+      });
+      const { result } = renderHook(() => useOpenClawChat());
+      const onDispatchOutcome = vi.fn(() => {
+        const state = useOpenClawStore.getState();
+        expect(state.armedMandate).toBeNull();
+        expect(state.armedContinuation).toBeNull();
+      });
+
+      await act(async () => {
+        await result.current.send(text, { onDispatchOutcome });
+      });
+
+      expect(onDispatchOutcome).toHaveBeenCalledExactlyOnceWith("not-started");
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+      expect(useOpenClawStore.getState().isStreaming).toBe(true);
+    },
+  );
+
   it("arms three steps from the exact preview-repro phrase", async () => {
     const { result } = renderHook(() => useOpenClawChat());
 

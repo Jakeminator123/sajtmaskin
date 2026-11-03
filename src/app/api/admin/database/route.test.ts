@@ -87,6 +87,7 @@ vi.mock("@/lib/db/client", () => {
     if (condition.op === "and") return condition.conditions!.every((item: unknown) => matches(item, row));
     if (condition.op === "eq") return row[column] === condition.value;
     if (condition.op === "isNull") return row[column] == null;
+    if (condition.op === "inArray") return condition.values!.includes(row[column]);
     if (condition.op === "notInArray") return !condition.values!.includes(row[column]);
     if (condition.text?.includes("NOT EXISTS")) return !databaseState.ledger.some((entry) =>
       entry.user_id === row.id && (entry.stripe_session_id != null || entry.stripe_payment_intent != null || entry.idempotency_key != null));

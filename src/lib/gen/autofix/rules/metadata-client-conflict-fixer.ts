@@ -172,6 +172,59 @@ function hasMetadataExport(sourceFile: ts.SourceFile): boolean {
   );
 }
 
+function bindingContainsName(binding: ts.BindingName, name: string): boolean {
+  return ts.isIdentifier(binding) ? binding.text === name : binding.elements.some((element) =>
+    ts.isBindingElement(element) && bindingContainsName(element.name, name));
+}
+
+function hasValueParameterInScope(node: ts.Node, name: string): boolean {
+  for (let scope: ts.Node | undefined = node.parent; scope; scope = scope.parent) {
+    let signature = scope;
+    // A function expression's JSDoc can attach to its owning declaration.
+    if (ts.isJSDoc(scope)) {
+      const host = scope.parent;
+      const declaration = ts.isVariableStatement(host) && host.declarationList.declarations.length === 1
+        ? host.declarationList.declarations[0] : host;
+      if ((ts.isVariableDeclaration(declaration) || ts.isPropertyAssignment(declaration)) && declaration.initializer) {
+        signature = unwrapExpression(declaration.initializer);
+      }
+    }
+    if ((ts.isFunctionLike(signature) || ts.isJSDocFunctionType(signature)) &&
+        signature.parameters.some((parameter) => bindingContainsName(parameter.name, name))) return true;
+  }
+  return false;
+}
+
+function hasJSDocHookReference(sourceFile: ts.SourceFile, hookNames: ReadonlySet<string>): boolean {
+  let referenced = false;
+  const visitedComments = new Set<ts.JSDoc>();
+  const visitJSDoc = (node: ts.Node): void => {
+    if (referenced) return;
+    if (ts.isTypeQueryNode(node)) {
+      let binding = node.exprName;
+      while (ts.isQualifiedName(binding)) binding = binding.left;
+      // Runtime imports are used only by value queries, not pure type names.
+      // Type parameters do not shadow values; function parameters do.
+      if (ts.isIdentifier(binding) && hookNames.has(binding.text) &&
+          !hasValueParameterInScope(node, binding.text)) referenced = true;
+    }
+    if (!referenced) ts.forEachChild(node, visitJSDoc);
+  };
+  const visit = (node: ts.Node): void => {
+    if (referenced) return;
+    for (const doc of ts.getJSDocCommentsAndTags(node)) {
+      let comment: ts.Node = doc;
+      while (comment.parent && !ts.isJSDoc(comment)) comment = comment.parent;
+      if (!ts.isJSDoc(comment) || visitedComments.has(comment)) continue;
+      visitedComments.add(comment);
+      visitJSDoc(comment);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return referenced;
+}
+
 function needsUseClient(sourceFile: ts.SourceFile): boolean {
   const hookNames = new Set(CLIENT_HOOKS);
   const importedHooks: string[] = [];
@@ -206,6 +259,10 @@ function needsUseClient(sourceFile: ts.SourceFile): boolean {
   }
 
   if (importedHooks.length > 0) {
+    // JS JSDoc types need their bindings, and retaining a hook import without
+    // a client boundary fails Next's RSC transform. Keep that boundary instead.
+    if ((sourceFile.flags & ts.NodeFlags.JavaScriptFile) &&
+        hasJSDocHookReference(sourceFile, new Set(importedHooks))) return true;
     const usage = indexIdentifierUsage(sourceFile.text, sourceFile.fileName);
     for (const name of importedHooks) {
       const references = usage.usageOf(name);
@@ -321,6 +378,38 @@ function stripMetadataImport(code: string, filePath: string): string {
   return result;
 }
 
+function stripUnusedClientHookImports(code: string, filePath: string): string {
+  const sourceFile = createTsxSourceFile(filePath, code);
+  const usage = indexIdentifierUsage(code, filePath);
+  const printer = ts.createPrinter({ removeComments: false });
+  let result = code;
+  for (const statement of [...sourceFile.statements].reverse()) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier) ||
+        !HOOK_NAMESPACE_MODULES.has(statement.moduleSpecifier.text)) continue;
+    const clause = statement.importClause;
+    if (!clause || clause.isTypeOnly || !clause.namedBindings || !ts.isNamedImports(clause.namedBindings)) continue;
+    const remaining = clause.namedBindings.elements.filter((element) => {
+      if (element.isTypeOnly || !CLIENT_HOOKS.has((element.propertyName ?? element.name).text)) return true;
+      const references = usage.usageOf(element.name.text);
+      // JS preserves unused imports that Next's RSC validator still rejects.
+      // Keep type references and ambiguous bindings intact rather than break them.
+      return references.type > 0 || references.value > 0 || references.unknown > 0;
+    });
+    if (remaining.length === clause.namedBindings.elements.length) continue;
+    if (remaining.length === 0 && !clause.name) {
+      result = removeNode(result, sourceFile, statement);
+    } else {
+      const updated = ts.factory.updateImportDeclaration(statement, statement.modifiers,
+        ts.factory.updateImportClause(clause, clause.isTypeOnly, clause.name,
+          remaining.length ? ts.factory.updateNamedImports(clause.namedBindings, remaining) : undefined),
+        statement.moduleSpecifier, statement.attributes);
+      result = result.slice(0, statement.getStart(sourceFile)) +
+        printer.printNode(ts.EmitHint.Unspecified, updated, sourceFile) + result.slice(statement.end);
+    }
+  }
+  return result;
+}
+
 export function fixMetadataClientConflict(
   code: string,
   filePath: string,
@@ -332,7 +421,7 @@ export function fixMetadataClientConflict(
   }
 
   if (!needsUseClient(sourceFile)) {
-    const nextCode = removeNode(code, sourceFile, directive);
+    const nextCode = stripUnusedClientHookImports(removeNode(code, sourceFile, directive), filePath);
     return {
       code: nextCode,
       fixed: nextCode !== code,

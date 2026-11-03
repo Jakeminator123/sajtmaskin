@@ -47,7 +47,7 @@ const REVIEW_NEXT_RE = new RegExp(
 // about other objects ("stoppa buggar") do not revoke an existing mandate.
 const STOP_TARGET = String.raw`(?:med\s+)?(?:(?:dina|alla|pågående|aktuella|den\s+här|den\s+där)\s+)?(?:autonomin|mandatet|körningen|bygget|byggandet|arbetet|allt|det(?:\s+(?:här|där|du\s+gör))?|follow[\s-]?ups?|generera|generering(?:en)?|bygga|svara|generating|generation|building|running)`;
 const STOP_COMMAND_RE = new RegExp(
-  String.raw`^(?:(?:snälla|please)[,\s]+|(?:kan|vill)\s+du\s+)?${uWord("stopp|stoppa|sluta|avbryt|avsluta|stop|halt")}(?:\s+${STOP_TARGET})?(?:\s+efter\s+(?:detta|det\s+här)\s+steg)?(?:[,\s]+(?:nu|direkt|omedelbart|please|tack))*[,.!?。！？]*$`,
+  String.raw`^(?:(?:snälla|please)[,\s]+|(?:kan|vill)\s+du\s+)?${uWord("stopp|stoppa|sluta|avbryt|avsluta|stop|halt")}(?:\s+${STOP_TARGET})?(?:\s+efter\s+(?:detta|det\s+här)\s+steg)?(?:[,\s]+(?:nu|now|direkt|omedelbart|please|tack))*[,.!?。！？]*$`,
   "iu",
 );
 const STOP_NEGATION_RE = uWordRegex(String.raw`inte|aldrig|ej|don't|don’t|do\s+not|never|no`);
@@ -104,7 +104,11 @@ export function parseArmingDirective(text: string): ArmingDirective | null {
 export function parseStopDirective(text: string): boolean {
   if (typeof text !== "string") return false;
   const trimmed = text.normalize("NFC").trim();
-  return !STOP_NEGATION_RE.test(trimmed) && STOP_COMMAND_RE.test(trimmed);
+  // An explicit first stop sentence stands on its own ("Stopp. Det räcker.").
+  // Keep both the target and negation checks scoped to that sentence, so a
+  // later explanation ("Gör inte fler ändringar") cannot hide the stop.
+  const firstSentence = trimmed.split(/[.!](?:\s+|$)|[。！]/u, 1)[0];
+  return !STOP_NEGATION_RE.test(firstSentence) && STOP_COMMAND_RE.test(firstSentence);
 }
 
 /** Build a fresh mandate from an arming directive. */

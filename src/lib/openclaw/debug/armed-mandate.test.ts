@@ -79,6 +79,7 @@ describe("parseArmingDirective", () => {
 
   it("does NOT treat a stop message as an arming directive", () => {
     expect(parseArmingDirective("stopp")).toBeNull();
+    expect(parseArmingDirective("Stopp. Granska bara tidigare follow-ups.")).toBeNull();
   });
 });
 
@@ -93,6 +94,18 @@ describe("parseStopDirective", () => {
     for (const text of ["avsluta", "Avsluta nu", "halt", "halt please"]) {
       expect(parseStopDirective(text)).toBe(true);
     }
+  });
+
+  it.each([
+    "Stop now",
+    "Stopp. Det räcker.",
+    "Stop now. That is enough.",
+    "Snälla avbryt körningen nu! Det räcker.",
+    "Stopp. Gör inte fler ändringar.",
+    "Stopp!\nDet räcker.",
+    "Stopp。Det räcker。",
+  ])("recognizes a leading stop sentence followed by an explanation: %s", text => {
+    expect(parseStopDirective(text)).toBe(true);
   });
 
   it("ignores unrelated text", () => {
@@ -116,6 +129,19 @@ describe("parseStopDirective", () => {
     "don't stop generating",
     "Kan du förklara vad stop generating betyder?",
     "stop generating bugs",
+    "Sluta inte. Fortsätt gärna.",
+    "Stoppa buggar. Det räcker.",
+    'Jag skrev "stopp". Det räcker.',
+    '"stopp". Det räcker.',
+    "Stopp? Vad betyder det?",
+    "Stop now? What does that mean?",
+    "stopp.nu",
+    "Stopnow",
+    "Stop nowå",
+    "åStop now",
+    "Stoppa autonominå. Det räcker.",
+    "åstopp. Det räcker.",
+    "stoppå. Det räcker.",
   ])("does not cancel on a negation, mention or unrelated object: %s", text => {
     expect(parseStopDirective(text)).toBe(false);
   });

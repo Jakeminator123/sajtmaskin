@@ -65,9 +65,12 @@ async function deleteUsersExceptProtected(tx: DatabaseTransaction, actingAdminEm
   const keep = protectedUserEmails(actingAdminEmail);
   // Wait for in-flight credits/FK inserts before evaluating the next statement's
   // receipt predicate. Otherwise a concurrent receipt could be cascade-deleted.
-  await tx.select({ id: users.id }).from(users).for("update");
+  const lockedUsers = await tx.select({ id: users.id }).from(users).for("update");
+  if (lockedUsers.length === 0) return [];
   return tx.delete(users).where(and(
     keep.length > 0 ? notInArray(users.email, keep) : sql`true`,
+    // READ COMMITTED can see new users in DELETE; only these IDs hold our lock.
+    inArray(users.id, lockedUsers.map((user) => user.id)),
     sql`NOT EXISTS (SELECT 1 FROM transactions t WHERE t.user_id = ${users.id}
       AND (t.stripe_session_id IS NOT NULL OR t.stripe_payment_intent IS NOT NULL OR t.idempotency_key IS NOT NULL))`,
   )).returning({ id: users.id });

@@ -22,13 +22,53 @@ ${metadata}
 ${body}`;
 }
 
+function serverComponentOptions(extension: string) {
+  return {
+    filename: `app/page.${extension}`,
+    jsc: {
+      parser: extension === "tsx"
+        ? { syntax: "typescript", tsx: true }
+        : { syntax: "ecmascript", jsx: extension === "jsx" },
+      transform: { react: { runtime: "automatic" } },
+    },
+    serverComponents: {
+      isReactServerLayer: true,
+      cacheComponentsEnabled: false,
+      useCacheEnabled: false,
+      taintEnabled: false,
+      pageExtensions: [extension],
+    },
+  };
+}
+
+function checkJsDiagnostics(code: string, extension: string): readonly ts.Diagnostic[] {
+  const filePath = join(process.cwd(), `metadata-client-conflict-regression.${extension}`).replaceAll("\\", "/");
+  const options: ts.CompilerOptions = {
+    allowJs: true,
+    checkJs: true,
+    noEmit: true,
+    strict: true,
+    skipLibCheck: true,
+    target: ts.ScriptTarget.ES2020,
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Node10,
+    jsx: ts.JsxEmit.ReactJSX,
+    types: [],
+  };
+  const host = ts.createCompilerHost(options);
+  const getSourceFile = host.getSourceFile;
+  host.getSourceFile = (name, languageVersion, onError, shouldCreateNewSourceFile) => name === filePath
+    ? ts.createSourceFile(name, code, languageVersion, true, extension === "jsx" ? ts.ScriptKind.JSX : ts.ScriptKind.JS)
+    : getSourceFile(name, languageVersion, onError, shouldCreateNewSourceFile);
+  return ts.getPreEmitDiagnostics(ts.createProgram([filePath], options, host));
+}
+
 describe("fixMetadataClientConflict", () => {
   it.each([
     "// onClick will be added later\nexport default function Page() { return <main>Hello</main>; }",
     "/* useState and window.location are examples, not code. */\nexport default function Page() { return null; }",
     'const help = "onClick useState localStorage"; export default function Page() { return <main>{help}</main>; }',
     'export default function Page() { return <main title="onClick">useState window.location</main>; }',
-    'import { useState } from "react"; export default function Page() { return null; }',
     'import { useState } from "react"; const example = { useState: "example" }; type StateHook = typeof useState; export default function Page() { return <main>{example.useState}</main>; }',
     'type Example = { onClick: () => void }; export default function Page() { return null; }',
     'import * as React from "react"; type StateHook = typeof React.useState; const config = { useState: "label" }; export default function Page() { return React.createElement("main", null, config.useState); }',
@@ -49,6 +89,140 @@ describe("fixMetadataClientConflict", () => {
     expect(result.code).toContain('import type { Metadata } from "next";');
     expect(countParseErrors(result.code, "app/page.tsx")).toBe(0);
     expect(fixMetadataClientConflict(result.code, "app/page.tsx").fixed).toBe(false);
+  });
+
+  describe.each(["js", "jsx", "tsx"])("unused hook imports in .%s files", (extension) => {
+    const filePath = `app/page.${extension}`;
+    const options = serverComponentOptions(extension);
+
+    it.each([
+      ['import { useState } from "react";', 'import { createElement } from "react";', "useState"],
+      ['import { useState as state, createElement } from "react";', "", "state"],
+      ['import React, { useState as state } from "react";', 'import { createElement } from "react";', "state"],
+      ['import { useRouter as router } from "next/navigation";', 'import { createElement } from "react";', "router"],
+    ])("removes only the unused hook from %s before the real Next RSC transform", (hookImport, otherImport, unusedName) => {
+      const body = extension === "js"
+        ? 'createElement("main", null, "Hello")'
+        : '<main>{createElement("span", null, "Hello")}</main>';
+      const code = `"use client";
+${hookImport}
+${otherImport}
+export const metadata = { title: "Welcome" };
+export default function Page() { return ${body}; }`;
+      const invalidServer = code.replace('"use client";', "");
+      // TS erases unused imports before RSC validation; JS preserves them.
+      if (extension === "tsx") expect(() => transformSync(invalidServer, options)).not.toThrow();
+      else expect(() => transformSync(invalidServer, options)).toThrow(/useState|useRouter/);
+
+      const result = fixMetadataClientConflict(code, filePath);
+
+      expect(result.fixed).toBe(true);
+      expect(result.code).not.toContain('"use client"');
+      expect(result.code).not.toContain(unusedName);
+      expect(result.code).toContain('export const metadata = { title: "Welcome" };');
+      expect(result.code).toContain(body);
+      expect(result.code).toContain('import { createElement } from "react";');
+      if (hookImport.includes("import React,")) expect(result.code).toContain('import React from "react";');
+      expect(countParseErrors(result.code, filePath)).toBe(0);
+      expect(() => transformSync(result.code, options)).not.toThrow();
+      expect(fixMetadataClientConflict(result.code, filePath).fixed).toBe(false);
+    });
+
+    it("keeps a used aliased hook and the client boundary", () => {
+      const code = '"use client"; import { useState as state } from "react"; export const metadata = { title: "Welcome" }; export default function Page() { const [count] = state(0); return count; }';
+      expect(() => transformSync(code.replace('"use client";', ""), options)).toThrow(/useState/);
+
+      const result = fixMetadataClientConflict(code, filePath);
+
+      expect(result.code).toContain('"use client"');
+      expect(result.code).toContain('import { useState as state } from "react";');
+      expect(result.code).toContain("const [count] = state(0)");
+      expect(result.code).not.toContain("export const metadata");
+      expect(() => transformSync(result.code, options)).not.toThrow();
+    });
+  });
+
+  it("preserves a hook imported only for a TSX type reference through the real Next transform", () => {
+    const code = `"use client";
+import { useState as state, createElement } from "react";
+type StateHook = typeof state;
+export const metadata = { title: "Welcome" };
+export default function Page() { return createElement("main", null, "Hello"); }`;
+
+    const result = fixMetadataClientConflict(code, "app/page.tsx");
+
+    expect(result.code).not.toContain('"use client"');
+    expect(result.code).toContain('import { useState as state, createElement } from "react";');
+    expect(result.code).toContain("type StateHook = typeof state;");
+    expect(() => transformSync(result.code, serverComponentOptions("tsx"))).not.toThrow();
+  });
+
+  describe.each(["js", "jsx"])("JSDoc references to imported hook bindings in .%s", (extension) => {
+    it.each([
+      ['/** @type {typeof H | undefined} */', 'const hook = undefined;'],
+      ['/** @type {typeof H.name} */', 'const hook = "state";'],
+      ['/** @type {<H>(value: H) => typeof H.name} */', 'const hook = value => "state";'],
+    ])("keeps %s valid under checkJs and Next RSC", (annotation, declaration) => {
+      const body = extension === "js" ? 'createElement("main", null, "Hello")' : '<main>Hello</main>';
+      const code = `// @ts-check
+"use client";
+import { useState as H, createElement } from "react";
+${annotation}
+${declaration}
+export const metadata = { title: "Welcome" };
+export default function Page() { return ${body}; }`;
+      const diagnosticMessages = (source: string) => checkJsDiagnostics(source, extension)
+        .map((diagnostic) => `${diagnostic.code}: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, " ")}`);
+      expect(diagnosticMessages(code)).toEqual([]);
+      expect(checkJsDiagnostics(code.replace("useState as H, ", ""), extension)
+        .some((diagnostic) => diagnostic.code === 2304 || diagnostic.code === 2693)).toBe(true);
+      expect(() => transformSync(code.replace('"use client";', ""), serverComponentOptions(extension))).toThrow(/useState/);
+
+      const result = fixMetadataClientConflict(code, `app/page.${extension}`);
+
+      expect(result.code).toContain('"use client"');
+      expect(result.code).toContain('import { useState as H, createElement } from "react";');
+      expect(result.code).toContain(annotation);
+      expect(result.code).not.toContain("export const metadata");
+      expect(diagnosticMessages(result.code)).toEqual([]);
+      expect(() => transformSync(result.code, serverComponentOptions(extension))).not.toThrow();
+    });
+  });
+
+  describe.each(["js", "jsx"])("JSDoc names unrelated to hook bindings in .%s", (extension) => {
+    it.each([
+      ['/** @type {{H: string}} */', 'const config = { H: "label" };\nconst label = config.H;'],
+      ['/** @type {typeof api.H} */', 'const label = "label";'],
+      ['/** @type {<H>(value: H) => H} */', 'const identity = value => value;\nconst label = identity("label");'],
+      ['/** @type {{[H in "value"]: H}} */', 'const mapped = { value: "value" };\nconst label = mapped.value;'],
+      ['/** @type {"label" extends infer H ? H : never} */', 'const label = "label";'],
+      ['/** @type {(H: string) => typeof H} */', 'const identity = value => value;\nconst label = identity("label");'],
+      ['/**\n * @template H\n * @param {H} value\n * @returns {H}\n */', 'function identity(value) { return value; }\nconst label = identity("label");'],
+      ['/**\n * @template H\n * @param {H} value\n * @returns {H}\n */', 'function identity(value) {\n  /** @type {H} */\n  const result = value;\n  return result;\n}\nconst label = identity("label");'],
+    ])("preserves metadata for %s with valid checkJs and Next RSC output", (annotation, declaration) => {
+      const body = extension === "js" ? 'createElement("main", null, label)' : '<main>{label}</main>';
+      const code = `// @ts-check
+"use client";
+import { useState as H, createElement } from "react";
+const api = { H: "label" };
+${annotation}
+${declaration}
+export const metadata = { title: "Welcome" };
+export default function Page() { return ${body}; }`;
+      expect(checkJsDiagnostics(code, extension)).toEqual([]);
+      const serverCode = code.replace('"use client";', "").replace("useState as H, ", "");
+      expect(() => transformSync(serverCode, serverComponentOptions(extension))).not.toThrow();
+
+      const result = fixMetadataClientConflict(code, `app/page.${extension}`);
+
+      expect(result.code).not.toContain('"use client"');
+      expect(result.code).not.toContain("useState as H");
+      expect(result.code).toContain(annotation);
+      expect(result.code).toContain(declaration);
+      expect(result.code).toContain('export const metadata = { title: "Welcome" };');
+      expect(checkJsDiagnostics(result.code, extension)).toEqual([]);
+      expect(() => transformSync(result.code, serverComponentOptions(extension))).not.toThrow();
+    });
   });
 
   it.each([
