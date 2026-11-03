@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "9ab7e4a76",
+    "commit": "6ef4e46b7",
     "commitDate": "2026-11-03",
     "sinceDays": 14
   },
@@ -71,8 +71,8 @@ const DATA: CanvasData = {
     "processes": 8,
     "openP0": 0,
     "openP1": 17,
-    "openP2": 30,
-    "openP3": 3,
+    "openP2": 31,
+    "openP3": 2,
     "blocked": 1,
     "shaky": 5,
     "evalExactHitPct": null
@@ -189,11 +189,11 @@ const DATA: CanvasData = {
       "openByPrio": {
         "P0": 0,
         "P1": 17,
-        "P2": 30,
-        "P3": 3,
+        "P2": 31,
+        "P3": 2,
         "other": 0
       },
-      "churn": 5,
+      "churn": 6,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "BLOCKER: `SM-092` Resend nekade verifieringsmejl i prod med 403 «domain is not verified»; då kan e…"
     },
@@ -210,9 +210,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 2,
+      "churn": 3,
       "summary": "Backoffice-yta för den canonicala evalen (`npm run eval`). Ett läge (gratis / smoke / full), en knapp. Scaffold-lanen läser senaste lokala JSON-rapport. Codegen-lanen läser data/ev",
-      "note": "2 commits / 14d"
+      "note": "3 commits / 14d"
     }
   ],
   "shaky": [
@@ -253,6 +253,12 @@ const DATA: CanvasData = {
       "blocker": true,
       "kind": "blocker",
       "fynd": "`SM-092` Resend nekade verifieringsmejl i prod med 403 «domain is not verified»; då kan en nyregistrerad inte…"
+    },
+    {
+      "prio": "P2",
+      "blocker": true,
+      "kind": "blocker",
+      "fynd": "`SM-131` Negerat eller omnämnt stopp feltolkas som order att avbryta agentmandatet. Svärm 2026-11-03 `M10`."
     },
     {
       "prio": "P1",
@@ -313,15 +319,9 @@ const DATA: CanvasData = {
       "blocker": false,
       "kind": "open",
       "fynd": "`SM-111` Okända serverfel exponerar rå feltext via SSE/logg. Svärm 2026-11-03 `A19`."
-    },
-    {
-      "prio": "P1",
-      "blocker": false,
-      "kind": "open",
-      "fynd": "`SM-112` JWT-signering tillåter tom nyckel vid saknad serverkonfiguration. Svärm 2026-11-03 `B1`."
     }
   ],
-  "topOpenRisksOmitted": 35,
+  "topOpenRisksOmitted": 36,
   "evals": null,
   "phases": [
     "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",
