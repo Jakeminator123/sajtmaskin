@@ -28,9 +28,12 @@ export function reconcileCanonicalPreviewParts(parts: ToolPart[], context: {
   let changed = false;
   const reconciled = parts.map((part) => {
     const tool = part.tool;
-    if (tool.type !== "tool:engine-preview" || tool.state !== "input-streaming") return part;
-    const output = tool.output && typeof tool.output === "object"
-      ? tool.output as Record<string, unknown>
+    // message-adapter preserves legacy `tool:` transport names despite the SDK's `tool-` type.
+    if (String(tool.type) !== "tool:engine-preview" || tool.state !== "input-streaming") return part;
+    // Legacy progress carries output during input-streaming; the SDK union excludes it.
+    const transportOutput = (tool as { output?: unknown }).output;
+    const output = transportOutput && typeof transportOutput === "object"
+      ? transportOutput as Record<string, unknown>
       : null;
     if (
       !output || output.chatId !== canonical.chatId || output.versionId !== canonical.versionId ||
@@ -83,7 +86,7 @@ export function hasGenerationWarnings(toolParts: ToolPart[]): boolean {
   return toolParts.some(({ tool }) => {
     if (tool.state === "output-error") return true;
     if (tool.state !== "output-available") return false;
-    if (tool.type === "tool:engine-preview" && tool.output && typeof tool.output === "object" &&
+    if (String(tool.type) === "tool:engine-preview" && tool.output && typeof tool.output === "object" &&
       (tool.output as Record<string, unknown>).canonicalStatus === "degraded") return true;
     const { toolType } = resolveToolLabels(tool);
     const { postCheck, qualityGate, liveReview } = extractToolSummaries(toolType, tool.output);

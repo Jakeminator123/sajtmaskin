@@ -98,4 +98,17 @@ export default function Page() { return <main>Hello</main>; }`;
     expect(fixed).toContain("<button {...attrs}>");
     expect(countParseErrors(fixed, "app/page.tsx")).toBe(0);
   });
+
+  it.each([
+    'import * as React from "react"; export default function Page() { return React.createElement("button", { onClick: () => {} }, "Save"); }',
+    'import React from "react"; const { createElement: element } = React; export default function Page() { return element("button", { onClick: () => {} }, "Save"); }',
+  ])("B22: retains the client boundary for createElement handler props: %s", async (body) => {
+    const result = await runAutoFix(file(`"use client"; export const metadata = { title: "test" }; ${body}`), { previewPolicy: "fidelity2" });
+    const fixed = bodyOf(result.fixedContent);
+
+    expect(fixed).toContain('"use client"');
+    expect(fixed).not.toContain("export const metadata");
+    expect(fixed).toContain(body);
+    expect(countParseErrors(fixed, "app/page.tsx")).toBe(0);
+  });
 });

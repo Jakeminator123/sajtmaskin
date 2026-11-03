@@ -37,7 +37,7 @@ describe("canonical preview reconciliation", () => {
 
   it("does not settle an unbound legacy preview or other active tools", () => {
     const unbound = { ...pending, tool: { ...pending.tool, output: { phase: "starting" } } } as ToolPart;
-    const generation = { ...pending, tool: { ...pending.tool, type: "tool:engine-generation" } } as ToolPart;
+    const generation = { ...pending, tool: { ...pending.tool, type: "tool:engine-generation" } } as unknown as ToolPart;
     const parts = reconcileCanonicalPreviewParts([unbound, generation], context);
     expect(parts[0]).toBe(unbound);
     expect(parts[1]).toBe(generation);

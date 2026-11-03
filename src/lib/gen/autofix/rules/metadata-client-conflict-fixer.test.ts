@@ -36,6 +36,9 @@ describe("fixMetadataClientConflict", () => {
     'import * as React from "react"; const names = { React: "label" }; type API = typeof React; export type { React }; export default function Page() { return <main>{names.React}</main>; }',
     'import React from "react"; const UI = React; const { createElement: element, Fragment } = UI; // const hooks = { React }; select(React);\nconst example = "select(React)"; export default function Page() { return element(Fragment, null, example); }',
     'type Props = { onClick?: () => void }; // Event handlers may be added later.\nexport default function Page() { return <button {...{ title: "onClick", style: { color: "red" }, ...{ type: "button" } }}>Save</button>; }',
+    'import { createElement as element } from "react"; export default function Page() { return element("main", null, "onClick"); }',
+    'import React from "react"; const element = React.createElement; export default function Page() { return element("main", (null), "onClick"); }',
+    'import React from "react"; const element = React.createElement; const factory = element; export default function Page() { return factory("main", { title: "onClick", style: { color: "red" } }, "Save"); }',
   ])("preserves metadata when only comments, text, types or unused imports mention client APIs: %s", (body) => {
     const result = fixMetadataClientConflict(page(body), "app/page.tsx");
 
@@ -68,6 +71,15 @@ describe("fixMetadataClientConflict", () => {
     'export default function Page() { const attrs = { onClick: () => {} }; return <button {...attrs}>Save</button>; }',
     'export default function Page() { return <button {...{ onClick: () => {} }}>Save</button>; }',
     'export default function Page({ attrs }: { attrs: Record<string, unknown> }) { return <button {...attrs}>Save</button>; }',
+    'import * as React from "react"; export default function Page() { return React.createElement("button", { onClick: () => {} }, "Save"); }',
+    'import { createElement as element } from "react"; export default function Page() { return element("button", { onClick: () => {} }, "Save"); }',
+    'import React from "react"; const element = React.createElement; export default function Page() { return element("button", { onClick: () => {} }, "Save"); }',
+    'import React from "react"; const { createElement: element } = React; export default function Page() { return element("button", { onClick: () => {} }, "Save"); }',
+    'import React from "react"; export default function Page() { const attrs = { onClick: () => {} }; return React.createElement("button", attrs, "Save"); }',
+    'import React from "react"; export default function Page() { return React["createElement"]("button", { onClick: () => {} }, "Save"); }',
+    'import React from "react"; export default function Page() { return React.createElement.call(null, "button", { onClick: () => {} }, "Save"); }',
+    'import React from "react"; const factories = { element: React.createElement }; export default function Page() { return factories.element("button", { onClick: () => {} }, "Save"); }',
+    'import { createElement as element } from "react"; const wrap = (factory: typeof element) => factory; const factory = wrap(element); export default function Page() { return factory("button", { onClick: () => {} }, "Save"); }',
   ])("keeps client execution and removes the actual nested metadata declaration: %s", (body) => {
     const result = fixMetadataClientConflict(page(body), "app/page.tsx");
 
@@ -202,8 +214,14 @@ export default function Page() { return <button onClick={() => {}}>Hello</button
     expect(countParseErrors(result.code, "app/page.tsx")).toBe(0);
   });
 
-  it("protects a spread handler that the real Next RSC serializer rejects in a server component", () => {
-    const code = page('export default function Page() { const attrs = { onClick: () => {} }; return <button {...attrs}>Save</button>; }');
+  it.each([
+    'export default function Page() { const attrs = { onClick: () => {} }; return <button {...attrs}>Save</button>; }',
+    'import * as React from "react"; export default function Page() { return React.createElement("button", { onClick: () => {} }, "Save"); }',
+    'import { createElement as element } from "react"; export default function Page() { return element("button", { onClick: () => {} }, "Save"); }',
+    'import React from "react"; const element = React.createElement; export default function Page() { return element("button", { onClick: () => {} }, "Save"); }',
+    'import React from "react"; const { createElement: element } = React; export default function Page() { return element("button", { onClick: () => {} }, "Save"); }',
+  ])("protects handler props that the real Next RSC serializer rejects in a server component: %s", (body) => {
+    const code = page(body);
     const invalidServer = code.replace('"use client";', "");
     const script = `
       const ts = require("typescript");
@@ -233,7 +251,7 @@ export default function Page() { return <button onClick={() => {}}>Hello</button
 
     expect(result.code).toContain('"use client"');
     expect(result.code).not.toContain("export const metadata");
-    expect(result.code).toContain("<button {...attrs}>");
+    expect(result.code).toContain(body);
     expect(countParseErrors(result.code, "app/page.tsx")).toBe(0);
   });
 });

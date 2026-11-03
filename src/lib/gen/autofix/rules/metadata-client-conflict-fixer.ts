@@ -43,7 +43,21 @@ function isHookNamespace(expression: ts.Expression, namespaces: ReadonlySet<stri
   return false;
 }
 
-function collectNamespaceAliases(sourceFile: ts.SourceFile, namespaces: Set<string>): void {
+function isCreateElementFactory(
+  expression: ts.Expression,
+  namespaces: ReadonlySet<string>,
+  factories: ReadonlySet<string>,
+): boolean {
+  const value = unwrapExpression(expression);
+  if (ts.isIdentifier(value)) return factories.has(value.text);
+  if (ts.isPropertyAccessExpression(value) && value.name.text === "createElement") {
+    return isHookNamespace(value.expression, namespaces);
+  }
+  return ts.isElementAccessExpression(value) && ts.isStringLiteral(value.argumentExpression) &&
+    value.argumentExpression.text === "createElement" && isHookNamespace(value.expression, namespaces);
+}
+
+function collectNamespaceAliases(sourceFile: ts.SourceFile, namespaces: Set<string>, factories: Set<string>): void {
   const declarations: ts.VariableDeclaration[] = [];
   const visit = (node: ts.Node): void => {
     if (ts.isTypeNode(node) || ts.isImportDeclaration(node)) return;
@@ -54,13 +68,17 @@ function collectNamespaceAliases(sourceFile: ts.SourceFile, namespaces: Set<stri
 
   let previousSize: number;
   do {
-    previousSize = namespaces.size;
+    previousSize = namespaces.size + factories.size;
     for (const declaration of declarations) {
+      if (declaration.initializer && ts.isIdentifier(declaration.name) &&
+          isCreateElementFactory(declaration.initializer, namespaces, factories)) factories.add(declaration.name.text);
       if (!declaration.initializer || !isHookNamespace(declaration.initializer, namespaces)) continue;
       if (ts.isIdentifier(declaration.name)) {
         namespaces.add(declaration.name.text);
       } else if (ts.isObjectBindingPattern(declaration.name)) {
         for (const element of declaration.name.elements) {
+          if (ts.isIdentifier(element.name) &&
+              memberName(element.propertyName ?? element.name) === "createElement") factories.add(element.name.text);
           if (ts.isIdentifier(element.name) &&
               (element.dotDotDotToken || (element.propertyName && memberName(element.propertyName) === "default"))) {
             namespaces.add(element.name.text);
@@ -68,11 +86,11 @@ function collectNamespaceAliases(sourceFile: ts.SourceFile, namespaces: Set<stri
         }
       }
     }
-  } while (namespaces.size !== previousSize);
+  } while (namespaces.size + factories.size !== previousSize);
 }
 
-/** Whether a namespace value leaves the member reads and local aliases we analyse. */
-function namespaceEscapesAnalysis(expression: ts.Expression): boolean {
+/** Whether a namespace/factory value leaves the safe forms we analyse. */
+function namespaceEscapesAnalysis(expression: ts.Expression, factory = false): boolean {
   let reference: ts.Node = expression;
   while (reference.parent &&
          (ts.isParenthesizedExpression(reference.parent) || ts.isAsExpression(reference.parent) ||
@@ -80,11 +98,12 @@ function namespaceEscapesAnalysis(expression: ts.Expression): boolean {
           ts.isSatisfiesExpression(reference.parent))) reference = reference.parent;
   const parent = reference.parent;
   if (!parent) return true;
+  if (factory && ts.isCallExpression(parent) && parent.expression === reference) return false;
 
   // Member receivers are inspected separately. A member/property name is not a
   // read of the imported binding, even if it has the same spelling.
-  if (ts.isPropertyAccessExpression(parent)) return false;
-  if (ts.isElementAccessExpression(parent) && parent.expression === reference) return false;
+  if (ts.isPropertyAccessExpression(parent)) return factory && parent.expression === reference;
+  if (ts.isElementAccessExpression(parent) && parent.expression === reference) return factory;
   if ((ts.isPropertyAssignment(parent) || ts.isPropertyDeclaration(parent) || ts.isPropertySignature(parent) ||
        ts.isMethodDeclaration(parent) || ts.isMethodSignature(parent) || ts.isEnumMember(parent) ||
        ts.isJsxAttribute(parent)) && parent.name === reference) return false;
@@ -157,6 +176,7 @@ function needsUseClient(sourceFile: ts.SourceFile): boolean {
   const hookNames = new Set(CLIENT_HOOKS);
   const importedHooks: string[] = [];
   const hookNamespaces = new Set<string>();
+  const createElementFactories = new Set<string>();
   for (const statement of sourceFile.statements) {
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
     if (!statement.importClause?.isTypeOnly && statement.moduleSpecifier.text === "framer-motion") return true;
@@ -173,13 +193,17 @@ function needsUseClient(sourceFile: ts.SourceFile): boolean {
     }
     if (!bindings || !ts.isNamedImports(bindings)) continue;
     for (const element of bindings.elements) {
+      if (!element.isTypeOnly && statement.moduleSpecifier.text === "react" &&
+          (element.propertyName ?? element.name).text === "createElement") createElementFactories.add(element.name.text);
       if (!element.isTypeOnly && CLIENT_HOOKS.has((element.propertyName ?? element.name).text)) {
         hookNames.add(element.name.text);
         importedHooks.push(element.name.text);
       }
     }
   }
-  if (hookNamespaces.size > 0) collectNamespaceAliases(sourceFile, hookNamespaces);
+  if (hookNamespaces.size > 0 || createElementFactories.size > 0) {
+    collectNamespaceAliases(sourceFile, hookNamespaces, createElementFactories);
+  }
 
   if (importedHooks.length > 0) {
     const usage = indexIdentifierUsage(sourceFile.text, sourceFile.fileName);
@@ -197,6 +221,9 @@ function needsUseClient(sourceFile: ts.SourceFile): boolean {
     if (needed || ts.isTypeNode(node) || ts.isImportDeclaration(node) ||
         (ts.isExportDeclaration(node) && node.isTypeOnly) || (ts.isExportSpecifier(node) && node.isTypeOnly)) return;
     if ((ts.isIdentifier(node) || ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) &&
+        isCreateElementFactory(node, hookNamespaces, createElementFactories) && namespaceEscapesAnalysis(node, true)) {
+      needed = true;
+    } else if ((ts.isIdentifier(node) || ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) &&
         isHookNamespace(node, hookNamespaces) && namespaceEscapesAnalysis(node)) {
       needed = true;
     } else if (ts.isJsxSpreadAttribute(node) && !isStaticSpreadValue(node.expression, true)) {
@@ -220,7 +247,11 @@ function needsUseClient(sourceFile: ts.SourceFile): boolean {
       });
     } else if (ts.isCallExpression(node)) {
       const callee = node.expression;
-      if ((ts.isIdentifier(callee) && hookNames.has(callee.text)) ||
+      const props = node.arguments[1] && unwrapExpression(node.arguments[1]);
+      if (isCreateElementFactory(callee, hookNamespaces, createElementFactories) &&
+          (node.arguments.some(ts.isSpreadElement) ||
+           (props && props.kind !== ts.SyntaxKind.NullKeyword && !isStaticSpreadValue(props, true)))) needed = true;
+      else if ((ts.isIdentifier(callee) && hookNames.has(callee.text)) ||
           (ts.isPropertyAccessExpression(callee) && CLIENT_HOOKS.has(callee.name.text))) needed = true;
     } else if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) &&
                ts.isIdentifier(node.expression) && BROWSER_GLOBALS.has(node.expression.text)) {
