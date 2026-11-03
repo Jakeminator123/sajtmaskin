@@ -41,7 +41,9 @@ function branchMatches(branch, pattern) {
 
 export function validateHotfixDestination(ref, protectedPatterns = []) {
   const branch = typeof ref === "string" && ref.startsWith("refs/heads/") ? ref.slice(11) : "";
-  if (!branch || /[\x00-\x20\x7f~^:?*\[\\]/.test(branch) || branch.includes("..") || branch.includes("@{") ||
+  if (!branch || /[\x00-\x20\x7f~^:?*\[\\]/.test(branch) ||
+      branch.includes("..") || // traversal-substring-allow: git check-ref-format forbids consecutive dots anywhere in a ref name.
+      branch.includes("@{") ||
       branch.split("/").some((part) => !part || part.startsWith(".") || part.endsWith(".") || part.endsWith(".lock")) ||
       ["master", "main", "preview", "*BRA*", "rescue/*", ...protectedPatterns].some((pattern) => branchMatches(branch, pattern)))
     throw new Error("Hotfix destination must be one valid, unprotected feature branch ref.");
