@@ -62,7 +62,14 @@ export async function handleSseStream(
     step: string,
     phase: string,
     payload: Record<string, unknown> = {},
-  ) => appendProgressPart(ctx.setMessages, ctx.assistantMessageId, step, phase, payload);
+  ) => appendProgressPart(ctx.setMessages, ctx.assistantMessageId, step, phase, {
+    ...payload,
+    ...(step === "preview" ? {
+      chatId: payload.chatId ?? state.chatIdFromStream ?? ctx.chatId,
+      versionId: payload.versionId ?? state.versionIdFromStream,
+      assistantMessageId: ctx.assistantMessageId,
+    } : {}),
+  });
 
   const { requestStreamingTextFlush, flushStreamingTextNow } = createStreamingTextBatcher({
     setMessages: (next) => {

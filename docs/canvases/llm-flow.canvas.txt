@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "e4f8c1f60",
+    "commit": "9ab7e4a76",
     "commitDate": "2026-11-03",
     "sinceDays": 14
   },
@@ -71,7 +71,7 @@ const DATA: CanvasData = {
     "processes": 8,
     "openP0": 0,
     "openP1": 17,
-    "openP2": 29,
+    "openP2": 30,
     "openP3": 3,
     "blocked": 1,
     "shaky": 5,
@@ -91,7 +91,7 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 3,
+      "churn": 4,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
       "note": "1 oppna backlog-rader (P0:0 P1:1 P2:0 P3:0)"
     },
@@ -108,7 +108,7 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 1,
+      "churn": 2,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
       "note": "7 oppna backlog-rader (P0:0 P1:0 P2:7 P3:0)"
     },
@@ -142,7 +142,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 4,
+      "churn": 5,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
       "note": "5 oppna backlog-rader (P0:0 P1:0 P2:4 P3:1)"
     },
@@ -176,24 +176,24 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 5,
+      "churn": 6,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "Aktiv: 5 commits / 14d"
+      "note": "Aktiv: 6 commits / 14d"
     },
     {
       "name": "Preview och versioner",
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 49,
+      "openBugs": 50,
       "openByPrio": {
         "P0": 0,
         "P1": 17,
-        "P2": 29,
+        "P2": 30,
         "P3": 3,
         "other": 0
       },
-      "churn": 4,
+      "churn": 5,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "BLOCKER: `SM-092` Resend nekade verifieringsmejl i prod med 403 «domain is not verified»; då kan e…"
     },
@@ -321,7 +321,7 @@ const DATA: CanvasData = {
       "fynd": "`SM-112` JWT-signering tillåter tom nyckel vid saknad serverkonfiguration. Svärm 2026-11-03 `B1`."
     }
   ],
-  "topOpenRisksOmitted": 34,
+  "topOpenRisksOmitted": 35,
   "evals": null,
   "phases": [
     "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",

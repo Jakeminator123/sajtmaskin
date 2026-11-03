@@ -22,6 +22,7 @@ Svärmens A/B/M-ID:n med detta datum är skilda från äldre `A#`-referenser.
 
 Fixpass samma dag: **36 av 37 fynd har lokala kodfixar**, riktade regressionsprov
 och tre oberoende granskningspaket. `SM-080`/M03:s browser-origin återstår.
+Det separata byggkortsfyndet `SM-132` är också rättat lokalt och oberoende återprovat.
 Statusen gäller fixgrenen `codex/verified-bugfixes-20261103`, inte en levererad
 commit. Inga rader arkiveras eller bockas av innan respektive leverans är bevisad.
 
@@ -33,7 +34,7 @@ Regler:
   `Under rättning` och `Lokal kodfix` (ännu inte levererad).
 - Kodfix på både preview och master flyttas till `Arkiv` med bevis. Kodfix bara
   på preview stannar i kön tills promote.
-- Varje aktiv rad har ett stabilt `SM-###`. Nästa lediga ID är `SM-132`.
+- Varje aktiv rad har ett stabilt `SM-###`. Nästa lediga ID är `SM-133`.
 - En draft-PR är inte en fix. Kolumnen «Bevis på `master`» anger alltid vilken
   gren beviset gäller.
 
@@ -92,6 +93,7 @@ Regler:
 | [ ] | Lokal kodfix | P2 | `SM-129` Dubbel avkodning av företagsnamn med procenttecken kraschar rendering. Svärm 2026-11-03 `B27`. | Master `63dbb9ed2` och preview `e4f8c1f6`: `src/lib/entry/use-entry-params.ts`; lokal reproduktion 2026-11-03. | Riktade regressionsprov och oberoende granskning gröna; PR/CI och leverans till preview/master återstår före avbockning. |
 | [ ] | Lokal kodfix | P2 | `SM-130` PDF-extraktion anropar pdf-parse v2 som v1-funktion och ger 422. Svärm 2026-11-03 `M07`. | Master `63dbb9ed2` och preview `e4f8c1f6`: `src/app/api/text/extract/route.ts`; lokal reproduktion 2026-11-03. | Riktade regressionsprov och oberoende granskning gröna; PR/CI och leverans till preview/master återstår före avbockning. |
 | [ ] | Lokal kodfix | P3 | `SM-131` Negerat eller omnämnt stopp feltolkas som order att avbryta agentmandatet. Svärm 2026-11-03 `M10`. | Master `63dbb9ed2` och preview `e4f8c1f6`: `src/lib/openclaw/debug/armed-mandate.ts`; lokal reproduktion 2026-11-03. | Riktade regressionsprov och oberoende granskning gröna; PR/CI och leverans till preview/master återstår före avbockning. |
+| [ ] | Lokal kodfix | P2 | `SM-132` Byggkort visar fortsatt previewarbete efter avslutad eller avbruten SSE trots att samma version har kanonisk terminalstatus. Separat observation 2026-11-03. | Reproducerat mot previewbas `e4f8c1f6` och fixarbetsytan: `done` följt av `preview/starting` och EOF/abort ger aktivt kort även efter statusrefresh till `ready`. Riktig SSE-parser, MessageList-render och versionsstatushook i två lokala reproduktioner. Screenshotens faktiska körning är inte verifierad. | Matchad chat/version/tur använder kanonisk terminalstatus; EOF/abort skapar aldrig `ready`. 130 riktade tester och 12 oberoende SSE/renderprov gröna, inklusive senare Sajtagentfråga och fel identitet. Historiska delar utan säker bindning lämnas orörda. PR/CI och leverans återstår. |
 
 MVP före öppen lansering: `SM-080` (isolering) är spärren; `SM-092` måste
 kontrolleras live. `SM-096`, `SM-097` och `SM-077` gäller kod som bara finns på

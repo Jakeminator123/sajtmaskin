@@ -71,6 +71,65 @@ function collectNamespaceAliases(sourceFile: ts.SourceFile, namespaces: Set<stri
   } while (namespaces.size !== previousSize);
 }
 
+/** Whether a namespace value leaves the member reads and local aliases we analyse. */
+function namespaceEscapesAnalysis(expression: ts.Expression): boolean {
+  let reference: ts.Node = expression;
+  while (reference.parent &&
+         (ts.isParenthesizedExpression(reference.parent) || ts.isAsExpression(reference.parent) ||
+          ts.isTypeAssertionExpression(reference.parent) || ts.isNonNullExpression(reference.parent) ||
+          ts.isSatisfiesExpression(reference.parent))) reference = reference.parent;
+  const parent = reference.parent;
+  if (!parent) return true;
+
+  // Member receivers are inspected separately. A member/property name is not a
+  // read of the imported binding, even if it has the same spelling.
+  if (ts.isPropertyAccessExpression(parent)) return false;
+  if (ts.isElementAccessExpression(parent) && parent.expression === reference) return false;
+  if ((ts.isPropertyAssignment(parent) || ts.isPropertyDeclaration(parent) || ts.isPropertySignature(parent) ||
+       ts.isMethodDeclaration(parent) || ts.isMethodSignature(parent) || ts.isEnumMember(parent) ||
+       ts.isJsxAttribute(parent)) && parent.name === reference) return false;
+  if (ts.isBindingElement(parent) && (parent.name === reference || parent.propertyName === reference)) return false;
+  if ((ts.isFunctionDeclaration(parent) || ts.isFunctionExpression(parent) || ts.isClassDeclaration(parent) ||
+       ts.isClassExpression(parent) || ts.isParameter(parent) || ts.isTypeAliasDeclaration(parent) ||
+       ts.isInterfaceDeclaration(parent) || ts.isEnumDeclaration(parent) || ts.isTypeParameterDeclaration(parent)) &&
+      parent.name === reference) return false;
+
+  if (ts.isVariableDeclaration(parent)) {
+    if (parent.name === reference) return false;
+    if (parent.initializer !== reference) return true;
+    const statement = parent.parent.parent;
+    if (ts.isVariableStatement(statement) && isExported(statement)) return true;
+    if (ts.isIdentifier(parent.name)) return false;
+    // Flat object destructuring is inspected separately; nested patterns and
+    // other consumers can conceal a hook, so keep their explicit client boundary.
+    if (ts.isObjectBindingPattern(parent.name) &&
+        parent.name.elements.every((element) => ts.isIdentifier(element.name))) return false;
+  }
+
+  // Arguments, object/array values, shorthand properties, assignments, returns,
+  // and re-exports can hand the namespace to code outside this local analysis.
+  return true;
+}
+
+function isStaticSpreadValue(expression: ts.Expression, props = false): boolean {
+  const value = unwrapExpression(expression);
+  if (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value) || ts.isNumericLiteral(value) ||
+      value.kind === ts.SyntaxKind.TrueKeyword || value.kind === ts.SyntaxKind.FalseKeyword ||
+      value.kind === ts.SyntaxKind.NullKeyword) return !props;
+  if (ts.isArrayLiteralExpression(value)) {
+    return !props && value.elements.every((element) =>
+      !ts.isSpreadElement(element) && !ts.isOmittedExpression(element) && isStaticSpreadValue(element));
+  }
+  if (!ts.isObjectLiteralExpression(value)) return false;
+  return value.properties.every((property) => {
+    if (ts.isSpreadAssignment(property)) return isStaticSpreadValue(property.expression, props);
+    if (!ts.isPropertyAssignment(property)) return false;
+    const name = memberName(property.name);
+    if (name === undefined || (props && /^on[A-Z]/.test(name))) return false;
+    return isStaticSpreadValue(property.initializer);
+  });
+}
+
 function findClientDirective(sourceFile: ts.SourceFile): ts.ExpressionStatement | undefined {
   for (const statement of sourceFile.statements) {
     if (!ts.isExpressionStatement(statement) || !ts.isStringLiteral(statement.expression)) break;
@@ -135,8 +194,16 @@ function needsUseClient(sourceFile: ts.SourceFile): boolean {
 
   let needed = false;
   const visit = (node: ts.Node): void => {
-    if (needed || ts.isTypeNode(node) || ts.isImportDeclaration(node)) return;
-    if (ts.isJsxAttribute(node) && /^on[A-Z]/.test(node.name.getText(sourceFile))) {
+    if (needed || ts.isTypeNode(node) || ts.isImportDeclaration(node) ||
+        (ts.isExportDeclaration(node) && node.isTypeOnly) || (ts.isExportSpecifier(node) && node.isTypeOnly)) return;
+    if ((ts.isIdentifier(node) || ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) &&
+        isHookNamespace(node, hookNamespaces) && namespaceEscapesAnalysis(node)) {
+      needed = true;
+    } else if (ts.isJsxSpreadAttribute(node) && !isStaticSpreadValue(node.expression, true)) {
+      // A spread can carry handlers even when no on* attribute appears in JSX.
+      // Only wholly static literal props prove that removing the boundary is safe.
+      needed = true;
+    } else if (ts.isJsxAttribute(node) && /^on[A-Z]/.test(node.name.getText(sourceFile))) {
       needed = true;
     } else if (ts.isPropertyAccessExpression(node) && CLIENT_HOOKS.has(node.name.text) &&
                isHookNamespace(node.expression, hookNamespaces)) {

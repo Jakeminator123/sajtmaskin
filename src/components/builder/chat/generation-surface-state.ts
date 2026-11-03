@@ -1,5 +1,56 @@
 import { extractToolSummaries, resolveToolLabels } from "./tooling/output-parsers";
 import type { ToolPart } from "./tooling/types";
+import type { VersionDisplayStatus } from "@/lib/builder/version-status-display";
+
+export type CanonicalGenerationStatus = {
+  chatId: string;
+  versionId: string;
+  status: VersionDisplayStatus;
+  isLatest: boolean;
+};
+
+/** Project a terminal verdict onto abandoned preview work, never onto other work. */
+export function reconcileCanonicalPreviewParts(parts: ToolPart[], context: {
+  chatId: string | null;
+  versionId: string | null;
+  messageId: string;
+  isStreaming: boolean;
+  isCurrentTurn: boolean;
+  canonical: CanonicalGenerationStatus | null;
+}): ToolPart[] {
+  const { canonical } = context;
+  if (
+    !canonical || !canonical.isLatest || context.isStreaming || !context.isCurrentTurn ||
+    canonical.chatId !== context.chatId || canonical.versionId !== context.versionId ||
+    !["ready", "promoted", "degraded", "failed", "blocked"].includes(canonical.status)
+  ) return parts;
+
+  let changed = false;
+  const reconciled = parts.map((part) => {
+    const tool = part.tool;
+    if (tool.type !== "tool:engine-preview" || tool.state !== "input-streaming") return part;
+    const output = tool.output && typeof tool.output === "object"
+      ? tool.output as Record<string, unknown>
+      : null;
+    if (
+      !output || output.chatId !== canonical.chatId || output.versionId !== canonical.versionId ||
+      output.assistantMessageId !== context.messageId
+    ) return part;
+    const failed = canonical.status === "failed" || canonical.status === "blocked";
+    const label = canonical.status === "failed" ? "Versionsstatus: misslyckad."
+      : canonical.status === "blocked" ? "Versionsstatus: blockerad."
+      : canonical.status === "degraded" ? "Versionsstatus: klar med kvarvarande varningar."
+      : "Versionsstatus: klar.";
+    const steps = Array.isArray(output.steps) ? output.steps.filter((step): step is string => typeof step === "string") : [];
+    changed = true;
+    return { ...part, tool: {
+      ...tool,
+      state: failed ? "output-error" : "output-available",
+      output: { ...output, canonicalStatus: canonical.status, steps: [...steps, label] },
+    } } as ToolPart;
+  });
+  return changed ? reconciled : parts;
+}
 
 /** Presentation label for one assistant surface — not a backend event type. */
 export type GenerationTurnKind = "initial" | "followup" | "repair";
@@ -32,6 +83,8 @@ export function hasGenerationWarnings(toolParts: ToolPart[]): boolean {
   return toolParts.some(({ tool }) => {
     if (tool.state === "output-error") return true;
     if (tool.state !== "output-available") return false;
+    if (tool.type === "tool:engine-preview" && tool.output && typeof tool.output === "object" &&
+      (tool.output as Record<string, unknown>).canonicalStatus === "degraded") return true;
     const { toolType } = resolveToolLabels(tool);
     const { postCheck, qualityGate, liveReview } = extractToolSummaries(toolType, tool.output);
     return (

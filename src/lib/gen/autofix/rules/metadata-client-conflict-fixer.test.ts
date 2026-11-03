@@ -6,6 +6,7 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
+import { execFileSync } from "node:child_process";
 
 const METADATA = `export const metadata: Metadata = {
   title: "Welcome",
@@ -32,6 +33,9 @@ describe("fixMetadataClientConflict", () => {
     'type Example = { onClick: () => void }; export default function Page() { return null; }',
     'import * as React from "react"; type StateHook = typeof React.useState; const config = { useState: "label" }; export default function Page() { return React.createElement("main", null, config.useState); }',
     'import React from "react"; const UI = React; // const state = UI.useState;\nconst example = "React.useState"; export default function Page() { return UI.createElement("main", null, example); }',
+    'import * as React from "react"; const names = { React: "label" }; type API = typeof React; export type { React }; export default function Page() { return <main>{names.React}</main>; }',
+    'import React from "react"; const UI = React; const { createElement: element, Fragment } = UI; // const hooks = { React }; select(React);\nconst example = "select(React)"; export default function Page() { return element(Fragment, null, example); }',
+    'type Props = { onClick?: () => void }; // Event handlers may be added later.\nexport default function Page() { return <button {...{ title: "onClick", style: { color: "red" }, ...{ type: "button" } }}>Save</button>; }',
   ])("preserves metadata when only comments, text, types or unused imports mention client APIs: %s", (body) => {
     const result = fixMetadataClientConflict(page(body), "app/page.tsx");
 
@@ -61,6 +65,9 @@ describe("fixMetadataClientConflict", () => {
     'import { useRouter as router } from "next/navigation"; export default function Page() { return <main>{router().pathname}</main>; }',
     'export default function Page() { return <main>{window.location.href}</main>; }',
     'import { motion } from "framer-motion"; export default function Page() { return <motion.main />; }',
+    'export default function Page() { const attrs = { onClick: () => {} }; return <button {...attrs}>Save</button>; }',
+    'export default function Page() { return <button {...{ onClick: () => {} }}>Save</button>; }',
+    'export default function Page({ attrs }: { attrs: Record<string, unknown> }) { return <button {...attrs}>Save</button>; }',
   ])("keeps client execution and removes the actual nested metadata declaration: %s", (body) => {
     const result = fixMetadataClientConflict(page(body), "app/page.tsx");
 
@@ -162,6 +169,14 @@ export default function Page() { return <button onClick={() => {}}>Hello</button
     ['import React from "react";', "const state = React.useState;"],
     ['import * as React from "react";', "const { useState: state } = React;"],
     ['import React from "react";', "const { useState: state } = React;"],
+    ['import * as React from "react";', "const hooks = { React }; const state = hooks.React.useState;"],
+    ['import React from "react";', "const hooks = { api: React }; const state = hooks.api.useState;"],
+    ['import * as React from "react";', "const select = (api: typeof React) => api.useState; const state = select(React);"],
+    ['import React from "react";', "const select = (api: typeof React) => api.useState; const state = select(React);"],
+    ['import * as React from "react";', "const apis = [React]; const state = apis[0].useState;"],
+    ['import * as React from "react";', "const select = () => React; const state = select().useState;"],
+    ['import * as React from "react";', "let api; api = React; const state = api.useState;"],
+    ['import * as React from "react";', "const select = (api: typeof React) => api.useState; const state = select(React.default);"],
   ])("protects the real React server-runtime boundary for %s %s", (reactImport, alias) => {
     const code = `"use client"; ${reactImport} export const metadata = { title: "test" }; ${alias} export default function Page() { const [n] = state(0); return n; }`;
     const requireFromTest = createRequire(import.meta.url);
@@ -184,6 +199,41 @@ export default function Page() { return <button onClick={() => {}}>Hello</button
     expect(result.code).toContain('"use client"');
     expect(result.code).toContain(alias);
     expect(result.code).not.toContain("export const metadata");
+    expect(countParseErrors(result.code, "app/page.tsx")).toBe(0);
+  });
+
+  it("protects a spread handler that the real Next RSC serializer rejects in a server component", () => {
+    const code = page('export default function Page() { const attrs = { onClick: () => {} }; return <button {...attrs}>Save</button>; }');
+    const invalidServer = code.replace('"use client";', "");
+    const script = `
+      const ts = require("typescript");
+      const vm = require("node:vm");
+      const React = require("react");
+      const rsc = require("next/dist/compiled/react-server-dom-webpack/server.node");
+      const context = { exports: {}, require };
+      vm.runInNewContext(ts.transpileModule(process.argv[1], {
+        compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX }
+      }).outputText, context);
+      (async () => {
+        const errors = [];
+        const stream = await rsc.renderToReadableStream(React.createElement(context.exports.default), null, {
+          onError: error => { errors.push(error.message); return "metadata-regression"; }
+        });
+        await new Response(stream).text();
+        process.stdout.write(JSON.stringify(errors));
+      })().catch(error => { console.error(error); process.exitCode = 1; });
+    `;
+    const errors: string[] = JSON.parse(execFileSync(process.execPath,
+      ["--conditions=react-server", "-e", script, invalidServer],
+      { cwd: process.cwd(), encoding: "utf8", timeout: 10_000 },
+    ));
+    expect(errors.some((message) => message.includes("Event handlers cannot be passed"))).toBe(true);
+
+    const result = fixMetadataClientConflict(code, "app/page.tsx");
+
+    expect(result.code).toContain('"use client"');
+    expect(result.code).not.toContain("export const metadata");
+    expect(result.code).toContain("<button {...attrs}>");
     expect(countParseErrors(result.code, "app/page.tsx")).toBe(0);
   });
 });

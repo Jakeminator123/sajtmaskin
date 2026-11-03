@@ -75,6 +75,8 @@ export default function Page() { return <main>Hello</main>; }`;
   it.each([
     ['import * as React from "react";', "const state = React.useState;"],
     ['import React from "react";', "const { useState: state } = React;"],
+    ['import * as React from "react";', "const hooks = { React }; const state = hooks.React.useState;"],
+    ['import * as React from "react";', "const select = (api: typeof React) => api.useState; const state = select(React);"],
   ])("B22: retains the client boundary for namespace/default runtime aliases: %s %s", async (reactImport, alias) => {
     const body = `"use client"; ${reactImport} export const metadata = { title: "test" }; ${alias} export default function Page() { const [n] = state(0); return n; }`;
     const result = await runAutoFix(file(body), { previewPolicy: "fidelity2" });
@@ -83,6 +85,17 @@ export default function Page() { return <main>Hello</main>; }`;
     expect(fixed).toContain('"use client"');
     expect(fixed).toContain(alias);
     expect(fixed).not.toContain("export const metadata");
+    expect(countParseErrors(fixed, "app/page.tsx")).toBe(0);
+  });
+
+  it("B22: retains the client boundary when a handler arrives through JSX spread props", async () => {
+    const body = '"use client"; export const metadata = { title: "test" }; export default function Page() { const attrs = { onClick: () => {} }; return <button {...attrs}>Save</button>; }';
+    const result = await runAutoFix(file(body), { previewPolicy: "fidelity2" });
+    const fixed = bodyOf(result.fixedContent);
+
+    expect(fixed).toContain('"use client"');
+    expect(fixed).not.toContain("export const metadata");
+    expect(fixed).toContain("<button {...attrs}>");
     expect(countParseErrors(fixed, "app/page.tsx")).toBe(0);
   });
 });
