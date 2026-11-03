@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "6ef4e46b7",
+    "commit": "c997882a6",
     "commitDate": "2026-11-03",
     "sinceDays": 14
   },
@@ -100,17 +100,17 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 7,
+      "openBugs": 6,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 7,
+        "P2": 6,
         "P3": 0,
         "other": 0
       },
       "churn": 2,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
-      "note": "7 oppna backlog-rader (P0:0 P1:0 P2:7 P3:0)"
+      "note": "6 oppna backlog-rader (P0:0 P1:0 P2:6 P3:0)"
     },
     {
       "name": "prompt-core",
@@ -226,7 +226,7 @@ const DATA: CanvasData = {
       "name": "Codegen core",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "7 oppna backlog-rader (P0:0 P1:0 P2:7 P3:0)"
+      "reason": "6 oppna backlog-rader (P0:0 P1:0 P2:6 P3:0)"
     },
     {
       "name": "ai_models",
@@ -253,12 +253,6 @@ const DATA: CanvasData = {
       "blocker": true,
       "kind": "blocker",
       "fynd": "`SM-092` Resend nekade verifieringsmejl i prod med 403 «domain is not verified»; då kan en nyregistrerad inte…"
-    },
-    {
-      "prio": "P2",
-      "blocker": true,
-      "kind": "blocker",
-      "fynd": "`SM-131` Negerat eller omnämnt stopp feltolkas som order att avbryta agentmandatet. Svärm 2026-11-03 `M10`."
     },
     {
       "prio": "P1",
@@ -319,6 +313,12 @@ const DATA: CanvasData = {
       "blocker": false,
       "kind": "open",
       "fynd": "`SM-111` Okända serverfel exponerar rå feltext via SSE/logg. Svärm 2026-11-03 `A19`."
+    },
+    {
+      "prio": "P1",
+      "blocker": false,
+      "kind": "open",
+      "fynd": "`SM-112` JWT-signering tillåter tom nyckel vid saknad serverkonfiguration. Svärm 2026-11-03 `B1`."
     }
   ],
   "topOpenRisksOmitted": 36,
