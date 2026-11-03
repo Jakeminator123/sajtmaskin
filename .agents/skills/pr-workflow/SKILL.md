@@ -46,7 +46,8 @@ runtime-enforcement; läs rapportens `runtimeStatus`.
 
 - `npm run sync:derived` när owners ändrats.
 - `npm run verify:pr -- --plan` när diffen fått form och före push; direktpreview
-  återanvänder `preview:prepare`-planen, övriga pushar planeras i hooken.
+  återanvänder `preview:prepare`-planen, den uttryckliga hotfix-PR-vägen nedan
+  återanvänder `hotfix:prepare`, övriga pushar planeras i hooken.
 - Kör relevanta riktade kontroller och redovisa dem i PR:n. Bare
   `npm run verify:pr` är frivillig felsökning, inte en extra lokal fullsvit. För
   CI-/verifieringsmotorn: `npm run test:workflow`, `npm run workflow:contract`,
@@ -136,6 +137,31 @@ Nöd-PR eller nödpush till `master` är ett separat, uttryckligt ägaruppdrag f
 exakt ändring och leveransväg. Följ `pr-merge.mdc`: befintliga GitHub-grindar
 och mandat gäller, inga rulesets ändras och inget force-/raderingsmandat
 följer med. Återför nödfixen till `preview` via separat synk-PR.
+
+**Isolerad hotfix-PR från färsk master:** arbeta på en oskyddad featuregren.
+Återanvänd ett aktuellt oberoende Buggpass för exakt masterbas och HEAD; importera
+den verkliga granskningen enligt § 4, inte ett nytt obligatoriskt AI-pass.
+Den betrodda agentvärden läser Jakobs faktiska uppdrag och skriver en lokal
+mandatpost med `version: 1`, `kind: "master-hotfix-feature-pr-push"`,
+`repository: "Jakeminator123/sajtmaskin"`, `baseRef: "refs/heads/master"`,
+fulla `base`/`head`, `destinationRef: "refs/heads/<feature>"`, konkret `scope`
+och `source: { kind: "host-user-message", threadId, messageId }` från den
+verkliga användarinstruktionen. Ett lokalt JSON/hash eller en kopierad uppgift
+autentiserar inte människan; samma värdtillit gäller som för previewbekräftelsen.
+
+Kör `npm run hotfix:prepare -- --destination refs/heads/<feature> --approval <mandate.json>`.
+Det fryser repo/worktree, exakt origin-URL, färsk master, HEAD/träd, featuretip,
+mandat, review/triage och verifieringskontrakt och kör en enda committad plan.
+`npm run hotfix:push -- --dry-run` kontrollerar samma fakta igen. När ägarens
+mandat täcker exakt resultat körs `npm run hotfix:push -- --confirm <full SHA>`;
+fråga inte igen om samma giltiga mandat redan har lästs. Wrappern pushar bara
+en featuregren, aldrig master, och hooken nekar stale/trasigt kvitto även under
+CI/skip. Kvitton lagras under Git-common-dir, bundna till arbetsytan.
+
+Öppna sedan PR mot master: full CI, dossiermatris, mergegrind och separat
+previewåterföring gäller. Master kan ändras mellan sista läsningen och
+featurepushen; de två remotereferenserna kan inte låsas atomiskt lokalt.
+Verifiera därför aktuell integrationsbas och strict checks före merge.
 
 En squash-release ger master en commit som saknas i `preview`. Före nästa
 promote: synkbranch från färsk preview som tar in master med merge-commit, PR mot

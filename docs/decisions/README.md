@@ -44,8 +44,9 @@ GitHub döljer undantagslistan för dess token; då visas uttryckligen en partie
 kontroll med undantagen **ej verifierade**, inte ett fullständigt grönt kvitto.
 Efter regeländringar kör operatören `node scripts/ci/check-working-branches-ruleset.mjs`
 med behörighet att läsa listan; standardläget nekar saknade fält och app-undantag.
-Ingen ny schemaläggning, token eller produktionsändring. Den nattliga kontrollen
-får denna ändring först när workflowet senare når default-grenen genom vanlig promote.
+Ingen ny schemaläggning, token eller produktionsändring. Den schemalagda kontrollen
+kör workflowet från repots aktuella default-gren; produktionspromote är inte i sig
+dess aktiveringsgrind.
 
 ### 2026-10-22: sex äldre BRA-backuper ersätts av arkivtaggar
 

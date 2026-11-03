@@ -40,7 +40,7 @@ describe("StructuredToolParts", () => {
 
     expect(screen.getByText("Arbetar med din sajt")).toBeTruthy();
     expect(
-      screen.getAllByText("Förbereder byggunderlag och startar own-engine.").length,
+      screen.getAllByText("Förbereder din sajt.").length,
     ).toBeGreaterThanOrEqual(1);
   });
 
@@ -56,7 +56,7 @@ describe("StructuredToolParts", () => {
       screen.getAllByText("Fortsätter med nästa byggsteg.").length,
     ).toBeGreaterThanOrEqual(1);
     expect(
-      screen.queryByText("Förbereder byggunderlag och startar own-engine."),
+      screen.queryByText("Förbereder din sajt."),
     ).toBeNull();
   });
 
@@ -115,7 +115,7 @@ describe("StructuredToolParts", () => {
           },
         } as never,
       ]),
-    ).toBe("Kontrollerar importer");
+    ).toBe("Rättar mindre fel i sajten…");
   });
 
   it("uses the same pending label for an empty streaming tool in header and log", () => {
@@ -294,6 +294,35 @@ describe("StructuredToolParts", () => {
         includePipelineProgress: false,
       }),
     ).toBe("Quality gate • Förbereder");
+  });
+
+  it("describes measured engine work without promoting debug details into the headline", () => {
+    const parts = [{
+      type: "tool",
+      tool: {
+        type: "tool:engine-generation",
+        state: "input-streaming",
+        output: {
+          phase: "reasoning",
+          steps: ["Startar own-engine-strömmen", "provider=internal-model; wait 1s"],
+        },
+      },
+    }] as never;
+
+    expect(getActiveAgentLogLabel(parts)).toBe("Planerar hur din sajt ska byggas…");
+    expect(buildAgentLogItems(parts)).toContainEqual({ label: "provider=internal-model; wait 1s" });
+    expect(getActiveAgentLogLabel(parts, { includePipelineProgress: false })).toBeNull();
+  });
+
+  it("never turns completed or failed engine work into an active friendly status", () => {
+    for (const state of ["output-available", "output-error"]) {
+      const parts = [{ type: "tool", tool: {
+        type: "tool:engine-preview", state,
+        output: { phase: "build-failed", steps: ["Förhandsvisningen kunde inte starta"] },
+      } }] as never;
+      expect(getActiveAgentLogLabel(parts)).toBeNull();
+      if (state === "output-error") expect(buildAgentLogItems(parts).some((item) => item.failed)).toBe(true);
+    }
   });
 
   it("inserts a collapsible Deep Brief reasoning row after the provider/model facts", () => {

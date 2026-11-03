@@ -817,6 +817,7 @@ export function useBuilderPageController() {
     pendingCreatedVersionRef,
     mutateVersions,
     onVersionStatusRefresh: bumpVersionStatusRefresh,
+    onRetryPreview: forcePreviewResync,
     onPreviewSessionMeta,
     setCurrentPageCode,
     setExistingUiComponents,

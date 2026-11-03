@@ -13,7 +13,7 @@
  */
 import type { OpenClawPowers } from "@/lib/openclaw/powers";
 
-const EDIT_MODE_HEADER = `Internt läge: EDIT (OC_EDIT på). Användaren har uttryckligen gett dig befogenheterna nedan i chatten — inga andra. Erbjud aldrig något som kräver en befogenhet som inte står här, och påstå aldrig att du kan den.`;
+const EDIT_MODE_HEADER = `Internt läge: EDIT (OC_EDIT på). Chattens aktuella inställningar tillåter befogenheterna nedan — inga andra. Inställningarna är inte ett uppdrag: respektera användarens senaste begäran och de särskilda kraven för varje åtgärd. Erbjud aldrig något som kräver en befogenhet som inte står här, och påstå aldrig att du kan den.`;
 
 /**
  * Armed autonomy (Mode A): OpenClaw still reasons first and never builds

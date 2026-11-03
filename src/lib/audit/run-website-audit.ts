@@ -216,9 +216,12 @@ export async function runWebsiteAudit(input: {
   const allowWebSearch = run.allowWebSearch;
 
   console.info(`[${requestId}] Scraping website...`);
+  const scrapeStartedAt = Date.now();
+  let scrapeElapsedMs: number;
   let websiteContent;
   try {
     websiteContent = await scrapeWebsite(normalizedUrl, { maxPages: run.maxPages });
+    scrapeElapsedMs = Math.max(0, Date.now() - scrapeStartedAt);
     console.info(`[${requestId}] Scraping completed:`, {
       title: websiteContent.title?.substring(0, 50),
       wordCount: websiteContent.wordCount,
@@ -289,10 +292,13 @@ export async function runWebsiteAudit(input: {
           error?: unknown;
           responseStatus?: string | null;
           incompleteReason?: string | null;
+          response?: OpenAI.Responses.Response;
         },
       ) => {
         const error = details?.error;
         const errorShape = error as ResponsesErrorShape | undefined;
+        const response = details?.response;
+        const usage = response?.usage;
         // Content-free terminal receipt: never attach URL, prompt, response
         // text, headers, customer data, secrets or the raw error object.
         console.info(`[${requestId}] Audit Responses attempt receipt`, {
@@ -305,6 +311,15 @@ export async function runWebsiteAudit(input: {
           remainingTotalBudgetMs: Math.max(0, responsesDeadline - attemptStartedAt),
           elapsedMs: Math.max(0, Date.now() - attemptStartedAt),
           totalElapsedMs: Math.max(0, Date.now() - requestStartTime),
+          scrapeElapsedMs,
+          inputTokens: usage?.input_tokens ?? null,
+          cachedInputTokens: usage?.input_tokens_details?.cached_tokens ?? null,
+          outputTokens: usage?.output_tokens ?? null,
+          reasoningTokens: usage?.output_tokens_details?.reasoning_tokens ?? null,
+          outputTextChars: response?.output_text?.length ?? null,
+          webSearchCalls: response
+            ? response.output.filter((item) => item.type === "web_search_call").length
+            : null,
           outcome,
           signalReason: abortSignalReasonName(attemptSignal),
           errorClass: error === undefined ? null : responsesErrorClass(error),
@@ -395,6 +410,7 @@ export async function runWebsiteAudit(input: {
           {
             responseStatus: response.status,
             incompleteReason: response.incomplete_details?.reason ?? null,
+            response,
           },
         );
 
@@ -419,12 +435,12 @@ export async function runWebsiteAudit(input: {
       }
 
       if (!response.output_text || response.output_text.trim().length === 0) {
-        attemptReceipt("empty_output", { responseStatus: response.status });
+        attemptReceipt("empty_output", { responseStatus: response.status, response });
         console.warn(`[${requestId}] Empty response from ${candidateModel}, trying next candidate`);
         continue;
       }
 
-      attemptReceipt("completed", { responseStatus: response.status });
+      attemptReceipt("completed", { responseStatus: response.status, response });
       selectedResponse = response;
       usedModel = candidateModel;
       break;

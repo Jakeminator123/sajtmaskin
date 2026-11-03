@@ -20,6 +20,7 @@ export interface QuickEditAppliedPayload {
   previewSessionId: string | null;
   lifecycleToken: string | null;
   previewMode: string | null;
+  previewError?: string;
 }
 
 export function dispatchQuickEditAppliedEvent(payload: QuickEditAppliedPayload): void {

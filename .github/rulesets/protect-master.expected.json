@@ -6,6 +6,9 @@
     "name": "Protect master",
     "target": "branch",
     "enforcement": "active",
+    "bypass_actors": [
+      { "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" }
+    ],
     "conditions": {
       "ref_name": {
         "include": ["refs/heads/master"],
@@ -43,6 +46,7 @@
     "requiredChecks": "This file lists GitHubs required checks. config/agent-workflow.json keeps the common Preview check names; dossier-acceptance-master is master-only and reserved in scripts/workflow/required-check-owners.mjs. GitGuardian remains an external required check.",
     "deletion": "deletion and non_fast_forward must remain present so master cannot be deleted or force-pushed.",
     "squash": "allowed_merge_methods must include squash for normal preview delivery and promote paths. Other methods may remain for ancestry sync.",
+    "bypass": "Repository administrators retain the existing RepositoryRole 5 / always bypass. No other actor has a bypass. Run the default full audit with an authorized operator token after ruleset changes. The scheduled read-only audit reports omitted bypass actors as PARTIAL / UNVERIFIED; visible drift or malformed values fail. CI keeps its existing read-only permissions.",
     "mutation": "This file is a projection of the intended live ruleset; update the live ruleset and this file together."
   }
 }

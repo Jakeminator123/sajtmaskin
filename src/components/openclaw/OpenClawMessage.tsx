@@ -24,7 +24,7 @@ import {
   describeOpenClawQuickEditOp,
   type OpenClawApplyQuickEditAction,
 } from "@/lib/openclaw/quick-edit-action";
-import { describeQuickEditHardError, quickEditChatFiles } from "@/lib/builder/engine-files-patch";
+import { describeQuickEditHardError, quickEditChatFiles, QUICK_EDIT_PREVIEW_WARNING } from "@/lib/builder/engine-files-patch";
 import { dispatchQuickEditAppliedEvent } from "@/lib/builder/quick-edit-applied-event";
 import {
   readActiveBuilderTarget,
@@ -1409,7 +1409,7 @@ function OpenClawQuickEditCard({
     "pending" | "working" | "applied" | "declined" | "failed"
   >("pending");
   const [actionError, setActionError] = useState<string | null>(null);
-  const [applied, setApplied] = useState<{ versionId: string; changedFiles: string[] } | null>(
+  const [applied, setApplied] = useState<{ versionId: string; changedFiles: string[]; previewError?: string } | null>(
     null,
   );
   // Bind förslaget till versionen som var aktiv när TUREN SKICKADES — det är
@@ -1531,8 +1531,9 @@ function OpenClawQuickEditCard({
       previewSessionId: result.previewSessionId,
       lifecycleToken: result.lifecycleToken,
       previewMode: result.previewMode,
+      ...(result.previewError ? { previewError: result.previewError } : {}),
     });
-    setApplied({ versionId: result.versionId, changedFiles: result.changedFiles });
+    setApplied({ versionId: result.versionId, changedFiles: result.changedFiles, previewError: result.previewError });
     setActionState("applied");
   };
 
@@ -1616,8 +1617,10 @@ function OpenClawQuickEditCard({
         ) : null}
 
         {actionState === "applied" ? (
-          <p className="text-xs text-emerald-300">
-            Klart — ny version skapad ({applied?.versionId}).{" "}
+          <p className={applied?.previewError ? "text-xs text-amber-200" : "text-xs text-emerald-300"}>
+            {applied?.previewError
+              ? `${QUICK_EDIT_PREVIEW_WARNING} Sparad version: ${applied.versionId}. `
+              : `Klart — ny version skapad (${applied?.versionId}). `}
             {applied && applied.changedFiles.length > 0
               ? `Ändrade filer: ${applied.changedFiles.join(", ")}`
               : "Inga filer rapporterades ändrade."}
