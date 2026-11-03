@@ -25,6 +25,7 @@ const CONTRACT_FILES = ["scripts/workflow/hotfix-push.mjs", "scripts/workflow/ve
   "scripts/workflow/preview-push.mjs", "config/agent-workflow.json",
   "docs/schemas/strict/agent-workflow.schema.json", "package.json"];
 
+/** @param {{ urls?: string[], configuredUrls?: string[], remoteName?: string, actualUrl?: string }} [options] */
 export function validateHotfixRemote({ urls, configuredUrls, remoteName = "origin", actualUrl } = {}) {
   if (remoteName !== "origin" || !Array.isArray(urls) || urls.length !== 1 || !CANONICAL_URL.test(urls[0]) ||
       !Array.isArray(configuredUrls) || configuredUrls.length !== 1 || configuredUrls[0] !== urls[0] ||

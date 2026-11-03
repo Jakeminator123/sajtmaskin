@@ -129,7 +129,7 @@ function gitFixture() {
     GIT_AUTHOR_NAME: "Fixture", GIT_AUTHOR_EMAIL: "fixture@example.invalid", GIT_COMMITTER_NAME: "Fixture", GIT_COMMITTER_EMAIL: "fixture@example.invalid",
     GIT_TERMINAL_PROMPT: "0", CI: "false", GITHUB_ACTIONS: "false", SAJTMASKIN_SKIP_VERIFY_HOOKS: "0" };
   for (const key of Object.keys(env)) if (/^GIT_(?:DIR|WORK_TREE|INDEX_FILE|COMMON_DIR|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|CONFIG_(?:COUNT|KEY_\d+|VALUE_\d+|PARAMETERS)|NAMESPACE|INTERNAL_SUPER_PREFIX)$/.test(key)) delete env[key];
-  const run = (exe: string, args: string[], extra: NodeJS.ProcessEnv = {}) => spawnSync(exe, args,
+  const run = (exe: string, args: string[], extra: Partial<NodeJS.ProcessEnv> = {}) => spawnSync(exe, args,
     { cwd: root, env: { ...env, ...extra }, encoding: "utf8", timeout: 30_000 });
   const g = (...args: string[]) => { const result = run("git", args); expect(result.status, result.stderr || result.stdout).toBe(0); return result.stdout.trim(); };
   g("init", "--quiet", "--initial-branch=fixture-base");
@@ -212,7 +212,7 @@ describe("native Git hotfix push", () => {
     expect(readFileSync(join(f.root, ".git/plans"), "utf8").trim().split(/\r?\n/)).toEqual(["origin/preview", f.master]);
     expect(f.cli("--dry-run").status).toBe(0);
     const signal = { SAJTMASKIN_HOTFIX_RECEIPT: f.receiptId(), CI: "true", SAJTMASKIN_SKIP_VERIFY_HOOKS: "1" };
-    const push = (refs: string[], extra: NodeJS.ProcessEnv = {}) => f.run("git", ["push", "origin", ...refs], { ...signal, ...extra });
+    const push = (refs: string[], extra: Partial<NodeJS.ProcessEnv> = {}) => f.run("git", ["push", "origin", ...refs], { ...signal, ...extra });
     const main = `${f.fixtureHead}:${destination}`;
     for (const refs of [[main, `${f.fixtureHead}:refs/heads/extra`], [main, `${f.fixtureHead}:refs/tags/extra`],
       [`${f.fixtureHead}:refs/heads/master`], [`${f.fixtureHead}:refs/heads/preview`], [`${f.fixtureHead}:refs/heads/BRA_fixture`],
