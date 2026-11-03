@@ -244,7 +244,7 @@ describe("useOpenClawChat — arming consent", () => {
     expect(state.armedContinuation).toBeNull();
   });
 
-  it.each(["Stopp. Det räcker.", "Stop now"])(
+  it.each(["Stopp. Det räcker.", "Stopp. Fortsätt inte.", "Stop now"])(
     "disarms before returning from an active stream without a new provider call: %s",
     async text => {
       act(() => {

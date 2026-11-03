@@ -99,6 +99,7 @@ describe("parseStopDirective", () => {
   it.each([
     "Stop now",
     "Stopp. Det räcker.",
+    "Stopp. Fortsätt inte.",
     "Stop now. That is enough.",
     "Snälla avbryt körningen nu! Det räcker.",
     "Stopp. Gör inte fler ändringar.",
