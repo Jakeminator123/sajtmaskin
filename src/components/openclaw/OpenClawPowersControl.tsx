@@ -100,10 +100,10 @@ export function OpenClawPowersControl() {
   return (
     <div
       className={cn(
-        "flex cursor-pointer items-center rounded-full border transition-colors",
+        "flex max-w-full shrink-0 cursor-pointer items-center rounded-xl border transition-colors",
         activeCount > 0
           ? "border-fuchsia-400/40 bg-fuchsia-400/10"
-          : "border-white/10 bg-transparent",
+          : "border-border/70 bg-background/50",
       )}
       onClick={handleToggle}
     >
@@ -111,12 +111,12 @@ export function OpenClawPowersControl() {
         type="button"
         aria-pressed={powersOn}
         className={cn(
-          "flex items-center gap-1 rounded-l-full py-1 pr-1 pl-2 transition-colors",
-          powersOn ? "text-fuchsia-200 hover:text-fuchsia-100" : "text-slate-300 hover:text-white",
+          "focus-visible:ring-ring flex h-8 items-center gap-1.5 rounded-l-xl pr-1.5 pl-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+          powersOn
+            ? "text-fuchsia-300 hover:text-fuchsia-200"
+            : "text-muted-foreground hover:text-foreground",
         )}
-        aria-label={
-          powersOn ? "Stäng av extra befogenheter" : "Slå på extra befogenheter"
-        }
+        aria-label={powersOn ? "Stäng av extra befogenheter" : "Slå på extra befogenheter"}
         title={
           powersOn
             ? "Extra befogenheter är på — välj vilka i listan"
@@ -124,13 +124,16 @@ export function OpenClawPowersControl() {
         }
       >
         {powersOn ? <ShieldCheck className="h-3.5 w-3.5" /> : <Shield className="h-3.5 w-3.5" />}
+        <span>Befogenheter</span>
         {activeCount > 0 ? (
-          <span className="text-[10px] leading-none font-semibold">{activeCount}</span>
+          <span className="flex size-4 items-center justify-center rounded-full bg-fuchsia-400/15 text-[10px] leading-none font-semibold">
+            {activeCount}
+          </span>
         ) : null}
       </button>
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="rounded-r-full py-1 pr-2 pl-1 text-slate-300 transition-colors hover:text-white"
+          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring flex h-8 items-center rounded-r-xl border-l border-current/10 px-2 transition-colors focus-visible:ring-2 focus-visible:outline-none"
           aria-label="Välj extra befogenheter"
           title="Välj extra befogenheter"
           onClick={(event) => event.stopPropagation()}

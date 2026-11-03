@@ -13,6 +13,9 @@ export function isQuickEditEnabled(): boolean {
   return raw ? isAffirmativeEnvValue(raw) : false;
 }
 
+export const QUICK_EDIT_PREVIEW_WARNING =
+  "Ändringen är sparad, men förhandsvisningen kunde inte starta.";
+
 export type QuickEditClientOp =
   | { kind: "replace_content"; path: string; content: string }
   | { kind: "replace_text"; path: string; find: string; replace: string; occurrence?: number }
@@ -29,6 +32,8 @@ export type QuickEditClientResult =
       previewSessionId: string | null;
       lifecycleToken: string | null;
       previewMode: string | null;
+      /** Source was saved; retry preview only, never re-apply the edit. */
+      previewError?: string;
     }
   | { ok: false; error: string; reason?: string };
 
@@ -74,6 +79,7 @@ export async function quickEditChatFiles(params: {
           previewSessionId?: string | null;
           lifecycleToken?: string | null;
           previewMode?: string | null;
+          previewError?: unknown;
           error?: string;
           reason?: string;
         }
@@ -93,6 +99,9 @@ export async function quickEditChatFiles(params: {
       previewSessionId: data.previewSessionId ?? null,
       lifecycleToken: data.lifecycleToken ?? null,
       previewMode: data.previewMode ?? null,
+      ...(typeof data.previewError === "string" && data.previewError.trim()
+        ? { previewError: data.previewError }
+        : {}),
     };
   } catch (e) {
     return {
@@ -111,6 +120,7 @@ export type PatchEngineChatFileResult =
       previewSessionId?: string | null;
       lifecycleToken?: string | null;
       previewMode?: string | null;
+      previewError?: string;
     }
   | { ok: false; error: string };
 
@@ -124,6 +134,9 @@ export type PatchEngineChatFileResult =
  * shares exactly one Swedish translation of the hard failure tokens.
  */
 export function describeQuickEditHardError(result: { error: string; reason?: string }): string {
+  if (result.reason === "integrations_base" || result.error === "integrations_base") {
+    return "Den här versionen har integrationer. Be om ändringen i byggchatten så att den verifieras före publicering.";
+  }
   if (result.error === "stale_base_version") {
     return "En nyare version finns redan. Ladda om för att fortsätta från den senaste versionen.";
   }
@@ -207,6 +220,7 @@ export async function patchEngineChatFile(params: {
         previewSessionId: result.previewSessionId,
         lifecycleToken: result.lifecycleToken,
         previewMode: result.previewMode,
+        ...(result.previewError ? { previewError: result.previewError } : {}),
       };
     }
     // Only an F3/integrations base is a legitimate reason to fall through to the

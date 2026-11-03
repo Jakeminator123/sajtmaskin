@@ -24,6 +24,7 @@ export function usePreviewPanelCodeFiles(options: {
     previewSessionId?: string | null;
     lifecycleToken?: string | null;
     previewMode?: string | null;
+    previewError?: string;
   }) => void;
 }): {
   files: FileNode[];
@@ -143,6 +144,7 @@ export function usePreviewPanelCodeFiles(options: {
           previewSessionId: saved.previewSessionId,
           lifecycleToken: saved.lifecycleToken,
           previewMode: saved.previewMode,
+          ...(saved.previewError ? { previewError: saved.previewError } : {}),
         });
         return true;
       } catch (error) {

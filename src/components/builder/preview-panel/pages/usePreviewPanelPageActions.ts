@@ -15,6 +15,7 @@ import {
 } from "@/lib/builder/preview-page-ops";
 import {
   quickEditChatFiles,
+  describeQuickEditHardError,
   type QuickEditClientOp,
   type QuickEditClientResult,
 } from "@/lib/builder/engine-files-patch";
@@ -123,7 +124,7 @@ export function usePreviewPanelPageActions({
           result = await runOps([pageOp]);
         }
         if (!result.ok) {
-          toast.error(result.error || "Kunde inte skapa sidan.");
+          toast.error(describeQuickEditHardError(result) || "Kunde inte skapa sidan.");
           return;
         }
         if (navRejected) {
@@ -145,6 +146,7 @@ export function usePreviewPanelPageActions({
           previewSessionId: result.previewSessionId,
           lifecycleToken: result.lifecycleToken,
           previewMode: result.previewMode,
+          ...(result.previewError ? { previewError: result.previewError } : {}),
         });
       } catch {
         toast.error("Något gick fel när sidan skulle skapas.");
@@ -190,7 +192,7 @@ export function usePreviewPanelPageActions({
           `Tog bort sidan ${route}`,
         );
         if (!result.ok) {
-          toast.error(result.error || "Kunde inte ta bort sidan.");
+          toast.error(describeQuickEditHardError(result) || "Kunde inte ta bort sidan.");
           return;
         }
         toast.success(`Sidan ${route} togs bort.`);
@@ -200,6 +202,7 @@ export function usePreviewPanelPageActions({
           previewSessionId: result.previewSessionId,
           lifecycleToken: result.lifecycleToken,
           previewMode: result.previewMode,
+          ...(result.previewError ? { previewError: result.previewError } : {}),
         });
       } catch {
         toast.error("Något gick fel när sidan skulle tas bort.");
