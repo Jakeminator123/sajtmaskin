@@ -119,7 +119,6 @@ export function renderBriefLockedDesignValuesBlock(params: {
   const typography = brief.visualDirection?.typography;
   const domainProfile = str(brief.domainProfile);
   const avoid = strList(brief.avoid).slice(0, 5);
-  const mustHave = strList(brief.mustHave).slice(0, 5);
   const hasThemeOverride = Boolean(
     themeOverride?.primary || themeOverride?.secondary || themeOverride?.accent,
   );
@@ -137,8 +136,7 @@ export function renderBriefLockedDesignValuesBlock(params: {
     typography?.headings ||
     typography?.body ||
     domainProfile ||
-    avoid.length > 0 ||
-    mustHave.length > 0;
+    avoid.length > 0;
 
   if (!hasBriefDesignSignal) return [];
 
@@ -169,7 +167,9 @@ export function renderBriefLockedDesignValuesBlock(params: {
     parts.push(`- **Typography:** headings ${typography.headings || "system"}, body ${typography.body || "system"}`);
   }
   if (domainProfile) parts.push(`- **Domain profile:** ${domainProfile}`);
-  if (mustHave.length > 0) parts.push(`- **Must-have:** ${mustHave.join("; ")}`);
+  // General requirements belong to the required Must Have section (priority
+  // 88). Duplicating them here would promote arbitrary brief text to the
+  // design-lock tier and let it consume the budget before runtime contracts.
   if (avoid.length > 0) parts.push(`- **Avoid:** ${avoid.join("; ")}`);
 
   parts.push(

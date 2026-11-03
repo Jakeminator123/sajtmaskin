@@ -124,8 +124,8 @@ function parseEntryFromSearchParams(searchParams: ReadonlyURLSearchParams) {
   let showWelcome = false;
 
   if (rawCompany) {
-    const decoded = decodeURIComponent(rawCompany);
-    company = decoded.includes("-") ? formatCompanySlug(decoded) : decoded;
+    // URLSearchParams has already decoded the value, including literal % text.
+    company = rawCompany.includes("-") ? formatCompanySlug(rawCompany) : rawCompany;
   }
 
   if (rawMode && VALID_ENTRY_MODES.has(rawMode)) {

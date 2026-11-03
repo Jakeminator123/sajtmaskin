@@ -261,18 +261,24 @@ export function planThumbnailScrollOffsets(args: {
 }
 
 async function warmupPreviewUrlBestEffort(url: string): Promise<void> {
+  const controller = new AbortController();
   try {
-    await fetchWithPinnedDns(url, {
+    await withHostDeadline(fetchWithPinnedDns(url, {
       method: "GET",
       timeoutMs: THUMBNAIL_WARMUP_TIMEOUT_MS,
       maxBodyBytes: THUMBNAIL_WARMUP_MAX_BODY_BYTES,
+      signal: controller.signal,
       headers: {
         "user-agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
       },
-    });
+    }), THUMBNAIL_WARMUP_TIMEOUT_MS);
   } catch {
     // Warmup must never change capture error semantics.
+  } finally {
+    // A losing fetch must release its socket instead of continuing in the
+    // background while the browser uses the capture slot.
+    controller.abort();
   }
 }
 
@@ -430,11 +436,11 @@ export async function captureThumbnailScreenshot(
   // failure is rethrown with the stage so the route log pinpoints it.
   let stage = "launch";
   try {
-    const [, launchedBrowser] = await Promise.all([
-      warmupPreviewUrlBestEffort(url),
-      launchCaptureBrowser(),
-    ]);
-    browser = launchedBrowser;
+    const warmup = warmupPreviewUrlBestEffort(url);
+    // Own the browser as soon as it is acquired, so finally can always close
+    // it. The pinned warmup has a total deadline, including trickled bodies.
+    browser = await launchCaptureBrowser();
+    await warmup;
     stage = "new-page";
     const page = await browser.newPage({
       viewport: { ...THUMBNAIL_VIEWPORT },

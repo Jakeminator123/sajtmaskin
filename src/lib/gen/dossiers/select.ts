@@ -234,6 +234,25 @@ function matchesMarker(promptText: string, marker: string): boolean {
  * slugs, so a verbatim id in the prompt is always explicit intent.
  */
 function matchesRelevanceKeyword(entry: DossierEntry, promptText: string): boolean {
+  if (entry.capability === "auth" && entry.providers?.some((provider) => provider.toLowerCase() === "supabase")) {
+    // Supabase also supplies databases/storage. A bare mention is not an
+    // authentication choice; dedicated auth providers keep their markers.
+    // IDs and auth-specific manifest phrases remain explicit; bare providers
+    // need a direct auth relation rather than co-occurrence in the request.
+    const providers = new Set((entry.providers ?? []).map((p) => p.toLowerCase()));
+    const specificMarkers = collectDossierMarkers(entry).filter(
+      (marker) => !providers.has(marker.toLowerCase()),
+    );
+    if (specificMarkers.some((marker) => matchesMarker(promptText, marker))) return true;
+    const auth = String.raw`(?:auth(?:entication)?|autentisering|inloggning|login|logga\s+in|sign[\s-]?in|sso)`;
+    return (entry.providers ?? []).some((provider) => {
+      const marker = markerSource(provider);
+      return new RegExp(
+        `(?<![\\p{L}\\p{N}_-])(?:${auth}\\s+(?:(?:med|with|via|using)\\s+)?${marker}|${marker}\\s+(?:(?:för|for)\\s+)?${auth})(?![\\p{L}\\p{N}_-])`,
+        "iu",
+      ).test(promptText);
+    });
+  }
   return collectDossierMarkers(entry).some((marker) => matchesMarker(promptText, marker));
 }
 
@@ -306,6 +325,20 @@ function pickForCapability(
     if (remaining.length === 0) {
       // A capability request must not revive a provider the user rejected.
       return null;
+    }
+    if (cap === "auth") {
+      const explicitIds = remaining.filter((candidate) => matchesMarker(promptText, candidate.id));
+      if (explicitIds.length === 1) return { entry: explicitIds[0], reason: "relevance-keyword" };
+      if (explicitIds.length > 1) return pickCapabilityDefault(cap, remaining);
+      const comparison = /\b(?:jämför|compare|välj\s+mellan|choose\s+between)\b/iu;
+      const hasProviderComparison = promptText.split(/[.!?;\n]+/).some((segment) => {
+        const comparisonIndex = segment.search(comparison);
+        if (comparisonIndex < 0) return false;
+        const choices = segment.slice(comparisonIndex);
+        return remaining.filter((candidate) => collectDossierMarkers(candidate)
+          .some((marker) => matchesMarker(choices, marker))).length > 1;
+      });
+      if (hasProviderComparison) return pickCapabilityDefault(cap, remaining);
     }
     const keywordMatches = remaining.filter((c) => matchesRelevanceKeyword(c, promptText));
     if (keywordMatches.length === 1) {

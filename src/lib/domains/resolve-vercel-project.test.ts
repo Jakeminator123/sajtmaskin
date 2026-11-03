@@ -23,7 +23,7 @@ vi.mock("@/lib/deployment", () => ({
   getLatestVercelProjectIdForChat,
 }));
 
-const { resolveVercelProjectForAppProject, resolveVercelProjectForChat } = await import(
+const { resolveChatProjectContext, resolveVercelProjectForAppProject, resolveVercelProjectForChat } = await import(
   "./resolve-vercel-project"
 );
 
@@ -58,6 +58,11 @@ describe("resolveVercelProjectForChat", () => {
   });
 
   // A#4: a stale persisted app_projects link must lose to the newest deployment.
+  it.each([resolveVercelProjectForChat, resolveChatProjectContext])("propagates deployment errors instead of using a stale cache (%s)", async (resolve) => {
+    getLatestVercelProjectIdForChat.mockRejectedValueOnce(new Error("deployment DB unavailable"));
+    await expect(resolve(req(), "chat_1")).rejects.toThrow("deployment DB unavailable");
+  });
+
   it("prefers the latest deployment over a stale app_projects link", async () => {
     getProjectById.mockResolvedValue({ id: "proj_1", vercel_project_id: "vp_stale" });
     getLatestVercelProjectIdForChat.mockResolvedValue("vp_fresh");
@@ -150,6 +155,16 @@ describe("resolveVercelProjectForAppProject", () => {
 
     expect(result).toEqual({ ok: false, status: 404, error: expect.any(String) });
     expect(getLatestVercelProjectIdForChat).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back to project cache when the site overview fails", async () => {
+    getProjectSiteOverview.mockRejectedValueOnce(new Error("overview DB unavailable"));
+    await expect(resolveVercelProjectForAppProject(req(), "proj_1")).rejects.toThrow("overview DB unavailable");
+  });
+
+  it("does not fall back to project cache when its deployment read fails", async () => {
+    getLatestVercelProjectIdForChat.mockRejectedValueOnce(new Error("deployment DB unavailable"));
+    await expect(resolveVercelProjectForAppProject(req(), "proj_1")).rejects.toThrow("deployment DB unavailable");
   });
 
   it("prefers the latest deployment over a stale app_projects link", async () => {

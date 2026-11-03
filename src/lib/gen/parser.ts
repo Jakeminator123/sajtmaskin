@@ -25,6 +25,31 @@ export interface CodeProject {
  */
 const CODE_BLOCK_RE = /```(\w+)\s+file="([^"]+)"[^\n]*\n([\s\S]*?)\n```/g;
 
+function resolveFilePath(rawPath: string): string | null {
+  const path = rawPath.trim();
+  if (!path) return null;
+  if (validateFilePath(path).valid) return path;
+
+  const sanitized = sanitizeFilePath(path);
+  if (sanitized === "unnamed-file.txt" || !validateFilePath(sanitized).valid) return null;
+  return sanitized;
+}
+
+/** Replace only the parsed file's own fence, treating its contents as literal text. */
+export function replaceCodeProjectFileContent(
+  content: string,
+  file: CodeFile,
+  updatedContent: string,
+): string {
+  let replaced = false;
+  return content.replace(CODE_BLOCK_RE, (block, _language: string, rawPath: string, body: string) => {
+    if (replaced || resolveFilePath(rawPath) !== file.path || body !== file.content) return block;
+    replaced = true;
+    const bodyStart = block.indexOf("\n") + 1;
+    return block.slice(0, bodyStart) + updatedContent + "\n```";
+  });
+}
+
 /**
  * Parses generated content in CodeProject format into individual files.
  *
@@ -37,22 +62,11 @@ export function parseCodeProject(content: string): CodeProject {
 
   for (const match of content.matchAll(CODE_BLOCK_RE)) {
     const language = match[1];
-    const rawPath = match[2].trim();
     const fileContent = match[3];
 
-    if (!rawPath || !fileContent.trim()) continue;
+    if (!fileContent.trim()) continue;
 
-    const validation = validateFilePath(rawPath);
-    let path: string | null = null;
-    if (validation.valid) {
-      path = rawPath;
-    } else {
-      const sanitized = sanitizeFilePath(rawPath);
-      if (!sanitized || sanitized === "unnamed-file.txt") continue;
-      const again = validateFilePath(sanitized);
-      if (!again.valid) continue;
-      path = sanitized;
-    }
+    const path = resolveFilePath(match[2]);
     if (!path) continue;
 
     if (seen.has(path)) continue;

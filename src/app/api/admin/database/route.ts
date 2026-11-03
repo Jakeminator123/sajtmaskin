@@ -55,12 +55,22 @@ function protectedUserEmails(actingAdminEmail: string | null | undefined): strin
 }
 
 /** Delete every user except the protected ones (see `protectedUserEmails`). */
-async function deleteUsersExceptProtected(actingAdminEmail: string | null | undefined) {
+type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+function disposableTransactions() {
+  return and(isNull(transactions.stripe_session_id), isNull(transactions.stripe_payment_intent), isNull(transactions.idempotency_key));
+}
+
+async function deleteUsersExceptProtected(tx: DatabaseTransaction, actingAdminEmail: string | null | undefined) {
   const keep = protectedUserEmails(actingAdminEmail);
-  const query = db.delete(users);
-  return keep.length > 0
-    ? query.where(notInArray(users.email, keep)).returning({ id: users.id })
-    : query.where(sql`true`).returning({ id: users.id });
+  // Wait for in-flight credits/FK inserts before evaluating the next statement's
+  // receipt predicate. Otherwise a concurrent receipt could be cascade-deleted.
+  await tx.select({ id: users.id }).from(users).for("update");
+  return tx.delete(users).where(and(
+    keep.length > 0 ? notInArray(users.email, keep) : sql`true`,
+    sql`NOT EXISTS (SELECT 1 FROM transactions t WHERE t.user_id = ${users.id}
+      AND (t.stripe_session_id IS NOT NULL OR t.stripe_payment_intent IS NOT NULL OR t.idempotency_key IS NOT NULL))`,
+  )).returning({ id: users.id });
 }
 
 /**
@@ -95,8 +105,6 @@ async function resetEnvironmentData(actingAdminEmail: string | null | undefined)
     keepEmails: protectedUserEmails(actingAdminEmail),
   });
 
-  let deletedRows = 0;
-
   // Order matters: rows that reference app_projects go first.
   const orderedTables = [
     projectFiles,
@@ -112,16 +120,17 @@ async function resetEnvironmentData(actingAdminEmail: string | null | undefined)
     appProjects,
   ];
 
-  for (const table of orderedTables) {
-    const rows = await db
-      .delete(table)
-      .where(sql`true`)
-      .returning({ id: sql<string>`'row'` });
-    deletedRows += rows.length;
-  }
-
-  const deletedUsers = await deleteUsersExceptProtected(actingAdminEmail);
-  deletedRows += deletedUsers.length;
+  const deletedRows = await db.transaction(async (tx) => {
+    let count = 0;
+    for (const table of orderedTables) {
+      const rows = await tx.delete(table)
+        .where(table === transactions ? disposableTransactions() : sql`true`)
+        .returning({ id: sql<string>`'row'` });
+      count += rows.length;
+    }
+    const deletedUsers = await deleteUsersExceptProtected(tx, actingAdminEmail);
+    return count + deletedUsers.length;
+  });
 
   const redisConfigured = FEATURES.useRedisCache;
   const flushedRedisKeys = redisConfigured ? await flushRedisCache() : 0;
@@ -259,21 +268,30 @@ export async function POST(req: NextRequest) {
           kind: "usersExcept",
           keepEmails: protectedUserEmails(admin.user.email),
         });
-        await deleteUsersExceptProtected(admin.user.email);
+        await db.transaction((tx) => deleteUsersExceptProtected(tx, admin.user.email));
       } else if (table === "projects") {
         await assertNoProtectedBillingRows("Rensningen av projekt", { kind: "allProjects" });
-        await db.delete(projectData).where(sql`true`);
-        await db.delete(projectFiles).where(sql`true`);
-        await db.delete(images).where(sql`true`);
-        await db.delete(companyProfiles).where(sql`true`);
-        await db.delete(domainOrders).where(sql`true`);
-        await db.delete(appProjects).where(sql`true`);
+        await db.transaction(async (tx) => {
+          await tx.delete(projectData).where(sql`true`);
+          await tx.delete(projectFiles).where(sql`true`);
+          await tx.delete(images).where(sql`true`);
+          await tx.delete(companyProfiles).where(sql`true`);
+          await tx.delete(domainOrders).where(sql`true`);
+          await tx.delete(appProjects).where(sql`true`);
+        });
+      } else if (table === "transactions") {
+        await db.delete(transactions).where(disposableTransactions());
       } else {
         await db.delete(tableMap[table]).where(sql`true`);
       }
 
       console.info(`[Admin] Cleared table: ${table}`);
-      return NextResponse.json({ success: true, message: `Cleared ${table}` });
+      return NextResponse.json({
+        success: true,
+        message: table === "transactions" || table === "users"
+          ? `Cleared ${table}; payment receipts and their users were retained`
+          : `Cleared ${table}`,
+      });
     }
 
     if (action === "flush-redis") {

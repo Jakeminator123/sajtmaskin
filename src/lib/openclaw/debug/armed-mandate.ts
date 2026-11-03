@@ -13,6 +13,8 @@
  * step per auto-send.
  */
 
+import { uWord, uWordRegex } from "@/lib/utils/unicode-word-boundary";
+
 export type ArmedMandateMode = "review_next" | "followups";
 
 export interface ArmedMandate {
@@ -36,18 +38,26 @@ export const DEFAULT_FOLLOWUP_COUNT = 5;
 /** Hard ceiling on a single mandate, regardless of what the user asks for. */
 export const MAX_FOLLOWUP_COUNT = 20;
 
-const FOLLOWUP_RE = /follow[\s-]?ups?|följ\s*upp/i;
-const REVIEW_NEXT_RE =
-  /(granska|buggranska|kolla|ta\s+notis|notera)[^.!?]*\bn(ä|a)sta\b|\bn(ä|a)sta\s+(chatt)?meddelande/i;
-const STOP_RE = /\b(stopp|stoppa|sluta|avbryt|avsluta|stop|halt)\b/i;
+const FOLLOWUP_RE = uWordRegex(String.raw`follow[\s-]?ups?|följ\s*upp`);
+const REVIEW_NEXT_RE = new RegExp(
+  `${uWord(String.raw`granska|buggranska|kolla|ta\s+notis|notera`)}[^.!?]*${uWord("n(ä|a)sta")}|${uWord("n(ä|a)sta")}\\s+${uWord("(chatt)?meddelande")}`,
+  "iu",
+);
+// A stop must address the current work. Questions/quoted mentions and orders
+// about other objects ("stoppa buggar") do not revoke an existing mandate.
+const STOP_TARGET = String.raw`(?:med\s+)?(?:(?:dina|alla|pågående|aktuella|den\s+här|den\s+där)\s+)?(?:autonomin|mandatet|körningen|bygget|byggandet|arbetet|allt|det(?:\s+(?:här|där|du\s+gör))?|follow[\s-]?ups?|generera|generering(?:en)?|bygga|svara|generating|generation|building|running)`;
+const STOP_COMMAND_RE = new RegExp(
+  String.raw`^(?:(?:snälla|please)[,\s]+|(?:kan|vill)\s+du\s+)?${uWord("stopp|stoppa|sluta|avbryt|avsluta|stop|halt")}(?:\s+${STOP_TARGET})?(?:\s+efter\s+(?:detta|det\s+här)\s+steg)?(?:[,\s]+(?:nu|direkt|omedelbart|please|tack))*[,.!?。！？]*$`,
+  "iu",
+);
+const STOP_NEGATION_RE = uWordRegex(String.raw`inte|aldrig|ej|don't|don’t|do\s+not|never|no`);
 const COUNT_RE = /(\d{1,2})/;
 // An explicit imperative is required to arm — a bare noun like "follow-ups" or a
 // question ("kan du förklara follow-ups?") must NOT authorize auto-sends.
-const ARM_VERB_RE =
-  /\b(gör|göra|kör|skapa|starta|påbörja|utför|generera|do|run|create|start|launch)\b/i;
-const REVIEW_VERB_RE = /\b(granska|buggranska|notera|ta\s+notis|kolla|felsök|debugga)\b/i;
+const ARM_VERB_RE = uWordRegex("gör|göra|kör|skapa|starta|påbörja|utför|generera|do|run|create|start|launch");
+const REVIEW_VERB_RE = uWordRegex(String.raw`granska|buggranska|notera|ta\s+notis|kolla|felsök|debugga`);
 // Negation/abstention must never arm ("gör inga follow-ups", "inte nu").
-const NEGATION_RE = /\b(inga|inte|ingen|aldrig|undvik|sluta|no|don'?t|do not)\b/i;
+const NEGATION_RE = uWordRegex(String.raw`inga|inte|ingen|aldrig|undvik|sluta|no|don['’]?t|do\s+not`);
 
 function clampFollowupCount(raw: number): number {
   if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_FOLLOWUP_COUNT;
@@ -60,7 +70,7 @@ function clampFollowupCount(raw: number): number {
  */
 export function parseArmingDirective(text: string): ArmingDirective | null {
   if (typeof text !== "string") return null;
-  const trimmed = text.trim();
+  const trimmed = text.normalize("NFC").trim();
   if (!trimmed) return null;
   // A stop or any negation/abstention is never an arming directive.
   if (parseStopDirective(trimmed)) return null;
@@ -93,7 +103,8 @@ export function parseArmingDirective(text: string): ArmingDirective | null {
 /** True when the user message is an explicit stop/abort of the mandate. */
 export function parseStopDirective(text: string): boolean {
   if (typeof text !== "string") return false;
-  return STOP_RE.test(text);
+  const trimmed = text.normalize("NFC").trim();
+  return !STOP_NEGATION_RE.test(trimmed) && STOP_COMMAND_RE.test(trimmed);
 }
 
 /** Build a fresh mandate from an arming directive. */

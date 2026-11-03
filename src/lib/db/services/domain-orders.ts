@@ -19,6 +19,7 @@ import { db } from "@/lib/db/client";
 import { domainOrders } from "@/lib/db/schema";
 import type { DomainOrderStatus as DomainOrderStatusType } from "@/lib/domains/order-status";
 import { assertDbConfigured } from "./shared";
+import { hasPostgresErrorCode } from "../postgres-errors";
 
 export type DomainOrder = typeof domainOrders.$inferSelect;
 
@@ -38,10 +39,7 @@ export class DomainAlreadyOrderedError extends Error {
 }
 
 function isUniqueViolation(error: unknown): boolean {
-  const code = (error as { code?: string } | null)?.code;
-  if (code === "23505") return true;
-  const message = error instanceof Error ? error.message : String(error);
-  return message.includes("duplicate key value") || message.includes("idx_domain_orders_");
+  return hasPostgresErrorCode(error, "23505");
 }
 
 /**

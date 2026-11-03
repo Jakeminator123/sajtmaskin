@@ -200,6 +200,21 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         } = validationResult.data;
         const requestAttachments = normalizeRequestAttachments(attachments);
         let parsedMeta = parseChatRequestMeta(meta);
+        // Resolve ownership before rehosting audit media, paid enrichment or
+        // scaffold work. Reuse this exact project throughout both paths.
+        const projectIdForChat = await resolveAppProjectIdForRequest(
+          req,
+          { appProjectId: parsedMeta.appProjectId, projectId },
+          { sessionId },
+        );
+        if (!projectIdForChat) {
+          return attachSessionCookie(
+            NextResponse.json(
+              { error: `${parsedMeta.planMode ? "Plan mode" : "Own-engine generation"} requires a valid app project id. Create or resolve a project before retrying.` },
+              { status: 400 },
+            ),
+          );
+        }
         const ownerUser = await getCurrentUser(req).catch(() => null);
         const auditPayload = await resolveAuditHandoffForOwner({
           promptHandoffId: parsedMeta.promptHandoffId,
@@ -291,13 +306,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           imageGenerations: resolvedImageGenerations,
           attachmentsCount: requestAttachments.length,
         };
-        const campaignProjectId = !metaPlanMode
-          ? await resolveAppProjectIdForRequest(
-              req,
-              { appProjectId: metaAppProjectId, projectId },
-              { sessionId },
-            )
-          : null;
+        const campaignProjectId = !metaPlanMode ? projectIdForChat : null;
         const creditCheck = await prepareGenerationCredits(req, "prompt.create", creditContext, {
           sessionId,
           allowFreeGeneration: !metaPlanMode,
@@ -626,13 +635,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           );
           const planModel = plannerSettings.modelId;
           const engineIntent = metaBuildIntent;
-          // Resolved before the plan orchestration (not after, as before) so the
-          // plan sees the project's Företagsuppgifter; the chat boot below reuses it.
-          const projectIdForChat = await resolveAppProjectIdForRequest(
-            req,
-            { appProjectId: metaAppProjectId, projectId },
-            { sessionId },
-          );
           const planBusinessFacts = await loadBusinessFactsForProject(projectIdForChat);
           const planOrchestrationStartedAt = Date.now();
           const planOrchestration = await prepareGenerationContext({
@@ -710,17 +712,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             resolvedThinking: plannerSettings.thinking,
           });
 
-          if (!projectIdForChat) {
-            return attachSessionCookie(
-              NextResponse.json(
-                {
-                  error:
-                    "Plan mode requires a valid app project id. Create or resolve a project before retrying.",
-                },
-                { status: 400 },
-              ),
-            );
-          }
           const plannerChatDbStartedAt = Date.now();
           const plannerBoot = await createChatAfterAcquiringInitLock({
             projectId: projectIdForChat,
@@ -839,15 +830,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           // the tier from it via ownModelIdToCanonicalModelId.
           const generatorModel = resolvePhaseModel(resolvedModelTier, "generator").modelId;
 
-          // Resolved here (and reused below for `createChat`) because the
-          // orchestration input needs the project's stored env keys — see
-          // `configuredEnvKeys` further down. Tenant-checked, so a foreign
-          // project id resolves to null and contributes no keys.
-          const projectIdForChat = await resolveAppProjectIdForRequest(
-            req,
-            { appProjectId: metaAppProjectId, projectId },
-            { sessionId },
-          );
           // Restlistan R6: init körs ofta på ett projekt som redan har sparade
           // nycklar (ny chat i samma projekt), så en tom mängd ljög om
           // `configured` och lät Kopplade byggblock rendera sin okonfigurerade
@@ -945,17 +927,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             fallback: false,
           });
 
-          if (!projectIdForChat) {
-            return attachSessionCookie(
-              NextResponse.json(
-                {
-                  error:
-                    "Own-engine generation requires a valid app project id. Create or resolve a project before retrying.",
-                },
-                { status: 400 },
-              ),
-            );
-          }
           const finalizePromptStartedAt = Date.now();
           const finalized = await finalizeOrchestrationPrompts(
             orchestrationBase,

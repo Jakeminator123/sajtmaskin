@@ -87,15 +87,15 @@ describe("POST /api/wizard/company-lookup", () => {
     expect(authorizeWizardRun).not.toHaveBeenCalled();
   });
 
-  it("forwards a run rejection without invoking lookup providers", async () => {
+  it.each([403, 429, 503])("forwards run admission failure %s without invoking lookup providers", async (status) => {
     authorizeWizardRun.mockResolvedValue({
       ok: false,
-      response: Response.json({ error: "Ogiltig wizard-körning." }, { status: 403 }),
+      response: Response.json({ error: "Wizard-körningen nekades." }, { status }),
     });
 
     const response = await POST(makeRequest({ companyName: "Sajtstudio" }));
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(status);
     expect(safeFetch).not.toHaveBeenCalled();
     expect(braveWebSearch).not.toHaveBeenCalled();
     expect(generateText).not.toHaveBeenCalled();

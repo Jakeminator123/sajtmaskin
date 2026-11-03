@@ -5,10 +5,56 @@ import {
 } from "./tier3-sdk-guard-fixer";
 import {
   loadTier3DenyList,
+  isTier3SdkModule,
   renderTier3F2DenyBlockLines,
 } from "@/lib/integrations/tier3-sdk-deny";
 
 describe("fixTier3SdkImports", () => {
+  it("removes multiline, commented, side-effect and unscoped-subpath imports", () => {
+    const code = `// Keep this explanation of Stripe.
+import {
+  createClient,
+  type SupabaseClient,
+} from "@supabase/supabase-js"; // keep trailing comment
+import { useSession } from "next-auth/react";
+import "stripe";
+import {
+  Button,
+} from "@/components/ui/button";
+export default function Page() { return <Button>Hi</Button>; }`;
+
+    const result = fixTier3SdkImports(code);
+
+    expect(result.removedModules).toEqual(["@supabase/supabase-js", "next-auth/react", "stripe"]);
+    expect(result.code).not.toContain("createClient");
+    expect(result.code).not.toContain("useSession");
+    expect(result.code).toContain("// Keep this explanation of Stripe.");
+    expect(result.code).toContain("// keep trailing comment");
+    expect(result.code).toContain('from "@/components/ui/button"');
+    expect(fixTier3SdkImports(result.code).removedModules).toEqual([]);
+  });
+
+  it("does not interpret import examples in comments, strings, or templates as imports", () => {
+    const code = `// import Stripe from "stripe";
+/* import { createClient } from "@supabase/supabase-js"; */
+const example = 'import { useSession } from "next-auth/react";';
+const multiline = \`example:
+import Stripe from "stripe";
+\`;`;
+
+    expect(fixTier3SdkImports(code)).toEqual({ code, removedModules: [] });
+  });
+
+  it.each(["next-auth/react", "@clerk/nextjs/server", "stripe/subpath/deep"])(
+    "matches package subpath %s in the shared deny-list",
+    (specifier) => expect(isTier3SdkModule(specifier)).toBe(true),
+  );
+
+  it.each(["next-auth-helper/react", "@clerk/nextjs-extra/server", "@/lib/stripe"])(
+    "does not treat a similar package prefix as a denied package: %s",
+    (specifier) => expect(isTier3SdkModule(specifier)).toBe(false),
+  );
+
   it("returns the code unchanged when no tier-3 imports are present", () => {
     const code = `import { Button } from "@/components/ui/button";
 import Link from "next/link";

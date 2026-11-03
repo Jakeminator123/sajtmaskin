@@ -7,6 +7,30 @@ import {
   isReadOnlyComposerRequest,
   resolveComposerRoute,
 } from "./composer-route";
+import { createArmedMandate, parseArmingDirective } from "@/lib/openclaw/debug/armed-mandate";
+
+describe("autonomy mandate routing", () => {
+  const text = "gör 5 follow-ups och buggranska";
+
+  it("routes the mandate to the agent so its existing power gates can arm it", () => {
+    expect(classifyComposerIntent(text)).toBe("agent");
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true, builderAwaitingReply: true })).toBe("agent");
+    expect(createArmedMandate(parseArmingDirective(text)!).remaining).toBe(5);
+    expect(isReadOnlyComposerRequest(text)).toBe(false);
+    // Routing does not grant the ordinary direct-build permission. The hook's
+    // explicitFollowupOrder + armedAutonomy gates still authorize a mandate.
+    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(false);
+    expect(composerAllowsAgentBuild({ mode: "agent", text })).toBe(false);
+  });
+
+  it.each([
+    { hasChat: false, hasAttachments: false, agentAvailable: true },
+    { hasChat: true, hasAttachments: true, agentAvailable: true },
+    { hasChat: true, hasAttachments: false, agentAvailable: false },
+  ])("does not turn a mandate into an ordinary build when unreachable: %j", availability => {
+    expect(resolveComposerRoute({ mode: "auto", text, ...availability })).toBe("blocked");
+  });
+});
 
 describe("isReadOnlyComposerRequest", () => {
   it.each([

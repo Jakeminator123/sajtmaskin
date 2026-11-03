@@ -19,14 +19,14 @@
  *
  * When step 2 or 3 fails we refund. A charge with nothing delivered is the one
  * outcome this module refuses to leave in place; if the refund itself fails the
- * order lands in `registration_failed` with the reason on the row, which is the
- * signal for manual handling rather than a silent loss.
+ * order lands in `registration_failed` with a `refund_pending:` reason. The
+ * webhook returns 500 and resumes only compensation on redelivery; failures
+ * after successful registration still require manual handling.
  */
 
 import Stripe from "stripe";
 import { SECRETS } from "@/lib/config";
 import { addDomainToProject, isVercelConfigured } from "@/lib/vercel/vercel-client";
-import { bindingQuoteFromSek } from "@/lib/domains/pricing";
 import { resolvePricingSettings } from "@/lib/db/services/pricing-settings";
 import { providersForTld, tldOf } from "@/lib/domains/registrar";
 import {
@@ -42,6 +42,7 @@ export type FulfilmentOutcome =
   | { status: "registered"; registrarOrderId: string | null; linkedToProject: boolean }
   | { status: "already_handled" }
   | { status: "refunded"; reason: string }
+  | { status: "refund_pending"; reason: string }
   | { status: "needs_manual_handling"; reason: string };
 
 function stripeClient(): Stripe | null {
@@ -63,7 +64,7 @@ export async function refundDomainOrder(
   if (!stripe || !order.stripe_payment_intent) {
     await markDomainOrderRegistrationFailed(
       order.id,
-      `${reason} (no refund possible: missing payment intent)`,
+      `refund_pending: ${reason} (missing payment intent or Stripe configuration)`,
     );
     return false;
   }
@@ -71,7 +72,7 @@ export async function refundDomainOrder(
     const refund = await stripe.refunds.create({
       payment_intent: order.stripe_payment_intent,
       reason: "requested_by_customer",
-    });
+    }, { idempotencyKey: `domain-refund:${order.stripe_payment_intent}` });
     await markDomainOrderRefunded(order.id, refund.id, reason);
     console.info(`[domains/fulfil] Refunded order ${order.id}: ${reason}`);
     return true;
@@ -79,7 +80,7 @@ export async function refundDomainOrder(
     console.error(`[domains/fulfil] Refund FAILED for order ${order.id}:`, err);
     await markDomainOrderRegistrationFailed(
       order.id,
-      `${reason} (refund failed: ${err instanceof Error ? err.message : "unknown"})`,
+      `refund_pending: ${reason} (refund failed: ${err instanceof Error ? err.message : "unknown"})`,
     );
     return false;
   }
@@ -119,7 +120,7 @@ export async function fulfilDomainOrder(order: DomainOrder): Promise<FulfilmentO
     const refunded = await refundOrder(order, `fulfilment_error: ${message}`).catch(() => false);
     return refunded
       ? { status: "refunded", reason: message }
-      : { status: "needs_manual_handling", reason: message };
+      : { status: "refund_pending", reason: message };
   }
 }
 
@@ -140,7 +141,7 @@ async function fulfilDomainOrderInner(
     const refunded = await refundOrder(order, "registrar_unavailable");
     return refunded
       ? { status: "refunded", reason: "registrar_unavailable" }
-      : { status: "needs_manual_handling", reason: "registrar_unavailable" };
+      : { status: "refund_pending", reason: "registrar_unavailable" };
   }
 
   // Re-quote: the customer's price is frozen, the registrar's is not. Same
@@ -152,13 +153,14 @@ async function fulfilDomainOrderInner(
     const refunded = await refundOrder(order, "no_binding_quote_at_fulfilment");
     return refunded
       ? { status: "refunded", reason: "no_binding_quote_at_fulfilment" }
-      : { status: "needs_manual_handling", reason: "no_binding_quote_at_fulfilment" };
+      : { status: "refund_pending", reason: "no_binding_quote_at_fulfilment" };
   }
-  if (fresh.available === false) {
-    const refunded = await refundOrder(order, "domain_taken_before_fulfilment");
+  if (fresh.available !== true) {
+    const reason = fresh.available === false ? "domain_taken_before_fulfilment" : "unknown_availability_at_fulfilment";
+    const refunded = await refundOrder(order, reason);
     return refunded
-      ? { status: "refunded", reason: "domain_taken_before_fulfilment" }
-      : { status: "needs_manual_handling", reason: "domain_taken_before_fulfilment" };
+      ? { status: "refunded", reason }
+      : { status: "refund_pending", reason };
   }
 
   // Guard the margin without being twitchy about it: the customer already paid
@@ -170,7 +172,7 @@ async function fulfilDomainOrderInner(
     const refunded = await refundOrder(order, "wholesale_price_exceeded_charge");
     return refunded
       ? { status: "refunded", reason: "wholesale_price_exceeded_charge" }
-      : { status: "needs_manual_handling", reason: "wholesale_price_exceeded_charge" };
+      : { status: "refund_pending", reason: "wholesale_price_exceeded_charge" };
   }
 
   let registrarOrderId: string | null = null;
@@ -178,7 +180,7 @@ async function fulfilDomainOrderInner(
     markRegistrarCalled();
     const result = await provider.register(
       domain,
-      bindingQuoteFromSek(fresh.quote.wholesaleSek, fresh.quote.periodYears ?? 1, pricing),
+      fresh.quote,
       pricing,
     );
     registrarOrderId = result.registrarOrderId;
@@ -196,7 +198,7 @@ async function fulfilDomainOrderInner(
     const refunded = await refundOrder(order, `registration_failed: ${message}`);
     return refunded
       ? { status: "refunded", reason: message }
-      : { status: "needs_manual_handling", reason: message };
+      : { status: "refund_pending", reason: message };
   }
 
   await markDomainOrderRegistered(order.id, registrarOrderId);

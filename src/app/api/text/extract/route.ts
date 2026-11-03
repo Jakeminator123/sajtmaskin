@@ -89,12 +89,14 @@ export async function POST(request: NextRequest) {
       let extractedText = "";
 
       try {
-        const pdfParseModule = await import("pdf-parse");
-        const pdfParse = ((pdfParseModule as { default?: unknown }).default || pdfParseModule) as (
-          buffer: Buffer,
-        ) => Promise<{ text: string }>;
-        const pdfData = await pdfParse(buffer);
-        extractedText = pdfData.text || "";
+        const { PDFParse } = await import("pdf-parse");
+        const parser = new PDFParse({ data: buffer });
+        try {
+          const pdfData = await parser.getText({ pageJoiner: "" });
+          extractedText = pdfData.text || "";
+        } finally {
+          await parser.destroy();
+        }
       } catch (parseError) {
         const errorMsg = parseError instanceof Error ? parseError.message : "Unknown error";
         console.warn(`[Text/Extract] pdf-parse failed (${errorMsg}); extraction unsupported`);

@@ -31,6 +31,9 @@ const calls = {
   markExpired: vi.fn(async () => undefined),
   refundOrder: vi.fn(async () => true),
   refundCreate: vi.fn(async () => ({ id: "re_1" })),
+  claimRegistration: vi.fn(async () => false),
+  markRegistrationFailed: vi.fn(async () => undefined),
+  register: vi.fn(async () => ({ registrarOrderId: "reg_1" })),
   createTransaction: vi.fn(async () => ({})),
   getTransactionByStripeSession: vi.fn(async () => null),
   getUserById: vi.fn(async () => ({ id: "usr_1", email: "a@b.c" })),
@@ -75,6 +78,29 @@ vi.mock("@/lib/domains/fulfilment", () => ({
 vi.mock("@/lib/db/services/domain-orders", () => ({
   markDomainOrderPaid: (...args: unknown[]) => calls.markPaid(...(args as [])),
   markDomainOrderExpired: (...args: unknown[]) => calls.markExpired(...(args as [])),
+  claimDomainOrderForRegistration: () => calls.claimRegistration(),
+  markDomainOrderRegistrationFailed: () => calls.markRegistrationFailed(),
+  markDomainOrderRefunded: vi.fn(),
+  markDomainOrderRegistered: vi.fn(),
+  setDomainAddedToProject: vi.fn(),
+}));
+
+vi.mock("@/lib/db/services/pricing-settings", () => ({
+  resolvePricingSettings: async () => ({ domain: { markup: 2, usdToSek: 11 } }),
+}));
+
+vi.mock("@/lib/vercel/vercel-client", () => ({
+  isVercelConfigured: () => false,
+  addDomainToProject: vi.fn(),
+}));
+
+vi.mock("@/lib/domains/registrar", () => ({
+  tldOf: () => "com",
+  providersForTld: () => [{
+    id: "vercel", canRegister: () => true,
+    getQuote: async () => ({ available: null, quote: { binding: true, wholesaleSek: 100 } }),
+    register: () => calls.register(),
+  }],
 }));
 
 const { POST } = await import("./route");
@@ -220,6 +246,105 @@ describe("stripe webhook — checkout dispatch boundary", () => {
 });
 
 describe("stripe webhook — domain purchase", () => {
+  it("does not acknowledge a concurrent delivery that loses the registration claim", async () => {
+    const { fulfilDomainOrder } = await vi.importActual<typeof import("@/lib/domains/fulfilment")>("@/lib/domains/fulfilment");
+    calls.claimRegistration.mockResolvedValueOnce(false);
+    calls.fulfil.mockImplementationOnce(() => fulfilDomainOrder({ id: "ord_1" } as Parameters<typeof fulfilDomainOrder>[0]));
+    constructedEvent = domainSessionEvent("checkout.session.completed");
+
+    const response = await POST(webhookRequest() as never);
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "domain_order_unresolved" });
+    expect(calls.claimRegistration).toHaveBeenCalledTimes(1);
+    expect(calls.register).not.toHaveBeenCalled();
+    expect(calls.refundCreate).not.toHaveBeenCalled();
+  });
+
+  it("keeps an unresolved registration retryable after refund and failure-state persistence both fail", async () => {
+    const { fulfilDomainOrder } = await vi.importActual<typeof import("@/lib/domains/fulfilment")>("@/lib/domains/fulfilment");
+    const persisted = { id: "ord_1", domain: "x.com", registrar: "vercel", status: "paid",
+      stripe_payment_intent: "pi_1", price_ore: 50000, failure_reason: null };
+    calls.markPaid.mockImplementation(async () => ({ outcome: "already_handled", order: { ...persisted } }));
+    calls.claimRegistration.mockImplementationOnce(async () => { persisted.status = "registering"; return true; });
+    calls.refundCreate.mockRejectedValueOnce(new Error("refund transport unavailable"))
+      .mockRejectedValueOnce(new Error("refund transport unavailable"));
+    calls.markRegistrationFailed.mockRejectedValueOnce(new Error("database temporarily unavailable"))
+      .mockRejectedValueOnce(new Error("database temporarily unavailable"));
+    calls.fulfil.mockImplementationOnce(() => fulfilDomainOrder(persisted as Parameters<typeof fulfilDomainOrder>[0]));
+    constructedEvent = domainSessionEvent("checkout.session.completed");
+
+    expect((await POST(webhookRequest() as never)).status).toBe(500);
+    expect(persisted.status).toBe("registering");
+    const refundsAfterFirst = calls.refundCreate.mock.calls.length;
+    expect(refundsAfterFirst).toBeGreaterThan(0);
+    expect(calls.markRegistrationFailed).toHaveBeenCalled();
+    const retry = await POST(webhookRequest() as never);
+    expect(retry.status).toBe(500);
+    expect(await retry.json()).toEqual({ error: "domain_order_unresolved" });
+    expect(calls.refundCreate).toHaveBeenCalledTimes(refundsAfterFirst);
+    expect(calls.fulfil).toHaveBeenCalledTimes(1);
+    expect(calls.register).not.toHaveBeenCalled();
+
+    // Another worker/reconciliation may finish the existing attempt. Only the
+    // resulting terminal state allows acknowledgement on a later delivery.
+    persisted.status = "registered";
+    expect((await POST(webhookRequest() as never)).status).toBe(200);
+    expect(calls.fulfil).toHaveBeenCalledTimes(1);
+    expect(calls.register).not.toHaveBeenCalled();
+  });
+
+  it.each([false, "throw"])("retries a late-payment refund on %s", async (failure) => {
+    state.markPaidResult = { outcome: "domain_taken" };
+    calls.refundOrder.mockImplementationOnce(async () => {
+      if (failure === "throw") throw new Error("Stripe unavailable");
+      return false;
+    });
+    constructedEvent = domainSessionEvent("checkout.session.completed");
+    const response = await POST(webhookRequest() as never);
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "domain_refund_pending" });
+    expect(calls.fulfil).not.toHaveBeenCalled();
+  });
+
+  it("resumes a failed refund on redelivery without registering again", async () => {
+    state.markPaidResult = { outcome: "already_handled", order: { id: "ord_1", status: "registration_failed",
+      failure_reason: "refund_pending: domain_taken_before_late_payment", stripe_payment_intent: null } };
+    constructedEvent = domainSessionEvent("checkout.session.completed");
+    calls.refundOrder.mockResolvedValueOnce(false);
+    expect((await POST(webhookRequest() as never)).status).toBe(500);
+    const response = await POST(webhookRequest() as never);
+    expect(response.status).toBe(200);
+    expect((await response.json()).outcome).toBe("refunded");
+    expect(calls.refundOrder).toHaveBeenLastCalledWith(
+      { id: "ord_1", stripe_payment_intent: "pi_1" }, "retry_pending_refund");
+    expect(calls.fulfil).not.toHaveBeenCalled();
+  });
+
+  it("never retries a post-registration manual case as a refund", async () => {
+    state.markPaidResult = { outcome: "already_handled", order: { id: "ord_1", status: "registration_failed",
+      failure_reason: "post_registration_failure: DB unavailable (refund failed: embedded error)" } };
+    constructedEvent = domainSessionEvent("checkout.session.completed");
+    expect((await POST(webhookRequest() as never)).status).toBe(200);
+    expect(calls.refundOrder).not.toHaveBeenCalled();
+  });
+
+  it("retries an unmatched payment with the same Stripe idempotency key", async () => {
+    state.markPaidResult = { outcome: "not_found" };
+    constructedEvent = domainSessionEvent("checkout.session.completed");
+    calls.refundCreate.mockRejectedValueOnce(new Error("network timeout"));
+    expect((await POST(webhookRequest() as never)).status).toBe(500);
+    expect((await POST(webhookRequest() as never)).status).toBe(200);
+    expect(calls.refundCreate.mock.calls).toEqual([
+      [{ payment_intent: "pi_1", reason: "requested_by_customer" }, { idempotencyKey: "domain-refund:pi_1" }],
+      [{ payment_intent: "pi_1", reason: "requested_by_customer" }, { idempotencyKey: "domain-refund:pi_1" }],
+    ]);
+  });
+
+  it("keeps a fulfilment compensation failure retryable", async () => {
+    calls.fulfil.mockResolvedValueOnce({ status: "refund_pending" });
+    constructedEvent = domainSessionEvent("checkout.session.completed");
+    expect((await POST(webhookRequest() as never)).status).toBe(500);
+  });
   it("fulfils a paid domain order and never touches the credits ledger", async () => {
     constructedEvent = domainSessionEvent("checkout.session.completed");
     const res = await POST(webhookRequest() as never);
@@ -287,6 +412,7 @@ describe("stripe webhook — domain purchase", () => {
     expect(body.outcome).toBe("refunded");
     expect(calls.refundCreate).toHaveBeenCalledWith(
       expect.objectContaining({ payment_intent: "pi_1" }),
+      { idempotencyKey: "domain-refund:pi_1" },
     );
     expect(calls.fulfil).not.toHaveBeenCalled();
   });

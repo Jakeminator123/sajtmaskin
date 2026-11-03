@@ -23,7 +23,7 @@ vi.mock("@/lib/gen/parser", () => ({ parseCodeProject: () => ({ files: [] }) }))
 vi.mock("@/lib/gen/version-manager", () => ({ parseCodeFilesFromFilesJson: () => [{ path: "app/page.tsx", content: "export default()=>null" }] }));
 vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({ getUnsignaledDetectedIntegrations: integrations }));
 vi.mock("@/lib/streaming", () => ({ formatSSEEvent: formatSSEEventMock }));
-vi.mock("@/lib/utils/debug", () => ({ warnLog: vi.fn() }));
+vi.mock("@/lib/utils/debug", () => ({ warnLog: vi.fn(), errorLog: vi.fn() }));
 
 const finalized = {
   version: { id: "ver_1" },

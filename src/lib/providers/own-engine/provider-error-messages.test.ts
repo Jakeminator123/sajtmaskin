@@ -47,9 +47,9 @@ describe("classifyProviderError (B3)", () => {
     expect(result.permanent).toBe(true);
   });
 
-  it("falls back to raw message when no mapping matches", () => {
+  it("uses a safe public fallback when no mapping matches", () => {
     const result = classifyProviderError({ status: 418, message: "I am a teapot" });
-    expect(result.userMessage).toBe("I am a teapot");
+    expect(result.userMessage).toBe("Ett oväntat fel uppstod. Försök igen.");
     expect(result.permanent).toBe(false);
   });
 
@@ -60,7 +60,7 @@ describe("classifyProviderError (B3)", () => {
 
   it("handles plain string errors", () => {
     const result = classifyProviderError("boom");
-    expect(result.userMessage).toBe("boom");
+    expect(result.userMessage).toBe("Ett oväntat fel uppstod. Försök igen.");
     expect(result.permanent).toBe(false);
   });
 
@@ -102,7 +102,7 @@ describe("classifyProviderError (B3)", () => {
 
     const result = classifyProviderError(looping);
 
-    expect(result.userMessage).toBe("loop");
+    expect(result.userMessage).toBe("Ett oväntat fel uppstod. Försök igen.");
     expect(result.providerFault).toBe(false);
   });
 
@@ -149,11 +149,11 @@ describe("classifyProviderError (B3)", () => {
     expect(result.providerFault).toBe(true);
   });
 
-  it("still reports the outermost code when nothing maps", () => {
+  it("keeps unmapped codes out of the public payload", () => {
     const inner = Object.assign(new Error("inner"), { code: "also_unknown" });
     const outer = Object.assign(new Error("outer"), { code: "unknown_code", cause: inner });
 
-    expect(classifyProviderError(outer).code).toBe("unknown_code");
+    expect(classifyProviderError(outer).code).toBeNull();
   });
 
   // En prototypnyckel gav en truthy icke-mappning, så `userMessage` blev
@@ -164,8 +164,22 @@ describe("classifyProviderError (B3)", () => {
       const result = classifyProviderError({ code, message: "raw provider text" });
 
       expect(typeof result.userMessage).toBe("string");
-      expect(result.userMessage).toBe("raw provider text");
+      expect(result.userMessage).toBe("Ett oväntat fel uppstod. Försök igen.");
       expect(result.providerFault).toBe(false);
     },
   );
+
+  it.each([
+    new Error("Failed query: secret-prompt sk-proj-secret0123456789"),
+    { message: "prompt: private business text", code: "sk-proj-secret0123456789" },
+    "postgres://user:secret@db/private",
+  ])("keeps unknown diagnostic content out of classification", (error) => {
+    const classified = classifyProviderError(error);
+    expect(classified).toEqual({ userMessage: "Ett oväntat fel uppstod. Försök igen.", code: null, permanent: false, providerFault: false });
+  });
+
+  it("preserves the safe mapped diagnosis on downstream reclassification", () => {
+    const first = classifyProviderError({ status: 401 });
+    expect(classifyProviderError({ message: first.userMessage })).toEqual(first);
+  });
 });

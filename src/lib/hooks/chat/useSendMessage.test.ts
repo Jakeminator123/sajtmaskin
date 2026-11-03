@@ -100,8 +100,37 @@ function createHarness(
   };
 
   const { result } = renderHook(() => useSendMessage(params, deps));
-  return { result, messagesBox, mutateVersions, streamAbortRef: deps.streamAbortRef };
+  return { result, messagesBox, mutateVersions, streamAbortRef: deps.streamAbortRef, clearStreamSafetyTimer: deps.clearStreamSafetyTimer };
 }
+
+describe("send cancellation ownership", () => {
+  it.each(["fetch", "json"])("ignores a late %s response without clearing a newer stream's timer", async (boundary) => {
+    let releaseFetch!: (response: Response) => void;
+    let releaseJson!: (data: Record<string, unknown>) => void;
+    const oldFetch = new Promise<Response>((resolve) => { releaseFetch = resolve; });
+    const oldJson = new Promise<Record<string, unknown>>((resolve) => { releaseJson = resolve; });
+    fetchMock.mockReturnValueOnce(boundary === "fetch" ? oldFetch : Promise.resolve({
+      ok: false, status: 503, json: () => oldJson,
+    }));
+    const { result, messagesBox, streamAbortRef, clearStreamSafetyTimer } = createHarness();
+    let request!: Promise<SendMessageOutcome>;
+    await act(async () => { request = result.current.sendMessage("OLD PROMPT"); });
+    streamAbortRef.current?.abort();
+    streamAbortRef.current = new AbortController();
+    messagesBox.current = [{ id: "b", role: "user", content: "B ORIGINAL" }];
+    let outcome: SendMessageOutcome | undefined;
+    await act(async () => {
+      if (boundary === "fetch") releaseFetch(jsonResponse(503, { reason: "generation_lock_unavailable" }));
+      else releaseJson({ reason: "generation_lock_unavailable" });
+      outcome = await request;
+    });
+    expect(outcome).toEqual({ status: "aborted", by: "client" });
+    expect(messagesBox.current.map((m) => m.content)).toEqual(["B ORIGINAL"]);
+    expect(clearStreamSafetyTimer).not.toHaveBeenCalled();
+    expect(handleSseStream).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+});
 
 async function send(
   result: {

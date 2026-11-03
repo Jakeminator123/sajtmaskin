@@ -21,10 +21,60 @@ import { spawnSync } from "node:child_process";
  * whole-string allowlist would pass it while the raw delete still runs.
  */
 export function shellSegments(command) {
-  return command
-    .split(/&&|\|\||[;|\n]/)
-    .map((segment) => segment.trim())
-    .filter(Boolean);
+  return [...new Set(shellSegmentVariants(command).flat())];
+}
+
+/**
+ * The hook input has no shell identity. Inspect both POSIX backslash escaping
+ * and Windows/PowerShell quoting; a backslash cannot hide a Windows separator.
+ * Keep quoted separators and descriptor redirects (`2>&1`) inside their word.
+ * Leading `&` stays attached to the next command for PowerShell invocation.
+ */
+export function shellSegmentVariants(command, { splitPipes = true } = {}) {
+  return ["posix", "powershell"].map((dialect) => {
+    const segments = [];
+    let value = "";
+    let quote = null;
+    for (let index = 0; index < command.length; index += 1) {
+      const char = command[index];
+      const next = command[index + 1] ?? "";
+      const escape = dialect === "posix" ? "\\" : "`";
+      if (char === escape && quote !== "'") {
+        value += char;
+        if (index + 1 < command.length) value += command[++index];
+        continue;
+      }
+      if (quote) {
+        value += char;
+        if (char === quote) quote = null;
+        continue;
+      }
+      if (char === '"' || char === "'") {
+        quote = char;
+        value += char;
+        continue;
+      }
+      const pair = command.slice(index, index + 2);
+      const singleAmpersand =
+        char === "&" && next !== "&" && !/[<>]/u.test(command[index - 1] ?? "");
+      if (
+        pair === "&&" ||
+        pair === "||" ||
+        char === ";" ||
+        char === "\n" ||
+        (splitPipes && char === "|") ||
+        singleAmpersand
+      ) {
+        if (value.trim()) segments.push(value.trim());
+        value = singleAmpersand ? "& " : "";
+        if (pair === "&&" || pair === "||") index += 1;
+        continue;
+      }
+      value += char;
+    }
+    if (value.trim()) segments.push(value.trim());
+    return segments;
+  });
 }
 
 const EXPANSION_START = /[A-Za-z_{]/u;
@@ -209,7 +259,16 @@ export function nestedShellPayloads(segment) {
       payloads.push((match[1] ?? match[2] ?? match[3] ?? "").replace(/\\([\\ "';&|])/g, "$1"));
     }
   }
-  return payloads;
+  // cmd does not use backslash escapes or single-quote delimiters. Keep a
+  // Windows interpretation as well as the portable shell regex above, including
+  // /s /c's outer-quote removal. Do not let POSIX dequoting hide a later `&`.
+  const cmd = /\bcmd(?:\.exe)?\b[^;&|\n]*?\s\/[ck]\s+([\s\S]*)/iu.exec(segment);
+  if (cmd) {
+    const tail = cmd[1].trim().replace(/'/gu, "");
+    payloads.push(tail);
+    if (tail.startsWith('"') && tail.endsWith('"')) payloads.push(tail.slice(1, -1));
+  }
+  return [...new Set(payloads)];
 }
 
 const BLOCK_OPENERS = [
@@ -424,7 +483,9 @@ function aliasMayWrite(aliases, name) {
 function namesProtectedWrite(args) {
   return (
     args.some((token) => /^(?:commit|push)$/iu.test(token)) ||
-    args.some((token, index) => /^worktree$/iu.test(token) && /^remove$/iu.test(args[index + 1] ?? ""))
+    args.some(
+      (token, index) => /^worktree$/iu.test(token) && /^remove$/iu.test(args[index + 1] ?? ""),
+    )
   );
 }
 
@@ -584,7 +645,8 @@ function ambiguousSegment(segment, aliases, injectsAliasEnvironment, gitStrings)
   let gitIndex = invokesGit(tokens);
   // A literal `git` after an unknown runner (`xargs git`, `Start-Process git`)
   // still executes git. A quoted `git` there is an argument (`rg "git" docs`).
-  if (gitIndex < 0) gitIndex = words.findIndex((word) => !word.quoted && GIT_EXECUTABLE.test(word.text));
+  if (gitIndex < 0)
+    gitIndex = words.findIndex((word) => !word.quoted && GIT_EXECUTABLE.test(word.text));
   if (gitIndex < 0) return dynamicExecutableMayWrite(words, aliases, gitStrings);
 
   if (hasInlineAliasOption(tokens, gitIndex)) return true;

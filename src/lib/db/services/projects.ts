@@ -11,6 +11,7 @@ import {
   promptHandoffs,
 } from "@/lib/db/schema";
 import { assertDbConfigured } from "./shared";
+import { hasPostgresErrorCode } from "../postgres-errors";
 import { withProjectOwner } from "./project-owner";
 import type { Project, ProjectData, PromptHandoff } from "./shared";
 import {
@@ -455,7 +456,7 @@ export async function ensureProjectPublishedIdentity(
       };
     } catch (error) {
       // PostgreSQL unique violation: another project owns this candidate.
-      if (!(error && typeof error === "object" && "code" in error && error.code === "23505")) {
+      if (!hasPostgresErrorCode(error, "23505")) {
         throw error;
       }
     }
@@ -484,7 +485,7 @@ export async function ensureProjectPublishedIdentity(
     }
     return ensureProjectPublishedIdentity(id, preferredName);
   } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "23505") {
+    if (hasPostgresErrorCode(error, "23505")) {
       throw new Error("Could not allocate a collision-safe public site slug");
     }
     throw error;

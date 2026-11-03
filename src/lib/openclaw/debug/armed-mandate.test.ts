@@ -98,6 +98,37 @@ describe("parseStopDirective", () => {
   it("ignores unrelated text", () => {
     expect(parseStopDirective("fortsätt gärna")).toBe(false);
   });
+
+  it.each([
+    "Kan du förklara hur jag ska stoppa buggar?",
+    "sluta inte",
+    "Stoppa inte autonomin",
+    "Avbryt aldrig körningen",
+    "Vad betyder stopp?",
+    'Förklara kommandot "avbryt"',
+    '"stopp"',
+    "stoppa buggar",
+    "åsluta",
+    "slutaå",
+    "sluta inte generera",
+    "sluta inte med dina follow-ups",
+    "avbryt inte det du gör",
+    "don't stop generating",
+    "Kan du förklara vad stop generating betyder?",
+    "stop generating bugs",
+  ])("does not cancel on a negation, mention or unrelated object: %s", text => {
+    expect(parseStopDirective(text)).toBe(false);
+  });
+
+  it.each([
+    "Snälla avbryt körningen nu", "Kan du stoppa autonomin?", "sluta med follow-ups",
+    "stoppa efter detta steg", "sluta med det där", "sluta generera",
+    "sluta med dina follow-ups", "avbryt det du gör", "stop generating", "stopp, tack",
+  ])(
+    "recognizes an explicit stop of current work: %s", text => {
+      expect(parseStopDirective(text)).toBe(true);
+    },
+  );
 });
 
 describe("mandate lifecycle", () => {

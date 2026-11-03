@@ -23,6 +23,53 @@ describe("quickScrapeWebsite content selection", () => {
     guardedFetch.mockReset();
   });
 
+  const wpJsonResponse = (url: string) => {
+    const response = new Response(JSON.stringify({
+      content: { rendered: `<p>${"FOREIGN99 ".repeat(40)}</p>` },
+    }), { headers: { "content-type": "application/json" } });
+    Object.defineProperty(response, "url", { value: url });
+    return response;
+  };
+
+  it.each([
+    '<link rel="alternate" type="application/json" href="https://foreign.example/wp-json/wp/v2/posts/1">',
+    '<link rel="shortlink" href="https://foreign.example/?p=1">',
+    '<link rel="canonical" href="https://foreign.example/article">',
+  ])("does not use a foreign WordPress content hint: %s", async (hint) => {
+    guardedFetch.mockImplementation(async (target: string) => {
+      if (target === "https://example.com/") {
+        return htmlResponse(`<html><head><meta name="generator" content="WordPress">${hint}</head><body>ORIGINAL</body></html>`);
+      }
+      if (target.includes("wp-json")) return wpJsonResponse(target);
+      return new Response("<urlset/>", { headers: { "content-type": "application/xml" } });
+    });
+
+    const result = await scrapeWebsite("https://example.com/", { maxPages: 1 });
+
+    expect(result.url).toBe("https://example.com/");
+    expect(result.text).toContain("ORIGINAL");
+    expect(result.text).not.toContain("FOREIGN99");
+    expect(guardedFetch.mock.calls.every(([target]) => new URL(target).origin === "https://example.com")).toBe(true);
+  });
+
+  it.each([
+    ["https://example.com/wp-json/wp/v2/posts/1", true],
+    ["https://foreign.example/wp-json/wp/v2/posts/1", false],
+  ])("binds WordPress fallback response origin after redirects: %s", async (finalUrl, accepted) => {
+    guardedFetch.mockImplementation(async (target: string) => {
+      if (target === "https://example.com/") {
+        return htmlResponse('<html><head><link rel="alternate" type="application/json" href="/wp-json/wp/v2/posts/1"></head><body>ORIGINAL</body></html>');
+      }
+      if (target.includes("wp-json")) return wpJsonResponse(finalUrl);
+      return new Response("<urlset/>", { headers: { "content-type": "application/xml" } });
+    });
+
+    const result = await scrapeWebsite("https://example.com/", { maxPages: 1 });
+
+    expect(result.text.includes("FOREIGN99")).toBe(accepted);
+    expect(result.url).toBe("https://example.com/");
+  });
+
   it("normalizes uppercase schemes and whitespace while preserving path and query", async () => {
     guardedFetch.mockResolvedValueOnce(htmlResponse("<html><body>Hotel rooms</body></html>"));
 
