@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 
 import { changedFilesForEvent } from "../workflow/ci-scope.mjs";
 import { pathMatchesPattern } from "../workflow/path-impact.mjs";
-import { verifiedPushBaseline } from "../workflow/push-baseline.mjs";
 import { DOSSIER_ACCEPTANCE_PATHS } from "./acceptance-paths.mjs";
 import { acceptanceCatalog } from "./list-acceptance-matrix.mjs";
 
@@ -46,7 +45,6 @@ export function selectAffectedDossiers(paths, catalog) {
  *   eventName?: string,
  *   ref?: string,
  *   baseRef?: string,
- *   baselineVerified?: boolean,
  *   baseSha?: string,
  *   headSha?: string,
  *   cwd?: string,
@@ -57,7 +55,6 @@ export function decideAcceptanceScope({
   eventName,
   ref = "",
   baseRef = "",
-  baselineVerified = false,
   baseSha,
   headSha,
   cwd = REPO_ROOT,
@@ -80,7 +77,6 @@ export function decideAcceptanceScope({
   // PRs and pushes still classify the diff so the log names what the promote
   // run will cover; nothing they report can turn the matrix on.
   if ((event === "pull_request" && baseRef === "preview") || (event === "push" && ref === "refs/heads/preview")) {
-    void baselineVerified;
     let files = [];
     let matched = [];
     let classificationError = null;
@@ -119,11 +115,7 @@ function writeOutput(path, key, value) {
 }
 
 async function main() {
-  const baselineVerified = process.env.GITHUB_EVENT_NAME === "push" &&
-    process.env.GITHUB_REF === "refs/heads/preview" &&
-    await verifiedPushBaseline({ workflow: "dossier-acceptance.yml" });
   const decision = decideAcceptanceScope({
-    baselineVerified,
     eventName: process.env.GITHUB_EVENT_NAME,
     ref: process.env.GITHUB_REF,
     baseRef: process.env.SAJTMASKIN_PR_BASE_REF,

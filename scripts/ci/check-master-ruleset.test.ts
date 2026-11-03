@@ -32,6 +32,7 @@ type LiveRuleset = {
   name: string;
   target: string;
   enforcement: string;
+  bypass_actors?: unknown;
   conditions: unknown;
   rules: RulesetRule[];
 };
@@ -42,6 +43,7 @@ function matchingLiveRuleset(activeSpec = spec): LiveRuleset {
     name: activeSpec.expected.name,
     target: activeSpec.expected.target,
     enforcement: activeSpec.expected.enforcement,
+    bypass_actors: structuredClone(activeSpec.expected.bypass_actors),
     conditions: structuredClone(activeSpec.expected.conditions),
     rules: [
       { type: "deletion" },
@@ -84,7 +86,8 @@ describe("Protect master ruleset drift", () => {
       import fs from "node:fs/promises";
       import { syncBuiltinESMExports } from "node:module";
       import { pathToFileURL } from "node:url";
-      const [target, expectedUrl, rawLive] = process.argv.slice(1);
+      const [target, expectedUrl, rawLive, rawArgs] = process.argv.slice(1);
+      process.argv = [process.execPath, target, ...JSON.parse(rawArgs)];
       const readFile = fs.readFile;
       fs.readFile = async (path, ...args) => {
         if (String(path).replaceAll("\\", "/").endsWith("/config/agent-workflow.json")) {
@@ -92,8 +95,13 @@ describe("Protect master ruleset drift", () => {
         }
         return readFile(path, ...args);
       };
+      fs.appendFile = async (path, content) => {
+        if (path !== "stubbed-summary") throw new Error("Unexpected summary path");
+        console.log("SUMMARY:" + content);
+      };
       syncBuiltinESMExports();
-      globalThis.fetch = async (url) => {
+      globalThis.fetch = async (url, options) => {
+        if (options?.method && options.method !== "GET") throw new Error("Unexpected mutation");
         if (String(url) !== expectedUrl) throw new Error("Unexpected URL; no network allowed");
         return { ok: true, json: async () => JSON.parse(rawLive) };
       };
@@ -103,20 +111,41 @@ describe("Protect master ruleset drift", () => {
     missingProtection.rules = missingProtection.rules.filter(
       (item) => item.type !== "non_fast_forward",
     );
-    const cases = [
+    const hiddenBypass = matchingLiveRuleset();
+    delete hiddenBypass.bypass_actors;
+    const hiddenBypassWithDrift = structuredClone(hiddenBypass);
+    hiddenBypassWithDrift.enforcement = "disabled";
+    const nullBypass = matchingLiveRuleset();
+    nullBypass.bypass_actors = null;
+    const extraBypass = matchingLiveRuleset();
+    extraBypass.bypass_actors = [
+      ...spec.expected.bypass_actors,
+      { actor_id: 999, actor_type: "Integration", bypass_mode: "always" },
+    ];
+    const cases: Array<{
+      live: LiveRuleset; status: number; output: string; args?: string[];
+    }> = [
       { live: matchingLiveRuleset(), status: 0, output: "Protect master matches" },
+      { live: matchingLiveRuleset(), status: 0, output: "including bypass actors", args: ["--read-only"] },
       {
         live: missingProtection,
         status: 1,
         output: "expected exactly one non_fast_forward rule, got 0",
       },
+      { live: hiddenBypass, status: 1, output: "bypass actors UNVERIFIED" },
+      { live: hiddenBypass, status: 0, output: "PARTIAL audit", args: ["--read-only"] },
+      { live: hiddenBypassWithDrift, status: 1, output: "ruleset enforcement drifted", args: ["--read-only"] },
+      { live: nullBypass, status: 1, output: "invalid bypass_actors", args: ["--read-only"] },
+      { live: extraBypass, status: 1, output: "bypass actors drifted", args: ["--read-only"] },
+      { live: matchingLiveRuleset(), status: 1, output: "unknown argument", args: ["--read-onli"] },
     ];
-    for (const { live, status, output } of cases) {
+    for (const { live, status, output, args = [] } of cases) {
       const result = spawnSync(process.execPath, [
         "--input-type=module", "--eval", source,
         resolve("scripts/ci/check-master-ruleset.mjs"),
         `https://api.github.com/repos/${spec.repository}/rulesets/${spec.rulesetId}`,
         JSON.stringify(live),
+        JSON.stringify(args),
       ], {
         encoding: "utf8",
         timeout: 10_000,
@@ -126,17 +155,127 @@ describe("Protect master ruleset drift", () => {
           GITHUB_TOKEN: "",
           GH_TOKEN: "",
           GITHUB_ACTIONS: "false",
+          GITHUB_STEP_SUMMARY: "stubbed-summary",
         },
       });
       expect(result.error).toBeUndefined();
       expect(result.status, result.stderr).toBe(status);
       expect(result.stdout + result.stderr).toContain(output);
+      if (live.bypass_actors === undefined && status === 0) {
+        expect(result.stderr).toContain("::warning::Partial Protect master audit");
+        expect(result.stderr).toContain("bypass actors UNVERIFIED");
+        expect(result.stdout).toContain("SUMMARY:\n### Protect master: PARTIAL audit");
+        expect(result.stdout + result.stderr).not.toContain("Protect master matches");
+      }
     }
   });
 
   it("accepts the versioned expected state", () => {
+    expect(spec.expected.bypass_actors).toEqual([
+      { actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "always" },
+    ]);
     expect(evaluateMasterRuleset(matchingLiveRuleset(), spec)).toEqual([]);
   });
+
+  it.each(["Integration", "User"])("rejects an additional %s bypass in both modes", (actorType) => {
+    const live = matchingLiveRuleset();
+    live.bypass_actors = [
+      ...spec.expected.bypass_actors,
+      { actor_id: 999, actor_type: actorType, bypass_mode: "always" },
+    ];
+    for (const readOnly of [false, true]) {
+      expect(evaluateMasterRuleset(live, spec, { readOnly })).toEqual([
+        expect.stringContaining("bypass actors drifted"),
+      ]);
+    }
+  });
+
+  it("rejects removed actors and changed bypass modes", () => {
+    for (const actors of [[], [
+      { actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "pull_request" },
+    ], [
+      { actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "exempt" },
+    ]]) {
+      const live = matchingLiveRuleset();
+      live.bypass_actors = actors;
+      expect(evaluateMasterRuleset(live, spec)).toEqual([
+        expect.stringContaining("bypass actors drifted"),
+      ]);
+    }
+  });
+
+  it("compares bypass actors independently of array and object-key order", () => {
+    const orderedSpec = structuredClone(spec);
+    orderedSpec.expected.bypass_actors.push({
+      actor_id: 999, actor_type: "Integration", bypass_mode: "pull_request",
+    });
+    const live = matchingLiveRuleset(orderedSpec);
+    live.bypass_actors = [
+      { bypass_mode: "pull_request", actor_type: "Integration", actor_id: 999 },
+      { bypass_mode: "always", actor_type: "RepositoryRole", actor_id: 5 },
+    ];
+    const before = structuredClone(live);
+    expect(evaluateMasterRuleset(live, orderedSpec)).toEqual([]);
+    expect(live).toEqual(before);
+  });
+
+  it("requires explicit read-only mode to tolerate omitted bypass actors", () => {
+    const live = matchingLiveRuleset();
+    delete live.bypass_actors;
+    expect(evaluateMasterRuleset(live, spec)).toEqual([
+      expect.stringContaining("bypass actors UNVERIFIED"),
+    ]);
+    expect(evaluateMasterRuleset(live, spec, { readOnly: true })).toEqual([]);
+    live.enforcement = "disabled";
+    expect(evaluateMasterRuleset(live, spec, { readOnly: true })).toEqual([
+      expect.stringContaining("ruleset enforcement drifted"),
+    ]);
+  });
+
+  const malformedBypassActors = [
+    null,
+    {},
+    "hidden",
+    [null],
+    [{}],
+    [{ actor_id: "5", actor_type: "RepositoryRole", bypass_mode: "always" }],
+    [{ actor_id: 0, actor_type: "RepositoryRole", bypass_mode: "always" }],
+    [{ actor_id: -1, actor_type: "RepositoryRole", bypass_mode: "always" }],
+    [{ actor_id: 1.5, actor_type: "RepositoryRole", bypass_mode: "always" }],
+    [{ actor_id: Number.MAX_SAFE_INTEGER + 1, actor_type: "RepositoryRole", bypass_mode: "always" }],
+    [{ actor_id: null, actor_type: "RepositoryRole", bypass_mode: "always" }],
+    [{ actor_id: 5, actor_type: "UnknownActor", bypass_mode: "always" }],
+    [{ actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "unknown" }],
+    [{ actor_id: 5, actor_type: "RepositoryRole" }],
+    [{ actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "always", unexpected: true }],
+    [spec.expected.bypass_actors[0], spec.expected.bypass_actors[0]],
+  ];
+
+  it.each(malformedBypassActors.map((actors, index) => [index, actors] as const))(
+    "fails closed for malformed visible bypass actors case %s in both modes",
+    (_index, actors) => {
+      const live = matchingLiveRuleset();
+      live.bypass_actors = actors;
+      for (const readOnly of [false, true]) {
+        expect(evaluateMasterRuleset(live, spec, { readOnly })).toEqual([
+          expect.stringContaining("bypass actors UNVERIFIED: invalid bypass_actors"),
+        ]);
+      }
+    },
+  );
+
+  it.each([undefined, ...malformedBypassActors].map((actors, index) => [index, actors] as const))(
+    "rejects missing or malformed expected bypass actors case %s",
+    (_index, actors) => {
+      const invalidSpec = structuredClone(spec);
+      invalidSpec.expected.bypass_actors = actors;
+      for (const readOnly of [false, true]) {
+        expect(evaluateMasterRuleset(matchingLiveRuleset(), invalidSpec, { readOnly })).toEqual([
+          "expected spec must list valid bypass_actors",
+        ]);
+      }
+    },
+  );
 
   it("keeps GitHub ruleset checks inline and independent of agent-workflow", () => {
     expect(spec.expected.required_status_checks.required_status_checks_source).toBe(
@@ -242,5 +381,18 @@ describe("Protect master ruleset drift", () => {
     expect(Object.keys(triggers).sort()).toEqual(["push", "schedule", "workflow_dispatch"]);
     expect(triggers.push).toEqual({ branches: ["master"] });
     expect(triggers.schedule).toEqual([{ cron: "17 5 * * *" }]);
+  });
+
+  it("uses explicit partial mode without broadening the scheduled token permissions", () => {
+    const workflow = parse(readFileSync(
+      resolve(".github/workflows/master-ruleset-drift.yml"), "utf8",
+    ));
+    expect(workflow.permissions).toEqual({ contents: "read" });
+    const job = workflow.jobs["protect-master"];
+    expect(job.permissions).toEqual({ contents: "read" });
+    const step = job.steps.find((item: { run?: string }) =>
+      item.run === "node scripts/ci/check-master-ruleset.mjs --read-only");
+    expect(step).toBeDefined();
+    expect(step.env.GITHUB_TOKEN).toBe("${{ github.token }}");
   });
 });
