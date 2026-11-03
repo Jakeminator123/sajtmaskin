@@ -461,6 +461,24 @@ describe("selectDossiersForRequest — disableBriefFallback (F3 scope / F2 mute)
 // och skriver över ett tidigare val vid nästa neutrala uppföljning.
 // ─────────────────────────────────────────────────────────────────────────
 describe("isExplicitDossierChoice — persisterbar syskonidentitet", () => {
+  it("keeps typed provider contracts separate from bare free-text provider mentions", () => {
+    const generic = selectDossiersForRequest({ requestedCapabilities: ["auth"], promptText: "Supabase" });
+    expect(generic.selected[0]?.entry.id).toBe("clerk-auth");
+    expect(isExplicitDossierChoice(generic.selected[0]!.reason)).toBe(false);
+    const contracted = selectDossiersForRequest({
+      requestedCapabilities: ["auth"], providerByCapability: { auth: "supabase" },
+      promptText: "Backenddatabasen körs på Supabase; inloggningen använder Clerk.",
+    });
+    expect(contracted.selected[0]?.entry.id).toBe("supabase-auth");
+    expect(isExplicitDossierChoice(contracted.selected[0]!.reason)).toBe(true);
+  });
+
+  it("does not substitute defaults for unknown typed providers or cross capability contracts", () => {
+    expect(selectDossiersForRequest({ requestedCapabilities: ["auth"], providerByCapability: { auth: "auth0" } }).selected).toEqual([]);
+    const scoped = selectDossiersForRequest({ requestedCapabilities: ["auth"], providerByCapability: { database: "supabase" } });
+    expect(scoped.selected[0]?.entry.id).toBe("clerk-auth");
+    expect(isExplicitDossierChoice(scoped.selected[0]!.reason)).toBe(false);
+  });
   it.each([
     "Använd Clerk för auth och Supabase för databas.",
     "Lägg till byggblocket (id: clerk-auth). Databasen ligger i Supabase.",

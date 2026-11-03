@@ -8,6 +8,7 @@ import { detectProjectProviderEvidence } from "./project-provider-evidence";
 import {
   buildDossierIntegrationPlan,
   resolveExistingDossierCorePlan,
+  resolveProviderContractDossierPlan,
 } from "./provider-compatibility";
 
 function contracts(
@@ -17,6 +18,15 @@ function contracts(
 }
 
 describe("buildDossierIntegrationPlan", () => {
+  it("resolves the chosen auth/Supabase contract without interpreting its provider key as prompt text", () => {
+    const plan = resolveProviderContractDossierPlan({
+      contract: { kind: "auth", providerKey: "supabase", dossierCapability: "auth", selectionSource: "explicit",
+        provider: "Supabase", name: "Supabase", reason: "Explicit provider", status: "chosen" },
+      projectFiles: [],
+    });
+    expect(plan.dossierSelection.selected.map((selection) => selection.entry.id)).toEqual(["supabase-auth"]);
+    expect(plan.decisions[0]?.disposition).toBe("dossier-supported");
+  });
   it.each([
     ["database", "mongodb", "MongoDB", "postgres-drizzle"],
     ["auth", "auth0", "Auth0", "clerk-auth"],

@@ -45,6 +45,8 @@ export interface SelectDossiersOptions {
    * clerk-auth default under `auth`). Absent → the `defaultForCapability` pick.
    */
   promptText?: string | null;
+  /** Chosen, typed provider/capability contracts; never infer this from raw prompt text. */
+  providerByCapability?: Readonly<Record<string, string>>;
   /**
    * Env keys the CURRENT PROJECT has stored a real value for (from
    * `getStoredProjectEnvVarMap`). Drives the `configured` flag: a hard
@@ -298,6 +300,7 @@ function pickForCapability(
   cap: string,
   promptText: string | null,
   pinnedDossierId?: string,
+  contractProviderKey?: string,
 ): {
   entry: DossierEntry;
   reason: SelectedDossier["reason"];
@@ -308,7 +311,17 @@ function pickForCapability(
   // even if two dossiers accidentally have defaultForCapability=true (last-
   // touched-wins in dirent iteration is undesirable cross-machine).
   const sorted = [...candidates].sort((a, b) => a.id.localeCompare(b.id));
-  // A dependency/alias pin beats everything — the pinned request only works
+  if (contractProviderKey !== undefined) {
+    const providerKey = contractProviderKey.trim().toLowerCase();
+    const matching = sorted.filter((entry) => (entry.providers ?? [])
+      .some((provider) => provider.toLowerCase() === providerKey));
+    // A typed contract selects the exact provider, independently of natural-
+    // language marker rules. Unknown/ambiguous support must never fall back to
+    // a sibling or be guessed from free text.
+    if (matching.length !== 1) return null;
+    return { entry: matching[0], reason: "dependency-pin" };
+  }
+  // Without a typed contract, a dependency/alias pin beats prompt hints — the pinned request only works
   // with this specific sibling (e.g. legacy `supabase-auth` ⇒ the Supabase
   // dossier under `auth`), so neither the capability default nor a prompt
   // keyword may override it.
@@ -377,6 +390,8 @@ export function selectDossiersForRequest(
   const rawCapabilities = normalizeCapabilities(opts);
   const pins = resolveDossierPins(rawCapabilities);
   const capabilities = normalizeDossierCapabilityIds(rawCapabilities);
+  const providerByCapability = new Map(Object.entries(opts.providerByCapability ?? {})
+    .map(([capability, provider]) => [normalizeCapabilityId(capability), provider]));
   const promptText =
     typeof opts.promptText === "string" && opts.promptText.trim().length > 0
       ? opts.promptText
@@ -386,7 +401,7 @@ export function selectDossiersForRequest(
   const byCapability: Record<string, string[]> = {};
 
   for (const cap of capabilities) {
-    const pick = pickForCapability(cap, promptText, pins.get(cap));
+    const pick = pickForCapability(cap, promptText, pins.get(cap), providerByCapability.get(cap));
     if (!pick) continue;
     const entry: DossierEntry = {
       ...pick.entry,
