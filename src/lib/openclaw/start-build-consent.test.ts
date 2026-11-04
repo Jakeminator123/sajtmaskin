@@ -15,7 +15,7 @@ function msg(
 describe("resolveStartBuildAutoRun", () => {
   it("lets a complete change order start its build", () => {
     const messages = [
-      msg("u1", "user", "Kan du lägga till en karta på kontaktsidan", { allowBuild: true }),
+      msg("u1", "user", "Byt rubriken till Välkommen", { allowBuild: true }),
       msg("a1", "assistant", ""),
     ];
     expect(resolveStartBuildAutoRun(messages, "a1")).toEqual({ allowed: true, userTurnId: "u1" });
@@ -23,6 +23,7 @@ describe("resolveStartBuildAutoRun", () => {
 
   it.each([
     "Kan du lägga till en karta?",
+    "Kan du lägga till en karta på kontaktsidan",
     "Kan du göra en granskning av sajten",
     "Kan du göra punkt 2",
     "Jag vill att du gör punkt 2",
@@ -35,7 +36,7 @@ describe("resolveStartBuildAutoRun", () => {
 
   it("never lets a build-result wake-up start the next build", () => {
     const messages = [
-      msg("u1", "user", "Kan du lägga till en karta på kontaktsidan", { allowBuild: true }),
+      msg("u1", "user", "Byt rubriken till Välkommen", { allowBuild: true }),
       msg("a1", "assistant", "Bygget startar."),
       msg("d1", "user", "[Byggresultat] Builderturen är klar.", { kind: "internal", allowBuild: true }),
       msg("a2", "assistant", ""),
@@ -45,7 +46,7 @@ describe("resolveStartBuildAutoRun", () => {
 
   it("follows a file-content turn back to the question it serves", () => {
     const messages = [
-      msg("u1", "user", "Jag vill ha en rosa knapp i headern", { allowBuild: true }),
+      msg("u1", "user", "Lägg till en rosa knapp i headern", { allowBuild: true }),
       msg("a1", "assistant", "Jag läser filen först."),
       msg("f1", "user", "[Filinnehåll] --- app/page.tsx ---", { kind: "internal" }),
       msg("a2", "assistant", ""),

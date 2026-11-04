@@ -87,11 +87,11 @@ describe("useOpenClawChat — turn ownership", () => {
   });
 
   it.each([
-    ["Kan du lägga till en karta på kontaktsidan", true, ["armed_autonomy"], true],
     ["Byt rubriken till Välkommen", true, ["armed_autonomy"], true],
+    ["Kan du lägga till en karta på kontaktsidan", true, ["armed_autonomy"], false],
     ["Vad tycker du om sidan?", true, ["armed_autonomy"], false],
-    ["Kan du lägga till en karta på kontaktsidan", undefined, ["armed_autonomy"], false],
-    ["Kan du lägga till en karta på kontaktsidan", true, [], false],
+    ["Byt rubriken till Välkommen", undefined, ["armed_autonomy"], false],
+    ["Byt rubriken till Välkommen", true, [], false],
     ["Kan du göra punkt 2", true, ["armed_autonomy"], false],
     ["Kan du göra en granskning av sajten", true, ["armed_autonomy"], false],
   ] as const)("sends the per-turn build consent for «%s»", async (text, allowBuild, granted, expected) => {

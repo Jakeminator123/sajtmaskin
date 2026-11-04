@@ -4,7 +4,6 @@ import {
   composerAllowsAgentBuild,
   hasScopedComposerChangeRestriction,
   isAgentProposalReference,
-  isPoliteChangeRequest,
   isReadOnlyComposerRequest,
   resolveComposerRoute,
 } from "./composer-route";
@@ -142,6 +141,15 @@ describe("arming directives inside build orders", () => {
       expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true, builderAwaitingReply: true })).toBe("build");
     },
   );
+
+  it.each([
+    "Jag sa Stopp, inte Paus – byt texten på knappen.",
+    "Jag sa Avbryt, inte Stäng. Byt knapptexten.",
+    "I said Stop, not Pause – change the button label.",
+  ])("a label correction after 'jag sa' stays a build, also while the builder waits: %s", text => {
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("build");
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true, builderAwaitingReply: true })).toBe("build");
+  });
 });
 
 describe("isAgentProposalReference", () => {
@@ -232,34 +240,18 @@ describe("composerAllowsAgentBuild", () => {
     }
   });
 
+  // En artig begäran utan ett uttryckligt ändringsverb i början är oklar. Den
+  // går till agenten, som lägger ett byggförslag att godkänna; den startar
+  // aldrig ett bygge av sig själv och går aldrig direkt till byggmotorn.
+  // Två försök med deterministiska regler för artiga begäranden släppte
+  // igenom granskningar, offerter och tvekan (oberoende review av PR 1711).
   it.each([
     "kan du lägga till en karta på kontaktsidan",
     "Kan du göra hero-sektionen mörkare",
     "jag vill ha en rosa knapp i headern",
     "Jag vill att rubriken blir större",
-    "Hej, kan du byta bakgrundsbild",
     "Kan vi få en mörkare header",
     "I'd like a bigger logo",
-    "Jag vill att du byter rubriken till Välkommen",
-    "I want to add a map",
-    "Jag vill byta rubriken",
-  ])("en artig ändringsbegäran går direkt till byggmotorn: %s", (text) => {
-    expect(isPoliteChangeRequest(text)).toBe(true);
-    expect(classifyComposerIntent(text)).toBe("build");
-    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("build");
-    expect(composerAllowsAgentBuild({ mode: "agent", text })).toBe(false);
-  });
-
-  it.each([
-    "Kan du lägga till en karta?",
-    "Jag vill inte ha en rosa knapp",
-    "Jag vill veta hur jag publicerar",
-    "Kan du hjälpa mig med texterna",
-    "Hej!",
-    "Tack, snyggt!",
-    "Jag vill att du inte ändrar något",
-    // Granskning, frågor utan frågetecken, no-change och förslagsreferenser
-    // i artig form (oberoende review av PR 1711).
     "Kan du göra en granskning av sajten",
     "Jag vill att du granskar sajten",
     "Kan jag få veta vad det kostar",
@@ -267,18 +259,27 @@ describe("composerAllowsAgentBuild", () => {
     "Jag vill ha det som det är",
     "I'd like nothing changed",
     "Kan du göra punkt 2",
-    "Snälla, gör punkt 2",
     "Kan du göra enligt ditt förslag",
     "Jag vill att du gör punkt 2",
-    "Kan du göra punkt 2 tydligare",
     "Kan du lägga till en karta, men vänta lite",
     "Jag vill att du slutar",
-    "Jag vill att du skapar en granskningsrapport",
-    "Jag vill ha hjälp med texterna",
-    "Kan du ge mig feedback på sajten",
-  ])("ger aldrig byggmedgivande för fråga, granskning, referens, tvekan eller no-change: %s", (text) => {
-    expect(isPoliteChangeRequest(text)).toBe(false);
+    "Kan jag få en sammanfattning av ändringarna",
+    "Kan jag få en offert",
+    "Jag vill ha ett svar på min fråga",
+    "I'd like a summary of the changes",
+    "I want a refund",
+    "I'd like an explanation of the layout",
+    "Jag vill ha en genomgång av sajten",
+    "I'd like a check of the contact form",
+    "Kan du lägga till en karta sen",
+    "Jag vill att du ska vara kort i dina svar",
+    "Jag vill att sajten ska vara klar till fredag",
+    "Kan du göra en sammanfattning för mina användare",
+    "Kan du skapa en plan för sajten",
+  ])("en artig eller oklar begäran går till agenten utan byggmedgivande: %s", (text) => {
+    expect(classifyComposerIntent(text)).not.toBe("build");
     expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(false);
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("agent");
   });
 
   it("Fråga ger aldrig byggmandat", () => {
