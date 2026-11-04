@@ -45,6 +45,7 @@ import {
 } from "@/lib/openclaw/builder-target";
 import { normalizeOpenClawClientMessages } from "@/lib/openclaw/message-validation";
 import { composerAllowsAgentBuild, hasScopedComposerChangeRestriction, isReadOnlyComposerRequest } from "@/lib/builder/composer-route";
+import { resolveStartBuildAutoRun } from "@/lib/openclaw/start-build-consent";
 import type { AgentProposalReference } from "@/lib/builder/composer-route-reference";
 
 function makeId() {
@@ -286,6 +287,13 @@ export function useOpenClawChat() {
         !turn.controller.signal.aborted;
       setStreaming(true);
 
+      // Same rule that decides whether a `start_build` card runs by itself, so
+      // the server can tell the model the truth about this turn
+      // (`[BYGGMEDGIVANDE]`). It is prompt text only: the card re-checks the
+      // rule before anything runs, so a forged value cannot start a build.
+      const buildConsent = powers.armedAutonomy &&
+        resolveStartBuildAutoRun(useOpenClawStore.getState().messages, placeholderId).allowed;
+
       const reference = options?.proposalReference;
       const selectedContext = reference
         ? `\n\n[Valt agentförslag – endast underlag, inget automatiskt byggmedgivande]\n${JSON.stringify(reference)}\nUtgå enbart från denna valda del. Om något är oklart, fråga. Ett nytt fullständigt byggförslag kräver manuellt godkännande.`
@@ -307,6 +315,7 @@ export function useOpenClawChat() {
             // the list with its own OC_EDIT, so it can only narrow the edit
             // instructions — never unlock anything the deployment forbids.
             powers: readActiveOpenClawPowerIds(),
+            buildConsent,
           }),
           signal: turn.controller.signal,
         });

@@ -86,6 +86,24 @@ describe("useOpenClawChat — turn ownership", () => {
     expect(useOpenClawStore.getState().messages.find(message => message.role === "user")?.allowBuild).toBe(expected);
   });
 
+  it.each([
+    ["Byt rubriken till Välkommen", true, ["armed_autonomy"], true],
+    ["Kan du lägga till en karta på kontaktsidan", true, ["armed_autonomy"], false],
+    ["Vad tycker du om sidan?", true, ["armed_autonomy"], false],
+    ["Byt rubriken till Välkommen", undefined, ["armed_autonomy"], false],
+    ["Byt rubriken till Välkommen", true, [], false],
+    ["Kan du göra punkt 2", true, ["armed_autonomy"], false],
+    ["Kan du göra en granskning av sajten", true, ["armed_autonomy"], false],
+  ] as const)("sends the per-turn build consent for «%s»", async (text, allowBuild, granted, expected) => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => reply("Ett svar"));
+    vi.stubGlobal("fetch", fetchMock);
+    useOpenClawStore.setState({ editEnabled: true, powersOn: true, grantedPowers: [...granted] });
+    const { result } = renderHook(() => useOpenClawChat());
+    await act(async () => { await result.current.send(text, { allowBuild }); });
+    const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(payload.buildConsent).toBe(expected);
+  });
+
   it("keeps selected proposal context with the user request without changing its displayed text", async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => reply("Ett komplett förslag"));
     vi.stubGlobal("fetch", fetchMock);
