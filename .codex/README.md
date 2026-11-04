@@ -2,7 +2,7 @@
 
 Projektets Codex-lager. Codex läser `AGENTS.md` från repo-roten och
 `.codex/config.toml` när projektet är trusted; arbetssättet (`AGENTS.md`,
-`pr-workflow`, `.cursor/rules/`) är gemensamt med Cursor. Default är GPT-5.6 Sol
+`pr-workflow`, `.cursor/rules/`) är gemensamt med Cursor. Default är GPT-6.1 Sol
 med `high` reasoning för huvudtråd och spawnade agenter; en explicit agentprofil
 vinner. Modellregler och ChatGPT-webbens granskningsmandat:
 [subagent-models.mdc](../.cursor/rules/subagent-models.mdc).

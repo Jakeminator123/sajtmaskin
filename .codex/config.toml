@@ -3,7 +3,7 @@
 # Project-scoped Codex defaults for Sajtmaskin.
 # Keep provider/auth/token settings in ~/.codex/config.toml, not in this repo.
 
-model = "gpt-5.6-sol"
+model = "gpt-6.1-sol"
 model_reasoning_effort = "high"
 # Ägarbeslut 2026-09-11: sandbox av, live-sök på.
 #
@@ -27,7 +27,7 @@ sandbox = "elevated"
 
 [agents]
 enabled = true
-default_subagent_model = "gpt-5.6-sol"
+default_subagent_model = "gpt-6.1-sol"
 default_subagent_reasoning_effort = "high"
 max_concurrent_threads_per_session = 8
 
