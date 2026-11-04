@@ -92,6 +92,8 @@ describe("useOpenClawChat — turn ownership", () => {
     ["Vad tycker du om sidan?", true, ["armed_autonomy"], false],
     ["Kan du lägga till en karta på kontaktsidan", undefined, ["armed_autonomy"], false],
     ["Kan du lägga till en karta på kontaktsidan", true, [], false],
+    ["Kan du göra punkt 2", true, ["armed_autonomy"], false],
+    ["Kan du göra en granskning av sajten", true, ["armed_autonomy"], false],
   ] as const)("sends the per-turn build consent for «%s»", async (text, allowBuild, granted, expected) => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => reply("Ett svar"));
     vi.stubGlobal("fetch", fetchMock);

@@ -13,7 +13,7 @@ function msg(
 }
 
 describe("resolveStartBuildAutoRun", () => {
-  it("lets a polite change request that reached the agent start its build", () => {
+  it("lets a complete change order start its build", () => {
     const messages = [
       msg("u1", "user", "Kan du lägga till en karta på kontaktsidan", { allowBuild: true }),
       msg("a1", "assistant", ""),
@@ -21,11 +21,15 @@ describe("resolveStartBuildAutoRun", () => {
     expect(resolveStartBuildAutoRun(messages, "a1")).toEqual({ allowed: true, userTurnId: "u1" });
   });
 
-  it("keeps a question as a manual proposal even with forged consent metadata", () => {
-    const messages = [
-      msg("u1", "user", "Kan du lägga till en karta?", { allowBuild: true }),
-      msg("a1", "assistant", ""),
-    ];
+  it.each([
+    "Kan du lägga till en karta?",
+    "Kan du göra en granskning av sajten",
+    "Kan du göra punkt 2",
+    "Jag vill att du gör punkt 2",
+    "Kan jag få veta vad det kostar",
+    "Jag vill ha det som det är",
+  ])("keeps «%s» as a manual proposal even with forged consent metadata", (text) => {
+    const messages = [msg("u1", "user", text, { allowBuild: true }), msg("a1", "assistant", "")];
     expect(resolveStartBuildAutoRun(messages, "a1").allowed).toBe(false);
   });
 

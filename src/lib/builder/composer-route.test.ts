@@ -240,12 +240,14 @@ describe("composerAllowsAgentBuild", () => {
     "Hej, kan du byta bakgrundsbild",
     "Kan vi få en mörkare header",
     "I'd like a bigger logo",
-  ])("ger byggmedgivande för en artig ändringsbegäran som når agenten: %s", (text) => {
-    expect(classifyComposerIntent(text)).toBe("unsure");
+    "Jag vill att du byter rubriken till Välkommen",
+    "I want to add a map",
+    "Jag vill byta rubriken",
+  ])("en artig ändringsbegäran går direkt till byggmotorn: %s", (text) => {
     expect(isPoliteChangeRequest(text)).toBe(true);
-    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(true);
+    expect(classifyComposerIntent(text)).toBe("build");
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("build");
     expect(composerAllowsAgentBuild({ mode: "agent", text })).toBe(false);
-    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("agent");
   });
 
   it.each([
@@ -256,7 +258,26 @@ describe("composerAllowsAgentBuild", () => {
     "Hej!",
     "Tack, snyggt!",
     "Jag vill att du inte ändrar något",
-  ])("ger inget byggmedgivande för fråga, negation eller småprat: %s", (text) => {
+    // Granskning, frågor utan frågetecken, no-change och förslagsreferenser
+    // i artig form (oberoende review av PR 1711).
+    "Kan du göra en granskning av sajten",
+    "Jag vill att du granskar sajten",
+    "Kan jag få veta vad det kostar",
+    "I want to know how to publish",
+    "Jag vill ha det som det är",
+    "I'd like nothing changed",
+    "Kan du göra punkt 2",
+    "Snälla, gör punkt 2",
+    "Kan du göra enligt ditt förslag",
+    "Jag vill att du gör punkt 2",
+    "Kan du göra punkt 2 tydligare",
+    "Kan du lägga till en karta, men vänta lite",
+    "Jag vill att du slutar",
+    "Jag vill att du skapar en granskningsrapport",
+    "Jag vill ha hjälp med texterna",
+    "Kan du ge mig feedback på sajten",
+  ])("ger aldrig byggmedgivande för fråga, granskning, referens, tvekan eller no-change: %s", (text) => {
+    expect(isPoliteChangeRequest(text)).toBe(false);
     expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(false);
   });
 

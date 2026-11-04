@@ -76,7 +76,7 @@ const QUICK_EDIT_SECTION = `Exakta småändringar (apply_quick_edit):
  */
 export function buildStartBuildConsentPrompt(allowed: boolean): string {
   return allowed
-    ? "[BYGGMEDGIVANDE] JA för användarens senaste meddelande. Ett start_build-block startar bygget direkt. Säg kort att bygget startar och vad det ska ändra."
+    ? "[BYGGMEDGIVANDE] JA för användarens senaste meddelande. Om du lägger ett start_build-block startar det bygget direkt; säg då kort att bygget startar och vad det ska ändra. Lägg inget block på en fråga, en granskning eller när användaren tvekar, och säg aldrig att ett bygge startar utan att lägga blocket."
     : "[BYGGMEDGIVANDE] NEJ för användarens senaste meddelande. Ett start_build-block visas bara som ett byggförslag som användaren själv startar med knappen «Starta bygget». Ber användaren om en ändring: lägg förslaget och säg att det väntar på godkännande. Påstå aldrig att bygget startar eller redan har startat.";
 }
 

@@ -74,10 +74,12 @@ describe("OpenClaw edit system prompt — server gate", () => {
 });
 
 describe("OpenClaw start_build consent line", () => {
-  it("says the build starts directly only when the turn allows it", () => {
+  it("says a start_build block starts directly only when the turn allows it, and only if one is placed", () => {
     const yes = buildStartBuildConsentPrompt(true);
     expect(yes).toContain("[BYGGMEDGIVANDE] JA");
-    expect(yes).toContain("startar bygget direkt");
+    expect(yes).toContain("Om du lägger ett start_build-block startar det bygget direkt");
+    expect(yes).toContain("Lägg inget block på en fråga, en granskning");
+    expect(yes).toContain("säg aldrig att ett bygge startar utan att lägga blocket");
   });
 
   it("makes the model describe a manual proposal when the turn does not allow it", () => {

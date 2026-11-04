@@ -331,6 +331,10 @@ export function classifyComposerIntent(rawText: string): ComposerIntent {
   if (opensWithBuild && !endsWithQuestion) return "build";
   if (endsWithQuestion || opensWithQuestion || hasReview) return "agent";
   if (opensWithBuild || hasBuildTerm) return "build";
+  // «Kan du lägga till en karta», «jag vill ha en rosa knapp»: en artig
+  // ändringsbegäran är lika uttrycklig som en imperativ och går direkt till
+  // byggmotorn, i stället för till agenten som bara kunde lova ett bygge.
+  if (isPoliteChangeRequest(text)) return "build";
   return "unsure";
 }
 
@@ -344,75 +348,127 @@ function matchesAtStart(regex: RegExp, lower: string): boolean {
 
 const byLengthDesc = (words: readonly string[]) => [...words].sort((a, b) => b.length - a.length).join("|");
 
-/** Artiga öppningar som bara räknas när ett ändringsverb följer direkt. */
+/** Artiga öppningar som bara räknas när ett specifikt ändringsverb följer direkt. */
 const POLITE_REQUEST_OPENERS = [
   "kan du", "kan ni", "skulle du kunna", "skulle ni kunna", "snälla", "snalla",
   "please", "could you", "can you", "would you",
 ] as const;
 
-/** Önskeöppningar som i sig uttrycker att något ska ändras på sajten. */
-const DESIRE_REQUEST_OPENERS = [
-  "jag vill ha", "vi vill ha", "jag vill att", "vi vill att",
-  "jag skulle vilja ha", "vi skulle vilja ha", "jag skulle vilja att", "vi skulle vilja att",
-  "kan jag få", "kan jag fa", "kan vi få", "kan vi fa", "jag önskar", "jag onskar",
-  "i want", "i'd like", "i would like", "we want", "we'd like", "we would like",
-] as const;
-
-/** Infinitiv och imperativ, så att «kan du lägga till» och «kan du byt» båda träffar. */
+/**
+ * Specifika ändringsverb i infinitiv och imperativ («kan du lägga till»,
+ * «snälla byt»). Generiska verb som «göra» och «make» saknas med flit:
+ * «kan du göra en granskning» och «kan du göra punkt 2» är inga ändringar.
+ */
 const REQUESTED_CHANGE_VERBS = [
   "lägga till", "lagga till", "lägg till", "lagg till", "lägga in", "lagga in", "lägg in", "lagg in",
-  "ta bort", "byta ut", "byt ut", "byta", "byt", "ändra", "göra om", "gora om", "göra", "gora", "gör", "gor",
+  "ta bort", "byta ut", "byt ut", "byta", "byt", "ändra", "göra om", "gora om", "gör om", "gor om",
   "skapa", "bygga", "bygg", "flytta", "uppdatera", "fixa", "justera", "ersätta", "ersatta", "ersätt", "ersatt",
   "sätta", "satta", "sätt", "satt", "färga", "farga", "centrera", "förstora", "forstora",
-  "förminska", "forminska", "designa", "styla", "döpa om", "dopa om",
-  "add", "change", "make", "remove", "replace", "update", "move", "create", "build", "fix", "set",
-  "redesign", "rename",
+  "förminska", "forminska", "designa", "styla", "döpa om", "dopa om", "döp om", "dop om",
+  "add", "change", "remove", "replace", "update", "move", "create", "build", "fix", "redesign", "rename",
 ] as const;
 
+/** Presens och passiv efter «jag vill att …»: «… rubriken blir större», «… du byter bild». */
+const CLAUSE_CHANGE_FORMS = [
+  "byter", "byter ut", "lägger till", "lagger till", "lägger in", "lagger in", "ändrar", "andrar",
+  "tar bort", "flyttar", "skapar", "bygger", "uppdaterar", "fixar", "justerar", "ersätter", "ersatter",
+  "sätter", "satter", "färgar", "fargar", "centrerar", "förstorar", "forstorar", "förminskar", "forminskar",
+  "designar", "stylar", "döper om", "doper om",
+  "blir", "ska bli", "ska vara", "ska ha", "ändras", "andras", "byts", "byts ut", "tas bort",
+  "läggs till", "laggs till", "läggs in", "laggs in", "flyttas", "uppdateras", "färgas", "fargas", "centreras",
+  "add", "change", "remove", "replace", "update", "move", "create", "build", "fix", "redesign", "rename",
+] as const;
+
+/** Önskan om ett nytt element: «jag vill ha en rosa knapp», «I'd like a bigger logo». */
+const DESIRE_OBJECT_OPENERS = [
+  "jag vill ha", "vi vill ha", "jag skulle vilja ha", "vi skulle vilja ha",
+  "kan jag få", "kan jag fa", "kan vi få", "kan vi fa", "jag önskar", "jag onskar", "vi önskar", "vi onskar",
+  "i want", "i'd like", "i would like", "we want", "we'd like", "we would like",
+] as const;
+const DESIRE_OBJECTS = [
+  "en", "ett", "fler", "flera", "mer", "mera", "ny", "nytt", "nya", "större", "storre", "mindre",
+  "a", "an", "more", "another", "new", "bigger", "smaller", "larger", "darker", "lighter", "brighter",
+  "wider", "bolder", "cleaner", "simpler",
+] as const;
+const DESIRE_VERB_OPENERS = [
+  "jag vill", "vi vill", "jag skulle vilja", "vi skulle vilja",
+  "i want to", "i'd like to", "i would like to", "we want to", "we'd like to", "we would like to",
+] as const;
+const DESIRE_CLAUSE_OPENERS = [
+  "jag vill att", "vi vill att", "jag skulle vilja att", "vi skulle vilja att",
+  "i want you to", "i'd like you to", "we want you to",
+] as const;
+
+/** «Kan du göra hero-sektionen mörkare»: generiskt «göra» räknas bara med en komparativ. */
+const COMPARATIVE = String.raw`\p{L}{2,}are|större|storre|mindre|bättre|battre|sämre|samre|högre|hogre|lägre|lagre|längre|langre`;
 const GREETING_PREFIX = String.raw`(?:(?:hej|hallå|halla|hi|hello)[,!\s]+)?`;
 const POLITE_CHANGE_REQUEST = new RegExp(
-  String.raw`^${GREETING_PREFIX}${uWord(byLengthDesc(POLITE_REQUEST_OPENERS))}[,\s]+${uWord(byLengthDesc(REQUESTED_CHANGE_VERBS))}`,
+  String.raw`^${GREETING_PREFIX}${uWord(byLengthDesc(POLITE_REQUEST_OPENERS))}[,\s]+(?:${uWord(byLengthDesc(REQUESTED_CHANGE_VERBS))}|${uWord("göra|gora|gör|gor")}\s+[^.!?]{1,60}?${uWord(COMPARATIVE)})`,
   "iu",
 );
-const DESIRE_CHANGE_REQUEST = new RegExp(
-  String.raw`^${GREETING_PREFIX}${uWord(byLengthDesc(DESIRE_REQUEST_OPENERS))}`,
+const DESIRE_OBJECT_REQUEST = new RegExp(
+  String.raw`^${GREETING_PREFIX}${uWord(byLengthDesc(DESIRE_OBJECT_OPENERS))}\s+(?:${uWord(byLengthDesc(DESIRE_OBJECTS))}|${uWord(String.raw`\p{L}{2,}are`)})`,
   "iu",
 );
-const REQUEST_NEGATION = uWordRegex(
-  String.raw`inte|ej|aldrig|inga|ingen|inget|ingenting|not|never|no|don't|don’t|do\s+not`,
+const DESIRE_VERB_REQUEST = new RegExp(
+  String.raw`^${GREETING_PREFIX}${uWord(byLengthDesc(DESIRE_VERB_OPENERS))}\s+${uWord(byLengthDesc(REQUESTED_CHANGE_VERBS))}`,
+  "iu",
+);
+const DESIRE_CLAUSE_REQUEST = new RegExp(
+  String.raw`^${GREETING_PREFIX}${uWord(byLengthDesc(DESIRE_CLAUSE_OPENERS))}\s+[^.!?]{0,80}?${uWord(byLengthDesc(CLAUSE_CHANGE_FORMS))}`,
   "iu",
 );
 
 /**
- * En artig eller önskande ändringsbegäran som klassaren lämnar som oklar:
- * «kan du lägga till en karta», «jag vill ha en rosa knapp». I Auto når den
- * Sajtagenten i stället för byggmotorn. Planen för den gemensamma chatten
- * (`docs/plans/active/2026-10-22-en-chatt-sajtagenten/`) säger att agenten då
- * får starta bygget själv när befogenheten finns. Begäran måste stå i början
- * av texten; frågor och negationer räknas aldrig.
+ * Det som aldrig är en ändringsbegäran, var det än står: negation, frågor och
+ * råd («kan jag få veta»), granskning («göra en granskning»), referenser till
+ * agentens förslag («punkt 2», «enligt ditt förslag»), tvekan och stopp
+ * («men vänta lite», «jag vill att du slutar») och no-change («som det är»).
+ */
+const REQUEST_EXCLUSIONS: readonly RegExp[] = [
+  uWordRegex(String.raw`inte|ej|aldrig|inga|ingen|inget|ingenting|not|never|no|nothing|don't|don’t|do\s+not`, "iu"),
+  new RegExp(
+    String.raw`(?<![\p{L}\p{N}_])(?:gransk|recension|review|bedöm|bedom|utvärder|utvarder|analys|förklar|forklar|berätt|beratt|feedback|åsikt|asikt|opinion|advice|explain)\p{L}*`,
+    "iu",
+  ),
+  uWordRegex("veta|undrar|fundera|funderar|förstå|forsta|know|wonder|understand|tips|tipsa|råd|rådet", "iu"),
+  uWordRegex(
+    String.raw`punkt(?:en)?\s*(?:[0-9]+|ett|en|två|tva|tre|fyra|fem)|förslag(?:et|en)?|forslag(?:et|en)?|alternativ(?:et|en)?|suggestion|option\s*[0-9]+|point\s*[0-9]+`,
+    "iu",
+  ),
+  CONTEXTUAL_BUILD_REFERENCE,
+  uWordRegex("vänta|vanta|avvakta|kanske|eventuellt|senare|later|wait|maybe|perhaps|sluta|slutar|stopp|stoppa|avbryt|stop", "iu"),
+  uWordRegex(String.raw`som\s+(?:det|den|de)\s+(?:är|ar)|as\s+it\s+is|unchanged|oförändrad|oforandrad|oförändrat|oforandrat`, "iu"),
+];
+
+/**
+ * En artig eller önskande ändringsbegäran som de vanliga ändringsverben inte
+ * fångar: «kan du lägga till en karta», «jag vill ha en rosa knapp», «jag
+ * vill att rubriken blir större». Klassas som bygge och går därför direkt
+ * till byggmotorn i Auto, i stället för till Sajtagenten som bara kunde
+ * föreslå ett kort. Begäran måste stå i början av texten, och allt i
+ * `REQUEST_EXCLUSIONS` samt frågetecken gör den till något annat.
  */
 export function isPoliteChangeRequest(rawText: string): boolean {
   const text = normalize(rawText);
-  if (!text || /[?？]\s*$/u.test(text) || REQUEST_NEGATION.test(text)) return false;
-  return POLITE_CHANGE_REQUEST.test(text) || DESIRE_CHANGE_REQUEST.test(text);
+  if (!text || /[?？]\s*$/u.test(text)) return false;
+  if (REQUEST_EXCLUSIONS.some((pattern) => pattern.test(text))) return false;
+  return (
+    POLITE_CHANGE_REQUEST.test(text) ||
+    DESIRE_OBJECT_REQUEST.test(text) ||
+    DESIRE_VERB_REQUEST.test(text) ||
+    DESIRE_CLAUSE_REQUEST.test(text)
+  );
 }
 
-/**
- * Byggmedgivande för agentens `start_build`. En komplett positiv order räcker,
- * och en artig ändringsbegäran som klassaren lämnar som oklar räcker också,
- * eftersom bara den sortens begäran når agenten i Auto. Frågor, granskningar,
- * no-change, förslagsreferenser och Fråga-läget ger aldrig medgivande.
- */
+/** Build tools need a complete positive command even when the UI uses Auto. */
 export function composerAllowsAgentBuild(input: { mode: ComposerMode; text: string }): boolean {
-  if (
-    input.mode === "agent" ||
-    isReadOnlyComposerRequest(input.text) ||
-    isAgentProposalReference(input.text)
-  ) {
-    return false;
-  }
-  const intent = classifyComposerIntent(input.text);
-  return intent === "build" || (intent === "unsure" && isPoliteChangeRequest(input.text));
+  return (
+    input.mode !== "agent" &&
+    !isReadOnlyComposerRequest(input.text) &&
+    !isAgentProposalReference(input.text) &&
+    classifyComposerIntent(input.text) === "build"
+  );
 }
 
 export interface ResolveComposerRouteInput {
