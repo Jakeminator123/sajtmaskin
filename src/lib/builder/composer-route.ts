@@ -18,7 +18,7 @@
  * å/ä/ö matchar (unicode-regex.mdc).
  */
 
-import { uWordRegex } from "@/lib/utils/unicode-word-boundary";
+import { uWord, uWordRegex } from "@/lib/utils/unicode-word-boundary";
 import { parseArmingDirective, parseStopDirective } from "@/lib/openclaw/debug/armed-mandate";
 
 export type ComposerMode = "auto" | "agent" | "build";
@@ -342,14 +342,77 @@ function matchesAtStart(regex: RegExp, lower: string): boolean {
   return !/[\p{L}\p{N}]/u.test(prefix);
 }
 
-/** Build tools need a complete positive command even when the UI uses Auto. */
+const byLengthDesc = (words: readonly string[]) => [...words].sort((a, b) => b.length - a.length).join("|");
+
+/** Artiga öppningar som bara räknas när ett ändringsverb följer direkt. */
+const POLITE_REQUEST_OPENERS = [
+  "kan du", "kan ni", "skulle du kunna", "skulle ni kunna", "snälla", "snalla",
+  "please", "could you", "can you", "would you",
+] as const;
+
+/** Önskeöppningar som i sig uttrycker att något ska ändras på sajten. */
+const DESIRE_REQUEST_OPENERS = [
+  "jag vill ha", "vi vill ha", "jag vill att", "vi vill att",
+  "jag skulle vilja ha", "vi skulle vilja ha", "jag skulle vilja att", "vi skulle vilja att",
+  "kan jag få", "kan jag fa", "kan vi få", "kan vi fa", "jag önskar", "jag onskar",
+  "i want", "i'd like", "i would like", "we want", "we'd like", "we would like",
+] as const;
+
+/** Infinitiv och imperativ, så att «kan du lägga till» och «kan du byt» båda träffar. */
+const REQUESTED_CHANGE_VERBS = [
+  "lägga till", "lagga till", "lägg till", "lagg till", "lägga in", "lagga in", "lägg in", "lagg in",
+  "ta bort", "byta ut", "byt ut", "byta", "byt", "ändra", "göra om", "gora om", "göra", "gora", "gör", "gor",
+  "skapa", "bygga", "bygg", "flytta", "uppdatera", "fixa", "justera", "ersätta", "ersatta", "ersätt", "ersatt",
+  "sätta", "satta", "sätt", "satt", "färga", "farga", "centrera", "förstora", "forstora",
+  "förminska", "forminska", "designa", "styla", "döpa om", "dopa om",
+  "add", "change", "make", "remove", "replace", "update", "move", "create", "build", "fix", "set",
+  "redesign", "rename",
+] as const;
+
+const GREETING_PREFIX = String.raw`(?:(?:hej|hallå|halla|hi|hello)[,!\s]+)?`;
+const POLITE_CHANGE_REQUEST = new RegExp(
+  String.raw`^${GREETING_PREFIX}${uWord(byLengthDesc(POLITE_REQUEST_OPENERS))}[,\s]+${uWord(byLengthDesc(REQUESTED_CHANGE_VERBS))}`,
+  "iu",
+);
+const DESIRE_CHANGE_REQUEST = new RegExp(
+  String.raw`^${GREETING_PREFIX}${uWord(byLengthDesc(DESIRE_REQUEST_OPENERS))}`,
+  "iu",
+);
+const REQUEST_NEGATION = uWordRegex(
+  String.raw`inte|ej|aldrig|inga|ingen|inget|ingenting|not|never|no|don't|don’t|do\s+not`,
+  "iu",
+);
+
+/**
+ * En artig eller önskande ändringsbegäran som klassaren lämnar som oklar:
+ * «kan du lägga till en karta», «jag vill ha en rosa knapp». I Auto når den
+ * Sajtagenten i stället för byggmotorn. Planen för den gemensamma chatten
+ * (`docs/plans/active/2026-10-22-en-chatt-sajtagenten/`) säger att agenten då
+ * får starta bygget själv när befogenheten finns. Begäran måste stå i början
+ * av texten; frågor och negationer räknas aldrig.
+ */
+export function isPoliteChangeRequest(rawText: string): boolean {
+  const text = normalize(rawText);
+  if (!text || /[?？]\s*$/u.test(text) || REQUEST_NEGATION.test(text)) return false;
+  return POLITE_CHANGE_REQUEST.test(text) || DESIRE_CHANGE_REQUEST.test(text);
+}
+
+/**
+ * Byggmedgivande för agentens `start_build`. En komplett positiv order räcker,
+ * och en artig ändringsbegäran som klassaren lämnar som oklar räcker också,
+ * eftersom bara den sortens begäran når agenten i Auto. Frågor, granskningar,
+ * no-change, förslagsreferenser och Fråga-läget ger aldrig medgivande.
+ */
 export function composerAllowsAgentBuild(input: { mode: ComposerMode; text: string }): boolean {
-  return (
-    input.mode !== "agent" &&
-    !isReadOnlyComposerRequest(input.text) &&
-    !isAgentProposalReference(input.text) &&
-    classifyComposerIntent(input.text) === "build"
-  );
+  if (
+    input.mode === "agent" ||
+    isReadOnlyComposerRequest(input.text) ||
+    isAgentProposalReference(input.text)
+  ) {
+    return false;
+  }
+  const intent = classifyComposerIntent(input.text);
+  return intent === "build" || (intent === "unsure" && isPoliteChangeRequest(input.text));
 }
 
 export interface ResolveComposerRouteInput {

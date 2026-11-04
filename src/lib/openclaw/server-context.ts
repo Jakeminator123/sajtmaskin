@@ -57,6 +57,11 @@ type BuildOpenClawContextSystemMessageParams = {
   verifyOwnership?: OpenClawOwnershipVerifier;
 };
 
+const BUILDER_CONTEXT_ROLE_LABELS: Readonly<Record<string, string>> = {
+  user: "användaren",
+  assistant: "byggmotorn",
+};
+
 function normalizeContextText(value: unknown, maxLength: number): string {
   if (typeof value !== "string") return "";
   return value.replace(/\s+/g, " ").trim().slice(0, maxLength);
@@ -115,12 +120,21 @@ export function buildOpenClawContextBlock(
   }
 
   if (Array.isArray(ctx.recentMessages) && ctx.recentMessages.length > 0) {
-    parts.push("\nSenaste meddelanden i buildern:");
+    // In the builder these rows are the user's conversation with the build
+    // engine, not with Sajtagenten. Saying so stops the agent from claiming
+    // the engine's replies (and code) as its own.
+    const builderPage = ctx.page === "builder";
+    parts.push(
+      builderPage
+        ? "\nSenaste meddelanden mellan användaren och byggmotorn (byggmotorns svar är inte dina):"
+        : "\nSenaste meddelanden i buildern:",
+    );
     for (const message of ctx.recentMessages as { role: string; content: string }[]) {
       const role = normalizeContextText(message.role, 24);
       const content = normalizeContextText(message.content, recentMessageMaxChars);
       if (!role || !content) continue;
-      parts.push(`  ${role}: ${content}`);
+      const label = builderPage ? BUILDER_CONTEXT_ROLE_LABELS[role] ?? role : role;
+      parts.push(`  ${label}: ${content}`);
     }
   }
 

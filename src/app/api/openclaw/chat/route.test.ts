@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   surfaceStatus: { surfaceEnabled: true, surfaceStatus: "ready", blockers: [] as string[] },
   gateway: vi.fn(),
   validateMessages: vi.fn(),
+  powers: { any: false, armedAutonomy: false } as { any: boolean; armedAutonomy: boolean },
 }));
 
 vi.mock("@/lib/config", () => ({
@@ -24,7 +25,7 @@ vi.mock("@/lib/openclaw/status", () => ({
   getOpenClawSurfaceStatus: () => mocks.surfaceStatus,
 }));
 vi.mock("@/lib/openclaw/powers", () => ({
-  resolveOpenClawPowersFromRequest: () => ({ any: false }),
+  resolveOpenClawPowersFromRequest: () => mocks.powers,
 }));
 vi.mock("@/lib/openclaw/live-review-access", () => ({
   isLiveReviewAutoGrantEnabled: () => false,
@@ -33,7 +34,8 @@ vi.mock("@/lib/openclaw/live-review-access", () => ({
 }));
 vi.mock("@/lib/db/services/live-review-grants", () => ({ readLiveReviewGrant: vi.fn() }));
 vi.mock("@/lib/openclaw/edit-system-prompt", () => ({
-  buildOpenClawEditSystemPrompt: () => null,
+  buildOpenClawEditSystemPrompt: (powers: { any: boolean }) => (powers.any ? "EDIT-PROMPT" : null),
+  buildStartBuildConsentPrompt: (allowed: boolean) => (allowed ? "CONSENT-YES" : "CONSENT-NO"),
 }));
 vi.mock("@/lib/openclaw/server-context", () => ({
   buildOpenClawContextSystemMessage: vi.fn(),
@@ -86,6 +88,7 @@ function request(body = JSON.stringify({ messages: [{ role: "user", content: "he
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.powers = { any: false, armedAutonomy: false };
   mocks.surfaceStatus.surfaceEnabled = true;
   mocks.withRateLimit.mockImplementation(
     async (_req: Request, _key: string, callback: () => Promise<Response>) => callback(),
@@ -166,5 +169,41 @@ describe("POST /api/openclaw/chat dispatch receipt", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get(OPENCLAW_DISPATCH_HEADER)).toBe(OPENCLAW_DISPATCH_STARTED);
     expect(mocks.gateway).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("POST /api/openclaw/chat byggmedgivande", () => {
+  function systemContents(): string[] {
+    const call = mocks.gateway.mock.calls[0]?.[0] as { body: { messages: { role: string; content: string }[] } };
+    return call.body.messages.filter((m) => m.role === "system").map((m) => m.content);
+  }
+
+  function body(extra: Record<string, unknown>) {
+    return JSON.stringify({ messages: [{ role: "user", content: "hej" }], ...extra });
+  }
+
+  it.each([
+    [true, "CONSENT-YES"],
+    [false, "CONSENT-NO"],
+    ["true", "CONSENT-NO"],
+    [undefined, "CONSENT-NO"],
+  ] as const)("säger sanningen om turen när direktbygg är beviljat (buildConsent=%s)", async (buildConsent, expected) => {
+    mocks.powers = { any: true, armedAutonomy: true };
+
+    await POST(request(body({ buildConsent })));
+
+    const system = systemContents();
+    expect(system).toContain("EDIT-PROMPT");
+    expect(system).toContain(expected);
+  });
+
+  it("nämner inget byggmedgivande när direktbygg inte är beviljat", async () => {
+    mocks.powers = { any: true, armedAutonomy: false };
+
+    await POST(request(body({ buildConsent: true })));
+
+    const system = systemContents();
+    expect(system).toContain("EDIT-PROMPT");
+    expect(system.some((content) => content.startsWith("CONSENT"))).toBe(false);
   });
 });

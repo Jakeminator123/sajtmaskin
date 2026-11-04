@@ -40,7 +40,7 @@ frågar äger chatten innan något versionsbundet läggs till.
 
 | Kontext | När | Ägare |
 |---|---|---|
-| Builderläge: chatt, aktiv version, previewadress, byggprofil, de fem senaste buildermeddelandena, kodutdrag | Alltid i buildern | `use-dev-context-effects.ts` → `server-context.ts` |
+| Builderläge: chatt, aktiv version, previewadress, byggprofil, de åtta senaste meddelandena mellan användaren och byggmotorn (märkta så, utan builderns egna reparations- och F3-promptar), den första briefen när den fallit utanför fönstret, kodutdrag | Alltid i buildern | `context-helpers.ts` → `use-dev-context-effects.ts` → `server-context.ts` |
 | **Filmanifest** (namn, typ, storlek) | Alltid när en ägd chatt är öppen | `chat-context-policy.ts` (`navigate`) |
 | Full kod | På uttrycklig begäran («läs koden», «hela projektet») eller `OC_DEBUG` | `chat-context-policy.ts` |
 | Verifierings- och reparationsfynd, tidslinje, live review | Vid gransknings-/felintention | `review-context.ts`, `findings-context.ts` |
@@ -55,7 +55,7 @@ Parsern i [`text-field-actions.ts`](../../src/lib/openclaw/text-field-actions.ts
 | Action | Vad händer | Grind |
 |---|---|---|
 | `read_files` | Klienten hämtar de begärda filerna (ägarverifierat) och skickar tillbaka dem som en intern `[Filinnehåll]`-tur; agenten svarar med koden framför sig. Högst 4 filer per runda, 3 rundor per fråga; hela turen ryms under chat-transportens tak per meddelande (stora filer klipps och markeras). | Ingen befogenhet krävs — läsning. |
-| `start_build` | Startar en byggtur genom builder-bryggan (samma `sendMessage` som Skicka-knappen). | Armerad autonomi: körs direkt. Annars ett kort att godkänna. |
+| `start_build` | Startar en byggtur genom builder-bryggan (samma `sendMessage` som Skicka-knappen). | Armerad autonomi och byggmedgivande för turen: körs direkt. Annars ett kort att godkänna. Medgivande ger en komplett order eller en artig ändringsbegäran («kan du lägga till en karta»), aldrig en fråga eller granskning (`start-build-consent.ts`, `composerAllowsAgentBuild`). Servern skriver samma besked till modellen som `[BYGGMEDGIVANDE]`, så agenten aldrig lovar ett bygge som bara blir ett kort. |
 | `fill_text_field` | Fyller komposern med en föreslagen prompt. Med `submit:true` under ett armerat mandat skickas den också. | Kort att godkänna, eller mandat. |
 | `apply_quick_edit` | Exakta filoperationer genom Fast Edit Lane till en minor-version. | Snabbändringar beviljad + manuellt godkännande per förslag, alltid. |
 | `request_repair` | Startar den befintliga autofix-vägen på aktiva versionen. | Kort att godkänna. |

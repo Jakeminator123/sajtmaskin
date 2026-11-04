@@ -49,7 +49,8 @@ import {
   parseArmingDirective,
 } from "@/lib/openclaw/debug/armed-mandate";
 import { OPENCLAW_EMPTY_REPLY_COPY } from "@/lib/openclaw/gateway-response";
-import { classifyComposerIntent, composerAllowsAgentBuild, isReadOnlyComposerRequest } from "@/lib/builder/composer-route";
+import { classifyComposerIntent, isReadOnlyComposerRequest } from "@/lib/builder/composer-route";
+import { resolveStartBuildAutoRun } from "@/lib/openclaw/start-build-consent";
 import { useSmoothText } from "./useSmoothText";
 
 /**
@@ -85,34 +86,8 @@ export function resetOpenClawActionLedgersForTests(): void {
   autoStartBuildsByUserTurn.clear();
 }
 
-/**
- * Whether a `start_build` reply may run on its own: only when it answers a
- * real user turn (or the file-content turn that serves that question) — never
- * a machine wake-up such as `[Byggresultat]` or a continuation. Otherwise the
- * digest after a build could trigger the next build, and so on, with nothing
- * but the prompt text holding the chain back.
- */
-export function resolveStartBuildAutoRun(
-  messages: readonly Msg[],
-  messageId: string,
-): { allowed: boolean; userTurnId: string | null } {
-  const index = messages.findIndex((message) => message.id === messageId);
-  if (index === -1) return { allowed: false, userTurnId: null };
-  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
-    const candidate = messages[cursor];
-    if (candidate.role !== "user") continue;
-    const isChatTurn = classifyAgentMessage(candidate) === "chat";
-    const isFileTurn = !isChatTurn && candidate.content.trimStart().startsWith(READ_FILES_TURN_PREFIX);
-    if (!isChatTurn && !isFileTurn) return { allowed: false, userTurnId: candidate.id };
-    if (isFileTurn) continue; // the real question sits further back
-    return {
-      allowed: candidate.allowBuild === true && !candidate.hydrated &&
-        composerAllowsAgentBuild({ mode: "auto", text: candidate.content }),
-      userTurnId: candidate.id,
-    };
-  }
-  return { allowed: false, userTurnId: null };
-}
+/** Whether a `start_build` reply may run on its own; owned by `start-build-consent.ts`. */
+export { resolveStartBuildAutoRun };
 
 /** Internal followups retain their explicit bounded mandate; new questions do not. */
 function armedReplyAllowsBuild(messages: readonly Msg[], messageId: string): boolean {

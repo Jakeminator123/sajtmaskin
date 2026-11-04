@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOpenClawEditSystemPrompt } from "./edit-system-prompt";
+import { buildOpenClawEditSystemPrompt, buildStartBuildConsentPrompt } from "./edit-system-prompt";
 import { resolveOpenClawPowersFromRequest } from "./powers";
 
 /** What the route does with a raw request body, in one line. */
@@ -66,5 +66,24 @@ describe("OpenClaw edit system prompt — server gate", () => {
   it("always states that other powers are off", () => {
     const prompt = promptFor(true, ["armed_autonomy"]);
     expect(prompt).toContain("inga andra");
+  });
+
+  it("points the direct-build section at the per-turn consent line", () => {
+    expect(promptFor(true, ["armed_autonomy"])).toContain("[BYGGMEDGIVANDE]");
+  });
+});
+
+describe("OpenClaw start_build consent line", () => {
+  it("says the build starts directly only when the turn allows it", () => {
+    const yes = buildStartBuildConsentPrompt(true);
+    expect(yes).toContain("[BYGGMEDGIVANDE] JA");
+    expect(yes).toContain("startar bygget direkt");
+  });
+
+  it("makes the model describe a manual proposal when the turn does not allow it", () => {
+    const no = buildStartBuildConsentPrompt(false);
+    expect(no).toContain("[BYGGMEDGIVANDE] NEJ");
+    expect(no).toContain("väntar på godkännande");
+    expect(no).toContain("Påstå aldrig att bygget startar");
   });
 });

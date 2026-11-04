@@ -4,6 +4,7 @@ import {
   composerAllowsAgentBuild,
   hasScopedComposerChangeRestriction,
   isAgentProposalReference,
+  isPoliteChangeRequest,
   isReadOnlyComposerRequest,
   resolveComposerRoute,
 } from "./composer-route";
@@ -208,6 +209,34 @@ describe("composerAllowsAgentBuild", () => {
     for (const text of ["Vad tycker du?", "Ändra inget", "Bygg inte", "Gör punkt två", "Apply suggestion 2", "Blåare knappar", ""]) {
       expect(composerAllowsAgentBuild({ mode, text })).toBe(false);
     }
+  });
+
+  it.each([
+    "kan du lägga till en karta på kontaktsidan",
+    "Kan du göra hero-sektionen mörkare",
+    "jag vill ha en rosa knapp i headern",
+    "Jag vill att rubriken blir större",
+    "Hej, kan du byta bakgrundsbild",
+    "Kan vi få en mörkare header",
+    "I'd like a bigger logo",
+  ])("ger byggmedgivande för en artig ändringsbegäran som når agenten: %s", (text) => {
+    expect(classifyComposerIntent(text)).toBe("unsure");
+    expect(isPoliteChangeRequest(text)).toBe(true);
+    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(true);
+    expect(composerAllowsAgentBuild({ mode: "agent", text })).toBe(false);
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("agent");
+  });
+
+  it.each([
+    "Kan du lägga till en karta?",
+    "Jag vill inte ha en rosa knapp",
+    "Jag vill veta hur jag publicerar",
+    "Kan du hjälpa mig med texterna",
+    "Hej!",
+    "Tack, snyggt!",
+    "Jag vill att du inte ändrar något",
+  ])("ger inget byggmedgivande för fråga, negation eller småprat: %s", (text) => {
+    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(false);
   });
 
   it("Fråga ger aldrig byggmandat", () => {
