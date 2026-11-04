@@ -1,6 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  Check,
+  ChevronRight,
+  FileSearch,
+  Hammer,
+  History,
+  Loader2,
+  PenLine,
+  ShieldCheck,
+  ShieldOff,
+  Wrench,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   applyOpenClawTextFieldAction,
@@ -52,6 +77,11 @@ import { OPENCLAW_EMPTY_REPLY_COPY } from "@/lib/openclaw/gateway-response";
 import { classifyComposerIntent, isReadOnlyComposerRequest } from "@/lib/builder/composer-route";
 import { resolveStartBuildAutoRun } from "@/lib/openclaw/start-build-consent";
 import { useSmoothText } from "./useSmoothText";
+import {
+  OpenClawAppearanceProvider,
+  useOpenClawAppearance,
+  type OpenClawAppearance,
+} from "./useOpenClawAppearance";
 
 /**
  * Per-message dedup for armed auto-send (Bugbot). The armed card auto-submits on
@@ -136,7 +166,8 @@ function isLiveMessage(msg: Pick<Msg, "timestamp" | "hydrated">): boolean {
   return !msg.hydrated && msg.timestamp >= SESSION_STARTED_AT;
 }
 
-export type OpenClawMessageAppearance = "panel" | "builder";
+/** Alias för befintliga importer; själva typen ägs av `useOpenClawAppearance.ts`. */
+export type OpenClawMessageAppearance = OpenClawAppearance;
 
 /**
  * Record a successful builder-composer fill so the composer can tag an
@@ -250,7 +281,10 @@ export function OpenClawMessage({
       ? action
       : null;
 
-  return (
+  // Väntprickarna: panelens ljusa ton, builderns dämpade förgrund.
+  const waitingDotTone = isBuilderAppearance ? "bg-muted-foreground/70" : "bg-slate-200/70";
+
+  const row = (
     <div
       className={cn(
         "animate-fadeIn flex w-full min-w-0",
@@ -263,10 +297,13 @@ export function OpenClawMessage({
             className={cn(
               "min-w-0 overflow-hidden rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed wrap-break-word",
               renderText ? null : "whitespace-pre-wrap",
+              // Buildern: användarens rad är samma kompakta bubbla som builderns
+              // egna användarrader och agentens svar ett lugnt kort utan
+              // pratbubbelspets; avatar och namn i `SajtagentRow` visar vem som talar.
               isBuilderAppearance
                 ? isUser
-                  ? "bg-brand-blue/85 self-end rounded-br-md text-white"
-                  : "border-border bg-card text-foreground rounded-bl-md border"
+                  ? "bg-brand-blue/85 self-end px-3 py-1.5 text-xs text-white"
+                  : "border-border bg-card text-card-foreground border"
                 : isUser
                   ? "rounded-br-md bg-cyan-400 text-slate-950"
                   : "rounded-bl-md border border-white/10 bg-white/5 text-slate-100",
@@ -280,15 +317,31 @@ export function OpenClawMessage({
                 {isTyping && !renderText ? (
                   <span
                     aria-hidden
-                    className="ml-0.5 inline-block h-3.5 w-0.5 animate-pulse rounded-full bg-cyan-300/80 align-text-bottom"
+                    className={
+                      isBuilderAppearance
+                        ? "bg-muted-foreground ml-0.5 inline-block h-3.5 w-0.5 animate-pulse rounded-full align-text-bottom"
+                        : "ml-0.5 inline-block h-3.5 w-0.5 animate-pulse rounded-full bg-cyan-300/80 align-text-bottom"
+                    }
                   />
                 ) : null}
               </>
             ) : streaming ? (
               <span className="inline-flex items-center gap-1 opacity-60">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-200/70" />
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-200/70 [animation-delay:150ms]" />
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-200/70 [animation-delay:300ms]" />
+                <span className={cn("h-1.5 w-1.5 animate-pulse rounded-full", waitingDotTone)} />
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 animate-pulse rounded-full",
+                    waitingDotTone,
+                    "[animation-delay:150ms]",
+                  )}
+                />
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 animate-pulse rounded-full",
+                    waitingDotTone,
+                    "[animation-delay:300ms]",
+                  )}
+                />
               </span>
             ) : (
               OPENCLAW_EMPTY_REPLY_COPY
@@ -365,6 +418,248 @@ export function OpenClawMessage({
       </div>
     </div>
   );
+
+  // Korten under raden läser ytan härifrån (`useOpenClawAppearance`): panelen
+  // behåller sina klasser och buildern får sina tematokens.
+  return <OpenClawAppearanceProvider value={appearance}>{row}</OpenClawAppearanceProvider>;
+}
+
+/*
+ * Kortens byggstenar. Panelen renderar samma element och klasser som tidigare:
+ * `panelClassName` och PANEL_*-konstanterna är dagens strängar, oförändrade.
+ * I buildern delar alla kort samma rytm med tematokens och shadcn-komponenter:
+ * liten etikett, rubrik, kort motivering, innehåll och sist knapparna.
+ * Ren presentation: inga handlers, effekter eller villkor bor här.
+ */
+
+type ActionCardTone = "default" | "destructive";
+type ActionCardStatusTone = "pending" | "neutral" | "success" | "warning" | "error";
+type ActionCardButtonKind = "primary" | "secondary" | "quiet";
+
+const PANEL_TITLE_CLASS = "mt-1 text-sm font-semibold text-white";
+const PANEL_TEXT_CLASS = "mt-1 text-xs leading-5 text-slate-300";
+const PANEL_INSET_CLASS =
+  "mt-2 max-h-32 overflow-x-hidden overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 wrap-break-word whitespace-pre-wrap text-slate-200";
+const PANEL_SECONDARY_BUTTON_CLASS =
+  "rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5";
+const PANEL_STATUS_CLASS: Record<ActionCardStatusTone, string> = {
+  pending: "text-xs text-slate-300",
+  neutral: "text-xs text-slate-300",
+  success: "text-xs text-emerald-300",
+  warning: "text-xs text-amber-200",
+  error: "text-xs text-rose-300",
+};
+
+const BUILDER_CARD_CLASS = "border-border bg-card text-card-foreground min-w-0 rounded-xl border p-3";
+const BUILDER_CHIP_CLASS = "border-border bg-muted/30 min-w-0 rounded-xl border px-3 py-2";
+const BUILDER_CHIP_LABEL_CLASS =
+  "text-muted-foreground flex items-center gap-1.5 text-[11px] font-medium";
+const BUILDER_TITLE_CLASS = "text-foreground mt-2 text-sm leading-5 font-semibold wrap-break-word";
+const BUILDER_TEXT_CLASS = "text-muted-foreground mt-1 text-xs leading-5 wrap-break-word";
+const BUILDER_INSET_CLASS =
+  "border-border/60 bg-muted/40 text-foreground mt-2 max-h-32 overflow-x-hidden overflow-y-auto rounded-lg border p-2 text-xs leading-5 wrap-break-word whitespace-pre-wrap";
+const BUILDER_STATUS: Record<
+  ActionCardStatusTone,
+  { className: string; icon: LucideIcon | null; iconClassName?: string }
+> = {
+  pending: {
+    className: "text-muted-foreground",
+    icon: Loader2,
+    iconClassName: "animate-spin motion-reduce:animate-none",
+  },
+  neutral: { className: "text-muted-foreground", icon: null },
+  success: { className: "text-foreground", icon: Check, iconClassName: "text-brand-teal" },
+  warning: { className: "text-brand-amber", icon: AlertTriangle },
+  error: { className: "text-destructive", icon: AlertCircle },
+};
+
+function useIsBuilderAppearance(): boolean {
+  return useOpenClawAppearance() === "builder";
+}
+
+/** Kortets yta. */
+function ActionCard({
+  panelClassName,
+  tone = "default",
+  ...props
+}: Omit<ComponentProps<"div">, "className"> & { panelClassName: string; tone?: ActionCardTone }) {
+  const isBuilder = useIsBuilderAppearance();
+  return (
+    <div
+      className={
+        isBuilder
+          ? cn(BUILDER_CARD_CLASS, tone === "destructive" && "border-destructive/40 bg-destructive/5")
+          : panelClassName
+      }
+      {...props}
+    />
+  );
+}
+
+/** Liten etikett överst («Direktbygg», «Byggförslag» …); en Badge i buildern. */
+function ActionCardLabel({
+  icon: Icon,
+  panelClassName,
+  tone = "default",
+  children,
+}: {
+  icon: LucideIcon;
+  panelClassName: string;
+  tone?: ActionCardTone;
+  children: ReactNode;
+}) {
+  const isBuilder = useIsBuilderAppearance();
+  if (!isBuilder) return <p className={panelClassName}>{children}</p>;
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "gap-1 text-[11px]",
+        tone === "destructive" ? "border-destructive/40 text-destructive" : "text-muted-foreground",
+      )}
+    >
+      <Icon aria-hidden="true" />
+      {children}
+    </Badge>
+  );
+}
+
+function ActionCardTitle({ children }: { children: ReactNode }) {
+  const isBuilder = useIsBuilderAppearance();
+  return <p className={isBuilder ? BUILDER_TITLE_CLASS : PANEL_TITLE_CLASS}>{children}</p>;
+}
+
+/** Kort motivering eller förklaring under rubriken. */
+function ActionCardText({
+  panelClassName = PANEL_TEXT_CLASS,
+  children,
+}: {
+  panelClassName?: string;
+  children: ReactNode;
+}) {
+  const isBuilder = useIsBuilderAppearance();
+  return <p className={isBuilder ? BUILDER_TEXT_CLASS : panelClassName}>{children}</p>;
+}
+
+/** Avgränsad, scrollbar ruta för texten som föreslås eller motiveras. */
+function ActionCardInset({ children }: { children: ReactNode }) {
+  const isBuilder = useIsBuilderAppearance();
+  return <div className={isBuilder ? BUILDER_INSET_CLASS : PANEL_INSET_CLASS}>{children}</div>;
+}
+
+/**
+ * Diskret utfällbar sektion («Visa byggprompten»). Buildern byter
+ * webbläsarens markör mot en chevron som vrids när sektionen är öppen.
+ */
+function ActionCardDisclosure({
+  summary,
+  mono = false,
+  panelClassName,
+  panelBodyClassName,
+  children,
+}: {
+  summary: ReactNode;
+  mono?: boolean;
+  panelClassName: string;
+  panelBodyClassName: string;
+  children: ReactNode;
+}) {
+  const isBuilder = useIsBuilderAppearance();
+  if (!isBuilder) {
+    return (
+      <details className={panelClassName}>
+        <summary className="cursor-pointer text-[11px] text-slate-300 select-none">
+          {summary}
+        </summary>
+        <pre className={panelBodyClassName}>{children}</pre>
+      </details>
+    );
+  }
+  return (
+    <details className="group/disclosure mt-2">
+      <summary className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex cursor-pointer list-none items-center gap-1 rounded-sm text-xs transition-colors select-none focus-visible:ring-2 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+        <ChevronRight
+          aria-hidden="true"
+          className="size-3.5 transition-transform group-open/disclosure:rotate-90 motion-reduce:transition-none"
+        />
+        {summary}
+      </summary>
+      <pre
+        className={cn(
+          "border-border/60 bg-muted/40 text-foreground mt-2 max-h-40 overflow-x-hidden overflow-y-auto rounded-lg border p-2 leading-5 wrap-break-word whitespace-pre-wrap",
+          mono ? "font-mono text-[11px]" : "font-sans text-xs",
+        )}
+      >
+        {children}
+      </pre>
+    </details>
+  );
+}
+
+/**
+ * Kortets knappar: shadcn `Button` i buildern. Sekundära knappar behåller ljus
+ * text vid hover; outline/ghost byter annars till accentens mörka förgrund,
+ * som försvinner mot kortets mörka yta.
+ */
+function ActionCardButton({
+  kind,
+  panelClassName = PANEL_SECONDARY_BUTTON_CLASS,
+  ...props
+}: Omit<ComponentProps<"button">, "className" | "type"> & {
+  kind: ActionCardButtonKind;
+  panelClassName?: string;
+}) {
+  const isBuilder = useIsBuilderAppearance();
+  if (!isBuilder) return <button type="button" {...props} className={panelClassName} />;
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant={kind === "primary" ? "default" : kind === "secondary" ? "outline" : "ghost"}
+      className={cn(
+        "text-xs",
+        kind !== "primary" && "hover:text-foreground",
+        kind === "quiet" && "text-muted-foreground",
+      )}
+      {...props}
+    />
+  );
+}
+
+/** Statusrad efter ett klick: väntar, klart, varning eller fel. */
+function ActionCardStatus({ tone, children }: { tone: ActionCardStatusTone; children: ReactNode }) {
+  const isBuilder = useIsBuilderAppearance();
+  if (!isBuilder) return <p className={PANEL_STATUS_CLASS[tone]}>{children}</p>;
+  const { className, icon: Icon, iconClassName } = BUILDER_STATUS[tone];
+  return (
+    <p className={cn("text-xs leading-5 wrap-break-word", className)}>
+      {Icon ? (
+        <Icon
+          aria-hidden="true"
+          className={cn("mr-1.5 inline-block size-3.5 align-middle", iconClassName)}
+        />
+      ) : null}
+      {children}
+    </p>
+  );
+}
+
+/** Befogenheten är avslagen: ett lugnt besked utan knappar i stället för kortet. */
+function OpenClawPowerOffNotice({ children }: { children: ReactNode }) {
+  const isBuilder = useIsBuilderAppearance();
+  if (!isBuilder) {
+    return (
+      <div className="min-w-0 rounded-2xl border border-white/10 bg-slate-900/70 p-3 text-slate-100">
+        <p className="text-xs leading-5 text-slate-300">{children}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="border-border bg-muted/30 text-muted-foreground flex min-w-0 items-start gap-2 rounded-xl border border-dashed p-3 text-xs leading-5">
+      <ShieldOff aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+      <p className="min-w-0">{children}</p>
+    </div>
+  );
 }
 
 /**
@@ -372,6 +667,7 @@ export function OpenClawMessage({
  * Says what the agent proposed back then; offers no buttons.
  */
 function OpenClawHistoricActionChip({ action }: { action: OpenClawAction }) {
+  const isBuilder = useIsBuilderAppearance();
   const label =
     action.type === "start_build"
       ? action.label || "Startade ett bygge"
@@ -384,13 +680,26 @@ function OpenClawHistoricActionChip({ action }: { action: OpenClawAction }) {
             : "Åtgärd";
   return (
     <div
-      className="min-w-0 rounded-xl border border-white/10 bg-slate-900/50 px-3 py-2 text-slate-300"
+      className={
+        isBuilder
+          ? BUILDER_CHIP_CLASS
+          : "min-w-0 rounded-xl border border-white/10 bg-slate-900/50 px-3 py-2 text-slate-300"
+      }
       data-testid="openclaw-historic-action"
     >
-      <p className="text-[11px] font-medium tracking-[0.16em] text-slate-400 uppercase">
+      <p
+        className={
+          isBuilder
+            ? BUILDER_CHIP_LABEL_CLASS
+            : "text-[11px] font-medium tracking-[0.16em] text-slate-400 uppercase"
+        }
+      >
+        {isBuilder ? <History aria-hidden="true" className="size-3.5 shrink-0" /> : null}
         Från tidigare session
       </p>
-      <p className="mt-0.5 text-xs leading-5">{label}</p>
+      <p className={isBuilder ? "text-foreground mt-0.5 text-xs leading-5" : "mt-0.5 text-xs leading-5"}>
+        {label}
+      </p>
     </div>
   );
 }
@@ -401,19 +710,45 @@ function OpenClawHistoricActionChip({ action }: { action: OpenClawAction }) {
  * är bara en synlig kvittens så användaren ser vad som lästes.
  */
 function OpenClawReadFilesChip({ action }: { action: OpenClawReadFilesAction }) {
+  const isBuilder = useIsBuilderAppearance();
   return (
     <div
-      className="min-w-0 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-slate-200"
+      className={
+        isBuilder
+          ? BUILDER_CHIP_CLASS
+          : "min-w-0 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-slate-200"
+      }
       data-testid="openclaw-read-files"
     >
-      <p className="text-[11px] font-medium tracking-[0.16em] text-slate-300/80 uppercase">
+      <p
+        className={
+          isBuilder
+            ? BUILDER_CHIP_LABEL_CLASS
+            : "text-[11px] font-medium tracking-[0.16em] text-slate-300/80 uppercase"
+        }
+      >
+        {isBuilder ? <FileSearch aria-hidden="true" className="size-3.5 shrink-0" /> : null}
         Läser {action.paths.length === 1 ? "fil" : `${action.paths.length} filer`}
       </p>
-      <p className="mt-0.5 truncate font-mono text-[11px] leading-5 text-slate-200">
+      <p
+        className={
+          isBuilder
+            ? "text-foreground mt-0.5 truncate font-mono text-[11px] leading-5"
+            : "mt-0.5 truncate font-mono text-[11px] leading-5 text-slate-200"
+        }
+      >
         {action.paths.join(", ")}
       </p>
       {action.reason ? (
-        <p className="mt-0.5 text-xs leading-5 text-slate-300">{action.reason}</p>
+        <p
+          className={
+            isBuilder
+              ? "text-muted-foreground mt-0.5 text-xs leading-5"
+              : "mt-0.5 text-xs leading-5 text-slate-300"
+          }
+        >
+          {action.reason}
+        </p>
       ) : null}
     </div>
   );
@@ -425,13 +760,29 @@ function OpenClawReadFilesChip({ action }: { action: OpenClawReadFilesAction }) 
  * vägen. Alternativet vore att blocket försvinner spårlöst ur texten.
  */
 function OpenClawRejectedActionCard({ reason }: { reason: string }) {
+  const isBuilder = useIsBuilderAppearance();
   return (
-    <div className="min-w-0 rounded-2xl border border-rose-400/20 bg-slate-900/70 p-3 text-slate-100">
-      <p className="text-[11px] font-medium tracking-[0.16em] text-rose-200/80 uppercase">
+    <ActionCard
+      tone="destructive"
+      panelClassName="min-w-0 rounded-2xl border border-rose-400/20 bg-slate-900/70 p-3 text-slate-100"
+    >
+      <ActionCardLabel
+        icon={AlertTriangle}
+        tone="destructive"
+        panelClassName="text-[11px] font-medium tracking-[0.16em] text-rose-200/80 uppercase"
+      >
         Förslaget kunde inte tolkas
+      </ActionCardLabel>
+      <p
+        className={
+          isBuilder
+            ? "text-foreground mt-2 text-xs leading-5 wrap-break-word"
+            : "mt-1 text-xs leading-5 wrap-break-word text-rose-300"
+        }
+      >
+        {reason}
       </p>
-      <p className="mt-1 text-xs leading-5 wrap-break-word text-rose-300">{reason}</p>
-    </div>
+    </ActionCard>
   );
 }
 
@@ -588,36 +939,37 @@ function OpenClawFillTextFieldCard({
   };
 
   return (
-    <div className="min-w-0 rounded-2xl border border-cyan-400/20 bg-slate-900/70 p-3 text-slate-100">
-      <p className="text-[11px] font-medium tracking-[0.16em] text-cyan-200/80 uppercase">
+    <ActionCard panelClassName="min-w-0 rounded-2xl border border-cyan-400/20 bg-slate-900/70 p-3 text-slate-100">
+      <ActionCardLabel
+        icon={PenLine}
+        panelClassName="text-[11px] font-medium tracking-[0.16em] text-cyan-200/80 uppercase"
+      >
         Fältförslag
-      </p>
-      <p className="mt-1 text-sm font-semibold text-white">{actionLabel}</p>
-      <p className="mt-1 text-xs leading-5 text-slate-300">
+      </ActionCardLabel>
+      <ActionCardTitle>{actionLabel}</ActionCardTitle>
+      <ActionCardText>
         {targetContext?.canWrite === false
           ? "Fältet är låst just nu. Om det blir skrivbart kan du prova igen."
           : "Jag kan lägga in den här texten i fältet när du godkänner."}
-      </p>
-      <div className="mt-2 max-h-32 overflow-x-hidden overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 wrap-break-word whitespace-pre-wrap text-slate-200">
-        {action.value}
-      </div>
+      </ActionCardText>
+      <ActionCardInset>{action.value}</ActionCardInset>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {actionState === "pending" ? (
           <>
             {canSendDirect ? (
-              <button
-                type="button"
+              <ActionCardButton
+                kind="primary"
                 onClick={() => void handleSendDirect()}
-                className="rounded-full bg-cyan-300 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-cyan-200"
+                panelClassName="rounded-full bg-cyan-300 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-cyan-200"
               >
                 Skicka till buildern
-              </button>
+              </ActionCardButton>
             ) : null}
-            <button
-              type="button"
+            <ActionCardButton
+              kind={canSendDirect ? "secondary" : "primary"}
               onClick={handleApprove}
               disabled={targetContext?.canWrite === false}
-              className={cn(
+              panelClassName={cn(
                 "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                 canSendDirect
                   ? "border border-white/10 text-slate-200 hover:bg-white/5"
@@ -625,49 +977,45 @@ function OpenClawFillTextFieldCard({
               )}
             >
               {canSendDirect ? "Lägg i fältet" : "Godkänn och fyll"}
-            </button>
-            <button
-              type="button"
-              onClick={handleDecline}
-              className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
-            >
+            </ActionCardButton>
+            <ActionCardButton kind="quiet" onClick={handleDecline}>
               Avvisa
-            </button>
+            </ActionCardButton>
           </>
         ) : null}
 
         {actionState === "approved" ? (
-          <p className="text-xs text-emerald-300">Texten lades in i {actionLabel.toLowerCase()}.</p>
+          <ActionCardStatus tone="success">
+            Texten lades in i {actionLabel.toLowerCase()}.
+          </ActionCardStatus>
         ) : null}
 
         {actionState === "sending" ? (
-          <p className="text-xs text-slate-300">Skickar till buildern…</p>
+          <ActionCardStatus tone="pending">Skickar till buildern…</ActionCardStatus>
         ) : null}
 
         {actionState === "sent" ? (
-          <p className="text-xs text-emerald-300">Skickad till buildern — bygget startar.</p>
+          <ActionCardStatus tone="success">Skickad till buildern — bygget startar.</ActionCardStatus>
         ) : null}
 
         {actionState === "declined" ? (
-          <p className="text-xs text-slate-300">Förslaget avvisades.</p>
+          <ActionCardStatus tone="neutral">Förslaget avvisades.</ActionCardStatus>
         ) : null}
 
         {actionState === "failed" ? (
           <>
-            <p className="text-xs text-rose-300">{actionError ?? "Kunde inte fylla fältet."}</p>
+            <ActionCardStatus tone="error">
+              {actionError ?? "Kunde inte fylla fältet."}
+            </ActionCardStatus>
             {canSendDirect ? (
-              <button
-                type="button"
-                onClick={() => void handleSendDirect()}
-                className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
-              >
+              <ActionCardButton kind="secondary" onClick={() => void handleSendDirect()}>
                 Försök igen
-              </button>
+              </ActionCardButton>
             ) : null}
           </>
         ) : null}
       </div>
-    </div>
+    </ActionCard>
   );
 }
 
@@ -690,36 +1038,35 @@ function OpenClawStartBugHuntCard({
 
   if (!armedAutonomyGranted) {
     return (
-      <div className="min-w-0 rounded-2xl border border-white/10 bg-slate-900/70 p-3 text-slate-100">
-        <p className="text-xs leading-5 text-slate-300">
-          Armerad autonomi är inaktiverad. Tryck in sköldknappen i chattens topprad och kryssa i
-          &quot;Armerad autonomi&quot; om du vill tillåta den.
-        </p>
-      </div>
+      <OpenClawPowerOffNotice>
+        Armerad autonomi är inaktiverad. Tryck in sköldknappen i chattens topprad och kryssa i
+        &quot;Armerad autonomi&quot; om du vill tillåta den.
+      </OpenClawPowerOffNotice>
     );
   }
 
   const active = isMandateActive(armedMandate);
 
   return (
-    <div className="min-w-0 rounded-2xl border border-fuchsia-400/25 bg-slate-900/70 p-3 text-slate-100">
-      <p className="text-[11px] font-medium tracking-[0.16em] text-fuchsia-200/80 uppercase">
+    <ActionCard panelClassName="min-w-0 rounded-2xl border border-fuchsia-400/25 bg-slate-900/70 p-3 text-slate-100">
+      <ActionCardLabel
+        icon={ShieldCheck}
+        panelClassName="text-[11px] font-medium tracking-[0.16em] text-fuchsia-200/80 uppercase"
+      >
         {armedMandate?.mode === "review_next" ? "Armerad granskning" : "Armerad bug-hunt"}
-      </p>
-      <p className="mt-1 text-sm font-semibold text-white">
+      </ActionCardLabel>
+      <ActionCardTitle>
         {active
           ? describeMandate(armedMandate)
           : "Inget aktivt mandat — armera genom att uttryckligen be om det (t.ex. \u201dgör 5 follow-ups och buggranska\u201d)."}
-      </p>
-      {action.reason ? (
-        <p className="mt-1 text-xs leading-5 text-slate-300">{action.reason}</p>
-      ) : null}
+      </ActionCardTitle>
+      {action.reason ? <ActionCardText>{action.reason}</ActionCardText> : null}
       {active ? (
-        <p className="mt-1 text-[11px] text-slate-400">
+        <ActionCardText panelClassName="mt-1 text-[11px] text-slate-400">
           Skriv &quot;stopp&quot; när som helst för att avbryta.
-        </p>
+        </ActionCardText>
       ) : null}
-    </div>
+    </ActionCard>
   );
 }
 
@@ -973,41 +1320,38 @@ function OpenClawArmedSendCard({
   };
 
   return (
-    <div className="min-w-0 rounded-2xl border border-fuchsia-400/25 bg-slate-900/70 p-3 text-slate-100">
-      <p className="text-[11px] font-medium tracking-[0.16em] text-fuchsia-200/80 uppercase">
+    <ActionCard panelClassName="min-w-0 rounded-2xl border border-fuchsia-400/25 bg-slate-900/70 p-3 text-slate-100">
+      <ActionCardLabel
+        icon={ShieldCheck}
+        panelClassName="text-[11px] font-medium tracking-[0.16em] text-fuchsia-200/80 uppercase"
+      >
         Armerad autonomi · auto-send
-      </p>
-      <p className="mt-1 text-sm font-semibold text-white">
-        {action.label || "Skickar follow-up i buildern"}
-      </p>
-      <div className="mt-2 max-h-32 overflow-x-hidden overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 wrap-break-word whitespace-pre-wrap text-slate-200">
-        {action.value}
-      </div>
+      </ActionCardLabel>
+      <ActionCardTitle>{action.label || "Skickar follow-up i buildern"}</ActionCardTitle>
+      <ActionCardInset>{action.value}</ActionCardInset>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {state === "sending" ? (
-          <p className="text-xs text-slate-300">Fyller fältet och skickar…</p>
+          <ActionCardStatus tone="pending">Fyller fältet och skickar…</ActionCardStatus>
         ) : null}
         {state === "sent" ? (
-          <p className="text-xs text-emerald-300">
+          <ActionCardStatus tone="success">
             {armedMandate && armedMandate.remaining > 0
               ? `Skickad till buildern. Mandatet har ${armedMandate.remaining} steg kvar — jag fortsätter automatiskt när bygget är klart.`
               : "Skickad till buildern. Mandatet är slut, så jag stannar här."}
-          </p>
+          </ActionCardStatus>
         ) : null}
         {state === "failed" ? (
           <>
-            <p className="text-xs text-rose-300">{error ?? "Kunde inte skicka automatiskt."}</p>
-            <button
-              type="button"
-              onClick={handleRetry}
-              className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
-            >
+            <ActionCardStatus tone="error">
+              {error ?? "Kunde inte skicka automatiskt."}
+            </ActionCardStatus>
+            <ActionCardButton kind="secondary" onClick={handleRetry}>
               Försök igen
-            </button>
+            </ActionCardButton>
           </>
         ) : null}
       </div>
-    </div>
+    </ActionCard>
   );
 }
 
@@ -1159,66 +1503,59 @@ function OpenClawStartBuildCard({
   };
 
   return (
-    <div className="min-w-0 rounded-2xl border border-fuchsia-400/25 bg-slate-900/70 p-3 text-slate-100">
-      <p className="text-[11px] font-medium tracking-[0.16em] text-fuchsia-200/80 uppercase">
+    <ActionCard panelClassName="min-w-0 rounded-2xl border border-fuchsia-400/25 bg-slate-900/70 p-3 text-slate-100">
+      <ActionCardLabel
+        icon={Hammer}
+        panelClassName="text-[11px] font-medium tracking-[0.16em] text-fuchsia-200/80 uppercase"
+      >
         {autoRun ? "Direktbygg" : "Byggförslag"}
-      </p>
-      <p className="mt-1 text-sm font-semibold text-white">
-        {action.label || "Starta ett bygge i buildern"}
-      </p>
-      {action.reason ? (
-        <p className="mt-1 text-xs leading-5 text-slate-300">{action.reason}</p>
-      ) : null}
-      <details className="mt-2 rounded-xl border border-white/10 bg-black/20 p-2">
-        <summary className="cursor-pointer text-[11px] text-slate-300 select-none">
-          Visa byggprompten
-        </summary>
-        <pre className="mt-1 max-h-40 overflow-x-hidden overflow-y-auto font-sans text-xs leading-5 wrap-break-word whitespace-pre-wrap text-slate-200">
-          {action.prompt}
-        </pre>
-      </details>
+      </ActionCardLabel>
+      <ActionCardTitle>{action.label || "Starta ett bygge i buildern"}</ActionCardTitle>
+      {action.reason ? <ActionCardText>{action.reason}</ActionCardText> : null}
+      <ActionCardDisclosure
+        summary="Visa byggprompten"
+        panelClassName="mt-2 rounded-xl border border-white/10 bg-black/20 p-2"
+        panelBodyClassName="mt-1 max-h-40 overflow-x-hidden overflow-y-auto font-sans text-xs leading-5 wrap-break-word whitespace-pre-wrap text-slate-200"
+      >
+        {action.prompt}
+      </ActionCardDisclosure>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {state === "pending" ? (
           <>
-            <button
-              type="button"
+            <ActionCardButton
+              kind="primary"
               onClick={() => void handleApprove()}
-              className="rounded-full bg-fuchsia-300 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-fuchsia-200"
+              panelClassName="rounded-full bg-fuchsia-300 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-fuchsia-200"
             >
               Starta bygget
-            </button>
-            <button
-              type="button"
+            </ActionCardButton>
+            <ActionCardButton
+              kind="quiet"
               onClick={() => {
                 setState("failed");
                 setError("Förslaget avböjdes.");
               }}
-              className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
             >
               Avböj
-            </button>
+            </ActionCardButton>
           </>
         ) : null}
         {state === "sending" ? (
-          <p className="text-xs text-slate-300">Skickar till buildern…</p>
+          <ActionCardStatus tone="pending">Skickar till buildern…</ActionCardStatus>
         ) : null}
         {state === "sent" ? (
-          <p className="text-xs text-emerald-300">Bygget är startat — följ det i byggkortet.</p>
+          <ActionCardStatus tone="success">Bygget är startat — följ det i byggkortet.</ActionCardStatus>
         ) : null}
         {state === "failed" ? (
           <>
-            <p className="text-xs text-rose-300">{error ?? "Kunde inte starta bygget."}</p>
-            <button
-              type="button"
-              onClick={() => void handleApprove()}
-              className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
-            >
+            <ActionCardStatus tone="error">{error ?? "Kunde inte starta bygget."}</ActionCardStatus>
+            <ActionCardButton kind="secondary" onClick={() => void handleApprove()}>
               Försök igen
-            </button>
+            </ActionCardButton>
           </>
         ) : null}
       </div>
-    </div>
+    </ActionCard>
   );
 }
 
@@ -1299,64 +1636,59 @@ function OpenClawRepairRequestCard({ action }: { action: OpenClawRequestRepairAc
   };
 
   return (
-    <div className="min-w-0 rounded-2xl border border-amber-400/20 bg-slate-900/70 p-3 text-slate-100">
-      <p className="text-[11px] font-medium tracking-[0.16em] text-amber-200/80 uppercase">
+    <ActionCard panelClassName="min-w-0 rounded-2xl border border-amber-400/20 bg-slate-900/70 p-3 text-slate-100">
+      <ActionCardLabel
+        icon={Wrench}
+        panelClassName="text-[11px] font-medium tracking-[0.16em] text-amber-200/80 uppercase"
+      >
         Reparationsförslag
-      </p>
-      <p className="mt-1 text-sm font-semibold text-white">{actionLabel}</p>
-      <p className="mt-1 text-xs leading-5 text-slate-300">
+      </ActionCardLabel>
+      <ActionCardTitle>{actionLabel}</ActionCardTitle>
+      <ActionCardText>
         {target
           ? "Jag kan starta en reparation av den aktiva versionen när du godkänner. Den körs som ett vanligt fix-pass och skapar en ny version som du sedan godkänner — jag ändrar aldrig filer direkt."
           : "Öppna en version i buildern först — reparation kan bara startas där."}
-      </p>
-      {action.reason ? (
-        <div className="mt-2 max-h-32 overflow-x-hidden overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 wrap-break-word whitespace-pre-wrap text-slate-200">
-          {action.reason}
-        </div>
-      ) : null}
+      </ActionCardText>
+      {action.reason ? <ActionCardInset>{action.reason}</ActionCardInset> : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {actionState === "pending" ? (
           <>
-            <button
-              type="button"
+            <ActionCardButton
+              kind="primary"
               onClick={() => void handleApprove()}
               disabled={!target}
-              className="rounded-full bg-amber-300 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
+              panelClassName="rounded-full bg-amber-300 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Godkänn och starta reparation
-            </button>
-            <button
-              type="button"
-              onClick={handleDecline}
-              className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
-            >
+            </ActionCardButton>
+            <ActionCardButton kind="quiet" onClick={handleDecline}>
               Avvisa
-            </button>
+            </ActionCardButton>
           </>
         ) : null}
 
         {actionState === "working" ? (
-          <p className="text-xs text-slate-300">Startar reparation…</p>
+          <ActionCardStatus tone="pending">Startar reparation…</ActionCardStatus>
         ) : null}
 
         {actionState === "approved" ? (
-          <p className="text-xs text-emerald-300">
+          <ActionCardStatus tone="success">
             Reparation startad på den senaste versionen. En ny version dyker upp för godkännande när
             den är klar.
-          </p>
+          </ActionCardStatus>
         ) : null}
 
         {actionState === "declined" ? (
-          <p className="text-xs text-slate-300">Förslaget avvisades.</p>
+          <ActionCardStatus tone="neutral">Förslaget avvisades.</ActionCardStatus>
         ) : null}
 
         {actionState === "failed" ? (
-          <p className="text-xs text-rose-300">
+          <ActionCardStatus tone="error">
             {actionError ?? "Kunde inte starta reparationen."}
-          </p>
+          </ActionCardStatus>
         ) : null}
       </div>
-    </div>
+    </ActionCard>
   );
 }
 
@@ -1405,15 +1737,14 @@ function OpenClawQuickEditCard({
   // efter re-render, så två snabba klick kan annars starta överlappande
   // POST:ar mot samma bas (forkad historik / förvirrande stale_base_version).
   const approveInFlightRef = useRef(false);
+  const isBuilder = useIsBuilderAppearance();
 
   if (!quickEditGranted) {
     return (
-      <div className="min-w-0 rounded-2xl border border-white/10 bg-slate-900/70 p-3 text-slate-100">
-        <p className="text-xs leading-5 text-slate-300">
-          Snabbändringar är inaktiverade. Tryck in sköldknappen i chattens topprad och kryssa i
-          &quot;Snabbändringar&quot; om du vill kunna godkänna dem.
-        </p>
-      </div>
+      <OpenClawPowerOffNotice>
+        Snabbändringar är inaktiverade. Tryck in sköldknappen i chattens topprad och kryssa i
+        &quot;Snabbändringar&quot; om du vill kunna godkänna dem.
+      </OpenClawPowerOffNotice>
     );
   }
 
@@ -1518,51 +1849,84 @@ function OpenClawQuickEditCard({
   };
 
   return (
-    <div className="min-w-0 rounded-2xl border border-emerald-400/20 bg-slate-900/70 p-3 text-slate-100">
-      <p className="text-[11px] font-medium tracking-[0.16em] text-emerald-200/80 uppercase">
+    <ActionCard panelClassName="min-w-0 rounded-2xl border border-emerald-400/20 bg-slate-900/70 p-3 text-slate-100">
+      <ActionCardLabel
+        icon={Zap}
+        panelClassName="text-[11px] font-medium tracking-[0.16em] text-emerald-200/80 uppercase"
+      >
         Snabbändringsförslag
-      </p>
-      <p className="mt-1 text-sm font-semibold text-white">{actionLabel}</p>
-      <p className="mt-1 text-xs leading-5 text-slate-300">
+      </ActionCardLabel>
+      <ActionCardTitle>{actionLabel}</ActionCardTitle>
+      <ActionCardText>
         {renderTarget
           ? "Jag genomför ändringen först när du godkänner. Den skapar en ny version och uppdaterar förhandsvisningen."
           : "Kräver en öppen version i buildern — godkännandet kontrollerar detta."}
-      </p>
-      {action.reason ? (
-        <div className="mt-2 max-h-32 overflow-x-hidden overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 wrap-break-word whitespace-pre-wrap text-slate-200">
-          {action.reason}
-        </div>
-      ) : null}
+      </ActionCardText>
+      {action.reason ? <ActionCardInset>{action.reason}</ActionCardInset> : null}
       {/* Full payload-transparens (Bugbot): användaren ska se exakt VAD som
           skrivs innan godkännande — inte bara op-typ + fil. Fill-kortet visar
           hela texten; samma princip här, avgränsat och scrollbart. */}
-      <ul className="mt-2 space-y-2 rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 text-slate-200">
+      <ul
+        className={
+          isBuilder
+            ? "border-border/60 divide-border/60 mt-2 divide-y rounded-lg border text-xs leading-5"
+            : "mt-2 space-y-2 rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 text-slate-200"
+        }
+      >
         {action.ops.map((op, index) => (
-          <li key={`${op.kind}:${op.path}:${index}`} className="min-w-0">
+          <li key={`${op.kind}:${op.path}:${index}`} className={isBuilder ? "min-w-0 p-2" : "min-w-0"}>
             <div className="flex min-w-0 items-baseline gap-2">
-              <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-300">
-                {describeOpenClawQuickEditOp(op)}
-              </span>
-              <span className="min-w-0 truncate font-mono text-[11px] text-slate-100">
+              {isBuilder ? (
+                <Badge variant="outline" className="text-muted-foreground text-[10px]">
+                  {describeOpenClawQuickEditOp(op)}
+                </Badge>
+              ) : (
+                <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-300">
+                  {describeOpenClawQuickEditOp(op)}
+                </span>
+              )}
+              <span
+                className={
+                  isBuilder
+                    ? "text-foreground min-w-0 truncate font-mono text-[11px]"
+                    : "min-w-0 truncate font-mono text-[11px] text-slate-100"
+                }
+              >
                 {op.path}
               </span>
             </div>
             {op.kind === "replace_text" ? (
-              <div className="mt-1 max-h-32 overflow-x-hidden overflow-y-auto rounded-lg border border-white/10 bg-black/30 p-2 font-mono text-[11px] leading-5 wrap-break-word whitespace-pre-wrap">
-                <span className="text-rose-300/90 line-through">{op.find}</span>
-                <span className="text-slate-400"> → </span>
-                <span className="text-emerald-300/90">{op.replace}</span>
+              <div
+                className={
+                  isBuilder
+                    ? "border-border/60 bg-muted/40 mt-1.5 max-h-32 overflow-x-hidden overflow-y-auto rounded-md border p-2 font-mono text-[11px] leading-5 wrap-break-word whitespace-pre-wrap"
+                    : "mt-1 max-h-32 overflow-x-hidden overflow-y-auto rounded-lg border border-white/10 bg-black/30 p-2 font-mono text-[11px] leading-5 wrap-break-word whitespace-pre-wrap"
+                }
+              >
+                <span
+                  className={
+                    isBuilder
+                      ? "text-muted-foreground decoration-destructive/70 line-through"
+                      : "text-rose-300/90 line-through"
+                  }
+                >
+                  {op.find}
+                </span>
+                <span className={isBuilder ? "text-muted-foreground" : "text-slate-400"}> → </span>
+                <span className={isBuilder ? "text-brand-teal" : "text-emerald-300/90"}>
+                  {op.replace}
+                </span>
               </div>
             ) : null}
             {op.kind === "replace_content" ? (
-              <details className="mt-1 rounded-lg border border-white/10 bg-black/30 p-2">
-                <summary className="cursor-pointer text-[11px] text-slate-300 select-none">
-                  Visa nytt filinnehåll ({op.content.length} tecken)
-                </summary>
-                <pre className="mt-1 max-h-40 overflow-x-hidden overflow-y-auto font-mono text-[11px] leading-5 wrap-break-word whitespace-pre-wrap text-slate-200">
-                  {op.content}
-                </pre>
-              </details>
+              <ActionCardDisclosure
+                mono
+                summary={<>Visa nytt filinnehåll ({op.content.length} tecken)</>}
+                panelClassName="mt-1 rounded-lg border border-white/10 bg-black/30 p-2"
+                panelBodyClassName="mt-1 max-h-40 overflow-x-hidden overflow-y-auto font-mono text-[11px] leading-5 wrap-break-word whitespace-pre-wrap text-slate-200"
+              >
+                {op.content}
+              </ActionCardDisclosure>
             ) : null}
           </li>
         ))}
@@ -1570,48 +1934,44 @@ function OpenClawQuickEditCard({
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {actionState === "pending" ? (
           <>
-            <button
-              type="button"
+            <ActionCardButton
+              kind="primary"
               onClick={() => void handleApprove()}
-              className="rounded-full bg-emerald-300 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
+              panelClassName="rounded-full bg-emerald-300 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Godkänn och genomför
-            </button>
-            <button
-              type="button"
-              onClick={handleDecline}
-              className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
-            >
+            </ActionCardButton>
+            <ActionCardButton kind="quiet" onClick={handleDecline}>
               Avböj
-            </button>
+            </ActionCardButton>
           </>
         ) : null}
 
         {actionState === "working" ? (
-          <p className="text-xs text-slate-300">Genomför ändringen…</p>
+          <ActionCardStatus tone="pending">Genomför ändringen…</ActionCardStatus>
         ) : null}
 
         {actionState === "applied" ? (
-          <p className={applied?.previewError ? "text-xs text-amber-200" : "text-xs text-emerald-300"}>
+          <ActionCardStatus tone={applied?.previewError ? "warning" : "success"}>
             {applied?.previewError
               ? `${QUICK_EDIT_PREVIEW_WARNING} Sparad version: ${applied.versionId}. `
               : `Klart — ny version skapad (${applied?.versionId}). `}
             {applied && applied.changedFiles.length > 0
               ? `Ändrade filer: ${applied.changedFiles.join(", ")}`
               : "Inga filer rapporterades ändrade."}
-          </p>
+          </ActionCardStatus>
         ) : null}
 
         {actionState === "declined" ? (
-          <p className="text-xs text-slate-300">Förslaget avböjdes.</p>
+          <ActionCardStatus tone="neutral">Förslaget avböjdes.</ActionCardStatus>
         ) : null}
 
         {actionState === "failed" ? (
-          <p className="text-xs text-rose-300">
+          <ActionCardStatus tone="error">
             {actionError ?? "Kunde inte genomföra ändringen."}
-          </p>
+          </ActionCardStatus>
         ) : null}
       </div>
-    </div>
+    </ActionCard>
   );
 }
