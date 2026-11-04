@@ -72,15 +72,19 @@ url = "https://developers.openai.com/mcp"
 url = "https://docs.openclaw.ai/mcp"
 
 [mcp_servers.supabase]
+enabled = false
 url = "https://mcp.supabase.com/mcp?project_ref=yubbckduwblyrbnlglwf&read_only=true"
 
 [mcp_servers.supabase-prod]
+enabled = false
 url = "https://mcp.supabase.com/mcp?project_ref=egcitvwgettkftkyzbvn&read_only=true"
 
 [mcp_servers.user-vercel]
+enabled = false
 url = "https://mcp.vercel.com"
 
 [mcp_servers.v0]
+enabled = false
 url = "https://mcp.v0.dev"
 
 [mcp_servers.vercel]

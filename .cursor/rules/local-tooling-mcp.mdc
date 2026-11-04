@@ -14,11 +14,15 @@ bevisar inte att servrar är anslutna. Global `%USERPROFILE%\.cursor\mcp.json`
 kan ge ytterligare servrar. Läs servernamn och konfiguration utan att skriva
 ut tokenvärden; lägg aldrig tokens i den spårade mallen.
 
-Projektfilen kan seedas från mallen med `npm run worktree:setup -- <sökväg>`
-när Cursor-MCP faktiskt behövs. Plugins styrs separat i `.cursor/settings.json`.
+Projektfilen seedas om den saknas med `npm run setup:local`; för worktrees
+finns även `npm run worktree:setup -- <sökväg>`. Extra servrar finns i
+`.cursor/mcp.optional.json.example` och kräver ingen standardinloggning.
+Plugins styrs separat i `.cursor/settings.json`.
 Codex använder sina egna anslutna verktyg; Cursor-filerna beskriver inte dem.
 
 Vid databasfrågor: verifiera dev/prod-identitet mot `config/db-targets.json`
 och faktisk anslutning. Behåll read-only-parametrarna i Supabase-mallen.
-Vercel-identitet ägs lokalt av `.vercel/repo.json`; appens projekt är skilt
-från användarsajternas projekt.
+Vercel-/Render-identitet ägs av `config/local-development.json`; lokala
+`.vercel/project.json` och `.vercel/repo.json` kontrolleras mot den. Appens
+projekt är skilt från användarsajternas projekt. Datorbyte och env-hämtning:
+`docs/runbooks/local-development.md`.

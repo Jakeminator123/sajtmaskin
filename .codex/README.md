@@ -50,6 +50,11 @@ den publika mallen. Inga tokens i `.codex/config.toml`; GitHub går via `gh`/SSH
 eller connectorn. Behöver ett worktree runtime-env: skapa en minimal lokal fil
 uttryckligen och committa den aldrig.
 
+Ny dator: [lokal setup](../docs/runbooks/local-development.md).
+Projektets Vercel-MCP är standard. Supabase DEV/PROD, kontobred Vercel och
+legacy v0 är avstängda med `enabled = false` tills de behövs. Detta ändrar inte
+anslutna plugins eller deras separata inloggningar.
+
 ## Windows-skal (pwsh 7)
 
 Codex Desktop startar ofta Windows PowerShell 5.1 (`Copyright (C) Microsoft
