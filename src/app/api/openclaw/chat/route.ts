@@ -17,7 +17,10 @@ import {
   shouldAttachOpenClawLiveReviewContext,
 } from "@/lib/openclaw/live-review-access";
 import { readLiveReviewGrant } from "@/lib/db/services/live-review-grants";
-import { buildOpenClawEditSystemPrompt } from "@/lib/openclaw/edit-system-prompt";
+import {
+  buildOpenClawEditSystemPrompt,
+  buildStartBuildConsentPrompt,
+} from "@/lib/openclaw/edit-system-prompt";
 import { buildOpenClawNavigationSystemPrompt } from "@/lib/openclaw/navigation-system-prompt";
 import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
 import { buildOpenClawReviewContext } from "@/lib/openclaw/review-context";
@@ -56,6 +59,10 @@ interface ChatRequestBody {
   /** Extra powers the user granted in the chat UI. Narrowing only — see
    * `resolveOpenClawPowersFromRequest`. */
   powers?: unknown;
+  /** Whether this turn's `start_build` card may run by itself
+   * (`resolveStartBuildAutoRun` on the client). Prompt honesty only: the card
+   * re-checks before running, so a forged `true` cannot start a build. */
+  buildConsent?: unknown;
 }
 
 const OPENCLAW_CURRENT_CODE_MAX_CHARS = 16_000;
@@ -232,6 +239,12 @@ export async function POST(req: NextRequest) {
     const editSystemPrompt = buildOpenClawEditSystemPrompt(powers);
     if (editSystemPrompt) {
       messages.push({ role: "system", content: editSystemPrompt });
+    }
+    if (editSystemPrompt && powers.armedAutonomy) {
+      messages.push({
+        role: "system",
+        content: buildStartBuildConsentPrompt(body.buildConsent === true),
+      });
     }
 
     if (BUILDER_PROMPT_TIPS) {

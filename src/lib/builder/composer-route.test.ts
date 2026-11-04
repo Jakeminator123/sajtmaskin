@@ -141,6 +141,15 @@ describe("arming directives inside build orders", () => {
       expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true, builderAwaitingReply: true })).toBe("build");
     },
   );
+
+  it.each([
+    "Jag sa Stopp, inte Paus – byt texten på knappen.",
+    "Jag sa Avbryt, inte Stäng. Byt knapptexten.",
+    "I said Stop, not Pause – change the button label.",
+  ])("a label correction after 'jag sa' stays a build, also while the builder waits: %s", text => {
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("build");
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true, builderAwaitingReply: true })).toBe("build");
+  });
 });
 
 describe("isAgentProposalReference", () => {
@@ -229,6 +238,48 @@ describe("composerAllowsAgentBuild", () => {
     for (const text of ["Vad tycker du?", "Ändra inget", "Bygg inte", "Gör punkt två", "Apply suggestion 2", "Blåare knappar", ""]) {
       expect(composerAllowsAgentBuild({ mode, text })).toBe(false);
     }
+  });
+
+  // En artig begäran utan ett uttryckligt ändringsverb i början är oklar. Den
+  // går till agenten, som lägger ett byggförslag att godkänna; den startar
+  // aldrig ett bygge av sig själv och går aldrig direkt till byggmotorn.
+  // Två försök med deterministiska regler för artiga begäranden släppte
+  // igenom granskningar, offerter och tvekan (oberoende review av PR 1711).
+  it.each([
+    "kan du lägga till en karta på kontaktsidan",
+    "Kan du göra hero-sektionen mörkare",
+    "jag vill ha en rosa knapp i headern",
+    "Jag vill att rubriken blir större",
+    "Kan vi få en mörkare header",
+    "I'd like a bigger logo",
+    "Kan du göra en granskning av sajten",
+    "Jag vill att du granskar sajten",
+    "Kan jag få veta vad det kostar",
+    "I want to know how to publish",
+    "Jag vill ha det som det är",
+    "I'd like nothing changed",
+    "Kan du göra punkt 2",
+    "Kan du göra enligt ditt förslag",
+    "Jag vill att du gör punkt 2",
+    "Kan du lägga till en karta, men vänta lite",
+    "Jag vill att du slutar",
+    "Kan jag få en sammanfattning av ändringarna",
+    "Kan jag få en offert",
+    "Jag vill ha ett svar på min fråga",
+    "I'd like a summary of the changes",
+    "I want a refund",
+    "I'd like an explanation of the layout",
+    "Jag vill ha en genomgång av sajten",
+    "I'd like a check of the contact form",
+    "Kan du lägga till en karta sen",
+    "Jag vill att du ska vara kort i dina svar",
+    "Jag vill att sajten ska vara klar till fredag",
+    "Kan du göra en sammanfattning för mina användare",
+    "Kan du skapa en plan för sajten",
+  ])("en artig eller oklar begäran går till agenten utan byggmedgivande: %s", (text) => {
+    expect(classifyComposerIntent(text)).not.toBe("build");
+    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(false);
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("agent");
   });
 
   it("Fråga ger aldrig byggmandat", () => {

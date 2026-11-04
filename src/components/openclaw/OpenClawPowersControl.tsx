@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type MouseEvent } from "react";
+import { usePathname } from "next/navigation";
 import { ChevronDown, Shield, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
@@ -53,6 +54,60 @@ async function revalidateEditGateOnPress(setEditEnabled: (v: boolean) => void) {
   }
 }
 
+/**
+ * Klasser per yta. Kontrollen renderas både i builderns komposer
+ * (`ChatInterface`) och i panelens topprad (`OpenClawChatPanel`). Panelen
+ * behåller exakt dagens klasser; buildern följer komposerns verktygsknappar
+ * (h-8, rounded-lg, border-border/70, bg-background/80, text-[11px]) och
+ * builderns vanliga dropdown-meny.
+ */
+const POWERS_CONTROL_CLASSES = {
+  panel: {
+    wrapper:
+      "flex max-w-full shrink-0 cursor-pointer items-center rounded-xl border transition-colors",
+    wrapperActive: "border-fuchsia-400/40 bg-fuchsia-400/10",
+    wrapperIdle: "border-border/70 bg-background/50",
+    toggle:
+      "focus-visible:ring-ring flex h-8 items-center gap-1.5 rounded-l-xl pr-1.5 pl-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+    toggleOn: "text-fuchsia-300 hover:text-fuchsia-200",
+    toggleOff: "text-muted-foreground hover:text-foreground",
+    icon: "h-3.5 w-3.5",
+    count:
+      "flex size-4 items-center justify-center rounded-full bg-fuchsia-400/15 text-[10px] leading-none font-semibold",
+    chevron:
+      "text-muted-foreground hover:text-foreground focus-visible:ring-ring flex h-8 items-center rounded-r-xl border-l border-current/10 px-2 transition-colors focus-visible:ring-2 focus-visible:outline-none",
+    menu: "w-72 border-white/10 bg-slate-950/95 text-slate-100",
+    menuLabel: "text-[11px] tracking-[0.16em] text-slate-400 uppercase",
+    menuSeparator: "bg-white/10",
+    menuItem: "items-start focus:bg-white/10 focus:text-white",
+    menuItemDescription: "text-[11px] leading-4 text-slate-400",
+    menuNote: "px-2 py-1.5 text-[11px] leading-4 text-slate-400",
+  },
+  builder: {
+    wrapper:
+      "flex h-8 max-w-full shrink-0 cursor-pointer items-stretch rounded-lg border transition-colors",
+    wrapperActive: "border-primary/50 bg-primary/10",
+    wrapperIdle: "border-border/70 bg-background/80",
+    toggle:
+      "focus-visible:ring-ring flex items-center gap-1.5 rounded-l-md pr-1.5 pl-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+    toggleOn: "text-primary hover:bg-accent hover:text-foreground",
+    toggleOff: "text-muted-foreground hover:bg-accent hover:text-foreground",
+    icon: "size-3",
+    count:
+      "bg-primary text-primary-foreground flex size-4 items-center justify-center rounded-full text-[10px] leading-none font-semibold tabular-nums",
+    chevron:
+      "text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring border-border/70 flex items-center rounded-r-md border-l px-2 transition-colors focus-visible:ring-2 focus-visible:outline-none",
+    menu: "w-72",
+    menuLabel: undefined,
+    menuSeparator: undefined,
+    // Beskrivningen ärver radens färg, så den förblir läsbar även på
+    // menyns accentfärgade fokusrad.
+    menuItem: "items-start",
+    menuItemDescription: "text-[11px] leading-4 opacity-70",
+    menuNote: "text-muted-foreground px-2 py-1.5 text-[11px] leading-4",
+  },
+} as const;
+
 export function OpenClawPowersControl() {
   const editEnabled = useOpenClawStore((s) => s.editEnabled);
   const powersOn = useOpenClawStore((s) => s.powersOn);
@@ -65,6 +120,10 @@ export function OpenClawPowersControl() {
   const scopeKey = useOpenClawStore((s) => s.scopeKey);
   const powers = useOpenClawPowers();
   const [builderChatId, setBuilderChatId] = useState<string | null>(null);
+  // Panelen renderas aldrig under /builder (`OpenClawChat`), så samma yttest
+  // som där väljer builderns stil här; utan den syns panelens klasser.
+  const isBuilderSurface = usePathname()?.startsWith("/builder") ?? false;
+  const classes = POWERS_CONTROL_CLASSES[isBuilderSurface ? "builder" : "panel"];
 
   useEffect(() => {
     const sync = () => setBuilderChatId(readActiveBuilderChatId());
@@ -100,22 +159,15 @@ export function OpenClawPowersControl() {
   return (
     <div
       className={cn(
-        "flex max-w-full shrink-0 cursor-pointer items-center rounded-xl border transition-colors",
-        activeCount > 0
-          ? "border-fuchsia-400/40 bg-fuchsia-400/10"
-          : "border-border/70 bg-background/50",
+        classes.wrapper,
+        activeCount > 0 ? classes.wrapperActive : classes.wrapperIdle,
       )}
       onClick={handleToggle}
     >
       <button
         type="button"
         aria-pressed={powersOn}
-        className={cn(
-          "focus-visible:ring-ring flex h-8 items-center gap-1.5 rounded-l-xl pr-1.5 pl-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-          powersOn
-            ? "text-fuchsia-300 hover:text-fuchsia-200"
-            : "text-muted-foreground hover:text-foreground",
-        )}
+        className={cn(classes.toggle, powersOn ? classes.toggleOn : classes.toggleOff)}
         aria-label={powersOn ? "Stäng av extra befogenheter" : "Slå på extra befogenheter"}
         title={
           powersOn
@@ -123,17 +175,15 @@ export function OpenClawPowersControl() {
             : "Extra befogenheter är av — Sajtagenten guidar bara"
         }
       >
-        {powersOn ? <ShieldCheck className="h-3.5 w-3.5" /> : <Shield className="h-3.5 w-3.5" />}
+        {powersOn ? <ShieldCheck className={classes.icon} /> : <Shield className={classes.icon} />}
         <span>Befogenheter</span>
         {activeCount > 0 ? (
-          <span className="flex size-4 items-center justify-center rounded-full bg-fuchsia-400/15 text-[10px] leading-none font-semibold">
-            {activeCount}
-          </span>
+          <span className={classes.count}>{activeCount}</span>
         ) : null}
       </button>
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring flex h-8 items-center rounded-r-xl border-l border-current/10 px-2 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          className={classes.chevron}
           aria-label="Välj extra befogenheter"
           title="Välj extra befogenheter"
           onClick={(event) => event.stopPropagation()}
@@ -142,13 +192,13 @@ export function OpenClawPowersControl() {
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
-          className="w-72 border-white/10 bg-slate-950/95 text-slate-100"
+          className={classes.menu}
           onClick={(event) => event.stopPropagation()}
         >
-          <DropdownMenuLabel className="text-[11px] tracking-[0.16em] text-slate-400 uppercase">
+          <DropdownMenuLabel className={classes.menuLabel}>
             Extra befogenheter
           </DropdownMenuLabel>
-          <DropdownMenuSeparator className="bg-white/10" />
+          <DropdownMenuSeparator className={classes.menuSeparator} />
           {OPENCLAW_POWER_IDS.map((id) => (
             <DropdownMenuCheckboxItem
               key={id}
@@ -160,18 +210,18 @@ export function OpenClawPowersControl() {
                 toggleGrantedPower(id);
                 void persistOpenClawPowersForActiveChat();
               }}
-              className="items-start focus:bg-white/10 focus:text-white"
+              className={classes.menuItem}
             >
               <span className="flex flex-col gap-0.5">
                 <span className="text-xs font-medium">{OPENCLAW_POWER_META[id].label}</span>
-                <span className="text-[11px] leading-4 text-slate-400">
+                <span className={classes.menuItemDescription}>
                   {OPENCLAW_POWER_META[id].description}
                 </span>
               </span>
             </DropdownMenuCheckboxItem>
           ))}
-          <DropdownMenuSeparator className="bg-white/10" />
-          <p className="px-2 py-1.5 text-[11px] leading-4 text-slate-400">
+          <DropdownMenuSeparator className={classes.menuSeparator} />
+          <p className={classes.menuNote}>
             {powersOn
               ? activeCount > 0
                 ? "Aktivt. Sajtagenten agerar alltid genom builderns vanliga flöde."

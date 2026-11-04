@@ -55,29 +55,34 @@ const REVIEW_NEXT_RE = new RegExp(
 );
 const byLengthDesc = (words: readonly string[]) => [...words].sort((a, b) => b.length - a.length).join("|");
 // Negative, neutral and polite openers never hide a stop: "Nej, stopp!",
-// "Nej men sluta!", "Snälla, sluta!", "Vänta, stopp!", "Jag sa stopp!".
+// "Nej men sluta!", "Snälla, sluta!", "Vänta, stopp!".
 const STOP_LEAD_WORDS = [
   "nej", "nä", "näe", "nämen", "nope", "no", "vänta", "vanta", "wait", "hey", "hej", "hallå", "halla",
-  "oj", "men", "snälla", "snalla", "please", "jag sa", "i said",
+  "oj", "men", "snälla", "snalla", "please",
 ] as const;
-// Affirmative openers usually answer the builder's question ("Ja, avsluta
-// det", "Okej, avsluta det"). Routing therefore never reads them as a stop of
-// the agent; only the broad check that disarms an existing mandate strips them.
+// Openers that routing must leave alone. Affirmatives usually answer the
+// builder's question ("Ja, avsluta det", "Okej, avsluta det"), and "jag sa"
+// usually corrects a label ("Jag sa Stopp, inte Paus – byt texten på
+// knappen."). Only the broad check that disarms an existing mandate strips
+// them ("Ja, stoppa!", "Jag sa stopp!").
 const STOP_AFFIRMATIVE_WORDS = ["ja", "jo", "ok", "okej", "okay"] as const;
+const STOP_ANY_ONLY_LEAD_WORDS = [...STOP_AFFIRMATIVE_WORDS, "jag sa", "i said"] as const;
 const leadPattern = (words: readonly string[]) =>
   new RegExp(String.raw`^(?:(?:${byLengthDesc(words)})(?:[,!]\s*|\s+))+`, "iu");
 const onlyPattern = (words: readonly string[]) =>
   new RegExp(String.raw`^(?:${byLengthDesc(words)})[,!\s]*$`, "iu");
 const STOP_LEAD_RE = leadPattern(STOP_LEAD_WORDS);
-const STOP_ANY_LEAD_RE = leadPattern([...STOP_LEAD_WORDS, ...STOP_AFFIRMATIVE_WORDS]);
+const STOP_ANY_LEAD_RE = leadPattern([...STOP_LEAD_WORDS, ...STOP_ANY_ONLY_LEAD_WORDS]);
 const STOP_INTERJECTION_ONLY_RE = onlyPattern(STOP_LEAD_WORDS);
 const STOP_AFFIRMATIVE_ONLY_RE = onlyPattern(STOP_AFFIRMATIVE_WORDS);
 // "Stoppa nu, eller vänta?" asks about stopping; it is not a stop.
 const STOP_ALTERNATIVE_RE = /^(?:eller|or)(?:\s|$)/iu;
-const STOP_WORD = "stopp|stoppa|sluta|avbryt|avsluta|stop|halt";
+// Infinitives too, so polite questions stop: "Kan du avbryta?", "Kan ni
+// avbryta det?". "Stanna!" is a plain stop as well.
+const STOP_WORD = "stopp|stoppa|sluta|avbryt|avbryta|avsluta|stanna|stop|halt";
 // A stop must address the current work. Questions/quoted mentions and orders
 // about other objects ("stoppa buggar") do not revoke an existing mandate.
-const STOP_TARGET = String.raw`(?:med\s+)?(?:(?:dina|alla|pågående|aktuella|den\s+här|den\s+där)\s+)?(?:autonomin|mandatet|körningen|bygget|byggandet|arbetet|allt|det(?:\s+(?:här|där|du\s+gör))?|it|this|that|follow[\s-]?ups?|generera|generering(?:en)?|bygga|svara|generating|generation|building|running)`;
+const STOP_TARGET = String.raw`(?:med\s+)?(?:(?:dina|alla|pågående|aktuella|den\s+här|den\s+där)\s+)?(?:autonomin|mandatet|körningen|bygget|byggandet|arbetet|allt|det(?:\s+(?:här|där|du\s+gör))?|it|this|that|follow[\s-]?ups?(?:en)?|generera|generering(?:en)?|bygga|svara|generating|generation|building|running)`;
 // Polite request forms, also as questions: "Kan ni stoppa?", "Could you stop?".
 const STOP_POLITE_PREFIX = String.raw`(?:(?:snälla|snalla|please)[,\s]+|(?:kan|vill)\s+(?:du|ni)\s+(?:(?:snälla|please)\s+)?|skulle\s+(?:du|ni)\s+kunna\s+|(?:could|can|would|will)\s+you\s+(?:please\s+)?)?`;
 const STOP_COMMAND_RE = new RegExp(
