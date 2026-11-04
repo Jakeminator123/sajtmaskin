@@ -151,18 +151,14 @@ export const PATHS = {
  * SECURITY: All secrets are accessed through getters to avoid
  * accidental exposure in logs/errors. Never log secret values!
  */
-let _jwtSecretWarned = false;
-
 export const SECRETS = {
+  get didConversationWebhookSecret() {
+    return env.DID_CONVERSATION_WEBHOOK_SECRET || "";
+  },
   get jwtSecret() {
     if (env.JWT_SECRET) return env.JWT_SECRET;
-    if (IS_PRODUCTION && !isBuildPhase()) {
-      if (!_jwtSecretWarned) {
-        _jwtSecretWarned = true;
-        console.warn(
-          "[Config] JWT_SECRET is not set in production — auth will not work",
-        );
-      }
+    if (IS_PRODUCTION || env.VERCEL_ENV === "production") {
+      if (!isBuildPhase()) throw new Error("JWT_SECRET is required in production");
       return "";
     }
     return "dev-secret-do-not-use-in-prod";

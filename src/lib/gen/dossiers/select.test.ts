@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { clearDossierRegistryCache, getAllDossiers } from "./registry";
 import { isExplicitDossierChoice, selectDossiersForRequest } from "./select";
+import { mergePersistedOrchestrationSnapshots } from "../orchestration-snapshot";
 
 const ENV_BACKUP = { ...process.env };
 
@@ -460,6 +461,61 @@ describe("selectDossiersForRequest — disableBriefFallback (F3 scope / F2 mute)
 // och skriver över ett tidigare val vid nästa neutrala uppföljning.
 // ─────────────────────────────────────────────────────────────────────────
 describe("isExplicitDossierChoice — persisterbar syskonidentitet", () => {
+  it("keeps typed provider contracts separate from bare free-text provider mentions", () => {
+    const generic = selectDossiersForRequest({ requestedCapabilities: ["auth"], promptText: "Supabase" });
+    expect(generic.selected[0]?.entry.id).toBe("clerk-auth");
+    expect(isExplicitDossierChoice(generic.selected[0]!.reason)).toBe(false);
+    const contracted = selectDossiersForRequest({
+      requestedCapabilities: ["auth"], providerByCapability: { auth: "supabase" },
+      promptText: "Backenddatabasen körs på Supabase; inloggningen använder Clerk.",
+    });
+    expect(contracted.selected[0]?.entry.id).toBe("supabase-auth");
+    expect(isExplicitDossierChoice(contracted.selected[0]!.reason)).toBe(true);
+  });
+
+  it("does not substitute defaults for unknown typed providers or cross capability contracts", () => {
+    expect(selectDossiersForRequest({ requestedCapabilities: ["auth"], providerByCapability: { auth: "auth0" } }).selected).toEqual([]);
+    const scoped = selectDossiersForRequest({ requestedCapabilities: ["auth"], providerByCapability: { database: "supabase" } });
+    expect(scoped.selected[0]?.entry.id).toBe("clerk-auth");
+    expect(isExplicitDossierChoice(scoped.selected[0]!.reason)).toBe(false);
+  });
+  it.each([
+    "Använd Clerk för auth och Supabase för databas.",
+    "Lägg till byggblocket (id: clerk-auth). Databasen ligger i Supabase.",
+  ])("persists explicit Clerk over pending Supabase despite database context: %s", (promptText) => {
+    const result = selectDossiersForRequest({ requestedCapabilities: ["auth"], promptText });
+    const nextIds = result.selected.filter((selection) => isExplicitDossierChoice(selection.reason))
+      .map((selection) => selection.entry.id);
+    expect(nextIds).toEqual(["clerk-auth"]);
+    expect(mergePersistedOrchestrationSnapshots(
+      { mutedCapabilities: ["auth"], mutedDossierIds: ["supabase-auth"] },
+      { mutedCapabilities: ["auth"], mutedDossierIds: nextIds },
+    )?.mutedDossierIds).toEqual(["clerk-auth"]);
+  });
+
+  it("keeps a bare provider comparison non-explicit", () => {
+    const result = selectDossiersForRequest({ requestedCapabilities: ["auth"], promptText: "Jämför Clerk och Supabase" });
+    expect(isExplicitDossierChoice(result.selected[0]!.reason)).toBe(false);
+  });
+  it("keeps an explicit switch to the dedicated Clerk provider persisterbar", () => {
+    const result = selectDossiersForRequest({ requestedCapabilities: ["auth"], promptText: "Byt till Clerk" });
+    expect(result.selected[0]?.entry.id).toBe("clerk-auth");
+    expect(isExplicitDossierChoice(result.selected[0]!.reason)).toBe(true);
+  });
+  it.each([
+    "Förbättra inloggningen. Backenddatabasen körs på Supabase.",
+    "Förbättra inloggningen; spara bokningar i Supabase.",
+    "Use Supabase for the database and improve the login screen.",
+  ])("retains pending Clerk when Supabase is only database context: %s", (promptText) => {
+    const result = selectDossiersForRequest({ requestedCapabilities: ["auth"], promptText });
+    const nextIds = result.selected.filter((selection) => isExplicitDossierChoice(selection.reason))
+      .map((selection) => selection.entry.id);
+    expect(nextIds).toEqual([]);
+    expect(mergePersistedOrchestrationSnapshots(
+      { mutedCapabilities: ["auth"], mutedDossierIds: ["clerk-auth"] },
+      { mutedCapabilities: ["auth"], mutedDossierIds: nextIds },
+    )?.mutedDossierIds).toEqual(["clerk-auth"]);
+  });
   it("räknar ett uttryckligt providerval som val", () => {
     const result = selectDossiersForRequest({
       requestedCapabilities: ["auth"],

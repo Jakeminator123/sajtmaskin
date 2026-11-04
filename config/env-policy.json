@@ -6,6 +6,7 @@
     "CRON_SECRET",
     "DATA_DIR",
     "DEBUG",
+    "DID_CONVERSATION_WEBHOOK_SECRET",
     "GITHUB_APP_ID",
     "GITHUB_APP_INSTALLATION_ID",
     "GITHUB_APP_PRIVATE_KEY",
@@ -122,6 +123,7 @@
     "DB_SSL_REJECT_UNAUTHORIZED",
     "DESIGN_SYSTEM_ID",
     "DID_API_KEY",
+    "DID_CONVERSATION_WEBHOOK_SECRET",
     "ELASTICSEARCH_API_KEY",
     "ELASTICSEARCH_NODE_URL",
     "EMAIL_FROM",
@@ -855,6 +857,12 @@
       "classification": "local_only",
       "recommendedVercelTargets": [],
       "notes": "D-ID server-API-nyckel (API_USER:API_PASSWORD) för credits-saldot i last-generated-usersite.py. Appens avatar använder de publika NEXT_PUBLIC_AVATAR_*-client-nycklarna, så den här hör bara lokalt."
+    },
+    {
+      "key": "DID_CONVERSATION_WEBHOOK_SECRET",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Separat server-only Bearer-hemlighet för POST /api/did/conversation. Samma värde konfigureras hos D-ID:s anropande serververktyg/webhook. Saknas den svarar endast denna route 503 före mejl; ingen fallback till DID_API_KEY. Kräver samordnad konfiguration före leverans."
     },
     {
       "key": "PIPELINE_TEST_ACCOUNT_EMAIL",

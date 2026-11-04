@@ -1,7 +1,16 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import {
+  hasAcceptedCookieConsent,
+  subscribeCookieConsent,
+} from "@/lib/ads/fire-google-ads-conversion";
+
+const subscribeConsent = (onChange: () => void) => subscribeCookieConsent(onChange);
+const getServerConsent = () => false;
 
 /**
  * Analytics Tracker Component
@@ -11,10 +20,16 @@ import { usePathname } from "next/navigation";
  */
 export function AnalyticsTracker() {
   const pathname = usePathname();
+  const consentAccepted = useSyncExternalStore(
+    subscribeConsent,
+    hasAcceptedCookieConsent,
+    getServerConsent,
+  );
+  const canTrack = consentAccepted && !pathname.startsWith("/admin") && !pathname.startsWith("/api");
 
   useEffect(() => {
     // Don't track admin pages or API routes
-    if (pathname.startsWith("/admin") || pathname.startsWith("/api")) {
+    if (!canTrack || !hasAcceptedCookieConsent()) {
       return;
     }
 
@@ -35,8 +50,13 @@ export function AnalyticsTracker() {
     };
 
     trackPageView();
-  }, [pathname]);
+  }, [pathname, canTrack]);
 
-  // This component doesn't render anything
-  return null;
+  if (!canTrack) return null;
+  return (
+    <>
+      <Analytics beforeSend={(event) => hasAcceptedCookieConsent() ? event : null} />
+      <SpeedInsights beforeSend={(event) => hasAcceptedCookieConsent() ? event : null} />
+    </>
+  );
 }

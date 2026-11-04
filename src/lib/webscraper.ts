@@ -530,7 +530,10 @@ async function tryWordPressFallback(
     // ignore invalid canonical
   }
 
-  const uniqueCandidates = Array.from(new Set(candidates));
+  // HTML hints cannot authorize another origin to supply this site's text.
+  const uniqueCandidates = Array.from(new Set(candidates)).filter(
+    (candidate) => new URL(candidate).origin === baseUrl.origin,
+  );
 
   for (const candidate of uniqueCandidates) {
     try {
@@ -540,7 +543,8 @@ async function tryWordPressFallback(
         headers: { Accept: "application/json" },
         timeoutMs: 10_000,
       });
-      if (!response.ok) continue;
+      // safeFetch follows redirects: bind the resulting content as well.
+      if (!response.ok || new URL(response.url).origin !== baseUrl.origin) continue;
 
       const contentType = response.headers.get("content-type") || "";
       if (!contentType.includes("application/json")) {

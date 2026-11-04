@@ -545,6 +545,21 @@ describe("classifyEvalThrownError", () => {
     }))?.kind).toBe("provider_error");
   });
 
+  it("reads an allowlisted transport code through causes without exposing raw diagnostics", () => {
+    const cause = Object.assign(new Error("Failed query: private prompt sk-proj-secret0123456789"), { code: "UND_ERR_SOCKET" });
+    const result = classifyEvalThrownError(new Error("Request failed", { cause }));
+    expect(result).toMatchObject({ kind: "provider_error", code: "UND_ERR_SOCKET", permanent: false });
+    expect(JSON.stringify(result)).not.toMatch(/private prompt|sk-proj/);
+  });
+
+  it("does not treat transport-code text or an arbitrary structured code as infra", () => {
+    expect(classifyEvalThrownError(new Error("DB row UND_ERR_SOCKET 40122 generation_plans"))).toBeNull();
+    expect(classifyEvalThrownError({ code: "PRIVATE_CUSTOM_CODE", message: "socket hang up" })).toBeNull();
+    const cyclic: { cause?: unknown } = {};
+    cyclic.cause = cyclic;
+    expect(classifyEvalThrownError(cyclic)).toBeNull();
+  });
+
   it("leaves a real harness bug reported as a generation failure", () => {
     expect(classifyEvalThrownError(new TypeError("cannot read property of undefined"))).toBeNull();
   });

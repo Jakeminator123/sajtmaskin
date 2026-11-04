@@ -62,10 +62,19 @@ export async function handleSseStream(
     step: string,
     phase: string,
     payload: Record<string, unknown> = {},
-  ) => appendProgressPart(ctx.setMessages, ctx.assistantMessageId, step, phase, payload);
+  ) => appendProgressPart(ctx.setMessages, ctx.assistantMessageId, step, phase, {
+    ...payload,
+    ...(step === "preview" ? {
+      chatId: payload.chatId ?? state.chatIdFromStream ?? ctx.chatId,
+      versionId: payload.versionId ?? state.versionIdFromStream,
+      assistantMessageId: ctx.assistantMessageId,
+    } : {}),
+  });
 
   const { requestStreamingTextFlush, flushStreamingTextNow } = createStreamingTextBatcher({
-    setMessages: ctx.setMessages,
+    setMessages: (next) => {
+      if (!signal.aborted) ctx.setMessages(next);
+    },
     assistantMessageId: ctx.assistantMessageId,
     getAccumulatedContent: () => state.accumulatedContent,
     getAccumulatedThinking: () => state.accumulatedThinking,
@@ -88,6 +97,8 @@ export async function handleSseStream(
     await consumeSseResponse(
       response,
       (event, data) => {
+        // reader.read() may resolve after cancellation with an already-buffered event.
+        signal.throwIfAborted();
         ctx.touchStreamSafetyTimer();
         // Commit any batched streaming text before a non-text event so its
         // handler (done/parts/error/preview-ready/…) sees and can overwrite the
@@ -165,11 +176,13 @@ export async function handleSseStream(
     // last non-text event (incl. success/error/abort paths) before the stream
     // winds down, so the last delta is never dropped.
     flushStreamingTextNow();
-    ctx.setMessages((prev) =>
-      prev.map((message) =>
-        message.id === ctx.assistantMessageId ? { ...message, isStreaming: false } : message,
-      ),
-    );
+    if (!signal.aborted) {
+      ctx.setMessages((prev) =>
+        prev.map((message) =>
+          message.id === ctx.assistantMessageId ? { ...message, isStreaming: false } : message,
+        ),
+      );
+    }
     state.streamStats.chatId =
       state.streamStats.chatId ?? state.chatIdFromStream ?? ctx.chatId ?? null;
     state.streamStats.didReceiveDone =
@@ -193,6 +206,7 @@ export async function handleSseStream(
     throw new Error("No chat ID returned from stream");
   }
 
+  signal.throwIfAborted();
   ctx.onVersionStatusRefresh?.();
 
   return {

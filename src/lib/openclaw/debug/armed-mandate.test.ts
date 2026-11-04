@@ -72,6 +72,32 @@ describe("parseArmingDirective", () => {
     expect(parseArmingDirective("nästa meddelande är nog viktigt")).toBeNull();
   });
 
+  it.each([
+    "Bygg en bokningssida där kunden kan kolla nästa lediga tid",
+    "Lägg till en kalender så besökaren kan kolla nästa lediga tid och boka",
+    "Skapa en banner som visar nästa meddelande",
+    "Skapa en chatt där nästa meddelande visas överst",
+    "Gör så att nästa meddelande laddas automatiskt",
+    "Lägg till en knapp så användaren kan kolla nästa meddelande i inkorgen",
+    "Skapa en hemsida för vår sms-tjänst där kunden ser nästa meddelande i kön",
+    "Ok kolla nästa lediga tid och lägg till den i headern",
+  ])("does NOT arm review-next on a build order that only mentions the directive words: %s", text => {
+    expect(parseArmingDirective(text)).toBeNull();
+  });
+
+  it.each([
+    "Kan du granska nästa meddelande jag skickar",
+    "Snälla, kolla nästa meddelande jag skapar",
+    "Granska nästa meddelande",
+    "Hej, kan du granska nästa bygge?",
+    "Okej, granska nästa version jag skapar",
+    "Kan du snälla kolla nästa version",
+    "Bra. Kolla nästa version jag gör",
+    "Nästa meddelande: granska det",
+  ])("arms review-next when the directive opens the message: %s", text => {
+    expect(parseArmingDirective(text)?.mode).toBe("review_next");
+  });
+
   it("does NOT arm on negation/abstention", () => {
     expect(parseArmingDirective("gör inga follow-ups")).toBeNull();
     expect(parseArmingDirective("nej, inte follow-ups nu")).toBeNull();
@@ -79,6 +105,7 @@ describe("parseArmingDirective", () => {
 
   it("does NOT treat a stop message as an arming directive", () => {
     expect(parseArmingDirective("stopp")).toBeNull();
+    expect(parseArmingDirective("Stopp. Granska bara tidigare follow-ups.")).toBeNull();
   });
 });
 
@@ -95,9 +122,159 @@ describe("parseStopDirective", () => {
     }
   });
 
+  it.each([
+    "Stop now",
+    "Stopp. Det räcker.",
+    "Stopp. Fortsätt inte.",
+    "Stop now. That is enough.",
+    "Snälla avbryt körningen nu! Det räcker.",
+    "Stopp. Gör inte fler ändringar.",
+    "Stopp!\nDet räcker.",
+    "Stopp。Det räcker。",
+  ])("recognizes a leading stop sentence followed by an explanation: %s", text => {
+    expect(parseStopDirective(text)).toBe(true);
+  });
+
   it("ignores unrelated text", () => {
     expect(parseStopDirective("fortsätt gärna")).toBe(false);
+    expect(parseStopDirective("Ja, bygg vidare")).toBe(false);
   });
+
+  it.each([
+    "Nej, stopp!",
+    "nej stopp",
+    "Okej stopp",
+    "Stopp, det räcker",
+    "Stopp - det räcker",
+    "STOPP STOPP",
+    "stop it",
+    "Stoppa nu, jag vill ändra rubriken",
+    "Stopp, tack, jag tar det härifrån",
+    "Snälla, sluta!",
+    "Snälla, stoppa nu",
+    "Snälla, avbryt allt",
+    "Please, stop",
+    "please, halt",
+    "Snälla, kan du sluta?",
+    "No, stop!",
+    "No stop",
+    "Nä, stopp!",
+    "Näe, sluta",
+    "Nej nej, stopp!",
+    "Nej men sluta!",
+    "Nej. Stopp!",
+    "Vänta, stopp!",
+    "Hey, stop!",
+    "Det blev fel. Sluta!",
+  ])("recognizes everyday stop phrasings (regression vs preview): %s", text => {
+    expect(parseStopDirective(text)).toBe(true);
+  });
+
+  it.each([
+    "Kan ni stoppa?",
+    "Could you stop?",
+    "Can you stop it?",
+    "Skulle du kunna stoppa?",
+    "Kan du snälla sluta?",
+    "STOPP?!",
+    "Stopp, vad gör du?",
+    "Wait, stop",
+    "Oj, stopp",
+    "Nämen sluta!",
+    "Jag sa stopp!",
+    "Stopp…",
+  ])("recognizes polite questions and other everyday stops in both scopes: %s", text => {
+    expect(parseStopDirective(text)).toBe(true);
+    expect(parseStopDirective(text, "leading")).toBe(true);
+  });
+
+  it.each([
+    "Stoppa nu, eller vänta?",
+    "Jo, sluta med bilderna i headern",
+    "Jakob, stopp är fel ord här",
+  ])("does not read a question about stopping or an unrelated name as a stop: %s", text => {
+    expect(parseStopDirective(text)).toBe(false);
+    expect(parseStopDirective(text, "leading")).toBe(false);
+  });
+
+  it.each([
+    "Lägg till en sekundär knapp i modalen, t.ex. Avbryt.",
+    "Byt texten på knappen till något kortare, t.ex. Stopp.",
+    "Change the button label to something short, e.g. Stop.",
+    "Lägg till knappar. Avbryt, Spara och Skicka.",
+    "Skapa ett formulär med knapparna:\nSkicka.\nAvbryt.",
+    "Skapa en hemsida för vår rökavvänjning. Sluta nu! Vi hjälper dig.",
+  ])("leading scope: a build order that names a stop word later is not a stop: %s", text => {
+    expect(parseStopDirective(text, "leading")).toBe(false);
+  });
+
+  it.each(["Ja, avsluta det", "Okej, avsluta det", "Ok, avsluta", "Okej. Avsluta det."])(
+    "leading scope: an affirmative answer to the builder is not a stop: %s",
+    text => {
+      expect(parseStopDirective(text, "leading")).toBe(false);
+    },
+  );
+
+  it.each(["Ja, stoppa!", "Ja stopp", "Jo, stopp", "Okej stopp", "Det blev fel. Sluta!"])(
+    "any scope: disarms on a stop the routing leaves alone: %s",
+    text => {
+      expect(parseStopDirective(text)).toBe(true);
+      expect(parseStopDirective(text, "leading")).toBe(false);
+    },
+  );
+
+  it("stays linear on very long input", () => {
+    const started = Date.now();
+    expect(parseStopDirective(`${"nej ".repeat(20_000)}${"stopp ".repeat(20_000)}x`)).toBe(false);
+    expect(parseStopDirective(`${"nej ".repeat(20_000)}${"stopp ".repeat(20_000)}x`, "leading")).toBe(false);
+    expect(parseStopDirective(". ".repeat(100_000))).toBe(false);
+    expect(parseArmingDirective(`${"hej ".repeat(20_000)}${"kolla ".repeat(20_000)}x`)).toBeNull();
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
+
+  it.each([
+    "Kan du förklara hur jag ska stoppa buggar?",
+    "sluta inte",
+    "Stoppa inte autonomin",
+    "Avbryt aldrig körningen",
+    "Vad betyder stopp?",
+    'Förklara kommandot "avbryt"',
+    '"stopp"',
+    "stoppa buggar",
+    "åsluta",
+    "slutaå",
+    "sluta inte generera",
+    "sluta inte med dina follow-ups",
+    "avbryt inte det du gör",
+    "don't stop generating",
+    "Kan du förklara vad stop generating betyder?",
+    "stop generating bugs",
+    "Sluta inte. Fortsätt gärna.",
+    "Stoppa buggar. Det räcker.",
+    'Jag skrev "stopp". Det räcker.',
+    '"stopp". Det räcker.',
+    "Stopp? Vad betyder det?",
+    "Stop now? What does that mean?",
+    "stopp.nu",
+    "Stopnow",
+    "Stop nowå",
+    "åStop now",
+    "Stoppa autonominå. Det räcker.",
+    "åstopp. Det räcker.",
+    "stoppå. Det räcker.",
+  ])("does not cancel on a negation, mention or unrelated object: %s", text => {
+    expect(parseStopDirective(text)).toBe(false);
+  });
+
+  it.each([
+    "Snälla avbryt körningen nu", "Kan du stoppa autonomin?", "sluta med follow-ups",
+    "stoppa efter detta steg", "sluta med det där", "sluta generera",
+    "sluta med dina follow-ups", "avbryt det du gör", "stop generating", "stopp, tack",
+  ])(
+    "recognizes an explicit stop of current work: %s", text => {
+      expect(parseStopDirective(text)).toBe(true);
+    },
+  );
 });
 
 describe("mandate lifecycle", () => {

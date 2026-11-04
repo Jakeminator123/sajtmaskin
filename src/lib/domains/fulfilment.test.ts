@@ -84,6 +84,7 @@ vi.mock("@/lib/domains/registrar", () => ({
           source: providerState.binding ? ("registrar" as const) : ("reference" as const),
           binding: providerState.binding,
           periodYears: 1,
+          registrarPrice: { amount: 12.99, currency: "USD" },
         },
         error: null,
       }),
@@ -139,6 +140,18 @@ beforeEach(() => {
 });
 
 describe("fulfilDomainOrder", () => {
+  it("refunds unknown registrar availability before any purchase", async () => {
+    providerState.available = null;
+    const outcome = await fulfilDomainOrder(orderFixture());
+    expect(outcome).toEqual({ status: "refunded", reason: "unknown_availability_at_fulfilment" });
+    expect(calls.register).not.toHaveBeenCalled();
+  });
+
+  it("preserves the fresh registrar currency for an older stored order", async () => {
+    await fulfilDomainOrder(orderFixture({ wholesale_ore: 14300 }));
+    expect(calls.register).toHaveBeenCalledWith("mitt-bygge.com",
+      expect.objectContaining({ registrarPrice: { amount: 12.99, currency: "USD" } }), expect.any(Object));
+  });
   it("registers, records and links on the happy path", async () => {
     const outcome = await fulfilDomainOrder(orderFixture());
     expect(outcome).toEqual({
@@ -169,6 +182,7 @@ describe("fulfilDomainOrder", () => {
     expect(outcome.status).toBe("refunded");
     expect(calls.refundCreate).toHaveBeenCalledWith(
       expect.objectContaining({ payment_intent: "pi_1" }),
+      { idempotencyKey: "domain-refund:pi_1" },
     );
     expect(calls.markRefunded).toHaveBeenCalled();
     expect(calls.markRegistered).not.toHaveBeenCalled();
@@ -210,7 +224,7 @@ describe("fulfilDomainOrder", () => {
     expect(calls.register).toHaveBeenCalledTimes(1);
   });
 
-  it("escalates to manual handling when the refund itself fails", async () => {
+  it("keeps a failed refund retryable without registering again", async () => {
     calls.register.mockImplementationOnce(() => {
       throw new Error("registrar exploded");
     });
@@ -218,7 +232,7 @@ describe("fulfilDomainOrder", () => {
       throw new Error("stripe down");
     });
     const outcome = await fulfilDomainOrder(orderFixture());
-    expect(outcome.status).toBe("needs_manual_handling");
+    expect(outcome.status).toBe("refund_pending");
     // The row has to carry why, or a stuck charge is invisible.
     expect(calls.markFailed).toHaveBeenCalledWith(
       "ord_1",

@@ -43,12 +43,30 @@ const MAX_ERROR_LOG_CHARS = 2_000;
 
 export function sanitizeErrorTextForLog(value: string): string {
   return value
+    .replace(/\b(?:failed query|query|sql|params|parameters|prompt|requestBody|responseBody)\s*[:=][\s\S]*/gi, "[sensitive diagnostic omitted]")
     .replace(/[\r\n\t]+/g, " ")
     .replace(/\b((?:postgres(?:ql)?|redis|https?):\/\/)[^@\s/]+@/gi, "$1[redacted]@")
     .replace(/\b(Bearer\s+)[^\s,;]+/gi, "$1[redacted]")
     .replace(/\b((?:sk|key)-[A-Za-z0-9_-]{12,}|gh[opsu]_[A-Za-z0-9]{12,})\b/g, "[redacted]")
     .replace(/([?&](?:token|secret|password|api[-_]?key)=)[^&#\s]*/gi, "$1[redacted]")
     .slice(0, MAX_ERROR_LOG_CHARS);
+}
+
+/** Bounded diagnostic fields only: never serialize request bodies or DB params. */
+export function sanitizeErrorForLog(error: unknown, depth = 0): unknown {
+  if (typeof error === "string") return sanitizeErrorTextForLog(error);
+  if (error === null || typeof error !== "object") return error;
+  const obj = error as Record<string, unknown>;
+  const result: Record<string, unknown> = {};
+  for (const key of ["name", "message", "code", "status", "statusCode", "type"]) {
+    const value = obj[key];
+    if (typeof value === "string") result[key] = sanitizeErrorTextForLog(value);
+    else if (typeof value === "number" || typeof value === "boolean") result[key] = value;
+  }
+  if (depth < 3 && obj.cause !== undefined) {
+    result.cause = sanitizeErrorForLog(obj.cause, depth + 1);
+  }
+  return result;
 }
 
 /**
@@ -97,17 +115,18 @@ export function debugLog(category: string, message: string, meta?: unknown): voi
  * Use this for actual errors that need attention
  */
 export function errorLog(category: string, message: string, error?: unknown): void {
-  const prefix = `[${category}]`;
+  const prefix = `[${sanitizeErrorTextForLog(category)}]`;
+  const safeMessage = sanitizeErrorTextForLog(message);
 
   if (error instanceof Error) {
-    console.error(`${prefix} ${message}:`, sanitizeErrorTextForLog(error.message));
+    console.error(`${prefix} ${safeMessage}:`, sanitizeErrorForLog(error));
     if (isDebugEnabled(category)) {
       console.error(error.stack ? sanitizeErrorTextForLog(error.stack) : undefined);
     }
   } else if (error !== undefined) {
-    console.error(`${prefix} ${message}:`, error);
+    console.error(`${prefix} ${safeMessage}:`, sanitizeErrorForLog(error));
   } else {
-    console.error(`${prefix} ${message}`);
+    console.error(`${prefix} ${safeMessage}`);
   }
 }
 

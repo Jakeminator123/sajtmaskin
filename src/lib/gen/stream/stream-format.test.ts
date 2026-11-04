@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { runWithGenerationWork } from "./generation-work";
+import { createPlanModeStream } from "./plan-mode-stream";
 import { parseSSEBuffer } from "./sse-parser";
 import { computeStreamPhaseTiming, createCodeGenSSEStream } from "./stream-format";
 
@@ -13,6 +14,8 @@ type StreamPart = {
   error?: unknown;
   toolName?: string;
   toolCallId?: string;
+  id?: string;
+  delta?: string;
   args?: Record<string, unknown>;
   input?: unknown;
   inputText?: string;
@@ -75,6 +78,53 @@ function generationDonePayload(events: Array<{ event: string; data: unknown }>) 
 }
 
 describe("createCodeGenSSEStream", () => {
+  it.each([true, false])("preserves SDK 6 plan input with final tool-call=%s", async (withFinalCall) => {
+    const plan = { title: "Plan", steps: [{ title: "Build", description: "Keep this step" }] };
+    const parts: StreamPart[] = [
+      { type: "tool-input-start", id: "call_plan", toolName: "emitPlanArtifact" },
+      { type: "tool-input-delta", id: "call_plan", delta: JSON.stringify(plan) },
+      { type: "tool-input-end", id: "call_plan" },
+      ...(withFinalCall ? [{ type: "tool-call", toolCallId: "call_plan", toolName: "emitPlanArtifact", input: plan }] : []),
+      { type: "finish", finishReason: "tool-calls" },
+    ];
+    const persistAssistantSummary = vi.fn().mockResolvedValue(undefined);
+    const stream = createPlanModeStream({
+      pipelineStream: createCodeGenSSEStream(createResult(parts)),
+      meta: {},
+      resolvePlanArtifact: (_text, artifact) => artifact,
+      persistAssistantSummary,
+      buildDonePayload: () => ({}),
+      commitCredits: async () => undefined,
+    });
+    const events = await collectFromReadableStream(stream);
+    const calls = events.filter((event) => event.event === "tool-call");
+    expect(calls).toHaveLength(1);
+    expect(calls[0].data).toMatchObject({ toolCallId: "call_plan", args: plan });
+    expect(persistAssistantSummary.mock.calls[0]?.[0]).toEqual(plan);
+  });
+
+  it("keeps interleaved SDK 6 tool buffers separate", async () => {
+    const events = await collectEvents([
+      { type: "tool-input-start", id: "a", toolName: "inspect" },
+      { type: "tool-input-start", id: "b", toolName: "inspect" },
+      { type: "tool-input-delta", id: "a", delta: '{"path":"a"}' },
+      { type: "tool-input-delta", id: "b", delta: '{"path":"b"}' },
+      { type: "tool-call", toolCallId: "a", toolName: "inspect", input: { path: "a" } },
+    ]);
+    expect(events.filter((event) => event.event === "tool-call").map((event) => event.data))
+      .toEqual([
+        { toolName: "inspect", toolCallId: "a", args: { path: "a" } },
+        { toolName: "inspect", toolCallId: "b", args: { path: "b" } },
+      ]);
+  });
+
+  it("does not expose an unmapped provider diagnostic in SSE", async () => {
+    const events = await collectEvents([{ type: "error", error: new Error("Failed query: secret-prompt sk-proj-secret0123456789") }]);
+    const errors = events.filter((event) => event.event === "error");
+    expect(errors).toHaveLength(1);
+    expect(JSON.stringify(errors)).not.toMatch(/secret-prompt|sk-proj/);
+    expect(errors[0].data).toMatchObject({ message: "Stream error" });
+  });
   it("propagates consumer cancellation through abort controller", async () => {
     const abortController = new AbortController();
     const stream = createCodeGenSSEStream(createResult([{ type: "start" }]), {

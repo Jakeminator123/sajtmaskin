@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createUser, getUserByEmail, getUserById } from "@/lib/db/services/users";
+import { createUser, getUserByEmail, getUserById, setVerifiedUserPassword, setUserDiamonds } from "@/lib/db/services/users";
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
@@ -22,6 +22,7 @@ vi.mock("@/lib/db/services/users", () => ({
   isAdminEmail: vi.fn(() => true),
   setUserDiamonds: vi.fn(),
   markEmailVerified: vi.fn(),
+  setVerifiedUserPassword: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/edge-auth", () => ({
@@ -44,7 +45,7 @@ vi.mock("@/lib/config", () => ({
   IS_PRODUCTION: false,
 }));
 
-import { createConfiguredAdminLogin } from "./auth";
+import { createConfiguredAdminLogin, loginUser, hashPassword, verifyPassword } from "./auth";
 
 const existingAdmin = {
   id: "user_admin",
@@ -58,6 +59,7 @@ const existingAdmin = {
 describe("createConfiguredAdminLogin", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(setVerifiedUserPassword).mockReset();
     vi.stubEnv("ADMIN_CREDENTIALS", "Admin:password123: Admin@Example.TEST :Admin");
   });
 
@@ -74,5 +76,28 @@ describe("createConfiguredAdminLogin", () => {
     expect(getUserByEmail).toHaveBeenCalledWith("admin@example.test");
     expect(createUser).not.toHaveBeenCalled();
     expect(result).toEqual({ token: expect.any(String) });
+  });
+
+  it.each(["env", "handoff"])("replaces the pre-account password before %s bootstrap", async (method) => {
+    const user = { ...existingAdmin!, password_hash: hashPassword("old-password"), email_verified: false };
+    vi.mocked(getUserByEmail).mockResolvedValue(user);
+    vi.mocked(getUserById).mockResolvedValue(user);
+    vi.mocked(setVerifiedUserPassword).mockImplementation(async (_id, hash) => {
+      user.password_hash = hash;
+      user.email_verified = true;
+    });
+    expect(await loginUser(user.email!, "old-password")).toHaveProperty("error");
+    const result = method === "env" ? await loginUser("Admin", "password123") : await createConfiguredAdminLogin();
+    expect(result).toHaveProperty("token");
+    expect(verifyPassword("old-password", user.password_hash)).toBe(false);
+    expect(verifyPassword("password123", user.password_hash)).toBe(true);
+    expect(await loginUser(user.email!, "old-password")).toHaveProperty("error");
+  });
+
+  it("does not mint a session or grant privileges if replacing the secret fails", async () => {
+    vi.mocked(getUserByEmail).mockResolvedValue(existingAdmin);
+    vi.mocked(setVerifiedUserPassword).mockRejectedValueOnce(new Error("write failed"));
+    await expect(createConfiguredAdminLogin()).rejects.toThrow("write failed");
+    expect(setUserDiamonds).not.toHaveBeenCalled();
   });
 });

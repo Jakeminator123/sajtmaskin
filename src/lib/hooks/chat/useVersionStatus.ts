@@ -81,6 +81,7 @@ type FetchOutcome = {
 
 type FetchState = {
   status: VersionStatus | null;
+  identity: { chatId: string; versionId: string } | null;
   loading: boolean;
   error: string | null;
 };
@@ -119,6 +120,7 @@ export function useVersionStatus(params: {
   } = params;
   const [state, setState] = useState<FetchState>({
     status: null,
+    identity: null,
     loading: false,
     error: null,
   });
@@ -148,6 +150,7 @@ export function useVersionStatus(params: {
       lastKeyRef.current = null;
       return;
     }
+    const identity = { chatId, versionId };
 
     const key = `${chatId}:${versionId}:${refreshNonce}`;
     lastKeyRef.current = key;
@@ -169,21 +172,23 @@ export function useVersionStatus(params: {
       try {
         const res = await fetch(url, { cache: "no-store" });
         const data = (await res.json()) as FetchResponseOk | FetchResponseErr;
-        if (!res.ok || data.ok !== true) {
+        if (!res.ok || data.ok !== true || data.versionId !== versionId) {
           if (!cancelled && lastKeyRef.current === key) {
-            const message = "error" in data ? data.error : `HTTP ${res.status}`;
-            setState({ status: null, loading: false, error: message });
+            const message = "error" in data ? data.error
+              : !res.ok ? `HTTP ${res.status}` : "Version status identity mismatch";
+            setState({ status: null, identity: null, loading: false, error: message });
           }
           return { status: null, ok: false, retryAfterMs: pollRetryAfterMs(res) };
         }
         if (!cancelled && lastKeyRef.current === key) {
-          setState({ status: data.status, loading: false, error: null });
+          setState({ status: data.status, identity, loading: false, error: null });
         }
         return { status: data.status, ok: true, retryAfterMs: null };
       } catch (err) {
         if (!cancelled && lastKeyRef.current === key) {
           setState({
             status: null,
+            identity: null,
             loading: false,
             error: err instanceof Error ? err.message : "Network error",
           });
@@ -227,7 +232,7 @@ export function useVersionStatus(params: {
       if (s == null && failedStartRef.current !== null) {
         const lastFailed = lastFailedStatusRef.current;
         if (lastFailed && !cancelled && lastKeyRef.current === key) {
-          setState((prev) => ({ ...prev, status: lastFailed }));
+          setState((prev) => ({ ...prev, status: lastFailed, identity }));
         }
         return Date.now() - failedStartRef.current > maxFailedRecheckMs;
       }
@@ -269,6 +274,7 @@ export function useVersionStatus(params: {
         } else if (now - nonTerminalStartRef.current > maxNonTerminalMs) {
           if (!cancelled && lastKeyRef.current === key) {
             setState((prevState) => ({
+              ...prevState,
               status: prevState.status,
               loading: false,
               error: "verification_status_timeout",
@@ -417,7 +423,10 @@ export function useVersionStatus(params: {
   }, [chatId, versionId, pollIntervalMs, refreshNonce, maxNonTerminalMs, maxFailedRecheckMs]);
 
   if (!chatId || !versionId) {
-    return { status: null, loading: false, error: null };
+    return { status: null, identity: null, loading: false, error: null };
+  }
+  if (state.status && (state.identity?.chatId !== chatId || state.identity.versionId !== versionId)) {
+    return { status: null, identity: null, loading: true, error: null };
   }
   return state;
 }

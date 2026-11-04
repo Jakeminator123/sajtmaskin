@@ -166,7 +166,7 @@ export function AuthModal({
         } else {
           setSuccessMessage(
             data.message ||
-              "Vi har skickat ett verifieringsmail. Bekräfta din e-post för att aktivera konto och credits.",
+              "Vi har skickat ett verifieringsmail. Öppna länken och välj ditt lösenord för att aktivera kontot.",
           );
         }
         setMode("login");

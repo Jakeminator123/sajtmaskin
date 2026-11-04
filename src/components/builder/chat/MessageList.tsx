@@ -41,7 +41,7 @@ import { VersionFeedback } from "@/components/builder/chat/VersionFeedback";
 import { Streamdown } from "streamdown";
 import { STREAMDOWN_PLAIN_COMPONENTS } from "./message-markdown";
 import { GenerationSurface } from "./GenerationSurface";
-import { isGenerationReviewPart, type GenerationTurnKind } from "./generation-surface-state";
+import { isGenerationReviewPart, reconcileCanonicalPreviewParts, type CanonicalGenerationStatus, type GenerationTurnKind } from "./generation-surface-state";
 import { code as streamdownCode } from "@streamdown/code";
 import { planIsVerifiedReady, toAIElementsFormat } from "@/lib/builder/message-adapter";
 import type { MessagePart } from "@/lib/builder/message-adapter";
@@ -80,6 +80,7 @@ import {
 interface MessageListProps {
   chatId: string | null;
   versionId?: string | null;
+  canonicalVersionStatus?: CanonicalGenerationStatus | null;
   messages?: Array<ChatMessage>;
   showStructuredParts?: boolean;
   onQuickReply?: (text: string, options?: { planMode?: boolean }) => Promise<void> | void;
@@ -139,6 +140,7 @@ function resolveGenerationTurnKind(
 const MessageListComponent = ({
   chatId,
   versionId = null,
+  canonicalVersionStatus = null,
   messages: externalMessages = [],
   showStructuredParts = false,
   onQuickReply,
@@ -478,10 +480,18 @@ const MessageListComponent = ({
           const textParts = message.parts.filter(
             (p): p is Extract<MessagePart, { type: "text" }> => p.type === "text",
           );
-          const toolParts = message.parts.filter(
+          const rawToolParts = message.parts.filter(
             (p): p is Extract<MessagePart, { type: "tool" }> => p.type === "tool",
           );
           const hasUserAfterCurrentMessage = hasUserMessageAfterFromTooling(messages, messageIndex);
+          const toolParts = reconcileCanonicalPreviewParts(rawToolParts, {
+            chatId,
+            versionId,
+            messageId: message.id,
+            isStreaming: Boolean(message.isStreaming || isStreaming),
+            isCurrentTurn: !hasUserAfterCurrentMessage && !messages.slice(messageIndex + 1).some((next) => next.role === "assistant"),
+            canonical: canonicalVersionStatus,
+          });
           // Approval starts codegen, so it must fail closed on the same canonical
           // awaiting-input assessment as the inline reply UI. BuildPlanCard
           // normalizes raw blockers for display and must not be asked to infer

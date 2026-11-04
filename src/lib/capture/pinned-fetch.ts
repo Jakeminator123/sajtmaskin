@@ -219,9 +219,13 @@ export async function fetchWithPinnedDns(
       const onAbort = () => {
         const error = new Error("Pinned fetch aborted");
         error.name = "AbortError";
+        settleReject(error);
         request.destroy(error);
       };
-      const cleanup = () => init.signal?.removeEventListener("abort", onAbort);
+      const cleanup = () => {
+        if (deadline !== undefined) clearTimeout(deadline);
+        init.signal?.removeEventListener("abort", onAbort);
+      };
       const settleReject = (error: Error) => {
         if (settled) return;
         settled = true;
@@ -280,11 +284,16 @@ export async function fetchWithPinnedDns(
         });
       }
 
-      request.setTimeout(timeoutMs, () => {
-        request.destroy(new Error(`Pinned fetch timed out after ${timeoutMs} ms`));
-      });
       request.on("error", settleReject);
-      request.once("close", cleanup);
+      // Socket timeouts only measure inactivity: a peer sending small chunks
+      // can keep them alive forever, and DNS may not have opened a socket yet.
+      // Keep the deadline through body decoding and settle even if destroy()
+      // cannot interrupt an outstanding DNS lookup immediately.
+      const deadline = setTimeout(() => {
+        const error = new Error(`Pinned fetch timed out after ${timeoutMs} ms`);
+        settleReject(error);
+        request.destroy(error);
+      }, timeoutMs);
 
       if (init.signal?.aborted) {
         onAbort();

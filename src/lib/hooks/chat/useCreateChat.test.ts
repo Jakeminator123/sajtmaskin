@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import { useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MutableRefObject } from "react";
 import type { ChatMessage } from "@/lib/builder/types";
@@ -7,6 +8,10 @@ import { resetInitBuildChoices } from "@/lib/builder/init-build-choices";
 import { ENGINE_CHATS_API_PREFIX } from "@/lib/api/engine-chats-path";
 import { CREATE_CHAT_CONNECTION_BROKEN_MESSAGE } from "./helpers-errors";
 import type { ChatMessagingParams } from "./types";
+import { useChatMessaging } from "./useChatMessaging";
+import { usePersistedChatMessages } from "@/lib/hooks/usePersistedChatMessages";
+import { loadPersistedMessages, persistMessages } from "@/lib/builder/messages-storage";
+import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
 
 const handleSseStream = vi.hoisted(() => vi.fn());
 const toast = vi.hoisted(() => {
@@ -21,6 +26,7 @@ const toast = vi.hoisted(() => {
 
 vi.mock("sonner", () => ({ toast }));
 vi.mock("./stream-handlers", () => ({ handleSseStream }));
+vi.mock("./useAutoFix", () => ({ useAutoFix: () => ({ cancelPendingAutoFix: () => {} }) }));
 vi.mock("@/lib/utils/debug", () => ({
   debugLog: vi.fn(),
   errorLog: vi.fn(),
@@ -113,6 +119,111 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
+const navigationRouter = { replace: vi.fn() };
+function useCreationNavigationHarness({ urlChatId }: { urlChatId: string }) {
+  const [chatId, setChatId] = useState<string | null>("A");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const messaging = useChatMessaging({
+    chatId, setChatId, chatIdParam: urlChatId, router: navigationRouter,
+    selectedModelTier: DEFAULT_MODEL_TIER, enableImageGenerations: false,
+    enableThinking: false, mutateVersions: vi.fn(), setCurrentPreviewUrl: vi.fn(),
+    setMessages, resetBeforeCreateChat: vi.fn(),
+  });
+  usePersistedChatMessages({
+    chatId, chatIdParam: urlChatId, messages, setMessages,
+    isCreatingChat: messaging.isCreatingChat,
+    isAnyStreaming: messages.some((message) => message.isStreaming),
+    cancelActiveGeneration: messaging.cancelActiveGeneration,
+  });
+  useEffect(() => {
+    // Match the controller's URL effect, which runs after the persistence hook.
+    setChatId(urlChatId);
+  }, [urlChatId]);
+  return { ...messaging, chatId, messages };
+}
+
+describe("creation cancellation during explicit URL navigation", () => {
+  it.each(["fetch", "json"])("ignores an old %s response arriving after A to B navigation", async (boundary) => {
+    vi.useFakeTimers();
+    const setTimer = vi.spyOn(globalThis, "setTimeout");
+    const clearTimer = vi.spyOn(globalThis, "clearTimeout");
+    localStorage.clear();
+    persistMessages("B", [{ id: "b", role: "user", content: "B ORIGINAL" }]);
+    const oldFetch = deferred<Response>();
+    const oldJson = deferred<Record<string, unknown>>();
+    fetchMock.mockReturnValueOnce(boundary === "fetch" ? oldFetch.promise : Promise.resolve({
+      ok: true, headers: new Headers({ "content-type": "application/json" }),
+      json: () => oldJson.promise,
+    }));
+    const { result, rerender } = renderHook(useCreationNavigationHarness, { initialProps: { urlChatId: "A" } });
+    let oldRequest!: Promise<boolean>;
+    await act(async () => { oldRequest = result.current.createNewChat("A STREAMING"); });
+    expect(result.current.isCreatingChat).toBe(true);
+    const timerIndex = setTimer.mock.calls.findIndex(([, delay]) => delay === STREAM_SAFETY_TIMEOUT_DEFAULT_MS);
+    expect(timerIndex).toBeGreaterThanOrEqual(0);
+    const oldTimer = setTimer.mock.results[timerIndex].value;
+    rerender({ urlChatId: "B" });
+    expect(result.current.isCreatingChat).toBe(false);
+    expect(clearTimer).toHaveBeenCalledWith(oldTimer);
+    await act(async () => {
+      if (boundary === "fetch") oldFetch.resolve(jsonResponse(200, { chatId: "A LATE" }));
+      else oldJson.resolve({ chatId: "A LATE" });
+      await oldRequest;
+    });
+    expect(result.current.chatId).toBe("B");
+    expect(result.current.messages.map((m) => m.content)).toEqual(["B ORIGINAL"]);
+    expect(loadPersistedMessages("B").map((m) => m.content)).toEqual(["B ORIGINAL"]);
+    expect(navigationRouter.replace).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it("keeps a newer creation's timer and flags when the canceled request settles", async () => {
+    vi.useFakeTimers();
+    const setTimer = vi.spyOn(globalThis, "setTimeout");
+    const clearTimer = vi.spyOn(globalThis, "clearTimeout");
+    localStorage.clear();
+    const oldFetch = deferred<Response>();
+    const newFetch = deferred<Response>();
+    fetchMock.mockReturnValueOnce(oldFetch.promise).mockReturnValueOnce(newFetch.promise);
+    const { result, rerender } = renderHook(useCreationNavigationHarness, { initialProps: { urlChatId: "A" } });
+    let oldRequest!: Promise<boolean>;
+    let newRequest!: Promise<boolean>;
+    await act(async () => { oldRequest = result.current.createNewChat("OLD PROMPT"); });
+    rerender({ urlChatId: "B" });
+    await act(async () => { newRequest = result.current.createNewChat("NEW PROMPT"); });
+    const timerIndexes = setTimer.mock.calls.flatMap(([, delay], index) =>
+      delay === STREAM_SAFETY_TIMEOUT_DEFAULT_MS ? [index] : []);
+    expect(timerIndexes).toHaveLength(2);
+    const newTimer = setTimer.mock.results[timerIndexes[1]].value;
+    clearTimer.mockClear();
+    await act(async () => {
+      oldFetch.resolve(jsonResponse(200, { chatId: "A LATE" }));
+      await oldRequest;
+    });
+    expect(result.current.chatId).toBe("B");
+    expect(result.current.isCreatingChat).toBe(true);
+    expect(clearTimer).not.toHaveBeenCalledWith(newTimer);
+    expect(result.current.messages[0].content).toBe("NEW PROMPT");
+    expect(result.current.messages[1].isStreaming).toBe(true);
+    await act(async () => {
+      newFetch.resolve(jsonResponse(200, { chatId: "CREATED" }));
+      await newRequest;
+    });
+    expect(result.current.chatId).toBe("CREATED");
+    expect(result.current.isCreatingChat).toBe(false);
+    expect(clearTimer).toHaveBeenCalledWith(newTimer);
+    expect(loadPersistedMessages("CREATED")[0].content).toBe("NEW PROMPT");
+  });
 });
 
 describe("useCreateChat broken-stream handling", () => {

@@ -375,7 +375,9 @@ export function resolveProviderContractDossierPlan(params: {
     dossierSelection: selectDossiersForRequest({
       requestedCapabilities: [capability],
       disableBriefFallback: true,
-      promptText: params.contract.providerKey,
+      providerByCapability: params.contract.status === "chosen" && params.contract.providerKey
+        ? { [capability]: params.contract.providerKey }
+        : undefined,
       configuredEnvKeys: params.configuredEnvKeys,
     }),
     projectFiles: params.projectFiles,

@@ -18,7 +18,9 @@ const vercelState = {
   available: true as boolean | null,
   purchaseEnabled: true,
   throwOnPrice: false,
+  dnsAvailable: null as boolean | null,
 };
+const buyDomain = vi.hoisted(() => vi.fn(async () => ({ domain: "x", orderId: "order_1" })));
 
 vi.mock("@/lib/loopia/loopia-client", () => ({
   isLoopiaConfigured: () => loopiaState.configured,
@@ -37,7 +39,7 @@ vi.mock("@/lib/vercel/vercel-client", () => ({
     if (vercelState.available === null) throw new Error("no availability");
     return { name: "x", available: vercelState.available };
   },
-  buyDomain: async () => ({ domain: "x", orderId: "order_1" }),
+  buyDomain,
   addDomainToProject: async () => ({ name: "x", apexName: "x", verified: true }),
 }));
 
@@ -50,7 +52,7 @@ vi.mock("@/lib/config", () => ({
 }));
 
 vi.mock("@/lib/domains/dns-availability", () => ({
-  checkAvailabilityViaDns: async () => null,
+  checkAvailabilityViaDns: async () => vercelState.dnsAvailable,
 }));
 
 const pricingState = { markup: 2, usdToSek: 11 };
@@ -60,6 +62,7 @@ vi.mock("@/lib/db/services/pricing-settings", () => ({
 }));
 
 const { resolveDomainOffer } = await import("./index");
+const { vercelRegistrar } = await import("./vercel-registrar");
 
 beforeEach(() => {
   loopiaState.configured = true;
@@ -69,11 +72,38 @@ beforeEach(() => {
   vercelState.available = true;
   vercelState.purchaseEnabled = true;
   vercelState.throwOnPrice = false;
+  vercelState.dnsAvailable = null;
+  buyDomain.mockClear();
   pricingState.markup = 2;
   pricingState.usdToSek = 11;
 });
 
 describe("resolveDomainOffer", () => {
+  it("keeps DNS NXDOMAIN displayable but never sells without a registrar verdict", async () => {
+    vercelState.available = null;
+    vercelState.dnsAvailable = true;
+    const offer = await resolveDomainOffer("unconfirmed.com");
+    expect(offer).toMatchObject({ available: true, availabilitySource: "dns", purchasable: false,
+      purchaseBlockedReason: "unknown_availability", quote: { binding: true } });
+  });
+
+  it("passes the original 12.99 USD quote to buy without a SEK round trip", async () => {
+    vercelState.priceUsd = 12.99;
+    const offer = await resolveDomainOffer("precise.com");
+    expect(offer.quote.wholesaleSek).toBe(143);
+    expect(offer.quote.registrarPrice).toEqual({ amount: 12.99, currency: "USD" });
+    await vercelRegistrar.register("precise.com", offer.quote, { markup: 2, usdToSek: 9 });
+    expect(buyDomain).toHaveBeenCalledWith("precise.com", 12.99, expect.any(Object));
+  });
+
+  it.each([undefined, { amount: NaN, currency: "USD" as const },
+    { amount: 0, currency: "USD" as const }, { amount: -1, currency: "USD" as const },
+    { amount: 12.99, currency: "SEK" as const }])("rejects missing/invalid original registrar price %j", async (original) => {
+    const offer = await resolveDomainOffer("precise.com");
+    offer.quote.registrarPrice = original;
+    await expect(vercelRegistrar.register("precise.com", offer.quote)).rejects.toThrow("original USD");
+    expect(buyDomain).not.toHaveBeenCalled();
+  });
   it("sells a free .com on a binding registrar quote", async () => {
     const offer = await resolveDomainOffer("mitt-bygge.com");
     expect(offer.available).toBe(true);

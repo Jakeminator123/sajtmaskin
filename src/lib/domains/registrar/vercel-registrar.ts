@@ -40,7 +40,7 @@ import {
   getDomainPrice,
   isVercelConfigured,
 } from "@/lib/vercel/vercel-client";
-import { bindingQuoteFromUsd, unknownQuote, USD_TO_SEK } from "@/lib/domains/pricing";
+import { bindingQuoteFromUsd, unknownQuote } from "@/lib/domains/pricing";
 import { FEATURES } from "@/lib/config";
 import type { DomainPricingSettings, DomainPriceQuote } from "@/lib/domains/pricing";
 import type { RegisterResult, RegistrarProvider, RegistrarQuote } from "./types";
@@ -99,7 +99,6 @@ export const vercelRegistrar: RegistrarProvider = {
   async register(
     domain: string,
     binding: DomainPriceQuote,
-    settings?: DomainPricingSettings,
   ): Promise<RegisterResult> {
     if (!this.canRegister()) {
       throw new Error("Vercel registrar cannot register domains in this environment");
@@ -107,11 +106,11 @@ export const vercelRegistrar: RegistrarProvider = {
     if (!binding.binding || binding.wholesaleSek === null) {
       throw new Error("Refusing to register without a binding registrar quote");
     }
-    // Vercel prices in USD and rejects the buy when its current price differs
-    // from `expectedPrice`. Convert back through the same rate the quote used
-    // so a rounding drift here cannot silently widen the accepted window —
-    // hence `settings`, not the module constant, when the caller resolved one.
-    const expectedPriceUsd = binding.wholesaleSek / (settings?.usdToSek ?? USD_TO_SEK);
+    const original = binding.registrarPrice;
+    if (original?.currency !== "USD" || !Number.isFinite(original.amount) || original.amount <= 0) {
+      throw new Error("Refusing to register without the original USD registrar price");
+    }
+    const expectedPriceUsd = original.amount;
     const result = await buyDomain(domain, expectedPriceUsd, {
       teamId: process.env.VERCEL_TEAM_ID,
     });

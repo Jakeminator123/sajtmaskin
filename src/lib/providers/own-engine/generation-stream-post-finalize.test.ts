@@ -125,6 +125,7 @@ vi.mock("@/lib/streaming", () => ({
 vi.mock("@/lib/utils/debug", () => ({
   debugLog: vi.fn(),
   warnLog: vi.fn(),
+  errorLog: vi.fn(),
 }));
 
 const finalized = {

@@ -13,6 +13,7 @@ import {
   isAmbiguousGitCommand,
   nestedShellPayloads,
   resolveAliasesFor,
+  shellSegmentVariants,
 } from "./git-command-ambiguity.mjs";
 import { collectImpact, loadWorkflowInputs, parseGitNameStatus } from "./path-impact.mjs";
 
@@ -61,47 +62,8 @@ function directoryChangeTarget(segment) {
   return target && !target.startsWith("-") ? target : null;
 }
 
-function topLevelShellSegments(command) {
-  const segments = [];
-  let value = "";
-  let quote = null;
-  for (let index = 0; index < command.length; index += 1) {
-    const char = command[index];
-    if (char === "\\" && quote !== "'") {
-      value += char;
-      if (index + 1 < command.length) value += command[++index];
-      continue;
-    }
-    if (quote) {
-      value += char;
-      if (char === quote) quote = null;
-      continue;
-    }
-    if (char === '"' || char === "'") {
-      quote = char;
-      value += char;
-      continue;
-    }
-    const pair = command.slice(index, index + 2);
-    if (pair === "&&" || pair === "||") {
-      if (value.trim()) segments.push(value.trim());
-      value = "";
-      index += 1;
-      continue;
-    }
-    // `|` must not split here: a pipe does not persist cwd, so
-    // `cd scripts | git commit` is one segment and stays at start-cwd.
-    // `&&` / `||` / `;` still split so a preceding `cd` carries.
-    if (char === ";" || char === "\n") {
-      if (value.trim()) segments.push(value.trim());
-      value = "";
-      continue;
-    }
-    value += char;
-  }
-  if (value.trim()) segments.push(value.trim());
-  return segments;
-}
+// A pipeline does not carry cwd; `cd scripts | git commit` stays at start-cwd.
+const topLevelShellVariants = (command) => shellSegmentVariants(command, { splitPipes: false });
 
 /**
  * Every checkout a command could commit in.
@@ -118,9 +80,14 @@ function topLevelShellSegments(command) {
  */
 export function commitTargetDirectories(command, fallback) {
   const directories = new Set();
-  const walk = (segments, startCwd) => {
+  const walk = (segments, startCwd, backgroundResetsCwd = false) => {
     let cwd = startCwd;
-    for (const segment of segments) {
+    for (const raw of segments) {
+      const hasAmpersand = /^&\s/u.test(raw);
+      // cmd's separator carries cwd; POSIX background execution need not.
+      // Inspect both targets rather than trusting whichever shell was guessed.
+      if (hasAmpersand && backgroundResetsCwd) cwd = startCwd;
+      const segment = hasAmpersand ? raw.replace(/^&\s*/u, "") : raw;
       const target = directoryChangeTarget(segment);
       if (target) {
         const resolved = resolve(cwd, target);
@@ -148,30 +115,37 @@ export function commitTargetDirectories(command, fallback) {
   // Nested payloads must be pulled from the whole command: a naive split
   // on `;` would tear a quoted `pwsh -c "cd x; git commit"` apart.
   const nestedPayloads = nestedShellPayloads(command);
-  for (const payload of nestedPayloads) walk(topLevelShellSegments(payload), fallback);
+  const walkVariants = (command, filter = () => true) => {
+    for (const segments of topLevelShellVariants(command)) {
+      const filtered = segments.filter(filter);
+      walk(filtered, fallback);
+      if (filtered.some((segment) => /^&\s/u.test(segment))) walk(filtered, fallback, true);
+    }
+  };
+  for (const payload of nestedPayloads) walkVariants(payload);
   // Outer `cd; git commit` must stay one walk so the directory change sticks.
   // Wrapper segments (`pwsh -c "…"`) are skipped here — their interiors were
   // already walked as nested payloads. Walking each outer segment from
   // `fallback` separately would treat `cd scripts; git commit` as a trunk
   // commit.
-  const outerSegments = topLevelShellSegments(command).filter(
-    (segment) => nestedShellPayloads(segment).length === 0,
-  );
-  walk(outerSegments, fallback);
+  walkVariants(command, (segment) => nestedShellPayloads(segment).length === 0);
   if (directories.size === 0) directories.add(fallback);
   return [...directories];
 }
 
 /** Kept for callers that only need the shell's own final directory. */
 export function commandWorkingDirectory(command, fallback) {
-  let cwd = fallback;
-  for (const segment of topLevelShellSegments(command)) {
-    const target = directoryChangeTarget(segment);
-    if (!target) continue;
-    const resolved = resolve(cwd, target);
-    if (existsSync(resolved)) cwd = resolved;
-  }
-  return cwd;
+  const candidates = topLevelShellVariants(command).map((segments) => {
+    let cwd = fallback;
+    for (const segment of segments) {
+      const target = directoryChangeTarget(segment.replace(/^&\s*/u, ""));
+      if (!target) continue;
+      const resolved = resolve(cwd, target);
+      if (existsSync(resolved)) cwd = resolved;
+    }
+    return cwd;
+  });
+  return candidates.every((cwd) => cwd === candidates[0]) ? candidates[0] : fallback;
 }
 
 /**
@@ -310,9 +284,7 @@ export function decideCommitCommand(
           ? "Inget skyddat är stage:at — men arbetskopian har skyddade ändringar som en bredare commitform skulle dra med."
           : "Committen träffar Backoffice-kopplade ytor.";
     const dirtyLine =
-      dirtyOnly.length > 0
-        ? `\nÄndrad i arbetskopian, ej stage:ad: ${list(dirtyOnly)}`
-        : "";
+      dirtyOnly.length > 0 ? `\nÄndrad i arbetskopian, ej stage:ad: ${list(dirtyOnly)}` : "";
 
     return {
       permission: "allow",

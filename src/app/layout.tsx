@@ -11,8 +11,6 @@ import { GoogleAdsTag } from "@/components/layout/google-ads-tag";
 import { OpenAiAdsTag } from "@/components/layout/openai-ads-tag";
 import { OrganizationJsonLd } from "@/components/layout/json-ld";
 import { ThemeProvider } from "next-themes";
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "@/components/ui/sonner";
 import { OpenClawChatLazy } from "@/components/openclaw/OpenClawChatLazy";
 import { OPENCLAW } from "@/lib/config";
@@ -111,8 +109,6 @@ export default async function RootLayout({
             <GoogleAdsTag nonce={nonce} />
           </Suspense>
           <OpenAiAdsTag nonce={nonce} />
-          <Analytics />
-          <SpeedInsights />
           {children}
           <Toaster position="top-right" />
           {openclawSurfaceEnabled && <OpenClawChatLazy />}

@@ -153,6 +153,27 @@ export function useBuilderProjectActions({
 
     setIsSavingProject(true);
     try {
+      if (!activeVersionId) {
+        throw new Error("Ingen aktiv version att spara. Välj en version och försök igen.");
+      }
+      const response = await fetch(
+        `${engineChatBaseUrl(chatId)}/files?versionId=${encodeURIComponent(activeVersionId)}`,
+      );
+      const data = (await response.json().catch(() => null)) as {
+        files?: Array<{ name: string; content: string }>;
+      } | null;
+      if (
+        !response.ok ||
+        !Array.isArray(data?.files) ||
+        data.files.length === 0 ||
+        !data.files.every(
+          (file) => file && typeof file.name === "string" && file.name.trim().length > 0 &&
+            typeof file.content === "string",
+        )
+      ) {
+        throw new Error("Kunde inte hämta versionens filer. Projektet har inte sparats. Försök igen.");
+      }
+      const files = data.files;
       let targetProjectId = appProjectId;
       if (!targetProjectId) {
         const dateLabel = new Date().toLocaleDateString("sv-SE");
@@ -177,19 +198,6 @@ export function useBuilderProjectActions({
         params.set("project", created.id);
         params.set("chatId", chatId);
         router.replace(`/builder?${params.toString()}`);
-      }
-
-      let files: Array<{ name: string; content: string }> = [];
-      if (activeVersionId) {
-        const response = await fetch(
-          `${engineChatBaseUrl(chatId)}/files?versionId=${encodeURIComponent(activeVersionId)}`,
-        );
-        const data = (await response.json().catch(() => null)) as {
-          files?: Array<{ name: string; content: string }>;
-        } | null;
-        if (response.ok && Array.isArray(data?.files)) {
-          files = data.files;
-        }
       }
 
       await saveProjectData(targetProjectId, {
