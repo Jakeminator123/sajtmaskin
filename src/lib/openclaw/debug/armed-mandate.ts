@@ -39,15 +39,21 @@ export const DEFAULT_FOLLOWUP_COUNT = 5;
 export const MAX_FOLLOWUP_COUNT = 20;
 
 const FOLLOWUP_RE = uWordRegex(String.raw`follow[\s-]?ups?|följ\s*upp`);
+// The review verb must open the directive (after an optional polite prefix):
+// "Bygg en bokningssida där kunden kan kolla nästa lediga tid" is a build
+// order that merely mentions "kolla … nästa", not an arming instruction.
 const REVIEW_NEXT_RE = new RegExp(
-  `${uWord(String.raw`granska|buggranska|kolla|ta\s+notis|notera`)}[^.!?]*${uWord("n(ä|a)sta")}|${uWord("n(ä|a)sta")}\\s+${uWord("(chatt)?meddelande")}`,
+  String.raw`^(?:(?:snälla|please)[,\s]+|(?:kan|vill)\s+du\s+)?${uWord(String.raw`granska|buggranska|kolla|ta\s+notis|notera`)}[^.!?]*${uWord("n(ä|a)sta")}|${uWord("n(ä|a)sta")}\s+${uWord("(chatt)?meddelande")}`,
   "iu",
 );
+// A leading interjection ("Nej, stopp!", "Okej stopp") never hides a stop.
+const STOP_INTERJECTION_RE = /^(?:nej|nope|ok|okej|okay|ja|jo)[,!\s]+/iu;
+const STOP_WORD = "stopp|stoppa|sluta|avbryt|avsluta|stop|halt";
 // A stop must address the current work. Questions/quoted mentions and orders
 // about other objects ("stoppa buggar") do not revoke an existing mandate.
-const STOP_TARGET = String.raw`(?:med\s+)?(?:(?:dina|alla|pågående|aktuella|den\s+här|den\s+där)\s+)?(?:autonomin|mandatet|körningen|bygget|byggandet|arbetet|allt|det(?:\s+(?:här|där|du\s+gör))?|follow[\s-]?ups?|generera|generering(?:en)?|bygga|svara|generating|generation|building|running)`;
+const STOP_TARGET = String.raw`(?:med\s+)?(?:(?:dina|alla|pågående|aktuella|den\s+här|den\s+där)\s+)?(?:autonomin|mandatet|körningen|bygget|byggandet|arbetet|allt|det(?:\s+(?:här|där|du\s+gör))?|it|this|that|follow[\s-]?ups?|generera|generering(?:en)?|bygga|svara|generating|generation|building|running)`;
 const STOP_COMMAND_RE = new RegExp(
-  String.raw`^(?:(?:snälla|please)[,\s]+|(?:kan|vill)\s+du\s+)?${uWord("stopp|stoppa|sluta|avbryt|avsluta|stop|halt")}(?:\s+${STOP_TARGET})?(?:\s+efter\s+(?:detta|det\s+här)\s+steg)?(?:[,\s]+(?:nu|now|direkt|omedelbart|please|tack))*[,.!?。！？]*$`,
+  String.raw`^(?:(?:snälla|please)[,\s]+|(?:kan|vill)\s+du\s+)?(?:${uWord(STOP_WORD)}[,!\s]+)*${uWord(STOP_WORD)}(?:\s+${STOP_TARGET})?(?:\s+efter\s+(?:detta|det\s+här)\s+steg)?(?:[,\s]+(?:nu|now|direkt|omedelbart|please|tack))*[,.!?。！？]*$`,
   "iu",
 );
 const STOP_NEGATION_RE = uWordRegex(String.raw`inte|aldrig|ej|don't|don’t|do\s+not|never|no`);
@@ -103,12 +109,13 @@ export function parseArmingDirective(text: string): ArmingDirective | null {
 /** True when the user message is an explicit stop/abort of the mandate. */
 export function parseStopDirective(text: string): boolean {
   if (typeof text !== "string") return false;
-  const trimmed = text.normalize("NFC").trim();
-  // An explicit first stop sentence stands on its own ("Stopp. Det räcker.").
-  // Keep both the target and negation checks scoped to that sentence, so a
-  // later explanation ("Gör inte fler ändringar") cannot hide the stop.
-  const firstSentence = trimmed.split(/[.!](?:\s+|$)|[。！]/u, 1)[0];
-  return !STOP_NEGATION_RE.test(firstSentence) && STOP_COMMAND_RE.test(firstSentence);
+  const trimmed = text.normalize("NFC").trim().replace(STOP_INTERJECTION_RE, "");
+  // An explicit first stop clause stands on its own ("Stopp. Det räcker.",
+  // "Stopp, det räcker", "Stoppa nu, jag vill ändra rubriken"). Keep both the
+  // target and negation checks scoped to that clause, so a later explanation
+  // ("Gör inte fler ändringar") cannot hide the stop.
+  const firstClause = trimmed.split(/[.!](?:\s+|$)|[。！]|,\s*|\s[-–—]\s/u, 1)[0];
+  return !STOP_NEGATION_RE.test(firstClause) && STOP_COMMAND_RE.test(firstClause);
 }
 
 /** Build a fresh mandate from an arming directive. */

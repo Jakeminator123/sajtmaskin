@@ -72,6 +72,22 @@ describe("parseArmingDirective", () => {
     expect(parseArmingDirective("nästa meddelande är nog viktigt")).toBeNull();
   });
 
+  it.each([
+    "Bygg en bokningssida där kunden kan kolla nästa lediga tid",
+    "Lägg till en kalender så besökaren kan kolla nästa lediga tid och boka",
+    "Skapa en sektion som visar nästa event, kolla att datumen stämmer",
+  ])("does NOT arm review-next on a build order that only mentions 'kolla … nästa': %s", text => {
+    expect(parseArmingDirective(text)).toBeNull();
+  });
+
+  it.each([
+    "Kan du granska nästa meddelande jag skickar",
+    "Snälla, kolla nästa meddelande jag skapar",
+    "Granska nästa meddelande",
+  ])("arms review-next when the review verb opens the directive: %s", text => {
+    expect(parseArmingDirective(text)?.mode).toBe("review_next");
+  });
+
   it("does NOT arm on negation/abstention", () => {
     expect(parseArmingDirective("gör inga follow-ups")).toBeNull();
     expect(parseArmingDirective("nej, inte follow-ups nu")).toBeNull();
@@ -111,6 +127,21 @@ describe("parseStopDirective", () => {
 
   it("ignores unrelated text", () => {
     expect(parseStopDirective("fortsätt gärna")).toBe(false);
+    expect(parseStopDirective("Ja, bygg vidare")).toBe(false);
+  });
+
+  it.each([
+    "Nej, stopp!",
+    "nej stopp",
+    "Okej stopp",
+    "Stopp, det räcker",
+    "Stopp - det räcker",
+    "STOPP STOPP",
+    "stop it",
+    "Stoppa nu, jag vill ändra rubriken",
+    "Stopp, tack, jag tar det härifrån",
+  ])("recognizes everyday stop phrasings (regression vs preview): %s", text => {
+    expect(parseStopDirective(text)).toBe(true);
   });
 
   it.each([

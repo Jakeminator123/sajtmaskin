@@ -87,6 +87,25 @@ describe("isReadOnlyComposerRequest", () => {
   });
 });
 
+describe("arming directives inside build orders", () => {
+  it.each([
+    "Bygg en bokningssida där kunden kan kolla nästa lediga tid",
+    "Lägg till en kalender så besökaren kan kolla nästa lediga tid och boka",
+  ])("a build order that merely mentions 'kolla … nästa' stays a build in Auto: %s", text => {
+    expect(parseArmingDirective(text)).toBeNull();
+    expect(classifyComposerIntent(text)).toBe("build");
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("build");
+  });
+
+  it.each(["Nej, stopp!", "Stopp, det räcker", "Stoppa nu, jag vill ändra rubriken"])(
+    "an everyday stop phrasing still reaches the agent in Auto: %s",
+    text => {
+      expect(classifyComposerIntent(text)).toBe("agent");
+      expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true, builderAwaitingReply: true })).toBe("agent");
+    },
+  );
+});
+
 describe("isAgentProposalReference", () => {
   it.each(["byt ut", "gör om", "gor om"])("consumes the longest existing opener before checking its object: %s", opener => {
     for (const object of ["det", "den", "detta"]) {
