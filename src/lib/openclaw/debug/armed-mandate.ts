@@ -42,28 +42,46 @@ const FOLLOWUP_RE = uWordRegex(String.raw`follow[\s-]?ups?|följ\s*upp`);
 // Greetings, interjections and polite openers that may precede a review
 // directive ("Hej, kan du granska nästa bygge?", "Bra. Kolla nästa version").
 const DIRECTIVE_LEAD = String.raw`(?:(?:hej|hallå|halla|hi|hello|hey|ok|okej|okay|bra|snälla|snalla|please|kan\s+du|vill\s+du|kan\s+ni)(?:[,.!]\s*|\s+))*`;
+// What a review-next directive reviews. "Kolla nästa lediga tid" is a booking
+// feature, not a request to review the next version.
+const REVIEW_NEXT_OBJECT = String.raw`(?:chatt)?meddelande[nt]?|version(?:en)?|bygg(?:e|et|tur|turen)|ändring(?:en)?|steg(?:et)?|follow[\s-]?up|prompt(?:en)?|svar(?:et)?|generering(?:en)?`;
 // The directive must open the message (after that lead), in both forms:
-// "granska … nästa" and "nästa meddelande …". A build order that merely
-// mentions them ("Bygg en bokningssida där kunden kan kolla nästa lediga tid",
-// "Skapa en banner som visar nästa meddelande") is not arming.
+// "granska … nästa version" and "nästa meddelande …". A build order that
+// merely mentions them ("Bygg en bokningssida där kunden kan kolla nästa
+// lediga tid", "Skapa en banner som visar nästa meddelande") is not arming.
 const REVIEW_NEXT_RE = new RegExp(
-  String.raw`^${DIRECTIVE_LEAD}(?:${uWord(String.raw`granska|buggranska|kolla|ta\s+notis|notera`)}[^.!?]*${uWord("n(ä|a)sta")}|${uWord("n(ä|a)sta")}\s+${uWord("(chatt)?meddelande")})`,
+  String.raw`^${DIRECTIVE_LEAD}(?:${uWord(String.raw`granska|buggranska|kolla|ta\s+notis|notera`)}[^.!?]*${uWord(String.raw`n(?:ä|a)sta\s+(?:${REVIEW_NEXT_OBJECT})`)}|${uWord("n(ä|a)sta")}\s+${uWord("(chatt)?meddelande")})`,
   "iu",
 );
-// Interjections and politeness before a stop never hide it: "Nej, stopp!",
-// "Nej men sluta!", "Snälla, sluta!", "Vänta, stopp!", "Hey, stop!". "Ja" and
-// "jo" are left out on purpose: «Ja, avsluta det» answers the builder's
-// question and must not be read as a stop of the agent.
-const STOP_LEAD_RE =
-  /^(?:(?:nej|nä|näe|nope|no|ok|okej|okay|vänta|vanta|hey|hej|hallå|halla|men|snälla|snalla|please)(?:[,!]\s*|\s+))+/iu;
-const STOP_QUESTION_END_RE = /[?？]\s*$/u;
-const STOP_POLITE_QUESTION_RE = /^(?:(?:kan|vill|skulle)\s+(?:du|ni)|(?:could|can|would|will)\s+you)(?:\s|$)/iu;
+const byLengthDesc = (words: readonly string[]) => [...words].sort((a, b) => b.length - a.length).join("|");
+// Negative, neutral and polite openers never hide a stop: "Nej, stopp!",
+// "Nej men sluta!", "Snälla, sluta!", "Vänta, stopp!", "Jag sa stopp!".
+const STOP_LEAD_WORDS = [
+  "nej", "nä", "näe", "nämen", "nope", "no", "vänta", "vanta", "wait", "hey", "hej", "hallå", "halla",
+  "oj", "men", "snälla", "snalla", "please", "jag sa", "i said",
+] as const;
+// Affirmative openers usually answer the builder's question ("Ja, avsluta
+// det", "Okej, avsluta det"). Routing therefore never reads them as a stop of
+// the agent; only the broad check that disarms an existing mandate strips them.
+const STOP_AFFIRMATIVE_WORDS = ["ja", "jo", "ok", "okej", "okay"] as const;
+const leadPattern = (words: readonly string[]) =>
+  new RegExp(String.raw`^(?:(?:${byLengthDesc(words)})(?:[,!]\s*|\s+))+`, "iu");
+const onlyPattern = (words: readonly string[]) =>
+  new RegExp(String.raw`^(?:${byLengthDesc(words)})[,!\s]*$`, "iu");
+const STOP_LEAD_RE = leadPattern(STOP_LEAD_WORDS);
+const STOP_ANY_LEAD_RE = leadPattern([...STOP_LEAD_WORDS, ...STOP_AFFIRMATIVE_WORDS]);
+const STOP_INTERJECTION_ONLY_RE = onlyPattern(STOP_LEAD_WORDS);
+const STOP_AFFIRMATIVE_ONLY_RE = onlyPattern(STOP_AFFIRMATIVE_WORDS);
+// "Stoppa nu, eller vänta?" asks about stopping; it is not a stop.
+const STOP_ALTERNATIVE_RE = /^(?:eller|or)(?:\s|$)/iu;
 const STOP_WORD = "stopp|stoppa|sluta|avbryt|avsluta|stop|halt";
 // A stop must address the current work. Questions/quoted mentions and orders
 // about other objects ("stoppa buggar") do not revoke an existing mandate.
 const STOP_TARGET = String.raw`(?:med\s+)?(?:(?:dina|alla|pågående|aktuella|den\s+här|den\s+där)\s+)?(?:autonomin|mandatet|körningen|bygget|byggandet|arbetet|allt|det(?:\s+(?:här|där|du\s+gör))?|it|this|that|follow[\s-]?ups?|generera|generering(?:en)?|bygga|svara|generating|generation|building|running)`;
+// Polite request forms, also as questions: "Kan ni stoppa?", "Could you stop?".
+const STOP_POLITE_PREFIX = String.raw`(?:(?:snälla|snalla|please)[,\s]+|(?:kan|vill)\s+(?:du|ni)\s+(?:(?:snälla|please)\s+)?|skulle\s+(?:du|ni)\s+kunna\s+|(?:could|can|would|will)\s+you\s+(?:please\s+)?)?`;
 const STOP_COMMAND_RE = new RegExp(
-  String.raw`^(?:(?:snälla|please)[,\s]+|(?:kan|vill)\s+du\s+)?(?:${uWord(STOP_WORD)}[,!\s]+)*${uWord(STOP_WORD)}(?:\s+${STOP_TARGET})?(?:\s+efter\s+(?:detta|det\s+här)\s+steg)?(?:[,\s]+(?:nu|now|direkt|omedelbart|please|tack))*[,.!?。！？]*$`,
+  String.raw`^${STOP_POLITE_PREFIX}(?:${uWord(STOP_WORD)}[,!\s]+)*${uWord(STOP_WORD)}(?:\s+${STOP_TARGET})?(?:\s+efter\s+(?:detta|det\s+här)\s+steg)?(?:[,\s]+(?:nu|now|direkt|omedelbart|please|tack))*[,.!?…。！？]*$`,
   "iu",
 );
 const STOP_NEGATION_RE = uWordRegex(String.raw`inte|aldrig|ej|don't|don’t|do\s+not|never|no`);
@@ -116,25 +134,46 @@ export function parseArmingDirective(text: string): ArmingDirective | null {
   return null;
 }
 
+/**
+ * `any` disarms an existing mandate: every sentence may carry the stop ("Det
+ * blev fel. Sluta!", "Ja, stoppa!"). A false positive there only ends
+ * autonomy, which is the safe direction.
+ *
+ * `leading` decides routing: only the first substantive sentence counts. A
+ * build order that names a button ("Lägg till knappar. Avbryt, Spara och
+ * Skicka.") still reaches the build engine, and an affirmative answer to the
+ * builder ("Ja, avsluta det", "Okej. Avsluta det.") stays with the builder.
+ */
+export type StopDirectiveScope = "any" | "leading";
+
 /** True when the user message is an explicit stop/abort of the mandate. */
-export function parseStopDirective(text: string): boolean {
+export function parseStopDirective(text: string, scope: StopDirectiveScope = "any"): boolean {
   if (typeof text !== "string") return false;
-  const trimmed = text.normalize("NFC").trim();
-  // Any sentence may carry the stop ("Stopp. Det räcker.", "Nej. Stopp!",
-  // "Det blev fel. Sluta!"), but within a sentence only its first clause
-  // counts ("Stopp, det räcker", "Stoppa nu, jag vill ändra rubriken"). Target
-  // and negation checks stay scoped to that clause, so a later explanation
-  // ("Gör inte fler ändringar") cannot hide the stop. A question is not a stop
-  // ("Stoppa nu, eller vänta?") unless it is a polite request ("Kan du
-  // stoppa autonomin?").
-  for (const sentence of trimmed.split(/[.!](?:\s+|$)|[。！]/u)) {
-    const body = sentence.trim().replace(STOP_LEAD_RE, "");
-    if (!body) continue;
-    if (STOP_QUESTION_END_RE.test(body) && !STOP_POLITE_QUESTION_RE.test(body)) continue;
-    const firstClause = body.split(/,\s*|\s[-–—]\s/u, 1)[0];
-    if (!STOP_NEGATION_RE.test(firstClause) && STOP_COMMAND_RE.test(firstClause)) return true;
+  for (const raw of text.normalize("NFC").trim().split(/[.!](?:\s+|$)|[。！]/u)) {
+    const sentence = raw.trim();
+    if (!sentence) continue;
+    if (scope === "any") {
+      if (isStopSentence(sentence.replace(STOP_ANY_LEAD_RE, ""))) return true;
+      continue;
+    }
+    if (STOP_AFFIRMATIVE_ONLY_RE.test(sentence)) return false; // "Okej. Avsluta det."
+    if (STOP_INTERJECTION_ONLY_RE.test(sentence)) continue; // "Nej. Stopp!"
+    return isStopSentence(sentence.replace(STOP_LEAD_RE, ""));
   }
   return false;
+}
+
+/**
+ * Only a sentence's first clause counts ("Stopp, det räcker", "Stoppa nu, jag
+ * vill ändra rubriken"). Target and negation checks stay scoped to that
+ * clause, so a later explanation ("Gör inte fler ändringar") cannot hide the
+ * stop.
+ */
+function isStopSentence(body: string): boolean {
+  const firstClause = body.split(/,\s*|\s[-–—]\s/u, 1)[0];
+  if (STOP_NEGATION_RE.test(firstClause) || !STOP_COMMAND_RE.test(firstClause)) return false;
+  const rest = body.slice(firstClause.length).replace(/^(?:,\s*|\s[-–—]\s)/u, "");
+  return !STOP_ALTERNATIVE_RE.test(rest);
 }
 
 /** Build a fresh mandate from an arming directive. */

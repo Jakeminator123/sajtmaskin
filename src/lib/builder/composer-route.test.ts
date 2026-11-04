@@ -121,6 +121,27 @@ describe("arming directives inside build orders", () => {
       resolveComposerRoute({ mode: "auto", text, hasChat: false, hasAttachments: false, agentAvailable: false, agentConfigured: true }),
     ).toBe("build");
   });
+
+  it.each([
+    "Lägg till en sekundär knapp i modalen, t.ex. Avbryt.",
+    "Byt texten på knappen till något kortare, t.ex. Stopp.",
+    "Lägg till knappar. Avbryt, Spara och Skicka.",
+    "Skapa ett formulär med knapparna:\nSkicka.\nAvbryt.",
+    "Skapa en hemsida för vår rökavvänjning. Sluta nu! Vi hjälper dig.",
+  ])("a build order that names a stop word later stays a build, also as a first prompt: %s", text => {
+    expect(classifyComposerIntent(text)).toBe("build");
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("build");
+    expect(
+      resolveComposerRoute({ mode: "auto", text, hasChat: false, hasAttachments: false, agentAvailable: false, agentConfigured: true }),
+    ).toBe("build");
+  });
+
+  it.each(["Ja, avsluta det", "Okej, avsluta det", "Ok, avsluta", "Okej. Avsluta det."])(
+    "an affirmative answer belongs to the builder's pending question: %s",
+    text => {
+      expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true, builderAwaitingReply: true })).toBe("build");
+    },
+  );
 });
 
 describe("isAgentProposalReference", () => {

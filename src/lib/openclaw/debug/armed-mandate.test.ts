@@ -80,6 +80,7 @@ describe("parseArmingDirective", () => {
     "Gör så att nästa meddelande laddas automatiskt",
     "Lägg till en knapp så användaren kan kolla nästa meddelande i inkorgen",
     "Skapa en hemsida för vår sms-tjänst där kunden ser nästa meddelande i kön",
+    "Ok kolla nästa lediga tid och lägg till den i headern",
   ])("does NOT arm review-next on a build order that only mentions the directive words: %s", text => {
     expect(parseArmingDirective(text)).toBeNull();
   });
@@ -170,17 +171,63 @@ describe("parseStopDirective", () => {
   });
 
   it.each([
+    "Kan ni stoppa?",
+    "Could you stop?",
+    "Can you stop it?",
+    "Skulle du kunna stoppa?",
+    "Kan du snälla sluta?",
+    "STOPP?!",
+    "Stopp, vad gör du?",
+    "Wait, stop",
+    "Oj, stopp",
+    "Nämen sluta!",
+    "Jag sa stopp!",
+    "Stopp…",
+  ])("recognizes polite questions and other everyday stops in both scopes: %s", text => {
+    expect(parseStopDirective(text)).toBe(true);
+    expect(parseStopDirective(text, "leading")).toBe(true);
+  });
+
+  it.each([
     "Stoppa nu, eller vänta?",
-    "Ja, avsluta det",
     "Jo, sluta med bilderna i headern",
     "Jakob, stopp är fel ord här",
-  ])("does not read a question or an answer to the builder as a stop: %s", text => {
+  ])("does not read a question about stopping or an unrelated name as a stop: %s", text => {
     expect(parseStopDirective(text)).toBe(false);
+    expect(parseStopDirective(text, "leading")).toBe(false);
   });
+
+  it.each([
+    "Lägg till en sekundär knapp i modalen, t.ex. Avbryt.",
+    "Byt texten på knappen till något kortare, t.ex. Stopp.",
+    "Change the button label to something short, e.g. Stop.",
+    "Lägg till knappar. Avbryt, Spara och Skicka.",
+    "Skapa ett formulär med knapparna:\nSkicka.\nAvbryt.",
+    "Skapa en hemsida för vår rökavvänjning. Sluta nu! Vi hjälper dig.",
+  ])("leading scope: a build order that names a stop word later is not a stop: %s", text => {
+    expect(parseStopDirective(text, "leading")).toBe(false);
+  });
+
+  it.each(["Ja, avsluta det", "Okej, avsluta det", "Ok, avsluta", "Okej. Avsluta det."])(
+    "leading scope: an affirmative answer to the builder is not a stop: %s",
+    text => {
+      expect(parseStopDirective(text, "leading")).toBe(false);
+    },
+  );
+
+  it.each(["Ja, stoppa!", "Ja stopp", "Jo, stopp", "Okej stopp", "Det blev fel. Sluta!"])(
+    "any scope: disarms on a stop the routing leaves alone: %s",
+    text => {
+      expect(parseStopDirective(text)).toBe(true);
+      expect(parseStopDirective(text, "leading")).toBe(false);
+    },
+  );
 
   it("stays linear on very long input", () => {
     const started = Date.now();
     expect(parseStopDirective(`${"nej ".repeat(20_000)}${"stopp ".repeat(20_000)}x`)).toBe(false);
+    expect(parseStopDirective(`${"nej ".repeat(20_000)}${"stopp ".repeat(20_000)}x`, "leading")).toBe(false);
+    expect(parseStopDirective(". ".repeat(100_000))).toBe(false);
     expect(parseArmingDirective(`${"hej ".repeat(20_000)}${"kolla ".repeat(20_000)}x`)).toBeNull();
     expect(Date.now() - started).toBeLessThan(2_000);
   });
