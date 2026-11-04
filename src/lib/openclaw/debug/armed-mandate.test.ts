@@ -75,8 +75,12 @@ describe("parseArmingDirective", () => {
   it.each([
     "Bygg en bokningssida där kunden kan kolla nästa lediga tid",
     "Lägg till en kalender så besökaren kan kolla nästa lediga tid och boka",
-    "Skapa en sektion som visar nästa event, kolla att datumen stämmer",
-  ])("does NOT arm review-next on a build order that only mentions 'kolla … nästa': %s", text => {
+    "Skapa en banner som visar nästa meddelande",
+    "Skapa en chatt där nästa meddelande visas överst",
+    "Gör så att nästa meddelande laddas automatiskt",
+    "Lägg till en knapp så användaren kan kolla nästa meddelande i inkorgen",
+    "Skapa en hemsida för vår sms-tjänst där kunden ser nästa meddelande i kön",
+  ])("does NOT arm review-next on a build order that only mentions the directive words: %s", text => {
     expect(parseArmingDirective(text)).toBeNull();
   });
 
@@ -84,7 +88,12 @@ describe("parseArmingDirective", () => {
     "Kan du granska nästa meddelande jag skickar",
     "Snälla, kolla nästa meddelande jag skapar",
     "Granska nästa meddelande",
-  ])("arms review-next when the review verb opens the directive: %s", text => {
+    "Hej, kan du granska nästa bygge?",
+    "Okej, granska nästa version jag skapar",
+    "Kan du snälla kolla nästa version",
+    "Bra. Kolla nästa version jag gör",
+    "Nästa meddelande: granska det",
+  ])("arms review-next when the directive opens the message: %s", text => {
     expect(parseArmingDirective(text)?.mode).toBe("review_next");
   });
 
@@ -140,8 +149,40 @@ describe("parseStopDirective", () => {
     "stop it",
     "Stoppa nu, jag vill ändra rubriken",
     "Stopp, tack, jag tar det härifrån",
+    "Snälla, sluta!",
+    "Snälla, stoppa nu",
+    "Snälla, avbryt allt",
+    "Please, stop",
+    "please, halt",
+    "Snälla, kan du sluta?",
+    "No, stop!",
+    "No stop",
+    "Nä, stopp!",
+    "Näe, sluta",
+    "Nej nej, stopp!",
+    "Nej men sluta!",
+    "Nej. Stopp!",
+    "Vänta, stopp!",
+    "Hey, stop!",
+    "Det blev fel. Sluta!",
   ])("recognizes everyday stop phrasings (regression vs preview): %s", text => {
     expect(parseStopDirective(text)).toBe(true);
+  });
+
+  it.each([
+    "Stoppa nu, eller vänta?",
+    "Ja, avsluta det",
+    "Jo, sluta med bilderna i headern",
+    "Jakob, stopp är fel ord här",
+  ])("does not read a question or an answer to the builder as a stop: %s", text => {
+    expect(parseStopDirective(text)).toBe(false);
+  });
+
+  it("stays linear on very long input", () => {
+    const started = Date.now();
+    expect(parseStopDirective(`${"nej ".repeat(20_000)}${"stopp ".repeat(20_000)}x`)).toBe(false);
+    expect(parseArmingDirective(`${"hej ".repeat(20_000)}${"kolla ".repeat(20_000)}x`)).toBeNull();
+    expect(Date.now() - started).toBeLessThan(2_000);
   });
 
   it.each([

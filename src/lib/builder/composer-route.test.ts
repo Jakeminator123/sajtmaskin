@@ -97,13 +97,29 @@ describe("arming directives inside build orders", () => {
     expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("build");
   });
 
-  it.each(["Nej, stopp!", "Stopp, det räcker", "Stoppa nu, jag vill ändra rubriken"])(
+  it.each(["Nej, stopp!", "Stopp, det räcker", "Stoppa nu, jag vill ändra rubriken", "Snälla, sluta!", "No, stop!"])(
     "an everyday stop phrasing still reaches the agent in Auto: %s",
     text => {
       expect(classifyComposerIntent(text)).toBe("agent");
       expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true, builderAwaitingReply: true })).toBe("agent");
     },
   );
+
+  it.each([
+    "Skapa en chatt där nästa meddelande visas överst",
+    "Gör så att nästa meddelande laddas automatiskt",
+    "Lägg till en knapp så användaren kan kolla nästa meddelande i inkorgen",
+  ])("a build order mentioning 'nästa meddelande' stays a build in Auto: %s", text => {
+    expect(parseArmingDirective(text)).toBeNull();
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("build");
+  });
+
+  it("a first prompt that only mentions 'nästa meddelande' becomes a build, not blocked", () => {
+    const text = "Skapa en hemsida för vår sms-tjänst där kunden ser nästa meddelande i kön";
+    expect(
+      resolveComposerRoute({ mode: "auto", text, hasChat: false, hasAttachments: false, agentAvailable: false, agentConfigured: true }),
+    ).toBe("build");
+  });
 });
 
 describe("isAgentProposalReference", () => {
