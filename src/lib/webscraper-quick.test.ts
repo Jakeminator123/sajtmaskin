@@ -70,6 +70,38 @@ describe("quickScrapeWebsite content selection", () => {
     expect(result.url).toBe("https://example.com/");
   });
 
+  it("keeps default scrape logging and lets a per-call logger silence the same thin-page path", async () => {
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const consoleInfo = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const thinHtml = "<html><head><title>Thin</title></head><body>Hi</body></html>";
+    const scrapeOnce = () => {
+      guardedFetch.mockImplementation(async (url: string) => {
+        if (String(url).includes("sitemap")) return new Response("<urlset/>", { headers: { "content-type": "application/xml" } });
+        return htmlResponse(thinHtml);
+      });
+    };
+    try {
+      scrapeOnce();
+      const normal = await scrapeWebsite("https://example.com", { maxPages: 1 });
+      const normalTargets = guardedFetch.mock.calls.map(([url]) => url);
+      expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining("Very little text"));
+      consoleWarn.mockClear();
+      consoleInfo.mockClear();
+      guardedFetch.mockClear();
+      scrapeOnce();
+      const logger = { info: vi.fn(), warn: vi.fn() };
+      const silent = await scrapeWebsite("https://example.com", { maxPages: 1, logger });
+      expect(silent).toEqual({ ...normal, responseTime: expect.any(Number) });
+      expect(guardedFetch.mock.calls.map(([url]) => url)).toEqual(normalTargets);
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("Very little text"));
+      expect(consoleWarn).not.toHaveBeenCalled();
+      expect(consoleInfo).not.toHaveBeenCalled();
+    } finally {
+      consoleWarn.mockRestore();
+      consoleInfo.mockRestore();
+    }
+  });
+
   it("normalizes uppercase schemes and whitespace while preserving path and query", async () => {
     guardedFetch.mockResolvedValueOnce(htmlResponse("<html><body>Hotel rooms</body></html>"));
 
