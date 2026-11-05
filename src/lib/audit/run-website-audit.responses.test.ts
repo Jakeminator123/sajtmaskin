@@ -51,6 +51,8 @@ const { runWebsiteAudit } = await import("./run-website-audit");
 const websiteContent = {
   title: "Example",
   description: "Example description",
+  text: "Example services and useful content",
+  textPreview: "Example services and useful content",
   wordCount: 300,
   hasSSL: true,
   headings: ["Example", "Services"],
@@ -147,6 +149,40 @@ beforeEach(() => {
 });
 
 describe("runWebsiteAudit Responses fallback", () => {
+  it("compares the frozen advanced input through the same prompt/schema/model with only low verbosity added", async () => {
+    const onResponsesAttempt = vi.fn();
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const input = {
+      normalizedUrl: "https://example.com/", auditMode: "advanced", promptKind: "product",
+      requestId: "frozen-comparison", requestStartTime: Date.now(),
+    } as const;
+    await runWebsiteAudit(input, { frozenWebsiteContent: websiteContent, onResponsesAttempt, logger });
+    const current = responsesCreate.mock.calls[0][0];
+    expect(current.text).not.toHaveProperty("verbosity");
+    await runWebsiteAudit(input, { frozenWebsiteContent: websiteContent, responsesTextVerbosity: "low", onResponsesAttempt, logger });
+    const low = responsesCreate.mock.calls[1][0];
+    expect(low).toEqual({ ...current, text: { ...current.text, verbosity: "low" } });
+    expect(scrapeWebsite).not.toHaveBeenCalled();
+    expect(onResponsesAttempt).toHaveBeenCalledTimes(2);
+    expect(onResponsesAttempt.mock.calls[0][0]).toMatchObject({ scrapeElapsedMs: 0, outcome: "completed" });
+    expect(onResponsesAttempt.mock.calls[0][0]).toEqual(logger.info.mock.calls.find(([message]) => String(message).includes("attempt receipt"))?.[1]);
+    expect(console.info).not.toHaveBeenCalled();
+    expect(console.warn).not.toHaveBeenCalled();
+    expect(console.error).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { promptKind: "public", auditMode: "basic" },
+    { promptKind: "public", auditMode: "advanced" },
+    { promptKind: "product", auditMode: "basic" },
+  ] as const)("refuses a low verbosity experiment for $promptKind/$auditMode before any work", async (tier) => {
+    await expect(runWebsiteAudit({
+      ...tier, normalizedUrl: "https://example.com/", requestId: "wrong-tier", requestStartTime: Date.now(),
+    }, { responsesTextVerbosity: "low" })).rejects.toThrow(/product\/advanced/);
+    expect(scrapeWebsite).not.toHaveBeenCalled();
+    expect(responsesCreate).not.toHaveBeenCalled();
+  });
+
   it("records latency and token breakdown without recording response or customer text", async () => {
     const outputText = JSON.stringify({ company: "Private customer marker", audit_scores: { seo: 80 } });
     const response = successfulResponse({ outputText, inputTokens: 400, outputTokens: 150, webSearchCalls: 2 });
@@ -817,6 +853,12 @@ describe("runWebsiteAudit Responses fallback", () => {
 
       expect(await runPublic()).toEqual(expect.objectContaining({ ok: false, status: 502 }));
       expect(responsesCreate).toHaveBeenCalledTimes(1);
+      const receipt = vi.mocked(console.info).mock.calls.find(
+        ([message]) => String(message).includes("Audit Responses attempt receipt"),
+      )?.[1];
+      expect(receipt).toMatchObject({
+        responseLifecycle: "permanent", responseStatus: status, errorCode: error?.code ?? null,
+      });
     },
   );
 
