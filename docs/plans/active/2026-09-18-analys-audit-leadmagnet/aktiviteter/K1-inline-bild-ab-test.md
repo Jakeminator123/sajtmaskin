@@ -82,5 +82,5 @@ samtyckesdialogen. Två följder:
 - Skriv inte «spår 1 klart» när protokollet är skrivet. Spåret är klart när
   utfallet står här.
 - Ingen auto-start av generation från utskicket — samma regel som
-  [`A4-cta-handoff.md`](A4-cta-handoff.md).
+  [masterplanens gränser](../00-master-plan.md#gränser-som-ska-bestå).
 - Bygg ingen Radar för det här spåret. Det behöver ingen signal.
