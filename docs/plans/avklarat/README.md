@@ -9,6 +9,14 @@ Egna detaljfiler behålls **bara** om kod/contract eller `*.stability.test.ts`
 
 ## Levererade initiativ
 
+**Publik `/analys`, A1–A4 (2026-09-18):** levererad i #1471: egen publik
+rapportyta, durabel gästkvot, separat försökstak, konto-CTA och återanvänd
+audit-handoff. Sex överflödiga bygg-/underlagsfiler konsoliderades 2026-11-05.
+Kodägare, skydd och kvarvarande B2/B4 finns i
+[den aktiva restplanen](../active/2026-09-18-analys-audit-leadmagnet/00-master-plan.md).
+K1 kräver fortfarande ett verkligt A/B-utfall; PRV/nyemission/DNS-spåren
+behåller sina beslut och ägare. Kodleverans är inte marknadsacceptans.
+
 **Dossierkärna och flödesförenkling (2026-10-05):** levererad till `preview` via
 [#1548](https://github.com/Jakeminator123/sajtmaskin/pull/1548),
 [#1549](https://github.com/Jakeminator123/sajtmaskin/pull/1549),
