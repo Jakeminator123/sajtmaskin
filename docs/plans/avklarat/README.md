@@ -9,6 +9,15 @@ Egna detaljfiler behålls **bara** om kod/contract eller `*.stability.test.ts`
 
 ## Levererade initiativ
 
+**LLM-kedja och legacy (2026-10-18):** grundimplementation mergad i #1593,
+`e756410522a186d4656ee6a379a62cfd0ffb70d5`: typat byggunderlag, gemensam
+kandidat/eval, säkra legacyborttagningar och en serverkedja ersatte
+klientens efterkontrollkö/materialisering. GET/Spara startar inget extra
+bildarbete. Schemaläggning, representativ runtimeacceptans och full
+billingavstämning inklusive brief kvarstår i
+[restplanen](../active/2026-10-11-llm-kedja-och-legacy/00-master-plan.md).
+Merge är inte ett aktuellt drift- eller acceptanskvitto; detaljplanerna är Git.
+
 **Publik `/analys`, A1–A4 (2026-09-18):** levererad i #1471: egen publik
 rapportyta, durabel gästkvot, separat försökstak, konto-CTA och återanvänd
 audit-handoff. Sex överflödiga bygg-/underlagsfiler konsoliderades 2026-11-05.
