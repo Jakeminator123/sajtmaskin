@@ -17,10 +17,14 @@ Krav: Node.js-versionen i `package.json` och npm.
 
 ```text
 npm ci
+npm run setup:local
+npm run env:pull
 npm run dev
 ```
 
 Miljövariabler och databasstart beskrivs i [`docs/ENV.md`](docs/ENV.md).
+På en ny dator: följ [lokal setup](docs/runbooks/local-development.md) för
+inloggning, maskinlokala nycklar och kontroll av rätt DEV-projekt.
 Dev-servern kan startas utan predev med
 `node scripts/dev/next-runner.mjs dev`.
 

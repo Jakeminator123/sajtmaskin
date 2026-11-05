@@ -154,7 +154,7 @@ export function checkMcp({ live, template }) {
       level: "info",
       area: "mcp",
       message: ".cursor/mcp.json saknas (valfri projektfil); globala Cursor-servrar och Codex-verktyg kontrolleras inte",
-      fix: "Om projekt-MCP behövs: npm run worktree:setup -- <sökväg>. Mallen bevisar inte anslutningsstatus.",
+      fix: "Om projekt-MCP behövs: npm run setup:local (worktree: npm run worktree:setup -- <sökväg>). Mallen bevisar inte anslutningsstatus.",
     };
   }
   const missing = template.filter((name) => !live.includes(name));
