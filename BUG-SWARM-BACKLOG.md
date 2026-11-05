@@ -158,7 +158,7 @@ Jake äger samtliga frågor. Ej omverifierade 2026-10-19.
 | P3 | Är per-rubrikstaket 480 rätt när `selected-sections` breddas? | Inte aktuellt; taket är ratificerat i [`docs/decisions/README.md`](docs/decisions/README.md). |
 | P2 | Ska högst en hard dossier väljas per promptrunda? | Nästa dossier-härdning. |
 | P2 | Ska `SAJTMASKIN_REFUSE_DOSSIER_STUBS` vara på i production? | Verifiera aktuell env före nästa flaggändring. |
-| P3 | OpenClaw Builder: starta som projektledande byggagent, eller skrota? Underlag i [`docs/plans/archived/2026-08-24-openclaw-builder/`](docs/plans/archived/2026-08-24-openclaw-builder/README.md). | Fritt. |
+| P3 | OpenClaw Builder: starta separat shadow-planner/kandidatsandbox eller skrota? Dagens Sajtagent uppfyller inte automatiskt detta spår. Parkerat underlag med skyddsräcken och tekniska spikes i [`docs/plans/archived/2026-08-24-openclaw-builder/`](docs/plans/archived/2026-08-24-openclaw-builder/README.md). | Nytt ägarbeslut före implementation. |
 | P2 | Ska en pending dossier ersätta modellbyggd kod för samma capability, fråga användaren eller samexistera? | Nästa F3-vägändring. |
 | P2 | Ska `stream_ended_without_version` återbetalas när text levererats men ingen version sparats? | Före MVP-leverans. |
 | P2 | Vilket kontrakt gäller för `BuildPlanCard` när alla versioner är failed? | Före nästa versionsläsändring. |
