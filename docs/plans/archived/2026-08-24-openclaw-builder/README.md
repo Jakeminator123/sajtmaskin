@@ -47,6 +47,10 @@ begränsar fulltextläsningen.
 | P4 Preview/repair | Egen kandidatpreview och revisionspinnad logg/screenshot. Högst två evidensstyrda preview-/repairvarv även över retry. CAS → befintlig finalize/merge/preflight → draft; vanliga RenderGate/ReleaseGate/lifecycle avgör promote. |
 | P5 Opt-in/rollout | classic/openclaw_shadow/openclaw_candidate bakom explicit flagg. Intern shadow → offline → intern draft → opt-in F2 → liten F2-cohort → follow-up → tyngre/flerroute → imported/F3 sist. Övad kill switch, tokenrevocation/leasedränering/TTL och permanent classic recovery; ingen dold dubbeldebitering. |
 
+Höj trafik eller bredda cohort först efter separat säkerhets- och
+kvalitetsreview. Fasordningen och ordinarie runtimegrindar ersätter inte
+denna review före utrullningsökning.
+
 ## Skyddsräcken som aldrig får falla bort vid återstart
 
 - `engine_versions.files_json` och innehållsbunden `filesRevision` är sanning.
