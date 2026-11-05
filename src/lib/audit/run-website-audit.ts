@@ -13,7 +13,7 @@ import {
   parseJsonWithRepair,
 } from "@/lib/audit-prompts";
 import { FEATURES, SECRETS } from "@/lib/config";
-import type { AuditMode, AuditResult } from "@/types/audit";
+import type { AuditMode, AuditResult, WebsiteContent } from "@/types/audit";
 import { toResponsesModelId } from "@/app/api/audit/modules/schema";
 import {
   omitAdvancedOnlyFields,
@@ -86,6 +86,42 @@ type ResponsesAttemptOutcome =
   | "permanent_error"
   | "transient_status"
   | "rejected_status";
+
+/** Content-free terminal evidence, shared with the opt-in canonical eval lane. */
+export interface AuditResponsesAttemptReceipt {
+  attemptIndex: number;
+  candidateCount: number;
+  workloadId: string;
+  model: string;
+  reasoningEffort: string | null;
+  attemptBudgetMs: number;
+  remainingTotalBudgetMs: number;
+  elapsedMs: number;
+  totalElapsedMs: number;
+  scrapeElapsedMs: number;
+  inputTokens: number | null;
+  cachedInputTokens: number | null;
+  outputTokens: number | null;
+  reasoningTokens: number | null;
+  outputTextChars: number | null;
+  webSearchCalls: number | null;
+  outcome: ResponsesAttemptOutcome;
+  signalReason: string | null;
+  errorClass: string | null;
+  errorCode: string | null;
+  httpStatus: number | null;
+  responseStatus: string | null;
+  responseLifecycle: ResponsesLifecycle | null;
+  incompleteReason: string | null;
+}
+
+/** Internal measurement seam. Route callers keep the default production path. */
+export interface WebsiteAuditRunOptions {
+  frozenWebsiteContent?: WebsiteContent;
+  responsesTextVerbosity?: "low";
+  onResponsesAttempt?: (receipt: AuditResponsesAttemptReceipt) => void;
+  logger?: Pick<Console, "info" | "warn" | "error">;
+}
 
 function abortSignalReasonName(signal: AbortSignal | undefined): string | null {
   if (!signal?.aborted) return null;
@@ -207,29 +243,39 @@ export async function runWebsiteAudit(input: {
   promptKind: AuditPromptKind;
   requestId: string;
   requestStartTime: number;
-}): Promise<RunWebsiteAuditSuccess | RunWebsiteAuditFailure> {
+}, options: WebsiteAuditRunOptions = {}): Promise<RunWebsiteAuditSuccess | RunWebsiteAuditFailure> {
+  const logger = options.logger ?? console;
   const { normalizedUrl, promptKind, requestId, requestStartTime } = input;
   const run = resolveAuditRun({ promptKind, auditMode: input.auditMode });
   const resolvedAuditMode = run.mode;
   const modelCandidates = run.modelCandidates;
   const primaryModel = run.primaryModel;
   const allowWebSearch = run.allowWebSearch;
+  if (options.responsesTextVerbosity && (promptKind !== "product" || resolvedAuditMode !== "advanced")) {
+    throw new Error("Audit verbosity experiments require product/advanced mode.");
+  }
+  if (options.responsesTextVerbosity && !FEATURES.useResponsesApi) {
+    throw new Error("Audit verbosity experiments require the Responses API.");
+  }
 
-  console.info(`[${requestId}] Scraping website...`);
+  logger.info(`[${requestId}] Scraping website...`);
   const scrapeStartedAt = Date.now();
   let scrapeElapsedMs: number;
-  let websiteContent;
+  let websiteContent: WebsiteContent;
   try {
-    websiteContent = await scrapeWebsite(normalizedUrl, { maxPages: run.maxPages });
-    scrapeElapsedMs = Math.max(0, Date.now() - scrapeStartedAt);
-    console.info(`[${requestId}] Scraping completed:`, {
+    websiteContent = options.frozenWebsiteContent ?? await scrapeWebsite(normalizedUrl, {
+      maxPages: run.maxPages,
+      ...(options.logger ? { logger } : {}),
+    });
+    scrapeElapsedMs = options.frozenWebsiteContent ? 0 : Math.max(0, Date.now() - scrapeStartedAt);
+    logger.info(`[${requestId}] Scraping completed:`, {
       title: websiteContent.title?.substring(0, 50),
       wordCount: websiteContent.wordCount,
       headingsCount: websiteContent.headings.length,
       pagesSampled: websiteContent.sampledUrls?.length || 1,
     });
   } catch (error) {
-    console.error(`[${requestId}] Scraping failed:`, error);
+    logger.error(`[${requestId}] Scraping failed:`, error);
     const errorMessage = scrapeErrorMessage(error);
     return { ok: false, status: scrapeErrorStatus(errorMessage), error: errorMessage };
   }
@@ -301,7 +347,7 @@ export async function runWebsiteAudit(input: {
         const usage = response?.usage;
         // Content-free terminal receipt: never attach URL, prompt, response
         // text, headers, customer data, secrets or the raw error object.
-        console.info(`[${requestId}] Audit Responses attempt receipt`, {
+        const receipt: AuditResponsesAttemptReceipt = {
           attemptIndex: candidateIndex + 1,
           candidateCount: candidates.length,
           workloadId: run.workloadId,
@@ -323,14 +369,17 @@ export async function runWebsiteAudit(input: {
           outcome,
           signalReason: abortSignalReasonName(attemptSignal),
           errorClass: error === undefined ? null : responsesErrorClass(error),
-          errorCode: error === undefined ? null : responsesErrorCode(error) || null,
+          errorCode: error === undefined ? response?.error?.code ?? null : responsesErrorCode(error) || null,
           httpStatus:
             typeof errorShape?.status === "number" ? errorShape.status : null,
           responseStatus: details?.responseStatus ?? null,
+          responseLifecycle: response ? classifyResponsesLifecycle(response) : null,
           incompleteReason: details?.incompleteReason ?? null,
-        });
+        };
+        logger.info(`[${requestId}] Audit Responses attempt receipt`, receipt);
+        options.onResponsesAttempt?.(receipt);
       };
-      console.info(
+      logger.info(
         `[${requestId}] Calling Responses API (${responsesModel}, web_search=${allowWebSearch}, prompt=${promptKind}, mode=${resolvedAuditMode}, pages=${run.maxPages})`,
       );
 
@@ -344,6 +393,7 @@ export async function runWebsiteAudit(input: {
             input: [{ role: "user", content: promptContent }],
             tools: tools.length > 0 ? tools : undefined,
             text: {
+              ...(options.responsesTextVerbosity ? { verbosity: options.responsesTextVerbosity } : {}),
               format: {
                 type: "json_schema",
                 name: "website_audit",
@@ -371,7 +421,7 @@ export async function runWebsiteAudit(input: {
         );
         if (!transient) throw error;
         lastTransientError = error;
-        console.warn(
+        logger.warn(
           `[${requestId}] Transient Responses failure for ${candidateModel}; see attempt receipt`,
         );
 
@@ -416,14 +466,14 @@ export async function runWebsiteAudit(input: {
 
         if (lifecycle === "transient") {
           lastTransientError = lifecycleEvidence;
-          console.warn(
+          logger.warn(
             `[${requestId}] Transient Responses status from ${candidateModel}, trying next candidate`,
             lifecycleEvidence,
           );
           continue;
         }
 
-        console.error(
+        logger.error(
           `[${requestId}] Responses status from ${candidateModel} is not safe to accept or retry`,
           lifecycleEvidence,
         );
@@ -436,7 +486,7 @@ export async function runWebsiteAudit(input: {
 
       if (!response.output_text || response.output_text.trim().length === 0) {
         attemptReceipt("empty_output", { responseStatus: response.status, response });
-        console.warn(`[${requestId}] Empty response from ${candidateModel}, trying next candidate`);
+        logger.warn(`[${requestId}] Empty response from ${candidateModel}, trying next candidate`);
         continue;
       }
 
@@ -447,7 +497,7 @@ export async function runWebsiteAudit(input: {
     }
 
     if (!selectedResponse) {
-      console.error(`[${requestId}] All Responses candidates failed`, lastTransientError);
+      logger.error(`[${requestId}] All Responses candidates failed`, lastTransientError);
       return {
         ok: false,
         status: 502,
@@ -456,15 +506,15 @@ export async function runWebsiteAudit(input: {
     }
 
     const apiDuration = Date.now() - requestStartTime;
-    console.info(
+    logger.info(
       `[${requestId}] Responses API completed in ${apiDuration}ms (web_searches=${webSearchCallCount})`,
     );
 
     try {
       auditResult = JSON.parse(selectedResponse.output_text);
-      console.info(`[${requestId}] Structured output parsed successfully`);
+      logger.info(`[${requestId}] Structured output parsed successfully`);
     } catch (parseErr) {
-      console.error(`[${requestId}] Structured output parse failed (unexpected):`, parseErr);
+      logger.error(`[${requestId}] Structured output parse failed (unexpected):`, parseErr);
       auditResult = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode, {
         schemaKind: run.schemaKind,
       });
@@ -475,7 +525,7 @@ export async function runWebsiteAudit(input: {
     let lastFallbackError: unknown = null;
     for (const candidateModel of modelCandidates) {
       usedModel = candidateModel;
-      console.info(`[${requestId}] Calling fallback model (${usedModel})`);
+      logger.info(`[${requestId}] Calling fallback model (${usedModel})`);
       try {
         const candidateResult = await generateText({
           model: createDirectModel(usedModel),
@@ -485,19 +535,19 @@ export async function runWebsiteAudit(input: {
         });
         const candidateText = candidateResult.text || "";
         if (candidateText.trim().length === 0) {
-          console.warn(`[${requestId}] Empty response from ${usedModel}, trying next fallback`);
+          logger.warn(`[${requestId}] Empty response from ${usedModel}, trying next fallback`);
           continue;
         }
         aiResult = candidateResult;
         break;
       } catch (fallbackError) {
         lastFallbackError = fallbackError;
-        console.warn(`[${requestId}] Fallback model call failed for ${usedModel}:`, fallbackError);
+        logger.warn(`[${requestId}] Fallback model call failed for ${usedModel}:`, fallbackError);
       }
     }
 
     if (!aiResult) {
-      console.error(`[${requestId}] All configured audit fallback models failed`, lastFallbackError);
+      logger.error(`[${requestId}] All configured audit fallback models failed`, lastFallbackError);
       return {
         ok: false,
         status: 502,
@@ -506,7 +556,7 @@ export async function runWebsiteAudit(input: {
     }
 
     const apiDuration = Date.now() - requestStartTime;
-    console.info(`[${requestId}] Fallback chain completed in ${apiDuration}ms using ${usedModel}`);
+    logger.info(`[${requestId}] Fallback chain completed in ${apiDuration}ms using ${usedModel}`);
 
     const usage = aiResult.usage ?? {};
     inputTokens =
@@ -521,7 +571,7 @@ export async function runWebsiteAudit(input: {
     const outputText = aiResult.text || "";
 
     if (!outputText || outputText.trim().length === 0) {
-      console.error(`[${requestId}] Empty response from API`);
+      logger.error(`[${requestId}] Empty response from API`);
       return { ok: false, status: 500, error: "Tom respons från AI. Försök igen." };
     }
 
@@ -530,7 +580,7 @@ export async function runWebsiteAudit(input: {
     const jsonBlockMatch = cleanedOutput.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (jsonBlockMatch) {
       cleanedOutput = jsonBlockMatch[1].trim();
-      console.info(`[${requestId}] Removed markdown code block wrapper`);
+      logger.info(`[${requestId}] Removed markdown code block wrapper`);
     }
 
     const firstBrace = cleanedOutput.indexOf("{");
@@ -540,7 +590,7 @@ export async function runWebsiteAudit(input: {
       const afterJson = cleanedOutput.substring(lastBrace + 1).trim();
       if (beforeJson || afterJson) {
         cleanedOutput = cleanedOutput.substring(firstBrace, lastBrace + 1);
-        console.info(`[${requestId}] Trimmed text before/after JSON`);
+        logger.info(`[${requestId}] Trimmed text before/after JSON`);
       }
     }
 
@@ -548,15 +598,15 @@ export async function runWebsiteAudit(input: {
 
     if (parseResult.success && parseResult.data) {
       auditResult = parseResult.data;
-      console.info(`[${requestId}] JSON parse succeeded`);
+      logger.info(`[${requestId}] JSON parse succeeded`);
     } else {
-      console.info(
+      logger.info(
         `[${requestId}] Direct parse failed, trying extraction:`,
         parseResult.error || "unknown",
       );
       const jsonString = extractFirstJsonObject(outputText);
       if (!jsonString) {
-        console.error(
+        logger.error(
           `[${requestId}] Could not find JSON in response. Full output (first 2000 chars):`,
           outputText.substring(0, 2000),
         );
@@ -568,9 +618,9 @@ export async function runWebsiteAudit(input: {
         const extractParseResult = parseJsonWithRepair(jsonString);
         if (extractParseResult.success && extractParseResult.data) {
           auditResult = extractParseResult.data;
-          console.info(`[${requestId}] Extracted JSON parse succeeded`);
+          logger.info(`[${requestId}] Extracted JSON parse succeeded`);
         } else {
-          console.error(
+          logger.error(
             `[${requestId}] Failed to parse extracted JSON:`,
             extractParseResult.error,
           );
@@ -590,7 +640,7 @@ export async function runWebsiteAudit(input: {
     auditObjKeys.every((k) => SCORE_KEYS.includes(k as (typeof SCORE_KEYS)[number]) && typeof auditObj[k] === "number");
 
   if (isScoreOnly) {
-    console.warn(
+    logger.warn(
       `[${requestId}] Parsed JSON is score-only. Wrapping into fallback audit result. Keys: ${auditObjKeys.join(
         ", ",
       )}`,
@@ -620,7 +670,7 @@ export async function runWebsiteAudit(input: {
         nestedObj.improvements ||
         nestedObj.strengths
       ) {
-        console.info(`[${requestId}] Found nested audit result under key "${key}"`);
+        logger.info(`[${requestId}] Found nested audit result under key "${key}"`);
         auditResult = nested;
         break;
       }
@@ -629,10 +679,10 @@ export async function runWebsiteAudit(input: {
 
   if (!validateAuditResult(auditResult)) {
     const ar = auditResult as Record<string, unknown>;
-    console.error(`[${requestId}] Invalid audit result. Has fields:`, Object.keys(ar || {}));
+    logger.error(`[${requestId}] Invalid audit result. Has fields:`, Object.keys(ar || {}));
 
     if (auditResult && typeof auditResult === "object" && Object.keys(ar).length > 0) {
-      console.info(
+      logger.info(
         `[${requestId}] Returning partial result despite validation failure (${Object.keys(ar).length} keys)`,
       );
     } else {
@@ -650,7 +700,7 @@ export async function runWebsiteAudit(input: {
   const costUSD =
     responsesCostUSD ?? (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
   const costSEK = costUSD * USD_TO_SEK;
-  console.info(
+  logger.info(
     `[${requestId}] Audit cost summary: mode=${resolvedAuditMode}, prompt=${promptKind}, pages=${
       run.maxPages
     }, web_search=${allowWebSearch}, web_search_calls=${webSearchCallCount}, tokens=${

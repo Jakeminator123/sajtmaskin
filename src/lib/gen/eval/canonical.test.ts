@@ -16,8 +16,22 @@ import {
 import type { FollowUpEvalResult } from "./follow-up-context";
 import type { ScaffoldEvalReport } from "@/lib/gen/scaffolds/scaffold-eval";
 import type { EvalReport } from "./runner";
+import type { AuditLatencyReport } from "./audit-latency";
 
 describe("parseCanonicalEvalArgs", () => {
+  it("requires an explicit URL list for paid audit latency", () => {
+    expect(parseCanonicalEvalArgs(["--audit-latency=https://example.com,https://example.org", "--json", "--dump-files=all"])).toMatchObject({
+      mode: "audit-latency", auditUrls: ["https://example.com", "https://example.org"], json: true, dumpMode: "all", force: false,
+    });
+    expect(parseCanonicalEvalArgs(["--audit-latency", "https://example.com"]).auditUrls).toEqual(["https://example.com"]);
+    for (const flags of [["--audit-latency"], ["--audit-latency="], ["--audit-latency", "--json"], ["--audit-latency=a,b,c"]]) {
+      expect(() => parseCanonicalEvalArgs(flags)).toThrow(/one or two explicit URLs/);
+    }
+  });
+
+  it.each(["--codegen", "--smoke", "--full", "--prompts=coffee-shop", "--force"])("cannot combine audit latency with %s", (flag) => {
+    expect(() => parseCanonicalEvalArgs(["--audit-latency=https://example.com", flag])).toThrow(/cannot be combined/);
+  });
   it("defaults to the free lanes — no codegen, no env gate", () => {
     expect(parseCanonicalEvalArgs([])).toMatchObject({
       mode: "free",
@@ -59,6 +73,60 @@ describe("parseCanonicalEvalArgs", () => {
     expect(() => parseCanonicalEvalArgs(["--prompts"])).toThrow(/requires at least one prompt id/);
     expect(() => parseCanonicalEvalArgs(["--prompts="])).toThrow(/requires at least one prompt id/);
     expect(() => parseCanonicalEvalArgs(["--prompts=,"])).toThrow(/requires at least one prompt id/);
+  });
+});
+
+describe("opt-in audit latency lane", () => {
+  const auditReport: AuditLatencyReport = {
+    timestamp: "2026-11-03T00:00:00.000Z", outcome: "pass", preflight: "ready",
+    suiteAborted: false, abortedAfter: null, skippedRuns: [],
+    cases: [], artifactDir: null, qualityAcceptance: "manual_review_required",
+  };
+
+  function deps(scaffoldPass = true) {
+    return {
+      ...fakeEvalDeps({ followupPass: true, scaffoldPass, runCodegen: vi.fn() }),
+      runAuditLatency: vi.fn(async () => auditReport),
+    };
+  }
+
+  it("keeps the normal free JSON contract and never calls either paid lane", async () => {
+    const dependencies = deps();
+    const { result } = await runCanonicalEval({ mode: "free", deps: dependencies, print: () => undefined });
+    expect(dependencies.runAuditLatency).not.toHaveBeenCalled();
+    expect(dependencies.runCodegen).not.toHaveBeenCalled();
+    expect(Object.keys(toCanonicalJson(result).lanes as object)).toEqual(["followup", "scaffold", "codegen"]);
+  });
+
+  it("blocks all paid audits after a failed free lane", async () => {
+    const dependencies = deps(false);
+    const { result } = await runCanonicalEval({ mode: "audit-latency", auditUrls: ["https://example.com"], deps: dependencies, print: () => undefined });
+    expect(dependencies.runAuditLatency).not.toHaveBeenCalled();
+    expect(dependencies.runCodegen).not.toHaveBeenCalled();
+    expect(result.outcome).toBe("fail");
+    expect(result.lanes.auditLatency).toMatchObject({ outcome: "skipped", skipReason: "blocked_by_failed_free_lane", report: null });
+  });
+
+  it("runs the audit lane alone after free lanes pass and preserves provider/infra precedence", async () => {
+    const dependencies = deps();
+    dependencies.runAuditLatency.mockResolvedValue({ ...auditReport, outcome: "provider_error" });
+    const { result } = await runCanonicalEval({ mode: "audit-latency", auditUrls: ["https://example.com"], dumpMode: "all", deps: dependencies, print: () => undefined });
+    expect(dependencies.runCodegen).not.toHaveBeenCalled();
+    expect(dependencies.runAuditLatency).toHaveBeenCalledOnce();
+    expect(dependencies.runAuditLatency).toHaveBeenCalledWith(expect.objectContaining({ urls: ["https://example.com"], dumpMode: "all" }));
+    expect(result.lanes.codegen).toMatchObject({ outcome: "skipped", skipReason: "audit_latency_mode" });
+    expect(toCanonicalJson(result)).toMatchObject({ outcome: "PROVIDER_ERROR", exitCode: 2, lanes: { auditLatency: { outcome: "PROVIDER_ERROR", skipReason: null } } });
+    expect(resolveCanonicalOutcome({ followup: "pass", scaffold: "pass", codegen: "skipped", auditLatency: "infra_error" })).toBe("infra_error");
+  });
+
+  it("rejects unsafe URLs and programmatic force/prompts before even running free lanes", async () => {
+    const dependencies = deps();
+    dependencies.runFollowUp = vi.fn();
+    for (const options of [{ force: true }, { promptIds: ["coffee-shop"] }, { auditUrls: ["http://127.0.0.1"] }]) {
+      await expect(runCanonicalEval({ mode: "audit-latency", auditUrls: ["https://example.com"], ...options, deps: dependencies })).rejects.toThrow();
+    }
+    expect(dependencies.runFollowUp).not.toHaveBeenCalled();
+    expect(dependencies.runAuditLatency).not.toHaveBeenCalled();
   });
 });
 

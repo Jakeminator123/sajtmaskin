@@ -181,8 +181,13 @@ describe("parseStopDirective", () => {
     "Wait, stop",
     "Oj, stopp",
     "Nämen sluta!",
-    "Jag sa stopp!",
     "Stopp…",
+    "Kan du avbryta?",
+    "Kan ni avbryta det?",
+    "Skulle du kunna avbryta körningen?",
+    "Stanna! Det räcker.",
+    "Stoppa follow-upsen",
+    "Avbryt follow-upsen nu",
   ])("recognizes polite questions and other everyday stops in both scopes: %s", text => {
     expect(parseStopDirective(text)).toBe(true);
     expect(parseStopDirective(text, "leading")).toBe(true);
@@ -192,8 +197,20 @@ describe("parseStopDirective", () => {
     "Stoppa nu, eller vänta?",
     "Jo, sluta med bilderna i headern",
     "Jakob, stopp är fel ord här",
+    "Stanna kvar på sidan",
+    "Avbryta-knappen ska vara röd",
+    "Stoppa inte follow-upsen",
+    "Kan du förklara hur man avbryter en prenumeration?",
   ])("does not read a question about stopping or an unrelated name as a stop: %s", text => {
     expect(parseStopDirective(text)).toBe(false);
+    expect(parseStopDirective(text, "leading")).toBe(false);
+  });
+
+  it.each([
+    "Jag sa Stopp, inte Paus – byt texten på knappen.",
+    "Jag sa Avbryt, inte Stäng. Byt knapptexten.",
+    "I said Stop, not Pause – change the button label.",
+  ])("leading scope: a label correction after 'jag sa' is not a stop: %s", text => {
     expect(parseStopDirective(text, "leading")).toBe(false);
   });
 
@@ -215,7 +232,7 @@ describe("parseStopDirective", () => {
     },
   );
 
-  it.each(["Ja, stoppa!", "Ja stopp", "Jo, stopp", "Okej stopp", "Det blev fel. Sluta!"])(
+  it.each(["Ja, stoppa!", "Ja stopp", "Jo, stopp", "Okej stopp", "Det blev fel. Sluta!", "Jag sa stopp!", "I said stop"])(
     "any scope: disarms on a stop the routing leaves alone: %s",
     text => {
       expect(parseStopDirective(text)).toBe(true);

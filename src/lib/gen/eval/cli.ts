@@ -30,6 +30,8 @@ async function main(): Promise<void> {
 
   if (args.mode === "free") {
     print("Canonical eval (free lanes only — no OPENAI_API_KEY, no POSTGRES_URL).");
+  } else if (args.mode === "audit-latency") {
+    print(`Canonical eval (PAID audit latency: ${(args.auditUrls?.length ?? 0) * 2} advanced audits). Free lanes first; no codegen or database writes.`);
   } else {
     print(
       `Canonical eval (${args.mode}). Free lanes first, then paid codegen.`,
@@ -41,6 +43,7 @@ async function main(): Promise<void> {
     dumpMode: args.dumpMode,
     force: args.force,
     promptIds: args.promptIds,
+    auditUrls: args.auditUrls,
     print,
   });
 
@@ -59,7 +62,8 @@ async function main(): Promise<void> {
       `Eval outcome: ${result.outcome.toUpperCase()} (exit ${canonicalExitCode(result.outcome)})` +
         ` — followup ${result.lanes.followup.outcome.toUpperCase()},` +
         ` scaffold ${result.lanes.scaffold.outcome.toUpperCase()},` +
-        ` codegen ${codegenLabel}`,
+        ` codegen ${codegenLabel}` +
+        (result.lanes.auditLatency ? `, audit-latency ${result.lanes.auditLatency.outcome.toUpperCase()}` : ""),
     );
   }
 

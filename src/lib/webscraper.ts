@@ -24,6 +24,8 @@ const MAX_LINKS_TO_CONSIDER = 25; // cap to avoid crawling too broadly
 const SITEMAP_URL_LIMIT = 40; // cap sitemap URLs to consider
 const SITEMAP_INDEX_LIMIT = 3; // cap sitemap index fan-out
 
+type ScrapeLogger = Pick<Console, "info" | "warn">;
+
 type CandidateLink = {
   url: string;
   anchor?: string;
@@ -481,6 +483,7 @@ function isLikelyWordPressHtml(html: string): boolean {
 async function tryWordPressFallback(
   html: string,
   url: string,
+  logger: ScrapeLogger = console,
 ): Promise<{ text: string; headings: string[]; source: string } | null> {
   // Avoid WP fallback if the page doesn't look like WordPress.
   if (!isLikelyWordPressHtml(html)) {
@@ -570,7 +573,7 @@ async function tryWordPressFallback(
 
       return { text, headings, source: candidate };
     } catch (error) {
-      console.warn(
+      logger.warn(
         `[WebScraper] WP fallback failed for ${candidate}: ${
           error instanceof Error ? error.message : "unknown error"
         }`,
@@ -697,7 +700,7 @@ async function fetchPage(url: string): Promise<{
   };
 }
 
-async function parsePage(html: string, url: string, responseTime: number): Promise<ParsedPage> {
+async function parsePage(html: string, url: string, responseTime: number, logger: ScrapeLogger = console): Promise<ParsedPage> {
   const cheerio = await getCheerio();
   const $ = cheerio.load(html);
   const baseUrl = new URL(url);
@@ -730,7 +733,7 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
 
   // Log warning if very little content found (might be JS-rendered)
   if (wordCount < 10) {
-    console.warn(
+    logger.warn(
       `[WebScraper] Very little text found (${wordCount} words) for ${url}. ` +
         `This might be a JavaScript-rendered page. Found ${scriptCountBeforeCleanup} script tags. ` +
         `Body text length: ${bodyText.length} chars.`,
@@ -739,7 +742,7 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
 
   // Fallback for JS/Cloudflare gated WordPress pages
   if (wordCount < SECONDARY_MIN_WORDS) {
-    const wpFallback = await tryWordPressFallback(html, url);
+    const wpFallback = await tryWordPressFallback(html, url, logger);
     if (wpFallback) {
       const fallbackWords = wpFallback.text.split(" ").filter((word) => word.trim().length > 0);
       if (fallbackWords.length > wordCount) {
@@ -751,7 +754,7 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
           25,
         );
         bodyText = wpFallback.text;
-        console.info(
+        logger.info(
           `[WebScraper] Used WordPress JSON fallback for ${url} (${wordCount} words) from ${wpFallback.source}`,
         );
       }
@@ -846,16 +849,16 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
   };
 }
 
-async function fetchAndParse(targetUrl: string): Promise<ParsedPage> {
+async function fetchAndParse(targetUrl: string, logger: ScrapeLogger = console): Promise<ParsedPage> {
   const page = await fetchPage(targetUrl);
-  return parsePage(page.html, page.finalUrl, page.responseTime);
+  return parsePage(page.html, page.finalUrl, page.responseTime, logger);
 }
 
-async function tryFetchPage(targetUrl: string): Promise<ParsedPage | null> {
+async function tryFetchPage(targetUrl: string, logger: ScrapeLogger = console): Promise<ParsedPage | null> {
   try {
-    return await fetchAndParse(targetUrl);
+    return await fetchAndParse(targetUrl, logger);
   } catch (error) {
-    console.warn(
+    logger.warn(
       `[webscraper] Skipping ${targetUrl}: ${error instanceof Error ? error.message : "okänt fel"}`,
     );
     return null;
@@ -920,8 +923,9 @@ export async function quickScrapeWebsite(url: string): Promise<{
  */
 export async function scrapeWebsite(
   url: string,
-  options?: { maxPages?: number },
+  options?: { maxPages?: number; logger?: ScrapeLogger },
 ): Promise<WebsiteContent> {
+  const logger = options?.logger ?? console;
   const pageLimit = resolveScrapePageLimit(options?.maxPages);
   const normalizedUrl = normalizeInputUrl(url);
   if (!normalizedUrl) {
@@ -942,7 +946,7 @@ export async function scrapeWebsite(
     candidateQueue.sort((a, b) => b.score - a.score);
   };
 
-  const firstPage = await fetchAndParse(normalizedUrl);
+  const firstPage = await fetchAndParse(normalizedUrl, logger);
   pages.push(firstPage);
   visited.add(firstPage.url);
   enqueueCandidates(firstPage);
@@ -981,7 +985,7 @@ export async function scrapeWebsite(
 
         if (scored.length > 0) {
           candidateQueue.sort((a, b) => b.score - a.score);
-          console.info(
+          logger.info(
             `[WebScraper] Sitemap fallback: queued ${Math.min(
               scored.length,
               SITEMAP_URL_LIMIT,
@@ -1003,7 +1007,7 @@ export async function scrapeWebsite(
     // URL even if it redirects to another location.
     visited.add(candidate.url);
 
-    const parsed = await tryFetchPage(candidate.url);
+    const parsed = await tryFetchPage(candidate.url, logger);
     if (!parsed) continue;
 
     // Also mark the final resolved URL to prevent duplicates after redirects.

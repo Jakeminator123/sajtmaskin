@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Video, VideoOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   DID_AVATAR_AVAILABLE,
   truncateForSpeech,
@@ -24,12 +26,19 @@ export function SajtagentAvatar() {
         aria-pressed={enabled}
         aria-label={enabled ? "Stäng av avatar" : "Aktivera avatar"}
         onClick={() => setEnabled((value) => !value)}
-        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs"
+        // Samma form som komposerns verktygsknappar; påslaget bär builderns
+        // tonade aktiva läge.
+        className={cn(
+          "focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+          enabled
+            ? "border-primary/50 bg-primary/10 text-foreground hover:bg-primary/15"
+            : "border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground",
+        )}
       >
         {enabled ? (
-          <VideoOff className="size-3.5" />
+          <VideoOff className="size-3" aria-hidden="true" />
         ) : (
-          <Video className="size-3.5" />
+          <Video className="size-3" aria-hidden="true" />
         )}
         {enabled ? "Endast text" : "Avatar"}
       </button>
@@ -80,7 +89,7 @@ function ActiveSajtagentAvatar() {
         : "Ansluter avatar…";
 
   return (
-    <div className="bg-muted/40 mt-2 flex items-center gap-3 rounded-lg border p-2">
+    <div className="border-border bg-muted/30 mt-2 flex items-center gap-3 rounded-xl border p-2.5">
       {avatarReady ? (
         <video
           ref={videoRef}
@@ -90,10 +99,10 @@ function ActiveSajtagentAvatar() {
           className="h-24 w-20 shrink-0 rounded-md bg-black object-cover"
         />
       ) : !failed ? (
-        <Loader2 className="size-5 shrink-0 animate-spin" aria-hidden="true" />
+        <Loader2 className="text-muted-foreground size-5 shrink-0 animate-spin" aria-hidden="true" />
       ) : null}
       <div className="min-w-0 space-y-1">
-        <p className="text-xs" role="status" aria-live="polite">
+        <p className="text-foreground text-xs font-medium" role="status" aria-live="polite">
           {status}
         </p>
         <p className="text-muted-foreground text-[11px]">
@@ -105,13 +114,15 @@ function ActiveSajtagentAvatar() {
               Den tidigare anslutningen avslutas. Försök igen om en stund.
             </p>
           ) : (
-            <button
+            <Button
               type="button"
+              variant="link"
+              size="xs"
               onClick={() => void reconnect()}
-              className="text-xs underline underline-offset-2"
+              className="h-auto px-0"
             >
               Försök ansluta igen
-            </button>
+            </Button>
           )
         ) : null}
       </div>
