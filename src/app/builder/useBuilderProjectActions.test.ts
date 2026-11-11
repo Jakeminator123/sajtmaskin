@@ -110,3 +110,33 @@ describe("useBuilderProjectActions snapshot-only Save", () => {
     expect(saveProjectData).toHaveBeenCalledExactlyOnceWith("project_1", expect.objectContaining({ files: snapshotFiles }));
   });
 });
+
+describe("useBuilderProjectActions resolveSuggestedProjectName", () => {
+  const cafePrompt =
+    "Bygg en hemsida för Café Lindgren, ett familjeägt kafé i Uppsala med surdegsbröd.";
+
+  it("suggests the business name from the first prompt, not its first words (V-03)", () => {
+    const args = makeArgs({
+      pendingProjectName: null,
+      messages: [{ id: "u1", role: "user", content: cafePrompt }],
+    });
+    const { result } = renderHook(() => useBuilderProjectActions(args));
+    expect(result.current.resolveSuggestedProjectName()).toBe("Café Lindgren");
+  });
+
+  it("ignores a placeholder pending name and falls back to the hosting name", () => {
+    const args = makeArgs({ pendingProjectName: "Namnlöst projekt", messages: [] });
+    const { result } = renderHook(() => useBuilderProjectActions(args));
+    expect(result.current.resolveSuggestedProjectName("sajtmaskin-cafe-4ee58be9")).toBe(
+      "sajtmaskin-cafe-4ee58be9",
+    );
+  });
+
+  it("keeps an explicitly chosen name verbatim", () => {
+    const args = makeArgs({ pendingProjectName: "Lindgrens Café & Bageri i Uppsala sedan 1952" });
+    const { result } = renderHook(() => useBuilderProjectActions(args));
+    expect(result.current.resolveSuggestedProjectName()).toBe(
+      "Lindgrens Café & Bageri i Uppsala sedan 1952",
+    );
+  });
+});

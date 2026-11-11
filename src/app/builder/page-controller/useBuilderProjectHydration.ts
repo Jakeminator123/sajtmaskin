@@ -10,6 +10,7 @@ import {
   type PaletteState,
 } from "@/lib/builder/palette";
 import type { ChatMessage } from "@/lib/builder/types";
+import { DEFAULT_PROJECT_NAME } from "@/lib/builder/project-name-suggestion";
 import { getProject, saveProjectData } from "@/lib/projects/project-client";
 import { debugLog } from "@/lib/utils/debug";
 import type { BuilderEntryKind } from "../builder-entry";
@@ -122,7 +123,7 @@ export function useBuilderProjectHydration({
     autoProjectCreateInFlightRef.current = true;
     import("@/lib/projects/project-client")
       .then(({ createProject }) =>
-        createProject("Namnlöst projekt")
+        createProject(DEFAULT_PROJECT_NAME)
           .then((project) => {
             autoProjectInitRef.current = true;
             autoProjectCreateInFlightRef.current = false;

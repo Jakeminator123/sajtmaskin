@@ -9,6 +9,10 @@ import {
   resolveVersionHistorySummary,
   versionHistoryStatusBadge,
   shouldShowVerifiedBadge,
+  versionHistoryPreviewChip,
+  versionHistoryTechnicalDetails,
+  versionHistoryUncheckedReadyBadge,
+  versionHistoryVerificationChip,
 } from "@/lib/builder/version-history-status-labels";
 import { isTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
 import {
@@ -345,131 +349,31 @@ export function VersionHistory({
             const baseLifecycleBadge = versionHistoryStatusBadge(lifecycleDisplay);
             const lifecycleBadge =
               lifecycleStatus === "ready" && (!verifiedForRow || !hasPreviewSurface)
-                ? hasPreviewSurface
-                  ? {
-                      ...baseLifecycleBadge,
-                      label: "Preview startad",
-                      variant: "outline" as const,
-                      className:
-                        "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
-                      tooltip:
-                        "Förhandsvisningen är igång, men versionen är inte helt kontrollerad ännu. Se märkena bredvid.",
-                    }
-                  : {
-                      ...baseLifecycleBadge,
-                      label: "Sparad, preview saknas",
-                      variant: "outline" as const,
-                      className:
-                        "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300",
-                      tooltip:
-                        "Versionen är sparad, men det finns ingen förhandsvisning av den ännu.",
-                    }
+                ? versionHistoryUncheckedReadyBadge(baseLifecycleBadge, hasPreviewSurface)
                 : baseLifecycleBadge;
-            const qualityTierLabel =
-              qualityTier === "tier2"
-                ? "Live-preview startad"
-                : qualityTier === "preview"
-                  ? "Preview-URL finns"
-                  : null;
-            const qualityTierBadgeClass =
-              qualityTier === "tier2"
-                ? "border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300"
-                : qualityTier === "preview"
-                  ? "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300"
-                  : undefined;
-            const verificationBadge =
-              verifiedForRow
-                ? {
-                    label: "Verifierad",
-                    title: "Server-verify eller promotion har passerat för denna version.",
-                    className:
-                      "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-                  }
-                : verificationSurfaceStatus === "design_ready"
-                  ? {
-                      label: "Ej verifierad",
-                      title:
-                        "Designversion: preview kan vara startad, men server-verify körs först vid Bygg integrationer.",
-                      className:
-                        "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300",
-                    }
-                  : verificationSurfaceStatus === "verifying"
-                    ? {
-                        label: "Verifierar",
-                        title: "Server-verify kör fortfarande för denna version.",
-                        className:
-                          "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
-                      }
-                    : verificationSurfaceStatus === "repair_available"
-                      ? {
-                          label: "Fix redo",
-                          title:
-                            "Serverreparation finns men är inte accepterad ännu.",
-                          className:
-                            "border-indigo-500/40 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300",
-                        }
-                      : verificationSurfaceStatus === "failed"
-                        ? {
-                            label: "Ej verifierad",
-                            title: "Verifiering hittade blockerande fel.",
-                            className:
-                              "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300",
-                          }
-                        : verificationSurfaceStatus === "superseded"
-                          ? {
-                              label: "Ersatt",
-                              title:
-                                "En nyare version tog över innan verifieringen hann bli klar. Inte ett fel — den nyare versionen gäller.",
-                              className:
-                                "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-                            }
-                          : null;
+            // V-11: VM/preview-yta och "Ej verifierad" för designversioner är
+            // felsökningsinfo; kortet visar bara det användaren kan agera på.
+            const verificationBadge = versionHistoryVerificationChip(
+              verificationSurfaceStatus,
+              verifiedForRow,
+            );
             const runtimeStatusForRow =
               isSelected && isEngineVersionRow ? selectedPreviewStatus?.status ?? null : null;
-            const runtimeBadge =
-              runtimeStatusForRow === "running"
-                ? {
-                    label: "VM live",
-                    className:
-                      verifiedForRow
-                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                        : "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
-                  }
-                : runtimeStatusForRow === "starting"
-                  ? {
-                      label: "VM startar",
-                      className:
-                        "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
-                    }
-                  : runtimeStatusForRow === "stopped"
-                    ? {
-                        label: "VM stoppad",
-                        className:
-                          "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-                      }
-                    : runtimeStatusForRow === "version_mismatch"
-                      ? {
-                          label: "VM annan version",
-                          className:
-                            "border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300",
-                        }
-                      : runtimeStatusForRow === "missing"
-                        ? {
-                            label: "VM saknas",
-                            className:
-                              "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300",
-                          }
-                        : runtimeStatusForRow === "build_error"
-                          ? {
-                              label: "VM byggfel",
-                              className:
-                                "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300",
-                            }
-                          : null;
+            const runtimeBadge = versionHistoryPreviewChip(runtimeStatusForRow);
             const lifecycleSummary = resolveVersionHistorySummary(
               lifecycleDisplay,
               version.verificationSummary,
             );
+            const technicalDetails = versionHistoryTechnicalDetails({
+              display: lifecycleDisplay,
+              verificationSummary: version.verificationSummary,
+              releaseState: version.releaseState,
+              verificationState: version.verificationState,
+              verificationSurfaceStatus,
+              runtimeStatus: runtimeStatusForRow,
+              qualityTier,
+              previewUrl: listPreviewUrl,
+            });
 
             return (
               <Card
@@ -544,15 +448,6 @@ export function VersionHistory({
                           {lifecycleBadge.retryIcon && <RotateCcw className="h-3 w-3" />}
                           {lifecycleBadge.label}
                         </Badge>
-                        {qualityTierLabel && (
-                          <Badge
-                            variant="outline"
-                            className={cn("px-1.5 py-0 text-[10px]", qualityTierBadgeClass)}
-                            title="Runtime/preview-status: detta säger att en preview-URL eller VM-yta finns, inte att versionen är server-verifierad."
-                          >
-                            {qualityTierLabel}
-                          </Badge>
-                        )}
                         {isEngineVersionRow && verificationBadge && (
                           <Badge
                             variant="outline"
@@ -566,19 +461,7 @@ export function VersionHistory({
                           <Badge
                             variant="outline"
                             className={cn("px-1.5 py-0 text-[10px]", runtimeBadge.className)}
-                            title={
-                              runtimeStatusForRow === "version_mismatch"
-                                ? "Förhandsvisningen visar en annan version än den du valt. Vänta en stund eller öppna förhandsvisningen för att se läget."
-                                : runtimeStatusForRow === "missing"
-                                  ? "Förhandsvisningen för den här versionen är inte igång. Starta den från knappraden."
-                                  : runtimeStatusForRow === "starting"
-                                    ? "Förhandsvisningen startar. Det tar oftast 30–90 sekunder."
-                                    : runtimeStatusForRow === "stopped"
-                                      ? "Förhandsvisningen är pausad. Starta den igen från knappraden för att se versionen."
-                                      : runtimeStatusForRow === "build_error"
-                                        ? "Förhandsvisningen startade, men sidan har ett fel som gör att den inte kan visas. En omstart hjälper inte – be om en rättning i chatten."
-                                        : "Förhandsvisningen är igång."
-                            }
+                            title={runtimeBadge.title}
                           >
                             {runtimeBadge.label}
                           </Badge>
@@ -629,13 +512,24 @@ export function VersionHistory({
                           {lifecycleSummary}
                         </p>
                       )}
-                      {listPreviewUrl && (
-                        <p
-                          className="text-muted-foreground truncate text-xs"
-                          title={listPreviewUrl}
+                      {technicalDetails.length > 0 && (
+                        <details
+                          className="text-muted-foreground text-[11px]"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
                         >
-                          {listPreviewUrl}
-                        </p>
+                          <summary className="hover:text-foreground cursor-pointer select-none">
+                            Tekniska detaljer
+                          </summary>
+                          <dl className="mt-1 space-y-0.5 font-mono">
+                            {technicalDetails.map((row, rowIndex) => (
+                              <div key={`${row.label}-${rowIndex}`} className="flex gap-1.5">
+                                <dt className="shrink-0">{row.label}:</dt>
+                                <dd className="min-w-0 break-all">{row.value}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                        </details>
                       )}
                     </div>
                   </div>

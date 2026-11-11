@@ -10,6 +10,20 @@
 
 export const MAX_SUGGESTED_PROJECT_NAME_LENGTH = 40;
 
+/**
+ * Name the builder gives a project it creates before there is a prompt
+ * (`/builder?new=1`, "Ny chatt"). It means "the user has not named this yet":
+ * the first build and the publish dialog may replace it, never a real name.
+ */
+export const DEFAULT_PROJECT_NAME = "Namnlöst projekt";
+
+/** True for a missing name or the builder's placeholder, never for a name the user chose. */
+export function isDefaultProjectName(name: string | null | undefined): boolean {
+  const trimmed = typeof name === "string" ? name.trim() : "";
+  if (!trimmed) return true;
+  return trimmed.toLocaleLowerCase("sv-SE") === DEFAULT_PROJECT_NAME.toLocaleLowerCase("sv-SE");
+}
+
 // Longest prefix within the cap that ends at a whitespace boundary or at the
 // end of the line (greedy `.` backtracks to the boundary). No `\b`/`\w`, so
 // Swedish å/ä/ö are safe (see unicode-regex.mdc).
@@ -42,23 +56,90 @@ export function suggestProjectNameFromPrompt(prompt: string): string {
   return cut.replace(TRAILING_PUNCTUATION_OR_SPACE, "");
 }
 
-// "En enkel hemsida för en …", "Hemsida till mitt …": the site-type lead-in
-// says nothing about the business. Whitespace-delimited, no `\b` (å/ä/ö).
-const LEAD_IN =
-  /^(?:(?:en|ett|min|mitt|vår|vårt)\s+)?(?:(?:enkel|enkelt|ny|nytt|modern|modernt|snygg|snyggt|liten|litet|professionell|professionellt)\s+)*(?:hemsida|hemsidan|webbsida|webbplats|sajt|sida|landningssida|webbshop|app)\s+(?:för|till|åt|om)\s+(?:(?:en|ett|min|mitt|vår|vårt|mina|våra)\s+)?/iu;
+// All patterns below are whitespace-delimited, no `\b`/`\w` (å/ä/ö).
+const SITE_NOUN =
+  "(?:hemsida|hemsidan|webbsida|webbsidan|webbplats|webbplatsen|sajt|sajten|sida|sidan|landningssida|webbshop|webbutik|e-handel|app|portfolio|portfoliosida|bokningssida|onepager)";
+const DETERMINER = "(?:en|ett|min|mitt|mina|vår|vårt|våra)";
+const ADJECTIVE =
+  "(?:enkel|enkelt|ny|nytt|nya|modern|modernt|snygg|snyggt|liten|litet|professionell|professionellt|egen|eget|fin|fint|stilren|stilrent|responsiv|responsivt)";
+
+// "Hej!", "Hejsan,": a greeting says nothing about the business.
+const GREETING = /^(?:hej|hejsan|hallå|tjena|god\s+(?:morgon|dag|kväll))[\s!,.:]+/iu;
+// "Kan du hjälpa mig att", "Jag vill ha", "Vi behöver", "Snälla": the request.
+const REQUEST_LEAD_IN = new RegExp(
+  "^(?:" +
+    [
+      "(?:kan|kunde|skulle)\\s+(?:du|ni)\\s+(?:snälla\\s+|vänligen\\s+)?(?:hjälpa\\s+(?:mig|oss)\\s+(?:att\\s+|med\\s+(?:att\\s+)?)?)?",
+      "hjälp\\s+(?:mig|oss)\\s+(?:att\\s+|med\\s+(?:att\\s+)?)?",
+      "(?:jag|vi)\\s+(?:vill|skulle\\s+vilja|önskar|behöver)\\s+(?:att\\s+(?:du|ni)\\s+)?(?:ha\\s+|få\\s+)?",
+      "(?:snälla|vänligen|behöver)\\s+",
+    ].join("|") +
+    ")",
+  "iu",
+);
+// "Bygg", "Skapa", "Gör", "Ta fram": the verb in front of the site type.
+const BUILD_VERB =
+  /^(?:bygg|bygga|skapa|gör|göra|designa|ta\s+fram|fixa|utveckla|sätt\s+ihop|sätta\s+ihop|generera|producera)\s+(?:mig\s+|oss\s+)?/iu;
+// "en enkel hemsida för en …", "hemsida till mitt …", "sajt: …".
+const LEAD_IN = new RegExp(
+  `^(?:${DETERMINER}\\s+)?(?:${ADJECTIVE}\\s+)*${SITE_NOUN}(?:\\s+(?:för|till|åt|om)\\s+|\\s*[:–—-]\\s+)(?:${DETERMINER}\\s+)?`,
+  "iu",
+);
+// The remainder is only the site type ("en hemsida"): no name to take.
+const SITE_TYPE_ONLY = new RegExp(
+  `^(?:${DETERMINER}\\s+)?(?:${ADJECTIVE}\\s+)*${SITE_NOUN}$`,
+  "iu",
+);
 const OWNER_LEAD_IN = /^(?:jag|vi)\s+(?:driver|har|äger|är)\s+(?:en|ett)\s+/iu;
+// "mitt företag Nordic Fönster AB": keep the name, drop the generic noun.
+const COMPANY_NOUN =
+  /^(?:företag|företaget|bolag|bolaget|firma|firman|verksamhet|verksamheten)\s+(?=\p{Lu})/u;
+// "… som heter Café Lindgren", "… med namnet Pälsklippet".
+const NAMED = /(?:^|\s)(?:som\s+heter|vid\s+namn|med\s+namnet|kallad|kallat|kallas)\s+(.+)$/iu;
+// A name in quotes right after the lead-in: "Bageri Blå".
+const QUOTED_NAME = /^["“”„«»]([^"“”„«»]{1,60})["“”„«»]/u;
+// First natural boundary: punctuation, a spaced dash, or a clause word.
+// "." and ":" only before whitespace or the end ("cafelindgren.se" stays
+// whole); a clause word only before a lowercase word or a digit, so a name
+// like "Kött med Potatis AB" is kept. No `i` flag: with it \p{Ll} would also
+// match uppercase letters.
+const NATURAL_BOUNDARY =
+  /[,;!?(]|[.:](?=\s|$)|\s[–—-]\s|\s(?:som|med|där|är|vilket|eftersom)\s(?=[\p{Ll}\d])/u;
 const TRAILING_FILLER = /(?:\s+(?:och|i|med|för|på|av|till|som|en|ett|samt))+$/iu;
 
+function cutAtNaturalBoundary(text: string): string {
+  const match = NATURAL_BOUNDARY.exec(text);
+  return (match ? text.slice(0, match.index) : text).trim();
+}
+
+function stripLeadIns(text: string): string {
+  let rest = text.replace(GREETING, "").trim();
+  rest = rest.replace(REQUEST_LEAD_IN, "").trim();
+  rest = rest.replace(BUILD_VERB, "").trim();
+  rest = rest.replace(LEAD_IN, "").trim();
+  rest = rest.replace(OWNER_LEAD_IN, "").trim();
+  return rest.replace(COMPANY_NOUN, "").trim();
+}
+
 /**
- * Short project name from the first prompt: drops a generic "hemsida för en"
- * lead-in, caps on a word boundary, drops a dangling "och/i/med" and
+ * Short project name from the first prompt. Prefers the business name
+ * ("Bygg en hemsida för Café Lindgren, ett familjeägt kafé" → "Café
+ * Lindgren"), otherwise a short description ("Frisörsalong i Malmö"): drops
+ * the greeting/request/site-type lead-in, cuts at the first natural boundary
+ * (comma, period, dash, "som/med/där/är"), caps on a word boundary and
  * capitalises. Returns "" when nothing usable remains.
  */
 export function projectNameFromPrompt(prompt: string): string {
-  const firstLine = prompt.split("\n")[0]?.trim() ?? "";
-  const withoutLeadIn =
-    firstLine.replace(LEAD_IN, "").replace(OWNER_LEAD_IN, "").trim() || firstLine;
-  const cut = suggestProjectNameFromPrompt(withoutLeadIn).replace(TRAILING_FILLER, "").trim();
+  const firstLine = prompt.split("\n").find((line) => line.trim())?.trim() ?? "";
+  if (!firstLine) return "";
+  const rest = stripLeadIns(firstLine);
+
+  const quoted = QUOTED_NAME.exec(rest)?.[1]?.trim();
+  const named = NAMED.exec(rest)?.[1];
+  const candidate = quoted || (named ? cutAtNaturalBoundary(named) : "") || cutAtNaturalBoundary(rest);
+  if (!candidate || SITE_TYPE_ONLY.test(candidate)) return "";
+
+  const cut = suggestProjectNameFromPrompt(candidate).replace(TRAILING_FILLER, "").trim();
   if (!cut) return "";
   return cut.charAt(0).toLocaleUpperCase("sv-SE") + cut.slice(1);
 }
