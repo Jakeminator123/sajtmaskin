@@ -99,8 +99,12 @@ const NAMED = /(?:^|\s)(?:som\s+heter|vid\s+namn|med\s+namnet|kallad|kallat|kall
 // A name in quotes right after the lead-in: "Bageri Blå".
 const QUOTED_NAME = /^["“”„«»]([^"“”„«»]{1,60})["“”„«»]/u;
 // First natural boundary: punctuation, a spaced dash, or a clause word.
+// "." and ":" only before whitespace or the end ("cafelindgren.se" stays
+// whole); a clause word only before a lowercase word or a digit, so a name
+// like "Kött med Potatis AB" is kept. No `i` flag: with it \p{Ll} would also
+// match uppercase letters.
 const NATURAL_BOUNDARY =
-  /[,.;:!?(]|\s[–—-]\s|\s(?:som|med|där|är|vilket|eftersom)\s/iu;
+  /[,;!?(]|[.:](?=\s|$)|\s[–—-]\s|\s(?:som|med|där|är|vilket|eftersom)\s(?=[\p{Ll}\d])/u;
 const TRAILING_FILLER = /(?:\s+(?:och|i|med|för|på|av|till|som|en|ett|samt))+$/iu;
 
 function cutAtNaturalBoundary(text: string): string {

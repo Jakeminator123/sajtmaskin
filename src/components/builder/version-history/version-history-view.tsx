@@ -516,6 +516,7 @@ export function VersionHistory({
                         <details
                           className="text-muted-foreground text-[11px]"
                           onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
                         >
                           <summary className="hover:text-foreground cursor-pointer select-none">
                             Tekniska detaljer

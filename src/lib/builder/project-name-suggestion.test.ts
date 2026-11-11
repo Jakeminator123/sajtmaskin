@@ -34,6 +34,8 @@ describe("projectNameFromPrompt", () => {
     ["Designa en webbshop: Ljusverkstaden, handgjorda ljus från Gotland", "Ljusverkstaden"],
     ["Jag driver en frisörsalong i Göteborg med 3 anställda", "Frisörsalong i Göteborg"],
     ["kaffebar i Visby", "Kaffebar i Visby"],
+    ["Hemsida för Kött med Potatis AB i Gävle", "Kött med Potatis AB i Gävle"],
+    ["Bygg en sida för cafelindgren.se, med meny", "Cafelindgren.se"],
   ])("%s → %s", (prompt, expected) => {
     expect(projectNameFromPrompt(prompt)).toBe(expected);
   });
