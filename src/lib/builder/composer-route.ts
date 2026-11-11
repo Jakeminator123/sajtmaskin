@@ -222,23 +222,35 @@ function normalize(text: string): string {
  * En artig begäran som börjar med ett ändringsverb: «Kan du lägga in den här
  * loggan i sidhuvudet?», «Skulle du kunna byta bilden?», «Can you use this as
  * the hero?». Smalare än `BUILD_TERMS` med flit: «Ska jag ändra loggan?» och
- * «Hur byter jag bilden?» är rådfrågor och matchar inte.
+ * «Hur byter jag bilden?» är rådfrågor och matchar inte. «Skulle du byta …?»
+ * utan «kunna» är oftast en åsiktsfråga och matchar inte heller.
  */
 const POLITE_BUILD_REQUEST = new RegExp(
-  String.raw`^[\s"'«»“”(]*(?:(?:snälla|snalla|please)[\s,]+)?(?:kan|skulle|vill|could|can|would|will)\s+(?:du|ni|you)\s+(?:(?:kunna|please|snälla|snalla|också|ocksa|även|aven)\s+)*` +
+  String.raw`^[\s"'«»“”(]*(?:(?:hej|hejsan|hallå|halla|hi|hello)[\s!,.]+)?(?:(?:snälla|snalla|please)[\s,]+)?(?:(?:kan|vill)\s+(?:du|ni)\s+|skulle\s+(?:du|ni)\s+kunna\s+|(?:could|can|would|will)\s+you\s+)(?:(?:kunna|please|snälla|snalla|också|ocksa|även|aven)\s+)*` +
     uWord(
       [
-        "lägga till", "lagga till", "lägga in", "lagga in", "lägga", "lagga",
+        "lägga till", "lagga till", "lägga in", "lagga in", "lägga upp", "lagga upp", "lägga", "lagga",
         "sätta in", "satta in", "sätta", "satta", "byta ut", "byta", "ersätta", "ersatta",
         "ta bort", "flytta", "ändra", "uppdatera", "använda", "anvanda", "infoga",
-        "göra om", "gora om", "skapa", "bygga", "centrera", "förstora", "forstora",
+        "göra om", "gora om", "göra", "gora", "fixa", "justera", "rätta", "ratta",
+        "färga", "farga", "styla", "designa", "implementera", "skapa", "bygga",
+        "centrera", "förstora", "forstora", "förminska", "forminska", "minska", "öka", "oka",
+        "skriva om", "skriva", "korta", "förkorta", "forkorta", "radera", "dölja", "dolja",
+        "gömma", "gomma", "anpassa", "matcha", "kopiera", "ladda upp",
         "add", "insert", "put", "use", "replace", "swap", "change", "update", "remove",
-        "move", "make", "create", "build", "set",
+        "move", "make", "create", "build", "set", "fix", "adjust", "style", "design",
+        "resize", "rewrite", "write", "hide", "delete", "match", "copy", "apply", "implement",
       ]
         .sort((a, b) => b.length - a.length)
         .map((verb) => verb.replace(/ /g, String.raw`\s+`))
         .join("|"),
     ),
+  "iu",
+);
+
+/** «Kan du göra en bedömning av bilden?» är en fråga, inte en beställning. */
+const POLITE_REVIEW_OBJECT = uWordRegex(
+  "bedömning|bedomning|analys|granskning|genomgång|genomgang|utvärdering|utvardering|jämförelse|jamforelse|review|assessment|analysis",
   "iu",
 );
 
@@ -251,7 +263,12 @@ const POLITE_BUILD_REQUEST = new RegExp(
 export function isAttachmentBuildRequest(rawText: string): boolean {
   const text = normalize(rawText);
   if (!text) return false;
-  return matchesAtStart(BUILD_OPENERS, text.toLowerCase()) || POLITE_BUILD_REQUEST.test(text);
+  if (matchesAtStart(BUILD_OPENERS, text.toLowerCase())) return true;
+  return (
+    POLITE_BUILD_REQUEST.test(text) &&
+    !REVIEW_TERMS.test(text) &&
+    !POLITE_REVIEW_OBJECT.test(text)
+  );
 }
 
 const ABSOLUTE_READ_ONLY = uWordRegex(
