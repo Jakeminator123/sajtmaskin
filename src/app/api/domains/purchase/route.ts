@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
               currency: "sek",
               product_data: {
                 name: `Domän: ${domain}`,
-                description: `Registrering av ${domain} i 1 år via SajtMaskin`,
+                description: `Registrering av ${domain} i 1 år via Sajtmaskin`,
               },
               unit_amount: priceOre,
             },

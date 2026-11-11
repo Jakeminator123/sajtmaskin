@@ -52,7 +52,7 @@ describe("CREDIT_PACKAGES", () => {
     expect(creditPackageIdFromPurchaseDescription("refund")).toBeUndefined();
     expect(creditPackageMeasurement("popular")).toEqual({
       packageId: "popular",
-      name: "Popular",
+      name: "Mellanpaket",
       amount: 9900,
       currency: "SEK",
     });

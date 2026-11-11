@@ -32,7 +32,7 @@ export function buildCreditPackagePriceDataLineItem(
       currency: "sek",
       product_data: {
         name: packageData.name,
-        description: `${packageData.diamonds} credits för SajtMaskin`,
+        description: `${packageData.diamonds} credits för Sajtmaskin`,
         images: [],
       },
       unit_amount: packageData.price * 100, // öre

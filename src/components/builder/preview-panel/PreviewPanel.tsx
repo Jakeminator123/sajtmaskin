@@ -94,6 +94,7 @@ export function PreviewPanel({
   onRestartGeneration,
   templateInitError = null,
   onRetryTemplateInit,
+  hasPrefilledPrompt = false,
   refreshToken,
   onFilesSaved,
   imageGenerationsEnabled = true,
@@ -984,6 +985,7 @@ export function PreviewPanel({
         onRestartGeneration={onRestartGeneration}
         templateInitError={templateInitError}
         onRetryTemplateInit={onRetryTemplateInit}
+        hasPrefilledPrompt={hasPrefilledPrompt}
         externalLoading={externalLoading}
         awaitingInput={awaitingInput}
         awaitingInputQuestion={awaitingInputQuestion}

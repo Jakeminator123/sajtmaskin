@@ -28,6 +28,16 @@ describe("isPipelineInteractionLocked", () => {
   });
 });
 
+describe("isPipelineInteractionLocked with a visible preview", () => {
+  it("releases only background verification once the preview is on screen", () => {
+    expect(isPipelineInteractionLocked("verifying")).toBe(true);
+    expect(isPipelineInteractionLocked("verifying", { previewVisible: false })).toBe(true);
+    expect(isPipelineInteractionLocked("verifying", { previewVisible: true })).toBe(false);
+    expect(isPipelineInteractionLocked("generating", { previewVisible: true })).toBe(true);
+    expect(isPipelineInteractionLocked("repairing", { previewVisible: true })).toBe(true);
+  });
+});
+
 describe("beginPipelineWork", () => {
   it("håller räknaren öppen tills alla release-anrop kommit", () => {
     resetPipelineWorkActivity();

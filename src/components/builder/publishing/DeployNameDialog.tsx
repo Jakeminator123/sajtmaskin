@@ -164,13 +164,23 @@ function DeployNameDialogForm({
       </DialogHeader>
       <div className="space-y-3">
         <div className="space-y-2">
+          <label htmlFor="deploy-name-input" className="text-sm font-medium">
+            Sajtens namn
+          </label>
           <Input
+            id="deploy-name-input"
             value={deployName}
             onChange={(event) => onDeployNameChange(event.target.value)}
             placeholder="t.ex. palma-livsstil"
             disabled={disabled}
+            aria-invalid={deployNameError ? true : undefined}
+            aria-describedby={deployNameError ? "deploy-name-error" : undefined}
           />
-          {deployNameError && <div className="text-xs text-red-400">{deployNameError}</div>}
+          {deployNameError && (
+            <div id="deploy-name-error" className="text-xs text-red-400">
+              {deployNameError}
+            </div>
+          )}
           {previewHost ? (
             <p className="text-muted-foreground text-xs" data-testid="deploy-address-preview">
               {existingHost ? "Adressen är kvar: " : "Sajten får adressen "}

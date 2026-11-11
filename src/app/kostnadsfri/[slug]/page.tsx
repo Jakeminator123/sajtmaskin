@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: PageProps) {
 
   return {
     title: `${companyName} — Kostnadsfri webbsida`,
-    description: "Skapa din kostnadsfria webbsida med SajtMaskin.",
+    description: "Skapa din kostnadsfria webbsida med Sajtmaskin.",
     robots: { index: false, follow: false },
   };
 }

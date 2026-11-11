@@ -24,6 +24,11 @@ import { noteOpenAiRegistrationIfSignup } from "@/lib/ads/fire-openai-ads";
 import { createProject } from "@/lib/projects/project-client";
 import { projectNameFromPrompt } from "@/lib/builder/project-name-suggestion";
 import { trackHomepageEvent } from "@/components/landing-v2/landing-analytics";
+import {
+  LOGIN_REQUIRED_VALUE,
+  LOGIN_RETURN_TO_PARAM,
+  sanitizeLoginReturnTo,
+} from "@/lib/auth/login-required";
 
 const AuthModal = dynamic(
   () => import("@/components/auth/auth-modal").then((m) => m.AuthModal),
@@ -66,6 +71,8 @@ function RootLandingContent() {
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  // Satt när proxyn skickat hit en utloggad besökare från en kundsida.
+  const [loginReturnTo, setLoginReturnTo] = useState<string | null>(null);
   const { fetchUser } = useAuth();
 
   const [buildIntent] = useState<BuildIntent>(DEFAULT_BUILD_INTENT);
@@ -116,6 +123,14 @@ function RootLandingContent() {
       toast.success("Inloggningen lyckades.");
     }
 
+    if (login === LOGIN_REQUIRED_VALUE) {
+      setLoginReturnTo(
+        sanitizeLoginReturnTo(searchParams.get(LOGIN_RETURN_TO_PARAM), window.location.origin),
+      );
+      setAuthMode("login");
+      setShowAuthModal(true);
+    }
+
     if (authError) {
       toast.error(authError);
       setAuthMode("login");
@@ -142,6 +157,7 @@ function RootLandingContent() {
 
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete("login");
+    nextParams.delete(LOGIN_RETURN_TO_PARAM);
     nextParams.delete("signup");
     nextParams.delete("error");
     nextParams.delete("verified");
@@ -332,7 +348,7 @@ function RootLandingContent() {
             <div className="h-px flex-1 bg-linear-to-r from-transparent via-primary/20 to-transparent" />
             <span className="text-xs font-medium text-primary tracking-widest uppercase flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-              Templates
+              Mallar
             </span>
             <div className="h-px flex-1 bg-linear-to-r from-transparent via-primary/20 to-transparent" />
           </div>
@@ -386,8 +402,19 @@ function RootLandingContent() {
 
       <AuthModal
         isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
+        onClose={() => {
+          setShowAuthModal(false);
+          setLoginReturnTo(null);
+        }}
         defaultMode={authMode}
+        returnTo={loginReturnTo ?? undefined}
+        onSuccess={
+          loginReturnTo
+            ? () => {
+                router.push(loginReturnTo);
+              }
+            : undefined
+        }
       />
 
       <PromptWizardModalV2

@@ -9,7 +9,7 @@
 export const CREDIT_PACKAGES = [
   {
     id: "starter",
-    name: "Starter",
+    name: "Startpaket",
     credits: 49,
     price: 49,
     popular: false,
@@ -17,7 +17,7 @@ export const CREDIT_PACKAGES = [
   },
   {
     id: "popular",
-    name: "Popular",
+    name: "Mellanpaket",
     credits: 99,
     price: 99,
     popular: true,
@@ -25,7 +25,7 @@ export const CREDIT_PACKAGES = [
   },
   {
     id: "pro",
-    name: "Pro",
+    name: "Storpaket",
     credits: 179,
     price: 179,
     popular: false,

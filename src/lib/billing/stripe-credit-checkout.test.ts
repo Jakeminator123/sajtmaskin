@@ -126,7 +126,7 @@ describe("createCreditCheckoutSession", () => {
             unit_amount: 9900,
             product_data: {
               name: "Popular",
-              description: "99 credits för SajtMaskin",
+              description: "99 credits för Sajtmaskin",
             },
           },
           quantity: 1,

@@ -31,6 +31,15 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
     return () => el?.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [mobileOpen]);
+
   // "Funktioner" borttagen — features bor numera på /teknik (slimmare, mer
   // företagsriktad nav). Sektionsankare använder absolut "/#…" så de fungerar
   // även från andra sidor än startsidan (t.ex. /teknik).
@@ -145,7 +154,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
               className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary-hover shadow-primary/20 text-sm font-medium shadow-lg"
               onClick={handlePrimaryClick}
             >
-              {isAuthenticated ? "Öppna builder" : "Kom igång gratis"}
+              {isAuthenticated ? "Fortsätt bygga" : "Kom igång gratis"}
             </Button>
           </>
         )}
@@ -229,7 +238,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                     handlePrimaryClick();
                   }}
                 >
-                  {isAuthenticated ? "Öppna builder" : "Kom igång gratis"}
+                  {isAuthenticated ? "Fortsätt bygga" : "Kom igång gratis"}
                 </Button>
               </>
             )}

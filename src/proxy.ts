@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyTokenEdge, getTokenFromRequestEdge, isAdminEmailEdge } from "@/lib/auth/edge-auth";
+import { buildLoginRequiredUrl } from "@/lib/auth/login-required";
+import { getPreviewOriginCspSource } from "@/lib/gen/preview/preview-origin";
 import {
   canonicalPublicUrlForDuplicateHost,
   isDuplicatePublicAliasHost,
@@ -18,6 +20,9 @@ import { PERMISSIONS_POLICY } from "@/lib/security/permissions-policy";
 // ---------------------------------------------------------------------------
 
 const ADMIN_PREFIX = "/admin";
+
+/** Interna testytor utanför /admin som bara admin ska nå (D-ID-piloten). */
+const ADMIN_ONLY_PATHS = new Set(["/avatar"]);
 
 const AUTH_REQUIRED_PATHS = new Set(["/projects", "/buy-credits", "/konto"]);
 
@@ -40,6 +45,7 @@ function isApiRoute(pathname: string): boolean {
 }
 
 function needsAdminAuth(pathname: string): boolean {
+  if (ADMIN_ONLY_PATHS.has(pathname)) return true;
   return pathname === ADMIN_PREFIX || pathname.startsWith(`${ADMIN_PREFIX}/`);
 }
 
@@ -116,7 +122,9 @@ function isAvatarRoute(pathname: string): boolean {
 }
 
 function getTier2PreviewHostCspSources(): string[] {
-  const sources = new Set<string>();
+  // M03: per-chat preview origins are framed regardless of the host's mode, so
+  // flipping PREVIEW_HOST_ORIGIN_MODE never depends on a new app deploy.
+  const sources = new Set<string>([getPreviewOriginCspSource()]);
 
   const baseUrl = process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL?.trim();
   if (baseUrl) {
@@ -373,7 +381,11 @@ export async function proxy(request: NextRequest) {
         return redirect;
       }
     } else if (!payload) {
-      const redirect = NextResponse.redirect(new URL("/", request.url));
+      // Kundsidor: öppna inloggningen på startsidan och skicka tillbaka hit
+      // efteråt, i stället för att tyst kasta besökaren till "/".
+      const redirect = NextResponse.redirect(
+        buildLoginRequiredUrl(request.url, `${pathname}${request.nextUrl.search}`),
+      );
       addSecurityHeaders(redirect, pathname, nonce, enforceCsp, hostname);
       return redirect;
     }

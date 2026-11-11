@@ -40,7 +40,7 @@ describe("Navbar auth-hydration", () => {
     expect(screen.queryByText("Logga in")).toBeNull();
     expect(screen.queryByText("Kom igång gratis")).toBeNull();
     expect(screen.queryByText("Mina projekt")).toBeNull();
-    expect(screen.queryByText("Öppna builder")).toBeNull();
+    expect(screen.queryByText("Fortsätt bygga")).toBeNull();
   });
 
   it("renders guest CTAs once initialized and unauthenticated", () => {
@@ -53,11 +53,11 @@ describe("Navbar auth-hydration", () => {
     authState.isAuthenticated = true;
     render(<Navbar />);
     expect(screen.getByText("Mina projekt")).toBeTruthy();
-    expect(screen.getByText("Öppna builder")).toBeTruthy();
+    expect(screen.getByText("Fortsätt bygga")).toBeTruthy();
     expect(screen.queryByText("Logga in")).toBeNull();
     expect(screen.queryByText("Admin")).toBeNull();
 
-    fireEvent.click(screen.getByText("Öppna builder"));
+    fireEvent.click(screen.getByText("Fortsätt bygga"));
     expect(routerPush).toHaveBeenCalledWith("/builder?new=1");
   });
 

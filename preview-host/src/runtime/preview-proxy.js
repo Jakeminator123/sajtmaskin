@@ -13,6 +13,7 @@ const {
   clearPreviewSocketCandidate,
   findSessionByChatId,
   getPendingPreviewClientReloadToken,
+  getSessionChatId,
   hasPendingPreviewClientReload,
   isHmrProxyEnabled,
   markPreviewDocumentServed,
@@ -33,6 +34,11 @@ const {
   inspectInjectionScriptSrc: buildInspectInjectionScriptSrc,
 } = require("./inspect-bridge-src.js");
 const { renderPreviewPlaceholderPage } = require("./preview-placeholder-page.js");
+const {
+  classifyRequestHost,
+  previewOriginForSlug,
+  sessionPreviewOriginSlug,
+} = require("./preview-origin.js");
 
 // Betrodda parent-origins för route-bryggan och Inspector-bryggan. De kommer
 // bara från hostens egen env och normaliseras till exakta HTTP(S)-origins. Att
@@ -311,6 +317,42 @@ function sendHeldPreviewErrorPage(res, session) {
     "cache-control": "no-store",
   });
   res.end(renderPreviewPlaceholderPage("error"));
+  return true;
+}
+
+const CONTROL_PLANE_PATH_RE = /^\/(?:admin|preview|health)(?:\/|$)/;
+
+/**
+ * The builder knows the deterministic preview URL before the app has started
+ * the chat's host session, so the first iframe navigation can arrive while no
+ * session exists (prod 2026-11-11: raw JSON 404 in the iframe for ~40 s).
+ * A real browser navigation to `/:chatId/*` gets the host start page instead;
+ * it reloads itself every 4 s and the app's probe classifies it as
+ * `boot_page`. Everything else keeps the 404: probes, fetches and curl (no
+ * navigate metadata), control-plane paths, root-absolute Next/API paths, the
+ * base host in subdomain mode, and a preview origin whose slug already owns a
+ * chat (it never serves a page for another chat path, M03).
+ */
+function sendPendingSessionNavigationPage(req, res, pathname) {
+  if (CONTROL_PLANE_PATH_RE.test(pathname)) return false;
+  if (NEXT_INTERNAL_ROOT_PATH_RE.test(pathname) || APP_API_ROOT_PATH_RE.test(pathname)) {
+    return false;
+  }
+  const info = routeInfoFromPathname(pathname);
+  if (!info || !isPreviewDocumentNavigation(req, info.restPath)) return false;
+  const host = classifyRequestHost(req);
+  if (host.kind === "preview") {
+    if (chatStateForPreviewOriginSlug(host.slug)) return false;
+  } else if (host.kind !== "disabled") {
+    return false;
+  }
+  if (!res || res.headersSent || res.writableEnded) return false;
+  res.writeHead(503, {
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": "no-store",
+    "retry-after": "4",
+  });
+  res.end(renderPreviewPlaceholderPage("starting"));
   return true;
 }
 
@@ -595,6 +637,124 @@ function rootAbsoluteRefererFallback(req, pathname) {
   return { info: { chatId: refChatId, restPath: pathname }, state: refState };
 }
 
+/** Delad-origin-uppslagning (path-läge): första sökvägssegmentet, annars Referer. */
+function resolveSharedOriginTarget(req, pathname) {
+  const info = routeInfoFromPathname(pathname);
+  if (!info) return null;
+  const state = getRuntimeStateForChat(info.chatId);
+  if (state.session) return { info, state };
+  return rootAbsoluteRefererFallback(req, pathname);
+}
+
+// M03: slug → chatId för rotabsoluta sökvägar på en preview-origin. Byggs om
+// från store vid miss; varje träff kontrolleras ändå mot sessionen nedan, så ett
+// inaktuellt index kan aldrig routa en värd till fel chatt.
+let previewOriginSlugIndex = new Map();
+
+function rebuildPreviewOriginSlugIndex() {
+  const next = new Map();
+  const nowMs = Date.now();
+  for (const session of Object.values(readStoreSync().sessions ?? {})) {
+    if (!session || session.status === "destroyed") continue;
+    const expiresAt = Date.parse(session.sessionExpiresAt);
+    if (Number.isFinite(expiresAt) && nowMs > expiresAt) continue;
+    const chatId = getSessionChatId(session);
+    if (!chatId) continue;
+    next.set(sessionPreviewOriginSlug(session, chatId), chatId);
+  }
+  previewOriginSlugIndex = next;
+}
+
+function stateOwnedBySlug(chatId, slug) {
+  if (!chatId) return null;
+  const state = getRuntimeStateForChat(chatId);
+  if (!state.session) return null;
+  return sessionPreviewOriginSlug(state.session, chatId) === slug ? state : null;
+}
+
+function chatStateForPreviewOriginSlug(slug) {
+  const cached = stateOwnedBySlug(previewOriginSlugIndex.get(slug), slug);
+  if (cached) return { chatId: previewOriginSlugIndex.get(slug), state: cached };
+  rebuildPreviewOriginSlugIndex();
+  const chatId = previewOriginSlugIndex.get(slug);
+  const state = stateOwnedBySlug(chatId, slug);
+  return state ? { chatId, state } : null;
+}
+
+/**
+ * Den enda origin-medvetna punkten i proxyn. Returnerar:
+ *   - `null`                         ej en preview-request (anroparen faller vidare)
+ *   - `{ type: "proxy", info, state }`
+ *   - `{ type: "redirect", location }` (bas-värd i subdomän-läge, eller `/` på en preview-origin)
+ *   - `{ type: "unavailable" }`     subdomän begärd men felkonfigurerad
+ * Allt efter uppslagningen (bootstrap, inspector, Origin-strip, HMR) är oförändrat.
+ */
+function resolvePreviewTarget(req, pathname, search = "") {
+  const host = classifyRequestHost(req);
+  if (host.kind === "disabled") {
+    const target = resolveSharedOriginTarget(req, pathname);
+    return target ? { type: "proxy", ...target } : null;
+  }
+  if (host.kind === "unavailable") {
+    return resolveSharedOriginTarget(req, pathname) ? { type: "unavailable" } : null;
+  }
+  if (host.kind === "foreign") return null;
+  if (host.kind === "control") {
+    // Bas-värden serverar inga previews i subdomän-läge: skicka vidare till
+    // chattens egen origin. 307 (aldrig 308) så att rollback till path-läge
+    // inte fastnar i en cachad redirect.
+    const target = resolveSharedOriginTarget(req, pathname);
+    if (!target) return null;
+    const slug = sessionPreviewOriginSlug(target.state.session, target.info.chatId);
+    return {
+      type: "redirect",
+      location: `${previewOriginForSlug(slug, host.config)}${pathname}${search}`,
+    };
+  }
+  // host.kind === "preview": värdens slug är auktoritet, Referer behövs inte.
+  const info = routeInfoFromPathname(pathname);
+  if (info) {
+    const direct = stateOwnedBySlug(info.chatId, host.slug);
+    if (direct) return { type: "proxy", info, state: direct };
+  }
+  const isRoot = pathname === "/";
+  if (
+    !isRoot &&
+    !NEXT_INTERNAL_ROOT_PATH_RE.test(pathname) &&
+    !APP_API_ROOT_PATH_RE.test(pathname)
+  ) {
+    return null;
+  }
+  const owned = chatStateForPreviewOriginSlug(host.slug);
+  if (!owned) return null;
+  if (isRoot) {
+    return { type: "redirect", location: `/${encodeURIComponent(owned.chatId)}${search}` };
+  }
+  return {
+    type: "proxy",
+    info: { chatId: owned.chatId, restPath: pathname },
+    state: owned.state,
+  };
+}
+
+function sendPreviewOriginRedirect(res, location) {
+  res.writeHead(307, { Location: location, "Cache-Control": "no-store" });
+  res.end();
+}
+
+function sendPreviewOriginUnavailable(res) {
+  const body = JSON.stringify({
+    error: "preview_origin_unavailable",
+    message:
+      "Per-chat preview origins are enabled but misconfigured on this host (see /health).",
+  });
+  res.writeHead(503, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  res.end(body);
+}
+
 /**
  * The prewarm runtime is intentionally never public. While it is warming (or a
  * real replacement is pending), HTTP uses the host-owned start/error document
@@ -690,17 +850,20 @@ function previewRedirectLocation(location, viewerId, req, chatId, inspectEnabled
 }
 
 async function proxyPreviewRequest(req, res, pathname, search = "") {
-  let info = routeInfoFromPathname(pathname);
-  if (!info) return false;
-  let state = getRuntimeStateForChat(info.chatId);
-  if (!state.session) {
-    // Root-absolute Next internals and browser-initiated `/api/*` calls arrive
-    // WITHOUT the multiplexing prefix. Recover it from the iframe Referer.
-    const fallback = rootAbsoluteRefererFallback(req, pathname);
-    if (!fallback) return false;
-    info = fallback.info;
-    state = fallback.state;
+  // Root-absolute Next internals and browser-initiated `/api/*` calls arrive
+  // WITHOUT the multiplexing prefix. Path mode recovers it from the iframe
+  // Referer; a per-chat preview origin recovers it from the Host slug.
+  const target = resolvePreviewTarget(req, pathname, search);
+  if (!target) return sendPendingSessionNavigationPage(req, res, pathname);
+  if (target.type === "redirect") {
+    sendPreviewOriginRedirect(res, target.location);
+    return true;
   }
+  if (target.type === "unavailable") {
+    sendPreviewOriginUnavailable(res);
+    return true;
+  }
+  const { info, state } = target;
   if (!state.session) return false;
 
   // Host-owned scripts are deliberately scoped below a currently usable
@@ -823,17 +986,23 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
 }
 
 async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
-  let info = routeInfoFromPathname(pathname);
-  if (!info) return false;
-  // Mirror the HTTP fallback for root-absolute runtime WS upgrades.
-  let state = getRuntimeStateForChat(info.chatId);
-  if (!state.session) {
-    const fallback = rootAbsoluteRefererFallback(req, pathname);
-    if (fallback) {
-      info = fallback.info;
-      state = fallback.state;
-    }
+  // Mirror the HTTP lookup for root-absolute runtime WS upgrades. A socket
+  // cannot follow a redirect: on the base host in subdomain mode (or when the
+  // origin config is broken) it is closed, and the reloaded page reconnects
+  // on its own origin.
+  const target = resolvePreviewTarget(req, pathname, search);
+  if (target && target.type !== "proxy") {
+    try { socket.destroy(); } catch { /* already closed */ }
+    return true;
   }
+  const info = target?.info ?? routeInfoFromPathname(pathname);
+  if (!info) return false;
+  if (!target && classifyRequestHost(req).kind !== "disabled") {
+    // Subdomain mode: an unresolved upgrade never falls through to a
+    // chatId-keyed boot (a preview origin only ever serves its own chat).
+    return false;
+  }
+  const state = target?.state ?? getRuntimeStateForChat(info.chatId);
   const hmrIdentity = isHmrPath(info.restPath)
     ? previewHmrIdentityFromSearch(search)
     : null;
@@ -1507,6 +1676,7 @@ proxy.on("error", (err, req, res) => {
 module.exports = {
   proxyPreviewRequest,
   proxyPreviewUpgrade,
+  resolvePreviewTarget,
   chatIdFromReferer,
   previewViewerIdFromRequest,
   previewViewerIdFromSearch,
