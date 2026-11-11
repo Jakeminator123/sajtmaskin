@@ -300,6 +300,31 @@ describe("handleSseStream", () => {
     );
   });
 
+  // V-04 (2026-11-11): `done` betyder sparad version, inte synlig sajt.
+  it("säger att sajten är sparad och att förhandsvisningen startar, inte att den är klar", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent("content", { text: "Byggt." }, "");
+        onEvent("done", { chatId: "chat_1", versionId: "ver_1", previewPending: true }, "");
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx } = createContext(store.setMessages);
+
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    expect(toast.success).toHaveBeenCalledWith("Sajten är sparad", {
+      description: "Förhandsvisningen startar strax.",
+      position: "bottom-right",
+    });
+    expect(toast.success).not.toHaveBeenCalledWith("Sajt skapad!");
+  });
+
   // Plan-läget avslutar utan version och utan preview — planen är resultatet.
   // Utan planArtifact i `hasRecoveredArtifact` tog empty-output-grenen över och
   // visade ett fel för en fullt lyckad plan.

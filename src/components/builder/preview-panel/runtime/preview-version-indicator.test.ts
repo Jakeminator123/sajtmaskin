@@ -78,14 +78,9 @@ describe("describePreviewVersionIndicator", () => {
     ).toEqual({ text: "Version 2 är sparad, förhandsvisningen visar en annan version", tone: "attention" });
   });
 
-  it("falls back to 'vald version' without a number", () => {
-    expect(describePreviewVersionIndicator({ hasVersion: true })).toEqual({
-      text: "Visar vald version",
-      tone: "live",
-    });
-    expect(describePreviewVersionIndicator({ hasVersion: true, versionNumber: 0, iframeLoading: true })).toEqual({
-      text: "Vald version är sparad, förhandsvisningen startar",
-      tone: "pending",
-    });
+  it("shows nothing until the version number is known", () => {
+    expect(describePreviewVersionIndicator({ hasVersion: true })).toBeNull();
+    expect(describePreviewVersionIndicator({ hasVersion: true, versionNumber: null, iframeLoading: true })).toBeNull();
+    expect(describePreviewVersionIndicator({ hasVersion: true, versionNumber: 0, iframeLoading: true })).toBeNull();
   });
 });

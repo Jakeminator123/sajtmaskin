@@ -43,8 +43,10 @@ export function describePreviewVersionIndicator(input: {
 }): PreviewVersionIndicator | null {
   if (!input.hasVersion) return null;
   const n = input.versionNumber;
-  const label =
-    typeof n === "number" && Number.isSafeInteger(n) && n > 0 ? `version ${n}` : "vald version";
+  // Nothing rather than a text without a number (rig 2026-11-11: "Vald
+  // version är sparad" showed for 1,3 s before the version list arrived).
+  if (typeof n !== "number" || !Number.isSafeInteger(n) || n <= 0) return null;
+  const label = `version ${n}`;
   const saved = `${label.charAt(0).toUpperCase()}${label.slice(1)} är sparad`;
   if (input.hasVersionMismatch) {
     return { text: `${saved}, förhandsvisningen visar en annan version`, tone: "attention" };

@@ -21,6 +21,40 @@ function renderFrame(props: Partial<React.ComponentProps<typeof PreviewPanelFram
   );
 }
 
+describe("PreviewPanelFrame — Dator/Mobil", () => {
+  it("smalnar av ramen till mobilbredd utan att montera om eller ladda om iframen", () => {
+    const handleIframeLoad = vi.fn();
+    const props = {
+      isLoading: false,
+      iframeError: false,
+      iframeErrorMessage: null,
+      iframeDiagnosticCode: null,
+      iframeRunbookLines: [],
+      handleOpenInNewTab: vi.fn(),
+      previewSrc: "https://preview.example/ver_1",
+      iframeRef: { current: null },
+      handleIframeLoad,
+      handleIframeError: vi.fn(),
+    };
+    const view = render(<PreviewPanelFrame {...props} />);
+    const iframe = screen.getByTitle("Preview");
+    const frame = view.container.firstElementChild as HTMLElement;
+    expect(frame.dataset.previewDevice).toBe("desktop");
+    expect(frame.className).not.toContain("max-w-[390px]");
+
+    view.rerender(<PreviewPanelFrame {...props} previewDevice="mobile" />);
+    expect(screen.getByTitle("Preview")).toBe(iframe);
+    expect(iframe.getAttribute("src")).toBe("https://preview.example/ver_1");
+    expect(frame.dataset.previewDevice).toBe("mobile");
+    expect(frame.className).toContain("max-w-[390px]");
+
+    view.rerender(<PreviewPanelFrame {...props} previewDevice="desktop" />);
+    expect(screen.getByTitle("Preview")).toBe(iframe);
+    expect(frame.className).not.toContain("max-w-[390px]");
+    expect(handleIframeLoad).not.toHaveBeenCalled();
+  });
+});
+
 describe("PreviewPanelFrame — loading-overlayens debounce och hard-cap", () => {
   it("mountar inte en blank iframe innan den riktiga preview-källan finns", () => {
     const handleIframeLoad = vi.fn();
