@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
+import { toPublicAuthUser } from "@/lib/auth/public-user";
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,16 +16,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         success: true,
         authenticated: true,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          diamonds: user.diamonds,
-          freeGenerationAvailable: user.free_generation_available,
-          provider: user.provider,
-          emailVerified: user.email_verified,
-        },
+        user: toPublicAuthUser(user),
       });
     }
 
