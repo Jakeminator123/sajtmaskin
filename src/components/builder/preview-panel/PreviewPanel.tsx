@@ -28,6 +28,10 @@ import { PreviewPanelEmptyState } from "./PreviewPanelEmptyState";
 import { PreviewPanelSurface } from "./runtime/PreviewPanelSurface";
 import { describePreviewVersionIndicator } from "./runtime/preview-version-indicator";
 import type { PreviewDevice } from "./runtime/preview-device";
+import {
+  clearPreviewVisibleVersion,
+  setPreviewVisibleVersion,
+} from "@/lib/builder/preview-visible-version";
 import type { PreviewIssuePayload } from "./runtime/iframe-diagnostics";
 import { fetchChatVersionFilesJson } from "./code/chat-version-files-fetch";
 import { usePreviewHeartbeat } from "./runtime/usePreviewHeartbeat";
@@ -854,6 +858,20 @@ export function PreviewPanel({
       hasVersionMismatch,
     ],
   );
+  // Publish the same truth for surfaces outside the panel (chat feedback).
+  const versionIndicatorTone = versionIndicator?.tone ?? null;
+  useEffect(() => {
+    if (!chatId || !versionId) {
+      clearPreviewVisibleVersion();
+      return;
+    }
+    setPreviewVisibleVersion({
+      chatId,
+      versionId,
+      state: versionIndicatorTone === "live" ? "showing" : "starting",
+    });
+  }, [chatId, versionId, versionIndicatorTone]);
+  useEffect(() => () => clearPreviewVisibleVersion(chatId), [chatId]);
   const activePreviewRoute = useMemo(() => {
     if (observedPreviewRoute) return observedPreviewRoute;
     if (!previewUrl) return null;
