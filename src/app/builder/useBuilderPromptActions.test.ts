@@ -84,6 +84,36 @@ describe("useBuilderPromptActions", () => {
     sessionStorage.clear();
   });
 
+  it("shows the message and a working card before Deep Brief, and removes them if no chat starts", async () => {
+    const brief = deferred<Record<string, unknown> | null>();
+    const setMessages = vi.fn();
+    const args = makeArgs({
+      isAuthReady: true,
+      isAuthenticated: true,
+      setMessages,
+      generateDynamicInstructions: vi.fn(() => brief.promise),
+      createNewChat: vi.fn(async () => false),
+    });
+    const { result } = renderHook(() => useBuilderPromptActions(args));
+    let pending!: Promise<unknown>;
+    act(() => {
+      pending = result.current.requestCreateChat("Frisör i Malmö");
+    });
+
+    const optimistic = setMessages.mock.calls[0]?.[0] as Array<{ role: string; content: string; isStreaming?: boolean }>;
+    expect(optimistic.map((m) => m.role)).toEqual(["user", "assistant"]);
+    expect(optimistic[0].content).toBe("Frisör i Malmö");
+    expect(optimistic[1].isStreaming).toBe(true);
+
+    await act(async () => {
+      brief.resolve(null);
+      await pending;
+    });
+    const cleanup = setMessages.mock.calls.at(-1)?.[0] as (prev: unknown[]) => unknown[];
+    expect(typeof cleanup).toBe("function");
+    expect(cleanup(optimistic)).toEqual([]);
+  });
+
   it("does not start two Deep Brief requests for duplicate init submits", async () => {
     const brief = deferred<Record<string, unknown> | null>();
     const generateDynamicInstructions = vi.fn(() => brief.promise);

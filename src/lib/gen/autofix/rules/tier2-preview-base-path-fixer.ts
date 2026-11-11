@@ -27,7 +27,7 @@ export function ensureTier2PreviewBasePathInNextConfig(
   }
   const nextCode = code.replace(
     re,
-    `$1\n  ...(process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim()\n    ? { basePath: process.env.SAJTMASKIN_PREVIEW_BASE_PATH.trim() }\n    : {}),`,
+    `$1\n  ...(process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim()\n    ? { basePath: process.env.SAJTMASKIN_PREVIEW_BASE_PATH.trim(), devIndicators: false as const }\n    : {}),`,
   );
   return { code: nextCode, fixed: nextCode !== code };
 }

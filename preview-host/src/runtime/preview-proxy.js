@@ -320,6 +320,42 @@ function sendHeldPreviewErrorPage(res, session) {
   return true;
 }
 
+const CONTROL_PLANE_PATH_RE = /^\/(?:admin|preview|health)(?:\/|$)/;
+
+/**
+ * The builder knows the deterministic preview URL before the app has started
+ * the chat's host session, so the first iframe navigation can arrive while no
+ * session exists (prod 2026-11-11: raw JSON 404 in the iframe for ~40 s).
+ * A real browser navigation to `/:chatId/*` gets the host start page instead;
+ * it reloads itself every 4 s and the app's probe classifies it as
+ * `boot_page`. Everything else keeps the 404: probes, fetches and curl (no
+ * navigate metadata), control-plane paths, root-absolute Next/API paths, the
+ * base host in subdomain mode, and a preview origin whose slug already owns a
+ * chat (it never serves a page for another chat path, M03).
+ */
+function sendPendingSessionNavigationPage(req, res, pathname) {
+  if (CONTROL_PLANE_PATH_RE.test(pathname)) return false;
+  if (NEXT_INTERNAL_ROOT_PATH_RE.test(pathname) || APP_API_ROOT_PATH_RE.test(pathname)) {
+    return false;
+  }
+  const info = routeInfoFromPathname(pathname);
+  if (!info || !isPreviewDocumentNavigation(req, info.restPath)) return false;
+  const host = classifyRequestHost(req);
+  if (host.kind === "preview") {
+    if (chatStateForPreviewOriginSlug(host.slug)) return false;
+  } else if (host.kind !== "disabled") {
+    return false;
+  }
+  if (!res || res.headersSent || res.writableEnded) return false;
+  res.writeHead(503, {
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": "no-store",
+    "retry-after": "4",
+  });
+  res.end(renderPreviewPlaceholderPage("starting"));
+  return true;
+}
+
 function refuseHeldPreviewUpgrade(socket, failed) {
   if (!socket || socket.destroyed) return;
   const message = failed
@@ -818,7 +854,7 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
   // WITHOUT the multiplexing prefix. Path mode recovers it from the iframe
   // Referer; a per-chat preview origin recovers it from the Host slug.
   const target = resolvePreviewTarget(req, pathname, search);
-  if (!target) return false;
+  if (!target) return sendPendingSessionNavigationPage(req, res, pathname);
   if (target.type === "redirect") {
     sendPreviewOriginRedirect(res, target.location);
     return true;

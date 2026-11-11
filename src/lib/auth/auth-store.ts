@@ -17,6 +17,8 @@ export interface AuthUser {
   diamonds: number;
   freeGenerationAvailable?: boolean;
   emailVerified?: boolean;
+  /** From `/api/auth/me`; display only (internal generation details). */
+  isAdmin?: boolean;
   /** `kostnadsfri*`: kampanjkonto från en inbjudningslänk (lib/kostnadsfri/campaign-account). */
   provider: "google" | "email" | "anonymous" | "kostnadsfri" | "kostnadsfri_claimed";
   /** GitHub login when connected. The OAuth token never reaches the browser. */
