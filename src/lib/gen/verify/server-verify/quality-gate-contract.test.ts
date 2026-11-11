@@ -49,14 +49,17 @@ import { INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS } from "../quality-gate-checks";
 import * as tier3 from "../tier3-readiness";
 import * as f3 from "./f3-readiness";
 import * as lease from "./lease";
-import { runVersionQualityGateUnderLease } from "./verify-run";
+import { qualityGateHttpResponse } from "./quality-gate-http";
+import { verificationOutcomeFromQualityGate } from "./quality-gate-outcome";
+import { runVersionQualityGateUnderLease } from "./quality-gate-run";
 
 type GateParams = Parameters<typeof runVersionQualityGateUnderLease>[0];
 
 /** Enda implementationsberoende delen: status/body till klienten + kedjans utfall. */
 async function runGate(params: GateParams) {
-  const { body, status, ...verification } = await runVersionQualityGateUnderLease(params);
-  return { status, body, verification };
+  const outcome = await runVersionQualityGateUnderLease(params);
+  const { status, body } = qualityGateHttpResponse(outcome);
+  return { status, body, verification: verificationOutcomeFromQualityGate(outcome), outcome };
 }
 
 const NOW = 1_800_000_000_000;
