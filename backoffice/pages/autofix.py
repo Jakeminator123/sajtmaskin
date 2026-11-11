@@ -95,8 +95,10 @@ LLM-generering
      |
 === SPARAS I DATABAS ===
      |
-[Post-checks / CapabilitySmoke]  ← klient, efter DB-sparning
-     |                  (kan trigga RepairGate)
+[Efterkontroller]  ← servern: runVersionPostchecks() direkt efter finalize
+     |               (product postcheck mot preview + RenderGate/ReleaseGate)
+     |               återupptag: /api/engine/chats/[chatId]/postchecks,
+     |               cron /api/engine/postchecks (opt-in)
 [RenderGate / ReleaseGate] ← VM, npx tsc --noEmit (+ build/lint i F3)
      |                  (kan trigga server repair → RepairGate)
 [Server repair pass]  ← delad runRepairLoop() via RepairGate
@@ -110,7 +112,7 @@ LLM-generering
 """
     )
     st.caption(
-        "Preflight kan stoppa leverans före databasen. Verifier-pass i finalize är hybrid (deterministiska guards som `undefined-jsx-symbol` + LLM-audit) — Blocker-fynd matas in i RepairGate men stoppar inte persist om de inte är render-/build-breaking. Post-checks/CapabilitySmoke och RenderGate/ReleaseGate körs efter att versionen har sparats. Serverrepair appliceras inte längre tyst: först `repair_available`, sedan `accept-repair` (eller timeout-autoaccept)."
+        "Preflight kan stoppa leverans före databasen. Verifier-pass i finalize är hybrid (deterministiska guards som `undefined-jsx-symbol` + LLM-audit) — Blocker-fynd matas in i RepairGate men stoppar inte persist om de inte är render-/build-breaking. Efterkontrollerna ägs av servern sedan #1593 (`src/lib/gen/verify/server-verify/verify-run.ts`); klienten orkestrerar dem inte längre utan visar bara status. Klientens `useAutoFix.ts` kan fortfarande begära RepairGate med gränserna nedan. Serverrepair appliceras inte tyst: först `repair_available`, sedan `accept-repair` (eller timeout-autoaccept). Cron-återupptaget kräver `SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED=1`."
     )
 
     st.divider()

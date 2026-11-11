@@ -47,6 +47,10 @@ _TIMEOUT_S = 60
 # SM-017: kolumnen är finalize-only. Visad grind slår ihop den med senaste
 # `product_postcheck.summary` (`product_blocked`) så en spärrad produktkontroll
 # inte renderas som `preflight_passed`.
+# Tidsstämplarna är ISO-UTC från Postgres (`timestamptz` → JSON `...Z`) och
+# kortas till 19 tecken, alltså utan `Z`. Rubriken säger därför tidszonen —
+# annars läses 02:23 som svensk tid när det är 03:23 lokalt.
+COLUMN_TIME = "Tid (UTC)"
 COLUMN_QUALITY_GATE = "Kvalitetsgrind"
 COLUMN_NORMALIZE = "Normalize"
 COLUMN_REPAIR_GATE = "RepairGate"
@@ -59,7 +63,9 @@ GATE_COLUMN_LEGEND = (
     f"**{COLUMN_QUALITY_GATE}** = RenderGate när Stage är `design`/F2, ReleaseGate när "
     "Stage är `integrations`/F3. Visad grind slår ihop finalize "
     "(`quality_gate_result`) med senaste `product_postcheck.summary`: "
-    "`product_blocked` när postchecken spärrade trots `preflight_passed`. · "
+    "`product_blocked` när postchecken spärrade trots `preflight_passed`, "
+    "`product_postcheck_degraded` när senaste postchecken hoppades över "
+    "(`product_postcheck.skipped`) — då är DOM-kontrollen inte gjord. · "
     f"**{COLUMN_NORMALIZE}** = mekaniska, deterministiska fixar kördes "
     "(DB: `autofix_applied`) · "
     f"**{COLUMN_REPAIR_GATE}** = LLM-repair behövdes efter dem "
@@ -178,6 +184,40 @@ def _preview_label(value: Any, created_at: Any = None) -> str:
     return "pending"
 
 
+def _preview_summary(rows: list[dict[str, Any]]) -> dict[str, int]:
+    """KPI-räkning med SAMMA etiketter som tabellens Preview-kolumn.
+
+    Scriptets ``summary.success`` räknade tidigare varje ``preview_success =
+    true`` — även rader före M#pv1-cutoffen som tabellen visar som
+    ``legacy (preflight)``. KPI:n "Preview ok" ska bara vara runtime-ready.
+    """
+    counts = {"total": 0, "ready": 0, "legacy": 0, "failed": 0, "pending": 0}
+    for row in rows:
+        label = _preview_label(row.get("preview_success"), row.get("created_at"))
+        counts["total"] += 1
+        if label == "ready":
+            counts["ready"] += 1
+        elif label == "legacy (preflight)":
+            counts["legacy"] += 1
+        elif label == "failed":
+            counts["failed"] += 1
+        else:
+            counts["pending"] += 1
+    return counts
+
+
+def _render_db_target(payload: dict[str, Any]) -> None:
+    """Visa vilken DB scriptet läste (DEV/PROD) — varningen på stderr syns inte."""
+    target = payload.get("target")
+    if target:
+        st.caption(f"DB: `{target}`")
+    if payload.get("isProdLike"):
+        st.warning(
+            "DB-målet matchar `.env.vercel.production.pulled` — du läser "
+            "produktionslik data (read-only)."
+        )
+
+
 def _short(value: Any, length: int = 36) -> str:
     text = "" if value is None else str(value)
     return text[:length]
@@ -188,7 +228,7 @@ def _recent_dataframe(rows: list[dict[str, Any]]) -> pd.DataFrame:
     for r in rows:
         out.append(
             {
-                "Tid": _short(r.get("created_at"), 19),
+                COLUMN_TIME: _short(r.get("created_at"), 19),
                 "Projekt": r.get("project_name") or "—",
                 "Chatt": r.get("chat_title") or _short(r.get("chat_id"), 12),
                 "v#": r.get("version_number"),
@@ -216,6 +256,7 @@ def _render_chat_detail(ctx: BackofficeContext, chat_id: str) -> None:
         st.error(f"Kunde inte hämta chatt-detaljer: {payload['error']}")
         return
 
+    _render_db_target(payload)
     chat = payload.get("chat") or {}
     if chat.get("missing"):
         st.warning(f"Hittade ingen chatt med id `{chat_id}`.")
@@ -240,7 +281,7 @@ def _render_chat_detail(ctx: BackofficeContext, chat_id: str) -> None:
                         "Verify": v.get("verification_state") or "—",
                         "Parent": _short(v.get("parent_version_id"), 12) or "—",
                         "Preview-URL": "ja" if v.get("preview_url") else "nej",
-                        "Tid": _short(v.get("created_at"), 19),
+                        COLUMN_TIME: _short(v.get("created_at"), 19),
                         "version_id": _short(v.get("id"), 16),
                     }
                     for v in versions
@@ -259,7 +300,7 @@ def _render_chat_detail(ctx: BackofficeContext, chat_id: str) -> None:
             pd.DataFrame(
                 [
                     {
-                        "Tid": _short(t.get("created_at"), 19),
+                        COLUMN_TIME: _short(t.get("created_at"), 19),
                         "Scaffold": t.get("scaffold_id") or "—",
                         "Model": t.get("model") or "—",
                         "Intent": t.get("build_intent") or "—",
@@ -300,7 +341,7 @@ def _render_chat_detail(ctx: BackofficeContext, chat_id: str) -> None:
             pd.DataFrame(
                 [
                     {
-                        "Tid": _short(e.get("created_at"), 19),
+                        COLUMN_TIME: _short(e.get("created_at"), 19),
                         "Level": e.get("level") or "—",
                         "Kategori": e.get("category") or "—",
                         "Version": _short(e.get("version_id"), 12),
@@ -322,7 +363,7 @@ def _render_chat_detail(ctx: BackofficeContext, chat_id: str) -> None:
             pd.DataFrame(
                 [
                     {
-                        "Tid": _short(g.get("created_at"), 19),
+                        COLUMN_TIME: _short(g.get("created_at"), 19),
                         "Model": g.get("model") or "—",
                         "Prompt tokens": g.get("prompt_tokens"),
                         "Completion tokens": g.get("completion_tokens"),
@@ -367,13 +408,17 @@ def render(ctx: BackofficeContext) -> None:
         )
         return
 
-    summary = payload.get("summary") or {}
+    _render_db_target(payload)
     rows = payload.get("rows") or []
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Genereringar", summary.get("total", len(rows)))
-    col2.metric("Preview ok", summary.get("success", "?"))
-    col3.metric("Preview FAIL", summary.get("failed", "?"))
-    col4.metric("Pending (ingen signal)", summary.get("pending", "?"))
+    # KPI:erna räknas från raderna med tabellens egen etikett, så "Preview ok"
+    # aldrig innehåller legacy-`true` från före M#pv1-cutoffen.
+    summary = _preview_summary(rows)
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.metric("Genereringar", summary["total"])
+    col2.metric("Preview ok (runtime-ready)", summary["ready"])
+    col3.metric("Legacy (preflight)", summary["legacy"])
+    col4.metric("Preview FAIL", summary["failed"])
+    col5.metric("Pending (ingen signal)", summary["pending"])
 
     if not rows:
         st.info(
@@ -397,7 +442,7 @@ def render(ctx: BackofficeContext) -> None:
         label = (
             f"{r.get('project_name') or '—'} · "
             f"{r.get('chat_title') or _short(cid, 12)} · "
-            f"{_short(r.get('created_at'), 19)}"
+            f"{_short(r.get('created_at'), 19)} UTC"
         )
         options[label] = cid
 

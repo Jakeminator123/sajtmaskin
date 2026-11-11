@@ -5,7 +5,7 @@ bygger, verifierar och skapar versioner; Sajtagenten förklarar, granskar,
 navigerar i koden och startar byggen åt användaren. De delar en input och en
 tidslinje, men är två skilda LLM-flöden. Koden äger kontrakten — den här
 sidan är den mentala modellen. Plan och status:
-[`docs/plans/active/2026-10-22-en-chatt-sajtagenten/`](../plans/active/2026-10-22-en-chatt-sajtagenten/00-master-plan.md).
+[`docs/plans/avklarat/2026-10-22-en-chatt-sajtagenten/`](../plans/avklarat/2026-10-22-en-chatt-sajtagenten/00-master-plan.md).
 
 ## En chatt, två mottagare
 

@@ -74,9 +74,9 @@ binder `127.0.0.1`; syskonmaskiner kommer inte åt den utan token.
    kontrollplanet). Spara käll-SHA, image-id, maskinkonfiguration och de
    faktiska nekandena.
 
-6. Besluta driftvärden (inte ratificerade ännu): `PREVIEW_GUEST_CPU_KIND`,
-   `PREVIEW_GUEST_CPUS`, `PREVIEW_GUEST_MEMORY_MB`, idle-/stopp-policy
-   (`PREVIEW_GUEST_STOP_ON_HIBERNATE`), region. Först därefter, i **en** och
+6. Besluta driftvärden: `PREVIEW_GUEST_CPU_KIND`, `PREVIEW_GUEST_CPUS`,
+   `PREVIEW_GUEST_MEMORY_MB`, idle-policy (`PREVIEW_GUEST_IDLE_DESTROY_MS`,
+   default 25 min), region. Först därefter, i **en** och
    samma deploy av `vm-fly-jakem`: `fly secrets set --stage` med
    gäst-app-token och gästkonfig, `PREVIEW_HOST_ISOLATION=machine` i
    `fly.toml`, sedan `npm --prefix preview-host run deploy`. Verifiera
@@ -87,13 +87,27 @@ binder `127.0.0.1`; syskonmaskiner kommer inte åt den utan token.
 ## Drift
 
 - `GET /admin/machines` på hosten listar poster (utan token) och läget.
+- Livscykel: en gäst skapas vid första boot eller verify för chatten och
+  återanvänds så länge den lever. Hibernate och idle-reapern stoppar bara
+  `next dev`; själva maskinen **förstörs** (stoppas aldrig, en stoppad Fly
+  Machine tappar ändå sin rootfs) efter `PREVIEW_GUEST_IDLE_DESTROY_MS`
+  (default 25 min) utan boot, verify, levande dev-process eller öppen
+  preview-socket. Nästa besök skapar en ny maskin och installerar från
+  bildens varma cache. Svepet körs var 60 s och täcker även gäster utan
+  spårad runtime efter en host-omstart (klockan startar då vid omstarten).
+- Create får upp till 4 försök med backoff och jitter vid 429, 5xx och
+  kapacitetsfel, alltid i samma region.
+- Verify-kön är per chat i maskinläget: två chattar verifierar parallellt i
+  var sin gäst, samma chat i tur och ordning.
 - Städsvepet (`cleanupPreviewHostStorage`) förstör maskiner vars chat saknar
   användbar session, och orphan-maskiner märkta med hostens
   `PREVIEW_GUEST_HOST_IDENTITY`. Maskiner från en annan host rörs aldrig.
 - Ny bild: pusha, uppdatera `PREVIEW_GUEST_IMAGE`; hosten byter ut gäster med
   gammal bild vid nästa boot.
 - Nödläge: `PREVIEW_HOST_ISOLATION=shared` återgår till baslinjen
-  (`docs/runbooks/preview-host-shared-baseline.md`). `fly machines list -a
+  (`docs/runbooks/preview-host-shared-baseline.md`), men **först** måste
+  hostens VM-storlek höjas igen (kontrollplanet kör `performance-1x`/2 GB och
+  OOM-dödar installs i shared-läget). `fly machines list -a
   sajtmaskin-preview-guests` + `fly machines destroy` rensar gäster för hand.
 
 ## Lokal verifiering

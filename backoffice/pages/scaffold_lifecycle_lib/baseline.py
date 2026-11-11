@@ -134,7 +134,37 @@ def _baseline_drift(ctx: BackofficeContext) -> dict[str, list[str]]:
         for line in changed
         if line.startswith("A") and "\t" in line
     ]
-    return {"changed": changed, "untracked": untracked, "added_since_tag": added}
+    deleted = [
+        line.split("\t", 1)[1]
+        for line in changed
+        if line.startswith("D") and "\t" in line
+    ]
+    return {
+        "changed": changed,
+        "untracked": untracked,
+        "added_since_tag": added,
+        "deleted_since_tag": deleted,
+    }
+
+
+def _baseline_paths_now_ignored(ctx: BackofficeContext, paths: list[str]) -> list[str]:
+    """Tag paths that are no longer tracked AND now match ``.gitignore``.
+
+    `git restore --source <tag> --staged` would put them back in the index —
+    e.g. embeddings caches that moved to Blob and that CI forbids tracking —
+    and overwrite the local ignored copy without a snapshot. Fail-closed: an
+    unreadable answer counts as a refusal.
+    """
+    if not paths:
+        return []
+    code, output = _facade()._run_git(ctx, ["check-ignore", "--no-index", "--", *paths])
+    if code == 1:
+        return []
+    if code != 0:
+        raise RuntimeError(
+            f"git check-ignore misslyckades (inget ändrades): {output}"
+        )
+    return [line for line in output.splitlines() if line.strip()]
 
 
 
@@ -183,6 +213,18 @@ def _factory_reset_to_baseline(ctx: BackofficeContext) -> list[str]:
     log: list[str] = []
     page = _facade()
     drift = _baseline_drift(ctx)
+
+    # The tag predates paths that are now gitignored (owner decision to move the
+    # tag, not ours). Restoring would re-track them, so refuse before touching
+    # anything.
+    now_ignored = _baseline_paths_now_ignored(ctx, drift.get("deleted_since_tag", []))
+    if now_ignored:
+        raise RuntimeError(
+            "Baseline-taggen innehåller sökvägar som nu är gitignorerade: "
+            + ", ".join(now_ignored)
+            + ". En återställning skulle spåra dem igen. Flytta taggen först "
+            "(ägarbeslut). Inget raderades och ingen återställning gjordes."
+        )
 
     # 0) Snapshot everything that is about to disappear, before touching
     #    anything. Tracked adds could in principle be dug out of git history;

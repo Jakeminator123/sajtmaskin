@@ -25,6 +25,7 @@ Alla värden är **observability** (signal), inte alarm. Sidan är read-only.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -54,11 +55,27 @@ def _collect_events_by_type(
     event_type: str,
 ) -> list[dict[str, Any]]:
     """Aggregera alla entries med data.type == event_type över alla run-mappar."""
+    return _collect_events_matching(run_dirs, lambda t: t == event_type)
+
+
+def _collect_events_by_type_prefix(
+    run_dirs: list[Path],
+    prefix: str,
+) -> list[dict[str, Any]]:
+    """Som ovan men för en typfamilj, t.ex. alla ``version.degraded.<kind>``."""
+    return _collect_events_matching(run_dirs, lambda t: t.startswith(prefix))
+
+
+def _collect_events_matching(
+    run_dirs: list[Path],
+    type_matches: Callable[[str], bool],
+) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     for run_dir in run_dirs:
         for entry in _load_timeline_entries(run_dir):
             data = entry.get("data", {})
-            if isinstance(data, dict) and data.get("type") == event_type:
+            event_type = data.get("type") if isinstance(data, dict) else None
+            if isinstance(event_type, str) and type_matches(event_type):
                 enriched = dict(data)
                 enriched["_ts"] = entry.get("ts", "")
                 enriched["_run"] = run_dir.name
@@ -689,6 +706,41 @@ def _render_dossier_stubs(run_dirs: list[Path]) -> None:
     _ = run_dirs
 
 
+_DEGRADED_PREFIX = "version.degraded."
+
+# Visningsordning för kända `VersionDegradationKind` (src/lib/logging/
+# event-bus-types.ts). Bara en ordning: sidan räknar ALLA
+# `version.degraded.*` den hittar, så en ny kind (t.ex. typecheck_advisory,
+# som den gamla hårdkodade listan missade) syns utan kodändring.
+_KNOWN_DEGRADATION_KINDS: tuple[str, ...] = (
+    "verifier_skipped_safe_fixes_only",
+    "verifier_skipped_by_policy",
+    "product_postcheck_skipped",
+    "product_postcheck_blocked",
+    "typecheck_advisory",
+    "lint_advisory",
+    "stale_content_revision",
+)
+
+
+def _degradation_kind(event: dict[str, Any]) -> str:
+    kind = event.get("kind")
+    if isinstance(kind, str) and kind.strip():
+        return kind.strip()
+    return str(event.get("type", "")).removeprefix(_DEGRADED_PREFIX) or "okänd"
+
+
+def _degradation_counts(events: list[dict[str, Any]]) -> dict[str, int]:
+    """Antal per kind: kända i fast ordning, okända efter (alfabetiskt)."""
+    raw: dict[str, int] = {}
+    for event in events:
+        kind = _degradation_kind(event)
+        raw[kind] = raw.get(kind, 0) + 1
+    ordered = [k for k in _KNOWN_DEGRADATION_KINDS if k in raw]
+    ordered += sorted(k for k in raw if k not in _KNOWN_DEGRADATION_KINDS)
+    return {k: raw[k] for k in ordered}
+
+
 def _render_degradations(run_dirs: list[Path]) -> None:
     st.subheader("Advisory / degradations (`version.degraded.*`)")
     st.caption(
@@ -701,15 +753,7 @@ def _render_degradations(run_dirs: list[Path]) -> None:
         "Källa: `src/lib/logging/event-bus-types.ts` (`VersionDegradationKind`)."
     )
 
-    kinds = [
-        "verifier_skipped_safe_fixes_only",
-        "verifier_skipped_by_policy",
-        "product_postcheck_skipped",
-        "product_postcheck_blocked",
-    ]
-    all_events: list[dict[str, Any]] = []
-    for kind in kinds:
-        all_events.extend(_collect_events_by_type(run_dirs, f"version.degraded.{kind}"))
+    all_events = _collect_events_by_type_prefix(run_dirs, _DEGRADED_PREFIX)
 
     if not all_events:
         st.info(
@@ -719,15 +763,17 @@ def _render_degradations(run_dirs: list[Path]) -> None:
         )
         return
 
-    counts = {k: 0 for k in kinds}
-    for ev in all_events:
-        kind = ev.get("kind") or ev.get("type", "").removeprefix("version.degraded.")
-        if kind in counts:
-            counts[kind] += 1
-
-    cols = st.columns(len(kinds))
-    for col, kind in zip(cols, kinds):
-        col.metric(kind, counts.get(kind, 0))
+    counts = _degradation_counts(all_events)
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {"kind": kind, "Antal": count, "Andel": _pct(count, len(all_events))}
+                for kind, count in counts.items()
+            ]
+        ),
+        hide_index=True,
+        width="stretch",
+    )
 
     rows = []
     for ev in all_events:
@@ -736,7 +782,7 @@ def _render_degradations(run_dirs: list[Path]) -> None:
                 "Tid": ev.get("_ts", "")[:19],
                 "Run": ev.get("_run", ""),
                 "Slug / Chat": (ev.get("_slug") or "")[:40],
-                "kind": ev.get("kind") or ev.get("type", "").removeprefix("version.degraded."),
+                "kind": _degradation_kind(ev),
                 "message": (ev.get("message") or "")[:80],
                 "versionId": (ev.get("versionId") or "")[:12],
             }

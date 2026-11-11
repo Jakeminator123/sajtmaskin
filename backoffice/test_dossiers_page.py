@@ -8,6 +8,7 @@ temporär katalogstruktur med monkeypatchade modulkonstanter.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -1045,6 +1046,7 @@ class ApplyCapabilityOverrideTests(unittest.TestCase):
                     "summary": "A CMS building block used for exercising the override tests.",
                     "lastVerified": "2026-07-12",
                     "providers": ["acme"],
+                    "mock": "seed",
                 }
             ),
             encoding="utf-8",
@@ -1254,36 +1256,73 @@ class RunCurateFinalizeTests(unittest.TestCase):
         self.assertEqual(dossiers_io._parse_curate_stage_path(output), stage)
         self.assertIsNone(dossiers_io._parse_curate_stage_path("no marker here"))
 
+    def _dossier_lock_is_held_elsewhere(self) -> bool:
+        """Probe the real repo lock from another thread (RLock owner = caller)."""
+        from backoffice.shared_lib.repo_lock import (
+            RepoMutationLockTimeout,
+            repo_mutation_lock,
+        )
+
+        observed: dict[str, bool] = {}
+
+        def probe() -> None:
+            try:
+                with repo_mutation_lock(self.repo_root, "dossiers", timeout_seconds=0.05):
+                    observed["held"] = False
+            except RepoMutationLockTimeout:
+                observed["held"] = True
+
+        thread = threading.Thread(target=probe)
+        thread.start()
+        thread.join(timeout=5)
+        self.assertIn("held", observed, "lock probe did not finish")
+        return observed["held"]
+
     def test_run_curate_finalizes_under_lock_and_applies_capability(self) -> None:
         from backoffice.pages.dossiers_lib import io as dossiers_io
+        from backoffice.shared_lib import subprocess_helpers
 
         stage = self.repo_root / "_acme-pay.curate-stage-abc"
         stage.mkdir(parents=True)
-        lock_holder = mock.Mock()
+        lock_seen: list[tuple[str, bool]] = []
 
         def fake_run(cmd, **_kwargs):
+            # `npx` must be PATHEXT-resolved (npx.cmd on Windows, shell=False).
+            self.assertEqual(cmd[0], "C:/fake/node/npx.CMD")
             self.assertIn("--stage-only", cmd)
             self.assertIn("--capability=content-hub", cmd)
+            # The LLM subprocess must run unlocked (child allocate needs the lock).
+            lock_seen.append(("subprocess", self._dossier_lock_is_held_elsewhere()))
             return mock.Mock(
                 returncode=0,
                 stdout=f"STAGE_PATH={stage}\n",
                 stderr="",
             )
 
-        def fake_finalize(staged_dir, target_class, target_id, capability="", *, force=False):
-            lock_holder()
+        def fake_commit(staged_dir, target_class, target_id, *, force):
+            lock_seen.append(("commit", self._dossier_lock_is_held_elsewhere()))
             self.assertEqual(staged_dir, stage)
-            self.assertEqual(target_class, "hard")
-            self.assertEqual(target_id, "acme-pay")
-            self.assertEqual(capability, "content-hub")
-            self.assertFalse(force)
+            self.assertEqual((target_class, target_id, force), ("hard", "acme-pay", False))
             return True, "publicerad"
 
+        def fake_override(manifest_path, target_class, capability, **_kwargs):
+            lock_seen.append(("override", self._dossier_lock_is_held_elsewhere()))
+            self.assertEqual(capability, "content-hub")
+            return True, "ok"
+
         with (
+            mock.patch.object(
+                subprocess_helpers.shutil,
+                "which",
+                side_effect=lambda name: "C:/fake/node/npx.CMD" if name == "npx" else None,
+            ),
             mock.patch.object(dossiers_io.subprocess, "run", side_effect=fake_run),
             mock.patch.object(
-                dossiers_io, "_finalize_curated_dossier", side_effect=fake_finalize
-            ) as finalize,
+                dossiers_io, "_commit_curated_dossier_stage", side_effect=fake_commit
+            ),
+            mock.patch.object(
+                dossiers_io, "_apply_capability_override", side_effect=fake_override
+            ),
         ):
             ok, msg = dossiers_io._run_curate(
                 "ref-repo", "hard", "acme-pay", "model-x", "content-hub"
@@ -1291,8 +1330,10 @@ class RunCurateFinalizeTests(unittest.TestCase):
 
         self.assertTrue(ok, msg)
         self.assertIn("publicerad", msg)
-        finalize.assert_called_once()
-        lock_holder.assert_called_once()
+        self.assertEqual(
+            lock_seen,
+            [("subprocess", False), ("commit", True), ("override", True)],
+        )
 
     def test_run_curate_fails_closed_without_stage_marker(self) -> None:
         from backoffice.pages.dossiers_lib import io as dossiers_io
@@ -2190,7 +2231,7 @@ os._exit(90)
         from backoffice.pages.dossiers_lib import io as dossiers_io
 
         original = self.manifest_path.read_bytes()
-        edited = {**self._saved(), "label": "Rå ny etikett"}
+        edited = {**self._saved(), "label": "Rå ny etikett", "mock": "seed"}
 
         def truncate_then_fail(path: Path, _data: dict[str, object]) -> None:
             path.write_bytes(b'{"partial":')
@@ -2209,7 +2250,7 @@ os._exit(90)
         from backoffice.pages.dossiers_lib import io as dossiers_io
 
         original = self.manifest_path.read_bytes()
-        edited = {**self._saved(), "label": "Rå ny etikett"}
+        edited = {**self._saved(), "label": "Rå ny etikett", "mock": "seed"}
         with mock.patch.object(dossiers_io, "backup_file", return_value=None):
             ok, msg = dossiers_page._save_raw_manifest(
                 self.manifest_path, edited, dossier_class="hard"
@@ -2375,13 +2416,16 @@ os._exit(90)
         )
         external = {**current, "label": "Extern ändring"}
 
-        def mutate_after_read() -> set[str]:
-            self.manifest_path.write_text(json.dumps(external), encoding="utf-8")
-            return {"cms"}
+        # Hook into a step that runs after the caller's byte snapshot (strict
+        # schema): the external write lands between snapshot and handoff.
+        def mutate_after_read(*_args: object, **_kwargs: object) -> list[str]:
+            if self._saved() != external:
+                self.manifest_path.write_text(json.dumps(external), encoding="utf-8")
+            return []
 
         with mock.patch.object(
             dossiers_io,
-            "_load_mockless_capability_exceptions",
+            "validate_json_against_schema",
             side_effect=mutate_after_read,
         ):
             ok, msg = dossiers_page._apply_manifest_field_edits(
@@ -2552,9 +2596,11 @@ os._exit(90)
 
     def test_raw_editor_cannot_bypass_hard_default_invariant(self) -> None:
         current = self._saved()
-        current["defaultForCapability"] = True
+        current.update({"mock": "seed", "defaultForCapability": True})
         self.manifest_path.write_text(json.dumps(current), encoding="utf-8")
-        self._write_manifest("hard", "beta-cms", "cms", defaultForCapability=False)
+        self._write_manifest(
+            "hard", "beta-cms", "cms", mock="seed", defaultForCapability=False
+        )
         edited = {**current, "defaultForCapability": False}
 
         ok, msg = dossiers_page._save_raw_manifest(
@@ -2810,6 +2856,30 @@ os._exit(90)
         target = self.dossier_root / "hard" / "acme-pay"
         self.assertTrue((target / "manifest.json").exists())
         self.assertTrue((target / "instructions.md").exists())
+
+    def test_curated_hard_stage_without_demolage_is_not_published(self) -> None:
+        # validate-all fäller en hard-dossier utan demoläge; kurations-commit
+        # publicerade den ändå tidigare.
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        stage = self._stage()
+        manifest = json.loads((stage / "manifest.json").read_text(encoding="utf-8"))
+        manifest.pop("mock")
+        (stage / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+        with mock.patch.object(
+            dossiers_io,
+            "_load_mockless_capability_exceptions",
+            return_value=frozenset({"analytics"}),
+        ):
+            ok, msg = dossiers_io._commit_curated_dossier_stage(
+                stage, "hard", "acme-pay", force=False
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("demoläge", msg)
+        self.assertFalse((self.dossier_root / "hard" / "acme-pay").exists())
+        self.assertFalse(stage.exists())
 
     def test_transaction_root_link_is_rejected_before_stage_allocation(self) -> None:
         from backoffice.pages.dossiers_lib import io as dossiers_io
@@ -3102,6 +3172,364 @@ os._exit(90)
                 )
 
         self.assertEqual((target / "instructions.md").read_bytes(), old_instructions)
+
+
+def _render_dossier_edit_tab_for_test() -> None:
+    """AppTest script: the real Redigera-tab section (field form, raw JSON and
+    "Byt capability") over whatever pool the test patched into the facade."""
+    from backoffice.pages import dossiers as page
+    from backoffice.pages.dossiers_lib.ui_edit import _section_edit
+
+    dossiers, broken = page._walk_dossier_pool()
+    _section_edit(dossiers, broken)
+
+
+_SOFT_FAQ = {
+    "id": "faq",
+    "label": "FAQ block",
+    "capability": "faq",
+    "codeFidelity": "rewritable",
+    "complexity": "simple",
+    "summary": "A simulated FAQ building block used by the backoffice audit tests.",
+    "lastVerified": "2026-11-01",
+}
+
+
+class _TempPoolMixin:
+    """Temporary dossier pool patched into the facade (incl. projection path)."""
+
+    def _setup_pool(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)  # type: ignore[attr-defined]
+        self.repo_root = Path(tmp.name)
+        self.dossier_root = self.repo_root / "data" / "dossiers"
+        self.map_path = self.dossier_root / "_index" / "capability-map.json"
+        self.map_path.parent.mkdir(parents=True)
+        self.map_path.write_text(
+            json.dumps({"policy": {"mocklessCapabilityExceptions": ["analytics"]}}),
+            encoding="utf-8",
+        )
+        for patch in (
+            mock.patch.object(dossiers_page, "REPO_ROOT", self.repo_root),
+            mock.patch.object(dossiers_page, "DOSSIER_ROOT", self.dossier_root),
+            mock.patch.object(dossiers_page, "HARD_ROOT", self.dossier_root / "hard"),
+            mock.patch.object(dossiers_page, "SOFT_ROOT", self.dossier_root / "soft"),
+            mock.patch.object(dossiers_page, "CAPABILITY_MAP_PATH", self.map_path),
+        ):
+            patch.start()
+            self.addCleanup(patch.stop)  # type: ignore[attr-defined]
+
+    def _write(self, klass: str, dossier_id: str, manifest: dict | bytes) -> Path:
+        target = self.dossier_root / klass / dossier_id
+        target.mkdir(parents=True, exist_ok=True)
+        path = target / "manifest.json"
+        if isinstance(manifest, bytes):
+            path.write_bytes(manifest)
+        else:
+            path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        return path
+
+
+class RawJsonEditorStalenessTests(_TempPoolMixin, unittest.TestCase):
+    """Rå-JSON-editorn fick inte tyst skriva tillbaka ett gammalt manifest."""
+
+    def setUp(self) -> None:
+        self._setup_pool()
+        self.path = self._write("soft", "faq", dict(_SOFT_FAQ))
+
+    def _app(self):
+        from streamlit.testing.v1 import AppTest
+
+        app = AppTest.from_function(_render_dossier_edit_tab_for_test)
+        app.run(timeout=30)
+        return app
+
+    @staticmethod
+    def _by_key(widgets, key: str):
+        return next(widget for widget in widgets if widget.key == key)
+
+    def test_capability_change_then_raw_save_keeps_new_capability(self) -> None:
+        app = self._app()
+        self._by_key(app.text_input, "edit_soft/faq_cap_free").set_value("help-center")
+        self._by_key(app.button, "edit_soft/faq_cap_submit").click()
+        app.run(timeout=30)
+        self.assertEqual(json.loads(self.path.read_text("utf-8"))["capability"], "help-center")
+
+        raw = self._by_key(app.text_area, "edit_soft/faq_raw_json")
+        self.assertEqual(json.loads(raw.value)["capability"], "help-center")
+        edited = {**json.loads(raw.value), "notes": "lagt till via rå JSON"}
+        raw.set_value(json.dumps(edited, indent=2))
+        self._by_key(app.button, "edit_soft/faq_raw_json_save").click()
+        app.run(timeout=30)
+
+        saved = json.loads(self.path.read_text("utf-8"))
+        self.assertEqual(saved["capability"], "help-center")
+        self.assertEqual(saved["notes"], "lagt till via rå JSON")
+
+    def test_edited_raw_editor_refuses_save_after_external_disk_change(self) -> None:
+        app = self._app()
+        raw = self._by_key(app.text_area, "edit_soft/faq_raw_json")
+        raw.set_value(json.dumps({**_SOFT_FAQ, "notes": "osparad"}, indent=2))
+        app.run(timeout=30)
+        external = {**_SOFT_FAQ, "label": "Extern ändring"}
+        self.path.write_text(json.dumps(external), encoding="utf-8")
+        app.run(timeout=30)
+        self.assertTrue(any("ändrats på disk" in w.value for w in app.warning))
+
+        self._by_key(app.button, "edit_soft/faq_raw_json_save").click()
+        app.run(timeout=30)
+
+        self.assertTrue(any("ändrats på disk" in e.value for e in app.error))
+        self.assertEqual(json.loads(self.path.read_text("utf-8")), external)
+
+    def test_save_raw_manifest_cas_rejects_stale_editor_sha(self) -> None:
+        loaded_sha = hashlib.sha256(self.path.read_bytes()).hexdigest()
+        external = {**_SOFT_FAQ, "capability": "help-center"}
+        self.path.write_text(json.dumps(external), encoding="utf-8")
+
+        ok, msg = dossiers_page._save_raw_manifest(
+            self.path,
+            {**_SOFT_FAQ, "notes": "gammal editor"},
+            dossier_class="soft",
+            expected_sha256=loaded_sha,
+        )
+
+        self.assertFalse(ok)
+        self.assertIn("ändrats på disk", msg)
+        self.assertEqual(json.loads(self.path.read_text("utf-8")), external)
+
+    def test_sync_reloads_unedited_editor_and_flags_edited_one(self) -> None:
+        from backoffice.pages.dossiers_lib.ui_edit import _sync_raw_editor_state
+
+        keys = {"text_key": "t", "loaded_key": "l", "sha_key": "s"}
+        state: dict[str, str] = {}
+        self.assertFalse(_sync_raw_editor_state(state, disk_text="v1", disk_sha="1", **keys))
+        self.assertFalse(_sync_raw_editor_state(state, disk_text="v2", disk_sha="2", **keys))
+        self.assertEqual((state["t"], state["s"]), ("v2", "2"))
+        state["t"] = "v2 + osparad ändring"
+        self.assertTrue(_sync_raw_editor_state(state, disk_text="v3", disk_sha="3", **keys))
+        self.assertEqual((state["t"], state["s"]), ("v2 + osparad ändring", "2"))
+
+
+class HardDemoModeEveryWriterTests(_TempPoolMixin, unittest.TestCase):
+    """`findMissingMockFallbacks` gäller varje skrivväg, inte bara fältformuläret."""
+
+    def setUp(self) -> None:
+        self._setup_pool()
+
+    def _hard(self, dossier_id: str, capability: str, **extra: object) -> dict:
+        return {
+            **_SOFT_FAQ,
+            "id": dossier_id,
+            "capability": capability,
+            "providers": ["acme"],
+            **extra,
+        }
+
+    def test_raw_save_cannot_drop_demolage_of_hard_dossier(self) -> None:
+        path = self._write("hard", "shop", self._hard("shop", "checkout", mock="visual"))
+        original = path.read_bytes()
+        edited = self._hard("shop", "checkout")
+
+        ok, msg = dossiers_page._save_raw_manifest(path, edited, dossier_class="hard")
+
+        self.assertFalse(ok)
+        self.assertIn("demoläge", msg)
+        self.assertEqual(path.read_bytes(), original)
+
+    def test_capability_change_cannot_move_mockless_hard_out_of_exception(self) -> None:
+        path = self._write("hard", "beacon", self._hard("beacon", "analytics"))
+        original = path.read_bytes()
+
+        ok, msg = dossiers_page._apply_capability_override(path, "hard", "payments")
+
+        self.assertFalse(ok)
+        self.assertIn("demoläge", msg)
+        self.assertEqual(path.read_bytes(), original)
+
+    def test_mockless_hard_stays_editable_inside_the_exception(self) -> None:
+        path = self._write("hard", "beacon", self._hard("beacon", "analytics"))
+        edited = {**self._hard("beacon", "analytics"), "notes": "ok"}
+
+        ok, msg = dossiers_page._save_raw_manifest(path, edited, dossier_class="hard")
+
+        self.assertTrue(ok, msg)
+
+
+class FilesAndExposesContractTests(_TempPoolMixin, unittest.TestCase):
+    """Python-spegling av output-path.ts + exposes-korskollen (validateDossierManifest)."""
+
+    def setUp(self) -> None:
+        self._setup_pool()
+
+    @staticmethod
+    def _errors(**fields: object) -> list[str]:
+        return dossiers_page._validate_manifest({**_SOFT_FAQ, **fields}, "soft")
+
+    def test_unsafe_file_paths_are_rejected(self) -> None:
+        cases = {
+            "components/../../../evil.tsx": "traversal",
+            "./components/a.tsx": "traversal",
+            "/evil/a.tsx": "relative",
+            # Same order as TS: ':' is a forbidden character before the drive check.
+            "C:/evil.tsx": "Windows-forbidden",
+            "components\\a.tsx": "forward slashes",
+            "components//a.tsx": "empty path segments",
+            "components/con.tsx": "device name",
+            "components/a.tsx.": "dot or space",
+            "components/a?.tsx": "Windows-forbidden",
+        }
+        for path, reason in cases.items():
+            with self.subTest(path=path):
+                errors = self._errors(files=[{"path": path, "role": "client"}])
+                self.assertTrue(any(reason in error for error in errors), errors)
+
+    def test_case_folded_and_file_directory_collisions_are_rejected(self) -> None:
+        case_errors = self._errors(
+            files=[
+                {"path": "components/Faq.tsx", "role": "client"},
+                {"path": "components/faq.tsx", "role": "client"},
+            ]
+        )
+        self.assertTrue(any("collides" in error for error in case_errors), case_errors)
+        dir_errors = self._errors(
+            files=[
+                {"path": "components/faq", "role": "client"},
+                {"path": "components/faq/item.tsx", "role": "client"},
+            ]
+        )
+        self.assertTrue(any("file/directory conflict" in e for e in dir_errors), dir_errors)
+
+    def test_exposes_import_must_resolve_to_a_mapped_file(self) -> None:
+        missing = self._errors(
+            exposes=[{"name": "Faq", "type": "component", "import": "@/components/faq"}]
+        )
+        self.assertTrue(any("does not resolve" in error for error in missing), missing)
+        self.assertEqual(
+            self._errors(
+                files=[
+                    {"path": "components/faq.tsx", "role": "client"},
+                    {"path": "components/api/faq/route.ts", "role": "server"},
+                ],
+                exposes=[
+                    {"name": "Faq", "type": "component", "import": "@/components/faq"},
+                    {"name": "GET", "type": "function", "import": "@/app/api/faq/route"},
+                ],
+            ),
+            [],
+        )
+
+    def test_raw_save_refuses_traversal_file_path(self) -> None:
+        path = self._write("soft", "faq", dict(_SOFT_FAQ))
+        original = path.read_bytes()
+        edited = {
+            **_SOFT_FAQ,
+            "files": [{"path": "components/../../../evil.tsx", "role": "client"}],
+        }
+
+        ok, msg = dossiers_page._save_raw_manifest(path, edited, dossier_class="soft")
+
+        self.assertFalse(ok)
+        self.assertIn("traversal", msg)
+        self.assertEqual(path.read_bytes(), original)
+
+    def test_live_pool_has_no_false_positives(self) -> None:
+        # Repots riktiga pool är grön i validate-all; spegeln får inte vara
+        # strängare än TS på giltiga manifest (läser den opatchade repo-roten).
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+        from backoffice.pages.dossiers_lib.constants import DOSSIER_ROOT
+
+        manifests = sorted(
+            path
+            for klass in ("hard", "soft")
+            for path in (DOSSIER_ROOT / klass).glob("*/manifest.json")
+        )
+        self.assertGreater(len(manifests), 0)
+        for manifest_path in manifests:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            with self.subTest(dossier=manifest_path.parent.name):
+                self.assertEqual(dossiers_io._files_and_exposes_errors(manifest), [])
+
+
+class BrokenManifestVisibilityTests(_TempPoolMixin, unittest.TestCase):
+    """Trasiga manifest kraschar inte sidan och göms inte tyst."""
+
+    def setUp(self) -> None:
+        self._setup_pool()
+        self._write("soft", "faq", dict(_SOFT_FAQ))
+
+    def test_cp1252_bom_invalid_and_missing_manifests_are_listed_not_raised(self) -> None:
+        ansi = json.dumps(
+            {**_SOFT_FAQ, "id": "ansi", "label": "Bokning för salong"}, ensure_ascii=False
+        )
+        self._write("soft", "ansi", ansi.encode("cp1252"))
+        self._write("soft", "bom", b"\xef\xbb\xbf" + json.dumps({**_SOFT_FAQ, "id": "bom"}).encode())
+        self._write("hard", "broken", b"{trasig json")
+        (self.dossier_root / "hard" / "empty-dir").mkdir(parents=True)
+
+        readable, broken = dossiers_page._walk_dossier_pool()
+
+        self.assertEqual([d["id"] for d in readable], ["faq"])
+        reasons = {f"{b['_class']}/{b['id']}": b["_broken"] for b in broken}
+        self.assertEqual(
+            set(reasons), {"soft/ansi", "soft/bom", "hard/broken", "hard/empty-dir"}
+        )
+        self.assertIn("UTF-8", reasons["soft/ansi"])
+        self.assertIn("BOM", reasons["soft/bom"])
+        self.assertIn("ogiltig JSON", reasons["hard/broken"])
+        self.assertIn("saknar manifest.json", reasons["hard/empty-dir"])
+        self.assertIsNone(dossiers_page._load_json(self.dossier_root / "soft" / "ansi" / "manifest.json"))
+
+    def test_raw_editor_text_survives_bom_and_cp1252(self) -> None:
+        from backoffice.pages.dossiers_lib.ui_edit import _raw_editor_text
+
+        text, warning = _raw_editor_text(b"\xef\xbb\xbf{\"a\": 1}")
+        self.assertEqual(text, '{"a": 1}')
+        self.assertIn("BOM", warning or "")
+        text, warning = _raw_editor_text('{"label": "för"}'.encode("cp1252"))
+        self.assertEqual(text, '{"label": "för"}')
+        self.assertIn("UTF-8", warning or "")
+
+    def test_broken_manifest_is_repairable_in_the_raw_editor(self) -> None:
+        from streamlit.testing.v1 import AppTest
+
+        path = self._write(
+            "soft", "bom", b"\xef\xbb\xbf" + json.dumps({**_SOFT_FAQ, "id": "bom"}).encode()
+        )
+        app = AppTest.from_function(_render_dossier_edit_tab_for_test)
+        app.run(timeout=30)
+        app.selectbox[0].set_value("soft/bom")
+        app.run(timeout=30)
+        self.assertTrue(any("Trasigt manifest" in e.value for e in app.error))
+        raw = next(t for t in app.text_area if t.key == "edit_soft/bom_raw_json")
+        self.assertEqual(json.loads(raw.value)["id"], "bom")
+
+        next(b for b in app.button if b.key == "edit_soft/bom_raw_json_save").click()
+        app.run(timeout=30)
+
+        self.assertFalse(path.read_bytes().startswith(b"\xef\xbb\xbf"))
+        readable, broken = dossiers_page._walk_dossier_pool()
+        self.assertEqual(sorted(d["id"] for d in readable), ["bom", "faq"])
+        self.assertEqual(broken, [])
+
+
+class MissingManifestIdTests(unittest.TestCase):
+    def test_selector_falls_back_to_directory_name(self) -> None:
+        # Tidigare `d['id']` → KeyError i Redigera och Radera (alla tabbar renderas).
+        from backoffice.pages.dossiers_lib.io import _dossier_key_id
+        from backoffice.pages.dossiers_lib.ui_edit import (
+            _dossier_option_label,
+            _dossier_options,
+        )
+
+        dossiers = [
+            {"_class": "soft", "_path": "data\\dossiers\\soft\\no-id", "label": "X"},
+            {"_class": "hard", "id": "stripe", "_path": "data/dossiers/hard/stripe"},
+        ]
+        options = _dossier_options(dossiers)
+        self.assertEqual(sorted(options), ["hard/stripe", "soft/no-id"])
+        self.assertEqual(_dossier_key_id(dossiers[0]), "no-id")
+        self.assertTrue(_dossier_option_label(dossiers[0]).startswith("no-id — "))
 
 
 if __name__ == "__main__":

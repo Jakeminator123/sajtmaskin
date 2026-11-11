@@ -48,7 +48,10 @@ import * as previewGate from "./preview-quality-gate";
 import * as repairExecution from "./server-verify/repair-execution";
 import * as versionErrors from "@/lib/db/services/version-errors";
 import { REPAIR_LOOP_BUDGET_MS } from "@/lib/gen/defaults";
-import { triggerServerVerification, verifyVersionUnderLease, runVersionQualityGateUnderLease } from "./server-verify/verify-run";
+import { triggerServerVerification, verifyVersionUnderLease } from "./server-verify/verify-run";
+import { qualityGateHttpResponse } from "./server-verify/quality-gate-http";
+import { verificationOutcomeFromQualityGate } from "./server-verify/quality-gate-outcome";
+import { runVersionQualityGateUnderLease } from "./server-verify/quality-gate-run";
 
 describe("server verification persisted bootstrap readback", () => {
   afterEach(() => { vi.restoreAllMocks(); verificationLease.inflight.clear(); });
@@ -152,10 +155,12 @@ describe("original chain deadline under the held verification lease", () => {
 
   it("shared QG rejects an exhausted caller window without gate or terminal failure", async () => {
     const gate = vi.spyOn(previewGate, "runQualityGateOnExportable");
-    expect(await runVersionQualityGateUnderLease({ chatId: "c", versionId: "v", holderRunId: "run",
-      snapshot: snapshot as never, verifyDeadlineEpochMs: Date.now() })).toMatchObject({
-        kind: "stop", reason: "time_budget_exceeded", retryable: true, status: 503,
-      });
+    const outcome = await runVersionQualityGateUnderLease({ chatId: "c", versionId: "v", holderRunId: "run",
+      snapshot: snapshot as never, verifyDeadlineEpochMs: Date.now() });
+    expect(verificationOutcomeFromQualityGate(outcome)).toMatchObject({
+      kind: "stop", reason: "time_budget_exceeded", retryable: true,
+    });
+    expect(qualityGateHttpResponse(outcome).status).toBe(503);
     expect(gate).not.toHaveBeenCalled();
     expect(versionRepo.failVersionVerification).not.toHaveBeenCalled();
   });

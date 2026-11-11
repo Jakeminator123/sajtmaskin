@@ -9,9 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from scripts.template_curator import catalog
-from scripts.template_curator.runner import curate_templates, write_report
-
-MAX_ANALYZE_TEMPLATES = 100
+from scripts.template_curator.runner import (
+    MAX_ANALYZE_TEMPLATES,
+    curate_templates,
+    write_report,
+)
 
 
 def _enum_values() -> list[str]:

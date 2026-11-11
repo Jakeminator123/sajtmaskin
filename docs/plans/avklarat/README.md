@@ -18,13 +18,52 @@ billingavstämning inklusive brief kvarstår i
 [restplanen](../active/2026-10-11-llm-kedja-och-legacy/00-master-plan.md).
 Merge är inte ett aktuellt drift- eller acceptanskvitto; detaljplanerna är Git.
 
-**Publik `/analys`, A1–A4 (2026-09-18):** levererad i #1471: egen publik
-rapportyta, durabel gästkvot, separat försökstak, konto-CTA och återanvänd
-audit-handoff. Sex överflödiga bygg-/underlagsfiler konsoliderades 2026-11-05.
-Kodägare, skydd och kvarvarande B2/B4 finns i
-[den aktiva restplanen](../active/2026-09-18-analys-audit-leadmagnet/00-master-plan.md).
-K1 kräver fortfarande ett verkligt A/B-utfall; PRV/nyemission/DNS-spåren
-behåller sina beslut och ägare. Kodleverans är inte marknadsacceptans.
+**En chatt: Sajtagenten i buildern (2026-10-22, avklarat 2026-11-11):**
+E1–E8 mergade i #1670 (`560e26cb0`) och i produktion: en input med
+lägesväljare, gemensam tidslinje, byggbrygga, `start_build`, beständig
+`agent_messages` och kodnavigering via `read_files`. Planen behålls som fil
+eftersom kod citerar den:
+[`2026-10-22-en-chatt-sajtagenten/00-master-plan.md`](2026-10-22-en-chatt-sajtagenten/00-master-plan.md).
+Kvar: creditmodell per agentuppdrag, sajtägarens agent och avatar i
+chatten är obeställda följduppdrag.
+
+**Publik `/analys` + kundanskaffning (2026-09-18, avklarat 2026-11-11):**
+A1–A4 levererade i #1471: egen publik rapportyta, durabel gästkvot, separat
+försökstak, konto-CTA och återanvänd audit-handoff. B1/B3/B5/B6 beslutade
+och byggda; nivåsplitten för inloggade i #1479. Kodägare: `src/app/analys/`,
+`src/app/api/analys/route.ts`, `src/lib/audit/`. Kvar: **B2**
+(indexering/sitemap) och **B4** (`/?mode=audit` → `/analys`) som ägarbeslut
+i [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md); **K1** inline-bild
+i mejl/DM har ett A/B-protokoll men inget kört experiment (utskick ägs av
+`JakobScrape`). PRV T-1 och nyemission är beställningar, DNS-bytet PARK
+till Radar v1. Plan, restlista och K1-protokoll i git
+(`docs/plans/active/2026-09-18-analys-audit-leadmagnet/`, raderad
+2026-11-11). Kodleverans är inte marknadsacceptans.
+
+**Armerad autonomi + generationskort (2026-09-19, avklarat 2026-11-11):**
+A1 #1495, A2 #1498, B1 #1497 och C1 #1496 mergade; Sajtagenten flyttade
+sedan in i builderchatten i #1670 (bryggan ersätter DOM-klicket). D1/SM-072
+ligger i backloggen. Acceptansraderna (trestegsmandat, terminal ström,
+generationskort, miniatyrer) finns i git
+(`docs/plans/active/2026-09-19-openclaw-armering-och-generationskort/`,
+raderad 2026-11-11).
+
+**Verifieringsflöde + inspector (2026-09-01, avklarat 2026-11-11):**
+capturetrycksvep, core-dump-prune, observerbar skip-orsak, bridgeidentitet,
+pekargenomsläpp och sessionsrotation/self-heal byggda; #1572 tog bort
+`--single-process`. Kvar: produktburst och unga profiler i `SM-072`,
+inspector-hover, hibernation-smoke och UX-rester i `SM-073`
+([`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md)). Plan och
+D1-kvitto i git (`docs/plans/active/2026-09-01-verifieringsflode-och-inspector/`,
+raderad 2026-11-11).
+
+**Superprompt: avgränsad acceptans (2026-10-19, avklarat 2026-11-11):**
+E01–E06 levererade i #1637 (`985d3ad3b`), med närliggande superpromptfixar i
+#1634, #1639, #1640 och #1641: miljö/deploy skilt från DB i `dump-logs`,
+syntetiska lounge-/kampanjfall, explicit modell-/effortevidens, providerfria
+negativa prov och inventering av lokala legacykommandon. GPT-Pro-browserpasset
+blev aldrig kört (verktygsfel). Enda eval-ingången är `npm run eval`. Plantext i git (`docs/plans/active/superprompt-acceptance.md`,
+raderad 2026-11-11).
 
 **Dossierkärna och flödesförenkling (2026-10-05):** levererad till `preview` via
 [#1548](https://github.com/Jakeminator123/sajtmaskin/pull/1548),
@@ -53,7 +92,7 @@ masterpromotion, DB-apply eller förnyat acceptance-datum gjordes.
 | **Kundens adress och portal** (2026-09-14) | Levererad portalgrund C1/C2/C3e1, A2/A3/B1/D1, C2-skrivgrind #1427 och projektkort #1429. A1:s DNS-bevis från 2026-09-15 finns i [adressrunbooken](../../runbooks/branded-user-urls.md). Detaljplanerna är Git-historik. | A2/A3/A4 och adressacceptans → [branded runtime](../active/2026-09-16-branded-runtime-aktivering/00-master-plan.md). PSL, kundpilot och parkerade D2/D3/C3e2 inklusive obeslutade kommersiella värden → [aktuell portalplan](../active/2026-10-22-kundportal-och-domaner/00-master-plan.md). Ingen ny aktivering eller DB-status intygas här. |
 | **Reparationskedjan: publiceringsgrind, fixer-rotorsak, `.next/`-brus, baslinje 2** (2026-09-11) | Utlöst av prod-körningen `5d809cc1` (ecommerce/megastore-clean, 2026-09-10) där en advisory-promotad version publicerades och Vercel-bygget föll. Rotorsaken var inte modellen utan `icon-component-value-fixer`, som skrev om `name={product.icon}` till en ternary med `<product.icon />` (`SM-082`). Levererat på `fix/reparationskedjan`: fixaren begränsad till JSX-barn + komponentikon-evidens och klassad `risky`; `resolveDeployTypecheckAdvisoryGate` blockerar Vercel-publicering av typecheck-advisory-versioner med spegelblocker i readiness (`SM-083`); `normalizeTypecheckResult` viker `.next/`-enbart tsc-brus till pass i alla gate-vägar (`SM-084`); preview-VM:ens byggfelsreparation default på i production; ny `control-stats-baseline-2026-09-11.json` ersätter Fas 0-baslinjen; `quality-gate-flow.md` uppdaterad. Den vilseledande aktiva planmappen `2026-09-11-reparationskedjan/` (som fortfarande sa att stegen inte påbörjats och att deployvägen saknade spärren) togs bort 2026-09-17; git är arkiv. #1438 C1–C6 är extra preview-kontrakt ovanpå denna leverans, inte en andra implementation av steg 1–3. | Steg 4 (warm-tsc i F2, `risky_fixes`-trigger, live review-gate) och `.next/`-städ i preview-host → [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) § Väntar på ägarbeslut + `SM-084`. Olänkade rutter → samma sektion (P3). Beställ inte steg 1–3 igen. |
 | **Scaffold-komposition + städ** (2026-08-21→22) | K1 #1094 förenade registren, K2 #1093 gav filbaserad hero-variation, K3 #1092 bar variantinspiration till redesign, K4 #1091 tog bort död/dubbel logik och K5 #1095 sanningssynkade scheman, docs, embeddings och Backoffice-paritet. Styrplanen behålls eftersom runtimekod citerar den. | Selection Rationale-stickprov är manuell validering; `SM-071` väntar ny repro efter senare scaffoldändringar. Se [`2026-08-21-scaffold-komposition-och-stad/00-master-plan.md`](2026-08-21-scaffold-komposition-och-stad/00-master-plan.md) och [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md). |
-| **Briefing B1–B4, B8–B11** (2026-08-18→21) | B1 #1040, B8 #1032, B3 #1035, B9 #1037, B10 #1038, B11 #1042, B2 #1079, B4 första passet via K1 #1094. Aktivitetsfiler B1–B3 raderade 2026-08-21; git är arkiv. N1 ratificerat 2026-08-20. | B5–B7 är **inte** implementerade och ligger inte i någon aktiv plan. B7 angränsar till kvalitetsplanens C ([`../active/2026-09-17-inspiration-kvitto-och-komposition/00-master-plan.md`](../active/2026-09-17-inspiration-kvitto-och-komposition/00-master-plan.md)); B5 och B6 är parkerade. Plan + N3–N5 → [`../archived/2026-08-18-briefing-och-kallpaket.md`](../archived/2026-08-18-briefing-och-kallpaket.md) / [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md). |
+| **Briefing B1–B4, B8–B11** (2026-08-18→21) | B1 #1040, B8 #1032, B3 #1035, B9 #1037, B10 #1038, B11 #1042, B2 #1079, B4 första passet via K1 #1094. Aktivitetsfiler B1–B3 raderade 2026-08-21; git är arkiv. N1 ratificerat 2026-08-20. | B5–B7 är **inte** implementerade och ligger inte i någon aktiv plan. B7 angränsar till kvalitetsplanens C ([`../archived/2026-09-17-inspiration-kvitto-och-komposition.md`](../archived/2026-09-17-inspiration-kvitto-och-komposition.md), parkerad); B5 och B6 är parkerade. Plan + N3–N5 → [`../archived/2026-08-18-briefing-och-kallpaket.md`](../archived/2026-08-18-briefing-och-kallpaket.md) / [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md). |
 | **Vågschema 20–21 aug — stängt** (2026-08-21) | Våg 1 #1070–#1077. Våg 2: #1080 (`SM-036` verifier-kalibrering), #1078 (`SM-064` sköldwrapper). #1079 B2 (manifestets `promptAssist` → `briefing`). #1081 `SM-035` diagnostik (signalfält + `128+n`; rotorsak till exit 254 fortfarande öppen). Plantext i git (`docs/plans/active/2026-08-20-vagschema/`, raderad 2026-08-21). | `SM-035` rotorsak + `SM-070` → [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) / [`../archived/2026-08-20-live-review.md`](../archived/2026-08-20-live-review.md) |
 | **Vågschema våg 1 — residualerna efter nattvågen** (2026-08-20) | Åtta cloud-agenter parallellt, alla mergade samma kväll: #1070 (Prompt-assist fail-closar i stället för att kapa ett färdigt utkast tyst, `SM-065`), #1071 (script-varningen tystas per route, `SM-067`), #1072 (skyddad path krävs vid full-project persist, `SM-066`), #1073 (thumbnails `fonts.ready` + boot-probe budgeterade), #1074 (Next-källkontraktet kör i `quality` mot installerad Next — bevakningsluckan efter `SM-062` betald), #1075 (källkvittot byggs av skickad payload, `SM-069`), #1076 (dinglande rot-relativa bild-`src` → placeholder, `SM-063`), #1077 (fem tooling-läsare slutar rapportera falskt grönt, `SM-068`). Dessutom #1069: Deep Brief-terminologin ärlig där en människa läser, legacy-nycklarna orörda. **Noll merge-konflikter mellan de åtta** — filavgränsningen höll. Plantext + aktivitetsfiler i git. | Stängt 2026-08-21 — se raden ovan. |
 | **Överlämning 19 aug + nattens kodvågor** (2026-08-19→20) | Stabiliseringsvåg 0 och buggvågorna 1–3 mergade: #1053 (prompt-assist-tak), #1054 (scaffold-ton), #1055 (AI SDK-paritet app ↔ genererad sajt), #1056, #1057 (capability-map-fingeravtryck), #1058 (Lanseringskort → Versionsdiagnostik), #1059 (`chat_id` på init-promptloggen), #1060 (källkvitto ärligt nedåt), #1061 (postcheck blockerar inte på boot-sida), #1062 (kostnadsrapport = ledger), #1063 (`classifyInstallFailure`), #1064 (`/_next/hmr`), #1065 (footer-år), #1066 (repair sparar inte vid `stillMissing`), #1067 (`data-demo-only`), #1068 (visad grind = finalize + postcheck-overlay). Housekeeping: backlog-arkiv, plan-synk, worktree-städ. Överlämningens och handoffens plantext finns i git (`docs/plans/active/2026-08-19-overlamning/`, `2026-08-20-handoff/`, borttagna 2026-08-20). | Vågschemat som tog residualerna är stängt 2026-08-21 (raden ovan). `#1052` mergades som advisory bakom avstängd flagga; aktiveringsgrinden är `SM-070` → [`../archived/2026-08-20-live-review.md`](../archived/2026-08-20-live-review.md). `SM-035` rotorsak kvar i [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md). |
@@ -101,7 +140,8 @@ masterpromotion, DB-apply eller förnyat acceptance-datum gjordes.
 [`P30-r3f-tuple-and-repair-feedback.md`](P30-r3f-tuple-and-repair-feedback.md) ·
 [`P31-feature-runtime-envs-and-f3-toggle.md`](P31-feature-runtime-envs-and-f3-toggle.md) ·
 [`SEO-F3-PROMOTION-NEXT-PR.md`](SEO-F3-PROMOTION-NEXT-PR.md) ·
-[`2026-07-22-shadcn-registry-beskriv-komposition.md`](2026-07-22-shadcn-registry-beskriv-komposition.md)
+[`2026-07-22-shadcn-registry-beskriv-komposition.md`](2026-07-22-shadcn-registry-beskriv-komposition.md) ·
+[`2026-10-22-en-chatt-sajtagenten/00-master-plan.md`](2026-10-22-en-chatt-sajtagenten/00-master-plan.md)
 
 **Test-`Källa:`** under [`grandmaster/`](grandmaster/): `02-stabilitetstester.md`,
 `07-false-green-hardning.md`, `aktiviteter/{S2,S3,A7-1,A7-2,5-3,5-5,C2}.md`.

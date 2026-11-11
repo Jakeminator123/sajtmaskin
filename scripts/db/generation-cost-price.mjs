@@ -17,6 +17,16 @@ function tokens(value) {
   return Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
 }
 
+/**
+ * Dagsnyckel som text (`YYYY-MM-DD`) direkt ur SQL. `::date` får inte användas:
+ * node-postgres tolkar `date` som lokal midnatt, så JSON blir t.ex.
+ * `2026-11-04T23:00:00.000Z` för dagen 2026-11-05 i svensk tid — vyn visade då
+ * fel dag.
+ */
+export function dayBucketSql(column = "created_at") {
+  return `to_char(date_trunc('day', ${column}), 'YYYY-MM-DD')`;
+}
+
 export function usd(n) {
   return Math.round((Number(n) || 0) * 1e6) / 1e6;
 }
