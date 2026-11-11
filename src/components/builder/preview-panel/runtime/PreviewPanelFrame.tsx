@@ -5,7 +5,9 @@ import { AlertCircle, ExternalLink, Loader2, MousePointerClick } from "lucide-re
 import { Button } from "@/components/ui/button";
 
 import type { VersionMismatchOverlayPayload } from "@/lib/gen/preview/preview-host-client";
+import { cn } from "@/lib/utils";
 import { VersionMismatchOverlay } from "./VersionMismatchOverlay";
+import type { PreviewDevice } from "./preview-device";
 
 interface PreviewPanelFrameProps {
   isLoading: boolean;
@@ -17,6 +19,12 @@ interface PreviewPanelFrameProps {
   onFixPreview?: (() => void) | null;
   previewSrc: string;
   iframeRef: RefObject<HTMLIFrameElement | null>;
+  /**
+   * `mobile` smalnar av hela ramen (iframe + overlays) till mobilbredd,
+   * centrerad. Bara klasser byts, så iframen monteras inte om och laddas
+   * inte om (ingen ny session).
+   */
+  previewDevice?: PreviewDevice;
   handleIframeLoad: () => void;
   handleIframeError: () => void;
   /** Tier-2 readiness owns a longer status timeout; do not reveal it via the generic 6s cap. */
@@ -70,6 +78,7 @@ export function PreviewPanelFrame({
   onFixPreview,
   previewSrc,
   iframeRef,
+  previewDevice = "desktop",
   handleIframeLoad,
   handleIframeError,
   bypassLoadingHardCap = false,
@@ -196,7 +205,13 @@ export function PreviewPanelFrame({
 
   return (
     <div
-      className="relative h-full overflow-hidden bg-gray-950"
+      className={cn(
+        "relative h-full overflow-hidden bg-gray-950",
+        // Overlays (inspect/composer) ligger i samma ram och följer med.
+        previewDevice === "mobile" &&
+          "mx-auto w-full max-w-[390px] border-x border-white/10 shadow-[0_0_24px_rgba(0,0,0,0.45)]",
+      )}
+      data-preview-device={previewDevice}
       onMouseDown={focusPreviewIframe}
     >
       {topBarVisible ? (
