@@ -499,3 +499,11 @@ describe("proxy Permissions-Policy", () => {
     expect(policy).toContain("usb=()");
   });
 });
+
+describe("per-chat preview origin CSP (M03)", () => {
+  it("frames the per-chat preview origins without any env", async () => {
+    const csp = await cspFor("https://sajtmaskin.example/");
+    expect(directive(csp, "frame-src")).toContain("https://*.vm.sajtmaskin.com");
+    expect(directive(csp, "connect-src")).toContain("https://*.vm.sajtmaskin.com");
+  });
+});

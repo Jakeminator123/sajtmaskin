@@ -786,6 +786,319 @@ async function websocketOpen(pathname, extraHeaders = {}) {
   };
 }
 
+// M03: upgrade with an explicit Host header. Resolves with the response head,
+// or `null` when the host closes the socket without answering.
+function websocketOutcome(pathname, hostHeader) {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection({ host: "127.0.0.1", port: hostAddress.port });
+    let response = Buffer.alloc(0);
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve(value);
+    };
+    socket.once("connect", () => {
+      socket.write(
+        [
+          `GET ${pathname} HTTP/1.1`,
+          `Host: ${hostHeader}`,
+          "Connection: Upgrade",
+          "Upgrade: websocket",
+          "Sec-WebSocket-Version: 13",
+          "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==",
+          "",
+          "",
+        ].join("\r\n"),
+      );
+    });
+    socket.on("data", (chunk) => {
+      response = Buffer.concat([response, chunk]);
+      const end = response.indexOf(Buffer.from("\r\n\r\n"));
+      if (end !== -1) finish(response.subarray(0, end).toString("latin1"));
+    });
+    socket.once("close", () => finish(response.length ? response.toString("latin1") : null));
+    socket.once("error", (error) => (settled ? undefined : reject(error)));
+  });
+}
+
+/**
+ * M03 (SM-080): per-chat browser origin. Two sessions A and B in one store,
+ * `PREVIEW_HOST_ORIGIN_MODE=subdomain`, Host header set explicitly.
+ */
+async function runPreviewOriginContracts() {
+  const PREVIEW_DOMAIN = "vm.preview-test.example";
+  const slugFor = runtime.__testing.previewOriginSlugForChat;
+  const chatA = "Origin_Chat-A";
+  const chatB = "origin-chat-b";
+  const slugA = slugFor(chatA);
+  const slugB = slugFor(chatB);
+  assert.match(slugA, /^p-[0-9a-f]{20}$/, "slug is a DNS-safe label");
+  assert.notEqual(slugA, slugB, "two chats get two different origins");
+  assert.equal(slugFor(chatA), slugA, "slug is stable per chat");
+
+  const sessions = {};
+  const previewSessionToSession = {};
+  for (const chatId of [chatA, chatB]) {
+    const sessionId = `session-${chatId}`;
+    const previewSessionId = `ps-${chatId}`;
+    sessions[sessionId] = {
+      sessionId,
+      previewSessionId,
+      chatId,
+      versionId: "version-1",
+      previewUrl: `${hostBase}/${chatId}`,
+      status: "warm_project",
+      lastAction: "start",
+      changeClass: "fresh",
+      startOutcome: "fresh",
+      filesJson: { "app/page.tsx": "SKELETON" },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      sessionExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+      runtimePort: upstreamAddress.port,
+      readinessState: "ready",
+    };
+    previewSessionToSession[previewSessionId] = sessionId;
+  }
+  store.writeStoreAtomicSync({ sessions, logs: {}, previewSessionToSession, prewarmLeases: {} });
+  for (const chatId of [chatA, chatB]) {
+    runtime.__testing.setRuntimeStateForTesting({
+      chatId,
+      sessionId: `session-${chatId}`,
+      previewSessionId: `ps-${chatId}`,
+      runtimePort: upstreamAddress.port,
+      running: true,
+    });
+  }
+  const hostA = `${slugA}.${PREVIEW_DOMAIN}`;
+  const hostB = `${slugB}.${PREVIEW_DOMAIN}`;
+  const encA = encodeURIComponent(chatA);
+  const onHost = (hostHeader, pathname, options = {}) =>
+    rawRequest(pathname, { ...options, headers: { Host: hostHeader, ...(options.headers ?? {}) } });
+
+  try {
+    // Path mode (default): status keeps the shared-origin URL and a
+    // subdomain Host is just another control-plane request.
+    const pathStatus = await json(`/preview/session/ps-${chatA}/status`);
+    assert.equal(pathStatus.body.previewUrl, `http://127.0.0.1:0000/${encA}`);
+    const pathHealth = await json("/health");
+    assert.deepEqual(pathHealth.body.origin, { mode: "path", configured: true, domain: null });
+    const pathOnSubdomainHost = await onHost(hostA, `/${encA}/`);
+    assert.equal(pathOnSubdomainHost.status, 200, "path mode ignores the Host header");
+
+    // Misconfigured subdomain mode is fail-closed: no preview traffic, no new
+    // sessions, but status/health still answer.
+    process.env.PREVIEW_HOST_ORIGIN_MODE = "subdomain";
+    delete process.env.PREVIEW_HOST_PREVIEW_DOMAIN;
+    const brokenHealth = await json("/health");
+    assert.deepEqual(brokenHealth.body.origin, {
+      mode: "subdomain",
+      configured: false,
+      domain: null,
+    });
+    lastUpstreamUrl = null;
+    const brokenPreview = await rawGet(`/${encA}/`);
+    assert.equal(brokenPreview.status, 503);
+    assert.equal(JSON.parse(brokenPreview.body).error, "preview_origin_unavailable");
+    assert.equal(lastUpstreamUrl, null, "misconfigured origin never reaches the runtime");
+    const brokenStart = await rawRequest("/preview/session/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    assert.equal(brokenStart.status, 503);
+    assert.equal(JSON.parse(brokenStart.body).error, "configuration_error");
+    const brokenStatus = await json(`/preview/session/ps-${chatA}/status`);
+    assert.equal(brokenStatus.status, 200, "status still answers while misconfigured");
+    assert.equal(
+      (await websocketOutcome(`/${encA}/app-socket`, `127.0.0.1:${hostAddress.port}`)),
+      null,
+      "misconfigured origin closes WebSocket upgrades",
+    );
+    process.env.PREVIEW_HOST_ORIGIN_MODE = "per-chat";
+    process.env.PREVIEW_HOST_PREVIEW_DOMAIN = PREVIEW_DOMAIN;
+    assert.equal((await json("/health")).body.origin.configured, false, "unknown mode is refused");
+    for (const badDomain of ["*.vm.example", "https://vm.example", "vm.example:443", "VM.example", "10.0.0.1", "localhost"]) {
+      process.env.PREVIEW_HOST_ORIGIN_MODE = "subdomain";
+      process.env.PREVIEW_HOST_PREVIEW_DOMAIN = badDomain;
+      assert.equal(
+        runtime.__testing.previewOriginConfig().ok,
+        false,
+        `domain ${badDomain} is rejected`,
+      );
+    }
+
+    // Subdomain mode, correctly configured.
+    process.env.PREVIEW_HOST_ORIGIN_MODE = "subdomain";
+    process.env.PREVIEW_HOST_PREVIEW_DOMAIN = PREVIEW_DOMAIN;
+    const health = await json("/health");
+    assert.deepEqual(health.body.origin, {
+      mode: "subdomain",
+      configured: true,
+      domain: PREVIEW_DOMAIN,
+    });
+    const status = await json(`/preview/session/ps-${chatA}/status`);
+    assert.equal(
+      status.body.previewUrl,
+      `http://${hostA}:0/${encA}`,
+      "status computes the per-chat URL at response time (no stored value migration)",
+    );
+    const sessionJson = await json(`/preview/session/session-${chatA}`);
+    assert.equal(sessionJson.body.previewUrl, `http://${hostA}:0/${encA}`);
+
+    // Right host + own chat path is proxied.
+    lastUpstreamUrl = null;
+    const ownPage = await onHost(hostA, `/${encA}/products?x=1`);
+    assert.equal(ownPage.status, 200);
+    assert.equal(lastUpstreamUrl, `/${encA}/products?x=1`);
+    assert.equal(lastUpstreamHeaders?.host, hostA, "Host is forwarded unchanged (changeOrigin: false)");
+    assert.equal(ownPage.headers["x-robots-tag"], "noindex, nofollow, noarchive");
+
+    // Another chat's path on this origin is a 404, never a cross-chat proxy.
+    lastUpstreamUrl = null;
+    const crossChat = await onHost(hostA, `/${chatB}/`);
+    assert.equal(crossChat.status, 404);
+    assert.equal(lastUpstreamUrl, null);
+    const wrongSlug = await onHost(`p-${"0".repeat(20)}.${PREVIEW_DOMAIN}`, `/${encA}/`);
+    assert.equal(wrongSlug.status, 404, "unknown slug serves nothing");
+    const foreignLabel = await onHost(`www.${PREVIEW_DOMAIN}`, `/${encA}/`);
+    assert.equal(foreignLabel.status, 404, "non-slug label under the preview domain serves nothing");
+
+    // A browser navigation to a well-formed slug whose chat has no session yet
+    // gets the static start page (no JSON in the iframe). Everything else on
+    // preview origins stays 404.
+    const navigate = { "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "iframe" };
+    const pendingSlug = await onHost(`p-${"0".repeat(20)}.${PREVIEW_DOMAIN}`, "/not-started-chat/", {
+      headers: navigate,
+    });
+    assert.equal(pendingSlug.status, 503);
+    assert.match(pendingSlug.body, /data-sajtmaskin-preview-boot="starting"/);
+    for (const [host, path] of [
+      [`www.${PREVIEW_DOMAIN}`, `/${encA}/`],
+      [hostA, `/${chatB}/`],
+      [hostA, "/admin/metrics"],
+      [`p-${"0".repeat(20)}.${PREVIEW_DOMAIN}`, "/admin/metrics"],
+    ]) {
+      const navigated = await onHost(host, path, { headers: navigate });
+      assert.equal(navigated.status, 404, `${host}${path} stays 404 on navigation`);
+    }
+    assert.equal(
+      (await rawGet("/unknown-chat/", navigate)).status,
+      404,
+      "the base host in subdomain mode never serves the start page",
+    );
+    const apexDomain = await onHost(PREVIEW_DOMAIN, "/health");
+    assert.equal(apexDomain.status, 404);
+
+    // Root-absolute Next internals and app API resolve by Host slug, no Referer.
+    lastUpstreamUrl = null;
+    const rootAsset = await onHost(hostA, "/_next/static/chunk.js");
+    assert.equal(rootAsset.status, 200);
+    assert.equal(lastUpstreamUrl, `/${encA}/_next/static/chunk.js`);
+    lastUpstreamUrl = null;
+    const rootApiBody = JSON.stringify({ q: "regn" });
+    const rootApiOnOrigin = await onHost(hostB, "/api/chat?mode=demo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(rootApiBody) },
+      body: rootApiBody,
+    });
+    assert.equal(rootApiOnOrigin.status, 200);
+    assert.equal(lastUpstreamUrl, `/${chatB}/api/chat?mode=demo`);
+    assert.equal(lastUpstreamBody, rootApiBody);
+    lastUpstreamUrl = null;
+    const spoofedReferer = await onHost(hostB, "/api/chat", {
+      headers: { Referer: `http://${hostA}/${encA}/` },
+    });
+    assert.equal(spoofedReferer.status, 200);
+    assert.equal(lastUpstreamUrl, `/${chatB}/api/chat`, "Host slug wins over Referer");
+
+    // Root of a preview origin forwards to the chat; placeholder stays public.
+    const rootRedirect = await onHost(hostA, "/?a=1");
+    assert.equal(rootRedirect.status, 307);
+    assert.equal(rootRedirect.headers.location, `/${encA}?a=1`);
+    const placeholder = await onHost(hostA, "/placeholder.svg?w=10&h=10");
+    assert.equal(placeholder.status, 200);
+    assert.match(placeholder.headers["content-type"] ?? "", /svg/);
+
+    // The control plane does not exist on a preview origin.
+    for (const controlPath of [
+      "/health",
+      `/preview/session/ps-${chatA}/status`,
+      "/admin/sessions",
+      "/admin/metrics",
+    ]) {
+      const controlOnPreview = await onHost(hostA, controlPath);
+      assert.equal(controlOnPreview.status, 404, `${controlPath} is 404 on a preview origin`);
+    }
+
+    // Base host: chat paths (direct or via Referer) are sent to the chat's own
+    // origin with a non-cacheable 307. The control plane is unchanged.
+    const baseRedirect = await rawGet(`/${encA}/products?x=1`);
+    assert.equal(baseRedirect.status, 307);
+    assert.equal(baseRedirect.headers.location, `http://${hostA}:0/${encA}/products?x=1`);
+    assert.equal(baseRedirect.headers["cache-control"], "no-store");
+    const baseRefererRedirect = await rawGet("/_next/static/chunk.js", {
+      Referer: `${hostBase}/${chatB}/`,
+    });
+    assert.equal(baseRefererRedirect.status, 307);
+    assert.equal(baseRefererRedirect.headers.location, `http://${hostB}:0/_next/static/chunk.js`);
+    assert.equal((await rawGet("/unknown-chat/")).status, 404);
+    assert.equal((await json("/health")).status, 200);
+
+    // Bootstrap + inspector on a preview origin: same relative paths, the
+    // bridge keeps the app origins as its only parents.
+    const inspected = await onHost(hostA, `/${encA}/?inspect=1`, {
+      headers: { "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "iframe" },
+    });
+    assert.equal(inspected.status, 200);
+    const originTag = extractBootstrapTag(inspected.body);
+    assert.equal(originTag.bootstrapSrc, `/${encA}/__sm/preview-bootstrap.js`);
+    const originInspector = /<script src="([^"]*\/api\/inspect-bridge[^"]*)"/.exec(
+      inspected.body,
+    )?.[1]?.replaceAll("&amp;", "&");
+    assert.ok(originInspector, "inspector is injected on a per-chat origin");
+    assert.deepEqual(new URL(originInspector).searchParams.getAll("parent"), [
+      "https://app.example",
+      "https://secondary.example",
+    ]);
+    const bootstrapScript = await onHost(hostA, `/${encA}/__sm/preview-bootstrap.js`);
+    assert.equal(bootstrapScript.status, 200);
+    assert.equal((await onHost(hostB, `/${encA}/__sm/preview-bootstrap.js`)).status, 404);
+
+    // WebSocket: own origin is proxied, another chat's path is closed, the
+    // base host never upgrades a chat socket in subdomain mode.
+    upstreamUpgradeHits = 0;
+    const ownSocket = await websocketOutcome(`/${encA}/app-socket`, hostA);
+    assert.match(ownSocket ?? "", /^HTTP\/1\.1 101 Switching Protocols/m);
+    assert.equal(lastUpstreamUpgradeUrl, `/${encA}/app-socket`);
+    const rootHmr = await websocketOutcome("/_next/webpack-hmr", hostB);
+    assert.match(rootHmr ?? "", /^HTTP\/1\.1 101 Switching Protocols/m);
+    assert.equal(lastUpstreamUpgradeUrl, `/${chatB}/_next/webpack-hmr`);
+    const hitsBeforeRefused = upstreamUpgradeHits;
+    assert.equal(await websocketOutcome(`/${chatB}/app-socket`, hostA), null);
+    assert.equal(
+      await websocketOutcome(`/${encA}/app-socket`, `127.0.0.1:${hostAddress.port}`),
+      null,
+    );
+    assert.equal(await websocketOutcome("/_next/webpack-hmr", `www.${PREVIEW_DOMAIN}`), null);
+    assert.equal(upstreamUpgradeHits, hitsBeforeRefused, "refused upgrades never reach a runtime");
+
+    // Rollback: path mode again, same sessions, shared-origin URLs.
+    process.env.PREVIEW_HOST_ORIGIN_MODE = "path";
+    const rolledBack = await json(`/preview/session/ps-${chatB}/status`);
+    assert.equal(rolledBack.body.previewUrl, `http://127.0.0.1:0000/${chatB}`);
+    assert.equal((await rawGet(`/${encA}/`)).status, 200, "rollback serves the base host again");
+  } finally {
+    delete process.env.PREVIEW_HOST_ORIGIN_MODE;
+    delete process.env.PREVIEW_HOST_PREVIEW_DOMAIN;
+    for (const chatId of [chatA, chatB]) {
+      runtime.__testing.clearRuntimeStateForTesting(chatId, `session-${chatId}`);
+    }
+  }
+}
+
 async function websocketHandshake(pathname) {
   const connection = await websocketOpen(pathname);
   connection.socket.destroy();
@@ -1784,6 +2097,17 @@ try {
   const pendingProbe = await rawGet(`/not-started-chat/`);
   assert.equal(pendingProbe.status, 404);
   assert.match(pendingProbe.body, /"not_found"/);
+  for (const notAChatPath of ["/admin/sessions", "/api/chat", "/_next/static/x.js"]) {
+    const navigated = await rawGet(notAChatPath, {
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Dest": "document",
+    });
+    assert.doesNotMatch(
+      navigated.body,
+      /data-sajtmaskin-preview-boot/,
+      `${notAChatPath} never gets the start page`,
+    );
+  }
 
   // (a) chatId-prefixed internal asset -> Origin stripped before upstream.
   lastUpstreamHeaders = null;
@@ -1864,6 +2188,8 @@ try {
   });
   assert.equal(unscopedApi.status, 404);
   assert.equal(lastUpstreamUrl, null);
+
+  await runPreviewOriginContracts();
 
   console.log("[test-preview-proxy-contract] All proxy contracts green.");
 } finally {

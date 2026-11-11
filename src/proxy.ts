@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyTokenEdge, getTokenFromRequestEdge, isAdminEmailEdge } from "@/lib/auth/edge-auth";
+import { getPreviewOriginCspSource } from "@/lib/gen/preview/preview-origin";
 import {
   canonicalPublicUrlForDuplicateHost,
   isDuplicatePublicAliasHost,
@@ -116,7 +117,9 @@ function isAvatarRoute(pathname: string): boolean {
 }
 
 function getTier2PreviewHostCspSources(): string[] {
-  const sources = new Set<string>();
+  // M03: per-chat preview origins are framed regardless of the host's mode, so
+  // flipping PREVIEW_HOST_ORIGIN_MODE never depends on a new app deploy.
+  const sources = new Set<string>([getPreviewOriginCspSource()]);
 
   const baseUrl = process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL?.trim();
   if (baseUrl) {
