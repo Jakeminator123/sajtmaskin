@@ -13,7 +13,7 @@ Claude-lagret är en projektion som `npm run claude:sync` skriver och
 | `.cursorignore`                                 | `permissions.deny` `Read(...)`                       | Blockerar Read/Edit/Grep och även `cat` i skalet.                                 |
 | `.cursor/permissions.json` `terminalAllowlist`  | `permissions.allow` `Bash(...)`/`PowerShell(...)`    | Samma prefixsemantik (`prefix*`).                                                 |
 | `.cursor/permissions.json` `mcpAllowlist`       | `permissions.allow` `mcp__...`                       |                                                                                   |
-| `.cursor/permissions.json` `block_instructions` | `permissions.ask` (`CLAUDE_ASK_RULES`)               | Deterministisk fråga i stället för klassificerarstyrning.                         |
+| `.cursor/permissions.json` `block_instructions` | `permissions.ask` (`CLAUDE_ASK_RULES`)               | Fråga bara för promote, `db:*` och agentkonfig (ägarbeslut 2026-11-11).           |
 | `.cursor/mcp.json.example`                      | `.mcp.json`                                          | Samma servrar; OAuth via `/mcp`. `cmd`-wrappade skript startas med `node` direkt. |
 | `.cursor/hooks.json` commit-/worktree-guard     | `hooks.PreToolUse` → `.claude/hooks/shell-guard.mjs` | Adapter på varje skalanrop; deny = exit 2.                                        |
 | `.cursor/hooks.json` mcp-secret-read-guard      | `hooks.PreToolUse` → `.claude/hooks/read-guard.mjs`  | Adaptern läser filen själv; samma `decide`.                                       |

@@ -14,12 +14,13 @@
 
 const { EventEmitter } = require("node:events");
 
+const { readStoreSync } = require("../store.js");
 const { isMachineIsolation } = require("../machines/isolation-config.js");
 const {
   destroyProjectMachine,
   ensureProjectMachine,
   guestForChat,
-  stopProjectMachine,
+  listProjectMachineRecords,
 } = require("../machines/project-machines.js");
 const { machineIsolationConfig } = require("../machines/isolation-config.js");
 const {
@@ -36,7 +37,17 @@ const {
   resolveInstallCommand,
   verifyInstalledDependencies,
 } = require("./package-install.js");
-const { appendRuntimeLog, clipVerifyOutput, isHmrProxyEnabled } = require("./shared.js");
+const {
+  activePreviewSocketCount,
+  activeVerifyChatKeys,
+  appendRuntimeLog,
+  clipVerifyOutput,
+  findSessionByChatId,
+  inflightBootByChat,
+  isHmrProxyEnabled,
+  runtimeChildren,
+  safeChatKey,
+} = require("./shared.js");
 
 const LIVE_WORKSPACE = "live";
 const REMOTE_POLL_INTERVAL_MS = 2000;
@@ -417,20 +428,103 @@ async function startRemoteDevServer({ chatId, previewSessionId, guest, runId }) 
   };
 }
 
-/** Hibernate/idle: stop the dev process is done by the caller; park the machine. */
-async function parkProjectMachine(chatId, { previewSessionId } = {}) {
-  const config = machineIsolationConfig();
-  if (!config.stopMachineOnHibernate) return false;
-  const log = previewSessionId ? (message) => appendRuntimeLog(previewSessionId, message) : undefined;
-  try {
-    return await stopProjectMachine(chatId, { log });
-  } catch (error) {
-    await log?.(`Could not stop guest machine: ${error instanceof Error ? error.message : "unknown error"}`);
-    return false;
+// --- Idle destroy ----------------------------------------------------------
+//
+// Hibernate and the dev-runtime idle reaper only stop `next dev`; the guest
+// stays up so a quick return restarts the dev process on warm files. Once the
+// guest has been idle for `PREVIEW_GUEST_IDLE_DESTROY_MS` it is destroyed (not
+// stopped: a stopped Machine loses its rootfs, so there is nothing to keep)
+// and the next visit creates a new one. Never while a boot, verify, live dev
+// process or open preview socket uses it.
+//
+// The idle clock is the latest of: activity noted in memory (dev runtime
+// traffic when it stops, hibernate, verify end, anything busy seen by the
+// sweep), the record's create/start time, and this host process's start. The
+// last one covers guests with no tracked runtime after a host restart: they
+// get one full window to be reclaimed by a reconnecting viewer.
+
+const HOST_STARTED_AT_MS = Date.now();
+const guestActivityByChat = new Map();
+
+function noteGuestActivity(chatId, atMs = Date.now()) {
+  if (!isMachineRuntime() || typeof chatId !== "string" || !chatId || !Number.isFinite(atMs)) return;
+  if (atMs > (guestActivityByChat.get(chatId) ?? 0)) guestActivityByChat.set(chatId, atMs);
+}
+
+function liveTrackedRuntimeForChat(chatId) {
+  for (const tracked of runtimeChildren.values()) {
+    if (tracked?.chatId === chatId && tracked.child?.exitCode === null) return tracked;
   }
+  return null;
+}
+
+/** What is using the chat's guest right now, or null when nothing is. */
+function guestBusyReason(chatId) {
+  if (inflightBootByChat.has(chatId)) return "boot";
+  if (activeVerifyChatKeys.has(safeChatKey(chatId))) return "verify";
+  if (activePreviewSocketCount(chatId) > 0) return "socket";
+  if (liveTrackedRuntimeForChat(chatId)) return "runtime";
+  return null;
+}
+
+function guestLastActivityMs(chatId, record) {
+  return Math.max(
+    HOST_STARTED_AT_MS,
+    guestActivityByChat.get(chatId) ?? 0,
+    Date.parse(record?.lastStartedAt ?? "") || 0,
+    Date.parse(record?.createdAt ?? "") || 0,
+  );
+}
+
+async function sweepIdleGuestMachines(nowMs = Date.now()) {
+  const destroyed = [];
+  if (!isMachineRuntime()) return { destroyed };
+  const windowMs = machineIsolationConfig().idleDestroyMs;
+  if (!(windowMs > 0)) return { destroyed };
+  const records = listProjectMachineRecords();
+  const known = new Set(records.map((record) => record.chatId));
+  for (const chatId of guestActivityByChat.keys()) {
+    if (!known.has(chatId)) guestActivityByChat.delete(chatId);
+  }
+  for (const record of records) {
+    const { chatId } = record;
+    const busy = guestBusyReason(chatId);
+    if (busy) {
+      // A live dev process counts from its last proxied request (the runtime
+      // idle reaper stops it first); a boot, verify or open socket is
+      // activity now.
+      const tracked = busy === "runtime" ? liveTrackedRuntimeForChat(chatId) : null;
+      noteGuestActivity(chatId, Number.isFinite(tracked?.lastActivityAt) ? tracked.lastActivityAt : nowMs);
+      continue;
+    }
+    if (nowMs - guestLastActivityMs(chatId, record) < windowMs) continue;
+    let removed = false;
+    try {
+      removed = await destroyProjectMachine(chatId, {
+        // Re-checked under the machine lock: a boot or verify that started
+        // since the snapshot keeps the guest.
+        shouldDestroy: (current) =>
+          guestBusyReason(chatId) === null && nowMs - guestLastActivityMs(chatId, current) >= windowMs,
+      });
+    } catch {
+      removed = false;
+    }
+    if (!removed) continue;
+    guestActivityByChat.delete(chatId);
+    destroyed.push({ chatId, machineId: record.machineId });
+    const session = findSessionByChatId(readStoreSync(), chatId);
+    if (session?.previewSessionId) {
+      await appendRuntimeLog(
+        session.previewSessionId,
+        `Guest machine ${record.machineId} destroyed after ${Math.round(windowMs / 60000)} min without activity; the next visit creates a new one.`,
+      ).catch(() => {});
+    }
+  }
+  return { destroyed };
 }
 
 async function destroyProjectMachineForChat(chatId) {
+  guestActivityByChat.delete(chatId);
   try {
     return await destroyProjectMachine(chatId);
   } catch {
@@ -445,9 +539,10 @@ module.exports = {
   destroyProjectMachineForChat,
   installInGuest,
   isMachineRuntime,
-  parkProjectMachine,
+  noteGuestActivity,
   patchWorkspaceInMachine,
   prepareGuestFiles,
   startRemoteDevServer,
+  sweepIdleGuestMachines,
   syncAndInstallInMachine,
 };

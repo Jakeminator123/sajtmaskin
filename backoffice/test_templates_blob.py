@@ -10,6 +10,7 @@ import contextlib
 import json
 import subprocess
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -175,6 +176,115 @@ class LoadManifestSummaryTests(unittest.TestCase):
         self.assertEqual(summary["count"], 3)
         self.assertEqual(summary["lastUpdated"], "2026-07-01T12:00:00Z")
         self.assertEqual(len(summary["templates"]), 3)
+
+
+class UploadGateTests(unittest.TestCase):
+    """Blob-uppladdningen kräver dry-run för samma mapp+manifest och bekräftelse."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.repo = Path(self._tmp.name)
+        self.manifest = self.repo / tb._MANIFEST_REL
+        self.manifest.parent.mkdir(parents=True)
+        self.manifest.write_text('{"templates": []}', encoding="utf-8")
+        self.binding = tb._upload_binding(self.repo, "C:/mallar")
+        self.dry_run = {"ok": True, "output": "x", "binding": dict(self.binding)}
+
+    def test_upload_is_blocked_without_a_dry_run(self) -> None:
+        self.assertIsNotNone(tb._upload_block_reason(None, self.binding, confirmed=True))
+
+    def test_upload_is_blocked_after_a_failed_dry_run(self) -> None:
+        failed = {**self.dry_run, "ok": False}
+        self.assertIsNotNone(tb._upload_block_reason(failed, self.binding, confirmed=True))
+
+    def test_upload_is_blocked_when_source_changed_after_dry_run(self) -> None:
+        other = tb._upload_binding(self.repo, "C:/annan-mapp")
+        self.assertIn("Skanna igen", tb._upload_block_reason(self.dry_run, other, confirmed=True))
+
+    def test_upload_is_blocked_when_manifest_changed_after_dry_run(self) -> None:
+        self.manifest.write_text('{"templates": [{"id": "a"}]}', encoding="utf-8")
+        changed = tb._upload_binding(self.repo, "C:/mallar")
+        self.assertNotEqual(changed, self.binding)
+        self.assertIn("Skanna igen", tb._upload_block_reason(self.dry_run, changed, confirmed=True))
+
+    def test_upload_is_blocked_without_confirmation(self) -> None:
+        reason = tb._upload_block_reason(self.dry_run, self.binding, confirmed=False)
+        self.assertIn(tb._UPLOAD_CONFIRM_WORD, reason)
+
+    def test_upload_is_allowed_after_matching_dry_run_and_confirmation(self) -> None:
+        self.assertIsNone(tb._upload_block_reason(self.dry_run, self.binding, confirmed=True))
+
+
+class UploadLockTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.repo = Path(self._tmp.name)
+
+    def test_locked_upload_runs_the_uploader_in_upload_mode(self) -> None:
+        with mock.patch.object(tb, "_run_uploader", return_value={"ok": True}) as run:
+            result = tb._run_upload_locked(self.repo, "/src")
+        run.assert_called_once_with(self.repo, "/src", upload=True)
+        self.assertTrue(result["ok"])
+
+    def test_second_concurrent_upload_is_refused_without_running(self) -> None:
+        started = threading.Event()
+        release = threading.Event()
+
+        def slow_upload(*_args: object, **_kwargs: object) -> dict:
+            started.set()
+            release.wait(timeout=10)
+            return {"ok": True}
+
+        with mock.patch.object(tb, "_run_uploader", side_effect=slow_upload) as run:
+            worker = threading.Thread(target=tb._run_upload_locked, args=(self.repo, "/src"))
+            worker.start()
+            try:
+                self.assertTrue(started.wait(timeout=10))
+                second = tb._run_upload_locked(self.repo, "/src")
+            finally:
+                release.set()
+                worker.join(timeout=10)
+        self.assertFalse(second["ok"])
+        self.assertIn("pågår redan", second["error"])
+        self.assertEqual(run.call_count, 1)
+
+
+def _render_templates_blob_for_apptest() -> None:
+    from pathlib import Path
+
+    from backoffice.pages import templates_blob
+    from backoffice.shared import build_backoffice_context
+
+    templates_blob.render(build_backoffice_context(Path.cwd()))
+
+
+class TemplatesBlobAppTests(unittest.TestCase):
+    def test_upload_button_is_disabled_until_dry_run_and_confirmation(self) -> None:
+        from streamlit.testing.v1 import AppTest
+
+        with mock.patch.object(tb, "_run_uploader") as run:
+            app = AppTest.from_function(_render_templates_blob_for_apptest).run(timeout=10)
+            self.assertEqual(list(app.exception), [])
+            upload = next(
+                button
+                for button in app.button
+                if button.label == "Ladda upp saknade + uppdatera katalog"
+            )
+            self.assertTrue(upload.disabled)
+            confirm = next(
+                widget for widget in app.text_input if widget.key == tb._UPLOAD_CONFIRM_KEY
+            )
+            confirm.input(tb._UPLOAD_CONFIRM_WORD)
+            app.run(timeout=10)
+            upload = next(
+                button
+                for button in app.button
+                if button.label == "Ladda upp saknade + uppdatera katalog"
+            )
+            self.assertTrue(upload.disabled, "bekräftelse utan dry-run får inte räcka")
+        run.assert_not_called()
 
 
 if __name__ == "__main__":

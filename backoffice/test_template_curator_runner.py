@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import http.client
 import io
 import json
 import subprocess
@@ -15,9 +16,12 @@ from types import SimpleNamespace
 from unittest import mock
 
 from scripts.template_curator import cli
+from scripts.template_curator import runner
 from scripts.template_curator.runner import (
+    MAX_ANALYZE_TEMPLATES,
     MAX_ARCHIVE_BYTES,
     CuratorError,
+    curate_templates,
     download_verified_archive,
     inspect_zip_safety,
     profile_template,
@@ -95,6 +99,37 @@ class TemplateCuratorDownloadTests(unittest.TestCase):
             with self.assertRaisesRegex(CuratorError, "SHA-256"):
                 download_verified_archive(record, Path(raw), opener=lambda _url, _timeout: _Response(payload))
             self.assertEqual(list(Path(raw).iterdir()), [])
+
+    def test_http_protocol_error_becomes_curator_error_and_cleans_up(self) -> None:
+        payload = _zip_bytes({"index.html": "ok"})
+        record = _record("cut-off", payload)
+
+        class _CutOff(_Response):
+            def read(self, *_args: object) -> bytes:
+                raise http.client.IncompleteRead(b"partial", 10)
+
+        with tempfile.TemporaryDirectory() as raw:
+            with self.assertRaisesRegex(CuratorError, "download failed"):
+                download_verified_archive(
+                    record, Path(raw), opener=lambda _url, _timeout: _CutOff(payload)
+                )
+            self.assertEqual(list(Path(raw).iterdir()), [])
+
+
+class TemplateCuratorSelectionBoundTests(unittest.TestCase):
+    def test_cli_and_runner_share_one_bound(self) -> None:
+        self.assertEqual(cli.MAX_ANALYZE_TEMPLATES, MAX_ANALYZE_TEMPLATES)
+
+    def test_runner_rejects_selection_above_bound_before_network(self) -> None:
+        records = [{"id": f"t{index}"} for index in range(MAX_ANALYZE_TEMPLATES + 1)]
+        with (
+            mock.patch.object(runner, "run_audit") as run,
+            self.assertRaisesRegex(CuratorError, str(MAX_ANALYZE_TEMPLATES)),
+        ):
+            curate_templates(
+                records, repo_root=REPO_ROOT, scope="blob", extractor_sha256=None
+            )
+        run.assert_not_called()
 
 
 class TemplateCuratorZipGuardTests(unittest.TestCase):

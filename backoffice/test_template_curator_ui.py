@@ -298,6 +298,31 @@ class CuratorAppTests(unittest.TestCase):
         )
         self.assertFalse(analyze.disabled)
 
+    def test_display_limit_and_selection_are_capped_at_runner_bound(self) -> None:
+        from streamlit.testing.v1 import AppTest
+
+        from scripts.template_curator.runner import MAX_ANALYZE_TEMPLATES
+
+        app = AppTest.from_function(_render_curator_for_apptest).run(timeout=10)
+        population = next(
+            selectbox for selectbox in app.selectbox if selectbox.label == "Population"
+        )
+        population.select("Alla i Blob-manifestet")
+        app.run(timeout=10)
+        self.assertEqual(list(app.exception), [])
+        snapshot = catalog.load_catalog(Path.cwd())
+        self.assertGreater(
+            snapshot.scope_counts[catalog.CatalogScope.BLOB], MAX_ANALYZE_TEMPLATES
+        )
+        limit = next(
+            widget for widget in app.number_input if widget.label == "Visa högst"
+        )
+        self.assertEqual(limit.max, MAX_ANALYZE_TEMPLATES)
+        self.assertLessEqual(len(app.multiselect[0].options), MAX_ANALYZE_TEMPLATES)
+        self.assertEqual(
+            app.multiselect[0].proto.max_selections, MAX_ANALYZE_TEMPLATES
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

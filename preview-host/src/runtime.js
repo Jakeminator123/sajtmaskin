@@ -58,6 +58,8 @@ module.exports = {
     prepareGuestFiles: machineRuntime.prepareGuestFiles,
     createRemoteDevChild: machineRuntime.createRemoteDevChild,
     installInGuest: machineRuntime.installInGuest,
+    sweepIdleGuestMachines: machineRuntime.sweepIdleGuestMachines,
+    CREATE_MAX_ATTEMPTS: projectMachines.CREATE_MAX_ATTEMPTS,
     setMachineClientsForTesting: projectMachines.setMachineClientsForTesting,
     readMachineRecord: projectMachines.readMachineRecord,
     machineConfigPayload: projectMachines.machineConfigPayload,
