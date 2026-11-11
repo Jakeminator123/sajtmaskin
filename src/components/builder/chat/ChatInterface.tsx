@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import {
   AlertCircle,
   Bot,
+  ChevronDown,
   FileText,
   Globe,
   Hammer,
@@ -32,6 +33,7 @@ import {
   Plus,
   Search,
   SearchX,
+  SlidersHorizontal,
   Sparkles,
   Square,
   X,
@@ -366,6 +368,18 @@ export function ChatInterface({
     [chatId],
   );
   const routeLabelId = useId();
+  const toolsRowId = useId();
+  // Sekundära verktyg (Plan, Förbättra texten, block, inspektion, media,
+  // röst, modell) ligger i EN rad bakom «Verktyg» (UX-granskningen
+  // 2026-11-11, C2). Raden döljs men avmonteras inte, så en pågående
+  // röstinspelning eller ett modellval överlever att den fälls ihop.
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const previewModeActive = Boolean(previewModes?.composerOpen || previewModes?.inspectOpen);
+  // Block och inspektion styrs bara härifrån. Slås ett läge på visas raden,
+  // så läget och knappen som stänger det syns.
+  useEffect(() => {
+    if (previewModeActive) setToolsOpen(true);
+  }, [previewModeActive]);
 
   // Medan ett bygge pågår är byggmotorn låst, men en fråga till Sajtagenten
   // («vad händer nu?») ska fortfarande gå att ställa. Inputen hålls därför
@@ -1227,34 +1241,17 @@ export function ChatInterface({
               </button>
             </div>
           ) : null}
-          {/* Vad nästa klick på Skicka gör (UX-07). Samma beslut som
-              utskicket i handleSubmit, alltid synligt intill Skicka. */}
           <div
-            id={routeLabelId}
-            className={cn("flex flex-col items-end gap-0.5 text-right text-xs", routeStyle.text)}
-            data-testid="composer-route-hint"
-            data-route-tone={routeDescription.tone}
-            aria-live="polite"
-            aria-atomic="true"
-            title={routeDescription.hint}
+            id={toolsRowId}
+            role="group"
+            aria-label="Fler verktyg"
+            hidden={!toolsOpen}
+            className={cn("flex-wrap items-center gap-1.5", toolsOpen ? "flex" : "hidden")}
+            data-testid="composer-tools"
           >
-            <span className="inline-flex items-center gap-1.5 font-medium">
-              <RouteIcon className={cn("size-3.5 shrink-0", routeStyle.iconClass)} aria-hidden="true" />
-              {routeDescription.label}
-            </span>
-            {routeDescription.tone === "blocked" ? (
-              <span className="text-muted-foreground max-w-md font-normal">{routeDescription.hint}</span>
-            ) : (
-              <span className="sr-only">{routeDescription.hint}</span>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {/* "Avancerat"-popovern togs bort 2026-07-31: efter att
-                temaväljaren flyttade till Byggval-reglagen (ägarbeslut,
-                se preview-panelens välkomstläge) blev popovern en
-                enda-knapps-meny som bara gömde "Plan" bakom ett extra
-                klick. Plan renderas nu som en vanlig verktygsknapp,
-                samma mönster som de andra Verktyg-radsknapparna nedan. */}
+            {/* "Avancerat"-popovern togs bort 2026-07-31; sedan 2026-11-11
+                ligger Plan och de andra sekundära verktygen i den här raden,
+                som «Verktyg» fäller ut. */}
             <button
               type="button"
               onClick={() => void handlePlanRequest()}
@@ -1320,53 +1317,108 @@ export function ChatInterface({
                 ) : null}
               </>
             ) : null}
+            {mediaEnabled && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsMediaDrawerOpen(true)}
+                  disabled={inputDisabled}
+                  className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                  title="Öppna mediabibliotek"
+                >
+                  <ImageIcon className="size-3" />
+                  Media
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsTextUploaderOpen(true)}
+                  disabled={inputDisabled}
+                  className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                  title="Lägg till text eller PDF"
+                >
+                  <FileText className="size-3" />
+                  Text
+                </button>
+              </>
+            )}
+            <VoiceRecorder
+              key={chatId ?? "new-chat"}
+              compact
+              disabled={inputDisabled}
+              onTranscript={(text) => setInput((prev) => (prev ? `${prev} ${text}` : text))}
+            />
+            {selectedModelTier && onSelectedModelTierChange ? (
+              <ModelTierSlider
+                value={selectedModelTier}
+                onChange={onSelectedModelTierChange}
+                disabled={inputDisabled}
+              />
+            ) : null}
+          </div>
+          {/* Vad nästa klick på Skicka gör (UX-07). Samma beslut som
+              utskicket i handleSubmit, alltid synligt direkt ovanför Skicka. */}
+          <div
+            id={routeLabelId}
+            className={cn("flex flex-col items-end gap-0.5 text-right text-xs", routeStyle.text)}
+            data-testid="composer-route-hint"
+            data-route-tone={routeDescription.tone}
+            aria-live="polite"
+            aria-atomic="true"
+            title={routeDescription.hint}
+          >
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <RouteIcon className={cn("size-3.5 shrink-0", routeStyle.iconClass)} aria-hidden="true" />
+              {routeDescription.label}
+            </span>
+            {routeDescription.tone === "blocked" ? (
+              <span className="text-muted-foreground max-w-md font-normal">{routeDescription.hint}</span>
+            ) : (
+              <span className="sr-only">{routeDescription.hint}</span>
+            )}
           </div>
           <div className="flex items-end justify-between gap-2">
-            <PromptInputTools className="min-w-0 flex-1 flex-wrap items-center gap-1.5">
+            <PromptInputTools className="min-w-0 flex-1 flex-wrap items-end gap-1.5">
               {mediaEnabled && (
-                <>
-                  <FileUploadZone
-                    projectId={null}
-                    files={files}
-                    onFilesChange={setFiles}
-                    disabled={inputDisabled}
-                    compact
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setIsMediaDrawerOpen(true)}
-                    disabled={inputDisabled}
-                    className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-                    title="Öppna mediabibliotek"
-                  >
-                    <ImageIcon className="size-3" />
-                    Media
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsTextUploaderOpen(true)}
-                    disabled={inputDisabled}
-                    className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-                    title="Lägg till text eller PDF"
-                  >
-                    <FileText className="size-3" />
-                    Text
-                  </button>
-                </>
-              )}
-              <VoiceRecorder
-                key={chatId ?? "new-chat"}
-                compact
-                disabled={inputDisabled}
-                onTranscript={(text) => setInput((prev) => (prev ? `${prev} ${text}` : text))}
-              />
-              {selectedModelTier && onSelectedModelTierChange ? (
-                <ModelTierSlider
-                  value={selectedModelTier}
-                  onChange={onSelectedModelTierChange}
+                <FileUploadZone
+                  projectId={null}
+                  files={files}
+                  onFilesChange={setFiles}
                   disabled={inputDisabled}
+                  compact
                 />
-              ) : null}
+              )}
+              <button
+                type="button"
+                onClick={() => setToolsOpen((open) => !open)}
+                aria-expanded={toolsOpen}
+                aria-controls={toolsRowId}
+                title={
+                  previewModeActive && !toolsOpen
+                    ? "Ett verktyg är på i förhandsvisningen"
+                    : "Plan, Förbättra texten, block, inspektion, media, röst och modell"
+                }
+                className={cn(
+                  "border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring relative inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+                  toolsOpen && "bg-accent text-foreground",
+                )}
+              >
+                <SlidersHorizontal className="size-3" aria-hidden="true" />
+                Verktyg
+                <ChevronDown
+                  className={cn(
+                    "size-3 transition-transform motion-reduce:transition-none",
+                    toolsOpen && "rotate-180",
+                  )}
+                  aria-hidden="true"
+                />
+                {previewModeActive && !toolsOpen ? (
+                  <span
+                    className="bg-primary absolute -top-0.5 -right-0.5 size-2 rounded-full"
+                    aria-hidden="true"
+                    data-testid="composer-tools-active-dot"
+                  />
+                ) : null}
+              </button>
             </PromptInputTools>
             <PromptInputSubmit
               className="focus-visible:ring-brand-blue/50 focus-visible:ring-offset-background size-10 rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
