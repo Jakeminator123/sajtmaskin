@@ -1772,6 +1772,19 @@ try {
   const unknownBootstrap = await rawGet(`/unknown-chat${"/__sm/preview-bootstrap.js"}`);
   assert.equal(unknownBootstrap.status, 404, "reserved host scripts require a live session");
 
+  // A browser navigation before the chat's session exists gets the host start
+  // page, never raw JSON in the iframe (prod 2026-11-11). Probes keep the 404.
+  const pendingNavigation = await rawGet(`/not-started-chat/`, {
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Dest": "iframe",
+  });
+  assert.equal(pendingNavigation.status, 503);
+  assert.match(pendingNavigation.body, /data-sajtmaskin-preview-boot="starting"/);
+  assert.match(pendingNavigation.body, /http-equiv="refresh"/);
+  const pendingProbe = await rawGet(`/not-started-chat/`);
+  assert.equal(pendingProbe.status, 404);
+  assert.match(pendingProbe.body, /"not_found"/);
+
   // (a) chatId-prefixed internal asset -> Origin stripped before upstream.
   lastUpstreamHeaders = null;
   lastUpstreamUrl = null;

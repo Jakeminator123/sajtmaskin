@@ -17,12 +17,23 @@ export function reconcileCanonicalPreviewParts(parts: ToolPart[], context: {
   isStreaming: boolean;
   isCurrentTurn: boolean;
   canonical: CanonicalGenerationStatus | null;
+  /**
+   * The builder shows this version's live preview. Background verification
+   * may then keep running for minutes; it must not keep the card in
+   * "Startar och kontrollerar förhandsvisningen…" (prod 2026-11-11).
+   */
+  previewVisible?: boolean;
 }): ToolPart[] {
   const { canonical } = context;
+  const verifyingWithVisiblePreview =
+    canonical?.status === "verifying" && context.previewVisible === true;
   if (
     !canonical || !canonical.isLatest || context.isStreaming || !context.isCurrentTurn ||
     canonical.chatId !== context.chatId || canonical.versionId !== context.versionId ||
-    !["ready", "promoted", "degraded", "failed", "blocked"].includes(canonical.status)
+    !(
+      ["ready", "promoted", "degraded", "failed", "blocked"].includes(canonical.status) ||
+      verifyingWithVisiblePreview
+    )
   ) return parts;
 
   let changed = false;
@@ -43,6 +54,7 @@ export function reconcileCanonicalPreviewParts(parts: ToolPart[], context: {
     const label = canonical.status === "failed" ? "Versionsstatus: misslyckad."
       : canonical.status === "blocked" ? "Versionsstatus: blockerad."
       : canonical.status === "degraded" ? "Versionsstatus: klar med kvarvarande varningar."
+      : canonical.status === "verifying" ? "Förhandsvisningen är klar. Kontrollen fortsätter i bakgrunden."
       : "Versionsstatus: klar.";
     const steps = Array.isArray(output.steps) ? output.steps.filter((step): step is string => typeof step === "string") : [];
     changed = true;
@@ -148,6 +160,16 @@ export function readAutoRepairCause(toolParts: ToolPart[]): string | null {
 export function hasPendingVerification(toolParts: ToolPart[]): boolean {
   let pending = false;
   for (const { tool } of toolParts) {
+    // Projected by `reconcileCanonicalPreviewParts`: preview visible, server
+    // verification still running.
+    if (
+      String(tool.type) === "tool:engine-preview" && tool.state === "output-available" &&
+      tool.output && typeof tool.output === "object" &&
+      (tool.output as Record<string, unknown>).canonicalStatus === "verifying"
+    ) {
+      pending = true;
+      continue;
+    }
     const { toolType } = resolveToolLabels(tool);
     if (toolType === "tool-post-check") {
       if (tool.state !== "output-available") continue;

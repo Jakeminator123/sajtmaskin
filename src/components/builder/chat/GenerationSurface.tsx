@@ -39,6 +39,11 @@ interface GenerationSurfaceProps {
   actions?: ReactNode;
   /** Set by MessageList: first code turn, later user edit, or auto-repair. */
   turnKind?: GenerationTurnKind;
+  /**
+   * Admins see model reasoning, the work log and raw text in "Visa detaljer".
+   * Everyone else gets a short Swedish summary, checks and file list.
+   */
+  showInternalDetails?: boolean;
 }
 
 /** One stable surface from the first event through the final post-check. */
@@ -54,6 +59,7 @@ export const GenerationSurface = memo(function GenerationSurface({
   reviews,
   actions,
   turnKind = "followup",
+  showInternalDetails = false,
 }: GenerationSurfaceProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [rawOpen, setRawOpen] = useState(false);
@@ -77,9 +83,24 @@ export const GenerationSurface = memo(function GenerationSurface({
   const currentFailure = Boolean(latestFailure && latestFailure.label === activeLabel);
   const hasCode = parsed.hasCodeBlocks || content.includes("```") || files.length > 0;
   const fileSummary = formatReplyFileSummary(turnKind, files);
-  const hasDetails = Boolean(
-    reasoning || items.length || hasCode || reviews || (isStreaming && content),
-  );
+  const plainSummary = showInternalDetails
+    ? null
+    : joinSentences(
+        reasoning ? "Sajtmaskin planerade sajtens upplägg" : null,
+        files.length > 0
+          ? turnKind === "repair"
+            ? `Lagade ${files.length === 1 ? "1 fil" : `${files.length} filer`}`
+            : `Skrev ${files.length === 1 ? "1 fil" : `${files.length} filer`} till sajten`
+          : null,
+        working
+          ? "Arbetet pågår"
+          : verifying
+            ? "Kontrollerna fortsätter i bakgrunden"
+            : null,
+      );
+  const hasDetails = showInternalDetails
+    ? Boolean(reasoning || items.length || hasCode || reviews || (isStreaming && content))
+    : Boolean(plainSummary || reviews || files.length > 0);
   const { title, subtitle } = resolveHeadline({
     awaitingReply,
     working,
@@ -200,7 +221,10 @@ export const GenerationSurface = memo(function GenerationSurface({
 
       <CollapsibleContent className="border-border/60 border-t">
         <div className="space-y-5 px-4 py-4">
-          {reasoning && (
+          {plainSummary && (
+            <p className="text-muted-foreground text-sm leading-relaxed">{plainSummary}</p>
+          )}
+          {showInternalDetails && reasoning && (
             <section aria-label="Resonemang" className="space-y-2">
               <h3 className="text-foreground text-sm font-medium">Resonemang</h3>
               <div className="text-muted-foreground max-h-64 overflow-y-auto text-sm leading-relaxed wrap-break-word">
@@ -210,7 +234,7 @@ export const GenerationSurface = memo(function GenerationSurface({
               </div>
             </section>
           )}
-          {isStreaming && parsed.proseText && (
+          {showInternalDetails && isStreaming && parsed.proseText && (
             <section
               aria-label="Pågående svar"
               className="text-muted-foreground text-sm leading-relaxed wrap-break-word"
@@ -220,7 +244,7 @@ export const GenerationSurface = memo(function GenerationSurface({
               </Streamdown>
             </section>
           )}
-          {items.length > 0 && (
+          {showInternalDetails && items.length > 0 && (
             <section aria-label="Arbetslogg" className="space-y-2">
               <h3 className="text-foreground text-sm font-medium">Arbetslogg</h3>
               <ol className="border-border ml-1 space-y-3 border-l pl-4 text-sm">
@@ -272,7 +296,7 @@ export const GenerationSurface = memo(function GenerationSurface({
               </ul>
             </section>
           )}
-          {hasCode && (
+          {showInternalDetails && hasCode && (
             <div>
               <button
                 type="button"
@@ -394,7 +418,7 @@ function resolveHeadline({
             : "Skapar sidor och komponenter…"
           : hasDraft
             ? "Tar fram ett förslag…"
-            : "Förbereder underlaget…"),
+            : "Planerar din sajt…"),
     };
   }
   if (attention) {

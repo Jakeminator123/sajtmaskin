@@ -43,6 +43,12 @@ legacy-alias där kontraktet fortfarande kräver kompatibilitet. En `previewUrl`
   pending tills reconnect.
 - Prewarm är opt-in, får inte exponera skelettet publikt och måste deployas på
   hosten före aktivering i huvudappen.
+- En webbläsarnavigering (`Sec-Fetch-Mode: navigate`) till `/:chatId/*` innan
+  chattens session finns får hostens startsida (503, laddar om var 4:e sekund),
+  aldrig rå JSON i iframen. Prober och fetch utan navigate-headers behåller
+  JSON-404.
+- Next dev-indikatorn är avstängd i förhandsvisningen (`devIndicators: false`,
+  bara när `SAJTMASKIN_PREVIEW_BASE_PATH` är satt). Publicerade sajter påverkas inte.
 - Saknade lokala TypeScript-, ESLint- eller Next-binaries är toolingfel, inte
   reparerbara kodfel.
 

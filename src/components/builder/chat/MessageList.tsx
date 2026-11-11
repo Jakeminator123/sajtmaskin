@@ -41,6 +41,7 @@ import { VersionFeedback } from "@/components/builder/chat/VersionFeedback";
 import { Streamdown } from "streamdown";
 import { STREAMDOWN_PLAIN_COMPONENTS } from "./message-markdown";
 import { GenerationSurface } from "./GenerationSurface";
+import { useAuthStore } from "@/lib/auth/auth-store";
 import { isGenerationReviewPart, reconcileCanonicalPreviewParts, type CanonicalGenerationStatus, type GenerationTurnKind } from "./generation-surface-state";
 import { code as streamdownCode } from "@streamdown/code";
 import { planIsVerifiedReady, toAIElementsFormat } from "@/lib/builder/message-adapter";
@@ -81,6 +82,8 @@ interface MessageListProps {
   chatId: string | null;
   versionId?: string | null;
   canonicalVersionStatus?: CanonicalGenerationStatus | null;
+  /** The active version's live preview is on screen (preview lifecycle `live`). */
+  previewVisible?: boolean;
   messages?: Array<ChatMessage>;
   showStructuredParts?: boolean;
   onQuickReply?: (text: string, options?: { planMode?: boolean }) => Promise<void> | void;
@@ -141,6 +144,7 @@ const MessageListComponent = ({
   chatId,
   versionId = null,
   canonicalVersionStatus = null,
+  previewVisible = false,
   messages: externalMessages = [],
   showStructuredParts = false,
   onQuickReply,
@@ -154,6 +158,9 @@ const MessageListComponent = ({
   // Utan props läses Sajtagenten från providern (buildern); utan provider
   // (tester, andra ytor) finns inga agentrader alls.
   const sajtagent = useSajtagent();
+  // Model reasoning and the internal work log are for admins; everyone else
+  // gets a short Swedish summary in "Visa detaljer" (prod 2026-11-11).
+  const showInternalDetails = useAuthStore((state) => state.user?.isAdmin === true);
   const agentMessages = agentMessagesProp ?? sajtagent?.messages ?? NO_AGENT_MESSAGES;
   const agentStreaming = agentStreamingProp ?? sajtagent?.isStreaming ?? false;
   const showAgentIntro = Boolean(chatId && sajtagent?.available && agentMessages.length === 0);
@@ -491,6 +498,7 @@ const MessageListComponent = ({
             isStreaming: Boolean(message.isStreaming || isStreaming),
             isCurrentTurn: !hasUserAfterCurrentMessage && !messages.slice(messageIndex + 1).some((next) => next.role === "assistant"),
             canonical: canonicalVersionStatus,
+            previewVisible,
           });
           // Approval starts codegen, so it must fail closed on the same canonical
           // awaiting-input assessment as the inline reply UI. BuildPlanCard
@@ -687,6 +695,7 @@ const MessageListComponent = ({
                       reviews={renderCompactTools(reviewToolParts)}
                       actions={renderCompactTools(actionToolParts)}
                       turnKind={turnKind}
+                      showInternalDetails={showInternalDetails}
                     />
                     {planParts.map((part, index) => (
                       <BuildPlanCard

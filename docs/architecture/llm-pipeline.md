@@ -103,6 +103,8 @@ när deras env-nycklar inte blockerar build. Saknas arbete skapar finalize-desig
 i stället en ny F3-version med samma filer som F2, och gatar den nya versionen.
 
 En codegen-ström per chatt och builderns interaktionslås skyddar samtidighet.
+Bakgrundsverifiering (`verifying`) låser inte när versionens förhandsvisning
+redan är live; en ny send avbryter då den gamla verifieringen.
 Redis-låsfel stänger generationen med ett explicit fel. Gate/readiness använder
 föredragen version så en misslyckad F3-head inte ersätter en fungerande F2-design.
 

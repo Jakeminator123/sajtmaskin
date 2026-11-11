@@ -314,6 +314,26 @@ function sendHeldPreviewErrorPage(res, session) {
   return true;
 }
 
+/**
+ * The builder knows the deterministic preview URL before the app has started
+ * the chat's host session, so the first iframe navigation can arrive while no
+ * session exists (prod 2026-11-11: raw JSON 404 in the iframe for ~40 s).
+ * A real browser navigation gets the host start page instead; it reloads
+ * itself every 4 s and the app's probe classifies it as `boot_page`.
+ * Probes, fetches and curl send no navigate metadata and keep the JSON 404.
+ */
+function sendPendingSessionNavigationPage(req, res, restPath) {
+  if (!isPreviewDocumentNavigation(req, restPath)) return false;
+  if (!res || res.headersSent || res.writableEnded) return false;
+  res.writeHead(503, {
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": "no-store",
+    "retry-after": "4",
+  });
+  res.end(renderPreviewPlaceholderPage("starting"));
+  return true;
+}
+
 function refuseHeldPreviewUpgrade(socket, failed) {
   if (!socket || socket.destroyed) return;
   const message = failed
@@ -697,7 +717,7 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
     // Root-absolute Next internals and browser-initiated `/api/*` calls arrive
     // WITHOUT the multiplexing prefix. Recover it from the iframe Referer.
     const fallback = rootAbsoluteRefererFallback(req, pathname);
-    if (!fallback) return false;
+    if (!fallback) return sendPendingSessionNavigationPage(req, res, info.restPath);
     info = fallback.info;
     state = fallback.state;
   }

@@ -6,6 +6,7 @@
  * token stays in the database; server routes read it from `getCurrentUser`.
  */
 import type { User } from "@/lib/db/services/shared";
+import { isAdminEmailEdge } from "@/lib/auth/edge-auth";
 
 export type PublicAuthUser = {
   id: string;
@@ -18,6 +19,11 @@ export type PublicAuthUser = {
   emailVerified: boolean;
   github_username: string | null;
   github_connected: boolean;
+  /**
+   * Display only: the builder shows internal generation details (model
+   * reasoning, work log) to admins. Admin APIs still check on the server.
+   */
+  isAdmin: boolean;
 };
 
 type PublicAuthUserSource = Pick<
@@ -48,5 +54,6 @@ export function toPublicAuthUser(user: PublicAuthUserSource): PublicAuthUser {
     github_username: githubUsername,
     // Same condition as the export route's "GitHub is not connected" check.
     github_connected: Boolean(user.github_token && githubUsername),
+    isAdmin: Boolean(user.email && isAdminEmailEdge(user.email)),
   };
 }
