@@ -34,6 +34,8 @@ function renderEmptyState(
       hasPrefilledPrompt={props.hasPrefilledPrompt ?? false}
       designTheme={props.designTheme}
       onDesignThemeChange={props.onDesignThemeChange}
+      activeVersionStatus={props.activeVersionStatus}
+      previewLifecycle={props.previewLifecycle}
     />,
   );
 }
@@ -114,6 +116,52 @@ describe("PreviewPanelEmptyState — template-entry", () => {
     retry.click();
     expect(onRetryTemplateInit).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("button", { name: FIX_LABEL })).toBeNull();
+  });
+});
+
+// V-01 (riggens baslinje 2026-11-11): "Genererar kod" visades med
+// utropstecknet, som läses som ett fel under hela kodgenereringen.
+describe("PreviewPanelEmptyState — ikon i arbetslägen", () => {
+  function stateIcon(container: HTMLElement): SVGElement {
+    const icon = container.querySelector<SVGElement>("svg[data-empty-icon]");
+    expect(icon).not.toBeNull();
+    return icon!;
+  }
+
+  it("visar en spinner, inte ett utropstecken, medan koden genereras", () => {
+    const { container } = renderEmptyState({ versionId: null, externalLoading: true });
+    expect(screen.getByText("Genererar kod")).toBeTruthy();
+    const icon = stateIcon(container);
+    expect(icon.dataset.emptyIcon).toBe("working");
+    expect(icon.getAttribute("class")).toContain("animate-spin");
+  });
+
+  it.each([
+    ["verifying", "Verifierar version"],
+    ["validating", "Validerar kod"],
+    ["repairing", "Reparerar version"],
+  ] as const)("visar spinner för versionsstatus %s", (status, title) => {
+    const { container } = renderEmptyState({ activeVersionStatus: status });
+    expect(screen.getByText(title)).toBeTruthy();
+    expect(stateIcon(container).dataset.emptyIcon).toBe("working");
+  });
+
+  it("visar spinner när previewn återansluter", () => {
+    const { container } = renderEmptyState({ previewLifecycle: "recovering" });
+    expect(stateIcon(container).dataset.emptyIcon).toBe("working");
+  });
+
+  it("behåller utropstecknet när förhandsvisningen faktiskt saknas", () => {
+    const { container } = renderEmptyState();
+    expect(screen.getByText("Ingen förhandsvisning ännu")).toBeTruthy();
+    const icon = stateIcon(container);
+    expect(icon.dataset.emptyIcon).toBe("missing");
+    expect(icon.getAttribute("class")).not.toContain("animate-spin");
+  });
+
+  it("låter en väntande fråga gå före genereringen", () => {
+    const { container } = renderEmptyState({ externalLoading: true, awaitingInput: true });
+    expect(stateIcon(container).dataset.emptyIcon).toBe("question");
   });
 });
 

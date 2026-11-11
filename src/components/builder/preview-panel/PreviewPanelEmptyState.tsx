@@ -257,21 +257,42 @@ export function PreviewPanelEmptyState({
       !showPlanApproval &&
       !previewPending,
   );
-  const EmptyIcon = previewBuildError
+  // Ikonen följer samma gren som rubriken. Alla arbetslägen ("Genererar kod",
+  // "Verifierar version", "Startar VM-preview" …) får en lugn spinner — aldrig
+  // utropstecknet, som läses som ett fel (V-01, riggens baslinje 2026-11-11).
+  const isWorkingState =
+    !previewBuildError &&
+    !templateInitFailed &&
+    !versionlessAborted &&
+    ((activeVersionStatus === "retrying" && !activeVersionIsLatest) ||
+      previewLifecycle === "recovering" ||
+      Boolean(activeStatusTitle) ||
+      previewPending ||
+      pendingTemplateInit ||
+      (externalLoading && !awaitingInput));
+  const emptyIconKind = previewBuildError
     ? previewBuildError.severity === "info"
-      ? MessageCircleQuestion
-      : AlertCircle
+      ? "question"
+      : "error"
     : templateInitFailed
-      ? AlertCircle
-    : versionlessAborted
-      ? RotateCcw
-      : previewPending || pendingTemplateInit
-        ? Loader2
-        : awaitingInput || showPlanApproval
-          ? MessageCircleQuestion
-          : isInitialEmpty
-            ? Wand2
-            : AlertCircle;
+      ? "error"
+      : versionlessAborted
+        ? "restart"
+        : isWorkingState
+          ? "working"
+          : awaitingInput || showPlanApproval
+            ? "question"
+            : isInitialEmpty
+              ? "welcome"
+              : "missing";
+  const EmptyIcon = {
+    error: AlertCircle,
+    question: MessageCircleQuestion,
+    restart: RotateCcw,
+    working: Loader2,
+    welcome: Wand2,
+    missing: AlertCircle,
+  }[emptyIconKind];
 
   // Välkomst-läget (ingen chat/version ännu) är ett riktigt onboarding-steg:
   // "Sidans utseende" först, övriga Byggval bakom "Fler byggval". Valen går
@@ -340,9 +361,11 @@ export function PreviewPanelEmptyState({
   return (
     <PreviewBackdropStage motion={backdropMotion} statusKey={title}>
       <EmptyIcon
+        aria-hidden="true"
+        data-empty-icon={emptyIconKind}
         className={cn(
           "mb-4 h-12 w-12",
-          (previewPending || (pendingTemplateInit && !templateInitFailed)) && "animate-spin",
+          isWorkingState && "text-primary/80 motion-safe:animate-spin",
         )}
       />
       <p className="text-foreground mb-2 text-lg font-medium tracking-tight" suppressHydrationWarning>
