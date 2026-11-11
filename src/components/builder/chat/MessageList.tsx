@@ -56,7 +56,14 @@ import {
 } from "@/lib/builder/types";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
 import { buildUnifiedTimeline } from "@/lib/builder/unified-timeline";
-import { usePreviewShowsVersion } from "@/lib/builder/preview-visible-version";
+import { usePreviewVisibleVersion } from "@/lib/builder/preview-visible-version";
+
+/**
+ * Så länge väntar «Hur blev resultatet?» på att förhandsvisningen ska visa
+ * versionen. Därefter frågar vi ändå, så att ett trasigt bygge kan få svaret
+ * «Förhandsgranskning trasig» och scaffold-statistiken inte blir för positiv.
+ */
+export const VERSION_FEEDBACK_PREVIEW_WAIT_MS = 150_000;
 import type { OpenClawMessage as AgentMessage } from "@/lib/openclaw/openclaw-store";
 import { SajtagentRow } from "./sajtagent/SajtagentRow";
 import { useSajtagent } from "./sajtagent/SajtagentProvider";
@@ -163,9 +170,31 @@ const MessageListComponent = ({
   // Model reasoning and the internal work log are for admins; everyone else
   // gets a short Swedish summary in "Visa detaljer" (prod 2026-11-11).
   const showInternalDetails = useAuthStore((state) => state.user?.isAdmin === true);
-  // «Hur blev resultatet?» först när förhandsvisningen visar just den här
-  // versionen (riggen 2026-11-11: frågan kom 85 s innan sajten syntes).
-  const previewShowsVersion = usePreviewShowsVersion(chatId, versionId);
+  // «Hur blev resultatet?» väntar på att förhandsvisningen visar just den här
+  // versionen (riggen 2026-11-11: frågan kom 85 s innan sajten syntes), men
+  // uteblir aldrig: utan förhandsvisning (stängd, ingen post för chatten)
+  // frågar vi direkt, och efter VERSION_FEEDBACK_PREVIEW_WAIT_MS ändå
+  // (startar för länge, fel eller annan version).
+  const previewEntry = usePreviewVisibleVersion();
+  const previewForThisChat = Boolean(chatId && previewEntry?.chatId === chatId);
+  const previewShowsVersion = Boolean(
+    previewForThisChat && previewEntry?.state === "showing" && previewEntry.versionId === versionId,
+  );
+  const feedbackWaitKey = chatId && versionId ? `${chatId}:${versionId}` : null;
+  const waitingForPreview = Boolean(feedbackWaitKey && previewForThisChat && !previewShowsVersion);
+  const [feedbackWaitExpiredFor, setFeedbackWaitExpiredFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!waitingForPreview || !feedbackWaitKey) return;
+    const timer = setTimeout(
+      () => setFeedbackWaitExpiredFor(feedbackWaitKey),
+      VERSION_FEEDBACK_PREVIEW_WAIT_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [waitingForPreview, feedbackWaitKey]);
+  const feedbackReady =
+    previewShowsVersion ||
+    !previewForThisChat ||
+    (feedbackWaitKey !== null && feedbackWaitExpiredFor === feedbackWaitKey);
   const agentMessages = agentMessagesProp ?? sajtagent?.messages ?? NO_AGENT_MESSAGES;
   const agentStreaming = agentStreamingProp ?? sajtagent?.isStreaming ?? false;
   const showAgentIntro = Boolean(chatId && sajtagent?.available && agentMessages.length === 0);
@@ -775,7 +804,7 @@ const MessageListComponent = ({
                   messageIndex === lastGenMessageIndex &&
                   !message.isStreaming &&
                   hasGenerationContent(textContent) &&
-                  previewShowsVersion && (
+                  feedbackReady && (
                     <VersionFeedback
                       key={versionId}
                       chatId={chatId}
