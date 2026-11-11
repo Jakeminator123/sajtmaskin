@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "7406282d5",
+    "commit": "805ef6313",
     "commitDate": "2026-11-11",
     "sinceDays": 14
   },
@@ -71,10 +71,10 @@ const DATA: CanvasData = {
     "processes": 8,
     "openP0": 0,
     "openP1": 5,
-    "openP2": 9,
-    "openP3": 2,
+    "openP2": 11,
+    "openP3": 18,
     "blocked": 1,
-    "shaky": 4,
+    "shaky": 5,
     "evalExactHitPct": null
   },
   "processes": [
@@ -117,17 +117,17 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 1,
+      "openBugs": 2,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
         "P2": 1,
-        "P3": 0,
+        "P3": 1,
         "other": 0
       },
       "churn": 0,
       "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-re",
-      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
+      "note": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
     },
     {
       "name": "ai_models",
@@ -151,17 +151,17 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 1,
+      "openBugs": 2,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
         "P2": 0,
-        "P3": 1,
+        "P3": 2,
         "other": 0
       },
       "churn": 2,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): dynamiska filträd direkt från respektive scaffold-rot, kopiering till webbläsarens ",
-      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
+      "note": "2 oppna backlog-rader (P0:0 P1:0 P2:0 P3:2)"
     },
     {
       "name": "Scaffolds & varianter: skapa, redigera, klona, ta bort",
@@ -185,34 +185,34 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 15,
+      "openBugs": 32,
       "openByPrio": {
         "P0": 0,
         "P1": 5,
-        "P2": 8,
-        "P3": 2,
+        "P2": 9,
+        "P3": 18,
         "other": 0
       },
-      "churn": 6,
+      "churn": 8,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "BLOCKER: `SM-073` Inspector-bridgen stämplar bara meddelanden när `previewSessionId` finns; utan d…"
     },
     {
       "name": "Eval",
-      "status": "done",
-      "statusLabel": "Klart",
-      "tone": "success",
-      "openBugs": 0,
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 2,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 0,
-        "P3": 0,
+        "P2": 1,
+        "P3": 1,
         "other": 0
       },
       "churn": 2,
       "summary": "Backoffice-yta för den canonicala evalen (`npm run eval`). Ett läge (gratis / smoke / full), en knapp. Scaffold-lanen läser senaste lokala JSON-rapport. Codegen-lanen läser data/ev",
-      "note": "2 commits / 14d"
+      "note": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
     }
   ],
   "shaky": [
@@ -229,22 +229,22 @@ const DATA: CanvasData = {
       "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
     },
     {
+      "name": "Scaffolds: titta & justera",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:0 P3:2)"
+    },
+    {
+      "name": "Eval",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
+    },
+    {
       "name": "Codegen core",
       "statusLabel": "Skakigt",
       "tone": "warning",
       "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:2 P3:0)"
-    },
-    {
-      "name": "Scaffolds: titta & justera",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
-    },
-    {
-      "name": "prompt-core",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
     }
   ],
   "topOpenRisks": [
@@ -321,7 +321,7 @@ const DATA: CanvasData = {
       "fynd": "`SM-105` Oautentiserad konversationsendpoint kunde skicka leadmejl till fasta mottagare. Svärm 2026-11-03 `A9…"
     }
   ],
-  "topOpenRisksOmitted": 2,
+  "topOpenRisksOmitted": 4,
   "evals": null,
   "phases": [
     "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",
