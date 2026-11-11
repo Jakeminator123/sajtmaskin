@@ -134,14 +134,18 @@ describe("GET preview-status (engine)", () => {
     expect(body.reason).toBe("preview_session_not_configured");
   });
 
-  it("returns stopped + preview_session_id_mismatch for mismatched client session id", async () => {
+  it("reports a newer same-version session as starting, never stopped, when the client holds an older id", async () => {
+    // 2026-11-11 (chat ff62820f): the server had just started ps_server; the
+    // builder still held ps_client, got "stopped" and force-restarted it.
     getActivePreviewSessionAsync.mockResolvedValue({
       previewSessionId: "ps_server",
+      lifecycleToken: "life_server",
       previewUrl: "https://preview.example",
       versionId: "v1",
       createdAt: Date.now(),
       lastUsedAt: Date.now(),
     });
+    tryResumeTier2Runtime.mockResolvedValue(null);
 
     const res = await GET(
       new Request(
@@ -151,9 +155,54 @@ describe("GET preview-status (engine)", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { status: string; reason?: string };
-    expect(body.status).toBe("stopped");
-    expect(body.reason).toBe("preview_session_id_mismatch");
+    const body = (await res.json()) as {
+      status: string;
+      previewSessionId: string;
+      lifecycleToken: string | null;
+      reason?: string;
+    };
+    expect(body.status).toBe("starting");
+    expect(body.previewSessionId).toBe("ps_server");
+    expect(body.lifecycleToken).toBe("life_server");
+    expect(body.reason).toBe("boot_grace_period");
+    expect(tryResumeTier2Runtime).toHaveBeenCalledWith(
+      expect.objectContaining({ previewSessionId: "ps_server" }),
+    );
+  });
+
+  it("reports a running newer same-version session with its own identity for rotation", async () => {
+    getActivePreviewSessionAsync.mockResolvedValue({
+      previewSessionId: "ps_server",
+      lifecycleToken: "life_server",
+      previewUrl: "https://preview.example/chat_1",
+      versionId: "v1",
+      filesRevision: "rev1",
+      createdAt: Date.now() - 200_000,
+      lastUsedAt: Date.now(),
+    });
+    tryResumeTier2Runtime.mockResolvedValue({
+      previewSessionId: "ps_server",
+      primaryUrl: "https://preview.example/chat_1",
+      lifecycleToken: "life_server",
+      mutationRevision: 3,
+      installAttemptRevision: 1,
+      readinessState: "ready",
+      httpReady: true,
+      readinessError: null,
+      regeneratedLockfile: null,
+    });
+
+    const res = await GET(
+      new Request(
+        "http://localhost/api/engine/chats/chat_1/preview-status?versionId=v1&previewSessionId=ps_client",
+      ),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    const body = (await res.json()) as { status: string; previewSessionId: string; lifecycleToken: string | null };
+    expect(body.status).toBe("running");
+    expect(body.previewSessionId).toBe("ps_server");
+    expect(body.lifecycleToken).toBe("life_server");
   });
 
   it("returns missing + no_session when no preview session exists", async () => {
@@ -483,14 +532,44 @@ describe("GET preview-status — readiness-failure utan levande process", () => 
     });
   });
 
-  it("faller tillbaka till stopped när hosten inte har något failed-verdikt", async () => {
+  it("svarar starting (inte stopped) när hosten bootar versionen efter 90 s grace", async () => {
+    // 2026-11-11: en kall gästmaskin kan passera 90 s; "stopped" fick buildern
+    // att riva den och starta en ny maskin.
     fetchPreviewHostReadinessVerdict.mockResolvedValue({
       running: false,
       versionId: "v1",
       readinessState: "starting",
+      hostStatus: "warm_project",
       readinessError: null,
       httpReady: false,
       regeneratedLockfile: null,
+    } as never);
+
+    const res = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/preview-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    const body = (await res.json()) as { status: string; reason?: string };
+    expect(body.status).toBe("starting");
+    expect(body.reason).toBe("boot_grace_period");
+
+    await runAfterCallbacks();
+    expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["hibernerad", { readinessState: "ready", hostStatus: "hibernated" }],
+    ["boot-loop", { readinessState: "starting", hostStatus: "error" }],
+    ["äldre host utan bootläge", { readinessState: null }],
+  ])("faller tillbaka till stopped efter grace när hosten inte bootar (%s)", async (_label, state) => {
+    fetchPreviewHostReadinessVerdict.mockResolvedValue({
+      running: false,
+      versionId: "v1",
+      readinessError: null,
+      httpReady: false,
+      regeneratedLockfile: null,
+      ...state,
     } as never);
 
     const res = await GET(

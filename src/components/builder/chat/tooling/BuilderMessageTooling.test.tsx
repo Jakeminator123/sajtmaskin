@@ -774,7 +774,7 @@ describe("StructuredToolParts", () => {
       />,
     );
 
-    expect(screen.getByText("Godkänd med varningar (lint advisory)")).toBeTruthy();
+    expect(screen.getByText("Godkänd med varningar (lint)")).toBeTruthy();
     expect(screen.queryByText(/^Godkänd$/)).toBeNull();
   });
 

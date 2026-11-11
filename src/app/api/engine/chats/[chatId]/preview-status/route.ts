@@ -10,6 +10,7 @@ import {
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
 import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
+import { isBootingPinnedSession } from "@/lib/gen/preview/preview-boot-state";
 import { fetchPreviewHostReadinessVerdict } from "@/lib/gen/preview/preview-host-client";
 import type {
   PreviewStatusApiJson,
@@ -159,26 +160,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         return NextResponse.json(body);
       }
 
-      if (clientPreviewSessionId && session.previewSessionId !== clientPreviewSessionId) {
-        const body: PreviewStatusApiJson = {
-          ok: true,
-          status: "stopped",
-          previewSessionId: session.previewSessionId,
-          lifecycleToken: session.lifecycleToken,
-          previewUrl: session.previewUrl,
-          versionId: sessionVid,
-          sessionExpiresAt: sessionSoftExpiryAt(session),
-          reason: "preview_session_id_mismatch",
-        };
-        logPreviewLifecycleTelemetry({
-          kind: "preview_status",
-          chatId,
-          status: "stopped",
-          versionId,
-          previewSessionId: session.previewSessionId,
-        });
-        return NextResponse.json(body);
-      }
+      // A client that still holds an OLDER session id for this same version
+      // gets the current session's real state below, with that session's id
+      // and lifecycle token, so it can adopt the rotation. Answering `stopped`
+      // here made the builder force-restart (destroy) a session the server had
+      // started half a second earlier (2026-11-11, chat ff62820f).
 
       const resumed = await tryResumeTier2Runtime(session);
       if (!resumed) {
@@ -224,7 +210,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           return NextResponse.json(body);
         }
 
-        const booting = isWithinBootGrace(session, now);
+        // A host that positively reports a boot in progress for exactly this
+        // version + lifecycle is "starting" however long it takes: a cold
+        // guest machine (image pull, install, first compile) can pass 90 s,
+        // and "stopped" made the builder destroy it and start a new machine.
+        // The grace window still covers hosts that report nothing yet.
+        const booting =
+          Boolean(verdict && isBootingPinnedSession(verdict)) || isWithinBootGrace(session, now);
         const status = booting ? "starting" : "stopped";
         const reason = booting ? "boot_grace_period" : "provider_not_running_or_unreachable";
         const body: PreviewStatusApiJson = {

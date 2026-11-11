@@ -26,6 +26,7 @@ import { buildJsxElementRegistry, type RegistryMatch } from "@/lib/builder/jsx-e
 import { isAddPanelEnabled } from "@/lib/builder/add-panel-feature";
 import { PreviewPanelEmptyState } from "./PreviewPanelEmptyState";
 import { PreviewPanelSurface } from "./runtime/PreviewPanelSurface";
+import { describePreviewVersionIndicator } from "./runtime/preview-version-indicator";
 import type { PreviewIssuePayload } from "./runtime/iframe-diagnostics";
 import { fetchChatVersionFilesJson } from "./code/chat-version-files-fetch";
 import { usePreviewHeartbeat } from "./runtime/usePreviewHeartbeat";
@@ -114,6 +115,7 @@ export function PreviewPanel({
   activeVersionSummary = null,
   activeVersionPromotedAt = null,
   activeVersionIsLatest = true,
+  activeVersionNumber = null,
   activeVersionRepairPassIndex = 0,
   versionMismatchPayload = null,
   onPreviewSessionSuspect,
@@ -820,6 +822,34 @@ export function PreviewPanel({
     viewerId: previewViewerId,
     iframeRef,
   });
+  const versionIndicator = useMemo(
+    () =>
+      describePreviewVersionIndicator({
+        hasVersion: Boolean(versionId),
+        versionNumber: activeVersionNumber,
+        previewLifecycle,
+        previewPending,
+        iframeLoading,
+        iframeError,
+        // Session- and version-bound report from the rendered site itself.
+        siteDocumentObserved: observedPreviewRoute !== null,
+        readyTimedOut: iframeDiagnosticCode === "preview_ready_timeout",
+        hasBuildError: Boolean(previewBuildError && previewBuildError.severity !== "info"),
+        hasVersionMismatch,
+      }),
+    [
+      versionId,
+      activeVersionNumber,
+      previewLifecycle,
+      previewPending,
+      iframeLoading,
+      iframeError,
+      observedPreviewRoute,
+      iframeDiagnosticCode,
+      previewBuildError,
+      hasVersionMismatch,
+    ],
+  );
   const activePreviewRoute = useMemo(() => {
     if (observedPreviewRoute) return observedPreviewRoute;
     if (!previewUrl) return null;
@@ -1011,6 +1041,7 @@ export function PreviewPanel({
       isTier2LivePreview={isTier2LivePreview}
       previewBuildError={previewBuildError}
       previewProdBuild={previewProdBuild}
+      versionIndicator={versionIndicator}
       iframeError={iframeError}
       iframeErrorMessage={iframeErrorMessage}
       isCodeView={isCodeView}

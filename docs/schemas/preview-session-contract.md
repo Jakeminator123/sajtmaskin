@@ -202,8 +202,16 @@ is released even when the user hasn't explicitly clicked "destroy".
 
 `PreviewStatusApiJson.status` enum: `running | starting | stopped | missing | version_mismatch`.
 
-`starting` is returned during the 90-second boot grace period after session creation
-when the preview-host VM has not yet responded to status checks.
+`starting` is returned while the host reports a boot in progress for the pinned
+version and lifecycle (persisted host `status` `starting`/`warm_project` or
+`readinessState: starting`, not `error`/`hibernated`), however long it takes, and
+during the 90-second boot grace period after session creation when the host has
+not yet reported anything.
+
+A query `previewSessionId` that differs from the server's current session for the
+same version is not by itself a reason for `stopped`: the answer carries that
+current session's real state, id and lifecycle token, so the builder adopts the
+rotation instead of force-restarting a session that is still booting.
 
 For `version_mismatch`, `versionId` is the preview-session-bound version. Optional
 `mismatchDirection` clarifies the order relative to the requested query
@@ -214,7 +222,6 @@ For `version_mismatch`, `versionId` is the preview-session-bound version. Option
 - `preview_session_not_configured`
 - `no_session`
 - `session_bound_to_other_version`
-- `preview_session_id_mismatch`
 - `provider_not_running_or_unreachable`
 - `boot_grace_period`
 

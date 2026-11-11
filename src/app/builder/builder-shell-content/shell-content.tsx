@@ -411,7 +411,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             chatId={vm.chatId}
             isCollapsed={isChatOutputCollapsed}
             onToggleCollapse={chatOutputCollapse.toggle}
-            messageCount={vm.messages.length}
+            builderMessages={vm.messages}
             isStreaming={vm.isAnyStreaming}
             statusText={chatCollapseStatusText}
           >
@@ -483,6 +483,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 activeVersionSummary?.verificationSummary ?? null,
               )}
               activeVersionPromotedAt={activeVersionSummary?.promotedAt ?? null}
+              activeVersionNumber={activeVersionSummary?.versionNumber ?? null}
               activeVersionIsLatest={activeVersionIsLatest}
               activeVersionRepairPassIndex={activeVersionBusStatus?.repairPassIndex ?? 0}
               onPreviewSessionSuspect={vm.handlePreviewSessionSuspect}

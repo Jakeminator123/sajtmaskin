@@ -28,6 +28,31 @@ const BASE_PROPS = {
   showExternalWarning: false,
 };
 
+describe("PreviewPanelChrome versionsindikator", () => {
+  it("visar vilken version previewn visar", () => {
+    const { getByTestId } = render(
+      <PreviewPanelChrome {...BASE_PROPS} versionIndicator={{ text: "Visar version 2", tone: "live" }} />,
+    );
+    const chip = getByTestId("preview-version-indicator");
+    expect(chip.textContent).toBe("Visar version 2");
+    expect(chip.getAttribute("role")).toBe("status");
+    expect(chip.dataset.tone).toBe("live");
+  });
+
+  it("visas inte i kodvyn och inte utan indikator", () => {
+    const { queryByTestId, rerender } = render(<PreviewPanelChrome {...BASE_PROPS} />);
+    expect(queryByTestId("preview-version-indicator")).toBeNull();
+    rerender(
+      <PreviewPanelChrome
+        {...BASE_PROPS}
+        isCodeView
+        versionIndicator={{ text: "Visar version 2", tone: "live" }}
+      />,
+    );
+    expect(queryByTestId("preview-version-indicator")).toBeNull();
+  });
+});
+
 describe("PreviewPanelChrome sidflik-rad", () => {
   it("renderar raden redan innan några routes är kända", () => {
     const { container } = render(<PreviewPanelChrome {...BASE_PROPS} />);
