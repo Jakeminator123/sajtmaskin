@@ -27,7 +27,6 @@ export type PreviewStatusReason =
   | "preview_session_not_configured"
   | "no_session"
   | "session_bound_to_other_version"
-  | "preview_session_id_mismatch"
   | "provider_not_running_or_unreachable"
   | "boot_grace_period"
   | "build_error_overlay"

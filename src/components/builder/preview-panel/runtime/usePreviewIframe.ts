@@ -58,10 +58,14 @@ type Tier2StatusReceipt = Awaited<ReturnType<typeof fetchPreviewStatus>>;
  * `running` med ps_ny). Alla kvitton föll då för evigt på identitetsmatchningen
  * och varje återhämtningsväg dog — permanent falsk banner + död inspector.
  *
- * Det här läser ett sådant kvitto som SESSIONSROTATION: `running`, exakt
- * förväntad version, samma kanoniska tier-2-session-URL — men annan session/
- * lifecycle. Allt annat (fel version, annan chat-URL, icke-running) returnerar
- * null och behåller fail-closed-beteendet.
+ * Det här läser ett sådant kvitto som SESSIONSROTATION: `running` eller
+ * `starting`, exakt förväntad version, samma kanoniska tier-2-session-URL —
+ * men annan session/lifecycle. `starting` räknas sedan 2026-11-11 (chat
+ * ff62820f): servern hade startat en ny session för versionen, buildern höll
+ * kvar det gamla id:t, dömde ut den nya som misstänkt och tvångsstartade om den.
+ * Efter adoption följer pollen den nya sessionen tills den kör. Allt annat (fel
+ * version, annan chat-URL, stoppad/terminal) returnerar null och behåller
+ * fail-closed-beteendet.
  */
 function readTier2SessionRotation(params: {
   status: Tier2StatusReceipt;
@@ -71,7 +75,7 @@ function readTier2SessionRotation(params: {
   expectedPreviewUrl: string;
 }): { previewSessionId: string; lifecycleToken: string | null } | null {
   const status = params.status;
-  if (!status || status.status !== "running") return null;
+  if (!status || (status.status !== "running" && status.status !== "starting")) return null;
   if (status.versionId !== params.expectedVersionId) return null;
   if (!isSameTier2PreviewSession(status.previewUrl, params.expectedPreviewUrl)) {
     return null;
