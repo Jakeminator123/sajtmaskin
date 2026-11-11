@@ -200,6 +200,9 @@ CACHE_TABLES: Tuple[str, ...] = (
     # status done/failed rather than deleted, so EMPTY would false-fail the
     # prod-sync gate after the first reconcile run D2 ships.
     "billing_jobs",
+    # "Glömt lösenord?"-token. Kortlivade rader som skapas och tas bort av
+    # återställningsflödet; radantalet är ingen återställningsinvariant.
+    "password_reset_tokens",
 )
 
 EXPECTED_TABLES: Tuple[str, ...] = EMPTY_TABLES + PRESERVED_TABLES + CACHE_TABLES
