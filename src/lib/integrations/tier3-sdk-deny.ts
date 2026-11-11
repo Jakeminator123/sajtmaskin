@@ -43,7 +43,7 @@ export interface Tier3DenyList {
   modules: readonly string[];
   /** O(1) membership check for the flat module list. Built once per file load. */
   moduleSet: ReadonlySet<string>;
-  /** Subset of `modules` that start with `@` (scoped); used for subpath matching. */
+  /** Subset of `modules` that start with `@` (scoped packages). */
   scopedModules: readonly string[];
 }
 
@@ -140,18 +140,17 @@ export function listTier3SdkModules(): readonly string[] {
 
 /**
  * Match a module specifier against the deny-list. Returns true for either an
- * exact module match (`"stripe"`) or a scoped subpath import
- * (`"@stripe/stripe-js/server"` matches `"@stripe/stripe-js"`).
+ * exact module match (`"stripe"`) or a package subpath import
+ * (`"next-auth/react"` matches `"next-auth"`).
  *
- * Uses the loader's pre-built Set + scoped subset so this is O(1) for exact
- * hits and O(scoped) for scoped subpaths — significantly faster than the
- * old per-call linear scan over all ~50 modules.
+ * Checks slash-delimited ancestors in the pre-built Set, so both scoped and
+ * unscoped packages match without treating similarly prefixed names as subpaths.
  */
 export function isTier3SdkModule(specifier: string): boolean {
-  const { moduleSet, scopedModules } = loadTier3DenyList();
+  const { moduleSet } = loadTier3DenyList();
   if (moduleSet.has(specifier)) return true;
-  for (const mod of scopedModules) {
-    if (specifier.startsWith(`${mod}/`)) return true;
+  for (let slash = specifier.lastIndexOf("/"); slash > 0; slash = specifier.lastIndexOf("/", slash - 1)) {
+    if (moduleSet.has(specifier.slice(0, slash))) return true;
   }
   return false;
 }

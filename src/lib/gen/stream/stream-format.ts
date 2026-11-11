@@ -7,7 +7,7 @@ import {
 import { formatSSEEvent } from "@/lib/streaming";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
-import { debugLog } from "@/lib/utils/debug";
+import { debugLog, errorLog } from "@/lib/utils/debug";
 import { classifyProviderError } from "@/lib/providers/own-engine/provider-error-messages";
 
 export interface StreamMeta {
@@ -29,6 +29,7 @@ function providerErrorPayload(
   err: unknown,
   fallback = "Stream error",
 ): { message: string } & Record<string, unknown> {
+  errorLog("engine", "Provider stream failed", err);
   const classified = classifyProviderError(err, fallback);
   return {
     message: classified.userMessage,
@@ -61,6 +62,8 @@ interface StreamTextLike {
     error?: unknown;
     toolName?: string;
     toolCallId?: string;
+    id?: string;
+    delta?: string;
     args?: Record<string, unknown>;
     input?: unknown;
     inputText?: string;
@@ -168,11 +171,12 @@ function parseToolArgs(candidate: unknown): Record<string, unknown> | null {
 }
 
 function resolveToolInputDelta(part: {
+  delta?: string;
   inputTextDelta?: string;
   textDelta?: string;
   text?: string;
 }): string {
-  return part.inputTextDelta ?? part.textDelta ?? part.text ?? "";
+  return part.delta ?? part.inputTextDelta ?? part.textDelta ?? part.text ?? "";
 }
 
 function resolveDirectProviderFromMeta(meta?: StreamMeta): "openai" | "anthropic" | null {
@@ -416,9 +420,10 @@ export function createCodeGenSSEStream(
       const getToolInputKey = (part: {
         type?: string;
         toolCallId?: string;
+        id?: string;
         toolName?: string;
       }): string | null => {
-        if (part.toolCallId) return part.toolCallId;
+        if (part.toolCallId ?? part.id) return part.toolCallId ?? part.id ?? null;
         if (!part.toolName) return null;
 
         const isStartEvent =
@@ -440,6 +445,8 @@ export function createCodeGenSSEStream(
           type?: string;
           toolName?: string;
           toolCallId?: string;
+          id?: string;
+          delta?: string;
           inputText?: string;
           inputTextDelta?: string;
           text?: string;
@@ -455,7 +462,7 @@ export function createCodeGenSSEStream(
           mode === "reset" ? (part.inputText ?? part.text ?? "") : (previous?.inputText ?? "");
         pendingToolInputs.set(key, {
           toolName: part.toolName ?? previous?.toolName,
-          toolCallId: part.toolCallId ?? previous?.toolCallId,
+          toolCallId: part.toolCallId ?? part.id ?? previous?.toolCallId,
           inputText: `${initialText}${delta}`,
         });
       };
@@ -463,6 +470,7 @@ export function createCodeGenSSEStream(
         type?: string;
         toolName?: string;
         toolCallId?: string;
+        id?: string;
         args?: Record<string, unknown>;
         input?: unknown;
       }): boolean => {
@@ -488,7 +496,7 @@ export function createCodeGenSSEStream(
           }),
         );
         if (key) pendingToolInputs.delete(key);
-        if (!toolCallId && key && activeToolFallbackKeys.get(toolName) === key) {
+        if (key && activeToolFallbackKeys.get(toolName) === key) {
           activeToolFallbackKeys.delete(toolName);
         }
         return true;
@@ -730,8 +738,8 @@ export function createCodeGenSSEStream(
           }
         }
 
-        for (const pending of pendingToolInputs.values()) {
-          emitToolCall(pending);
+        for (const [key, pending] of pendingToolInputs) {
+          emitToolCall({ ...pending, toolCallId: pending.toolCallId ?? key });
         }
 
         if (truncatedByLength) {

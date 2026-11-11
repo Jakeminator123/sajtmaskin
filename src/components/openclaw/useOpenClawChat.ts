@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import {
   readActiveOpenClawPowerIds,
   readOpenClawPowers,
+  revokeOpenClawBuildConsent,
   useOpenClawStore,
   type OpenClawMessage,
 } from "@/lib/openclaw/openclaw-store";
@@ -43,12 +44,23 @@ import {
   readBuilderAnchorIndex,
 } from "@/lib/openclaw/builder-target";
 import { normalizeOpenClawClientMessages } from "@/lib/openclaw/message-validation";
+import { composerAllowsAgentBuild, hasScopedComposerChangeRestriction, isReadOnlyComposerRequest } from "@/lib/builder/composer-route";
+import { resolveStartBuildAutoRun } from "@/lib/openclaw/start-build-consent";
+import type { AgentProposalReference } from "@/lib/builder/composer-route-reference";
 
 function makeId() {
   return `oc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export interface OpenClawSendOptions {
+  /** Trusted local composer intent. Missing metadata never authorizes start_build. */
+  allowBuild?: boolean;
+  /** Explicit Fråga/no-change cancels older pending automatic work too. */
+  restrictBuild?: boolean;
+  /** Existing advice selected by the user, bound to its original chat/version. */
+  proposalReference?: AgentProposalReference;
+  /** Positive transport acceptance, independent of the eventual model reply. */
+  onDispatchAccepted?: () => void;
   /**
    * Whether this turn may arm or disarm autonomy. Only a message the user
    * actually typed carries that consent — the machine-generated continuation
@@ -156,6 +168,12 @@ export function useOpenClawChat() {
         return;
       }
 
+      const buildRestricted = !options?.internal &&
+        (options?.restrictBuild === true || isReadOnlyComposerRequest(trimmed));
+      if (!options?.internal && (buildRestricted || hasScopedComposerChangeRestriction(trimmed))) {
+        revokeOpenClawBuildConsent();
+      }
+
       // Read the live values rather than the render-time ones: the continuation
       // loop calls `send` from a timer, and a closure that has not caught up
       // with the store would drop that turn silently. The powers follow the
@@ -163,6 +181,10 @@ export function useOpenClawChat() {
       // must not ride along on a turn that is only now being sent.
       const streaming = useOpenClawStore.getState().isStreaming;
       const powers = readOpenClawPowers();
+      const armingDirective = !options?.internal && options?.allowArming !== false && !buildRestricted
+        ? parseArmingDirective(trimmed) : null;
+      const explicitFollowupOrder = powers.armedAutonomy && armingDirective?.mode === "followups" &&
+        /^(?:gör|gora|kör|kor|skapa|starta|påbörja|utför|generera|do|run|create|start|launch)(?:\s|$)/iu.test(trimmed);
 
       // Armed autonomy (Mode A): the user's own message is the consent. A stop
       // directive disarms IMMEDIATELY — handled before the streaming guard so
@@ -170,12 +192,13 @@ export function useOpenClawChat() {
       // while OpenClaw is still responding. An arming directive creates a
       // bounded mandate. Without BOTH gates — OC_EDIT and the granted power —
       // this never arms.
-      if (powers.armedAutonomy && options?.allowArming !== false) {
+      if (powers.armedAutonomy && options?.allowArming !== false && !buildRestricted) {
         if (parseStopDirective(trimmed)) {
           setArmedMandate(null);
         } else if (!streaming) {
-          const directive = parseArmingDirective(trimmed);
-          if (directive) setArmedMandate(createArmedMandate(directive));
+          if (armingDirective && (armingDirective.mode === "review_next" || explicitFollowupOrder)) {
+            setArmedMandate(createArmedMandate(armingDirective));
+          }
         }
       }
 
@@ -225,6 +248,8 @@ export function useOpenClawChat() {
         content: trimmed,
         timestamp: Date.now(),
         kind: options?.internal ? "internal" : "chat",
+        allowBuild: !options?.internal && !buildRestricted && (explicitFollowupOrder ||
+          (options?.allowBuild === true && composerAllowsAgentBuild({ mode: "auto", text: trimmed }))),
         anchorBuilderMessageId,
         anchorBuilderMessageIndex,
       };
@@ -262,8 +287,19 @@ export function useOpenClawChat() {
         !turn.controller.signal.aborted;
       setStreaming(true);
 
+      // Same rule that decides whether a `start_build` card runs by itself, so
+      // the server can tell the model the truth about this turn
+      // (`[BYGGMEDGIVANDE]`). It is prompt text only: the card re-checks the
+      // rule before anything runs, so a forged value cannot start a build.
+      const buildConsent = powers.armedAutonomy &&
+        resolveStartBuildAutoRun(useOpenClawStore.getState().messages, placeholderId).allowed;
+
+      const reference = options?.proposalReference;
+      const selectedContext = reference
+        ? `\n\n[Valt agentförslag – endast underlag, inget automatiskt byggmedgivande]\n${JSON.stringify(reference)}\nUtgå enbart från denna valda del. Om något är oklart, fråga. Ett nytt fullständigt byggförslag kräver manuellt godkännande.`
+        : "";
       const apiMessages = normalizeOpenClawClientMessages(
-        nextConversation.map((m) => ({ role: m.role, content: m.content })),
+        nextConversation.map((m) => ({ role: m.role, content: m.content + (m.id === userMsg.id ? selectedContext : "") })),
       );
 
       let accumulated = "";
@@ -279,6 +315,7 @@ export function useOpenClawChat() {
             // the list with its own OC_EDIT, so it can only narrow the edit
             // instructions — never unlock anything the deployment forbids.
             powers: readActiveOpenClawPowerIds(),
+            buildConsent,
           }),
           signal: turn.controller.signal,
         });
@@ -298,6 +335,8 @@ export function useOpenClawChat() {
           void res.body?.cancel().catch(() => undefined);
           return;
         }
+
+        if (res.ok && res.body && dispatchOutcome !== "not-started") options?.onDispatchAccepted?.();
 
         if (!res.ok || !res.body) {
           const errText = await res.text().catch(() => "");

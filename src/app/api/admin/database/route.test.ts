@@ -20,6 +20,10 @@ const getRedisInfo = vi.hoisted(() => vi.fn());
 
 /** Recorded `db.delete(<table>).where(<condition>)` calls per test. */
 const deleteCalls = vi.hoisted(() => [] as { table: string; condition: unknown }[]);
+const databaseState = vi.hoisted(() => ({
+  failTable: "", committedDeletes: [] as string[], transactionCount: 0,
+  ledger: [] as Record<string, unknown>[], diamonds: 100, userExists: true, userLocks: 0,
+}));
 
 /**
  * What the billing-retention guard's single counting query returns. D3 keeps
@@ -66,6 +70,7 @@ vi.mock("drizzle-orm", () => {
   return {
     and: (...conditions: unknown[]) => ({ op: "and", conditions }),
     desc: (column: unknown) => ({ op: "desc", column }),
+    eq: (column: unknown, value: unknown) => ({ op: "eq", column, value }),
     isNotNull: (column: unknown) => ({ op: "isNotNull", column }),
     isNull: (column: unknown) => ({ op: "isNull", column }),
     inArray: (column: unknown, values: unknown[]) => ({ op: "inArray", column, values }),
@@ -75,11 +80,36 @@ vi.mock("drizzle-orm", () => {
   };
 });
 
-vi.mock("@/lib/db/client", () => ({
-  db: {
+vi.mock("@/lib/db/client", () => {
+  function matches(raw: unknown, row: Record<string, unknown>): boolean {
+    const condition = raw as { op: string; column?: unknown; value?: unknown; values?: unknown[]; conditions?: unknown[]; text?: string };
+    const column = String(condition.column).split(".").at(-1)!;
+    if (condition.op === "and") return condition.conditions!.every((item: unknown) => matches(item, row));
+    if (condition.op === "eq") return row[column] === condition.value;
+    if (condition.op === "isNull") return row[column] == null;
+    if (condition.op === "inArray") return condition.values!.includes(row[column]);
+    if (condition.op === "notInArray") return !condition.values!.includes(row[column]);
+    if (condition.text?.includes("NOT EXISTS")) return !databaseState.ledger.some((entry) =>
+      entry.user_id === row.id && (entry.stripe_session_id != null || entry.stripe_payment_intent != null || entry.idempotency_key != null));
+    return true;
+  }
+  const db = {
+    transaction: async (callback: (tx: unknown) => Promise<unknown>) => {
+      databaseState.transactionCount += 1;
+      const snapshot = { ledger: [...databaseState.ledger], diamonds: databaseState.diamonds, userExists: databaseState.userExists, committedDeletes: [...databaseState.committedDeletes] };
+      try { return await callback(db); }
+      catch (error) { Object.assign(databaseState, snapshot); throw error; }
+    },
     delete: (table: { name?: string }) => ({
       where: (condition: unknown) => {
         deleteCalls.push({ table: table?.name ?? "unknown", condition });
+        if (databaseState.failTable === table.name) throw new Error("injected delete failure");
+        databaseState.committedDeletes.push(table.name!);
+        if (table.name === "transactions") databaseState.ledger = databaseState.ledger.filter((row) => !matches(condition, row));
+        if (table.name === "users" && matches(condition, { id: "payer", email: "payer@example.test" })) {
+          databaseState.userExists = false;
+          databaseState.ledger = [];
+        }
         return {
           returning: () => Promise.resolve([]),
           then: (resolve: (rows: unknown[]) => unknown) => resolve([]),
@@ -87,11 +117,24 @@ vi.mock("@/lib/db/client", () => ({
       },
     }),
     select: () => ({
-      from: () => ({
-        where: () => Promise.resolve([{ count: 0 }]),
+      from: (table: { name?: string }) => ({
+        for: async () => { databaseState.userLocks += 1; return [{ id: "payer" }]; },
+        where: (condition: unknown) => ({
+          for: async () => databaseState.userExists ? [{ diamonds: databaseState.diamonds }] : [],
+          limit: async () => databaseState.ledger.filter((row) => matches(condition, row)),
+          then: (resolve: (rows: unknown[]) => unknown) => resolve(table.name === "users" ? [] : [{ count: 0 }]),
+        }),
         then: (resolve: (rows: { count: number }[]) => unknown) => resolve([{ count: 0 }]),
       }),
     }),
+    update: () => ({ set: (values: { diamonds: number }) => ({ where: async () => { databaseState.diamonds = values.diamonds; } }) }),
+    insert: () => ({ values: (values: Record<string, unknown>) => ({ returning: async () => {
+      if (values.stripe_session_id && databaseState.ledger.some((row) => row.stripe_session_id === values.stripe_session_id)) {
+        throw Object.assign(new Error("duplicate stripe session"), { code: "23505" });
+      }
+      databaseState.ledger.push(values);
+      return [values];
+    } }) }),
     // The retention guard runs for real against this stand-in: its counting
     // query is answered with the per-test counts, everything else with the
     // database-size row. Matched on `count(*)` rather than a table name so this
@@ -103,8 +146,9 @@ vi.mock("@/lib/db/client", () => ({
         isCount ? { rows: [{ ...billingCounts }] } : { rows: [{ size: "1 MB" }] },
       );
     },
-  },
-}));
+  };
+  return { db };
+});
 
 vi.mock("@/lib/db/schema", () => {
   const table = (name: string) => ({ name, id: `${name}.id`, project_id: `${name}.project_id` });
@@ -119,17 +163,19 @@ vi.mock("@/lib/db/schema", () => {
     projectData: table("project_data"),
     projectFiles: table("project_files"),
     templateCache: { ...table("template_cache"), expires_at: "template_cache.expires_at" },
-    transactions: table("transactions"),
-    users: { ...table("users"), email: "users.email" },
+    transactions: { ...table("transactions"), stripe_session_id: "transactions.stripe_session_id", stripe_payment_intent: "transactions.stripe_payment_intent", idempotency_key: "transactions.idempotency_key" },
+    users: { ...table("users"), email: "users.email", diamonds: "users.diamonds" },
   };
 });
 
 vi.mock("@/lib/db/services/shared", () => ({
   TEST_USER_EMAIL: "test@example.com",
+  assertDbConfigured: () => {},
   getUploadsDir: () => "/tmp/sajtmaskin-uploads-test-does-not-exist",
 }));
 
 const { GET, POST } = await import("./route");
+const { createTransaction, getTransactionByStripeSession } = await import("@/lib/db/services/transactions");
 
 const ADMIN_EMAIL = "riktig.admin@sajtmaskin.se";
 
@@ -170,7 +216,7 @@ function guardBoundLists(): unknown[] {
 function userDeleteConditions() {
   return deleteCalls
     .filter((call) => call.table === "users")
-    .map((call) => call.condition as { op?: string; values?: unknown[] });
+    .map((call) => (call.condition as { conditions: { op?: string; values?: unknown[] }[] }).conditions[0]);
 }
 
 beforeEach(() => {
@@ -178,6 +224,7 @@ beforeEach(() => {
   vi.unstubAllGlobals();
   deleteCalls.length = 0;
   guardQueries.length = 0;
+  Object.assign(databaseState, { failTable: "", committedDeletes: [], transactionCount: 0, ledger: [], diamonds: 100, userExists: true, userLocks: 0 });
   Object.assign(billingCounts, { subscriptions: 0, grants: 0, jobs: 0, customers: 0 });
   redisFeature.enabled = true;
   requireAdminAccess.mockResolvedValue({ ok: true, user: { email: ADMIN_EMAIL } });
@@ -466,6 +513,42 @@ describe("POST /api/admin/database — abonnemangsbokföringen överlever varje 
 
     expect(response.status).toBe(200);
     expect(deleteCalls.map((call) => call.table)).toEqual(["page_views"]);
+  });
+});
+
+describe("admin cleanup atomicity and payment receipts", () => {
+  it.each([{ action: "reset-all" }, { action: "mega-cleanup" }, { action: "clear", table: "projects" }])("rolls back earlier deletes when a later DELETE fails: %j", async (body) => {
+    databaseState.failTable = "images";
+    const response = await POST(actionRequest(body));
+    expect(response.status).toBe(500);
+    expect(deleteCalls.some((call) => call.table === "project_files")).toBe(true);
+    expect(databaseState.transactionCount).toBe(1);
+    expect(databaseState.committedDeletes).toEqual([]);
+    expect(flushRedisCache).not.toHaveBeenCalled();
+  });
+
+  it.each([{ action: "clear", table: "transactions" }, { action: "reset-all" }, { action: "mega-cleanup" }, { action: "clear", table: "users" }])("preserves the receipt and balance against Stripe replay after %j", async (body) => {
+    databaseState.diamonds = 0;
+    await createTransaction("payer", "purchase", 100, "paid", "pi_paid", "cs_paid");
+    expect((await POST(actionRequest(body))).status).toBe(200);
+    expect(await getTransactionByStripeSession("cs_paid")).toMatchObject({ stripe_session_id: "cs_paid" });
+    expect(databaseState.userExists).toBe(true);
+    // Even if a delivery bypasses the read shortcut, the retained unique
+    // receipt makes the actual balance/ledger transaction roll back.
+    await expect(createTransaction("payer", "purchase", 100, "replay", "pi_paid", "cs_paid")).rejects.toMatchObject({ code: "23505" });
+    expect(databaseState.diamonds).toBe(100);
+    expect(databaseState.ledger).toHaveLength(1);
+  });
+
+  it("still clears unkeyed history without deleting idempotent entitlements", async () => {
+    databaseState.ledger = [
+      { id: "ordinary" },
+      { id: "paid", stripe_session_id: "cs_paid" },
+      { id: "intent", stripe_payment_intent: "pi_paid" },
+      { id: "entitlement", idempotency_key: "wizard_1" },
+    ];
+    await POST(actionRequest({ action: "clear", table: "transactions" }));
+    expect(databaseState.ledger.map((row) => row.id)).toEqual(["paid", "intent", "entitlement"]);
   });
 });
 

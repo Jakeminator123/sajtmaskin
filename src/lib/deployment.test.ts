@@ -62,11 +62,26 @@ const {
   resolveDeploymentLiveUrlForChat,
   updateDeploymentStatus,
   resolveCanonicalVercelProjectForDomain,
+  resolveLatestOrCachedVercelProjectId,
 } = await import("./deployment");
 
 function req() {
   return new Request("http://localhost/api/domains/save", { method: "POST" });
 }
+
+describe("hosting identity read failures", () => {
+  it("rejects a deployment read failure instead of choosing the old cached project", async () => {
+    selectLimit.mockRejectedValueOnce(new Error("deployment read unavailable"));
+    await expect(resolveLatestOrCachedVercelProjectId("chat_1", "old_project"))
+      .rejects.toThrow("deployment read unavailable");
+  });
+
+  it("allows the legacy cache only after a successful empty deployment read", async () => {
+    selectLimit.mockResolvedValueOnce([]);
+    await expect(resolveLatestOrCachedVercelProjectId("chat_1", "old_project"))
+      .resolves.toBe("old_project");
+  });
+});
 
 describe("setDeploymentDomainForRequest (A#3: engine + legacy chat resolution)", () => {
   beforeEach(() => {

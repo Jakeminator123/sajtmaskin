@@ -196,6 +196,7 @@ export function usePreviewPanelComposerActions({
         previewSessionId: saved.previewSessionId,
         lifecycleToken: saved.lifecycleToken,
         previewMode: saved.previewMode,
+        ...(saved.previewError ? { previewError: saved.previewError } : {}),
       });
     } finally {
       setComposerHistoryBusy(false);
@@ -236,6 +237,7 @@ export function usePreviewPanelComposerActions({
         previewSessionId: saved.previewSessionId,
         lifecycleToken: saved.lifecycleToken,
         previewMode: saved.previewMode,
+        ...(saved.previewError ? { previewError: saved.previewError } : {}),
       });
     } finally {
       setComposerHistoryBusy(false);
@@ -423,6 +425,7 @@ export function usePreviewPanelComposerActions({
           previewSessionId: saved.previewSessionId,
           lifecycleToken: saved.lifecycleToken,
           previewMode: saved.previewMode,
+          ...(saved.previewError ? { previewError: saved.previewError } : {}),
         });
       } catch {
         toast.error("Något gick fel vid infogning.");

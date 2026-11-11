@@ -85,6 +85,18 @@ beforeEach(async () => {
       if (req.url === "/slow") {
         return;
       }
+      if (req.url === "/trickle") {
+        res.writeHead(200, { "content-type": "text/plain" });
+        res.write("x");
+        // Bytes arrive more often than the old socket inactivity timeout.
+        const interval = setInterval(() => res.write("x"), 10);
+        const end = setTimeout(() => res.end(), 500);
+        res.once("close", () => {
+          clearInterval(interval);
+          clearTimeout(end);
+        });
+        return;
+      }
       if (req.url === "/gzip") {
         res.writeHead(200, { "content-type": "text/plain", "content-encoding": "gzip" });
         res.end(zlib.gzipSync(Buffer.from("gzip-body")));
@@ -287,6 +299,21 @@ describe("fetchWithPinnedDns", () => {
     await expect(
       fetchWithPinnedDns(`http://asset.test:${port}/slow`, { timeoutMs: 40 }),
     ).rejects.toThrow(/timed out/);
+  });
+
+  it("enforces the total deadline while response bytes keep arriving", async () => {
+    await expect(
+      fetchWithPinnedDns(`http://asset.test:${port}/trickle`, { timeoutMs: 60 }),
+    ).rejects.toThrow(/timed out after 60 ms/);
+    expect(received).toHaveLength(1);
+  });
+
+  it("enforces the total deadline while socket DNS lookup is pending", async () => {
+    dnsLookup.mockImplementation(() => undefined);
+    await expect(
+      fetchWithPinnedDns(`http://pending-dns.test:${port}/`, { timeoutMs: 40 }),
+    ).rejects.toThrow(/timed out after 40 ms/);
+    expect(received).toHaveLength(0);
   });
 
   it("headersOnly keeps HTTP 200 when the HTML is larger than the old 2 KiB C2 cap", async () => {

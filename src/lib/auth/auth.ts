@@ -15,6 +15,7 @@ import {
   markEmailVerified,
   setUserDiamonds,
   updateUserLastLogin,
+  setVerifiedUserPassword,
 } from "@/lib/db/services/users";
 import type { User } from "@/lib/db/services/shared";
 import { isAdminEmailEdge } from "@/lib/auth/edge-auth";
@@ -62,7 +63,11 @@ export function verifyPassword(password: string, storedHash: string): boolean {
 }
 
 // JWT configuration - use centralized secrets
-const JWT_SECRET = SECRETS.jwtSecret;
+function jwtSigningSecret(): string {
+  const secret = SECRETS.jwtSecret;
+  if (!secret.trim()) throw new Error("JWT_SECRET is required for authentication");
+  return secret;
+}
 const JWT_EXPIRY = 7 * 24 * 60 * 60; // 7 days in seconds
 const MAX_JWT_CHARS = 8_192;
 
@@ -113,7 +118,7 @@ export function createToken(userId: string, email: string): string {
   const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = crypto
-    .createHmac("sha256", JWT_SECRET)
+    .createHmac("sha256", jwtSigningSecret())
     .update(`${header}.${body}`)
     .digest("base64url");
 
@@ -133,7 +138,7 @@ export function verifyToken(token: string): JWTPayload | null {
 
     // Verify signature
     const expectedSignature = crypto
-      .createHmac("sha256", JWT_SECRET)
+      .createHmac("sha256", jwtSigningSecret())
       .update(`${header}.${body}`)
       .digest("base64url");
 
@@ -481,7 +486,7 @@ export async function loginUser(
 
   if (adminMatch) {
     // Ensure the admin user exists in the database
-    let user = await getUserByEmail(adminMatch.email);
+    let user = await getUserByEmail(adminMatch.email.trim().toLowerCase());
     if (!user) {
       const result = await registerUser(adminMatch.email, adminMatch.password, adminMatch.name);
       if ("error" in result) {
@@ -489,12 +494,20 @@ export async function loginUser(
       }
       user = result.user;
     }
-    // Bootstrap admin privileges: 10k diamonds + auto-verify email
+    // Trusted env credentials replace any pre-existing registration secret
+    // before the row becomes verified. This write must fail closed.
+    await setVerifiedUserPassword(user.id, hashPassword(adminMatch.password));
     await bootstrapAdminUser(user);
     await updateUserLastLogin(user.id);
     const hydratedUser = (await getUserById(user.id)) ?? user;
     const token = createToken(hydratedUser.id, hydratedUser.email!);
     return { user: hydratedUser, token };
+  }
+
+  // An env-managed identity never falls back to an old database password,
+  // including after an operator rotates the configured credential.
+  if (adminCreds.some((cred) => cred.email.trim().toLowerCase() === normalizedEmail)) {
+    return { error: "Felaktig e-post eller lösenord" };
   }
 
   // Standard database login
@@ -554,6 +567,7 @@ export async function createConfiguredAdminLogin(): Promise<
     if ("error" in result) return { error: "unconfigured" };
     user = result.user;
   }
+  await setVerifiedUserPassword(user.id, hashPassword(adminMatch.password));
   await bootstrapAdminUser(user);
   await updateUserLastLogin(user.id);
   const hydratedUser = (await getUserById(user.id)) ?? user;

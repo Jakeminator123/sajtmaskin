@@ -4,9 +4,10 @@ Status: **etapp 1 och etapp 2 (kod) levererade i PR #1665** (branch
 `feat/kundportal-foretagsuppgifter`; oberoende review i tre rundor + extern
 granskning). Etapp 2 aktiveras av Jakob via runbooken; etapp 3–4 kräver
 ägarbeslut nedan.
-Avläst mot `preview` `6da0a0d66`. Portalgrunden ägs av
-[`2026-09-14-kundens-adress-och-portal`](../../avklarat/2026-09-14-kundens-adress-och-portal/00-master-plan.md);
-domänflaggorna av [`2026-09-16-branded-runtime-aktivering`](../2026-09-16-branded-runtime-aktivering/00-master-plan.md).
+Historisk kodavläsning: `preview` `6da0a0d66`. Portalgrunden är levererad —
+se [avklarat-indexet](../../avklarat/README.md). Kvarvarande portal- och
+abonnemangskrav finns nedan; adressaktivering och dess bevis ägs av
+[`branded-runtime-aktivering`](../2026-09-16-branded-runtime-aktivering/00-master-plan.md).
 
 ## Etapp 1 — levererat i kod
 
@@ -75,6 +76,91 @@ visar 30 dagar med Recharts (`chart.tsx` finns redan).
 
 Egen domän (BYOD) är klar och väntar bara på B4. Guider per svensk leverantör
 (Loopia, One.com, Binero, Websupport) är copy, inte kod.
+
+## Parkerade portal- och abonnemangskrav
+
+Kvarvarande krav från portalplanen 2026-09-14. Detta är ett koncentrat, inte
+ett mandat att aktivera betalning, flytta DNS, applicera migrationer eller
+ratificera nya produktvillkor. Aktuellt DB-mål ägs av
+[`config/db-targets.json`](../../../../config/db-targets.json).
+
+| Spår | Kvar | Ägare |
+|---|---|---|
+| PSL / bred branded-utrullning | PARK. Förbered sanningsenligt underlag mot då aktuella PSL-riktlinjer när volym motiverar det. Godkännande/propagation är inte portalens cookiebevis eller en automatisk aktiveringsgrind. Skalad DNS kräver rätt projektalias och HTTPS för minst två projekt; flytta inte rotzon eller e-postposter. | [Adressrunbooken](../../../runbooks/branded-user-urls.md), särskilt PSL och DNS. A2/A3/A4 ligger i den separata runtimeplanen. |
+| Extern kundpilot | Bedöm tillämpliga leverantörs-/kontovillkor före första externa kundpilot, även gratis. Dokumentation eller ett tekniskt stöd är inte ett avtalsbesked. Ingen automatisk leverantörskontakt eller krav på nytt partnerbrev för intern utveckling följer av planen. | Jakobs avgränsade pilotbeslut. |
+| D1 grundschema | Levererad policyneutral grund. Bevara owner-/modebindning, högst ett öppet claim per projekt/läge, unik periodförmån, beständiga jobb och separata önskade/faktiska hostingtillstånd. | [schema.ts](../../../../src/lib/db/schema.ts), D1-migrationerna och [billing-retention-guard.ts](../../../../src/lib/db/billing-retention-guard.ts). Retentiongrinden är reader, inte en framtida billing-writer. |
+| D2 + C3 etapp 2 | Parkerad implementation och acceptans enligt nedan. Nuvarande checkout är hårdstängd, webhooken avskiljer subscription-events; Billing Portal och full livscykel följer inte av dessa stängsel. | [site-subscription-offer.ts](../../../../src/lib/billing/site-subscription-offer.ts), [checkout-routen](../../../../src/app/api/stripe/site-subscription/checkout/route.ts), [webhook-routen](../../../../src/app/api/stripe/webhook/route.ts), [kontosidan](../../../../src/app/konto/page.tsx). |
+| D3 faktisk paus/återställning | Parkerad. Ett statusfält räcker inte; konkret provideråtgärd och HTTPS måste bekräfta rätt kundprojekt/version. Hostingadaptern saknas i nuvarande kod. | Framtida D3-adapter och tidsstyrd avstämning efter D2; grundmodellens jobb och hostingtillstånd i schema.ts. |
+
+### Abonnemang: beslut och föreslagna villkor
+
+Per publicerad sajt (`app_projects.id`), inkluderad publicering och credits
+som kvot plus påfyllnad är beslutad riktning — inte en ny beslutsfråga.
+Ett konto kan ha flera sajter; alias och ompublicering skapar inte fler
+abonnemang. `users.tier` avgör inte projektets publiceringsrätt.
+Se [beslutsloggen](../../../decisions/README.md), 2026-09-11.
+
+Pris, inkluderad creditmängd, kvotens rollover och följande D3-policy är
+fortfarande **förslag**. Enkel kostnadskalkyl och uttryckligt fastställande
+krävs före betalstart; sälj inte obegränsad trafik eller AI. Köpta credits
+får inte nollställas och ingen utgångstid lovas utan stöd i ledgern.
+
+| Föreslagen D3-policy | Utfall att fastställa före kundaktivering |
+|---|---|
+| Första betalning misslyckas | Ingen ny betald publicering; nytt checkoutförsök. |
+| Förnyelse misslyckas | 7 dagar fortsatt live, portalbesked och ägarpåminnelse; betalning under respit fortsätter utan avbrott. |
+| Uppsägning | Fungerar till betald periods slut. |
+| Rättighet upphör | Neutral pausad sida utan offentlig betalningsorsak; domän/slug, konto, redigering inom egna credits och export kvar. |
+| Ny betalning efter paus | Ägaren kan återställa senaste fungerande publicerade versionen, aldrig senaste utkastet. |
+| Bevarande | Minst 90 dagar från faktisk paus; ingen automatisk radering i MVP. Eventuell senare operatörsgallring föregås av minst 14 dagars besked och exportmöjlighet. Bokföring bevaras. |
+| Domänexit | Återanvänd inte sluggar och släpp inte alias som kundens DNS fortfarande pekar mot utan definierat avslut. Innehållsbevarande är inte en automatisk aliasdeadline. |
+| SEO | Kort 503/Retry-After, högst cirka två dagar i förslaget; därefter medvetet neutral långpaus, exempelvis 200/noindex. Lång paus kan skada synlighet. |
+
+### D2/C3e2: återstående implementation och acceptans
+
+- Serverägt pris/läge och fryst erbjudandesnapshot för ett ägt projekt.
+  Beständigt claim hanterar samtidiga, återupptagna, utgångna och avbrutna
+  checkouts. En generell katalogtjänst är inget krav.
+- Verifierade subscription-/invoice-events binds till rätt ägare, projekt,
+  läge och period; browser-success ger ingen rättighet. Avskilj fortsatt
+  credit-/domänköp. Tåla dubbletter, omkastad ordning och retry; gamla fel
+  får inte pausa en senare betald period.
+- Event-idempotens och förmån per period är separata skydd. Live-grant och
+  ledgerbokning är atomiska; proration/flera fakturor ger inte automatiskt
+  fler månadscredits. Test simuleras separat och påverkar inte live-saldo,
+  publiceringsrätt eller provider. Använd inte riktiga kundkonton i Stripe-test.
+- Egen Billing Portal-session i servervalt läge samt per-sajtstatus, nästa
+  period, uppsägning/respit på `/konto`. Fritt planbyte är utanför MVP.
+- Servergrind per projekt: giltigt abonnemang inkluderar publicering;
+  AI-arbetets credits kvarstår. Ingen sajt låser upp en annan. Tidsstyrd
+  avstämning och beständiga driftjobb krävs; en dag-0-webhook utför inte
+  dag-7-arbete av sig själv.
+- Äldre sajter kräver uttrycklig övergång, information och startdatum.
+  Saknad abonnemangsrad pausar inte befintliga sajter; gamla betalmetoder
+  debiteras inte utan korrekt köpflöde. Projekt-/kontoradering samordnas med
+  uppsägning och domänexit; bevara retentiongrinden tills hela flödet finns.
+- Acceptans i isolerat Stripe-test täcker första köp, samtidighet, förnyelse,
+  dubbletter/ordningsfel, provider-/DB-fel och retry, uppsägning och portallänk.
+  Test/live och två sajter på samma konto ska bevisas separata. D3 fungerar
+  före betalstart. D1:s migrering bevisar inte D2; det historiska paketnamnet
+  #1385 är varken aktuell PR-status eller bevis för DB-apply.
+
+### D3: bevis före betalstart
+
+Paus/restore binder samma kundprojekt och bevarade alias till senast fungerande
+publicerade artefakt. Önskat läge blir faktiskt först efter provider- och
+HTTP-bekräftelse. Beständiga jobb klarar fel efter provideranrop, retry och
+sena jobb utan att skriva över senare betalning/återaktivering.
+Inventera även gamla deployment-URL:ers åtkomst och kostnadsdrivande API:er;
+huvuddomänens neutrala HTML är inte bevis för stoppad drift. Ingen ny delad
+trafikproxy krävs för en begränsad pilot.
+
+Klockstyrda prov täcker respitens slut, periodslut, utebliven webhook,
+providerfel, lyckat retry och rätt restore-version på en riktig testhost.
+Export av kod/media förblir åtkomlig under paus; externa databaser, registrar,
+tredjepartskonton, hemligheter och exklusiva rättigheter ingår inte i
+kodexporten. Exportägaren är
+[`owner-transfer-package.ts`](../../../../src/lib/gen/export/owner-transfer-package.ts).
 
 ## Research 2026-10-22 (källor i agentrapport, osäkert markerat)
 

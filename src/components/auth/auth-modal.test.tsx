@@ -30,8 +30,8 @@ const user = {
   image: null,
   diamonds: 0,
   provider: "email" as const,
-  github_token: null,
   github_username: null,
+  github_connected: false,
 };
 
 function fillAndSubmit() {

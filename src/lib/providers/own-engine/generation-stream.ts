@@ -25,7 +25,7 @@ import {
 import { resolveDossiersPresentInVersion } from "@/lib/gen/dossiers/version-presence";
 import { dossierRequiresF3 } from "@/lib/gen/dossiers/types";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/dev-log";
-import { warnLog } from "@/lib/utils/debug";
+import { errorLog, warnLog } from "@/lib/utils/debug";
 import { emitOwnEngineToolCallSse } from "./generation-stream-tools";
 import { runOwnEngineStreamPostFinalize } from "./generation-stream-post-finalize";
 import { classifyProviderError } from "./provider-error-messages";
@@ -899,8 +899,8 @@ export function createOwnEngineGenerationStream(
                 const classified = classifyProviderError(
                   // Pass the whole data shape so classifier can read code/status.
                   { ...(data ?? {}), message: rawMsg },
-                  rawMsg,
                 );
+                errorLog("engine", "Pipeline stream failed", data);
                 // The pipeline already classified this once; trust its verdict
                 // when present so a fault cannot be lost in re-wrapping.
                 if (classified.providerFault || data?.providerFault === true) {
@@ -920,7 +920,6 @@ export function createOwnEngineGenerationStream(
                   type: "comm.error.create",
                   chatId,
                   message: classified.userMessage,
-                  rawMessage: rawMsg !== classified.userMessage ? rawMsg : undefined,
                   providerCode: classified.code,
                   permanent: classified.permanent,
                 });
@@ -930,7 +929,7 @@ export function createOwnEngineGenerationStream(
           }
         }
       } catch (error) {
-        console.error("Engine streaming error:", error);
+        errorLog("engine", "Engine streaming error", error);
         const classified = classifyProviderError(error, "Engine streaming failed");
         if (classified.providerFault) {
           providerFault = { message: classified.userMessage, code: classified.code };

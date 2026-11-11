@@ -67,6 +67,26 @@ function ownerCacheSegments(userId: string | null, sessionId: string | null): st
   return segments.length > 0 ? Array.from(new Set(segments)) : ["anonymous"];
 }
 
+function isReplacedProjectThumbnail(previous: string, uploadedUrl: string, requestUrl: string): boolean {
+  try {
+    const uploaded = new URL(uploadedUrl, requestUrl);
+    const target = new URL(previous, requestUrl);
+    const directory = uploaded.pathname.slice(0, uploaded.pathname.lastIndexOf("/") + 1);
+    // thumbnail_path may be supplied by the project owner. Only a generated
+    // thumbnail beside this request's trusted upload grants cleanup authority;
+    // an arbitrary custom image URL must never become a storage delete target.
+    return (
+      ["http:", "https:"].includes(target.protocol) &&
+      !target.username && !target.password && !target.search && !target.hash &&
+      target.origin === uploaded.origin &&
+      target.pathname.startsWith(directory) &&
+      /^thumbnail-\d+\.jpg$/.test(target.pathname.slice(directory.length))
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(req: NextRequest, ctx: RouteParams) {
   const user = await getCurrentUser(req);
   const sessionId = getSessionIdFromRequest(req);
@@ -205,7 +225,7 @@ async function handlePOST(
     }
 
     const previous = persisted.previousThumbnailPath;
-    if (previous && previous !== uploaded.url && /^https?:\/\//.test(previous)) {
+    if (previous && previous !== uploaded.url && isReplacedProjectThumbnail(previous, uploaded.url, req.url)) {
       // Best-effort: the DB already points at the new blob.
       await deleteBlob(previous).catch(() => undefined);
     }

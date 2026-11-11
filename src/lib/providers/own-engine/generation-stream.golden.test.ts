@@ -48,11 +48,13 @@ vi.mock("@/lib/logging/dev-log", () => ({
 vi.mock("@/lib/utils/debug", () => ({
   debugLog: vi.fn(),
   warnLog: vi.fn(),
+  errorLog: vi.fn(),
 }));
 
 import { createOwnEngineGenerationStream } from "./generation-stream";
 import { runOwnEngineStreamPostFinalize } from "./generation-stream-post-finalize";
 import { devLogAppend } from "@/lib/logging/dev-log";
+import { errorLog } from "@/lib/utils/debug";
 import { createCodeGenSSEStream } from "@/lib/gen/stream/stream-format";
 import { buildMeta } from "@/lib/logging/generation-log-writer/status";
 import {
@@ -1072,6 +1074,28 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     expect(loggedModel).toBe("gpt-5.4");
     expect(success).toBe(false);
     expect(String(message)).toContain("invalid_api_key");
+  });
+
+  it("does not expose raw pipeline diagnostics in public SSE or dev logs", async () => {
+    const events = await collectSseEvents(createOwnEngineGenerationStream(
+      providerFaultParams("chat_private_error", { message: "Failed query: secret-prompt sk-proj-secret0123456789" }),
+    ));
+    expect(JSON.stringify(events)).not.toMatch(/secret-prompt|sk-proj/);
+    expect(JSON.stringify(vi.mocked(devLogAppend).mock.calls)).not.toMatch(/secret-prompt|sk-proj/);
+    expect(events.find((event) => event.event === "error")?.data)
+      .toMatchObject({ message: "Ett oväntat fel uppstod. Försök igen." });
+  });
+
+  it("routes thrown stream errors through the safe logger and public fallback", async () => {
+    const error = Object.assign(new Error("Failed query: secret-prompt sk-proj-secret0123456789"), { code: "DB_FAIL" });
+    const events = await collectSseEvents(createOwnEngineGenerationStream({
+      ...providerFaultParams("chat_thrown_private_error", {}),
+      pipelineStream: new ReadableStream({ start(controller) { controller.error(error); } }),
+    }));
+    expect(JSON.stringify(events)).not.toMatch(/secret-prompt|sk-proj|DB_FAIL/);
+    expect(errorLog).toHaveBeenCalledWith("engine", "Engine streaming error", error);
+    expect(events.find((event) => event.event === "error")?.data)
+      .toMatchObject({ message: "Engine streaming failed" });
   });
 
   it("infers the fault from a bare 401 even when the pipeline forwarded no flag", async () => {

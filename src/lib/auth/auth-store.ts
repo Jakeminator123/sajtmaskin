@@ -19,8 +19,10 @@ export interface AuthUser {
   emailVerified?: boolean;
   /** `kostnadsfri*`: kampanjkonto från en inbjudningslänk (lib/kostnadsfri/campaign-account). */
   provider: "google" | "email" | "anonymous" | "kostnadsfri" | "kostnadsfri_claimed";
-  github_token: string | null;
+  /** GitHub login when connected. The OAuth token never reaches the browser. */
   github_username: string | null;
+  /** Server-computed: a token and a login are both stored for this user. */
+  github_connected: boolean;
 }
 
 export interface GuestInfo {
@@ -151,7 +153,7 @@ export function useAuth() {
     isInitialized,
     isAuthenticated: !!user,
     diamonds: user?.diamonds ?? 0,
-    hasGitHub: !!(user?.github_token && user?.github_username),
+    hasGitHub: Boolean(user?.github_connected && user?.github_username),
     logout,
     fetchUser,
     refreshUser,

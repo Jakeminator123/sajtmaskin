@@ -62,6 +62,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     activeVersionSummary,
     activeVersionIsLatest,
     activeVersionBusStatus,
+    activeVersionStatusIdentity,
     activeVersionStatus,
     preferredVersionStatus,
     followUpBaseInfo,
@@ -131,16 +132,18 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   // Omregistrering är bara en modulvariabel-tilldelning, och korten läser
   // bryggan färskt per poll, så effekten får följa sina inputs rakt av.
   const bridgeChatId = vm.chatId;
+  const bridgeVersionId = vm.activeVersionId;
   const bridgeCancel = vm.cancelActiveGeneration;
   useEffect(
     () =>
       registerBuilderBridge({
         getChatId: () => bridgeChatId,
+        getActiveVersionId: () => bridgeVersionId,
         canSend: () => Boolean(bridgeChatId) && !isInteractionLocked,
         sendMessage: (message, options) => sendMessage(message, options),
         cancelGeneration: () => bridgeCancel(),
       }),
-    [bridgeChatId, bridgeCancel, isInteractionLocked, sendMessage],
+    [bridgeChatId, bridgeVersionId, bridgeCancel, isInteractionLocked, sendMessage],
   );
 
   // En nedfälld chatt döljer utdatan men inte den flytande komposern, som kan
@@ -386,6 +389,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             <MessageList
               chatId={vm.chatId}
               versionId={vm.activeVersionId}
+              canonicalVersionStatus={activeVersionStatusIdentity ? {
+                ...activeVersionStatusIdentity,
+                status: activeVersionStatus,
+                isLatest: activeVersionIsLatest,
+              } : null}
               messages={vm.messages}
               showStructuredParts={vm.showStructuredChat}
               onQuickReply={async (text, options) => {

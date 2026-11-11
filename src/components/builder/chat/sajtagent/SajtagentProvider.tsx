@@ -49,6 +49,9 @@ import { isOpenClawSurfaceEnabledOnPage } from "@/lib/openclaw/surface-flag";
 export interface SajtagentContextValue {
   /** Sajtagentens yta är aktiverad för den här deployen (health). */
   available: boolean;
+  /** Configured but temporarily unavailable is different from a disabled surface. */
+  configured?: boolean;
+  healthStatus?: "disabled" | "checking" | "ready" | "unavailable";
   messages: OpenClawMessage[];
   isStreaming: boolean;
   send: (text: string, options?: OpenClawSendOptions) => Promise<void>;
@@ -76,6 +79,8 @@ export interface SajtagentProviderProps {
 }
 
 type HealthResponse = {
+  status?: string;
+  readiness?: string;
   surfaceEnabled?: boolean;
   debugEnabled?: boolean;
   editEnabled?: boolean;
@@ -97,6 +102,8 @@ export function SajtagentProvider({
   const armedMandate = useOpenClawStore((s) => s.armedMandate);
   const campaignScript = useOpenClawStore((s) => s.campaignScript);
   const [available, setAvailable] = useState(false);
+  const [configured, setConfigured] = useState(false);
+  const [healthStatus, setHealthStatus] = useState<NonNullable<SajtagentContextValue["healthStatus"]>>("disabled");
 
   // Health: ytans aktivering + läs-/agera-grindarna. Samma best-effort som
   // panelen hade: ett misslyckat anrop lämnar agenten passiv. Anropet görs
@@ -105,23 +112,48 @@ export function SajtagentProvider({
   useEffect(() => {
     if (!isOpenClawSurfaceEnabledOnPage()) return;
     let cancelled = false;
-    void (async () => {
+    let attempts = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+    let controller: AbortController | undefined;
+    const checkHealth = async () => {
+      // Match the server's initial render and let StrictMode cleanup cancel
+      // the discarded effect before it can issue a duplicate health request.
+      await Promise.resolve();
+      if (cancelled) return;
+      setConfigured(true);
+      if (attempts === 0) setHealthStatus("checking");
+      attempts += 1;
+      controller = new AbortController();
+      timeoutTimer = setTimeout(() => controller?.abort(), 12_000);
       try {
-        const res = await fetch("/api/openclaw/health");
+        const res = await fetch("/api/openclaw/health", { signal: controller.signal });
         const data = (await res.json().catch(() => null)) as HealthResponse;
         if (cancelled) return;
-        setAvailable(data?.surfaceEnabled === true);
-        setDebugEnabled(data?.debugEnabled === true);
-        setEditEnabled(data?.editEnabled === true);
+        const ready = res.ok && data?.surfaceEnabled === true &&
+          data.status === "ok" && data.readiness === "ready";
+        setAvailable(ready);
+        setHealthStatus(ready ? "ready" : "unavailable");
+        setDebugEnabled(ready && data?.debugEnabled === true);
+        setEditEnabled(ready && data?.editEnabled === true);
+        if (!ready && attempts < 3) retryTimer = setTimeout(() => void checkHealth(), attempts * 1_000);
       } catch {
         if (cancelled) return;
         setAvailable(false);
+        setHealthStatus("unavailable");
         setDebugEnabled(false);
         setEditEnabled(false);
+        if (attempts < 3) retryTimer = setTimeout(() => void checkHealth(), attempts * 1_000);
+      } finally {
+        clearTimeout(timeoutTimer);
       }
-    })();
+    };
+    void checkHealth();
     return () => {
       cancelled = true;
+      clearTimeout(retryTimer);
+      clearTimeout(timeoutTimer);
+      controller?.abort();
     };
   }, [setDebugEnabled, setEditEnabled]);
 
@@ -375,6 +407,8 @@ export function SajtagentProvider({
   const value = useMemo<SajtagentContextValue>(
     () => ({
       available,
+      configured,
+      healthStatus,
       messages: chat.messages,
       isStreaming: chat.isStreaming,
       send,
@@ -383,7 +417,7 @@ export function SajtagentProvider({
       armedMandate,
       campaignScript,
     }),
-    [available, chat.messages, chat.isStreaming, chat.stop, chat.clearConversation, send, armedMandate, campaignScript],
+    [available, configured, healthStatus, chat.messages, chat.isStreaming, chat.stop, chat.clearConversation, send, armedMandate, campaignScript],
   );
 
   return <SajtagentContext.Provider value={value}>{children}</SajtagentContext.Provider>;

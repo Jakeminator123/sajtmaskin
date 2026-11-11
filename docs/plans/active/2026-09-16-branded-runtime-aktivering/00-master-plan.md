@@ -3,8 +3,9 @@
 Status: **kod på preview; flaggor av tills respektive runtime-bevis är grönt.**
 Avläst mot `origin/preview` `dced4056aa39b6f63def5bd662d9c7254ad26fbd`
 (2026-09-17 rematch av #1435). Portalbygget är avklarat —
-[`2026-09-14-kundens-adress-och-portal`](../../avklarat/2026-09-14-kundens-adress-och-portal/00-master-plan.md).
-#1385 är separat Mergar-spår, inte denna plan. PSL-ansökan hör inte hit.
+[avklarat-indexet](../../avklarat/README.md). Parkerade abonnemangs- och
+PSL-krav ägs av [portalplanen](../2026-10-22-kundportal-och-domaner/00-master-plan.md);
+de aktiveras inte av denna adressplan.
 C2 runtime-bevis 2026-09-17 på preview; writes-flaggan är tillbaka till false
 efter retest. Production writes av tills separat rolloutbeslut.
 
@@ -29,6 +30,41 @@ portalbacklog. Stoppa och fråga vid extern testdomän eller prod-/provider-writ
 | C2 | **DONE** (2026-09-17, preview). Testdomän: `c2-test.lansera.nu` (apex `lansera.nu` orörd). Blocker-fix: #1463 — `checkCustomerHttps` använde 2 KiB body-cap → `unknown` / «Kontrollerar HTTPS»; fix med `headersOnly` på `fetchWithPinnedDns` (SSRF-pinning kvar). Full kedja: link → DNS/TLS → HTTPS valid → Activate (Primär/Live) → rätt publicerad Blue Notes-sajt på custom domain → Unlink. `SAJTMASKIN_CUSTOMER_DOMAIN_WRITES` tillbaka till false på preview efter retest; Production writes av tills separat rolloutbeslut. Valfri städ: ta bort one.com-CNAME för `c2-test` (inte krav för PASS). | — |
 | A3 | branded → egen domän → branded, rollback/no-loop. Offline-kod finns (#1408). | Samma testdomän/mandat som C2. |
 | A4 | Exakt en kontrollerad pilot: dry-run → apply → verifiera → rollback. Ingen `--apply` utan mandat. | Ägarmandat. Flaggor förblir av tills beviset är grönt. |
+
+## Bevarade acceptanskrav
+
+Den tidigare portalhistoriken är konsoliderad. Följande krav kvarstår tills
+deras faktiska bevis är dokumenterade; merge och enhetsprov är separata bevis.
+Driftprotokoll och daterade DNS-observationer ägs av
+[adressrunbooken](../../../runbooks/branded-user-urls.md).
+
+- **A2:** versionsbunden pilotgranskning gäller både publicering,
+  URL-visning och migration. Okänd kod-/capabilitystatus eller en nekad ny
+  version får inte flytta alias från den fungerande versionen. `__Host-`
+  över HTTPS, säker lokal cookiepolicy och exakt Origin bevisas för auth,
+  OAuth och gästsession/claim. Kör verklig parent-domain-shadowing samt
+  gammalt+nytt och dubbla liknamnade cookies. Legitima äldre gästprojekt
+  behöver verifierad övergång; återinför inte en obetrodd legacyfallback.
+  Dokumentera eventuell nyinloggning. PSL ersätter inte portalens skydd.
+- **A3:** branded → verifierad egen domän → branded bevisas för både ny och
+  äldre genererad konfiguration. Samma verifierade production-identitet
+  styr env, metadata, sitemap och tillfällig 307 med path/query, även med
+  SEO-copy av. Skyddad preview, annan tenant och plattformshost får aldrig
+  bli felmål. Täck okänd/ogiltig providerstatus, form/OAuth/webhook-URL:er
+  och rollback av byggd redirect/noindex; en appflagga ensam återställer
+  inte kunddeploymenten. Bevara senaste fungerande host medan den ersätts.
+- **A4:** säker aktivering är ännu en leverans. Nuvarande
+  [apply-grind](../../../../scripts/db/migrate-branded-live-urls-policy.ts)
+  nekar `--apply` tills slutligt transformerad artefakt och in-/utdata
+  fingeravtryckts, exakt READY production-deployment verifierats och
+  aliaskopplingen serialiserats till den. Granskad `filesRevision` ensam
+  räcker inte. Därefter krävs ett avgränsat projekt-/deploymentmandat och
+  dry-run → apply → DNS/TLS/HTTP → rollback. Välj samma publicerade version,
+  inte senaste utkast/READY; debitera inte plattformsmigreringen. Bevara
+  fungerande custom som primär och host som en befintlig redirect använder.
+  Äldre sajter migreras i explicit valda små satser med runtimebevis eller
+  motiverat undantag. Bedöm kontovillkor före extern kundpilot; interna
+  testprojekt och betalningsaktivering är separata steg.
 
 ## Flaggor (default av)
 

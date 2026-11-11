@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { appendFile, readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -11,6 +11,29 @@ export const REQUIRED_CHECKS_SOURCE = "inline";
 
 function stableStrings(values) {
   return [...values].map(String).sort();
+}
+
+function normalizedBypassActors(actors) {
+  if (!Array.isArray(actors)) return null;
+  const normalized = [];
+  const identities = new Set();
+  for (const actor of actors) {
+    if (!actor || typeof actor !== "object" || Array.isArray(actor) ||
+      Object.keys(actor).sort().join(",") !== "actor_id,actor_type,bypass_mode" ||
+      !["Integration", "OrganizationAdmin", "RepositoryRole", "Team", "DeployKey", "User"].includes(actor.actor_type) ||
+      !["always", "pull_request", "exempt"].includes(actor.bypass_mode)) return null;
+    const validId = Number.isSafeInteger(actor.actor_id) && actor.actor_id > 0;
+    if (actor.actor_type === "DeployKey") {
+      if (actor.actor_id !== null || actor.bypass_mode === "pull_request") return null;
+    } else if (!validId && !(actor.actor_type === "OrganizationAdmin" && actor.actor_id === null)) {
+      return null;
+    }
+    const identity = JSON.stringify([actor.actor_type, actor.actor_id]);
+    if (identities.has(identity)) return null;
+    identities.add(identity);
+    normalized.push(JSON.stringify([actor.actor_type, actor.actor_id, actor.bypass_mode]));
+  }
+  return normalized.sort();
 }
 
 function statusCheckKey(check) {
@@ -54,6 +77,9 @@ function evaluateSpecIntegrity(spec) {
   if (spec?.schemaVersion !== 1 || !expected) {
     return ["invalid expected ruleset spec"];
   }
+  if (normalizedBypassActors(expected.bypass_actors) === null) {
+    issues.push("expected spec must list valid bypass_actors");
+  }
   if (expected.deletion !== true) {
     issues.push("expected spec must require deletion");
   }
@@ -74,7 +100,7 @@ function evaluateSpecIntegrity(spec) {
   return issues;
 }
 
-export function evaluateMasterRuleset(live, spec) {
+export function evaluateMasterRuleset(live, spec, { readOnly = false } = {}) {
   const specIssues = evaluateSpecIntegrity(spec);
   if (specIssues.length > 0) return specIssues;
 
@@ -85,6 +111,18 @@ export function evaluateMasterRuleset(live, spec) {
   expectEqual(issues, "ruleset name", live?.name, expected.name);
   expectEqual(issues, "ruleset target", live?.target, expected.target);
   expectEqual(issues, "ruleset enforcement", live?.enforcement, expected.enforcement);
+  // Only an omitted field may be hidden by GitHub's read-only token. Visible
+  // malformed values and mismatches always fail, including in read-only mode.
+  if (live?.bypass_actors === undefined) {
+    if (!readOnly) issues.push("bypass actors UNVERIFIED: GitHub omitted bypass_actors; full audit requires an authorized operator token");
+  } else {
+    const actors = normalizedBypassActors(live.bypass_actors);
+    if (actors === null) {
+      issues.push("bypass actors UNVERIFIED: invalid bypass_actors; refusing an incomplete audit");
+    } else {
+      expectEqual(issues, "bypass actors", actors, normalizedBypassActors(expected.bypass_actors));
+    }
+  }
   expectEqual(
     issues,
     "included refs",
@@ -180,17 +218,29 @@ async function fetchLiveRuleset(spec) {
 }
 
 async function main() {
+  const args = process.argv.slice(2);
+  if (args.some((arg) => arg !== "--read-only")) throw new Error("unknown argument");
+  const readOnly = args.includes("--read-only");
   const spec = await loadExpectedSpec();
   const live = await fetchLiveRuleset(spec);
-  const issues = evaluateMasterRuleset(live, spec);
+  const issues = evaluateMasterRuleset(live, spec, { readOnly });
 
   if (issues.length === 0) {
+    if (readOnly && live?.bypass_actors === undefined) {
+      const warning = "Partial Protect master audit: visible fields match; bypass actors UNVERIFIED. " +
+        "GitHub omitted bypass_actors for this token. Run the default full audit with an authorized operator token after any ruleset change.";
+      console.warn("::warning::" + warning);
+      if (process.env.GITHUB_STEP_SUMMARY) {
+        await appendFile(process.env.GITHUB_STEP_SUMMARY, "\n### Protect master: PARTIAL audit\n\n" + warning + "\n");
+      }
+      return;
+    }
     console.log(
       "Protect master matches " +
         ".github/rulesets/protect-master.expected.json" +
         " (" +
         REQUIRED_CHECKS_SOURCE +
-        " GitHub checks; agent grind is separate)",
+        " GitHub checks, including bypass actors; agent grind is separate)",
     );
     return;
   }

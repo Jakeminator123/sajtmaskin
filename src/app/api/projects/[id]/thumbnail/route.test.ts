@@ -5,6 +5,7 @@ const getSessionIdFromRequest = vi.hoisted(() => vi.fn());
 const getProjectByIdForOwner = vi.hoisted(() => vi.fn());
 const getProjectData = vi.hoisted(() => vi.fn());
 const setProjectThumbnail = vi.hoisted(() => vi.fn());
+const updateProject = vi.hoisted(() => vi.fn());
 const deleteCache = vi.hoisted(() => vi.fn());
 const isDisallowedHost = vi.hoisted(() => vi.fn());
 const hostResolvesToPrivate = vi.hoisted(() => vi.fn());
@@ -19,8 +20,10 @@ vi.mock("@/lib/db/services/projects", () => ({
   getProjectByIdForOwner,
   getProjectData,
   setProjectThumbnail,
+  updateProject,
+  deleteProject: vi.fn(),
 }));
-vi.mock("@/lib/data/redis", () => ({ deleteCache }));
+vi.mock("@/lib/data/redis", () => ({ deleteCache, getCache: vi.fn(), setCache: vi.fn() }));
 vi.mock("@/lib/ssrf-guard", () => ({ isDisallowedHost, hostResolvesToPrivate }));
 vi.mock("@/lib/rate-limit", () => ({ withRateLimit }));
 vi.mock("@/lib/vercel/blob-service", () => ({ uploadBlob, deleteBlob }));
@@ -32,6 +35,7 @@ vi.mock("@/lib/projects/thumbnail-capture", async (importOriginal) => ({
 }));
 
 const { POST } = await import("./route");
+const { PUT } = await import("../route");
 
 const ORIGINAL_PREVIEW_HOST_BASE_URL = process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL;
 const ORIGINAL_TIER2_SUFFIXES = process.env.NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES;
@@ -137,8 +141,13 @@ describe("POST /api/projects/[id]/thumbnail", () => {
   // Codex/VADE P2 (PR #426): Vercel Blob rejects pathname overwrites — each
   // capture uploads a unique name and the superseded blob is cleaned up.
   it("uploads a unique filename and deletes the superseded blob", async () => {
+    uploadBlob.mockResolvedValue({
+      url: "https://store.public.blob.vercel-storage.com/user_1/projects/proj_1/media/thumbnail-2.jpg",
+      path: "user_1/projects/proj_1/media/thumbnail-2.jpg",
+      storageType: "blob",
+    });
     setProjectThumbnail.mockResolvedValue({
-      previousThumbnailPath: "https://blob.example/old-thumb.jpg",
+      previousThumbnailPath: "https://store.public.blob.vercel-storage.com/user_1/projects/proj_1/media/thumbnail-1.jpg",
     });
     const res = await POST(
       thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }),
@@ -147,7 +156,86 @@ describe("POST /api/projects/[id]/thumbnail", () => {
     expect(res.status).toBe(200);
     const filename = uploadBlob.mock.calls[0]![0].filename as string;
     expect(filename).toMatch(/^thumbnail-\d+\.jpg$/);
-    expect(deleteBlob).toHaveBeenCalledWith("https://blob.example/old-thumb.jpg");
+    expect(deleteBlob).toHaveBeenCalledWith(
+      "https://store.public.blob.vercel-storage.com/user_1/projects/proj_1/media/thumbnail-1.jpg",
+    );
+  });
+
+  it.each([
+    "https://store.public.blob.vercel-storage.com/victim/projects/proj_1/media/thumbnail-1.jpg",
+    "https://store.public.blob.vercel-storage.com/user_1/projects/other/media/thumbnail-1.jpg",
+    "https://other.public.blob.vercel-storage.com/user_1/projects/proj_1/media/thumbnail-1.jpg",
+    "https://store.public.blob.vercel-storage.com/user_1/projects/proj_1/media/custom-image.jpg",
+    "http://localhost/api/uploads/media/victim/projects/other/media/secret.jpg",
+    "https://store.public.blob.vercel-storage.com/user_1/projects/proj_1/media/thumbnail-1.jpg?x=1",
+    "https://store.public.blob.vercel-storage.com/user_1/projects/proj_1/media/%2f..%2fvictim.jpg",
+  ])("replaces an untrusted thumbnail without deleting its target: %s", async (previous) => {
+    const uploaded = "https://store.public.blob.vercel-storage.com/user_1/projects/proj_1/media/thumbnail-2.jpg";
+    uploadBlob.mockResolvedValue({ url: uploaded, storageType: "blob" });
+    setProjectThumbnail.mockResolvedValue({ previousThumbnailPath: previous });
+
+    const res = await POST(thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }), routeParams);
+
+    expect(res.status).toBe(200);
+    expect(setProjectThumbnail).toHaveBeenCalledWith("proj_1", uploaded, expect.anything());
+    expect(deleteBlob).not.toHaveBeenCalled();
+  });
+
+  it("does not turn a victim URL saved by PUT into capture cleanup authority", async () => {
+    const victim = "https://store.public.blob.vercel-storage.com/victim/projects/other/media/thumbnail-1.jpg";
+    updateProject.mockImplementationOnce(async (_id, body) => {
+      setProjectThumbnail.mockResolvedValue({ previousThumbnailPath: body.thumbnail_path });
+      return { id: "proj_1", ...body };
+    });
+    const updated = await PUT(new Request("http://localhost/api/projects/proj_1", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ thumbnail_path: victim }),
+    }) as never, routeParams);
+    expect(updated.status).toBe(200);
+    uploadBlob.mockResolvedValue({
+      url: "https://store.public.blob.vercel-storage.com/user_1/projects/proj_1/media/thumbnail-2.jpg",
+      storageType: "blob",
+    });
+
+    const captured = await POST(thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }), routeParams);
+
+    expect(captured.status).toBe(200);
+    expect(updateProject).toHaveBeenCalledWith("proj_1", { thumbnail_path: victim }, {
+      userId: "user_1", sessionId: "sess_1",
+    });
+    expect(deleteBlob).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "/api/uploads/media/user_1/projects/proj_1/media/thumbnail-1.jpg",
+    "http://localhost/api/uploads/media/user_1/projects/proj_1/media/thumbnail-1.jpg",
+  ])("cleans up an owned local thumbnail: %s", async (previous) => {
+    uploadBlob.mockResolvedValue({
+      url: "/api/uploads/media/user_1/projects/proj_1/media/thumbnail-2.jpg",
+      storageType: "local",
+    });
+    setProjectThumbnail.mockResolvedValue({ previousThumbnailPath: previous });
+
+    const res = await POST(thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }), routeParams);
+
+    expect(res.status).toBe(200);
+    expect(deleteBlob).toHaveBeenCalledExactlyOnceWith(previous);
+  });
+
+  it("does not delete another owner's local thumbnail on local replacement", async () => {
+    uploadBlob.mockResolvedValue({
+      url: "/api/uploads/media/user_1/projects/proj_1/media/thumbnail-2.jpg",
+      storageType: "local",
+    });
+    setProjectThumbnail.mockResolvedValue({
+      previousThumbnailPath: "http://localhost/api/uploads/media/victim/projects/other/media/thumbnail-1.jpg",
+    });
+
+    const res = await POST(thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }), routeParams);
+
+    expect(res.status).toBe(200);
+    expect(deleteBlob).not.toHaveBeenCalled();
   });
 
   it("returns 401 without any identity", async () => {

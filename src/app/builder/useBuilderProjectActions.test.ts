@@ -73,4 +73,40 @@ describe("useBuilderProjectActions snapshot-only Save", () => {
     expect(saveProjectData).toHaveBeenCalledWith("created_project", expect.objectContaining({ files: snapshotFiles }));
     expect(args.router.replace).toHaveBeenCalledWith("/builder?project=created_project&chatId=chat_1");
   });
+
+  it.each([
+    ["HTTP 404", { ok: false, json: async () => ({ error: "Missing" }) }],
+    ["invalid JSON", { ok: true, json: async () => { throw new SyntaxError("Invalid JSON"); } }],
+    ["missing files", { ok: true, json: async () => ({}) }],
+    ["empty files", { ok: true, json: async () => ({ files: [] }) }],
+    ["malformed files", { ok: true, json: async () => ({ files: [{ name: "page.tsx" }] }) }],
+  ])("preserves the project snapshot when fetching files returns %s", async (_label, response) => {
+    vi.mocked(fetch).mockResolvedValue(response as Response);
+    const args = makeArgs({ appProjectId: null });
+    const { result } = renderHook(() => useBuilderProjectActions(args));
+    await act(async () => { await result.current.handleSaveProject(); });
+    expect(saveProjectData).not.toHaveBeenCalled();
+    expect(createProject).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("Försök igen"));
+    expect(args.setIsSavingProject).toHaveBeenLastCalledWith(false);
+  });
+
+  it("does not save without an active version", async () => {
+    const args = makeArgs({ activeVersionId: null });
+    const { result } = renderHook(() => useBuilderProjectActions(args));
+    await act(async () => { await result.current.handleSaveProject(); });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(saveProjectData).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("Välj en version"));
+  });
+
+  it("allows retry after a failed file fetch without replacing the snapshot", async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error("Offline"));
+    const { result } = renderHook(() => useBuilderProjectActions(makeArgs()));
+    await act(async () => { await result.current.handleSaveProject(); });
+    expect(saveProjectData).not.toHaveBeenCalled();
+    await act(async () => { await result.current.handleSaveProject(); });
+    expect(saveProjectData).toHaveBeenCalledExactlyOnceWith("project_1", expect.objectContaining({ files: snapshotFiles }));
+  });
 });

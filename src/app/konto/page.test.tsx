@@ -28,8 +28,8 @@ function authUser(overrides: Partial<AuthUser> & Pick<AuthUser, "id" | "email">)
     image: null,
     diamonds: 42,
     provider: "email",
-    github_token: null,
     github_username: null,
+    github_connected: false,
     ...overrides,
   };
 }

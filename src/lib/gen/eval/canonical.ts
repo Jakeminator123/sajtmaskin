@@ -3,10 +3,11 @@ import type { EvalReport, EvalSummary } from "./runner";
 import { resolveEvalRunOutcome, type EvalRunOutcome } from "./outcome";
 import type { FollowUpEvalResult } from "./follow-up-context";
 import type { ScaffoldEvalReport } from "@/lib/gen/scaffolds/scaffold-eval";
+import type { AuditLatencyReport } from "./audit-latency";
 
 export const SMOKE_PROMPT_IDS = ["coffee-shop", "restaurant", "portfolio"] as const;
 
-export type CanonicalEvalMode = "free" | "codegen-smoke" | "codegen-full";
+export type CanonicalEvalMode = "free" | "codegen-smoke" | "codegen-full" | "audit-latency";
 
 export type CanonicalLaneOutcome =
   | "pass"
@@ -18,7 +19,7 @@ export type CanonicalLaneOutcome =
 export type CanonicalTopOutcome = "pass" | "fail" | "provider_error" | "infra_error";
 
 /** Why codegen did not run. `null` means the paid lane actually executed. */
-export type CodegenSkipReason = "free_mode" | "blocked_by_failed_free_lane";
+export type CodegenSkipReason = "free_mode" | "blocked_by_failed_free_lane" | "audit_latency_mode";
 
 export interface CanonicalFollowupLane {
   name: "followup";
@@ -53,6 +54,12 @@ export interface CanonicalEvalResult {
     followup: CanonicalFollowupLane;
     scaffold: CanonicalScaffoldLane;
     codegen: CanonicalCodegenLane;
+    auditLatency?: {
+      name: "audit-latency";
+      outcome: CanonicalLaneOutcome;
+      skipReason: "blocked_by_failed_free_lane" | null;
+      report: AuditLatencyReport | null;
+    };
   };
 }
 
@@ -62,6 +69,7 @@ export interface CanonicalEvalArgs {
   dumpMode: EvalDumpMode | undefined;
   force: boolean;
   promptIds: string[] | null;
+  auditUrls?: string[];
 }
 
 export interface CanonicalEvalDeps {
@@ -71,6 +79,7 @@ export interface CanonicalEvalDeps {
     prompts: { id: string }[];
     dumpMode?: EvalDumpMode;
   }) => Promise<EvalReport>;
+  runAuditLatency?: (args: { urls: string[]; dumpMode?: EvalDumpMode; print: (line: string) => void }) => Promise<AuditLatencyReport>;
 }
 
 export function parseCanonicalEvalArgs(args: string[]): CanonicalEvalArgs {
@@ -85,6 +94,20 @@ export function parseCanonicalEvalArgs(args: string[]): CanonicalEvalArgs {
   const wantsCodegen = args.includes("--codegen") || args.includes("--smoke");
   const promptIds = parsePromptFilter(args);
   const dumpMode = parseDumpModeFlag(args);
+  const auditFlags = args.filter((arg) => arg === "--audit-latency" || arg.startsWith("--audit-latency="));
+  if (auditFlags.length) {
+    if (auditFlags.length !== 1) throw new Error("Use --audit-latency once with one or two explicit URLs.");
+    if (wantsFull || wantsCodegen || promptIds || force) {
+      throw new Error("--audit-latency cannot be combined with --codegen, --smoke, --full, --prompts or --force.");
+    }
+    const flag = auditFlags[0];
+    const raw = flag.includes("=") ? flag.slice(flag.indexOf("=") + 1) : args[args.indexOf(flag) + 1];
+    const auditUrls = (raw ?? "").split(",").map((url) => url.trim()).filter(Boolean);
+    if (auditUrls.length < 1 || auditUrls.length > 2 || auditUrls.some((url) => url.startsWith("--"))) {
+      throw new Error("--audit-latency requires one or two explicit URLs (maximum four paid audits).");
+    }
+    return { mode: "audit-latency", json, dumpMode, force, promptIds, auditUrls };
+  }
 
   let mode: CanonicalEvalMode = "free";
   if (wantsFull) mode = "codegen-full";
@@ -131,10 +154,11 @@ export function resolveCanonicalOutcome(lanes: {
   followup: CanonicalLaneOutcome;
   scaffold: CanonicalLaneOutcome;
   codegen: CanonicalLaneOutcome;
+  auditLatency?: CanonicalLaneOutcome;
 }): CanonicalTopOutcome {
-  if (lanes.codegen === "provider_error") return "provider_error";
-  if (lanes.codegen === "infra_error") return "infra_error";
-  if (lanes.followup === "fail" || lanes.scaffold === "fail" || lanes.codegen === "fail") {
+  if (lanes.codegen === "provider_error" || lanes.auditLatency === "provider_error") return "provider_error";
+  if (lanes.codegen === "infra_error" || lanes.auditLatency === "infra_error") return "infra_error";
+  if (lanes.followup === "fail" || lanes.scaffold === "fail" || lanes.codegen === "fail" || lanes.auditLatency === "fail") {
     return "fail";
   }
   return "pass";
@@ -155,6 +179,7 @@ export function resolveCodegenPlan(options: {
   force: boolean;
 }): { run: true; forced: boolean } | { run: false; skipReason: CodegenSkipReason } {
   if (options.mode === "free") return { run: false, skipReason: "free_mode" };
+  if (options.mode === "audit-latency") return { run: false, skipReason: "audit_latency_mode" };
   if (options.freeLaneFailed && !options.force) {
     return { run: false, skipReason: "blocked_by_failed_free_lane" };
   }
@@ -252,6 +277,11 @@ export function toCanonicalJson(result: CanonicalEvalResult): Record<string, unk
         promptCount: result.lanes.codegen.promptCount,
         summary: result.lanes.codegen.summary,
       },
+      ...(result.lanes.auditLatency ? { auditLatency: {
+        outcome: result.lanes.auditLatency.outcome.toUpperCase(),
+        skipReason: result.lanes.auditLatency.skipReason,
+        report: result.lanes.auditLatency.report,
+      } } : {}),
     },
   };
 }
@@ -261,10 +291,18 @@ export async function runCanonicalEval(options: {
   dumpMode?: EvalDumpMode;
   force?: boolean;
   promptIds?: string[] | null;
+  auditUrls?: string[];
   print?: (line: string) => void;
   deps?: CanonicalEvalDeps;
 }): Promise<{ result: CanonicalEvalResult; codegenReport: EvalReport | null }> {
   const print = options.print ?? ((line: string) => console.info(line));
+  if (options.mode === "audit-latency") {
+    if (options.force || options.promptIds) throw new Error("Audit latency cannot force failed free lanes or run codegen prompts.");
+    const { normalizeAuditLatencyUrls } = await import("./audit-latency");
+    normalizeAuditLatencyUrls(options.auditUrls ?? []);
+  } else if (options.auditUrls?.length) {
+    throw new Error("Audit URLs require the explicit audit-latency mode.");
+  }
   const followupResults = options.deps?.runFollowUp
     ? await options.deps.runFollowUp()
     : await (async () => {
@@ -395,10 +433,24 @@ export async function runCanonicalEval(options: {
     });
   }
 
+  let auditLatency: CanonicalEvalResult["lanes"]["auditLatency"];
+  if (options.mode === "audit-latency") {
+    if (followup.outcome === "fail" || scaffold.outcome === "fail") {
+      auditLatency = { name: "audit-latency", outcome: "skipped", skipReason: "blocked_by_failed_free_lane", report: null };
+      print("Lane audit-latency skipped — a free lane failed. No paid audits ran.");
+    } else {
+      print(`Lane audit-latency (PAID: ${(options.auditUrls?.length ?? 0) * 2} advanced audits) — requires OPENAI_API_KEY, no database writes...`);
+      const runAuditLatency = options.deps?.runAuditLatency ?? (await import("./audit-latency")).runAuditLatencyEval;
+      const report = await runAuditLatency({ urls: options.auditUrls ?? [], dumpMode: options.dumpMode, print });
+      auditLatency = { name: "audit-latency", outcome: report.outcome, skipReason: null, report };
+    }
+  }
+
   const outcome = resolveCanonicalOutcome({
     followup: followup.outcome,
     scaffold: scaffold.outcome,
     codegen: codegen.outcome,
+    auditLatency: auditLatency?.outcome,
   });
 
   return {
@@ -406,7 +458,7 @@ export async function runCanonicalEval(options: {
       timestamp: new Date().toISOString(),
       mode: options.mode,
       outcome,
-      lanes: { followup, scaffold, codegen },
+      lanes: { followup, scaffold, codegen, ...(auditLatency ? { auditLatency } : {}) },
     },
     codegenReport,
   };

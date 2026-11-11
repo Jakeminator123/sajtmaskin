@@ -18,7 +18,16 @@ import {
 } from "@/lib/github/git-data-export";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
-import { getProjectByIdForOwner } from "@/lib/db/services/projects";
+import {
+  getProjectByIdForOwner,
+  getProjectData,
+  saveProjectData,
+} from "@/lib/db/services/projects";
+import {
+  GITHUB_EXPORT_META_KEY,
+  readGithubExportFromMeta,
+  type GithubExportStatus,
+} from "@/lib/github/export-status";
 import {
   loadProjectExportMedia,
   loadProjectProviderOrigin,
@@ -26,8 +35,10 @@ import {
 
 export const runtime = "nodejs";
 
+const MAX_CHAT_ID_LENGTH = 128;
+
 const exportSchema = z.object({
-  chatId: z.string().min(1, "chatId is required").max(128),
+  chatId: z.string().min(1, "chatId is required").max(MAX_CHAT_ID_LENGTH),
   versionId: z.string().min(1, "versionId is required").max(128),
   repo: z.string().min(1, "repo is required").max(256),
   private: z.boolean().optional(),
@@ -67,6 +78,51 @@ function normalizeRepoInput(
     return { owner: owner.trim(), repo: repo.trim() };
   }
   return { owner: fallbackOwner, repo: trimmed };
+}
+
+/** GitHub logins are case-insensitive: `Alice/site` is still the user's own repo. */
+function isSameGitHubLogin(a: string, b: string): boolean {
+  return a.toLowerCase() === b.toLowerCase();
+}
+
+/**
+ * Last export target for the chat's project, so the dialog can suggest the
+ * same repo. Same tenant scope as the export itself; never touches GitHub.
+ */
+export async function GET(request: NextRequest) {
+  return withRateLimit(request, "read", async () => {
+    try {
+      const user = await getCurrentUser(request);
+      if (!user) {
+        return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 });
+      }
+      const chatId = request.nextUrl.searchParams.get("chatId")?.trim() ?? "";
+      if (!chatId || chatId.length > MAX_CHAT_ID_LENGTH) {
+        return NextResponse.json({ success: false, error: "chatId is required" }, { status: 400 });
+      }
+      const engineChat = await getEngineChatByIdForRequest(request, chatId);
+      const project = engineChat?.project_id
+        ? await getProjectByIdForOwner(engineChat.project_id, {
+            userId: user.id,
+            sessionId: getSessionIdFromRequest(request),
+          })
+        : null;
+      if (!project) {
+        return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
+      }
+      const data = await getProjectData(project.id);
+      return NextResponse.json({
+        success: true,
+        lastExport: readGithubExportFromMeta(data?.meta),
+      });
+    } catch (error) {
+      console.error("[API/GitHub Export] Last export lookup failed:", error);
+      return NextResponse.json(
+        { success: false, error: "Kunde inte läsa senaste GitHub-exporten." },
+        { status: 500 },
+      );
+    }
+  });
 }
 
 /**
@@ -168,7 +224,7 @@ export async function POST(request: NextRequest) {
           owner,
           repo: repoName,
           isPrivate,
-          ownerIsOrg: owner !== user.github_username,
+          ownerIsOrg: !isSameGitHubLogin(owner, user.github_username),
           files: transferProject,
           commitMessage: `Export from Sajtmaskin (${chatId}:${versionId})`,
           // Byte-exact per-file blobs: this is the customer's copy of record.
@@ -182,6 +238,26 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ success: false, error: error.message }, { status: 409 });
         }
         throw error;
+      }
+
+      if (exportProjectId) {
+        const status: GithubExportStatus = {
+          repo: result.repo.full_name,
+          repoUrl: result.repo.html_url,
+          commitSha: result.commitSha,
+          versionId: ev.id,
+          at: new Date().toISOString(),
+        };
+        // A hint for the next export only: the commit already landed, so a
+        // failed write must not turn a successful export into an error.
+        try {
+          await saveProjectData({
+            project_id: exportProjectId,
+            meta_patch: { [GITHUB_EXPORT_META_KEY]: status },
+          });
+        } catch (error) {
+          console.warn("[API/GitHub Export] Could not remember the export repo:", error);
+        }
       }
 
       return NextResponse.json({

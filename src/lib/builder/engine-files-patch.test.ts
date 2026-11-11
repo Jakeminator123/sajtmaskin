@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { patchEngineChatFile, quickEditChatFiles } from "./engine-files-patch";
+import { describeQuickEditHardError, patchEngineChatFile, quickEditChatFiles } from "./engine-files-patch";
 
 type FetchCall = { url: string; method: string; body: Record<string, unknown> | null };
 
@@ -40,6 +40,28 @@ describe("engine-files-patch · Fast Edit Lane", () => {
   const calledQuickEdit = () => calls.some((c) => c.url.endsWith("/quick-edit"));
   const calledFilesPatch = () =>
     calls.some((c) => c.method === "PATCH" && c.url.endsWith("/files"));
+
+  it("keeps a saved edit successful when preview fails, without an in-place retry", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT", "1");
+    stubFetch(() => jsonResponse({
+      ok: true, versionId: "saved_1", changedFiles: ["app/page.tsx"],
+      previewUrl: null, previewError: "host boot failed",
+    }));
+
+    const result = await patchEngineChatFile({
+      chatId: "chat_1", versionId: "ver_3", fileName: "app/page.tsx", content: "next",
+    });
+
+    expect(result).toMatchObject({ ok: true, versionId: "saved_1", previewError: "host boot failed" });
+    expect(calls).toHaveLength(1);
+    expect(calledQuickEdit()).toBe(true);
+    expect(calledFilesPatch()).toBe(false);
+  });
+
+  it("gives an integration build a Swedish next step", () => {
+    expect(describeQuickEditHardError({ reason: "integrations_base", error: "internal English" }))
+      .toBe("Den här versionen har integrationer. Be om ändringen i byggchatten så att den verifieras före publicering.");
+  });
 
   describe("FINDING #1 — stale-base signal threading", () => {
     it("forwards engineLatestKnownVersionId into the quick-edit request body", async () => {

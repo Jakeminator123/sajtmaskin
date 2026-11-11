@@ -6,6 +6,7 @@ export type ProviderErrorInfo = {
 };
 
 function asNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
 }
@@ -46,13 +47,15 @@ export function normalizeProviderError(err: unknown): ProviderErrorInfo {
   const statusHint = getStatusCode(err);
   const retryAfter = getRetryAfterSeconds(err);
   const rawMessage = getErrorMessage(err);
-  const normalized = rawMessage.toLowerCase();
+  const obj = err && typeof err === "object" ? err as Record<string, unknown> : null;
+  const nested = obj?.error && typeof obj.error === "object"
+    ? obj.error as Record<string, unknown> : null;
+  const code = typeof (obj?.code ?? nested?.code) === "string"
+    ? String(obj?.code ?? nested?.code).toLowerCase() : "";
 
   if (
     statusHint === 429 ||
-    normalized.includes("rate limit") ||
-    normalized.includes("429") ||
-    normalized.includes("too many requests")
+    code === "rate_limit_exceeded" || code === "rate_limit"
   ) {
     const suffix = retryAfter ? ` Försök igen om ${retryAfter}s.` : "";
     return {
@@ -65,9 +68,7 @@ export function normalizeProviderError(err: unknown): ProviderErrorInfo {
 
   if (
     statusHint === 402 ||
-    normalized.includes("quota") ||
-    normalized.includes("billing") ||
-    normalized.includes("plan")
+    code === "insufficient_quota" || code === "credit_balance_exhausted"
   ) {
     return {
       status: 402,
@@ -79,9 +80,7 @@ export function normalizeProviderError(err: unknown): ProviderErrorInfo {
 
   if (
     statusHint === 401 ||
-    normalized.includes("unauthorized") ||
-    normalized.includes("api key") ||
-    normalized.includes("401")
+    code === "invalid_api_key" || code === "unauthorized"
   ) {
     const setup = "Kontrollera API-nycklar i miljövariabler.";
     return {
@@ -92,7 +91,7 @@ export function normalizeProviderError(err: unknown): ProviderErrorInfo {
     };
   }
 
-  if (statusHint === 403 || normalized.includes("forbidden") || normalized.includes("403")) {
+  if (statusHint === 403 || code === "permission_denied" || code === "forbidden") {
     return {
       status: 403,
       code: "forbidden",

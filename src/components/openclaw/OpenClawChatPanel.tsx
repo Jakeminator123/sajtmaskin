@@ -757,7 +757,6 @@ export function OpenClawChatPanel({
           </div>
         </div>
         <div data-no-drag className="flex items-center gap-0.5">
-          {powersAvailable ? <OpenClawPowersControl /> : null}
           <button
             type="button"
             onClick={isTakeover ? exitTakeover : enterTakeover}
@@ -907,13 +906,15 @@ export function OpenClawChatPanel({
             </div>
           </div>
 
-          <div className="border-t border-white/10 px-3 py-2.5">
+          <div className="shrink-0 border-t border-white/10 bg-slate-950/60 px-3 pt-3 pb-2.5">
             {campaignScript ? (
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[11px] text-slate-300" data-testid="kampanj-radgivning-kvar">
                   {formatAdviceRemaining(campaignScript.remaining)}
                   {!campaignScript.followupsCompleted ? (
-                    <span className="ml-1.5 text-slate-400">· {KOSTNADSFRI_FOLLOWUP_SKIP_HINT}</span>
+                    <span className="ml-1.5 text-slate-400">
+                      · {KOSTNADSFRI_FOLLOWUP_SKIP_HINT}
+                    </span>
                   ) : null}
                 </p>
                 {!campaignScript.followupsCompleted ? (
@@ -936,56 +937,67 @@ export function OpenClawChatPanel({
                 ) : null}
               </div>
             ) : null}
-            <div className="flex min-w-0 items-end gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
+            <div className="min-w-0 rounded-2xl border border-white/15 bg-white/[0.045] p-2 shadow-sm transition-[border-color,box-shadow] focus-within:border-cyan-400/45 focus-within:ring-2 focus-within:ring-cyan-400/10">
               <textarea
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={listening ? "Lyssnar — prata på svenska..." : content.inputPlaceholder}
-                rows={1}
+                aria-label={content.inputPlaceholder}
+                rows={2}
                 disabled={listening}
-                className="max-h-24 min-w-0 flex-1 resize-none bg-transparent text-sm leading-relaxed text-white outline-none placeholder:text-slate-400 disabled:opacity-60"
+                className="block max-h-32 min-h-12 w-full min-w-0 resize-none bg-transparent px-1 py-1 text-sm leading-6 text-white outline-none placeholder:text-slate-400 disabled:opacity-60"
               />
-              {speechSupported ? (
-                <button
-                  type="button"
-                  onClick={listening ? stopListening : startListening}
-                  disabled={isStreaming}
-                  className={cn(
-                    "shrink-0 rounded-full p-1.5 transition-colors",
-                    listening
-                      ? "bg-red-500/20 text-red-300 hover:bg-red-500/30"
-                      : "text-slate-300 hover:bg-white/5 hover:text-white",
-                    "disabled:opacity-30",
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0">{powersAvailable ? <OpenClawPowersControl /> : null}</div>
+                <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                  {speechSupported ? (
+                    <button
+                      type="button"
+                      onClick={listening ? stopListening : startListening}
+                      disabled={isStreaming}
+                      className={cn(
+                        "flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-cyan-400/50 focus-visible:outline-none",
+                        listening
+                          ? "bg-red-500/20 text-red-300 hover:bg-red-500/30"
+                          : "text-slate-300 hover:bg-white/5 hover:text-white",
+                        "disabled:opacity-30",
+                      )}
+                      aria-label={listening ? "Stoppa inspelning" : "Tala in meddelande"}
+                      title={listening ? "Stoppa inspelning" : "Tala in (sv-SE)"}
+                    >
+                      {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                    </button>
+                  ) : null}
+                  {isStreaming ? (
+                    <button
+                      type="button"
+                      onClick={stop}
+                      className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-2.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-cyan-400/50 focus-visible:outline-none"
+                      aria-label="Stoppa"
+                    >
+                      <Square className="h-4 w-4" />
+                      <span>Stoppa</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleSend}
+                      disabled={!input.trim() || listening}
+                      className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-cyan-300 px-2.5 text-xs font-semibold text-slate-950 shadow-sm transition-colors hover:bg-cyan-200 focus-visible:ring-2 focus-visible:ring-cyan-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-30"
+                      aria-label="Skicka"
+                    >
+                      <Send className="h-4 w-4" />
+                      <span>Skicka</span>
+                    </button>
                   )}
-                  aria-label={listening ? "Stoppa inspelning" : "Tala in meddelande"}
-                  title={listening ? "Stoppa inspelning" : "Tala in (sv-SE)"}
-                >
-                  {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                </button>
-              ) : null}
-              {isStreaming ? (
-                <button
-                  type="button"
-                  onClick={stop}
-                  className="shrink-0 p-1 text-slate-300 transition-colors hover:text-white"
-                  aria-label="Stoppa"
-                >
-                  <Square className="h-4 w-4" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleSend}
-                  disabled={!input.trim() || listening}
-                  className="shrink-0 p-1 text-cyan-200 transition-colors hover:text-cyan-100 disabled:opacity-30"
-                  aria-label="Skicka"
-                >
-                  <Send className="h-4 w-4" />
-                </button>
-              )}
+                </div>
+              </div>
             </div>
+            <p className="mt-1.5 px-1 text-[10px] leading-4 text-slate-400">
+              Enter skickar · Skift + Enter för ny rad
+            </p>
           </div>
         </div>
       </div>

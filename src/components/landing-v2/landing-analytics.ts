@@ -7,7 +7,6 @@ import { track } from "@vercel/analytics"
 export const HOMEPAGE_ANALYTICS_EVENTS = {
   cta: "homepage_cta",
   method: "homepage_method",
-  pricing: "homepage_pricing",
   auth: "homepage_auth",
   examples: "homepage_examples",
 } as const
@@ -23,9 +22,6 @@ const ALLOWED_EVENT_VALUES = new Set([
   "analyserad",
   "template",
   "audit",
-  "starter",
-  "popular",
-  "pro",
   "login",
   "register",
   "site_type",

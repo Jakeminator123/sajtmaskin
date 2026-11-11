@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { loginUser, setAuthCookie } from "@/lib/auth/auth";
+import { toPublicAuthUser } from "@/lib/auth/public-user";
 import { withRateLimit } from "@/lib/rate-limit";
 
 const MAX_EMAIL_LENGTH = 254;
@@ -62,16 +63,7 @@ export async function POST(req: NextRequest) {
       // Return user data (without sensitive fields)
       return NextResponse.json({
         success: true,
-        user: {
-          id: result.user.id,
-          email: result.user.email,
-          name: result.user.name,
-          image: result.user.image,
-          diamonds: result.user.diamonds,
-          freeGenerationAvailable: result.user.free_generation_available,
-          provider: result.user.provider,
-          emailVerified: result.user.email_verified,
-        },
+        user: toPublicAuthUser(result.user),
       });
     } catch (error) {
       console.error("[API/auth/login] Error:", error);

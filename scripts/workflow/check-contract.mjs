@@ -37,6 +37,25 @@ export function evaluateRetiredApiReviewWorkflows(workflows) {
     );
 }
 
+/** Structural wiring only; real Git fixtures test the receipt and ref decisions. */
+export function evaluateHotfixDeliveryContract(hookSource, packageScripts) {
+  const errors = [];
+  if (packageScripts?.["hotfix:prepare"] !== "node scripts/workflow/hotfix-push.mjs --prepare" ||
+      packageScripts?.["hotfix:push"] !== "node scripts/workflow/hotfix-push.mjs")
+    errors.push("hotfix delivery must use the explicit prepare/push receipt wrapper");
+  const inspect = hookSource.indexOf('node scripts/workflow/hotfix-push.mjs --hook "$PUSH_REMOTE" "$PUSH_URL" "$hotfix_updates"');
+  const count = hookSource.indexOf('if [ "$push_update_count" -ne 1 ]');
+  const clean = hookSource.indexOf("git status --porcelain --untracked-files=normal");
+  const ciSkip = hookSource.indexOf("GITHUB_ACTIONS");
+  const ownerSkip = hookSource.indexOf('SAJTMASKIN_SKIP_VERIFY_HOOKS" = "1"');
+  if (inspect < 0 || count < 0 || clean < 0 || ciSkip < 0 || ownerSkip < 0 || count > inspect || clean > inspect ||
+      inspect > ciSkip || inspect > ownerSkip || !hookSource.includes("SAJTMASKIN_HOTFIX_RECEIPT+x") ||
+      !hookSource.includes("while read -r local_ref local_sha remote_ref remote_sha extra_field; do") ||
+      !hookSource.includes("npm run verify:pr -- --plan"))
+    errors.push("hotfix receipt must inspect all refs after clean HEAD and before CI/skip; ordinary preview planning must remain");
+  return errors;
+}
+
 // Avsiktlig konstitutionell duplicering. Den redigerbara policyn får lägga till
 // skydd, men får inte kunna sänka sin egen verifiering och sedan godkänna sig
 // själv. Att ändra golvet kräver därför en synlig kod- och teständring under
@@ -70,6 +89,8 @@ export const POLICY_FLOORS = Object.freeze({
     "scripts/workflow/ci-scope.mjs",
     "scripts/workflow/ci-receipt.mjs",
     "scripts/workflow/path-impact.mjs",
+    "scripts/workflow/hotfix-push.mjs",
+    "scripts/dev/install-git-hooks.mjs",
     "config/agent-workflow.json",
     "config/control-plane/policy-registry.json",
     "config/control-plane/schema-registry.json",
@@ -670,10 +691,13 @@ const DOSSIER_ACCEPTANCE_MATRIX_IF =
   "${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_matrix == 'true' }}";
 const DOSSIER_ACCEPTANCE_BUILD_IF = "${{ !cancelled() && needs.discover.result == 'success' }}";
 
-function hasPushBaselineReader(scope) {
-  return isDeepStrictEqual(scope?.permissions, { contents: "read", actions: "read" }) &&
-    scope.steps?.some((step) =>
-      hasExactExpression(step.env?.GITHUB_TOKEN, "${{ github.token }}"));
+function hasLocalDossierScope(document, scope) {
+  // Dossier preview decisions do not consume previous-run evidence. The
+  // classifier needs checkout data only; keep Actions/API credentials out.
+  return isDeepStrictEqual(document?.permissions, { contents: "read" }) &&
+    (scope?.permissions === undefined || isDeepStrictEqual(scope.permissions, { contents: "read" })) &&
+    !scope?.env?.GITHUB_TOKEN && !scope?.env?.GH_TOKEN &&
+    !scope?.steps?.some((step) => step.env?.GITHUB_TOKEN || step.env?.GH_TOKEN);
 }
 
 // CI:s scope läser även kvittoannotationer (checks) och mergad PR (pull-requests).
@@ -747,7 +771,7 @@ export function evaluateDossierAcceptanceWorkflow(source) {
   if (
     !scope ||
     !scope.outputs?.run_matrix ||
-    !hasPushBaselineReader(scope) ||
+    !hasLocalDossierScope(document, scope) ||
     !scope.steps?.some((step) => step.run === "node scripts/dossiers/acceptance-scope.mjs") ||
     !scope.steps?.some((step) =>
       hasExactExpression(step.env?.SAJTMASKIN_PUSH_BASE_SHA, "${{ github.event.before }}"),
@@ -2014,6 +2038,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     }
   }
   const hookInstaller = read(root, "scripts/dev/install-git-hooks.mjs");
+  errors.push(...evaluateHotfixDeliveryContract(hookInstaller, pkg.scripts));
   if (
     !hookInstaller.includes('"pre-push"') ||
     !hookInstaller.includes("npm run verify:pr -- --plan")

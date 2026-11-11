@@ -63,6 +63,62 @@ function renderStatus(pollIntervalMs = POLL) {
   );
 }
 
+describe("useVersionStatus snapshot identity", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each([
+    { chatId: "c1", versionId: "v2" },
+    { chatId: "c2", versionId: "v1" },
+  ])("never exposes old ready as a newly selected %j", async (next) => {
+    let finish!: (response: Response) => void;
+    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, versionId: "v1", status: vs({ phase: "done", done: true }) }) })
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => { finish = resolve; }));
+    vi.stubGlobal("fetch", fetchMock);
+    const snapshots: Array<ReturnType<typeof useVersionStatus>> = [];
+    const { result, rerender } = renderHook((identity) => {
+      const snapshot = useVersionStatus({ ...identity, pollIntervalMs: 0 });
+      snapshots.push(snapshot);
+      return snapshot;
+    }, { initialProps: { chatId: "c1", versionId: "v1" } });
+    await act(flushMicrotasks);
+    expect(result.current.identity).toEqual({ chatId: "c1", versionId: "v1" });
+    snapshots.length = 0;
+    rerender(next);
+    expect(snapshots.every((snapshot) => snapshot.status === null && snapshot.identity === null)).toBe(true);
+    await act(async () => {
+      finish(new Response(JSON.stringify({ ok: true, versionId: next.versionId, status: vs({ phase: "verifying" }) })));
+      await flushMicrotasks();
+    });
+    expect(result.current.identity).toEqual(next);
+    expect(result.current.status?.phase).toBe("verifying");
+  });
+
+  it("rejects a response for another version", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: true, versionId: "wrong-version", status: vs({ phase: "done", done: true }) }))));
+    const { result } = renderStatus(0);
+    await act(flushMicrotasks);
+    expect(result.current.status).toBeNull();
+    expect(result.current.identity).toBeNull();
+    expect(result.current.error).toContain("identity mismatch");
+  });
+
+  it("ignores an old chat's late response after a new chat resolved", async () => {
+    let finishOld!: (response: Response) => void;
+    vi.stubGlobal("fetch", vi.fn().mockImplementationOnce(() => new Promise<Response>((resolve) => { finishOld = resolve; }))
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, versionId: "v1", status: vs({ phase: "verifying" }) }) }));
+    const { result, rerender } = renderHook((identity) => useVersionStatus({ ...identity, pollIntervalMs: 0 }),
+      { initialProps: { chatId: "c1", versionId: "v1" } });
+    rerender({ chatId: "c2", versionId: "v1" });
+    await act(flushMicrotasks);
+    await act(async () => {
+      finishOld(new Response(JSON.stringify({ ok: true, versionId: "v1", status: vs({ phase: "done", done: true }) })));
+      await flushMicrotasks();
+    });
+    expect(result.current.identity).toEqual({ chatId: "c2", versionId: "v1" });
+    expect(result.current.status?.phase).toBe("verifying");
+  });
+});
+
 describe("useVersionStatus — Finding A (poll until stable)", () => {
   beforeEach(() => {
     vi.useFakeTimers();

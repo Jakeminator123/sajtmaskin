@@ -1,20 +1,20 @@
 /**
- * OpenClaw "extra befogenheter" — the user-visible opt-in that sits ON TOP of
+ * OpenClaw "extra befogenheter" — chat-scoped powers that sit ON TOP of
  * the `OC_EDIT` env gate.
  *
  * ## Why a second gate at all
  *
  * `OC_EDIT` is an operator switch: it is either on for a whole deployment or
- * off. In production it is ON, which means armed autonomy and quick edits are
- * permanently available with nothing in the chat that says so and no way for
- * the user to decline. This module adds the missing half: the user must press
- * a button in the OpenClaw chat AND tick the specific power before anything
- * beyond the ordinary guide behaviour happens.
+ * off. Each chat also has a master toggle and specific powers. New builder
+ * chats receive the defaults below when the server confirms no saved grant;
+ * an existing opt-out is preserved. The user can change the powers at any
+ * time. Having a power is not itself an instruction to build: individual
+ * actions still require the current user request or a bounded mandate.
  *
  * ## The gate is an AND, and the client half can only narrow
  *
  * A power is live only when `OC_EDIT` is on **and** the master toggle is
- * pressed **and** that power is ticked. The client sends its granted list to
+ * on **and** that power is enabled. The client sends its granted list to
  * the server, but the list carries **no authority** — the server ANDs it with
  * `OPENCLAW.editEnabled`, so a forged list can at most re-request something the
  * deployment already allows, and an absent list can only take powers away.
@@ -55,7 +55,7 @@ export const OPENCLAW_POWER_META: Record<
 > = {
   armed_autonomy: {
     label: "Armerad autonomi",
-    description: "Får fylla builder-prompten och skicka den åt dig, efter att du armerat.",
+    description: "Får starta en ändring som du ber om. Flera automatiska steg kräver ett separat uppdrag från dig.",
   },
   quick_edit: {
     label: "Snabbändringar",
@@ -71,9 +71,9 @@ export const OPENCLAW_POWER_META: Record<
 export interface OpenClawPowersInput {
   /** Server-reported `OC_EDIT` (client side: the store's `editEnabled`). */
   editEnabled: boolean;
-  /** The chat's master toggle — the button must be pressed. */
+  /** The chat's master toggle, initialized or explicitly changed by the user. */
   powersOn: boolean;
-  /** Powers the user ticked in the menu. */
+  /** Current chat powers, including defaults for a new builder chat. */
   granted: readonly OpenClawPowerId[] | null | undefined;
 }
 

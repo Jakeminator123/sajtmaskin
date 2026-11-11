@@ -73,4 +73,51 @@ describe("buildAuditPrompt tier split", () => {
     expect(text).toMatch(/business_profile/);
     expect(text).not.toMatch(/Generera INTE business_profile/);
   });
+
+  it("grounds Avancerad in the collected text beyond the 800-character preview", () => {
+    const laterPageEvidence = "UNIKT_SIDTVÅ_BEVISET: Vi erbjuder även konferensbokning.";
+    const collectedText = `${"Inledande hotellinformation. ".repeat(80)}${laterPageEvidence}`;
+    const multiPageContent = {
+      ...sample,
+      text: collectedText,
+      textPreview: `${collectedText.slice(0, 800)}...`,
+      wordCount: 2189,
+    };
+
+    for (const options of ["advanced", { auditMode: "advanced" }] as const) {
+      const text = promptText(multiPageContent, sample.url, options);
+      expect(text).toContain(collectedText);
+      expect(text).toContain(laterPageEvidence);
+      expect(text).toContain("TEXTINNEHÅLL (insamlat utdrag, max ~2000 ord):");
+      expect(text).not.toContain("TEXTINNEHÅLL (första ~800 tecken):");
+    }
+
+    const basic = promptText(multiPageContent, sample.url, "basic");
+    const publicPrompt = buildPublicAnalysPrompt(multiPageContent, sample.url)
+      .flatMap((message) => message.content.map((part) => part.text))
+      .join("\n");
+    for (const text of [basic, publicPrompt]) {
+      expect(text).toContain(multiPageContent.textPreview);
+      expect(text).toContain("TEXTINNEHÅLL (första ~800 tecken):");
+      expect(text).not.toContain(laterPageEvidence);
+      expect(text).not.toContain(collectedText);
+      expect(text).not.toContain("max ~2000 ord");
+    }
+  });
+
+  it("keeps public and paid Vanlig prompts identical when only collected full text changes", () => {
+    const changedText = { ...sample, text: "EXTRA_TEXTEVIDENS_SOM_BARA_ADVANCED_SKA_SE" };
+    expect(buildAuditPrompt(changedText, sample.url, "basic"))
+      .toEqual(buildAuditPrompt(sample, sample.url, "basic"));
+    expect(buildPublicAnalysPrompt(changedText, sample.url))
+      .toEqual(buildPublicAnalysPrompt(sample, sample.url));
+    expect(buildAuditPrompt(changedText, sample.url, "advanced")[0])
+      .toEqual(buildAuditPrompt(sample, sample.url, "advanced")[0]);
+  });
+
+  it.each(["", "   "])("falls back to the existing preview for empty Avancerad full text: %j", (text) => {
+    const result = promptText({ ...sample, text }, sample.url, "advanced");
+    expect(result).toContain(`TEXTINNEHÅLL (första ~800 tecken):\n${sample.textPreview}`);
+    expect(result).not.toContain("TEXTINNEHÅLL (insamlat utdrag");
+  });
 });

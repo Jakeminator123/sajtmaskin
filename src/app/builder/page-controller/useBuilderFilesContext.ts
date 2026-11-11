@@ -1,7 +1,9 @@
 "use client";
 
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { toast } from "sonner";
+import { QUICK_EDIT_PREVIEW_WARNING } from "@/lib/builder/engine-files-patch";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import {
   QUICK_EDIT_APPLIED_EVENT_NAME,
@@ -18,6 +20,7 @@ type FilesSavedInfo = {
   previewSessionId?: string | null;
   lifecycleToken?: string | null;
   previewMode?: string | null;
+  previewError?: string;
 };
 
 type Params = {
@@ -29,6 +32,7 @@ type Params = {
   pendingCreatedVersionRef: PendingCreatedVersionRef;
   mutateVersions: () => unknown;
   onVersionStatusRefresh: () => void;
+  onRetryPreview?: (versionId: string) => void;
   onPreviewSessionMeta: (
     meta: {
       previewSessionId: string;
@@ -62,6 +66,7 @@ export function useBuilderFilesContext({
   pendingCreatedVersionRef,
   mutateVersions,
   onVersionStatusRefresh,
+  onRetryPreview,
   onPreviewSessionMeta,
   setCurrentPageCode,
   setExistingUiComponents,
@@ -70,6 +75,12 @@ export function useBuilderFilesContext({
   state,
   vmPreview,
 }: Params) {
+  // A toast may outlive the selected version/chat. Retry only its saved target.
+  const retryTargetRef = useRef({ chatId, activeVersionId, onRetryPreview });
+  useEffect(() => {
+    retryTargetRef.current = { chatId, activeVersionId, onRetryPreview };
+  }, [chatId, activeVersionId, onRetryPreview]);
+
   // Prompt assist context fetch
   useEffect(() => {
     const contextKey =
@@ -184,7 +195,7 @@ export function useBuilderFilesContext({
         // /preview-session — i.e. keep the no-restart fast path. Without this the
         // version switch would clear the session meta and trigger a full VM
         // bootstrap right after the hot patch.
-        if (info.previewUrl && info.previewSessionId && chatId) {
+        if (!info.previewError && info.previewUrl && info.previewSessionId && chatId) {
           state.setCurrentPreviewUrl(info.previewUrl);
           onPreviewSessionMeta({
             previewSessionId: info.previewSessionId,
@@ -193,6 +204,33 @@ export function useBuilderFilesContext({
           });
           vmPreview.previewBootstrapDoneKeysRef.current.add(`${chatId}:${info.versionId}`);
         }
+      }
+      if (info?.previewError) {
+        // Persistence succeeded. Preserve selection/history and let the existing
+        // preview bootstrap/restart owner recover; never repeat the edit.
+        state.setCurrentPreviewUrl(null);
+        // The new version's preview owner clears session metadata on selection.
+        const savedVersionId = info.versionId;
+        if (chatId && savedVersionId) {
+          vmPreview.previewBootstrapDoneKeysRef.current.delete(`${chatId}:${savedVersionId}`);
+        }
+        toast.warning(QUICK_EDIT_PREVIEW_WARNING, {
+          id: `quick-edit-preview:${chatId}:${savedVersionId}`,
+          description: "Du behöver inte göra om ändringen.",
+          ...(savedVersionId && onRetryPreview ? {
+            action: {
+              label: "Starta förhandsvisningen",
+              onClick: () => {
+                const current = retryTargetRef.current;
+                if (current.chatId !== chatId || current.activeVersionId !== savedVersionId) {
+                  toast.message("Välj den sparade versionen innan du startar förhandsvisningen igen.");
+                  return;
+                }
+                current.onRetryPreview?.(savedVersionId);
+              },
+            },
+          } : {}),
+        });
       }
       // A legacy/default files save may mutate the SAME version (N -> N+1)
       // without returning a new versionId. Refresh both status projections so
@@ -210,6 +248,7 @@ export function useBuilderFilesContext({
       setSelectedVersionId,
       mutateVersions,
       onVersionStatusRefresh,
+      onRetryPreview,
       chatId,
       state,
       onPreviewSessionMeta,

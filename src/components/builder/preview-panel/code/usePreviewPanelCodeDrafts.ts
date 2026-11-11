@@ -86,72 +86,74 @@ import {
   type StaticMetadataDraft,
 } from "@/lib/builder/editors/metadata-editor";
 import type { FileNode } from "@/lib/builder/types";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { toast } from "sonner";
+
+// Keep unsaved edits per file when selection or fetched content changes.
+function useFileDraft<T>(key: string, initial: T): [T, Dispatch<SetStateAction<T>>] {
+  const [entries, setEntries] = useState<Record<string, { source: string; draft: T }>>({});
+  const source = JSON.stringify(initial);
+  const entry = entries[key];
+  const dirty = entry && JSON.stringify(entry.draft) !== entry.source;
+  const value = dirty ? entry.draft : initial;
+  // A successful save acknowledges the draft; future refreshes may replace it.
+  if (entry && entry.source !== source && (!dirty || JSON.stringify(entry.draft) === source)) {
+    setEntries((previous) => ({ ...previous, [key]: { source, draft: initial } }));
+  }
+  const setValue: Dispatch<SetStateAction<T>> = useCallback((next) => {
+    setEntries((previous) => {
+      const saved = previous[key];
+      const savedDirty = saved && JSON.stringify(saved.draft) !== saved.source;
+      const current = savedDirty ? saved.draft : initial;
+      const draft = typeof next === "function" ? (next as (previous: T) => T)(current) : next;
+      return { ...previous, [key]: { source: savedDirty ? saved.source : source, draft } };
+    });
+  }, [key, initial, source]);
+  return [value, setValue];
+}
 
 export function usePreviewPanelCodeDrafts(options: {
   selectedFile: FileNode | null;
+  draftScope?: string | null;
   saveSelectedFileContent: (nextContent: string) => Promise<boolean>;
 }) {
   const { selectedFile, saveSelectedFileContent } = options;
+  const draftKey = JSON.stringify([options.draftScope ?? null, selectedFile?.path ?? null]);
 
-  const [metadataDraft, setMetadataDraft] = useState<StaticMetadataDraft | null>(null);
   const [metadataSaveError, setMetadataSaveError] = useState<string | null>(null);
   const [isMetadataSaving, setIsMetadataSaving] = useState(false);
-  const [heroDraft, setHeroDraft] = useState<HeroContentDraft | null>(null);
   const [heroSaveError, setHeroSaveError] = useState<string | null>(null);
   const [isHeroSaving, setIsHeroSaving] = useState(false);
-  const [serviceItemsDraft, setServiceItemsDraft] = useState<ServiceItemDraft[] | null>(null);
   const [servicesSaveError, setServicesSaveError] = useState<string | null>(null);
   const [isServicesSaving, setIsServicesSaving] = useState(false);
-  const [contactDraft, setContactDraft] = useState<ContactDetailsDraft | null>(null);
   const [contactSaveError, setContactSaveError] = useState<string | null>(null);
   const [isContactSaving, setIsContactSaving] = useState(false);
-  const [faqItemsDraft, setFaqItemsDraft] = useState<FaqItemDraft[] | null>(null);
   const [faqSaveError, setFaqSaveError] = useState<string | null>(null);
   const [isFaqSaving, setIsFaqSaving] = useState(false);
-  const [testimonialItemsDraft, setTestimonialItemsDraft] = useState<TestimonialItemDraft[] | null>(
-    null,
-  );
   const [testimonialsSaveError, setTestimonialsSaveError] = useState<string | null>(null);
   const [isTestimonialsSaving, setIsTestimonialsSaving] = useState(false);
-  const [teamMembersDraft, setTeamMembersDraft] = useState<TeamMemberDraft[] | null>(null);
   const [teamSaveError, setTeamSaveError] = useState<string | null>(null);
   const [isTeamSaving, setIsTeamSaving] = useState(false);
-  const [statItemsDraft, setStatItemsDraft] = useState<StatItemDraft[] | null>(null);
   const [statsSaveError, setStatsSaveError] = useState<string | null>(null);
   const [isStatsSaving, setIsStatsSaving] = useState(false);
-  const [processStepsDraft, setProcessStepsDraft] = useState<ProcessStepDraft[] | null>(null);
   const [processSaveError, setProcessSaveError] = useState<string | null>(null);
   const [isProcessSaving, setIsProcessSaving] = useState(false);
-  const [productItemsDraft, setProductItemsDraft] = useState<ProductItemDraft[] | null>(null);
   const [productsSaveError, setProductsSaveError] = useState<string | null>(null);
   const [isProductsSaving, setIsProductsSaving] = useState(false);
-  const [pricingCardsDraft, setPricingCardsDraft] = useState<PricingCardDraft[] | null>(null);
   const [pricingSaveError, setPricingSaveError] = useState<string | null>(null);
   const [isPricingSaving, setIsPricingSaving] = useState(false);
-  const [pricingFeatureCardsDraft, setPricingFeatureCardsDraft] =
-    useState<PricingFeatureCardDraft[] | null>(null);
   const [pricingFeaturesSaveError, setPricingFeaturesSaveError] = useState<string | null>(null);
   const [isPricingFeaturesSaving, setIsPricingFeaturesSaving] = useState(false);
-  const [categoryItemsDraft, setCategoryItemsDraft] = useState<CategoryItemDraft[] | null>(null);
   const [categorySaveError, setCategorySaveError] = useState<string | null>(null);
   const [isCategorySaving, setIsCategorySaving] = useState(false);
-  const [navItemsDraft, setNavItemsDraft] = useState<NavItemDraft[] | null>(null);
   const [navSaveError, setNavSaveError] = useState<string | null>(null);
   const [isNavSaving, setIsNavSaving] = useState(false);
-  const [buttonLabelsDraft, setButtonLabelsDraft] = useState<ButtonLabelDraft[] | null>(null);
   const [buttonLabelsSaveError, setButtonLabelsSaveError] = useState<string | null>(null);
   const [isButtonLabelsSaving, setIsButtonLabelsSaving] = useState(false);
-  const [blogPostsDraft, setBlogPostsDraft] = useState<BlogPostDraft[] | null>(null);
   const [blogPostsSaveError, setBlogPostsSaveError] = useState<string | null>(null);
   const [isBlogPostsSaving, setIsBlogPostsSaving] = useState(false);
-  const [footerLinkGroupsDraft, setFooterLinkGroupsDraft] =
-    useState<FooterLinkGroupDraft[] | null>(null);
   const [footerLinksSaveError, setFooterLinksSaveError] = useState<string | null>(null);
   const [isFooterLinksSaving, setIsFooterLinksSaving] = useState(false);
-  const [rawEditMode, setRawEditMode] = useState(false);
-  const [rawCodeDraft, setRawCodeDraft] = useState("");
   const [rawCodeSaveError, setRawCodeSaveError] = useState<string | null>(null);
   const [isRawCodeSaving, setIsRawCodeSaving] = useState(false);
 
@@ -280,130 +282,46 @@ export function usePreviewPanelCodeDrafts(options: {
     [selectedFile],
   );
 
+  const [metadataDraft, setMetadataDraft] = useFileDraft<StaticMetadataDraft | null>(draftKey, editableMetadata);
+  const [heroDraft, setHeroDraft] = useFileDraft<HeroContentDraft | null>(draftKey, editableHeroContent);
+  const [serviceItemsDraft, setServiceItemsDraft] = useFileDraft<ServiceItemDraft[] | null>(draftKey, editableServiceItems);
+  const [contactDraft, setContactDraft] = useFileDraft<ContactDetailsDraft | null>(draftKey, editableContactDetails);
+  const [faqItemsDraft, setFaqItemsDraft] = useFileDraft<FaqItemDraft[] | null>(draftKey, editableFaqItems);
+  const [testimonialItemsDraft, setTestimonialItemsDraft] = useFileDraft<TestimonialItemDraft[] | null>(draftKey, editableTestimonialItems);
+  const [teamMembersDraft, setTeamMembersDraft] = useFileDraft<TeamMemberDraft[] | null>(draftKey, editableTeamMembers);
+  const [statItemsDraft, setStatItemsDraft] = useFileDraft<StatItemDraft[] | null>(draftKey, editableStatItems);
+  const [processStepsDraft, setProcessStepsDraft] = useFileDraft<ProcessStepDraft[] | null>(draftKey, editableProcessSteps);
+  const [productItemsDraft, setProductItemsDraft] = useFileDraft<ProductItemDraft[] | null>(draftKey, editableProductItems);
+  const [pricingCardsDraft, setPricingCardsDraft] = useFileDraft<PricingCardDraft[] | null>(draftKey, editablePricingCards);
+  const [pricingFeatureCardsDraft, setPricingFeatureCardsDraft] = useFileDraft<PricingFeatureCardDraft[] | null>(draftKey, editablePricingFeatureCards);
+  const [categoryItemsDraft, setCategoryItemsDraft] = useFileDraft<CategoryItemDraft[] | null>(draftKey, editableCategoryItems);
+  const [navItemsDraft, setNavItemsDraft] = useFileDraft<NavItemDraft[] | null>(draftKey, editableNavItems);
+  const [buttonLabelsDraft, setButtonLabelsDraft] = useFileDraft<ButtonLabelDraft[] | null>(draftKey, editableButtonLabels);
+  const [blogPostsDraft, setBlogPostsDraft] = useFileDraft<BlogPostDraft[] | null>(draftKey, editableBlogPosts);
+  const [footerLinkGroupsDraft, setFooterLinkGroupsDraft] = useFileDraft<FooterLinkGroupDraft[] | null>(draftKey, editableFooterLinkGroups);
+  const [rawEditMode, setRawEditMode] = useFileDraft(draftKey, false);
+  const [rawCodeDraft, setRawCodeDraft] = useFileDraft(draftKey, selectedFile?.content || "");
+
   useEffect(() => {
-    setMetadataDraft(editableMetadata ? { ...editableMetadata } : null);
     setMetadataSaveError(null);
-  }, [editableMetadata, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setHeroDraft(editableHeroContent ? { ...editableHeroContent } : null);
     setHeroSaveError(null);
-  }, [editableHeroContent, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setServiceItemsDraft(
-      editableServiceItems ? editableServiceItems.map((item) => ({ ...item })) : null,
-    );
     setServicesSaveError(null);
-  }, [editableServiceItems, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setContactDraft(editableContactDetails ? { ...editableContactDetails } : null);
     setContactSaveError(null);
-  }, [editableContactDetails, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setFaqItemsDraft(
-      editableFaqItems ? editableFaqItems.map((item) => ({ ...item })) : null,
-    );
     setFaqSaveError(null);
-  }, [editableFaqItems, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setTestimonialItemsDraft(
-      editableTestimonialItems
-        ? editableTestimonialItems.map((item) => ({ ...item }))
-        : null,
-    );
     setTestimonialsSaveError(null);
-  }, [editableTestimonialItems, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setTeamMembersDraft(
-      editableTeamMembers ? editableTeamMembers.map((item) => ({ ...item })) : null,
-    );
     setTeamSaveError(null);
-  }, [editableTeamMembers, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setStatItemsDraft(editableStatItems ? editableStatItems.map((item) => ({ ...item })) : null);
     setStatsSaveError(null);
-  }, [editableStatItems, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setProcessStepsDraft(
-      editableProcessSteps ? editableProcessSteps.map((item) => ({ ...item })) : null,
-    );
     setProcessSaveError(null);
-  }, [editableProcessSteps, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setProductItemsDraft(
-      editableProductItems ? editableProductItems.map((item) => ({ ...item })) : null,
-    );
     setProductsSaveError(null);
-  }, [editableProductItems, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setPricingCardsDraft(
-      editablePricingCards ? editablePricingCards.map((item) => ({ ...item })) : null,
-    );
     setPricingSaveError(null);
-  }, [editablePricingCards, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setPricingFeatureCardsDraft(
-      editablePricingFeatureCards
-        ? editablePricingFeatureCards.map((item) => ({
-            ...item,
-            features: [...item.features],
-          }))
-        : null,
-    );
     setPricingFeaturesSaveError(null);
-  }, [editablePricingFeatureCards, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setCategoryItemsDraft(
-      editableCategoryItems ? editableCategoryItems.map((item) => ({ ...item })) : null,
-    );
     setCategorySaveError(null);
-  }, [editableCategoryItems, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setNavItemsDraft(editableNavItems ? editableNavItems.map((item) => ({ ...item })) : null);
     setNavSaveError(null);
-  }, [editableNavItems, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setButtonLabelsDraft(
-      editableButtonLabels ? editableButtonLabels.map((item) => ({ ...item })) : null,
-    );
     setButtonLabelsSaveError(null);
-  }, [editableButtonLabels, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setBlogPostsDraft(editableBlogPosts ? editableBlogPosts.map((item) => ({ ...item })) : null);
     setBlogPostsSaveError(null);
-  }, [editableBlogPosts, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setFooterLinkGroupsDraft(
-      editableFooterLinkGroups
-        ? editableFooterLinkGroups.map((group) => ({
-            ...group,
-            items: [...group.items],
-          }))
-        : null,
-    );
     setFooterLinksSaveError(null);
-  }, [editableFooterLinkGroups, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setRawEditMode(false);
-    setRawCodeDraft(selectedFile?.content || "");
     setRawCodeSaveError(null);
-  }, [selectedFile?.path, selectedFile?.content]);
+  }, [draftKey, selectedFile?.content]);
 
   const metadataDirty = Boolean(
     metadataDraft &&
@@ -884,7 +802,7 @@ export function usePreviewPanelCodeDrafts(options: {
     } finally {
       setIsRawCodeSaving(false);
     }
-  }, [selectedFile, rawCodeDraft, saveSelectedFileContent]);
+  }, [selectedFile, rawCodeDraft, saveSelectedFileContent, setRawEditMode]);
 
   return {
     metadataDraft,

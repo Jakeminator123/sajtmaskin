@@ -160,6 +160,7 @@ export async function backupPublishedVersion(
     owner: SECRETS.githubSitesOrg,
     repo: backupRepoNameForProject(projectId),
     isPrivate: true,
+    requirePrivate: true,
     ownerIsOrg: true,
     files,
     commitMessage: `Publish ${deploymentId ?? "manual"} — version ${versionId}`,

@@ -144,7 +144,8 @@ export function renderImportedRepoBlock(
 export function renderCustomInstructionsBlock(customInstructions?: string): string[] {
   const trimmedCustom = customInstructions?.trim();
   if (!trimmedCustom) return [];
-  return ["## Custom Instructions (from the user)", "", trimmedCustom, ""];
+  // One renderer fragment binds every line of user text to this section.
+  return [`## Custom Instructions (from the user)\n\n${trimmedCustom}\n`];
 }
 
 // ── F2 / Design Stage Contract (HARD) ─────────────────────────────────
