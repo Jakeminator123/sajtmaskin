@@ -7,6 +7,7 @@ import "./globals.css";
 import "@/styles/landing-v2.css";
 import { AnalyticsTracker } from "@/components/layout/analytics-tracker";
 import { CookieBanner } from "@/components/layout/cookie-banner";
+import { SkipToContentLink } from "@/components/layout/skip-to-content-link";
 import { GoogleAdsTag } from "@/components/layout/google-ads-tag";
 import { OpenAiAdsTag } from "@/components/layout/openai-ads-tag";
 import { OrganizationJsonLd } from "@/components/layout/json-ld";
@@ -103,6 +104,7 @@ export default async function RootLayout({
           </div>
         </noscript>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} nonce={nonce}>
+          <SkipToContentLink />
           <OrganizationJsonLd />
           <AnalyticsTracker />
           <Suspense fallback={null}>

@@ -151,9 +151,9 @@ function AuditsPageInner() {
       <div className="relative z-10 mx-auto max-w-6xl px-6 pt-24 pb-12">
         <div className="mb-10 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white">Mina audits</h1>
+            <h1 className="text-3xl font-bold text-white">Mina analyser</h1>
             <p className="mt-1 text-gray-400">
-              {isAuthenticated ? `${audits.length} sparade audits` : "Sparade webbplatsanalyser"}
+              {isAuthenticated ? `${audits.length} sparade analyser` : "Sparade webbplatsanalyser"}
             </p>
           </div>
           <Link href="/projects">

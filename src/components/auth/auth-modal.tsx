@@ -288,7 +288,7 @@ export function AuthModal({
           <p className="text-muted-foreground mt-2 text-sm">
             {mode === "login"
               ? "Logga in för att fortsätta bygga"
-              : "Få din första generering utan coin-debitering"}
+              : "Få din första generering gratis"}
           </p>
 
           {/* Account-bound first-generation entitlement */}

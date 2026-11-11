@@ -295,7 +295,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           )}
         >
           <MessageSquare className="h-4 w-4" />
-          Chat
+          Chatt
         </button>
         <button
           role="tab"
@@ -310,7 +310,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           )}
         >
           <Eye className="h-4 w-4" />
-          Preview
+          Förhandsvisning
           {vm.currentPreviewUrl && mobileTab !== "preview" && (
             <span className="bg-brand-blue h-2 w-2 rounded-full" />
           )}

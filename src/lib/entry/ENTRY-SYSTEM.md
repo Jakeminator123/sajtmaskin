@@ -13,7 +13,7 @@ src/lib/entry/
 
 src/components/modals/
 ├── entry-modal.tsx        # Modal för wizard/freeform-entry
-└── welcome-overlay.tsx    # Välkomst-overlay med företagsnamn + demovideo
+└── welcome-overlay.tsx    # Välkomst-overlay med företagsnamn (dialog, Esc stänger)
 ```
 
 ## Ingångar från sajtstudio.se
@@ -33,8 +33,7 @@ https://sajtmaskin.vercel.app?mode=audit&company=alpha-rekrytering-ab
 ```
 
 1. **WelcomeOverlay** visas: "Välkommen, Alpha Rekrytering AB"
-2. Demovideo (platshållare — byt till riktig video i `welcome-overlay.tsx`)
-3. Klick "Fortsätt" → overlay stängs, audit-sektion expanderas
+2. Klick "Fortsätt" → overlay stängs, audit-sektion expanderas
 
 ### 3. "Analyserad" med företagsnamn
 

@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { CREDIT_PACKAGES } from "@/lib/billing/credit-packages";
+import { creditPackageCopy } from "@/lib/billing/credit-package-copy";
 import { PUBLIC_CANONICAL_ORIGIN } from "@/lib/public-canonical-url";
 import PriserPage, { metadata } from "./page";
 
@@ -28,7 +29,13 @@ describe("/priser", () => {
       expect(screen.getByRole("heading", { name: pkg.name })).toBeTruthy();
       expect(screen.getByText(new RegExp(`${pkg.price}\\s*kr`))).toBeTruthy();
       expect(screen.getByText(`${pkg.credits} credits`)).toBeTruthy();
+      // Varje paket har en egen köpväg (inloggning skickar tillbaka hit).
+      expect(
+        screen.getByRole("link", { name: creditPackageCopy[pkg.id].cta }).getAttribute("href"),
+      ).toBe(`/buy-credits?package=${pkg.id}`);
     }
+    // Kostnadstabellen finns nu även på /priser, inte bara på /buy-credits.
+    expect(screen.getByRole("heading", { name: "Vad kostar det?" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Kom igång" }).getAttribute("href")).toBe(
       "/builder?new=1",
     );

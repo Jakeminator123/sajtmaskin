@@ -76,7 +76,7 @@ const CRITERIA = [
     why: "Vad ingår — och vad kostar mer senare",
     ask: "Vad är gratis, vad är engångsköp, och vad debiteras vid publicering?",
     sajtmaskin:
-      "Du kan börja utan kreditkort. Ett konto får en första slutförd generering utan coin-debitering. Därefter credits som engångspaket, utan prenumeration. Publicering debiterar credits. Aktuella paket finns på prissidan.",
+      "Du kan börja utan kreditkort. Ett konto får en första slutförd generering gratis. Därefter credits som engångspaket, utan prenumeration. Publicering debiterar credits. Aktuella paket finns på prissidan.",
   },
   {
     title: "Publicering",

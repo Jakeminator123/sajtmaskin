@@ -68,7 +68,7 @@ export function BuildPlanCard({
   return (
     <div className="border-border/70 bg-muted/20 mt-3 space-y-3 rounded-lg border p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="outline">Build plan</Badge>
+        <Badge variant="outline">Byggplan</Badge>
         {siteTypeLabel(plan.siteType) ? (
           <Badge variant="secondary">{siteTypeLabel(plan.siteType)}</Badge>
         ) : null}

@@ -66,7 +66,7 @@ describe("homepage CRO invariants", () => {
     render(<LandingHero {...heroProps} />);
     expect(screen.getByRole("button", { name: /Beskriv själv/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Svara på frågor/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Template/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Välj mall/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Analysera sajt/ })).toBeTruthy();
   });
 

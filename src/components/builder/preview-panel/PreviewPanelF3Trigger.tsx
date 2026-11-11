@@ -387,8 +387,8 @@ export function PreviewPanelF3Trigger({
             ? "Vänta tills första versionen är skapad innan du startar integrationsbygget."
             : disabledByProduct
               ? verdict === "blocked"
-                ? "Product Postcheck hittade blockerande previewproblem i designläget. Åtgärda dem innan du startar integrationsbygget."
-                : "Produktkontrollens dom saknas eller kunde inte läsas — F3 släpper bara på passed eller allowed_skip."
+                ? "Kontrollen hittade fel i förhandsvisningen. Rätta dem innan du bygger integrationerna."
+                : "Sajten är inte färdigkontrollerad ännu. Integrationerna kan byggas när kontrollen har godkänt den."
             : enabledTitle
       }
       aria-label={iconOnly ? `Bygg integrationer (${costTag})` : undefined}

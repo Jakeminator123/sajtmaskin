@@ -13,10 +13,13 @@
  * på ett ställe gäller överallt.
  *
  * Ritas som ett litet icke-blockerande kort nere till vänster — den täcker
- * aldrig sidan och kräver inget fokuslås (den är inte modal).
+ * aldrig sidan och kräver inget fokuslås (den är inte modal). Kortet portas
+ * till body: på "/" monteras det i hjältens `z-0`-stage, och där låg
+ * promptfältet ovanpå knapparna på mobil (trycket träffade fältet).
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { Cookie } from "lucide-react";
 import { dispatchCookieConsentChange } from "@/lib/ads/fire-google-ads-conversion";
@@ -69,7 +72,7 @@ export function CompactCookieBanner({
 
   if (!isVisible) return null;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-label="Cookie-inställningar"
@@ -105,6 +108,7 @@ export function CompactCookieBanner({
           Endast nödvändiga
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -106,12 +106,12 @@ describe("OpenClawChatPanel", () => {
     await waitFor(() => {
       expect(useOpenClawStore.getState().editEnabled).toBe(true);
     });
-    expect(screen.queryByRole("button", { name: "Slå på extra befogenheter" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Låt agenten ändra" })).toBeNull();
   });
 
   it("shows the powers control on a builder surface with OC_EDIT on", async () => {
     render(<OpenClawChatPanel onClose={vi.fn()} powersAvailable />);
-    expect(await screen.findByRole("button", { name: "Slå på extra befogenheter" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Låt agenten ändra" })).toBeTruthy();
   });
 
   it("visar rådgivningskvot och hoppa-över utan generering/ombyggnad", () => {

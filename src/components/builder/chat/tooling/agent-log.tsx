@@ -434,13 +434,13 @@ function extractToolSteps(tool: Partial<ToolUIPart> & { input?: unknown }) {
       }
       const syntaxCleanGateFailed = obj.syntaxCleanGateFailed === true;
       if (syntaxCleanGateFailed) {
-        lines.push("Kvarvarande fel: 0 syntaxfel (esbuild) — men quality gate (typecheck/build) failar fortfarande");
+        lines.push("Koden går att läsa, men sajten bygger fortfarande inte felfritt");
       } else if (typeof obj.remainingErrors === "number" && Number.isFinite(obj.remainingErrors)) {
         const sourceLabel =
           obj.remainingErrorsSource === "esbuild_syntax"
-            ? "syntax (esbuild)"
+            ? "kodfel"
             : obj.remainingErrorsSource === "quality_gate"
-              ? "quality gate"
+              ? "byggkontroll"
               : null;
         lines.push(
           sourceLabel

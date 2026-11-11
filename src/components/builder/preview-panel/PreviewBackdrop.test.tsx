@@ -119,7 +119,7 @@ describe("PreviewBackdrop — uppspelningspolicy", () => {
     const { container } = render(<PreviewBackdrop motion />);
     expect(container.querySelector("video")).toBeNull();
     expect(play).not.toHaveBeenCalled();
-    expect(screen.getByText("Minskad rörelse: stillbild")).toBeTruthy();
+    expect(screen.getByText("Stillbild (minskad rörelse)")).toBeTruthy();
     expect(screen.queryByRole("button")).toBeNull();
   });
 
@@ -128,7 +128,7 @@ describe("PreviewBackdrop — uppspelningspolicy", () => {
     const { container } = render(<PreviewBackdrop motion />);
     expect(container.querySelector("video")).toBeNull();
     expect(play).not.toHaveBeenCalled();
-    expect(screen.getByText("Datasparläge: stillbild")).toBeTruthy();
+    expect(screen.getByText("Stillbild för att spara data")).toBeTruthy();
   });
 
   it("pausar på användarens begäran och startar igen", () => {

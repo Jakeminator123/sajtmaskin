@@ -138,7 +138,7 @@ export function BuilderHeader(props: {
 
   /**
    * Previewens verktygskluster (`Kod`, `Byggblock`, `Bygg integrationer`,
-   * `Rensa`, `Öppna`). Renderas som en avgränsad grupp precis före `Ny chat`.
+   * `Rensa`, `Öppna`). Renderas som en avgränsad grupp precis före `Ny chatt`.
    * Ägaren avgör själv när klustret ska finnas — utan preview skickas inget.
    */
   previewTools?: ReactNode;
@@ -616,14 +616,14 @@ export function BuilderHeader(props: {
           size="sm"
           onClick={() => runDeferredAction(onNewChat)}
           disabled={actionsLocked}
-          title="Starta en ny chat (nuvarande finns kvar i historiken)"
+          title="Starta en ny chatt (den nuvarande finns kvar i historiken)"
         >
           {isCreatingChat ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <Plus className="h-4 w-4" />
           )}
-          <span className="hidden sm:inline">Ny chat</span>
+          <span className="hidden sm:inline">Ny chatt</span>
         </Button>
 
         <BuilderPublishControl

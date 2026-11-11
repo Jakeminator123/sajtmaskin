@@ -39,10 +39,10 @@ export const categories = [
   },
   {
     id: "template",
-    label: "Template",
+    label: "Välj mall",
     icon: Palette,
     description: "Välj en startpunkt",
-    placeholder: "Välj en template nedan eller beskriv vad ni behöver...",
+    placeholder: "Välj en mall nedan eller beskriv vad ni behöver...",
   },
   {
     id: "audit",

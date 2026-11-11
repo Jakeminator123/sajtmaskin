@@ -188,7 +188,7 @@ export function PreviewBackdrop({ motion }: PreviewBackdropProps) {
       {motion && clientMounted && !mediaFailed ? (
         stillOnly ? (
           <p className="pointer-events-none absolute bottom-4 left-4 z-20 rounded-lg border border-violet-200/25 bg-violet-950/85 px-2.5 py-1.5 text-[11px] text-violet-50">
-            {prefersReducedMotion ? "Minskad rörelse: stillbild" : "Datasparläge: stillbild"}
+            {prefersReducedMotion ? "Stillbild (minskad rörelse)" : "Stillbild för att spara data"}
           </p>
         ) : (
           <button

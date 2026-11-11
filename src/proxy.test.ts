@@ -86,6 +86,29 @@ describe("proxy auth gate — customer portal routes", () => {
       // would fall through without the prefix rule. A signed-out visitor must
       // not reach the page at all.
       expect(res.status).toBe(307);
+      // Instead of a silent bounce to "/", the home page opens login and
+      // returns the visitor to the gated page afterwards.
+      const location = new URL(res.headers.get("location") ?? "");
+      expect(location.origin).toBe("https://sajtmaskin.example");
+      expect(location.pathname).toBe("/");
+      expect(location.searchParams.get("login")).toBe("required");
+      expect(location.searchParams.get("returnTo")).toBe(path);
+    },
+  );
+
+  it("keeps the query string in the return target", async () => {
+    const res = await proxy(
+      new NextRequest(new URL("https://sajtmaskin.example/buy-credits?package=starter")),
+    );
+    const location = new URL(res.headers.get("location") ?? "");
+    expect(location.searchParams.get("returnTo")).toBe("/buy-credits?package=starter");
+  });
+
+  it.each(["/admin", "/avatar"])(
+    "still sends anonymous visitors of admin-only %s to the plain home page",
+    async (path) => {
+      const res = await proxy(new NextRequest(new URL(`https://sajtmaskin.example${path}`)));
+      expect(res.status).toBe(307);
       expect(res.headers.get("location")).toBe("https://sajtmaskin.example/");
     },
   );

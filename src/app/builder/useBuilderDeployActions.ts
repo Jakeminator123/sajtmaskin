@@ -180,7 +180,7 @@ export function useBuilderDeployActions({
       seo?: { optIn: boolean; siteUrl: string },
     ) => {
       if (!chatId) {
-        toast.error("Ingen chat vald");
+        toast.error("Ingen chatt vald");
         return;
       }
       if (!activeVersionId) {
@@ -508,7 +508,7 @@ export function useBuilderDeployActions({
   const [isRepublishRepairing, setIsRepublishRepairing] = useState(false);
   const republishWithFix = useCallback(async () => {
     if (!chatId) {
-      toast.error("Ingen chat vald");
+      toast.error("Ingen chatt vald");
       return;
     }
     if (!activeDeploymentId) {

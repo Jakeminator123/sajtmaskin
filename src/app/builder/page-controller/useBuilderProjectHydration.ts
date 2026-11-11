@@ -122,7 +122,7 @@ export function useBuilderProjectHydration({
     autoProjectCreateInFlightRef.current = true;
     import("@/lib/projects/project-client")
       .then(({ createProject }) =>
-        createProject("Untitled Project")
+        createProject("Namnlöst projekt")
           .then((project) => {
             autoProjectInitRef.current = true;
             autoProjectCreateInFlightRef.current = false;

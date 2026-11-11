@@ -353,7 +353,7 @@ export function VersionHistory({
                       className:
                         "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
                       tooltip:
-                        "Preview-URL finns, men versionen är inte verifierad som helhet ännu. Läs verify/VM-chipsen bredvid.",
+                        "Förhandsvisningen är igång, men versionen är inte helt kontrollerad ännu. Se märkena bredvid.",
                     }
                   : {
                       ...baseLifecycleBadge,
@@ -362,7 +362,7 @@ export function VersionHistory({
                       className:
                         "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300",
                       tooltip:
-                        "Versionen är sparad, men ingen live-preview/preview-URL finns för raden ännu.",
+                        "Versionen är sparad, men det finns ingen förhandsvisning av den ännu.",
                     }
                 : baseLifecycleBadge;
             const qualityTierLabel =
@@ -568,16 +568,16 @@ export function VersionHistory({
                             className={cn("px-1.5 py-0 text-[10px]", runtimeBadge.className)}
                             title={
                               runtimeStatusForRow === "version_mismatch"
-                                ? "Preview-VM kör en annan version än den valda. Vänta på återstart eller öppna preview-panelen för status."
+                                ? "Förhandsvisningen visar en annan version än den du valt. Vänta en stund eller öppna förhandsvisningen för att se läget."
                                 : runtimeStatusForRow === "missing"
-                                  ? "Ingen aktiv preview-VM för denna version. Starta en ny preview-session från knappraden."
+                                  ? "Förhandsvisningen för den här versionen är inte igång. Starta den från knappraden."
                                   : runtimeStatusForRow === "starting"
-                                    ? "Preview-VM startar — `npm install` + `next dev` kör i bakgrunden. Vanligtvis 30–90 s vid kall start."
+                                    ? "Förhandsvisningen startar. Det tar oftast 30–90 sekunder."
                                     : runtimeStatusForRow === "stopped"
-                                      ? "Preview-VM är stoppad. Starta en ny preview-session från knappraden för att återanvända versionen."
+                                      ? "Förhandsvisningen är pausad. Starta den igen från knappraden för att se versionen."
                                       : runtimeStatusForRow === "build_error"
-                                        ? "Preview-VM startade men sidan svarar med ett byggfel (Next.js build error / HTTP 500). En omstart hjälper inte — koden måste åtgärdas."
-                                        : "Preview-VM körs (Next.js dev-server svarar)."
+                                        ? "Förhandsvisningen startade, men sidan har ett fel som gör att den inte kan visas. En omstart hjälper inte – be om en rättning i chatten."
+                                        : "Förhandsvisningen är igång."
                             }
                           >
                             {runtimeBadge.label}
