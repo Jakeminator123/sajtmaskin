@@ -203,40 +203,10 @@
       "mcp__user-vercel__get_*"
     ],
     "ask": [
-      "Bash(gh pr merge*)",
-      "PowerShell(gh pr merge*)",
-      "Bash(gh pr create*)",
-      "PowerShell(gh pr create*)",
-      "Bash(gh api*-X*)",
-      "PowerShell(gh api*-X*)",
-      "Bash(gh api*--method*)",
-      "PowerShell(gh api*--method*)",
-      "Bash(gh api* -f *)",
-      "PowerShell(gh api* -f *)",
-      "Bash(gh api* -F *)",
-      "PowerShell(gh api* -F *)",
-      "Bash(gh api*--field*)",
-      "PowerShell(gh api*--field*)",
-      "Bash(gh api*--raw-field*)",
-      "PowerShell(gh api*--raw-field*)",
-      "Bash(gh api*--input*)",
-      "PowerShell(gh api*--input*)",
       "Bash(npm run promote*)",
       "PowerShell(npm run promote*)",
       "Bash(npm run db:*)",
       "PowerShell(npm run db:*)",
-      "Bash(npm run clean:*:apply*)",
-      "PowerShell(npm run clean:*:apply*)",
-      "Bash(npm run tidy*--apply*)",
-      "PowerShell(npm run tidy*--apply*)",
-      "Bash(npm run worktree:remove*)",
-      "PowerShell(npm run worktree:remove*)",
-      "Bash(rm -r*)",
-      "Bash(rm -R*)",
-      "Bash(rm -fr*)",
-      "Bash(rm -fR*)",
-      "Bash(rm --recursive*)",
-      "PowerShell(Remove-Item*-r*)",
       "Edit(/.cursor/mcp.json)",
       "Edit(/.mcp.json)",
       "Edit(~/.cursor/**)",
@@ -334,7 +304,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/shell-guard.mjs"],
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/shell-guard.mjs"
+            ],
             "timeout": 120
           }
         ]
@@ -345,7 +317,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/read-guard.mjs"],
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/read-guard.mjs"
+            ],
             "timeout": 10
           }
         ]
