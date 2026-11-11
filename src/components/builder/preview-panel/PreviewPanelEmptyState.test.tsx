@@ -10,6 +10,12 @@ vi.mock("next/navigation", () => ({
 
 import { PreviewPanelEmptyState } from "./PreviewPanelEmptyState";
 import { beginF3Finalize, resetF3FinalizeActivity } from "@/lib/builder/repair-blocked";
+import {
+  clearFirstBuildFromWelcome,
+  consumeFirstBuildFromWelcome,
+  noteFirstBuildFromWelcome,
+  publishWelcomeComposer,
+} from "@/lib/builder/welcome-composer-bridge";
 
 const FIX_LABEL = "Försök reparera preview";
 const WELCOME_TITLE = "Vad vill du bygga?";
@@ -31,6 +37,10 @@ function renderEmptyState(
       templateInitError={props.templateInitError ?? null}
       onRetryTemplateInit={props.onRetryTemplateInit ?? null}
       hasPrefilledPrompt={props.hasPrefilledPrompt ?? false}
+      designTheme={props.designTheme}
+      onDesignThemeChange={props.onDesignThemeChange}
+      activeVersionStatus={props.activeVersionStatus}
+      previewLifecycle={props.previewLifecycle}
     />,
   );
 }
@@ -38,6 +48,29 @@ function renderEmptyState(
 afterEach(() => {
   resetF3FinalizeActivity();
   searchParamsMock.current = new URLSearchParams();
+  publishWelcomeComposer(null);
+  clearFirstBuildFromWelcome();
+});
+
+// R-1743 P2: temahooken behåller välkomstvalet bara för en chatt som skapats
+// här. Välkomstytan är den som ser ett bygge starta innan någon chatt finns.
+describe("PreviewPanelEmptyState — första bygget från välkomstläget", () => {
+  it("markerar ett bygge som startar innan någon chatt finns", () => {
+    renderEmptyState({ chatId: null, versionId: null, externalLoading: true });
+    expect(consumeFirstBuildFromWelcome()).toBe(true);
+  });
+
+  it("rensar markeringen när välkomstläget visas igen (misslyckad start)", () => {
+    noteFirstBuildFromWelcome();
+    renderEmptyState({ chatId: null, versionId: null });
+    expect(screen.getByText(WELCOME_TITLE)).toBeTruthy();
+    expect(consumeFirstBuildFromWelcome()).toBe(false);
+  });
+
+  it("markerar inget för ett befintligt projekt som laddar", () => {
+    renderEmptyState({ chatId: "chat_1", versionId: null, externalLoading: true });
+    expect(consumeFirstBuildFromWelcome()).toBe(false);
+  });
 });
 
 describe("PreviewPanelEmptyState — reparationsgrind", () => {
@@ -110,5 +143,97 @@ describe("PreviewPanelEmptyState — template-entry", () => {
     retry.click();
     expect(onRetryTemplateInit).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("button", { name: FIX_LABEL })).toBeNull();
+  });
+});
+
+// V-01 (riggens baslinje 2026-11-11): "Genererar kod" visades med
+// utropstecknet, som läses som ett fel under hela kodgenereringen.
+describe("PreviewPanelEmptyState — ikon i arbetslägen", () => {
+  function stateIcon(container: HTMLElement): SVGElement {
+    const icon = container.querySelector<SVGElement>("svg[data-empty-icon]");
+    expect(icon).not.toBeNull();
+    return icon!;
+  }
+
+  it("visar en spinner, inte ett utropstecken, medan koden genereras", () => {
+    const { container } = renderEmptyState({ versionId: null, externalLoading: true });
+    expect(screen.getByText("Genererar kod")).toBeTruthy();
+    const icon = stateIcon(container);
+    expect(icon.dataset.emptyIcon).toBe("working");
+    expect(icon.getAttribute("class")).toContain("animate-spin");
+  });
+
+  it.each([
+    ["verifying", "Verifierar version"],
+    ["validating", "Validerar kod"],
+    ["repairing", "Reparerar version"],
+  ] as const)("visar spinner för versionsstatus %s", (status, title) => {
+    const { container } = renderEmptyState({ activeVersionStatus: status });
+    expect(screen.getByText(title)).toBeTruthy();
+    expect(stateIcon(container).dataset.emptyIcon).toBe("working");
+  });
+
+  it("visar spinner när previewn återansluter", () => {
+    const { container } = renderEmptyState({ previewLifecycle: "recovering" });
+    expect(stateIcon(container).dataset.emptyIcon).toBe("working");
+  });
+
+  it("behåller utropstecknet när förhandsvisningen faktiskt saknas", () => {
+    const { container } = renderEmptyState();
+    expect(screen.getByText("Ingen förhandsvisning ännu")).toBeTruthy();
+    const icon = stateIcon(container);
+    expect(icon.dataset.emptyIcon).toBe("missing");
+    expect(icon.getAttribute("class")).not.toContain("animate-spin");
+  });
+
+  it("låter en väntande fråga gå före genereringen", () => {
+    const { container } = renderEmptyState({ externalLoading: true, awaitingInput: true });
+    expect(stateIcon(container).dataset.emptyIcon).toBe("question");
+  });
+});
+
+// Komposern publicerar utkast + start via bryggan. Utan publicering ska
+// välkomstläget se ut som förut: neutralt förslag och "pilen i chatten".
+describe("PreviewPanelEmptyState — välkomst med chattens utkast", () => {
+  const START_LABEL = /Skapa första utkastet/;
+  const CAFE = "En hemsida för ett mysigt kafé i Uppsala";
+
+  it("visar ingen startknapp när komposern inte publicerat något", () => {
+    renderEmptyState({ chatId: null, versionId: null });
+    expect(screen.queryByRole("button", { name: START_LABEL })).toBeNull();
+    expect(screen.getByText(/för att starta/)).toBeTruthy();
+    expect(screen.queryByText(/Förslag utifrån din beskrivning/)).toBeNull();
+  });
+
+  it("föreslår utseende ur utkastet utan att erbjuda en död startknapp", () => {
+    act(() => publishWelcomeComposer({ draft: CAFE, start: null }));
+    renderEmptyState({ chatId: null, versionId: null, onDesignThemeChange: vi.fn() });
+    expect(screen.getByText(/Förslag utifrån din beskrivning \(mat och fika\)/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: START_LABEL })).toBeNull();
+  });
+
+  it("startar första bygget från panelen när komposern kan skicka", () => {
+    const start = vi.fn();
+    act(() => publishWelcomeComposer({ draft: CAFE, start }));
+    renderEmptyState({ chatId: null, versionId: null, hasPrefilledPrompt: true });
+    expect(screen.getByText(/skapa sedan första utkastet/)).toBeTruthy();
+    expect(screen.queryByText(/tryck sedan på pilen/)).toBeNull();
+    screen.getByRole("button", { name: START_LABEL }).click();
+    expect(start).toHaveBeenCalledTimes(1);
+  });
+
+  it("döljer startknappen när utkastet är tomt", () => {
+    act(() => publishWelcomeComposer({ draft: "   ", start: vi.fn() }));
+    renderEmptyState({ chatId: null, versionId: null });
+    expect(screen.queryByRole("button", { name: START_LABEL })).toBeNull();
+  });
+
+  it("följer komposern när den slutar kunna skicka", () => {
+    const start = vi.fn();
+    act(() => publishWelcomeComposer({ draft: CAFE, start }));
+    renderEmptyState({ chatId: null, versionId: null });
+    expect(screen.getByRole("button", { name: START_LABEL })).toBeTruthy();
+    act(() => publishWelcomeComposer({ draft: CAFE, start: null }));
+    expect(screen.queryByRole("button", { name: START_LABEL })).toBeNull();
   });
 });

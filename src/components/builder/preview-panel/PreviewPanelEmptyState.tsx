@@ -20,16 +20,32 @@ import {
   type PreviewLifecycleState,
 } from "@/lib/builder/preview-lifecycle";
 import type { DesignTheme } from "@/lib/builder/theme-presets";
+import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PreviewBackdropStage } from "./PreviewBackdropStage";
 import { PreviewPanelInitControls } from "./composer/PreviewPanelInitControls";
 import { useRepairBlocked } from "@/lib/builder/repair-blocked";
+import {
+  clearFirstBuildFromWelcome,
+  noteFirstBuildFromWelcome,
+  useWelcomeComposer,
+} from "@/lib/builder/welcome-composer-bridge";
 import { cn } from "@/lib/utils";
 
-const PREFILLED_PROMPT_HINT =
-  "Den ligger i chatten till vänster. Gör gärna några byggval nedan och tryck sedan på pilen i chatten för att skapa första utkastet.";
+/**
+ * "i chatten till vänster" stämmer bara på desktop. Under `lg` ligger chatten
+ * i en egen flik, så texten säger det i stället (CSS väljer, inget JS-mått).
+ */
+function ChatLocation() {
+  return (
+    <>
+      <span className="hidden lg:inline">till vänster</span>
+      <span className="lg:hidden">(fliken Chatt)</span>
+    </>
+  );
+}
 
 interface PreviewPanelEmptyStateProps {
   chatId: string | null;
@@ -113,6 +129,9 @@ export function PreviewPanelEmptyState({
 }: PreviewPanelEmptyStateProps) {
   // Täcker både pågående generering och deterministisk /finalize-design.
   const repairBlocked = useRepairBlocked(isGenerating);
+  // Chattens utkast + start (publiceras av komposern före första bygget). Tom
+  // ögonblicksbild → neutralt förslag och ingen startknapp, aldrig en död knapp.
+  const welcomeComposer = useWelcomeComposer();
   // A template entry (`?templateId=...`) is never a blank onboarding start:
   // the template already decides site type/pages/style, and the chat is being
   // initialized in the background. Until `chatId` hydrates, show the loading
@@ -243,25 +262,46 @@ export function PreviewPanelEmptyState({
       !showPlanApproval &&
       !previewPending,
   );
-  const EmptyIcon = previewBuildError
+  // Ikonen följer samma gren som rubriken. Alla arbetslägen ("Genererar kod",
+  // "Verifierar version", "Startar VM-preview" …) får en lugn spinner — aldrig
+  // utropstecknet, som läses som ett fel (V-01, riggens baslinje 2026-11-11).
+  const isWorkingState =
+    !previewBuildError &&
+    !templateInitFailed &&
+    !versionlessAborted &&
+    ((activeVersionStatus === "retrying" && !activeVersionIsLatest) ||
+      previewLifecycle === "recovering" ||
+      Boolean(activeStatusTitle) ||
+      previewPending ||
+      pendingTemplateInit ||
+      (externalLoading && !awaitingInput));
+  const emptyIconKind = previewBuildError
     ? previewBuildError.severity === "info"
-      ? MessageCircleQuestion
-      : AlertCircle
+      ? "question"
+      : "error"
     : templateInitFailed
-      ? AlertCircle
-    : versionlessAborted
-      ? RotateCcw
-      : previewPending || pendingTemplateInit
-        ? Loader2
-        : awaitingInput || showPlanApproval
-          ? MessageCircleQuestion
-          : isInitialEmpty
-            ? Wand2
-            : AlertCircle;
+      ? "error"
+      : versionlessAborted
+        ? "restart"
+        : isWorkingState
+          ? "working"
+          : awaitingInput || showPlanApproval
+            ? "question"
+            : isInitialEmpty
+              ? "welcome"
+              : "missing";
+  const EmptyIcon = {
+    error: AlertCircle,
+    question: MessageCircleQuestion,
+    restart: RotateCcw,
+    working: Loader2,
+    welcome: Wand2,
+    missing: AlertCircle,
+  }[emptyIconKind];
 
   // Välkomst-läget (ingen chat/version ännu) är ett riktigt onboarding-steg:
-  // Byggval-reglagen låter användaren styra typ, sidantal, komplexitet, stil
-  // och färgläge — valen skrivs in som ett eget stycke i chattens input.
+  // "Sidans utseende" först, övriga Byggval bakom "Fler byggval". Valen går
+  // strukturerat i request-meta, aldrig som text i chattens input.
   const showWelcome =
     isInitialEmpty && !previewBuildError && !awaitingInput && !previewPending;
 
@@ -270,7 +310,22 @@ export function PreviewPanelEmptyState({
   // Ett `info`-fel är en notis och stoppar inte scenen.
   const backdropMotion = !isPreviewBuildErrorBlocking(previewBuildError);
 
+  // Ett bygge som körs innan någon chatt finns startades här (externalLoading
+  // är då `isCreatingChat`). Hydrering av ett befintligt projekt via
+  // `?project=` laddar aldrig utan chatt. Markeringen låter temahooken skilja
+  // en chatt som skapats här från ett projekt som öppnats (R-1743 P2).
+  const firstBuildRunning = !chatId && !versionId && externalLoading;
+  useEffect(() => {
+    if (firstBuildRunning) noteFirstBuildFromWelcome();
+  }, [firstBuildRunning]);
+  useEffect(() => {
+    if (showWelcome) clearFirstBuildFromWelcome();
+  }, [showWelcome]);
+
   if (showWelcome) {
+    const welcomeDescription = welcomeComposer.draft;
+    const welcomeStart =
+      welcomeComposer.start && welcomeDescription.trim() ? welcomeComposer.start : null;
     return (
       <PreviewBackdropStage motion statusKey="welcome" variant="welcome">
         <div className="w-full max-w-md text-center">
@@ -281,23 +336,40 @@ export function PreviewPanelEmptyState({
             {hasPrefilledPrompt ? "Din beskrivning är klar" : "Vad vill du bygga?"}
           </h2>
           <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
-            {hasPrefilledPrompt
-              ? PREFILLED_PROMPT_HINT
-              : "Beskriv din sajt i chatten till vänster. Gör gärna några byggval nedan — de styr första versionen."}
+            {hasPrefilledPrompt ? (
+              <>
+                Den ligger i chatten <ChatLocation />.{" "}
+                {welcomeStart
+                  ? "Välj gärna utseende nedan och skapa sedan första utkastet."
+                  : "Välj gärna utseende nedan och tryck sedan på pilen i chatten för att skapa första utkastet."}
+              </>
+            ) : (
+              <>
+                Beskriv din sajt i chatten <ChatLocation />. Valen nedan styr första
+                utkastet.
+              </>
+            )}
           </p>
 
           <PreviewPanelInitControls
             designTheme={designTheme}
             onDesignThemeChange={onDesignThemeChange}
             themeLocked={themeLocked}
+            description={welcomeDescription}
+            onStart={welcomeStart}
           />
 
           {/* Full opacitet: /70 mot builder-bakgrunden gav ~3.7:1 och föll på
-              WCAG 2 AA (4.5:1) i Vercel-toolbarens a11y-kontroll. */}
-          <p className="text-muted-foreground mt-6 inline-flex items-center gap-1.5 text-xs">
-            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-            Skriv i chatten till vänster för att starta
-          </p>
+              WCAG 2 AA (4.5:1) i Vercel-toolbarens a11y-kontroll. Med en
+              startknapp i panelen behövs inte hänvisningen till chatten. */}
+          {welcomeStart ? null : (
+            <p className="text-muted-foreground mt-6 inline-flex items-center gap-1.5 text-xs">
+              <ArrowLeft className="hidden h-3.5 w-3.5 lg:inline" aria-hidden="true" />
+              <span>
+                Skriv i chatten <ChatLocation /> för att starta
+              </span>
+            </p>
+          )}
         </div>
       </PreviewBackdropStage>
     );
@@ -306,9 +378,11 @@ export function PreviewPanelEmptyState({
   return (
     <PreviewBackdropStage motion={backdropMotion} statusKey={title}>
       <EmptyIcon
+        aria-hidden="true"
+        data-empty-icon={emptyIconKind}
         className={cn(
           "mb-4 h-12 w-12",
-          (previewPending || (pendingTemplateInit && !templateInitFailed)) && "animate-spin",
+          isWorkingState && "text-primary/80 motion-safe:animate-spin",
         )}
       />
       <p className="text-foreground mb-2 text-lg font-medium tracking-tight" suppressHydrationWarning>
