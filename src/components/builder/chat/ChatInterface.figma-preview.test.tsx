@@ -47,7 +47,7 @@ const NOTICE = /Förhandsbild är inte aktiverad/;
 /** Renders the open Figma input and types a valid link, then lets the debounce fire. */
 async function submitFigmaUrl() {
   render(<ChatInterface chatId="chat_1" isFigmaInputOpen />);
-  fireEvent.change(screen.getByPlaceholderText("Figma URL (delningslänk)"), {
+  fireEvent.change(screen.getByPlaceholderText("Figma-länk (delningslänk)"), {
     target: { value: FIGMA_URL },
   });
   await act(async () => {

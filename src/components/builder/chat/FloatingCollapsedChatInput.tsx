@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -11,6 +12,9 @@ import {
   type ReactNode,
 } from "react";
 import { ChatOutputCollapseBar } from "@/components/builder/chat/ChatOutputCollapseBar";
+import { countVisibleConversationMessages } from "@/components/builder/chat/conversation-count";
+import { useSajtagent } from "@/components/builder/chat/sajtagent/SajtagentProvider";
+import type { ChatMessage } from "@/lib/builder/types";
 import { useChatInputFloatPosition } from "@/components/builder/chat/useChatInputFloatPosition";
 import {
   CHAT_INPUT_FLOAT_DRAG_THRESHOLD_PX,
@@ -43,7 +47,11 @@ interface FloatingCollapsedChatInputProps {
   chatId: string | null;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
-  messageCount: number;
+  /**
+   * Byggmotorns meddelanden. Räknaren lägger till Sajtagentens rader från
+   * providern, så den räknar samma tidslinje som `MessageList` visar.
+   */
+  builderMessages: ReadonlyArray<ChatMessage>;
   isStreaming: boolean;
   statusText?: string | null;
   children: ReactNode;
@@ -58,11 +66,16 @@ export function FloatingCollapsedChatInput({
   chatId,
   isCollapsed,
   onToggleCollapse,
-  messageCount,
+  builderMessages,
   isStreaming,
   statusText = null,
   children,
 }: FloatingCollapsedChatInputProps) {
+  const agentMessages = useSajtagent()?.messages;
+  const messageCount = useMemo(
+    () => countVisibleConversationMessages(builderMessages, agentMessages ?? []),
+    [builderMessages, agentMessages],
+  );
   const isLgUp = useIsLgUp();
   const floatActive = floatEnabled && isLgUp;
   const rootRef = useRef<HTMLDivElement>(null);

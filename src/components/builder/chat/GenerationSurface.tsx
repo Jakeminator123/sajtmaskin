@@ -13,7 +13,7 @@ import {
 import { Streamdown } from "streamdown";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { parseGenerationContent } from "./generation-content";
+import { parseGenerationContent, splitTechnicalDetails } from "./generation-content";
 import {
   hasGenerationWarnings,
   hasPendingVerification,
@@ -65,6 +65,10 @@ export const GenerationSurface = memo(function GenerationSurface({
   const [rawOpen, setRawOpen] = useState(false);
   const rawId = useId();
   const parsed = useMemo(() => parseGenerationContent(content), [content]);
+  const { prose: answerProse, technical: technicalDetails } = useMemo(
+    () => splitTechnicalDetails(parsed.proseText),
+    [parsed.proseText],
+  );
   const files = useMemo(
     () => [...new Map(parsed.files.map((file) => [file.path, file])).values()],
     [parsed.files],
@@ -99,8 +103,8 @@ export const GenerationSurface = memo(function GenerationSurface({
             : null,
       );
   const hasDetails = showInternalDetails
-    ? Boolean(reasoning || items.length || hasCode || reviews || (isStreaming && content))
-    : Boolean(plainSummary || reviews || files.length > 0);
+    ? Boolean(reasoning || items.length || hasCode || reviews || technicalDetails || (isStreaming && content))
+    : Boolean(plainSummary || reviews || files.length > 0 || technicalDetails);
   const { title, subtitle } = resolveHeadline({
     awaitingReply,
     working,
@@ -162,10 +166,10 @@ export const GenerationSurface = memo(function GenerationSurface({
 
       {/* Streaming prose and code live in details. The answer appears once,
           without replacing the component when the first file marker arrives. */}
-      {!isStreaming && parsed.proseText && (
+      {!isStreaming && answerProse && (
         <div className="text-foreground px-4 pb-4 text-sm leading-relaxed wrap-break-word">
           <Streamdown components={STREAMDOWN_PLAIN_COMPONENTS} isAnimating={false}>
-            {parsed.proseText}
+            {answerProse}
           </Streamdown>
         </div>
       )}
@@ -223,6 +227,14 @@ export const GenerationSurface = memo(function GenerationSurface({
         <div className="space-y-5 px-4 py-4">
           {plainSummary && (
             <p className="text-muted-foreground text-sm leading-relaxed">{plainSummary}</p>
+          )}
+          {!isStreaming && technicalDetails && (
+            <section aria-label="Tekniska detaljer" className="space-y-2">
+              <h3 className="text-foreground text-sm font-medium">Tekniska detaljer</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed wrap-break-word">
+                {technicalDetails}
+              </p>
+            </section>
           )}
           {showInternalDetails && reasoning && (
             <section aria-label="Resonemang" className="space-y-2">

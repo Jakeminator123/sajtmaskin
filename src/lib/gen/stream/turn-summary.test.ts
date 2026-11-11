@@ -7,6 +7,7 @@ import {
   extractUsefulModelProse,
   hasModelProseSummary,
   summarizeVersionChanges,
+  TURN_SUMMARY_TECHNICAL_PREFIX,
 } from "./turn-summary";
 
 const file = (path: string, content: string) => ({ path, content });
@@ -62,7 +63,10 @@ describe("buildTurnSummary", () => {
     expect(buildTurnSummary({ generationMode: "init", files: [] })).toBeNull();
   });
 
-  it("describes an init build with pages, file count and building blocks in plain Swedish", () => {
+  // Omskrivet 2026-11-11 (UX-granskningen): kvittot citerar inte längre
+  // beställningen, lovar inte att ändringen syns och lägger filnamn och
+  // automatiska rättningar i ett eget stycke som chatten fäller ihop.
+  it("describes an init build with pages and building blocks in plain Swedish", () => {
     const summary = buildTurnSummary({
       generationMode: "init",
       userPrompt: "Bygg en modern kundplattform för Content Online.",
@@ -78,17 +82,24 @@ describe("buildTurnSummary", () => {
       autofixFixCount: 20,
     });
     expect(summary).not.toBeNull();
-    expect(summary).toContain('utifrån "Bygg en modern kundplattform för Content Online."');
-    expect(summary).toContain("4 sidor: Overview, Subscriptions, Usage och Requests");
+    const [main, technical] = (summary as string).split(`\n\n${TURN_SUMMARY_TECHNICAL_PREFIX} `);
+    expect(main).toMatch(/^Klart — jag har byggt en första version av sajten och sparat den\./);
+    expect(main).not.toContain("Content Online");
+    expect(main).toContain("4 sidor: Overview, Subscriptions, Usage och Requests");
+    expect(main).toContain("Den använder byggblocket Dashboard-diagram.");
+    // Ärlig om exempeluppgifter som generatorn fyllt i.
+    expect(main).toContain("öppettider, priser, kontaktuppgifter och omdömen");
+    expect(main).toContain("exempel");
+    expect(main).toMatch(/Förhandsvisningen startar till höger och kan ta en stund/);
+    // No developer vocabulary in the visible part.
+    expect(main).not.toMatch(/autofix|preflight|scaffold|dossier|tsx|småfel|filer/i);
     // Housekeeping files (package.json, tsconfig.json) are not "files I made".
-    expect(summary).toContain("3 filer skapades med byggblocken Dashboard-diagram");
-    expect(summary).toContain("Jag rättade 20 småfel automatiskt");
-    expect(summary).toMatch(/Förhandsvisningen startar till höger/);
-    // No developer vocabulary.
-    expect(summary).not.toMatch(/autofix|preflight|scaffold|dossier|tsx/i);
+    expect(technical).toBe(
+      "3 filer skapades. Jag rättade 20 småfel i koden automatiskt (sådant som saknade importer).",
+    );
   });
 
-  it("describes a follow-up by what actually changed, quoting the request", () => {
+  it("describes a follow-up by the parts of the site that changed, without quoting the request", () => {
     const previous = [
       file("app/globals.css", "old"),
       file("components/stats-card.tsx", "old"),
@@ -106,10 +117,45 @@ describe("buildTurnSummary", () => {
       ],
       previousFiles: previous,
     });
-    expect(summary).toContain('uppdaterat sajten enligt "snyggare bara"');
-    expect(summary).toContain("Ändrade globals.css, stats-card.tsx.");
+    expect(summary).not.toContain("snyggare bara");
+    expect(summary).toContain("Jag ändrade sajtens gemensamma stil och en annan del av sajten.");
+    expect(summary).toContain(`${TURN_SUMMARY_TECHNICAL_PREFIX} Ändrade filer: globals.css och stats-card.tsx.`);
     expect(summary).not.toContain("package.json");
     expect(summary).toMatch(/Vill du ändra något mer\?/);
+  });
+
+  it("describes the Café Lindgren receipt honestly (preview test 2026-11-11)", () => {
+    const previous = [file("app/globals.css", "old"), file("app/page.tsx", "old")];
+    const summary = buildTurnSummary({
+      generationMode: "followUp",
+      userPrompt:
+        "Lägg till en sektion med tre kundomdömen på startsidan och gör knapparna mörkgröna.",
+      files: [file("app/globals.css", "new"), file("app/page.tsx", "new")],
+      previousFiles: previous,
+      autofixFixCount: 1,
+    });
+    expect(summary).toBe(
+      "Klart — jag har sparat en ny version av sajten. Jag ändrade startsidan och sajtens gemensamma stil. " +
+        "Förhandsvisningen byter till den nya versionen när den är redo, vilket kan ta en stund. Vill du ändra något mer?" +
+        `\n\n${TURN_SUMMARY_TECHNICAL_PREFIX} Ändrade filer: globals.css och page.tsx. ` +
+        "Jag rättade ett småfel i koden automatiskt (sådant som saknade importer).",
+    );
+    // Lovar inte att ändringen redan syns.
+    expect(summary).not.toMatch(/uppdateras till höger|syns nu|visas nu/);
+  });
+
+  it("names pages by route and new pages as added", () => {
+    const previous = [file("app/page.tsx", "old"), file("app/(site)/meny/page.tsx", "old")];
+    const summary = buildTurnSummary({
+      generationMode: "followUp",
+      files: [
+        file("app/page.tsx", "old"),
+        file("app/(site)/meny/page.tsx", "new"),
+        file("src/app/priser/page.tsx", "x"),
+      ],
+      previousFiles: previous,
+    });
+    expect(summary).toContain("Jag ändrade sidan /meny, och lade till sidan /priser.");
   });
 
   it("lists new files and the added building block for a capability follow-up", () => {
@@ -127,12 +173,15 @@ describe("buildTurnSummary", () => {
       dossierLabels: ["3D-scen (React Three Fiber)"],
       autofixFixCount: 2,
     });
-    expect(summary).toContain("Ändrade layout.tsx; nya filer: floating-beer-can.tsx, three-canvas-shell.tsx.");
-    expect(summary).toContain("Lade till byggblocket 3D-scen (React Three Fiber).");
-    expect(summary).toContain("Jag rättade 2 småfel automatiskt");
+    expect(summary).toContain("Jag ändrade den gemensamma layouten, och lade till 2 nya delar.");
+    expect(summary).toContain("Jag lade till byggblocket 3D-scen (React Three Fiber).");
+    expect(summary).toContain(
+      "Ändrade filer: layout.tsx. Nya filer: floating-beer-can.tsx och three-canvas-shell.tsx.",
+    );
+    expect(summary).toContain("Jag rättade 2 småfel i koden automatiskt");
   });
 
-  it("truncates a long quoted prompt and caps the named file list", () => {
+  it("never quotes a long request and caps the named file list", () => {
     const longPrompt = "Bygg ".repeat(40);
     const previous = Array.from({ length: 8 }, (_, i) => file(`components/c${i}.tsx`, "old"));
     const summary = buildTurnSummary({
@@ -141,8 +190,9 @@ describe("buildTurnSummary", () => {
       files: previous.map((f) => file(f.path, "new")),
       previousFiles: previous,
     });
-    expect(summary).toMatch(/…"/);
-    expect(summary).toContain("Ändrade c0.tsx, c1.tsx, c2.tsx och 5 till.");
+    expect(summary).not.toContain("Bygg Bygg");
+    expect(summary).toContain("Jag ändrade 8 delar av sajten.");
+    expect(summary).toContain("Ändrade filer: c0.tsx, c1.tsx, c2.tsx och 5 till.");
   });
 
   it("is honest about files kept by the shrink/structural guards", () => {
@@ -164,7 +214,9 @@ describe("buildTurnSummary", () => {
       files: [file("app/page.tsx", "same")],
       previousFiles: previous,
     });
-    expect(summary).toContain("Inga filer behövde ändras");
+    expect(summary).toContain("inga filer behövde ändras");
+    expect(summary).not.toContain("Förhandsvisningen");
+    expect(summary).not.toContain(TURN_SUMMARY_TECHNICAL_PREFIX);
   });
 
   it("describes a repair pass and a blocked preview", () => {
@@ -176,8 +228,21 @@ describe("buildTurnSummary", () => {
       previousFiles: previous,
       previewBlocked: true,
     });
-    expect(summary).toContain("automatisk rättning av den senaste versionen och ändrade page.tsx");
-    expect(summary).toContain("Förhandsvisningen kunde inte startas");
+    expect(summary).toContain("Jag har gjort en automatisk rättning av den senaste versionen.");
+    expect(summary).toContain(`${TURN_SUMMARY_TECHNICAL_PREFIX} Rättade filer: page.tsx.`);
+    // Viktiga fel ligger kvar i den synliga delen.
+    const main = (summary as string).split("\n\n")[0];
+    expect(main).toContain("Förhandsvisningen kunde inte startas");
+  });
+
+  it("writes one small fix in correct Swedish", () => {
+    const summary = buildTurnSummary({
+      generationMode: "init",
+      files: [file("app/page.tsx", "x")],
+      autofixFixCount: 1,
+    });
+    expect(summary).toContain("Jag rättade ett småfel i koden automatiskt");
+    expect(summary).not.toContain("1 småfel");
   });
 });
 
