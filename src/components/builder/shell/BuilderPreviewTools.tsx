@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Trash2 } from "lucide-react";
+import { ExternalLink, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -62,7 +62,7 @@ interface BuilderPreviewToolsProps {
 
 /**
  * Previewens verktyg i headern (`Kod`, `Byggblock`, `Bygg integrationer`,
- * `Stäng förhandsvisningen`, `Öppna`). Klustret ersätter previewpanelens gamla verktygsrad —
+ * `Starta om förhandsvisningen`, `Öppna`). Klustret ersätter previewpanelens gamla verktygsrad —
  * varje popover/meny flyttade med sin egen trigger hit.
  */
 export function BuilderPreviewTools({
@@ -133,36 +133,34 @@ export function BuilderPreviewTools({
         />
       ) : null}
       {previewUrl && onClear ? (
-        // Ett klick rev sessionen och (SM-080) gästmaskinen, så nästa visning
-        // blev en kallstart; riggen 2026-11-11 klickade fel på den. Nu frågar
-        // den först.
+        // Knappen har alltid i praktiken startat om förhandsvisningen (buildern
+        // startar en ny session direkt efter att den gamla rivits; slutbygget
+        // 2026-11-11 mätte 76–113 s till synlig sajt). Den heter därför det den
+        // gör och frågar först; riggen klickade fel på den.
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button
               variant="ghost"
               size="sm"
               disabled={clearDisabled}
-              aria-label="Stäng förhandsvisningen"
-              title="Stäng förhandsvisningen och frigör maskinen bakom den"
+              aria-label="Starta om förhandsvisningen"
+              title="Starta om förhandsvisningen (sajten är sparad)"
               className={cn(BUILDER_HEADER_ICON_CLASS, BUILDER_DESTRUCTIVE_ICON_CLASS)}
             >
-              <Trash2 className="h-4 w-4" />
+              <RotateCcw className="h-4 w-4" />
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Stäng förhandsvisningen?</AlertDialogTitle>
+              <AlertDialogTitle>Starta om förhandsvisningen?</AlertDialogTitle>
               <AlertDialogDescription>
-                Sajten och alla versioner är sparade. Förhandsvisningen stängs och maskinen
-                bakom den frigörs. Nästa gång du öppnar den startar den om, och det kan ta
-                upp till en minut.
+                Sajten och alla versioner är sparade. Förhandsvisningen startas om, och det kan
+                ta ett par minuter innan sajten syns igen.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Avbryt</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={onClear}>
-                Stäng förhandsvisningen
-              </AlertDialogAction>
+              <AlertDialogAction onClick={onClear}>Starta om</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
