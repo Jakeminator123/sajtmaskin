@@ -50,7 +50,7 @@ import * as tier3 from "../tier3-readiness";
 import * as f3 from "./f3-readiness";
 import * as lease from "./lease";
 import { qualityGateHttpResponse } from "./quality-gate-http";
-import { verificationOutcomeFromQualityGate } from "./quality-gate-outcome";
+import { verificationOutcomeFromQualityGate, type QualityGateOutcomeKind } from "./quality-gate-outcome";
 import { runVersionQualityGateUnderLease } from "./quality-gate-run";
 
 type GateParams = Parameters<typeof runVersionQualityGateUnderLease>[0];
@@ -169,9 +169,16 @@ const continued = (vmGatePassed: boolean, advisory: boolean) => ({
 });
 const SUPERSEDED = { kind: "superseded", cause: "newer_version", forceBuildCheck: false, contextRetryUsed: false };
 
-type Expected = { status: number; body: Record<string, unknown>; verification: Record<string, unknown>; trace: string[] };
+type Expected = {
+  kind: QualityGateOutcomeKind;
+  status: number;
+  body: Record<string, unknown>;
+  verification: Record<string, unknown>;
+  trace: string[];
+};
 
 function expectContract(actual: Awaited<ReturnType<typeof runGate>>, expected: Expected) {
+  expect(actual.outcome.kind).toBe(expected.kind);
   expect(actual.status).toBe(expected.status);
   // Samma jämförelse som klienten gör: det som faktiskt går över tråden.
   expect(JSON.parse(JSON.stringify(actual.body))).toEqual(expected.body);
@@ -272,6 +279,7 @@ describe("kvalitetsgrindens kontrakt: förutsättningar (lanen startar aldrig)",
     ["saknad revision", gateParams({ snapshot: snapshot({ filesRevision: "  " }) })],
   ])("snapshot_unavailable (%s) → 503, inga skrivningar", async (_name, params) => {
     expectContract(await runGate(params), {
+      kind: "snapshot_unavailable",
       status: 503,
       body: { code: "snapshot_unavailable", retryable: true },
       verification: stopped("snapshot_unavailable", true),
@@ -281,6 +289,7 @@ describe("kvalitetsgrindens kontrakt: förutsättningar (lanen startar aldrig)",
 
   it("integrationsBuild mot en F2-rad → 409 integrations_version_required", async () => {
     expectContract(await runGate(gateParams({ gate: "integrationsBuild" })), {
+      kind: "integrations_version_required",
       status: 409,
       body: { error: "ReleaseGate requires an F3 integrations version.", code: "integrations_version_required" },
       verification: stopped("integrations_version_required", false),
@@ -294,6 +303,7 @@ describe("kvalitetsgrindens kontrakt: förutsättningar (lanen startar aldrig)",
       return { error: "readiness_unavailable" };
     });
     expectContract(await runGate(gateParams({ snapshot: f3Snapshot() })), {
+      kind: "readiness_context_unavailable",
       status: 503,
       body: { code: "readiness_unavailable", retryable: true },
       verification: stopped("readiness_unavailable", true),
@@ -303,6 +313,7 @@ describe("kvalitetsgrindens kontrakt: förutsättningar (lanen startar aldrig)",
 
   it("förbrukat fönster före lanen → 503 time_budget_exceeded utan återställning", async () => {
     expectContract(await runGate(gateParams({ verifyDeadlineEpochMs: NOW })), {
+      kind: "time_budget_exceeded",
       status: 503,
       body: { code: "time_budget_exceeded", retryable: true, passed: false, promoted: false },
       verification: stopped("time_budget_exceeded", true),
@@ -312,6 +323,7 @@ describe("kvalitetsgrindens kontrakt: förutsättningar (lanen startar aldrig)",
 
   it("filer saknas → 404 med felmeddelandet som stoppskäl", async () => {
     expectContract(await runGate(gateParams({ snapshot: snapshot({ files: [] }) })), {
+      kind: "no_files",
       status: 404,
       body: { error: "No files found for version" },
       verification: stopped("No files found for version", false),
@@ -322,6 +334,7 @@ describe("kvalitetsgrindens kontrakt: förutsättningar (lanen startar aldrig)",
   it("verify-lanen är inte konfigurerad → 501 quality_gate_disabled utan tillståndsskrivning", async () => {
     vi.mocked(gate.isQualityGateConfigured).mockReturnValue(false);
     expectContract(await runGate(gateParams()), {
+      kind: "not_configured",
       status: 501,
       body: {
         error: "Quality gate not configured (missing preview-host verify lane).",
@@ -350,6 +363,7 @@ describe("kvalitetsgrindens kontrakt: avstängd via env (bara F2)", () => {
 
   it("hoppar över lanen, rör inte versionen och lämnar en varningsrad", async () => {
     expectContract(await runGate(gateParams()), {
+      kind: "disabled_by_env",
       status: 200,
       body,
       verification: stopped("quality_gate_disabled", false),
@@ -363,6 +377,7 @@ describe("kvalitetsgrindens kontrakt: avstängd via env (bara F2)", () => {
   it("utan databas: samma svar, ingen loggrad", async () => {
     h.dbConfigured = false;
     expectContract(await runGate(gateParams()), {
+      kind: "disabled_by_env",
       status: 200,
       body,
       verification: stopped("quality_gate_disabled", false),
@@ -372,6 +387,7 @@ describe("kvalitetsgrindens kontrakt: avstängd via env (bara F2)", () => {
 
   it("fillös version → 404, aldrig ett hoppat-över-svar", async () => {
     expectContract(await runGate(gateParams({ snapshot: snapshot({ files: [] }) })), {
+      kind: "no_files",
       status: 404,
       body: { error: "No files found for version" },
       verification: stopped("No files found for version", false),
@@ -382,6 +398,7 @@ describe("kvalitetsgrindens kontrakt: avstängd via env (bara F2)", () => {
   it("stänger aldrig av F3-grinden", async () => {
     laneReturns([ok("typecheck"), ok("build")]);
     const result = await runGate(gateParams({ snapshot: f3Snapshot(), gate: "integrationsBuild" }));
+    expect(result.outcome.kind).toBe("promoted");
     expect(result.status).toBe(200);
     expect(result.body).toMatchObject({ passed: true, promoted: true });
     expect(h.trace).toEqual([...F3_PRELUDE, "guard", PROMOTE_PASSED, LOG_PASSED]);
@@ -401,6 +418,7 @@ describe("kvalitetsgrindens kontrakt: F3-readiness håller före lanen", () => {
     const missingByIntegration = [{ integration: "stripe", missing: ["STRIPE_SECRET_KEY"] }];
     readinessReturns({ reason: "missing_env", retryable: false, spec: {}, readiness: { missingByIntegration } });
     expectContract(await runGate(f3Gate()), {
+      kind: "f3_not_ready",
       status: 412,
       body: {
         error: "tier3_env_not_ready",
@@ -442,6 +460,7 @@ describe("kvalitetsgrindens kontrakt: F3-readiness håller före lanen", () => {
   ] as const)("%s → 409 med verdikt och retryable", async (reason, verdict, retryable) => {
     readinessReturns({ reason, verdict, retryable });
     expectContract(await runGate(f3Gate()), {
+      kind: "f3_not_ready",
       status: 409,
       body: { error: reason, ready: false, parentVersionId: "ver-f2", verdict, retryable },
       verification: stopped(reason, retryable),
@@ -452,6 +471,7 @@ describe("kvalitetsgrindens kontrakt: F3-readiness håller före lanen", () => {
   it("saknad designförälder → 409 f3_parent_version_missing", async () => {
     readinessReturns({ reason: "f3_parent_version_missing", retryable: false });
     expectContract(await runGate(f3Gate({ parentVersionId: null })), {
+      kind: "f3_not_ready",
       status: 409,
       body: {
         error: "Integrationsversionen saknar sin designversion.",
@@ -468,6 +488,7 @@ describe("kvalitetsgrindens kontrakt: F3-readiness håller före lanen", () => {
   it("readiness går inte att läsa → 503 readiness_unavailable", async () => {
     readinessReturns({ reason: "readiness_unavailable", retryable: true });
     expectContract(await runGate(f3Gate()), {
+      kind: "f3_not_ready",
       status: 503,
       body: {
         error: "F3 readiness unavailable (database error). Try again shortly.",
@@ -488,6 +509,7 @@ describe("kvalitetsgrindens kontrakt: F3-readiness håller före lanen", () => {
   ] as const)("övrigt hinder %s → 409 med skälet som error", async (reason, retryable) => {
     readinessReturns({ reason, retryable });
     expectContract(await runGate(f3Gate()), {
+      kind: "f3_not_ready",
       status: 409,
       body: { error: reason, ready: false, parentVersionId: "ver-f2", retryable },
       verification: stopped(reason, retryable),
@@ -501,6 +523,7 @@ describe("kvalitetsgrindens kontrakt: F3-readiness håller före lanen", () => {
       throw new Error("readiness exploded");
     });
     expectContract(await runGate(f3Gate()), {
+      kind: "precheck_failed",
       status: 503,
       body: {
         error: "Quality gate pre-checks failed before verification started. Try again shortly.",
@@ -520,6 +543,7 @@ describe("kvalitetsgrindens kontrakt: nyare version finns", () => {
       return false;
     });
     expectContract(await runGate(gateParams()), {
+      kind: "superseded",
       status: 200,
       body: { passed: false, superseded: true, promoted: false, checks: [] },
       verification: SUPERSEDED,
@@ -545,6 +569,7 @@ describe("kvalitetsgrindens kontrakt: nyare version finns", () => {
     const checks = [ok("typecheck")];
     laneReturns(checks);
     expectContract(await runGate(gateParams()), {
+      kind: "superseded",
       status: 200,
       body: { ...evidence(false, checks), superseded: true, promoted: false },
       verification: SUPERSEDED,
@@ -571,6 +596,7 @@ describe("kvalitetsgrindens kontrakt: nyare version finns", () => {
     const checks = [ok("typecheck")];
     laneReturns(checks);
     expectContract(await runGate(gateParams()), {
+      kind: "superseded",
       status: 200,
       body: { ...evidence(false, checks), superseded: true, promoted: false },
       verification: SUPERSEDED,
@@ -585,6 +611,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde och promotion lyckades", () =
     const checks = [ok("typecheck")];
     laneReturns(checks);
     expectContract(await runGate(gateParams()), {
+      kind: "promoted",
       status: 200,
       body: { ...evidence(true, checks), promoted: true },
       verification: continued(true, false),
@@ -625,6 +652,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde och promotion lyckades", () =
     const checks = [ok("typecheck")];
     laneReturns(checks);
     expectContract(await runGate(gateParams()), {
+      kind: "promoted",
       status: 200,
       body: { ...evidence(true, checks), visualQA, promoted: true },
       verification: continued(true, false),
@@ -643,6 +671,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde och promotion lyckades", () =
     const checks = [ok("typecheck")];
     laneReturns(checks);
     expectContract(await runGate(gateParams()), {
+      kind: "promoted",
       status: 200,
       body: { ...evidence(true, checks), promoted: true },
       verification: continued(true, false),
@@ -654,6 +683,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde och promotion lyckades", () =
     const checks = [ok("typecheck"), ok("build"), lintWarning()];
     laneReturns(checks);
     expectContract(await runGate(gateParams({ snapshot: f3Snapshot(), gate: "integrationsBuild" })), {
+      kind: "promoted",
       status: 200,
       body: { ...evidence(true, checks), promoted: true, qualityGateAdvisory: true, advisoryChecks: ["lint"] },
       verification: continued(true, true),
@@ -699,6 +729,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde och promotion lyckades", () =
     const checks = [bad("typecheck", SEMANTIC_TSC)];
     laneReturns(checks);
     expectContract(await runGate(gateParams()), {
+      kind: "promoted",
       status: 200,
       body: {
         ...evidence(true, [{ ...checks[0], advisory: true }]),
@@ -739,6 +770,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde och promotion lyckades", () =
     const checks = [bad("typecheck", SEMANTIC_TSC), lintWarning()];
     laneReturns(checks);
     expectContract(await runGate(gateParams()), {
+      kind: "promoted",
       status: 200,
       body: {
         ...evidence(true, [{ ...checks[0], advisory: true }, checks[1]]),
@@ -771,6 +803,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde och promotion lyckades", () =
     const checks = [ok("typecheck")];
     laneReturns(checks);
     expectContract(await runGate(gateParams()), {
+      kind: "promoted",
       status: 200,
       body: { ...evidence(true, checks), promoted: true },
       verification: continued(true, false),
@@ -785,6 +818,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde men versionen blev inte grön
     const checks = [ok("typecheck"), bad("build", "Build failed: x")];
     laneReturns(checks);
     expectContract(await runGate(gateParams({ snapshot: f3Snapshot(), gate: "integrationsBuild" })), {
+      kind: "failed",
       status: 200,
       body: { ...evidence(false, checks), promoted: false },
       verification: stopped("quality_gate_failed", false),
@@ -823,6 +857,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde men versionen blev inte grön
     ];
     laneReturns(checks);
     expectContract(await runGate(gateParams({ snapshot: f3Snapshot(), gate: "integrationsBuild" })), {
+      kind: "failed",
       status: 200,
       body: { ...evidence(false, checks), promoted: false, qualityGateAdvisory: true, advisoryChecks: ["lint"] },
       verification: stopped("quality_gate_failed", false),
@@ -840,6 +875,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde men versionen blev inte grön
     const checks = [bad("typecheck", "app/page.tsx(2,24): error TS2307: Cannot find module '@/components/hero'.")];
     laneReturns(checks);
     expectContract(await runGate(gateParams()), {
+      kind: "failed",
       status: 200,
       body: { ...evidence(false, checks), promoted: false },
       verification: stopped("quality_gate_failed", false),
@@ -857,6 +893,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde men versionen blev inte grön
     const checks = [ok("typecheck")];
     laneReturns(checks);
     expectContract(await runGate(gateParams()), {
+      kind: "promotion_blocked",
       status: 200,
       body: {
         ...evidence(false, checks),
@@ -880,6 +917,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde men versionen blev inte grön
     const checks = [bad("typecheck", SEMANTIC_TSC)];
     laneReturns(checks);
     expectContract(await runGate(gateParams()), {
+      kind: "promotion_blocked",
       status: 200,
       body: {
         ...evidence(false, [{ ...checks[0], advisory: true }]),
@@ -912,6 +950,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde men versionen blev inte grön
     const checks = [ok("typecheck")];
     laneReturns(checks);
     expectContract(await runGate(gateParams()), {
+      kind: "promotion_deferred",
       status: 200,
       body: guardUnavailable(checks, true),
       verification: stopped("promotion_deferred", true, true),
@@ -930,6 +969,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde men versionen blev inte grön
     const checks = [ok("typecheck")];
     laneReturns(checks);
     expectContract(await runGate(gateParams()), {
+      kind: "promotion_deferred",
       status: 200,
       body: guardUnavailable(checks, true),
       verification: stopped("promotion_deferred", true, true),
@@ -942,6 +982,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde men versionen blev inte grön
     const checks = [bad("typecheck", SEMANTIC_TSC)];
     laneReturns(checks);
     expectContract(await runGate(gateParams()), {
+      kind: "promotion_deferred",
       status: 200,
       body: {
         ...guardUnavailable([{ ...checks[0], advisory: true }], false),
@@ -958,6 +999,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde men versionen blev inte grön
     const checks = [ok("typecheck"), ok("build"), lintWarning()];
     laneReturns(checks);
     expectContract(await runGate(gateParams({ snapshot: f3Snapshot(), gate: "integrationsBuild" })), {
+      kind: "promotion_deferred",
       status: 200,
       body: guardUnavailable(checks, true),
       verification: stopped("promotion_deferred", true, true),
@@ -977,6 +1019,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde men versionen blev inte grön
     const checks = [ok("typecheck")];
     laneReturns(checks);
     expectContract(await runGate(gateParams()), {
+      kind: "promotion_deferred",
       status: 200,
       body: guardUnavailable(checks, true),
       verification: stopped("promotion_deferred", true, true),
@@ -993,6 +1036,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde men versionen blev inte grön
     const checks = [ok("typecheck")];
     laneReturns(checks);
     expectContract(await runGate(gateParams()), {
+      kind: "promotion_deferred",
       status: 200,
       body: guardUnavailable(checks, true),
       verification: stopped("promotion_deferred", true, true),
@@ -1009,6 +1053,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde men versionen blev inte grön
     const checks = [ok("typecheck")];
     laneReturns(checks);
     expectContract(await runGate(gateParams()), {
+      kind: "promotion_deferred",
       status: 200,
       body: { ...evidence(false, checks), vmGatePassed: true, promoteError: true, promoted: false },
       verification: stopped("promotion_deferred", true, true),
@@ -1024,6 +1069,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde men versionen blev inte grön
     const checks = [bad("typecheck", SEMANTIC_TSC), lintWarning()];
     laneReturns(checks);
     expectContract(await runGate(gateParams()), {
+      kind: "promotion_deferred",
       status: 200,
       body: {
         ...evidence(false, [{ ...checks[0], advisory: true }, checks[1]]),
@@ -1059,6 +1105,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde men versionen blev inte grön
       verification: stopped("integration_migration_required", false, true),
     };
     expectContract(await runGate(gateParams({ snapshot: f3Snapshot(), gate: "integrationsBuild" })), {
+      kind: "integration_migration_required",
       ...expected,
       trace: [
         ...F3_PRELUDE,
@@ -1072,6 +1119,7 @@ describe("kvalitetsgrindens kontrakt: lanen körde men versionen blev inte grön
     h.trace.length = 0;
     h.dbConfigured = false;
     expectContract(await runGate(gateParams({ snapshot: f3Snapshot(), gate: "integrationsBuild" })), {
+      kind: "integration_migration_required",
       ...expected,
       trace: [...F3_PRELUDE, "guard", PROMOTE_PASSED],
     });
@@ -1085,6 +1133,7 @@ describe("kvalitetsgrindens kontrakt: verifieringen kunde inte genomföras", () 
       return null;
     });
     expectContract(await runGate(gateParams()), {
+      kind: "not_configured",
       status: 501,
       body: {
         error: "Quality gate not configured (missing preview-host verify lane).",
@@ -1103,6 +1152,7 @@ describe("kvalitetsgrindens kontrakt: verifieringen kunde inte genomföras", () 
       return { results: [ok("typecheck")], verifyLaneDurationMs: 1, firstFailureCheck: null, jobStartedAt: null, jobFinishedAt: null };
     });
     expectContract(await runGate(gateParams({ verifyDeadlineEpochMs: NOW + 100 })), {
+      kind: "time_budget_exceeded",
       status: 503,
       body: { code: "time_budget_exceeded", retryable: true, passed: false, promoted: false },
       verification: stopped("time_budget_exceeded", true),
@@ -1116,6 +1166,7 @@ describe("kvalitetsgrindens kontrakt: verifieringen kunde inte genomföras", () 
       throw new gate.QualityGateUnavailableError("verify lane down", retryable);
     });
     expectContract(await runGate(gateParams()), {
+      kind: "verify_lane_unavailable",
       status: 503,
       body: { error: "verify lane down", code: "quality_gate_unavailable", retryable, hint: HINT },
       // Kedjan behandlar varje 503 som retrybar, även när värden sa retryable:false.
@@ -1130,6 +1181,7 @@ describe("kvalitetsgrindens kontrakt: verifieringen kunde inte genomföras", () 
       throw new gate.QualityGateNotConfiguredError();
     });
     expectContract(await runGate(gateParams()), {
+      kind: "not_configured",
       status: 501,
       body: {
         error: "Quality gate not configured (missing SAJTMASKIN_PREVIEW_HOST_BASE_URL).",
@@ -1148,6 +1200,7 @@ describe("kvalitetsgrindens kontrakt: verifieringen kunde inte genomföras", () 
       throw new Error("export exploded");
     });
     expectContract(await runGate(gateParams()), {
+      kind: "precheck_failed",
       status: 503,
       body: {
         error: "Quality gate pre-checks failed before verification started. Try again shortly.",
