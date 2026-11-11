@@ -3,6 +3,7 @@ import {
   deleteProject,
   getProjectByIdForOwner,
   getProjectData,
+  renameProjectIfNameIs,
   updateProject,
 } from "@/lib/db/services/projects";
 import type { Project, ProjectData } from "@/lib/db/services/shared";
@@ -127,6 +128,18 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     ) {
       return NextResponse.json({ success: false, error: "Project data is too long" }, { status: 400 });
     }
+    // `ifNameIs`: rename only while the stored name is still this one (the
+    // builder's placeholder). Only `name` is written on this path.
+    const ifNameIs = body.ifNameIs;
+    if (
+      ifNameIs !== undefined &&
+      (typeof ifNameIs !== "string" ||
+        ifNameIs.length > PROJECT_FIELD_LIMITS.name ||
+        typeof body.name !== "string" ||
+        !body.name.trim())
+    ) {
+      return NextResponse.json({ success: false, error: "Invalid project data" }, { status: 400 });
+    }
     const user = await getCurrentUser(request);
     const sessionId = getSessionIdFromRequest(request);
     const ownerKeys = getOwnerCacheSegments(user?.id ?? null, sessionId);
@@ -137,15 +150,25 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
-    const updated = await updateProject(id, body, ownerScope);
+    const invalidateCaches = () =>
+      Promise.all([
+        deleteCache(`project:${id}`),
+        ...ownerKeys.map((ownerKey) => deleteCache(`project:${id}:${ownerKey}`)),
+        deleteCache("projects:list"),
+        ...ownerKeys.map((ownerKey) => deleteCache(`projects:list:${ownerKey}`)),
+      ]);
 
-    // Invalidate caches
-    await Promise.all([
-      deleteCache(`project:${id}`),
-      ...ownerKeys.map((ownerKey) => deleteCache(`project:${id}:${ownerKey}`)),
-      deleteCache("projects:list"),
-      ...ownerKeys.map((ownerKey) => deleteCache(`projects:list:${ownerKey}`)),
-    ]);
+    if (typeof ifNameIs === "string") {
+      const renamed = await renameProjectIfNameIs(id, ifNameIs, body.name as string, ownerScope);
+      if (!renamed) {
+        return NextResponse.json({ success: true, renamed: false, project: existing });
+      }
+      await invalidateCaches();
+      return NextResponse.json({ success: true, renamed: true, project: renamed });
+    }
+
+    const updated = await updateProject(id, body, ownerScope);
+    await invalidateCaches();
 
     return NextResponse.json({ success: true, project: updated });
   } catch (error: unknown) {

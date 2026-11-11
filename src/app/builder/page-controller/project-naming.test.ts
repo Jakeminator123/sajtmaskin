@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Project, ProjectWithData } from "@/lib/projects/project-client";
+import type { Project } from "@/lib/projects/project-client";
 
-const getProject = vi.hoisted(() => vi.fn());
-const updateProject = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/projects/project-client", () => ({ getProject, updateProject }));
+const renameProjectIfNameIs = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/projects/project-client", () => ({ renameProjectIfNameIs }));
 
 const { nameDefaultProjectFromPrompt, useNameProjectOnFirstBuild } = await import("./project-naming");
 
@@ -22,47 +21,70 @@ function project(overrides: Partial<Project> = {}): Project {
   };
 }
 
-function withData(p: Project, data: Partial<ProjectWithData["data"]> = {}): ProjectWithData {
-  return { project: p, data: { project_id: p.id, files: [], messages: [], ...data } };
-}
-
 describe("nameDefaultProjectFromPrompt", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("döper ett projekt med platshållarnamn efter verksamheten", async () => {
-    updateProject.mockResolvedValue(project({ name: "Café Lindgren" }));
+  it("ber servern döpa platshållaren efter verksamheten", async () => {
+    renameProjectIfNameIs.mockResolvedValue({
+      renamed: true,
+      project: project({ name: "Café Lindgren" }),
+    });
     const name = await nameDefaultProjectFromPrompt({
       projectId: "proj_1",
       knownName: "Namnlöst projekt",
       prompt: CAFE_PROMPT,
-      client: { getProject, updateProject },
+      client: { renameProjectIfNameIs },
     });
     expect(name).toBe("Café Lindgren");
-    expect(updateProject).toHaveBeenCalledWith("proj_1", { name: "Café Lindgren" });
-    expect(getProject).not.toHaveBeenCalled();
+    expect(renameProjectIfNameIs).toHaveBeenCalledWith(
+      "proj_1",
+      "Namnlöst projekt",
+      "Café Lindgren",
+    );
   });
 
-  it("skriver aldrig över ett namn användaren har satt", async () => {
+  // R-1744: fliken har platshållaren laddad, men servern har redan ett riktigt
+  // namn (en annan flik byggde, eller användaren döpte om i portalen).
+  it("ett inaktuellt namn i fliken skriver aldrig över serverns namn", async () => {
+    renameProjectIfNameIs.mockResolvedValue({
+      renamed: false,
+      project: project({ name: "Café Lindgren" }),
+    });
+    const name = await nameDefaultProjectFromPrompt({
+      projectId: "proj_1",
+      knownName: "Namnlöst projekt",
+      prompt: "Bygg en hemsida för Frisör Klipp i Malmö",
+      client: { renameProjectIfNameIs },
+    });
+    expect(name).toBeNull();
+    expect(renameProjectIfNameIs).toHaveBeenCalledWith(
+      "proj_1",
+      "Namnlöst projekt",
+      "Frisör Klipp i Malmö",
+    );
+  });
+
+  it("frågar inte servern när fliken redan visar ett eget namn", async () => {
     const name = await nameDefaultProjectFromPrompt({
       projectId: "proj_1",
       knownName: "Mitt kafé",
       prompt: CAFE_PROMPT,
-      client: { getProject, updateProject },
+      client: { renameProjectIfNameIs },
     });
     expect(name).toBeNull();
-    expect(updateProject).not.toHaveBeenCalled();
+    expect(renameProjectIfNameIs).not.toHaveBeenCalled();
   });
 
-  it("läser serverraden när namnet inte är laddat än", async () => {
-    getProject.mockResolvedValue(withData(project({ name: "Eget namn" })));
+  it("låter servern avgöra när namnet inte är laddat än", async () => {
+    renameProjectIfNameIs.mockResolvedValue({ renamed: false, project: null });
     const name = await nameDefaultProjectFromPrompt({
       projectId: "proj_1",
       knownName: null,
       prompt: CAFE_PROMPT,
-      client: { getProject, updateProject },
+      client: { renameProjectIfNameIs },
     });
     expect(name).toBeNull();
-    expect(updateProject).not.toHaveBeenCalled();
+    expect(renameProjectIfNameIs).toHaveBeenCalledTimes(1);
   });
 
   it("lämnar projektet när prompten inte ger något namn", async () => {
@@ -70,10 +92,10 @@ describe("nameDefaultProjectFromPrompt", () => {
       projectId: "proj_1",
       knownName: "Namnlöst projekt",
       prompt: "Bygg en hemsida",
-      client: { getProject, updateProject },
+      client: { renameProjectIfNameIs },
     });
     expect(name).toBeNull();
-    expect(updateProject).not.toHaveBeenCalled();
+    expect(renameProjectIfNameIs).not.toHaveBeenCalled();
   });
 });
 
@@ -81,7 +103,10 @@ describe("useNameProjectOnFirstBuild", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("döper projektet en gång och uppdaterar builderns namn", async () => {
-    updateProject.mockResolvedValue(project({ name: "Café Lindgren" }));
+    renameProjectIfNameIs.mockResolvedValue({
+      renamed: true,
+      project: project({ name: "Café Lindgren" }),
+    });
     const setAppProjectName = vi.fn();
     const { result } = renderHook(() =>
       useNameProjectOnFirstBuild({
@@ -95,7 +120,22 @@ describe("useNameProjectOnFirstBuild", () => {
       result.current(CAFE_PROMPT);
     });
     await waitFor(() => expect(setAppProjectName).toHaveBeenCalledWith("Café Lindgren"));
-    expect(updateProject).toHaveBeenCalledTimes(1);
+    expect(renameProjectIfNameIs).toHaveBeenCalledTimes(1);
+  });
+
+  it("rör inte builderns namn när servern vägrade", async () => {
+    renameProjectIfNameIs.mockResolvedValue({ renamed: false, project: null });
+    const setAppProjectName = vi.fn();
+    const { result } = renderHook(() =>
+      useNameProjectOnFirstBuild({
+        appProjectId: "proj_1",
+        appProjectName: "Namnlöst projekt",
+        setAppProjectName,
+      }),
+    );
+    act(() => result.current(CAFE_PROMPT));
+    await waitFor(() => expect(renameProjectIfNameIs).toHaveBeenCalledTimes(1));
+    expect(setAppProjectName).not.toHaveBeenCalled();
   });
 
   it("rör inte ett projekt med eget namn", () => {
@@ -107,7 +147,6 @@ describe("useNameProjectOnFirstBuild", () => {
       }),
     );
     act(() => result.current(CAFE_PROMPT));
-    expect(getProject).not.toHaveBeenCalled();
-    expect(updateProject).not.toHaveBeenCalled();
+    expect(renameProjectIfNameIs).not.toHaveBeenCalled();
   });
 });
