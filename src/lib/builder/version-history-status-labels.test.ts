@@ -6,7 +6,12 @@ import {
   productPostcheckSkipReasonFromDegradations,
   resolveVersionHistorySummary,
   shouldShowVerifiedBadge,
+  userFacingVerificationSummary,
+  versionHistoryPreviewChip,
   versionHistoryStatusBadge,
+  versionHistoryTechnicalDetails,
+  versionHistoryUncheckedReadyBadge,
+  versionHistoryVerificationChip,
 } from "./version-history-status-labels";
 import type {
   VersionDisplayStatus,
@@ -30,14 +35,14 @@ describe("versionHistoryStatusBadge — label/variant mapping", () => {
   const cases: Array<[VersionDisplayStatus, string, string]> = [
     ["promoted", "Godkänd", "default"],
     ["ready", "Klar", "secondary"],
-    ["degraded", "Degraderad", "outline"],
-    ["verifying", "Verifierar", "secondary"],
-    ["generating", "Genererar", "secondary"],
+    ["degraded", "Klar med anmärkning", "outline"],
+    ["verifying", "Kontrolleras", "secondary"],
+    ["generating", "Skapas", "secondary"],
     ["repairing", "Reparerar", "outline"],
     ["retrying", "Ersatt", "outline"],
     ["blocked", "Blockerad", "outline"],
     ["failed", "Fel", "destructive"],
-    ["idle", "Draft", "secondary"],
+    ["idle", "Utkast", "secondary"],
   ];
 
   it.each(cases)("maps %s → %s (%s)", (status, label, variant) => {
@@ -93,7 +98,7 @@ describe("versionHistoryStatusBadge — label/variant mapping", () => {
 
   it("only annotates the repairing state, not other spinners", () => {
     expect(versionHistoryStatusBadge(display("verifying", { repairPassIndex: 1 })).label).toBe(
-      "Verifierar",
+      "Kontrolleras",
     );
   });
 });
@@ -128,8 +133,17 @@ describe("versionHistoryStatusBadge — false-green guard", () => {
 });
 
 describe("resolveVersionHistorySummary", () => {
-  it("prefers a trimmed verificationSummary when present", () => {
-    expect(resolveVersionHistorySummary(display("ready"), "  Allt grönt.  ")).toBe("Allt grönt.");
+  it("shows a known verification summary in Swedish", () => {
+    expect(
+      resolveVersionHistorySummary(display("ready"), "  Automatic verification passed.  "),
+    ).toBe("Automatisk verifiering godkänd.");
+  });
+
+  it("keeps unknown machine summaries off the card (V-11)", () => {
+    expect(resolveVersionHistorySummary(display("ready"), "integration_migration_required:rev-a")).toBeNull();
+    expect(
+      resolveVersionHistorySummary(display("failed"), "Automatic verification failed: tsc TS2304"),
+    ).toBe("Automatisk verifiering misslyckades.");
   });
 
   it("returns null when there is no summary and the state needs none", () => {
@@ -141,7 +155,7 @@ describe("resolveVersionHistorySummary", () => {
     expect(resolveVersionHistorySummary(display("retrying"), null)).toMatch(/Ersatt av en nyare/);
   });
 
-  it("surfaces the first degradation message for a degraded run", () => {
+  it("says it in Swedish instead of the raw degradation message", () => {
     const degraded = display("degraded", {
       degraded: true,
       degradations: [
@@ -152,14 +166,28 @@ describe("resolveVersionHistorySummary", () => {
       ],
     });
     expect(resolveVersionHistorySummary(degraded, null)).toBe(
-      "Verifier skipped after safe autofix only.",
+      "Versionen är sparad, men alla kontroller kunde inte köras klart.",
     );
   });
 
-  it("falls back to generic degraded copy when no message is available", () => {
-    expect(resolveVersionHistorySummary(display("degraded", { degraded: true }), null)).toMatch(
-      /hoppades över eller hittade blockerande fel/i,
+  // Riggbilden 2026-11-11: "F2 Product Postcheck skipped (product_postcheck_skipped:…".
+  it("never shows the F2 machine string on the card", () => {
+    const degraded = display("degraded", {
+      degraded: true,
+      degradations: [
+        {
+          kind: "product_postcheck_skipped",
+          message: "F2 Product Postcheck skipped (product_postcheck_skipped: browser_crashed).",
+          meta: { skippedReason: "browser_crashed", infrastructureSkip: true },
+        },
+      ],
+    });
+    const summary = resolveVersionHistorySummary(
+      degraded,
+      "F2 Product Postcheck skipped (product_postcheck_skipped: browser_crashed).",
     );
+    expect(summary).not.toMatch(/F2|product_postcheck|browser_crashed/);
+    expect(versionHistoryStatusBadge(degraded).tooltip).not.toMatch(/product_postcheck|F2/);
   });
 
   it("surfaces a product-postcheck skip reason instead of the passed verify summary", () => {
@@ -176,14 +204,14 @@ describe("resolveVersionHistorySummary", () => {
     expect(resolveVersionHistorySummary(degraded, "Automatic verification passed.")).toBe(
       formatProductPostcheckSkipTooltip("preview_not_running"),
     );
-    expect(resolveVersionHistorySummary(degraded, "Automatic verification passed.")).toContain(
-      "preview_not_running",
+    expect(resolveVersionHistorySummary(degraded, "Automatic verification passed.")).toBe(
+      "Produktkontrollen hoppades över: förhandsvisningen var inte igång för den här versionen.",
     );
   });
 });
 
-describe("product-postcheck skip reason on Degraderad", () => {
-  it("puts the machine-readable reason in the badge tooltip", () => {
+describe("product-postcheck skip reason on Klar med anmärkning", () => {
+  it("explains the skip in Swedish and keeps the machine reason out of the tooltip", () => {
     const badge = versionHistoryStatusBadge(
       display("degraded", {
         degraded: true,
@@ -196,10 +224,11 @@ describe("product-postcheck skip reason on Degraderad", () => {
         ],
       }),
     );
-    expect(badge.label).toBe("Degraderad");
+    expect(badge.label).toBe("Klar med anmärkning");
     expect(badge.variant).toBe("outline");
     expect(badge.className).toContain("amber");
-    expect(badge.tooltip).toContain("product_postcheck_skipped: preview_not_running");
+    expect(badge.tooltip).not.toContain("product_postcheck_skipped");
+    expect(badge.tooltip).not.toContain("preview_not_running");
     expect(badge.tooltip).toMatch(/inte igång/);
   });
 
@@ -216,8 +245,8 @@ describe("product-postcheck skip reason on Degraderad", () => {
         ],
       }),
     );
-    expect(badge.tooltip).toContain("product_postcheck_skipped: capture_failed");
-    expect(badge.tooltip).toMatch(/skärmdumparna/);
+    expect(badge.tooltip).not.toContain("capture_failed");
+    expect(badge.tooltip).toMatch(/skärmbilderna/);
   });
 
   it("reads the reason from meta first", () => {
@@ -311,7 +340,7 @@ describe("advisory-yta för infrastruktur-skip — SM-072", () => {
   });
 
   it("degraded-ytan ignorerar advisory-noteringen", () => {
-    // Annars skulle Degraderad-tooltippen skylla på infrastrukturen.
+    // Annars skulle den gula tooltippen skylla på infrastrukturen.
     expect(productPostcheckSkipReasonFromDegradations([infraSkip])).toBeNull();
   });
 
@@ -328,7 +357,7 @@ describe("advisory-yta för infrastruktur-skip — SM-072", () => {
     expect(shouldShowVerifiedBadge("verified", false)).toBe(true);
   });
 
-  it("en produktbärande skip behåller Degraderad och sin skarpa text", () => {
+  it("en produktbärande skip behåller den gula etiketten och sin skarpa text", () => {
     const badge = versionHistoryStatusBadge(
       display("degraded", {
         degradations: [
@@ -340,7 +369,87 @@ describe("advisory-yta för infrastruktur-skip — SM-072", () => {
         ],
       }),
     );
-    expect(badge.label).toBe("Degraderad");
-    expect(badge.tooltip).toContain("Klar men med luckor");
+    expect(badge.label).toBe("Klar med anmärkning");
+    expect(badge.className).toContain("amber");
+    expect(badge.tooltip).toContain("Produktkontrollen hoppades över");
+  });
+});
+
+describe("versionshistorikens kort på begriplig svenska (V-11)", () => {
+  it("visar inget märke för en orörd designversion, men felet syns", () => {
+    expect(versionHistoryVerificationChip("design_ready", false)).toBeNull();
+    expect(versionHistoryVerificationChip("unverified", false)).toBeNull();
+    expect(versionHistoryVerificationChip("verified", true)?.label).toBe("Kontrollerad");
+    expect(versionHistoryVerificationChip("failed", false)?.label).toBe("Kontroll misslyckades");
+    expect(versionHistoryVerificationChip("repair_available", false)?.label).toBe("Fix redo");
+    expect(versionHistoryVerificationChip("superseded", false)?.label).toBe("Ersatt");
+  });
+
+  it("visar förhandsvisningens läge bara när användaren kan agera", () => {
+    expect(versionHistoryPreviewChip("running")).toBeNull();
+    expect(versionHistoryPreviewChip(null)).toBeNull();
+    for (const status of ["starting", "stopped", "version_mismatch", "missing", "build_error"]) {
+      const chip = versionHistoryPreviewChip(status);
+      expect(chip?.label).toBeTruthy();
+      expect(chip?.label).not.toMatch(/VM/);
+    }
+  });
+
+  it("en sparad men okontrollerad version blir aldrig grön", () => {
+    const base = versionHistoryStatusBadge(display("ready"));
+    const withPreview = versionHistoryUncheckedReadyBadge(base, true);
+    const withoutPreview = versionHistoryUncheckedReadyBadge(base, false);
+    expect(withPreview.label).toBe("Sparad");
+    expect(withoutPreview.label).toBe("Sparad, ingen förhandsvisning");
+    for (const badge of [withPreview, withoutPreview]) {
+      expect(badge.variant).toBe("outline");
+      expect(badge.className ?? "").not.toMatch(/emerald|green/);
+    }
+  });
+
+  it("lägger koder, rå sammanfattning och URL i tekniska detaljer", () => {
+    const rows = versionHistoryTechnicalDetails({
+      display: display("degraded", {
+        degraded: true,
+        degradations: [
+          {
+            kind: "product_postcheck_skipped",
+            message: "F2 Product Postcheck skipped (product_postcheck_skipped: preview_not_running).",
+            meta: { skippedReason: "preview_not_running" },
+          },
+        ],
+      }),
+      verificationSummary: "Automatic verification passed.",
+      releaseState: "draft",
+      verificationState: "pending",
+      verificationSurfaceStatus: "design_ready",
+      runtimeStatus: "running",
+      qualityTier: "tier2",
+      previewUrl: "https://vm-fly-jakem.fly.dev/6d05c34a",
+    });
+    const text = rows.map((row) => `${row.label}: ${row.value}`).join("\n");
+    expect(text).toContain("Status: degraded\n");
+    expect(text).toContain("Release/verify: draft / pending");
+    expect(text).toContain("Kontrollyta: design_ready");
+    expect(text).toContain("Förhandsvisning: running · tier2");
+    expect(text).toContain("product_postcheck_skipped: preview_not_running");
+    expect(text).toContain("Sammanfattning: Automatic verification passed.");
+    expect(text).toContain("Preview-URL: https://vm-fly-jakem.fly.dev/6d05c34a");
+  });
+
+  it("utelämnar tomma rader", () => {
+    const rows = versionHistoryTechnicalDetails({ display: display("ready") });
+    expect(rows).toEqual([{ label: "Status", value: "ready" }]);
+  });
+
+  it("översätter bara kända sammanfattningar", () => {
+    expect(userFacingVerificationSummary("Server-side repair in progress.")).toBe(
+      "Serverreparation pågår.",
+    );
+    expect(userFacingVerificationSummary("Superseded by repaired version v3")).toBe(
+      "Ersatt av en reparerad version.",
+    );
+    expect(userFacingVerificationSummary("Something exotic happened.")).toBeNull();
+    expect(userFacingVerificationSummary("   ")).toBeNull();
   });
 });
