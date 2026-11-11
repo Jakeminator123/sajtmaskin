@@ -295,31 +295,6 @@ export function PreviewPanel({
   // Dator/Mobil (V-20, 2026-11-11). Bara en bredd på ramen: samma iframe,
   // ingen omladdning och ingen ny session.
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
-  const versionIndicator = useMemo(
-    () =>
-      describePreviewVersionIndicator({
-        hasVersion: Boolean(versionId),
-        versionNumber: activeVersionNumber,
-        previewLifecycle,
-        previewPending,
-        iframeLoading,
-        iframeError,
-        readyTimedOut: iframeDiagnosticCode === "preview_ready_timeout",
-        hasBuildError: Boolean(previewBuildError && previewBuildError.severity !== "info"),
-        hasVersionMismatch,
-      }),
-    [
-      versionId,
-      activeVersionNumber,
-      previewLifecycle,
-      previewPending,
-      iframeLoading,
-      iframeError,
-      iframeDiagnosticCode,
-      previewBuildError,
-      hasVersionMismatch,
-    ],
-  );
   // Kartan och request-payloaden måste ha samma sanning: `!session` är bara
   // compat-shim/own-engine. En tier-2-preview utan hydrerad tuple får inte
   // passera — annars går en tom identitet iväg och routen 400:ar staleIdentity.
@@ -851,6 +826,34 @@ export function PreviewPanel({
     viewerId: previewViewerId,
     iframeRef,
   });
+  const versionIndicator = useMemo(
+    () =>
+      describePreviewVersionIndicator({
+        hasVersion: Boolean(versionId),
+        versionNumber: activeVersionNumber,
+        previewLifecycle,
+        previewPending,
+        iframeLoading,
+        iframeError,
+        // Session- and version-bound report from the rendered site itself.
+        siteDocumentObserved: observedPreviewRoute !== null,
+        readyTimedOut: iframeDiagnosticCode === "preview_ready_timeout",
+        hasBuildError: Boolean(previewBuildError && previewBuildError.severity !== "info"),
+        hasVersionMismatch,
+      }),
+    [
+      versionId,
+      activeVersionNumber,
+      previewLifecycle,
+      previewPending,
+      iframeLoading,
+      iframeError,
+      observedPreviewRoute,
+      iframeDiagnosticCode,
+      previewBuildError,
+      hasVersionMismatch,
+    ],
+  );
   const activePreviewRoute = useMemo(() => {
     if (observedPreviewRoute) return observedPreviewRoute;
     if (!previewUrl) return null;

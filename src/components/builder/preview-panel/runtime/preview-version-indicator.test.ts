@@ -41,6 +41,28 @@ describe("describePreviewVersionIndicator", () => {
     ).toEqual({ text: "Version 1 är sparad, förhandsvisningen startar", tone: "pending" });
   });
 
+  it("names the version as soon as the site itself reports it is in the frame", () => {
+    // Rig 2026-11-11: the site was visible 10,6 s before the receipt chain settled.
+    expect(
+      describePreviewVersionIndicator({
+        hasVersion: true,
+        versionNumber: 2,
+        previewLifecycle: "live",
+        iframeLoading: true,
+        siteDocumentObserved: true,
+      }),
+    ).toEqual({ text: "Visar version 2", tone: "live" });
+  });
+
+  it("the site report never hides a failure or another version", () => {
+    expect(
+      describePreviewVersionIndicator({ hasVersion: true, versionNumber: 2, siteDocumentObserved: true, hasBuildError: true }),
+    ).toMatchObject({ tone: "attention" });
+    expect(
+      describePreviewVersionIndicator({ hasVersion: true, versionNumber: 2, siteDocumentObserved: true, hasVersionMismatch: true }),
+    ).toMatchObject({ tone: "attention" });
+  });
+
   it("never claims to show the version when the preview failed", () => {
     for (const state of [{ hasBuildError: true }, { iframeError: true }, { previewLifecycle: "failed" as const }]) {
       expect(describePreviewVersionIndicator({ hasVersion: true, versionNumber: 3, iframeLoading: true, ...state })).toEqual({

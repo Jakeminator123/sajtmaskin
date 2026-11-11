@@ -11,7 +11,8 @@ export type PreviewVersionIndicator = {
  * ff62820f): the chat said "Klart" while the iframe still showed the host's
  * start page or the previous version, and nothing on screen said which. The
  * preview now says it itself. "Visar version N" requires the iframe's ready
- * receipt, which `usePreviewIframe` only accepts for this exact version; any
+ * receipt, which `usePreviewIframe` only accepts for this exact version, or
+ * the site's own route report for this exact session and version; any other
  * doubt (loading, ready-timeout, pending) says "startar" instead.
  */
 export function describePreviewVersionIndicator(input: {
@@ -21,6 +22,15 @@ export function describePreviewVersionIndicator(input: {
   previewPending?: boolean;
   iframeLoading?: boolean;
   iframeError?: boolean;
+  /**
+   * The site itself reported that it is rendered in the frame: preview-host's
+   * document bootstrap (injected only into pages served by the runtime, never
+   * into the host's start page) posted a route for exactly this session and
+   * version (`usePreviewRouteBridge`). That is on screen even while the
+   * readiness receipt chain is still verifying (rig 2026-11-11: the site was
+   * visible 10,6 s before the receipt chain settled).
+   */
+  siteDocumentObserved?: boolean;
   /**
    * The iframe's ready receipt timed out (`preview_ready_timeout`). Loading and
    * error are both false then (the timeout is silent in the UI), while the
@@ -41,6 +51,9 @@ export function describePreviewVersionIndicator(input: {
   }
   if (input.hasBuildError || input.iframeError || input.previewLifecycle === "failed") {
     return { text: `${saved}, förhandsvisningen startade inte`, tone: "attention" };
+  }
+  if (input.siteDocumentObserved) {
+    return { text: `Visar ${label}`, tone: "live" };
   }
   if (
     input.previewPending ||
