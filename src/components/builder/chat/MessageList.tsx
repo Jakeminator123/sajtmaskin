@@ -56,6 +56,7 @@ import {
 } from "@/lib/builder/types";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
 import { buildUnifiedTimeline } from "@/lib/builder/unified-timeline";
+import { usePreviewShowsVersion } from "@/lib/builder/preview-visible-version";
 import type { OpenClawMessage as AgentMessage } from "@/lib/openclaw/openclaw-store";
 import { SajtagentRow } from "./sajtagent/SajtagentRow";
 import { useSajtagent } from "./sajtagent/SajtagentProvider";
@@ -162,6 +163,9 @@ const MessageListComponent = ({
   // Model reasoning and the internal work log are for admins; everyone else
   // gets a short Swedish summary in "Visa detaljer" (prod 2026-11-11).
   const showInternalDetails = useAuthStore((state) => state.user?.isAdmin === true);
+  // «Hur blev resultatet?» först när förhandsvisningen visar just den här
+  // versionen (riggen 2026-11-11: frågan kom 85 s innan sajten syntes).
+  const previewShowsVersion = usePreviewShowsVersion(chatId, versionId);
   const agentMessages = agentMessagesProp ?? sajtagent?.messages ?? NO_AGENT_MESSAGES;
   const agentStreaming = agentStreamingProp ?? sajtagent?.isStreaming ?? false;
   const showAgentIntro = Boolean(chatId && sajtagent?.available && agentMessages.length === 0);
@@ -770,7 +774,8 @@ const MessageListComponent = ({
                   message.role === "assistant" &&
                   messageIndex === lastGenMessageIndex &&
                   !message.isStreaming &&
-                  hasGenerationContent(textContent) && (
+                  hasGenerationContent(textContent) &&
+                  previewShowsVersion && (
                     <VersionFeedback
                       key={versionId}
                       chatId={chatId}

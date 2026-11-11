@@ -350,12 +350,14 @@ export function getActiveAgentLogLabel(
  * `awaiting-output` medan filerna redan strömmar in (V-13, 2026-11-11), så
  * ytan som ser koden ersätter dem med vad som faktiskt händer.
  */
-const PRE_OUTPUT_GENERATION_ACTIVITIES = new Set([
-  "Förbereder din sajt…",
-  "Planerar hur din sajt ska byggas…",
-  "Planeringen tar lite längre tid. Arbetet pågår.",
-  "Väntar på det första förslaget…",
-]);
+const PRE_OUTPUT_LABELS = {
+  start: "Förbereder din sajt…",
+  reasoning: "Planerar hur din sajt ska byggas…",
+  reasoningSlow: "Planeringen tar lite längre tid. Arbetet pågår.",
+  awaitingOutput: "Väntar på det första förslaget…",
+} as const;
+
+const PRE_OUTPUT_GENERATION_ACTIVITIES: ReadonlySet<string> = new Set(Object.values(PRE_OUTPUT_LABELS));
 
 export function isPreOutputGenerationActivity(label: string | null | undefined): boolean {
   return Boolean(label && PRE_OUTPUT_GENERATION_ACTIVITIES.has(label));
@@ -375,13 +377,13 @@ function describeCurrentEngineActivity(toolType: string, output: unknown): strin
   if (step === "generation") {
     switch (phase) {
       case "start":
-        return "Förbereder din sajt…";
+        return PRE_OUTPUT_LABELS.start;
       case "reasoning":
-        return "Planerar hur din sajt ska byggas…";
+        return PRE_OUTPUT_LABELS.reasoning;
       case "reasoning-slow":
-        return "Planeringen tar lite längre tid. Arbetet pågår.";
+        return PRE_OUTPUT_LABELS.reasoningSlow;
       case "awaiting-output":
-        return "Väntar på det första förslaget…";
+        return PRE_OUTPUT_LABELS.awaitingOutput;
       case "awaiting-input":
         return "Ditt svar behövs för att fortsätta.";
       case "empty-output":

@@ -16,6 +16,7 @@ import { DomainManager } from "@/components/builder/publishing/domains/DomainMan
 import { SeoReportDialog } from "@/components/builder/publishing/SeoReportDialog";
 import { GitHubExportDialog } from "@/components/builder/project-transfer/GitHubExportDialog";
 import type { BuilderViewModel } from "../useBuilderPageController";
+import { NewChatConfirmDialog } from "./new-chat-confirm-dialog";
 
 type ShellDialogsProps = {
   vm: BuilderViewModel;
@@ -51,28 +52,11 @@ export function BuilderShellDialogs({
             onConfirm={vm.handleConfirmDeploy}
           />
 
-          <AlertDialog
+          <NewChatConfirmDialog
             open={vm.newChatConfirmOpen}
-            onOpenChange={(open) => {
-              if (!open) vm.cancelNewChat();
-            }}
-          >
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Starta en ny chatt?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Den nuvarande chatten och dess versioner finns kvar i historiken, så du kan
-                  öppna den igen.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel type="button">Avbryt</AlertDialogCancel>
-                <AlertDialogAction type="button" onClick={() => vm.confirmNewChat()}>
-                  Starta ny chatt
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+            onCancel={vm.cancelNewChat}
+            onConfirm={vm.confirmNewChat}
+          />
 
           <AlertDialog
             open={vm.templateSwitchDialog !== null}

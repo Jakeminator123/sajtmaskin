@@ -11,7 +11,11 @@ vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), warning: vi.fn() }),
 }));
 vi.mock("@/components/forms/voice-recorder", () => ({
-  VoiceRecorder: () => <button type="button">Röstinspelning</button>,
+  VoiceRecorder: ({ onRecordingChange }: { onRecordingChange?: (on: boolean) => void }) => (
+    <button type="button" onClick={() => onRecordingChange?.(true)}>
+      Röstinspelning
+    </button>
+  ),
 }));
 vi.mock("@/components/media/file-upload-zone", () => ({
   FileUploadZone: () => <button type="button">Lägg till media</button>,
@@ -118,6 +122,15 @@ describe("ChatInterface — lugnare inmatning", () => {
     expect(document.activeElement).toBe(toggle);
     expect(toggle.getAttribute("type")).toBe("button");
     expect(toggle.hasAttribute("tabindex")).toBe(false);
+  });
+
+  it("visar att en röstinspelning pågår när raden fälls ihop", () => {
+    render(<ChatInterface chatId="chat_1" previewModes={previewModes()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Verktyg" }));
+    fireEvent.click(screen.getByRole("button", { name: "Röstinspelning" }));
+    fireEvent.click(screen.getByRole("button", { name: "Verktyg" }));
+    expect(screen.getByTestId("composer-tools-active-dot")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Röstinspelning pågår/ })).toBeTruthy();
   });
 
   it("fäller ut raden när ett previewläge slås på, och markerar det när raden fälls ihop", () => {

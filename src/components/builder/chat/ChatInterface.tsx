@@ -376,6 +376,17 @@ export function ChatInterface({
   // röstinspelning eller ett modellval överlever att den fälls ihop.
   const [toolsOpen, setToolsOpen] = useState(false);
   const previewModeActive = Boolean(previewModes?.composerOpen || previewModes?.inspectOpen);
+  // En röstinspelning i den hopfällda raden får inte pågå osynligt
+  // (granskningen av #1747). Inspelaren byter nyckel per chatt.
+  const [voiceRecording, setVoiceRecording] = useState<{ chatId: string | null; on: boolean }>(
+    () => ({ chatId, on: false }),
+  );
+  const isRecordingVoice = voiceRecording.chatId === chatId && voiceRecording.on;
+  const handleRecordingChange = useCallback(
+    (on: boolean) => setVoiceRecording({ chatId, on }),
+    [chatId],
+  );
+  const hiddenToolActive = !toolsOpen && (previewModeActive || isRecordingVoice);
   // Block och inspektion styrs bara härifrån. Slås ett läge på visas raden,
   // så läget och knappen som stänger det syns.
   useEffect(() => {
@@ -1352,6 +1363,7 @@ export function ChatInterface({
               key={chatId ?? "new-chat"}
               compact
               disabled={inputDisabled}
+              onRecordingChange={handleRecordingChange}
               onTranscript={(text) => setInput((prev) => (prev ? `${prev} ${text}` : text))}
             />
             {selectedModelTier && onSelectedModelTierChange ? (
@@ -1379,9 +1391,11 @@ export function ChatInterface({
                 aria-expanded={toolsOpen}
                 aria-controls={toolsRowId}
                 title={
-                  previewModeActive && !toolsOpen
-                    ? "Ett verktyg är på i förhandsvisningen"
-                    : "Plan, Förbättra texten, block, inspektion, media, röst och modell"
+                  isRecordingVoice && !toolsOpen
+                    ? "Röstinspelning pågår"
+                    : previewModeActive && !toolsOpen
+                      ? "Ett verktyg är på i förhandsvisningen"
+                      : "Plan, Förbättra texten, block, inspektion, media, röst och modell"
                 }
                 className={cn(
                   "border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring relative inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
@@ -1397,12 +1411,18 @@ export function ChatInterface({
                   )}
                   aria-hidden="true"
                 />
-                {previewModeActive && !toolsOpen ? (
+                {hiddenToolActive ? (
                   <span
-                    className="bg-primary absolute -top-0.5 -right-0.5 size-2 rounded-full"
+                    className={cn(
+                      "absolute -top-0.5 -right-0.5 size-2 rounded-full",
+                      isRecordingVoice ? "bg-red-500 motion-safe:animate-pulse" : "bg-primary",
+                    )}
                     aria-hidden="true"
                     data-testid="composer-tools-active-dot"
                   />
+                ) : null}
+                {isRecordingVoice && !toolsOpen ? (
+                  <span className="sr-only">Röstinspelning pågår</span>
                 ) : null}
               </button>
             </PromptInputTools>
