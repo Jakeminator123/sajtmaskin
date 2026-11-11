@@ -86,6 +86,15 @@ deployens Git-snapshot utan att kontakta Fly.
 Adminendpoints för storage, sessions, cleanup och destroy-all är operativa
 verktyg och ska skyddas av samma hostnyckel i icke-lokal miljö.
 
+`GET /admin/metrics[?hours=N]` (samma hostnyckel) ger samtidighetshistoriken
+som backofficesidan "Samtidighet (byggen & maskiner)" läser: en sampling per
+minut av startade gästmaskiner, förhandsvisningar med dev-process och aktiva
+sessioner, plus en färsk `current`. Samplingen läser bara storen (inga
+Machines-API-anrop), sparas som `metrics-history.ndjson` i datakatalogen
+(`/data` på Fly) och avgränsas till 14 dagar. `PREVIEW_HOST_METRICS_SAMPLE_MS`
+ändrar intervallet (default 60000). Ägare: `src/metrics-history.js`; guard:
+`scripts/test-metrics-history.mjs`.
+
 ## Deployordning
 
 1. Kör hostens fyra verifieringskommandon.
