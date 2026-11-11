@@ -400,7 +400,7 @@ export function buildTurnSummary(input: TurnSummaryInput): string | null {
     );
   } else if (isInit) {
     sentences.push(
-      "Förhandsvisningen startar till höger och kan ta en stund. Säg sedan vad du vill ändra — färger, texter, en ny sektion eller något helt annat.",
+      "Förhandsvisningen startar och kan ta en stund. Säg sedan vad du vill ändra — färger, texter, en ny sektion eller något helt annat.",
     );
   } else if (isRepair) {
     sentences.push("Förhandsvisningen byter till den rättade versionen när den är redo.");

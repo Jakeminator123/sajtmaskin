@@ -61,6 +61,7 @@ import { SajtagentRow } from "./sajtagent/SajtagentRow";
 import { useSajtagent } from "./sajtagent/SajtagentProvider";
 import { Bot } from "lucide-react";
 import {
+  ArrowDown,
   ChevronDown,
   ChevronUp,
   ClipboardList,
@@ -889,7 +890,12 @@ const MessageListComponent = ({
             </ConversationItem>
           )}
         </ConversationContent>
-        <ConversationScrollButton />
+        {/* Riggen 2026-11-11: det breda «Scrolla ned»-pillret mitt i chatten
+            täckte kvittotexten. En rund knapp i hörnet täcker mindre. */}
+        <ConversationScrollButton className="right-3 left-auto size-9 translate-x-0 px-0">
+          <ArrowDown className="h-4 w-4" aria-hidden="true" />
+          <span className="sr-only">Scrolla ned till senaste meddelande</span>
+        </ConversationScrollButton>
       </Conversation>
 
       {/* Flytande, icke-blockerande ankare: scrollar konversationen till

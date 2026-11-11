@@ -90,7 +90,9 @@ describe("buildTurnSummary", () => {
     // Ärlig om exempeluppgifter som generatorn fyllt i.
     expect(main).toContain("öppettider, priser, kontaktuppgifter och omdömen");
     expect(main).toContain("exempel");
-    expect(main).toMatch(/Förhandsvisningen startar till höger och kan ta en stund/);
+    // Ingen riktning: på mobil är förhandsvisningen en egen flik (riggen 2026-11-11).
+    expect(main).toMatch(/Förhandsvisningen startar och kan ta en stund/);
+    expect(main).not.toContain("till höger");
     // No developer vocabulary in the visible part.
     expect(main).not.toMatch(/autofix|preflight|scaffold|dossier|tsx|småfel|filer/i);
     // Housekeeping files (package.json, tsconfig.json) are not "files I made".
