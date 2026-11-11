@@ -380,7 +380,15 @@ jobs:
         run: npm ci
       - name: Prepare locked browser and disposable database image
         run: |
-          node node_modules/@playwright/test/cli.js install --with-deps chromium
+          # `--with-deps` runs apt. When the runner cannot reach the Ubuntu
+          # mirrors (DNS failures since 2026-11-11 13:53 UTC), the packages it
+          # misses are fonts; the runner image already carries Chromium's
+          # libraries. Bounded attempt, then the browser alone. A library that
+          # is really missing still fails the persistence step below.
+          if ! timeout 240 node node_modules/@playwright/test/cli.js install --with-deps chromium; then
+            echo "::warning title=Playwright system packages::install --with-deps failed or timed out (apt mirrors unreachable?); installing Chromium without system packages"
+            node node_modules/@playwright/test/cli.js install chromium
+          fi
           IMAGE=$(node --input-type=module -e 'import { POSTGRES_IMAGE } from "./scripts/e2e/project-persistence-env.mjs"; console.log(POSTGRES_IMAGE)')
           docker pull "$IMAGE"
       - name: Real isolated project persistence (blocking)
