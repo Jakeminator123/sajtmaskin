@@ -254,6 +254,35 @@ export async function markEmailVerified(userId: string): Promise<void> {
     .where(eq(users.id, userId));
 }
 
+/** Only call after independently authenticating the account owner. */
+export async function setVerifiedUserPassword(userId: string, passwordHash: string): Promise<void> {
+  assertDbConfigured();
+  await db.update(users).set({
+    password_hash: passwordHash,
+    email_verified: true,
+    verification_token: null,
+    verification_token_expires: null,
+    updated_at: new Date(),
+  }).where(eq(users.id, userId));
+}
+
+/** Consume a still-valid verification token and replace the untrusted password atomically. */
+export async function verifyEmailWithPassword(token: string, passwordHash: string): Promise<boolean> {
+  assertDbConfigured();
+  const rows = await db.update(users).set({
+    password_hash: passwordHash,
+    email_verified: true,
+    verification_token: null,
+    verification_token_expires: null,
+    updated_at: new Date(),
+  }).where(and(
+    eq(users.email_verified, false),
+    or(eq(users.verification_token, hashVerificationToken(token)), eq(users.verification_token, token)),
+    gt(users.verification_token_expires, new Date()),
+  )).returning({ id: users.id });
+  return rows.length === 1;
+}
+
 export async function setUserDiamonds(userId: string, diamonds: number): Promise<void> {
   assertDbConfigured();
   await db.update(users).set({ diamonds, updated_at: new Date() }).where(eq(users.id, userId));

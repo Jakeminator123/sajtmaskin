@@ -24,6 +24,8 @@ import {
   isTier3SdkModule,
   listTier3SdkModules as loaderListTier3SdkModules,
 } from "@/lib/integrations/tier3-sdk-deny";
+import ts from "typescript";
+import { createTsxSourceFile } from "./import-binding-ast";
 
 /**
  * Names of the tier-3 SDK modules. Re-exported so Core Rules and prompt
@@ -32,9 +34,6 @@ import {
 export function listTier3SdkModules(): readonly string[] {
   return loaderListTier3SdkModules();
 }
-
-const IMPORT_LINE_RE =
-  /^\s*import\s+(?:type\s+)?(?:[\w*${},\s]+from\s+)?["']([^"']+)["'];?\s*$/;
 
 export interface Tier3SdkGuardResult {
   code: string;
@@ -50,20 +49,23 @@ export interface Tier3SdkGuardResult {
  */
 export function fixTier3SdkImports(code: string): Tier3SdkGuardResult {
   const removed: string[] = [];
-  const lines = code.split(/\r?\n/);
-  const kept: string[] = [];
+  const sourceFile = createTsxSourceFile("generated.tsx", code);
+  const ranges: Array<{ start: number; end: number }> = [];
 
-  for (const line of lines) {
-    const match = line.match(IMPORT_LINE_RE);
-    if (match && isTier3SdkModule(match[1])) {
-      removed.push(match[1]);
-      continue;
-    }
-    kept.push(line);
+  for (const statement of sourceFile.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+    const moduleSpecifier = statement.moduleSpecifier.text;
+    if (!isTier3SdkModule(moduleSpecifier)) continue;
+    removed.push(moduleSpecifier);
+    ranges.push({ start: statement.getStart(sourceFile), end: statement.end });
   }
 
   if (removed.length === 0) {
     return { code, removedModules: [] };
   }
-  return { code: kept.join("\n"), removedModules: removed };
+  let result = code;
+  for (const range of ranges.reverse()) {
+    result = result.slice(0, range.start) + result.slice(range.end);
+  }
+  return { code: result, removedModules: removed };
 }

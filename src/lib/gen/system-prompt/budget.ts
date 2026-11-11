@@ -136,11 +136,13 @@ function resolveContextBlockPriority(title: string): { priority: number; require
   return { priority: 60, required: false };
 }
 
-export function splitContextIntoBudgetBlocks(context: string): DynamicContextBlock[] {
-  if (!context.trim()) return [];
+export function splitContextIntoBudgetBlocks(context: string | readonly string[]): DynamicContextBlock[] {
+  // Production passes renderer fragments. A heading inside an interpolated
+  // field stays in its owning fragment and cannot acquire a new priority.
+  // The string form remains for callers that supply trusted Markdown.
+  const fragments = typeof context === "string" ? context.split("\n") : context;
 
   const blocks: Array<{ title: string; content: string }> = [];
-  const lines = context.split("\n");
   let currentTitle = "preamble";
   let currentLines: string[] = [];
 
@@ -150,8 +152,8 @@ export function splitContextIntoBudgetBlocks(context: string): DynamicContextBlo
     blocks.push({ title: currentTitle, content });
   };
 
-  for (const line of lines) {
-    const headingMatch = /^##\s+(.+)$/.exec(line);
+  for (const line of fragments) {
+    const headingMatch = /^##[^\S\n]+([^\n]+)(?:\n|$)/.exec(line);
     if (headingMatch) {
       flush();
       currentTitle = headingMatch[1].trim();

@@ -227,11 +227,11 @@ export function evaluateAgentContext(root = REPO_ROOT) {
   }
 
   const codexConfig = read(root, ".codex/config.toml");
-  if (!/^model\s*=\s*"gpt-5\.6-sol"\s*$/m.test(codexConfig)) {
-    errors.push(".codex/config.toml must keep gpt-5.6-sol as the project default");
+  if (!/^model\s*=\s*"gpt-6\.1-sol"\s*$/m.test(codexConfig)) {
+    errors.push(".codex/config.toml must keep gpt-6.1-sol as the project default");
   }
-  if (!/^default_subagent_model\s*=\s*"gpt-5\.6-sol"\s*$/m.test(codexConfig)) {
-    errors.push(".codex/config.toml must keep gpt-5.6-sol as the subagent default");
+  if (!/^default_subagent_model\s*=\s*"gpt-6\.1-sol"\s*$/m.test(codexConfig)) {
+    errors.push(".codex/config.toml must keep gpt-6.1-sol as the subagent default");
   }
   for (const path of filesBelow(root, ".cursor/commands", ".md")) {
     const command = read(root, path);

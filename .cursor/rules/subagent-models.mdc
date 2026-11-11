@@ -10,7 +10,7 @@ annan editors eller äldre sessions slug. En ogiltig eller saknad modell får
 aldrig tyst ersättas eller ärva parent — rapportera hindret och be om val.
 Jakobs uttryckliga modellval vinner.
 
-- Codex: standard och reasoning ägs av `.codex/config.toml` (`gpt-5.6-sol`).
+- Codex: standard och reasoning ägs av `.codex/config.toml` (`gpt-6.1-sol`).
 - Cursor: sessionens starka modell för kodomdöme; Cursor-valet binder inte
   Codex eller ChatGPT.
 - `<luna>`: bara mekanisk read-only med lätt verifierbart facit. Terra:

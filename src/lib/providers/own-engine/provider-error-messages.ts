@@ -8,7 +8,7 @@
  * (insufficient_quota → "OpenAI-kvoten slut", etc.).
  *
  * The helper is intentionally small — it covers the codes the team has
- * observed in production. Unknown codes fall back to the original message.
+ * observed in production. Unknown errors use a safe public fallback.
  */
 
 export type ProviderErrorClassification = {
@@ -45,6 +45,7 @@ const CODE_TO_USER_MESSAGE: Record<string, Mapping> = {
   model_not_found: { sv: "Modellen är otillgänglig — välj en annan tier eller modell.", permanent: true, providerFault: true },
   server_error: { sv: "Tillfälligt fel hos provider — försök igen.", permanent: false, providerFault: true },
   service_unavailable: { sv: "Provider-tjänsten är överbelastad — försök igen.", permanent: false, providerFault: true },
+  output_truncated: { sv: "Modellen nådde maxlängden och svaret kan vara trunkerat. Försök igen med mindre scope eller välj en starkare modell.", permanent: false },
 };
 
 const STATUS_TO_USER_MESSAGE: Record<number, Mapping> = {
@@ -142,20 +143,19 @@ function extractMessage(err: unknown, fallback: string): string {
 
 /**
  * Classify an error from a provider call into a user-facing Swedish
- * message + retry hint. Falls back to the raw provider message when no
- * mapping matches — preserves prior behaviour for unknown errors.
+ * message + retry hint. Raw provider messages are never public diagnostics.
  */
 export function classifyProviderError(
   err: unknown,
-  fallback = "Engine generation failed",
+  fallback = "Ett oväntat fel uppstod. Försök igen.",
 ): ProviderErrorClassification {
   const rawMessage = extractMessage(err, fallback);
 
-  // Prefer a code we can actually map over merely the first one found, then
-  // fall back to the outermost code for reporting.
+  // Only catalog codes are public. Unmapped codes can contain arbitrary
+  // provider/application data and remain in the sanitized internal diagnostic.
   const codes = providerCodeCandidates(err);
   const mappedCode = codes.find((c) => Object.hasOwn(CODE_TO_USER_MESSAGE, c)) ?? null;
-  const code = mappedCode ?? codes[0] ?? null;
+  const code = mappedCode;
 
   const codeMapping = lookupMapping(CODE_TO_USER_MESSAGE, mappedCode);
   if (codeMapping) {
@@ -179,5 +179,17 @@ export function classifyProviderError(
     };
   }
 
-  return { userMessage: rawMessage, code, permanent: false, providerFault: false };
+  // A downstream stream may classify an already public payload again. Match
+  // only our exact catalog text; arbitrary provider text never becomes trusted.
+  const publicMapping = [...Object.values(CODE_TO_USER_MESSAGE), ...Object.values(STATUS_TO_USER_MESSAGE)]
+    .find((mapping) => mapping.sv === rawMessage);
+  if (publicMapping) {
+    return {
+      userMessage: publicMapping.sv,
+      code,
+      permanent: publicMapping.permanent,
+      providerFault: publicMapping.providerFault === true,
+    };
+  }
+  return { userMessage: fallback, code, permanent: false, providerFault: false };
 }

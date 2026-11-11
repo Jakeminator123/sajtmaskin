@@ -195,7 +195,9 @@ export function renderScaffoldContextBlock(scaffoldContext?: string): string[] {
   // "## Scaffold" wrapper would create a near-empty required block while the
   // real content ends up in a separate block with wrong priority.
   if (!scaffoldContext) return [];
-  return [scaffoldContext.trim(), ""];
+  // This text comes from the trusted scaffold serializer, which owns several
+  // budget sections (Scaffold, Layout & Theme Files, Import Reference).
+  return [...scaffoldContext.trim().split("\n"), ""];
 }
 
 export function renderScaffoldResearchBlock(

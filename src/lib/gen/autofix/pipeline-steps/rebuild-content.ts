@@ -1,4 +1,4 @@
-import type { CodeFile } from "@/lib/gen/parser";
+import { replaceCodeProjectFileContent, type CodeFile } from "@/lib/gen/parser";
 
 /**
  * Replace original file contents in the raw CodeProject string with fixed versions.
@@ -17,16 +17,7 @@ export function rebuildContent(
     const fixed = fixedFiles[i];
     if (orig.content === fixed.content) continue;
 
-    const escapedPath = orig.path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const fenceRe = new RegExp(
-      "(```\\w+\\s+file=\"" + escapedPath + "\"[^\\n]*\\n)" +
-        "([\\s\\S]*?)" +
-        "(\\n```)",
-    );
-    const match = result.match(fenceRe);
-    if (match) {
-      result = result.replace(fenceRe, `$1${fixed.content}$3`);
-    }
+    result = replaceCodeProjectFileContent(result, orig, fixed.content);
   }
 
   return result;

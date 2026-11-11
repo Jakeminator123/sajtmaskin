@@ -3,6 +3,24 @@ import { normalizeProviderError } from "./normalize-provider-error";
 
 describe("normalizeProviderError", () => {
   it.each([
+    "Failed query: insert into generation_plans values (...)",
+    "database row id 40122 missing",
+    "plan parsing failed for request 42905",
+    "SQL field billing_plan missing (40322)",
+    "request api key column failed",
+  ])("keeps application diagnostic %s a generic server failure", (message) => {
+    expect(normalizeProviderError(new Error(message))).toMatchObject({
+      status: 500, code: "error", message: "Ett oväntat fel uppstod. Försök igen.",
+    });
+  });
+
+  it("accepts a structured provider code without text heuristics", () => {
+    expect(normalizeProviderError({ code: "insufficient_quota", message: "quota" }))
+      .toMatchObject({ status: 402, code: "quota_exceeded" });
+    expect(normalizeProviderError({ code: "rate_limit_exceeded", retryAfter: 12 }))
+      .toMatchObject({ status: 429, code: "rate_limit", retryAfter: 12 });
+  });
+  it.each([
     new Error("postgres://user:secret@internal-db.example/app"),
     Object.assign(new Error("provider request-id secret"), { status: 503 }),
   ])("masks unclassified server failures", (error) => {

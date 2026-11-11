@@ -55,7 +55,7 @@ export function useShellVersionFollowup(vm: BuilderViewModel) {
   // `mapVersionStatusToDisplay` derives `retrying`/`promoted` and guards
   // against false-green (degraded ≠ success). VersionHistory flipped to the
   // bus in område 6-2; the legacy resolver was removed in 6-3.
-  const { status: activeVersionBusStatus } = useVersionStatus({
+  const { status: activeVersionBusStatus, identity: activeVersionStatusIdentity } = useVersionStatus({
     chatId: vm.chatId,
     versionId: vm.activeVersionId,
     // The existing /versions poll observes late server completion, including
@@ -241,6 +241,7 @@ export function useShellVersionFollowup(vm: BuilderViewModel) {
     activeVersionSummary,
     activeVersionIsLatest,
     activeVersionBusStatus,
+    activeVersionStatusIdentity,
     activeVersionStatus,
     preferredVersionStatus,
     followUpBaseInfo,

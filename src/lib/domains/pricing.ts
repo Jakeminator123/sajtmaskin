@@ -92,6 +92,8 @@ export interface DomainPriceQuote {
   binding: boolean;
   /** Registration period the quote covers, when the registrar reports one. */
   periodYears: number | null;
+  /** Original registrar units; never reconstruct from rounded display SEK. */
+  registrarPrice?: { amount: number; currency: "USD" | "SEK" };
 }
 
 /** Apply the customer-facing markup and round to whole SEK. */
@@ -154,6 +156,7 @@ export function bindingQuoteFromUsd(
     source: "registrar",
     binding: true,
     periodYears,
+    registrarPrice: { amount: wholesaleUsd, currency: "USD" },
   };
 }
 
@@ -172,6 +175,7 @@ export function bindingQuoteFromSek(
     source: "registrar",
     binding: true,
     periodYears,
+    registrarPrice: { amount: wholesaleSek, currency: "SEK" },
   };
 }
 

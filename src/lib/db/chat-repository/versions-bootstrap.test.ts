@@ -14,6 +14,8 @@ const state = vi.hoisted(() => ({
   storedEditKind: null as string | null,
   failReceipt: false,
   conflictReceipt: false,
+  versionConflicts: 0,
+  versionError: null as Error | null,
 }));
 const eligible = vi.hoisted(() => vi.fn(() => true));
 vi.mock("@/lib/gen/verify/server-verify", () => ({ isServerVerifyEligible: eligible }));
@@ -43,11 +45,17 @@ vi.mock("../client", () => ({
         expect(query.sql).toContain("INSERT INTO engine_versions");
         // Revision must come from DB readback, never INSERT or caller metadata.
         expect(query.sql).not.toContain("files_revision");
+        if (state.versionError) throw state.versionError;
+        expect(query.sql).toContain("ON CONFLICT (chat_id, version_number) DO NOTHING RETURNING id");
+        if (state.versionConflicts-- > 0) {
+          state.order.push("version_conflict");
+          return { rows: [], rowCount: 0 };
+        }
         state.versions.push({ id: state.wrongId ? " " : query.params[0],
           chatId: state.wrongChat ? "other-chat" : query.params[1],
           filesRevision: state.revision, editKind: state.storedEditKind ?? query.params.at(-2) });
         state.order.push("version");
-        return [];
+        return { rows: [{ id: query.params[0] }], rowCount: 1 };
       },
       select: () => ({ from: (table: Table) => ({ where: () => ({ limit: async () =>
         getTableName(table) === "engine_versions" ? state.versions.slice(-1) : state.messages.slice(-1),
@@ -91,10 +99,35 @@ beforeEach(() => {
   state.messages = []; state.versions = []; state.receipts = []; state.order = [];
   state.revision = "db-generated-revision"; state.wrongChat = false; state.wrongId = false;
   state.storedEditKind = null; state.failReceipt = false; state.conflictReceipt = false;
+  state.versionConflicts = 0; state.versionError = null;
   eligible.mockClear().mockReturnValue(true);
 });
 
 describe("atomic trusted new finalize bootstrap", () => {
+  it("retries only the version allocation while keeping assistant and receipt atomic", async () => {
+    state.versionConflicts = 2;
+    await create();
+    expect(state.messages).toHaveLength(1);
+    expect(state.versions).toHaveLength(1);
+    expect(state.receipts).toHaveLength(1);
+    expect(state.order).toEqual(["message", "version_conflict", "version_conflict", "version", "receipt", "commit"]);
+  });
+
+  it("rolls the assistant back after bounded version contention", async () => {
+    state.versionConflicts = 3;
+    await expect(create()).rejects.toThrow("Could not allocate a draft version");
+    expect(state.messages).toEqual([]);
+    expect(state.versions).toEqual([]);
+    expect(state.receipts).toEqual([]);
+    expect(state.order.at(-1)).toBe("rollback");
+  });
+
+  it("does not retry unrelated wrapped database failures", async () => {
+    state.versionError = new Error("Failed query", { cause: { code: "23503" } });
+    await expect(create()).rejects.toBe(state.versionError);
+    expect(state.order).toEqual(["message", "rollback"]);
+    expect(state.messages).toEqual([]);
+  });
   it.each([true, false, undefined])("persists typed materializeImages %s in the existing atomic start receipt", async (choice) => {
     await create({ ...bootstrap(), materializeImages: choice });
     expect(metadata().startPolicy).toMatchObject({ postChecks: { materializeImages: choice === true } });

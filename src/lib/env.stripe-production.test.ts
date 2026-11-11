@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getServerEnv, resetServerEnvCacheForTests, stripeProductionKeyIssues } from "./env";
 
@@ -47,6 +47,7 @@ describe("stripeProductionKeyIssues", () => {
 });
 
 describe("getServerEnv Stripe production guard", () => {
+  beforeEach(() => vi.stubEnv("JWT_SECRET", "test-runtime-secret"));
   it("throws when production is given a test secret", () => {
     vi.stubEnv("VERCEL_ENV", "production");
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_should_not_charge");
@@ -58,5 +59,21 @@ describe("getServerEnv Stripe production guard", () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_ok");
     vi.stubEnv("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", "pk_live_ok");
     expect(getServerEnv().STRIPE_SECRET_KEY).toBe("sk_live_ok");
+  });
+});
+
+describe("production JWT configuration", () => {
+  it.each([undefined, "", "   "])("rejects missing or blank JWT_SECRET (%s)", (value) => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PHASE", "");
+    vi.stubEnv("JWT_SECRET", value);
+    expect(() => getServerEnv()).toThrow("JWT_SECRET is required");
+  });
+
+  it("permits secret-free production builds without enabling runtime auth", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PHASE", "phase-production-build");
+    vi.stubEnv("JWT_SECRET", "");
+    expect(getServerEnv().JWT_SECRET).toBeFalsy();
   });
 });

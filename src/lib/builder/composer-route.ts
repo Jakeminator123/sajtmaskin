@@ -19,6 +19,7 @@
  */
 
 import { uWordRegex } from "@/lib/utils/unicode-word-boundary";
+import { parseArmingDirective, parseStopDirective } from "@/lib/openclaw/debug/armed-mandate";
 
 export type ComposerMode = "auto" | "agent" | "build";
 export type ComposerRoute = "agent" | "build" | "blocked";
@@ -314,6 +315,7 @@ export function classifyComposerIntent(rawText: string): ComposerIntent {
   const text = normalize(rawText);
   if (!text) return "unsure";
   if (isReadOnlyComposerRequest(text) || isAgentProposalReference(text)) return "agent";
+  if (parseArmingDirective(text) || parseStopDirective(text, "leading")) return "agent";
 
   const lower = text.toLowerCase();
   const endsWithQuestion = /[?？]\s*$/u.test(text);
@@ -378,6 +380,7 @@ export function resolveComposerRoute(input: ResolveComposerRouteInput): Composer
   const agentReachable = input.agentAvailable && input.hasChat && !input.hasAttachments;
   if (
     input.mode === "agent" ||
+    (input.mode === "auto" && Boolean(parseArmingDirective(input.text) || parseStopDirective(input.text, "leading"))) ||
     isReadOnlyComposerRequest(input.text) ||
     isAgentProposalReference(input.text)
   ) {

@@ -139,6 +139,15 @@ describe("POST /api/wizard/competitors", () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
+  it.each([429, 503])("stops account admission failure %s before paid competitor work", async (status) => {
+    authorizeWizardRun.mockResolvedValue({ ok: false, response: Response.json({ error: "Quota unavailable" }, { status }) });
+    const response = await POST(makeRequest({ companyName: "Sajtstudio", industry: "Webb" }));
+    expect(response.status).toBe(status);
+    expect(generateText).not.toHaveBeenCalled();
+    expect(responsesCreate).not.toHaveBeenCalled();
+    expect(braveWebSearch).not.toHaveBeenCalled();
+  });
+
   it("fails closed when the legacy provider key is unavailable", async () => {
     config.secrets.openaiApiKey = "";
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import type { User } from "@/lib/db/services/shared";
+import { withRateLimit } from "@/lib/rate-limit";
 import {
   requireActiveWizardRun,
   type WizardRun,
@@ -12,7 +13,8 @@ export type AuthorizedWizardRun =
 
 /**
  * Gate for lookup / competitors / enrich / prefetch. A missing, foreign,
- * invented, completed or expired run never reaches an LLM call.
+ * invented, completed or expired run never reaches an LLM call. The existing
+ * AI quota also follows the verified account across IPs, routes and runs.
  */
 export async function authorizeWizardRun(
   req: Request,
@@ -43,6 +45,12 @@ export async function authorizeWizardRun(
       ),
     };
   }
+
+  const admission = await withRateLimit(req, "ai:chat", async () => new Response(null, { status: 204 }), {
+    userId: user.id,
+    failClosedOnTimeout: true,
+  });
+  if (!admission.ok) return { ok: false, response: admission };
 
   return { ok: true, user, run: result.run };
 }

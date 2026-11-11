@@ -279,6 +279,24 @@ async function handleDomainPurchaseCompleted(
   // statement, so a genuine duplicate loses the claim and returns without ever
   // reaching the registrar.
   if (result.outcome === "already_handled" && result.order.status !== "paid") {
+    if (result.order.status === "registering") {
+      // The first worker may still finish, or may have lost both compensation
+      // and its failure-state write. Neither case proves delivery. Keep Stripe
+      // retries alive without re-registering or refunding an unknown dispatch.
+      console.warn("[Stripe/webhook] Domain order still unresolved:", orderId);
+      return NextResponse.json({ error: "domain_order_unresolved" }, { status: 500 });
+    }
+    const failure = result.order.failure_reason ?? "";
+    if (result.order.status === "registration_failed" && !failure.startsWith("post_registration_failure:") &&
+      (failure.startsWith("refund_pending:") || failure.includes("(refund failed:") || failure.includes("(no refund possible:"))) {
+      const refunded = await refundDomainOrder(
+        { id: orderId, stripe_payment_intent: paymentIntent ?? result.order.stripe_payment_intent },
+        "retry_pending_refund",
+      ).catch(() => false);
+      return refunded
+        ? NextResponse.json({ received: true, outcome: "refunded" })
+        : NextResponse.json({ error: "domain_refund_pending" }, { status: 500 });
+    }
     console.info("[Stripe/webhook] Domain order already handled:", orderId);
     return NextResponse.json({ received: true, alreadyHandled: true });
   }
@@ -294,10 +312,11 @@ async function handleDomainPurchaseCompleted(
     // The database refused to revive it, so the only correct answer is money
     // back — see `markDomainOrderPaid`.
     console.warn("[Stripe/webhook] Domain taken before late payment:", orderId);
-    await refundDomainOrder(
+    const refunded = await refundDomainOrder(
       { id: orderId, stripe_payment_intent: paymentIntent },
       "domain_taken_before_late_payment",
-    ).catch((err) => console.error("[Stripe/webhook] Refund failed:", err));
+    ).catch((err) => { console.error("[Stripe/webhook] Refund failed:", err); return false; });
+    if (!refunded) return NextResponse.json({ error: "domain_refund_pending" }, { status: 500 });
     return NextResponse.json({ received: true, outcome: "refunded" });
   }
 
@@ -305,6 +324,14 @@ async function handleDomainPurchaseCompleted(
   // exception happened before or after the registrar call, which is the only
   // way to decide between refunding and escalating. It does not throw.
   const outcome = await fulfilDomainOrder(result.order);
+  if (outcome.status === "already_handled") {
+    // Losing the registration claim only proves another worker claimed it,
+    // not that it delivered. A retry will read the persisted terminal state.
+    return NextResponse.json({ error: "domain_order_unresolved" }, { status: 500 });
+  }
+  if (outcome.status === "refund_pending") {
+    return NextResponse.json({ error: "domain_refund_pending" }, { status: 500 });
+  }
   console.info(
     "[Stripe/webhook] Domain order",
     result.order.id,
@@ -325,17 +352,17 @@ async function refundUnmatchedDomainPayment(
 ): Promise<NextResponse> {
   if (!stripe || !paymentIntent) {
     console.error("[Stripe/webhook] Cannot refund unmatched domain payment:", reason);
-    return NextResponse.json({ received: true, ignored: reason });
+    return NextResponse.json({ error: "domain_refund_pending", reason }, { status: 500 });
   }
   try {
     await stripe.refunds.create({
       payment_intent: paymentIntent,
       reason: "requested_by_customer",
-    });
+    }, { idempotencyKey: `domain-refund:${paymentIntent}` });
     console.info("[Stripe/webhook] Refunded unmatched domain payment:", reason);
     return NextResponse.json({ received: true, outcome: "refunded", reason });
   } catch (err) {
     console.error("[Stripe/webhook] Refund of unmatched domain payment FAILED:", err);
-    return NextResponse.json({ received: true, ignored: reason, refundFailed: true });
+    return NextResponse.json({ error: "domain_refund_pending", reason }, { status: 500 });
   }
 }

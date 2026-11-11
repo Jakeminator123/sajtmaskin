@@ -62,9 +62,10 @@ async function insertDraftVersionRow(
       : null;
 
   for (let attempt = 0; attempt < MAX_VERSION_INSERT_RETRIES; attempt++) {
-    try {
-      await executor.execute(
-        sql`INSERT INTO engine_versions (id, chat_id, message_id, version_number, files_json, repaired_files_json, preview_url, release_state, verification_state, verification_summary, repair_available_at, promoted_at, lifecycle_stage, parent_version_id, edit_kind, selected_dossier_env_keys, created_at)
+    // DO NOTHING keeps the transaction usable after a concurrent allocation.
+    // Catching 23505 inside the transaction would leave PostgreSQL aborted.
+    const inserted = await executor.execute(
+      sql`INSERT INTO engine_versions (id, chat_id, message_id, version_number, files_json, repaired_files_json, preview_url, release_state, verification_state, verification_summary, repair_available_at, promoted_at, lifecycle_stage, parent_version_id, edit_kind, selected_dossier_env_keys, created_at)
             VALUES (
               ${id},
               ${params.chatId},
@@ -83,21 +84,13 @@ async function insertDraftVersionRow(
               ${params.editKind ?? null},
               ${selectedDossierEnvKeysJson}::jsonb,
               NOW()
-            )`,
-      );
-      break;
-    } catch (e: unknown) {
-      const isUniqueViolation =
-        e instanceof Error &&
-        ("code" in e && (e as Record<string, unknown>).code === "23505");
-      if (isUniqueViolation && attempt < MAX_VERSION_INSERT_RETRIES - 1) {
-        continue;
-      }
-      throw e;
+            ) ON CONFLICT (chat_id, version_number) DO NOTHING RETURNING id`,
+    );
+    if (inserted.rows.length > 0) {
+      return loadVersionById(executor, id);
     }
   }
-
-  return loadVersionById(executor, id);
+  throw new Error("Could not allocate a draft version after concurrent version inserts");
 }
 
 /**

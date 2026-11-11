@@ -2,12 +2,13 @@
  * API Route: D-ID avatar conversation endpoint
  * POST /api/did/conversation
  *
- * Tolerant endpoint for D-ID "End of conversation" tool/webhook.
- * Accepts partial data, fills safe defaults, then forwards to
+ * Authenticated endpoint for D-ID "End of conversation" server tool/webhook.
+ * Accepts meaningful partial data, fills safe defaults, then forwards to
  * the existing contact/email pipeline.
  */
 
 import { NextResponse } from "next/server";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -58,20 +59,24 @@ function buildTranscript(messages: z.infer<typeof didWebhookMessageSchema>[]): s
     .slice(0, 12_000);
 }
 
-function normalizePayload(raw: Record<string, unknown>): {
+function normalizePayload(raw: unknown): {
   name: string;
   email: string;
   subject: string;
   message: string;
-} {
-  const webhook = didWebhookSchema.safeParse(raw);
-  if (webhook.success && webhook.data.chat_history?.messages?.length) {
+} | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  if ("chat_history" in raw) {
+    const webhook = didWebhookSchema.safeParse(raw);
+    if (!webhook.success || !webhook.data.chat_history?.messages?.some(m => m.content.trim().length >= 3)) {
+      return null;
+    }
     const transcript = buildTranscript(webhook.data.chat_history.messages);
     return {
       name: "D-ID Besökare",
       email: "avatar-lead@sajtmaskin.se",
       subject: "Avatar-konversation avslutad",
-      message: transcript || "Konversation utan meddelanden.",
+      message: transcript,
     };
   }
 
@@ -85,9 +90,7 @@ function normalizePayload(raw: Record<string, unknown>): {
         ? `${message}\n\n--- Transkript ---\n${d.transcript.trim()}`
         : d.transcript.trim();
     }
-    if (!message || message.length < 3) {
-      message = "En besökare avslutade en konversation med D-ID-avataren utan att lämna detaljer.";
-    }
+    if (message.length < 3) return null;
     return {
       name: fallback(d.name, "D-ID Besökare"),
       email: EMAIL_RE.test(rawEmail) ? rawEmail : "avatar-lead@sajtmaskin.se",
@@ -96,19 +99,28 @@ function normalizePayload(raw: Record<string, unknown>): {
     };
   }
 
-  return {
-    name: "D-ID Besökare",
-    email: "avatar-lead@sajtmaskin.se",
-    subject: "Avatar-konversation avslutad",
-    message: "En besökare avslutade en konversation med D-ID-avataren utan att lämna detaljer.",
-  };
+  return null;
 }
 
 export async function POST(req: Request) {
-  return withRateLimit(req, "did:conversation", async () => {
+  const secret = SECRETS.didConversationWebhookSecret?.trim();
+  if (!secret) {
+    return NextResponse.json({ success: false, error: "Webhook authentication is not configured" }, { status: 503 });
+  }
+  const token = req.headers.get("authorization")?.match(/^Bearer (.+)$/i)?.[1] ?? "";
+  // Hash to equal-length buffers so every supplied token uses a constant-time
+  // comparison. Provider API credentials are never accepted as webhook auth.
+  const digest = (value: string) => createHash("sha256").update(value).digest();
+  if (!timingSafeEqual(digest(token), digest(secret))) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+  return withRateLimit(req, "contact:submit", async () => {
     try {
-      const raw = await req.json().catch(() => ({}));
-      const { name, email, subject, message } = normalizePayload(raw as Record<string, unknown>);
+      const normalized = normalizePayload(await req.json().catch(() => null));
+      if (!normalized) {
+        return NextResponse.json({ success: false, error: "Invalid conversation payload" }, { status: 400 });
+      }
+      const { name, email, subject, message } = normalized;
 
       const fullSubject = `[Sajtmaskin D-ID Lead] ${subject}`;
 

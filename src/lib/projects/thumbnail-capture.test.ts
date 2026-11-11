@@ -464,6 +464,39 @@ describe("captureThumbnailScreenshot", () => {
     expect(page.screenshot).toHaveBeenCalledTimes(1);
   });
 
+  it("bounds a pending warmup, aborts its request and releases the browser slot", async () => {
+    vi.useFakeTimers();
+    try {
+      let warmupSignal: AbortSignal | undefined;
+      fetchWithPinnedDns.mockImplementationOnce((_url, init) => {
+        warmupSignal = init.signal;
+        return new Promise(() => undefined);
+      });
+      const page = makeFakePage();
+      const { browser, closeSpy } = makeFakeBrowser(page);
+      launchMock.mockResolvedValueOnce(browser);
+      const pending = captureThumbnailScreenshot("https://site.fly.dev/x", {
+        isFinalUrlAllowed: () => true,
+      });
+      await vi.advanceTimersByTimeAsync(THUMBNAIL_WARMUP_TIMEOUT_MS - 1);
+      expect(browser.newPage).not.toHaveBeenCalled();
+      expect(warmupSignal?.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      await expect(pending).resolves.toBeInstanceOf(Buffer);
+      expect(warmupSignal?.aborted).toBe(true);
+      expect(closeSpy).toHaveBeenCalledTimes(1);
+
+      const next = makeFakeBrowser(makeFakePage());
+      launchMock.mockResolvedValueOnce(next.browser);
+      await expect(captureThumbnailScreenshot("https://site.fly.dev/next", {
+        isFinalUrlAllowed: () => true,
+      })).resolves.toBeInstanceOf(Buffer);
+      expect(next.closeSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("wraps a launch failure with the failing stage and preserves the cause", async () => {
     const cause = new Error("browser did not start");
     launchMock.mockRejectedValue(cause);

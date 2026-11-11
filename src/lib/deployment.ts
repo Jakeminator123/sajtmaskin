@@ -255,8 +255,10 @@ export async function resolveLatestOrCachedVercelProjectId(
   chatId: string,
   vercelProjectIdCache?: string | null,
 ): Promise<string | null> {
+  // Only an authoritative empty result permits the legacy cache fallback.
+  // A read failure cannot prove that the cached project still hosts this chat.
   return (
-    (await getLatestVercelProjectIdForChat(chatId).catch(() => null))?.trim() ||
+    (await getLatestVercelProjectIdForChat(chatId))?.trim() ||
     vercelProjectIdCache?.trim() ||
     null
   );
@@ -324,10 +326,10 @@ export async function resolveCanonicalVercelProjectForDomain(
     };
   }
 
-  const legacyDomain = await getLinkedDomainForChat(chatId).catch(() => null);
+  const legacyDomain = await getLinkedDomainForChat(chatId);
   if (legacyDomain) {
     const legacyProjectId =
-      (await getLinkedDomainProjectIdForChat(chatId).catch(() => null))?.trim() || null;
+      (await getLinkedDomainProjectIdForChat(chatId))?.trim() || null;
     return {
       domain: legacyDomain,
       source: "legacy-row",

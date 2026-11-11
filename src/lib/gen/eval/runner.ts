@@ -347,13 +347,27 @@ export function classifyEvalStreamOutcome(
  */
 export function classifyEvalThrownError(err: unknown): EvalStreamFailure | null {
   const classified = classifyProviderError(err, "Generation failed");
-  const transport = classified.code !== null && TRANSPORT_ERROR_CODES.has(classified.code);
-  if (!classified.providerFault && !transport) return null;
+  // Public classification deliberately hides unmapped codes/messages. Eval
+  // still needs the structured transport verdict, without publishing arbitrary
+  // error data or mistaking text such as a DB row id for a provider failure.
+  let transportCode: string | null = null;
+  let current = err;
+  const seen = new Set<unknown>();
+  while (current && typeof current === "object" && !seen.has(current) && seen.size < 5) {
+    seen.add(current);
+    const node = current as { code?: unknown; cause?: unknown };
+    if (typeof node.code === "string" && TRANSPORT_ERROR_CODES.has(node.code)) {
+      transportCode = node.code;
+      break;
+    }
+    current = node.cause;
+  }
+  if (!classified.providerFault && !transportCode) return null;
 
   return {
     kind: "provider_error",
     message: classified.userMessage,
-    code: classified.code,
+    code: classified.code ?? transportCode,
     permanent: classified.permanent,
     providerFault: classified.providerFault,
   };

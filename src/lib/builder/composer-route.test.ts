@@ -7,6 +7,30 @@ import {
   isReadOnlyComposerRequest,
   resolveComposerRoute,
 } from "./composer-route";
+import { createArmedMandate, parseArmingDirective } from "@/lib/openclaw/debug/armed-mandate";
+
+describe("autonomy mandate routing", () => {
+  const text = "gör 5 follow-ups och buggranska";
+
+  it("routes the mandate to the agent so its existing power gates can arm it", () => {
+    expect(classifyComposerIntent(text)).toBe("agent");
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true, builderAwaitingReply: true })).toBe("agent");
+    expect(createArmedMandate(parseArmingDirective(text)!).remaining).toBe(5);
+    expect(isReadOnlyComposerRequest(text)).toBe(false);
+    // Routing does not grant the ordinary direct-build permission. The hook's
+    // explicitFollowupOrder + armedAutonomy gates still authorize a mandate.
+    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(false);
+    expect(composerAllowsAgentBuild({ mode: "agent", text })).toBe(false);
+  });
+
+  it.each([
+    { hasChat: false, hasAttachments: false, agentAvailable: true },
+    { hasChat: true, hasAttachments: true, agentAvailable: true },
+    { hasChat: true, hasAttachments: false, agentAvailable: false },
+  ])("does not turn a mandate into an ordinary build when unreachable: %j", availability => {
+    expect(resolveComposerRoute({ mode: "auto", text, ...availability })).toBe("blocked");
+  });
+});
 
 describe("isReadOnlyComposerRequest", () => {
   it.each([
@@ -60,6 +84,71 @@ describe("isReadOnlyComposerRequest", () => {
     "",
   ])("förbjuder inte komplett ändringsorder «%s»", (text) => {
     expect(isReadOnlyComposerRequest(text)).toBe(false);
+  });
+});
+
+describe("arming directives inside build orders", () => {
+  it.each([
+    "Bygg en bokningssida där kunden kan kolla nästa lediga tid",
+    "Lägg till en kalender så besökaren kan kolla nästa lediga tid och boka",
+  ])("a build order that merely mentions 'kolla … nästa' stays a build in Auto: %s", text => {
+    expect(parseArmingDirective(text)).toBeNull();
+    expect(classifyComposerIntent(text)).toBe("build");
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("build");
+  });
+
+  it.each(["Nej, stopp!", "Stopp, det räcker", "Stoppa nu, jag vill ändra rubriken", "Snälla, sluta!", "No, stop!"])(
+    "an everyday stop phrasing still reaches the agent in Auto: %s",
+    text => {
+      expect(classifyComposerIntent(text)).toBe("agent");
+      expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true, builderAwaitingReply: true })).toBe("agent");
+    },
+  );
+
+  it.each([
+    "Skapa en chatt där nästa meddelande visas överst",
+    "Gör så att nästa meddelande laddas automatiskt",
+    "Lägg till en knapp så användaren kan kolla nästa meddelande i inkorgen",
+  ])("a build order mentioning 'nästa meddelande' stays a build in Auto: %s", text => {
+    expect(parseArmingDirective(text)).toBeNull();
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("build");
+  });
+
+  it("a first prompt that only mentions 'nästa meddelande' becomes a build, not blocked", () => {
+    const text = "Skapa en hemsida för vår sms-tjänst där kunden ser nästa meddelande i kön";
+    expect(
+      resolveComposerRoute({ mode: "auto", text, hasChat: false, hasAttachments: false, agentAvailable: false, agentConfigured: true }),
+    ).toBe("build");
+  });
+
+  it.each([
+    "Lägg till en sekundär knapp i modalen, t.ex. Avbryt.",
+    "Byt texten på knappen till något kortare, t.ex. Stopp.",
+    "Lägg till knappar. Avbryt, Spara och Skicka.",
+    "Skapa ett formulär med knapparna:\nSkicka.\nAvbryt.",
+    "Skapa en hemsida för vår rökavvänjning. Sluta nu! Vi hjälper dig.",
+  ])("a build order that names a stop word later stays a build, also as a first prompt: %s", text => {
+    expect(classifyComposerIntent(text)).toBe("build");
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("build");
+    expect(
+      resolveComposerRoute({ mode: "auto", text, hasChat: false, hasAttachments: false, agentAvailable: false, agentConfigured: true }),
+    ).toBe("build");
+  });
+
+  it.each(["Ja, avsluta det", "Okej, avsluta det", "Ok, avsluta", "Okej. Avsluta det."])(
+    "an affirmative answer belongs to the builder's pending question: %s",
+    text => {
+      expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true, builderAwaitingReply: true })).toBe("build");
+    },
+  );
+
+  it.each([
+    "Jag sa Stopp, inte Paus – byt texten på knappen.",
+    "Jag sa Avbryt, inte Stäng. Byt knapptexten.",
+    "I said Stop, not Pause – change the button label.",
+  ])("a label correction after 'jag sa' stays a build, also while the builder waits: %s", text => {
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("build");
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true, builderAwaitingReply: true })).toBe("build");
   });
 });
 
@@ -149,6 +238,48 @@ describe("composerAllowsAgentBuild", () => {
     for (const text of ["Vad tycker du?", "Ändra inget", "Bygg inte", "Gör punkt två", "Apply suggestion 2", "Blåare knappar", ""]) {
       expect(composerAllowsAgentBuild({ mode, text })).toBe(false);
     }
+  });
+
+  // En artig begäran utan ett uttryckligt ändringsverb i början är oklar. Den
+  // går till agenten, som lägger ett byggförslag att godkänna; den startar
+  // aldrig ett bygge av sig själv och går aldrig direkt till byggmotorn.
+  // Två försök med deterministiska regler för artiga begäranden släppte
+  // igenom granskningar, offerter och tvekan (oberoende review av PR 1711).
+  it.each([
+    "kan du lägga till en karta på kontaktsidan",
+    "Kan du göra hero-sektionen mörkare",
+    "jag vill ha en rosa knapp i headern",
+    "Jag vill att rubriken blir större",
+    "Kan vi få en mörkare header",
+    "I'd like a bigger logo",
+    "Kan du göra en granskning av sajten",
+    "Jag vill att du granskar sajten",
+    "Kan jag få veta vad det kostar",
+    "I want to know how to publish",
+    "Jag vill ha det som det är",
+    "I'd like nothing changed",
+    "Kan du göra punkt 2",
+    "Kan du göra enligt ditt förslag",
+    "Jag vill att du gör punkt 2",
+    "Kan du lägga till en karta, men vänta lite",
+    "Jag vill att du slutar",
+    "Kan jag få en sammanfattning av ändringarna",
+    "Kan jag få en offert",
+    "Jag vill ha ett svar på min fråga",
+    "I'd like a summary of the changes",
+    "I want a refund",
+    "I'd like an explanation of the layout",
+    "Jag vill ha en genomgång av sajten",
+    "I'd like a check of the contact form",
+    "Kan du lägga till en karta sen",
+    "Jag vill att du ska vara kort i dina svar",
+    "Jag vill att sajten ska vara klar till fredag",
+    "Kan du göra en sammanfattning för mina användare",
+    "Kan du skapa en plan för sajten",
+  ])("en artig eller oklar begäran går till agenten utan byggmedgivande: %s", (text) => {
+    expect(classifyComposerIntent(text)).not.toBe("build");
+    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(false);
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("agent");
   });
 
   it("Fråga ger aldrig byggmandat", () => {

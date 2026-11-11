@@ -409,6 +409,7 @@ export function useSendMessage(
           body: JSON.stringify(requestBody),
           signal: streamController.signal,
         });
+        streamController.signal.throwIfAborted();
 
         // 5-2 stale-base auto-rebase (fast-edit robustness, 2026-07-23): a 409
         // here means another writer (client autofix, accepted server repair,
@@ -423,6 +424,7 @@ export function useSendMessage(
             .clone()
             .json()
             .catch(() => null)) as Record<string, unknown> | null;
+          streamController.signal.throwIfAborted();
           if (handleGenerationInProgress(response.status, staleData)) {
             return { status: "rejected", reason: "generation_in_progress", turnRecorded: false };
           }
@@ -448,6 +450,7 @@ export function useSendMessage(
               body: JSON.stringify(requestBody),
               signal: streamController.signal,
             });
+            streamController.signal.throwIfAborted();
           }
         }
 
@@ -458,6 +461,7 @@ export function useSendMessage(
           } catch {
             // ignore
           }
+          streamController.signal.throwIfAborted();
           if (handleGenerationLockUnavailable(response.status, errorData)) {
             return { status: "rejected", reason: "generation_lock_unavailable", turnRecorded: false };
           }
@@ -520,6 +524,7 @@ export function useSendMessage(
               chatId,
               parentVersionId: errorData.parentVersionId,
             });
+            streamController.signal.throwIfAborted();
             // Each finalize verdict gets its own outcome (bugbot on #610): the
             // nested round is NOT uniformly "settled". Only a deterministic
             // release consumed the prompt; `missing_env` is the same situation
@@ -671,6 +676,7 @@ export function useSendMessage(
           },
           streamController.signal,
         );
+        streamController.signal.throwIfAborted();
         // Byggval consumed on the answering turn — clear once a real version
         // lands so abandoned plan/contract choices cannot leak into the next
         // new chat in the same SPA session.
@@ -719,10 +725,12 @@ export function useSendMessage(
         );
         return { status: "failed", message };
       } finally {
-        clearStreamSafetyTimer();
-        setMessages((prev) =>
-          prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
-        );
+        if (!streamController || streamAbortRef.current === streamController) {
+          clearStreamSafetyTimer();
+          setMessages((prev) =>
+            prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
+          );
+        }
       }
     },
     [

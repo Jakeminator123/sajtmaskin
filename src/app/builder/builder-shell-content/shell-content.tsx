@@ -62,6 +62,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     activeVersionSummary,
     activeVersionIsLatest,
     activeVersionBusStatus,
+    activeVersionStatusIdentity,
     activeVersionStatus,
     preferredVersionStatus,
     followUpBaseInfo,
@@ -388,6 +389,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             <MessageList
               chatId={vm.chatId}
               versionId={vm.activeVersionId}
+              canonicalVersionStatus={activeVersionStatusIdentity ? {
+                ...activeVersionStatusIdentity,
+                status: activeVersionStatus,
+                isLatest: activeVersionIsLatest,
+              } : null}
               messages={vm.messages}
               showStructuredParts={vm.showStructuredChat}
               onQuickReply={async (text, options) => {

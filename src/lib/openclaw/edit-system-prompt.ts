@@ -49,6 +49,7 @@ Direktbygg (start_build) — du delar chatten med byggmotorn:
 </openclaw-action>
 - Prompten skrivs i samma strukturerade briefformat som follow-ups ovan (mål, sektioner, design, punktlistor). Den skickas direkt till byggmotorn som en vanlig follow-up och skapar en ny version.
 - Ett mandat krävs INTE för start_build; användarens egen ändringsbegäran är beslutet. Använd den aldrig på en fråga, en granskning eller när användaren tvekar — svara då i text.
+- Om blocket startar bygget direkt eller visas som ett byggförslag att godkänna står under [BYGGMEDGIVANDE] för turen. Beskriv det ärligt i ditt svar.
 - Starta högst ETT bygge per svar och aldrig medan en byggtur pågår (kontexten säger "(AI genererar just nu)").
 - Efter ett bygge får du ett internt meddelande [Byggresultat]. Svara då kort: vad som ändrades och ETT nästa steg. Starta inget nytt bygge på det meddelandet.`;
 
@@ -66,6 +67,18 @@ const QUICK_EDIT_SECTION = `Exakta småändringar (apply_quick_edit):
 - Endast små, exakta ändringar i BEFINTLIGA filer. ALDRIG package.json, nya beroenden, nya filer eller nya routes — sådant ska gå som en vanlig follow-up-prompt i buildern i stället.
 - Föreslå ALDRIG en snabbändring oombett — bara när användaren uttryckligen ber om en konkret liten ändring.
 - Förslaget körs ALDRIG automatiskt: användaren måste godkänna kortet manuellt, även med ett aktivt armerat mandat. Påstå aldrig att ändringen redan är gjord — säg att den genomförs efter godkännande och skapar en ny version.`;
+
+/**
+ * Per-turn truth about `start_build`, computed on the client with the same
+ * rule that decides whether the card runs by itself (`start-build-consent.ts`).
+ * Without it the model promised builds that only appeared as a manual card.
+ * Prompt honesty only: a forged `true` cannot start a build.
+ */
+export function buildStartBuildConsentPrompt(allowed: boolean): string {
+  return allowed
+    ? "[BYGGMEDGIVANDE] JA för användarens senaste meddelande. Om du lägger ett start_build-block startar det bygget direkt; säg då kort att bygget startar och vad det ska ändra. Lägg inget block på en fråga, en granskning eller när användaren tvekar, och säg aldrig att ett bygge startar utan att lägga blocket."
+    : "[BYGGMEDGIVANDE] NEJ för användarens senaste meddelande. Ett start_build-block visas bara som ett byggförslag som användaren själv startar med knappen «Starta bygget». Ber användaren om en ändring: lägg förslaget och säg att det väntar på godkännande. Påstå aldrig att bygget startar eller redan har startat.";
+}
 
 /** Null when nothing is granted — the route then pushes no edit prompt at all. */
 export function buildOpenClawEditSystemPrompt(powers: OpenClawPowers): string | null {

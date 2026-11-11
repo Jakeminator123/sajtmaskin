@@ -15,8 +15,9 @@ Kanonisk kod: den här mappen. Kanonisk regel: `.cursor/rules/evals.mdc`.
 | Samma + alla 18 codegen-prompts | `npm run eval -- --full` | ~15+ min | OPENAI-quota för 18 prompts + DB |
 | En namngiven prompt + dump failande filer | `npm run eval -- --prompts=arcade-with-klarna --dump-files` | ~1–4 min | OPENAI-quota för den prompten + DB |
 | Maskinläsbar utskrift (Backoffice) | lägg till `--json` | samma | samma som läget ovan |
+| Jämföra avancerad audit, current vs low verbosity | `npm run eval -- --audit-latency=https://example.se --dump-files=all` | två avancerade audits per URL | Betalda Responses-anrop, ingen DB |
 
-Default **utan flaggor kostar noll**. Codegen-lanen startar bara efter `--codegen`, `--full` eller `--prompts=…`.
+Default **utan flaggor kostar noll**. Codegen-lanen startar bara efter `--codegen`, `--full` eller `--prompts=…`. Den separata betalda audit-lanen kräver uttryckligen `--audit-latency=<url>[,<url>]`.
 
 ## Lanes
 
@@ -27,6 +28,7 @@ Varje körning returnerar **separata** delresultat. Slå inte ihop tre procentta
 | `followup` | alltid | Follow-up-context och promptstorlek via `prepareGenerationContext`, utan LLM-codegen | inget |
 | `scaffold` | alltid | Att `matchScaffoldAuto()` väljer rätt scaffold. Skriver `data/scaffold-eval/reports/scaffold-selection-latest.json` (samma path canvas + Backoffice "Eval exact-hit" redan läser) | inget. Semantisk ranking används bara om nyckel + embeddings redan finns; saknas de degraderar semantiken till keyword, vilket inte failar lanen |
 | `codegen` | av | Hela orkestreringen + LLM-codegen + 12 checks för 3 eller 18 prompts | `OPENAI_API_KEY` + `POSTGRES_URL` |
+| `auditLatency` | av | Samma avancerade audit-runtime med current respektive `text.verbosity=low` | uttryckliga URLer + `OPENAI_API_KEY`, Responses API aktivt |
 
 Topputfall: `PASS` / `FAIL` / `PROVIDER_ERROR` / `INFRA_ERROR`. Exit 0 / 1 / 2 följer `resolveEvalRunOutcome` + `evalExitCode` i `outcome.ts` för codegen, och `resolveCanonicalOutcome` i `canonical.ts` för hela körningen. Ett provider-/infra-fel i codegen vinner över en kvalitetsmiss.
 
@@ -37,6 +39,51 @@ men styr inte utfallet — saknas embeddings lokalt degraderar semantiken
 till keyword, vilket är förväntat och inte en fail.
 
 `--json` skriver **bara** JSON på stdout (mänsklig text på stderr). Formen är stabil för Backoffice: `timestamp`, `mode`, `outcome`, `exitCode`, `lanes.{followup,scaffold,codegen}`. Codegen-lanen bär `skipReason` (`free_mode` | `blocked_by_failed_free_lane` | `null`) och `forced` så «läget var free», «gratislane failade så jag spenderade inte» och «kördes» inte kan förväxlas.
+
+## Audit latency (uttryckligt betalt experiment)
+
+`npm run eval -- --audit-latency=https://example.se,https://example.org --json --dump-files=all`
+kör först gratislanerna och därefter högst två URLer × två avancerade audits.
+En failad gratislane stoppar alla betalda audits. Kombinationer med `--codegen`,
+`--smoke`, `--full`, `--prompts` eller `--force` avvisas. Inga audits körs utan
+API-nyckel/Responses. Läget har inga DB-, credit- eller `user_audits`-skrivningar.
+Ett kvitto som styrker permanent providerfel (t.ex. auth/quota) avbryter återstående
+betalda audits och anger `suiteAborted`, `abortedAfter` och varje `skippedRuns` med
+`permanent_provider_fault`. Transienta eller osäkra utfall kallas inte permanenta;
+avbrutna/ofullständiga par får inget grönt jämförelsedelta.
+
+Canonical scraper normaliserar/SSRF-validerar URLerna och hämtar en snapshot per
+URL med den avancerade nivåns sidgräns. Båda varianterna använder varsin kopia av
+exakt samma innehåll (SHA-256 i rapporten), samma `runWebsiteAudit`, modell,
+reasoning, fulla schema, prompt och web research. Enda requestskillnaden är
+`text.verbosity=low`. URL 1 kör current → low; URL 2 kör low → current.
+Produktionsdefault och routeanrop ändras inte av experimentet.
+
+Endast detta läge lägger till `lanes.auditLatency` och mode `audit-latency` i JSON;
+codegen är då `SKIPPED` med `audit_latency_mode`. Gratis/codegen/Backoffice behåller
+sin tidigare JSON-form. Rapporten innehåller separat scrape-, wall- och
+providerförsökstid, input/cache/output/reasoning-tokens, sökanrop, modell-/rapportfallback,
+incomplete-/provider-/infrautfall och innehållsfria attempt receipts. Okända mått är
+`null`; de blir aldrig en uppmätt nolla eller en grön jämförelse. Wall-tiden per
+variant exkluderar den gemensamma scrapen; provider-tiden summerar försök, och
+eventuell retryväntan ingår bara i wall-tiden.
+
+Strukturkontrollen följer alla obligatoriska fält, typer och enumvärden i det
+aktuella fulla schemat, inklusive nested avancerade fält, och kräver minst tolv
+förbättringar. `PASS` betyder jämförbara lyckade mätningar med denna struktur,
+aldrig kvalitetsacceptans eller garanterad allmän tidsvinst. Fulla rapporter måste
+granskas manuellt. Cache, sökarbete, körordning och providerlast kan påverka deltat;
+cache-/sökdelta visas därför separat. Fallback och incomplete får inget grönt
+latencydelta. Ingen modell/default växlas automatiskt och ingen baseline/gate skapas.
+
+Fulla rapporter sparas bara med den uttryckliga canonical dumpflaggan:
+`--dump-files=all` sparar båda varianternas kompletta `AuditResult` till
+`data/eval-runs/audit-latency/<run-id>/full-results.json` (gitignorerat), inklusive
+den frysta `WebsiteContent`-indatan för manuell faktagranskning, plus en innehållsfri
+`summary.json`. `--dump-files`/`--dump-files=failed` sparar bara när
+auditlanen inte passerar; `off` sparar inget. Inga råa prompts eller nycklar dumpas.
+Vanlig stdout/telemetri innehåller inga rapport- eller scrape-texter.
+Miljövariabeln för codegen-dump aktiverar inte audit-dumpen.
 
 ## Codegen-lanen
 

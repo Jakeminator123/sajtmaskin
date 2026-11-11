@@ -175,7 +175,7 @@ export function PreviewPanel({
     return findFileNodeByPath(files, selectedPath);
   }, [files, selectedPath]);
 
-  const codeDrafts = usePreviewPanelCodeDrafts({ selectedFile, saveSelectedFileContent });
+  const codeDrafts = usePreviewPanelCodeDrafts({ selectedFile, saveSelectedFileContent, draftScope: chatId });
 
   const [selectedRegistryId, setSelectedRegistryId] = useState<string | null>(null);
   const [selectedRegistryLine, setSelectedRegistryLine] = useState<number | null>(null);

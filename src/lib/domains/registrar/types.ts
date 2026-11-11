@@ -56,9 +56,8 @@ export interface RegistrarProvider {
    * caller holds a binding quote. Must throw on failure so the caller's refund
    * path runs — never resolve with a partial success.
    *
-   * `settings` must be the same resolved pricing the binding quote was built
-   * from, so a provider converting back to the registrar's currency uses one
-   * rate rather than two.
+   * Preserve the original registrar currency/amount in the binding quote;
+   * rounded display prices are never a source for expectedPrice.
    */
   register(
     domain: string,

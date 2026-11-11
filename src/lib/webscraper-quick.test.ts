@@ -23,6 +23,85 @@ describe("quickScrapeWebsite content selection", () => {
     guardedFetch.mockReset();
   });
 
+  const wpJsonResponse = (url: string) => {
+    const response = new Response(JSON.stringify({
+      content: { rendered: `<p>${"FOREIGN99 ".repeat(40)}</p>` },
+    }), { headers: { "content-type": "application/json" } });
+    Object.defineProperty(response, "url", { value: url });
+    return response;
+  };
+
+  it.each([
+    '<link rel="alternate" type="application/json" href="https://foreign.example/wp-json/wp/v2/posts/1">',
+    '<link rel="shortlink" href="https://foreign.example/?p=1">',
+    '<link rel="canonical" href="https://foreign.example/article">',
+  ])("does not use a foreign WordPress content hint: %s", async (hint) => {
+    guardedFetch.mockImplementation(async (target: string) => {
+      if (target === "https://example.com/") {
+        return htmlResponse(`<html><head><meta name="generator" content="WordPress">${hint}</head><body>ORIGINAL</body></html>`);
+      }
+      if (target.includes("wp-json")) return wpJsonResponse(target);
+      return new Response("<urlset/>", { headers: { "content-type": "application/xml" } });
+    });
+
+    const result = await scrapeWebsite("https://example.com/", { maxPages: 1 });
+
+    expect(result.url).toBe("https://example.com/");
+    expect(result.text).toContain("ORIGINAL");
+    expect(result.text).not.toContain("FOREIGN99");
+    expect(guardedFetch.mock.calls.every(([target]) => new URL(target).origin === "https://example.com")).toBe(true);
+  });
+
+  it.each([
+    ["https://example.com/wp-json/wp/v2/posts/1", true],
+    ["https://foreign.example/wp-json/wp/v2/posts/1", false],
+  ])("binds WordPress fallback response origin after redirects: %s", async (finalUrl, accepted) => {
+    guardedFetch.mockImplementation(async (target: string) => {
+      if (target === "https://example.com/") {
+        return htmlResponse('<html><head><link rel="alternate" type="application/json" href="/wp-json/wp/v2/posts/1"></head><body>ORIGINAL</body></html>');
+      }
+      if (target.includes("wp-json")) return wpJsonResponse(finalUrl);
+      return new Response("<urlset/>", { headers: { "content-type": "application/xml" } });
+    });
+
+    const result = await scrapeWebsite("https://example.com/", { maxPages: 1 });
+
+    expect(result.text.includes("FOREIGN99")).toBe(accepted);
+    expect(result.url).toBe("https://example.com/");
+  });
+
+  it("keeps default scrape logging and lets a per-call logger silence the same thin-page path", async () => {
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const consoleInfo = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const thinHtml = "<html><head><title>Thin</title></head><body>Hi</body></html>";
+    const scrapeOnce = () => {
+      guardedFetch.mockImplementation(async (url: string) => {
+        if (String(url).includes("sitemap")) return new Response("<urlset/>", { headers: { "content-type": "application/xml" } });
+        return htmlResponse(thinHtml);
+      });
+    };
+    try {
+      scrapeOnce();
+      const normal = await scrapeWebsite("https://example.com", { maxPages: 1 });
+      const normalTargets = guardedFetch.mock.calls.map(([url]) => url);
+      expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining("Very little text"));
+      consoleWarn.mockClear();
+      consoleInfo.mockClear();
+      guardedFetch.mockClear();
+      scrapeOnce();
+      const logger = { info: vi.fn(), warn: vi.fn() };
+      const silent = await scrapeWebsite("https://example.com", { maxPages: 1, logger });
+      expect(silent).toEqual({ ...normal, responseTime: expect.any(Number) });
+      expect(guardedFetch.mock.calls.map(([url]) => url)).toEqual(normalTargets);
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("Very little text"));
+      expect(consoleWarn).not.toHaveBeenCalled();
+      expect(consoleInfo).not.toHaveBeenCalled();
+    } finally {
+      consoleWarn.mockRestore();
+      consoleInfo.mockRestore();
+    }
+  });
+
   it("normalizes uppercase schemes and whitespace while preserving path and query", async () => {
     guardedFetch.mockResolvedValueOnce(htmlResponse("<html><body>Hotel rooms</body></html>"));
 

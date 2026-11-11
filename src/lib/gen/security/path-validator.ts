@@ -56,16 +56,23 @@ export function validateFilePath(filePath: string): { valid: boolean; reason?: s
     return { valid: false, reason: "Path contains invalid characters" };
   }
 
+  if (filePath.startsWith("/")) {
+    return { valid: false, reason: "Path must be relative" };
+  }
+
   const segments = filePath.split("/");
+
+  if (segments.some((segment) => segment.length === 0)) {
+    return { valid: false, reason: "Empty path segment" };
+  }
 
   if (segments.some(isTraversalSegment)) {
     return { valid: false, reason: "Path traversal (..) not allowed" };
   }
 
-  const normalized = filePath.startsWith("/") ? filePath.slice(1) : filePath;
-  const isNested = normalized.includes("/");
+  const isNested = filePath.includes("/");
   if (isNested) {
-    const isAllowed = ALLOWED_ROOT_PREFIXES.some((p) => normalized.startsWith(p));
+    const isAllowed = ALLOWED_ROOT_PREFIXES.some((p) => filePath.startsWith(p));
     if (!isAllowed) {
       return { valid: false, reason: "Path outside allowed directories" };
     }

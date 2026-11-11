@@ -58,7 +58,7 @@ export async function resolveVercelProjectForChat(
   // When there is no deployment fallback, the persisted link is the only source
   // and still wins.
   const deployed =
-    (await getLatestVercelProjectIdForChat(chatId).catch(() => null))?.trim() || null;
+    (await getLatestVercelProjectIdForChat(chatId))?.trim() || null;
   if (deployed) {
     return {
       ok: true,
@@ -116,7 +116,7 @@ export async function resolveChatProjectContext(
   const linked =
     (await getProjectById(appProjectId).catch(() => null))?.vercel_project_id?.trim() || null;
   const deployed =
-    (await getLatestVercelProjectIdForChat(chatId).catch(() => null))?.trim() || null;
+    (await getLatestVercelProjectIdForChat(chatId))?.trim() || null;
   return { ok: true, appProjectId, vercelProjectId: deployed ?? linked };
 }
 
@@ -135,10 +135,10 @@ export async function resolveVercelProjectForAppProject(
     return { ok: false, status: 404, error: "Projektet hittades inte." };
   }
 
-  const overview = await getProjectSiteOverview(project.id).catch(() => null);
+  const overview = await getProjectSiteOverview(project.id);
   const chatId = overview?.chatId ?? null;
   const deployed = chatId
-    ? (await getLatestVercelProjectIdForChat(chatId).catch(() => null))?.trim() || null
+    ? (await getLatestVercelProjectIdForChat(chatId))?.trim() || null
     : null;
   const linked = project.vercel_project_id?.trim() || null;
 

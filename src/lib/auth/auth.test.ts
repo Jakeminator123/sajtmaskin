@@ -8,6 +8,7 @@ import {
   SESSION_COOKIE_LEGACY_NAME,
 } from "./host-cookies";
 import { getTokenFromRequestEdge } from "./edge-auth";
+import { SECRETS } from "@/lib/config";
 
 const claimUnclaimedSessionProjects = vi.hoisted(() => vi.fn());
 
@@ -109,6 +110,20 @@ describe("auth token security", () => {
     expect(auth.verifyPassword(`${password}!`, stored)).toBe(false);
     expect(auth.verifyPassword(password, stored.slice(0, -2))).toBe(false);
     expect(auth.verifyPassword(password, "inte-en-hash")).toBe(false);
+  });
+
+  it("refuses signing and verification with an empty HMAC key", () => {
+    const originalSecret = SECRETS.jwtSecret;
+    Object.defineProperty(SECRETS, "jwtSecret", { value: "", configurable: true });
+    try {
+      const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+      const body = Buffer.from(JSON.stringify({ userId: "victim", email: "victim@example.test", iat: 1, exp: 4_000_000_000 })).toString("base64url");
+      const signature = crypto.createHmac("sha256", "").update(`${header}.${body}`).digest("base64url");
+      expect(auth.verifyToken(`${header}.${body}.${signature}`)).toBeNull();
+      expect(() => auth.createToken("victim", "victim@example.test")).toThrow("JWT_SECRET");
+    } finally {
+      Object.defineProperty(SECRETS, "jwtSecret", { value: originalSecret, configurable: true });
+    }
   });
 
   it("creates and verifies JWT tokens", () => {

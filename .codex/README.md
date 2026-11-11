@@ -2,7 +2,7 @@
 
 Projektets Codex-lager. Codex läser `AGENTS.md` från repo-roten och
 `.codex/config.toml` när projektet är trusted; arbetssättet (`AGENTS.md`,
-`pr-workflow`, `.cursor/rules/`) är gemensamt med Cursor. Default är GPT-5.6 Sol
+`pr-workflow`, `.cursor/rules/`) är gemensamt med Cursor. Default är GPT-6.1 Sol
 med `high` reasoning för huvudtråd och spawnade agenter; en explicit agentprofil
 vinner. Modellregler och ChatGPT-webbens granskningsmandat:
 [subagent-models.mdc](../.cursor/rules/subagent-models.mdc).
@@ -49,6 +49,11 @@ maskinlokala filer; `npm run worktree:setup` skapar bara `.cursor/mcp.json` frå
 den publika mallen. Inga tokens i `.codex/config.toml`; GitHub går via `gh`/SSH
 eller connectorn. Behöver ett worktree runtime-env: skapa en minimal lokal fil
 uttryckligen och committa den aldrig.
+
+Ny dator: [lokal setup](../docs/runbooks/local-development.md).
+Projektets Vercel-MCP är standard. Supabase DEV/PROD, kontobred Vercel och
+legacy v0 är avstängda med `enabled = false` tills de behövs. Detta ändrar inte
+anslutna plugins eller deras separata inloggningar.
 
 ## Windows-skal (pwsh 7)
 

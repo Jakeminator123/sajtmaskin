@@ -357,6 +357,21 @@ export function handleDoneEvent(
       if (m.id !== ctx.assistantMessageId) return m;
       return {
         ...m,
+        // Bind preview work received before done to this turn's saved result.
+        // Completion of the stream itself never marks that work successful.
+        uiParts: resolvedChatId && resolvedVersionId ? m.uiParts?.map((part) => {
+          if (part.type !== "tool:engine-preview" || part.state !== "input-streaming") return part;
+          const output = part.output && typeof part.output === "object"
+            ? part.output as Record<string, unknown>
+            : {};
+          if (output.versionId) return part;
+          return { ...part, output: {
+            ...output,
+            chatId: output.chatId ?? String(resolvedChatId),
+            versionId: String(resolvedVersionId),
+            assistantMessageId: ctx.assistantMessageId,
+          } };
+        }) : m.uiParts,
         ...(planSummary ? { content: planSummary } : {}),
         isStreaming: false,
       };

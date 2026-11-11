@@ -97,6 +97,20 @@ function createContext(setMessages: SetMessages) {
 }
 
 describe("handleSseStream", () => {
+  it("rejects a queued SSE chatId after cancellation without modifying the selected chat", async () => {
+    const controller = new AbortController();
+    const store = createMessageStore();
+    const { ctx, spies } = createContext(store.setMessages);
+    consumeSseResponse.mockImplementationOnce(async (_response, onEvent) => {
+      controller.abort();
+      onEvent("chatId", { chatId: "A LATE" }, "");
+    });
+    await expect(handleSseStream(new Response(null), ctx, controller.signal)).rejects.toMatchObject({ name: "AbortError" });
+    expect(spies.setChatId).not.toHaveBeenCalled();
+    expect(spies.touchStreamSafetyTimer).not.toHaveBeenCalled();
+    expect(spies.onGenerationComplete).not.toHaveBeenCalled();
+    expect(store.getMessages()[0].isStreaming).toBe(true);
+  });
   afterEach(() => vi.unstubAllGlobals());
   beforeEach(() => {
     vi.clearAllMocks();

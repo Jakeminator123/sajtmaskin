@@ -44,6 +44,17 @@ beforeEach(() => {
 });
 
 describe("PUT /api/projects/[id]", () => {
+  it("preserves custom thumbnail replacement for an owned project", async () => {
+    const thumbnail = "https://images.example/custom-image.jpg";
+
+    const response = await PUT(request("PUT", JSON.stringify({ thumbnail_path: thumbnail })), context);
+
+    expect(response.status).toBe(200);
+    expect(updateProject).toHaveBeenCalledWith("project_1", { thumbnail_path: thumbnail }, {
+      userId: "user_1", sessionId: "session_1",
+    });
+  });
+
   it.each(["not-json", "null", "[]", '{"name":{}}', '{"description":12}'])(
     "rejects malformed project data before reads or writes: %s",
     async (body) => {

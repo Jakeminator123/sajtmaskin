@@ -82,7 +82,9 @@ export function usePreviewPanelCodeFiles(options: {
           (preferredPath && findFileNodeByPath(tree, preferredPath)) || findFirstFileInTree(tree);
         if (!isActive) return;
         setFiles(tree);
-        setSelectedPath(preferredNode?.path || null);
+        setSelectedPath((previous) => previous && findFileNodeByPath(tree, previous)
+          ? previous
+          : preferredNode?.path || null);
       } catch (error) {
         if (!isActive) return;
         if (error instanceof Error && error.name === "AbortError") return;
