@@ -4,8 +4,11 @@ import {
   composerAllowsAgentBuild,
   hasScopedComposerChangeRestriction,
   isAgentProposalReference,
+  describeComposerDecision,
   isReadOnlyComposerRequest,
+  resolveComposerDecision,
   resolveComposerRoute,
+  type ComposerMode,
 } from "./composer-route";
 import { createArmedMandate, parseArmingDirective } from "@/lib/openclaw/debug/armed-mandate";
 
@@ -382,11 +385,39 @@ describe("resolveComposerRoute", () => {
     expect(resolveComposerRoute({ ...base, mode: "agent", builderAwaitingReply: true })).toBe("agent");
   });
 
-  it("bevarar legacy när agent inte är konfigurerad", () => {
+  // Ändrat 2026-11-11 (UX-05/06): förut blev en fråga ett bygge när agenten
+  // saknades eller en bilaga låg med. En fråga får aldrig tyst kosta en
+  // generation; bara första bygget (ingen chatt) går alltid till byggmotorn.
+  it("låter första bygget gå till byggmotorn även när texten låter som en fråga", () => {
     expect(resolveComposerRoute({ ...base, hasChat: false })).toBe("build");
-    expect(resolveComposerRoute({ ...base, hasAttachments: true })).toBe("build");
-    expect(resolveComposerRoute({ ...base, agentAvailable: false })).toBe("build");
-    expect(resolveComposerRoute({ ...base, agentConfigured: false, agentAvailable: false })).toBe("build");
+    expect(resolveComposerRoute({ ...base, hasChat: false, hasAttachments: true })).toBe("build");
+    expect(resolveComposerRoute({ ...base, hasChat: false, agentAvailable: false })).toBe("build");
+    expect(
+      resolveComposerRoute({ ...base, hasChat: false, text: "Kan du göra en sida för mitt kafé?" }),
+    ).toBe("build");
+  });
+
+  it.each([
+    [{ hasAttachments: true }, "attachments"],
+    [{ agentAvailable: false }, "agent-not-configured"],
+    [{ agentConfigured: false, agentAvailable: false }, "agent-not-configured"],
+    [{ agentConfigured: true, agentAvailable: false }, "agent-unavailable"],
+  ] as const)("blockerar en fråga i stället för att bygga: %j → %s", (unavailable, reason) => {
+    expect(resolveComposerDecision({ ...base, ...unavailable })).toEqual({
+      route: "blocked",
+      blockReason: reason,
+    });
+    // Utan frågetecken: frågeord i början räcker.
+    expect(
+      resolveComposerRoute({ ...base, ...unavailable, text: "Vad tycker du att jag borde förbättra" }),
+    ).toBe("blocked");
+  });
+
+  it("bygger fortfarande uttryckligt Bygg-läge och oklar text när agenten saknas", () => {
+    for (const unavailable of [{ hasAttachments: true }, { agentAvailable: false }]) {
+      expect(resolveComposerRoute({ ...base, ...unavailable, mode: "build" })).toBe("build");
+      expect(resolveComposerRoute({ ...base, ...unavailable, text: "Blåare knappar" })).toBe("build");
+    }
   });
 
   it.each([
@@ -431,5 +462,79 @@ describe("resolveComposerRoute", () => {
 
   it("bevarar byggmotorns väntande svar även när agenten inte är redo", () => {
     expect(resolveComposerRoute({ ...base, agentConfigured: true, agentAvailable: false, builderAwaitingReply: true })).toBe("build");
+    expect(resolveComposerDecision({ ...base, builderAwaitingReply: true })).toEqual({
+      route: "build",
+      answersBuilder: true,
+    });
+  });
+});
+
+describe("describeComposerDecision", () => {
+  const base = {
+    mode: "auto" as ComposerMode,
+    text: "Vad tycker du om startsidan?",
+    hasChat: true,
+    hasAttachments: false,
+    agentAvailable: true,
+    agentConfigured: true,
+  };
+  const describeFor = (
+    input: Partial<typeof base> & { builderAwaitingReply?: boolean },
+    context: { builderLocked?: boolean; emptyDraft?: boolean } = {},
+  ) => {
+    const merged = { ...base, ...input };
+    return describeComposerDecision(resolveComposerDecision(merged), {
+      mode: merged.mode,
+      hasChat: merged.hasChat,
+      ...context,
+    });
+  };
+
+  it("säger att en fråga inte ändrar något och att en ändring skapar en ny version", () => {
+    expect(describeFor({})).toMatchObject({ tone: "agent", label: "Fråga – ändrar inget" });
+    expect(describeFor({ text: "Byt rubriken till Välkommen" })).toMatchObject({
+      tone: "build",
+      label: "Ändring – skapar en ny version",
+    });
+  });
+
+  it("följer samma beslut som utskicket i tvingat läge", () => {
+    expect(describeFor({ mode: "build" })).toMatchObject({ tone: "build" });
+    expect(describeFor({ mode: "agent", text: "Byt rubriken" })).toMatchObject({ tone: "agent" });
+  });
+
+  it("förklarar blockering med vad användaren kan göra", () => {
+    const attachment = describeFor({ hasAttachments: true });
+    expect(attachment.tone).toBe("blocked");
+    expect(attachment.hint).toContain("Ta bort bilagan");
+    expect(attachment.hint).toContain("välj Bygg");
+    const down = describeFor({ agentAvailable: false });
+    expect(down.tone).toBe("blocked");
+    expect(down.hint).toContain("Försök igen");
+    const noAgent = describeFor({ agentAvailable: false, agentConfigured: false });
+    expect(noAgent.label).toContain("finns inte här");
+  });
+
+  it("föreslår inte Bygg när Bygg redan är valt och texten ändå inte får byggas", () => {
+    const blocked = describeFor({ mode: "build", text: "Ändra inget", agentAvailable: false });
+    expect(blocked.tone).toBe("blocked");
+    expect(blocked.hint).not.toContain("välj Bygg");
+  });
+
+  it("visar första bygget, pågående bygge och svar till byggmotorn", () => {
+    expect(describeFor({ hasChat: false, text: "Ett kafé i Uppsala" }).label).toBe(
+      "Första bygget – skapar din sajt",
+    );
+    expect(describeFor({ text: "Byt rubriken" }, { builderLocked: true }).label).toContain("väntar");
+    expect(describeFor({ text: "Ja gärna", builderAwaitingReply: true }).label).toContain(
+      "Svar till bygget",
+    );
+  });
+
+  it("är neutral i Auto innan något är skrivet", () => {
+    expect(describeFor({ text: "" }, { emptyDraft: true })).toMatchObject({ tone: "neutral" });
+    expect(describeFor({ text: "", mode: "build" }, { emptyDraft: true })).toMatchObject({
+      tone: "build",
+    });
   });
 });

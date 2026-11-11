@@ -68,7 +68,7 @@ async function typeAndSend(text: string) {
     fireEvent.change(textarea, { target: { value: text } });
   });
   await act(async () => {
-    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    fireEvent.click(screen.getByRole("button", { name: "Skicka" }));
   });
 }
 
@@ -283,14 +283,77 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     expect(onSendMessage).not.toHaveBeenCalled();
   });
 
-  it("visar en live-hint om mottagaren och en stoppknapp medan agenten svarar", async () => {
+  it("visar att agenten svarar och en stoppknapp medan agenten svarar", async () => {
     const agent = makeAgent({ isStreaming: true });
     sajtagent.value = agent;
 
     render(<ChatInterface chatId="chat_1" onSendMessage={vi.fn()} />);
-    expect(screen.getByTestId("composer-route-hint").textContent).toContain("Sajtagenten svarar");
+    expect(screen.getByTestId("composer-agent-streaming").textContent).toContain("Sajtagenten svarar");
     fireEvent.click(screen.getByRole("button", { name: "Stoppa Sajtagenten" }));
     expect(agent.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("visar alltid vad Skicka gör, från samma beslut som utskicket", async () => {
+    sajtagent.value = makeAgent();
+    render(<ChatInterface chatId="chat_1" onSendMessage={vi.fn()} />);
+    const hint = () => screen.getByTestId("composer-route-hint");
+    const textarea = screen.getByRole("textbox", { name: "Skriv en uppdatering" });
+    expect(hint().getAttribute("data-route-tone")).toBe("neutral");
+    fireEvent.change(textarea, { target: { value: "Vad tycker du om startsidan?" } });
+    expect(hint().textContent).toContain("Fråga – ändrar inget");
+    fireEvent.change(textarea, { target: { value: "Byt rubriken till Välkommen" } });
+    expect(hint().textContent).toContain("Ändring – skapar en ny version");
+    expect(screen.getByRole("button", { name: "Skicka" }).getAttribute("aria-describedby")).toBe(
+      hint().id,
+    );
+  });
+
+  it("låter inte Bygg-läget följa med till en annan chatt", async () => {
+    const agent = makeAgent();
+    sajtagent.value = agent;
+    const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
+    const { rerender } = render(<ChatInterface chatId="chat_1" onSendMessage={build} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Bygg" }));
+    expect(screen.getByRole("radio", { name: "Bygg" }).getAttribute("aria-checked")).toBe("true");
+
+    rerender(<ChatInterface chatId="chat_2" onSendMessage={build} />);
+    expect(screen.getByRole("radio", { name: "Auto" }).getAttribute("aria-checked")).toBe("true");
+    await typeAndSend("Vad tycker du om startsidan?");
+    expect(build).not.toHaveBeenCalled();
+    expect(agent.send).toHaveBeenCalledWith("Vad tycker du om startsidan?", expect.anything());
+
+    // Tillbaka i första chatten gäller dess eget val.
+    rerender(<ChatInterface chatId="chat_1" onSendMessage={build} />);
+    await waitFor(() =>
+      expect(screen.getByRole("radio", { name: "Bygg" }).getAttribute("aria-checked")).toBe("true"),
+    );
+  });
+
+  it("ignorerar ett gammalt globalt Bygg-läge från före 2026-11-11", async () => {
+    sessionStorage.setItem("sajtmaskin:composerMode", "build");
+    const agent = makeAgent();
+    sajtagent.value = agent;
+    const build = vi.fn();
+    render(<ChatInterface chatId="chat_1" onSendMessage={build} />);
+    await typeAndSend("Vad tycker du om startsidan?");
+    expect(build).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem("sajtmaskin:composerMode")).toBeNull();
+  });
+
+  it("blockerar en fråga med bilaga i stället för att bygga, och säger vad man kan göra", async () => {
+    const { toast } = await import("sonner");
+    const agent = makeAgent();
+    sajtagent.value = agent;
+    const build = vi.fn();
+    render(<ChatInterface chatId="chat_1" onSendMessage={build} isFigmaInputOpen />);
+    fireEvent.change(screen.getByPlaceholderText("Figma-länk (delningslänk)"), {
+      target: { value: "https://example.com/logo.png" },
+    });
+    await typeAndSend("Vad tycker du om den här loggan?");
+    expect(build).not.toHaveBeenCalled();
+    expect(agent.send).not.toHaveBeenCalled();
+    expect(vi.mocked(toast)).toHaveBeenCalledWith(expect.stringContaining("Ta bort bilagan"));
+    expect(screen.getByTestId("composer-route-hint").getAttribute("data-route-tone")).toBe("blocked");
   });
 
   it("håller inputen öppen under ett bygge för frågor, men spärrar byggvägen", async () => {
@@ -311,16 +374,42 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     expect(agent.send).toHaveBeenCalledWith("Hur lång tid tar bygget?", expect.objectContaining({ allowBuild: false }));
   });
 
-  it("beter sig som förut utan Sajtagent: allt går till byggmotorn", async () => {
+  // Ändrat 2026-11-11 (UX-06): förut gick även en fråga till byggmotorn när
+  // Sajtagenten saknades, och kostade en generation. Nu blockeras frågan och
+  // Bygg-läget finns kvar som uttryckligt val.
+  it("utan Sajtagent: ändringar byggs, en fråga blockeras, Bygg skickar uttryckligen", async () => {
     const onSendMessage = vi.fn(async (_m: string, _o?: MessageOptions) => ({
       status: "started" as const,
       via: "stream" as const,
     }));
 
     render(<ChatInterface chatId="chat_1" onSendMessage={onSendMessage} />);
-    expect(screen.queryByRole("radiogroup")).toBeNull();
+    expect(screen.getByRole("radio", { name: "Fråga" }).hasAttribute("disabled")).toBe(true);
     await typeAndSend("Vad tycker du om startsidan?");
+    expect(onSendMessage).not.toHaveBeenCalled();
+    expect(screen.getByTestId("composer-route-hint").textContent).toContain("Sajtagenten finns inte här");
+
+    await typeAndSend("Byt rubriken till Välkommen");
     expect(onSendMessage).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("radio", { name: "Bygg" }));
+    await typeAndSend("Vad tycker du om startsidan?");
+    expect(onSendMessage).toHaveBeenCalledTimes(2);
+  });
+
+  it("utan Sajtagent och utan chatt: första bygget går som förut", async () => {
+    const onCreateChat = vi.fn(async () => true);
+    render(<ChatInterface chatId={null} onCreateChat={onCreateChat} />);
+    expect(screen.queryByRole("radiogroup")).toBeNull();
+    const textarea = screen.getByRole("textbox", { name: "Beskriv vad du vill bygga" });
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: "Kan du göra en sida för mitt kafé?" } });
+    });
+    expect(screen.getByTestId("composer-route-hint").textContent).toContain("Första bygget");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Skicka" }));
+    });
+    expect(onCreateChat).toHaveBeenCalledTimes(1);
   });
 
   it.each(["plan", "question"])("behåller ett svar på en väntande %s hos byggmotorn", async (kind) => {

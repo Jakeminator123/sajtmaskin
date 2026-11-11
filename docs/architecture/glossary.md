@@ -29,7 +29,7 @@ respektive kod, manifest eller policy. Aktuella inventarier finns i
 | Variant-template inspiration | Style-only lager ovanpå Scaffold + variant: stillbild + SHA-validerade addendum-utdrag. |
 | Build profile | Produktprofil som resolvas till en default build-modell; aktuell lista ägs av modellmanifestet. |
 | `phaseRouting` | Produktens modellval per runtimefas; ägs av `config/ai_models/manifest.json`. |
-| Prompt-assist | Knappen bredvid **Plan** som förbättrar ett utkast i chattfältet; inte Deep Brief eller Orkestrering. |
+| Prompt-assist | Knappen bredvid **Plan** (etikett i UI: «Förbättra texten») som förbättrar ett utkast i chattfältet; inte Deep Brief eller Orkestrering. |
 | Klargörande frågor | Blockerande frågekort i chatten (`tool:awaiting-input`). Används av F3-fortsättning (`f3-continuation.ts`) och kontraktsfrågor. Det gamla scope-kortet för följdprompter ("Tydlig redesign?" efter regex-klassning) togs bort 2026-09-05; `classifyFollowUpIntent` är numera bara intent-/telemetrisignal och följdprompter genererar alltid. |
 | Turn-sammanfattning | Deterministisk klartext-sammanfattning av en generationsomgång (`src/lib/gen/stream/turn-summary.ts`): vad som byggdes/ändrades, byggblock, autofixar, vad som inte tillämpades. Läggs sist i assistentmeddelandet och strömmas som SSE `turn-summary`. Ingen LLM. |
 | Capability | Intentnyckel för en förmåga, till exempel `auth`, `payments` eller `site-search`; capability styr valet, inte Dossier-gruppen. |
@@ -198,7 +198,7 @@ persisterade token- eller kluster-id:n utifrån ordlistan.
 | Prompt-assist som Deep Brief / brief-lane / «Assist aktiv» | `Deep Brief` för LLM-steget, `Briefing` för lagret. |
 | `SAJTMASKIN_ASSIST_MODEL` som knappens modell | **Fel variabel.** Den styr **Deep Brief** (`briefing.defaults.assist`). |
 | Briefing-lagret som «halvfärdigt» / `promptAssist` som toppnyckel | Funktionen är komplett. Manifestets enda toppnyckel för lagret är `briefing`. |
-| Polish / Skriv om / Förbättra / prompt rewrite | Död väg (borttagen 2026-04-21). Inte samma sak som `Prompt-assist` (2026-08-19): den rättar utkastet i rutan och behåller naturligt språk. |
+| Polish / Skriv om / Förbättra / prompt rewrite | Död väg (borttagen 2026-04-21). Inte samma sak som `Prompt-assist` (2026-08-19, UI-etikett «Förbättra texten»): den rättar utkastet i rutan och behåller naturligt språk. |
 | `deploy-assistant` som aktiv fas | Konfigurerad i `phaseRouting` och ModelTraceOverlay; ingen runtime-anropare |
 | `Scaffold: Av` / scaffold off | `ScaffoldMode: "off"` → `projekt-bas-app` för website/app-init; template-init förblir scaffold-löst. **Inte** Importerat repo-läge, som alltid saknar scaffold. |
 | syntetisk scaffold | Undvik som nulägesbegrepp. `projekt-bas-app` är en riktig registrerad Scaffold; variant-template inspiration är ett separat inspirationslager |
