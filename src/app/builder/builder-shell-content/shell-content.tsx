@@ -483,6 +483,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 activeVersionSummary?.verificationSummary ?? null,
               )}
               activeVersionPromotedAt={activeVersionSummary?.promotedAt ?? null}
+              activeVersionNumber={activeVersionSummary?.versionNumber ?? null}
               activeVersionIsLatest={activeVersionIsLatest}
               activeVersionRepairPassIndex={activeVersionBusStatus?.repairPassIndex ?? 0}
               onPreviewSessionSuspect={vm.handlePreviewSessionSuspect}
