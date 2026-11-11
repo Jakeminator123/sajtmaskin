@@ -3,7 +3,7 @@
  * byggmotorn (generering → ny version) eller till Sajtagenten (OpenClaw).
  *
  * Beslutet är deterministiskt och billigt — ingen LLM. Reglerna följer
- * planen `docs/plans/active/2026-10-22-en-chatt-sajtagenten/`:
+ * planen `docs/plans/avklarat/2026-10-22-en-chatt-sajtagenten/`:
  *
  * - En fråga förblir en fråga: frågetecken, frågeord och granskningsverb går
  *   till agenten.
