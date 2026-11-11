@@ -252,6 +252,94 @@ class BucketPercentileTests(unittest.TestCase):
         # target for p95 = 9.5 → needs Inf bucket → prev_le 50.
         self.assertEqual(obs._percentile_from_buckets(pairs, 0.95), 50.0)
 
+    def test_percentile_empty_lower_buckets_start_at_previous_edge(self) -> None:
+        # Prometheus histogram_quantile: all 10 obs in (60s, 90s] → p50 = 75s.
+        # The old lower bound fell back to 0 when the lower buckets were empty
+        # and reported 45s.
+        pairs = [
+            (1000.0, 0.0),
+            (30000.0, 0.0),
+            (60000.0, 0.0),
+            (90000.0, 10.0),
+            (float("inf"), 10.0),
+        ]
+        self.assertEqual(obs._percentile_from_buckets(pairs, 0.50), 75000.0)
+
+    def test_bucket_pairs_sum_series_with_same_le(self) -> None:
+        samples = [
+            obs.Sample("m", {"le": "100", "kind": "init"}, 3.0),
+            obs.Sample("m", {"le": "100", "kind": "followup"}, 5.0),
+            obs.Sample("m", {"le": "+Inf", "kind": "init"}, 7.0),
+            obs.Sample("m", {"le": "+Inf", "kind": "followup"}, 5.0),
+        ]
+        self.assertEqual(obs._bucket_pairs(samples), [(100.0, 8.0), (float("inf"), 12.0)])
+
+
+def _exposition(*lines: str) -> dict[str, list[obs.Sample]]:
+    return obs.parse_prometheus_text("\n".join(lines))
+
+
+class MultiSeriesHistogramTests(unittest.TestCase):
+    """Runtime-labels: phase+kind och outcome+kind ger flera serier per filter."""
+
+    def test_prompt_to_done_sums_outcome_series(self) -> None:
+        done = [
+            ("1000", 0), ("5000", 0), ("60000", 0), ("90000", 10), ("+Inf", 10),
+        ]
+        failed = [
+            ("1000", 0), ("5000", 1), ("60000", 1), ("90000", 1), ("+Inf", 1),
+        ]
+        series = _exposition(
+            *(
+                f'sajtmaskin_prompt_to_done_ms_bucket{{le="{le}",outcome="done",kind="init"}} {n}'
+                for le, n in done
+            ),
+            *(
+                f'sajtmaskin_prompt_to_done_ms_bucket{{le="{le}",outcome="failed",kind="init"}} {n}'
+                for le, n in failed
+            ),
+        )
+        # 11 obs: 1 in (1s, 5s], 10 in (60s, 90s] → p50 target 5.5 →
+        # 60s + 30s * (4.5 / 10) = 73.5s. Old code returned 2.5s.
+        self.assertAlmostEqual(
+            obs._prompt_to_done_percentile(series, "init", 0.50), 73500.0
+        )
+
+    def test_phase_summary_sums_count_and_sum_over_kinds(self) -> None:
+        series = _exposition(
+            # prom-client emits every bucket edge for every series.
+            'sajtmaskin_phase_duration_ms_bucket{le="100",phase="autofix",kind="followup"} 3',
+            'sajtmaskin_phase_duration_ms_bucket{le="2500",phase="autofix",kind="followup"} 3',
+            'sajtmaskin_phase_duration_ms_bucket{le="+Inf",phase="autofix",kind="followup"} 3',
+            'sajtmaskin_phase_duration_ms_bucket{le="100",phase="autofix",kind="init"} 0',
+            'sajtmaskin_phase_duration_ms_bucket{le="2500",phase="autofix",kind="init"} 7',
+            'sajtmaskin_phase_duration_ms_bucket{le="+Inf",phase="autofix",kind="init"} 7',
+            'sajtmaskin_phase_duration_ms_count{phase="autofix",kind="followup"} 3',
+            'sajtmaskin_phase_duration_ms_sum{phase="autofix",kind="followup"} 300',
+            'sajtmaskin_phase_duration_ms_count{phase="autofix",kind="init"} 7',
+            'sajtmaskin_phase_duration_ms_sum{phase="autofix",kind="init"} 7000',
+        )
+        summary = obs._phase_summary(series, "autofix")
+        self.assertEqual(summary["count"], 10)
+        self.assertAlmostEqual(summary["mean_ms"], 730.0)
+        # cumulative 3@100, 10@2500 → p50 target 5 → 100 + 2400 * 2/7.
+        self.assertAlmostEqual(summary["p50_ms"], 100.0 + 2400.0 * 2 / 7)
+
+    def test_phase_rows_come_from_emitted_labels(self) -> None:
+        series = _exposition(
+            'sajtmaskin_phase_duration_ms_count{phase="persist",kind="init"} 1',
+            'sajtmaskin_phase_duration_ms_count{phase="codegen",kind="init"} 1',
+            'sajtmaskin_phase_duration_ms_count{phase="codegen",kind="followup"} 2',
+            'sajtmaskin_phase_duration_ms_count{phase="zz_new_phase",kind="unknown"} 1',
+        )
+        # Known names keep display order, unknown names follow; nothing that
+        # was never emitted (e.g. repair_loop) shows up as a zero row.
+        self.assertEqual(
+            obs._observed_phase_names(series),
+            ["codegen", "persist", "zz_new_phase"],
+        )
+        self.assertEqual(obs._observed_phase_names({}), [])
+
 
 if __name__ == "__main__":
     unittest.main()

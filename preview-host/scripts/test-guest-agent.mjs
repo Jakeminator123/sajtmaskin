@@ -320,7 +320,14 @@ try {
     agent.kill("SIGTERM");
   }
   await new Promise((resolve) => setTimeout(resolve, 300));
-  rmSync(tmp, { recursive: true, force: true });
+  // Windows: `taskkill` is asynchronous, so the agent's dev child can still
+  // hold `root/live` open for a moment (EBUSY). Retry, and never let a temp
+  // cleanup turn green guards red.
+  try {
+    rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+  } catch (error) {
+    console.warn(`  WARN  temp cleanup left ${tmp}: ${error instanceof Error ? error.message : error}`);
+  }
 }
 
 if (failures > 0) {

@@ -167,6 +167,21 @@ class CapabilityMapFingerprintTests(unittest.TestCase):
 
         self.assertTrue(self._is_stale(current))
 
+    def test_underscore_dossier_directories_are_not_fingerprinted(self) -> None:
+        # regenerate-capability-map.ts `listIds()` (och registret) hoppar över
+        # `_`-kataloger; att hasha dem gjorde en färsk projektion evigt inaktuell
+        # och Systemkartan körde generatorn vid varje rerun.
+        current = self._fresh_projection()
+        parked = self.dossier_root / "hard" / "_parked-acme" / "manifest.json"
+        parked.parent.mkdir(parents=True)
+        parked.write_text(json.dumps({"id": "_parked-acme"}), encoding="utf-8")
+
+        self.assertNotIn(
+            "data/dossiers/hard/_parked-acme/manifest.json",
+            self._fingerprints(current) or {},
+        )
+        self.assertFalse(self._is_stale(current))
+
     def test_malformed_or_unsafe_source_keys_fail_closed(self) -> None:
         malformed_source_files = (None, [], {}, {self.manifest_key: "0" * 64})
         for source_files in malformed_source_files:

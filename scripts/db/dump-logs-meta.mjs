@@ -91,3 +91,19 @@ function sanitizeLlmUsageMetaValue(value) {
   if (CREDENTIAL_LIKE_VALUE.test(value)) return undefined;
   return value.length > META_MAX_STRING ? value.slice(0, META_MAX_STRING) : value;
 }
+
+/**
+ * `--chat` på en kind vars tabell saknar chatt-kolumn (`drain`, `openai`).
+ *
+ * Tidigare föll de kinds tyst tillbaka till de senaste OFILTRERADE raderna
+ * medan exporten sa att den var chattfiltrerad. Nu hoppas de över med ett skäl
+ * som hamnar i `skipped` (Logg-exporten visar det som varning).
+ *
+ * @param {{ chatColumn?: string | null } | null | undefined} spec
+ * @param {string | null | undefined} chatId
+ * @returns {string | null} skäl att hoppa över, eller `null` när kinden kan köras
+ */
+export function chatFilterSkipReason(spec, chatId) {
+  if (!chatId || spec?.chatColumn) return null;
+  return "ej chattfiltrerbar: tabellen saknar chatt-kolumn (kör utan chat-id, korrelera på tid)";
+}

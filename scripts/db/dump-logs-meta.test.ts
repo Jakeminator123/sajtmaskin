@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  chatFilterSkipReason,
   META_MAX_DEPTH,
   META_MAX_STRING,
   sanitizeLlmUsageMeta,
@@ -251,5 +252,19 @@ describe("sanitizeLlmUsageMeta", () => {
     expect(sanitizeLlmUsageMeta(frozen)).toEqual({ requestedModelId: "openai/gpt-5.4" });
     expect(JSON.stringify(meta)).toBe(before);
     expect(sanitizeLlmUsageMeta(meta)).not.toBe(meta);
+  });
+});
+
+describe("chatFilterSkipReason", () => {
+  it("hoppar över kinds utan chatt-kolumn när chat-id är satt", () => {
+    // drain/openai har chatColumn null — tidigare gav de ofiltrerade rader.
+    expect(chatFilterSkipReason({ chatColumn: null }, "chat-1")).toMatch(/ej chattfiltrerbar/);
+    expect(chatFilterSkipReason({}, "chat-1")).toMatch(/ej chattfiltrerbar/);
+  });
+
+  it("kör kinden när den kan filtreras eller när inget chat-id finns", () => {
+    expect(chatFilterSkipReason({ chatColumn: "chat_id" }, "chat-1")).toBeNull();
+    expect(chatFilterSkipReason({ chatColumn: null }, null)).toBeNull();
+    expect(chatFilterSkipReason({ chatColumn: null }, "")).toBeNull();
   });
 });

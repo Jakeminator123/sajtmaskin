@@ -60,6 +60,7 @@ from .labels import (
 )
 
 from .io import (
+    _dossier_key_id,
     _schema_enum,
     _COMPLEXITY_OPTIONS,
     _MOCK_OPTIONS,
@@ -100,7 +101,8 @@ def _section_list(dossiers: list[dict[str, Any]]) -> None:
     rows: list[dict[str, Any]] = []
     for d in dossiers:
         rows.append({
-            "id": d.get("id"),
+            # Saknat manifest.id → katalognamnet, så sorteringen aldrig jämför None/str.
+            "id": _dossier_key_id(d),
             "Klass": class_label(d["_class"]),
             "Funktion": d.get("capability"),
             "Standardval": "✓" if is_default_for_capability(d) else "",

@@ -1,104 +1,87 @@
-# MVP-säkerhet och releaseberedskap
+# MVP-säkerhet — kvarvarande lanseringskrav
 
-Status: **kod för A–E landad; öppet lanseringsblocker är `SM-080`.**
-Wizard-RLS (`SM-078`), Google-koppling (`SM-079`) och kontolås (`SM-081`)
-är byggda. Beställ inte om dem. Preview och produktion delar databas enligt
-ägarbeslut.
+Status: active
+Ägare: Jakob för produkt-/driftbeslut; tilldelad agent för avgränsat arbete.
+Ursprung: 2026-09-09. Konsoliderad 2026-11-05.
 
-Ägaruppdrag 2026-09-09: ompröva den externa genomlysningen mot aktuell
-`preview`, genomför rimliga avgränsade förbättringar med underagenter,
-verifiera och gör housekeeping före **en samlad PR mot preview**. Den PR:n
-är historik; det här dokumentet styr bara kvarvarande releasearbete.
+## Levererat
 
-## Ramar
+Google-koppling SM-079, wizard-RLS/ACL SM-078, kontolås före betalt arbete
+och hostens releaseidentitet är byggda. Backloggens arkiv äger bugstatus;
+beställ inte om dessa implementationer eller återställ publika wizardgrants.
+Historiskt felkopplade Googlekonton repareras inte automatiskt av kodfixen.
 
-- **Preview och produktion fortsätter dela databas**, enligt Jakobs uttryckliga
-  beslut. Ingen ändring av DB-targets eller uppdelning av kunddata ingår.
-- Bas vid start: `e4a58031dd644b4700b1312991a3f0156331ab52`. Uppdatera
-  mot fjärrtip före PR; #1320/#1324 har därefter mergats av annan aktör.
-  Integrationsbas: `17afaed7222af227e8477b68a2644c5c21f81f32`.
-- Ursprung: extern MVP-genomlysning 2026-09-09 av äldre preview `e4761c4`.
-  Rapportens observationer är underlag som verifieras, inte nya runtimekrav.
-- Underagenter äger separata filer/områden. Parent samordnar integration,
-  verifiering, dokumentation och PR. Inga parallella git-checkouts/commits.
-- Kod och migrationsförslag görs reviewbara i PR. Inga merges, kundbetalningar,
-  host-deployments eller destruktiva ändringar av levande data ingår.
-- Grok 4.6 är inte tillgänglig i denna miljö; tillgängliga Codex-modeller
-  används enligt ägarens mandat att välja andra modeller när det behövs.
+Aktuell DB-identitet ägs av
+[config/db-targets.json](../../../../config/db-targets.json):
+Development/Preview → DEV, Production → PROD. Äldre planpåståenden om delad
+preview/prod-DB är ersatta. Ingen DB-split, migration eller aktuell live-ACL/
+ledgerstatus intygas av konsolideringen. CI/push är inte ett DB-apply-mandat.
 
-## Arbetsordning och acceptans
+## SM-080 är fortsatt lanseringsspärr
 
-| Spår | Omfattning | Klart när | Status |
-|---|---|---|---|
-| A – kontokoppling | Google får inte aktivera en overifierad registrants lösenord | Reproducerad sekvens blockeras; avsedd verifierad kontokoppling fungerar | **Klart.** `SM-079` kodfix i master. Inte omimplementation. |
-| B – wizardbehörighet | Ny RLS/ACL-migration och skydd mot migration-only-glapp | Publika roller nekas; backend kan hantera körningar; verifierat i isolerad Postgres | **Klart.** `SM-078` RLS på i live ACL 2026-09-17. Inte samma migration igen. |
-| C – genereringskostnad | Begränsa parallellt odebiterbart arbete före AI-anrop | Vanlig användare kan inte konsumera samma fria/saldobaserade rätt parallellt; avbrott släpper skyddet först när arbetet avslutats | **Klart.** `SM-081` kontolås i master. Kvar är reservation/tak, inte låset. |
-| D – preview-host | Exakt releaseidentitet och bedömning av verklig projektisolering | Health kan bindas till bygg-SHA; kvarstående isoleringsrisk redovisas utan falsk säkerhetsgaranti | Releaseidentitet landad. **`SM-080` är kvar** — path-jail är inte sandboxisolering. |
-| E – kundinformation | Verifierbara fel i publicerade texter och versionsdatum | Inga uppfunna bolagsuppgifter; korrekt drift-/leverantörsbeskrivning och tydliga kvarstående uppgifter | Kod landad. Kvar är ägarens bolags-/integritetsuppgifter, inte ny copy-PR. |
-| F – drift och release | Vercel/Supabase read-only, installera Fly CLI, riktad regression och PR | Verktygsåtkomst verifierad; ändringar granskade; housekeeping och en PR | Implementations-PR historik. Kvar: `SM-080` och restlistan i `01-resultat.md`. |
+[Beslut 2026-09-18](../../../decisions/README.md) ger varje kundprojekt en
+egen Fly Machine för install, verify och runtime. Kontrollplanet kan vara
+delat; gästen får inte dela syskonfilsystem/processauktoritet, kontrollplans-
+hemligheter eller den delade skrivbara cachen. Path-jail, filtrerad env eller
+en gemensam non-root-användare är inte isolering. Ingen ny jail-omtagning.
 
-## Verifiering och leverans
+Maskinläget är kod och backloggen antecknar ett driftbevis 2026-11-03 med
+machine/configured:true. Det ersätter gammalt ”inte driftsatt”, men är inte
+aktuell livekontroll eller E2E-isoleringsacceptans. Följ backloggens SM-080/M03.
+Gästerna är 2 vCPU/4 GB. Pågår 2026-11-11: paket A krymper kontrollplanet
+till performance-1x/2 GB och förstör gästen efter 25 min inaktivitet; paket B
+bygger egen origin per chatt (M03). Beslutsrader i
+[registret](../../../decisions/README.md). Volymtopologi, pooling/återanvändning
+och kostnad kräver fortfarande pilotbevis.
 
-1. Underagent lämnar ändrade paths, egna tester, risker och kvarstående arbete.
-2. Parent kör `verify:pr -- --plan`, relevanta tester, typecheck och berörda
-   schema-/dokumentkontrakt. Ingen rutinmässig full supertestkörning.
-3. Oberoende review av samlad diff; triagera konkreta fynd före sign-off.
-4. Housekeeping: inga scratchfiler, hemligheter, dubbla planer eller
-   orelaterade ändringar; uppdatera aktiva planroutern och buggsanning vid behov.
-5. PR beskriver vad koden fixar, vad som kräver migration/host-release och
-   vad som fortfarande blockerar öppen lansering. Active-planen stannar för
-   `SM-080` och överlämnade releaseåtgärder, inte för en ny A–F-implementation.
+Owners: [hostacceptans](../../../../preview-host/README.md),
+[gästpilot](../../../../preview-host/guest/README.md),
+[machine-runtime](../../../../preview-host/src/runtime/machine-runtime.js) och
+[maskinägare](../../../../preview-host/src/machines/project-machines.js).
+Samma Fly-volym kan inte bara delas mellan gäster; separera workspace,
+paketcache, store och proxy enligt isoleringsägaren.
 
-## `SM-080` — ratificerad riktning, otunade driftvärden
+### Nödvändiga acceptansprov
 
-Scoutläsning 2026-09-18 mot preview-hostens kod. Path-jail #1445
-(`resolveInsideWorkspace` / `isSafeRelativePath` i `workspace-files.js`) skyddar
-bara **hostens egna** skrivningar in i ett workspace. Gästprocesserna går en
-annan väg: `spawnNpm` och `runShellCommand` i `preview-host/src/runtime/shared.js`
-startar install, verify och `next dev` med samma OS-identitet, samma
-`/data`-volym och delad paketcache, utan namespace, cgroup eller seccomp.
-`Dockerfile` sätter ingen `USER`, och `PNPM_CONFIG_DANGEROUSLY_ALLOW_ALL_BUILDS`
-låter livscykelskript köra på hosten redan vid install. En tredje jail-rematch
-ska därför inte beställas.
+I disponibel avsedd plattform med syntetiska data, A och B genom riktig
+install/verify/dev samtidigt:
 
-**Ratificerat 2026-09-18** i
-[`docs/decisions/README.md`](../../../decisions/README.md): kontrollplanet (API,
-store, preview-proxy) får ligga kvar på dagens delade host, men varje kundprojekt
-får en egen isolerad Fly Machine där install, verify och dev/runtime körs.
-Syskonprojekt delar inte OS-identitet eller filsystem, globala hemligheter når
-inte projektmaskinen, och obevisad isolering ska fail-closa i stället för att
-falla tillbaka på den delade hosten. Isoleringsprincipen behöver inte beslutas
-igen. Container-sandbox på samma maskin är avfärdad: Fly Machines ger sällan
-user-namespaces eller container-socket, så den vägen blir jail nummer tre.
+- Läs-/skrivförsök mot B och hoststore via absoluta/relativa paths, symlänkar
+  och /proc nekas; B förblir oförändrat. A får inte läsa syntetisk hosthemlighet
+  eller signalera B:s process.
+- Skilj TCP-nåbarhet från behörighet: maskiner kan nå varandra över 6PN.
+  Utan B:s token ska agenten neka fil/kommando/dev/proxyåtkomst; B:s dev-port
+  lyssnar bara på loopback. Kontrollplanets preview, Machines-API och eventuell
+  /.fly/api får inte vara åtkomliga utan avsedd nyckel. Full nätseparation
+  utöver token kräver egen verifierad policy/arkitektur.
+- Timeout, resursöverlast, restart, hibernate och destroy för A påverkar inte B
+  eller lämnar processer/mounts/data åt nästa tenant. Godkänd proxy och
+  paketinstallation fungerar; obevisad gästidentitet fail-closar utan shared-
+  fallback. Spara faktisk käll-SHA, image, policy och nekanden.
+- Browser-origin är separat fortfarande öppen: unik origin per chat, bindning
+  av HTTP/WS-host till chat, DNS/TLS och övergång från gemensam origin måste
+  bevisas. Separata Machines eller iframe-rendering ersätter inte detta.
 
-**Inte ratificerat — bevisas i en liten pilot:** Machine-size, volymtopologi,
-idle-timeout, pooling/återanvändning och kostnadsoptimering. Lås inte dem som
-permanenta driftvärden innan piloten. Topologin måste ändå delas upp först: en
-Fly-volym kan inte sitta på flera Machines, så `/data`, paketcachen och proxyn
-behöver skiljas från gästerna.
+## Övriga uttryckliga releasekrav
 
-Acceptansproven ägs av
-[`preview-host/README.md`](../../../../preview-host/README.md) § Öppen
-lanseringsblocker och körs i en disposabel miljö med syntetiska data — gröna
-tester på den delade hosten kan inte godkänna arkitekturen.
+| Rest | Mottagare och kvarvarande bevis |
+|---|---|
+| SM-081 kostnad | Faktisk reservation/kostnadstak, andra betalda endpoints/repair/verifiering och uppskjuten avräkning. Kontolåset är inte maxkostnadsgaranti. Ägare: generation-admission/generation-lock och backloggen. |
+| Kontolås i drift | Verifiera rätt ioredis-backend för de miljöer som faktiskt delar saldo. Upstash REST-rate-limit är separat; saknat Redis ska fail-closa. Aktuell DB-/miljömappning kommer först, gamla shared-DB-antaganden följer inte med. |
+| Historiska Googlekonton | Bedöm kontohistorik och beslutad återställningsväg; ingen automatisk massnollning av legitima lösenord utifrån email_verified. |
+| Vanlig kundresa | Registrering → gratisgenerering → ändring → creditköp → publicering, avbrott och retry med vanligt konto. Tidigare krav på minst 20 kontrollerade resor före liten pilot består tills ägaren uttryckligen ändrar det. Ett initprov är inte en hel resa. |
+| Återställning/support | Verifierad väg för förlorat lösenord/konto. |
+| Bolag/integritet | Ägaren bekräftar juridiskt namn/orgnr/postadress/support, avtal, lagringstider och överföringsmekanismer; inga uppfunna företag eller garantier. |
+| Previewstabilitet | Verklig release-SHA, klassificerade blockers och kontrollerad samtidighet. Capture/burst och inspector ägs av backloggens `SM-072`/`SM-073` (verifieringsplanen avklarad 2026-11-11). |
 
-**Läge 2026-10-22:** maskinläget är implementerat bakom
-`PREVIEW_HOST_ISOLATION=machine` (`preview-host/src/machines/`,
-`src/runtime/machine-runtime.js`, gästagent och bild i `preview-host/guest/`)
-med fail-closed-validering, identitetsbevis per maskin och end-to-end-guard
-mot ett fejkat Machines-API. Det är inte driftsatt; piloten enligt
-`preview-host/guest/README.md` och acceptansproven ovan återstår, liksom
-beslut om size/idle/pooling. Den delade baslinjen är dokumenterad för
-återställning i `docs/runbooks/preview-host-shared-baseline.md`.
+## Driftgräns och avslut
 
-## Avgränsningar som inte får döljas
+Nya migrationer går via befintlig runner, rätt verifierat mål och separat
+mandat; tillämpade filnamn ändras inte och rollback återinför inte publika
+ACL-grants. App-/hostrollback kan återinföra kodrisk och är separat driftbeslut.
+En grön app-preview visar inte vilken Fly-image eller DB-schema som används.
 
-En katalog per projekt och filtrerade miljövariabler är inte säker isolering.
-Ingen mikro-VM/containerlösning får betecknas produktionsklar utan körbar
-verifiering av separata filsystem/processer/hemligheter och resursgränser.
-Lösenordsåterställning, kontrollerad betald kundresa, lastprov och faktisk
-leverantörs-/bolagsidentitet tas vidare som uttryckliga restpunkter om de inte
-kan slutföras säkert i denna PR. Delad databas är ett ägarbeslut, inte en restbugg.
-
-Buggsanning: `SM-078`–`SM-081` i [backloggen](../../../../BUG-SWARM-BACKLOG.md).
-Detaljerad körjournal och slutbevis: [01-resultat.md](01-resultat.md).
+[BUG-SWARM-BACKLOG.md](../../../../BUG-SWARM-BACKLOG.md) äger SM-078–SM-081
+och senare verkliga defekter. Denna plan är en releasechecklista, inte en
+parallell buggkö. Ingen automatisk stängning av SM-080 eller annan
+runtimeacceptans följer av Gitmerge, unit/guard-tester eller lyckad F2-init.

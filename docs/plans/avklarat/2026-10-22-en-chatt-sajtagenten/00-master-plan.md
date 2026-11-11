@@ -1,11 +1,11 @@
 # En chatt: Sajtagenten flyttar in i builderns chatt
 
-> **Status: E1–E8 implementerade lokalt på `preview` (2026-10-22), ej pushade.**
-> Typecheck, lint och riktade tester gröna. `agent_messages`-migrationen är
-> **applicerad på både DEV och PROD** (ägarmandat 2026-10-22: DEV via
-> `db:ensure` över session-URL:en, PROD via `db:migrate:prod` med reason;
-> `db:schema-parity --require` grön efteråt, 53 tabeller identiska). Klienten
-> är fail-soft om tabellen saknas.
+> **Status: klar (avklarat 2026-11-11).** E1–E8 mergades i #1670
+> (`560e26cb0`, 2026-10-22) och är i produktion (master `b10654c91` har samma
+> kod). `agent_messages` applicerades på DEV och PROD 2026-10-22 enligt
+> ägarmandat; inte omverifierat vid arkiveringen. Följduppdragen under
+> «Ingår inte nu» är inte beställda. Planen behålls som fil eftersom
+> `composer-route.ts` och `docs/concepts/sajtagenten.md` citerar den.
 > Ägarbeslut: fria tyglar direkt efter promote till `master`; säkerhet
 > prioriteras inte i detta skede och Sajtagenten (OpenClaw) ska ha höga
 > befogenheter i buildern. Underlag: ägarens ChatGPT-granskning av repot
