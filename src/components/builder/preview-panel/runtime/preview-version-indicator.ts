@@ -11,7 +11,8 @@ export type PreviewVersionIndicator = {
  * ff62820f): the chat said "Klart" while the iframe still showed the host's
  * start page or the previous version, and nothing on screen said which. The
  * preview now says it itself. "Visar version N" requires the iframe's ready
- * receipt, which `usePreviewIframe` only accepts for this exact version.
+ * receipt, which `usePreviewIframe` only accepts for this exact version; any
+ * doubt (loading, ready-timeout, pending) says "startar" instead.
  */
 export function describePreviewVersionIndicator(input: {
   hasVersion: boolean;
@@ -20,6 +21,12 @@ export function describePreviewVersionIndicator(input: {
   previewPending?: boolean;
   iframeLoading?: boolean;
   iframeError?: boolean;
+  /**
+   * The iframe's ready receipt timed out (`preview_ready_timeout`). Loading and
+   * error are both false then (the timeout is silent in the UI), while the
+   * frame may still show the host's start page — so this is "starting".
+   */
+  readyTimedOut?: boolean;
   /** A real failure (not an `info` notice about an unverifiable page). */
   hasBuildError?: boolean;
   hasVersionMismatch?: boolean;
@@ -38,6 +45,7 @@ export function describePreviewVersionIndicator(input: {
   if (
     input.previewPending ||
     input.iframeLoading ||
+    input.readyTimedOut ||
     input.previewLifecycle === "bootstrapping" ||
     input.previewLifecycle === "recovering"
   ) {

@@ -532,14 +532,44 @@ describe("GET preview-status — readiness-failure utan levande process", () => 
     });
   });
 
-  it("faller tillbaka till stopped när hosten inte har något failed-verdikt", async () => {
+  it("svarar starting (inte stopped) när hosten bootar versionen efter 90 s grace", async () => {
+    // 2026-11-11: en kall gästmaskin kan passera 90 s; "stopped" fick buildern
+    // att riva den och starta en ny maskin.
     fetchPreviewHostReadinessVerdict.mockResolvedValue({
       running: false,
       versionId: "v1",
       readinessState: "starting",
+      hostStatus: "warm_project",
       readinessError: null,
       httpReady: false,
       regeneratedLockfile: null,
+    } as never);
+
+    const res = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/preview-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    const body = (await res.json()) as { status: string; reason?: string };
+    expect(body.status).toBe("starting");
+    expect(body.reason).toBe("boot_grace_period");
+
+    await runAfterCallbacks();
+    expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["hibernerad", { readinessState: "ready", hostStatus: "hibernated" }],
+    ["boot-loop", { readinessState: "starting", hostStatus: "error" }],
+    ["äldre host utan bootläge", { readinessState: null }],
+  ])("faller tillbaka till stopped efter grace när hosten inte bootar (%s)", async (_label, state) => {
+    fetchPreviewHostReadinessVerdict.mockResolvedValue({
+      running: false,
+      versionId: "v1",
+      readinessError: null,
+      httpReady: false,
+      regeneratedLockfile: null,
+      ...state,
     } as never);
 
     const res = await GET(

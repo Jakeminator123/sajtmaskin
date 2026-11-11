@@ -3,7 +3,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const redisRef = vi.hoisted(() => ({ current: null as null | Record<string, unknown> }));
 vi.mock("@/lib/data/redis", () => ({ getRedis: () => redisRef.current }));
 
-import { PREVIEW_START_LOCK_POLL_MS, withPreviewStartLock } from "./preview-start-lock";
+import {
+  PREVIEW_START_LOCK_POLL_MS,
+  PREVIEW_START_LOCK_RENEW_MS,
+  withPreviewStartLock,
+} from "./preview-start-lock";
 
 function fakeRedis() {
   const store = new Map<string, string>();
@@ -14,8 +18,9 @@ function fakeRedis() {
       store.set(key, value);
       return "OK";
     }),
-    eval: vi.fn(async (_script: string, _n: number, key: string, token: string) => {
+    eval: vi.fn(async (script: string, _n: number, key: string, token: string) => {
       if (store.get(key) !== token) return 0;
+      if (script.includes("expire")) return 1;
       store.delete(key);
       return 1;
     }),
@@ -110,6 +115,30 @@ describe("withPreviewStartLock", () => {
     expect(redis.set.mock.calls.length).toBeGreaterThan(1);
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("still held after waiting"));
     expect(redis.eval).not.toHaveBeenCalled();
+  });
+
+  it("renews the holder's TTL while a long start runs and stops renewing after release", async () => {
+    vi.useFakeTimers();
+    try {
+      const redis = fakeRedis();
+      redisRef.current = redis;
+      let finish!: () => void;
+      const held = withPreviewStartLock("chat-5", ({ acquired }) => {
+        expect(acquired).toBe(true);
+        return new Promise<void>((resolve) => (finish = resolve));
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(PREVIEW_START_LOCK_RENEW_MS * 3);
+      const renewCalls = redis.eval.mock.calls.filter(([script]) => String(script).includes("expire"));
+      expect(renewCalls.length).toBe(3);
+      finish();
+      await held;
+      await vi.advanceTimersByTimeAsync(PREVIEW_START_LOCK_RENEW_MS * 2);
+      expect(redis.eval.mock.calls.filter(([script]) => String(script).includes("expire")).length).toBe(3);
+      expect(redis.store.size).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("fails open when Redis errors", async () => {
