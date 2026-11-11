@@ -234,20 +234,13 @@ export function VersionHistory({
                 </Button>
               </div>
             ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  window.open(
-                    `/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`,
-                    "_blank",
-                    "noopener,noreferrer",
-                  )
-                }
-                className="h-7 px-2 text-xs"
-              >
-                <GitBranch className="h-3 w-3" />
-                Koppla GitHub
+              // Same tab: OAuth returns here and the page reloads the user, so
+              // the connection shows at once (a new tab left this one stale).
+              <Button asChild variant="outline" size="sm" className="h-7 px-2 text-xs">
+                <a href={`/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`}>
+                  <GitBranch className="h-3 w-3" />
+                  Koppla GitHub
+                </a>
               </Button>
             )
           ) : (
