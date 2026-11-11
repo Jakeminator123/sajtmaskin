@@ -8,6 +8,15 @@ Källan till värdena är [`preview-host/fly.toml`](../../preview-host/fly.toml)
 och Git-historiken; den här sidan är en läsbar sammanfattning, inte en
 tredje sanning. Ändras ett värde: ändra källan och uppdatera raden här.
 
+> **Driftläge nu: maskinläget (`SM-080`).** `vm-fly-jakem` kör
+> `PREVIEW_HOST_ISOLATION=machine` sedan 2026-10-22 och är bara kontrollplan
+> (API, store, proxy, gästernas livscykel). Därför står `fly.toml` på
+> `performance-1x`/2 GB, swap 512 MB och utan `PREVIEW_HOST_INSTALL_CONCURRENCY`.
+> Maskin- och install-slot-raderna nedan är baslinjens värden och finns bara
+> i Git-historiken (före krympningen 2026-11-11). **En återgång till
+> shared-läget kräver att VM-storleken höjs igen** innan läget slås om, annars
+> OOM-dödas kundinstalls på 2 GB.
+
 ## Vad baslinjen är
 
 En enda långlivad Fly Machine med en persistent volym kör allt: API,
@@ -35,12 +44,18 @@ från varandra (de kör som samma OS-användare på samma filsystem).
 
 ## Hur man återställer baslinjen
 
-1. Sätt `PREVIEW_HOST_ISOLATION` till `shared` eller ta bort nyckeln helt
-   (default är `shared`). Inget annat i hosten ändras av isoleringsläget.
-2. Kontrollera att `[[vm]]` i `fly.toml` och `fly scale vm` stämmer överens
-   (`performance-4x`, 16 GB).
-3. Deploya enligt `preview-host/README.md` § Deploy till Fly och verifiera
-   `/health` (`isolation.mode` ska vara `shared`).
+1. Höj först hosten till baslinjens storlek, i samma PR: `[[vm]]` i
+   `fly.toml` till `performance-4x`/`16gb`, `swap_size_mb = 2048` och
+   `PREVIEW_HOST_INSTALL_CONCURRENCY = "2"` under `[env]`. Kontrollplanets
+   `performance-1x`/2 GB rymmer inte kundinstalls (varje install kan toppa
+   1–2 GB).
+2. Sätt `PREVIEW_HOST_ISOLATION` till `shared` eller ta bort nyckeln helt
+   (default är `shared`; i drift är den en Fly-secret, så
+   `fly secrets unset --stage -a vm-fly-jakem PREVIEW_HOST_ISOLATION`).
+   Inget annat i hosten ändras av isoleringsläget.
+3. Deploya enligt `preview-host/README.md` § Deploy till Fly och kontrollera
+   att `fly scale show -a vm-fly-jakem` visar `performance`, 4 CPU, 16384 MB
+   (samma som `fly.toml`), och att `/health` har `isolation.mode` = `shared`.
 
 Gästmaskiner som eventuellt finns kvar i gäst-appen rensas med
 `fly machines list -a <gäst-app>` och `fly machines destroy`; de påverkar
