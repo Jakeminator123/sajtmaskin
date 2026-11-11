@@ -20,7 +20,12 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { resolveLegacyProviderUrl } from "@/app/api/v0/deployments/_route/legacy-provider-url";
 import { db } from "@/lib/db/client";
 import { appProjects, deployments, engineChats } from "@/lib/db/schema";
-import { normalizeDomainHostname, resolveLiveUrl } from "@/lib/live-site-url";
+import {
+  isProductionProviderVercelHost,
+  normalizeDomainHostname,
+  resolveLiveUrl,
+  toHttpsUrl,
+} from "@/lib/live-site-url";
 import { getProjectData } from "@/lib/db/services/projects";
 import { getVercelProjectProductionIdentity } from "@/lib/vercel/vercel-deploy";
 import type { SeoStatusPersisted } from "./seo-status";
@@ -192,12 +197,20 @@ export function resolveSiteAddress(input: AddressInput): SiteAddress {
 export function resolveOverviewAddress(
   project: OverviewProjectFields,
   latestReady: OverviewReadyRow | null | undefined,
+  attestedProductionAlias?: string | null,
 ): SiteAddress {
   const storedProvider = latestReady?.providerUrl?.trim() || null;
+  // `providerUrl` is often the per-deployment host
+  // (`<name>-<hash>-<team>.vercel.app`, prod 2026-11-11). Prefer the stable
+  // production alias: attested by Vercel, else the alias-shaped `url` column.
+  const storedUrl = latestReady?.url?.trim() || null;
+  const stableProvider =
+    (latestReady && attestedProductionAlias ? toHttpsUrl(attestedProductionAlias) : null) ||
+    (storedUrl && isProductionProviderVercelHost(storedUrl) ? storedUrl : null);
   return resolveSiteAddress({
     projectId: project.projectId,
     versionId: latestReady?.versionId,
-    providerUrl: storedProvider || resolveLegacyProviderUrl(latestReady?.url),
+    providerUrl: stableProvider || storedProvider || resolveLegacyProviderUrl(latestReady?.url),
     brandedDomain: project.brandedDomain,
     brandedDomainVerifiedAt: project.brandedDomainVerifiedAt,
     customDomain: project.customDomain,
@@ -328,7 +341,11 @@ export async function getProjectSiteOverview(projectId: string): Promise<SiteOve
   return {
     ...emptyOverview,
     chatId: liveRow?.chatId ?? latest.chatId ?? chatIds[0] ?? null,
-    address: resolveOverviewAddress({ ...project, projectId: project.id }, liveRow),
+    address: resolveOverviewAddress(
+      { ...project, projectId: project.id },
+      liveRow,
+      attested?.productionProviderAlias ?? null,
+    ),
     state: toPublishState(latest.status),
     liveAt: liveRow?.updatedAt ?? null,
     liveVersionId: liveRow?.versionId ?? null,

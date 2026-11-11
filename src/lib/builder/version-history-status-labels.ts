@@ -10,7 +10,7 @@
  * label/variant contract has one source of truth.
  *
  * False-green guard (område 7 invariant): a `degraded` token must NEVER
- * render with a solid-success look (`default`/"Publicerad" or a green
+ * render with a solid-success look (`default`/"Godkänd" or a green
  * fill). It surfaces as an amber warning badge so "green but missing X"
  * is visible instead of pretending the run was clean.
  *
@@ -125,9 +125,12 @@ export function productPostcheckAdvisoryReasonFromDegradations(
 
 const BADGES: Record<VersionDisplayStatus, VersionHistoryStatusBadge> = {
   promoted: {
-    label: "Publicerad",
+    // `release_state = promoted` is the verify gate, not a deploy. Publishing
+    // status lives in the portal/header (prod 2026-11-11: "Publicerad" on
+    // versions of a site that was never published).
+    label: "Godkänd",
     variant: "default",
-    tooltip: "Publicerad live. Klart att deploya.",
+    tooltip: "Godkänd av kontrollerna och klar att publicera. Säger inte att sajten är publicerad.",
     spinner: false,
     retryIcon: false,
   },
@@ -151,7 +154,7 @@ const BADGES: Record<VersionDisplayStatus, VersionHistoryStatusBadge> = {
     label: "Verifierar",
     variant: "secondary",
     tooltip:
-      "Server-verify kör i bakgrunden — typecheck/build. Kan landa i 'Publicerad' eller 'Fel' när den är klar.",
+      "Server-verify kör i bakgrunden — typecheck/build. Kan landa i 'Godkänd' eller 'Fel' när den är klar.",
     spinner: true,
     retryIcon: false,
   },

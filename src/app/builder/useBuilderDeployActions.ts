@@ -118,12 +118,14 @@ export function useBuilderDeployActions({
 }: Args) {
   const handleOpenDeployDialog = useCallback(() => {
     setDeployNameError(null);
-    // Prefill with the existing hosting project name when known so a
-    // re-publish keeps the same name (stable live address); otherwise fall
-    // back to the suggested project name.
-    setDeployNameInput(hydratedProjectName?.trim() || resolveSuggestedProjectName());
+    // Prefill with the project's own name (what the user sees in the portal).
+    // A re-publish keeps its hosting project and address regardless: the
+    // deploy route resolves a known Vercel project by id, not by this name.
+    setDeployNameInput(
+      appProjectName?.trim() || hydratedProjectName?.trim() || resolveSuggestedProjectName(),
+    );
     setDeployNameDialogOpen(true);
-  }, [hydratedProjectName, resolveSuggestedProjectName, setDeployNameError, setDeployNameInput, setDeployNameDialogOpen]);
+  }, [appProjectName, hydratedProjectName, resolveSuggestedProjectName, setDeployNameError, setDeployNameInput, setDeployNameDialogOpen]);
 
   const handleDomainSearch = useCallback(async () => {
     if (!domainQuery.trim()) return;

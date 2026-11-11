@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { generatedVercelProjectName } from "@/lib/vercel/project-name";
 import { usePublicPricing } from "@/lib/credits/use-public-pricing";
 import {
   Dialog,
@@ -26,6 +27,11 @@ type DeployNameDialogProps = {
    * a persisted value.
    */
   projectId?: string | null;
+  /**
+   * Vercel project name when the site is already published. The address then
+   * stays the same whatever name is typed here.
+   */
+  existingHostingName?: string | null;
   onDeployNameChange: (value: string) => void;
   onCancel: () => void;
   /**
@@ -52,6 +58,7 @@ export function DeployNameDialog({
   isDeploying,
   isSaving,
   projectId,
+  existingHostingName,
   onDeployNameChange,
   onCancel,
   onConfirm,
@@ -67,6 +74,7 @@ export function DeployNameDialog({
           disabled={disabled}
           isSaving={isSaving}
           projectId={projectId}
+          existingHostingName={existingHostingName}
           onDeployNameChange={onDeployNameChange}
           onCancel={onCancel}
           onConfirm={onConfirm}
@@ -76,18 +84,52 @@ export function DeployNameDialog({
   );
 }
 
+/**
+ * Same 8-char suffix as the deploy route (`sha256(projectId)`), so the
+ * address shown here is the one a first publish creates.
+ */
+function useProjectAddressSuffix(projectId: string | null): string | null {
+  const [suffix, setSuffix] = useState<{ projectId: string; value: string } | null>(null);
+  useEffect(() => {
+    if (!projectId || typeof crypto === "undefined" || !crypto.subtle) return;
+    let cancelled = false;
+    void crypto.subtle
+      .digest("SHA-256", new TextEncoder().encode(projectId))
+      .then((buffer) => {
+        if (cancelled) return;
+        const hex = Array.from(new Uint8Array(buffer))
+          .map((byte) => byte.toString(16).padStart(2, "0"))
+          .join("");
+        setSuffix({ projectId, value: hex.slice(0, 8) });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+  return suffix && suffix.projectId === projectId ? suffix.value : null;
+}
+
 function DeployNameDialogForm({
   deployName,
   deployNameError,
   disabled,
   isSaving,
   projectId,
+  existingHostingName,
   onDeployNameChange,
   onCancel,
   onConfirm,
 }: Pick<
   DeployNameDialogProps,
-  "deployName" | "deployNameError" | "isSaving" | "projectId" | "onDeployNameChange" | "onCancel" | "onConfirm"
+  | "deployName"
+  | "deployNameError"
+  | "isSaving"
+  | "projectId"
+  | "existingHostingName"
+  | "onDeployNameChange"
+  | "onCancel"
+  | "onConfirm"
 > & {
   disabled: boolean;
 }) {
@@ -104,6 +146,13 @@ function DeployNameDialogForm({
   const deployCredits = pricing.credits.deployProduction;
 
   const canConfirm = !disabled && seoValid;
+  const addressSuffix = useProjectAddressSuffix(existingHostingName ? null : projectId ?? null);
+  const existingHost = existingHostingName?.trim() || null;
+  const previewHost = existingHost
+    ? `${existingHost}.vercel.app`
+    : addressSuffix && deployName.trim()
+      ? `${generatedVercelProjectName(deployName, addressSuffix)}.vercel.app`
+      : null;
 
   return (
     <DialogContent className="max-w-md">
@@ -122,9 +171,13 @@ function DeployNameDialogForm({
             disabled={disabled}
           />
           {deployNameError && <div className="text-xs text-red-400">{deployNameError}</div>}
-          <p className="text-muted-foreground text-xs">
-            Publiceringen har inga mappar. Använd gärna prefix för gruppering om du vill hålla ordning.
-          </p>
+          {previewHost ? (
+            <p className="text-muted-foreground text-xs" data-testid="deploy-address-preview">
+              {existingHost ? "Adressen är kvar: " : "Sajten får adressen "}
+              <span className="text-foreground font-mono break-all">{previewHost}</span>
+              {existingHost ? "" : ". Egen domän kan du koppla efter publiceringen."}
+            </p>
+          ) : null}
         </div>
         <SeoOptInPanel
           projectId={projectId ?? null}

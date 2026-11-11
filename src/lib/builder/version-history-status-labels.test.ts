@@ -28,7 +28,7 @@ function display(
 
 describe("versionHistoryStatusBadge — label/variant mapping", () => {
   const cases: Array<[VersionDisplayStatus, string, string]> = [
-    ["promoted", "Publicerad", "default"],
+    ["promoted", "Godkänd", "default"],
     ["ready", "Klar", "secondary"],
     ["degraded", "Degraderad", "outline"],
     ["verifying", "Verifierar", "secondary"],
@@ -101,7 +101,7 @@ describe("versionHistoryStatusBadge — label/variant mapping", () => {
 describe("versionHistoryStatusBadge — false-green guard", () => {
   it("never renders a degraded run as a solid-success badge", () => {
     const badge = versionHistoryStatusBadge(display("degraded"));
-    expect(badge.label).not.toBe("Publicerad");
+    expect(badge.label).not.toBe("Godkänd");
     expect(badge.variant).not.toBe("default");
     // Amber accent, not a green/emerald success fill.
     expect(badge.className).toContain("amber");
@@ -286,11 +286,11 @@ describe("advisory-yta för infrastruktur-skip — SM-072", () => {
     meta: { skippedReason: "browser_crashed", infrastructureSkip: true },
   };
 
-  it("behåller Publicerad-etiketten men säger att kontrollen inte kunde köras", () => {
+  it("behåller Godkänd-etiketten men säger att kontrollen inte kunde köras", () => {
     const badge = versionHistoryStatusBadge(
       display("promoted", { degradations: [infraSkip] }),
     );
-    expect(badge.label).toBe("Publicerad");
+    expect(badge.label).toBe("Godkänd");
     expect(badge.variant).toBe("default");
     expect(badge.className).toBeUndefined();
     expect(badge.tooltip).toContain("Produktkontrollen kunde inte köras");

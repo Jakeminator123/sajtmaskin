@@ -38,6 +38,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+/** Cards rendered per step; "Visa fler" adds another page. */
+const PROJECTS_PAGE_SIZE = 24;
+
 const LIST_SEGMENTS: Array<{ id: ProjectListSegment; label: string }> = [
   { id: "all", label: "Alla" },
   { id: "published", label: "Publicerade" },
@@ -61,6 +64,8 @@ function ProjectsPageInner() {
   }>({ isOpen: false, projectId: "", projectName: "" });
   const [isDeleting, setIsDeleting] = useState(false);
   const [sitesById, setSitesById] = useState<Record<string, ProjectCardSiteValue>>({});
+  const [query, setQuery] = useState("");
+  const [visibleCount, setVisibleCount] = useState(PROJECTS_PAGE_SIZE);
 
   useEffect(() => {
     loadProjects();
@@ -167,14 +172,25 @@ function ProjectsPageInner() {
     }
   }
 
+  const normalizedQuery = query.trim().toLocaleLowerCase("sv-SE");
   const filteredProjects = useMemo(
-    () => projects.filter((project) => matchesProjectListSegment(sitesById[project.id], segment)),
-    [projects, sitesById, segment],
+    () =>
+      projects.filter(
+        (project) =>
+          matchesProjectListSegment(sitesById[project.id], segment) &&
+          (!normalizedQuery ||
+            project.name.toLocaleLowerCase("sv-SE").includes(normalizedQuery)),
+      ),
+    [projects, sitesById, segment, normalizedQuery],
   );
+  const visibleProjects = filteredProjects.slice(0, visibleCount);
   const counts = useMemo(
     () => countProjectListSegments(projects.map((project) => sitesById[project.id])),
     [projects, sitesById],
   );
+  // Published/draft counts need every project's site status. Until then a
+  // number reads as a real zero (prod 2026-11-11: zeros while loading).
+  const sitesLoaded = projects.every((project) => sitesById[project.id] !== undefined);
 
   return (
     <div className="bg-background min-h-screen">
@@ -203,7 +219,9 @@ function ProjectsPageInner() {
             <p className="mt-1 text-gray-400">
               Dina hemsidor — se status, öppna adressen och hantera publicering.
             </p>
-            <p className="mt-1 text-sm text-gray-500">{projects.length} projekt totalt</p>
+            <p className="mt-1 min-h-5 text-sm text-gray-500">
+              {loading ? null : `${projects.length} projekt totalt`}
+            </p>
           </div>
           <Link href="/">
             <Button className="bg-brand-teal hover:bg-brand-teal/90 gap-2">
@@ -254,13 +272,17 @@ function ProjectsPageInner() {
 
         {!loading && projects.length > 0 && (
           <div>
-            <div className="mb-6 flex flex-wrap gap-2" role="group" aria-label="Filtrera projekt">
+            <div className="mb-6 flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrera projekt">
               {LIST_SEGMENTS.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   aria-pressed={segment === item.id}
-                  onClick={() => setSegment(item.id)}
+                  onClick={() => {
+                    setSegment(item.id);
+                    setVisibleCount(PROJECTS_PAGE_SIZE);
+                  }}
                   className={cn(
                     "border px-3 py-1.5 text-sm transition-colors",
                     segment === item.id
@@ -269,36 +291,72 @@ function ProjectsPageInner() {
                   )}
                 >
                   {item.label}
-                  <span className="ml-2 text-xs text-gray-500">{counts[item.id]}</span>
+                  {item.id === "all" || sitesLoaded ? (
+                    <span className="ml-2 text-xs text-gray-500">{counts[item.id]}</span>
+                  ) : null}
                 </button>
               ))}
+            </div>
+              <label className="sm:ml-auto">
+                <span className="sr-only">Sök projekt</span>
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                    setVisibleCount(PROJECTS_PAGE_SIZE);
+                  }}
+                  placeholder="Sök projekt"
+                  className="focus-visible:ring-brand-teal/60 w-56 border border-gray-800 bg-black/40 px-3 py-1.5 text-sm text-white placeholder:text-gray-500 focus-visible:ring-2 focus-visible:outline-none"
+                />
+              </label>
             </div>
 
             {filteredProjects.length === 0 ? (
               <div className="border border-gray-800 bg-black/40 px-6 py-12 text-center">
                 <h2 className="text-lg font-semibold text-gray-300">
-                  {segment === "published"
-                    ? "Inga publicerade sajter än"
-                    : "Inga utkast just nu"}
+                  {normalizedQuery
+                    ? "Inga projekt matchar sökningen"
+                    : segment === "published"
+                      ? "Inga publicerade sajter än"
+                      : "Inga utkast just nu"}
                 </h2>
                 <p className="mt-2 text-sm text-gray-500">
-                  {segment === "published"
-                    ? "Publicera från byggaren när ett utkast är redo — sedan hanterar du sajten härifrån."
-                    : "Byt till Alla eller Publicerade om sajten redan är live eller håller på att publiceras."}
+                  {normalizedQuery
+                    ? "Prova ett annat namn eller töm sökfältet."
+                    : segment === "published"
+                      ? "Publicera från byggaren när ett utkast är redo — sedan hanterar du sajten härifrån."
+                      : "Byt till Alla eller Publicerade om sajten redan är live eller håller på att publiceras."}
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {filteredProjects.map((project) => (
-                  <ProjectCard
-                    key={project.id}
-                    project={project}
-                    site={sitesById[project.id]}
-                    onDelete={openDeleteDialog}
-                    onRetrySite={retryProjectSite}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {visibleProjects.map((project) => (
+                    <ProjectCard
+                      key={project.id}
+                      project={project}
+                      site={sitesById[project.id]}
+                      onDelete={openDeleteDialog}
+                      onRetrySite={retryProjectSite}
+                    />
+                  ))}
+                </div>
+                {filteredProjects.length > visibleProjects.length ? (
+                  <div className="mt-8 flex flex-col items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setVisibleCount((count) => count + PROJECTS_PAGE_SIZE)}
+                    >
+                      Visa fler
+                    </Button>
+                    <p className="text-xs text-gray-500">
+                      Visar {visibleProjects.length} av {filteredProjects.length}
+                    </p>
+                  </div>
+                ) : null}
+              </>
             )}
           </div>
         )}

@@ -60,4 +60,15 @@ describe("Navbar auth-hydration", () => {
     fireEvent.click(screen.getByText("Öppna builder"));
     expect(routerPush).toHaveBeenCalledWith("/builder?new=1");
   });
+
+  it("shows the credit balance and the account link to logged-in visitors", () => {
+    authState.isAuthenticated = true;
+    Object.assign(authState, { diamonds: 42 });
+    render(<Navbar />);
+    expect(
+      screen.getByRole("link", { name: "Du har 42 credits. Köp fler." }).getAttribute("href"),
+    ).toBe("/buy-credits");
+    expect(screen.getByRole("link", { name: "Konto" }).getAttribute("href")).toBe("/konto");
+    Object.assign(authState, { diamonds: undefined });
+  });
 });
