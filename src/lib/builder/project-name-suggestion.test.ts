@@ -1,8 +1,33 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_SUGGESTED_PROJECT_NAME_LENGTH,
+  projectNameFromPrompt,
   suggestProjectNameFromPrompt,
 } from "./project-name-suggestion";
+
+describe("projectNameFromPrompt", () => {
+  it("names the project after the business, not the site type", () => {
+    expect(
+      projectNameFromPrompt(
+        "En enkel hemsida för en frisörsalong i Malmö med öppettider och kontakt",
+      ),
+    ).toBe("Frisörsalong i Malmö med öppettider");
+  });
+
+  it("drops an owner lead-in", () => {
+    expect(projectNameFromPrompt("Jag driver en frisörsalong i Göteborg med 3 anställda")).toBe(
+      "Frisörsalong i Göteborg med 3 anställda",
+    );
+  });
+
+  it("keeps a prompt without a lead-in and capitalises it", () => {
+    expect(projectNameFromPrompt("kaffebar i Visby")).toBe("Kaffebar i Visby");
+  });
+
+  it("returns an empty string when nothing usable remains", () => {
+    expect(projectNameFromPrompt("   ")).toBe("");
+  });
+});
 
 describe("suggestProjectNameFromPrompt", () => {
   it("lämnar ett kort förslag orört", () => {

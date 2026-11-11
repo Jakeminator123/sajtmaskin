@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-store";
-import { LogOut, Menu, X } from "lucide-react";
+import { Coins, LogOut, Menu, User, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -17,7 +17,8 @@ interface NavbarProps {
 export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const { isAuthenticated, isInitialized, logout } = useAuth();
+  const { isAuthenticated, isInitialized, logout, diamonds } = useAuth();
+  const credits = typeof diamonds === "number" ? diamonds : 0;
   const router = useRouter();
 
   useEffect(() => {
@@ -113,6 +114,26 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
         ) : (
           <>
             {isAuthenticated && (
+              <>
+                {/* Same balance + account entry as the app header (prod 2026-11-11). */}
+                <Link
+                  href="/buy-credits"
+                  aria-label={`Du har ${credits} credits. Köp fler.`}
+                  className="border-border/40 text-muted-foreground hover:text-foreground hover:bg-secondary/40 inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm tabular-nums transition-colors"
+                >
+                  <Coins className="h-4 w-4 text-amber-400" aria-hidden />
+                  {credits}
+                </Link>
+                <Link
+                  href="/konto"
+                  className="text-muted-foreground hover:text-foreground hover:bg-secondary/40 inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm transition-colors"
+                >
+                  <User className="h-4 w-4" aria-hidden />
+                  Konto
+                </Link>
+              </>
+            )}
+            {isAuthenticated && (
               <Button
                 variant="ghost"
                 className="text-muted-foreground hover:text-foreground text-sm"
@@ -170,6 +191,26 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
               </>
             ) : (
               <>
+                {isAuthenticated && (
+                  <>
+                    <Link
+                      href="/buy-credits"
+                      className="text-muted-foreground hover:text-foreground hover:bg-secondary/40 flex items-center gap-2 rounded-lg px-3 py-3 text-sm tabular-nums transition-colors"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      <Coins className="h-4 w-4 text-amber-400" aria-hidden />
+                      {credits} credits
+                    </Link>
+                    <Link
+                      href="/konto"
+                      className="text-muted-foreground hover:text-foreground hover:bg-secondary/40 flex items-center gap-2 rounded-lg px-3 py-3 text-sm transition-colors"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      <User className="h-4 w-4" aria-hidden />
+                      Konto
+                    </Link>
+                  </>
+                )}
                 {isAuthenticated && (
                   <Button
                     variant="ghost"

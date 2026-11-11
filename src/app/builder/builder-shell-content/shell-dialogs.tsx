@@ -42,6 +42,7 @@ export function BuilderShellDialogs({
             isDeploying={vm.isDeploying}
             isSaving={false}
             projectId={vm.appProjectId ?? null}
+            existingHostingName={vm.hydratedVercelProjectName ?? null}
             onDeployNameChange={(value) => {
               vm.setDeployNameInput(value);
               if (vm.deployNameError) vm.setDeployNameError(null);

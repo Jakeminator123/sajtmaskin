@@ -41,3 +41,24 @@ export function suggestProjectNameFromPrompt(prompt: string): string {
   }
   return cut.replace(TRAILING_PUNCTUATION_OR_SPACE, "");
 }
+
+// "En enkel hemsida för en …", "Hemsida till mitt …": the site-type lead-in
+// says nothing about the business. Whitespace-delimited, no `\b` (å/ä/ö).
+const LEAD_IN =
+  /^(?:(?:en|ett|min|mitt|vår|vårt)\s+)?(?:(?:enkel|enkelt|ny|nytt|modern|modernt|snygg|snyggt|liten|litet|professionell|professionellt)\s+)*(?:hemsida|hemsidan|webbsida|webbplats|sajt|sida|landningssida|webbshop|app)\s+(?:för|till|åt|om)\s+(?:(?:en|ett|min|mitt|vår|vårt|mina|våra)\s+)?/iu;
+const OWNER_LEAD_IN = /^(?:jag|vi)\s+(?:driver|har|äger|är)\s+(?:en|ett)\s+/iu;
+const TRAILING_FILLER = /(?:\s+(?:och|i|med|för|på|av|till|som|en|ett|samt))+$/iu;
+
+/**
+ * Short project name from the first prompt: drops a generic "hemsida för en"
+ * lead-in, caps on a word boundary, drops a dangling "och/i/med" and
+ * capitalises. Returns "" when nothing usable remains.
+ */
+export function projectNameFromPrompt(prompt: string): string {
+  const firstLine = prompt.split("\n")[0]?.trim() ?? "";
+  const withoutLeadIn =
+    firstLine.replace(LEAD_IN, "").replace(OWNER_LEAD_IN, "").trim() || firstLine;
+  const cut = suggestProjectNameFromPrompt(withoutLeadIn).replace(TRAILING_FILLER, "").trim();
+  if (!cut) return "";
+  return cut.charAt(0).toLocaleUpperCase("sv-SE") + cut.slice(1);
+}

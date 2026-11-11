@@ -22,6 +22,7 @@ import { toBuilderStartHref } from "@/lib/ads/ads-click-params";
 import { noteAccountCreatedIfSignup } from "@/lib/ads/fire-google-ads-conversion";
 import { noteOpenAiRegistrationIfSignup } from "@/lib/ads/fire-openai-ads";
 import { createProject } from "@/lib/projects/project-client";
+import { projectNameFromPrompt } from "@/lib/builder/project-name-suggestion";
 import { trackHomepageEvent } from "@/components/landing-v2/landing-analytics";
 import {
   LOGIN_REQUIRED_VALUE,
@@ -259,7 +260,7 @@ function RootLandingContent() {
       setShowWizard(false);
       try {
         const project = await createProject(
-          `Analyserad - ${new Date().toLocaleDateString("sv-SE")}`,
+          wizardData.companyName?.trim() || projectNameFromPrompt(expandedPrompt) || "Ny sajt",
           "wizard",
           expandedPrompt.substring(0, 100),
         );

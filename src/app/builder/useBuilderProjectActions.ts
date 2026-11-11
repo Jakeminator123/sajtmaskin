@@ -12,7 +12,10 @@ import {
 } from "@/lib/builder/defaults";
 import { DEFAULT_DESIGN_THEME, type DesignTheme } from "@/lib/builder/theme-presets";
 import { clearPersistedMessages } from "@/lib/builder/messages-storage";
-import { suggestProjectNameFromPrompt } from "@/lib/builder/project-name-suggestion";
+import {
+  projectNameFromPrompt,
+  suggestProjectNameFromPrompt,
+} from "@/lib/builder/project-name-suggestion";
 import { createProject, saveProjectData } from "@/lib/projects/project-client";
 import type { ModelTier } from "@/lib/validations/chat-schemas";
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction, type TransitionStartFunction } from "react";
@@ -176,17 +179,14 @@ export function useBuilderProjectActions({
       const files = data.files;
       let targetProjectId = appProjectId;
       if (!targetProjectId) {
-        const dateLabel = new Date().toLocaleDateString("sv-SE");
         const firstUserMessage = messages.find(
           (m) => m.role === "user" && typeof m.content === "string",
         );
         const preferredName = pendingProjectName?.trim();
-        const baseTitle = preferredName || firstUserMessage?.content?.trim().slice(0, 40);
-        const name = preferredName
-          ? preferredName
-          : baseTitle
-            ? `${baseTitle} - ${dateLabel}`
-            : `Projekt ${dateLabel}`;
+        const name =
+          preferredName ||
+          projectNameFromPrompt(firstUserMessage?.content ?? "") ||
+          `Projekt ${new Date().toLocaleDateString("sv-SE")}`;
         const description = firstUserMessage?.content?.trim().slice(0, 100);
 
         const created = await createProject(name, undefined, description);

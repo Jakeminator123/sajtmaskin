@@ -88,6 +88,32 @@ describe("ProjectsPage", () => {
     cleanup();
   });
 
+  it("shows no zero counters while loading and searches by name", async () => {
+    let resolveProjects: (value: Project[]) => void = () => {};
+    getProjects.mockImplementation(
+      () => new Promise<Project[]>((resolve) => (resolveProjects = resolve)),
+    );
+    let resolveSite: (value: ProjectSite) => void = () => {};
+    getProjectSite.mockImplementation(
+      () => new Promise<ProjectSite>((resolve) => (resolveSite = resolve)),
+    );
+
+    render(<ProjectsPage />);
+    expect(screen.queryByText(/projekt totalt/)).toBeNull();
+
+    resolveProjects([project(), project({ id: "proj_two", name: "Frisör Malmö" })]);
+    expect(await screen.findByText("2 projekt totalt")).toBeTruthy();
+    // Site status still loading: no published/draft numbers yet.
+    expect(screen.getByRole("button", { name: "Publicerade" }).textContent).toBe("Publicerade");
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Sök projekt" }), {
+      target: { value: "frisör" },
+    });
+    expect(screen.getByRole("heading", { name: "Frisör Malmö" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Live-sajten" })).toBeNull();
+    resolveSite(site());
+  });
+
   it("shows persistent manage/edit actions and filters published vs draft", async () => {
     getProjects.mockResolvedValue([
       project(),

@@ -1,4 +1,8 @@
 import { createHash, randomUUID } from "crypto";
+import {
+  generatedVercelProjectName,
+  sanitizeVercelProjectNameBase,
+} from "@/lib/vercel/project-name";
 import { importedFileContentForExport } from "@/lib/import/extract-imported-archive";
 import { getVercelToken } from "@/lib/vercel";
 import {
@@ -110,7 +114,12 @@ export function readAttestedProductionDeploymentId(payload: unknown): string | n
  */
 export async function getVercelProjectProductionIdentity(
   vercelProjectId: string,
-): Promise<{ vercelProjectId: string; productionDeploymentId: string | null } | null> {
+): Promise<{
+  vercelProjectId: string;
+  productionDeploymentId: string | null;
+  /** Shortest attested `*.vercel.app` production alias (stable address). */
+  productionProviderAlias: string | null;
+} | null> {
   const expectedId = vercelProjectId.trim();
   if (!expectedId) return null;
 
@@ -135,6 +144,7 @@ export async function getVercelProjectProductionIdentity(
     return {
       vercelProjectId: projectId,
       productionDeploymentId: readAttestedProductionDeploymentId(payload),
+      productionProviderAlias: readAttestedProductionProviderAlias(payload).alias,
     };
   } catch {
     return null;
@@ -172,16 +182,7 @@ function getVercelTeamId(): string | null {
 }
 
 export function sanitizeVercelProjectName(input: string): string {
-  const cleaned = input
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+/, "")
-    .replace(/-+$/, "");
-
-  const maxLen = 52;
-  const truncated = cleaned.slice(0, maxLen).replace(/-+$/, "");
+  const truncated = sanitizeVercelProjectNameBase(input);
 
   if (truncated.length > 0) return truncated;
 
@@ -197,20 +198,11 @@ export function buildGeneratedVercelProjectName(
   displayName: string,
   appProjectId: string,
 ): string {
-  const readable =
-    displayName
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9-]+/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 30)
-      .replace(/-+$/, "") || "site";
   const suffix = createHash("sha256")
     .update(appProjectId)
     .digest("hex")
     .slice(0, 8);
-  return sanitizeVercelProjectName(`sajtmaskin-${readable}-${suffix}`);
+  return sanitizeVercelProjectName(generatedVercelProjectName(displayName, suffix));
 }
 
 export function toVercelFilesFromTextFiles(
