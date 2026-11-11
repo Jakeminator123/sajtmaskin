@@ -15,6 +15,7 @@ import { readPreviewUrl } from "@/lib/api/preview-url-contract";
 import { debugLog } from "@/lib/utils/debug";
 import { noteGoogleAdsConversion } from "@/lib/ads/fire-google-ads-conversion";
 import { REPAIR_ABORTED_TOAST } from "@/lib/gen/verify/repair-abort-copy";
+import { isDefaultProjectName } from "@/lib/builder/project-name-suggestion";
 import {
   markPendingCreatedVersion,
   type PendingCreatedVersionRef,
@@ -65,7 +66,8 @@ type Args = {
   setAppProjectName: Dispatch<SetStateAction<string | null>>;
   setCustomInstructions: Dispatch<SetStateAction<string>>;
   setApplyInstructionsOnce: Dispatch<SetStateAction<boolean>>;
-  resolveSuggestedProjectName: () => string;
+  /** Prompt-derived name; `hostingFallback` is used when the prompt gives none. */
+  resolveSuggestedProjectName: (hostingFallback?: string | null) => string;
   mutateChat: () => void;
   mutateVersions: () => void;
   validateCss: (chatId: string, versionId: string) => Promise<{
@@ -121,8 +123,13 @@ export function useBuilderDeployActions({
     // Prefill with the project's own name (what the user sees in the portal).
     // A re-publish keeps its hosting project and address regardless: the
     // deploy route resolves a known Vercel project by id, not by this name.
+    // The builder's placeholder ("Namnlöst projekt") is not a name: suggest
+    // one from the prompt instead, and the hosting name only as a last resort.
+    const ownName = appProjectName?.trim() ?? "";
     setDeployNameInput(
-      appProjectName?.trim() || hydratedProjectName?.trim() || resolveSuggestedProjectName(),
+      ownName && !isDefaultProjectName(ownName)
+        ? ownName
+        : resolveSuggestedProjectName(hydratedProjectName),
     );
     setDeployNameDialogOpen(true);
   }, [appProjectName, hydratedProjectName, resolveSuggestedProjectName, setDeployNameError, setDeployNameInput, setDeployNameDialogOpen]);
@@ -419,7 +426,7 @@ export function useBuilderDeployActions({
   ) => {
     if (isDeploying || isDeployNameSaving) return;
     const rawName = deployNameInput.trim();
-    const nextName = rawName || resolveSuggestedProjectName();
+    const nextName = rawName || resolveSuggestedProjectName(hydratedProjectName);
     if (!nextName.trim()) {
       setDeployNameError("Ange ett projektnamn.");
       return;
@@ -493,6 +500,7 @@ export function useBuilderDeployActions({
     isDeployNameSaving,
     deployNameInput,
     resolveSuggestedProjectName,
+    hydratedProjectName,
     appProjectId,
     appProjectName,
     deployActiveVersionToVercel,

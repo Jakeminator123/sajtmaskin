@@ -1,31 +1,74 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_PROJECT_NAME,
   MAX_SUGGESTED_PROJECT_NAME_LENGTH,
+  isDefaultProjectName,
   projectNameFromPrompt,
   suggestProjectNameFromPrompt,
 } from "./project-name-suggestion";
 
 describe("projectNameFromPrompt", () => {
-  it("names the project after the business, not the site type", () => {
+  // Riggbygget 2026-11-11 (V-02/V-03): projektet hette "Namnlöst projekt" och
+  // publiceringen föreslog "Bygg en hemsida för Café Lindgren, ett".
+  it("tar verksamhetens namn ur riggens prompt", () => {
     expect(
       projectNameFromPrompt(
-        "En enkel hemsida för en frisörsalong i Malmö med öppettider och kontakt",
+        "Bygg en hemsida för Café Lindgren, ett familjeägt kafé i Uppsala med surdegsbröd, " +
+          "kanelbullar och vegetarisk lunch. Startsida med en tydlig hjältebild, meny med priser.",
       ),
-    ).toBe("Frisörsalong i Malmö med öppettider");
+    ).toBe("Café Lindgren");
   });
 
-  it("drops an owner lead-in", () => {
-    expect(projectNameFromPrompt("Jag driver en frisörsalong i Göteborg med 3 anställda")).toBe(
-      "Frisörsalong i Göteborg med 3 anställda",
+  it.each([
+    ["Skapa en modern hemsida för en frisörsalong i Malmö med öppettider och kontakt", "Frisörsalong i Malmö"],
+    ["En enkel hemsida för en frisörsalong i Malmö med öppettider och kontakt", "Frisörsalong i Malmö"],
+    ["Gör en sajt åt Svenssons Bygg AB som bygger altaner i Västerås", "Svenssons Bygg AB"],
+    ["Jag vill ha en hemsida för min bilverkstad i Umeå.", "Bilverkstad i Umeå"],
+    ["Hej! Kan du bygga en webbplats till vår yogastudio Lotus i Lund?", "Yogastudio Lotus i Lund"],
+    ["Kan du hjälpa mig att skapa en sajt för Tandläkare Berg i Örebro", "Tandläkare Berg i Örebro"],
+    ["Jag behöver en ny hemsida till mitt företag Nordic Fönster AB", "Nordic Fönster AB"],
+    ["Ett familjeägt kafé i Uppsala som heter Café Lindgren", "Café Lindgren"],
+    ["Landningssida för appen Pling – boka tvättstugan enkelt", "Appen Pling"],
+    ["Restaurang Havsbris i Ystad – fisk och skaldjur vid hamnen", "Restaurang Havsbris i Ystad"],
+    ['Skapa en hemsida för "Bageri Blå" i Kalmar', "Bageri Blå"],
+    ["Designa en webbshop: Ljusverkstaden, handgjorda ljus från Gotland", "Ljusverkstaden"],
+    ["Jag driver en frisörsalong i Göteborg med 3 anställda", "Frisörsalong i Göteborg"],
+    ["kaffebar i Visby", "Kaffebar i Visby"],
+  ])("%s → %s", (prompt, expected) => {
+    expect(projectNameFromPrompt(prompt)).toBe(expected);
+  });
+
+  it("kapar en lång beskrivning utan naturlig gräns på ordgräns", () => {
+    const name = projectNameFromPrompt(
+      "Bygg en hemsida för en familjeägd byggfirma i norra Norrland och södra Lappland",
     );
+    expect(name.length).toBeLessThanOrEqual(MAX_SUGGESTED_PROJECT_NAME_LENGTH);
+    expect(name).toBe("Familjeägd byggfirma i norra Norrland");
   });
 
-  it("keeps a prompt without a lead-in and capitalises it", () => {
-    expect(projectNameFromPrompt("kaffebar i Visby")).toBe("Kaffebar i Visby");
+  it("använder första icke-tomma raden", () => {
+    expect(projectNameFromPrompt("\n  Bygg en sajt för Ateljé Ek\nMed galleri")).toBe("Ateljé Ek");
   });
 
-  it("returns an empty string when nothing usable remains", () => {
+  it("returnerar tom sträng när bara sajttypen eller en hälsning finns", () => {
+    expect(projectNameFromPrompt("Bygg en hemsida")).toBe("");
+    expect(projectNameFromPrompt("Skapa en modern sajt, gärna mörk")).toBe("");
+    expect(projectNameFromPrompt("Hej!")).toBe("");
     expect(projectNameFromPrompt("   ")).toBe("");
+  });
+});
+
+describe("isDefaultProjectName", () => {
+  it("känner igen platshållaren och tomt namn", () => {
+    expect(isDefaultProjectName(DEFAULT_PROJECT_NAME)).toBe(true);
+    expect(isDefaultProjectName("  namnlöst projekt ")).toBe(true);
+    expect(isDefaultProjectName(null)).toBe(true);
+    expect(isDefaultProjectName("")).toBe(true);
+  });
+
+  it("skriver aldrig över ett namn användaren har satt", () => {
+    expect(isDefaultProjectName("Café Lindgren")).toBe(false);
+    expect(isDefaultProjectName("Namnlöst projekt 2")).toBe(false);
   });
 });
 

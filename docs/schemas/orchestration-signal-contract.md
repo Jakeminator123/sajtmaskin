@@ -97,7 +97,7 @@ Konsekvenserna per läsare: promote-guarden svarar retrybart `indeterminate`
 för `passed` och `failed`; runtime-ready-kvittot stämplar bara rader vars revision
 matchar innehållet VM:en servar (och cachen nycklas på revision); en terminal
 bus-status som beskriver äldre innehåll degraderas i `/version-status`
-(`stale_content_revision` → amber "Degraderad", aldrig grön "Klar"). Frekvensen av
+(`stale_content_revision` → amber "Klar med anmärkning", aldrig grön "Klar"). Frekvensen av
 känd mismatch mäts via `sajtmaskin_content_revision_mismatch_total{surface,verdict}`.
 
 Två saker får inte göras: stämpla om `files_revision` på en befintlig
