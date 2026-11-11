@@ -442,7 +442,7 @@ const MessageListComponent = ({
     return (
       <div className="text-muted-foreground flex h-full flex-col items-center justify-center">
         <MessageSquare className="mb-3 h-10 w-10" />
-        <p className="text-sm" suppressHydrationWarning>Ingen chat vald ännu</p>
+        <p className="text-sm" suppressHydrationWarning>Ingen chatt vald ännu</p>
       </div>
     );
   }

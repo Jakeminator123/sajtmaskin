@@ -90,6 +90,18 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
+  // Esc stänger mobilmenyn och användarmenyn.
+  useEffect(() => {
+    if (!showMobileMenu && !showUserMenu) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setShowMobileMenu(false);
+      setShowUserMenu(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [showMobileMenu, showUserMenu]);
+
   // Close mobile menu on route change
   useEffect(() => {
     setShowMobileMenu(false);
@@ -105,7 +117,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
           <div className="p-1.5">
             <Image
               src={rocketLogo}
-              alt="SajtMaskin logotyp"
+              alt="Sajtmaskin logotyp"
               width={24}
               height={24}
               className="h-6 w-6"
@@ -113,7 +125,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
             />
           </div>
           <div className="flex flex-col leading-none">
-            <span className="text-lg font-bold tracking-tight text-white">SajtMaskin</span>
+            <span className="text-lg font-bold tracking-tight text-white">Sajtmaskin</span>
             <span className="text-[10px] text-gray-400 sm:text-xs">En sajt av SajtStudio.se</span>
           </div>
         </Link>
@@ -174,7 +186,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                   : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
               }`}
             >
-              Templates
+              Mallar
             </Button>
           </Link>
           <Link href="/buy-credits">

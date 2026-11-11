@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyTokenEdge, getTokenFromRequestEdge, isAdminEmailEdge } from "@/lib/auth/edge-auth";
+import { buildLoginRequiredUrl } from "@/lib/auth/login-required";
 import { getPreviewOriginCspSource } from "@/lib/gen/preview/preview-origin";
 import {
   canonicalPublicUrlForDuplicateHost,
@@ -19,6 +20,9 @@ import { PERMISSIONS_POLICY } from "@/lib/security/permissions-policy";
 // ---------------------------------------------------------------------------
 
 const ADMIN_PREFIX = "/admin";
+
+/** Interna testytor utanför /admin som bara admin ska nå (D-ID-piloten). */
+const ADMIN_ONLY_PATHS = new Set(["/avatar"]);
 
 const AUTH_REQUIRED_PATHS = new Set(["/projects", "/buy-credits", "/konto"]);
 
@@ -41,6 +45,7 @@ function isApiRoute(pathname: string): boolean {
 }
 
 function needsAdminAuth(pathname: string): boolean {
+  if (ADMIN_ONLY_PATHS.has(pathname)) return true;
   return pathname === ADMIN_PREFIX || pathname.startsWith(`${ADMIN_PREFIX}/`);
 }
 
@@ -376,7 +381,11 @@ export async function proxy(request: NextRequest) {
         return redirect;
       }
     } else if (!payload) {
-      const redirect = NextResponse.redirect(new URL("/", request.url));
+      // Kundsidor: öppna inloggningen på startsidan och skicka tillbaka hit
+      // efteråt, i stället för att tyst kasta besökaren till "/".
+      const redirect = NextResponse.redirect(
+        buildLoginRequiredUrl(request.url, `${pathname}${request.nextUrl.search}`),
+      );
       addSecurityHeaders(redirect, pathname, nonce, enforceCsp, hostname);
       return redirect;
     }

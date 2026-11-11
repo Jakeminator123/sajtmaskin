@@ -55,7 +55,7 @@ export function PostCheckPanel(props: PostCheckPanelProps) {
         {props.autoFixQueued ? (
           <div className="text-amber-300">Status: autofix är köad efter post-check</div>
         ) : props.qualityGatePending ? (
-          <div className="text-cyan-300">Status: quality gate körs fortfarande</div>
+          <div className="text-cyan-300">Status: byggkontrollen körs fortfarande</div>
         ) : props.provisional ? (
           <div className="text-amber-300">
             Status: preliminär version medan verifieringen slutförs

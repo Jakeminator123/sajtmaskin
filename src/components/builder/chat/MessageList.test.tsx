@@ -49,7 +49,7 @@ describe("MessageList", () => {
   });
 
   it.each([
-    [false, "Status: quality gate körs fortfarande"],
+    [false, "Status: byggkontrollen körs fortfarande"],
     [true, "Status: autofix är köad efter post-check"],
   ])("renders the actual post-check result in shared details (autofix: %s)", (autoFixQueued, status) => {
     render(<MessageList chatId="chat_postcheck" lifecycleStage="integrations" messages={[{

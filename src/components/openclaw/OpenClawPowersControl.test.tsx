@@ -61,14 +61,14 @@ describe("OpenClawPowersControl", () => {
     });
     render(<OpenClawPowersControl />);
 
-    const toggle = screen.getByRole("button", { name: "Slå på extra befogenheter" });
+    const toggle = screen.getByRole("button", { name: "Låt agenten ändra" });
     expect(toggle.getAttribute("aria-pressed")).toBe("false");
 
     fireEvent.click(toggle);
 
     expect(useOpenClawStore.getState().powersOn).toBe(true);
     expect(
-      screen.getByRole("button", { name: "Stäng av extra befogenheter" }).getAttribute("aria-pressed"),
+      screen.getByRole("button", { name: "Låt agenten ändra" }).getAttribute("aria-pressed"),
     ).toBe("true");
   });
 
@@ -93,7 +93,7 @@ describe("OpenClawPowersControl", () => {
     });
     render(<OpenClawPowersControl />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Välj extra befogenheter" }));
+    fireEvent.click(screen.getByRole("button", { name: "Välj vad agenten får ändra" }));
 
     expect(useOpenClawStore.getState().powersOn).toBe(false);
   });
@@ -106,7 +106,7 @@ describe("OpenClawPowersControl", () => {
     });
     render(<OpenClawPowersControl />);
 
-    const chevron = screen.getByRole("button", { name: "Välj extra befogenheter" });
+    const chevron = screen.getByRole("button", { name: "Välj vad agenten får ändra" });
     chevron.focus();
     fireEvent.keyDown(chevron, { key: "Enter" });
     fireEvent.click(await screen.findByRole("menuitemcheckbox", { name: /Armerad autonomi/ }));
@@ -123,7 +123,7 @@ describe("OpenClawPowersControl", () => {
     });
     render(<OpenClawPowersControl />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Slå på extra befogenheter" }));
+    fireEvent.click(screen.getByRole("button", { name: "Låt agenten ändra" }));
 
     expect(useOpenClawStore.getState().grantedPowers).toEqual([]);
   });
@@ -138,7 +138,7 @@ describe("OpenClawPowersControl", () => {
     });
     const { container } = render(<OpenClawPowersControl />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Slå på extra befogenheter" }));
+    fireEvent.click(screen.getByRole("button", { name: "Låt agenten ändra" }));
 
     expect(fetchMock).toHaveBeenCalledWith("/api/openclaw/health");
     await waitFor(() => {
@@ -159,7 +159,7 @@ describe("OpenClawPowersControl", () => {
     });
     render(<OpenClawPowersControl />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Slå på extra befogenheter" }));
+    fireEvent.click(screen.getByRole("button", { name: "Låt agenten ändra" }));
 
     expect(fetchMock).toHaveBeenCalledWith("/api/openclaw/health");
     await waitFor(() => {

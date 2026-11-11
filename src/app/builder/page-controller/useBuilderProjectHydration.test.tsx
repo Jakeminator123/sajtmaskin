@@ -60,7 +60,7 @@ describe("useBuilderProjectHydration new entry", () => {
       }),
     );
 
-    await waitFor(() => expect(createProject).toHaveBeenCalledWith("Untitled Project"));
+    await waitFor(() => expect(createProject).toHaveBeenCalledWith("Namnlöst projekt"));
     await waitFor(() =>
       expect(router.replace).toHaveBeenCalledWith("/builder?project=project_new"),
     );
