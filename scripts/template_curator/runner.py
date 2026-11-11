@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import http.client
 import json
 import os
 import re
@@ -35,6 +36,7 @@ DOWNLOAD_TIMEOUT_SECONDS = 30
 AUDIT_BASE_TIMEOUT_SECONDS = 90
 AUDIT_PER_ARCHIVE_TIMEOUT_SECONDS = 8
 AUDIT_MAX_TIMEOUT_SECONDS = 900
+MAX_ANALYZE_TEMPLATES = 100
 
 _ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
 _SHA_RE = re.compile(r"^[a-f0-9]{64}$")
@@ -345,7 +347,9 @@ def download_verified_archive(
     except CuratorError:
         temporary.unlink(missing_ok=True)
         raise
-    except (OSError, TimeoutError):
+    except (OSError, TimeoutError, http.client.HTTPException):
+        # HTTPException (IncompleteRead, BadStatusLine, ...) is not an OSError;
+        # without it a cut-off response escaped as an uncaught page crash.
         temporary.unlink(missing_ok=True)
         raise CuratorError("download failed") from None
 
@@ -655,6 +659,10 @@ def curate_templates(
     node_command: str = "node",
 ) -> dict[str, Any]:
     selected = list(records)
+    if len(selected) > MAX_ANALYZE_TEMPLATES:
+        raise CuratorError(
+            f"analysis selected {len(selected)} templates; the limit is {MAX_ANALYZE_TEMPLATES}"
+        )
     audits = run_audit(
         selected,
         repo_root=repo_root,

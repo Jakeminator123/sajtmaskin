@@ -80,7 +80,7 @@ class TemplateRecord:
     archive_url: str
     archive_sha256: str | None
     archive_size_bytes: int | None
-    still_image_url: str
+    still_image_url: str | None
     preview_fits: bool | None
     in_gallery: bool = False
     site_visible: bool = False
@@ -534,6 +534,13 @@ def _load_manifest(repo_root: Path) -> dict[str, TemplateRecord]:
             raise CatalogValidationError(f"{label}.archiveSizeBytes is invalid")
         if template_id in result:
             raise CatalogValidationError(f"Duplicate Blob template id {template_id}")
+        # The uploader writes stillImageUrl: null when a template has no image on
+        # disk; that must not make the whole catalog unreadable.
+        still_image_url = (
+            None
+            if row.get("stillImageUrl") is None
+            else _required_trimmed_string(row, "stillImageUrl", label)
+        )
         result[template_id] = TemplateRecord(
             id=template_id,
             title=_required_trimmed_string(row, "title", label),
@@ -542,7 +549,7 @@ def _load_manifest(repo_root: Path) -> dict[str, TemplateRecord]:
             archive_url=_required_trimmed_string(row, "archiveUrl", label),
             archive_sha256=archive_sha,
             archive_size_bytes=size,
-            still_image_url=_required_trimmed_string(row, "stillImageUrl", label),
+            still_image_url=still_image_url,
             preview_fits=preview_fits,
         )
     return result
