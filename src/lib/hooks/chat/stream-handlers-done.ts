@@ -12,6 +12,7 @@ import {
   updateCreateChatLockChatId,
 } from "./helpers";
 import type { StreamContext, StreamRunState } from "./stream-handlers-types";
+import { SITE_SAVED_TOAST_OPTIONS, SITE_SAVED_TOAST_TITLE } from "./site-saved-toast";
 
 type DoneDeps = {
   appendProgressPart: (
@@ -383,7 +384,14 @@ export function handleDoneEvent(
       `Streamen rapporterade fel tidigare, men en version eller demo returnerades ändå. ${errTail}${state.pendingStreamErrorMessage.length > 280 ? "…" : ""}`,
     );
   } else if (ctx.streamType === "create" && !awaitingInput) {
-    toast.success(planArtifact ? "Plan skapad!" : "Sajt skapad!");
+    if (planArtifact) {
+      toast.success("Plan skapad!");
+    } else {
+      // V-04 (2026-11-11): "Sajt skapad!" kom 85 s innan sajten syntes och låg
+      // över headerns knappar. `done` betyder sparad version; förhandsvisningen
+      // säger själv när den visar versionen (versionsindikatorn).
+      toast.success(SITE_SAVED_TOAST_TITLE, SITE_SAVED_TOAST_OPTIONS);
+    }
   }
   ctx.mutateVersions();
   const onlySelectVersionIfWasLatest = Boolean(doneData.onlySelectVersionIfWasLatest);

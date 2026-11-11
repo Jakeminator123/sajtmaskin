@@ -53,6 +53,43 @@ describe("PreviewPanelChrome versionsindikator", () => {
   });
 });
 
+describe("PreviewPanelChrome Dator/Mobil-växlare", () => {
+  it("visas bara när en ägare tar emot bytet", () => {
+    const { queryByTestId } = render(<PreviewPanelChrome {...BASE_PROPS} />);
+    expect(queryByTestId("preview-device-toggle")).toBeNull();
+  });
+
+  it("markerar valt läge med aria-pressed och byter med tangentbordsbara knappar", () => {
+    const onPreviewDeviceChange = vi.fn();
+    const { getByRole } = render(
+      <PreviewPanelChrome
+        {...BASE_PROPS}
+        previewDevice="desktop"
+        onPreviewDeviceChange={onPreviewDeviceChange}
+      />,
+    );
+    const group = getByRole("group", { name: "Förhandsvisningens bredd" });
+    const dator = getByRole("button", { name: "Dator" });
+    const mobil = getByRole("button", { name: "Mobil" });
+    expect(group).toBeTruthy();
+    expect(dator.getAttribute("aria-pressed")).toBe("true");
+    expect(mobil.getAttribute("aria-pressed")).toBe("false");
+    expect(mobil.getAttribute("type")).toBe("button");
+
+    fireEvent.click(mobil);
+    expect(onPreviewDeviceChange).toHaveBeenCalledWith("mobile");
+    fireEvent.click(dator);
+    expect(onPreviewDeviceChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("finns inte i kodvyn", () => {
+    const { queryByTestId } = render(
+      <PreviewPanelChrome {...BASE_PROPS} isCodeView onPreviewDeviceChange={vi.fn()} />,
+    );
+    expect(queryByTestId("preview-device-toggle")).toBeNull();
+  });
+});
+
 describe("PreviewPanelChrome sidflik-rad", () => {
   it("renderar raden redan innan några routes är kända", () => {
     const { container } = render(<PreviewPanelChrome {...BASE_PROPS} />);

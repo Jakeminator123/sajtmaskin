@@ -27,6 +27,7 @@ import { isAddPanelEnabled } from "@/lib/builder/add-panel-feature";
 import { PreviewPanelEmptyState } from "./PreviewPanelEmptyState";
 import { PreviewPanelSurface } from "./runtime/PreviewPanelSurface";
 import { describePreviewVersionIndicator } from "./runtime/preview-version-indicator";
+import type { PreviewDevice } from "./runtime/preview-device";
 import type { PreviewIssuePayload } from "./runtime/iframe-diagnostics";
 import { fetchChatVersionFilesJson } from "./code/chat-version-files-fetch";
 import { usePreviewHeartbeat } from "./runtime/usePreviewHeartbeat";
@@ -291,6 +292,9 @@ export function PreviewPanel({
     iframeRef,
   });
   const hasVersionMismatch = Boolean(versionMismatchPayload);
+  // Dator/Mobil (V-20, 2026-11-11). Bara en bredd på ramen: samma iframe,
+  // ingen omladdning och ingen ny session.
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
   const versionIndicator = useMemo(
     () =>
       describePreviewVersionIndicator({
@@ -1037,6 +1041,8 @@ export function PreviewPanel({
       previewBuildError={previewBuildError}
       previewProdBuild={previewProdBuild}
       versionIndicator={versionIndicator}
+      previewDevice={previewDevice}
+      onPreviewDeviceChange={setPreviewDevice}
       iframeError={iframeError}
       iframeErrorMessage={iframeErrorMessage}
       isCodeView={isCodeView}
