@@ -132,7 +132,7 @@ export interface PreviewPanelProps {
   activeVersionIsLatest?: boolean;
   /**
    * Human version number of the active version ("Visar version 2"). Optional:
-   * without it the indicator says "vald version" instead of a number.
+   * without it the indicator shows nothing (never a text without a number).
    */
   activeVersionNumber?: number | null;
   /** Latest repair pass index (0 when none), for bounded "Reparerar (X/2)" copy. */

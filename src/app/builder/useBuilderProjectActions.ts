@@ -13,8 +13,8 @@ import {
 import { DEFAULT_DESIGN_THEME, type DesignTheme } from "@/lib/builder/theme-presets";
 import { clearPersistedMessages } from "@/lib/builder/messages-storage";
 import {
+  isDefaultProjectName,
   projectNameFromPrompt,
-  suggestProjectNameFromPrompt,
 } from "@/lib/builder/project-name-suggestion";
 import { createProject, saveProjectData } from "@/lib/projects/project-client";
 import type { ModelTier } from "@/lib/validations/chat-schemas";
@@ -130,22 +130,28 @@ export function useBuilderProjectActions({
     [chatId, chatIdParam, projectParam, router, searchParams, setAppProjectId],
   );
 
-  const resolveSuggestedProjectName = useCallback(() => {
-    // An explicitly chosen name is used verbatim — never truncated.
-    const preferred = pendingProjectName?.trim();
-    if (preferred) return preferred;
-    const firstUserMessage = messages.find(
-      (m) => m.role === "user" && typeof m.content === "string",
-    );
-    // Prompt-derived suggestions are capped on a word boundary: a full
-    // free-form prompt is not a usable project name (prod 2026-08-01).
-    const promptBase = firstUserMessage?.content?.trim() || resolvedPrompt?.trim();
-    if (promptBase) {
-      const suggestion = suggestProjectNameFromPrompt(promptBase);
-      if (suggestion) return suggestion;
-    }
-    return chatId ? `sajtmaskin-${chatId}` : "sajtmaskin";
-  }, [pendingProjectName, messages, resolvedPrompt, chatId]);
+  const resolveSuggestedProjectName = useCallback(
+    (hostingFallback?: string | null) => {
+      // An explicitly chosen name is used verbatim — never truncated.
+      const preferred = pendingProjectName?.trim();
+      if (preferred && !isDefaultProjectName(preferred)) return preferred;
+      const firstUserMessage = messages.find(
+        (m) => m.role === "user" && typeof m.content === "string",
+      );
+      // The business name or a short description from the prompt, never its
+      // first words: "Bygg en hemsida för Café Lindgren, ett" became the
+      // publish name and address in the rig test 2026-11-11 (V-03).
+      const promptBase = firstUserMessage?.content?.trim() || resolvedPrompt?.trim();
+      if (promptBase) {
+        const suggestion = projectNameFromPrompt(promptBase);
+        if (suggestion) return suggestion;
+      }
+      const hostingName = hostingFallback?.trim();
+      if (hostingName) return hostingName;
+      return chatId ? `sajtmaskin-${chatId}` : "sajtmaskin";
+    },
+    [pendingProjectName, messages, resolvedPrompt, chatId],
+  );
 
   const handleSaveProject = useCallback(async () => {
     if (isSavingProject) return;

@@ -15,6 +15,7 @@ import { PreviewPanelAddPanel } from "../composer/PreviewPanelAddPanel";
 import type { ShadcnPlacementPicker } from "@/lib/builder/shadcn-insert";
 import { PreviewPanelChrome } from "./PreviewPanelChrome";
 import type { PreviewVersionIndicator } from "./preview-version-indicator";
+import type { PreviewDevice } from "./preview-device";
 import { PreviewPanelCode } from "../code/PreviewPanelCode";
 import { PreviewPanelCodeSectionEditors } from "../code/PreviewPanelCodeSectionEditors";
 import { PreviewPanelFrame } from "./PreviewPanelFrame";
@@ -55,6 +56,9 @@ type PreviewPanelSurfaceProps = {
   previewBuildError: PreviewPanelProps["previewBuildError"];
   previewProdBuild: PreviewPanelProps["previewProdBuild"];
   versionIndicator?: PreviewVersionIndicator | null;
+  previewDevice?: PreviewDevice;
+  onPreviewDeviceChange?: (device: PreviewDevice) => void;
+  onRestartStalledPreview?: () => void;
   iframeError: boolean;
   iframeErrorMessage: string | null;
   isCodeView: boolean;
@@ -171,6 +175,9 @@ export function PreviewPanelSurface(props: PreviewPanelSurfaceProps) {
     previewBuildError,
     previewProdBuild,
     versionIndicator = null,
+    previewDevice = "desktop",
+    onPreviewDeviceChange,
+    onRestartStalledPreview,
     iframeError,
     iframeErrorMessage,
     isCodeView,
@@ -301,6 +308,9 @@ export function PreviewPanelSurface(props: PreviewPanelSurfaceProps) {
         previewBuildError={previewBuildError}
         previewProdBuild={previewProdBuild}
         versionIndicator={versionIndicator}
+        previewDevice={previewDevice}
+        onPreviewDeviceChange={onPreviewDeviceChange}
+        onRestartStalledPreview={onRestartStalledPreview}
         isCodeView={isCodeView}
         previewRoutesLoading={previewRoutesLoading}
         previewRoutes={previewRoutes}
@@ -412,6 +422,7 @@ export function PreviewPanelSurface(props: PreviewPanelSurfaceProps) {
               onFixPreview={onFixPreview}
               previewSrc={previewSrc}
               iframeRef={iframeRef}
+              previewDevice={previewDevice}
               handleIframeLoad={handleIframeLoad}
               handleIframeError={handleIframeError}
               bypassLoadingHardCap={isTier2LivePreview && iframeLoading && !externalLoading}

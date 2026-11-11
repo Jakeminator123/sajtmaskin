@@ -35,6 +35,7 @@ import { useBuilderGenerationPreferences } from "./page-controller/useBuilderGen
 import { useBuilderInstructionPreferences } from "./page-controller/useBuilderInstructionPreferences";
 import { useBuilderPreviewVersionSync } from "./page-controller/useBuilderPreviewVersionSync";
 import { useBuilderProjectHydration } from "./page-controller/useBuilderProjectHydration";
+import { useNameProjectOnFirstBuild } from "./page-controller/project-naming";
 import { useBuilderRouteFeedback } from "./page-controller/useBuilderRouteFeedback";
 import { useBuilderVersionNotices } from "./page-controller/useBuilderVersionNotices";
 import {
@@ -541,6 +542,22 @@ export function useBuilderPageController() {
 
   const sendMessage = rawSendMessage;
 
+  // V-02 (2026-11-11): a build started in the builder left the project as
+  // "Namnlöst projekt". The first build of a chat names a placeholder project
+  // after the prompt; a name the user chose is never touched.
+  const nameProjectOnFirstBuild = useNameProjectOnFirstBuild({
+    appProjectId: state.appProjectId,
+    appProjectName: state.appProjectName,
+    setAppProjectName: state.setAppProjectName,
+  });
+  const createNewChatNamingProject = useCallback(
+    (...args: Parameters<typeof createNewChat>) => {
+      nameProjectOnFirstBuild(args[0]);
+      return createNewChat(...args);
+    },
+    [createNewChat, nameProjectOnFirstBuild],
+  );
+
   // ── Init brief (Deep Brief) ─────────────────────────────────────────
   const { generateDynamicInstructions } = useInitBrief({
     model: state.promptAssistModel,
@@ -586,7 +603,7 @@ export function useBuilderPageController() {
     setDesignTheme: state.setDesignTheme,
     setPaletteState: state.setPaletteState,
     generateDynamicInstructions,
-    createNewChat,
+    createNewChat: createNewChatNamingProject,
     cancelActiveGeneration,
     resetBeforeCreateChat,
     applyAppProjectId: projectActions.applyAppProjectId,
