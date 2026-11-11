@@ -6,6 +6,7 @@ import {
   detectAndPruneChromiumCoreDumps,
   launchCaptureBrowser,
 } from "@/lib/capture/browser";
+import { isPreviewOriginHost } from "@/lib/gen/preview/preview-origin";
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 import {
   classifyPreviewPageProbe,
@@ -568,6 +569,8 @@ export function isAllowedProductPostcheckUrl(rawUrl: string): boolean {
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
   const host = parsed.hostname.toLowerCase();
   if (allowedPreviewHosts().has(host)) return true;
+  // M03: per-chat preview origin (exact slug label under our own domain).
+  if (isPreviewOriginHost(host)) return true;
   if (host.endsWith(".localhost")) return true;
   // Local IPv6 hosts are normalized by URL as `[::1]` in some runtimes.
   if (host === "[::1]") return true;
