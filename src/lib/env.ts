@@ -299,6 +299,8 @@ export const serverSchema = z.object({
   NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL: z.string().optional(),
   /** Comma-separated hostname suffixes for tier-2 preview URLs (e.g. `.fly.dev`) — iframe live detection. */
   NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES: z.string().optional(),
+  /** Domain of per-chat preview origins (`p-<hex>.<domain>`, M03). Code default `vm.sajtmaskin.com`; set only to move to another domain. Read via `getPreviewOriginDomain` in `src/lib/gen/preview/preview-origin.ts`. */
+  NEXT_PUBLIC_SAJTMASKIN_PREVIEW_ORIGIN_DOMAIN: z.string().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;

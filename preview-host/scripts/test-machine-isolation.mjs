@@ -29,6 +29,7 @@
 import { createRequire } from "node:module";
 import { EventEmitter } from "node:events";
 import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { request as httpRequest } from "node:http";
 import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -143,6 +144,23 @@ async function page(chatId) {
   return { status: res.status, text: await res.text() };
 }
 
+// M03: fetch cannot set Host; per-chat origins are routed on it.
+function getWithHost(hostHeader, path) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(base);
+    const req = httpRequest(
+      { host: url.hostname, port: url.port, path, headers: { host: hostHeader, accept: "text/html" } },
+      (res) => {
+        const chunks = [];
+        res.on("data", (chunk) => chunks.push(chunk));
+        res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, text: Buffer.concat(chunks).toString("utf8") }));
+      },
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
+
 async function waitForStatus(previewSessionId, predicate, timeoutMs = 90_000) {
   const deadline = Date.now() + timeoutMs;
   let last = null;
@@ -213,6 +231,25 @@ try {
 
   const served = await page(chatA);
   check("browser path is served through the guest proxy", served.status === 200 && served.text.includes("hello-v1"));
+
+  // --- M03: per-chat origin in front of the guest proxy ---
+  process.env.PREVIEW_HOST_ORIGIN_MODE = "subdomain";
+  process.env.PREVIEW_HOST_PREVIEW_DOMAIN = "vm.isolation-test.example";
+  try {
+    const slugA = runtime.__testing.previewOriginSlugForChat(chatA);
+    const originHost = `${slugA}.vm.isolation-test.example`;
+    const viaOrigin = await getWithHost(originHost, `/${chatA}`);
+    check("per-chat origin is served through the guest proxy", viaOrigin.status === 200 && viaOrigin.text.includes("hello-v1"));
+    const wrongSlug = await getWithHost(`p-${"0".repeat(20)}.vm.isolation-test.example`, `/${chatA}`);
+    check("wrong slug is 404 in machine mode", wrongSlug.status === 404);
+    const baseHop = await getWithHost(new URL(base).host, `/${chatA}`);
+    check("base host redirects to the per-chat origin", baseHop.status === 307 && baseHop.headers.location === `http://${originHost}:0/${chatA}`);
+    const originStatus = await api("GET", `/preview/session/${psA}/status`);
+    check("status reports the per-chat preview URL", originStatus.body.previewUrl === `http://${originHost}:0/${chatA}`);
+  } finally {
+    delete process.env.PREVIEW_HOST_ORIGIN_MODE;
+    delete process.env.PREVIEW_HOST_PREVIEW_DOMAIN;
+  }
 
   // --- Hot patch ---
   const patched = await api("POST", "/preview/session/patch", {

@@ -8,6 +8,8 @@
  * isolation — see docs/architecture/llm-pipeline.md.
  */
 
+import { isPreviewOriginHost } from "./preview-origin";
+
 const PREVIEW_URL_BASE = "https://preview.local";
 
 /**
@@ -84,6 +86,8 @@ export function isTier2LivePreviewUrl(url: string | null | undefined): boolean {
   try {
     const host = new URL(normalized, PREVIEW_URL_BASE).hostname.toLowerCase();
     if (host.includes("sandbox") || host.endsWith(".vercel.run")) return true;
+    // M03: per-chat preview origin (`p-<hex>.<domain>`), regardless of host mode.
+    if (isPreviewOriginHost(host)) return true;
     return hostMatchesTier2Suffixes(host, suffixes);
   } catch {
     const fallback = normalized.toLowerCase();

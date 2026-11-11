@@ -32,6 +32,7 @@
     "NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL",
     "NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE",
     "NEXT_PUBLIC_SAJTMASKIN_MESSAGE_SCROLLER",
+    "NEXT_PUBLIC_SAJTMASKIN_PREVIEW_ORIGIN_DOMAIN",
     "NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT",
     "NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE",
     "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
@@ -184,6 +185,7 @@
     "NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL",
     "NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE",
     "NEXT_PUBLIC_SAJTMASKIN_MESSAGE_SCROLLER",
+    "NEXT_PUBLIC_SAJTMASKIN_PREVIEW_ORIGIN_DOMAIN",
     "NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT",
     "NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE",
     "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
@@ -719,6 +721,12 @@
       "classification": "environment_specific",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Comma-separated hostname suffixes used by the app to recognize tier-2 preview-host URLs in dev and deployed environments."
+    },
+    {
+      "key": "NEXT_PUBLIC_SAJTMASKIN_PREVIEW_ORIGIN_DOMAIN",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Optional. Domain of per-chat preview origins (p-<20 hex>.<domain>, SM-080/M03). Code default vm.sajtmaskin.com, so leave unset unless moving to another domain. Must equal the preview host's PREVIEW_HOST_PREVIEW_DOMAIN. Used for tier-2 URL classification (client, inlined at build), CSP frame-src/connect-src, capture allowlist and product postcheck. Read via getPreviewOriginDomain (src/lib/gen/preview/preview-origin.ts)."
     },
     {
       "key": "NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE",
