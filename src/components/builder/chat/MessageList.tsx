@@ -64,6 +64,8 @@ import { usePreviewVisibleVersion } from "@/lib/builder/preview-visible-version"
  * «Förhandsgranskning trasig» och scaffold-statistiken inte blir för positiv.
  */
 export const VERSION_FEEDBACK_PREVIEW_WAIT_MS = 150_000;
+/** Utan förhandsvisning så här länge räknas frågan som visad för versionen. */
+const VERSION_FEEDBACK_ABSENT_LATCH_MS = 3_000;
 import type { OpenClawMessage as AgentMessage } from "@/lib/openclaw/openclaw-store";
 import { SajtagentRow } from "./sajtagent/SajtagentRow";
 import { useSajtagent } from "./sajtagent/SajtagentProvider";
@@ -191,10 +193,27 @@ const MessageListComponent = ({
     );
     return () => clearTimeout(timer);
   }, [waitingForPreview, feedbackWaitKey]);
-  const feedbackReady =
-    previewShowsVersion ||
-    !previewForThisChat ||
-    (feedbackWaitKey !== null && feedbackWaitExpiredFor === feedbackWaitKey);
+  // När frågan väl har visats för en version försvinner den aldrig igen för
+  // samma version (granskningen av #1747): en omstart av förhandsvisningen
+  // får inte ta bort en kommentar under skrivning eller nollställa ett svar.
+  const [feedbackLatchedFor, setFeedbackLatchedFor] = useState<string | null>(null);
+  if (previewShowsVersion && feedbackWaitKey && feedbackLatchedFor !== feedbackWaitKey) {
+    setFeedbackLatchedFor(feedbackWaitKey);
+  }
+  // Frånvaro låses först när den har varat en stund, så att ögonblicket
+  // innan förhandsvisningen hinner skriva «startar» inte låser frågan.
+  useEffect(() => {
+    if (previewForThisChat || !feedbackWaitKey) return;
+    const timer = setTimeout(
+      () => setFeedbackLatchedFor(feedbackWaitKey),
+      VERSION_FEEDBACK_ABSENT_LATCH_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [previewForThisChat, feedbackWaitKey]);
+  const feedbackLatched =
+    feedbackWaitKey !== null &&
+    (feedbackLatchedFor === feedbackWaitKey || feedbackWaitExpiredFor === feedbackWaitKey);
+  const feedbackReady = previewShowsVersion || !previewForThisChat || feedbackLatched;
   const agentMessages = agentMessagesProp ?? sajtagent?.messages ?? NO_AGENT_MESSAGES;
   const agentStreaming = agentStreamingProp ?? sajtagent?.isStreaming ?? false;
   const showAgentIntro = Boolean(chatId && sajtagent?.available && agentMessages.length === 0);

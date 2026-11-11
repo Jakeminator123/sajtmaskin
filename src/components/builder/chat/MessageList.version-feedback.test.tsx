@@ -53,6 +53,14 @@ describe("MessageList — återkopplingen väntar på förhandsvisningen", () =>
     expect(screen.getByText("Hur blev resultatet?")).toBeTruthy();
   });
 
+  it("låter frågan stå kvar när förhandsvisningen startar om för samma version", () => {
+    act(() => setPreviewVisibleVersion({ chatId: "chat_1", versionId: "v2", state: "showing" }));
+    render(<MessageList chatId="chat_1" versionId="v2" messages={messages} />);
+    expect(screen.getByText("Hur blev resultatet?")).toBeTruthy();
+    act(() => setPreviewVisibleVersion({ chatId: "chat_1", versionId: "v2", state: "starting" }));
+    expect(screen.getByText("Hur blev resultatet?")).toBeTruthy();
+  });
+
   it("frågar direkt när förhandsvisningen saknas eller är stängd", () => {
     render(<MessageList chatId="chat_1" versionId="v2" messages={messages} />);
     expect(screen.getByText("Hur blev resultatet?")).toBeTruthy();
