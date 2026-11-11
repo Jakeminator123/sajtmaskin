@@ -44,32 +44,19 @@ export const EXCLUDED_MCP_SERVERS = Object.freeze({
 const bothShells = (pattern) => [`Bash(${pattern})`, `PowerShell(${pattern})`];
 
 /**
- * Cursors `autoRun.block_instructions` (styrning till klassificeraren) som
- * deterministiska frågor. `*` är wildcard var som helst i mönstret.
+ * Deterministiska frågor. `*` är wildcard var som helst i mönstret.
+ *
+ * Ägarbeslut 2026-11-11 (Jakob): frågorna för PR-skapande, PR-merge, skrivande
+ * `gh api`, städning och rekursiv radering togs bort. Med flera parallella
+ * underagenter blev de dussintals ja-klick utan verklig granskning, och
+ * skyddet bärs redan av shell-guard-hooken (force-push, delete, worktree,
+ * commit-guard), GitHubs rulesets och `pr-merge.mdc`. Kvar är det som är
+ * sällsynt och svårt att ångra: promote till produktion, databaskommandon
+ * och ändringar i agenternas egna konfigurationsfiler.
  */
 export const CLAUDE_ASK_RULES = Object.freeze([
-  ...bothShells("gh pr merge*"),
-  ...bothShells("gh pr create*"),
-  // gh api med annan metod än GET; fältflaggor gör anropet till POST.
-  ...bothShells("gh api*-X*"),
-  ...bothShells("gh api*--method*"),
-  ...bothShells("gh api* -f *"),
-  ...bothShells("gh api* -F *"),
-  ...bothShells("gh api*--field*"),
-  ...bothShells("gh api*--raw-field*"),
-  ...bothShells("gh api*--input*"),
   ...bothShells("npm run promote*"),
   ...bothShells("npm run db:*"),
-  ...bothShells("npm run clean:*:apply*"),
-  ...bothShells("npm run tidy*--apply*"),
-  ...bothShells("npm run worktree:remove*"),
-  "Bash(rm -r*)",
-  "Bash(rm -R*)",
-  "Bash(rm -fr*)",
-  "Bash(rm -fR*)",
-  "Bash(rm --recursive*)",
-  // PowerShell-regler kanoniserar alias (rm, del, ri, rd) till Remove-Item.
-  "PowerShell(Remove-Item*-r*)",
   "Edit(/.cursor/mcp.json)",
   "Edit(/.mcp.json)",
   "Edit(~/.cursor/**)",
