@@ -139,7 +139,9 @@ export function resolvePendingIntegrationDossiers(params: {
     return selectDossiersForRequest({
       requestedCapabilities: [capability],
       disableBriefFallback: true,
-      promptText: contract?.providerKey,
+      providerByCapability: contract?.status === "chosen" && contract.providerKey
+        ? { [capability]: contract.providerKey }
+        : undefined,
       configuredEnvKeys: params.configuredEnvKeys,
     }).selected;
   }).filter(

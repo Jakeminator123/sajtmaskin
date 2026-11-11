@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { validateFilePath, sanitizeFilePath } from "./path-validator";
 import { parseCodeProject } from "../parser";
 import { loadScaffoldFiles } from "../scaffolds/load-scaffold-files";
+import JSZip from "jszip";
+import { validateFilesJson } from "../../../../preview-host/src/files-contract.js";
 
 // Prod chat 7826fcda (blog scaffold): the old charset rejected Next.js route
 // convention characters, and sanitizeFilePath then silently stripped the
@@ -63,6 +65,11 @@ describe("validateFilePath — Next.js route conventions", () => {
     expect(validateFilePath(path).valid).toBe(false);
   });
 
+  it.each(["/app/page.tsx", "//app/page.tsx", "app//page.tsx", "app/"])(
+    "rejects non-canonical path %s at the validator boundary",
+    (path) => expect(validateFilePath(path).valid).toBe(false),
+  );
+
   it("still rejects paths outside allowed root directories", () => {
     expect(validateFilePath("secrets/creds.json").valid).toBe(false);
   });
@@ -90,6 +97,21 @@ describe("sanitizeFilePath — route characters survive", () => {
 });
 
 describe("parseCodeProject — dynamic route files survive end-to-end", () => {
+  it("normalizes a leading slash for preview and ZIP without losing the body", async () => {
+    const body = 'export default function Page() { return "Pay $100 $$"; }';
+    const project = parseCodeProject(`\`\`\`tsx file="/app/page.tsx"\n${body}\n\`\`\``);
+
+    expect(project.files).toEqual([{ path: "app/page.tsx", content: body, language: "tsx" }]);
+    const filesJson = Object.fromEntries(project.files.map((file) => [file.path, file.content]));
+    expect(validateFilesJson(filesJson, "filesJson")).toEqual(filesJson);
+    const zip = new JSZip();
+    for (const file of project.files) zip.file(file.path, file.content);
+    const archive = await JSZip.loadAsync(await zip.generateAsync({ type: "uint8array" }));
+    expect(Object.keys(archive.files)).toContain("app/page.tsx");
+    expect(Object.keys(archive.files).some((path) => path.startsWith("/"))).toBe(false);
+    expect(await archive.file("app/page.tsx")!.async("string")).toBe(body);
+  });
+
   it("keeps the [slug] path from a generated code fence", () => {
     const content = [
       '```tsx file="app/blog/[slug]/page.tsx"',

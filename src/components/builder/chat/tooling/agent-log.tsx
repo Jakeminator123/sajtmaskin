@@ -12,7 +12,7 @@ import type { ToolUIPart } from "ai";
 import type { AgentLogItem, ToolPart } from "./types";
 import { getToolStateLabel, resolveToolLabels } from "./output-parsers";
 
-const PRE_STREAM_ACTIVITY = "Förbereder byggunderlag och startar own-engine.";
+const PRE_STREAM_ACTIVITY = "Förbereder din sajt.";
 const BETWEEN_PHASES_ACTIVITY = "Fortsätter med nästa byggsteg.";
 
 export function AgentLogCard({
@@ -334,6 +334,8 @@ export function getActiveAgentLogLabel(
     ) {
       continue;
     }
+    const activity = describeCurrentEngineActivity(toolType, tool.output);
+    if (activity) return activity;
     const steps = extractToolSteps(tool);
     const latestStep = steps.at(-1)?.trim();
     if (latestStep) return latestStep;
@@ -341,6 +343,53 @@ export function getActiveAgentLogLabel(
     return `${toolTitle} • ${getToolStateLabel(tool.state)}`;
   }
   return null;
+}
+
+/** Customer-facing activity comes from the real phase, not the last debug line.
+ * Detailed timings, filenames and tool output stay in the existing work log.
+ * This function never decides whether a step succeeded or is still running.
+ */
+function describeCurrentEngineActivity(toolType: string, output: unknown): string | null {
+  if (!toolType.startsWith("tool:engine-")) return null;
+  const step = toolType.slice("tool:engine-".length);
+  const phase = output && typeof output === "object" && "phase" in output
+    ? output.phase
+    : null;
+
+  if (step === "generation") {
+    switch (phase) {
+      case "start":
+        return "Förbereder din sajt…";
+      case "reasoning":
+        return "Planerar hur din sajt ska byggas…";
+      case "reasoning-slow":
+        return "Planeringen tar lite längre tid. Arbetet pågår.";
+      case "awaiting-output":
+        return "Väntar på det första förslaget…";
+      case "awaiting-input":
+        return "Ditt svar behövs för att fortsätta.";
+      case "empty-output":
+        return "Genereringen gav inget användbart innehåll.";
+      case "stream-without-version":
+        return "Förslaget kunde inte sparas som en ny version.";
+      case "tool":
+        return "Tar fram underlag till din sajt…";
+      default:
+        return "Skapar sidans innehåll och design…";
+    }
+  }
+
+  const activities: Record<string, string> = {
+    url_expand: "Förbereder sajtens länkar…",
+    autofix: "Rättar mindre fel i sajten…",
+    validate_syntax: "Kontrollerar att koden fungerar…",
+    materialize_images: "Hämtar bilder till sajten…",
+    verifier: "Granskar sajten och ändringarna…",
+    parse_merge_preflight: "Förbereder och sparar din nya version…",
+    preview: "Startar och kontrollerar förhandsvisningen…",
+    element_guard: "Kontrollerar att övriga delar av sajten bevaras…",
+  };
+  return activities[step] ?? "Arbetar vidare med din sajt…";
 }
 
 function extractToolSteps(tool: Partial<ToolUIPart> & { input?: unknown }) {

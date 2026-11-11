@@ -78,9 +78,9 @@ describe("alias lookup fast path", () => {
 
   it("keeps denying a worktree removal that never names git", () => {
     expect(mayResolveToGit("tool worktree remove ../victim")).toBe(false);
-    expect(decideWorktree("tool worktree remove ../victim", { aliases: new Set() }).permission).toBe(
-      "deny",
-    );
+    expect(
+      decideWorktree("tool worktree remove ../victim", { aliases: new Set() }).permission,
+    ).toBe("deny");
   });
 });
 
@@ -138,20 +138,20 @@ describe("destructive worktree guard", () => {
     expect(JSON.parse(run.stdout).permission).toBe("deny");
   });
 
-  it.each([
-    ".cursor/hooks/worktree-force-guard.mjs",
-    "scripts/workflow/commit-guard.mjs",
-  ])("does not crash when stdout closes before %s responds", async (script) => {
-    const child = spawn(process.execPath, [resolve(script)], {
-      cwd: process.cwd(),
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    child.stdout.destroy();
-    child.stdin.end(JSON.stringify({ command: "echo ok" }));
-    const [code, signal] = await once(child, "close");
-    expect(signal).toBeNull();
-    expect(code).toBe(0);
-  });
+  it.each([".cursor/hooks/worktree-force-guard.mjs", "scripts/workflow/commit-guard.mjs"])(
+    "does not crash when stdout closes before %s responds",
+    async (script) => {
+      const child = spawn(process.execPath, [resolve(script)], {
+        cwd: process.cwd(),
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+      child.stdout.destroy();
+      child.stdin.end(JSON.stringify({ command: "echo ok" }));
+      const [code, signal] = await once(child, "close");
+      expect(signal).toBeNull();
+      expect(code).toBe(0);
+    },
+  );
 
   it.each([
     'git -c alias.wt="worktree remove" wt ../victim --force',
@@ -360,9 +360,9 @@ describe("commit guard", () => {
     // before it is a path.
     const cwd = process.cwd();
     expect(commitTargetDirectories("git commit -C HEAD --no-edit", cwd)).toEqual([cwd]);
-    expect(commitTargetDirectories(`git -C "${resolve(cwd, "scripts")}" commit -m x`, cwd)).toEqual([
-      resolve(cwd, "scripts"),
-    ]);
+    expect(commitTargetDirectories(`git -C "${resolve(cwd, "scripts")}" commit -m x`, cwd)).toEqual(
+      [resolve(cwd, "scripts")],
+    );
   });
 
   it("denies a commit routed through an opaque repository option", () => {
@@ -477,9 +477,7 @@ describe("commit guard", () => {
         user_message: expect.stringContaining("Committen träffar skyddade"),
       }),
     );
-    expect(
-      decideCommitCommand("git commit -m x", { git: stagedProtected }),
-    ).not.toEqual(
+    expect(decideCommitCommand("git commit -m x", { git: stagedProtected })).not.toEqual(
       expect.objectContaining({
         user_message: expect.stringContaining("Ändrad i arbetskopian, ej stage:ad"),
       }),
@@ -524,6 +522,56 @@ describe("commit guard", () => {
 });
 
 describe("cheap read-only git path", () => {
+  it.each([
+    "git status & git push --force origin preview",
+    "git status & git push --no-verify origin preview",
+    'cmd /c "git status & git push --force origin preview"',
+    'cmd.exe /s /c "git status & git push --no-verify origin preview"',
+    String.raw`git status "C:\" & git push --force origin preview`,
+    String.raw`cmd /c "git status \" & git push --force origin preview"`,
+    "cmd /c git status 'text & git push --force origin preview'",
+  ])("denies writes behind a single ampersand, including Windows quoting: %s", (command) => {
+    // Only decision functions are exercised: never execute these shell strings.
+    expect(cheapShellDecision(command)?.permission).toBe("deny");
+    expect(decideWorktree(command, { aliases: null }).permission).toBe("deny");
+    expect(decideCommitCommand(command, { aliases: null }).permission).toBe("deny");
+  });
+
+  it.each([
+    'git grep "a&b; c|d"',
+    "git grep 'a&git push --force'",
+    'rg "git status & git push --force" docs',
+    "git status & git log -1",
+    "git status 2>&1",
+    'cmd /c "git status & git log -1"',
+  ])("preserves safe quoted arguments and read-only sequences: %s", (command) => {
+    expect(cheapShellDecision(command)).toEqual(CLEAN_ALLOW);
+    expect(decideWorktree(command, { aliases: null })).toEqual(CLEAN_ALLOW);
+    expect(decideCommitCommand(command, { aliases: null })).toEqual(CLEAN_ALLOW);
+  });
+
+  it("inspects every possible commit cwd after a single ampersand", () => {
+    const cwd = process.cwd();
+    const command = "cd scripts & git commit -m x";
+    expect(cheapShellDecision(command)).toBeNull();
+    expect(new Set(commitTargetDirectories(command, cwd))).toEqual(
+      new Set([cwd, resolve(cwd, "scripts")]),
+    );
+    const git = vi.fn((args: string[], directory?: string) =>
+      args[0] === "branch" ? [directory === cwd ? "" : "feature/guard"] : [],
+    );
+    expect(decideCommitCommand(command, { aliases: new Set(), cwd, git }).permission).toBe("deny");
+    expect(git.mock.calls.some(([, directory]) => directory === cwd)).toBe(true);
+  });
+
+  it("keeps Windows quote ambiguity from hiding a commit directory change", () => {
+    const cwd = process.cwd();
+    const command = String.raw`git status "C:\" & cd scripts & git commit -m x`;
+    expect(new Set(commitTargetDirectories(command, cwd))).toEqual(
+      new Set([cwd, resolve(cwd, "scripts")]),
+    );
+  });
+
   const readonly = [
     "git worktree list",
     "git branch -vv",
@@ -674,7 +722,9 @@ describe("cheap read-only git path", () => {
     expect(cheapShellDecision("git push --dry-run origin HEAD")).toBeNull();
     expect(cheapShellDecision("git push -o ci.skip origin HEAD")).toBeNull();
     expect(cheapShellDecision("git switch -c feature")).toEqual({ permission: "allow" });
-    expect(cheapShellDecision("git switch --detach origin/preview")).toEqual({ permission: "allow" });
+    expect(cheapShellDecision("git switch --detach origin/preview")).toEqual({
+      permission: "allow",
+    });
     expect(cheapShellDecision("git branch -vv")).toEqual({ permission: "allow" });
     expect(cheapShellDecision("git branch -a --contains HEAD")).toEqual({ permission: "allow" });
     expect(cheapShellDecision("git branch --merged")).toEqual({ permission: "allow" });
@@ -735,7 +785,7 @@ describe("read-only git with expanded arguments", () => {
   it.each([
     'Write-Host "$(git push --force origin master)"',
     'Write-Host "$(git branch -D JAKOB_BRA_9999_INNNAN_MVP_BRA)"',
-    "$x = \"$(git worktree remove ../victim --force)\"",
+    '$x = "$(git worktree remove ../victim --force)"',
     "echo `git push --force`",
   ])("denies git hidden inside a substitution: %s", (command) => {
     expect(decideWorktree(command, { aliases: new Set() }).permission).toBe("deny");
@@ -791,12 +841,13 @@ describe("shared ambiguity check: only protected writes fail closed", () => {
     expect(decideCommitCommand(command, { aliases: new Set() })).toEqual(forcePushDenial());
   });
 
-  it.each(["Invoke-Expression 'git commit -m x'", "echo (git commit -m x)", "$r = git commit -m x"])(
-    "recognizes commits in iex, subexpressions and assignments: %s",
-    (command) => {
-      expect(isCommitCommand(command)).toBe(true);
-    },
-  );
+  it.each([
+    "Invoke-Expression 'git commit -m x'",
+    "echo (git commit -m x)",
+    "$r = git commit -m x",
+  ])("recognizes commits in iex, subexpressions and assignments: %s", (command) => {
+    expect(isCommitCommand(command)).toBe(true);
+  });
 
   it("denies only aliases whose resolved expansion can write", () => {
     const aliases = new Map([
@@ -896,7 +947,11 @@ describe("hook CLI contract", () => {
     [".cursor/hooks/worktree-force-guard.mjs", "git checkout -b tmp-cli", "allow"],
     [".cursor/hooks/worktree-force-guard.mjs", "git switch -c tmp-cli", "allow"],
     [".cursor/hooks/worktree-force-guard.mjs", "git worktree remove ../x --force", "deny"],
-    [".cursor/hooks/worktree-force-guard.mjs", "git checkout JAKOB_BRA_9999_INNNAN_MVP_BRA", "deny"],
+    [
+      ".cursor/hooks/worktree-force-guard.mjs",
+      "git checkout JAKOB_BRA_9999_INNNAN_MVP_BRA",
+      "deny",
+    ],
     ["scripts/workflow/commit-guard.mjs", "git branch -vv", "allow"],
     ["scripts/workflow/commit-guard.mjs", "git fetch --prune origin", "allow"],
     ["scripts/workflow/commit-guard.mjs", "git checkout -b tmp-cli", "allow"],

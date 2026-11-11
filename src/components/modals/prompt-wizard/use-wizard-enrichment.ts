@@ -12,6 +12,7 @@ import type { CompanyLookupResult } from "@/app/api/wizard/company-lookup/route"
 import type { Competitor } from "@/app/api/wizard/competitors/route";
 import { looksLikeDomain } from "@/components/modals/prompt-wizard/constants";
 import { isStaleWizardRunResponse } from "@/components/modals/prompt-wizard/use-wizard-run";
+import { normalizeWebsiteInputUrl } from "@/lib/website-input-url";
 import type {
   EnrichMeta,
   EnrichResponsePayload,
@@ -260,9 +261,13 @@ export function useWizardEnrichment({
   // ── Scrape website: quick-scrape first, then AI analysis with real content ──
   const handleScrapeWebsite = useCallback(
     (url: string) => {
-      if (!url) return;
+      let fullUrl: string;
+      try {
+        fullUrl = normalizeWebsiteInputUrl(url);
+      } catch {
+        return;
+      }
       setIsScraping(true);
-      const fullUrl = url.startsWith("http") ? url : `https://${url}`;
 
       // Phase 1: Quick scrape, then feed result into AI analysis
       fetch("/api/wizard/quick-scrape", {

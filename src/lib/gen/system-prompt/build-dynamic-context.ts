@@ -362,8 +362,7 @@ export function buildDynamicContext(options: DynamicContextOptions): BuildDynami
   // User prompt text is carried by the **user** message in the chat/completions
   // request — do not duplicate it here as a second "original request" block.
 
-  let context = parts.join("\n").trim();
-  const contextBlocks = splitContextIntoBudgetBlocks(context);
+  const contextBlocks = splitContextIntoBudgetBlocks(parts);
   const budgetTokens = Math.max(
     900,
     buildSpec?.tokenBudgets.systemContextTokens ?? DEFAULT_DYNAMIC_CONTEXT_BUDGET_TOKENS,
@@ -374,7 +373,7 @@ export function buildDynamicContext(options: DynamicContextOptions): BuildDynami
     dynamicBlocks: contextBlocks as PromptBudgetBlock[],
     dynamicBudgetTokens: budgetTokens,
   });
-  context = budgeted.dynamicContext;
+  const context = budgeted.dynamicContext;
   const keptKeys = new Set(budgeted.keptKeys);
   const blockTrace = contextBlocks.map((block) => ({
     key: block.key,

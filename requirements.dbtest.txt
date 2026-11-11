@@ -2,3 +2,5 @@
 # Pure-Python Postgres driver so the CI gate needs no compiler / Node toolchain.
 # Blob is checked via the Vercel Blob REST API using only the Python stdlib.
 pg8000==1.31.5
+# pg8000 1.31.5 needs make_channel_binding(), removed in scramp 1.5.
+scramp==1.4.17

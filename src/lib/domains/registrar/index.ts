@@ -111,7 +111,7 @@ export async function resolveDomainOffer(
   const quote = binding ?? referenceQuote(tld, pricing);
 
   const fulfilment = fulfilmentProviderFor(tld, quote);
-  const blockedReason = resolveBlockedReason({ available, quote, tld, fulfilment });
+  const blockedReason = resolveBlockedReason({ available, availabilitySource, quote, tld, fulfilment });
 
   return {
     domain: normalized,
@@ -127,12 +127,14 @@ export async function resolveDomainOffer(
 
 function resolveBlockedReason(input: {
   available: boolean | null;
+  availabilitySource: DomainOffer["availabilitySource"];
   quote: DomainPriceQuote;
   tld: string;
   fulfilment: RegistrarProvider | null;
 }): PurchaseBlockedReason | null {
   if (input.available === false) return "not_available";
   if (input.available === null) return "unknown_availability";
+  if (input.availabilitySource === "dns" || input.availabilitySource === "none") return "unknown_availability";
   if (!input.quote.binding) return "no_binding_price";
   if (!input.fulfilment) {
     // Distinguish "nobody serves this TLD" from "purchases are switched off",

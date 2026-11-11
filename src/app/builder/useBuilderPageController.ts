@@ -614,6 +614,8 @@ export function useBuilderPageController() {
   // ── Persisted messages ───────────────────────────────────────────────
   usePersistedChatMessages({
     chatId: state.chatId,
+    chatIdParam: state.chatIdParam,
+    cancelActiveGeneration,
     isCreatingChat,
     isAnyStreaming: derived.isAnyStreaming,
     messages: state.messages,
@@ -817,6 +819,7 @@ export function useBuilderPageController() {
     pendingCreatedVersionRef,
     mutateVersions,
     onVersionStatusRefresh: bumpVersionStatusRefresh,
+    onRetryPreview: forcePreviewResync,
     onPreviewSessionMeta,
     setCurrentPageCode,
     setExistingUiComponents,

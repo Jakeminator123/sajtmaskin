@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -82,7 +82,30 @@ function GitHubExportDialogForm({
   const [successUrl, setSuccessUrl] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("register");
+  const [lastExportRepo, setLastExportRepo] = useState<string | null>(null);
+  const repoEditedRef = useRef(false);
   const privateId = useId();
+
+  // Suggest the repo this project was last exported to, unless the user has
+  // already typed a name. The server keeps it in the project's metadata.
+  useEffect(() => {
+    if (!hasGitHub || !chatId) return;
+    const controller = new AbortController();
+    fetch(`/api/github/export?chatId=${encodeURIComponent(chatId)}`, {
+      signal: controller.signal,
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { lastExport?: { repo?: unknown } | null } | null) => {
+        const repo = data?.lastExport?.repo;
+        if (typeof repo !== "string" || !repo.trim()) return;
+        setLastExportRepo(repo);
+        if (!repoEditedRef.current) setRepoName(repo);
+      })
+      .catch(() => {
+        // Only a suggestion: the default name still works.
+      });
+    return () => controller.abort();
+  }, [hasGitHub, chatId]);
 
   const oauthReturnTo =
     typeof window !== "undefined"
@@ -222,6 +245,7 @@ function GitHubExportDialogForm({
             <Input
               value={repoName}
               onChange={(event) => {
+                repoEditedRef.current = true;
                 setRepoName(event.target.value);
                 if (error) setError(null);
               }}
@@ -231,6 +255,7 @@ function GitHubExportDialogForm({
             <p className="text-muted-foreground text-xs">
               Ange bara ett namn, eller <code>owner/namn</code> för en organisation.
               {githubUsername ? ` Kopplat som @${githubUsername}.` : ""}
+              {lastExportRepo ? ` Senast exporterad till ${lastExportRepo}.` : ""}
             </p>
           </div>
           <div className="space-y-2">

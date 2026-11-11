@@ -157,6 +157,15 @@ describe("POST /api/wizard/enrich", () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
+  it.each([429, 503])("stops account admission failure %s before paid enrichment", async (status) => {
+    authorizeWizardRun.mockResolvedValue({ ok: false, response: Response.json({ error: "Quota unavailable" }, { status }) });
+    const response = await POST(makeRequest(validBody()));
+    expect(response.status).toBe(status);
+    expect(generateText).not.toHaveBeenCalled();
+    expect(responsesCreate).not.toHaveBeenCalled();
+    expect(scrapeWebsite).not.toHaveBeenCalled();
+  });
+
   it("fails closed when the legacy provider key is unavailable", async () => {
     config.secrets.openaiApiKey = "";
 

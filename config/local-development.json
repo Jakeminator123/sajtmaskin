@@ -1,0 +1,14 @@
+{
+  "repository": "Jakeminator123/sajtmaskin",
+  "branch": "preview",
+  "vercel": {
+    "projectId": "prj_AK7FqC8NwKorjoxGpkXi6nKGUsoe",
+    "orgId": "team_j7KE5zKTm5rdg7zfWzOZhJ89",
+    "projectName": "sajtmaskin"
+  },
+  "render": {
+    "workspaceId": "tea-d19jsa63jp1c73ch0sc0",
+    "serviceId": "srv-da2crsu417fc73e99ec0",
+    "serviceName": "openclaw-sajtagenten"
+  }
+}

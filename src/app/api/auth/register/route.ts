@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
       }
 
       const message = emailVerificationSent
-        ? "Vi har skickat ett verifieringsmail. Bekräfta din e-post för att aktivera kontot och din kostnadsfria första generering."
+        ? "Vi har skickat ett verifieringsmail. Öppna länken och välj ditt lösenord för att bekräfta din e-post och aktivera kontot."
         : emailVerificationReason === "provider_missing"
           ? "Konto skapat, men verifieringsmail kunde inte skickas just nu eftersom e-posttjänsten saknas."
           : emailVerificationReason === "recipient_restricted"

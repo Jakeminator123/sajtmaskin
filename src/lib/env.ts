@@ -50,6 +50,7 @@ export const serverSchema = z.object({
   // Auth
   JWT_SECRET: z.string().optional(),
   INBOUND_WEBHOOK_SHARED_SECRET: z.string().optional(),
+  DID_CONVERSATION_WEBHOOK_SECRET: z.string().optional(),
 
   // API keys
   ANTHROPIC_API_KEY: z.string().optional(),
@@ -360,6 +361,13 @@ export function getServerEnv(): ServerEnv {
   }
 
   const stripeIssues = stripeProductionKeyIssues(result.data);
+  if (
+    (result.data.NODE_ENV === "production" || result.data.VERCEL_ENV === "production") &&
+    !BUILD_PHASES.has(result.data.NEXT_PHASE ?? "") &&
+    !result.data.JWT_SECRET
+  ) {
+    throw new Error("JWT_SECRET is required in production");
+  }
   if (stripeIssues.length > 0) {
     console.error("[env] ❌ Validation failed:");
     for (const issue of stripeIssues) {

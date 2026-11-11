@@ -50,6 +50,8 @@ export interface OpenClawMessage {
    * med prefixfallback i `agent-message-kind.ts`.
    */
   kind?: AgentMessageKind;
+  /** Local composer consent for THIS live user turn. Never hydrated or persisted. */
+  allowBuild?: boolean;
   /**
    * Builderns senaste meddelande-id när den här raden skapades. Ger den
    * gemensamma tidslinjen sin ordning (`unified-timeline.ts`). `null` = chatten
@@ -445,6 +447,19 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
 export function readOpenClawPowers(): OpenClawPowers {
   const { editEnabled, powersOn, grantedPowers } = useOpenClawStore.getState();
   return resolveOpenClawPowers({ editEnabled, powersOn, granted: grantedPowers });
+}
+
+/** An explicit read-only turn revokes pending automatic work, including old replies. */
+export function revokeOpenClawBuildConsent(): void {
+  useOpenClawStore.setState((state) => ({
+    armedMandate: null,
+    armedContinuation: null,
+    messages: state.messages.map((message) =>
+      message.role === "user" && message.allowBuild === true
+        ? { ...message, allowBuild: false }
+        : message,
+    ),
+  }));
 }
 
 /** The live grant as ids, for the chat request body. */

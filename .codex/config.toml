@@ -3,7 +3,7 @@
 # Project-scoped Codex defaults for Sajtmaskin.
 # Keep provider/auth/token settings in ~/.codex/config.toml, not in this repo.
 
-model = "gpt-5.6-sol"
+model = "gpt-6.1-sol"
 model_reasoning_effort = "high"
 # Ägarbeslut 2026-09-11: sandbox av, live-sök på.
 #
@@ -27,7 +27,7 @@ sandbox = "elevated"
 
 [agents]
 enabled = true
-default_subagent_model = "gpt-5.6-sol"
+default_subagent_model = "gpt-6.1-sol"
 default_subagent_reasoning_effort = "high"
 max_concurrent_threads_per_session = 8
 
@@ -48,6 +48,7 @@ WINDIR = "include"
 SystemDrive = "include"
 ProgramData = "include"
 USERPROFILE = "include"
+CLAUDE_CONFIG_DIR = "include"
 APPDATA = "include"
 LOCALAPPDATA = "include"
 TEMP = "include"
@@ -71,15 +72,19 @@ url = "https://developers.openai.com/mcp"
 url = "https://docs.openclaw.ai/mcp"
 
 [mcp_servers.supabase]
+enabled = false
 url = "https://mcp.supabase.com/mcp?project_ref=yubbckduwblyrbnlglwf&read_only=true"
 
 [mcp_servers.supabase-prod]
+enabled = false
 url = "https://mcp.supabase.com/mcp?project_ref=egcitvwgettkftkyzbvn&read_only=true"
 
 [mcp_servers.user-vercel]
+enabled = false
 url = "https://mcp.vercel.com"
 
 [mcp_servers.v0]
+enabled = false
 url = "https://mcp.v0.dev"
 
 [mcp_servers.vercel]

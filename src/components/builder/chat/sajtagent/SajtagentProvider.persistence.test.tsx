@@ -66,7 +66,7 @@ function setupFetch(replies: Response[]) {
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url === "/api/openclaw/health")
-        return Response.json({ surfaceEnabled: true });
+        return Response.json({ status: "ok", readiness: "ready", surfaceEnabled: true });
       if (url === "/api/openclaw/chat") return replies.shift()!;
       if (init?.method === "POST" && url.endsWith("/agent-messages")) {
         writes.push({ url, ...JSON.parse(String(init.body)) });

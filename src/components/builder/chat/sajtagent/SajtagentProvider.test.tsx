@@ -1,5 +1,5 @@
 import { render, waitFor } from "@testing-library/react";
-import { act } from "react";
+import { act, StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import { OPENCLAW_SURFACE_BODY_ATTR } from "@/lib/openclaw/surface-flag";
@@ -61,7 +61,7 @@ function healthOkFetch(chatCalls: string[]) {
     const url = String(input);
     if (url.endsWith("/api/openclaw/health")) {
       return new Response(
-        JSON.stringify({ surfaceEnabled: true, editEnabled: false, debugEnabled: false }),
+        JSON.stringify({ status: "ok", readiness: "ready", surfaceEnabled: true, editEnabled: false, debugEnabled: false }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }
@@ -102,6 +102,83 @@ afterEach(() => {
 });
 
 describe("SajtagentProvider — anrop bara när ytan finns", () => {
+  it("cancels StrictMode's discarded check and aborts the live request plus timers on unmount", async () => {
+    vi.useFakeTimers();
+    try {
+      document.body.setAttribute(OPENCLAW_SURFACE_BODY_ATTR, "1");
+      fetchMock.mockImplementation(() => new Promise(() => {}));
+      const view = render(<StrictMode>
+        <SajtagentProvider chatId="chat_1" activeVersionId="v1" activeVersionStatus={null}
+          activeVersionIsLatest isAnyStreaming={false} digestEnabled={false}>
+          <Probe onValue={() => {}} />
+        </SajtagentProvider>
+      </StrictMode>);
+      await act(async () => { await Promise.resolve(); });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const signal = fetchMock.mock.calls[0][1].signal as AbortSignal;
+      expect(signal.aborted).toBe(false);
+      view.unmount();
+      expect(signal.aborted).toBe(true);
+      expect(vi.getTimerCount()).toBe(0);
+      await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    [502, "unhealthy", "auth_failed"],
+    [200, "unhealthy", "ready"],
+    [200, "ok", "auth_failed"],
+  ])("does not grant availability or edit powers for HTTP %i %s/%s", async (status, state, readiness) => {
+    document.body.setAttribute(OPENCLAW_SURFACE_BODY_ATTR, "1");
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({
+      surfaceEnabled: true, status: state, readiness, editEnabled: true, debugEnabled: true,
+    }), { status }));
+    const view = renderProvider();
+    await act(async () => { await Promise.resolve(); });
+    expect(view.seen.at(-1)).toBe(false);
+    expect(useOpenClawStore.getState().editEnabled).toBe(false);
+    expect(useOpenClawStore.getState().debugEnabled).toBe(false);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/agent-messages"))).toBe(false);
+    view.unmount();
+  });
+
+  it("retries an unavailable gateway only twice and cancels further work on unmount", async () => {
+    vi.useFakeTimers();
+    try {
+      document.body.setAttribute(OPENCLAW_SURFACE_BODY_ATTR, "1");
+      fetchMock.mockRejectedValue(new TypeError("network unavailable"));
+      const view = renderProvider();
+      await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(view.seen.at(-1)).toBe(false);
+      view.unmount();
+      await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("recovers after one failed readiness check without requiring a remount", async () => {
+    vi.useFakeTimers();
+    try {
+      document.body.setAttribute(OPENCLAW_SURFACE_BODY_ATTR, "1");
+      fetchMock
+        .mockRejectedValueOnce(new TypeError("temporary network failure"))
+        .mockImplementation(healthOkFetch([]));
+      const view = renderProvider();
+      await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+      expect(view.seen.at(-1)).toBe(true);
+      expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/api/openclaw/health"))).toHaveLength(2);
+      view.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("gör inga anrop alls på en deploy utan OpenClaw-yta", async () => {
     const { seen } = renderProvider();
     await act(async () => {
@@ -117,7 +194,7 @@ describe("SajtagentProvider — anrop bara när ytan finns", () => {
       const url = String(input);
       if (url.endsWith("/api/openclaw/health")) {
         return new Response(
-          JSON.stringify({ surfaceEnabled: true, editEnabled: true, debugEnabled: false }),
+          JSON.stringify({ status: "ok", readiness: "ready", surfaceEnabled: true, editEnabled: true, debugEnabled: false }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
@@ -153,7 +230,7 @@ describe("SajtagentProvider — anrop bara när ytan finns", () => {
       const url = String(input);
       if (url.endsWith("/api/openclaw/health")) {
         return new Response(
-          JSON.stringify({ surfaceEnabled: true, editEnabled: false, debugEnabled: false }),
+          JSON.stringify({ status: "ok", readiness: "ready", surfaceEnabled: true, editEnabled: false, debugEnabled: false }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
@@ -280,7 +357,7 @@ describe("SajtagentProvider — anrop bara när ytan finns", () => {
       const url = String(input);
       if (url.endsWith("/api/openclaw/health")) {
         return new Response(
-          JSON.stringify({ surfaceEnabled: true, editEnabled: true, debugEnabled: false }),
+          JSON.stringify({ status: "ok", readiness: "ready", surfaceEnabled: true, editEnabled: true, debugEnabled: false }),
           { status: 200 },
         );
       }
@@ -338,7 +415,7 @@ describe("SajtagentProvider — anrop bara när ytan finns", () => {
   it("hämtar ingen historik utan chatt", async () => {
     document.body.setAttribute(OPENCLAW_SURFACE_BODY_ATTR, "1");
     fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ surfaceEnabled: true, editEnabled: false }), { status: 200 }),
+      new Response(JSON.stringify({ status: "ok", readiness: "ready", surfaceEnabled: true, editEnabled: false }), { status: 200 }),
     );
     renderProvider(null);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -367,7 +444,7 @@ describe("SajtagentProvider — anrop bara när ytan finns", () => {
       const url = String(input);
       if (url.endsWith("/api/openclaw/health")) {
         return new Response(
-          JSON.stringify({ surfaceEnabled: true, editEnabled: false, debugEnabled: false }),
+          JSON.stringify({ status: "ok", readiness: "ready", surfaceEnabled: true, editEnabled: false, debugEnabled: false }),
           { status: 200 },
         );
       }

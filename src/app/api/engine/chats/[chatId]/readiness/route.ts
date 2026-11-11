@@ -743,9 +743,13 @@ async function buildEngineReadiness(
         continue;
       }
       if (!integrationRegistryByKey.has(contract.providerKey)) continue;
+      // A typed, registered provider can intentionally have no backing dossier.
+      // That yields an empty plan, but still requires paid generic integration work
+      // until exact provider evidence proves that the contract is already delivered.
       if (
         plan.dossierSelection.selected.length === 0 &&
-        plan.decisions.some((decision) => decision.disposition === "context-only") &&
+        (plan.decisions.length === 0 ||
+          plan.decisions.some((decision) => decision.disposition === "context-only")) &&
         !projectProviderEvidenceMatchesContract(providerEvidence, contract)
       ) {
         hasGenericProviderWork = true;

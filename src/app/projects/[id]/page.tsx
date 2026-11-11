@@ -409,9 +409,10 @@ export default function ProjectSitePage() {
                     Exportera till GitHub
                   </Button>
                   <p className="text-xs text-gray-600">
-                    Exporten innehåller den publicerade versionens kod, uppladdade projektmedia som
-                    filer och en flyttguide. Databasdata, domänregistrering, tredjepartskonton,
-                    hemliga nyckelvärden och licenser följer inte med.
+                    Exporten utgår från den publicerade versionens sparade kod och innehåller även
+                    uppladdade projektmedia och en flyttguide. Ändringar i företagsuppgifter och SEO
+                    som gjorts vid publicering kan saknas i exporten. Databasdata, domänregistrering,
+                    tredjepartskonton, hemliga nyckelvärden och licenser följer inte med.
                   </p>
                   {(!site.chatId || !site.liveVersionId) && (
                     <p className="text-xs text-amber-500">

@@ -170,9 +170,10 @@ describe("MessageList", () => {
     render(<MessageList chatId="chat_live_progress" messages={messages} isStreaming />);
 
     expect(screen.getByText("Arbetar med din sajt")).toBeTruthy();
-    expect(
-      screen.getAllByText("Validerar genererad kod (pass 1)").length,
-    ).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Kontrollerar att koden fungerar…")).toBeTruthy();
+    expect(screen.queryByText("Validerar genererad kod (pass 1)")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Visa detaljer" }));
+    expect(screen.getByText("Validerar genererad kod (pass 1)")).toBeTruthy();
     expect(screen.getByText("Pågår")).toBeTruthy();
   });
 

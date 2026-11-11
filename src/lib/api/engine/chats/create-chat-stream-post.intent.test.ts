@@ -111,16 +111,38 @@ import { handleCreateChatStreamPost } from "./create-chat-stream-post";
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { resolveConfiguredEnvKeys } from "./configured-env-keys";
 import { resolveOrchestrationBase, finalizeOrchestrationPrompts, buildGenerationInputPackage } from "@/lib/gen/orchestrate";
+import { prepareGenerationCredits } from "@/lib/credits/generation-admission";
+import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
+import { rehostAuditSourceImages } from "@/lib/media/rehost-remote-image";
 
 const landingPrompt = "Bygg en landing page med hero och call to action för ett lokalt företag";
 const dashboardPrompt = "Bygg en dashboard med analytics, charts, metrics, kpi och reports";
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(resolveAppProjectIdForRequest).mockReset().mockResolvedValue("fixture-project");
+});
 
 describe("create handler — actual scaffold/variant hints before the brief", () => {
+  it.each([false, true])("rejects a missing/unowned project before paid work (planMode=%s)", async (planMode) => {
+    vi.mocked(resolveAppProjectIdForRequest).mockResolvedValueOnce(null);
+    const response = await handleCreateChatStreamPost(new Request("https://example.com/api/engine/chats/stream", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message: landingPrompt, meta: { planMode } }),
+    }));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: expect.stringContaining("valid app project id") });
+    expect(prepareGenerationCredits).not.toHaveBeenCalled();
+    expect(rehostAuditSourceImages).not.toHaveBeenCalled();
+    expect(appendHydratedTextAttachmentExcerpts).not.toHaveBeenCalled();
+    expect(tryGenerateServerAutoBrief).not.toHaveBeenCalled();
+    expect(resolveOrchestrationBase).not.toHaveBeenCalled();
+    expect(buildGenerationInputPackage).not.toHaveBeenCalled();
+  });
+
   it.each([true, false, undefined])("forwards validated materializeImages %s only to the package factory", async (choice) => {
     vi.mocked(tryGenerateServerAutoBrief).mockResolvedValueOnce(null as never);
-    vi.mocked(resolveAppProjectIdForRequest).mockResolvedValueOnce("fixture-project").mockResolvedValueOnce("fixture-project");
+    vi.mocked(resolveAppProjectIdForRequest).mockResolvedValueOnce("fixture-project");
     vi.mocked(resolveConfiguredEnvKeys).mockResolvedValueOnce(new Set());
     vi.mocked(resolveOrchestrationBase).mockResolvedValueOnce({ resolvedScaffold: null, routePlan: { routes: [] },
       buildSpec: { qualityTarget: "standard", contextPolicy: "normal" } } as never);
@@ -131,6 +153,7 @@ describe("create handler — actual scaffold/variant hints before the brief", ()
       body: JSON.stringify({ message: landingPrompt, thinking: false, imageGenerations: choice !== true, materializeImages: choice }),
     }));
     expect(buildGenerationInputPackage).toHaveBeenCalledTimes(1);
+    expect(resolveAppProjectIdForRequest).toHaveBeenCalledTimes(1);
     expect(vi.mocked(buildGenerationInputPackage).mock.calls[0][1]).toMatchObject({ materializeImages: choice === true });
     expect(vi.mocked(resolveOrchestrationBase).mock.calls[0][0]).not.toHaveProperty("materializeImages");
     expect(vi.mocked(finalizeOrchestrationPrompts).mock.calls[0][1]).not.toHaveProperty("materializeImages");

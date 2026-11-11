@@ -583,6 +583,7 @@ export function useCreateChat(
           body: JSON.stringify(requestBody),
           signal: streamController.signal,
         });
+        streamController.signal.throwIfAborted();
 
         if (!response.ok) {
           let errorData: Record<string, unknown> | null = null;
@@ -591,6 +592,7 @@ export function useCreateChat(
           } catch {
             // ignore
           }
+          streamController.signal.throwIfAborted();
           const recoveredChatId =
             typeof errorData?.chatId === "string" ? errorData.chatId.trim() : "";
           if (recoveredChatId) {
@@ -676,10 +678,13 @@ export function useCreateChat(
             },
             streamController.signal,
           );
+          streamController.signal.throwIfAborted();
           createdVersionId = streamResult.versionIdFromStream;
         } else {
           const data = await response.json();
+          streamController.signal.throwIfAborted();
           const nonStreamResult = await handleNonStreamingCreate(data);
+          streamController.signal.throwIfAborted();
           createdVersionId = nonStreamResult.versionId;
         }
         // Brief consumed by server — clear only on success so retries can reuse it.
@@ -728,14 +733,18 @@ export function useCreateChat(
           ),
         );
       } finally {
-        clearStreamSafetyTimer();
-        pendingCreateKeyRef.current = null;
-        clearCreateChatLock();
-        createChatInFlightRef.current = false;
-        setIsCreatingChat(false);
-        setMessages((prev) =>
-          prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
-        );
+        // Cancellation cleans its own flags synchronously. An older request
+        // settling afterwards must not clear a newer request's lock or timer.
+        if (!streamController || streamAbortRef.current === streamController) {
+          clearStreamSafetyTimer();
+          pendingCreateKeyRef.current = null;
+          clearCreateChatLock();
+          createChatInFlightRef.current = false;
+          setIsCreatingChat(false);
+          setMessages((prev) =>
+            prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
+          );
+        }
       }
       return true;
     },

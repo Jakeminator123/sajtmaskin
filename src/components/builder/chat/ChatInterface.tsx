@@ -36,10 +36,17 @@ import {
   X,
 } from "lucide-react";
 import {
+  classifyComposerIntent,
+  composerAllowsAgentBuild,
+  hasScopedComposerChangeRestriction,
+  isAgentProposalReference,
   isComposerMode,
+  isReadOnlyComposerRequest,
   resolveComposerRoute,
   type ComposerMode,
 } from "@/lib/builder/composer-route";
+import { resolveAgentProposalReference, type AgentProposalReference } from "@/lib/builder/composer-route-reference";
+import { readActiveBuilderTarget } from "@/lib/openclaw/builder-target";
 import { OpenClawPowersControl } from "@/components/openclaw/OpenClawPowersControl";
 import { useOpenClawPowers } from "@/components/openclaw/useOpenClawPowers";
 import { ComposerModeToggle } from "./sajtagent/ComposerModeToggle";
@@ -61,7 +68,7 @@ import {
   resolveOpenClawPreparedPromptSource,
   type OpenClawPreparedPromptSource,
 } from "@/lib/openclaw/prepared-prompt";
-import { readOpenClawPowers, useOpenClawStore } from "@/lib/openclaw/openclaw-store";
+import { readOpenClawPowers, revokeOpenClawBuildConsent, useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import {
   INSPECT_CAPTURE_EVENT,
   type InspectCapturedElement,
@@ -277,6 +284,8 @@ export function ChatInterface({
   onSelectedModelTierChange,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
+  const activeComposerChatRef = useRef(chatId);
+  activeComposerChatRef.current = chatId;
   const [isSending, setIsSending] = useState(false);
   const [promptAssistBusy, setPromptAssistBusy] = useState(false);
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -312,6 +321,7 @@ export function ChatInterface({
   // befintlig chatt; utan den är allt som förut.
   const agent = useSajtagent();
   const agentAvailable = Boolean(agent?.available && chatId);
+  const agentConfigured = Boolean(agent?.configured ?? agent?.available);
   const agentStreaming = Boolean(agent?.isStreaming);
   // Oklar text går till agenten bara när den själv kan starta bygget
   // (`start_build` kräver armerad autonomi); annars är byggmotorn närmast.
@@ -329,7 +339,7 @@ export function ChatInterface({
   // («vad händer nu?») ska fortfarande gå att ställa. Inputen hålls därför
   // öppen när agenten finns; byggvägen spärras i handleSubmit i stället.
   const builderLocked = Boolean(isBusy);
-  const inputDisabled = isSending || promptAssistBusy || (builderLocked && !agentAvailable);
+  const inputDisabled = isSending || promptAssistBusy || (builderLocked && !agentConfigured);
   const submitDisabled = inputDisabled || hasUploading;
   const showPreparingPrompt = Boolean(isPreparingPrompt);
 
@@ -794,9 +804,13 @@ export function ChatInterface({
     hasSuccessFiles || Boolean(normalizedFigmaUrl) || inspectPoints.length > 0;
 
   const resolveRouteFor = (text: string) => {
-    // En byggprompt som Sajtagenten själv lade i fältet är ett byggkommando,
-    // oavsett hur texten läses — annars studsar den tillbaka till agenten.
+    // Prepared build instructions keep their route; a field marker cannot
+    // override a question, explicit read-only request or unresolved reference.
     if (
+      composerMode !== "agent" &&
+      classifyComposerIntent(text) !== "agent" &&
+      !isReadOnlyComposerRequest(text) &&
+      !isAgentProposalReference(text) &&
       isOpenClawPreparedSend({
         preparedFill: useOpenClawStore.getState().preparedFill,
         message: text,
@@ -810,6 +824,7 @@ export function ChatInterface({
       hasChat: Boolean(chatId),
       hasAttachments: hasComposerAttachments,
       agentAvailable,
+      agentConfigured,
       agentCanBuild,
       builderAwaitingReply: builderAwaitingReply || continuePlanMode,
     });
@@ -821,13 +836,45 @@ export function ChatInterface({
     const hasAuditToken = Boolean(auditHandoff && !chatId);
     if (!trimmed && !hasSuccessFiles && !hasAuditToken) return;
 
-    if (trimmed && agent && resolveRouteFor(trimmed) === "agent") {
+    const restrictBuild = composerMode === "agent" || isReadOnlyComposerRequest(trimmed);
+    if (restrictBuild || hasScopedComposerChangeRestriction(trimmed)) revokeOpenClawBuildConsent();
+    const route = resolveRouteFor(trimmed);
+    if (route === "blocked") {
+      toast(!agentAvailable
+        ? "Sajtagenten är inte tillgänglig just nu. Ditt utkast finns kvar."
+        : "Frågan kan inte skickas med dessa bilagor eller före första bygget. Ditt utkast finns kvar.");
+      return;
+    }
+    if (trimmed && agent && route === "agent") {
       if (agentStreaming) {
         toast("Sajtagenten svarar fortfarande — vänta en stund.");
         return;
       }
-      void agent.send(trimmed);
-      setInput("");
+      let proposalReference: AgentProposalReference | undefined;
+      if (isAgentProposalReference(trimmed)) {
+        const target = readActiveBuilderTarget();
+        const resolution = resolveAgentProposalReference({
+          text: trimmed,
+          messages: useOpenClawStore.getState().messages,
+          target: target?.chatId === chatId ? target : null,
+        });
+        if (resolution.kind === "clarify") {
+          toast(resolution.message);
+          return;
+        }
+        proposalReference = resolution.reference;
+      }
+      const sendingChatId = chatId;
+      void agent.send(trimmed, {
+        allowBuild: composerAllowsAgentBuild({ mode: composerMode, text: trimmed }),
+        restrictBuild,
+        proposalReference,
+        onDispatchAccepted: () => {
+          if (activeComposerChatRef.current === sendingChatId) {
+            setInput((current) => current.trim() === trimmed ? "" : current);
+          }
+        },
+      }).catch(() => toast("Sajtagenten kunde inte ta emot frågan. Ditt utkast finns kvar."));
       return;
     }
     if (builderLocked) {
@@ -920,94 +967,25 @@ export function ChatInterface({
         onSubmit={handleSubmit}
         disabled={inputDisabled}
         allowEmptySubmit={Boolean(auditHandoff && !chatId)}
-        className="border-input bg-background rounded-lg border shadow-sm"
+        className="border-border/80 bg-background focus-within:border-brand-blue/50 focus-within:ring-brand-blue/10 overflow-hidden rounded-2xl border shadow-[0_8px_30px_-18px_rgba(0,0,0,0.35)] transition-[border-color,box-shadow] focus-within:ring-2"
       >
-        <PromptInputHeader className="flex-col items-stretch gap-2">
+        <PromptInputHeader className="flex-col items-stretch gap-2 border-0 px-3 pt-3 pb-0">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-muted-foreground text-[11px] leading-4" suppressHydrationWarning>
-              Verktyg
-            </p>
-            {agentAvailable ? (
-              <div className="flex items-center gap-1.5">
-                <ComposerModeToggle
-                  value={composerMode}
-                  onChange={handleComposerModeChange}
-                  disabledModes={builderLocked ? ["build"] : []}
-                />
-                <OpenClawPowersControl />
-              </div>
-            ) : null}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {/* "Avancerat"-popovern togs bort 2026-07-31: efter att
-                temaväljaren flyttade till Byggval-reglagen (ägarbeslut,
-                se preview-panelens välkomstläge) blev popovern en
-                enda-knapps-meny som bara gömde "Plan" bakom ett extra
-                klick. Plan renderas nu som en vanlig verktygsknapp,
-                samma mönster som de andra Verktyg-radsknapparna nedan. */}
-            <button
-              type="button"
-              onClick={() => void handlePlanRequest()}
-              disabled={inputDisabled || builderLocked || !input.trim()}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
-              title="Gör en plan eller PRD innan kod"
-            >
-              <FileText className="size-3" />
-              Plan
-            </button>
-            <button
-              type="button"
-              onClick={() => void handlePromptAssist()}
-              disabled={inputDisabled || promptAssistBusy || !input.trim()}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
-              title="Rätta och strukturera utkastet utan att skicka"
-            >
-              {promptAssistBusy ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
-              Prompt-assist
-            </button>
-            {previewModes ? (
-              <>
-                <button
-                  type="button"
-                  onClick={previewModes.onToggleComposer}
-                  disabled={previewModes.composerDisabled}
-                  aria-pressed={previewModes.composerOpen}
-                  aria-label={previewModes.composerOpen ? "Stäng block" : "Lägg till block"}
-                  title="Lägg till färdiga block och innehåll i previewen"
-                  className={builderModeToggleClassName(previewModes.composerOpen, "violet")}
-                >
-                  {/* Ikon-only (Del D): av/på bärs av färg + aria-pressed. Öppet
-                      läge byter dessutom ikon (Plus → X) så läget syns på en
-                      skärmdump utan text. */}
-                  {previewModes.composerOpen ? (
-                    <X className="size-3" />
-                  ) : (
-                    <Plus className="size-3" />
-                  )}
-                </button>
-                {previewModes.inspectAvailable ? (
-                  <button
-                    type="button"
-                    onClick={previewModes.onToggleInspect}
-                    disabled={previewModes.inspectDisabled}
-                    aria-pressed={previewModes.inspectOpen}
-                    aria-label={
-                      previewModes.inspectOpen ? "Sluta inspektera" : "Inspektera preview"
-                    }
-                    title="Klicka på något i previewen för att ändra text, byta bild, ta bort det eller skicka det till chatten"
-                    className={builderModeToggleClassName(previewModes.inspectOpen, "emerald")}
-                  >
-                    {previewModes.inspectOpen ? (
-                      <SearchX className="size-3" />
-                    ) : (
-                      <Search className="size-3" />
-                    )}
-                  </button>
-                ) : null}
-              </>
-            ) : null}
+            {agentConfigured ? (
+              <ComposerModeToggle
+                value={composerMode}
+                onChange={handleComposerModeChange}
+                disabledModes={builderLocked ? ["build"] : []}
+              />
+            ) : (
+              <p className="text-foreground text-xs font-medium">
+                {chatId ? "Fortsätt med din sajt" : "Din idé börjar här"}
+              </p>
+            )}
+            {agentConfigured ? <OpenClawPowersControl /> : null}
           </div>
         </PromptInputHeader>
+
         {(isFigmaInputOpen || figmaUrl.trim()) && (
           <div className="space-y-2 px-3 pb-2">
             <div className="flex items-center gap-2">
@@ -1081,9 +1059,7 @@ export function ChatInterface({
         )}
         {inspectPoints.length > 0 && (
           <div className="space-y-1 px-3 pb-2">
-            <div className="text-muted-foreground text-[11px]">
-              Markerade punkter från preview
-            </div>
+            <div className="text-muted-foreground text-[11px]">Markerade punkter från preview</div>
             <div className="flex flex-wrap items-center gap-2">
               {inspectPoints.map((point, index) => (
                 <div key={point.id} className="group relative">
@@ -1097,7 +1073,7 @@ export function ChatInterface({
                   <button
                     type="button"
                     onClick={() => handleRemoveInspectPoint(point.id)}
-                    className="absolute -top-1 -right-1 rounded-full bg-zinc-900 p-0.5 text-zinc-400 opacity-0 transition-opacity hover:text-white group-hover:opacity-100"
+                    className="absolute -top-1 -right-1 rounded-full bg-zinc-900 p-0.5 text-zinc-400 opacity-0 transition-opacity group-hover:opacity-100 hover:text-white"
                     title="Ta bort punkt"
                   >
                     <X className="size-3" />
@@ -1145,7 +1121,8 @@ export function ChatInterface({
                     )}
                     {!point.uploading && !point.uploadError && (
                       <div className="text-muted-foreground mt-1 text-[11px]">
-                        Lägger med koordinater{point.filename ? ` + ${point.filename}` : ""} i nästa meddelande.
+                        Lägger med koordinater{point.filename ? ` + ${point.filename}` : ""} i nästa
+                        meddelande.
                       </div>
                     )}
                   </div>
@@ -1154,7 +1131,7 @@ export function ChatInterface({
             </div>
           </div>
         )}
-        <PromptInputBody>
+        <PromptInputBody className="px-3 pt-3 pb-2">
           <PromptInputTextarea
             data-openclaw-text-target="builder.chat.primary"
             data-openclaw-text-label="Builderns huvudprompt"
@@ -1168,17 +1145,17 @@ export function ChatInterface({
             aria-label={chatId ? "Skriv en uppdatering" : "Beskriv vad du vill bygga"}
             autoComplete="off"
             disabled={inputDisabled}
-            className="text-foreground min-h-[96px] border-0 text-[15px] shadow-none placeholder:text-zinc-400 focus-visible:ring-0"
+            className="text-foreground placeholder:text-muted-foreground/70 min-h-20 border-0 px-1 py-1 text-[15px] leading-6 shadow-none focus-visible:ring-0 sm:min-h-24"
           />
         </PromptInputBody>
-        <PromptInputFooter className="flex-col items-stretch gap-1.5">
+        <PromptInputFooter className="border-border/60 bg-muted/20 flex-col items-stretch gap-2 px-3 py-2.5">
           {showPreparingPrompt && (
             <div className="text-muted-foreground flex items-center gap-2 text-xs">
               <Loader2 className="size-3.5 animate-spin" />
               {initBriefStatus ?? "Förbereder prompt..."}
             </div>
           )}
-          {agentAvailable && (agentStreaming || input.trim()) ? (
+          {agentConfigured && (agentStreaming || input.trim()) ? (
             <div
               className="text-muted-foreground flex items-center justify-between gap-2 text-[11px]"
               data-testid="composer-route-hint"
@@ -1189,6 +1166,8 @@ export function ChatInterface({
                   <Loader2 className="size-3 animate-spin" />
                   Sajtagenten svarar…
                 </span>
+              ) : resolveRouteFor(input) === "blocked" ? (
+                <span>Frågan kan inte skickas just nu – utkastet finns kvar</span>
               ) : resolveRouteFor(input) === "agent" ? (
                 <span className="inline-flex items-center gap-1.5">
                   <Bot className="size-3" aria-hidden="true" />
@@ -1213,8 +1192,81 @@ export function ChatInterface({
               ) : null}
             </div>
           ) : null}
+          <div className="flex flex-wrap gap-1.5">
+            {/* "Avancerat"-popovern togs bort 2026-07-31: efter att
+                temaväljaren flyttade till Byggval-reglagen (ägarbeslut,
+                se preview-panelens välkomstläge) blev popovern en
+                enda-knapps-meny som bara gömde "Plan" bakom ett extra
+                klick. Plan renderas nu som en vanlig verktygsknapp,
+                samma mönster som de andra Verktyg-radsknapparna nedan. */}
+            <button
+              type="button"
+              onClick={() => void handlePlanRequest()}
+              disabled={inputDisabled || builderLocked || !input.trim()}
+              className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
+              title="Gör en plan eller PRD innan kod"
+            >
+              <FileText className="size-3" />
+              Plan
+            </button>
+            <button
+              type="button"
+              onClick={() => void handlePromptAssist()}
+              disabled={inputDisabled || promptAssistBusy || !input.trim()}
+              className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
+              title="Rätta och strukturera utkastet utan att skicka"
+            >
+              {promptAssistBusy ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <Sparkles className="size-3" />
+              )}
+              Prompt-assist
+            </button>
+            {previewModes ? (
+              <>
+                <button
+                  type="button"
+                  onClick={previewModes.onToggleComposer}
+                  disabled={previewModes.composerDisabled}
+                  aria-pressed={previewModes.composerOpen}
+                  aria-label={previewModes.composerOpen ? "Stäng block" : "Lägg till block"}
+                  title="Lägg till färdiga block och innehåll i previewen"
+                  className={builderModeToggleClassName(previewModes.composerOpen, "violet")}
+                >
+                  {/* Ikon-only (Del D): av/på bärs av färg + aria-pressed. Öppet
+                      läge byter dessutom ikon (Plus → X) så läget syns på en
+                      skärmdump utan text. */}
+                  {previewModes.composerOpen ? (
+                    <X className="size-3" />
+                  ) : (
+                    <Plus className="size-3" />
+                  )}
+                </button>
+                {previewModes.inspectAvailable ? (
+                  <button
+                    type="button"
+                    onClick={previewModes.onToggleInspect}
+                    disabled={previewModes.inspectDisabled}
+                    aria-pressed={previewModes.inspectOpen}
+                    aria-label={
+                      previewModes.inspectOpen ? "Sluta inspektera" : "Inspektera preview"
+                    }
+                    title="Klicka på något i previewen för att ändra text, byta bild, ta bort det eller skicka det till chatten"
+                    className={builderModeToggleClassName(previewModes.inspectOpen, "emerald")}
+                  >
+                    {previewModes.inspectOpen ? (
+                      <SearchX className="size-3" />
+                    ) : (
+                      <Search className="size-3" />
+                    )}
+                  </button>
+                ) : null}
+              </>
+            ) : null}
+          </div>
           <div className="flex items-end justify-between gap-2">
-            <PromptInputTools className="flex flex-wrap items-center gap-1.5">
+            <PromptInputTools className="min-w-0 flex-1 flex-wrap items-center gap-1.5">
               {mediaEnabled && (
                 <>
                   <FileUploadZone
@@ -1228,7 +1280,7 @@ export function ChatInterface({
                     type="button"
                     onClick={() => setIsMediaDrawerOpen(true)}
                     disabled={inputDisabled}
-                    className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-6 items-center gap-1 rounded border px-1.5 text-[11px] disabled:opacity-50"
+                    className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
                     title="Öppna mediabibliotek"
                   >
                     <ImageIcon className="size-3" />
@@ -1238,7 +1290,7 @@ export function ChatInterface({
                     type="button"
                     onClick={() => setIsTextUploaderOpen(true)}
                     disabled={inputDisabled}
-                    className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-6 items-center gap-1 rounded border px-1.5 text-[11px] disabled:opacity-50"
+                    className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
                     title="Lägg till text eller PDF"
                   >
                     <FileText className="size-3" />
@@ -1250,9 +1302,7 @@ export function ChatInterface({
                 key={chatId ?? "new-chat"}
                 compact
                 disabled={inputDisabled}
-                onTranscript={(text) =>
-                  setInput((prev) => (prev ? `${prev} ${text}` : text))
-                }
+                onTranscript={(text) => setInput((prev) => (prev ? `${prev} ${text}` : text))}
               />
               {selectedModelTier && onSelectedModelTierChange ? (
                 <ModelTierSlider
@@ -1263,6 +1313,7 @@ export function ChatInterface({
               ) : null}
             </PromptInputTools>
             <PromptInputSubmit
+              className="focus-visible:ring-brand-blue/50 focus-visible:ring-offset-background size-10 rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
               data-openclaw-send-target="builder.chat.primary"
               disabled={submitDisabled}
             >

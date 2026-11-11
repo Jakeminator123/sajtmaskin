@@ -33,4 +33,34 @@ describe("POST /api/auth/login", () => {
     expect(response.status).toBe(400);
     expect(loginUser).not.toHaveBeenCalled();
   });
+
+  it("returns the GitHub connection without the token", async () => {
+    loginUser.mockResolvedValue({
+      token: "jwt",
+      user: {
+        id: "user_1",
+        email: "customer@example.test",
+        name: null,
+        image: null,
+        diamonds: 0,
+        free_generation_available: true,
+        provider: "email",
+        email_verified: true,
+        github_token: "gho_secret_token",
+        github_username: "customer",
+      },
+    });
+
+    const response = await POST(
+      request({ email: "customer@example.test", password: "password123" }),
+    );
+    const text = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(JSON.parse(text).user).toMatchObject({
+      github_username: "customer",
+      github_connected: true,
+    });
+    expect(text).not.toContain("gho_secret_token");
+  });
 });

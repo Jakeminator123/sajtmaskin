@@ -6,6 +6,7 @@
     "CRON_SECRET",
     "DATA_DIR",
     "DEBUG",
+    "DID_CONVERSATION_WEBHOOK_SECRET",
     "GITHUB_APP_ID",
     "GITHUB_APP_INSTALLATION_ID",
     "GITHUB_APP_PRIVATE_KEY",
@@ -122,6 +123,7 @@
     "DB_SSL_REJECT_UNAUTHORIZED",
     "DESIGN_SYSTEM_ID",
     "DID_API_KEY",
+    "DID_CONVERSATION_WEBHOOK_SECRET",
     "ELASTICSEARCH_API_KEY",
     "ELASTICSEARCH_NODE_URL",
     "EMAIL_FROM",
@@ -857,6 +859,12 @@
       "notes": "D-ID server-API-nyckel (API_USER:API_PASSWORD) för credits-saldot i last-generated-usersite.py. Appens avatar använder de publika NEXT_PUBLIC_AVATAR_*-client-nycklarna, så den här hör bara lokalt."
     },
     {
+      "key": "DID_CONVERSATION_WEBHOOK_SECRET",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Separat server-only Bearer-hemlighet för POST /api/did/conversation. Samma värde konfigureras hos D-ID:s anropande serververktyg/webhook. Saknas den svarar endast denna route 503 före mejl; ingen fallback till DID_API_KEY. Kräver samordnad konfiguration före leverans."
+    },
+    {
       "key": "PIPELINE_TEST_ACCOUNT_EMAIL",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
@@ -920,7 +928,7 @@
       "key": "OC_EDIT",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview"],
-      "notes": "OpenClaw edit gate — the ACT side, and only HALF the gate since 2026-08-11. Affirmative (1/true/yes/y/on) ALLOWS OpenClaw to drive edits of USER SITES, exclusively through the ordinary builder pipeline; the user must additionally press the 'extra befogenheter' button in the OpenClaw chat and tick the specific power (armed_autonomy / quick_edit). Without that grant the app behaves exactly as with OC_EDIT off — including the chat route sending no edit system prompt at all. The client's granted list can only narrow: the server ANDs it with OPENCLAW.editEnabled (src/lib/openclaw/powers.ts). The Mode B bug-hunt run route (OC_DEBUG + OC_DEBUG_RUN_TOKEN) is an operator path outside the chat button and still needs only the env flag. Never a direct write path to preview-host/Fly or Sajtmaskin's own code. Default off; enable in production deliberately. Read via OPENCLAW.editEnabled (src/lib/config.ts)."
+      "notes": "OpenClaw edit gate — the operator side of chat-scoped editing powers. Affirmative (1/true/yes/y/on) allows edits of USER SITES through the existing builder or quick-edit pipeline. New builder chats receive default powers only when the server confirms no saved grant; existing opt-outs are preserved. The 'extra befogenheter' control can change them per chat. A power is not a build instruction: direct builds require the current user request, multi-step autonomy requires a bounded mandate, and quick-edit proposals require approval. Without an applicable edit power the chat receives no edit system prompt. The server ANDs the chat powers with OPENCLAW.editEnabled (src/lib/openclaw/powers.ts). The Mode B bug-hunt run route (OC_DEBUG + OC_DEBUG_RUN_TOKEN) is a separate operator path. Never a direct write path to preview-host/Fly or Sajtmaskin's own code. Default off; enable in production deliberately. Read via OPENCLAW.editEnabled (src/lib/config.ts)."
     },
     {
       "key": "OC_DEBUG_RUN_TOKEN",

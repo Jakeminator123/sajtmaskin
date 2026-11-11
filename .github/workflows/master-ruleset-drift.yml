@@ -29,10 +29,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Compare live Protect master with versioned policy
+      - name: Compare visible Protect master rules (bypass actors may be unavailable)
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/ci/check-master-ruleset.mjs
+        run: node scripts/ci/check-master-ruleset.mjs --read-only
 
       - name: Compare visible working-branch rules (bypass actors may be unavailable)
         if: ${{ !cancelled() }}

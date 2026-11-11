@@ -10,6 +10,7 @@ import {
 function makeBridge(overrides: Partial<BuilderBridge> = {}): BuilderBridge {
   return {
     getChatId: () => "chat_1",
+    getActiveVersionId: () => "version_1",
     canSend: () => true,
     sendMessage: vi.fn(async () => ({ status: "started", via: "stream" }) as const),
     cancelGeneration: vi.fn(),
@@ -72,5 +73,29 @@ describe("builder-bridge", () => {
     await expect(
       waitForBuilderSend({ maxAttempts: 3, intervalMs: 1, isCancelled: () => true }),
     ).resolves.toEqual({ ok: false, reason: "cancelled" });
+  });
+
+  it("låter inte en annan chatt ta över en väntande sändning", async () => {
+    registerBuilderBridge(makeBridge({ getChatId: () => "chat_a", canSend: () => false }));
+    const waiting = waitForBuilderSend({
+      expectedChatId: "chat_a",
+      expectedVersionId: "version_1",
+      maxAttempts: 5,
+      intervalMs: 1,
+    });
+    setTimeout(() => {
+      registerBuilderBridge(makeBridge({ getChatId: () => "chat_b" }));
+    }, 1);
+    await expect(waiting).resolves.toEqual({ ok: false, reason: "chat_changed" });
+  });
+
+  it("stoppar när den aktiva versionen inte längre är förslagets version", async () => {
+    registerBuilderBridge(makeBridge({ getActiveVersionId: () => "version_2" }));
+    await expect(
+      waitForBuilderSend({
+        expectedChatId: "chat_1",
+        expectedVersionId: "version_1",
+      }),
+    ).resolves.toEqual({ ok: false, reason: "version_changed" });
   });
 });

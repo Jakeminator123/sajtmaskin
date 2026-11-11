@@ -24,6 +24,7 @@ export function usePreviewPanelCodeFiles(options: {
     previewSessionId?: string | null;
     lifecycleToken?: string | null;
     previewMode?: string | null;
+    previewError?: string;
   }) => void;
 }): {
   files: FileNode[];
@@ -81,7 +82,9 @@ export function usePreviewPanelCodeFiles(options: {
           (preferredPath && findFileNodeByPath(tree, preferredPath)) || findFirstFileInTree(tree);
         if (!isActive) return;
         setFiles(tree);
-        setSelectedPath(preferredNode?.path || null);
+        setSelectedPath((previous) => previous && findFileNodeByPath(tree, previous)
+          ? previous
+          : preferredNode?.path || null);
       } catch (error) {
         if (!isActive) return;
         if (error instanceof Error && error.name === "AbortError") return;
@@ -143,6 +146,7 @@ export function usePreviewPanelCodeFiles(options: {
           previewSessionId: saved.previewSessionId,
           lifecycleToken: saved.lifecycleToken,
           previewMode: saved.previewMode,
+          ...(saved.previewError ? { previewError: saved.previewError } : {}),
         });
         return true;
       } catch (error) {

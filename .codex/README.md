@@ -2,7 +2,7 @@
 
 Projektets Codex-lager. Codex läser `AGENTS.md` från repo-roten och
 `.codex/config.toml` när projektet är trusted; arbetssättet (`AGENTS.md`,
-`pr-workflow`, `.cursor/rules/`) är gemensamt med Cursor. Default är GPT-5.6 Sol
+`pr-workflow`, `.cursor/rules/`) är gemensamt med Cursor. Default är GPT-6.1 Sol
 med `high` reasoning för huvudtråd och spawnade agenter; en explicit agentprofil
 vinner. Modellregler och ChatGPT-webbens granskningsmandat:
 [subagent-models.mdc](../.cursor/rules/subagent-models.mdc).
@@ -38,8 +38,9 @@ stoppas publiceringen — ingen full-access-fallback.
 Repo-roten är samma mapp för båda verktygen; skriv ingen maskinspecifik sökväg
 här. Arbetsyta enligt `git.mdc`, worktrees enligt
 [agent-worktree.mdc](../.cursor/rules/agent-worktree.mdc) och bas enligt
-`pr-workflow` § 1.2 (branch från `origin/preview`, `origin/master` bara som
-produktionsbevis). Vid handoff/branchbyte: kontrollera lokala ändringar och vem
+`pr-workflow` § 1.2 (normalt branch från `origin/preview`; en uttryckligen
+beställd produktionshotfix utgår från färsk `origin/master` enligt § 4b).
+Vid handoff/branchbyte: kontrollera lokala ändringar och vem
 som skriver i ytan; bara en aktör ansvarar för en merge.
 
 Ignorering: `.cursorignore` gäller Cursor; Codex har ingen `.codexignore`, så var
@@ -49,6 +50,11 @@ den publika mallen. Inga tokens i `.codex/config.toml`; GitHub går via `gh`/SSH
 eller connectorn. Behöver ett worktree runtime-env: skapa en minimal lokal fil
 uttryckligen och committa den aldrig.
 
+Ny dator: [lokal setup](../docs/runbooks/local-development.md).
+Projektets Vercel-MCP är standard. Supabase DEV/PROD, kontobred Vercel och
+legacy v0 är avstängda med `enabled = false` tills de behövs. Detta ändrar inte
+anslutna plugins eller deras separata inloggningar.
+
 ## Windows-skal (pwsh 7)
 
 Codex Desktop startar ofta Windows PowerShell 5.1 (`Copyright (C) Microsoft
@@ -57,6 +63,11 @@ Corporation` / `aka.ms/pscore6`, förstår inte `&&`). Riktig exe:
 PATH. `PWSH` injiceras via `shell_environment_policy.set`; om skalet är 5.1, kör
 `& $env:PWSH -NoLogo -NoProfile -Command '…'`. `[windows] sandbox = "elevated"`
 är avsiktligt (aliaset i WindowsApps failar där).
+
+RTK behöver den icke-hemliga sökvägsvariabeln `CLAUDE_CONFIG_DIR`. Värdet
+konfigureras globalt; projektets filter måste också tillåta den eftersom
+include-listan tillämpas efter globala `set`-värden. Agenter ska inte behöva
+sätta variabeln manuellt per kommando.
 
 `shell_environment_policy.filters` behåller de icke-hemliga `SystemDrive` och
 `ProgramData`; saknas de hamnar systemcache i en bokstavlig `%SystemDrive%`-mapp

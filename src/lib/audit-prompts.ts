@@ -314,9 +314,12 @@ export function buildAuditPrompt(
           .join("\n")}`
       : "\nRUBRIKER: Inga rubriker kunde hämtas (troligen JS-renderad sida)";
 
-  // Build text preview section
-  const textSection =
-    websiteContent.textPreview && websiteContent.textPreview.length > 10
+  // The scraper already bounds aggregated text to ~2000 words. Avancerad
+  // needs that collected evidence; Vanlig and public keep their existing preview.
+  const advancedText = options.auditMode === "advanced" ? websiteContent.text?.trim() : "";
+  const textSection = advancedText
+    ? `\nTEXTINNEHÅLL (insamlat utdrag, max ~2000 ord):\n${advancedText}`
+    : websiteContent.textPreview && websiteContent.textPreview.length > 10
       ? `\nTEXTINNEHÅLL (första ~800 tecken):\n${websiteContent.textPreview}`
       : "\nTEXTINNEHÅLL: Kunde inte hämtas (troligen JS-renderad sida)";
 

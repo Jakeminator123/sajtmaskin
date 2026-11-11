@@ -5,6 +5,7 @@
 
 import type { ScrapedSiteImage, WebsiteContent } from "@/types/audit";
 import { safeFetch as guardedFetch, validateSsrfTarget } from "@/lib/ssrf-guard";
+import { normalizeWebsiteInputUrl } from "@/lib/website-input-url";
 
 // Crawl settings
 const MAX_PAGES = 4; // absolute ceiling: root + up to three strong internal pages
@@ -22,6 +23,8 @@ const AGGREGATE_WORD_LIMIT = 2000; // cap aggregated text to reduce token usage
 const MAX_LINKS_TO_CONSIDER = 25; // cap to avoid crawling too broadly
 const SITEMAP_URL_LIMIT = 40; // cap sitemap URLs to consider
 const SITEMAP_INDEX_LIMIT = 3; // cap sitemap index fan-out
+
+type ScrapeLogger = Pick<Console, "info" | "warn">;
 
 type CandidateLink = {
   url: string;
@@ -82,17 +85,26 @@ async function getCheerio() {
 }
 
 function normalizeInputUrl(url: string): string {
-  const trimmed = url.trim();
-  if (!trimmed) return trimmed;
-  if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
-    return `https://${trimmed}`;
-  }
-  return trimmed;
+  return normalizeWebsiteInputUrl(url);
 }
 
 function isLikelyHtml(contentType: string | null): boolean {
   if (!contentType) return false;
   return contentType.includes("text/html") || contentType.includes("application/xhtml+xml");
+}
+
+/**
+ * Prefer the page's main content, but fall back to the full body when the
+ * selected container is only an empty/thin layout shell. Shared by quick and
+ * full scrape so wizard enrichment sees the same server-rendered copy.
+ */
+function extractBodyText($: CheerioRoot): string {
+  const mainContent = $("main, article, [role='main'], .content, .main-content").first();
+  let bodyText = mainContent.length > 0 ? mainContent.text() : "";
+  if (!bodyText || bodyText.trim().length < 50) {
+    bodyText = $("body").text();
+  }
+  return bodyText.replace(/\s+/g, " ").trim();
 }
 
 function absoluteUrl(href: string, base: URL): string | null {
@@ -471,6 +483,7 @@ function isLikelyWordPressHtml(html: string): boolean {
 async function tryWordPressFallback(
   html: string,
   url: string,
+  logger: ScrapeLogger = console,
 ): Promise<{ text: string; headings: string[]; source: string } | null> {
   // Avoid WP fallback if the page doesn't look like WordPress.
   if (!isLikelyWordPressHtml(html)) {
@@ -520,7 +533,10 @@ async function tryWordPressFallback(
     // ignore invalid canonical
   }
 
-  const uniqueCandidates = Array.from(new Set(candidates));
+  // HTML hints cannot authorize another origin to supply this site's text.
+  const uniqueCandidates = Array.from(new Set(candidates)).filter(
+    (candidate) => new URL(candidate).origin === baseUrl.origin,
+  );
 
   for (const candidate of uniqueCandidates) {
     try {
@@ -530,7 +546,8 @@ async function tryWordPressFallback(
         headers: { Accept: "application/json" },
         timeoutMs: 10_000,
       });
-      if (!response.ok) continue;
+      // safeFetch follows redirects: bind the resulting content as well.
+      if (!response.ok || new URL(response.url).origin !== baseUrl.origin) continue;
 
       const contentType = response.headers.get("content-type") || "";
       if (!contentType.includes("application/json")) {
@@ -556,7 +573,7 @@ async function tryWordPressFallback(
 
       return { text, headings, source: candidate };
     } catch (error) {
-      console.warn(
+      logger.warn(
         `[WebScraper] WP fallback failed for ${candidate}: ${
           error instanceof Error ? error.message : "unknown error"
         }`,
@@ -683,7 +700,7 @@ async function fetchPage(url: string): Promise<{
   };
 }
 
-async function parsePage(html: string, url: string, responseTime: number): Promise<ParsedPage> {
+async function parsePage(html: string, url: string, responseTime: number, logger: ScrapeLogger = console): Promise<ParsedPage> {
   const cheerio = await getCheerio();
   const $ = cheerio.load(html);
   const baseUrl = new URL(url);
@@ -706,23 +723,8 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
     if (text && headings.length < 25) headings.push(text);
   });
 
-  // Extract text from body, removing script/style content
-  // Try to get text from main content areas first, fallback to body
-  let bodyText = "";
-
-  // Try main content areas (better for modern sites)
-  const mainContent = $("main, article, [role='main'], .content, .main-content").first();
-  if (mainContent.length > 0) {
-    bodyText = mainContent.text();
-  }
-
-  // Fallback to body if main content is empty or very short
-  if (!bodyText || bodyText.trim().length < 50) {
-    bodyText = $("body").text();
-  }
-
-  // Clean up whitespace
-  bodyText = bodyText.replace(/\s+/g, " ").trim();
+  // Extract text from body, preferring real main content over navigation.
+  let bodyText = extractBodyText($);
 
   // Split into words and filter out empty strings
   let words = bodyText.split(" ").filter((word) => word.trim().length > 0);
@@ -731,7 +733,7 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
 
   // Log warning if very little content found (might be JS-rendered)
   if (wordCount < 10) {
-    console.warn(
+    logger.warn(
       `[WebScraper] Very little text found (${wordCount} words) for ${url}. ` +
         `This might be a JavaScript-rendered page. Found ${scriptCountBeforeCleanup} script tags. ` +
         `Body text length: ${bodyText.length} chars.`,
@@ -740,7 +742,7 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
 
   // Fallback for JS/Cloudflare gated WordPress pages
   if (wordCount < SECONDARY_MIN_WORDS) {
-    const wpFallback = await tryWordPressFallback(html, url);
+    const wpFallback = await tryWordPressFallback(html, url, logger);
     if (wpFallback) {
       const fallbackWords = wpFallback.text.split(" ").filter((word) => word.trim().length > 0);
       if (fallbackWords.length > wordCount) {
@@ -752,7 +754,7 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
           25,
         );
         bodyText = wpFallback.text;
-        console.info(
+        logger.info(
           `[WebScraper] Used WordPress JSON fallback for ${url} (${wordCount} words) from ${wpFallback.source}`,
         );
       }
@@ -847,16 +849,16 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
   };
 }
 
-async function fetchAndParse(targetUrl: string): Promise<ParsedPage> {
+async function fetchAndParse(targetUrl: string, logger: ScrapeLogger = console): Promise<ParsedPage> {
   const page = await fetchPage(targetUrl);
-  return parsePage(page.html, page.finalUrl, page.responseTime);
+  return parsePage(page.html, page.finalUrl, page.responseTime, logger);
 }
 
-async function tryFetchPage(targetUrl: string): Promise<ParsedPage | null> {
+async function tryFetchPage(targetUrl: string, logger: ScrapeLogger = console): Promise<ParsedPage | null> {
   try {
-    return await fetchAndParse(targetUrl);
+    return await fetchAndParse(targetUrl, logger);
   } catch (error) {
-    console.warn(
+    logger.warn(
       `[webscraper] Skipping ${targetUrl}: ${error instanceof Error ? error.message : "okänt fel"}`,
     );
     return null;
@@ -901,10 +903,7 @@ export async function quickScrapeWebsite(url: string): Promise<{
     const text = $(el).text().trim();
     if (text && headings.length < 15) headings.push(text);
   });
-  const mainEl = $("main, article, [role='main'], .content").first();
-  const bodyText = (mainEl.length > 0 ? mainEl.text() : $("body").text())
-    .replace(/\s+/g, " ")
-    .trim();
+  const bodyText = extractBodyText($);
   const words = bodyText.split(" ").filter((w) => w.length > 0);
   const hasImages = $("img").length > 0;
 
@@ -924,8 +923,9 @@ export async function quickScrapeWebsite(url: string): Promise<{
  */
 export async function scrapeWebsite(
   url: string,
-  options?: { maxPages?: number },
+  options?: { maxPages?: number; logger?: ScrapeLogger },
 ): Promise<WebsiteContent> {
+  const logger = options?.logger ?? console;
   const pageLimit = resolveScrapePageLimit(options?.maxPages);
   const normalizedUrl = normalizeInputUrl(url);
   if (!normalizedUrl) {
@@ -946,7 +946,7 @@ export async function scrapeWebsite(
     candidateQueue.sort((a, b) => b.score - a.score);
   };
 
-  const firstPage = await fetchAndParse(normalizedUrl);
+  const firstPage = await fetchAndParse(normalizedUrl, logger);
   pages.push(firstPage);
   visited.add(firstPage.url);
   enqueueCandidates(firstPage);
@@ -985,7 +985,7 @@ export async function scrapeWebsite(
 
         if (scored.length > 0) {
           candidateQueue.sort((a, b) => b.score - a.score);
-          console.info(
+          logger.info(
             `[WebScraper] Sitemap fallback: queued ${Math.min(
               scored.length,
               SITEMAP_URL_LIMIT,
@@ -1007,7 +1007,7 @@ export async function scrapeWebsite(
     // URL even if it redirects to another location.
     visited.add(candidate.url);
 
-    const parsed = await tryFetchPage(candidate.url);
+    const parsed = await tryFetchPage(candidate.url, logger);
     if (!parsed) continue;
 
     // Also mark the final resolved URL to prevent duplicates after redirects.
@@ -1112,10 +1112,7 @@ export function validateAndNormalizeUrl(url: string): string {
     throw new Error("URL kan inte vara tom");
   }
 
-  // Auto-add https:// if missing protocol
-  if (!normalized.match(/^https?:\/\//i)) {
-    normalized = `https://${normalized}`;
-  }
+  normalized = normalizeWebsiteInputUrl(normalized);
 
   // Validate URL format
   try {
