@@ -965,6 +965,30 @@ async function runPreviewOriginContracts() {
     assert.equal(wrongSlug.status, 404, "unknown slug serves nothing");
     const foreignLabel = await onHost(`www.${PREVIEW_DOMAIN}`, `/${encA}/`);
     assert.equal(foreignLabel.status, 404, "non-slug label under the preview domain serves nothing");
+
+    // A browser navigation to a well-formed slug whose chat has no session yet
+    // gets the static start page (no JSON in the iframe). Everything else on
+    // preview origins stays 404.
+    const navigate = { "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "iframe" };
+    const pendingSlug = await onHost(`p-${"0".repeat(20)}.${PREVIEW_DOMAIN}`, "/not-started-chat/", {
+      headers: navigate,
+    });
+    assert.equal(pendingSlug.status, 503);
+    assert.match(pendingSlug.body, /data-sajtmaskin-preview-boot="starting"/);
+    for (const [host, path] of [
+      [`www.${PREVIEW_DOMAIN}`, `/${encA}/`],
+      [hostA, `/${chatB}/`],
+      [hostA, "/admin/metrics"],
+      [`p-${"0".repeat(20)}.${PREVIEW_DOMAIN}`, "/admin/metrics"],
+    ]) {
+      const navigated = await onHost(host, path, { headers: navigate });
+      assert.equal(navigated.status, 404, `${host}${path} stays 404 on navigation`);
+    }
+    assert.equal(
+      (await rawGet("/unknown-chat/", navigate)).status,
+      404,
+      "the base host in subdomain mode never serves the start page",
+    );
     const apexDomain = await onHost(PREVIEW_DOMAIN, "/health");
     assert.equal(apexDomain.status, 404);
 
@@ -2060,6 +2084,30 @@ try {
 
   const unknownBootstrap = await rawGet(`/unknown-chat${"/__sm/preview-bootstrap.js"}`);
   assert.equal(unknownBootstrap.status, 404, "reserved host scripts require a live session");
+
+  // A browser navigation before the chat's session exists gets the host start
+  // page, never raw JSON in the iframe (prod 2026-11-11). Probes keep the 404.
+  const pendingNavigation = await rawGet(`/not-started-chat/`, {
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Dest": "iframe",
+  });
+  assert.equal(pendingNavigation.status, 503);
+  assert.match(pendingNavigation.body, /data-sajtmaskin-preview-boot="starting"/);
+  assert.match(pendingNavigation.body, /http-equiv="refresh"/);
+  const pendingProbe = await rawGet(`/not-started-chat/`);
+  assert.equal(pendingProbe.status, 404);
+  assert.match(pendingProbe.body, /"not_found"/);
+  for (const notAChatPath of ["/admin/sessions", "/api/chat", "/_next/static/x.js"]) {
+    const navigated = await rawGet(notAChatPath, {
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Dest": "document",
+    });
+    assert.doesNotMatch(
+      navigated.body,
+      /data-sajtmaskin-preview-boot/,
+      `${notAChatPath} never gets the start page`,
+    );
+  }
 
   // (a) chatId-prefixed internal asset -> Origin stripped before upstream.
   lastUpstreamHeaders = null;

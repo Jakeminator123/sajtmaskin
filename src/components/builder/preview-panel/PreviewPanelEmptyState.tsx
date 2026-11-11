@@ -28,6 +28,9 @@ import { PreviewPanelInitControls } from "./composer/PreviewPanelInitControls";
 import { useRepairBlocked } from "@/lib/builder/repair-blocked";
 import { cn } from "@/lib/utils";
 
+const PREFILLED_PROMPT_HINT =
+  "Den ligger i chatten till vänster. Gör gärna några byggval nedan och tryck sedan på pilen i chatten för att skapa första utkastet.";
+
 interface PreviewPanelEmptyStateProps {
   chatId: string | null;
   versionId: string | null;
@@ -75,6 +78,11 @@ interface PreviewPanelEmptyStateProps {
    */
   templateInitError?: string | null;
   onRetryTemplateInit?: (() => void) | null;
+  /**
+   * The landing prompt is prefilled in the composer but not sent: free text
+   * waits for Byggval before the first build (no auto-start).
+   */
+  hasPrefilledPrompt?: boolean;
 }
 
 export function PreviewPanelEmptyState({
@@ -101,6 +109,7 @@ export function PreviewPanelEmptyState({
   onRestartGeneration,
   templateInitError = null,
   onRetryTemplateInit = null,
+  hasPrefilledPrompt = false,
 }: PreviewPanelEmptyStateProps) {
   // Täcker både pågående generering och deterministisk /finalize-design.
   const repairBlocked = useRepairBlocked(isGenerating);
@@ -269,11 +278,12 @@ export function PreviewPanelEmptyState({
             <Sparkles className="h-6 w-6" aria-hidden="true" />
           </div>
           <h2 className="text-foreground mb-2 text-xl font-semibold tracking-tight">
-            Vad vill du bygga?
+            {hasPrefilledPrompt ? "Din beskrivning är klar" : "Vad vill du bygga?"}
           </h2>
           <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
-            Beskriv din sajt i chatten till vänster. Gör gärna några byggval nedan — de styr
-            första versionen.
+            {hasPrefilledPrompt
+              ? PREFILLED_PROMPT_HINT
+              : "Beskriv din sajt i chatten till vänster. Gör gärna några byggval nedan — de styr första versionen."}
           </p>
 
           <PreviewPanelInitControls

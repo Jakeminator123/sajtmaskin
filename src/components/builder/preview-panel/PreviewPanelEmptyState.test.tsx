@@ -30,6 +30,7 @@ function renderEmptyState(
       isGenerating={props.isGenerating ?? false}
       templateInitError={props.templateInitError ?? null}
       onRetryTemplateInit={props.onRetryTemplateInit ?? null}
+      hasPrefilledPrompt={props.hasPrefilledPrompt ?? false}
     />,
   );
 }
@@ -69,6 +70,12 @@ describe("PreviewPanelEmptyState — template-entry", () => {
   it("visar onboarding-reglagen vid tom start utan templateId", () => {
     renderEmptyState({ chatId: null, versionId: null });
     expect(screen.getByText(WELCOME_TITLE)).toBeTruthy();
+  });
+
+  it("säger vad nästa steg är när startsidans beskrivning redan är ifylld", () => {
+    renderEmptyState({ chatId: null, versionId: null, hasPrefilledPrompt: true });
+    expect(screen.getByText("Din beskrivning är klar")).toBeTruthy();
+    expect(screen.getByText(/tryck sedan på pilen i chatten/)).toBeTruthy();
   });
 
   it("visar laddläge i stället för onboarding när templateId finns i URL:en trots !chatId", () => {

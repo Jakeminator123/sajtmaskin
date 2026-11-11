@@ -5,6 +5,7 @@ import { PROMPT_SOURCE_UI_PART_TYPE, type ChatMessage } from "@/lib/builder/type
 import { buildPlanModeAssistantMessage } from "@/lib/gen/plan/review";
 import { buildF3AwaitingInputUiPart } from "@/lib/gen/stream/f3-continuation";
 import { MessageList } from "./MessageList";
+import { useAuthStore, type AuthUser } from "@/lib/auth/auth-store";
 
 vi.mock("streamdown", () => ({
   Streamdown: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
@@ -167,6 +168,8 @@ describe("MessageList", () => {
       },
     ];
 
+    // The work log in "Visa detaljer" is admin-only.
+    useAuthStore.setState({ user: { id: "admin_1", isAdmin: true } as AuthUser });
     render(<MessageList chatId="chat_live_progress" messages={messages} isStreaming />);
 
     expect(screen.getByText("Arbetar med din sajt")).toBeTruthy();
@@ -175,6 +178,7 @@ describe("MessageList", () => {
     fireEvent.click(screen.getByRole("button", { name: "Visa detaljer" }));
     expect(screen.getByText("Validerar genererad kod (pass 1)")).toBeTruthy();
     expect(screen.getByText("Pågår")).toBeTruthy();
+    useAuthStore.setState({ user: null });
   });
 
   it("surfaces a terminal tool error in the live header while the stream continues", () => {

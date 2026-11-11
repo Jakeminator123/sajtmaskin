@@ -394,6 +394,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 status: activeVersionStatus,
                 isLatest: activeVersionIsLatest,
               } : null}
+              previewVisible={vm.previewLifecycle === "live"}
               messages={vm.messages}
               showStructuredParts={vm.showStructuredChat}
               onQuickReply={async (text, options) => {
@@ -508,6 +509,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onRestartGeneration={vm.handleRestartGeneration}
               templateInitError={vm.templateInitError}
               onRetryTemplateInit={vm.retryTemplateInit}
+              hasPrefilledPrompt={Boolean(vm.initialPrompt)}
               onFilesSaved={vm.handleFilesSaved}
               refreshToken={vm.previewRefreshToken}
               onComposerAiFallback={handleComposerAiFallback}
