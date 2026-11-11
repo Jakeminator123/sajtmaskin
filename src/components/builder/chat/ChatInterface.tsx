@@ -88,6 +88,7 @@ import {
   currentBuilderReturnTo,
 } from "@/lib/builder/pending-builder-draft";
 import { INIT_BRIEF_STATUS_EVENT, type InitBriefStatusDetail } from "@/lib/hooks/useInitBrief";
+import { publishWelcomeComposer } from "@/lib/builder/welcome-composer-bridge";
 import {
   FILL_CHAT_INPUT_EVENT,
   type FillChatInputDetail,
@@ -1004,6 +1005,23 @@ export function ChatInterface({
   const routeStyle = ROUTE_TONE_STYLE[routeDescription.tone];
   const RouteIcon = routeStyle.icon;
   const showModeToggle = agentConfigured || Boolean(chatId);
+
+  // Välkomstpanelen (paket F, `welcome-composer-bridge.ts`) visar ett förslag
+  // utifrån utkastet och «Skapa första utkastet». Knappen finns bara när
+  // Skicka skulle bygga, och den gör exakt samma utskick som Skicka.
+  const welcomeStartRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    welcomeStartRef.current = () => void handleSubmit({ text: input });
+  });
+  const startFromWelcome = useCallback(() => welcomeStartRef.current(), []);
+  const welcomeCanStart =
+    !chatId && !submitDisabled && Boolean(input.trim()) && routeDescription.tone === "build";
+  useEffect(() => {
+    publishWelcomeComposer(
+      chatId ? null : { draft: input, start: welcomeCanStart ? startFromWelcome : null },
+    );
+  }, [chatId, input, welcomeCanStart, startFromWelcome]);
+  useEffect(() => () => publishWelcomeComposer(null), []);
   const disabledComposerModes: ComposerMode[] = [
     ...(builderLocked ? (["build"] as const) : []),
     ...(agentConfigured ? [] : (["agent"] as const)),

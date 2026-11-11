@@ -217,8 +217,12 @@ export function FloatingCollapsedChatInput({
     }
   }, []);
 
-  const floatStyle: CSSProperties | undefined =
-    floatActive && position
+  // Hopfälld: knappen dockas i nedre vänstra hörnet i stället för att stanna
+  // på kortets plats mitt över sajten (riggen 2026-11-11). Kortets sparade
+  // position används igen när det fälls ut.
+  const floatStyle: CSSProperties | undefined = isMinimized
+    ? { position: "fixed", left: "1rem", bottom: "1rem", width: "auto", zIndex: 40 }
+    : floatActive && position
       ? {
           position: "fixed",
           left: position.x,

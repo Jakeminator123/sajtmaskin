@@ -75,6 +75,11 @@ describe("FloatingCollapsedChatInput — fäll ihop det flytande kortet", () => 
     expect(screen.queryByRole("textbox", { name: "Utkast" })).toBeNull();
     const restore = screen.getByRole("button", { name: "Visa inmatningen (2 meddelanden)" });
     expect(document.activeElement).toBe(restore);
+    // Dockad i ett hörn, inte kvar mitt över sajten.
+    const card = screen.getByTestId("floating-collapsed-chat-input");
+    expect(card.style.left).toBe("1rem");
+    expect(card.style.bottom).toBe("1rem");
+    expect(card.style.top).toBe("");
 
     act(() => {
       fireEvent.click(restore);
