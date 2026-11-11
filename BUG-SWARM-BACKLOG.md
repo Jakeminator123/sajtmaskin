@@ -35,7 +35,7 @@ Regler:
   `Under rättning` och `Lokal kodfix` (ännu inte levererad).
 - Kodfix på både preview och master flyttas till `Arkiv` med bevis. Kodfix bara
   på preview stannar i kön tills promote.
-- Varje aktiv rad har ett stabilt `SM-###`. Nästa lediga ID är `SM-133`.
+- Varje aktiv rad har ett stabilt `SM-###`. Nästa lediga ID är `SM-135`.
 - En draft-PR är inte en fix. Kolumnen «Bevis på `master`» anger alltid vilken
   gren beviset gäller.
 
@@ -44,7 +44,7 @@ Regler:
 <!-- prettier-ignore -->
 | Klar | Status | Prio | Fynd | Bevis på `master` | Nästa steg |
 | --- | --- | --- | --- | --- | --- |
-| [ ] | Delvis åtgärdad | P1 | `SM-080` Preview-isolering: shared-läget delar OS-identitet och filsystem mellan kundprojekt; per-chat-maskiner skiljer processerna men preview-sajterna delar fortfarande webbläsar-origin. Svärm 2026-11-03 `M03` bekräftar den senare gränsen. | Master `63dbb9ed2`: `preview-host/src/runtime/shared.js`, `runtime/machine-runtime.js`, `server/routes.js`, `src/components/builder/preview-panel/runtime/PreviewPanelFrame.tsx`. Health på `vm-fly-jakem.fly.dev` 2026-11-03 kl. 15:11:49 UTC visade `machine/configured:true`, release `1bcca87b63f8e2311dfcb97c99d392b28ae70321`; tidigare uppgift om ej driftsatt maskinläge är inaktuell. Det är inte ett E2E-isoleringsbevis. Gästmaskinerna är 2 vCPU/4 GB. | Bevara spärren tills nät-/tenantacceptans är dokumenterad. Pågår 2026-11-11: paket A förstör gästen efter 25 min inaktivitet (och krymper kontrollplanet); paket B bygger egen origin per chatt (M03) med HTTP/WS-hostbindning, DNS/TLS och migration från delad origin. Ingen isoleringsacceptans är gjord. |
+| [ ] | Delvis åtgärdad | P1 | `SM-080` Preview-isolering: shared-läget delar OS-identitet och filsystem mellan kundprojekt; per-chat-maskiner skiljer processerna men preview-sajterna delar fortfarande webbläsar-origin. Svärm 2026-11-03 `M03` bekräftar den senare gränsen. | Master `63dbb9ed2`: `preview-host/src/runtime/shared.js`, `runtime/machine-runtime.js`, `server/routes.js`, `src/components/builder/preview-panel/runtime/PreviewPanelFrame.tsx`. Health på `vm-fly-jakem.fly.dev` 2026-11-03 kl. 15:11:49 UTC visade `machine/configured:true`, release `1bcca87b63f8e2311dfcb97c99d392b28ae70321`; tidigare uppgift om ej driftsatt maskinläge är inaktuell. Det är inte ett E2E-isoleringsbevis. Gästmaskinerna är 2 vCPU/4 GB. | Bevara spärren tills nät-/tenantacceptans är dokumenterad. Levererat 2026-11-11: #1729 (gäst förstörs efter 25 min inaktivitet, kontrollplanet krympt) och #1727 (egen origin per chatt bakom `PREVIEW_HOST_ORIGIN_MODE`, default `path`). M03 bockas av när flaggan är på i produktion och ett tvåchattsprov är sparat. Kvar därefter: cookies med `Domain=sajtmaskin.com` delas mellan previews tills PSL-post eller egen domän finns. Ingen isoleringsacceptans är gjord. |
 | [ ] | Delvis åtgärdad | P1 | `SM-081` Parallella genereringar kan inte längre passera samma kreditförkontroll, men det finns ingen budgetreservation eller kostnadstak. | `src/lib/credits/generation-admission.ts:13`, `src/lib/gen/stream/generation-lock.ts:135`; preview och master. Utan Redis i production/preview nekas starten med 503. | Kvar: faktisk reservation/kostnadstak och övriga betalda körvägar. Beställ inte kontolåset igen. |
 | [ ] | Delvis åtgärdad | P1 | `SM-072` Chromium-captures kan svälta `/tmp` på en varm Fluid-instans; en burst kan döda nästa launch. | `src/lib/capture/browser.ts:203` och `:395`: core-dumpar rensas före launch och `browser_crashed` visas inte som Degraderad, men profiler yngre än 300 s lämnas kvar. #1572 (`0fb453660`, utan `--single-process`) finns på preview och master. Burst-evidens preview 2026-09-20 (chat `a0b134d9`, 382–979 MB). Inert Vercel-prov 2026-10-07: 12/12 browserliv exit 0 utan dump/profil/överlevare; arkiv `capture-vercel-sm072-20261007.zip` (SHA256 `4b7cf420…a588a7d`) hos ägaren. | Kvar: säker städning av unga profiler under tryck och ett produktburstprov (init + minst två follow-ups på varm captureväg) utan `playwright_unavailable`, med /tmp, RSS och native exit mätt. Överlappande cross-isolate-last är obevisad. Ägdes tidigare av verifieringsplanen (avklarad 2026-11-11). |
 | [ ] | Delvis åtgärdad | P1 | `SM-073` Inspector-bridgen stämplar bara meddelanden när `previewSessionId` finns; utan den släpper parent fail-closed. | `preview-host/src/runtime/inspect-bridge-src.js:44`, `src/components/builder/preview-panel/inspect/usePreviewInspectBridge.ts:390` (`93a9a0d2f`); preview och master. Ett avvisat ready visas nu i stället för att dö tyst. | Kvar: prod-stickprov (hover inom ~1 s på färsk sajt) eller stämpel även när sessionsmetadata saknas, plus driftprov mot hibernerad VM efter >10 min idle (ny session adopteras, ingen evig `preview_ready_timeout`). Icke-blockerande UX-rest: kompakt reparationskort, `logPassId` på postcheck, falska `cta_no_handler`. |
@@ -58,6 +58,8 @@ Regler:
 | [ ] | Delvis åtgärdad | P3 | `SM-030` En `postgres-drizzle`-dossier kan samexistera med en senare Mongo-markör, så BuildSpec/prompt bär två databasidentiteter. | `detect-integrations.ts:221` matchar fortfarande Mongo; preview kan 409-stoppa en godkänd Mongo-markör mot igenkänd postgres-drizzle-kärna (`tier3-readiness.ts:541`), master saknar spärren. `align-database-marker.ts` finns inte; #1414 stängdes utan merge. | Kvar: promptbygget när spärren inte tar. Reproducera innan ny kod landar. |
 | [ ] | Öppen kodbugg | P3 | `SM-098` `hooks:install:soft` sväljer en hookinstallations-exit 1 och `predev` kör den vid varje dev-start, så pre-push kan saknas tyst. Från `A#12`. | `package.json:38`, `scripts/dev/predev.mjs:31`, `scripts/dev/install-git-hooks.mjs:444`; preview och master. Konflikttexten skrivs till stderr men dev fortsätter. | Gör saknad pre-push synlig vid dev-start eller i `npm run inbox`. |
 | [ ] | Kvarvarande driftprov | P2 | `SM-105` Oautentiserad konversationsendpoint kunde skicka leadmejl till fasta mottagare. Svärm 2026-11-03 `A9`. | Bearer-guard i `src/app/api/did/conversation/route.ts` via #1709 (`a7caef13c`), i produktion via #1715 (`b10654c91`). Utan `DID_CONVERSATION_WEBHOOK_SECRET` svarar routen 503 (fail-closed). | Sätt `DID_CONVERSATION_WEBHOOK_SECRET` i Vercel och matchande Bearer hos D-ID, kör ett syntetiskt prov. PASS ⇒ arkivera. |
+| [ ] | Öppen kodbugg | P2 | `SM-133` Varje besök på `/builder` utan projekt, och varje «Kom igång» (`?new=1`), skapar ett tomt projekt, även för utloggade. | `src/app/builder/` och kring `appProjectId` (cirka 20 filer); preview. | Skapa projektet först vid första riktiga åtgärd. Effort M–L. |
+| [ ] | Öppen kodbugg | P2 | `SM-134` `OBSERVED_PHASES` i `src/lib/observability/metrics.ts` är inaktuell och `metrics.test.ts` låser den. | `src/lib/observability/metrics.ts`, `src/lib/observability/metrics.test.ts`; preview. | Härled listan från faktiska faser och uppdatera testet. |
 
 MVP före öppen lansering: `SM-080` (isolering) är spärren; `SM-092` måste
 kontrolleras live. Grinden «`SM-096`/`SM-097`/`SM-077` före nästa promote» är
@@ -139,6 +141,8 @@ Jake äger samtliga frågor. Ej omverifierade 2026-10-19.
 | P2 | Server-resume efter sen preview-boot (rest från arkivraden om sen boot, #1650): ska schemaläggaren aktiveras? Koden finns i `verify-run.ts` (#1650), men schemat saknas, flaggan är `0` och `CRON_SECRET` saknades i verifierad Preview-konfiguration 2026-10-21. Beslut om schema, flagga och hemlighet per miljö. | Före nästa ändring i server-verify eller när sena boots syns i prod. |
 | P3 | `/analys` B2: ska `noindex` tas bort och `/analys` läggas i sitemap? Behåll unik H1, egen metadata och canonical; kontrollera copy, gästpolicy och API först. | Fritt; ratificeras i `docs/decisions/README.md`. |
 | P3 | `/analys` B4: ska partneringången `/?mode=audit` flyttas till `/analys`? Tills dess oförändrad; partner-QA vid flytt. | Fritt. |
+| P2 | Ska `scaffold-baseline-v1` taggas om (58 commits efter)? Backofficens fabriksåterställning är spärrad tills dess. | Före nästa fabriksåterställning. |
+| P3 | Generation History: ska dedup ske per version? `imported_repo` skriver två rader. | Nästa historikpass. |
 
 Fattade beslut flyttas till
 [`docs/decisions/README.md`](docs/decisions/README.md); implementationen hör
@@ -178,6 +182,14 @@ Konkret, fortfarande relevant skuld. Ej omverifierad 2026-10-19.
 | P3 | Backoffice | Template-kuratorn uppdaterar session-binding men inte visad analys-addenda efter write. |
 | P3 | Legacy | Två `prompt_assist`-ytor är konfigurerade men saknar skrivare/konsument. |
 | P3 | Test | Färgtokenfix #1049 saknar dark-variant-smoke över en genererad sajt. |
+| P3 | Säkerhet | Öppna inloggningar lever kvar efter lösenordsbyte; ingen ogiltigförklaring finns. |
+| P3 | Säkerhet/diagnostik | `GET /api/engine/postchecks` lägger kvalitetsgrindens `body`/`status` (inkl. `checks[].output`) i `results[].outcome`; bevarat och låst i #1726. Beslut: ta bort eller behåll som driftdiagnostik. |
+| P3 | Verktyg | `knip:files` flaggar `src/lib/gen/eval/cli.ts` lokalt på Windows; CI:s dead-code är grön. |
+| P3 | Test | `test-guest-agent.mjs` är instabil på Windows (EBUSY vid rmdir); CI på Linux påverkas inte. |
+| P3 | Backoffice/Blob | Manuell `upload-mallar-blob.mjs --upload` från terminalen tar inte uppladdningslåset (#1732); gamla Blob-nycklar blir föräldralösa efter nästa uppladdning. |
+| P3 | Dossiers | Två TS-regelgrupper för filsökvägar saknas i Python-backoffice (`dossiers:validate-all` fångar dem). |
+| P3 | Kvalitet | QA-rest från `2fd745845`: `maxRetries: 0`, usage-`meta` och SDK-transporttest i `qa-short-circuit.ts`. |
+| P3 | Lokal miljö | Huvudcheckoutens `node_modules` är inaktuell efter dependabot-bumpar (`npm ls` visar 7 invalid) och vitest-filer laddar inte där («Cannot read properties of undefined (reading 'config')»). Åtgärd: `npm ci` när ingen process håller filer öppna. |
 
 ## Arkiv
 
