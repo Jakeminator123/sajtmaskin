@@ -33,7 +33,7 @@ vi.mock("@/lib/hooks/useIntegrationStatus", () => ({
 
 import { ChatInterface } from "./ChatInterface";
 
-describe("ChatInterface — Prompt-assist", () => {
+describe("ChatInterface — Förbättra texten (Prompt-assist)", () => {
   it("sits beside Plan and writes the draft back without sending", async () => {
     const onSendMessage = vi.fn();
     const onCreateChat = vi.fn();
@@ -52,7 +52,7 @@ describe("ChatInterface — Prompt-assist", () => {
       />,
     );
 
-    const assist = screen.getByRole("button", { name: "Prompt-assist" });
+    const assist = screen.getByRole("button", { name: "Förbättra texten" });
     expect(screen.getByRole("button", { name: "Plan" })).toBeTruthy();
     expect(assist.getAttribute("title")).toBe("Rätta och strukturera utkastet utan att skicka");
 
