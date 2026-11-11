@@ -64,3 +64,34 @@ function getServerSnapshot(): WelcomeComposerSnapshot {
 export function useWelcomeComposer(): WelcomeComposerSnapshot {
   return useSyncExternalStore(subscribe, getWelcomeComposerSnapshot, getServerSnapshot);
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Första bygget från välkomstläget
+//
+// När ett chatt-id dyker upp efter en tom start måste
+// `useBuilderGenerationPreferences` veta om chatten SKAPADES här (behåll
+// "Sidans utseende", det är valet bygget skickades med) eller HYDRERADES för
+// ett befintligt projekt via `?project=` (Auto, annars låses välkomstvalet på
+// en gammal sajts uppföljningar). Välkomstytan är det enda stället som ser ett
+// bygge starta innan någon chatt finns, så den sätter markeringen och hooken
+// förbrukar den. Hydrering laddar aldrig utan chatt, så den sätter ingen.
+// ─────────────────────────────────────────────────────────────────────────
+
+let firstBuildStartedFromWelcome = false;
+
+/** Welcome surface: a build is running and no chat exists yet. */
+export function noteFirstBuildFromWelcome(): void {
+  firstBuildStartedFromWelcome = true;
+}
+
+/** Welcome surface: the welcome state shows again, so nothing is being created. */
+export function clearFirstBuildFromWelcome(): void {
+  firstBuildStartedFromWelcome = false;
+}
+
+/** Preferences hook: read once when the first chat id appears. */
+export function consumeFirstBuildFromWelcome(): boolean {
+  const started = firstBuildStartedFromWelcome;
+  firstBuildStartedFromWelcome = false;
+  return started;
+}

@@ -20,13 +20,18 @@ import {
   type PreviewLifecycleState,
 } from "@/lib/builder/preview-lifecycle";
 import type { DesignTheme } from "@/lib/builder/theme-presets";
+import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PreviewBackdropStage } from "./PreviewBackdropStage";
 import { PreviewPanelInitControls } from "./composer/PreviewPanelInitControls";
 import { useRepairBlocked } from "@/lib/builder/repair-blocked";
-import { useWelcomeComposer } from "@/lib/builder/welcome-composer-bridge";
+import {
+  clearFirstBuildFromWelcome,
+  noteFirstBuildFromWelcome,
+  useWelcomeComposer,
+} from "@/lib/builder/welcome-composer-bridge";
 import { cn } from "@/lib/utils";
 
 /**
@@ -304,6 +309,18 @@ export function PreviewPanelEmptyState({
   // ett verkligt fel — då ska diagnostiken, inte scenen, ta uppmärksamheten.
   // Ett `info`-fel är en notis och stoppar inte scenen.
   const backdropMotion = !isPreviewBuildErrorBlocking(previewBuildError);
+
+  // Ett bygge som körs innan någon chatt finns startades här (externalLoading
+  // är då `isCreatingChat`). Hydrering av ett befintligt projekt via
+  // `?project=` laddar aldrig utan chatt. Markeringen låter temahooken skilja
+  // en chatt som skapats här från ett projekt som öppnats (R-1743 P2).
+  const firstBuildRunning = !chatId && !versionId && externalLoading;
+  useEffect(() => {
+    if (firstBuildRunning) noteFirstBuildFromWelcome();
+  }, [firstBuildRunning]);
+  useEffect(() => {
+    if (showWelcome) clearFirstBuildFromWelcome();
+  }, [showWelcome]);
 
   if (showWelcome) {
     const welcomeDescription = welcomeComposer.draft;

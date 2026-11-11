@@ -8,28 +8,37 @@
  * suggestion is only a starting point — the build still receives exactly what
  * the user picked in the panel (`designTheme` + Färgläge), never this guess.
  *
- * Matching is Swedish-aware: `\b` does not treat å/ä/ö as letters, so word
- * edges are spelled out with an explicit letter class. Stems match at a word
- * start and allow any suffix (Swedish compounds and inflections); words match
- * exactly. Stems that would collide with everyday prompt words are spelled as
+ * Matching is Unicode-aware via the repo's `uWord`/`UNICODE_WB_LEFT` (`\b`
+ * does not treat å/ä/ö as letters). Stems match at a word start and allow any
+ * suffix (Swedish compounds and inflections); words match exactly. Stems that would collide with everyday prompt words are spelled as
  * words instead ("bygga" ≠ byggfirma, "modern" ≠ mode, "ekonomi" ≠ eko).
  */
 
+import { UNICODE_WB_LEFT, uWord } from "@/lib/utils/unicode-word-boundary";
 import type { ThemeClusterId } from "./theme-presets";
 
-const LETTER = "a-z0-9åäöéüæø";
-
-function stemPattern(stems: string[]): RegExp {
-  return new RegExp(`(?:^|[^${LETTER}])(?:${stems.join("|")})`);
+/** Compile a pattern source with the `u` flag that `\p{L}` needs. */
+function unicodeRegex(source: string): RegExp {
+  return new RegExp(source, "u");
 }
 
+/** Stem at a Unicode word start, any suffix (compounds, inflections). */
+function stemPattern(stems: string[]): RegExp {
+  return unicodeRegex(`${UNICODE_WB_LEFT}(?:${stems.join("|")})`);
+}
+
+/** Whole words at Unicode word boundaries. */
 function wordPattern(words: string[]): RegExp {
-  return new RegExp(`(?:^|[^${LETTER}])(?:${words.join("|")})(?![${LETTER}])`);
+  return unicodeRegex(uWord(words.join("|")));
 }
 
 /** Lowercase, strip acute accents (café → cafe) but keep å/ä/ö intact. */
 export function normalizeDescription(text: string): string {
-  return text.toLowerCase().normalize("NFD").replace(/́/g, "").normalize("NFC");
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\u0301/g, "")
+    .normalize("NFC");
 }
 
 interface SiteCategory {
@@ -81,7 +90,7 @@ const CATEGORIES: SiteCategory[] = [
     label: "natur och hälsa",
     themes: ["green", "teal", "orange"],
     website: true,
-    pattern: new RegExp(
+    pattern: unicodeRegex(
       `${
         stemPattern([
           "trädgård",
@@ -137,7 +146,7 @@ const CATEGORIES: SiteCategory[] = [
     label: "teknik och digitalt",
     themes: ["violet", "blue", "slate"],
     website: false,
-    pattern: new RegExp(
+    pattern: unicodeRegex(
       `${
         stemPattern([
           "tech",
@@ -160,7 +169,7 @@ const CATEGORIES: SiteCategory[] = [
     label: "skönhet och omtanke",
     themes: ["rose", "violet", "slate"],
     website: true,
-    pattern: new RegExp(
+    pattern: unicodeRegex(
       `${
         stemPattern([
           "frisör",
@@ -263,7 +272,7 @@ const CATEGORIES: SiteCategory[] = [
     label: "konst och kreativitet",
     themes: ["slate", "violet", "orange"],
     website: true,
-    pattern: new RegExp(
+    pattern: unicodeRegex(
       `${
         stemPattern([
           "konstnär",
@@ -288,7 +297,7 @@ const CATEGORIES: SiteCategory[] = [
     label: "hav och resor",
     themes: ["blue", "teal", "slate"],
     website: true,
-    pattern: new RegExp(
+    pattern: unicodeRegex(
       `${
         stemPattern([
           "havsnära",
@@ -316,7 +325,7 @@ const CATEGORIES: SiteCategory[] = [
     label: "musik och nattliv",
     themes: ["violet", "indigo", "red"],
     website: true,
-    pattern: new RegExp(
+    pattern: unicodeRegex(
       `${
         stemPattern([
           "musik",
@@ -335,7 +344,7 @@ const CATEGORIES: SiteCategory[] = [
     themes: ["red", "lime", "blue"],
     website: true,
     // "gym" as a stem would also hit "gymnasium".
-    pattern: new RegExp(
+    pattern: unicodeRegex(
       `${wordPattern(["gym", "gymmet"]).source}|${
         stemPattern([
           "träning",
@@ -360,7 +369,7 @@ const CATEGORIES: SiteCategory[] = [
     label: "butik och mode",
     themes: ["slate", "rose", "indigo"],
     website: true,
-    pattern: new RegExp(
+    pattern: unicodeRegex(
       `${
         stemPattern([
           "butik",
@@ -384,7 +393,7 @@ const CATEGORIES: SiteCategory[] = [
     themes: ["green", "orange", "blue"],
     website: true,
     // "hund" as a stem would also hit "hundra"; spelled as words plus compounds.
-    pattern: new RegExp(
+    pattern: unicodeRegex(
       `${
         stemPattern([
           "hunddagis",

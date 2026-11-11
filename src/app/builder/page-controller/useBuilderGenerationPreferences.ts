@@ -11,6 +11,7 @@ import {
   normalizeDesignTheme,
   type DesignTheme,
 } from "@/lib/builder/theme-presets";
+import { consumeFirstBuildFromWelcome } from "@/lib/builder/welcome-composer-bridge";
 import { useLocalStorageBooleanSync } from "@/lib/hooks/useLocalStorageSync";
 import type { ModelTier } from "@/lib/validations/chat-schemas";
 
@@ -111,9 +112,10 @@ export function useBuilderGenerationPreferences({
   // Auto on the next load.
   //
   // Now: the welcome state remembers its draft for this tab only; a chat opened
-  // from a URL starts at Auto (its colors already live in its own globals.css);
-  // a chat created here keeps the choice it was built with; switching from one
-  // chat to another clears it. "Ny chatt" resets it in useBuilderProjectActions.
+  // from a URL (`?chatId=` at mount, or `?project=` hydrated later) starts at
+  // Auto (its colors already live in its own globals.css); a chat created here
+  // keeps the choice it was built with; switching from one chat to another
+  // clears it. "Ny chatt" resets it in useBuilderProjectActions.
   const initialChatIdRef = useRef(chatId);
   // Set while a restored welcome draft has not reached state yet, so the
   // persist effect below does not overwrite it with the initial Auto.
@@ -138,8 +140,14 @@ export function useBuilderGenerationPreferences({
     const previous = themeChatIdRef.current;
     themeChatIdRef.current = chatId;
     if (!chatId || previous === chatId) return;
-    if (previous) {
-      // Another project: its colors are already in its own files.
+    // An empty start that gets a chat id is either a chat CREATED here or an
+    // existing project HYDRATED via `?project=` (the chat id arrives after
+    // `/api/projects/:id/chat`). Only the first keeps the welcome choice: it is
+    // what the create request was sent with. The welcome surface marks a build
+    // that starts before any chat exists (R-1743 P2).
+    const createdHere = !previous && consumeFirstBuildFromWelcome();
+    if (!createdHere) {
+      // Another or an existing project: its colors are already in its own files.
       setDesignTheme(DEFAULT_DESIGN_THEME);
       return;
     }

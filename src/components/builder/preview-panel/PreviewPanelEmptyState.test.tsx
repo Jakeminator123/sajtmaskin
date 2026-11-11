@@ -10,7 +10,12 @@ vi.mock("next/navigation", () => ({
 
 import { PreviewPanelEmptyState } from "./PreviewPanelEmptyState";
 import { beginF3Finalize, resetF3FinalizeActivity } from "@/lib/builder/repair-blocked";
-import { publishWelcomeComposer } from "@/lib/builder/welcome-composer-bridge";
+import {
+  clearFirstBuildFromWelcome,
+  consumeFirstBuildFromWelcome,
+  noteFirstBuildFromWelcome,
+  publishWelcomeComposer,
+} from "@/lib/builder/welcome-composer-bridge";
 
 const FIX_LABEL = "Försök reparera preview";
 const WELCOME_TITLE = "Vad vill du bygga?";
@@ -44,6 +49,28 @@ afterEach(() => {
   resetF3FinalizeActivity();
   searchParamsMock.current = new URLSearchParams();
   publishWelcomeComposer(null);
+  clearFirstBuildFromWelcome();
+});
+
+// R-1743 P2: temahooken behåller välkomstvalet bara för en chatt som skapats
+// här. Välkomstytan är den som ser ett bygge starta innan någon chatt finns.
+describe("PreviewPanelEmptyState — första bygget från välkomstläget", () => {
+  it("markerar ett bygge som startar innan någon chatt finns", () => {
+    renderEmptyState({ chatId: null, versionId: null, externalLoading: true });
+    expect(consumeFirstBuildFromWelcome()).toBe(true);
+  });
+
+  it("rensar markeringen när välkomstläget visas igen (misslyckad start)", () => {
+    noteFirstBuildFromWelcome();
+    renderEmptyState({ chatId: null, versionId: null });
+    expect(screen.getByText(WELCOME_TITLE)).toBeTruthy();
+    expect(consumeFirstBuildFromWelcome()).toBe(false);
+  });
+
+  it("markerar inget för ett befintligt projekt som laddar", () => {
+    renderEmptyState({ chatId: "chat_1", versionId: null, externalLoading: true });
+    expect(consumeFirstBuildFromWelcome()).toBe(false);
+  });
 });
 
 describe("PreviewPanelEmptyState — reparationsgrind", () => {

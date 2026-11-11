@@ -7,6 +7,10 @@ import {
   useBuilderGenerationPreferences,
 } from "./useBuilderGenerationPreferences";
 import type { DesignTheme } from "@/lib/builder/theme-presets";
+import {
+  clearFirstBuildFromWelcome,
+  noteFirstBuildFromWelcome,
+} from "@/lib/builder/welcome-composer-bridge";
 import type { ModelTier } from "@/lib/validations/chat-schemas";
 
 const LEGACY_KEY = "sajtmaskin:designTheme";
@@ -41,11 +45,13 @@ function useHarness(chatId: string | null) {
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
+  clearFirstBuildFromWelcome();
 });
 
 afterEach(() => {
   localStorage.clear();
   sessionStorage.clear();
+  clearFirstBuildFromWelcome();
 });
 
 describe("useBuilderGenerationPreferences — Sidans utseende följer sin sajt", () => {
@@ -76,11 +82,13 @@ describe("useBuilderGenerationPreferences — Sidans utseende följer sin sajt",
     expect(localStorage.getItem(LEGACY_KEY)).toBeNull();
   });
 
-  it("behåller valet för chatten som skapas och förbrukar utkastet", () => {
+  it("behåller valet för chatten som skapas här och förbrukar utkastet", () => {
     const { result, rerender } = renderHook(({ chatId }) => useHarness(chatId), {
       initialProps: { chatId: null as string | null },
     });
     act(() => result.current.setDesignTheme("orange"));
+    // Välkomstytan såg bygget starta innan någon chatt fanns.
+    noteFirstBuildFromWelcome();
     rerender({ chatId: "chat_new" });
     expect(result.current.designTheme).toBe("orange");
     expect(sessionStorage.getItem(WELCOME_DESIGN_THEME_KEY)).toBeNull();
@@ -91,8 +99,55 @@ describe("useBuilderGenerationPreferences — Sidans utseende följer sin sajt",
       initialProps: { chatId: null as string | null },
     });
     act(() => result.current.setDesignTheme("orange"));
+    noteFirstBuildFromWelcome();
     rerender({ chatId: "chat_a" });
+    expect(result.current.designTheme).toBe("orange");
     rerender({ chatId: "chat_b" });
     expect(result.current.designTheme).toBe("off");
+  });
+});
+
+/**
+ * R-1743 P2: projektlänkarna går till `/builder?project=<id>`. Där är chatten
+ * null vid mount och kommer först efter `/api/projects/:id/chat`
+ * (`useBuilderEntryHydration`). Ingen skapning startade, så välkomstvalet får
+ * inte följa med in i den befintliga sajten.
+ */
+describe("useBuilderGenerationPreferences — projekt öppnat via ?project=", () => {
+  it("släpper ett återställt välkomstutkast när projektets chatt hydreras sent", () => {
+    sessionStorage.setItem(WELCOME_DESIGN_THEME_KEY, "orange");
+    const { result, rerender } = renderHook(({ chatId }) => useHarness(chatId), {
+      initialProps: { chatId: null as string | null },
+    });
+    expect(result.current.designTheme).toBe("orange");
+    rerender({ chatId: "chat_existing" });
+    expect(result.current.designTheme).toBe("off");
+  });
+
+  it("släpper ett välkomstval som aldrig byggdes när ett projekt öppnas i samma flik", () => {
+    const { result, rerender } = renderHook(({ chatId }) => useHarness(chatId), {
+      initialProps: { chatId: null as string | null },
+    });
+    act(() => result.current.setDesignTheme("orange"));
+    rerender({ chatId: "chat_existing" });
+    expect(result.current.designTheme).toBe("off");
+  });
+
+  it("förbrukar markeringen så att den inte följer med till nästa öppning", () => {
+    noteFirstBuildFromWelcome();
+    const first = renderHook(({ chatId }) => useHarness(chatId), {
+      initialProps: { chatId: null as string | null },
+    });
+    act(() => first.result.current.setDesignTheme("orange"));
+    first.rerender({ chatId: "chat_created" });
+    expect(first.result.current.designTheme).toBe("orange");
+    first.unmount();
+
+    const second = renderHook(({ chatId }) => useHarness(chatId), {
+      initialProps: { chatId: null as string | null },
+    });
+    act(() => second.result.current.setDesignTheme("green"));
+    second.rerender({ chatId: "chat_existing" });
+    expect(second.result.current.designTheme).toBe("off");
   });
 });
