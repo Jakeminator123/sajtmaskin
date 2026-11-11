@@ -56,11 +56,22 @@ import {
 } from "@/lib/builder/types";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
 import { buildUnifiedTimeline } from "@/lib/builder/unified-timeline";
+import { usePreviewVisibleVersion } from "@/lib/builder/preview-visible-version";
+
+/**
+ * Så länge väntar «Hur blev resultatet?» på att förhandsvisningen ska visa
+ * versionen. Därefter frågar vi ändå, så att ett trasigt bygge kan få svaret
+ * «Förhandsgranskning trasig» och scaffold-statistiken inte blir för positiv.
+ */
+export const VERSION_FEEDBACK_PREVIEW_WAIT_MS = 150_000;
+/** Utan förhandsvisning så här länge räknas frågan som visad för versionen. */
+const VERSION_FEEDBACK_ABSENT_LATCH_MS = 3_000;
 import type { OpenClawMessage as AgentMessage } from "@/lib/openclaw/openclaw-store";
 import { SajtagentRow } from "./sajtagent/SajtagentRow";
 import { useSajtagent } from "./sajtagent/SajtagentProvider";
 import { Bot } from "lucide-react";
 import {
+  ArrowDown,
   ChevronDown,
   ChevronUp,
   ClipboardList,
@@ -161,6 +172,48 @@ const MessageListComponent = ({
   // Model reasoning and the internal work log are for admins; everyone else
   // gets a short Swedish summary in "Visa detaljer" (prod 2026-11-11).
   const showInternalDetails = useAuthStore((state) => state.user?.isAdmin === true);
+  // «Hur blev resultatet?» väntar på att förhandsvisningen visar just den här
+  // versionen (riggen 2026-11-11: frågan kom 85 s innan sajten syntes), men
+  // uteblir aldrig: utan förhandsvisning (stängd, ingen post för chatten)
+  // frågar vi direkt, och efter VERSION_FEEDBACK_PREVIEW_WAIT_MS ändå
+  // (startar för länge, fel eller annan version).
+  const previewEntry = usePreviewVisibleVersion();
+  const previewForThisChat = Boolean(chatId && previewEntry?.chatId === chatId);
+  const previewShowsVersion = Boolean(
+    previewForThisChat && previewEntry?.state === "showing" && previewEntry.versionId === versionId,
+  );
+  const feedbackWaitKey = chatId && versionId ? `${chatId}:${versionId}` : null;
+  const waitingForPreview = Boolean(feedbackWaitKey && previewForThisChat && !previewShowsVersion);
+  const [feedbackWaitExpiredFor, setFeedbackWaitExpiredFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!waitingForPreview || !feedbackWaitKey) return;
+    const timer = setTimeout(
+      () => setFeedbackWaitExpiredFor(feedbackWaitKey),
+      VERSION_FEEDBACK_PREVIEW_WAIT_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [waitingForPreview, feedbackWaitKey]);
+  // När frågan väl har visats för en version försvinner den aldrig igen för
+  // samma version (granskningen av #1747): en omstart av förhandsvisningen
+  // får inte ta bort en kommentar under skrivning eller nollställa ett svar.
+  const [feedbackLatchedFor, setFeedbackLatchedFor] = useState<string | null>(null);
+  if (previewShowsVersion && feedbackWaitKey && feedbackLatchedFor !== feedbackWaitKey) {
+    setFeedbackLatchedFor(feedbackWaitKey);
+  }
+  // Frånvaro låses först när den har varat en stund, så att ögonblicket
+  // innan förhandsvisningen hinner skriva «startar» inte låser frågan.
+  useEffect(() => {
+    if (previewForThisChat || !feedbackWaitKey) return;
+    const timer = setTimeout(
+      () => setFeedbackLatchedFor(feedbackWaitKey),
+      VERSION_FEEDBACK_ABSENT_LATCH_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [previewForThisChat, feedbackWaitKey]);
+  const feedbackLatched =
+    feedbackWaitKey !== null &&
+    (feedbackLatchedFor === feedbackWaitKey || feedbackWaitExpiredFor === feedbackWaitKey);
+  const feedbackReady = previewShowsVersion || !previewForThisChat || feedbackLatched;
   const agentMessages = agentMessagesProp ?? sajtagent?.messages ?? NO_AGENT_MESSAGES;
   const agentStreaming = agentStreamingProp ?? sajtagent?.isStreaming ?? false;
   const showAgentIntro = Boolean(chatId && sajtagent?.available && agentMessages.length === 0);
@@ -769,7 +822,8 @@ const MessageListComponent = ({
                   message.role === "assistant" &&
                   messageIndex === lastGenMessageIndex &&
                   !message.isStreaming &&
-                  hasGenerationContent(textContent) && (
+                  hasGenerationContent(textContent) &&
+                  feedbackReady && (
                     <VersionFeedback
                       key={versionId}
                       chatId={chatId}
@@ -889,7 +943,12 @@ const MessageListComponent = ({
             </ConversationItem>
           )}
         </ConversationContent>
-        <ConversationScrollButton />
+        {/* Riggen 2026-11-11: det breda «Scrolla ned»-pillret mitt i chatten
+            täckte kvittotexten. En rund knapp i hörnet täcker mindre. */}
+        <ConversationScrollButton className="right-3 left-auto size-9 translate-x-0 px-0">
+          <ArrowDown className="h-4 w-4" aria-hidden="true" />
+          <span className="sr-only">Scrolla ned till senaste meddelande</span>
+        </ConversationScrollButton>
       </Conversation>
 
       {/* Flytande, icke-blockerande ankare: scrollar konversationen till

@@ -349,11 +349,21 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     fireEvent.change(screen.getByPlaceholderText("Figma-länk (delningslänk)"), {
       target: { value: "https://example.com/logo.png" },
     });
-    await typeAndSend("Vad tycker du om den här loggan?");
+    const textarea = screen.getByRole("textbox", { name: "Skriv en uppdatering" });
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: "Vad tycker du om den här loggan?" } });
+    });
+    // Skicka ser avstängd ut när utskicket är blockerat; Enter ger beskedet.
+    expect(screen.getByRole("button", { name: "Skicka" }).hasAttribute("disabled")).toBe(true);
+    await act(async () => {
+      fireEvent.keyDown(textarea, { key: "Enter" });
+    });
     expect(build).not.toHaveBeenCalled();
     expect(agent.send).not.toHaveBeenCalled();
-    expect(vi.mocked(toast)).toHaveBeenCalledWith(expect.stringContaining("Ta bort bilagan"));
-    expect(screen.getByTestId("composer-route-hint").getAttribute("data-route-tone")).toBe("blocked");
+    expect(vi.mocked(toast)).toHaveBeenCalledWith(expect.stringContaining("Ta bort Figma-länken"));
+    const hint = screen.getByTestId("composer-route-hint");
+    expect(hint.getAttribute("data-route-tone")).toBe("blocked");
+    expect(hint.textContent).toContain("Figma-länk");
   });
 
   it("bygger en artig begäran med bilaga och säger det före klicket", async () => {

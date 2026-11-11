@@ -90,13 +90,26 @@ describe("buildTurnSummary", () => {
     // Ärlig om exempeluppgifter som generatorn fyllt i.
     expect(main).toContain("öppettider, priser, kontaktuppgifter och omdömen");
     expect(main).toContain("exempel");
-    expect(main).toMatch(/Förhandsvisningen startar till höger och kan ta en stund/);
+    // Ingen riktning: på mobil är förhandsvisningen en egen flik (riggen 2026-11-11).
+    expect(main).toMatch(/Förhandsvisningen startar och kan ta en stund/);
+    expect(main).not.toContain("till höger");
     // No developer vocabulary in the visible part.
     expect(main).not.toMatch(/autofix|preflight|scaffold|dossier|tsx|småfel|filer/i);
     // Housekeeping files (package.json, tsconfig.json) are not "files I made".
     expect(technical).toBe(
-      "3 filer skapades. Jag rättade 20 småfel i koden automatiskt (sådant som saknade importer).",
+      "Projektet har nu 3 filer totalt. Jag rättade 20 småfel i koden automatiskt (sådant som saknade importer).",
     );
+  });
+
+  it("names common English routes in Swedish and counts the whole project, not the answer (V-12)", () => {
+    const summary = buildTurnSummary({
+      generationMode: "init",
+      files: [file("app/page.tsx", "x"), file("app/pricing/page.tsx", "x")],
+      routeNames: ["Startsida", "About us", "Pricing", "Contact", "Våra bullar"],
+    });
+    expect(summary).toContain("5 sidor: Startsida, Om oss, Priser, Kontakt och Våra bullar.");
+    expect(summary).toContain("Projektet har nu 2 filer totalt.");
+    expect(summary).not.toContain("skapades");
   });
 
   it("describes a follow-up by the parts of the site that changed, without quoting the request", () => {

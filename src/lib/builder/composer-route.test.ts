@@ -560,6 +560,17 @@ describe("describeComposerDecision", () => {
     expect(noAgent.label).toContain("finns inte här");
   });
 
+  it("säger vad som ligger med i stället för att kalla allt bilaga", () => {
+    const decision = resolveComposerDecision({ ...base, hasAttachments: true });
+    const describeWith = (attachmentKinds: Array<"file" | "figma" | "inspect">) =>
+      describeComposerDecision(decision, { mode: "auto", hasChat: true, attachmentKinds });
+    expect(describeWith(["figma"]).label).toBe("Fråga – kan inte skickas med Figma-länk");
+    expect(describeWith(["figma"]).hint).toContain("Ta bort Figma-länken");
+    expect(describeWith(["inspect"]).label).toBe("Fråga – kan inte skickas med markerade punkter");
+    expect(describeWith(["file"]).hint).toContain("Ta bort bilagan");
+    expect(describeWith(["file", "figma"]).label).toBe("Fråga – kan inte skickas med bilagor");
+  });
+
   it("föreslår inte Bygg när Bygg redan är valt och texten ändå inte får byggas", () => {
     const blocked = describeFor({ mode: "build", text: "Ändra inget", agentAvailable: false });
     expect(blocked.tone).toBe("blocked");
