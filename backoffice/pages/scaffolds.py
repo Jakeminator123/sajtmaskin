@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import html
 import json
-import re
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterator, Sequence
@@ -31,6 +30,10 @@ from backoffice.shared import (
     render_save_scope,
     tech_details,
     write_text,
+)
+from backoffice.shared_lib.ts_parsing import (
+    find_ts_string_array_span,
+    parse_ts_string_array_literal,
 )
 from .scaffold_lifecycle_lib.constants import BUILD_INTENT_OPTIONS
 from .scaffold_lifecycle_lib import client_projection
@@ -451,19 +454,36 @@ def _comma(values: list[str]) -> str:
     return ", ".join(values) if values else "-"
 
 
+def _replace_ts_string_array(text: str, field: str, rendered: str) -> str:
+    """Swap the whole ``field: [...]`` array for ``rendered`` by plain slicing.
+
+    The span is found string-aware (a ``]`` inside ``"[Butiksnamn]"`` does not
+    close the array) and replaced without ``re.sub`` templates, so backslashes
+    in values survive. An array holding anything but string literals is refused
+    instead of being flattened to the literals the editor could read.
+    """
+    span = find_ts_string_array_span(text, field)
+    if span is None:
+        return text
+    start, end = span
+    if parse_ts_string_array_literal(text[start:end]) is None:
+        raise ValueError(
+            f"`{field}` innehåller annat än strängliteraler och kan inte sparas "
+            "härifrån. Redigera manifest.ts direkt. Ingen fil ändrades."
+        )
+    return text[:start] + rendered + text[end:]
+
+
 def _write_ts_string_array(text: str, field: str, values: list[str]) -> str:
     items = ", ".join(f'"{_escape_ts_string(v)}"' for v in values)
-    pattern = rf"({field}:\s*)\[.*?\]"
-    return re.sub(pattern, rf"\g<1>[{items}]", text, count=1, flags=re.DOTALL)
+    return _replace_ts_string_array(text, field, f"[{items}]")
 
 
 def _write_ts_multiline_string_array(text: str, field: str, values: list[str]) -> str:
     if not values:
-        pattern = rf"({field}:\s*)\[.*?\]"
-        return re.sub(pattern, r"\g<1>[]", text, count=1, flags=re.DOTALL)
+        return _replace_ts_string_array(text, field, "[]")
     items = "\n".join(f'    "{_escape_ts_string(v)}",' for v in values)
-    pattern = rf"({field}:\s*)\[.*?\]"
-    return re.sub(pattern, rf"\g<1>[\n{items}\n  ]", text, count=1, flags=re.DOTALL)
+    return _replace_ts_string_array(text, field, f"[\n{items}\n  ]")
 
 
 @client_projection.scaffold_mutation_locked
@@ -490,7 +510,7 @@ def _save_scaffold_metadata(
         "\r\n", "\n"
     )
 
-    if re.search(r"allowedBuildIntents:\s*\[", manifest_text) is None:
+    if find_ts_string_array_span(manifest_text, "allowedBuildIntents") is None:
         raise ValueError(
             "Manifestet saknar allowedBuildIntents-fältet. Ingen fil ändrades."
         )
