@@ -113,6 +113,35 @@ def validate_json_against_schema(data: Any, schema_path: Path) -> list[str]:
     return messages
 
 
+def _is_number(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def numeric_setting_range_errors(data: Any, path: str = "") -> list[str]:
+    """Every ``{envKey, default, min, max}`` setting must keep ``min ≤ default ≤ max``.
+
+    JSON Schema cannot compare sibling fields, and runtime ``readIntEnv`` in
+    ``src/lib/gen/defaults.ts`` only clamps an env override — the manifest
+    ``default`` is used as-is when the env key is unset. An out-of-range default
+    would therefore reach the provider/route unchanged (e.g. 500 000 output
+    tokens, or a 1 ms verifier timeout).
+    """
+    errors: list[str] = []
+    if isinstance(data, dict):
+        default, low, high = data.get("default"), data.get("min"), data.get("max")
+        if "envKey" in data and _is_number(default) and _is_number(low) and _is_number(high):
+            if not low <= default <= high:
+                errors.append(
+                    f"{path or '(root)'}: default {default} ligger utanför min {low} / max {high}."
+                )
+        for key, value in data.items():
+            errors.extend(numeric_setting_range_errors(value, f"{path}/{key}" if path else str(key)))
+    elif isinstance(data, list):
+        for index, value in enumerate(data):
+            errors.extend(numeric_setting_range_errors(value, f"{path}/{index}"))
+    return errors
+
+
 def validate_manifest_or_error(manifest: dict[str, Any]) -> list[str]:
     """Validate a proposed ai_models manifest against its JSON Schema.
 
@@ -134,4 +163,5 @@ def validate_manifest_or_error(manifest: dict[str, Any]) -> list[str]:
     except FileNotFoundError as exc:
         return [f"Schemavalidering kunde inte köras: {exc}"]
 
-    return validate_json_against_schema(manifest, schema_path)
+    errors = validate_json_against_schema(manifest, schema_path)
+    return errors + numeric_setting_range_errors(manifest)

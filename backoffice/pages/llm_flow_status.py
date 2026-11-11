@@ -79,7 +79,7 @@ def render(ctx: BackofficeContext) -> None:
         "git-churn. Backoffice regenererar vid start; samma data driver Cursor-canvasen."
     )
 
-    if st.button("Bygg om nu", help="Kör generatorn och skriver om canvas .txt + .json"):
+    if st.button("Bygg om nu", help="Kör generatorn med --json-only: skriver om den gitignorerade .json-sidecaren, aldrig den spårade .canvas.txt"):
         with st.spinner("Genererar canvas ..."):
             res = build_canvas(ctx.repo_root)
         if res.get("ok"):

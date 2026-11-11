@@ -999,7 +999,12 @@ async function runPreviewOriginContracts() {
     assert.match(placeholder.headers["content-type"] ?? "", /svg/);
 
     // The control plane does not exist on a preview origin.
-    for (const controlPath of ["/health", `/preview/session/ps-${chatA}/status`, "/admin/sessions"]) {
+    for (const controlPath of [
+      "/health",
+      `/preview/session/ps-${chatA}/status`,
+      "/admin/sessions",
+      "/admin/metrics",
+    ]) {
       const controlOnPreview = await onHost(hostA, controlPath);
       assert.equal(controlOnPreview.status, 404, `${controlPath} is 404 on a preview origin`);
     }

@@ -635,6 +635,40 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   }
 }
 
+// 8b. Verify queue in shared mode: every job runs on this one host, so jobs
+//     of DIFFERENT chats still serialize host-wide (machine mode runs them per
+//     chat — locked in test-machine-isolation.mjs).
+{
+  const { setVerifyRunnersForTesting } = runtime.__testing;
+  const started = [];
+  const releases = new Map();
+  setVerifyRunnersForTesting({
+    jobRunner: (params) =>
+      new Promise((resolve) => {
+        started.push(params.verifyId);
+        releases.set(params.verifyId, () => resolve({ verifyId: params.verifyId, results: [] }));
+      }),
+  });
+  const job = (verifyId, chatId) =>
+    runtime.runQueuedVerifyJob({ verifyId, chatId, versionId: "v1", filesJson: { "a.txt": chatId }, checks: ["typecheck"] });
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
+  try {
+    check("guard runs in shared mode", runtime.isMachineRuntime() === false);
+    const first = job("shared-a", "guard-verify-queue-a");
+    const second = job("shared-b", "guard-verify-queue-b");
+    await settle();
+    check("shared mode: verify jobs of different chats serialize host-wide", started.join(",") === "shared-a");
+    releases.get("shared-a")();
+    await first;
+    await settle();
+    check("shared mode: the next chat's verify starts after the previous job", started.join(",") === "shared-a,shared-b");
+    releases.get("shared-b")();
+    await second;
+  } finally {
+    setVerifyRunnersForTesting();
+  }
+}
+
 // 9. Referer-fallback inputs for supported root-absolute runtime requests:
 //    Next internals and generated `/api/*` calls omit the multiplexed chatId
 //    prefix. Plain site routes must never match, or real 404s would be masked.

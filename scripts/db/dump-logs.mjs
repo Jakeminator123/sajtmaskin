@@ -39,7 +39,11 @@ import {
   summarizeTarget,
 } from "./db-target-guard.mjs";
 import { mergeEnvFileOverProcess } from "./env-merge.mjs";
-import { sanitizeLlmUsageMeta, truncateMetaStrings } from "./dump-logs-meta.mjs";
+import {
+  chatFilterSkipReason,
+  sanitizeLlmUsageMeta,
+  truncateMetaStrings,
+} from "./dump-logs-meta.mjs";
 import { formatLogTimestamp, LOG_TIMESTAMP_NOTE } from "./log-timestamp.mjs";
 import {
   LATEST_PRODUCT_POSTCHECK_JOIN,
@@ -383,6 +387,15 @@ try {
   const skipped = {};
   for (const kind of kinds) {
     const spec = KIND_SPECS[kind];
+    // --chat på en kind utan chatt-kolumn: hoppa över med skäl i stället för
+    // att returnera ofiltrerade rader under en chattfiltrerad rubrik.
+    const chatSkip = chatFilterSkipReason(spec, chatId);
+    if (chatSkip) {
+      data[kind] = [];
+      counts[kind] = 0;
+      skipped[kind] = chatSkip;
+      continue;
+    }
     const cols = spec.columns.join(", ");
     let sql;
     let params;

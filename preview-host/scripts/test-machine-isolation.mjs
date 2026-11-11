@@ -11,15 +11,23 @@
  *   1. In machine mode the host never materializes a project workspace or
  *      spawns project processes locally; the guest gets no host secret.
  *   2. The browser path (/<chatId>/) is served through the guest's
- *      authenticated proxy; hot patch lands in the guest; hibernate stops the
- *      machine; resume restarts it; destroy deletes it.
+ *      authenticated proxy; hot patch lands in the guest; hibernate keeps the
+ *      machine running (never a stop); resume reuses it; destroy deletes it.
  *   3. Fail-closed: missing isolation config → boot error, no machine, no
  *      local fallback. Identity mismatch → machine destroyed, boot error.
  *   4. Verify runs in the guest, in a separate workspace that is removed after.
+ *      The verify queue is per chat: different chats run in parallel, the
+ *      same chat stays serialized, identical requests dedupe.
+ *   5. Idle destroy: a guest with no boot, verify, live dev process or open
+ *      preview socket is destroyed after PREVIEW_GUEST_IDLE_DESTROY_MS, also
+ *      without a tracked runtime; the next visit creates a new one.
+ *   6. Create retries 429/5xx/capacity with backoff, at most
+ *      CREATE_MAX_ATTEMPTS, and never retries other errors.
  *
  * Plain node: node scripts/test-machine-isolation.mjs
  */
 import { createRequire } from "node:module";
+import { EventEmitter } from "node:events";
 import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { createServer as createNetServer } from "node:net";
@@ -95,6 +103,27 @@ function check(label, condition) {
   check("bare fm2_ macaroon gets the FlyV1 scheme", flyAuthorizationHeader("fm2_abc") === "FlyV1 fm2_abc");
   check("flyctl auth token stays Bearer", flyAuthorizationHeader("abc123") === "Bearer abc123");
 }
+
+// Which create failures are worth a retry.
+{
+  const { FlyMachinesError } = require("../src/machines/fly-machines-client.js");
+  const err = (status, message = "x") => new FlyMachinesError(message, { status });
+  check("create retry: 429 is retryable", err(429).retryableCreate === true);
+  check("create retry: 5xx is retryable", err(503).retryableCreate === true && err(500).retryableCreate === true);
+  check(
+    "create retry: a capacity miss is retryable whatever its status",
+    err(412, "could not reserve resource for machine: insufficient memory available to fulfill request").retryableCreate === true,
+  );
+  check("create retry: a plain 4xx is not retryable", err(422, "invalid config").retryableCreate === false && err(401).retryableCreate === false);
+  check("create retry: a transport error (no status) is not retried", err(null, "fetch failed").retryableCreate === false);
+}
+
+const MINUTE_MS = 60_000;
+const tick = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
+const deleteCalls = () => fake.callsFor("DELETE", /\/machines\/[^/]+$/).length;
+const createCalls = () => fake.callsFor("POST", /\/machines$/).length;
+// Fast backoff for the retry checks; production uses a 1 s base.
+runtime.__testing.setMachineClientsForTesting({ createRetryBaseMs: 10 });
 
 async function api(method, path, body) {
   const res = await fetch(`${base}${path}`, {
@@ -237,11 +266,16 @@ try {
   const readyAfterPatch = await waitForStatus(psA, (s) => s?.readinessState !== "starting", 30_000);
   check("readiness re-probed after hot patch", readyAfterPatch?.readinessState === "ready");
 
-  // --- Hibernate parks the machine; resume restarts it ---
+  // --- Hibernate keeps the guest running; resume reuses it ---
   const hibernated = await api("POST", "/preview/session/hibernate", { previewSessionId: psA, lifecycleToken: tokenA });
   check("hibernate accepted", hibernated.status === 200);
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  check("hibernate stopped the guest machine", fake.callsFor("POST", /\/stop$/).length === 1 && machineA.state === "stopped");
+  await tick(300);
+  check(
+    "hibernate neither stops nor destroys the guest",
+    fake.callsFor("POST", /\/stop$/).length === 0 && deleteCalls() === 0 && machineA.state === "started",
+  );
+  const justUsed = await runtime.sweepIdleRuntimes(Date.now());
+  check("idle sweep keeps a guest that was just used", justUsed.destroyedGuestMachines === 0 && fake.machines.has(machineA.id));
   const resumed = await api("POST", "/preview/session/start", {
     chatId: chatA,
     versionId: "v3",
@@ -251,7 +285,7 @@ try {
   check("resume start accepted", resumed.status === 201);
   const readyResumed = await waitForStatus(resumed.body.previewSessionId, (s) => s?.httpReady === true || s?.status === "error");
   check(`resume boots again (${readyResumed?.readinessState}: ${readyResumed?.readinessError ?? ""})`, readyResumed?.httpReady === true);
-  check("resume started the same machine instead of creating a new one", fake.callsFor("POST", /\/start$/).length === 1 && fake.callsFor("POST", /\/machines$/).length === 1);
+  check("resume reuses the running guest (no create, no start)", fake.callsFor("POST", /\/start$/).length === 0 && createCalls() === 1);
   check("resumed page serves the new snapshot", (await page(chatA)).text.includes("hello-v3"));
 
   // --- Verify in the guest ---
@@ -269,13 +303,120 @@ try {
   check("verify workspace removed from the guest afterwards", guestEntries.every((name) => !name.startsWith("verify-")));
   check("verify did not touch the live workspace", (await page(chatA)).text.includes("hello-v3"));
 
-  // --- Destroy deletes the machine ---
-  const destroyed = await api("POST", "/preview/session/destroy", {
+  // --- Verify queue: per chat in machine mode ---
+  {
+    const { setVerifyRunnersForTesting } = runtime.__testing;
+    const started = [];
+    const releases = new Map();
+    setVerifyRunnersForTesting({
+      jobRunner: (params) =>
+        new Promise((resolve) => {
+          started.push(params.verifyId);
+          releases.set(params.verifyId, () => resolve({ verifyId: params.verifyId, results: [] }));
+        }),
+    });
+    const job = (verifyId, chatId, versionId) =>
+      runtime.runQueuedVerifyJob({ verifyId, chatId, versionId, filesJson: { "a.txt": versionId }, checks: ["typecheck"] });
+    try {
+      const a1 = job("q-a1", "chat_q_a", "v1");
+      const a1Duplicate = job("q-a1-again", "chat_q_a", "v1");
+      const a2 = job("q-a2", "chat_q_a", "v2");
+      const b1 = job("q-b1", "chat_q_b", "v1");
+      await tick();
+      check("verify: different chats run in parallel in machine mode", started.includes("q-a1") && started.includes("q-b1"));
+      check("verify: the same chat stays serialized", !started.includes("q-a2"));
+      check("verify: an identical request dedupes to the in-flight job", !started.includes("q-a1-again"));
+      releases.get("q-a1")();
+      await a1;
+      await tick();
+      check("verify: the chat's next job starts when the previous one ends", started.includes("q-a2"));
+      releases.get("q-a2")();
+      releases.get("q-b1")();
+      const [duplicateResult] = await Promise.all([a1Duplicate, a2, b1]);
+      check("verify: the deduped caller gets the original job's result", duplicateResult?.verifyId === "q-a1");
+    } finally {
+      setVerifyRunnersForTesting();
+    }
+  }
+
+  // --- Idle destroy ---
+  // Synthetic clock: each busy sweep stamps activity at its own `now`, so every
+  // following sweep is placed more than one idle window later.
+  const t0 = Date.now();
+  const liveRuntime = await runtime.sweepIdleRuntimes(t0 + 26 * MINUTE_MS);
+  check("idle sweep never destroys a guest with a live dev process", liveRuntime.destroyedGuestMachines === 0 && fake.machines.has(machineA.id));
+  const hibernatedAgain = await api("POST", "/preview/session/hibernate", {
     previewSessionId: resumed.body.previewSessionId,
     lifecycleToken: resumed.body.lifecycleToken,
   });
+  check("second hibernate accepted", hibernatedAgain.status === 200);
+
+  const viewerSocket = new EventEmitter();
+  runtime.__testing.registerPreviewSocket(chatA, viewerSocket, {});
+  const withSocket = await runtime.sweepIdleRuntimes(t0 + 26 * MINUTE_MS);
+  check("idle sweep never destroys a guest with an open preview socket", withSocket.destroyedGuestMachines === 0 && fake.machines.has(machineA.id));
+  viewerSocket.emit("close");
+
+  let releaseIdleVerify = () => {};
+  runtime.__testing.setVerifyRunnersForTesting({
+    jobRunner: () => new Promise((resolve) => { releaseIdleVerify = () => resolve({ results: [] }); }),
+  });
+  const pendingVerify = runtime.runQueuedVerifyJob({
+    verifyId: "idle-verify",
+    chatId: chatA,
+    versionId: "v-idle",
+    filesJson: projectFiles("idle"),
+    checks: ["typecheck"],
+  });
+  await tick();
+  const duringVerify = await runtime.sweepIdleRuntimes(t0 + 52 * MINUTE_MS);
+  check("idle sweep never destroys a guest during a verify", duringVerify.destroyedGuestMachines === 0 && fake.machines.has(machineA.id));
+  releaseIdleVerify();
+  await pendingVerify;
+  runtime.__testing.setVerifyRunnersForTesting();
+
+  runtime.__testing.setRuntimeStateForTesting({ chatId: chatA, booting: true });
+  const duringBoot = await runtime.sweepIdleRuntimes(t0 + 78 * MINUTE_MS);
+  check("idle sweep never destroys a guest during a boot", duringBoot.destroyedGuestMachines === 0 && fake.machines.has(machineA.id));
+  runtime.__testing.setRuntimeStateForTesting({ chatId: chatA, booting: false });
+
+  const deletesBeforeIdle = deleteCalls();
+  const idle = await runtime.sweepIdleRuntimes(t0 + 104 * MINUTE_MS);
+  check(
+    "an idle guest without a tracked runtime is destroyed",
+    idle.destroyedGuestMachines === 1 && deleteCalls() === deletesBeforeIdle + 1 && !fake.machines.has(machineA.id),
+  );
+  check("idle destroy removes the machine record", runtime.__testing.readMachineRecord(chatA) === null);
+  check("no guest was ever stopped", fake.callsFor("POST", /\/stop$/).length === 0);
+
+  // --- Next visit creates a new guest, retrying a busy region ---
+  const createsBeforeRevisit = createCalls();
+  fake.options.createFailures.push(
+    { status: 429 },
+    { status: 412, error: "could not reserve resource for machine: insufficient memory available to fulfill request" },
+  );
+  const revisit = await api("POST", "/preview/session/start", {
+    chatId: chatA,
+    versionId: "v4",
+    changeClass: "light",
+    filesJson: projectFiles("hello-v4"),
+  });
+  check("revisit start accepted", revisit.status === 201);
+  const readyRevisit = await waitForStatus(revisit.body.previewSessionId, (s) => s?.httpReady === true || s?.status === "error");
+  check(`revisit after idle destroy boots a new guest (${readyRevisit?.readinessState}: ${readyRevisit?.readinessError ?? ""})`, readyRevisit?.httpReady === true);
+  check("create was retried past a 429 and a capacity miss (3 attempts)", createCalls() === createsBeforeRevisit + 3);
+  const machineA2 = [...fake.machines.values()].find((machine) => machine.config?.metadata?.sajtmaskin_chat === chatA);
+  check("the new guest has a new machine id", Boolean(machineA2) && machineA2.id !== machineA.id);
+  check("revisited page serves the new snapshot", (await page(chatA)).text.includes("hello-v4"));
+
+  // --- Destroy deletes the machine ---
+  const deletesBeforeDestroy = deleteCalls();
+  const destroyed = await api("POST", "/preview/session/destroy", {
+    previewSessionId: revisit.body.previewSessionId,
+    lifecycleToken: revisit.body.lifecycleToken,
+  });
   check("destroy accepted", destroyed.status === 200);
-  check("destroy deleted the guest machine", fake.callsFor("DELETE", /\/machines\/[^/]+$/).length === 1 && !fake.machines.has(machineA.id));
+  check("destroy deleted the guest machine", deleteCalls() === deletesBeforeDestroy + 1 && !fake.machines.has(machineA2?.id));
   check("machine record removed from the store", runtime.__testing.readMachineRecord(chatA) === null);
 
   // --- Fail-closed: missing config ---
@@ -296,7 +437,25 @@ try {
   process.env.PREVIEW_GUEST_FLY_API_TOKEN = savedToken;
   await api("POST", "/preview/session/destroy", { previewSessionId: startB.body.previewSessionId, lifecycleToken: startB.body.lifecycleToken });
 
+  // --- Create gives up after CREATE_MAX_ATTEMPTS retryable failures ---
+  const maxAttempts = runtime.__testing.CREATE_MAX_ATTEMPTS;
+  for (let i = 0; i < maxAttempts; i += 1) fake.options.createFailures.push({ status: 503 });
+  const createsBeforeExhaust = createCalls();
+  const chatD = "chat_iso_d";
+  const startD = await api("POST", "/preview/session/start", {
+    chatId: chatD,
+    versionId: "v1",
+    changeClass: "fresh",
+    filesJson: projectFiles("never"),
+  });
+  const failedD = await waitForStatus(startD.body.previewSessionId, (s) => s?.status === "error" || s?.httpReady === true, 30_000);
+  check("exhausted create retries fail the boot", failedD?.status === "error" && /HTTP 503/.test(failedD?.readinessError ?? ""));
+  check(`create stops after ${maxAttempts} attempts`, createCalls() === createsBeforeExhaust + maxAttempts && runtime.__testing.readMachineRecord(chatD) === null);
+  fake.options.createFailures.length = 0;
+  await api("POST", "/preview/session/destroy", { previewSessionId: startD.body.previewSessionId, lifecycleToken: startD.body.lifecycleToken });
+
   // --- Fail-closed: identity mismatch ---
+  const deletesBeforeMismatch = deleteCalls();
   fake.options.chatIdOverride = () => "someone-elses-chat";
   const chatC = "chat_iso_c";
   const startC = await api("POST", "/preview/session/start", {
@@ -307,7 +466,7 @@ try {
   });
   const failedC = await waitForStatus(startC.body.previewSessionId, (s) => s?.status === "error" || s?.httpReady === true, 60_000);
   check("identity mismatch fails the boot", failedC?.status === "error" && /identity mismatch/i.test(failedC?.readinessError ?? ""));
-  check("mismatched machine was destroyed", fake.callsFor("DELETE", /\/machines\/[^/]+$/).length === 2 && runtime.__testing.readMachineRecord(chatC) === null);
+  check("mismatched machine was destroyed", deleteCalls() === deletesBeforeMismatch + 1 && runtime.__testing.readMachineRecord(chatC) === null);
   fake.options.chatIdOverride = null;
   await api("POST", "/preview/session/destroy", { previewSessionId: startC.body.previewSessionId, lifecycleToken: startC.body.lifecycleToken });
 

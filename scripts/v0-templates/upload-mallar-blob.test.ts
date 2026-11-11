@@ -114,3 +114,41 @@ describe("upload-mallar Blob caller credential contract", () => {
     expectExplicitExistingToken("uploadZip");
   });
 });
+
+function putOption(name: string, option: string): string | undefined {
+  const property = findPutOptions(name).properties.find(
+    (candidate): candidate is ts.PropertyAssignment =>
+      ts.isPropertyAssignment(candidate) &&
+      ts.isIdentifier(candidate.name) &&
+      candidate.name.text === option,
+  );
+  return property?.initializer.getText(sourceFile);
+}
+
+function loadKeyFunction(name: string): (...args: string[]) => string {
+  const source = findFunction(name).getText(sourceFile);
+  return new Function("blobPrefix", `${source}; return ${name};`)("v0-templates") as (
+    ...args: string[]
+  ) => string;
+}
+
+describe("upload-mallar retry after an interrupted run", () => {
+  const sha = "a".repeat(64);
+
+  it("puts the archive SHA-256 in the archive Blob key", () => {
+    const blobKeyFor = loadKeyFunction("blobKeyFor");
+    expect(blobKeyFor("ai", "tmpl1", sha)).toBe(`v0-templates/raw/ai/tmpl1/${sha}.zip`);
+    expect(blobKeyFor("ai", "tmpl1", "b".repeat(64))).not.toBe(blobKeyFor("ai", "tmpl1", sha));
+  });
+
+  it("puts the image SHA-256 in the still-image Blob key", () => {
+    const stillImageKeyFor = loadKeyFunction("stillImageKeyFor");
+    expect(stillImageKeyFor("tmpl1", sha, ".png")).toBe(`v0-templates/images/tmpl1/${sha}.png`);
+  });
+
+  it("lets a retry overwrite the same content-addressed key instead of failing", () => {
+    expect(putOption("uploadZip", "allowOverwrite")).toBe("true");
+    expect(putOption("uploadStillImage", "allowOverwrite")).toBe("true");
+    expect(putOption("uploadZip", "addRandomSuffix")).toBe("false");
+  });
+});

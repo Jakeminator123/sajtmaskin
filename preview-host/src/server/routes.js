@@ -74,6 +74,7 @@ const {
 } = require("./storage.js");
 const { describeIsolation } = require("../machines/isolation-config.js");
 const { listProjectMachineRecords } = require("../machines/project-machines.js");
+const { collectSample, getMetricsHistory } = require("../metrics-history.js");
 
 function findReferencedSession(data, validated) {
   return (
@@ -172,6 +173,7 @@ async function routeRequest(req, res) {
         "GET /admin/sessions",
         "GET /admin/storage",
         "GET /admin/machines",
+        "GET /admin/metrics",
         "POST /admin/cleanup",
         "POST /admin/destroy-all",
         "GET /placeholder.svg",
@@ -1015,6 +1017,20 @@ async function routeRequest(req, res) {
       ok: true,
       isolation: describeIsolation(),
       machines: listProjectMachineRecords(),
+    });
+  }
+
+  if (req.method === "GET" && url.pathname === "/admin/metrics") {
+    if (!checkApiKey(req, res)) return;
+    // Samtidighetshistorik för backoffice (en sampling/min, 14 dagar).
+    // `?hours=N` begränsar fönstret; `current` är en färsk sampling.
+    const hours = Number.parseFloat(url.searchParams.get("hours") ?? "");
+    const sinceMs = Number.isFinite(hours) && hours > 0 ? Date.now() - hours * 3_600_000 : undefined;
+    return json(res, 200, {
+      ok: true,
+      isolation: (({ mode, configured }) => ({ mode, configured }))(describeIsolation()),
+      current: collectSample(),
+      ...getMetricsHistory().snapshot({ sinceMs }),
     });
   }
 

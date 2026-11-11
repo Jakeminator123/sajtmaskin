@@ -86,6 +86,15 @@ deployens Git-snapshot utan att kontakta Fly.
 Adminendpoints för storage, sessions, cleanup och destroy-all är operativa
 verktyg och ska skyddas av samma hostnyckel i icke-lokal miljö.
 
+`GET /admin/metrics[?hours=N]` (samma hostnyckel) ger samtidighetshistoriken
+som backofficesidan "Samtidighet (byggen & maskiner)" läser: en sampling per
+minut av startade gästmaskiner, förhandsvisningar med dev-process och aktiva
+sessioner, plus en färsk `current`. Samplingen läser bara storen (inga
+Machines-API-anrop), sparas som `metrics-history.ndjson` i datakatalogen
+(`/data` på Fly) och avgränsas till 14 dagar. `PREVIEW_HOST_METRICS_SAMPLE_MS`
+ändrar intervallet (default 60000). Ägare: `src/metrics-history.js`; guard:
+`scripts/test-metrics-history.mjs`.
+
 ## Deployordning
 
 1. Kör hostens fyra verifieringskommandon.
@@ -163,14 +172,15 @@ Resursgränser, start/stopp och destroy ägs av kontrollplanet.
 
 ### Maskinläge (`PREVIEW_HOST_ISOLATION=machine`)
 
-Koden för det läget finns och är guard-testad, men är **inte driftsatt**:
+Läget är påslaget på `vm-fly-jakem` sedan 2026-10-22 (`PREVIEW_HOST_ISOLATION`
+och gästkonfigurationen ligger som Fly-secrets, inte i `fly.toml`):
 
 | Del | Fil |
 | --- | --- |
 | Läge och fail-closed-validering | `src/machines/isolation-config.js` |
-| Fly Machines-klient (create/get/wait/start/stop/destroy/list) | `src/machines/fly-machines-client.js` |
-| Maskin per chat: skapa, starta, identitetsbevis, parkera, förstöra, reconcile | `src/machines/project-machines.js` (store: `data.machines`) |
-| Boot/patch/verify inne i gästen; dev-processen som fjärrbarn | `src/runtime/machine-runtime.js`, inkopplat i `process-lifecycle.js`, `preview-proxy.js`, `verify-jobs.js`, `storage-cleanup.js` |
+| Fly Machines-klient (create/get/wait/start/destroy/list; avgör vilka create-fel som får nytt försök) | `src/machines/fly-machines-client.js` |
+| Maskin per chat: skapa (med omförsök), starta, identitetsbevis, förstöra, reconcile | `src/machines/project-machines.js` (store: `data.machines`) |
+| Boot/patch/verify inne i gästen; dev-processen som fjärrbarn; idle-destroy | `src/runtime/machine-runtime.js`, inkopplat i `process-lifecycle.js`, `preview-proxy.js`, `verify-jobs.js`, `storage-cleanup.js` |
 | Gästagent + bild (kör som egen användare, varm paketcache i bilden) | `guest/` ([pilotrunbook](guest/README.md)) |
 
 Så fungerar det: hosten skapar en maskin ur `PREVIEW_GUEST_IMAGE` med en
@@ -180,11 +190,34 @@ synkas filsnapshotet (inklusive `.env.local` och in-memory-patchad
 `next.config`) till gästens `live`-workspace, install körs där (fingerprint-skip
 och varm seed som i delat läge), `npm run dev` startas på gästens loopback och
 proxyn/readiness går till agentens autentiserade `/proxy`. Hot patch,
-hibernate (stoppar maskinen), resume (startar den), destroy (förstör den) och
-verify (eget `verify-<id>`-workspace som tas bort efteråt) går samma väg.
+hibernate (stoppar bara dev-processen; maskinen lever kvar), resume
+(återanvänder maskinen), destroy (förstör den) och verify (eget
+`verify-<id>`-workspace som tas bort efteråt) går samma väg.
 Saknas token, app, bild eller identitetsbevis **failar booten** med
 `PREVIEW_ISOLATION_UNAVAILABLE`/identitetsfel; ingenting körs på hosten.
-`GET /health` visar `isolation.mode` och `GET /admin/machines` poster utan token.
+`GET /health` visar `isolation.mode` (och `idleDestroyMs`) och
+`GET /admin/machines` poster utan token.
+
+Kapacitet och kostnad i maskinläget:
+
+- **Verify per chat.** Shared-läget kör alla verify-jobb i en hostgemensam kö
+  (de delar RAM och disk). I maskinläget har varje chat egen gäst, så kön är
+  per chat: olika chattar verifierar parallellt, samma chat i tur och ordning,
+  och identiska förfrågningar dedupas fortfarande per jobbnyckel.
+- **Idle-destroy.** En gäst förstörs efter `PREVIEW_GUEST_IDLE_DESTROY_MS`
+  (default 25 min) utan aktivitet: ingen boot, verify, levande dev-process
+  eller öppen preview-socket. Klockan räknas från senaste proxade trafik,
+  hibernate eller verify; efter en host-omstart från omstarten, så även gäster
+  utan spårad runtime städas. Förstörs, stoppas aldrig: en stoppad Fly Machine
+  tappar ändå sin rootfs. Nästa besök skapar en ny maskin (kallstart med
+  install från bildens varma cache). Svepet går med idle-reapern var 60 s.
+- **Omförsök vid create.** 429, 5xx och kapacitetsfel (`insufficient
+  memory`/`could not reserve resource`) får upp till 4 försök med exponentiell
+  backoff och jitter (cirka 0,5–1, 1–2, 2–4 s; `Retry-After` respekteras upp
+  till 10 s). Samma region varje gång. Andra fel failar direkt.
+- **Kontrollplanet är litet.** `fly.toml` kör `performance-1x`/2 GB: hosten
+  kör inga kundprocesser. Återgång till shared-läget kräver att storleken höjs
+  igen, se [baslinjen](../docs/runbooks/preview-host-shared-baseline.md).
 
 Nycklar (hostens env, se [`../docs/ENV.md`](../docs/ENV.md)):
 `PREVIEW_HOST_ISOLATION`, `PREVIEW_GUEST_FLY_APP`, `PREVIEW_GUEST_IMAGE`,
@@ -195,8 +228,9 @@ Fly `http://_api.internal:4280`), `PREVIEW_GUEST_REGION`,
 `PREVIEW_GUEST_CPU_KIND`/`_CPUS`/`_MEMORY_MB` (default shared/2/2048),
 `PREVIEW_GUEST_AGENT_PORT` (7070), `PREVIEW_GUEST_DEV_PORT` (3000),
 `PREVIEW_GUEST_HOST_IDENTITY` (default `FLY_APP_NAME`; märker maskiner så en
-annan host aldrig reconcile-förstör dem), `PREVIEW_GUEST_STOP_ON_HIBERNATE`
-(default `true`).
+annan host aldrig reconcile-förstör dem), `PREVIEW_GUEST_IDLE_DESTROY_MS`
+(default `1500000` = 25 min; `0` stänger av, då lever gästen tills sessionen
+städas).
 
 Lokalt bevis: `npm run test:guest-agent` och `npm run test:isolation` (riktig
 gästagent per "maskin" på egna loopback-adresser, fejkat Machines-API). De
