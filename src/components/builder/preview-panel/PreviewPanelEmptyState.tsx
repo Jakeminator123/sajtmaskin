@@ -26,10 +26,21 @@ import { Button } from "@/components/ui/button";
 import { PreviewBackdropStage } from "./PreviewBackdropStage";
 import { PreviewPanelInitControls } from "./composer/PreviewPanelInitControls";
 import { useRepairBlocked } from "@/lib/builder/repair-blocked";
+import { useWelcomeComposer } from "@/lib/builder/welcome-composer-bridge";
 import { cn } from "@/lib/utils";
 
-const PREFILLED_PROMPT_HINT =
-  "Den ligger i chatten till vänster. Gör gärna några byggval nedan och tryck sedan på pilen i chatten för att skapa första utkastet.";
+/**
+ * "i chatten till vänster" stämmer bara på desktop. Under `lg` ligger chatten
+ * i en egen flik, så texten säger det i stället (CSS väljer, inget JS-mått).
+ */
+function ChatLocation() {
+  return (
+    <>
+      <span className="hidden lg:inline">till vänster</span>
+      <span className="lg:hidden">(fliken Chatt)</span>
+    </>
+  );
+}
 
 interface PreviewPanelEmptyStateProps {
   chatId: string | null;
@@ -113,6 +124,9 @@ export function PreviewPanelEmptyState({
 }: PreviewPanelEmptyStateProps) {
   // Täcker både pågående generering och deterministisk /finalize-design.
   const repairBlocked = useRepairBlocked(isGenerating);
+  // Chattens utkast + start (publiceras av komposern före första bygget). Tom
+  // ögonblicksbild → neutralt förslag och ingen startknapp, aldrig en död knapp.
+  const welcomeComposer = useWelcomeComposer();
   // A template entry (`?templateId=...`) is never a blank onboarding start:
   // the template already decides site type/pages/style, and the chat is being
   // initialized in the background. Until `chatId` hydrates, show the loading
@@ -260,8 +274,8 @@ export function PreviewPanelEmptyState({
             : AlertCircle;
 
   // Välkomst-läget (ingen chat/version ännu) är ett riktigt onboarding-steg:
-  // Byggval-reglagen låter användaren styra typ, sidantal, komplexitet, stil
-  // och färgläge — valen skrivs in som ett eget stycke i chattens input.
+  // "Sidans utseende" först, övriga Byggval bakom "Fler byggval". Valen går
+  // strukturerat i request-meta, aldrig som text i chattens input.
   const showWelcome =
     isInitialEmpty && !previewBuildError && !awaitingInput && !previewPending;
 
@@ -271,6 +285,9 @@ export function PreviewPanelEmptyState({
   const backdropMotion = !isPreviewBuildErrorBlocking(previewBuildError);
 
   if (showWelcome) {
+    const welcomeDescription = welcomeComposer.draft;
+    const welcomeStart =
+      welcomeComposer.start && welcomeDescription.trim() ? welcomeComposer.start : null;
     return (
       <PreviewBackdropStage motion statusKey="welcome" variant="welcome">
         <div className="w-full max-w-md text-center">
@@ -281,23 +298,40 @@ export function PreviewPanelEmptyState({
             {hasPrefilledPrompt ? "Din beskrivning är klar" : "Vad vill du bygga?"}
           </h2>
           <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
-            {hasPrefilledPrompt
-              ? PREFILLED_PROMPT_HINT
-              : "Beskriv din sajt i chatten till vänster. Gör gärna några byggval nedan — de styr första versionen."}
+            {hasPrefilledPrompt ? (
+              <>
+                Den ligger i chatten <ChatLocation />.{" "}
+                {welcomeStart
+                  ? "Välj gärna utseende nedan och skapa sedan första utkastet."
+                  : "Välj gärna utseende nedan och tryck sedan på pilen i chatten för att skapa första utkastet."}
+              </>
+            ) : (
+              <>
+                Beskriv din sajt i chatten <ChatLocation />. Valen nedan styr första
+                utkastet.
+              </>
+            )}
           </p>
 
           <PreviewPanelInitControls
             designTheme={designTheme}
             onDesignThemeChange={onDesignThemeChange}
             themeLocked={themeLocked}
+            description={welcomeDescription}
+            onStart={welcomeStart}
           />
 
           {/* Full opacitet: /70 mot builder-bakgrunden gav ~3.7:1 och föll på
-              WCAG 2 AA (4.5:1) i Vercel-toolbarens a11y-kontroll. */}
-          <p className="text-muted-foreground mt-6 inline-flex items-center gap-1.5 text-xs">
-            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-            Skriv i chatten till vänster för att starta
-          </p>
+              WCAG 2 AA (4.5:1) i Vercel-toolbarens a11y-kontroll. Med en
+              startknapp i panelen behövs inte hänvisningen till chatten. */}
+          {welcomeStart ? null : (
+            <p className="text-muted-foreground mt-6 inline-flex items-center gap-1.5 text-xs">
+              <ArrowLeft className="hidden h-3.5 w-3.5 lg:inline" aria-hidden="true" />
+              <span>
+                Skriv i chatten <ChatLocation /> för att starta
+              </span>
+            </p>
+          )}
         </div>
       </PreviewBackdropStage>
     );

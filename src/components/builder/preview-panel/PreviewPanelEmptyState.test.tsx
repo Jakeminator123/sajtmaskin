@@ -10,6 +10,7 @@ vi.mock("next/navigation", () => ({
 
 import { PreviewPanelEmptyState } from "./PreviewPanelEmptyState";
 import { beginF3Finalize, resetF3FinalizeActivity } from "@/lib/builder/repair-blocked";
+import { publishWelcomeComposer } from "@/lib/builder/welcome-composer-bridge";
 
 const FIX_LABEL = "Försök reparera preview";
 const WELCOME_TITLE = "Vad vill du bygga?";
@@ -31,6 +32,8 @@ function renderEmptyState(
       templateInitError={props.templateInitError ?? null}
       onRetryTemplateInit={props.onRetryTemplateInit ?? null}
       hasPrefilledPrompt={props.hasPrefilledPrompt ?? false}
+      designTheme={props.designTheme}
+      onDesignThemeChange={props.onDesignThemeChange}
     />,
   );
 }
@@ -38,6 +41,7 @@ function renderEmptyState(
 afterEach(() => {
   resetF3FinalizeActivity();
   searchParamsMock.current = new URLSearchParams();
+  publishWelcomeComposer(null);
 });
 
 describe("PreviewPanelEmptyState — reparationsgrind", () => {
@@ -110,5 +114,51 @@ describe("PreviewPanelEmptyState — template-entry", () => {
     retry.click();
     expect(onRetryTemplateInit).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("button", { name: FIX_LABEL })).toBeNull();
+  });
+});
+
+// Komposern publicerar utkast + start via bryggan. Utan publicering ska
+// välkomstläget se ut som förut: neutralt förslag och "pilen i chatten".
+describe("PreviewPanelEmptyState — välkomst med chattens utkast", () => {
+  const START_LABEL = /Skapa första utkastet/;
+  const CAFE = "En hemsida för ett mysigt kafé i Uppsala";
+
+  it("visar ingen startknapp när komposern inte publicerat något", () => {
+    renderEmptyState({ chatId: null, versionId: null });
+    expect(screen.queryByRole("button", { name: START_LABEL })).toBeNull();
+    expect(screen.getByText(/för att starta/)).toBeTruthy();
+    expect(screen.queryByText(/Förslag utifrån din beskrivning/)).toBeNull();
+  });
+
+  it("föreslår utseende ur utkastet utan att erbjuda en död startknapp", () => {
+    act(() => publishWelcomeComposer({ draft: CAFE, start: null }));
+    renderEmptyState({ chatId: null, versionId: null, onDesignThemeChange: vi.fn() });
+    expect(screen.getByText(/Förslag utifrån din beskrivning \(mat och fika\)/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: START_LABEL })).toBeNull();
+  });
+
+  it("startar första bygget från panelen när komposern kan skicka", () => {
+    const start = vi.fn();
+    act(() => publishWelcomeComposer({ draft: CAFE, start }));
+    renderEmptyState({ chatId: null, versionId: null, hasPrefilledPrompt: true });
+    expect(screen.getByText(/skapa sedan första utkastet/)).toBeTruthy();
+    expect(screen.queryByText(/tryck sedan på pilen/)).toBeNull();
+    screen.getByRole("button", { name: START_LABEL }).click();
+    expect(start).toHaveBeenCalledTimes(1);
+  });
+
+  it("döljer startknappen när utkastet är tomt", () => {
+    act(() => publishWelcomeComposer({ draft: "   ", start: vi.fn() }));
+    renderEmptyState({ chatId: null, versionId: null });
+    expect(screen.queryByRole("button", { name: START_LABEL })).toBeNull();
+  });
+
+  it("följer komposern när den slutar kunna skicka", () => {
+    const start = vi.fn();
+    act(() => publishWelcomeComposer({ draft: CAFE, start }));
+    renderEmptyState({ chatId: null, versionId: null });
+    expect(screen.getByRole("button", { name: START_LABEL })).toBeTruthy();
+    act(() => publishWelcomeComposer({ draft: CAFE, start: null }));
+    expect(screen.queryByRole("button", { name: START_LABEL })).toBeNull();
   });
 });

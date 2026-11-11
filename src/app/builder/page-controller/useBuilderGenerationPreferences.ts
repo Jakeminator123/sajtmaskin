@@ -1,12 +1,16 @@
 "use client";
 
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   readChatGenerationSettings,
   writeChatGenerationSettings,
 } from "@/lib/builder/chat-generation-settings";
-import { normalizeDesignTheme, type DesignTheme } from "@/lib/builder/theme-presets";
+import {
+  DEFAULT_DESIGN_THEME,
+  normalizeDesignTheme,
+  type DesignTheme,
+} from "@/lib/builder/theme-presets";
 import { useLocalStorageBooleanSync } from "@/lib/hooks/useLocalStorageSync";
 import type { ModelTier } from "@/lib/validations/chat-schemas";
 
@@ -26,9 +30,18 @@ type Params = {
   loadedGenerationSettingsChatRef: MutableRefObject<string | null>;
 };
 
+/** Legacy global key. Read never again; removed on mount. */
+const LEGACY_DESIGN_THEME_KEY = "sajtmaskin:designTheme";
 /**
- * Generation preferences that live in localStorage: thinking, blob media,
- * design theme and the per-chat model tier / image-generation settings.
+ * Welcome-state draft of "Sidans utseende" for this tab. Session-scoped so it
+ * survives a login redirect (the composer draft does too) but never reaches a
+ * different project or a later visit.
+ */
+export const WELCOME_DESIGN_THEME_KEY = "sajtmaskin:welcomeDesignTheme";
+
+/**
+ * Generation preferences: thinking and blob media (localStorage), the per-chat
+ * model tier / image-generation settings, and the design theme's lifetime.
  */
 export function useBuilderGenerationPreferences({
   chatId,
@@ -87,29 +100,65 @@ export function useBuilderGenerationPreferences({
 
   useLocalStorageBooleanSync("sajtmaskin:blobImages", enableBlobMedia, setEnableBlobMedia);
 
-  // Design theme: load once on mount, migrate legacy "blue" value
+  // Design theme ("Sidans utseende") belongs to the site it was chosen for.
+  //
+  // It used to persist globally in localStorage and was restored on every page
+  // load, also when opening an existing project. `themeColors` ride along on
+  // every follow-up and lock primary/secondary/accent, so after a reload one
+  // project's palette was silently locked onto another project's edits — with
+  // no visible control showing it (the palette only exists in the welcome
+  // state). The legacy migration also turned a saved "Havsblå" (`blue`) into
+  // Auto on the next load.
+  //
+  // Now: the welcome state remembers its draft for this tab only; a chat opened
+  // from a URL starts at Auto (its colors already live in its own globals.css);
+  // a chat created here keeps the choice it was built with; switching from one
+  // chat to another clears it. "Ny chatt" resets it in useBuilderProjectActions.
+  const initialChatIdRef = useRef(chatId);
+  // Set while a restored welcome draft has not reached state yet, so the
+  // persist effect below does not overwrite it with the initial Auto.
+  const pendingWelcomeThemeRef = useRef<DesignTheme | null>(null);
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const stored = localStorage.getItem("sajtmaskin:designTheme");
-      if (!stored) return;
-      const normalized = stored === "blue" ? "off" : normalizeDesignTheme(stored);
-      setDesignTheme(normalized);
-      if (stored !== normalized) {
-        localStorage.setItem("sajtmaskin:designTheme", normalized);
-      }
+      localStorage.removeItem(LEGACY_DESIGN_THEME_KEY);
+      if (initialChatIdRef.current) return;
+      const stored = sessionStorage.getItem(WELCOME_DESIGN_THEME_KEY);
+      const restored = stored ? normalizeDesignTheme(stored) : DEFAULT_DESIGN_THEME;
+      if (restored === DEFAULT_DESIGN_THEME) return;
+      pendingWelcomeThemeRef.current = restored;
+      setDesignTheme(restored);
     } catch {
       /* ignore */
     }
   }, [setDesignTheme]);
 
-  // Design theme: persist on change
+  const themeChatIdRef = useRef(chatId);
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    const previous = themeChatIdRef.current;
+    themeChatIdRef.current = chatId;
+    if (!chatId || previous === chatId) return;
+    if (previous) {
+      // Another project: its colors are already in its own files.
+      setDesignTheme(DEFAULT_DESIGN_THEME);
+      return;
+    }
+    // Created from the welcome state: the draft is consumed, like Byggval.
     try {
-      localStorage.setItem("sajtmaskin:designTheme", designTheme);
+      sessionStorage.removeItem(WELCOME_DESIGN_THEME_KEY);
     } catch {
       /* ignore */
     }
-  }, [designTheme]);
+  }, [chatId, setDesignTheme]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || chatId) return;
+    if (pendingWelcomeThemeRef.current !== null && designTheme === DEFAULT_DESIGN_THEME) return;
+    pendingWelcomeThemeRef.current = null;
+    try {
+      sessionStorage.setItem(WELCOME_DESIGN_THEME_KEY, designTheme);
+    } catch {
+      /* ignore */
+    }
+  }, [chatId, designTheme]);
 }
