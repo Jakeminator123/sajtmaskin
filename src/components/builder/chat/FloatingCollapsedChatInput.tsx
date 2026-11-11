@@ -11,6 +11,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import { Loader2, MessageSquare } from "lucide-react";
 import { ChatOutputCollapseBar } from "@/components/builder/chat/ChatOutputCollapseBar";
 import { countVisibleConversationMessages } from "@/components/builder/chat/conversation-count";
 import { useSajtagent } from "@/components/builder/chat/sajtagent/SajtagentProvider";
@@ -25,6 +26,8 @@ import { cn } from "@/lib/utils";
 
 /** Matches Tailwind `lg` — float mode is desktop-only. */
 const LG_UP_QUERY = "(min-width: 1024px)";
+/** Flytande kortets bredd (förut 42rem, som täckte 22 % av förhandsvisningen). */
+const FLOAT_WIDTH = "min(28rem, calc(100vw - 1rem))";
 
 function useIsLgUp(): boolean {
   const [isLgUp, setIsLgUp] = useState(false);
@@ -79,6 +82,34 @@ export function FloatingCollapsedChatInput({
   const isLgUp = useIsLgUp();
   const floatActive = floatEnabled && isLgUp;
   const rootRef = useRef<HTMLDivElement>(null);
+  // V-riggen 2026-11-11: det flytande kortet täckte 22 % av förhandsvisningen.
+  // Kortet är nu smalare och kan fällas ihop till en liten knapp. Inmatningen
+  // avmonteras aldrig, så utkast och bilagor ligger kvar.
+  const [minimized, setMinimized] = useState(false);
+  const isMinimized = floatActive && minimized;
+  const restoreRef = useRef<HTMLButtonElement>(null);
+  const focusAfterToggleRef = useRef<"restore" | "input" | null>(null);
+  // Ett nytt flytläge börjar alltid utfällt (state justeras under rendering,
+  // inte i en effekt).
+  const [prevFloatActive, setPrevFloatActive] = useState(floatActive);
+  if (prevFloatActive !== floatActive) {
+    setPrevFloatActive(floatActive);
+    if (!floatActive) setMinimized(false);
+  }
+  useEffect(() => {
+    const target = focusAfterToggleRef.current;
+    focusAfterToggleRef.current = null;
+    if (target === "restore") restoreRef.current?.focus();
+    if (target === "input") rootRef.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
+  }, [isMinimized]);
+  const minimize = useCallback(() => {
+    focusAfterToggleRef.current = "restore";
+    setMinimized(true);
+  }, []);
+  const restore = useCallback(() => {
+    focusAfterToggleRef.current = "input";
+    setMinimized(false);
+  }, []);
   const { position, setPosition } = useChatInputFloatPosition(chatId);
   const positionRef = useRef(position);
   useLayoutEffect(() => {
@@ -192,7 +223,7 @@ export function FloatingCollapsedChatInput({
           position: "fixed",
           left: position.x,
           top: position.y,
-          width: "min(42rem, calc(100vw - 1rem))",
+          width: isMinimized ? "auto" : FLOAT_WIDTH,
           zIndex: 40,
         }
       : floatActive
@@ -202,7 +233,7 @@ export function FloatingCollapsedChatInput({
             left: "50%",
             bottom: "1rem",
             transform: "translateX(-50%)",
-            width: "min(42rem, calc(100vw - 1rem))",
+            width: isMinimized ? "auto" : FLOAT_WIDTH,
             zIndex: 40,
           }
         : undefined;
@@ -216,12 +247,33 @@ export function FloatingCollapsedChatInput({
         "flex flex-col",
         isCollapsed && !floatActive && "mx-auto w-full max-w-2xl",
         floatActive &&
-          "border-border bg-background pointer-events-auto max-w-2xl rounded-lg border shadow-lg",
+          "border-border bg-background pointer-events-auto max-w-md rounded-lg border shadow-lg",
       )}
       style={floatStyle}
       data-testid={floatActive ? "floating-collapsed-chat-input" : undefined}
+      data-minimized={isMinimized || undefined}
     >
-      {messageCount > 0 ? (
+      {isMinimized ? (
+        <button
+          ref={restoreRef}
+          type="button"
+          onClick={restore}
+          aria-label={`Visa inmatningen (${messageCount === 1 ? "1 meddelande" : `${messageCount} meddelanden`})`}
+          className="text-foreground hover:bg-muted/50 focus-visible:ring-ring inline-flex h-9 max-w-xs items-center gap-2 rounded-lg px-3 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none"
+        >
+          {isStreaming ? (
+            <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <MessageSquare className="size-3.5" aria-hidden="true" />
+          )}
+          <span>Skriv till chatten</span>
+          {isStreaming ? (
+            <span className="text-muted-foreground">· Bygger …</span>
+          ) : statusText ? (
+            <span className="text-muted-foreground truncate">· {statusText}</span>
+          ) : null}
+        </button>
+      ) : messageCount > 0 ? (
         <ChatOutputCollapseBar
           isCollapsed={isCollapsed}
           onToggle={onToggleCollapse}
@@ -233,9 +285,13 @@ export function FloatingCollapsedChatInput({
           onDragHandlePointerMove={handleDragMove}
           onDragHandlePointerUp={handleDragEnd}
           onDragHandlePointerCancel={handleDragEnd}
+          onMinimize={floatActive ? minimize : undefined}
         />
       ) : null}
-      {children}
+      {/* Flytande läge: lägre textruta så kortet tar mindre av sajten. */}
+      <div hidden={isMinimized} className={cn(floatActive && "[&_textarea]:min-h-12")}>
+        {children}
+      </div>
     </div>
   );
 }

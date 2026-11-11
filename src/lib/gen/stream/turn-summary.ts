@@ -250,6 +250,47 @@ function describeSiteAreas(paths: ReadonlyArray<string>, kind: "modified" | "cre
   return areas;
 }
 
+/**
+ * Vanliga engelska sidnamn från ruttplanen, på svenska i kvittot (V-12,
+ * 2026-11-11). Bara exakta träffar; ett eget namn står kvar som det är.
+ */
+const SWEDISH_ROUTE_NAMES: Record<string, string> = {
+  home: "Startsida",
+  "home page": "Startsida",
+  homepage: "Startsida",
+  about: "Om oss",
+  "about us": "Om oss",
+  pricing: "Priser",
+  prices: "Priser",
+  contact: "Kontakt",
+  "contact us": "Kontakt",
+  menu: "Meny",
+  services: "Tjänster",
+  blog: "Blogg",
+  news: "Nyheter",
+  gallery: "Galleri",
+  faq: "Vanliga frågor",
+  careers: "Jobb",
+  jobs: "Jobb",
+  products: "Produkter",
+  shop: "Butik",
+  store: "Butik",
+  projects: "Projekt",
+  testimonials: "Omdömen",
+  reviews: "Omdömen",
+  booking: "Bokning",
+  "opening hours": "Öppettider",
+  hours: "Öppettider",
+  location: "Hitta hit",
+  features: "Funktioner",
+  privacy: "Integritet",
+  terms: "Villkor",
+};
+
+function swedishRouteName(name: string): string {
+  return SWEDISH_ROUTE_NAMES[name.trim().toLowerCase()] ?? name;
+}
+
 function smallFixesSentence(count: number): string {
   return `Jag rättade ${count === 1 ? "ett småfel" : `${count} småfel`} i koden automatiskt (sådant som saknade importer).`;
 }
@@ -302,7 +343,7 @@ export function buildTurnSummary(input: TurnSummaryInput): string | null {
     const touched = listFiles([...changes.created, ...changes.modified]);
     if (touched) technical.push(`Rättade filer: ${touched}.`);
   } else if (isInit) {
-    const routes = uniqueLabels(routeNames);
+    const routes = uniqueLabels((routeNames ?? []).map((name) => swedishRouteName(String(name ?? ""))));
     const authored = files.filter((file) => !HOUSEKEEPING_FILE_RE.test(normalizePath(file.path)));
     sentences.push("Klart — jag har byggt en första version av sajten och sparat den.");
     if (routes.length > 0) {
@@ -312,7 +353,9 @@ export function buildTurnSummary(input: TurnSummaryInput): string | null {
     }
     if (dossiers.length > 0) sentences.push(`Den använder ${dossierPhrase}.`);
     sentences.push(EXAMPLE_FACTS_NOTE);
-    technical.push(`${countLabel(authored.length, "fil", "filer")} skapades.`);
+    // Hela projektet, inte bara filerna i svaret: kortet räknar «N filer i
+    // svaret», och de två siffrorna får inte läsas som samma sak (V-12).
+    technical.push(`Projektet har nu ${countLabel(authored.length, "fil", "filer")} totalt.`);
   } else {
     const touchedCount = changes.created.length + changes.modified.length;
     const modifiedAreas = describeSiteAreas(changes.modified, "modified");

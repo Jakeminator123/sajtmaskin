@@ -345,6 +345,22 @@ export function getActiveAgentLogLabel(
   return null;
 }
 
+/**
+ * Faser som beskriver tiden FÖRE första filen. Servern kan stå kvar i
+ * `awaiting-output` medan filerna redan strömmar in (V-13, 2026-11-11), så
+ * ytan som ser koden ersätter dem med vad som faktiskt händer.
+ */
+const PRE_OUTPUT_GENERATION_ACTIVITIES = new Set([
+  "Förbereder din sajt…",
+  "Planerar hur din sajt ska byggas…",
+  "Planeringen tar lite längre tid. Arbetet pågår.",
+  "Väntar på det första förslaget…",
+]);
+
+export function isPreOutputGenerationActivity(label: string | null | undefined): boolean {
+  return Boolean(label && PRE_OUTPUT_GENERATION_ACTIVITIES.has(label));
+}
+
 /** Customer-facing activity comes from the real phase, not the last debug line.
  * Detailed timings, filenames and tool output stay in the existing work log.
  * This function never decides whether a step succeeded or is still running.

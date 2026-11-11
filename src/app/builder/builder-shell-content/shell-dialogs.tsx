@@ -52,6 +52,29 @@ export function BuilderShellDialogs({
           />
 
           <AlertDialog
+            open={vm.newChatConfirmOpen}
+            onOpenChange={(open) => {
+              if (!open) vm.cancelNewChat();
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Starta en ny chatt?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Den nuvarande chatten och dess versioner finns kvar i historiken, så du kan
+                  öppna den igen.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel type="button">Avbryt</AlertDialogCancel>
+                <AlertDialogAction type="button" onClick={() => vm.confirmNewChat()}>
+                  Starta ny chatt
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <AlertDialog
             open={vm.templateSwitchDialog !== null}
             onOpenChange={(open) => {
               if (!open) vm.cancelTemplateSwitchDialog();
