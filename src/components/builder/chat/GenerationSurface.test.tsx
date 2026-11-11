@@ -37,6 +37,42 @@ function toolPart(part: UiMessagePart): ToolPart {
   }).parts.find((entry): entry is ToolPart => entry.type === "tool")!;
 }
 
+describe("GenerationSurface — kvittots tekniska detaljer", () => {
+  const receipt =
+    "Klart — jag har sparat en ny version av sajten. Jag ändrade startsidan.\n\n" +
+    "Tekniska detaljer: Ändrade filer: page.tsx. Jag rättade ett småfel i koden automatiskt.";
+
+  it("visar svaret men fäller ihop filnamn och rättningar i detaljerna", () => {
+    render(
+      <GenerationSurface
+        {...base}
+        showInternalDetails={false}
+        content={`${code}\n\n${receipt}\n`}
+        isStreaming={false}
+        isActive={false}
+      />,
+    );
+    expect(screen.getByText(/Jag ändrade startsidan\./)).toBeTruthy();
+    expect(screen.queryByText(/Ändrade filer: page\.tsx/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Visa detaljer" }));
+    const details = screen.getByRole("region", { name: "Tekniska detaljer" });
+    expect(within(details).getByText(/Ändrade filer: page\.tsx\. Jag rättade ett småfel/)).toBeTruthy();
+  });
+
+  it("visar äldre kvitton utan prefix som förut", () => {
+    render(
+      <GenerationSurface
+        {...base}
+        showInternalDetails={false}
+        content={`${code}\n\nKlart — jag har uppdaterat sajten. Ändrade page.tsx.\n`}
+        isStreaming={false}
+        isActive={false}
+      />,
+    );
+    expect(screen.getByText(/Ändrade page\.tsx\./)).toBeTruthy();
+  });
+});
+
 describe("GenerationSurface", () => {
   it("gives customers a short Swedish summary instead of model reasoning and the work log", () => {
     render(

@@ -99,7 +99,7 @@ function QualityGateFull(props: QualityGatePanelProps) {
   if (props.skipped) {
     return (
       <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
-        <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">Quality gate</div>
+        <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">Kvalitetskontroll</div>
         <div className="text-muted-foreground">
           Hoppades över{props.reason ? `: ${props.reason}` : ""}
         </div>
@@ -110,8 +110,8 @@ function QualityGateFull(props: QualityGatePanelProps) {
   const totalDuration = formatDurationMsShort(props.verifyLaneDurationMs);
   const hasAdvisory = props.designAdvisory || props.qualityGateAdvisory;
   const advisoryLabel = props.designAdvisory
-    ? "typecheck advisory"
-    : `${props.advisoryChecks?.join(", ") || "lint"} advisory`;
+    ? "typkontroll"
+    : props.advisoryChecks?.join(", ") || "lint";
   const startedAt = formatUtcClock(props.jobStartedAt);
   const finishedAt = formatUtcClock(props.jobFinishedAt);
   const timeLabels = [
@@ -121,7 +121,7 @@ function QualityGateFull(props: QualityGatePanelProps) {
 
   return (
     <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
-      <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">Quality gate</div>
+      <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">Kvalitetskontroll</div>
       <div className="space-y-1">
         <div
           className={
@@ -216,8 +216,8 @@ function QualityGateCompact(props: QualityGatePanelProps) {
   const totalDuration = formatDurationMsShort(props.verifyLaneDurationMs);
   const hasAdvisory = props.designAdvisory || props.qualityGateAdvisory;
   const advisoryLabel = props.designAdvisory
-    ? "typecheck advisory"
-    : `${props.advisoryChecks?.join(", ") || "lint"} advisory`;
+    ? "typkontroll"
+    : props.advisoryChecks?.join(", ") || "lint";
   const startedAt = formatUtcClock(props.jobStartedAt);
   const finishedAt = formatUtcClock(props.jobFinishedAt);
 

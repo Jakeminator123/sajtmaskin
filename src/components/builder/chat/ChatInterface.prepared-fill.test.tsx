@@ -82,7 +82,7 @@ describe("ChatInterface prepared-fill marker", () => {
 
     const textarea = screen.getByLabelText("Skriv en uppdatering");
     fireEvent.change(textarea, { target: { value: FILLED } });
-    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    fireEvent.click(screen.getByRole("button", { name: "Skicka" }));
 
     await waitFor(() => expect(onSendMessage).toHaveBeenCalledTimes(1));
     expect(seen[0]?.promptSource).toBe("openclaw-prepared");
@@ -117,7 +117,7 @@ describe("ChatInterface prepared-fill marker", () => {
     expect((textarea as HTMLTextAreaElement).value).toBe(FILLED);
 
     // … så nästa (codegen-)utskick av samma text får INTE taggen.
-    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    fireEvent.click(screen.getByRole("button", { name: "Skicka" }));
     await waitFor(() => expect(onSendMessage).toHaveBeenCalledTimes(2));
     expect(seen[1]?.promptSource).toBeUndefined();
   });
@@ -138,7 +138,7 @@ describe("ChatInterface prepared-fill marker", () => {
 
     const textarea = screen.getByLabelText("Skriv en uppdatering");
     fireEvent.change(textarea, { target: { value: FILLED } });
-    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    fireEvent.click(screen.getByRole("button", { name: "Skicka" }));
 
     await waitFor(() => expect(onSendMessage).toHaveBeenCalledTimes(1));
     expect(seen[0]?.promptSource).toBeUndefined();
@@ -155,7 +155,7 @@ describe("ChatInterface prepared-fill marker", () => {
 
     const textarea = screen.getByLabelText("Skriv en uppdatering");
     fireEvent.change(textarea, { target: { value: FILLED } });
-    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    fireEvent.click(screen.getByRole("button", { name: "Skicka" }));
 
     await waitFor(() => expect(onSendMessage).toHaveBeenCalledTimes(1));
     expect(useOpenClawStore.getState().preparedFill).not.toBeNull();

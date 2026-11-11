@@ -15,6 +15,7 @@ import {
   type PreviewBuildErrorState,
 } from "@/lib/builder/preview-lifecycle";
 import type { PreviewRouteInfo } from "../pages/preview-route-helpers";
+import type { PreviewVersionIndicator } from "./preview-version-indicator";
 import { cn } from "@/lib/utils";
 
 interface PreviewPanelChromeProps {
@@ -22,6 +23,8 @@ interface PreviewPanelChromeProps {
   isTier2LivePreview: boolean;
   previewBuildError?: PreviewBuildErrorState | null;
   previewProdBuild?: { verified: boolean; logSnippet?: string | null } | null;
+  /** Which version the preview shows, and whether it is still starting. */
+  versionIndicator?: PreviewVersionIndicator | null;
   isCodeView: boolean;
   previewRoutesLoading: boolean;
   previewRoutes: PreviewRouteInfo[];
@@ -47,6 +50,7 @@ export function PreviewPanelChrome({
   isTier2LivePreview,
   previewBuildError,
   previewProdBuild,
+  versionIndicator = null,
   isCodeView,
   previewRoutesLoading,
   previewRoutes,
@@ -260,6 +264,8 @@ export function PreviewPanelChrome({
                 </button>
               )
             ) : null}
+
+            {versionIndicator ? <PreviewVersionIndicatorChip indicator={versionIndicator} /> : null}
           </div>
         </div>
       ) : null}
@@ -323,6 +329,40 @@ export function PreviewPanelChrome({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Which version the preview shows. Quiet by design: grey text, a small dot
+ * when the version is on screen, a spinner while it starts, amber only when
+ * the preview does not show the saved version. `role="status"` lets screen
+ * readers hear "Visar version 2" once the preview is up.
+ */
+function PreviewVersionIndicatorChip({ indicator }: { indicator: PreviewVersionIndicator }) {
+  return (
+    <span
+      role="status"
+      aria-live="polite"
+      data-testid="preview-version-indicator"
+      data-tone={indicator.tone}
+      className={cn(
+        "ml-auto inline-flex items-center gap-1.5 text-[11px] whitespace-nowrap",
+        indicator.tone === "attention" ? "text-amber-300/90" : "text-gray-400",
+      )}
+    >
+      {indicator.tone === "pending" ? (
+        <Loader2 className="h-3 w-3 animate-spin text-gray-500" aria-hidden="true" />
+      ) : (
+        <span
+          aria-hidden="true"
+          className={cn(
+            "h-1.5 w-1.5 rounded-full",
+            indicator.tone === "attention" ? "bg-amber-400/80" : "bg-emerald-400/70",
+          )}
+        />
+      )}
+      {indicator.text}
+    </span>
   );
 }
 

@@ -18,11 +18,30 @@ import { appendStreamWarning, splitTrailingStreamWarning } from "@/lib/builder/s
  * adequate raw explanation is recovered onto the message only — never back
  * into the file serialization.
  *
- * Copy rules: Swedish, first person ("jag"), 2–4 sentences, no file paths
- * beyond short basenames, no telemetry vocabulary. Honest about what was
- * NOT applied (shrink guard, structural guard) and never claims the preview
- * is verified — that verdict arrives later from the preview host.
+ * Copy rules (UX-granskningen 2026-11-11): Swedish, first person ("jag"),
+ * a few short sentences that say what changed in the owner's words
+ * (startsidan, sidan /meny, sajtens stil), never the user's whole request
+ * quoted back. The receipt only knows that the version is SAVED: it never
+ * says the change is visible — the preview may show it minutes later.
+ * Honest about what was NOT applied (shrink guard, structural guard), about
+ * a blocked preview, and, on the first build, about invented business facts.
+ * File names and automatic repairs go in a trailing paragraph that starts
+ * with `TURN_SUMMARY_TECHNICAL_PREFIX`; the chat folds it into the
+ * details drawer. Stored as plain text, so old messages render as before.
  */
+
+/**
+ * Prefix of the trailing technical paragraph. The chat (`GenerationSurface`)
+ * moves a paragraph that starts with it into "Visa detaljer".
+ */
+export const TURN_SUMMARY_TECHNICAL_PREFIX = "Tekniska detaljer:";
+
+/**
+ * First build only: the generator fills gaps in the brief with plausible
+ * examples. Until the owner decides how to handle that, the receipt says so.
+ */
+const EXAMPLE_FACTS_NOTE =
+  "Kontrollera uppgifter som öppettider, priser, kontaktuppgifter och omdömen: det du inte själv har angett är exempel som du behöver byta ut.";
 
 export type TurnSummaryFile = {
   path: string;
@@ -33,7 +52,11 @@ export type TurnSummaryInput = {
   generationMode: "init" | "followUp";
   /** 0 = user-triggered generation, 1+ = automatic repair pass. */
   repairPassIndex?: number;
-  /** The user's request for this turn (already stripped of wrapper sections). */
+  /**
+   * The user's request for this turn. Not quoted back since 2026-11-11: the
+   * chat already shows it right above, and a quote read as a promise that
+   * everything in it was done.
+   */
   userPrompt?: string | null;
   /** Full merged project after this turn. */
   files: ReadonlyArray<TurnSummaryFile>;
@@ -75,10 +98,10 @@ export type TurnSummaryChanges = {
   unchangedCount: number;
 };
 
-/** Characters of user prompt quoted back in the summary. */
-const PROMPT_QUOTE_MAX = 90;
 /** Named files before falling back to "och N till". */
 const NAMED_FILES_MAX = 4;
+/** Named pages before falling back to "N sidor". */
+const NAMED_PAGES_MAX = 3;
 /**
  * Prose outside code fences shorter than this is treated as "no summary":
  * a stray word or a leftover heading is not an explanation.
@@ -172,7 +195,7 @@ function listFiles(paths: ReadonlyArray<string>): string {
   const visible = paths.filter((path) => !HOUSEKEEPING_FILE_RE.test(path));
   const names = Array.from(new Set(visible.map(basename)));
   if (names.length === 0) return "";
-  if (names.length <= NAMED_FILES_MAX) return names.join(", ");
+  if (names.length <= NAMED_FILES_MAX) return joinSwedish(names);
   const head = names.slice(0, NAMED_FILES_MAX - 1).join(", ");
   return `${head} och ${names.length - (NAMED_FILES_MAX - 1)} till`;
 }
@@ -181,13 +204,54 @@ function countLabel(count: number, singular: string, plural: string): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-function quotePrompt(prompt: string | null | undefined): string | null {
-  const text = String(prompt ?? "")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!text) return null;
-  if (text.length <= PROMPT_QUOTE_MAX) return text;
-  return `${text.slice(0, PROMPT_QUOTE_MAX - 1).trimEnd()}…`;
+const PAGE_FILE_RE = /^app\/(?:(.+)\/)?page\.(?:tsx|jsx|ts|js|mdx)$/;
+const STYLE_FILE_RE = /(?:\.(?:css|scss|sass)|^tailwind\.config\.[cm]?[jt]s)$/;
+const ROOT_LAYOUT_RE = /^app\/layout\.(?:tsx|jsx|ts|js)$/;
+
+/**
+ * The parts of the site a set of files touches, in the owner's words: pages
+ * by route, the shared style, the root layout, and a count for the rest.
+ * Derived from paths only — it never claims WHAT changed inside a file.
+ */
+function describeSiteAreas(paths: ReadonlyArray<string>, kind: "modified" | "created"): string[] {
+  const pages: string[] = [];
+  let style = false;
+  let layout = false;
+  const others = new Set<string>();
+  for (const raw of paths) {
+    const path = normalizePath(raw).replace(/^src\//, "");
+    if (HOUSEKEEPING_FILE_RE.test(path)) continue;
+    const page = PAGE_FILE_RE.exec(path);
+    if (page) {
+      const route = (page[1] ?? "")
+        .split("/")
+        .filter((segment) => segment && !/^\(.*\)$/.test(segment) && !segment.startsWith("@"))
+        .join("/");
+      const label = route ? `sidan /${route}` : "startsidan";
+      if (!pages.includes(label)) pages.push(label);
+    } else if (STYLE_FILE_RE.test(path)) {
+      style = true;
+    } else if (ROOT_LAYOUT_RE.test(path)) {
+      layout = true;
+    } else {
+      others.add(path);
+    }
+  }
+  const areas: string[] =
+    pages.length > NAMED_PAGES_MAX ? [countLabel(pages.length, "sida", "sidor")] : [...pages];
+  if (style) areas.push("sajtens gemensamma stil");
+  if (layout) areas.push("den gemensamma layouten");
+  if (others.size > 0) {
+    const n = others.size;
+    if (kind === "created") areas.push(n === 1 ? "en ny del" : `${n} nya delar`);
+    else if (areas.length === 0) areas.push(n === 1 ? "en del av sajten" : `${n} delar av sajten`);
+    else areas.push(n === 1 ? "en annan del av sajten" : `${n} andra delar av sajten`);
+  }
+  return areas;
+}
+
+function smallFixesSentence(count: number): string {
+  return `Jag rättade ${count === 1 ? "ett småfel" : `${count} småfel`} i koden automatiskt (sådant som saknade importer).`;
 }
 
 function uniqueLabels(labels: ReadonlyArray<string> | null | undefined): string[] {
@@ -211,7 +275,6 @@ export function buildTurnSummary(input: TurnSummaryInput): string | null {
   const {
     generationMode,
     repairPassIndex = 0,
-    userPrompt,
     files,
     previousFiles,
     routeNames,
@@ -226,52 +289,53 @@ export function buildTurnSummary(input: TurnSummaryInput): string | null {
 
   const changes = summarizeVersionChanges(files, previousFiles);
   const sentences: string[] = [];
+  const technical: string[] = [];
   const dossiers = uniqueLabels(dossierLabels);
-  const quote = quotePrompt(userPrompt);
+  const dossierPhrase =
+    dossiers.length === 1 ? `byggblocket ${dossiers[0]}` : `byggblocken ${joinSwedish(dossiers)}`;
+  const isRepair = repairPassIndex > 0;
+  const isInit = !isRepair && (generationMode === "init" || !previousFiles || previousFiles.length === 0);
+  let nothingChanged = false;
 
-  if (repairPassIndex > 0) {
+  if (isRepair) {
+    sentences.push("Jag har gjort en automatisk rättning av den senaste versionen.");
     const touched = listFiles([...changes.created, ...changes.modified]);
-    sentences.push(
-      touched
-        ? `Jag har gjort en automatisk rättning av den senaste versionen och ändrade ${touched}.`
-        : "Jag har gjort en automatisk rättning av den senaste versionen.",
-    );
-  } else if (generationMode === "init" || !previousFiles || previousFiles.length === 0) {
+    if (touched) technical.push(`Rättade filer: ${touched}.`);
+  } else if (isInit) {
     const routes = uniqueLabels(routeNames);
     const authored = files.filter((file) => !HOUSEKEEPING_FILE_RE.test(normalizePath(file.path)));
-    const opening = quote
-      ? `Klart — jag har byggt en första version utifrån "${quote}".`
-      : "Klart — jag har byggt en första version av sajten.";
-    sentences.push(opening);
+    sentences.push("Klart — jag har byggt en första version av sajten och sparat den.");
     if (routes.length > 0) {
       sentences.push(
         `Sajten har ${countLabel(routes.length, "sida", "sidor")}: ${joinSwedish(routes)}.`,
       );
     }
-    const parts: string[] = [];
-    parts.push(`${countLabel(authored.length, "fil", "filer")} skapades`);
-    if (dossiers.length > 0) parts.push(`med byggblocken ${joinSwedish(dossiers)}`);
-    sentences.push(`${parts.join(" ")}.`);
+    if (dossiers.length > 0) sentences.push(`Den använder ${dossierPhrase}.`);
+    sentences.push(EXAMPLE_FACTS_NOTE);
+    technical.push(`${countLabel(authored.length, "fil", "filer")} skapades.`);
   } else {
+    const touchedCount = changes.created.length + changes.modified.length;
+    const modifiedAreas = describeSiteAreas(changes.modified, "modified");
+    const createdAreas = describeSiteAreas(changes.created, "created");
+    if (touchedCount === 0) {
+      nothingChanged = true;
+      sentences.push("Klart — inga filer behövde ändras, så sajten är densamma som förut.");
+    } else {
+      sentences.push("Klart — jag har sparat en ny version av sajten.");
+      const parts: string[] = [];
+      if (modifiedAreas.length > 0) parts.push(`ändrade ${joinSwedish(modifiedAreas)}`);
+      if (createdAreas.length > 0) parts.push(`lade till ${joinSwedish(createdAreas)}`);
+      sentences.push(
+        parts.length > 0
+          ? `Jag ${parts.join(", och ")}.`
+          : "Ändringarna rörde bara tekniska inställningar.",
+      );
+    }
+    if (dossiers.length > 0) sentences.push(`Jag lade till ${dossierPhrase}.`);
     const modified = listFiles(changes.modified);
     const created = listFiles(changes.created);
-    const opening = quote
-      ? `Klart — jag har uppdaterat sajten enligt "${quote}".`
-      : "Klart — jag har uppdaterat sajten.";
-    sentences.push(opening);
-    const detail: string[] = [];
-    if (modified) detail.push(`Ändrade ${modified}`);
-    if (created) detail.push(`${modified ? "nya filer" : "Nya filer"}: ${created}`);
-    if (detail.length > 0) {
-      sentences.push(`${detail.join("; ")}.`);
-    } else if (changes.created.length + changes.modified.length > 0) {
-      sentences.push("Ändringarna rörde bara konfigurationsfiler.");
-    } else {
-      sentences.push("Inga filer behövde ändras — sajten är densamma som förut.");
-    }
-    if (dossiers.length > 0) {
-      sentences.push(`Lade till byggblocket ${joinSwedish(dossiers)}.`);
-    }
+    if (modified) technical.push(`Ändrade filer: ${modified}.`);
+    if (created) technical.push(`Nya filer: ${created}.`);
   }
 
   const kept = uniqueLabels([
@@ -284,25 +348,29 @@ export function buildTurnSummary(input: TurnSummaryInput): string | null {
     );
   }
 
-  if (autofixFixCount > 0) {
-    sentences.push(
-      `Jag rättade ${countLabel(autofixFixCount, "småfel", "småfel")} automatiskt (t.ex. saknade importer).`,
-    );
-  }
+  if (autofixFixCount > 0) technical.push(smallFixesSentence(autofixFixCount));
 
+  // The receipt knows the version is saved, not that the preview shows it.
   if (previewBlocked) {
     sentences.push(
       "Förhandsvisningen kunde inte startas för den här versionen — jag behöver rätta koden först.",
     );
-  } else {
+  } else if (isInit) {
     sentences.push(
-      repairPassIndex > 0 || generationMode === "followUp"
-        ? "Förhandsvisningen uppdateras till höger. Vill du ändra något mer?"
-        : "Förhandsvisningen startar till höger. Säg vad du vill ändra härnäst — färger, texter, en ny sektion eller något helt annat.",
+      "Förhandsvisningen startar till höger och kan ta en stund. Säg sedan vad du vill ändra — färger, texter, en ny sektion eller något helt annat.",
+    );
+  } else if (isRepair) {
+    sentences.push("Förhandsvisningen byter till den rättade versionen när den är redo.");
+  } else if (!nothingChanged) {
+    sentences.push(
+      "Förhandsvisningen byter till den nya versionen när den är redo, vilket kan ta en stund. Vill du ändra något mer?",
     );
   }
 
-  return sentences.join(" ");
+  const body = sentences.join(" ");
+  return technical.length > 0
+    ? `${body}\n\n${TURN_SUMMARY_TECHNICAL_PREFIX} ${technical.join(" ")}`
+    : body;
 }
 
 /**
