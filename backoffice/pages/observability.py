@@ -24,23 +24,25 @@ from backoffice.observability_io import format_ms
 from backoffice.shared import BackofficeContext, resolve_metrics_endpoint
 
 
-# Histogram buckets that the runtime emits (see
-# ``src/lib/observability/metrics.ts``). Keep this list aligned with the
-# 12 phases observed by ``observePhase``; if the runtime adds a phase, extend
-# this tuple so the per-phase summary surfaces it.
-OBSERVED_PHASES: tuple[str, ...] = (
+# Display order for phase names the runtime is known to record via
+# ``recordPhaseDuration`` / ``observePhase`` (``finalize-version/runner.ts``,
+# ``autofix/validate-and-fix.ts``, ``verify/verifier-pass.ts``). This is ONLY
+# an ordering hint: the per-phase table is built from the ``phase`` labels that
+# actually exist in ``sajtmaskin_phase_duration_ms_count``, so a phase that is
+# never emitted cannot sit in the table as a permanent zero, and a new phase
+# shows up without a code change (unknown names sort last, alphabetically).
+# ``OBSERVED_PHASES`` in ``src/lib/observability/metrics.ts`` is NOT the source
+# here — it lists several phases nothing records.
+PHASE_DISPLAY_ORDER: tuple[str, ...] = (
+    "codegen",
     "url_expand",
     "autofix",
     "validate_syntax",
+    "syntax-validate",
     "materialize_images",
+    "preflight",
     "verifier",
-    "parse_merge_preflight",
-    "partial_file_repair",
     "persist",
-    "preview_session",
-    "server_verify",
-    "repair_loop",
-    "quality_gate",
 )
 
 METRICS_PATH = "/api/metrics"
@@ -196,11 +198,19 @@ def _filter_labels(samples: list[Sample], **expected: str) -> list[Sample]:
 def _bucket_pairs(samples: list[Sample]) -> list[tuple[float, float]]:
     """Returns ``[(le, cumulative_count), ...]`` sorted by ``le`` ascending.
 
+    The samples may come from SEVERAL series (e.g. ``phase_duration`` is
+    labelled ``phase`` + ``kind`` and ``prompt_to_done`` ``outcome`` + ``kind``,
+    so one phase/kind filter matches one series per remaining label value).
+    Cumulative counts are summed per ``le`` — the same as Prometheus'
+    ``sum by (le)`` before ``histogram_quantile``. Keeping one pair per series
+    instead would interleave unrelated cumulative counts and make the last
+    ``+Inf`` pair (i.e. "total") whichever series happened to sort last.
+
     Bucket samples without an ``le`` label (shouldn't happen in valid
     exposition output) are dropped.
     """
 
-    pairs: list[tuple[float, float]] = []
+    by_le: dict[float, float] = {}
     for sample in samples:
         le_raw = sample.labels.get("le")
         if le_raw is None:
@@ -209,9 +219,8 @@ def _bucket_pairs(samples: list[Sample]) -> list[tuple[float, float]]:
             le = float("inf") if le_raw in ("+Inf", "Inf") else float(le_raw)
         except ValueError:
             continue
-        pairs.append((le, sample.value))
-    pairs.sort(key=lambda item: item[0])
-    return pairs
+        by_le[le] = by_le.get(le, 0.0) + sample.value
+    return sorted(by_le.items(), key=lambda item: item[0])
 
 
 def _percentile_from_buckets(
@@ -220,9 +229,11 @@ def _percentile_from_buckets(
 ) -> float | None:
     """Linear-interpolation percentile estimate from cumulative bucket counts.
 
-    Mirrors ``prometheus_client``'s ``histogram_quantile`` semantics for the
-    common case (positive values, monotonically non-decreasing buckets).
-    Returns ``None`` if the histogram is empty.
+    Mirrors Prometheus' ``histogram_quantile`` for the common case (positive
+    values, monotonically non-decreasing buckets): the estimate interpolates
+    between the PREVIOUS bucket's upper bound and this bucket's upper bound,
+    even when the previous buckets are empty (only the first bucket starts at
+    0). Returns ``None`` if the histogram is empty.
     """
 
     if not pairs:
@@ -243,8 +254,10 @@ def _percentile_from_buckets(
             if bucket_count <= 0:
                 return le
             fraction = (target - prev_count) / bucket_count
-            lower = prev_le if prev_count > 0 else 0.0
-            return lower + (le - lower) * fraction
+            # prev_le starts at 0.0, so the first bucket still begins at 0.
+            # Empty lower buckets must NOT pull the lower bound back to 0 —
+            # that underestimated e.g. a 60–90 s P50 as 45 s.
+            return prev_le + (le - prev_le) * fraction
         prev_le = le
         prev_count = count
     return pairs[-1][0]
@@ -268,8 +281,10 @@ def _phase_summary(
     )
 
     pairs = _bucket_pairs(bucket)
-    total = count_samples[0].value if count_samples else 0.0
-    summed = sum_samples[0].value if sum_samples else 0.0
+    # One series per `kind` (init/followup/unknown) — sum them all; reading
+    # only the first sample undercounted every phase that had >1 kind.
+    total = sum(sample.value for sample in count_samples)
+    summed = sum(sample.value for sample in sum_samples)
     mean_ms = summed / total if total > 0 else None
     return {
         "phase": phase,
@@ -280,11 +295,29 @@ def _phase_summary(
     }
 
 
+def _observed_phase_names(series: dict[str, list[Sample]]) -> list[str]:
+    """Phase labels that actually exist in the exposition, in display order.
+
+    Known names keep ``PHASE_DISPLAY_ORDER``; anything else (a new phase, or a
+    legacy name a stale server still emits) follows alphabetically.
+    """
+
+    names = {
+        sample.labels["phase"]
+        for sample in _samples_by_name(series, "sajtmaskin_phase_duration_ms_count")
+        if sample.labels.get("phase")
+    }
+    known = [name for name in PHASE_DISPLAY_ORDER if name in names]
+    unknown = sorted(names.difference(PHASE_DISPLAY_ORDER))
+    return [*known, *unknown]
+
+
 def _prompt_to_done_percentile(
     series: dict[str, list[Sample]],
     kind: str,
     percentile: float,
 ) -> float | None:
+    # All outcomes (done/failed/aborted) for this kind, summed per `le`.
     samples = _filter_labels(
         _samples_by_name(series, "sajtmaskin_prompt_to_done_ms_bucket"),
         kind=kind,
@@ -418,8 +451,9 @@ def render(ctx: BackofficeContext) -> None:
         format_ms(_prompt_to_done_percentile(sajtmaskin_series, "followup", 0.95)),
     )
     st.caption(
-        "Estimated from `sajtmaskin_prompt_to_done_ms_bucket` via linear "
-        "interpolation within the bucket containing the percentile."
+        "Estimated from `sajtmaskin_prompt_to_done_ms_bucket` (all outcomes — "
+        "done/failed/aborted — summed per bucket) via linear interpolation "
+        "within the bucket containing the percentile."
     )
 
     # ------------------------------------------------------------------
@@ -427,25 +461,32 @@ def render(ctx: BackofficeContext) -> None:
     # ------------------------------------------------------------------
 
     st.subheader("Per-phase duration summary")
-    phase_rows = [_phase_summary(sajtmaskin_series, phase) for phase in OBSERVED_PHASES]
-    phase_df = pd.DataFrame(
-        [
-            {
-                "Phase": row["phase"],
-                "Count": row["count"],
-                "Mean": format_ms(row["mean_ms"]),
-                "P50": format_ms(row["p50_ms"]),
-                "P95": format_ms(row["p95_ms"]),
-            }
-            for row in phase_rows
-        ]
-    )
-    st.dataframe(phase_df, hide_index=True, width="stretch")
-
-    if all(row["count"] == 0 for row in phase_rows):
+    phase_rows = [
+        _phase_summary(sajtmaskin_series, phase)
+        for phase in _observed_phase_names(sajtmaskin_series)
+    ]
+    if phase_rows:
+        phase_df = pd.DataFrame(
+            [
+                {
+                    "Phase": row["phase"],
+                    "Count": row["count"],
+                    "Mean": format_ms(row["mean_ms"]),
+                    "P50": format_ms(row["p50_ms"]),
+                    "P95": format_ms(row["p95_ms"]),
+                }
+                for row in phase_rows
+            ]
+        )
+        st.dataframe(phase_df, hide_index=True, width="stretch")
         st.caption(
-            "No phase observations yet — `observePhase()` writes here once the "
-            "first generation completes."
+            "Rows are the `phase` labels present in "
+            "`sajtmaskin_phase_duration_ms_count`, summed over `kind`."
+        )
+    else:
+        st.caption(
+            "No phase observations yet — `recordPhaseDuration()` writes here once "
+            "the first generation completes."
         )
 
     # ------------------------------------------------------------------

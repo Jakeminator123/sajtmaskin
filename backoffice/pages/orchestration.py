@@ -35,6 +35,65 @@ def _orch_ts_sources(ctx: BackofficeContext) -> dict[str, Path]:
     }
 
 
+# (filnyckel i _orch_ts_sources, TS-typnamn, beskrivning). En typ som inte går
+# att tolka visas som "(typ saknas)" i stället för att tyst försvinna, och
+# `backoffice/test_orchestration_sources.py` kräver icke-tomma värden per rad.
+ORCH_UNION_SPECS: tuple[tuple[str, str, str], ...] = (
+    ("BuildIntent / BuildMethod", "BuildIntent", "Vad ska byggas?"),
+    ("BuildIntent / BuildMethod", "BuildMethod", "Hur kom requesten in?"),
+    ("PromptType / PromptStrategy", "PromptType", "Klassificerad prompttyp"),
+    ("PromptType / PromptStrategy", "PromptStrategy", "Prompt-budget/trunkerings-strategi"),
+    (
+        "PromptType / PromptStrategy",
+        "PromptSource",
+        "Promptkälla för telemetry/UX (`user` eller `auto_repair`).",
+    ),
+    ("ScaffoldId / ScaffoldMode", "ScaffoldId", "Vilken scaffold"),
+    ("ScaffoldId / ScaffoldMode", "ScaffoldMode", "Hur scaffolden väljs"),
+    ("ScaffoldId / ScaffoldMode", "ScaffoldSiteKind", "Scaffold site-kategori"),
+    (
+        "Capability tiers",
+        "CapabilitySpecificityTier",
+        "Follow-up capability-tier (`generic` | `specific` | `beyond-dossier`).",
+    ),
+    ("ScaffoldId / ScaffoldMode", "ScaffoldComplexity", "Scaffold komplexitetsnivå"),
+    ("SerializeMode", "ScaffoldSerializeMode", "Hur mycket scaffolden styr prompten"),
+    ("BuildSpec policies", "BuildSpecContextPolicy", "Tokenbudget-nivå för scaffold"),
+    (
+        "BuildSpec policies",
+        "BuildSpecQualityTarget",
+        "Kvalitetsmål (standard/premium/release-candidate). release-candidate sätts numera bara via explicit F3-trigger.",
+    ),
+    (
+        "BuildSpec policies",
+        "BuildSpecPreviewPolicy",
+        "F2 = `fidelity2` (design-loopen, typecheck). F3 = `fidelity3` (bygg integrationer, typecheck + build). `finalize-design` startar LLM bara vid riktiga build-nycklar; annars skapas en exakt F3-fork och ReleaseGate körs deterministiskt.",
+    ),
+    ("BuildSpec policies", "BuildSpecVerificationPolicy", "Verifieringsnivå: fast / standard / strict"),
+)
+
+
+def load_union_rows(sources: dict[str, Path]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for file_key, type_name, description in ORCH_UNION_SPECS:
+        path = sources.get(file_key)
+        if not path or not path.is_file():
+            values = ["(fil saknas)"]
+        else:
+            values = extract_ts_union_values(path.read_text(encoding="utf-8"), type_name) or [
+                "(typ saknas)"
+            ]
+        rows.append(
+            {
+                "type": type_name,
+                "values": values,
+                "source": path.name if path and path.is_file() else str(path or "?"),
+                "description": description,
+            }
+        )
+    return rows
+
+
 def render(ctx: BackofficeContext) -> None:
     orch_ts_sources = _orch_ts_sources(ctx)
 
@@ -43,106 +102,7 @@ def render(ctx: BackofficeContext) -> None:
         "Statisk referenskarta parsad direkt ur TS-koden. Visar vilka beslutspunkter systemet har och vilka värden som är möjliga."
     )
 
-    type_defs: list[dict[str, Any]] = []
-
-    def _load_union(file_key: str, type_name: str, description: str) -> None:
-        path = orch_ts_sources.get(file_key)
-        if not path or not path.exists():
-            type_defs.append(
-                {
-                    "type": type_name,
-                    "values": ["(fil saknas)"],
-                    "source": str(path or "?"),
-                    "description": description,
-                }
-            )
-            return
-        text = path.read_text(encoding="utf-8")
-        vals = extract_ts_union_values(text, type_name)
-        if vals:
-            type_defs.append(
-                {
-                    "type": type_name,
-                    "values": vals,
-                    "source": path.name,
-                    "description": description,
-                }
-            )
-
-    _load_union("BuildIntent / BuildMethod", "BuildIntent", "Vad ska byggas?")
-    _load_union("BuildIntent / BuildMethod", "BuildMethod", "Hur kom requesten in?")
-    _load_union(
-        "PromptType / PromptStrategy",
-        "PromptType",
-        "Klassificerad prompttyp",
-    )
-    _load_union(
-        "PromptType / PromptStrategy",
-        "PromptStrategy",
-        "Prompt-budget/trunkerings-strategi",
-    )
-    _load_union(
-        "PromptType / PromptStrategy",
-        "PromptSource",
-        "Promptkälla för telemetry/UX (`user` eller `auto_repair`).",
-    )
-    _load_union("ScaffoldId / ScaffoldMode", "ScaffoldId", "Vilken scaffold (10 st)")
-    _load_union("ScaffoldId / ScaffoldMode", "ScaffoldMode", "Hur scaffolden väljs")
-    _load_union(
-        "ScaffoldId / ScaffoldMode",
-        "ScaffoldSiteKind",
-        "Scaffold site-kategori",
-    )
-    _load_union(
-        "Capability tiers",
-        "CapabilitySpecificityTier",
-        "Follow-up capability-tier (`generic` | `specific` | `beyond-dossier`).",
-    )
-    _load_union(
-        "ScaffoldId / ScaffoldMode",
-        "ScaffoldComplexity",
-        "Scaffold komplexitetsnivå",
-    )
-
-    serialize_path = orch_ts_sources.get("SerializeMode")
-    if serialize_path and serialize_path.exists():
-        ser_text = serialize_path.read_text(encoding="utf-8")
-        ser_vals = extract_ts_union_values(ser_text, "ScaffoldSerializeMode")
-        if ser_vals:
-            type_defs.append(
-                {
-                    "type": "ScaffoldSerializeMode",
-                    "values": ser_vals,
-                    "source": serialize_path.name,
-                    "description": "Hur mycket scaffolden styr prompten",
-                }
-            )
-
-    build_spec_path = orch_ts_sources.get("BuildSpec policies")
-    if build_spec_path and build_spec_path.exists():
-        bs_text = build_spec_path.read_text(encoding="utf-8")
-        for bs_type, bs_desc in [
-            ("BuildSpecContextPolicy", "Tokenbudget-nivå för scaffold"),
-            (
-                "BuildSpecQualityTarget",
-                "Kvalitetsmål (standard/premium/release-candidate). release-candidate sätts numera bara via explicit F3-trigger.",
-            ),
-            (
-                "BuildSpecPreviewPolicy",
-                "F2 = `fidelity2` (design-loopen, typecheck). F3 = `fidelity3` (bygg integrationer, typecheck + build). `finalize-design` startar LLM bara vid riktiga build-nycklar; annars skapas en exakt F3-fork och ReleaseGate körs deterministiskt.",
-            ),
-            ("BuildSpecVerificationPolicy", "Verifieringsnivå: fast / standard / strict"),
-        ]:
-            bs_vals = extract_ts_union_values(bs_text, bs_type)
-            if bs_vals:
-                type_defs.append(
-                    {
-                        "type": bs_type,
-                        "values": bs_vals,
-                        "source": build_spec_path.name,
-                        "description": bs_desc,
-                    }
-                )
+    type_defs = load_union_rows(orch_ts_sources)
 
     st.subheader("Beslutspunkter (från TS-typer)")
     for td in type_defs:
