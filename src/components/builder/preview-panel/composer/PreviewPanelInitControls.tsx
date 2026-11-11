@@ -166,6 +166,12 @@ function ChoiceSection({ icon: Icon, label, trailing, children }: ChoiceSectionP
   );
 }
 
+// Fokus är en ljus ring med luft, aldrig blå: valt tillstånd är redan
+// brand-blått, och en blå fokusring gick inte att skilja från valt-ramen
+// (riggens bild F6, 2026-11-11). Samma markering på alla reglage i panelen.
+const FOCUS_RING_CLASS =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-card";
+
 // Gemensam pillbas. Vald = fylld brand-blå med mörk text (samma kontrakt som
 // primärknappen, låst av globals-token-contrast). Ovald = tyst, mörk pill.
 // Alla vikter är lika så chippen inte byter bredd när valet flyttar sig.
@@ -173,7 +179,8 @@ const CHIP_BASE_CLASS = cn(
   "group h-8 gap-1.5 rounded-full border border-border/70 bg-background/50 px-3 text-xs font-medium text-muted-foreground shadow-none",
   "transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out",
   "hover:border-border hover:bg-secondary hover:text-foreground",
-  "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-1 focus-visible:ring-offset-card",
+  "focus-visible:border-border/70 data-[state=on]:focus-visible:border-primary",
+  FOCUS_RING_CLASS,
   "active:scale-[0.98]",
 );
 
@@ -241,12 +248,14 @@ function tickLeft(index: number, max: number): string {
 // ─────────────────────────────────────────────────────────────────────────
 
 // Ett kort = en riktig miniatyr av sajten. Valt kort får brand-blå kant och en
-// bock; fokus får en tydlig ring utanför kortet (offset mot kortets yta).
+// bock; fokus får en ljus ring med luft utanför kortet och ändrar inte kanten,
+// så "fokus" och "valt" aldrig ser likadana ut.
 const PALETTE_CARD_CLASS = cn(
   "group relative flex h-auto w-full min-w-0 flex-col items-stretch justify-start gap-1.5 rounded-xl border border-border/70 bg-background/40 p-1.5 text-left whitespace-normal shadow-none",
   "transition-[border-color,background-color,box-shadow] duration-150 ease-out",
   "hover:border-border hover:bg-secondary/70 hover:text-foreground",
-  "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+  "focus-visible:border-border/70 data-[state=on]:focus-visible:border-primary",
+  FOCUS_RING_CLASS,
   "data-[state=on]:border-primary data-[state=on]:bg-primary/10 data-[state=on]:text-foreground",
   "data-[state=on]:shadow-[0_0_0_1px_hsl(var(--primary)),0_10px_24px_-14px_hsl(var(--primary)/0.9)]",
   "data-[state=on]:hover:bg-primary/15",
@@ -381,7 +390,8 @@ const SEGMENT_CLASS = cn(
   // Samma variantprefix som ToggleGroupItems egna hörn, så twMerge ersätter dem.
   "data-[spacing=0]:first:rounded-l-full data-[spacing=0]:last:rounded-r-full",
   "hover:bg-secondary hover:text-foreground",
-  "focus-visible:z-10 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/60",
+  "focus-visible:z-10 focus-visible:border-border/70 data-[state=on]:focus-visible:border-primary",
+  FOCUS_RING_CLASS,
   "data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground",
   "data-[state=on]:hover:bg-primary-hover data-[state=on]:hover:text-primary-foreground",
 );
@@ -595,9 +605,13 @@ export function PreviewPanelInitControls({
                 aria-expanded={showAllColors}
                 aria-controls={showAllColors ? allColorsId : undefined}
                 onClick={() => setShowAllColors((open) => !open)}
-                className="text-muted-foreground hover:bg-secondary hover:text-foreground -ml-2 h-8 px-2 text-xs"
+                className={cn(
+                  "text-muted-foreground hover:bg-secondary hover:text-foreground -ml-2 h-8 px-2 text-xs",
+                  FOCUS_RING_CLASS,
+                )}
               >
-                {showAllColors ? "Färre färger" : `Fler färger (${ALL_THEME_IDS.length})`}
+                {/* Siffran = antalet som fälls ut, inte totalen (tre syns redan). */}
+                {showAllColors ? "Färre färger" : `Fler färger (${extraThemes.length})`}
                 <ChevronDown
                   className={cn("size-3.5 transition-transform", showAllColors && "rotate-180")}
                   aria-hidden="true"
@@ -659,7 +673,7 @@ export function PreviewPanelInitControls({
               className={cn(
                 "group -mx-2 flex w-[calc(100%+1rem)] items-center justify-between gap-3 rounded-lg px-2 py-3 text-left",
                 "hover:bg-secondary/50 transition-colors",
-                "focus-visible:ring-ring/60 focus-visible:ring-offset-card outline-none focus-visible:ring-2 focus-visible:ring-offset-1",
+                FOCUS_RING_CLASS,
               )}
             >
               <span className="min-w-0">
@@ -778,7 +792,12 @@ export function PreviewPanelInitControls({
         {/* ── Start ───────────────────────────────────────────────────── */}
         {onStart ? (
           <div className="py-4">
-            <Button type="button" size="lg" className="w-full" onClick={onStart}>
+            <Button
+              type="button"
+              size="lg"
+              className={cn("w-full", FOCUS_RING_CLASS)}
+              onClick={onStart}
+            >
               Skapa första utkastet
               <ArrowRight className="size-4" aria-hidden="true" />
             </Button>

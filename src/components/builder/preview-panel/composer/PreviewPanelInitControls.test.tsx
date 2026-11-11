@@ -143,13 +143,31 @@ describe("PreviewPanelInitControls — Sidans utseende", () => {
     render(<ControlledControls />);
     const toggle = screen.getByRole("button", { name: /Fler färger/ });
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    // Siffran är antalet som fälls ut (13 − de tre som redan syns), inte totalen.
+    expect(toggle.textContent).toContain("Fler färger (10)");
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     const radios = within(paletteGroup()).getAllByRole("radio");
     expect(radios).toHaveLength(14);
+    expect(radios.length - 4).toBe(10);
     expect(
       within(paletteGroup()).getByRole("radio", { name: "Elegant & seriös, Midnatt" }),
     ).toBeTruthy();
+  });
+
+  /**
+   * Fokus och valt får inte se likadana ut (bild F6): valt = blå kant, fokus =
+   * ljus ring med luft som inte rör kanten.
+   */
+  it("markerar fokus med en ljus ring, skild från valt-ramens blå", () => {
+    render(<ControlledControls initialTheme="orange" />);
+    const card = within(paletteGroup()).getByRole("radio", { name: /Bärnsten/ });
+    const classes = card.getAttribute("class") ?? "";
+    expect(classes).toContain("focus-visible:ring-foreground");
+    expect(classes).toContain("focus-visible:ring-offset-2");
+    expect(classes).not.toContain("focus-visible:ring-ring");
+    expect(classes).not.toContain("focus-visible:border-ring");
+    expect(classes).toContain("data-[state=on]:border-primary");
   });
 
   /** Ett val ur "Fler färger" får aldrig försvinna ur sikte när listan fälls ihop. */
