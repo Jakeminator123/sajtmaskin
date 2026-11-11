@@ -39,5 +39,8 @@ export function sanitizeLoginReturnTo(
   }
   if (candidate.origin !== origin) return null;
   const path = `${candidate.pathname}${candidate.search}`;
+  // Normaliseringen gör `/..//evil.com` till `//evil.com`, som webbläsaren
+  // läser som en annan värd. Kontrollera därför igen efter parsningen.
+  if (path.startsWith("//") || path.startsWith("/\\")) return null;
   return path === "/" ? null : path;
 }

@@ -8,6 +8,7 @@ describe("sanitizeLoginReturnTo", () => {
     ["/projects", "/projects"],
     ["/buy-credits?package=starter", "/buy-credits?package=starter"],
     ["/projects/abc#x", "/projects/abc"],
+    ["/projects/../konto", "/konto"],
   ])("keeps own path %s", (raw, expected) => {
     expect(sanitizeLoginReturnTo(raw, ORIGIN)).toBe(expected);
   });
@@ -18,6 +19,10 @@ describe("sanitizeLoginReturnTo", () => {
     "/",
     "//evil.example/projects",
     "/\\evil.example",
+    "/..//evil.example",
+    "/.//evil.example",
+    "/a/..//evil.example",
+    "/%2e%2e//evil.example",
     "https://evil.example/projects",
     "javascript:alert(1)",
     `/${"a".repeat(600)}`,
