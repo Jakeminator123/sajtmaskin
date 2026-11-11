@@ -356,6 +356,26 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     expect(screen.getByTestId("composer-route-hint").getAttribute("data-route-tone")).toBe("blocked");
   });
 
+  it("bygger en artig begäran med bilaga och säger det före klicket", async () => {
+    const agent = makeAgent();
+    sajtagent.value = agent;
+    const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
+    render(<ChatInterface chatId="chat_1" onSendMessage={build} isFigmaInputOpen />);
+    fireEvent.change(screen.getByPlaceholderText("Figma-länk (delningslänk)"), {
+      target: { value: "https://example.com/logo.png" },
+    });
+    const text = "Kan du lägga in den här loggan i sidhuvudet?";
+    fireEvent.change(screen.getByRole("textbox", { name: "Skriv en uppdatering" }), {
+      target: { value: text },
+    });
+    expect(screen.getByTestId("composer-route-hint").textContent).toContain(
+      "Ändring – skapar en ny version",
+    );
+    await typeAndSend(text);
+    expect(agent.send).not.toHaveBeenCalled();
+    expect(build).toHaveBeenCalledTimes(1);
+  });
+
   it("håller inputen öppen under ett bygge för frågor, men spärrar byggvägen", async () => {
     const agent = makeAgent();
     sajtagent.value = agent;

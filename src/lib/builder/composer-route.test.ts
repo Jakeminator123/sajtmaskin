@@ -413,6 +413,39 @@ describe("resolveComposerRoute", () => {
     ).toBe("blocked");
   });
 
+  it.each([
+    "Kan du lägga in den här loggan i sidhuvudet?",
+    "Kan du lägga till bilden i galleriet?",
+    "Skulle du kunna byta hjältebilden mot den här?",
+    "Snälla, kan du använda den här som bakgrund?",
+    "Can you use this image as the hero?",
+    "Byt loggan mot den här?",
+  ])("bygger en artig begäran med bilaga: %s", (text) => {
+    expect(resolveComposerRoute({ ...base, text, hasAttachments: true })).toBe("build");
+    expect(
+      describeComposerDecision(resolveComposerDecision({ ...base, text, hasAttachments: true }), {
+        mode: "auto",
+        hasChat: true,
+      }).label,
+    ).toBe("Ändring – skapar en ny version");
+    // Utan bilaga är samma text fortfarande ett ärende för agenten.
+    expect(resolveComposerRoute({ ...base, text })).toBe("agent");
+  });
+
+  it.each([
+    "Vad tycker du om den här bilden?",
+    "Ska jag ändra loggan till den här?",
+    "Hur byter jag loggan till den här?",
+    "Borde jag lägga till den här bilden?",
+    "Kan du titta på bilden och säga om den passar?",
+    "Kan du förklara varför loggan ser suddig ut?",
+  ])("blockerar fortfarande en ren fråga med bilaga: %s", (text) => {
+    expect(resolveComposerDecision({ ...base, text, hasAttachments: true })).toEqual({
+      route: "blocked",
+      blockReason: "attachments",
+    });
+  });
+
   it("bygger fortfarande uttryckligt Bygg-läge och oklar text när agenten saknas", () => {
     for (const unavailable of [{ hasAttachments: true }, { agentAvailable: false }]) {
       expect(resolveComposerRoute({ ...base, ...unavailable, mode: "build" })).toBe("build");

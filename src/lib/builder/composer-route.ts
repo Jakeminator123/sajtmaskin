@@ -21,7 +21,7 @@
  * å/ä/ö matchar (unicode-regex.mdc).
  */
 
-import { uWordRegex } from "@/lib/utils/unicode-word-boundary";
+import { uWord, uWordRegex } from "@/lib/utils/unicode-word-boundary";
 import { parseArmingDirective, parseStopDirective } from "@/lib/openclaw/debug/armed-mandate";
 
 export type ComposerMode = "auto" | "agent" | "build";
@@ -216,6 +216,42 @@ const BUILD_TERMS = uWordRegex(
 
 function normalize(text: string): string {
   return text.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * En artig begäran som börjar med ett ändringsverb: «Kan du lägga in den här
+ * loggan i sidhuvudet?», «Skulle du kunna byta bilden?», «Can you use this as
+ * the hero?». Smalare än `BUILD_TERMS` med flit: «Ska jag ändra loggan?» och
+ * «Hur byter jag bilden?» är rådfrågor och matchar inte.
+ */
+const POLITE_BUILD_REQUEST = new RegExp(
+  String.raw`^[\s"'«»“”(]*(?:(?:snälla|snalla|please)[\s,]+)?(?:kan|skulle|vill|could|can|would|will)\s+(?:du|ni|you)\s+(?:(?:kunna|please|snälla|snalla|också|ocksa|även|aven)\s+)*` +
+    uWord(
+      [
+        "lägga till", "lagga till", "lägga in", "lagga in", "lägga", "lagga",
+        "sätta in", "satta in", "sätta", "satta", "byta ut", "byta", "ersätta", "ersatta",
+        "ta bort", "flytta", "ändra", "uppdatera", "använda", "anvanda", "infoga",
+        "göra om", "gora om", "skapa", "bygga", "centrera", "förstora", "forstora",
+        "add", "insert", "put", "use", "replace", "swap", "change", "update", "remove",
+        "move", "make", "create", "build", "set",
+      ]
+        .sort((a, b) => b.length - a.length)
+        .map((verb) => verb.replace(/ /g, String.raw`\s+`))
+        .join("|"),
+    ),
+  "iu",
+);
+
+/**
+ * Bilagan följer bara byggmotorn. En frågeformad text med bilaga är därför en
+ * beställning när den börjar med ett ändringsverb eller är en artig begäran
+ * med ett ändringsverb; en ren fråga («Vad tycker du om bilden?») är det inte.
+ * Ägarbeslut via orkestratorn 2026-11-11.
+ */
+export function isAttachmentBuildRequest(rawText: string): boolean {
+  const text = normalize(rawText);
+  if (!text) return false;
+  return matchesAtStart(BUILD_OPENERS, text.toLowerCase()) || POLITE_BUILD_REQUEST.test(text);
 }
 
 const ABSOLUTE_READ_ONLY = uWordRegex(
@@ -422,7 +458,10 @@ export function resolveComposerDecision(input: ResolveComposerRouteInput): Compo
   if (!input.hasChat) return { route: "build" };
   const intent = classifyComposerIntent(input.text);
   if (intent === "build") return { route: "build" };
-  if (intent === "agent") return toAgent();
+  if (intent === "agent") {
+    if (input.hasAttachments && isAttachmentBuildRequest(input.text)) return { route: "build" };
+    return toAgent();
+  }
   if (!agentReachable) return { route: "build" };
   return input.agentCanBuild === false ? { route: "build" } : { route: "agent" };
 }

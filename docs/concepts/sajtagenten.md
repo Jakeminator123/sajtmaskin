@@ -14,7 +14,8 @@ sidan är den mentala modellen. Plan och status:
 | En fråga, en granskning, något oklart («Vad tycker du om startsidan?», «Granska före publicering», «Blåare knappar?») | Sajtagenten | Kostar inget bygge; agenten kan läsa koden och föreslå. |
 | En uttrycklig ändring («Byt rubriken till Välkommen», «Lägg till en kontaktsida») | Byggmotorn | Skapar en ny version direkt, som i dag. |
 | Första bygget, eller en ändring med bilaga, Figma-länk eller inspect-punkter | Byggmotorn | Där finns ingen agentväg. |
-| En fråga när Sajtagenten inte nås (okonfigurerad, otillgänglig eller med bilaga) | Ingen: utskicket blockeras och utkastet ligger kvar | En fråga får aldrig tyst kosta ett bygge. Välj Bygg om texten är en ändring. |
+| En artig begäran med bilaga («Kan du lägga in den här loggan i sidhuvudet?») | Byggmotorn | Bilagan följer bara byggmotorn, och ett ändringsverb direkt efter «kan du» gör texten till en beställning. |
+| En fråga när Sajtagenten inte nås (okonfigurerad, otillgänglig eller med bilaga, t.ex. «Vad tycker du om bilden?») | Ingen: utskicket blockeras och utkastet ligger kvar | En fråga får aldrig tyst kosta ett bygge. Välj Bygg om texten är en ändring. |
 
 Lägesväljaren Auto · Fråga · Bygg i komposern tvingar mottagaren. Läget gäller
 per chatt; en ny chatt börjar i Auto. Regeln bor i
