@@ -663,7 +663,7 @@ const MessageListComponent = ({
                       {part.plan.actions && part.plan.actions.length > 0 && (
                         <PlanFooter>
                           <div className="text-muted-foreground mb-2 text-xs font-medium uppercase">
-                            Plan actions
+                            Planens steg
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {part.plan.actions.map((action) => (

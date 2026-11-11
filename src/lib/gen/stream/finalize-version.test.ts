@@ -667,7 +667,8 @@ export default function Page() {
       });
 
       expect(result.turnSummary).toMatch(/^Klart — jag har byggt en första version/);
-      expect(result.turnSummary).toContain('"Bygg en landningssida för Acme"');
+      // Kvittot citerar inte beställningen sedan UX-granskningen 2026-11-11.
+      expect(result.turnSummary).not.toContain("Bygg en landningssida för Acme");
       const call = addAssistantMessageAndCreateDraftVersion.mock.calls[0];
       const persisted = call?.[1] as string;
       expect(persisted.trimEnd().endsWith(result.turnSummary as string)).toBe(true);

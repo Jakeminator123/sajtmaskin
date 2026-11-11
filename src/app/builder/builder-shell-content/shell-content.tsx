@@ -411,7 +411,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             chatId={vm.chatId}
             isCollapsed={isChatOutputCollapsed}
             onToggleCollapse={chatOutputCollapse.toggle}
-            messageCount={vm.messages.length}
+            builderMessages={vm.messages}
             isStreaming={vm.isAnyStreaming}
             statusText={chatCollapseStatusText}
           >

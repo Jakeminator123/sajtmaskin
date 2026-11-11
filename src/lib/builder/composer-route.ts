@@ -9,8 +9,11 @@
  *   till agenten.
  * - En uttrycklig ändringsinstruktion («byt knapptexten till Boka tid») går
  *   direkt till byggmotorn.
- * - Bilagor och init går till byggmotorn när texten tillåter det. Ett uttryckligt
- *   agentärende blockeras om agentvägen saknas, utan att starta en generation.
+ * - Första bygget (ingen chatt ännu) går alltid till byggmotorn: det finns
+ *   ingen sajt att fråga om, och beställningen är skälet till besöket.
+ * - En fråga blir aldrig tyst ett bygge. Saknas agentvägen (okonfigurerad,
+ *   otillgänglig eller bilaga) blockeras utskicket med ett skäl som komposern
+ *   visar, och utkastet ligger kvar (UX-05/06, 2026-11-11).
  * - Oklart → agenten. Den kan starta bygget själv (`start_build`) när den har
  *   befogenhet, och en felroutad fråga till byggmotorn kostar en generation.
  *
@@ -18,7 +21,7 @@
  * å/ä/ö matchar (unicode-regex.mdc).
  */
 
-import { uWordRegex } from "@/lib/utils/unicode-word-boundary";
+import { uWord, uWordRegex } from "@/lib/utils/unicode-word-boundary";
 import { parseArmingDirective, parseStopDirective } from "@/lib/openclaw/debug/armed-mandate";
 
 export type ComposerMode = "auto" | "agent" | "build";
@@ -28,9 +31,9 @@ export type ComposerIntent = "agent" | "build" | "unsure";
 export const COMPOSER_MODES: readonly ComposerMode[] = ["auto", "agent", "build"];
 
 export const COMPOSER_MODE_META: Record<ComposerMode, { label: string; title: string }> = {
-  auto: { label: "Auto", title: "Frågor går till Sajtagenten, ändringar till byggmotorn" },
-  agent: { label: "Fråga", title: "Skicka till Sajtagenten (svarar, granskar, föreslår)" },
-  build: { label: "Bygg", title: "Skicka till byggmotorn (skapar en ny version)" },
+  auto: { label: "Auto", title: "Frågor besvaras av Sajtagenten, ändringar skapar en ny version" },
+  agent: { label: "Fråga", title: "Sajtagenten svarar, granskar och föreslår. Sajten ändras inte." },
+  build: { label: "Bygg", title: "Byggmotorn ändrar sajten och sparar en ny version" },
 };
 
 export function isComposerMode(value: unknown): value is ComposerMode {
@@ -215,6 +218,59 @@ function normalize(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
+/**
+ * En artig begäran som börjar med ett ändringsverb: «Kan du lägga in den här
+ * loggan i sidhuvudet?», «Skulle du kunna byta bilden?», «Can you use this as
+ * the hero?». Smalare än `BUILD_TERMS` med flit: «Ska jag ändra loggan?» och
+ * «Hur byter jag bilden?» är rådfrågor och matchar inte. «Skulle du byta …?»
+ * utan «kunna» är oftast en åsiktsfråga och matchar inte heller.
+ */
+const POLITE_BUILD_REQUEST = new RegExp(
+  String.raw`^[\s"'«»“”(]*(?:(?:hej|hejsan|hallå|halla|hi|hello)[\s!,.]+)?(?:(?:snälla|snalla|please)[\s,]+)?(?:(?:kan|vill)\s+(?:du|ni)\s+|skulle\s+(?:du|ni)\s+kunna\s+|(?:could|can|would|will)\s+you\s+)(?:(?:kunna|please|snälla|snalla|också|ocksa|även|aven)\s+)*` +
+    uWord(
+      [
+        "lägga till", "lagga till", "lägga in", "lagga in", "lägga upp", "lagga upp", "lägga", "lagga",
+        "sätta in", "satta in", "sätta", "satta", "byta ut", "byta", "ersätta", "ersatta",
+        "ta bort", "flytta", "ändra", "uppdatera", "använda", "anvanda", "infoga",
+        "göra om", "gora om", "göra", "gora", "fixa", "justera", "rätta", "ratta",
+        "färga", "farga", "styla", "designa", "implementera", "skapa", "bygga",
+        "centrera", "förstora", "forstora", "förminska", "forminska", "minska", "öka", "oka",
+        "skriva om", "skriva", "korta", "förkorta", "forkorta", "radera", "dölja", "dolja",
+        "gömma", "gomma", "anpassa", "matcha", "kopiera", "ladda upp",
+        "add", "insert", "put", "use", "replace", "swap", "change", "update", "remove",
+        "move", "make", "create", "build", "set", "fix", "adjust", "style", "design",
+        "resize", "rewrite", "write", "hide", "delete", "match", "copy", "apply", "implement",
+      ]
+        .sort((a, b) => b.length - a.length)
+        .map((verb) => verb.replace(/ /g, String.raw`\s+`))
+        .join("|"),
+    ),
+  "iu",
+);
+
+/** «Kan du göra en bedömning av bilden?» är en fråga, inte en beställning. */
+const POLITE_REVIEW_OBJECT = uWordRegex(
+  "bedömning|bedomning|analys|granskning|genomgång|genomgang|utvärdering|utvardering|jämförelse|jamforelse|review|assessment|analysis",
+  "iu",
+);
+
+/**
+ * Bilagan följer bara byggmotorn. En frågeformad text med bilaga är därför en
+ * beställning när den börjar med ett ändringsverb eller är en artig begäran
+ * med ett ändringsverb; en ren fråga («Vad tycker du om bilden?») är det inte.
+ * Ägarbeslut via orkestratorn 2026-11-11.
+ */
+export function isAttachmentBuildRequest(rawText: string): boolean {
+  const text = normalize(rawText);
+  if (!text) return false;
+  if (matchesAtStart(BUILD_OPENERS, text.toLowerCase())) return true;
+  return (
+    POLITE_BUILD_REQUEST.test(text) &&
+    !REVIEW_TERMS.test(text) &&
+    !POLITE_REVIEW_OBJECT.test(text)
+  );
+}
+
 const ABSOLUTE_READ_ONLY = uWordRegex(
   "(?:ändra|andra) (?:inget|ingenting)|(?:gör|gor) (?:inget|ingenting|inga (?:ändringar|andringar))|only review|review only|do nothing|(?:do not|don't|don’t) (?:do anything|make any changes|change anything)",
   "iu",
@@ -375,23 +431,156 @@ export interface ResolveComposerRouteInput {
   builderAwaitingReply?: boolean;
 }
 
-/** Slutgiltigt val för ett utskick från komposern. */
-export function resolveComposerRoute(input: ResolveComposerRouteInput): ComposerRoute {
+/** Varför ett agentärende inte kan skickas. Styr texten användaren ser. */
+export type ComposerBlockReason =
+  | "no-chat"
+  | "agent-not-configured"
+  | "agent-unavailable"
+  | "attachments";
+
+export interface ComposerDecision {
+  route: ComposerRoute;
+  /** Satt när `route === "blocked"`. */
+  blockReason?: ComposerBlockReason;
+  /** Bygget svarar på byggmotorns egen motfråga eller plan. */
+  answersBuilder?: boolean;
+}
+
+function agentBlockReason(input: ResolveComposerRouteInput): ComposerBlockReason {
+  if (!input.hasChat) return "no-chat";
+  if (!input.agentAvailable) return input.agentConfigured ? "agent-unavailable" : "agent-not-configured";
+  return "attachments";
+}
+
+/**
+ * Slutgiltigt beslut för ett utskick, med skäl. Komposerns etikett vid Skicka
+ * och blockeringstexten läser samma beslut som själva utskicket.
+ */
+export function resolveComposerDecision(input: ResolveComposerRouteInput): ComposerDecision {
   const agentReachable = input.agentAvailable && input.hasChat && !input.hasAttachments;
+  const toAgent = (): ComposerDecision =>
+    agentReachable ? { route: "agent" } : { route: "blocked", blockReason: agentBlockReason(input) };
   if (
     input.mode === "agent" ||
     (input.mode === "auto" && Boolean(parseArmingDirective(input.text) || parseStopDirective(input.text, "leading"))) ||
     isReadOnlyComposerRequest(input.text) ||
     isAgentProposalReference(input.text)
   ) {
-    return agentReachable ? "agent" : "blocked";
+    return toAgent();
   }
-  if (input.mode === "build") return "build";
-  if (input.builderAwaitingReply) return "build";
+  if (input.mode === "build") return { route: "build" };
+  if (input.builderAwaitingReply) return { route: "build", answersBuilder: true };
+  // Första bygget: allt är en beställning, även en artig fråga
+  // («Kan du göra en sida för mitt kafé?»).
+  if (!input.hasChat) return { route: "build" };
   const intent = classifyComposerIntent(input.text);
-  if (intent === "build") return "build";
-  if (intent === "agent" && input.agentConfigured && !input.agentAvailable) return "blocked";
-  if (!agentReachable) return "build";
-  if (intent === "agent") return "agent";
-  return input.agentCanBuild === false ? "build" : "agent";
+  if (intent === "build") return { route: "build" };
+  if (intent === "agent") {
+    if (input.hasAttachments && isAttachmentBuildRequest(input.text)) return { route: "build" };
+    return toAgent();
+  }
+  if (!agentReachable) return { route: "build" };
+  return input.agentCanBuild === false ? { route: "build" } : { route: "agent" };
+}
+
+/** Slutgiltigt val för ett utskick från komposern. */
+export function resolveComposerRoute(input: ResolveComposerRouteInput): ComposerRoute {
+  return resolveComposerDecision(input).route;
+}
+
+export type ComposerRouteTone = "neutral" | "agent" | "build" | "blocked";
+
+export interface ComposerRouteDescription {
+  tone: ComposerRouteTone;
+  /** Kort etikett intill Skicka. */
+  label: string;
+  /** En mening om vad som händer, eller vad användaren kan göra. */
+  hint: string;
+}
+
+const BLOCKED_DESCRIPTIONS: Record<ComposerBlockReason, { label: string; hint: string }> = {
+  "no-chat": {
+    label: "Fråga – går först när sajten finns",
+    hint: "Sajtagenten kan svara efter första bygget. Beskriv först vad du vill bygga.",
+  },
+  "agent-not-configured": {
+    label: "Fråga – Sajtagenten finns inte här",
+    hint: "Frågor kan inte besvaras i den här miljön. Välj Bygg om texten är en ändring.",
+  },
+  "agent-unavailable": {
+    label: "Fråga – Sajtagenten svarar inte just nu",
+    hint: "Försök igen om en stund, eller välj Bygg om texten är en ändring.",
+  },
+  attachments: {
+    label: "Fråga – kan inte skickas med bilaga",
+    hint: "Sajtagenten läser inte bilagor. Ta bort bilagan för att fråga, eller välj Bygg för att använda den i en ändring.",
+  },
+};
+
+/**
+ * Text för komposern: vad nästa klick på Skicka gör. Läser samma beslut som
+ * utskicket, så etiketten kan inte säga något annat än det som händer.
+ */
+export function describeComposerDecision(
+  decision: ComposerDecision,
+  context: {
+    mode: ComposerMode;
+    hasChat: boolean;
+    /** Ett bygge pågår; byggvägen väntar tills det är klart. */
+    builderLocked?: boolean;
+    /** Ingen text och inga bilagor ännu. */
+    emptyDraft?: boolean;
+  },
+): ComposerRouteDescription {
+  if (decision.route === "blocked") {
+    const blocked = BLOCKED_DESCRIPTIONS[decision.blockReason ?? "agent-unavailable"];
+    if (context.mode === "build") {
+      return {
+        tone: "blocked",
+        label: blocked.label,
+        hint: "Texten ber om svar utan ändring och kan bara gå till Sajtagenten.",
+      };
+    }
+    return { tone: "blocked", label: blocked.label, hint: blocked.hint };
+  }
+  if (context.emptyDraft && context.mode === "auto" && context.hasChat) {
+    return {
+      tone: "neutral",
+      label: "Auto – frågor besvaras, ändringar byggs",
+      hint: "Frågor går till Sajtagenten och ändrar inget. Ändringar skapar en ny version.",
+    };
+  }
+  if (decision.route === "agent") {
+    return {
+      tone: "agent",
+      label: "Fråga – ändrar inget",
+      hint: "Sajtagenten svarar. Sajten ändras inte.",
+    };
+  }
+  if (!context.hasChat) {
+    return {
+      tone: "build",
+      label: "Första bygget – skapar din sajt",
+      hint: "Byggmotorn bygger den första versionen av sajten.",
+    };
+  }
+  if (context.builderLocked) {
+    return {
+      tone: "build",
+      label: "Ändring – väntar på pågående bygge",
+      hint: "Ett bygge pågår. Ändringen kan skickas när det är klart.",
+    };
+  }
+  if (decision.answersBuilder) {
+    return {
+      tone: "build",
+      label: "Svar till bygget – fortsätter det",
+      hint: "Svaret går till byggmotorn, som fortsätter och kan spara en ny version.",
+    };
+  }
+  return {
+    tone: "build",
+    label: "Ändring – skapar en ny version",
+    hint: "Byggmotorn ändrar sajten och sparar en ny version.",
+  };
 }
