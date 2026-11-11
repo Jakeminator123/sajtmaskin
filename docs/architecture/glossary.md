@@ -84,7 +84,7 @@ respektive kod, manifest eller policy. Aktuella inventarier finns i
 | Minor-version | Quick-edit-version under en major, exempelvis `v3.1`. |
 | Sajtagenten / OpenClaw | Användarsynlig assistent; OpenClaw är agentplattformen bakom (gateway på Render). I buildern i samma chatt som byggmotorn, annars flytande bubbla. |
 | Gemensam chatt (builder) | En input och en tidslinje för byggmotor och Sajtagent; `composer-route.ts` väljer mottagare. Agenthistorik i `agent_messages`, aldrig `engine_messages`; `start_build` startar bygge. |
-| Extra befogenheter (OpenClaw) | UI-opt-in ovanpå `OC_EDIT` (knappetikett "Låt agenten ändra"): sköldknapp + befogenhet (`armed_autonomy` / `quick_edit` / `live_review`); ny builderchatt får alla tre som standard. |
+| Extra befogenheter (OpenClaw) | UI-opt-in ovanpå `OC_EDIT`: sköldknapp + befogenhet (`armed_autonomy` / `quick_edit` / `live_review`); ny builderchatt får alla tre som standard. |
 | Armerad autonomi | OpenClaw-läge där Sajtagenten efter uttrycklig armering får skicka ett begränsat antal follow-ups genom den ordinarie pipelinevägen. |
 | Snabbändring (OpenClaw) | OpenClaw-befogenhet: `apply_quick_edit`-förslag med exakta filoperationer som körs genom Fast Edit Lane till en minor-version efter manuellt godkännande per förslag. |
 | False-green | Systemet visar grönt trots blocker/degradation. |
