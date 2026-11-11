@@ -48,6 +48,7 @@ import {
   isComposerMode,
   isReadOnlyComposerRequest,
   resolveComposerDecision,
+  type ComposerAttachmentKind,
   type ComposerDecision,
   type ComposerMode,
   type ComposerRouteTone,
@@ -875,12 +876,18 @@ export function ChatInterface({
       builderAwaitingReply: builderAwaitingReply || continuePlanMode,
     });
   };
+  const composerAttachmentKinds: ComposerAttachmentKind[] = [
+    ...(hasSuccessFiles ? (["file"] as const) : []),
+    ...(normalizedFigmaUrl ? (["figma"] as const) : []),
+    ...(inspectPoints.length > 0 ? (["inspect"] as const) : []),
+  ];
   const describeDecision = (decision: ComposerDecision, emptyDraft = false) =>
     describeComposerDecision(decision, {
       mode: composerMode,
       hasChat: Boolean(chatId),
       builderLocked,
       emptyDraft,
+      attachmentKinds: composerAttachmentKinds,
     });
 
   const handleSubmit = async ({ text }: { text: string }) => {
@@ -1355,29 +1362,8 @@ export function ChatInterface({
               />
             ) : null}
           </div>
-          {/* Vad nästa klick på Skicka gör (UX-07). Samma beslut som
-              utskicket i handleSubmit, alltid synligt direkt ovanför Skicka. */}
-          <div
-            id={routeLabelId}
-            className={cn("flex flex-col items-end gap-0.5 text-right text-xs", routeStyle.text)}
-            data-testid="composer-route-hint"
-            data-route-tone={routeDescription.tone}
-            aria-live="polite"
-            aria-atomic="true"
-            title={routeDescription.hint}
-          >
-            <span className="inline-flex items-center gap-1.5 font-medium">
-              <RouteIcon className={cn("size-3.5 shrink-0", routeStyle.iconClass)} aria-hidden="true" />
-              {routeDescription.label}
-            </span>
-            {routeDescription.tone === "blocked" ? (
-              <span className="text-muted-foreground max-w-md font-normal">{routeDescription.hint}</span>
-            ) : (
-              <span className="sr-only">{routeDescription.hint}</span>
-            )}
-          </div>
-          <div className="flex items-end justify-between gap-2">
-            <PromptInputTools className="min-w-0 flex-1 flex-wrap items-end gap-1.5">
+          <div className="flex flex-wrap items-end gap-2">
+            <PromptInputTools className="flex-wrap items-end gap-1.5">
               {mediaEnabled && (
                 <FileUploadZone
                   projectId={null}
@@ -1420,15 +1406,40 @@ export function ChatInterface({
                 ) : null}
               </button>
             </PromptInputTools>
-            <PromptInputSubmit
-              className="focus-visible:ring-brand-blue/50 focus-visible:ring-offset-background size-10 rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-              data-openclaw-send-target="builder.chat.primary"
-              aria-label="Skicka"
-              aria-describedby={routeLabelId}
-              disabled={submitDisabled}
-            >
-              {isSending ? <Loader2 className="size-4 animate-spin" /> : undefined}
-            </PromptInputSubmit>
+            {/* Etiketten och Skicka hör ihop och bryts aldrig isär (UX-07).
+                Etiketten läser samma beslut som utskicket i handleSubmit. */}
+            <div className="flex min-w-44 flex-1 items-center justify-end gap-2">
+              <div
+                id={routeLabelId}
+                className={cn("flex min-w-0 flex-col items-end gap-0.5 text-right text-xs", routeStyle.text)}
+                data-testid="composer-route-hint"
+                data-route-tone={routeDescription.tone}
+                aria-live="polite"
+                aria-atomic="true"
+                title={routeDescription.hint}
+              >
+                <span className="inline-flex items-center gap-1.5 font-medium">
+                  <RouteIcon className={cn("size-3.5 shrink-0", routeStyle.iconClass)} aria-hidden="true" />
+                  {routeDescription.label}
+                </span>
+                {routeDescription.tone === "blocked" ? (
+                  <span className="text-muted-foreground font-normal">{routeDescription.hint}</span>
+                ) : (
+                  <span className="sr-only">{routeDescription.hint}</span>
+                )}
+              </div>
+              {/* Ett blockerat utskick ska se avstängt ut. Enter i textrutan
+                  ger fortfarande beskedet om vad man kan göra. */}
+              <PromptInputSubmit
+                className="focus-visible:ring-brand-blue/50 focus-visible:ring-offset-background size-10 shrink-0 rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                data-openclaw-send-target="builder.chat.primary"
+                aria-label="Skicka"
+                aria-describedby={routeLabelId}
+                disabled={submitDisabled || routeDescription.tone === "blocked"}
+              >
+                {isSending ? <Loader2 className="size-4 animate-spin" /> : undefined}
+              </PromptInputSubmit>
+            </div>
           </div>
         </PromptInputFooter>
       </PromptInput>
