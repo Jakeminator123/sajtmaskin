@@ -22,11 +22,16 @@ const storageCleanup = require("./runtime/storage-cleanup.js");
 const machineRuntime = require("./runtime/machine-runtime.js");
 const isolationConfig = require("./machines/isolation-config.js");
 const projectMachines = require("./machines/project-machines.js");
+const previewOrigin = require("./runtime/preview-origin.js");
 
 module.exports = {
-  buildPreviewUrl(baseUrl, chatId) {
-    return `${baseUrl.replace(/\/$/, "")}/${encodeURIComponent(chatId)}`;
+  // M03: path-läge ger `<bas>/<chatId>`, subdomän-läge `<slug>.<domän>/<chatId>`.
+  buildPreviewUrl(baseUrl, chatId, slug) {
+    return previewOrigin.buildPreviewUrl(baseUrl, chatId, slug);
   },
+  classifyRequestHost: previewOrigin.classifyRequestHost,
+  describePreviewOrigin: previewOrigin.describePreviewOrigin,
+  sessionPreviewOriginSlug: previewOrigin.sessionPreviewOriginSlug,
   ensureRuntimeForChat: processLifecycle.ensureRuntimeForChat,
   getRuntimeStateForChat: processLifecycle.getRuntimeStateForChat,
   getSessionChatId: shared.getSessionChatId,
@@ -79,6 +84,9 @@ module.exports = {
     clearWorkspaceNpmLogs: packageInstall.clearWorkspaceNpmLogs,
     readLatestNpmDebugLog: packageInstall.readLatestNpmDebugLog,
     isHmrPath: previewProxy.isHmrPath,
+    previewOriginSlugForChat: previewOrigin.previewOriginSlugForChat,
+    previewOriginConfig: previewOrigin.previewOriginConfig,
+    resolvePreviewTarget: previewProxy.resolvePreviewTarget,
     PREVIEW_HMR_PATH_SUFFIXES: previewProxy.PREVIEW_HMR_PATH_SUFFIXES,
     probeReadinessAfterPatch: processLifecycle.probeReadinessAfterPatch,
     promoteTrackedRuntimeReceipt: processLifecycle.promoteTrackedRuntimeReceipt,

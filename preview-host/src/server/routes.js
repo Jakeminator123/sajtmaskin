@@ -12,6 +12,9 @@ const {
   applyRuntimePatch,
   probeReadinessAfterPatch,
   buildPreviewUrl,
+  classifyRequestHost,
+  describePreviewOrigin,
+  sessionPreviewOriginSlug,
   cleanupPackageCaches,
   cleanupPreviewHostStorage,
   destroyChatWorkspace,
@@ -55,6 +58,7 @@ const {
 const {
   sessionExpiresAtIso,
   sessionResponse,
+  currentPreviewUrlForSession,
   appendLog,
   findSessionById,
   findSessionByPreviewSessionId,
@@ -87,8 +91,43 @@ function staleLifecycleResponse(res) {
   });
 }
 
+/**
+ * M03: en per-chatt-preview-origin (`<slug>.<domän>`) serverar bara sin egen
+ * chatt plus `/placeholder.svg`. Kontrollplanet (`/health`, `/preview/*`,
+ * `/admin/*`) finns inte där. Returnerar true när requesten är besvarad.
+ */
+async function routePreviewOriginRequest(req, res, url) {
+  const host = classifyRequestHost(req);
+  if (host.kind !== "preview" && host.kind !== "foreign") return false;
+  if (host.kind === "preview" && req.method === "GET" && url.pathname === "/placeholder.svg") {
+    sendRootPlaceholderSvg(res, url);
+    return true;
+  }
+  applyPublicPreviewHeaders(res);
+  if (host.kind === "preview" && (await proxyPreviewRequest(req, res, url.pathname, url.search))) {
+    return true;
+  }
+  notFound(res);
+  return true;
+}
+
+/** Fail-closed: skapa eller ändra ingen preview när origin-läget är trasigt. */
+function refuseMisconfiguredPreviewOrigin(res) {
+  const origin = describePreviewOrigin();
+  if (origin.configured) return false;
+  json(res, 503, {
+    error: "configuration_error",
+    message: `Per-chat preview origins are misconfigured: ${origin.problems.join(" ")}`,
+  });
+  return true;
+}
+
 async function routeRequest(req, res) {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+
+  if (await routePreviewOriginRequest(req, res, url)) {
+    return undefined;
+  }
 
   if (req.method === "GET" && url.pathname === "/health") {
     const data = readStoreSync();
@@ -101,6 +140,10 @@ async function routeRequest(req, res) {
       // SM-080: `mode: "shared"` means project code runs on this host. The
       // full (secret-free) config lives behind the key on /admin/machines.
       isolation: (({ mode, configured }) => ({ mode, configured }))(describeIsolation()),
+      // M03: browser origin per chat (`subdomain`) or shared (`path`).
+      origin: (({ mode, configured, domain }) => ({ mode, configured, domain }))(
+        describePreviewOrigin(),
+      ),
     });
   }
 
@@ -224,7 +267,7 @@ async function routeRequest(req, res) {
           : null,
       /** @legacy External alias for older Sajtmaskin app deployments. */
       sandboxId: latest.previewSessionId,
-      previewUrl: latest.previewUrl,
+      previewUrl: currentPreviewUrlForSession(latest),
       versionId: latest.versionId,
       status: latest.status,
       sessionExpiresAt: latest.sessionExpiresAt,
@@ -289,6 +332,7 @@ async function routeRequest(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/preview/session/start") {
+    if (refuseMisconfiguredPreviewOrigin(res)) return undefined;
     const raw = await readJsonBody(req);
     const validated = validateStartPayload(raw);
     await maybeRunOpportunisticCleanup();
@@ -349,6 +393,8 @@ async function routeRequest(req, res) {
       const sessionExpiresAt = sessionExpiresAtIso();
       const sessionId = existing?.sessionId ?? randomUUID();
       const previewSessionId = existing?.previewSessionId ?? `ps_${randomUUID()}`;
+      // Sessionens slug är auktoritet för vilken värd som får servera chatten.
+      const previewOriginSlug = sessionPreviewOriginSlug(existing, validated.chatId);
       const session = {
         sessionId,
         previewSessionId,
@@ -356,7 +402,8 @@ async function routeRequest(req, res) {
         mutationRevision: nextMutationRevision(data, validated.chatId, existing),
         chatId: validated.chatId,
         versionId: validated.versionId,
-        previewUrl: buildPreviewUrl(PREVIEW_BASE_URL, validated.chatId),
+        previewOriginSlug,
+        previewUrl: buildPreviewUrl(PREVIEW_BASE_URL, validated.chatId, previewOriginSlug),
         status: "starting",
         lastAction: "start",
         changeClass: validated.changeClass,
@@ -427,6 +474,7 @@ async function routeRequest(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/preview/session/update") {
+    if (refuseMisconfiguredPreviewOrigin(res)) return undefined;
     const raw = await readJsonBody(req);
     const validated = validateUpdatePayload(raw);
     const referenced = findReferencedSession(readStoreSync(), validated);
@@ -496,6 +544,8 @@ async function routeRequest(req, res) {
       session.runtimeBootFailureTimestamps = [];
       session.lastAction = "update";
       session.startOutcome = "resumed";
+      // Håll den lagrade URL:en (loggrader i process-lifecycle) i fas med origin-läget.
+      session.previewUrl = currentPreviewUrlForSession(session);
       session.updatedAt = nowIso();
       session.sessionExpiresAt = sessionExpiresAtIso();
       appendLog(data, session.previewSessionId, `Session updated with changeClass=${session.changeClass}.`);
@@ -516,6 +566,7 @@ async function routeRequest(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/preview/session/patch") {
+    if (refuseMisconfiguredPreviewOrigin(res)) return undefined;
     const raw = await readJsonBody(req);
     const validated = validatePatchPayload(raw);
     const referenced = findReferencedSession(readStoreSync(), validated);
@@ -617,6 +668,7 @@ async function routeRequest(req, res) {
       }
       session.lastAction = "patch";
       session.startOutcome = "resumed";
+      session.previewUrl = currentPreviewUrlForSession(session);
       session.changeClass = "light";
       session.updatedAt = nowIso();
       session.sessionExpiresAt = sessionExpiresAtIso();

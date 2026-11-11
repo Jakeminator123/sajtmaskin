@@ -29,6 +29,11 @@ swap_size_mb = 2048
   # source; the full list is allowed parent origins. Do not reorder as a fix.
   SAJTMASKIN_APP_ORIGINS = "https://sajtmaskin.vercel.app,https://sajtmaskin.se,https://www.sajtmaskin.se,https://sajtmaskin.com,https://www.sajtmaskin.com,https://sajtmaskin-git-preview-jakeminator123s-projects.vercel.app,https://preview.sajtmaskin.se"
   PREVIEW_SESSION_TTL_MS = "7200000"
+  # Per-chat browser origin (M03). Default `path` = shared origin. Set with
+  # `fly secrets set --stage` only after master runs app code that knows the
+  # domain; activation order in README § Webbläsar-origin per chatt.
+  # PREVIEW_HOST_ORIGIN_MODE = "subdomain"
+  # PREVIEW_HOST_PREVIEW_DOMAIN = "vm.sajtmaskin.com"
   PREVIEW_HOST_DATA_DIR = "/data"
   # Package caches belong on the mounted volume, never the rootfs. The rootfs
   # is a ~8 GB ephemeral layer that no cleanup path reclaims; npm's default

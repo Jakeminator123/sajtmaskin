@@ -225,8 +225,76 @@ Acceptans i en disponibel testmiljö, endast med syntetiska data:
    kontrollplanets `/preview/*` utan nyckel, `_api.internal:4280` utan token,
    eller ett eventuellt `/.fly/api`. Kräver ägaren full nätseparation behövs
    dessutom egen Fly-nätverkspolicy eller ett separat privat nät; det är inte
-   bevisat av tokenkontrollen. Alla previews delar fortfarande webbläsar-origin
-   på hostens domän.
+   bevisat av tokenkontrollen. Webbläsar-origin isoleras separat, se
+   [Webbläsar-origin per chatt](#webbläsar-origin-per-chatt-preview_host_origin_mode).
+
+### Webbläsar-origin per chatt (`PREVIEW_HOST_ORIGIN_MODE`)
+
+I `path`-läge (default) delar alla previews webbläsar-origin:
+`https://vm-fly-jakem.fly.dev/<chatId>`. En preview kan då läsa en annan
+chatts localStorage, service worker och cookies. `subdomain`-läget ger varje
+chatt en egen origin: `https://p-<20 hex>.<PREVIEW_HOST_PREVIEW_DOMAIN>/<chatId>`.
+Etiketten är `sha256("sajtmaskin-preview-origin:v1:" + chatId)` (20 hex), sparas
+som `previewOriginSlug` på sessionen och är auktoritet för routingen.
+Sökvägen behåller `/<chatId>` eftersom runtimen kör Next med `basePath`.
+
+| Läge och värd | Beteende |
+| --- | --- |
+| `path` | Exakt som tidigare. `Host` ignoreras |
+| `subdomain`, `<slug>.<domän>` + egen `/<chatId>/…` | Proxas (HTTP och WebSocket/HMR) |
+| Samma värd, rotabsolut `/_next/…`, `/__nextjs…`, `/api/…` | Chatten slås upp via värdens slug, ingen Referer behövs |
+| Samma värd, `/` | `307` till `/<chatId>` |
+| Samma värd, `/placeholder.svg` | Hostens SVG |
+| Samma värd, annan chatts sökväg, `/health`, `/preview/*`, `/admin/*` | `404`, WebSocket stängs |
+| Annan etikett under domänen eller domänen själv | `404` |
+| Bas-värden, sökväg som pekar på en chatt (direkt eller via Referer) | `307` + `Cache-Control: no-store` till chattens origin; WebSocket stängs |
+| Bas-värden, kontrollplanet | Som tidigare |
+| Domän saknas/ogiltig eller okänt läge (fail-closed) | Previews `503 preview_origin_unavailable`, `start`/`update`/`patch` `503 configuration_error`; status, verify, hibernate, destroy, admin och health fungerar |
+
+`previewUrl` räknas ut vid varje svar (`/status`, `start`, `update`, `patch`,
+`GET /preview/session/:id`), så påslag och rollback slår igenom vid nästa
+statusfråga utan migrering. Redirecten är `307`, aldrig `308`, så att en cachad
+redirect inte låser fast rollback. `GET /health` visar `origin: { mode,
+configured, domain }`. Ägare: `src/runtime/preview-origin.js`; uppslagningen
+ligger i `resolvePreviewTarget` (`src/runtime/preview-proxy.js`). Gästagenten
+behöver ingen ändring (proxyn kör `changeOrigin: false`).
+
+Appen känner igen båda formerna oavsett hostens läge
+(`src/lib/gen/preview/preview-origin.ts`, domän via
+`NEXT_PUBLIC_SAJTMASKIN_PREVIEW_ORIGIN_DOMAIN`, kod-default `vm.sajtmaskin.com`):
+tier-2-klassning, CSP `frame-src`/`connect-src` (`https://*.<domän>`),
+capture-allowlist och produktkontrollens URL-grind. Matchningen är exakt
+`p-<20 hex>.<domän>`, aldrig suffix.
+
+**Aktiveringsordning (impact 5).** Samma host betjänar produktion, staging och
+lokal dev. Slås läget på innan produktionsappen känner domänen klassas
+preview-URL:en inte som tier-2 och iframen blockeras av CSP.
+
+1. Appkoden ligger i `master` och är deployad till produktion. Grind:
+   `curl -sI https://sajtmaskin.se/ | grep -i content-security-policy` visar
+   `https://*.vm.sajtmaskin.com` i `frame-src`.
+2. Cert: `fly certs add "*.vm.sajtmaskin.com" -a vm-fly-jakem` och
+   `fly certs setup "*.vm.sajtmaskin.com" -a vm-fly-jakem` (visar
+   `_acme-challenge`-målet).
+3. DNS hos one.com, zon `sajtmaskin.com`: `*.vm CNAME vm-fly-jakem.fly.dev` och
+   `_acme-challenge.vm CNAME <målet från steg 2>`.
+4. `fly certs check "*.vm.sajtmaskin.com" -a vm-fly-jakem` tills certet är utfärdat,
+   och `curl -sI https://p-00000000000000000000.vm.sajtmaskin.com/` ger `404`
+   från preview-hosten (DNS + cert + routing fungerar).
+5. `fly secrets set --stage PREVIEW_HOST_ORIGIN_MODE=subdomain PREVIEW_HOST_PREVIEW_DOMAIN=vm.sajtmaskin.com -a vm-fly-jakem`
+   och `npm --prefix preview-host run deploy`. Kontroll: `curl -s https://vm-fly-jakem.fly.dev/health`
+   visar `"origin":{"mode":"subdomain","configured":true,"domain":"vm.sajtmaskin.com"}`.
+6. Tvåchattsprov: iframens `src` har olika värdar; `localStorage.setItem("probe","A")`
+   i A:s preview och `localStorage.getItem("probe")` i B:s ger `null`;
+   `curl -sI https://<slugA>.vm.sajtmaskin.com/<chatB>/` ger `404` och
+   `curl -sI https://vm-fly-jakem.fly.dev/<chatA>/` ger `307`.
+
+Öppna builderflikar vid påslaget kan behöva laddas om en gång (ny origin).
+Rollback: `fly secrets set --stage PREVIEW_HOST_ORIGIN_MODE=path -a vm-fly-jakem`
+och deploy; appen behöver ingen ändring. Kvarstående risk utan PSL-post: en
+preview kan sätta en cookie med `Domain=sajtmaskin.com` som syns för andra
+previews. localStorage, service workers och host-only-cookies är isolerade.
+Lokal bevisning: `npm run test:proxy-contract` och `npm run test:isolation`.
 
 Den delade baslinjen (värden och varför den fungerar) finns i
 [`../docs/runbooks/preview-host-shared-baseline.md`](../docs/runbooks/preview-host-shared-baseline.md).
