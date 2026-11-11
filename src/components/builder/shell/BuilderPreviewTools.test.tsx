@@ -56,7 +56,7 @@ describe("BuilderPreviewTools — saved code without a preview session", () => {
     const codeButton = screen.getByRole("button", { name: "Kod" });
     expect(codeButton.hasAttribute("disabled")).toBe(false);
     expect(screen.getByRole("button", { name: "Öppna i ny flik" }).hasAttribute("disabled")).toBe(true);
-    expect(screen.queryByRole("button", { name: "Stäng förhandsvisningen" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Starta om förhandsvisningen" })).toBeNull();
 
     fireEvent.click(codeButton);
     fireEvent.click(screen.getByRole("menuitem", { name: label }));
@@ -86,23 +86,23 @@ describe("BuilderPreviewTools — saved code without a preview session", () => {
 
     expect(screen.getByRole("button", { name: "Kod" }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("button", { name: "Öppna i ny flik" }).hasAttribute("disabled")).toBe(false);
-    // Riggen 2026-11-11 klickade fel: ett klick får aldrig riva sessionen.
-    fireEvent.click(screen.getByRole("button", { name: "Stäng förhandsvisningen" }));
+    // Riggen 2026-11-11 klickade fel: ett klick får aldrig starta om.
+    fireEvent.click(screen.getByRole("button", { name: "Starta om förhandsvisningen" }));
     expect(onClear).not.toHaveBeenCalled();
     const dialog = screen.getByRole("alertdialog");
+    // Dialogen säger vad som händer: omstart, inte stängning.
     expect(dialog.textContent).toContain("Sajten och alla versioner är sparade");
+    expect(dialog.textContent).toContain("startas om");
+    expect(dialog.textContent).not.toMatch(/stängs|frigörs/);
     fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));
     expect(onClear).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Stäng förhandsvisningen" }));
-    const confirm = screen
-      .getAllByRole("button", { name: "Stäng förhandsvisningen" })
-      .find((button) => screen.getByRole("alertdialog").contains(button));
-    fireEvent.click(confirm!);
+    fireEvent.click(screen.getByRole("button", { name: "Starta om förhandsvisningen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Starta om" }));
     expect(onClear).toHaveBeenCalledOnce();
 
     rerender(<Harness previewUrl={previewUrl} onClear={onClear} clearDisabled />);
-    const trigger = screen.getByRole("button", { name: "Stäng förhandsvisningen" });
+    const trigger = screen.getByRole("button", { name: "Starta om förhandsvisningen" });
     expect(trigger.hasAttribute("disabled")).toBe(true);
     fireEvent.click(trigger);
     expect(screen.queryByRole("alertdialog")).toBeNull();

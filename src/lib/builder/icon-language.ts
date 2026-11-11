@@ -29,7 +29,7 @@
  *    - Tyngst (startar ett riktigt bygge, kostar diamonds): FYLLD solid knapp
  *      (`bg-violet-600 text-white`) — "Bygg integrationer".
  *    - Destruktiv (river preview-sessionen, frågar först): neutral i vila, RÖD
- *      ton på hover — "Stäng förhandsvisningen" ({@link BUILDER_DESTRUCTIVE_ICON_CLASS}).
+ *      ton på hover — "Starta om förhandsvisningen" ({@link BUILDER_DESTRUCTIVE_ICON_CLASS}).
  *    - Lätt/ofarlig (öppnar en flik): neutral i vila, SVAG ack-ton på hover
  *      ({@link BUILDER_LIGHT_ICON_CLASS}). Låg mättnad så den aldrig konkurrerar
  *      visuellt med den fyllda bygg-knappen.
@@ -50,7 +50,7 @@ export const BUILDER_LIGHT_ICON_CLASS =
   "text-sky-300/80 hover:bg-sky-500/10 hover:text-sky-200";
 
 /**
- * Destruktiv ikon-only-åtgärd (t.ex. "Stäng förhandsvisningen" som river
+ * Destruktiv ikon-only-åtgärd (t.ex. "Starta om förhandsvisningen" som river
  * sessionen efter en bekräftelse): neutral i vila, röd ton på hover. Signalerar destruktivitet utan
  * att skrika (regel 4).
  */

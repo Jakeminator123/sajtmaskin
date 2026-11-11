@@ -110,7 +110,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   });
 
   const {
-    handleClearPreview,
     handleVersionSelect,
     handleF3MissingEnv,
     handleF3Ready,
@@ -254,7 +253,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             previewUrl={vm.currentPreviewUrl}
             lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
             isBusy={isInteractionLocked}
-            onClear={handleClearPreview}
+            onClear={() => vm.forcePreviewResync()}
             clearDisabled={isPreviewLoading}
             onRequestDossier={handleRequestDossier}
             catalogPickDisabled={catalogPickDisabled}
