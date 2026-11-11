@@ -21,10 +21,15 @@
  */
 import { config } from "dotenv";
 import pg from "pg";
-import { normalizeEnvUrl, warnIfProdLikeReadTarget } from "./db-target-guard.mjs";
+import {
+  normalizeEnvUrl,
+  summarizeTarget,
+  warnIfProdLikeReadTarget,
+} from "./db-target-guard.mjs";
 
 config({ path: ".env.local", quiet: true });
-warnIfProdLikeReadTarget({ commandName: "scaffold-scores" });
+// stderr-varningen syns inte i backoffice; målet följer därför med i JSON.
+const dbTarget = warnIfProdLikeReadTarget({ commandName: "scaffold-scores" });
 
 const wantJson = process.argv.includes("--json");
 const allowInsecureSsl = process.argv.includes("--allow-insecure-ssl");
@@ -63,14 +68,24 @@ const client = new pg.Client({
   ssl: resolveSsl(),
 });
 
+// Every numerator that is divided by `total` (retry_rate, embedding_share)
+// must use the same population as `total`: confirmed rows only. Counting
+// pending rows in the numerator but not the denominator could push a "share"
+// over 100 %.
 const QUERY = `
   SELECT
     scaffold_id,
     COUNT(*) FILTER (WHERE preview_success IS NOT NULL)         AS total,
     COUNT(*) FILTER (WHERE preview_success = TRUE)              AS success_count,
     COUNT(*) FILTER (WHERE preview_success IS NULL)             AS pending_count,
-    COUNT(*) FILTER (WHERE scaffold_retry_used = TRUE)          AS retry_count,
-    COUNT(*) FILTER (WHERE scaffold_selection_method IN ('embedding', 'agreement')) AS embedding_count,
+    COUNT(*) FILTER (
+      WHERE preview_success IS NOT NULL
+        AND scaffold_retry_used = TRUE
+    ) AS retry_count,
+    COUNT(*) FILTER (
+      WHERE preview_success IS NOT NULL
+        AND scaffold_selection_method IN ('embedding', 'agreement')
+    ) AS embedding_count,
     COUNT(*) FILTER (
       WHERE preview_success IS NOT NULL
         AND user_feedback IS NOT NULL
@@ -122,6 +137,8 @@ try {
   const payload = {
     lookbackDays: LOOKBACK_DAYS,
     generatedAt: new Date().toISOString(),
+    target: summarizeTarget(dbTarget.current),
+    isProdLike: dbTarget.isProdLike === true,
     scaffolds: rows,
     warnings: allRetryZero
       ? [
@@ -138,6 +155,7 @@ try {
   if (wantJson) {
     process.stdout.write(JSON.stringify(payload));
   } else {
+    console.log(`Target ${payload.target}${payload.isProdLike ? " (PROD-LIKE)" : ""}`);
     console.log(`Lookback: ${LOOKBACK_DAYS} dagar. ${rows.length} scaffolds med data.`);
     console.log("");
     const header = ["scaffold", "total", "success", "rate", "pending", "retry", "embed%", "fb+", "preflight"];
