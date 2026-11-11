@@ -165,6 +165,10 @@ export const MIGRATION_ORDER = [
   // Sajtagentens beständiga historik i buildern (plan 2026-10-22 «En chatt»).
   // Additiv: CREATE TABLE IF NOT EXISTS + RLS. Klienten är fail-soft tills apply.
   "add-agent-messages.sql",
+  // "Glömt lösenord?": hashade engångstoken per konto. Additiv CREATE TABLE
+  // med FK mot users (skapas tidigare) + RLS. Bara återställningsrutterna läser
+  // tabellen, så inget annat flöde väntar på apply.
+  "add-password-reset-tokens.sql",
 ];
 
 /**
