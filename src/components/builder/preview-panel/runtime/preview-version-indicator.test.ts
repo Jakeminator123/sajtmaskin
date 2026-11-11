@@ -24,6 +24,23 @@ describe("describePreviewVersionIndicator", () => {
     });
   });
 
+  it("says starting, never 'Visar', after a silent ready-timeout (loading and error both false)", () => {
+    // usePreviewIframe.failTier2Ready: deadline (98 s) or ready-reload (15 s)
+    // timeout sets loading=false, error=false, code=preview_ready_timeout while
+    // the frame can still show the host's start page.
+    expect(
+      describePreviewVersionIndicator({
+        hasVersion: true,
+        versionNumber: 1,
+        previewLifecycle: "live",
+        previewPending: false,
+        iframeLoading: false,
+        iframeError: false,
+        readyTimedOut: true,
+      }),
+    ).toEqual({ text: "Version 1 är sparad, förhandsvisningen startar", tone: "pending" });
+  });
+
   it("never claims to show the version when the preview failed", () => {
     for (const state of [{ hasBuildError: true }, { iframeError: true }, { previewLifecycle: "failed" as const }]) {
       expect(describePreviewVersionIndicator({ hasVersion: true, versionNumber: 3, iframeLoading: true, ...state })).toEqual({

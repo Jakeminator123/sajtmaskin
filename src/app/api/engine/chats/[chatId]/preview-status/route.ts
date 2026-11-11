@@ -10,6 +10,7 @@ import {
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
 import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
+import { isBootingPinnedSession } from "@/lib/gen/preview/preview-boot-state";
 import { fetchPreviewHostReadinessVerdict } from "@/lib/gen/preview/preview-host-client";
 import type {
   PreviewStatusApiJson,
@@ -209,7 +210,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           return NextResponse.json(body);
         }
 
-        const booting = isWithinBootGrace(session, now);
+        // A host that positively reports a boot in progress for exactly this
+        // version + lifecycle is "starting" however long it takes: a cold
+        // guest machine (image pull, install, first compile) can pass 90 s,
+        // and "stopped" made the builder destroy it and start a new machine.
+        // The grace window still covers hosts that report nothing yet.
+        const booting =
+          Boolean(verdict && isBootingPinnedSession(verdict)) || isWithinBootGrace(session, now);
         const status = booting ? "starting" : "stopped";
         const reason = booting ? "boot_grace_period" : "provider_not_running_or_unreachable";
         const body: PreviewStatusApiJson = {

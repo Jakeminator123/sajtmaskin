@@ -624,14 +624,16 @@ export async function startPreviewSession(
   const runUnderLock = cid
     ? withPreviewStartLock(
         cid,
-        ({ waited }) =>
+        ({ waited, acquired }) =>
           runStartPreviewSession(
             generatedFiles,
-            // A forced restart that had to wait for another instance's start
-            // for this chat must not destroy what that start just created.
-            // Without the flag the runner resumes the fresh session for this
-            // version, or updates it with these files for another version.
-            waited && options?.forceRestart ? { ...options, forceRestart: false } : options,
+            // A forced restart that waited for another instance's start for
+            // this chat, and then took the lock, must not destroy what that
+            // start just created: without the flag the runner resumes the
+            // fresh session for this version, or updates it with these files
+            // for another version. A wait that ran out keeps the flag
+            // (fail-open, same as before the lock).
+            waited && acquired && options?.forceRestart ? { ...options, forceRestart: false } : options,
           ),
         { deadlineEpochMs: options?.previewDeadlineEpochMs },
       )
