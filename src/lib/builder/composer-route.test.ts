@@ -420,6 +420,15 @@ describe("resolveComposerRoute", () => {
     "Snälla, kan du använda den här som bakgrund?",
     "Can you use this image as the hero?",
     "Byt loggan mot den här?",
+    // Granskning av #1741 (P2): inspect-flödets vanligaste formuleringar.
+    "Kan du göra rubriken större?",
+    "Kan du göra knappen blå?",
+    "Kan ni göra bilden mindre?",
+    "Kan du fixa så att bilden syns?",
+    "Kan du justera marginalen här?",
+    "Kan du skriva om texten här?",
+    "Hej! Kan du lägga in den här loggan?",
+    "Could you fix this button?",
   ])("bygger en artig begäran med bilaga: %s", (text) => {
     expect(resolveComposerRoute({ ...base, text, hasAttachments: true })).toBe("build");
     expect(
@@ -439,6 +448,9 @@ describe("resolveComposerRoute", () => {
     "Borde jag lägga till den här bilden?",
     "Kan du titta på bilden och säga om den passar?",
     "Kan du förklara varför loggan ser suddig ut?",
+    "Kan du göra en bedömning av bilden?",
+    "Kan du göra loggan större, vad tycker du?",
+    "Skulle du byta hjältebilden mot den här?",
   ])("blockerar fortfarande en ren fråga med bilaga: %s", (text) => {
     expect(resolveComposerDecision({ ...base, text, hasAttachments: true })).toEqual({
       route: "blocked",
