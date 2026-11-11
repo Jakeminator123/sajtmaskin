@@ -268,7 +268,7 @@
   },
   "devDependencies": {
     "@ai-sdk/react": "3.0.310",
-    "@playwright/test": "^1.64.1",
+    "@playwright/test": "^1.65.0",
     "@testing-library/react": "^16.3.3",
     "@types/canvas-confetti": "^1.9.0",
     "@types/google.maps": "^3.66.9",
