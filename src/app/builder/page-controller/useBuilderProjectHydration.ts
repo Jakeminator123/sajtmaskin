@@ -10,12 +10,10 @@ import {
   type PaletteState,
 } from "@/lib/builder/palette";
 import type { ChatMessage } from "@/lib/builder/types";
-import { DEFAULT_PROJECT_NAME } from "@/lib/builder/project-name-suggestion";
 import { getProject, saveProjectData } from "@/lib/projects/project-client";
 import { debugLog } from "@/lib/utils/debug";
 import type { BuilderEntryKind } from "../builder-entry";
 import { asRecord, parsePreviewOverride } from "../builder-page-preview-helpers";
-import { isReusableEmptyProject, REUSABLE_EMPTY_PROJECT_KEY } from "./project-naming";
 
 type Params = {
   appProjectId: string | null;
@@ -121,33 +119,16 @@ export function useBuilderProjectHydration({
       return;
     }
 
-    // V-06 (2026-11-11): every blank entry used to create a new empty
-    // "Namnlöst projekt" (and each one counts toward the account's project
-    // cap). Reuse the placeholder this browser created last while it is still
-    // untouched; otherwise create one and remember it.
-    let reusableProjectId: string | null = null;
-    try {
-      reusableProjectId = localStorage.getItem(REUSABLE_EMPTY_PROJECT_KEY);
-    } catch {
-      reusableProjectId = null;
-    }
-
     autoProjectCreateInFlightRef.current = true;
     import("@/lib/projects/project-client")
-      .then((client) =>
-        (async () => {
-          if (reusableProjectId && (await isReusableEmptyProject(reusableProjectId, client))) {
-            return { id: reusableProjectId };
-          }
-          return client.createProject(DEFAULT_PROJECT_NAME);
-        })()
+      .then(({ createProject }) =>
+        createProject("Namnlöst projekt")
           .then((project) => {
             autoProjectInitRef.current = true;
             autoProjectCreateInFlightRef.current = false;
             setAppProjectId(project.id);
             try {
               localStorage.setItem("sajtmaskin:lastProjectId", project.id);
-              localStorage.setItem(REUSABLE_EMPTY_PROJECT_KEY, project.id);
             } catch {
               /* ignore */
             }

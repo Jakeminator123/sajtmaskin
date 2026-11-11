@@ -5,44 +5,8 @@ import {
   isDefaultProjectName,
   projectNameFromPrompt,
 } from "@/lib/builder/project-name-suggestion";
-import type { Project, ProjectSite, ProjectWithData } from "@/lib/projects/project-client";
+import type { Project, ProjectWithData } from "@/lib/projects/project-client";
 import { debugLog } from "@/lib/utils/debug";
-
-/**
- * Builder-created placeholder project that may be reused by the next blank
- * entry (`/builder?new=1`, "Ny chatt") while it is still empty. Per browser;
- * the server still owner-scopes every read, so another account's id is a 404.
- */
-export const REUSABLE_EMPTY_PROJECT_KEY = "sajtmaskin:emptyProjectId";
-
-type ProjectReader = {
-  getProject: (id: string) => Promise<ProjectWithData>;
-  getProjectSite: (id: string) => Promise<ProjectSite | null>;
-};
-
-/**
- * True when the project is still the builder's untouched placeholder: default
- * name, no chat (engine chats or `project_data.chat_id`), no preview and no
- * thumbnail. Any read error answers false, so the caller creates a new one.
- */
-export async function isReusableEmptyProject(
-  projectId: string,
-  client: ProjectReader,
-): Promise<boolean> {
-  try {
-    const [{ project, data }, site] = await Promise.all([
-      client.getProject(projectId),
-      client.getProjectSite(projectId),
-    ]);
-    if (!project || !isDefaultProjectName(project.name) || project.thumbnail_path) return false;
-    if (!site || site.chatId) return false;
-    const persistedChatId = typeof data?.chat_id === "string" ? data.chat_id.trim() : "";
-    const demoUrl = typeof data?.demo_url === "string" ? data.demo_url.trim() : "";
-    return !persistedChatId && !demoUrl;
-  } catch {
-    return false;
-  }
-}
 
 type ProjectRenamer = {
   getProject: (id: string) => Promise<ProjectWithData>;

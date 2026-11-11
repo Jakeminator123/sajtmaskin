@@ -1,15 +1,13 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Project, ProjectSite, ProjectWithData } from "@/lib/projects/project-client";
+import type { Project, ProjectWithData } from "@/lib/projects/project-client";
 
 const getProject = vi.hoisted(() => vi.fn());
-const getProjectSite = vi.hoisted(() => vi.fn());
 const updateProject = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/projects/project-client", () => ({ getProject, getProjectSite, updateProject }));
+vi.mock("@/lib/projects/project-client", () => ({ getProject, updateProject }));
 
-const { isReusableEmptyProject, nameDefaultProjectFromPrompt, useNameProjectOnFirstBuild } =
-  await import("./project-naming");
+const { nameDefaultProjectFromPrompt, useNameProjectOnFirstBuild } = await import("./project-naming");
 
 const CAFE_PROMPT =
   "Bygg en hemsida för Café Lindgren, ett familjeägt kafé i Uppsala med surdegsbröd.";
@@ -26,10 +24,6 @@ function project(overrides: Partial<Project> = {}): Project {
 
 function withData(p: Project, data: Partial<ProjectWithData["data"]> = {}): ProjectWithData {
   return { project: p, data: { project_id: p.id, files: [], messages: [], ...data } };
-}
-
-function site(chatId: string | null): ProjectSite {
-  return { projectId: "proj_1", chatId } as ProjectSite;
 }
 
 describe("nameDefaultProjectFromPrompt", () => {
@@ -80,39 +74,6 @@ describe("nameDefaultProjectFromPrompt", () => {
     });
     expect(name).toBeNull();
     expect(updateProject).not.toHaveBeenCalled();
-  });
-});
-
-describe("isReusableEmptyProject", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("återanvänder bara ett orört platshållarprojekt", async () => {
-    getProject.mockResolvedValue(withData(project()));
-    getProjectSite.mockResolvedValue(site(null));
-    await expect(isReusableEmptyProject("proj_1", { getProject, getProjectSite })).resolves.toBe(true);
-  });
-
-  it.each([
-    ["har en chatt", withData(project()), site("chat_1")],
-    ["har chat_id i projektdata", withData(project(), { chat_id: "chat_1" }), site(null)],
-    ["har en preview", withData(project(), { demo_url: "https://demo.example" }), site(null)],
-    ["har en miniatyr", withData(project({ thumbnail_path: "/t.png" })), site(null)],
-    ["har ett eget namn", withData(project({ name: "Frisör Malmö" })), site(null)],
-    ["finns inte (404)", withData(project()), null],
-  ])("nej när projektet %s", async (_label, row, overview) => {
-    getProject.mockResolvedValue(row);
-    getProjectSite.mockResolvedValue(overview);
-    await expect(isReusableEmptyProject("proj_1", { getProject, getProjectSite })).resolves.toBe(
-      false,
-    );
-  });
-
-  it("nej när en läsning fallerar", async () => {
-    getProject.mockRejectedValue(new Error("Project not found"));
-    getProjectSite.mockResolvedValue(site(null));
-    await expect(isReusableEmptyProject("proj_1", { getProject, getProjectSite })).resolves.toBe(
-      false,
-    );
   });
 });
 
