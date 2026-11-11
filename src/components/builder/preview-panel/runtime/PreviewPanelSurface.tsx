@@ -14,6 +14,7 @@ import {
 import { PreviewPanelAddPanel } from "../composer/PreviewPanelAddPanel";
 import type { ShadcnPlacementPicker } from "@/lib/builder/shadcn-insert";
 import { PreviewPanelChrome } from "./PreviewPanelChrome";
+import type { PreviewVersionIndicator } from "./preview-version-indicator";
 import { PreviewPanelCode } from "../code/PreviewPanelCode";
 import { PreviewPanelCodeSectionEditors } from "../code/PreviewPanelCodeSectionEditors";
 import { PreviewPanelFrame } from "./PreviewPanelFrame";
@@ -53,6 +54,7 @@ type PreviewPanelSurfaceProps = {
   isTier2LivePreview: boolean;
   previewBuildError: PreviewPanelProps["previewBuildError"];
   previewProdBuild: PreviewPanelProps["previewProdBuild"];
+  versionIndicator?: PreviewVersionIndicator | null;
   iframeError: boolean;
   iframeErrorMessage: string | null;
   isCodeView: boolean;
@@ -168,6 +170,7 @@ export function PreviewPanelSurface(props: PreviewPanelSurfaceProps) {
     isTier2LivePreview,
     previewBuildError,
     previewProdBuild,
+    versionIndicator = null,
     iframeError,
     iframeErrorMessage,
     isCodeView,
@@ -297,6 +300,7 @@ export function PreviewPanelSurface(props: PreviewPanelSurfaceProps) {
         isTier2LivePreview={isTier2LivePreview}
         previewBuildError={previewBuildError}
         previewProdBuild={previewProdBuild}
+        versionIndicator={versionIndicator}
         isCodeView={isCodeView}
         previewRoutesLoading={previewRoutesLoading}
         previewRoutes={previewRoutes}

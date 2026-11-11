@@ -205,6 +205,11 @@ is released even when the user hasn't explicitly clicked "destroy".
 `starting` is returned during the 90-second boot grace period after session creation
 when the preview-host VM has not yet responded to status checks.
 
+A query `previewSessionId` that differs from the server's current session for the
+same version is answered with that current session's real state, id and lifecycle
+token (never `stopped`), so the builder adopts the rotation instead of
+force-restarting a session that is still booting.
+
 For `version_mismatch`, `versionId` is the preview-session-bound version. Optional
 `mismatchDirection` clarifies the order relative to the requested query
 `versionId`: `session_newer`, `session_older`, or `unknown`.
@@ -214,7 +219,6 @@ For `version_mismatch`, `versionId` is the preview-session-bound version. Option
 - `preview_session_not_configured`
 - `no_session`
 - `session_bound_to_other_version`
-- `preview_session_id_mismatch`
 - `provider_not_running_or_unreachable`
 - `boot_grace_period`
 

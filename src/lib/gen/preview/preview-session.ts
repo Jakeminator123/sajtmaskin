@@ -9,16 +9,20 @@ import {
 import {
   destroyPreviewHostSession,
   fetchPreviewHostFilesManifest,
+  fetchPreviewHostReadinessVerdict,
   patchPreviewHostSession,
   startPreviewHostSession,
   updatePreviewHostSession,
   type PreviewHostPatchMode,
 } from "@/lib/gen/preview/preview-host-client";
+import { isBootingPinnedSession } from "@/lib/gen/preview/preview-boot-state";
+import { withPreviewStartLock } from "@/lib/gen/preview/preview-start-lock";
 import { planPreviewPatch } from "@/lib/gen/preview/preview-patch-plan";
 import {
   clearPreviewSessionAsync,
   getActivePreviewSessionAsync,
   touchPreviewSessionAsync,
+  type PreviewSessionEntry,
 } from "@/lib/gen/preview/session-store";
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
@@ -129,7 +133,13 @@ function previewHostFilesContractFailure(error: unknown): StartPreviewSessionOut
   };
 }
 
-/** Own-engine stream + `/preview-session` bootstrap can call `startPreviewSession` at the same time for the same chat+version — share one in-flight promise so we do not spawn two Fly preview sessions. */
+/**
+ * Same-process dedupe: callers in ONE instance share one in-flight promise per
+ * chat+version. Vercel runs the stream's postchecks chain and the builder's
+ * `/preview-session` bootstrap in DIFFERENT instances, so this map alone never
+ * stopped the double host start (2026-11-11, chat ff62820f: three sessions for
+ * one version). The cross-instance owner is `withPreviewStartLock`.
+ */
 const inflightPreviewSessionByChatVersion = new Map<string, Promise<StartPreviewSessionOutcome>>();
 
 /**
@@ -153,8 +163,13 @@ async function destroyAndClearPreviewSession(chatId: string): Promise<void> {
         ...(existing.lifecycleToken ? { lifecycleToken: existing.lifecycleToken } : {}),
       });
       if (!res.ok) {
+        // A timeout is not a failed destroy: the host keeps destroying (it
+        // waits for the guest machine lock under SM-080) and the next host
+        // `/start` for this chat queues behind it on the host's chat lock, so
+        // no second machine runs in parallel.
         console.warn(
-          `[preview-session] best-effort destroy for ${chatId}/${existing.previewSessionId} failed: ${res.message}`,
+          `[preview-session] best-effort destroy for ${chatId}/${existing.previewSessionId} failed: ${res.message}` +
+            (/abort|timeout/i.test(res.message) ? " (host continues; the next start waits for it)" : ""),
         );
       }
     }
@@ -498,6 +513,85 @@ export type StartPreviewSessionOptions = {
 };
 
 /**
+ * The pinned session is not running YET: the host is still booting exactly
+ * this version under exactly this lifecycle (guest machine create, install,
+ * first compile — 30–90 s under SM-080). That session is alive. Keep it: no
+ * destroy, no new machine, no restart. The receipt is a pending resume
+ * (`runtimeReady: false`); heartbeat/status and the postchecks wait confirm
+ * readiness later, exactly as for a fresh start.
+ *
+ * Before this (2026-11-11, chat ff62820f) every caller that arrived during the
+ * boot — the postchecks chain's second pass, the builder bootstrap, a resume —
+ * destroyed the booting session and started a new one.
+ *
+ * Returns `null` when the host does not positively describe a boot in progress
+ * (older host, failed readiness, error/hibernated, other version or lifecycle);
+ * the caller then keeps its destroy + re-pin path.
+ */
+async function resumeBootingPinnedSession(params: {
+  chatId: string;
+  versionId: string;
+  sess: PreviewSessionEntry;
+  filesRevision: string | null;
+  previewMode: PreviewSessionMode;
+  previewDeadlineEpochMs?: number;
+}): Promise<StartPreviewSessionOutcome | null> {
+  const { chatId, versionId, sess } = params;
+  checkPreviewDeadline(params.previewDeadlineEpochMs);
+  const verdict = await fetchPreviewHostReadinessVerdict(sess.previewSessionId, {
+    expectedVersionId: versionId,
+    expectedLifecycleToken: sess.lifecycleToken ?? null,
+    ...(params.previewDeadlineEpochMs !== undefined
+      ? { previewDeadlineEpochMs: params.previewDeadlineEpochMs }
+      : {}),
+  }).catch(() => null);
+  checkPreviewDeadline(params.previewDeadlineEpochMs);
+  if (!verdict || !isBootingPinnedSession(verdict)) return null;
+  const lifecycleToken = verdict.lifecycleToken ?? sess.lifecycleToken;
+  const filesRevision = params.filesRevision ?? sess.filesRevision;
+  const stored = await touchPreviewSessionAsync({
+    chatId,
+    previewSessionId: sess.previewSessionId,
+    previewUrl: sess.previewUrl,
+    versionId,
+    filesRevision,
+    lifecycleToken,
+    // An older host omits the receipt: keep the stored one instead of
+    // writing null over it (which would read as a stale receipt).
+    ...(verdict.mutationRevision !== null ? { mutationRevision: verdict.mutationRevision } : {}),
+    tier2Provider: "preview_host",
+    writeIntent: "authoritative",
+  });
+  checkPreviewDeadline(params.previewDeadlineEpochMs);
+  if (!stored) {
+    return {
+      ok: false,
+      error: {
+        stage: "preview-start",
+        message: "Preview session lifecycle was superseded before its resume receipt was stored.",
+      },
+    };
+  }
+  console.info(
+    `[preview-session] kept booting session ${sess.previewSessionId} for ${chatId}/${versionId} (no restart)`,
+  );
+  return {
+    ok: true,
+    result: {
+      previewUrl: sess.previewUrl,
+      previewSessionId: sess.previewSessionId,
+      lifecycleToken,
+      previewMode: params.previewMode,
+      fidelityTier: 2,
+      startOutcome: "resumed",
+      runtimeReady: false,
+      filesRevision,
+      tier2Meta: { tier2Provider: "preview_host" },
+    },
+  };
+}
+
+/**
  * Start a full Next.js preview session from generated files (own-engine + `/preview-session` API).
  *
  * Ordning: (1) återanvänd befintlig VM om session matchar chat+version — **utan** att bygga projekt på nytt;
@@ -527,7 +621,22 @@ export async function startPreviewSession(
     if (existing) return waitForPreviewOutcome(existing, options?.previewDeadlineEpochMs);
   }
 
-  const run = runStartPreviewSession(generatedFiles, options).catch((error) => {
+  const runUnderLock = cid
+    ? withPreviewStartLock(
+        cid,
+        ({ waited }) =>
+          runStartPreviewSession(
+            generatedFiles,
+            // A forced restart that had to wait for another instance's start
+            // for this chat must not destroy what that start just created.
+            // Without the flag the runner resumes the fresh session for this
+            // version, or updates it with these files for another version.
+            waited && options?.forceRestart ? { ...options, forceRestart: false } : options,
+          ),
+        { deadlineEpochMs: options?.previewDeadlineEpochMs },
+      )
+    : runStartPreviewSession(generatedFiles, options);
+  const run = runUnderLock.catch((error) => {
     if (error instanceof PreviewDeadlineExceeded) return previewBudgetStop();
     throw error;
   });
@@ -631,6 +740,17 @@ async function runStartPreviewSession(
             tier2Meta: { tier2Provider: "preview_host" as const },
           },
         };
+      }
+      if (!resumed) {
+        const booting = await resumeBootingPinnedSession({
+          chatId: cid,
+          versionId: vid,
+          sess,
+          filesRevision,
+          previewMode: resolvedMode,
+          previewDeadlineEpochMs: options?.previewDeadlineEpochMs,
+        });
+        if (booting) return booting;
       }
       // Resume failed → the stored preview-session may have died on the host.
       // Best-effort destroy first to avoid leaking compute if the host

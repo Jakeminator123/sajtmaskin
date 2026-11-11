@@ -26,6 +26,7 @@ import { buildJsxElementRegistry, type RegistryMatch } from "@/lib/builder/jsx-e
 import { isAddPanelEnabled } from "@/lib/builder/add-panel-feature";
 import { PreviewPanelEmptyState } from "./PreviewPanelEmptyState";
 import { PreviewPanelSurface } from "./runtime/PreviewPanelSurface";
+import { describePreviewVersionIndicator } from "./runtime/preview-version-indicator";
 import type { PreviewIssuePayload } from "./runtime/iframe-diagnostics";
 import { fetchChatVersionFilesJson } from "./code/chat-version-files-fetch";
 import { usePreviewHeartbeat } from "./runtime/usePreviewHeartbeat";
@@ -114,6 +115,7 @@ export function PreviewPanel({
   activeVersionSummary = null,
   activeVersionPromotedAt = null,
   activeVersionIsLatest = true,
+  activeVersionNumber = null,
   activeVersionRepairPassIndex = 0,
   versionMismatchPayload = null,
   onPreviewSessionSuspect,
@@ -289,6 +291,29 @@ export function PreviewPanel({
     iframeRef,
   });
   const hasVersionMismatch = Boolean(versionMismatchPayload);
+  const versionIndicator = useMemo(
+    () =>
+      describePreviewVersionIndicator({
+        hasVersion: Boolean(versionId),
+        versionNumber: activeVersionNumber,
+        previewLifecycle,
+        previewPending,
+        iframeLoading,
+        iframeError,
+        hasBuildError: Boolean(previewBuildError && previewBuildError.severity !== "info"),
+        hasVersionMismatch,
+      }),
+    [
+      versionId,
+      activeVersionNumber,
+      previewLifecycle,
+      previewPending,
+      iframeLoading,
+      iframeError,
+      previewBuildError,
+      hasVersionMismatch,
+    ],
+  );
   // Kartan och request-payloaden måste ha samma sanning: `!session` är bara
   // compat-shim/own-engine. En tier-2-preview utan hydrerad tuple får inte
   // passera — annars går en tom identitet iväg och routen 400:ar staleIdentity.
@@ -1011,6 +1036,7 @@ export function PreviewPanel({
       isTier2LivePreview={isTier2LivePreview}
       previewBuildError={previewBuildError}
       previewProdBuild={previewProdBuild}
+      versionIndicator={versionIndicator}
       iframeError={iframeError}
       iframeErrorMessage={iframeErrorMessage}
       isCodeView={isCodeView}

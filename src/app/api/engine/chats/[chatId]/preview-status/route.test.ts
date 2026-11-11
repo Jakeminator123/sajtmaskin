@@ -134,14 +134,18 @@ describe("GET preview-status (engine)", () => {
     expect(body.reason).toBe("preview_session_not_configured");
   });
 
-  it("returns stopped + preview_session_id_mismatch for mismatched client session id", async () => {
+  it("reports a newer same-version session as starting, never stopped, when the client holds an older id", async () => {
+    // 2026-11-11 (chat ff62820f): the server had just started ps_server; the
+    // builder still held ps_client, got "stopped" and force-restarted it.
     getActivePreviewSessionAsync.mockResolvedValue({
       previewSessionId: "ps_server",
+      lifecycleToken: "life_server",
       previewUrl: "https://preview.example",
       versionId: "v1",
       createdAt: Date.now(),
       lastUsedAt: Date.now(),
     });
+    tryResumeTier2Runtime.mockResolvedValue(null);
 
     const res = await GET(
       new Request(
@@ -151,9 +155,54 @@ describe("GET preview-status (engine)", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { status: string; reason?: string };
-    expect(body.status).toBe("stopped");
-    expect(body.reason).toBe("preview_session_id_mismatch");
+    const body = (await res.json()) as {
+      status: string;
+      previewSessionId: string;
+      lifecycleToken: string | null;
+      reason?: string;
+    };
+    expect(body.status).toBe("starting");
+    expect(body.previewSessionId).toBe("ps_server");
+    expect(body.lifecycleToken).toBe("life_server");
+    expect(body.reason).toBe("boot_grace_period");
+    expect(tryResumeTier2Runtime).toHaveBeenCalledWith(
+      expect.objectContaining({ previewSessionId: "ps_server" }),
+    );
+  });
+
+  it("reports a running newer same-version session with its own identity for rotation", async () => {
+    getActivePreviewSessionAsync.mockResolvedValue({
+      previewSessionId: "ps_server",
+      lifecycleToken: "life_server",
+      previewUrl: "https://preview.example/chat_1",
+      versionId: "v1",
+      filesRevision: "rev1",
+      createdAt: Date.now() - 200_000,
+      lastUsedAt: Date.now(),
+    });
+    tryResumeTier2Runtime.mockResolvedValue({
+      previewSessionId: "ps_server",
+      primaryUrl: "https://preview.example/chat_1",
+      lifecycleToken: "life_server",
+      mutationRevision: 3,
+      installAttemptRevision: 1,
+      readinessState: "ready",
+      httpReady: true,
+      readinessError: null,
+      regeneratedLockfile: null,
+    });
+
+    const res = await GET(
+      new Request(
+        "http://localhost/api/engine/chats/chat_1/preview-status?versionId=v1&previewSessionId=ps_client",
+      ),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    const body = (await res.json()) as { status: string; previewSessionId: string; lifecycleToken: string | null };
+    expect(body.status).toBe("running");
+    expect(body.previewSessionId).toBe("ps_server");
+    expect(body.lifecycleToken).toBe("life_server");
   });
 
   it("returns missing + no_session when no preview session exists", async () => {

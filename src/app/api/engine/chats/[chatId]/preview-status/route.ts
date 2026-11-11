@@ -159,26 +159,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         return NextResponse.json(body);
       }
 
-      if (clientPreviewSessionId && session.previewSessionId !== clientPreviewSessionId) {
-        const body: PreviewStatusApiJson = {
-          ok: true,
-          status: "stopped",
-          previewSessionId: session.previewSessionId,
-          lifecycleToken: session.lifecycleToken,
-          previewUrl: session.previewUrl,
-          versionId: sessionVid,
-          sessionExpiresAt: sessionSoftExpiryAt(session),
-          reason: "preview_session_id_mismatch",
-        };
-        logPreviewLifecycleTelemetry({
-          kind: "preview_status",
-          chatId,
-          status: "stopped",
-          versionId,
-          previewSessionId: session.previewSessionId,
-        });
-        return NextResponse.json(body);
-      }
+      // A client that still holds an OLDER session id for this same version
+      // gets the current session's real state below, with that session's id
+      // and lifecycle token, so it can adopt the rotation. Answering `stopped`
+      // here made the builder force-restart (destroy) a session the server had
+      // started half a second earlier (2026-11-11, chat ff62820f).
 
       const resumed = await tryResumeTier2Runtime(session);
       if (!resumed) {
