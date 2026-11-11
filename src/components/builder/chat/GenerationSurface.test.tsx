@@ -37,6 +37,33 @@ function toolPart(part: UiMessagePart): ToolPart {
   }).parts.find((entry): entry is ToolPart => entry.type === "tool")!;
 }
 
+describe("GenerationSurface — status medan filerna strömmar (V-13)", () => {
+  it("säger inte att den väntar på första förslaget när filerna redan kommer", () => {
+    render(
+      <GenerationSurface
+        {...base}
+        showInternalDetails={false}
+        content={'```tsx file="app/page.tsx"\nconst A = 1;\n```\n```tsx file="app/om/page.tsx"\nconst B'}
+        activeLabel="Väntar på det första förslaget…"
+      />,
+    );
+    expect(screen.queryByText("Väntar på det första förslaget…")).toBeNull();
+    expect(screen.getByText("Skapar sidor och komponenter…")).toBeTruthy();
+  });
+
+  it("visar väntefasen så länge ingen fil har kommit", () => {
+    render(
+      <GenerationSurface
+        {...base}
+        showInternalDetails={false}
+        content=""
+        activeLabel="Väntar på det första förslaget…"
+      />,
+    );
+    expect(screen.getByText("Väntar på det första förslaget…")).toBeTruthy();
+  });
+});
+
 describe("GenerationSurface — kvittots tekniska detaljer", () => {
   const receipt =
     "Klart — jag har sparat en ny version av sajten. Jag ändrade startsidan.\n\n" +

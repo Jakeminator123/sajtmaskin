@@ -513,9 +513,28 @@ const BLOCKED_DESCRIPTIONS: Record<ComposerBlockReason, { label: string; hint: s
   },
   attachments: {
     label: "Fråga – kan inte skickas med bilaga",
-    hint: "Sajtagenten läser inte bilagor. Ta bort bilagan för att fråga, eller välj Bygg för att använda den i en ändring.",
+    hint: "Sajtagenten kan inte ta emot bilaga. Ta bort bilagan för att fråga, eller välj Bygg för att använda den i en ändring.",
   },
 };
+
+/** Det som hindrar en fråga: en uppladdad fil, en Figma-länk eller markerade punkter. */
+export type ComposerAttachmentKind = "file" | "figma" | "inspect";
+
+const ATTACHMENT_WORDS: Record<ComposerAttachmentKind | "mixed", { noun: string; definite: string; pronoun: string }> = {
+  file: { noun: "bilaga", definite: "bilagan", pronoun: "den" },
+  figma: { noun: "Figma-länk", definite: "Figma-länken", pronoun: "den" },
+  inspect: { noun: "markerade punkter", definite: "punkterna", pronoun: "dem" },
+  mixed: { noun: "bilagor", definite: "bilagorna", pronoun: "dem" },
+};
+
+function describeAttachmentBlock(kinds: ReadonlyArray<ComposerAttachmentKind> | undefined) {
+  const unique = Array.from(new Set(kinds ?? []));
+  const words = ATTACHMENT_WORDS[unique.length > 1 ? "mixed" : (unique[0] ?? "file")];
+  return {
+    label: `Fråga – kan inte skickas med ${words.noun}`,
+    hint: `Sajtagenten kan inte ta emot ${words.noun}. Ta bort ${words.definite} för att fråga, eller välj Bygg för att använda ${words.pronoun} i en ändring.`,
+  };
+}
 
 /**
  * Text för komposern: vad nästa klick på Skicka gör. Läser samma beslut som
@@ -530,10 +549,16 @@ export function describeComposerDecision(
     builderLocked?: boolean;
     /** Ingen text och inga bilagor ännu. */
     emptyDraft?: boolean;
+    /** Vad som ligger med, så att blockeringen kan säga det (V-riggen 2026-11-11). */
+    attachmentKinds?: ReadonlyArray<ComposerAttachmentKind>;
   },
 ): ComposerRouteDescription {
   if (decision.route === "blocked") {
-    const blocked = BLOCKED_DESCRIPTIONS[decision.blockReason ?? "agent-unavailable"];
+    const reason = decision.blockReason ?? "agent-unavailable";
+    const blocked =
+      reason === "attachments"
+        ? describeAttachmentBlock(context.attachmentKinds)
+        : BLOCKED_DESCRIPTIONS[reason];
     if (context.mode === "build") {
       return {
         tone: "blocked",

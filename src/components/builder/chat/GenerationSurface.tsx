@@ -23,6 +23,7 @@ import {
   type GenerationTurnKind,
 } from "./generation-surface-state";
 import { STREAMDOWN_PLAIN_COMPONENTS } from "./message-markdown";
+import { isPreOutputGenerationActivity } from "./tooling/agent-log";
 import type { AgentLogItem, ToolPart } from "./tooling/types";
 import styles from "./GenerationSurface.module.css";
 
@@ -86,6 +87,9 @@ export const GenerationSurface = memo(function GenerationSurface({
   const working = isActive && !awaitingReply;
   const currentFailure = Boolean(latestFailure && latestFailure.label === activeLabel);
   const hasCode = parsed.hasCodeBlocks || content.includes("```") || files.length > 0;
+  // Filerna strömmar redan: en fas som väntar på första förslaget är passerad.
+  const liveActivityLabel =
+    hasCode && isPreOutputGenerationActivity(activeLabel) ? null : activeLabel;
   const fileSummary = formatReplyFileSummary(turnKind, files);
   const plainSummary = showInternalDetails
     ? null
@@ -113,7 +117,7 @@ export const GenerationSurface = memo(function GenerationSurface({
     verifying,
     queuedAutoFix,
     turnKind,
-    activeLabel,
+    activeLabel: liveActivityLabel,
     hasCode,
     hasDraft: Boolean(reasoning || content),
     fileSummary,

@@ -56,6 +56,10 @@ export function useBuilderPageController() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [, startUiTransition] = useTransition();
+  // V-07 (2026-11-11): «Ny chatt» frågar i en vanlig dialog, inte i
+  // webbläsarens confirm(), och texten säger det som stämmer: den nuvarande
+  // chatten finns kvar i historiken.
+  const [newChatConfirmOpen, setNewChatConfirmOpen] = useState(false);
   const { fetchUser, isAuthenticated, isLoading: isAuthLoading, isInitialized } = useAuth();
   const [authModalReason, setAuthModalReason] = useState<
     "builder" | "save" | "generation" | "refine" | null
@@ -1005,13 +1009,19 @@ export function useBuilderPageController() {
     handleSaveProject: projectActions.handleSaveProject,
     resetToNewChat: useCallback(() => {
       if (state.chatId && state.messages.length > 0) {
-        if (!window.confirm("Vill du verkligen starta en ny chat? Osparade ändringar försvinner.")) {
-          return;
-        }
+        setNewChatConfirmOpen(true);
+        return;
       }
       autoProjectInitRef.current = false;
       projectActions.resetToNewChat();
     }, [projectActions, autoProjectInitRef, state.chatId, state.messages.length]),
+    newChatConfirmOpen,
+    cancelNewChat: useCallback(() => setNewChatConfirmOpen(false), []),
+    confirmNewChat: useCallback(() => {
+      setNewChatConfirmOpen(false);
+      autoProjectInitRef.current = false;
+      projectActions.resetToNewChat();
+    }, [projectActions, autoProjectInitRef]),
 
     // Deploy actions
     handleOpenDeployDialog: deployActions.handleOpenDeployDialog,

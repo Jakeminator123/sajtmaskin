@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import {
   AlertCircle,
   Bot,
+  ChevronDown,
   FileText,
   Globe,
   Hammer,
@@ -32,6 +33,7 @@ import {
   Plus,
   Search,
   SearchX,
+  SlidersHorizontal,
   Sparkles,
   Square,
   X,
@@ -46,6 +48,7 @@ import {
   isComposerMode,
   isReadOnlyComposerRequest,
   resolveComposerDecision,
+  type ComposerAttachmentKind,
   type ComposerDecision,
   type ComposerMode,
   type ComposerRouteTone,
@@ -85,6 +88,7 @@ import {
   currentBuilderReturnTo,
 } from "@/lib/builder/pending-builder-draft";
 import { INIT_BRIEF_STATUS_EVENT, type InitBriefStatusDetail } from "@/lib/hooks/useInitBrief";
+import { publishWelcomeComposer } from "@/lib/builder/welcome-composer-bridge";
 import {
   FILL_CHAT_INPUT_EVENT,
   type FillChatInputDetail,
@@ -366,6 +370,29 @@ export function ChatInterface({
     [chatId],
   );
   const routeLabelId = useId();
+  const toolsRowId = useId();
+  // Sekundära verktyg (Plan, Förbättra texten, block, inspektion, media,
+  // röst, modell) ligger i EN rad bakom «Verktyg» (UX-granskningen
+  // 2026-11-11, C2). Raden döljs men avmonteras inte, så en pågående
+  // röstinspelning eller ett modellval överlever att den fälls ihop.
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const previewModeActive = Boolean(previewModes?.composerOpen || previewModes?.inspectOpen);
+  // En röstinspelning i den hopfällda raden får inte pågå osynligt
+  // (granskningen av #1747). Inspelaren byter nyckel per chatt.
+  const [voiceRecording, setVoiceRecording] = useState<{ chatId: string | null; on: boolean }>(
+    () => ({ chatId, on: false }),
+  );
+  const isRecordingVoice = voiceRecording.chatId === chatId && voiceRecording.on;
+  const handleRecordingChange = useCallback(
+    (on: boolean) => setVoiceRecording({ chatId, on }),
+    [chatId],
+  );
+  const hiddenToolActive = !toolsOpen && (previewModeActive || isRecordingVoice);
+  // Block och inspektion styrs bara härifrån. Slås ett läge på visas raden,
+  // så läget och knappen som stänger det syns.
+  useEffect(() => {
+    if (previewModeActive) setToolsOpen(true);
+  }, [previewModeActive]);
 
   // Medan ett bygge pågår är byggmotorn låst, men en fråga till Sajtagenten
   // («vad händer nu?») ska fortfarande gå att ställa. Inputen hålls därför
@@ -861,12 +888,18 @@ export function ChatInterface({
       builderAwaitingReply: builderAwaitingReply || continuePlanMode,
     });
   };
+  const composerAttachmentKinds: ComposerAttachmentKind[] = [
+    ...(hasSuccessFiles ? (["file"] as const) : []),
+    ...(normalizedFigmaUrl ? (["figma"] as const) : []),
+    ...(inspectPoints.length > 0 ? (["inspect"] as const) : []),
+  ];
   const describeDecision = (decision: ComposerDecision, emptyDraft = false) =>
     describeComposerDecision(decision, {
       mode: composerMode,
       hasChat: Boolean(chatId),
       builderLocked,
       emptyDraft,
+      attachmentKinds: composerAttachmentKinds,
     });
 
   const handleSubmit = async ({ text }: { text: string }) => {
@@ -972,6 +1005,23 @@ export function ChatInterface({
   const routeStyle = ROUTE_TONE_STYLE[routeDescription.tone];
   const RouteIcon = routeStyle.icon;
   const showModeToggle = agentConfigured || Boolean(chatId);
+
+  // Välkomstpanelen (paket F, `welcome-composer-bridge.ts`) visar ett förslag
+  // utifrån utkastet och «Skapa första utkastet». Knappen finns bara när
+  // Skicka skulle bygga, och den gör exakt samma utskick som Skicka.
+  const welcomeStartRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    welcomeStartRef.current = () => void handleSubmit({ text: input });
+  });
+  const startFromWelcome = useCallback(() => welcomeStartRef.current(), []);
+  const welcomeCanStart =
+    !chatId && !submitDisabled && Boolean(input.trim()) && routeDescription.tone === "build";
+  useEffect(() => {
+    publishWelcomeComposer(
+      chatId ? null : { draft: input, start: welcomeCanStart ? startFromWelcome : null },
+    );
+  }, [chatId, input, welcomeCanStart, startFromWelcome]);
+  useEffect(() => () => publishWelcomeComposer(null), []);
   const disabledComposerModes: ComposerMode[] = [
     ...(builderLocked ? (["build"] as const) : []),
     ...(agentConfigured ? [] : (["agent"] as const)),
@@ -1227,34 +1277,17 @@ export function ChatInterface({
               </button>
             </div>
           ) : null}
-          {/* Vad nästa klick på Skicka gör (UX-07). Samma beslut som
-              utskicket i handleSubmit, alltid synligt intill Skicka. */}
           <div
-            id={routeLabelId}
-            className={cn("flex flex-col items-end gap-0.5 text-right text-xs", routeStyle.text)}
-            data-testid="composer-route-hint"
-            data-route-tone={routeDescription.tone}
-            aria-live="polite"
-            aria-atomic="true"
-            title={routeDescription.hint}
+            id={toolsRowId}
+            role="group"
+            aria-label="Fler verktyg"
+            hidden={!toolsOpen}
+            className={cn("flex-wrap items-center gap-1.5", toolsOpen ? "flex" : "hidden")}
+            data-testid="composer-tools"
           >
-            <span className="inline-flex items-center gap-1.5 font-medium">
-              <RouteIcon className={cn("size-3.5 shrink-0", routeStyle.iconClass)} aria-hidden="true" />
-              {routeDescription.label}
-            </span>
-            {routeDescription.tone === "blocked" ? (
-              <span className="text-muted-foreground max-w-md font-normal">{routeDescription.hint}</span>
-            ) : (
-              <span className="sr-only">{routeDescription.hint}</span>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {/* "Avancerat"-popovern togs bort 2026-07-31: efter att
-                temaväljaren flyttade till Byggval-reglagen (ägarbeslut,
-                se preview-panelens välkomstläge) blev popovern en
-                enda-knapps-meny som bara gömde "Plan" bakom ett extra
-                klick. Plan renderas nu som en vanlig verktygsknapp,
-                samma mönster som de andra Verktyg-radsknapparna nedan. */}
+            {/* "Avancerat"-popovern togs bort 2026-07-31; sedan 2026-11-11
+                ligger Plan och de andra sekundära verktygen i den här raden,
+                som «Verktyg» fäller ut. */}
             <button
               type="button"
               onClick={() => void handlePlanRequest()}
@@ -1320,63 +1353,131 @@ export function ChatInterface({
                 ) : null}
               </>
             ) : null}
-          </div>
-          <div className="flex items-end justify-between gap-2">
-            <PromptInputTools className="min-w-0 flex-1 flex-wrap items-center gap-1.5">
-              {mediaEnabled && (
-                <>
-                  <FileUploadZone
-                    projectId={null}
-                    files={files}
-                    onFilesChange={setFiles}
-                    disabled={inputDisabled}
-                    compact
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setIsMediaDrawerOpen(true)}
-                    disabled={inputDisabled}
-                    className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-                    title="Öppna mediabibliotek"
-                  >
-                    <ImageIcon className="size-3" />
-                    Media
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsTextUploaderOpen(true)}
-                    disabled={inputDisabled}
-                    className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-                    title="Lägg till text eller PDF"
-                  >
-                    <FileText className="size-3" />
-                    Text
-                  </button>
-                </>
-              )}
-              <VoiceRecorder
-                key={chatId ?? "new-chat"}
-                compact
-                disabled={inputDisabled}
-                onTranscript={(text) => setInput((prev) => (prev ? `${prev} ${text}` : text))}
-              />
-              {selectedModelTier && onSelectedModelTierChange ? (
-                <ModelTierSlider
-                  value={selectedModelTier}
-                  onChange={onSelectedModelTierChange}
+            {mediaEnabled && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsMediaDrawerOpen(true)}
                   disabled={inputDisabled}
+                  className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                  title="Öppna mediabibliotek"
+                >
+                  <ImageIcon className="size-3" />
+                  Media
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsTextUploaderOpen(true)}
+                  disabled={inputDisabled}
+                  className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                  title="Lägg till text eller PDF"
+                >
+                  <FileText className="size-3" />
+                  Text/PDF
+                </button>
+              </>
+            )}
+            <VoiceRecorder
+              key={chatId ?? "new-chat"}
+              compact
+              disabled={inputDisabled}
+              onRecordingChange={handleRecordingChange}
+              onTranscript={(text) => setInput((prev) => (prev ? `${prev} ${text}` : text))}
+            />
+            {selectedModelTier && onSelectedModelTierChange ? (
+              <ModelTierSlider
+                value={selectedModelTier}
+                onChange={onSelectedModelTierChange}
+                disabled={inputDisabled}
+              />
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <PromptInputTools className="flex-wrap items-end gap-1.5">
+              {mediaEnabled && (
+                <FileUploadZone
+                  projectId={null}
+                  files={files}
+                  onFilesChange={setFiles}
+                  disabled={inputDisabled}
+                  compact
                 />
-              ) : null}
+              )}
+              <button
+                type="button"
+                onClick={() => setToolsOpen((open) => !open)}
+                aria-expanded={toolsOpen}
+                aria-controls={toolsRowId}
+                title={
+                  isRecordingVoice && !toolsOpen
+                    ? "Röstinspelning pågår"
+                    : previewModeActive && !toolsOpen
+                      ? "Ett verktyg är på i förhandsvisningen"
+                      : "Plan, Förbättra texten, block, inspektion, media, röst och modell"
+                }
+                className={cn(
+                  "border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring relative inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+                  toolsOpen && "bg-accent text-foreground",
+                )}
+              >
+                <SlidersHorizontal className="size-3" aria-hidden="true" />
+                Verktyg
+                <ChevronDown
+                  className={cn(
+                    "size-3 transition-transform motion-reduce:transition-none",
+                    toolsOpen && "rotate-180",
+                  )}
+                  aria-hidden="true"
+                />
+                {hiddenToolActive ? (
+                  <span
+                    className={cn(
+                      "absolute -top-0.5 -right-0.5 size-2 rounded-full",
+                      isRecordingVoice ? "bg-red-500 motion-safe:animate-pulse" : "bg-primary",
+                    )}
+                    aria-hidden="true"
+                    data-testid="composer-tools-active-dot"
+                  />
+                ) : null}
+                {isRecordingVoice && !toolsOpen ? (
+                  <span className="sr-only">Röstinspelning pågår</span>
+                ) : null}
+              </button>
             </PromptInputTools>
-            <PromptInputSubmit
-              className="focus-visible:ring-brand-blue/50 focus-visible:ring-offset-background size-10 rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-              data-openclaw-send-target="builder.chat.primary"
-              aria-label="Skicka"
-              aria-describedby={routeLabelId}
-              disabled={submitDisabled}
-            >
-              {isSending ? <Loader2 className="size-4 animate-spin" /> : undefined}
-            </PromptInputSubmit>
+            {/* Etiketten och Skicka hör ihop och bryts aldrig isär (UX-07).
+                Etiketten läser samma beslut som utskicket i handleSubmit. */}
+            <div className="flex min-w-44 flex-1 items-center justify-end gap-2">
+              <div
+                id={routeLabelId}
+                className={cn("flex min-w-0 flex-col items-end gap-0.5 text-right text-xs", routeStyle.text)}
+                data-testid="composer-route-hint"
+                data-route-tone={routeDescription.tone}
+                aria-live="polite"
+                aria-atomic="true"
+                title={routeDescription.hint}
+              >
+                <span className="inline-flex items-center gap-1.5 font-medium">
+                  <RouteIcon className={cn("size-3.5 shrink-0", routeStyle.iconClass)} aria-hidden="true" />
+                  {routeDescription.label}
+                </span>
+                {routeDescription.tone === "blocked" ? (
+                  <span className="text-muted-foreground font-normal">{routeDescription.hint}</span>
+                ) : (
+                  <span className="sr-only">{routeDescription.hint}</span>
+                )}
+              </div>
+              {/* Ett blockerat utskick ska se avstängt ut. Enter i textrutan
+                  ger fortfarande beskedet om vad man kan göra. */}
+              <PromptInputSubmit
+                className="focus-visible:ring-brand-blue/50 focus-visible:ring-offset-background size-10 shrink-0 rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                data-openclaw-send-target="builder.chat.primary"
+                aria-label="Skicka"
+                aria-describedby={routeLabelId}
+                disabled={submitDisabled || routeDescription.tone === "blocked"}
+              >
+                {isSending ? <Loader2 className="size-4 animate-spin" /> : undefined}
+              </PromptInputSubmit>
+            </div>
           </div>
         </PromptInputFooter>
       </PromptInput>

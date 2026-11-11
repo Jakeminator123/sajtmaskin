@@ -103,9 +103,9 @@ describe("ChatInterface prepared-fill marker", () => {
     const textarea = screen.getByLabelText("Skriv en uppdatering");
     fireEvent.change(textarea, { target: { value: FILLED } });
 
-    // Plan-knappen skickar med clearDraft:false. Den låg tidigare bakom
-    // "Avancerat"-popovern; #692 tog bort popovern och renderar Plan som en
-    // vanlig verktygsknapp.
+    // Plan-knappen skickar med clearDraft:false. Sedan 2026-11-11 (C2) ligger
+    // den i verktygsraden som «Verktyg» fäller ut.
+    fireEvent.click(screen.getByRole("button", { name: "Verktyg" }));
     fireEvent.click(await screen.findByRole("button", { name: /Plan/ }));
 
     await waitFor(() => expect(onSendMessage).toHaveBeenCalledTimes(1));

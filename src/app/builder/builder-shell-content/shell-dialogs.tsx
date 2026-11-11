@@ -16,6 +16,7 @@ import { DomainManager } from "@/components/builder/publishing/domains/DomainMan
 import { SeoReportDialog } from "@/components/builder/publishing/SeoReportDialog";
 import { GitHubExportDialog } from "@/components/builder/project-transfer/GitHubExportDialog";
 import type { BuilderViewModel } from "../useBuilderPageController";
+import { NewChatConfirmDialog } from "./new-chat-confirm-dialog";
 
 type ShellDialogsProps = {
   vm: BuilderViewModel;
@@ -49,6 +50,12 @@ export function BuilderShellDialogs({
             }}
             onCancel={() => vm.setDeployNameDialogOpen(false)}
             onConfirm={vm.handleConfirmDeploy}
+          />
+
+          <NewChatConfirmDialog
+            open={vm.newChatConfirmOpen}
+            onCancel={vm.cancelNewChat}
+            onConfirm={vm.confirmNewChat}
           />
 
           <AlertDialog
