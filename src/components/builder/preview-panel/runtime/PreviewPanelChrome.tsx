@@ -31,6 +31,8 @@ interface PreviewPanelChromeProps {
   /** Dator/Mobil-växlaren visas bara när en ägare tar emot bytet. */
   previewDevice?: PreviewDevice;
   onPreviewDeviceChange?: (device: PreviewDevice) => void;
+  /** Shown only when "startar" has lasted too long; runs the forced restart. */
+  onRestartStalledPreview?: () => void;
   isCodeView: boolean;
   previewRoutesLoading: boolean;
   previewRoutes: PreviewRouteInfo[];
@@ -59,6 +61,7 @@ export function PreviewPanelChrome({
   versionIndicator = null,
   previewDevice = "desktop",
   onPreviewDeviceChange,
+  onRestartStalledPreview,
   isCodeView,
   previewRoutesLoading,
   previewRoutes,
@@ -279,6 +282,16 @@ export function PreviewPanelChrome({
                   <PreviewDeviceToggle device={previewDevice} onChange={onPreviewDeviceChange} />
                 ) : null}
                 {versionIndicator ? <PreviewVersionIndicatorChip indicator={versionIndicator} /> : null}
+                {onRestartStalledPreview ? (
+                  <button
+                    type="button"
+                    onClick={onRestartStalledPreview}
+                    title="Förhandsvisningen har startat länge. Starta om den; sajten och versionerna är sparade."
+                    className="h-6 rounded-md border border-gray-700 px-2 text-[11px] whitespace-nowrap text-gray-300 hover:bg-gray-800 hover:text-white focus-visible:ring-1 focus-visible:ring-sky-500/60 focus-visible:outline-none"
+                  >
+                    Starta om förhandsvisningen
+                  </button>
+                ) : null}
               </span>
             ) : null}
           </div>

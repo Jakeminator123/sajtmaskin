@@ -58,6 +58,7 @@ type PreviewPanelSurfaceProps = {
   versionIndicator?: PreviewVersionIndicator | null;
   previewDevice?: PreviewDevice;
   onPreviewDeviceChange?: (device: PreviewDevice) => void;
+  onRestartStalledPreview?: () => void;
   iframeError: boolean;
   iframeErrorMessage: string | null;
   isCodeView: boolean;
@@ -176,6 +177,7 @@ export function PreviewPanelSurface(props: PreviewPanelSurfaceProps) {
     versionIndicator = null,
     previewDevice = "desktop",
     onPreviewDeviceChange,
+    onRestartStalledPreview,
     iframeError,
     iframeErrorMessage,
     isCodeView,
@@ -308,6 +310,7 @@ export function PreviewPanelSurface(props: PreviewPanelSurfaceProps) {
         versionIndicator={versionIndicator}
         previewDevice={previewDevice}
         onPreviewDeviceChange={onPreviewDeviceChange}
+        onRestartStalledPreview={onRestartStalledPreview}
         isCodeView={isCodeView}
         previewRoutesLoading={previewRoutesLoading}
         previewRoutes={previewRoutes}

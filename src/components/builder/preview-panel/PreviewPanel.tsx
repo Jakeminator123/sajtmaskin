@@ -29,6 +29,10 @@ import { PreviewPanelSurface } from "./runtime/PreviewPanelSurface";
 import { describePreviewVersionIndicator } from "./runtime/preview-version-indicator";
 import type { PreviewDevice } from "./runtime/preview-device";
 import {
+  PREVIEW_STARTING_RESTART_HINT_MS,
+  useStalledFlag,
+} from "./runtime/useStalledFlag";
+import {
   clearPreviewVisibleVersion,
   setPreviewVisibleVersion,
 } from "@/lib/builder/preview-visible-version";
@@ -299,6 +303,12 @@ export function PreviewPanel({
   // Dator/Mobil (V-20, 2026-11-11). Bara en bredd på ramen: samma iframe,
   // ingen omladdning och ingen ny session.
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
+  // Counts iframe loads so a route report from a replaced document expires.
+  const [frameLoadCount, setFrameLoadCount] = useState(0);
+  const handleFrameLoad = useCallback(() => {
+    setFrameLoadCount((count) => count + 1);
+    handleIframeLoad();
+  }, [handleIframeLoad]);
   // Kartan och request-payloaden måste ha samma sanning: `!session` är bara
   // compat-shim/own-engine. En tier-2-preview utan hydrerad tuple får inte
   // passera — annars går en tom identitet iväg och routen 400:ar staleIdentity.
@@ -829,6 +839,8 @@ export function PreviewPanel({
     activePreviewSessionId,
     viewerId: previewViewerId,
     iframeRef,
+    lifecycleToken: activePreviewLifecycleToken ?? null,
+    frameLoadCount,
   });
   const versionIndicator = useMemo(
     () =>
@@ -872,6 +884,18 @@ export function PreviewPanel({
     });
   }, [chatId, versionId, versionIndicatorTone]);
   useEffect(() => () => clearPreviewVisibleVersion(chatId), [chatId]);
+  // A boot that hangs used to leave "startar" up for minutes with no way out.
+  // After a while, offer the existing forced restart, calmly.
+  const [restartRequests, setRestartRequests] = useState(0);
+  const startingTooLong = useStalledFlag(
+    versionIndicatorTone === "pending",
+    `${chatId ?? ""}:${versionId ?? ""}:${restartRequests}`,
+    PREVIEW_STARTING_RESTART_HINT_MS,
+  );
+  const handleRestartStalledPreview = useCallback(() => {
+    setRestartRequests((count) => count + 1);
+    onForcePreviewResync?.();
+  }, [onForcePreviewResync]);
   const activePreviewRoute = useMemo(() => {
     if (observedPreviewRoute) return observedPreviewRoute;
     if (!previewUrl) return null;
@@ -1066,6 +1090,9 @@ export function PreviewPanel({
       versionIndicator={versionIndicator}
       previewDevice={previewDevice}
       onPreviewDeviceChange={setPreviewDevice}
+      onRestartStalledPreview={
+        startingTooLong && onForcePreviewResync ? handleRestartStalledPreview : undefined
+      }
       iframeError={iframeError}
       iframeErrorMessage={iframeErrorMessage}
       isCodeView={isCodeView}
@@ -1112,7 +1139,7 @@ export function PreviewPanel({
       onFixPreview={onFixPreview}
       previewSrc={previewSrc}
       iframeRef={iframeRef}
-      handleIframeLoad={handleIframeLoad}
+      handleIframeLoad={handleFrameLoad}
       handleIframeError={handleIframeError}
       versionMismatchPayload={versionMismatchPayload}
       onForcePreviewResync={onForcePreviewResync}

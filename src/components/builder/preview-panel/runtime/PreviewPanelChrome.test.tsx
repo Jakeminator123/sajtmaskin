@@ -39,6 +39,24 @@ describe("PreviewPanelChrome versionsindikator", () => {
     expect(chip.dataset.tone).toBe("live");
   });
 
+  it("erbjuder omstart bara när ägaren säger att starten dröjt", () => {
+    const onRestartStalledPreview = vi.fn();
+    const indicator = { text: "Version 2 är sparad, förhandsvisningen startar", tone: "pending" as const };
+    const { queryByRole, rerender, getByRole } = render(
+      <PreviewPanelChrome {...BASE_PROPS} versionIndicator={indicator} />,
+    );
+    expect(queryByRole("button", { name: "Starta om förhandsvisningen" })).toBeNull();
+    rerender(
+      <PreviewPanelChrome
+        {...BASE_PROPS}
+        versionIndicator={indicator}
+        onRestartStalledPreview={onRestartStalledPreview}
+      />,
+    );
+    fireEvent.click(getByRole("button", { name: "Starta om förhandsvisningen" }));
+    expect(onRestartStalledPreview).toHaveBeenCalledTimes(1);
+  });
+
   it("visas inte i kodvyn och inte utan indikator", () => {
     const { queryByTestId, rerender } = render(<PreviewPanelChrome {...BASE_PROPS} />);
     expect(queryByTestId("preview-version-indicator")).toBeNull();
