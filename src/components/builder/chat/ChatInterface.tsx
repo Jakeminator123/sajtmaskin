@@ -1344,7 +1344,7 @@ export function ChatInterface({
                   title="Lägg till text eller PDF"
                 >
                   <FileText className="size-3" />
-                  Text
+                  Text/PDF
                 </button>
               </>
             )}

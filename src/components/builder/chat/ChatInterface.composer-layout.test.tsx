@@ -77,7 +77,7 @@ describe("ChatInterface — lugnare inmatning", () => {
     expect(screen.getByTestId("composer-route-hint")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Skicka" })).toBeTruthy();
 
-    for (const name of ["Plan", "Förbättra texten", "Lägg till block", "Inspektera preview", "Media", "Text", "Röstinspelning"]) {
+    for (const name of ["Plan", "Förbättra texten", "Lägg till block", "Inspektera preview", "Media", "Text/PDF", "Röstinspelning"]) {
       expect(screen.queryByRole("button", { name })).toBeNull();
     }
     expect(screen.queryByRole("slider")).toBeNull();
@@ -102,7 +102,7 @@ describe("ChatInterface — lugnare inmatning", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     const row = screen.getByRole("group", { name: "Fler verktyg" });
     expect(row.id).toBe(rowId);
-    for (const name of ["Plan", "Förbättra texten", "Lägg till block", "Inspektera preview", "Media", "Text", "Röstinspelning"]) {
+    for (const name of ["Plan", "Förbättra texten", "Lägg till block", "Inspektera preview", "Media", "Text/PDF", "Röstinspelning"]) {
       expect(within(row).getByRole("button", { name })).toBeTruthy();
     }
 
