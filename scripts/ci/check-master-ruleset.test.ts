@@ -379,7 +379,10 @@ describe("Protect master ruleset drift", () => {
     const triggers = workflow.on ?? {};
 
     expect(Object.keys(triggers).sort()).toEqual(["push", "schedule", "workflow_dispatch"]);
-    expect(triggers.push).toEqual({ branches: ["master"] });
+    expect(triggers.push).toEqual({
+      branches: ["master"],
+      "paths-ignore": ["**/*.md", "**/*.mdx", "docs/**"],
+    });
     expect(triggers.schedule).toEqual([{ cron: "17 5 * * *" }]);
   });
 

@@ -768,6 +768,24 @@ export function evaluateDossierAcceptanceWorkflow(source) {
       !hasExactExpression(document?.concurrency?.["cancel-in-progress"], DOSSIER_CANCEL)) {
     errors.push("dossier scope must always classify; only PR runs may replace stale runs");
   }
+  const dossierTimeouts = Object.freeze({
+    scope: 10,
+    discover: 25,
+    "verification-evidence": 20,
+    "dependency-registry": 20,
+    "keyless-production-build": 25,
+    "dossier-acceptance": 5,
+    "dossier-acceptance-master": 2,
+  });
+  for (const [jobName, timeout] of Object.entries(dossierTimeouts)) {
+    if (document?.jobs?.[jobName]?.["timeout-minutes"] !== timeout) {
+      errors.push(`dossier ${jobName} must set timeout-minutes: ${timeout}`);
+    }
+  }
+  if (document?.jobs?.scope?.["runs-on"] !== "ubuntu-slim" ||
+      document?.jobs?.["dossier-acceptance"]?.["runs-on"] !== "ubuntu-slim") {
+    errors.push("dossier scope and aggregate receipts must use ubuntu-slim");
+  }
   if (
     !scope ||
     !scope.outputs?.run_matrix ||
@@ -890,6 +908,17 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   if (values(pullRequest?.types).includes("converted_to_draft")) {
     errors.push("CI must not restart unchanged work on converted_to_draft");
   }
+  if (values(pullRequest?.types).includes("labeled")) {
+    errors.push("CI must not restart on labeled; the run-full-ci label is read on opened/synchronize");
+  }
+  if (
+    document?.on?.push?.["paths-ignore"] !== undefined ||
+    document?.on?.pull_request?.["paths-ignore"] !== undefined ||
+    document?.on?.push?.paths !== undefined ||
+    document?.on?.pull_request?.paths !== undefined
+  ) {
+    errors.push("CI must not path-filter at workflow level; required checks need published light receipts");
+  }
 
   if (!hasExactExpression(document?.concurrency?.group, "ci-${{ github.event.pull_request.number || github.run_id }}")) {
     errors.push("CI concurrency must supersede stale PR heads and retain every trusted observation");
@@ -921,6 +950,15 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     !scope.steps?.some((step) => step.run === "node scripts/workflow/ci-scope.mjs") ||
     !scope.steps?.some((step) =>
       hasExactExpression(step.env?.SAJTMASKIN_PR_ACTION, "${{ github.event.action }}"),
+    ) ||
+    !scope.steps?.some((step) =>
+      hasExactExpression(
+        step.env?.SAJTMASKIN_PR_LABELS,
+        "${{ toJSON(github.event.pull_request.labels.*.name) }}",
+      ),
+    ) ||
+    !scope.steps?.some((step) =>
+      hasExactExpression(step.env?.SAJTMASKIN_PR_USER, "${{ github.event.pull_request.user.login }}"),
     ) ||
     !scope.steps?.some((step) =>
       hasExactExpression(step.env?.SAJTMASKIN_PUSH_BASE_SHA, "${{ github.event.before }}"),
@@ -1033,6 +1071,22 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   // The complementary light lane must remain blocking, never silently omitted.
   const lightOnly =
     "${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' }}";
+  const lightPrLane =
+    "${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' && needs.scope.outputs.safe_docs_only != 'true' }}";
+  for (const command of [
+    "npm run embeddings:ensure",
+    "npm run typecheck",
+    "npm run lint",
+  ]) {
+    const steps = qualityContracts?.steps?.filter((step) => step.run === command) ?? [];
+    if (
+      steps.length !== 1 ||
+      !hasExactExpression(steps[0].if, lightPrLane) ||
+      steps[0]["continue-on-error"] !== undefined
+    ) {
+      errors.push(`quality-contracts must run exactly one blocking light-PR ${command}`);
+    }
+  }
   for (const command of [
     "npm run test:workflow",
     "npm run route-timeouts:check",
@@ -1180,6 +1234,27 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     errors.push(
       "quality must publish after failed/skipped dependencies without surviving cancellation",
     );
+  }
+
+  const ciJobTimeouts = Object.freeze({
+    scope: 10,
+    "quality-core": 40,
+    "quality-tests": 40,
+    "quality-contracts": 25,
+    "quality-project-persistence": 15,
+    quality: 5,
+    build: 30,
+    "backoffice-tests": 25,
+    "schema-drift": 20,
+    "preview-host-guards": 15,
+    "dead-code": 20,
+    "prod-migrations-applied": 15,
+    "db-schema-parity": 15,
+  });
+  for (const [jobName, timeout] of Object.entries(ciJobTimeouts)) {
+    if (document?.jobs?.[jobName]?.["timeout-minutes"] !== timeout) {
+      errors.push(`${jobName} must set timeout-minutes: ${timeout}`);
+    }
   }
 
   const previewHost = document?.jobs?.["preview-host-guards"];
@@ -1505,6 +1580,10 @@ export function evaluateSecretWorkflowDispatches(dbBlobSource, dbParitySource) {
   if (!hasExactExpression(blobJob?.if, trustedBlobJob)) {
     errors.push("DB/Blob job must exclude non-master manual refs before checkout");
   }
+  if (blobJob?.["timeout-minutes"] !== 20 ||
+      blob?.jobs?.["reject-untrusted-manual-ref"]?.["timeout-minutes"] !== 5) {
+    errors.push("DB/Blob jobs must set job timeouts");
+  }
   if (Object.hasOwn(blobJob ?? {}, "continue-on-error")) {
     errors.push("DB/Blob verification job must remain blocking on relevant events");
   }
@@ -1593,9 +1672,19 @@ export function evaluateSecretWorkflowDispatches(dbBlobSource, dbParitySource) {
   ) {
     errors.push("schema-parity workflow must retain both schedule and manual dispatch triggers");
   }
+  if (
+    !hasExactExpression(parity?.concurrency?.group, "db-schema-parity-scheduled") ||
+    parity?.concurrency?.["cancel-in-progress"] !== true
+  ) {
+    errors.push("scheduled schema parity must cancel overlapping runs");
+  }
   const parityJob = parity?.jobs?.["db-schema-parity-scheduled"];
   if (!hasExactExpression(parityJob?.if, TRUSTED_SCHEDULE_OR_MASTER_DISPATCH)) {
     errors.push("scheduled schema parity must allow cron but exclude non-master manual refs");
+  }
+  if (parityJob?.["timeout-minutes"] !== 20 ||
+      parity?.jobs?.["reject-untrusted-manual-ref"]?.["timeout-minutes"] !== 5) {
+    errors.push("scheduled schema parity must set job timeouts");
   }
   const parityCheckout = parityJob?.steps?.find((step) => step.uses === "actions/checkout@v7");
   if (

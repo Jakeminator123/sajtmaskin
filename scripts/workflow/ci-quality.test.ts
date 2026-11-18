@@ -259,6 +259,9 @@ describe("complete native test sharding contract", () => {
     ],
     ["run: npm run test:discovery:check", "run: echo discovery-skipped"],
     ["types: [opened, synchronize, reopened, ready_for_review]", "types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]"],
+    ["types: [opened, synchronize, reopened, ready_for_review]", "types: [opened, synchronize, reopened, ready_for_review, labeled]"],
+    ["timeout-minutes: 40", "timeout-minutes: 360"],
+    ['SAJTMASKIN_PR_LABELS: "${{ toJSON(github.event.pull_request.labels.*.name) }}"', "SAJTMASKIN_PR_LABELS: []"],
   ])("rejects incomplete or nonblocking sharding: %s", (before, after) => {
     const changed = source.replace(before, after);
     expect(changed).not.toBe(source);

@@ -11,9 +11,17 @@ name: master-ruleset-drift
 on:
   push:
     branches: [master]
+    paths-ignore:
+      - "**/*.md"
+      - "**/*.mdx"
+      - "docs/**"
   schedule:
     - cron: "17 5 * * *"
   workflow_dispatch:
+
+concurrency:
+  group: master-ruleset-drift
+  cancel-in-progress: true
 
 permissions:
   contents: read

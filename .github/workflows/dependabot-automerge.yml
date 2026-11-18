@@ -22,6 +22,7 @@ concurrency:
 jobs:
   classify:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # workflow_run startar efter VARJE CI-körning; jobbet körs bara när den
     # utlösande körningen gällde en Dependabot-gren. Övriga skippas (0 minuter).
     # Skriptet nedan kräver ändå att PR-författaren är dependabot[bot].

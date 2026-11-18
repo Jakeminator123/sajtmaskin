@@ -33,6 +33,10 @@ Körda riktade kontroller:
 - Kvarvarande risk:
 - Återställning/rollback:
 
+> Vanliga PR-pushar kör light CI (kontrakt + typecheck/lint). Full suite körs
+> vid `ready_for_review`, etiketten `run-full-ci`, Dependabot, promote mot
+> `master`, eller efter merge (push till `preview`/`master`).
+>
 > Lämna som draft medan arbete, CI-fixar eller reviewtriage återstår. GitHubs
 > ruleset, required checks, reviews och trådstatus äger mergebarheten.
 > Mandat, `--admin`-förbud och promote-bekräftelse: `.cursor/rules/pr-merge.mdc`.

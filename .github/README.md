@@ -2,7 +2,7 @@
 
 | Fil                                                                                | Syfte                                                                                                                                                                             |
 | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`workflows/ci.yml`](workflows/ci.yml)                                             | Push/PR mot `preview` och `master`: build, typecheck, lint, tester, kontrakt, schema-drift och Backoffice. Live DB-jobb granskas separat; PR-kod får inga produktionshemligheter. |
+| [`workflows/ci.yml`](workflows/ci.yml)                                             | Push mot `preview`/`master` och opt-in PR (`ready_for_review`, `run-full-ci`, Dependabot, promote): full suite. Vanliga PR-pushar publicerar light-kvitto (kontrakt + typecheck/lint). Live DB-jobb granskas separat; PR-kod får inga produktionshemligheter. |
 | [`workflows/db-blob-sync-check.yml`](workflows/db-blob-sync-check.yml)             | Read-only DB-/Blob-kontroll; PR-kod får inga produktionshemligheter.                                                                                                              |
 | [`workflows/db-schema-parity.yml`](workflows/db-schema-parity.yml)                 | Daglig read-only-jämförelse av LEVANDE dev↔prod-schema (`npm run db:schema-parity`); push-vägen täcks av `db-schema-parity`-jobbet i ci.yml.                                      |
 | [Buggpass](../docs/runbooks/buggpass.md) | Oberoende granskning före direktpreview-push; PR-vägen återanvänder relevant extern review. Ingen separat betald API-review-workflow. |
@@ -15,7 +15,7 @@ workflowkälla (`.github/workflows/ci.yml` + `pull_request`) ägs av
 `config/agent-workflow.json`; GitHubs live rulesets äger mergekraven.
 `npm run workflow:contract` stoppar drift mellan policy, workflow, hook och
 router. Lokalt körs `npm run verify:pr -- --plan` och relevanta riktade
-kontroller före push; CI publicerar tung profil eller ett explicit light-kvitto.
+kontroller före push; CI publicerar tung profil (push/`ready_for_review`/`run-full-ci`) eller ett explicit light-kvitto.
 Ett grönt fullt kvitto för exakt samma testade träd (ready/reopened med samma
 head och bas, eller preview-push efter merge av en uppdaterad PR) återanvänds i
 stället för att köra om samma kod; se `scripts/workflow/ci-receipt.mjs`. Lätta

@@ -18,18 +18,19 @@ npm run verify:pr -- --plan  # visar följdytor och kommandon
 
 Du behöver inte välja checklista ur minnet. `verify:pr` läser
 [`config/agent-workflow.json`](../../config/agent-workflow.json), control-plane-
-registren och Backoffice-kartan. Protected diff får full profil i GitHub
-Actions; lokalt väljer du relevanta kommandon från planen. Bare
-`npm run verify:pr` är till för felsökning/reproduktion, inte en generell
-push-grind. Ändringar i verifieringsmotorn kontrolleras lokalt med
-`npm run test:workflow` (Node, fyra workers), `workflow:contract`, typecheck och
-berörda integrationstester; hela regressionen körs i CI, inte dubbelt lokalt.
-Full lokal körning finns kvar för felsökning eller ett uttryckligt fulltestuppdrag.
+registren och Backoffice-kartan. Vanliga PR-headar får light-profil i GitHub
+Actions; full profil körs vid push till `preview`/`master`, promote,
+`ready_for_review`, `run-full-ci` och Dependabot. Lokalt väljer du relevanta
+kommandon från planen. Bare `npm run verify:pr` är till för
+felsökning/reproduktion, inte en generell push-grind. Ändringar i
+verifieringsmotorn kontrolleras lokalt med `npm run test:workflow` (Node, fyra
+workers), `workflow:contract`, typecheck och berörda integrationstester; hela
+regressionen körs i CI, inte dubbelt lokalt. Full lokal körning finns kvar för
+felsökning eller ett uttryckligt fulltestuppdrag.
 Preview-push använder samma safe-docs-profil som PR. Dossiermatrisen körs bara
 vid promote (PR mot `master`, full katalog), veckovis och manuellt; PR och push
 mot `preview` skjuter upp den med orsaken `deferred-to-promote` (ägarbeslut
-2026-10-22). Saknad pushhistorik och osäker klassificering behåller full
-CI-profil.
+2026-10-22). Saknad pushhistorik mot `preview` behåller full CI-profil.
 Preview-genvägar kräver att respektive workflow lyckats på föregående exakta
 push-SHA. Klassificeraren läser ett GitHub-kvitto med read-only-token; fel,
 saknat eller pågående kvitto kör full CI-profil (dossiermatrisen påverkas inte;
@@ -167,9 +168,10 @@ CI (`.github/workflows/ci.yml`) publicerar required checks vid varje PR och merg
 
 - **Tung profil:** `quality` aggregerar kärntester, dokumentkontrakt,
   `preview-host-guards` och `dead-code`-jobbets orphan-filgrind.
-- **Light-profil:** alltid körda kontrakt plus explicita gröna kvitton från de
-  required jobb vars tunga arbete skjutits upp i draft eller bevisats irrelevant
-  för en safe docs-diff.
+- **Light-profil:** kontrakt plus typecheck/lint på vanliga PR-headar, och
+  explicita gröna kvitton från de required jobb vars tunga arbete väntar på
+  `ready_for_review`, etiketten `run-full-ci`, Dependabot, promote eller
+  push till `preview`/`master`. Safe docs hoppar även över typecheck/lint.
 - **Rådgivande i tung profil:** `dead-code`-jobbets fulla knip-rapport visar
   deps/exports-svansen utan att blockera.
 
