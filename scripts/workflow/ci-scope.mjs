@@ -87,14 +87,55 @@ function collectSafeDocsBlockers({ impact, files, docs, highRisk }) {
   return [...new Set(blockers)];
 }
 
+/** Opt-in label: a preview PR with this label runs the heavy profile. */
+export const FULL_CI_LABEL = "run-full-ci";
+export const DEPENDABOT_LOGIN = "dependabot[bot]";
+
+/** @param {unknown} labels */
+export function parseCiLabels(labels) {
+  if (typeof labels === "string") {
+    const trimmed = labels.trim();
+    if (!trimmed) return [];
+    try {
+      return parseCiLabels(JSON.parse(trimmed));
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(labels)) return [];
+  return [...new Set(labels.map((entry) => {
+    if (typeof entry === "string") return entry.trim();
+    if (entry && typeof entry === "object" && typeof entry.name === "string") return entry.name.trim();
+    return "";
+  }).filter(Boolean))];
+}
+
+function wantsExplicitPrFull({ eventAction, labels, prUser, isDraft }) {
+  if (eventAction === "ready_for_review") return true;
+  if (parseCiLabels(labels).includes(FULL_CI_LABEL)) return true;
+  return String(prUser ?? "").trim() === DEPENDABOT_LOGIN && !isDraft;
+}
+
 /**
  * Decide which CI profile is safe for one already-classified diff.
  *
- * Only an exclusive, non-protected documentation diff may skip heavy checks
- * on ready PRs or proven preview pushes. Master stays full. Drafts may also
- * defer ordinary runtime checks, because
- * GitHub cannot merge a draft and `ready_for_review` starts a fresh full run.
- * Protected, unknown and control-plane-like paths always stay fail-closed.
+ * Preview PRs default to the light profile (contracts + required-check receipts)
+ * even when they are non-draft or touch high-risk paths. Heavy CI — full tests,
+ * e2e, production build — runs on: push to master; push to preview (staging
+ * gate, one run per merge); workflow_dispatch; PRs targeting master; the
+ * `ready_for_review` event; the `run-full-ci` label; and non-draft Dependabot
+ * PRs. An unprovable empty diff stays fail-closed. Master stays full.
+ *
+ * @param {{
+ *   eventName?: string,
+ *   eventAction?: string,
+ *   isDraft?: boolean,
+ *   ref?: string,
+ *   baseRef?: string,
+ *   impact?: object,
+ *   labels?: unknown,
+ *   prUser?: string,
+ * }} input
  */
 export function decideCiScope({
   eventName,
@@ -103,6 +144,8 @@ export function decideCiScope({
   ref = "",
   baseRef = "",
   impact,
+  labels = [],
+  prUser = "",
 }) {
   const event = String(eventName ?? "").trim();
   const action = String(eventAction ?? "").trim();
@@ -140,20 +183,28 @@ export function decideCiScope({
       : action === "converted_to_draft"
         ? true
         : booleanValue(isDraft);
+  const explicitPrFull = event === "pull_request" && wantsExplicitPrFull({
+    eventAction: action,
+    labels,
+    prUser,
+    isDraft: effectiveDraft,
+  });
 
   let runHeavy = true;
   let reason = `trusted-${event || "unknown"}-full`;
   if (scopedEvent) {
-    if (highRisk) {
-      reason = `high-risk:${highRiskReasons.join(",")}`;
-    } else if (safeDocsOnly) {
+    if (safeDocsOnly) {
       runHeavy = false;
       reason = "safe-docs-only";
-    } else if (event === "pull_request" && effectiveDraft) {
-      runHeavy = false;
-      reason = "draft-low-risk";
+    } else if (event === "push") {
+      reason = highRisk ? `high-risk:${highRiskReasons.join(",")}` : "preview-runtime";
+    } else if (files.length === 0) {
+      reason = `high-risk:${highRiskReasons.join(",")}`;
+    } else if (explicitPrFull) {
+      reason = highRisk ? `high-risk:${highRiskReasons.join(",")}` : "ready-runtime";
     } else {
-      reason = event === "push" ? "preview-runtime" : "ready-runtime";
+      runHeavy = false;
+      reason = effectiveDraft ? "draft-low-risk" : "pr-light";
     }
   }
 
@@ -215,6 +266,22 @@ export function changedFilesForEvent({
  * become a shortcut: they return the heavy profile and keep required checks
  * alive. A syntax/startup error in this file still makes the workflow jobs use
  * their own `scope.result/output` fallback to heavy.
+ *
+ * @param {{
+ *   eventName?: string,
+ *   eventAction?: string,
+ *   isDraft?: boolean,
+ *   ref?: string,
+ *   baseRef?: string,
+ *   labels?: unknown,
+ *   prUser?: string,
+ *   baselineVerified?: boolean,
+ *   baseSha?: string,
+ *   headSha?: string,
+ *   cwd?: string,
+ *   gitCommand?: Function,
+ *   inputs?: object,
+ * }} input
  */
 export function resolveCiScope({
   eventName,
@@ -222,6 +289,8 @@ export function resolveCiScope({
   isDraft = false,
   ref = "",
   baseRef = "",
+  labels = [],
+  prUser = "",
   baselineVerified = false,
   baseSha,
   headSha,
@@ -260,7 +329,16 @@ export function resolveCiScope({
       changedFiles,
     });
     return {
-      ...decideCiScope({ eventName: event, eventAction, isDraft, ref, baseRef, impact }),
+      ...decideCiScope({
+        eventName: event,
+        eventAction,
+        isDraft,
+        ref,
+        baseRef,
+        impact,
+        labels,
+        prUser,
+      }),
       classificationError: null,
     };
   } catch (error) {
@@ -359,6 +437,8 @@ async function main() {
     eventName,
     eventAction: process.env.SAJTMASKIN_PR_ACTION,
     isDraft: process.env.SAJTMASKIN_PR_DRAFT,
+    labels: process.env.SAJTMASKIN_PR_LABELS,
+    prUser: process.env.SAJTMASKIN_PR_USER,
     ref: process.env.GITHUB_REF,
     baseRef: process.env.GITHUB_BASE_REF,
     baseSha:

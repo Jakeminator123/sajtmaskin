@@ -5,16 +5,40 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { collectImpact, loadWorkflowInputs } from "./path-impact.mjs";
-import { changedFilesForEvent, decideCiScope, resolveCiScope } from "./ci-scope.mjs";
+import {
+  changedFilesForEvent,
+  decideCiScope,
+  DEPENDABOT_LOGIN,
+  FULL_CI_LABEL,
+  parseCiLabels,
+  resolveCiScope,
+} from "./ci-scope.mjs";
 
 const inputs = loadWorkflowInputs();
 
 function decide(
   changedFiles: string[],
-  { eventName = "pull_request", eventAction = "", isDraft = false, ref = "", baseRef = "" } = {},
+  options: {
+    eventName?: string;
+    eventAction?: string;
+    isDraft?: boolean;
+    ref?: string;
+    baseRef?: string;
+    labels?: string[];
+    prUser?: string;
+  } = {},
 ) {
+  const {
+    eventName = "pull_request",
+    eventAction = "",
+    isDraft = false,
+    ref = "",
+    baseRef = "",
+    labels = [],
+    prUser = "",
+  } = options;
   const impact = collectImpact({ ...inputs, changedFiles });
-  return decideCiScope({ eventName, eventAction, isDraft, ref, baseRef, impact });
+  return decideCiScope({ eventName, eventAction, isDraft, ref, baseRef, impact, labels, prUser });
 }
 
 describe("CI scope decision", () => {
@@ -40,8 +64,12 @@ describe("CI scope decision", () => {
   it("does not allow an unmapped docs text asset into the Markdown-only light lane", () => {
     const result = decide(["docs/unmapped-runtime-prompt.txt"]);
 
-    expect(result).toMatchObject({ runHeavy: true, safeDocsOnly: false });
+    expect(result).toMatchObject({ runHeavy: false, safeDocsOnly: false, reason: "pr-light" });
     expect(result.safeDocsBlockers).toContain("outside-safe-docs-allowlist");
+    expect(decide(["docs/unmapped-runtime-prompt.txt"], { eventAction: "ready_for_review" })).toMatchObject({
+      runHeavy: true,
+      safeDocsOnly: false,
+    });
   });
 
   it.each([
@@ -57,17 +85,20 @@ describe("CI scope decision", () => {
   ])("does not let the global docs glob hide extra impact for %s", (path, blockers) => {
     const result = decide([path]);
 
-    expect(result).toMatchObject({ runHeavy: true, safeDocsOnly: false });
+    expect(result).toMatchObject({ runHeavy: false, safeDocsOnly: false, reason: "pr-light" });
     expect(result.safeDocsBlockers).toEqual(expect.arrayContaining(blockers));
   });
 
   it("runs Backoffice tests for a documentation source rendered by a Backoffice page", () => {
     const result = decide(["docs/architecture/quality-gate-flow.md"]);
 
-    expect(result).toMatchObject({ runHeavy: true, safeDocsOnly: false });
+    expect(result).toMatchObject({ runHeavy: false, safeDocsOnly: false, reason: "pr-light" });
     expect(result.safeDocsBlockers).toEqual(
       expect.arrayContaining(["backoffice-page", "extra-command:backoffice:test"]),
     );
+    expect(
+      decide(["docs/architecture/quality-gate-flow.md"], { eventAction: "ready_for_review" }),
+    ).toMatchObject({ runHeavy: true });
   });
 
   it("blocks an allowlisted docs path that also belongs to a runtime group", () => {
@@ -76,7 +107,7 @@ describe("CI scope decision", () => {
 
     const result = decideCiScope({ eventName: "pull_request", impact });
 
-    expect(result).toMatchObject({ runHeavy: true, safeDocsOnly: false });
+    expect(result).toMatchObject({ runHeavy: false, safeDocsOnly: false, reason: "pr-light" });
     expect(result.safeDocsBlockers).toContain("non-docs-group:runtime");
   });
 
@@ -86,7 +117,7 @@ describe("CI scope decision", () => {
 
     const result = decideCiScope({ eventName: "pull_request", impact });
 
-    expect(result).toMatchObject({ runHeavy: true, safeDocsOnly: false });
+    expect(result).toMatchObject({ runHeavy: false, safeDocsOnly: false, reason: "pr-light" });
     expect(result.safeDocsBlockers).toContain("backoffice-page");
   });
 
@@ -120,8 +151,17 @@ describe("CI scope decision", () => {
     withManual.manualValidators = ["synthetic:manual"];
 
     expect(decideCiScope({ eventName: "pull_request", impact: withAuthority })).toMatchObject({
-      runHeavy: true,
+      runHeavy: false,
       safeDocsOnly: false,
+      highRisk: true,
+      reason: "pr-light",
+    });
+    expect(decideCiScope({
+      eventName: "pull_request",
+      eventAction: "ready_for_review",
+      impact: withAuthority,
+    })).toMatchObject({
+      runHeavy: true,
       highRisk: true,
     });
     expect(
@@ -139,9 +179,14 @@ describe("CI scope decision", () => {
     ]) {
       const impact = collectImpact({ ...inputs, policy, changedFiles: [path] });
       expect(decideCiScope({ eventName: "pull_request", impact }), path).toMatchObject({
-        runHeavy: true,
+        runHeavy: false,
         safeDocsOnly: false,
+        reason: "pr-light",
       });
+      expect(
+        decideCiScope({ eventName: "pull_request", eventAction: "ready_for_review", impact }),
+        path,
+      ).toMatchObject({ runHeavy: true, safeDocsOnly: false });
     }
   });
 
@@ -152,19 +197,31 @@ describe("CI scope decision", () => {
     ".github/workflows/ci.yml",
     "scripts/db/run-migrations.ts",
     "package-lock.json",
-  ])("keeps protected or high-risk path %s on full CI even as a draft", (path) => {
+  ])("defers protected or high-risk path %s on ordinary PR heads, including drafts", (path) => {
     const result = decide([path], { isDraft: true });
 
-    expect(result.runHeavy).toBe(true);
+    expect(result.runHeavy).toBe(false);
     expect(result.highRisk).toBe(true);
     expect(result.safeDocsOnly).toBe(false);
+    expect(result.reason).toBe("draft-low-risk");
+    expect(decide([path], { eventAction: "ready_for_review" }).runHeavy).toBe(true);
+    expect(decide([path], { labels: [FULL_CI_LABEL] }).runHeavy).toBe(true);
   });
 
-  it("fails an unknown repository area into full CI", () => {
+  it("keeps an unknown repository area fail-closed for classification but light on ordinary PRs", () => {
     const result = decide(["new-zone/value.custom"], { isDraft: true });
 
-    expect(result).toMatchObject({ runHeavy: true, highRisk: true, runPreviewHost: true });
+    expect(result).toMatchObject({
+      runHeavy: false,
+      highRisk: true,
+      runPreviewHost: true,
+      reason: "draft-low-risk",
+    });
     expect(result.highRiskReasons).toContain("unclassified");
+    expect(decide(["new-zone/value.custom"], { eventAction: "ready_for_review" })).toMatchObject({
+      runHeavy: true,
+      highRisk: true,
+    });
   });
 
   it.each(["preview-host/server.mjs", ".github/workflows/ci.yml", ".node-version"])(
@@ -192,14 +249,14 @@ describe("CI scope decision", () => {
     expect(result.files).toEqual(["src/components/ExampleCard.tsx"]);
   });
 
-  it("runs full CI for classified ownerless runtime once the PR is ready", () => {
+  it("keeps classified ownerless runtime on the light PR lane until explicitly requested", () => {
     const result = decide(["src/components/ExampleCard.tsx"]);
 
     expect(result).toMatchObject({
-      runHeavy: true,
+      runHeavy: false,
       safeDocsOnly: false,
       highRisk: false,
-      reason: "ready-runtime",
+      reason: "pr-light",
     });
   });
 
@@ -216,10 +273,19 @@ describe("CI scope decision", () => {
       expect.objectContaining({ id, sourceOfTruth: path, ciStatus: "hard" }),
     );
     expect(decideCiScope({ eventName: "pull_request", isDraft: true, impact })).toMatchObject({
+      runHeavy: false,
+      highRisk: true,
+      reason: "draft-low-risk",
+      highRiskReasons: ["hard-authority"],
+    });
+    expect(decideCiScope({
+      eventName: "pull_request",
+      eventAction: "ready_for_review",
+      impact,
+    })).toMatchObject({
       runHeavy: true,
       highRisk: true,
       reason: "high-risk:hard-authority",
-      highRiskReasons: ["hard-authority"],
     });
 
     const policyRegistry = structuredClone(inputs.policyRegistry);
@@ -255,14 +321,14 @@ describe("CI scope decision", () => {
     });
   });
 
-  it("runs full CI for the same runtime diff when the PR is ready", () => {
+  it("keeps the same runtime diff on the light PR lane until ready_for_review", () => {
     const result = decide(["src/lib/hooks/chat/useAutoFix.ts"]);
 
     expect(result).toMatchObject({
-      runHeavy: true,
+      runHeavy: false,
       safeDocsOnly: false,
       highRisk: false,
-      reason: "ready-runtime",
+      reason: "pr-light",
     });
   });
 
@@ -273,6 +339,34 @@ describe("CI scope decision", () => {
     });
 
     expect(result).toMatchObject({ runHeavy: true, reason: "ready-runtime" });
+  });
+
+  it("runs full CI when the run-full-ci label is present", () => {
+    expect(decide(["src/lib/hooks/chat/useAutoFix.ts"], { labels: [FULL_CI_LABEL] })).toMatchObject({
+      runHeavy: true,
+      reason: "ready-runtime",
+    });
+    expect(decide(["src/lib/hooks/chat/useAutoFix.ts"], { labels: ["needs-review"] })).toMatchObject({
+      runHeavy: false,
+      reason: "pr-light",
+    });
+  });
+
+  it("runs full CI for non-draft Dependabot PRs so native auto-merge stays gated", () => {
+    expect(decide(["package-lock.json"], { prUser: DEPENDABOT_LOGIN })).toMatchObject({
+      runHeavy: true,
+      highRisk: true,
+    });
+    expect(decide(["package-lock.json"], { prUser: DEPENDABOT_LOGIN, isDraft: true })).toMatchObject({
+      runHeavy: false,
+      reason: "draft-low-risk",
+    });
+  });
+
+  it("parses GitHub label JSON from the workflow payload", () => {
+    expect(parseCiLabels(`["${FULL_CI_LABEL}","needs-review"]`)).toEqual([FULL_CI_LABEL, "needs-review"]);
+    expect(parseCiLabels([{ name: FULL_CI_LABEL }, { name: FULL_CI_LABEL }])).toEqual([FULL_CI_LABEL]);
+    expect(parseCiLabels("not-json")).toEqual([]);
   });
 
   it("fails an empty or unprovable PR diff into full CI", () => {
@@ -432,7 +526,7 @@ describe("CI scope decision", () => {
     });
 
     expect(result.files).toEqual([".github/workflows/ci.yml", "docs/ci-history.md"]);
-    expect(result).toMatchObject({ runHeavy: true, highRisk: true });
+    expect(result).toMatchObject({ runHeavy: false, highRisk: true, reason: "draft-low-risk" });
   });
 
   it("falls back to full CI when changed-file discovery is malformed", () => {
