@@ -199,6 +199,63 @@ describe("preview lifecycle: one start per version across instances", () => {
     expect(startPreviewHostSession).toHaveBeenCalledTimes(2);
   });
 
+  // M03 (prod 2026-11-20, chat 3fdcf6be): PREVIEW_HOST_ORIGIN_MODE changed while
+  // the session lived. The host gives the same session in its other URL form.
+  const OWN_URL = "https://p-0123456789abcdef0123.vm.sajtmaskin.com/chat-lifecycle";
+  const SHARED_URL = "https://preview-host.example.com/chat-lifecycle";
+
+  it("a booting session answers with the host's current URL form (no destroy, no new machine)", async () => {
+    const instance = await loadInstance();
+    expect(await instance.startPreviewSession(files, options)).toMatchObject({ ok: true });
+    fetchPreviewHostReadinessVerdict.mockResolvedValue(bootingVerdict({ previewUrl: OWN_URL }));
+    const again = await instance.startPreviewSession(files, options);
+    expect(again).toMatchObject({
+      ok: true,
+      result: { previewSessionId: "ps_A", previewUrl: OWN_URL, startOutcome: "resumed" },
+    });
+    expect(startPreviewHostSession).toHaveBeenCalledTimes(1);
+    expect(destroyPreviewHostSession).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["path → subdomain", SHARED_URL, OWN_URL],
+    ["subdomain → path", OWN_URL, SHARED_URL],
+  ])("a running session in the other URL form resumes at the same mutation revision (%s)", async (_label, savedUrl, hostUrl) => {
+    // Before the fix the pointer read this receipt as stale (same revision,
+    // other URL) and the start failed as "superseded".
+    startPreviewHostSession.mockResolvedValue({
+      ok: true,
+      previewSessionId: "ps_A",
+      previewUrl: savedUrl,
+      lifecycleToken: "life_A",
+      startOutcome: "recreated",
+      mutationRevision: 1,
+    });
+    const instance = await loadInstance();
+    expect(await instance.startPreviewSession(files, options)).toMatchObject({
+      ok: true,
+      result: { previewUrl: savedUrl },
+    });
+    fetchPreviewHostStatus.mockResolvedValue({
+      previewSessionId: "ps_A",
+      primaryUrl: hostUrl,
+      lifecycleToken: "life_A",
+      mutationRevision: 1,
+      installAttemptRevision: 1,
+      readinessState: "ready",
+      httpReady: true,
+      readinessError: null,
+      regeneratedLockfile: null,
+    });
+    const again = await instance.startPreviewSession(files, options);
+    expect(again).toMatchObject({
+      ok: true,
+      result: { previewSessionId: "ps_A", previewUrl: hostUrl, startOutcome: "resumed" },
+    });
+    expect(startPreviewHostSession).toHaveBeenCalledTimes(1);
+    expect(destroyPreviewHostSession).not.toHaveBeenCalled();
+  });
+
   it("an explicit forceRestart still tears down and starts once", async () => {
     const instance = await loadInstance();
     expect(await instance.startPreviewSession(files, options)).toMatchObject({ ok: true });

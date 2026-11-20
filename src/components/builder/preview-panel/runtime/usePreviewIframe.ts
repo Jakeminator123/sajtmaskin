@@ -14,6 +14,7 @@ import { isTerminalPreviewStatus } from "@/lib/gen/preview/preview-contract";
 import {
   isSameTier2PreviewSession,
   isTier2LivePreviewUrl,
+  rehomeTier2PreviewUrl,
 } from "@/lib/gen/preview/preview-url-classifier";
 import { detectOwnEnginePreviewIssue, type PreviewIssuePayload } from "./iframe-diagnostics";
 
@@ -66,6 +67,12 @@ type Tier2StatusReceipt = Awaited<ReturnType<typeof fetchPreviewStatus>>;
  * Efter adoption följer pollen den nya sessionen tills den kör. Allt annat (fel
  * version, annan chat-URL, stoppad/terminal) returnerar null och behåller
  * fail-closed-beteendet.
+ *
+ * M03 (prod 2026-11-20, chatt 3fdcf6be): en adress sparad före bytet av
+ * PREVIEW_HOST_ORIGIN_MODE pekar på hostens andra origin-form. Iframen hamnade
+ * via 307 på chattens egen origin, kvittona bar den adressen, och kedjan dömde
+ * dem som "annan session" för evigt. Samma chatt i den andra formen adopteras
+ * nu som `previewUrl` (rutten behålls); en annan chatt eller värd godtas aldrig.
  */
 function readTier2SessionRotation(params: {
   status: Tier2StatusReceipt;
@@ -73,23 +80,29 @@ function readTier2SessionRotation(params: {
   expectedPreviewSessionId: string;
   expectedLifecycleToken: string | null;
   expectedPreviewUrl: string;
-}): { previewSessionId: string; lifecycleToken: string | null } | null {
+}): { previewSessionId: string; lifecycleToken: string | null; previewUrl?: string } | null {
   const status = params.status;
   if (!status || (status.status !== "running" && status.status !== "starting")) return null;
   if (status.versionId !== params.expectedVersionId) return null;
-  if (!isSameTier2PreviewSession(status.previewUrl, params.expectedPreviewUrl)) {
+  const movedUrl = rehomeTier2PreviewUrl(params.expectedPreviewUrl, status.previewUrl);
+  if (!movedUrl && !isSameTier2PreviewSession(status.previewUrl, params.expectedPreviewUrl)) {
     return null;
   }
   const nextSessionId = status.previewSessionId?.trim() ?? "";
   if (!nextSessionId) return null;
   const nextLifecycleToken = status.lifecycleToken ?? null;
   if (
+    !movedUrl &&
     nextSessionId === params.expectedPreviewSessionId &&
     nextLifecycleToken === params.expectedLifecycleToken
   ) {
     return null;
   }
-  return { previewSessionId: nextSessionId, lifecycleToken: nextLifecycleToken };
+  return {
+    previewSessionId: nextSessionId,
+    lifecycleToken: nextLifecycleToken,
+    ...(movedUrl ? { previewUrl: movedUrl } : {}),
+  };
 }
 
 export function usePreviewIframe(params: {
@@ -115,6 +128,8 @@ export function usePreviewIframe(params: {
     previewSessionId: string;
     versionId: string;
     lifecycleToken: string | null;
+    /** M03: samma chatt i hostens andra origin-form; iframen ska dit. */
+    previewUrl?: string;
   }) => void;
   reportOwnEngineRenderFailure: (payload: PreviewIssuePayload) => void;
   /** When set, this ref is used for the iframe element instead of an internal ref (shared with telemetry). */
@@ -414,11 +429,7 @@ export function usePreviewIframe(params: {
           // En roterad session kan aldrig matcha den sparade identiteten, så
           // utan adoption skulle den glesa pollen läsa för evigt utan att läka.
           stopTier2StatusPolling();
-          onPreviewSessionRotatedRef.current({
-            previewSessionId: rotation.previewSessionId,
-            versionId: expectedVersionId,
-            lifecycleToken: rotation.lifecycleToken,
-          });
+          onPreviewSessionRotatedRef.current({ ...rotation, versionId: expectedVersionId });
           return;
         }
 
@@ -519,11 +530,7 @@ export function usePreviewIframe(params: {
           // Rätt version kör, men VM:en nycklade om sessionen — adoptera den
           // nya identiteten i stället för att döma ut previewn som misstänkt.
           stopTier2StatusPolling();
-          onPreviewSessionRotatedRef.current({
-            previewSessionId: rotation.previewSessionId,
-            versionId: expectedVersionId,
-            lifecycleToken: rotation.lifecycleToken,
-          });
+          onPreviewSessionRotatedRef.current({ ...rotation, versionId: expectedVersionId });
           return;
         }
 
@@ -628,11 +635,7 @@ export function usePreviewIframe(params: {
           // utan att self-heal någonsin armerades (prod 2026-09-01, c2371f9c).
           tier2LateRecoveryIdentityRef.current = null;
           stopTier2StatusPolling();
-          onPreviewSessionRotatedRef.current({
-            previewSessionId: rotation.previewSessionId,
-            versionId: expectedVersionId,
-            lifecycleToken: rotation.lifecycleToken,
-          });
+          onPreviewSessionRotatedRef.current({ ...rotation, versionId: expectedVersionId });
           return;
         }
 
@@ -740,11 +743,7 @@ export function usePreviewIframe(params: {
         if (rotation && onPreviewSessionRotatedRef.current) {
           // Deadline-kontrollen såg rätt version `running` under en omnycklad
           // session — adoptera identiteten i stället för banner + late recovery.
-          onPreviewSessionRotatedRef.current({
-            previewSessionId: rotation.previewSessionId,
-            versionId: session.versionId,
-            lifecycleToken: rotation.lifecycleToken,
-          });
+          onPreviewSessionRotatedRef.current({ ...rotation, versionId: session.versionId });
           return;
         }
         failAndQueueLateRecovery();

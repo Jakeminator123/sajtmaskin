@@ -331,7 +331,12 @@ preview-URL:en inte som tier-2 och iframen blockeras av CSP.
    `curl -sI https://<slugA>.vm.sajtmaskin.com/<chatB>/` ger `404` och
    `curl -sI https://vm-fly-jakem.fly.dev/<chatA>/` ger `307`.
 
-Öppna builderflikar vid påslaget kan behöva laddas om en gång (ny origin).
+Versionsrader och sessionspekare har kvar adressen i formen från före bytet.
+Appen återanvänder en sparad adress bara om hosten ger samma; annars återupptas
+samma session och hostens adress sparas. Buildern flyttar iframen till hostens
+form för samma chatt, version och session (prod 2026-11-20: utan det fastnade
+gamla chattar på "förhandsvisningen startar"). Låt DNS och cert för `*.vm` ligga
+kvar vid rollback.
 Rollback: `fly secrets set --stage PREVIEW_HOST_ORIGIN_MODE=path -a vm-fly-jakem`
 och deploy; appen behöver ingen ändring. Kvarstående risk utan PSL-post: en
 preview kan sätta en cookie med `Domain=sajtmaskin.com` som syns för andra

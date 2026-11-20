@@ -407,14 +407,22 @@ export function useBuilderPageController() {
   // samma onPreviewSessionMeta-ägare som SSE-handoffen använder; det ersätter
   // den stale identiteten och låter iframe-kedjan starta om och verifiera.
   const handlePreviewSessionRotated = useCallback(
-    (meta: { previewSessionId: string; versionId: string; lifecycleToken: string | null }) => {
+    (meta: {
+      previewSessionId: string;
+      versionId: string;
+      lifecycleToken: string | null;
+      previewUrl?: string;
+    }) => {
       onPreviewSessionMeta({
         previewSessionId: meta.previewSessionId,
         versionId: meta.versionId,
         lifecycleToken: meta.lifecycleToken,
       });
+      // M03: same chat on the host's other origin form. Showing that URL keeps
+      // the bridges' exact origin checks true for the document in the frame.
+      if (meta.previewUrl) applyPreviewHandoff({ url: meta.previewUrl, versionId: meta.versionId });
     },
-    [onPreviewSessionMeta],
+    [onPreviewSessionMeta, applyPreviewHandoff],
   );
 
   const { handlePreviewSessionSuspect, forcePreviewResync, resetRecoverAttempts, versionMismatchPayload } = usePreviewSession({

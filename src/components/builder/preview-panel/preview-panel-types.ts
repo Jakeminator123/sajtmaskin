@@ -152,6 +152,11 @@ export interface PreviewPanelProps {
     previewSessionId: string;
     versionId: string;
     lifecycleToken: string | null;
+    /**
+     * M03: the host now serves the same chat in its other origin form (a URL
+     * saved before PREVIEW_HOST_ORIGIN_MODE changed). Move the iframe there.
+     */
+    previewUrl?: string;
   }) => void;
   /**
    * Explicit/manual forced preview resync (overlay "Försök igen"-knappen).
