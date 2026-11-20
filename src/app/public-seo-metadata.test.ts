@@ -32,7 +32,7 @@ describe("public and private SEO metadata", () => {
     expect(priserMetadata.alternates).toEqual({
       canonical: `${PUBLIC_CANONICAL_ORIGIN}/priser`,
     });
-    expect(templatesMetadata.title).toBe("Hemsidemallar");
+    expect(templatesMetadata.title).toBe("Hemsidemallar – färdiga mallar att anpassa med AI");
     expect(templatesMetadata.alternates).toEqual({
       canonical: `${PUBLIC_CANONICAL_ORIGIN}/templates`,
     });

@@ -64,7 +64,20 @@ function BlogPostBody({ post }: { post: PublishedBlogPost }) {
         {post.updatedAt !== post.publishedAt ? ` · uppdaterad ${formatDate(post.updatedAt)}` : ""}
       </p>
       <h1 className="mb-4 text-3xl font-(--font-heading) tracking-tight md:text-5xl">{post.title}</h1>
-      <p className="text-muted-foreground mb-10 text-base leading-relaxed md:text-lg">{post.excerpt}</p>
+      <p
+        className={`text-muted-foreground text-base leading-relaxed md:text-lg ${post.lead ? "mb-4" : "mb-10"}`}
+      >
+        {post.excerpt}
+      </p>
+      {post.lead ? (
+        <p className="text-muted-foreground mb-10 text-sm leading-relaxed md:text-base">
+          {post.lead.text}{" "}
+          <Link href={post.lead.href} className="text-primary underline-offset-4 hover:underline">
+            {post.lead.label}
+          </Link>
+          .
+        </p>
+      ) : null}
 
       <div className="space-y-10">
         {post.sections.map((section) => (
