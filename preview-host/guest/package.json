@@ -4,7 +4,7 @@
   "private": true,
   "description": "Per-project preview guest agent; runs inside one customer's own Fly Machine (SM-080).",
   "engines": {
-    "node": ">=22.14.0 <23"
+    "node": ">=24.11.0 <25"
   },
   "scripts": {
     "start": "node agent.js",

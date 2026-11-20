@@ -393,6 +393,10 @@ describe("versionshistorikens kort på begriplig svenska (V-11)", () => {
       expect(chip?.label).toBeTruthy();
       expect(chip?.label).not.toMatch(/VM/);
     }
+    // Riggen mätte 76–113 s till synlig sajt: lova inte sekunder.
+    expect(versionHistoryPreviewChip("starting")?.title).toBe(
+      "Förhandsvisningen startar. Det kan ta ett par minuter.",
+    );
   });
 
   it("en sparad men okontrollerad version blir aldrig grön", () => {

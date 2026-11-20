@@ -1,5 +1,6 @@
 "use client";
 
+import { APP_VIEWPORT_HEIGHT_CLASS } from "@/lib/app-viewport";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -385,7 +386,7 @@ function RootLandingContent() {
 
   return (
     <>
-      <div className="flex h-screen min-h-0 w-full flex-col overflow-x-clip bg-background supports-[height:100dvh]:h-dvh">
+      <div className={`flex min-h-0 w-full flex-col overflow-x-clip bg-background ${APP_VIEWPORT_HEIGHT_CLASS}`}>
         <Navbar
           onLoginClick={handleLoginClick}
           onRegisterClick={handleRegisterClick}

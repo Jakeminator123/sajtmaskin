@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "76b569c65",
+    "commit": "c49a8bde2",
     "commitDate": "2026-11-20",
     "sinceDays": 14
   },
@@ -72,7 +72,7 @@ const DATA: CanvasData = {
     "openP0": 0,
     "openP1": 5,
     "openP2": 11,
-    "openP3": 19,
+    "openP3": 15,
     "blocked": 1,
     "shaky": 6,
     "evalExactHitPct": null
@@ -91,9 +91,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 0,
+      "churn": 1,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "Inga oppna signaler"
+      "note": "1 commits / 14d"
     },
     {
       "name": "Codegen core",
@@ -108,7 +108,7 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 1,
+      "churn": 2,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
       "note": "2 oppna backlog-rader (P0:0 P1:0 P2:2 P3:0)"
     },
@@ -125,7 +125,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 1,
+      "churn": 2,
       "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-re",
       "note": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
     },
@@ -185,12 +185,12 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 32,
+      "openBugs": 28,
       "openByPrio": {
         "P0": 0,
         "P1": 5,
         "P2": 9,
-        "P3": 18,
+        "P3": 14,
         "other": 0
       },
       "churn": 4,
@@ -202,17 +202,17 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 2,
+      "openBugs": 3,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
         "P2": 1,
-        "P3": 1,
+        "P3": 2,
         "other": 0
       },
-      "churn": 1,
+      "churn": 2,
       "summary": "Backoffice-yta för den canonicala evalen (`npm run eval`). Ett läge (gratis / smoke / full), en knapp. Scaffold-lanen läser senaste lokala JSON-rapport. Codegen-lanen läser data/ev",
-      "note": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
+      "note": "3 oppna backlog-rader (P0:0 P1:0 P2:1 P3:2)"
     }
   ],
   "shaky": [
@@ -229,6 +229,12 @@ const DATA: CanvasData = {
       "reason": "3 oppna backlog-rader (P0:0 P1:0 P2:0 P3:3)"
     },
     {
+      "name": "Eval",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "3 oppna backlog-rader (P0:0 P1:0 P2:1 P3:2)"
+    },
+    {
       "name": "Codegen core",
       "statusLabel": "Skakigt",
       "tone": "warning",
@@ -236,12 +242,6 @@ const DATA: CanvasData = {
     },
     {
       "name": "prompt-core",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
-    },
-    {
-      "name": "ai_models",
       "statusLabel": "Skakigt",
       "tone": "warning",
       "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"

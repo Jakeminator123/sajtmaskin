@@ -3,9 +3,9 @@
 # layer so a typical generated Next.js project installs from a local cache
 # instead of the network. Nothing in this image is shared with another
 # project at runtime; sharing happens only at image-build time, read-only.
-FROM node:22-alpine
+FROM node:24-alpine
 
-# node:22-alpine already ships a system user named `guest` (uid 405), so the
+# The Alpine base image already ships a system user named `guest` (uid 405), so the
 # project user gets its own name. Found by the first real image build.
 RUN corepack enable \
   && addgroup -S sajtguest \
