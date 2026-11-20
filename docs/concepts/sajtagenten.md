@@ -23,8 +23,9 @@ sidan är den mentala modellen. Plan och status:
 Lägesväljaren Auto · Fråga · Bygg i komposern tvingar mottagaren. Läget gäller
 per chatt; en ny chatt börjar i Auto. Regeln bor i
 [`composer-route.ts`](../../src/lib/builder/composer-route.ts), och en etikett
-intill Skicka («Fråga – ändrar inget», «Ändring – skapar en ny version») visar
-samma beslut innan du skickar.
+intill Skicka («Fråga – ändrar inget», «Till Sajtagenten – kan ändra sajten»,
+«Ändring – skapar en ny version») visar samma beslut innan du skickar. Den
+lovar «ändrar inget» bara när agenten faktiskt inte får agera på texten.
 
 När byggmotorn väntar på svar på en motfråga eller plan hör svaret fortsatt
 till byggmotorn i Auto-läget. Välj Fråga uttryckligen för att diskutera med
@@ -85,6 +86,7 @@ ett kort ([`agent-action-consent.ts`](../../src/lib/openclaw/agent-action-consen
 | Får den fortsätta efter ett bygge? | Bara efter ett bygge den själv startade inom uppdraget: då säger `[Byggresultat]` att den får laga eller ta nästa uttalade steg. Efter ett bygge du själv beställde ger den bara ett besked. |
 | Hur stoppar jag? | Skriv «stopp», tryck Stoppa eller headerns Avbryt, eller välj Fråga. Alla återkallar medgivandet: inget mer körs förrän du ber om något nytt. |
 | Vad händer efter en omladdning? | Ingenting körs igen. Rader från historiken är kvitton utan knappar. |
+| Kan ett gammalt förslag köra i efterhand? | Nej. Beslutet fattas en gång, när kortet först visas. Ett förslag som visades med befogenheten av förblir ett förslag även om du slår på den igen. |
 
 Agenten har ingen egen skrivväg: varje ändring går genom builderns ordinarie
 pipeline eller Fast Edit Lane (ägarbeslut 2026-08-14), med samma creditgrind,

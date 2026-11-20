@@ -386,6 +386,29 @@ describe("apply_quick_edit under ett uppdrag", () => {
     expect(screen.getByText(/Snabbändringar är inaktiverade/)).toBeTruthy();
   });
 
+  // Oberoende granskning av #1760: en snabbändring som visades som förslag
+  // medan befogenheten var av får inte skrivas i efterhand när den slås på.
+  it("skriver inte ett gammalt förslag när Snabbändringar slås på igen", async () => {
+    grant("armed_autonomy");
+    quickEditMock.mockResolvedValue(QUICK_EDIT_OK);
+    const reply = actionReply("a-edit-relatch", QUICK_EDIT_ACTION);
+    seed(userTurn("u-edit-relatch", "Rätta stavfelet i rubriken"), reply);
+
+    render(<OpenClawMessage msg={reply} />);
+    expect(screen.getByText(/Snabbändringar är inaktiverade/)).toBeTruthy();
+
+    grant("armed_autonomy", "quick_edit");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    });
+
+    expect(quickEditMock).not.toHaveBeenCalled();
+    expect(screen.getByText("Snabbändringsförslag")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Godkänn och genomför" }));
+    expect(await screen.findByText(/Klart — ny version skapad/)).toBeTruthy();
+    expect(quickEditMock).toHaveBeenCalledTimes(1);
+  });
+
   it("väntar tills svaret är färdigt och kör aldrig ett avbrutet svar", async () => {
     grant("quick_edit");
     quickEditMock.mockResolvedValue(QUICK_EDIT_OK);

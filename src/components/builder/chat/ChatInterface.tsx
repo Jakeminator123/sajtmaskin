@@ -78,6 +78,8 @@ import {
   type OpenClawPreparedPromptSource,
 } from "@/lib/openclaw/prepared-prompt";
 import { readOpenClawPowers, revokeOpenClawBuildConsent, useOpenClawStore } from "@/lib/openclaw/openclaw-store";
+import { clearMissionAwaitingResult } from "@/lib/openclaw/agent-action-consent";
+import { parseStopDirective } from "@/lib/openclaw/debug/armed-mandate";
 import {
   INSPECT_CAPTURE_EVENT,
   type InspectCapturedElement,
@@ -352,7 +354,8 @@ export function ChatInterface({
   const agentStreaming = Boolean(agent?.isStreaming);
   // Oklar text går till agenten bara när den själv kan starta bygget
   // (`start_build` kräver armerad autonomi); annars är byggmotorn närmast.
-  const agentCanBuild = useOpenClawPowers().armedAutonomy;
+  const agentPowers = useOpenClawPowers();
+  const agentCanBuild = agentPowers.armedAutonomy;
   // Läget bär sin chatt: under renderingen där chatId just bytts är läget
   // redan Auto, innan effekten hunnit läsa den nya chattens sparade val.
   const [modeState, setModeState] = useState<{ chatId: string | null; mode: ComposerMode }>(
@@ -896,13 +899,16 @@ export function ChatInterface({
     ...(normalizedFigmaUrl ? (["figma"] as const) : []),
     ...(inspectPoints.length > 0 ? (["inspect"] as const) : []),
   ];
-  const describeDecision = (decision: ComposerDecision, emptyDraft = false) =>
+  const describeDecision = (decision: ComposerDecision, emptyDraft = false, text = "") =>
     describeComposerDecision(decision, {
       mode: composerMode,
       hasChat: Boolean(chatId),
       builderLocked,
       emptyDraft,
       attachmentKinds: composerAttachmentKinds,
+      // Samma regel som utskicket sätter `allowBuild` med: etiketten lovar
+      // «ändrar inget» bara när agenten faktiskt inte får agera på texten.
+      agentCanAct: agentPowers.any && composerAllowsAgentBuild({ mode: composerMode, text }),
     });
 
   const handleSubmit = async ({ text }: { text: string }) => {
@@ -912,7 +918,15 @@ export function ChatInterface({
     if (!trimmed && !hasSuccessFiles && !hasAuditToken) return;
 
     const restrictBuild = composerMode === "agent" || isReadOnlyComposerRequest(trimmed);
-    if (restrictBuild || hasScopedComposerChangeRestriction(trimmed)) revokeOpenClawBuildConsent();
+    // Ett skrivet stopp återkallar oavsett läge och mottagare: i Bygg-läget når
+    // texten aldrig agenten, och under ett pågående bygge skickas den inte alls.
+    if (
+      restrictBuild ||
+      hasScopedComposerChangeRestriction(trimmed) ||
+      parseStopDirective(trimmed, "leading")
+    ) {
+      revokeOpenClawBuildConsent();
+    }
     const decision = resolveDecisionFor(trimmed);
     const route = decision.route;
     if (route === "blocked") {
@@ -956,6 +970,10 @@ export function ChatInterface({
       toast("Ett bygge pågår. Vänta tills det är klart, eller ställ en fråga till Sajtagenten.");
       return;
     }
+    // Det här är användarens eget bygge. En reparation som agenten begärde men
+    // som aldrig kom igång har kvar sin väntan; utan det här släppet kunde
+    // sammanfattningen efter användarens bygge föra agentens uppdrag vidare.
+    clearMissionAwaitingResult();
     const baseMessage =
       trimmed ||
       (hasAuditToken
@@ -1004,6 +1022,7 @@ export function ChatInterface({
   const routeDescription = describeDecision(
     resolveDecisionFor(input.trim()),
     !input.trim() && !hasComposerAttachments,
+    input.trim(),
   );
   const routeStyle = ROUTE_TONE_STYLE[routeDescription.tone];
   const RouteIcon = routeStyle.icon;

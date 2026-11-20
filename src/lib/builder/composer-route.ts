@@ -569,6 +569,13 @@ export function describeComposerDecision(
     emptyDraft?: boolean;
     /** Vad som ligger med, så att blockeringen kan säga det (V-riggen 2026-11-11). */
     attachmentKinds?: ReadonlyArray<ComposerAttachmentKind>;
+    /**
+     * Turen bär Sajtagentens handlingsmedgivande och chatten har en
+     * redigeringsbefogenhet: agenten kan då starta ett bygge eller göra en
+     * snabbändring direkt (`agent-action-consent.ts`). Etiketten får i så fall
+     * inte lova «ändrar inget». Utelämnad → behandlas som falskt.
+     */
+    agentCanAct?: boolean;
   },
 ): ComposerRouteDescription {
   if (decision.route === "blocked") {
@@ -591,6 +598,14 @@ export function describeComposerDecision(
       tone: "neutral",
       label: "Auto – frågor besvaras, ändringar byggs",
       hint: "Frågor går till Sajtagenten och ändrar inget. Ändringar skapar en ny version.",
+    };
+  }
+  if (decision.route === "agent" && context.agentCanAct && context.mode !== "agent") {
+    // Samma beslut som kortet läser: texten når agenten, som får agera direkt.
+    return {
+      tone: "agent",
+      label: "Till Sajtagenten – kan ändra sajten",
+      hint: "Sajtagenten svarar. Ber du om en ändring gör den ändringen direkt, och den kan skapa en ny version.",
     };
   }
   if (decision.route === "agent") {

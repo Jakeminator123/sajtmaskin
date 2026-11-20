@@ -606,6 +606,37 @@ describe("OpenClawMessage — direktbygg via bryggan", () => {
     expect(bridge.sendMessage).toHaveBeenCalledTimes(1);
   });
 
+  // Oberoende granskning av #1760: beslutet fattas en gång per meddelande.
+  it("kör inte ett gammalt förslag när befogenheten slås på igen", async () => {
+    const bridge = makeBridge();
+    registerBuilderBridge(bridge);
+    const reply = startBuildReply("sb-relatch");
+    act(() => {
+      useOpenClawStore.setState({ messages: [userTurn("u-relatch", "Gör hero tydligare"), reply] });
+    });
+    const first = render(<OpenClawMessage msg={reply} />);
+    expect(screen.getByText("Byggförslag")).toBeTruthy();
+
+    grantPowers();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    });
+    expect(bridge.sendMessage).not.toHaveBeenCalled();
+    expect(screen.getByText("Byggförslag")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Starta bygget" })).toBeTruthy();
+
+    // Inte heller efter att kortet monterats om.
+    first.unmount();
+    render(<OpenClawMessage msg={reply} />);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    });
+    expect(bridge.sendMessage).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Starta bygget" }));
+    expect(await screen.findByText(/Bygget är startat/)).toBeTruthy();
+    expect(bridge.sendMessage).toHaveBeenCalledTimes(1);
+  });
+
   it("kör inte direkt utan befogenheten, även när turen bär medgivande", async () => {
     const bridge = makeBridge();
     registerBuilderBridge(bridge);

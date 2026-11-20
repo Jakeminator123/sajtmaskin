@@ -578,6 +578,31 @@ describe("describeComposerDecision", () => {
     });
   });
 
+  // Oberoende granskning av #1760: när agenten får agera på turen får
+  // etiketten inte lova «ändrar inget» strax innan ett bygge startar.
+  it("lovar inte «ändrar inget» när Sajtagenten får agera på turen", () => {
+    const polite = "Kan du lägga till en karta på kontaktsidan?";
+    const decision = resolveComposerDecision({ ...base, text: polite });
+    expect(decision.route).toBe("agent");
+    const acting = describeComposerDecision(decision, { mode: "auto", hasChat: true, agentCanAct: true });
+    expect(acting).toMatchObject({ tone: "agent", label: "Till Sajtagenten – kan ändra sajten" });
+    expect(acting.hint).toContain("gör den ändringen direkt");
+    expect(acting.label).not.toContain("ändrar inget");
+
+    // Utan befogenhet eller medgivande är beskedet det gamla och sant.
+    expect(describeComposerDecision(decision, { mode: "auto", hasChat: true })).toMatchObject({
+      label: "Fråga – ändrar inget",
+    });
+    expect(
+      describeComposerDecision(decision, { mode: "auto", hasChat: true, agentCanAct: false }).label,
+    ).toBe("Fråga – ändrar inget");
+    // Läget Fråga ändrar aldrig något, vad anroparen än påstår.
+    const forced = resolveComposerDecision({ ...base, mode: "agent", text: polite });
+    expect(
+      describeComposerDecision(forced, { mode: "agent", hasChat: true, agentCanAct: true }).label,
+    ).toBe("Fråga – ändrar inget");
+  });
+
   it("följer samma beslut som utskicket i tvingat läge", () => {
     expect(describeFor({ mode: "build" })).toMatchObject({ tone: "build" });
     expect(describeFor({ mode: "agent", text: "Byt rubriken" })).toMatchObject({ tone: "agent" });

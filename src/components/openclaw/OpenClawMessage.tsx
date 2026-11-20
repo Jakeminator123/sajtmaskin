@@ -178,12 +178,32 @@ function beginMissionAutoRun(
   return attempt;
 }
 
+/**
+ * Beslutet om en åtgärd kör direkt fattas EN gång per meddelande — när kortet
+ * först visas — och gäller sedan. Utan det kunde ett förslag som visades med
+ * befogenheten av köra i efterhand när användaren slog på den igen, kanske
+ * långt senare och för flera gamla förslag på en gång (oberoende granskning av
+ * #1760). Beslutet bor här och inte i kortets state, så det överlever också
+ * att kortet monteras om.
+ */
+const autoRunDecisions = new Map<string, boolean>();
+
+function useLatchedAutoRun(key: string, autoRun: boolean): boolean {
+  const decided = autoRunDecisions.get(key);
+  useEffect(() => {
+    if (!autoRunDecisions.has(key)) autoRunDecisions.set(key, autoRun);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- det första beslutet per meddelande gäller
+  }, [key]);
+  return decided ?? autoRun;
+}
+
 /** Module-scoped idempotency ledgers survive across tests — clear them per test. */
 export function resetOpenClawActionLedgersForTests(): void {
   consumedArmedSends.clear();
   armedSendAttempts.clear();
   consumedStartBuilds.clear();
   missionAutoRuns.clear();
+  autoRunDecisions.clear();
   resetAgentMissionLedgerForTests();
 }
 
@@ -320,9 +340,11 @@ export function OpenClawMessage({
     !msg.hydrated;
 
   // Direct action (`start_build`, `request_repair`, `apply_quick_edit`):
-  // decided once per message, at mount — the card auto-runs on mount, so a
-  // later store change must not re-decide it. The run itself re-checks that
-  // the consent is still live right before it dispatches.
+  // the consent is read once per message, and each card latches the combined
+  // decision (consent AND power) the first time it is shown
+  // (`useLatchedAutoRun`), so neither a later store change nor a power that
+  // is switched back on can make an old proposal run. The run itself
+  // re-checks that the consent is still live right before it dispatches.
   const actsDirectly =
     !isUser &&
     (action?.type === "start_build" ||
@@ -1463,7 +1485,7 @@ function OpenClawArmedSendCard({
 function OpenClawStartBuildCard({
   action,
   messageId,
-  autoRun,
+  autoRun: autoRunNow,
   mission,
   budgetSpent,
   builderTarget,
@@ -1478,6 +1500,7 @@ function OpenClawStartBuildCard({
   builderTarget: OpenClawBuilderTarget | null;
 }) {
   const autoRunKey = `start_build:${messageId}`;
+  const autoRun = useLatchedAutoRun(autoRunKey, autoRunNow);
   const [state, setState] = useState<"pending" | "sending" | "sent" | "failed">(() => {
     if (consumedStartBuilds.has(messageId)) return "sent";
     const attempt = missionAutoRuns.get(autoRunKey);
@@ -1715,7 +1738,7 @@ async function isLatestChatVersion(chatId: string, versionId: string): Promise<b
 function OpenClawRepairRequestCard({
   action,
   messageId,
-  autoRun,
+  autoRun: autoRunNow,
   mission,
   budgetSpent,
 }: {
@@ -1727,6 +1750,7 @@ function OpenClawRepairRequestCard({
   budgetSpent: boolean;
 }) {
   const autoRunKey = `request_repair:${messageId}`;
+  const autoRun = useLatchedAutoRun(autoRunKey, autoRunNow);
   const [actionState, setActionState] = useState<
     "pending" | "working" | "approved" | "declined" | "failed"
   >(() => {
@@ -1922,7 +1946,7 @@ function OpenClawQuickEditCard({
   action,
   messageId,
   quickEditGranted,
-  autoRun,
+  autoRun: autoRunNow,
   mission,
   budgetSpent,
   builderTarget,
@@ -1938,6 +1962,7 @@ function OpenClawQuickEditCard({
   builderTarget: { chatId: string; versionId: string } | null;
 }) {
   const autoRunKey = `apply_quick_edit:${messageId}`;
+  const autoRun = useLatchedAutoRun(autoRunKey, autoRunNow);
   const [actionState, setActionState] = useState<
     "pending" | "working" | "applied" | "declined" | "failed"
   >(() => {
