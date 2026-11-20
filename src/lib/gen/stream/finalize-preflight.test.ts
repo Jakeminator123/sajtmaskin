@@ -1254,9 +1254,9 @@ describe("runFinalizePreflight", () => {
     expect(parityIssue).toBeUndefined();
   });
 
-  // SM-135: the contrast pass runs here, once per new version, and not in
-  // repairGeneratedFiles (preview start, export), which this suite mocks.
-  it("repairs an unreadable button label in the new version and records it as a post-merge fix", async () => {
+  // SM-135, advisory: the check runs once per new version on the final files,
+  // reports nearly invisible labels and changes nothing.
+  it("reports an unreadable button label as an advisory finding and changes no file", async () => {
     buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
     const result = await runFinalizePreflight({
       chatId: "chat_contrast",
@@ -1273,15 +1273,15 @@ describe("runFinalizePreflight", () => {
     const cta = (JSON.parse(result.filesJson) as Array<{ path: string; content: string }>).find(
       (file) => file.path === "components/cta.tsx",
     );
-    // The theme file is never written; the button gets a readable label of its own.
     expect(globals?.content).toContain("--color-primary-foreground: oklch(0.24 0.03 60);");
-    expect(cta?.content).toContain('className="bg-primary text-background px-4"');
-    expect(result.postMergeFixes).toEqual([
-      expect.objectContaining({ fixer: "button-contrast-fixer", lane: "post_merge", file: "components/cta.tsx" }),
+    expect(cta?.content).toBe(CTA_BUTTON);
+    expect(result.buttonContrastFindings).toEqual([
+      expect.objectContaining({ file: "components/cta.tsx", line: 2, tag: "a", background: "bg-primary", text: "text-primary-foreground" }),
     ]);
+    expect(result.postMergeFixes).toEqual([]);
   });
 
-  it("imported-repo mode: leaves button labels exactly as the repo wrote them", async () => {
+  it("imported-repo mode: does not check button labels", async () => {
     buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
     const result = await runFinalizePreflight({
       chatId: "chat_contrast_imported",
@@ -1295,6 +1295,6 @@ describe("runFinalizePreflight", () => {
       ]),
     });
     expect(result.filesJson).toContain("bg-primary text-primary-foreground px-4");
-    expect(result.postMergeFixes.some((fix) => fix.fixer === "button-contrast-fixer")).toBe(false);
+    expect(result.buttonContrastFindings).toEqual([]);
   });
 });
