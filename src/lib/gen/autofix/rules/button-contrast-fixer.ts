@@ -13,23 +13,20 @@
  * Runs once per new version (first build and follow-ups) from
  * `finalize-preflight/runner.ts`, never at preview start or export.
  *
- *  1. Theme pairs in `app/globals.css` `@theme`: `--color-X` against
- *     `--color-X-foreground` (not `muted`, `card`, `popover`), both literal
- *     colors declared only in `@theme`. Below {@link BUTTON_TEXT_MIN_CONTRAST}
- *     the foreground moves to the nearest readable lightness and keeps its hue,
- *     but only to a value readable on every fill the label meets: `X` and its
- *     state tokens (`X-hover`, `X-active`, …) plus the Button's own hover
- *     fill. One unreadable or unknown state fill leaves the token alone.
- *     The brand color itself is never changed (same choice as the app's own
- *     SM-016 fix). This edits a shared token: every `text-X-foreground` follows.
- *  2. Filled buttons in TSX/JSX (`<Button>` default/secondary, `<button>`, `<a>`,
- *     `<Link>`): only when every `bg-`/`text-` class resolves to a known opaque
- *     color, the class list is unconditional string literals, there is no
- *     `style`, spread, `asChild` or `dark:` color, and the text color is set on
- *     the element itself. A failing text class is swapped for the matching
- *     `*-foreground` token, another readable theme token, or white/black, but
- *     only if the new text is also readable in every `hover:`/`focus:`/…
- *     state that changes the background.
+ * `app/globals.css` is read, never written. A theme token is shared by every
+ * surface that uses it, and no pass can see all of them; changing one fixed a
+ * button and broke a hover or a badge elsewhere (Codex on #1763 and #1767).
+ * So each label is fixed on its own button, by its own text class:
+ *
+ * Filled buttons in TSX/JSX (`<Button>` default/secondary, `<button>`, `<a>`,
+ * `<Link>`): only when every `bg-`/`text-` class resolves to a known opaque
+ * color (theme tokens: literal, declared only in `@theme`), the class list is
+ * unconditional string literals, there is no `style`, spread, `asChild` or
+ * `dark:` color, and the text color is set on the element or by its Button
+ * variant. A failing label gets the matching `*-foreground` token, another
+ * readable theme token, or white/black, but only if that text is also readable
+ * in every `hover:`/`focus:`/… state of that element, including the Button
+ * variant's own hover fill. Otherwise the button is left as it is.
  *
  * A repair always lands at WCAG 2 AA for normal text (4.5:1).
  */
@@ -43,7 +40,6 @@ import {
   compositeOver,
   contrastRatio,
   parseCssColor,
-  readableForegroundFor,
   relativeLuminance,
   type RgbaColor,
 } from "./color-contrast";
@@ -70,9 +66,6 @@ const BUTTON_TAGS = new Set(["Button", "button", "a", "Link"]);
 const CLASS_HELPERS = new Set(["cn", "clsx", "cx", "twMerge", "classNames"]);
 const WHITE: RgbaColor = { r: 1, g: 1, b: 1, alpha: 1 };
 const BLACK: RgbaColor = { r: 0, g: 0, b: 0, alpha: 1 };
-
-/** Pairs whose `-foreground` is not a label on the base color. */
-const SKIPPED_TOKEN_PAIRS = new Set(["muted", "card", "popover"]);
 
 /** `bg-*` utilities that do not set a color. */
 const BG_NON_COLOR_RE =
@@ -118,16 +111,9 @@ const formatRatio = (ratio: number) => `${ratio.toFixed(2)}:1`;
 // Theme tokens
 // ---------------------------------------------------------------------------
 
-interface Declaration {
-  raw: string;
-  start: number;
-  end: number;
-}
-
 interface ThemeTokens {
   /** Certain tokens only: a literal color declared in `@theme` and nowhere else. */
   colors: Map<string, RgbaColor>;
-  declarations: Map<string, Declaration>;
   /** Every `--color-*` name declared anywhere in the file. */
   declared: Set<string>;
 }
@@ -158,91 +144,23 @@ function readThemeTokens(css: string): ThemeTokens | null {
   const masked = css.replace(/\/\*[\s\S]*?\*\//g, (comment) => " ".repeat(comment.length));
   const blocks = findThemeBlocks(masked);
   const inTheme = (index: number) => blocks.some((block) => index > block.start && index < block.end);
-  const declarations = new Map<string, Declaration>();
+  const values = new Map<string, string>();
   const outside = new Set<string>();
   const declared = new Set<string>();
   for (const match of masked.matchAll(/(--color-[A-Za-z0-9_-]+)\s*:\s*([^;{}]+?)\s*(?=[;}])/g)) {
-    const [whole, prop, raw] = match;
+    const [, prop, raw] = match;
     const name = prop.slice("--color-".length);
-    const index = match.index ?? 0;
     declared.add(name);
-    if (!inTheme(index)) {
-      outside.add(name);
-      continue;
-    }
-    const start = index + whole.indexOf(raw, prop.length);
-    declarations.set(name, { raw, start, end: start + raw.length });
+    if (inTheme(match.index ?? 0)) values.set(name, raw);
+    else outside.add(name);
   }
   const colors = new Map<string, RgbaColor>();
-  for (const [name, declaration] of declarations) {
+  for (const [name, raw] of values) {
     if (outside.has(name)) continue;
-    const color = parseCssColor(declaration.raw);
+    const color = parseCssColor(raw);
     if (color) colors.set(name, color);
   }
-  return colors.size > 0 ? { colors, declarations, declared } : null;
-}
-
-/** State tokens a theme may define for a fill (`--color-primary-hover`, …). */
-const STATE_SUFFIXES = ["hover", "active", "focus", "focus-visible", "pressed"];
-
-/**
- * The other backgrounds an `X-foreground` label meets: `X`'s state tokens
- * and the host Button's state fill for that variant (`primary-hover`,
- * `secondary/80`). Undeclared names produce no utility and are skipped;
- * `null` when one is declared but not certain.
- */
-function stateFillsFor(bgName: string, tokens: ThemeTokens): RgbaColor[] | null {
-  const values = new Set([
-    ...STATE_SUFFIXES.map((suffix) => `${bgName}-${suffix}`),
-    ...Object.values(BUTTON_VARIANTS)
-      .filter((variant) => variant.bg === bgName)
-      .flatMap((variant) => Object.values(variant.states)),
-  ]);
-  const fills: RgbaColor[] = [];
-  for (const value of values) {
-    if (!tokens.declared.has(value.split("/")[0])) continue;
-    const resolved = resolveColorValue(value, tokens);
-    if (!resolved) return null;
-    fills.push(resolved.color);
-  }
-  return fills;
-}
-
-function fixThemePairs(css: string, tokens: ThemeTokens, path: string, fixes: FixEntryDraft[]): string {
-  const edits: Edit[] = [];
-  for (const [bgName, bgColor] of [...tokens.colors]) {
-    const fgName = `${bgName}-foreground`;
-    const fgColor = tokens.colors.get(fgName);
-    const declaration = tokens.declarations.get(fgName);
-    if (bgName.endsWith("-foreground") || SKIPPED_TOKEN_PAIRS.has(bgName)) continue;
-    if (!fgColor || !declaration || bgColor.alpha < 1) continue;
-    const before = contrastRatio(compositeOver(fgColor, bgColor), bgColor);
-    if (before >= BUTTON_TEXT_MIN_CONTRAST) continue;
-    const stateFills = stateFillsFor(bgName, tokens);
-    if (!stateFills) continue;
-    // Nearest readable value first, then clear near-white/near-black labels.
-    const choice = [readableForegroundFor(bgColor, fgColor), "oklch(0.985 0 0)", "oklch(0.145 0 0)", "oklch(1 0 0)", "oklch(0 0 0)"]
-      .map((value) => ({ value, color: parseCssColor(value) }))
-      .find(
-        (candidate): candidate is { value: string; color: RgbaColor } =>
-          candidate.color !== null &&
-          readableOn(candidate.color, bgColor) &&
-          stateFills.every((fill) => readableOn(candidate.color!, fill)),
-      );
-    // No label reads on the fill and all its states: leave the token as it is.
-    if (!choice) continue;
-    const { value: replacement, color: replacementColor } = choice;
-    edits.push({ start: declaration.start, end: declaration.end, text: replacement });
-    tokens.colors.set(fgName, replacementColor);
-    fixes.push({
-      fixer: BUTTON_CONTRAST_FIXER_ID,
-      category: "mechanical",
-      description: `Raised --color-${fgName} on --color-${bgName} from ${formatRatio(before)} to ${formatRatio(contrastRatio(replacementColor, bgColor))} (WCAG AA)`,
-      file: path,
-      line: lineAt(css, declaration.start),
-    });
-  }
-  return applyEdits(css, edits);
+  return colors.size > 0 ? { colors, declared } : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -552,9 +470,15 @@ function fixButtonsInFile(file: CodeFile, tokens: ThemeTokens, fixes: FixEntryDr
       edits.push({ start: textClass.start, end: textClass.end, text: `${lead}${replacement}${trail}` });
     } else {
       const anchor = bgClass ?? classTokens[classTokens.length - 1];
-      // A default <Button> without classes is covered by the theme pass.
-      if (!anchor) return;
-      edits.push({ start: anchor.literalEnd, end: anchor.literalEnd, text: ` ${replacement}` });
+      if (anchor) {
+        edits.push({ start: anchor.literalEnd, end: anchor.literalEnd, text: ` ${replacement}` });
+      } else if (!attributes.has("className")) {
+        // A plain <Button>: its own className overrides the variant's label.
+        const at = node.tagName.getEnd();
+        edits.push({ start: at, end: at, text: ` className="${replacement}"` });
+      } else {
+        return;
+      }
     }
     fixes.push({
       fixer: BUTTON_CONTRAST_FIXER_ID,
@@ -597,10 +521,8 @@ export function fixButtonContrast(files: CodeFile[]): { files: CodeFile[]; fixes
   if (!tokens) return { files, fixes: [] };
 
   const fixes: FixEntryDraft[] = [];
-  const nextCss = fixThemePairs(themeFile.content, tokens, themeFile.path, fixes);
-  let changed = nextCss !== themeFile.content;
+  let changed = false;
   const nextFiles = files.map((file) => {
-    if (file === themeFile) return changed ? { ...file, content: nextCss } : file;
     if (!SCANNED_FILE_RE.test(file.path) || UI_PRIMITIVE_RE.test(file.path)) return file;
     const next = fixButtonsInFile(file, tokens, fixes);
     if (next !== file) changed = true;
@@ -609,7 +531,10 @@ export function fixButtonContrast(files: CodeFile[]): { files: CodeFile[]; fixes
   return changed ? { files: nextFiles, fixes } : { files, fixes: [] };
 }
 
-/** Receipt counts: theme tokens raised and individual buttons changed. */
+/**
+ * Receipt counts. `tokens` counts theme-file fixes, which the fixer no
+ * longer makes (it never writes `globals.css`); it stays for the receipt.
+ */
 export function countButtonContrastFixes(
   fixes: ReadonlyArray<{ fixer: string; file?: string }>,
 ): { tokens: number; buttons: number } {

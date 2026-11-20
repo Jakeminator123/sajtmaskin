@@ -84,49 +84,93 @@ const LANDING_PAGE = {
 /** R2-1757 repro B: dark primary, white label, white page. */
 const DARK_PRIMARY = { background: "#ffffff", foreground: "#111111", primary: "#111111", "primary-foreground": "#ffffff" };
 
-function token(content: string, name: string): string {
-  const match = content.match(new RegExp(`--color-${name}:\\s*([^;]+);`));
-  if (!match) throw new Error(`--color-${name} missing`);
-  return match[1].trim();
-}
+/** Codex on promote #1763/#1767: dark primary with an unreadable dark label. */
+const DARK_PAIR = { background: "#ffffff", foreground: "#111111", primary: "#111111", "primary-foreground": "#222222" };
 
 function ratio(a: string, b: string): number {
   return contrastRatio(parseCssColor(a)!, parseCssColor(b)!);
 }
 
-describe("fixButtonContrast — theme pairs", () => {
-  it("raises a foreground that a recolored primary left unreadable, and keeps the brand color", () => {
-    const before = css(DARKENED_PRIMARY);
-    expect(ratio(token(before, "primary"), token(before, "primary-foreground"))).toBeLessThan(2);
+describe("fixButtonContrast — theme file is read, never written", () => {
+  /**
+   * Codex on promote #1763 and #1767 (third finding of the kind): a theme pass
+   * that raised `--color-primary-foreground` broke uses it could not see, a
+   * `hover:bg-white` on one button and a `bg-primary/10` badge. Each label is
+   * now fixed on its own button; the token and every other use stay as written.
+   */
+  it("fixes each button locally and leaves the shared token, a badge and a translucent link alone", () => {
+    const globals = file("app/globals.css", css(DARKENED_PRIMARY));
+    const pageFile = page(`      <Button>Boka bord</Button>
+      <a href="/meny" className="bg-primary text-primary-foreground px-4">Meny</a>
+      <span className="rounded bg-primary/10 text-primary-foreground">Nyhet</span>
+      <a href="/nytt" className="bg-primary/10 text-primary-foreground">Nytt</a>`);
+    const result = fixButtonContrast([globals, pageFile]);
+    const out = result.files[1].content;
 
-    const result = fixButtonContrast([file("app/globals.css", before)]);
-    const after = result.files[0].content;
+    expect(result.files[0]).toBe(globals);
+    expect(out).toContain(`<Button className="text-background">Boka bord</Button>`);
+    expect(out).toContain(`className="bg-primary text-background px-4"`);
+    expect(out).toContain(`<span className="rounded bg-primary/10 text-primary-foreground">Nyhet</span>`);
+    expect(out).toContain(`<a href="/nytt" className="bg-primary/10 text-primary-foreground">Nytt</a>`);
+    expect(result.fixes.map((fix) => fix.file)).toEqual(["app/page.tsx", "app/page.tsx"]);
+    expect(ratio(DARKENED_PRIMARY.primary, DARKENED_PRIMARY.background)).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
+    expect(countParseErrors(out, "app/page.tsx")).toBe(0);
+  });
 
-    expect(token(after, "primary")).toBe(DARKENED_PRIMARY.primary);
-    expect(ratio(token(after, "primary"), token(after, "primary-foreground"))).toBeGreaterThanOrEqual(
-      WCAG_AA_NORMAL_TEXT,
-    );
-    expect(result.fixes).toEqual([
-      expect.objectContaining({ fixer: BUTTON_CONTRAST_FIXER_ID, category: "mechanical", file: "app/globals.css", line: 7 }),
+  /** Codex on promote #1767: the button's own `hover:bg-white` must keep its readable label. */
+  it("leaves a button alone when no label reads on its fill and its own hover fill", () => {
+    const globals = file("app/globals.css", css(DARK_PAIR));
+    const pageFile = page(`      <button className="bg-primary text-primary-foreground hover:bg-white">Boka</button>`);
+    const result = fixButtonContrast([globals, pageFile]);
+    expect(result.files[0]).toBe(globals);
+    expect(result.files[1]).toBe(pageFile);
+    expect(result.fixes).toEqual([]);
+  });
+
+  /** Codex on promote #1763: the default Button's hover reads `primary-hover`. */
+  it("leaves a default Button alone when no label reads on primary and primary-hover", () => {
+    const files = [file("app/globals.css", css({ ...DARK_PAIR, "primary-hover": "#eeeeee" })), page(`      <Button>Boka</Button>`)];
+    const result = fixButtonContrast(files);
+    expect(result.files).toBe(files);
+    expect(result.fixes).toEqual([]);
+  });
+
+  it("fixes a default Button on its fill alone when the theme has no hover token", () => {
+    const result = fixButtonContrast([file("app/globals.css", css(DARK_PAIR)), page(`      <Button>Boka</Button>`)]);
+    expect(result.files[1].content).toContain(`<Button className="text-background">Boka</Button>`);
+    expect(ratio(DARK_PAIR.primary, DARK_PAIR.background)).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
+  });
+
+  it("fixes a default Button when one label reads on primary and on primary-hover", () => {
+    const result = fixButtonContrast([
+      file("app/globals.css", css({ ...DARK_PAIR, "primary-hover": "#333333" })),
+      page(`      <Button>Boka</Button>`),
     ]);
-    expect(after.replace(token(after, "primary-foreground"), "X")).toBe(
-      before.replace(DARKENED_PRIMARY["primary-foreground"], "X"),
-    );
+    expect(result.files[1].content).toContain(`<Button className="text-background">Boka</Button>`);
+    expect(ratio("#333333", DARK_PAIR.background)).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
   });
 
-  it("leaves muted, card and popover pairs and the page text alone", () => {
-    const tokens = {
-      ...READABLE,
-      foreground: "oklch(0.9 0 0)",
-      muted: "oklch(0.6 0.02 85)",
-      "muted-foreground": "oklch(0.58 0.02 60)",
-      card: "oklch(0.3 0 0)",
-      "card-foreground": "oklch(0.32 0 0)",
-    };
-    expect(fixButtonContrast([file("app/globals.css", css(tokens))]).fixes).toEqual([]);
+  it("leaves a default Button alone when its hover token cannot be read", () => {
+    const files = [
+      file("app/globals.css", css({ ...DARK_PAIR, "primary-hover": "#333333" }, `:root { --color-primary-hover: #eeeeee; }\n`)),
+      page(`      <Button>Boka</Button>`),
+    ];
+    const result = fixButtonContrast(files);
+    expect(result.files).toBe(files);
   });
 
-  it("does not touch var()-indirected tokens (an imported light/dark switch)", () => {
+  it("checks the secondary Button's own hover fill (secondary/80) over any backdrop", () => {
+    const tokens = { ...DARK_PAIR, secondary: "#1a1a1a", "secondary-foreground": "#262626" };
+    const result = fixButtonContrast([file("app/globals.css", css(tokens)), page(`      <Button variant="secondary">Mer</Button>`)]);
+    expect(result.files[1].content).toContain(`<Button className="text-background" variant="secondary">Mer</Button>`);
+  });
+
+  it("leaves a Button with an empty className alone", () => {
+    const files = [file("app/globals.css", css(DARK_PAIR)), page(`      <Button className="">Boka</Button>`)];
+    expect(fixButtonContrast(files).files).toBe(files);
+  });
+
+  it("does not use var()-indirected tokens (an imported light/dark switch)", () => {
     const content = `:root {
   --primary: oklch(0.35 0.07 150);
   --primary-foreground: oklch(0.22 0.03 60);
@@ -139,8 +183,9 @@ describe("fixButtonContrast — theme pairs", () => {
   --color-primary-foreground: var(--primary-foreground);
 }
 `;
-    const result = fixButtonContrast([file("app/globals.css", content)]);
-    expect(result.files[0].content).toBe(content);
+    const files = [file("app/globals.css", content), page(`      <Button>Boka</Button>`)];
+    const result = fixButtonContrast(files);
+    expect(result.files).toBe(files);
     expect(result.fixes).toEqual([]);
   });
 
@@ -166,60 +211,6 @@ describe("fixButtonContrast — theme pairs", () => {
     const result = fixButtonContrast(files);
     expect(result.files).toBe(files);
     expect(result.fixes).toEqual([]);
-  });
-
-  /**
-   * Promote #1763, Codex P2: raising primary-foreground for the base fill
-   * dropped the default Button's hover (`hover:bg-primary-hover`) from 13.71:1
-   * to 1.11:1. The label must read on every state fill, or stay as it is.
-   */
-  it("leaves the token alone when no label reads on both the fill and its hover fill (Codex case)", () => {
-    const content = css({ background: "#ffffff", foreground: "#111111", primary: "#111111", "primary-foreground": "#222222", "primary-hover": "#eeeeee" });
-    const files = [file("app/globals.css", content), page(`      <Button>Boka</Button>`)];
-    const result = fixButtonContrast(files);
-    expect(result.files).toBe(files);
-    expect(result.fixes).toEqual([]);
-  });
-
-  it("raises the label on the fill alone when the theme has no hover token", () => {
-    const content = css({ background: "#ffffff", foreground: "#111111", primary: "#111111", "primary-foreground": "#222222" });
-    const after = fixButtonContrast([file("app/globals.css", content)]).files[0].content;
-    expect(ratio("#111111", token(after, "primary-foreground"))).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
-  });
-
-  it("picks a label that reads on the fill and on every state token", () => {
-    const content = css({
-      background: "#ffffff",
-      foreground: "#111111",
-      primary: "#111111",
-      "primary-foreground": "#222222",
-      "primary-hover": "#333333",
-      "primary-active": "#2a2a2a",
-    });
-    const after = fixButtonContrast([file("app/globals.css", content)]).files[0].content;
-    const label = token(after, "primary-foreground");
-    for (const fill of ["#111111", "#333333", "#2a2a2a"]) {
-      expect(ratio(fill, label)).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
-    }
-  });
-
-  it("leaves the token alone when a state fill cannot be read", () => {
-    const content = css(
-      { background: "#ffffff", foreground: "#111111", primary: "#111111", "primary-foreground": "#222222", "primary-hover": "#333333" },
-      `:root { --color-primary-hover: #eeeeee; }\n`,
-    );
-    const result = fixButtonContrast([file("app/globals.css", content)]);
-    expect(result.files[0].content).toBe(content);
-    expect(result.fixes).toEqual([]);
-  });
-
-  it("checks the secondary Button's own hover fill (secondary/80)", () => {
-    // Dark secondary with a dark label: a light label must also read on 80 % of it over any backdrop.
-    const content = css({ background: "#ffffff", foreground: "#111111", secondary: "#1a1a1a", "secondary-foreground": "#262626" });
-    const after = fixButtonContrast([file("app/globals.css", content)]).files[0].content;
-    const label = token(after, "secondary-foreground");
-    expect(label).not.toBe("#262626");
-    expect(ratio("#1a1a1a", label)).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
   });
 
   it("is a no-op without a theme file and returns the same array", () => {

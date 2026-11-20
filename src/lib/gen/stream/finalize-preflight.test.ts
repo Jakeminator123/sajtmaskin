@@ -106,6 +106,12 @@ export default function Page() {
 }
 `.trim();
 
+/** A filled link whose token pair (`primary` / `primary-foreground`) is unreadable. */
+const CTA_BUTTON = `export function Cta() {
+  return <a href="/boka" className="bg-primary text-primary-foreground px-4">Boka</a>;
+}
+`;
+
 describe("runFinalizePreflight", () => {
   function withMinimalBaseline(files: unknown): unknown {
     const arr = Array.isArray(files) ? [...files] : [];
@@ -1257,16 +1263,21 @@ describe("runFinalizePreflight", () => {
       model: "gpt-5.4",
       filesJson: JSON.stringify([
         { path: "app/page.tsx", content: RICH_PAGE_CONTENT, language: "tsx" },
+        { path: "components/cta.tsx", content: CTA_BUTTON, language: "tsx" },
         { path: "app/globals.css", content: "@import \"tailwindcss\";\n@theme inline {\n  --color-background: oklch(0.98 0.01 85);\n  --color-foreground: oklch(0.22 0.03 60);\n  --color-primary: oklch(0.35 0.07 150);\n  --color-primary-foreground: oklch(0.24 0.03 60);\n}\n", language: "css" },
       ]),
     });
     const globals = (JSON.parse(result.filesJson) as Array<{ path: string; content: string }>).find(
       (file) => file.path === "app/globals.css",
     );
-    expect(globals?.content).not.toContain("--color-primary-foreground: oklch(0.24 0.03 60);");
-    expect(globals?.content).toContain("--color-primary: oklch(0.35 0.07 150);");
+    const cta = (JSON.parse(result.filesJson) as Array<{ path: string; content: string }>).find(
+      (file) => file.path === "components/cta.tsx",
+    );
+    // The theme file is never written; the button gets a readable label of its own.
+    expect(globals?.content).toContain("--color-primary-foreground: oklch(0.24 0.03 60);");
+    expect(cta?.content).toContain('className="bg-primary text-background px-4"');
     expect(result.postMergeFixes).toEqual([
-      expect.objectContaining({ fixer: "button-contrast-fixer", lane: "post_merge", file: "app/globals.css" }),
+      expect.objectContaining({ fixer: "button-contrast-fixer", lane: "post_merge", file: "components/cta.tsx" }),
     ]);
   });
 
@@ -1278,11 +1289,12 @@ describe("runFinalizePreflight", () => {
       importedRepoMode: true,
       filesJson: JSON.stringify([
         { path: "app/page.tsx", content: RICH_PAGE_CONTENT, language: "tsx" },
+        { path: "components/cta.tsx", content: CTA_BUTTON, language: "tsx" },
         { path: "app/globals.css", content: "@import \"tailwindcss\";\n@theme inline {\n  --color-background: oklch(0.98 0.01 85);\n  --color-foreground: oklch(0.22 0.03 60);\n  --color-primary: oklch(0.35 0.07 150);\n  --color-primary-foreground: oklch(0.24 0.03 60);\n}\n", language: "css" },
         { path: "package.json", content: "{}", language: "json" },
       ]),
     });
-    expect(result.filesJson).toContain("--color-primary-foreground: oklch(0.24 0.03 60);");
+    expect(result.filesJson).toContain("bg-primary text-primary-foreground px-4");
     expect(result.postMergeFixes.some((fix) => fix.fixer === "button-contrast-fixer")).toBe(false);
   });
 });
