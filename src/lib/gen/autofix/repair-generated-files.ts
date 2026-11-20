@@ -25,7 +25,6 @@ import {
   fixLucideLinkMisuse,
 } from "@/lib/gen/autofix/rules/lucide-misuse-fixer";
 import { fixLayoutProviders } from "@/lib/gen/autofix/rules/layout-provider-fixer";
-import { fixButtonContrast } from "@/lib/gen/autofix/rules/button-contrast-fixer";
 import { toFixEntries, type FixEntry, type FixEntryDraft } from "./types";
 import {
   fixMetadataClientConflict,
@@ -434,25 +433,11 @@ export function repairGeneratedFiles(
     return content === file.content ? file : { ...file, content };
   });
 
-  let resultFiles = repairedFiles;
-  const providerResult = fixLayoutProviders(resultFiles);
+  const providerResult = fixLayoutProviders(repairedFiles);
   if (providerResult.fixes.length > 0) {
     fixes.push(...providerResult.fixes);
-    resultFiles = providerResult.files;
+    return { files: providerResult.files, fixes: toFixEntries(fixes, "post_merge") };
   }
 
-  // SM-135: unreadable button labels (below 3:1) are repaired to WCAG AA in the
-  // merged project, including files the follow-up did not emit. A contrast
-  // pass must never cost a build, so a throw leaves the files as they were.
-  try {
-    const contrastResult = fixButtonContrast(resultFiles);
-    if (contrastResult.fixes.length > 0) {
-      fixes.push(...contrastResult.fixes);
-      resultFiles = contrastResult.files;
-    }
-  } catch {
-    // Skip the pass; every other repair above still applies.
-  }
-
-  return { files: resultFiles, fixes: toFixEntries(fixes, "post_merge") };
+  return { files: repairedFiles, fixes: toFixEntries(fixes, "post_merge") };
 }

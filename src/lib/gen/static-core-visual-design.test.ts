@@ -66,13 +66,18 @@ describe("static core visual-design contract", () => {
     expect(core).toContain("**Recoloring a role**");
     expect(core).toContain("Do not add a parallel token (`--color-cta`, `--color-button`)");
     expect(core).toContain("set its `-foreground` partner too");
+    // V-2 (prod 2026-11-20): an override outside `@theme inline` never reached `bg-primary`.
+    expect(core).toContain("**Where a color change takes effect:**");
+    expect(core).toContain("only changes when you edit the `--color-primary` line inside that block");
+    expect(core).toContain("changes nothing on screen");
     expect(core).toContain("WCAG AA, 4.5:1");
   });
 
   it("labels invented facts as examples on the page", () => {
     expect(core).toContain("**Facts the user did not give are examples, and the page says so.**");
     expect(core).toContain("«Exempel på omdömen»");
-    expect(core).toContain("When a Business Facts block is present it decides instead");
+    expect(core).toContain("governs opening hours and contact details only");
+    expect(core).toContain("Prices and reviews still follow the example rule above.");
   });
 
   it("does not prescribe a universal look", () => {

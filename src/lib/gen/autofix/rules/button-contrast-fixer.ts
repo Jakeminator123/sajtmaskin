@@ -1,32 +1,34 @@
 /**
  * Button-text contrast fixer (SM-135).
  *
- * A follow-up like «gör knapparna mörkgröna» used to leave button labels
- * nearly invisible: the model darkened `--color-primary` (or invented a
- * `--color-cta`) but kept a dark foreground, or gave one button a background
- * class and a text class from two different token pairs. A prompt cannot hold
- * that on its own, so the merged project is measured instead.
+ * A follow-up like «gör knapparna mörkgröna» could leave a label nearly
+ * invisible: the model darkened `--color-primary` but kept a dark
+ * `--color-primary-foreground`, or gave a button a background class and a text
+ * class from two different token pairs.
  *
- * Two deterministic passes. A pair is flagged below
- * {@link BUTTON_TEXT_MIN_CONTRAST} (3:1, see there why not 4.5:1 yet); once
- * flagged, the repair always lands at WCAG 2 AA for normal text (4.5:1):
+ * Rule: a fixer that guesses is worse than none. It changes a label only when
+ * it knows, for certain, both the background and the text color of that
+ * button, in every state it can be in. Everything else is left alone.
  *
- *  1. Theme pairs in `app/globals.css` `@theme`: every `--color-X` that has a
- *     `--color-X-foreground`, plus background/foreground. A failing literal
- *     foreground moves to the nearest readable lightness and keeps its hue.
+ * Runs once per new version (first build and follow-ups) from
+ * `finalize-preflight/runner.ts`, never at preview start or export.
+ *
+ *  1. Theme pairs in `app/globals.css` `@theme`: `--color-X` against
+ *     `--color-X-foreground` (not `muted`, `card`, `popover`), both literal
+ *     colors declared only in `@theme`. Below {@link BUTTON_TEXT_MIN_CONTRAST}
+ *     the foreground moves to the nearest readable lightness and keeps its hue.
  *     The brand color itself is never changed (same choice as the app's own
- *     SM-016 fix). `muted` is skipped: `muted-foreground` is secondary text on
- *     the page background, not a label on `bg-muted`.
- *  2. Filled buttons in TSX/JSX (`<Button>`, `<button>`, `<a>`, `<Link>` with an
- *     opaque `bg-*`): background and text class are resolved through the theme
- *     tokens. A failing text class is swapped for the matching `*-foreground`
- *     token (or another readable theme token, then white/black); a button that
- *     only inherits its text color gets the readable class added.
+ *     SM-016 fix). This edits a shared token: every `text-X-foreground` follows.
+ *  2. Filled buttons in TSX/JSX (`<Button>` default/secondary, `<button>`, `<a>`,
+ *     `<Link>`): only when every `bg-`/`text-` class resolves to a known opaque
+ *     color, the class list is unconditional string literals, there is no
+ *     `style`, spread, `asChild` or `dark:` color, and the text color is set on
+ *     the element itself. A failing text class is swapped for the matching
+ *     `*-foreground` token, another readable theme token, or white/black, but
+ *     only if the new text is also readable in every `hover:`/`focus:`/…
+ *     state that changes the background.
  *
- * Anything it cannot evaluate statically is left alone: translucent
- * backgrounds (the backdrop is unknown), gradients, Tailwind palette classes,
- * `var()`-indirected theme values, computed class lists and the shadcn
- * primitives under `components/ui/`.
+ * A repair always lands at WCAG 2 AA for normal text (4.5:1).
  */
 
 import ts from "typescript";
@@ -39,6 +41,7 @@ import {
   contrastRatio,
   parseCssColor,
   readableForegroundFor,
+  relativeLuminance,
   type RgbaColor,
 } from "./color-contrast";
 
@@ -61,24 +64,31 @@ const THEME_FILE_PATHS = ["app/globals.css", "src/app/globals.css"];
 const SCANNED_FILE_RE = /\.(tsx|jsx)$/i;
 const UI_PRIMITIVE_RE = /(?:^|\/)components\/ui\//;
 const BUTTON_TAGS = new Set(["Button", "button", "a", "Link"]);
-const BG_IMAGE_RE = /^bg-(?:gradient|linear|radial|conic|\[(?:url|linear|radial|conic))/;
+const CLASS_HELPERS = new Set(["cn", "clsx", "cx", "twMerge", "classNames"]);
 const WHITE: RgbaColor = { r: 1, g: 1, b: 1, alpha: 1 };
 const BLACK: RgbaColor = { r: 0, g: 0, b: 0, alpha: 1 };
 
-/** Pairs where `-foreground` is not meant as text on the base color. */
-const SKIPPED_TOKEN_PAIRS = new Set(["muted"]);
+/** Pairs whose `-foreground` is not a label on the base color. */
+const SKIPPED_TOKEN_PAIRS = new Set(["muted", "card", "popover"]);
+
+/** `bg-*` utilities that do not set a color. */
+const BG_NON_COLOR_RE =
+  /^bg-(?:(?:no-)?repeat(?:-x|-y|-round|-space)?|cover|contain|auto|fixed|local|scroll|center|top|bottom|left|right|(?:left|right)-(?:top|bottom)|(?:top|bottom)-(?:left|right)|clip-[\w-]+|origin-[\w-]+|blend-[\w-]+|size-\S+|position-\S+|\[(?:length|size|position|percentage):[^\]]+\])$/;
+/** `bg-*` utilities that paint an image, or remove it: the color is not certain. */
+const BG_IMAGE_RE = /^bg-(?:gradient|linear|radial|conic|none|\[(?:url|image:|linear-|radial-|conic-))/;
+/** `text-*` utilities that do not set a color. */
+const TEXT_NON_COLOR_RE =
+  /^text-(?:(?:xs|sm|base|lg|xl|[2-9]xl)(?:\/\S+)?|left|center|right|justify|start|end|wrap|nowrap|balance|pretty|ellipsis|clip|\[(?:length:)?[\d.]+(?:px|rem|em|%|vw|vh|ch|pt)\]|\[(?:clamp|min|max|calc)\([^\]]*\)\])$/;
 
 /**
  * The host's canonical `components/ui/button.tsx`, which every generated
- * project receives. `text: null` = inherited; `bg: null` = unfilled.
+ * project receives. Only variants whose fill and label are certain in every
+ * mode; `outline` and `destructive` carry `dark:` backgrounds, `ghost` and
+ * `link` are unfilled.
  */
-const BUTTON_VARIANTS: Record<string, { bg: string | null; text: string | null }> = {
-  default: { bg: "primary", text: "primary-foreground" },
-  secondary: { bg: "secondary", text: "secondary-foreground" },
-  destructive: { bg: "destructive", text: "white" },
-  outline: { bg: "background", text: null },
-  ghost: { bg: null, text: null },
-  link: { bg: null, text: null },
+const BUTTON_VARIANTS: Record<string, { bg: string; text: string; states: Record<string, string> }> = {
+  default: { bg: "primary", text: "primary-foreground", states: { hover: "primary-hover" } },
+  secondary: { bg: "secondary", text: "secondary-foreground", states: { hover: "secondary/80" } },
 };
 
 interface Edit {
@@ -112,84 +122,74 @@ interface Declaration {
 }
 
 interface ThemeTokens {
-  /** `--color-<name>` declarations inside `@theme` blocks, keyed by `<name>`. */
-  declarations: Map<string, Declaration>;
+  /** Certain tokens only: a literal color declared in `@theme` and nowhere else. */
   colors: Map<string, RgbaColor>;
-  vars: Map<string, string>;
+  declarations: Map<string, Declaration>;
+  /** Every `--color-*` name declared anywhere in the file. */
+  declared: Set<string>;
 }
 
-function findBlocks(css: string): Array<{ kind: "theme" | "root"; start: number; end: number }> {
-  const blocks: Array<{ kind: "theme" | "root"; start: number; end: number }> = [];
-  for (const match of css.matchAll(/(@theme\b[^{;]*|:root)\s*\{/g)) {
+function findThemeBlocks(css: string): Array<{ start: number; end: number }> {
+  const blocks: Array<{ start: number; end: number }> = [];
+  for (const match of css.matchAll(/@theme\b[^{;]*\{/g)) {
     const open = (match.index ?? 0) + match[0].length - 1;
     let depth = 0;
     for (let i = open; i < css.length; i += 1) {
       if (css[i] === "{") depth += 1;
       else if (css[i] === "}" && --depth === 0) {
-        blocks.push({ kind: match[1].startsWith("@theme") ? "theme" : "root", start: open + 1, end: i });
+        blocks.push({ start: open + 1, end: i });
         break;
       }
     }
   }
-  // `:root` first so `@theme` wins for a name declared in both.
-  return blocks.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "root" ? -1 : 1));
+  return blocks;
 }
 
-function resolveVarValue(raw: string, vars: Map<string, string>, depth = 0): string {
-  const match = raw.trim().match(/^var\(\s*(--[\w-]+)\s*(?:,\s*([\s\S]+))?\)$/);
-  if (!match || depth > 5) return raw.trim();
-  const target = vars.get(match[1]);
-  if (target !== undefined) return resolveVarValue(target, vars, depth + 1);
-  return match[2] ? resolveVarValue(match[2], vars, depth + 1) : raw.trim();
-}
-
+/**
+ * Under `@theme inline` Tailwind copies the value into every utility, so a
+ * redefinition elsewhere (`:root`, `.dark`, `@layer base`, a `button {}` rule)
+ * does not reach `bg-*`; without `inline` it overrides at runtime. Either way
+ * a name declared outside `@theme` is not certain, so it is not used.
+ */
 function readThemeTokens(css: string): ThemeTokens | null {
-  // Comments become spaces so offsets still point into the original text.
   const masked = css.replace(/\/\*[\s\S]*?\*\//g, (comment) => " ".repeat(comment.length));
+  const blocks = findThemeBlocks(masked);
+  const inTheme = (index: number) => blocks.some((block) => index > block.start && index < block.end);
   const declarations = new Map<string, Declaration>();
-  const vars = new Map<string, string>();
-  for (const block of findBlocks(masked)) {
-    const inner = masked.slice(block.start, block.end);
-    for (const match of inner.matchAll(/(--[A-Za-z0-9_-]+)\s*:\s*([^;{}]+?)\s*;/g)) {
-      const [whole, name, raw] = match;
-      vars.set(name, raw);
-      if (block.kind !== "theme" || !name.startsWith("--color-")) continue;
-      const start = block.start + (match.index ?? 0) + whole.indexOf(raw, name.length);
-      declarations.set(name.slice("--color-".length), { raw, start, end: start + raw.length });
+  const outside = new Set<string>();
+  const declared = new Set<string>();
+  for (const match of masked.matchAll(/(--color-[A-Za-z0-9_-]+)\s*:\s*([^;{}]+?)\s*(?=[;}])/g)) {
+    const [whole, prop, raw] = match;
+    const name = prop.slice("--color-".length);
+    const index = match.index ?? 0;
+    declared.add(name);
+    if (!inTheme(index)) {
+      outside.add(name);
+      continue;
     }
+    const start = index + whole.indexOf(raw, prop.length);
+    declarations.set(name, { raw, start, end: start + raw.length });
   }
   const colors = new Map<string, RgbaColor>();
   for (const [name, declaration] of declarations) {
-    const color = parseCssColor(resolveVarValue(declaration.raw, vars));
+    if (outside.has(name)) continue;
+    const color = parseCssColor(declaration.raw);
     if (color) colors.set(name, color);
   }
-  return colors.size > 0 ? { declarations, colors, vars } : null;
-}
-
-function pageBackground(tokens: ThemeTokens): RgbaColor {
-  const background = tokens.colors.get("background");
-  return background ? compositeOver(background, WHITE) : WHITE;
+  return colors.size > 0 ? { colors, declarations, declared } : null;
 }
 
 function fixThemePairs(css: string, tokens: ThemeTokens, path: string, fixes: FixEntryDraft[]): string {
-  const pairs: Array<[string, string]> = [["background", "foreground"]];
-  for (const name of tokens.colors.keys()) {
-    if (name.endsWith("-foreground") || SKIPPED_TOKEN_PAIRS.has(name)) continue;
-    if (tokens.colors.has(`${name}-foreground`)) pairs.push([name, `${name}-foreground`]);
-  }
-
   const edits: Edit[] = [];
-  for (const [bgName, fgName] of pairs) {
-    const bgColor = tokens.colors.get(bgName);
+  for (const [bgName, bgColor] of [...tokens.colors]) {
+    const fgName = `${bgName}-foreground`;
     const fgColor = tokens.colors.get(fgName);
     const declaration = tokens.declarations.get(fgName);
-    if (!bgColor || !fgColor || !declaration) continue;
-    const bg = compositeOver(bgColor, bgName === "background" ? WHITE : pageBackground(tokens));
-    const before = contrastRatio(compositeOver(fgColor, bg), bg);
+    if (bgName.endsWith("-foreground") || SKIPPED_TOKEN_PAIRS.has(bgName)) continue;
+    if (!fgColor || !declaration || bgColor.alpha < 1) continue;
+    const before = contrastRatio(compositeOver(fgColor, bgColor), bgColor);
     if (before >= BUTTON_TEXT_MIN_CONTRAST) continue;
-    // A `var()` value is part of a light/dark switch this pass does not model.
-    if (!parseCssColor(declaration.raw)) continue;
-    const replacement = readableForegroundFor(bg, fgColor);
+    const replacement = readableForegroundFor(bgColor, fgColor);
     const replacementColor = parseCssColor(replacement);
     if (!replacementColor) continue;
     edits.push({ start: declaration.start, end: declaration.end, text: replacement });
@@ -197,7 +197,7 @@ function fixThemePairs(css: string, tokens: ThemeTokens, path: string, fixes: Fi
     fixes.push({
       fixer: BUTTON_CONTRAST_FIXER_ID,
       category: "mechanical",
-      description: `Raised --color-${fgName} on --color-${bgName} from ${formatRatio(before)} to ${formatRatio(contrastRatio(replacementColor, bg))} (WCAG AA)`,
+      description: `Raised --color-${fgName} on --color-${bgName} from ${formatRatio(before)} to ${formatRatio(contrastRatio(replacementColor, bgColor))} (WCAG AA)`,
       file: path,
       line: lineAt(css, declaration.start),
     });
@@ -214,8 +214,8 @@ interface ResolvedColor {
   token: string | null;
 }
 
-/** `primary`, `primary/90`, `white`, `[#1f3d2b]`, `[var(--color-cta)]`, `(--cta)`. */
-function resolveColorClass(body: string, tokens: ThemeTokens): ResolvedColor | null {
+/** `primary`, `primary/90`, `white`, `[#1f3d2b]`, `[color:#fff]`, `[var(--color-cta)]`. */
+function resolveColorValue(body: string, tokens: ThemeTokens): ResolvedColor | null {
   let value = body;
   let opacity = 1;
   const modifier = value.match(/^(.*[^/])\/(\d{1,3}|\[[\d.]+%?\])$/);
@@ -228,101 +228,129 @@ function resolveColorClass(body: string, tokens: ThemeTokens): ResolvedColor | n
     } else {
       opacity = Number(raw) / 100;
     }
-    if (!Number.isFinite(opacity)) return null;
+    if (!Number.isFinite(opacity) || opacity < 0 || opacity > 1) return null;
   }
 
   let token: string | null = null;
-  let cssValue = "";
+  let base: RgbaColor | null | undefined = null;
   if (value.startsWith("[") && value.endsWith("]")) {
-    cssValue = value.slice(1, -1).replace(/_/g, " ").replace(/^color:/, "");
-  } else if (value.startsWith("(") && value.endsWith(")")) {
-    cssValue = `var(${value.slice(1, -1)})`;
+    const inner = value.slice(1, -1).replace(/_/g, " ").replace(/^color:/, "");
+    const themeVar = inner.match(/^var\(\s*--color-([\w-]+)\s*\)$/);
+    if (themeVar) {
+      token = themeVar[1];
+      base = tokens.colors.get(token);
+    } else {
+      base = parseCssColor(inner);
+    }
   } else if (tokens.colors.has(value)) {
     token = value;
+    base = tokens.colors.get(value);
   } else if (value === "white" || value === "black") {
-    cssValue = value;
-  } else {
-    return null;
+    base = parseCssColor(value);
   }
-  const themeVar = cssValue.match(/^var\(\s*--color-([\w-]+)\s*\)$/);
-  if (themeVar && tokens.colors.has(themeVar[1])) token = themeVar[1];
-
-  const base = token ? tokens.colors.get(token) : parseCssColor(resolveVarValue(cssValue, tokens.vars));
   if (!base) return null;
-  return { color: { ...base, alpha: base.alpha * Math.min(1, Math.max(0, opacity)) }, token };
+  return { color: { ...base, alpha: base.alpha * opacity }, token };
 }
 
 interface ClassToken {
-  /** Class without a leading `!`. */
-  value: string;
+  prefix: string;
+  utility: string;
   start: number;
   end: number;
-  important: boolean;
-  /** End of the string literal this class sits in. */
+  raw: string;
   literalEnd: number;
 }
 
-interface ClassList {
-  tokens: ClassToken[];
-  /**
-   * End of a plain `className="..."` string. Inside an expression a literal
-   * may be a comparison operand, so only the literal that holds the bg class
-   * is ever appended to there.
-   */
-  plainEnd: number | null;
-  plainNeedsSpace: boolean;
+type Classified =
+  | { kind: "ignore" }
+  | { kind: "unsafe" }
+  | { kind: "bg" | "text"; resolved: ResolvedColor };
+
+/** Splits `md:hover:bg-x` at the last `:` outside brackets. */
+function splitVariant(raw: string): { prefix: string; utility: string } {
+  let depth = 0;
+  let cut = -1;
+  for (let i = 0; i < raw.length; i += 1) {
+    const ch = raw[i];
+    if (ch === "[" || ch === "(") depth += 1;
+    else if (ch === "]" || ch === ")") depth -= 1;
+    else if (ch === ":" && depth === 0) cut = i;
+  }
+  return cut < 0 ? { prefix: "", utility: raw } : { prefix: raw.slice(0, cut), utility: raw.slice(cut + 1) };
 }
 
-function stringLiteralRange(node: ts.Node, sf: ts.SourceFile): { start: number; end: number } {
+function classify(utility: string, tokens: ThemeTokens): Classified {
+  if (utility.startsWith("[")) return { kind: "unsafe" };
+  if (utility.startsWith("bg-")) {
+    if (BG_IMAGE_RE.test(utility)) return { kind: "unsafe" };
+    if (BG_NON_COLOR_RE.test(utility)) return { kind: "ignore" };
+    const resolved = resolveColorValue(utility.slice(3), tokens);
+    return resolved ? { kind: "bg", resolved } : { kind: "unsafe" };
+  }
+  if (utility.startsWith("text-")) {
+    if (TEXT_NON_COLOR_RE.test(utility)) return { kind: "ignore" };
+    const resolved = resolveColorValue(utility.slice(5), tokens);
+    return resolved ? { kind: "text", resolved } : { kind: "unsafe" };
+  }
+  return { kind: "ignore" };
+}
+
+function literalRange(node: ts.Node, sf: ts.SourceFile): { start: number; end: number } {
   return { start: node.getStart(sf) + 1, end: node.getEnd() - 1 };
 }
 
+function isPlainString(node: ts.Node): node is ts.StringLiteral | ts.NoSubstitutionTemplateLiteral {
+  return ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node);
+}
+
 /**
- * Static classes of a `className` attribute. `null` when the class list is
- * computed (template interpolation, `buttonVariants(...)`) and cannot be read.
+ * The class list when it is certain: no `className`, a string, or
+ * `cn(…)`/`clsx(…)` with only string arguments. Any condition, variable or
+ * comparison makes it uncertain (`null`), so branches are never mixed and no
+ * string inside logic is ever rewritten.
  */
-function readClassList(attr: ts.JsxAttribute | undefined, sf: ts.SourceFile): ClassList | null {
-  const ranges: Array<{ start: number; end: number }> = [];
+function readClassTokens(attr: ts.JsxAttribute | undefined, sf: ts.SourceFile): ClassToken[] | null {
   const init = attr?.initializer;
-  if (init && ts.isStringLiteral(init)) {
-    ranges.push(stringLiteralRange(init, sf));
-  } else if (init && ts.isJsxExpression(init) && init.expression) {
-    let computed = false;
-    const walk = (node: ts.Node) => {
-      if (ts.isTemplateExpression(node)) computed = true;
-      else if (ts.isCallExpression(node) && node.expression.getText(sf) === "buttonVariants") computed = true;
-      else if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
-        ranges.push(stringLiteralRange(node, sf));
-      } else ts.forEachChild(node, walk);
-    };
-    walk(init.expression);
-    if (computed) return null;
-  } else if (init) {
-    return null;
+  const ranges: Array<{ start: number; end: number }> = [];
+  if (attr && !init) return null;
+  if (init) {
+    let expression: ts.Node = init;
+    if (ts.isJsxExpression(init)) {
+      if (!init.expression) return null;
+      expression = init.expression;
+      while (ts.isParenthesizedExpression(expression)) expression = expression.expression;
+    }
+    if (isPlainString(expression)) {
+      ranges.push(literalRange(expression, sf));
+    } else if (
+      ts.isCallExpression(expression) &&
+      ts.isIdentifier(expression.expression) &&
+      CLASS_HELPERS.has(expression.expression.text) &&
+      expression.arguments.every(isPlainString)
+    ) {
+      for (const argument of expression.arguments) ranges.push(literalRange(argument, sf));
+    } else {
+      return null;
+    }
   }
 
-  const source = sf.text;
   const tokens: ClassToken[] = [];
   for (const range of ranges) {
-    for (const match of source.slice(range.start, range.end).matchAll(/\S+/g)) {
-      const rawClass = match[0];
-      if (rawClass.includes(":")) continue; // hover:, md:, dark: …
+    for (const match of sf.text.slice(range.start, range.end).matchAll(/\S+/g)) {
+      const raw = match[0];
       const start = range.start + (match.index ?? 0);
+      const { prefix, utility } = splitVariant(raw);
       tokens.push({
-        value: rawClass.replace(/^!/, ""),
+        prefix,
+        utility: utility.replace(/^!|!$/g, ""),
         start,
-        end: start + rawClass.length,
-        important: rawClass.startsWith("!"),
+        end: start + raw.length,
+        raw,
         literalEnd: range.end,
       });
     }
   }
-  const plain = init && ts.isStringLiteral(init) ? ranges[0] : undefined;
-  return {
-    tokens,
-    plainEnd: plain ? plain.end : null,
-    plainNeedsSpace: plain ? source.slice(plain.start, plain.end).trim().length > 0 : false,
-  };
+  return tokens;
 }
 
 function readButtonVariant(attr: ts.JsxAttribute | undefined): string | null {
@@ -335,15 +363,113 @@ function readButtonVariant(attr: ts.JsxAttribute | undefined): string | null {
   return null;
 }
 
-function pickReadableTextToken(bg: ResolvedColor, tokens: ThemeTokens): string {
-  const candidates = [bg.token ? `${bg.token}-foreground` : null, "foreground", "background"];
-  for (const name of candidates) {
-    const color = name ? tokens.colors.get(name) : undefined;
-    if (color && contrastRatio(compositeOver(color, bg.color), bg.color) >= WCAG_AA_NORMAL_TEXT) {
-      return name!;
+/**
+ * Readable on a state background? A translucent background lands between its
+ * composite over black and over white; the label is safe only if both ends
+ * pass and lie on the same side of it.
+ */
+function readableOn(text: RgbaColor, background: RgbaColor): boolean {
+  if (background.alpha >= 1) return contrastRatio(text, background) >= WCAG_AA_NORMAL_TEXT;
+  const overWhite = compositeOver(background, WHITE);
+  const overBlack = compositeOver(background, BLACK);
+  const textLum = relativeLuminance(text);
+  const sameSide = relativeLuminance(overWhite) > textLum === relativeLuminance(overBlack) > textLum;
+  return (
+    sameSide &&
+    contrastRatio(text, overWhite) >= WCAG_AA_NORMAL_TEXT &&
+    contrastRatio(text, overBlack) >= WCAG_AA_NORMAL_TEXT
+  );
+}
+
+interface ElementState {
+  bg?: ResolvedColor;
+  text?: ResolvedColor;
+}
+
+/** Background, text and state colors when all of them are certain, else `null`. */
+function readButtonColors(
+  tagName: string,
+  attributes: Map<string, ts.JsxAttribute>,
+  classTokens: ClassToken[],
+  tokens: ThemeTokens,
+): { bg: ResolvedColor; text: ResolvedColor; textClass: ClassToken | null; bgClass: ClassToken | null; states: Map<string, ElementState> } | null {
+  let bg: ResolvedColor | null = null;
+  let text: ResolvedColor | null = null;
+  let bgClass: ClassToken | null = null;
+  let textClass: ClassToken | null = null;
+  const variantStates = new Map<string, ElementState>();
+  const classStates = new Map<string, ElementState>();
+
+  if (tagName === "Button") {
+    const variant = readButtonVariant(attributes.get("variant"));
+    const style = variant ? BUTTON_VARIANTS[variant] : undefined;
+    if (!style) return null;
+    const variantBg = tokens.colors.get(style.bg);
+    const variantText = tokens.colors.get(style.text);
+    if (variantBg) bg = { color: variantBg, token: style.bg };
+    if (variantText) text = { color: variantText, token: style.text };
+    for (const [prefix, value] of Object.entries(style.states)) {
+      // A token the project never declares produces no utility at all.
+      if (!tokens.declared.has(value.split("/")[0])) continue;
+      const resolved = resolveColorValue(value, tokens);
+      if (!resolved) return null;
+      variantStates.set(prefix, { bg: resolved });
     }
   }
-  return contrastRatio(WHITE, bg.color) >= contrastRatio(BLACK, bg.color) ? "white" : "black";
+
+  for (const token of classTokens) {
+    if (token.prefix === "" && /^opacity-(?!100$)|^mix-blend-/.test(token.utility)) return null;
+    const classified = classify(token.utility, tokens);
+    if (classified.kind === "ignore") continue;
+    if (classified.kind === "unsafe") return null;
+    if (token.prefix.split(":").includes("dark")) return null;
+    if (token.prefix === "") {
+      if (classified.kind === "bg") {
+        if (bgClass) return null;
+        bgClass = token;
+        bg = classified.resolved;
+      } else {
+        if (textClass) return null;
+        textClass = token;
+        text = classified.resolved;
+      }
+      continue;
+    }
+    const state = classStates.get(token.prefix) ?? {};
+    if (state[classified.kind]) return null;
+    state[classified.kind] = classified.resolved;
+    classStates.set(token.prefix, state);
+  }
+
+  // Inherited text or background, or a fill the backdrop shows through.
+  if (!bg || !text || bg.color.alpha < 1) return null;
+  if (tagName !== "Button" && !bgClass) return null;
+
+  // `cn()` lets a className state replace the variant's state of the same kind.
+  const states = new Map<string, ElementState>();
+  for (const prefix of new Set([...variantStates.keys(), ...classStates.keys()])) {
+    const fromClass = classStates.get(prefix) ?? {};
+    const fromVariant = variantStates.get(prefix) ?? {};
+    states.set(prefix, { bg: fromClass.bg ?? fromVariant.bg, text: fromClass.text ?? fromVariant.text });
+  }
+  return { bg, text, textClass, bgClass, states };
+}
+
+function pickReadableText(
+  bg: ResolvedColor,
+  states: Map<string, ElementState>,
+  tokens: ThemeTokens,
+): { name: string; color: RgbaColor } | null {
+  const candidates = [bg.token ? `${bg.token}-foreground` : null, "foreground", "background", "white", "black"];
+  for (const name of candidates) {
+    if (!name) continue;
+    const color = name === "white" ? WHITE : name === "black" ? BLACK : tokens.colors.get(name);
+    if (!color || color.alpha < 1) continue;
+    if (!readableOn(color, bg.color)) continue;
+    const everyState = [...states.values()].every((state) => state.text || !state.bg || readableOn(color, state.bg.color));
+    if (everyState) return { name, color };
+  }
+  return null;
 }
 
 function fixButtonsInFile(file: CodeFile, tokens: ThemeTokens, fixes: FixEntryDraft[]): CodeFile {
@@ -351,81 +477,65 @@ function fixButtonsInFile(file: CodeFile, tokens: ThemeTokens, fixes: FixEntryDr
   if (!/<(?:Button|button|a|Link)[\s/>]/.test(source) || !/\bbg-|<Button\b/.test(source)) return file;
   const sf = ts.createSourceFile(file.path, source, ts.ScriptTarget.Latest, true, scriptKindForFile(file.path));
   const edits: Edit[] = [];
+  const slotChildren = new Set<ts.Node>();
+
+  const attributesOf = (node: ts.JsxOpeningElement | ts.JsxSelfClosingElement) => {
+    const attributes = new Map<string, ts.JsxAttribute>();
+    let spread = false;
+    for (const property of node.attributes.properties) {
+      if (ts.isJsxAttribute(property)) attributes.set(property.name.getText(sf), property);
+      else spread = true;
+    }
+    return { attributes, spread };
+  };
 
   const inspect = (node: ts.JsxOpeningElement | ts.JsxSelfClosingElement) => {
     const tagName = node.tagName.getText(sf);
-    if (!BUTTON_TAGS.has(tagName)) return;
-    const attributes = new Map<string, ts.JsxAttribute>();
-    for (const property of node.attributes.properties) {
-      if (ts.isJsxAttribute(property)) attributes.set(property.name.getText(sf), property);
-    }
-    const classList = readClassList(attributes.get("className"), sf);
-    if (!classList || classList.tokens.some((token) => BG_IMAGE_RE.test(token.value))) return;
-
-    const pick = (prefix: "bg-" | "text-") => {
-      const found = new Map<string, { token: ClassToken; resolved: ResolvedColor }>();
-      for (const token of classList.tokens) {
-        if (!token.value.startsWith(prefix)) continue;
-        const resolved = resolveColorClass(token.value.slice(prefix.length), tokens);
-        if (resolved && !found.has(token.value)) found.set(token.value, { token, resolved });
-      }
-      return found;
-    };
-    const bgClasses = pick("bg-");
-    const textClasses = pick("text-");
-    // Two backgrounds or two text colors = a conditional class list.
-    if (bgClasses.size > 1 || textClasses.size > 1) return;
-    const bgClass = [...bgClasses.values()][0];
-    const textClass = [...textClasses.values()][0];
-
-    let variantStyle: (typeof BUTTON_VARIANTS)[string] | undefined;
-    if (tagName === "Button") {
-      const variant = readButtonVariant(attributes.get("variant"));
-      variantStyle = variant ? BUTTON_VARIANTS[variant] : undefined;
-      if (!variantStyle && !bgClass) return; // computed or custom variant
-    }
-
-    const variantBg = variantStyle?.bg ? tokens.colors.get(variantStyle.bg) : undefined;
-    const bg: ResolvedColor | null =
-      bgClass?.resolved ?? (variantBg ? { color: variantBg, token: variantStyle!.bg } : null);
-    // Unfilled, or translucent over a backdrop this pass cannot see.
-    if (!bg || bg.color.alpha < 1) return;
-
-    const inheritedText = tokens.colors.get("foreground");
-    const text: ResolvedColor | null =
-      textClass?.resolved ??
-      (variantStyle?.text ? resolveColorClass(variantStyle.text, tokens) : null) ??
-      (inheritedText ? { color: inheritedText, token: "foreground" } : null);
-    if (!text) return;
+    if (!BUTTON_TAGS.has(tagName) || slotChildren.has(node)) return;
+    const { attributes, spread } = attributesOf(node);
+    if (spread || attributes.has("style") || attributes.has("asChild")) return;
+    const classTokens = readClassTokens(attributes.get("className"), sf);
+    if (!classTokens) return;
+    const colors = readButtonColors(tagName, attributes, classTokens, tokens);
+    if (!colors) return;
+    const { bg, text, textClass, bgClass, states } = colors;
 
     const before = contrastRatio(compositeOver(text.color, bg.color), bg.color);
     if (before >= BUTTON_TEXT_MIN_CONTRAST) return;
+    const choice = pickReadableText(bg, states, tokens);
+    if (!choice) return;
 
-    const choice = pickReadableTextToken(bg, tokens);
-    const replacement = `text-${choice}`;
+    const replacement = `text-${choice.name}`;
     if (textClass) {
-      const { token } = textClass;
-      edits.push({ start: token.start, end: token.end, text: `${token.important ? "!" : ""}${replacement}` });
-    } else if (bgClass) {
-      const at = bgClass.token.literalEnd;
-      edits.push({ start: at, end: at, text: ` ${replacement}` });
-    } else if (classList.plainEnd !== null) {
-      const at = classList.plainEnd;
-      edits.push({ start: at, end: at, text: classList.plainNeedsSpace ? ` ${replacement}` : replacement });
+      const lead = textClass.raw.startsWith("!") ? "!" : "";
+      const trail = !lead && textClass.raw.endsWith("!") ? "!" : "";
+      edits.push({ start: textClass.start, end: textClass.end, text: `${lead}${replacement}${trail}` });
     } else {
-      return;
+      const anchor = bgClass ?? classTokens[classTokens.length - 1];
+      // A default <Button> without classes is covered by the theme pass.
+      if (!anchor) return;
+      edits.push({ start: anchor.literalEnd, end: anchor.literalEnd, text: ` ${replacement}` });
     }
-    const after = contrastRatio(resolveColorClass(choice, tokens)?.color ?? WHITE, bg.color);
     fixes.push({
       fixer: BUTTON_CONTRAST_FIXER_ID,
       category: "mechanical",
-      description: `Readable <${tagName}> text: ${bgClass?.token.value ?? `bg-${bg.token}`} with ${textClass?.token.value ?? (variantStyle?.text ? `variant text-${variantStyle.text}` : "inherited text")} was ${formatRatio(before)}, now ${replacement} at ${formatRatio(after)} (WCAG AA)`,
+      description: `Readable <${tagName}> text: ${bgClass?.raw ?? `bg-${bg.token}`} with ${textClass?.raw ?? `text-${text.token}`} was ${formatRatio(before)}, now ${replacement} at ${formatRatio(contrastRatio(choice.color, bg.color))} (WCAG AA)`,
       file: file.path,
       line: lineAt(source, node.getStart(sf)),
     });
   };
 
   const visit = (node: ts.Node) => {
+    if (ts.isJsxElement(node)) {
+      const { attributes } = attributesOf(node.openingElement);
+      if (attributes.has("asChild")) {
+        // A Slot merges its classes into the child: neither side is certain alone.
+        for (const child of node.children) {
+          if (ts.isJsxElement(child)) slotChildren.add(child.openingElement);
+          else if (ts.isJsxSelfClosingElement(child)) slotChildren.add(child);
+        }
+      }
+    }
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) inspect(node);
     ts.forEachChild(node, visit);
   };
@@ -435,8 +545,8 @@ function fixButtonsInFile(file: CodeFile, tokens: ThemeTokens, fixes: FixEntryDr
 }
 
 /**
- * Project-level pass over the merged files. Returns the input array untouched
- * (and no fixes) when every evaluated pair reaches {@link BUTTON_TEXT_MIN_CONTRAST}.
+ * Project-level pass over a new version's merged files. Returns the input
+ * array untouched (and no fixes) when nothing is certainly unreadable.
  */
 export function fixButtonContrast(files: CodeFile[]): { files: CodeFile[]; fixes: FixEntryDraft[] } {
   const themeFile = THEME_FILE_PATHS.map((path) => files.find((file) => file.path === path)).find(
@@ -457,4 +567,18 @@ export function fixButtonContrast(files: CodeFile[]): { files: CodeFile[]; fixes
     return next;
   });
   return changed ? { files: nextFiles, fixes } : { files, fixes: [] };
+}
+
+/** Receipt counts: theme tokens raised and individual buttons changed. */
+export function countButtonContrastFixes(
+  fixes: ReadonlyArray<{ fixer: string; file?: string }>,
+): { tokens: number; buttons: number } {
+  let tokens = 0;
+  let buttons = 0;
+  for (const fix of fixes) {
+    if (fix.fixer !== BUTTON_CONTRAST_FIXER_ID) continue;
+    if (fix.file && /\.css$/i.test(fix.file)) tokens += 1;
+    else buttons += 1;
+  }
+  return { tokens, buttons };
 }

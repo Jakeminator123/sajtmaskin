@@ -68,6 +68,8 @@ export type TurnSummaryInput = {
   dossierLabels?: ReadonlyArray<string> | null;
   /** Deterministic autofix count (mechanical repairs such as missing imports). */
   autofixFixCount?: number;
+  /** Button labels made readable this turn (`countButtonContrastFixes`). */
+  buttonContrastFixes?: { tokens: number; buttons: number } | null;
   /** Files whose new content was rejected because it shrank too much. */
   rejectedShrinks?: ReadonlyArray<{ file: string }> | null;
   /** Files reverted by the element-preservation guard. */
@@ -321,6 +323,7 @@ export function buildTurnSummary(input: TurnSummaryInput): string | null {
     routeNames,
     dossierLabels,
     autofixFixCount = 0,
+    buttonContrastFixes,
     rejectedShrinks,
     rejectedStructural,
     previewBlocked = false,
@@ -388,6 +391,16 @@ export function buildTurnSummary(input: TurnSummaryInput): string | null {
   if (kept.length > 0) {
     sentences.push(
       `Obs: jag behöll den tidigare versionen av ${joinSwedish(kept)} eftersom den nya såg ut att ta bort befintligt innehåll — säg till om du faktiskt vill ha bort det.`,
+    );
+  }
+
+  // Visible: the owner did not ask for it, and it can touch files they did not ask about.
+  if (buttonContrastFixes && buttonContrastFixes.tokens > 0) {
+    sentences.push("Jag justerade knapparnas textfärg så att den går att läsa.");
+  } else if (buttonContrastFixes && buttonContrastFixes.buttons > 0) {
+    const count = buttonContrastFixes.buttons;
+    sentences.push(
+      `Jag justerade textfärgen på ${countLabel(count, "knapp", "knappar")} så att ${count === 1 ? "den" : "de"} går att läsa.`,
     );
   }
 

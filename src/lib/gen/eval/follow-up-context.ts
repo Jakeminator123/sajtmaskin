@@ -24,6 +24,8 @@ type FollowUpEvalCase = {
     maxSystemPromptChars: number;
     /** Files whose full content must reach the model for this request. */
     pinnedFiles?: string[];
+    /** Contract text the system prompt must carry for this request. */
+    systemPromptIncludes?: string[];
   };
 };
 
@@ -140,6 +142,11 @@ const CASES: FollowUpEvalCase[] = [
       maxOptimizedMessageChars: 22_000,
       maxSystemPromptChars: 76_000,
       pinnedFiles: ["app/globals.css"],
+      // V-2: the model must learn where Tailwind reads the color (`@theme inline`).
+      systemPromptIncludes: [
+        "only changes when you edit the `--color-primary` line inside that block",
+        "a color or style change the user asks for in the current message outranks items 2–4",
+      ],
     },
   },
 ];
@@ -247,6 +254,11 @@ async function runCase(testCase: FollowUpEvalCase): Promise<FollowUpEvalResult> 
   }
   for (const path of testCase.expected.pinnedFiles ?? []) {
     if (!fileContextDecision.pinnedFiles.includes(path)) issues.push(`${path} not pinned`);
+  }
+  for (const snippet of testCase.expected.systemPromptIncludes ?? []) {
+    if (!generationInput.engineSystemPrompt.includes(snippet)) {
+      issues.push(`system prompt lacks «${snippet.slice(0, 40)}…»`);
+    }
   }
   if (generationInput.promptSize.total.chars > testCase.expected.maxSystemPromptChars) {
     issues.push(

@@ -6,7 +6,7 @@ Content quality strongly affects perceived design quality. Keep copy specific an
 
 Write realistic, specific content that matches the site's purpose. NEVER use lorem ipsum or generic "Feature 1", "Feature 2" text. Match copy to domain with concrete details (names, prices/specs, testimonials, scope, location/hours where relevant).
 
-**Facts the user did not give are examples, and the page says so.** Opening hours, address, phone, e-mail, prices and customer reviews that the request does not supply may be believable examples, but label them visibly in the site's language next to where they appear: e.g. «Exempel på öppettider och kontaktuppgifter – byt till era egna», «Exempelpriser», «Exempel på omdömen». Never present an invented review, reviewer, phone number or address as real. Keep an existing example label until the user gives the real value. When a Business Facts block is present it decides instead: show only what it lists, without an example label.
+**Facts the user did not give are examples, and the page says so.** Opening hours, address, phone, e-mail, prices and customer reviews that the request does not supply may be believable examples, but label them visibly in the site's language next to where they appear: e.g. «Exempel på öppettider och kontaktuppgifter – byt till era egna», «Exempelpriser», «Exempel på omdömen». Never present an invented review, reviewer, phone number or address as real. Keep an existing example label until the user gives the real value. A Business Facts block, when present, governs opening hours and contact details only: show exactly what it lists for those, without an example label, and leave out the ones it does not list. Prices and reviews still follow the example rule above.
 
 ## Media Assets
 

@@ -1,11 +1,13 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { THEME_CLUSTERS } from "@/lib/builder/theme-presets";
+import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
 import type { CodeFile } from "@/lib/gen/parser";
 import {
   BUTTON_CONTRAST_FIXER_ID,
   BUTTON_TEXT_MIN_CONTRAST,
+  countButtonContrastFixes,
   fixButtonContrast,
 } from "./button-contrast-fixer";
 import { WCAG_AA_NORMAL_TEXT, contrastRatio, parseCssColor } from "./color-contrast";
@@ -21,7 +23,23 @@ ${Object.entries(tokens)
 }
 ${extra}`;
 
-const file = (path: string, content: string): CodeFile => ({ path, content, language: "tsx" });
+const file = (filePath: string, content: string): CodeFile => ({ path: filePath, content, language: "tsx" });
+
+const page = (jsx: string) =>
+  file(
+    "app/page.tsx",
+    `import Link from "next/link";
+import { Button } from "@/components/ui/button";
+
+export default function Page() {
+  return (
+    <main>
+${jsx}
+    </main>
+  );
+}
+`,
+  );
 
 /** Café palette after «gör knapparna mörkgröna»: primary darkened, label kept dark. */
 const DARKENED_PRIMARY = {
@@ -44,6 +62,27 @@ const READABLE = {
   card: "oklch(1 0 0)",
   "card-foreground": "oklch(0.2 0.03 60)",
 };
+
+/** `src/lib/gen/scaffolds/landing-page/files/app/globals.css` (R2-1757's fixture). */
+const LANDING_PAGE = {
+  background: "oklch(0.99 0 0)",
+  foreground: "oklch(0.15 0.004 0)",
+  card: "oklch(1 0 0)",
+  "card-foreground": "oklch(0.18 0.004 0)",
+  primary: "oklch(0.58 0.16 258)",
+  "primary-foreground": "oklch(0.98 0 0)",
+  secondary: "oklch(0.96 0.004 0)",
+  "secondary-foreground": "oklch(0.22 0.004 0)",
+  muted: "oklch(0.955 0 0)",
+  "muted-foreground": "oklch(0.45 0.004 0)",
+  accent: "oklch(0.93 0.004 0)",
+  "accent-foreground": "oklch(0.2 0.004 0)",
+  border: "oklch(0.91 0.004 0)",
+  ring: "oklch(0.58 0.16 258)",
+};
+
+/** R2-1757 repro B: dark primary, white label, white page. */
+const DARK_PRIMARY = { background: "#ffffff", foreground: "#111111", primary: "#111111", "primary-foreground": "#ffffff" };
 
 function token(content: string, name: string): string {
   const match = content.match(new RegExp(`--color-${name}:\\s*([^;]+);`));
@@ -68,26 +107,26 @@ describe("fixButtonContrast — theme pairs", () => {
       WCAG_AA_NORMAL_TEXT,
     );
     expect(result.fixes).toEqual([
-      expect.objectContaining({
-        fixer: BUTTON_CONTRAST_FIXER_ID,
-        category: "mechanical",
-        file: "app/globals.css",
-        line: 7,
-      }),
+      expect.objectContaining({ fixer: BUTTON_CONTRAST_FIXER_ID, category: "mechanical", file: "app/globals.css", line: 7 }),
     ]);
-    // Everything else in the file is byte-identical.
     expect(after.replace(token(after, "primary-foreground"), "X")).toBe(
       before.replace(DARKENED_PRIMARY["primary-foreground"], "X"),
     );
   });
 
-  it("leaves muted-foreground alone: it is secondary text on the page, not a label on bg-muted", () => {
-    const tokens = { ...READABLE, muted: "oklch(0.6 0.02 85)", "muted-foreground": "oklch(0.5 0.02 60)" };
-    const result = fixButtonContrast([file("app/globals.css", css(tokens))]);
-    expect(result.fixes).toEqual([]);
+  it("leaves muted, card and popover pairs and the page text alone", () => {
+    const tokens = {
+      ...READABLE,
+      foreground: "oklch(0.9 0 0)",
+      muted: "oklch(0.6 0.02 85)",
+      "muted-foreground": "oklch(0.58 0.02 60)",
+      card: "oklch(0.3 0 0)",
+      "card-foreground": "oklch(0.32 0 0)",
+    };
+    expect(fixButtonContrast([file("app/globals.css", css(tokens))]).fixes).toEqual([]);
   });
 
-  it("does not rewrite var()-indirected tokens (an imported light/dark switch)", () => {
+  it("does not touch var()-indirected tokens (an imported light/dark switch)", () => {
     const content = `:root {
   --primary: oklch(0.35 0.07 150);
   --primary-foreground: oklch(0.22 0.03 60);
@@ -105,32 +144,40 @@ describe("fixButtonContrast — theme pairs", () => {
     expect(result.fixes).toEqual([]);
   });
 
+  /**
+   * V-2 (prod 2026-11-20): `--color-primary` redefined in `@layer base` for
+   * buttons never reaches `bg-primary` under `@theme inline`. A token declared
+   * outside `@theme` is uncertain, so nothing that reads it is touched.
+   */
+  it("treats a token redeclared outside @theme as unknown", () => {
+    const content = css(
+      { ...DARKENED_PRIMARY, button: "#7b292d" },
+      `@layer base {
+  [data-slot="button"], :is(a, button).bg-primary {
+    --color-primary: var(--color-button);
+  }
+}
+`,
+    );
+    const files = [
+      file("app/globals.css", content),
+      page(`      <a href="#" className="bg-primary text-foreground">Se vår meny</a>`),
+    ];
+    const result = fixButtonContrast(files);
+    expect(result.files).toBe(files);
+    expect(result.fixes).toEqual([]);
+  });
+
   it("is a no-op without a theme file and returns the same array", () => {
-    const files = [file("app/page.tsx", `export default function P() { return <button className="bg-primary">x</button>; }`)];
+    const files = [page(`      <button className="bg-primary">x</button>`)];
     const result = fixButtonContrast(files);
     expect(result.files).toBe(files);
     expect(result.fixes).toEqual([]);
   });
 });
 
-describe("fixButtonContrast — filled buttons", () => {
-  const page = (jsx: string) =>
-    file(
-      "app/page.tsx",
-      `import Link from "next/link";
-import { Button } from "@/components/ui/button";
-
-export default function Page() {
-  return (
-    <main>
-${jsx}
-    </main>
-  );
-}
-`,
-    );
-
-  it("swaps a mismatched text class on an invented CTA token («Hitta hit», SM-135)", () => {
+describe("fixButtonContrast — filled buttons it is certain about", () => {
+  it("swaps a mismatched text class on an invented CTA token, checking the hover fill too («Hitta hit»)", () => {
     const tokens = { ...READABLE, cta: "oklch(0.32 0.06 150)" };
     const result = fixButtonContrast([
       file("app/globals.css", css(tokens)),
@@ -152,7 +199,7 @@ ${jsx}
     expect(result.files[1].content).toContain(`className="bg-cta text-cta-foreground px-4"`);
   });
 
-  it("adds a text class to a <Button> whose className overrides only the background", () => {
+  it("adds a text class to a default <Button> whose unconditional cn() overrides only the background", () => {
     const tokens = { ...READABLE, "primary-foreground": "oklch(0.2 0.03 60)", primary: "oklch(0.85 0.1 90)", cta: "oklch(0.3 0.08 25)" };
     const result = fixButtonContrast([
       file("app/globals.css", css(tokens)),
@@ -160,21 +207,11 @@ ${jsx}
     ]);
     const out = result.files[1].content;
     expect(out).toContain(`cn("bg-cta hover:bg-cta/90 text-background", "rounded-full")`);
+    expect(result.fixes[0]?.description).toContain("with text-primary-foreground");
     expect(countParseErrors(out, "app/page.tsx")).toBe(0);
   });
 
-  it("appends only into the literal that holds the bg class, never into a comparison operand", () => {
-    const tokens = { ...READABLE, cta: "oklch(0.3 0.08 25)" };
-    const result = fixButtonContrast([
-      file("app/globals.css", css(tokens)),
-      page(`      <button className={cn(tone === "dark" && "rounded bg-cta", size === "lg" && "px-8")}>Beställ</button>`),
-    ]);
-    const out = result.files[1].content;
-    expect(out).toContain(`cn(tone === "dark" && "rounded bg-cta text-background", size === "lg" && "px-8")`);
-    expect(result.fixes[0]?.description).toContain("inherited text");
-  });
-
-  it("fixes a white pill whose label is also white", () => {
+  it("fixes a white pill whose label is also white, keeping !important", () => {
     const result = fixButtonContrast([
       file("app/globals.css", css(READABLE)),
       page(`      <Link href="/kontakt" className="!text-primary-foreground rounded-full bg-white px-4">Kontakt</Link>`),
@@ -188,31 +225,6 @@ ${jsx}
       page(`      <button type="button" className="bg-[rgb(48,75,56)] text-[#1f2a22] px-4">Hitta hit</button>`),
     ]);
     expect(result.files[1].content).toContain(`className="bg-[rgb(48,75,56)] text-background px-4"`);
-  });
-
-  it("leaves readable, translucent, gradient, conditional and computed buttons untouched", () => {
-    const files = [
-      file("app/globals.css", css(READABLE)),
-      page(`      <Button>Boka</Button>
-      <Button variant="ghost" className="text-foreground">Mer</Button>
-      <Link href="/" className="bg-primary text-primary-foreground">Start</Link>
-      <a href="#" className="bg-white/10 text-white backdrop-blur">Glas</a>
-      <a href="#" className="bg-gradient-to-r from-primary to-card text-foreground">Gradient</a>
-      <Link href="/" className={active ? "bg-primary text-foreground" : "bg-card text-foreground"}>Flik</Link>
-      <button className={\`bg-\${tone} text-foreground\`}>Mall</button>
-      <Link href="/" className="hover:bg-primary hover:text-foreground">Hover</Link>
-      <Button variant={variant}>Okänd</Button>`),
-    ];
-    const result = fixButtonContrast(files);
-    expect(result.files).toBe(files);
-    expect(result.fixes).toEqual([]);
-  });
-
-  it("never edits the shadcn primitives under components/ui", () => {
-    const tokens = { ...READABLE, cta: "oklch(0.32 0.06 150)" };
-    const primitive = file("components/ui/button.tsx", `export const x = <button className="bg-cta text-foreground" />;`);
-    const result = fixButtonContrast([file("app/globals.css", css(tokens)), primitive]);
-    expect(result.files[1]).toBe(primitive);
   });
 
   it("is idempotent", () => {
@@ -229,23 +241,134 @@ ${jsx}
   });
 });
 
-describe("fixButtonContrast — gate (orchestrator decision 2026-11-20, SM-153)", () => {
+/**
+ * R2-1757 (head 5a185e47) ran these against the PR and got a readable label
+ * made unreadable, a branch rewritten or logic changed. Bots: Codex (yellow,
+ * var() switch, branches, comparison, hover) and Bugbot (`color:` and
+ * unresolved `bg-` on <Button>). Each must now stay exactly as written.
+ */
+describe("fixButtonContrast — leaves every uncertain button alone (R2-1757 A–O, Codex, Bugbot)", () => {
+  const shadcnVarTheme = `@import "tailwindcss";
+:root {
+  --background: #ffffff;
+  --foreground: #333333;
+  --primary: #777777;
+}
+.dark {
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --primary: #111111;
+}
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+}
+`;
+
+  const cases: Array<[string, string, string]> = [
+    ["A outline + bg-transparent + text-white on a dark hero", css(LANDING_PAGE), `<section className="relative bg-black"><Button size="lg" variant="outline" className="border-white/40 bg-transparent text-white hover:bg-white/10">Läs mer</Button></section>`],
+    ["B outline + bg-transparent in a bg-primary band", css(LANDING_PAGE), `<section className="bg-primary text-primary-foreground"><Button variant="outline" className="bg-transparent text-primary-foreground">Kontakta oss</Button></section>`],
+    ["C secondary + bg-transparent + text-white", css(LANDING_PAGE), `<Button variant="secondary" className="bg-transparent text-white">Mer</Button>`],
+    ["D <a> bg-transparent text-white", css(LANDING_PAGE), `<a href="#" className="border border-white bg-transparent text-white">Läs mer</a>`],
+    ["E outline with an inline style background", css(LANDING_PAGE), `<Button variant="outline" style={{ backgroundColor: "#111" }} className="text-white">Boka</Button>`],
+    ["F outline + bg-none", css(LANDING_PAGE), `<Button variant="outline" className="bg-none text-white">Info</Button>`],
+    ["G default Button + bg-transparent + text-white", css(LANDING_PAGE), `<Button className="bg-transparent text-white">Start</Button>`],
+    ["H outline + palette bg-slate-900", css(LANDING_PAGE), `<Button variant="outline" className="bg-slate-900 text-white">Boka</Button>`],
+    ["I secondary + palette bg-emerald-700", css(LANDING_PAGE), `<Button variant="secondary" className="bg-emerald-700 text-white hover:bg-emerald-800">Boka</Button>`],
+    ["J outline + unknown var()", css(LANDING_PAGE), `<Button variant="outline" className="bg-[var(--brand)] text-white">Boka</Button>`],
+    ["K <a> palette bg-slate-900", css(LANDING_PAGE), `<a href="#" className="bg-slate-900 text-white">Boka</a>`],
+    ["L var() theme with a .dark switch", shadcnVarTheme, `<a href="#" className="bg-primary text-white">Boka</a>`],
+    ["M background and text in different branches", css(DARK_PRIMARY), `<a href="#" className={active ? "bg-primary" : "text-black"}>Flik</a>`],
+    ["N hover:bg-white would hide the new label", css(DARK_PRIMARY), `<a href="#" className="bg-primary text-black hover:bg-white">Boka</a>`],
+    ["O comparison operand", css(DARK_PRIMARY), `<a href="#" className={tone === "text-black" ? "bg-primary" : ""}>Flik</a>`],
+    ["Codex: <Button> palette bg-yellow-300", css(DARK_PRIMARY), `<Button className="bg-yellow-300 text-black">Boka</Button>`],
+    ["Bugbot: text-[color:var(--x)]", css(DARK_PRIMARY), `<a href="#" className="bg-primary text-[color:var(--label)]">Boka</a>`],
+    ["condition inside cn()", css({ ...READABLE, cta: "oklch(0.3 0.08 25)" }), `<button className={cn(tone === "dark" && "rounded bg-cta", size === "lg" && "px-8")}>Beställ</button>`],
+    ["inherited text", css({ ...READABLE, cta: "oklch(0.3 0.08 25)" }), `<a href="#" className="rounded bg-cta px-4">Beställ</a>`],
+    ["spread props", css({ ...READABLE, cta: "oklch(0.3 0.08 25)" }), `<a {...props} className="bg-cta text-foreground">Beställ</a>`],
+    ["Button asChild and its child", css({ ...READABLE, cta: "oklch(0.3 0.08 25)" }), `<Button asChild className="bg-cta text-foreground"><Link href="/" className="bg-cta text-foreground">Beställ</Link></Button>`],
+    ["dark: color class", css({ ...READABLE, cta: "oklch(0.3 0.08 25)" }), `<a href="#" className="bg-cta text-foreground dark:bg-background">Beställ</a>`],
+    ["translucent fill", css(READABLE), `<a href="#" className="bg-white/10 text-white backdrop-blur">Glas</a>`],
+    ["gradient", css(READABLE), `<a href="#" className="bg-gradient-to-r from-primary to-card text-foreground">Gradient</a>`],
+    ["template interpolation", css(READABLE), `<button className={\`bg-\${tone} text-foreground\`}>Mall</button>`],
+    ["hover-only colors", css(READABLE), `<Link href="/" className="hover:bg-primary hover:text-foreground">Hover</Link>`],
+    ["computed variant", css(DARKENED_PRIMARY), `<Button variant={variant} className="text-foreground">Okänd</Button>`],
+  ];
+
+  it.each(cases)("%s", (_label, theme, jsx) => {
+    const pageFile = page(`      ${jsx}`);
+    const result = fixButtonContrast([file("app/globals.css", theme), pageFile]);
+    expect(result.files[1]).toBe(pageFile);
+    expect(result.fixes.filter((fix) => fix.file === "app/page.tsx")).toEqual([]);
+  });
+
+  it("never edits the shadcn primitives under components/ui", () => {
+    const tokens = { ...READABLE, cta: "oklch(0.32 0.06 150)" };
+    const primitive = file("components/ui/button.tsx", `export const x = <button className="bg-cta text-foreground" />;`);
+    const result = fixButtonContrast([file("app/globals.css", css(tokens)), primitive]);
+    expect(result.files[1]).toBe(primitive);
+  });
+});
+
+describe("countButtonContrastFixes", () => {
+  it("separates theme tokens from individual buttons and ignores other fixers", () => {
+    expect(
+      countButtonContrastFixes([
+        { fixer: BUTTON_CONTRAST_FIXER_ID, file: "app/globals.css" },
+        { fixer: BUTTON_CONTRAST_FIXER_ID, file: "app/page.tsx" },
+        { fixer: BUTTON_CONTRAST_FIXER_ID, file: "components/site-header.tsx" },
+        { fixer: "react-import-fixer", file: "app/page.tsx" },
+      ]),
+    ).toEqual({ tokens: 1, buttons: 2 });
+  });
+});
+
+describe("fixButtonContrast — gate and curated palettes (orchestrator decision 2026-11-20, SM-153)", () => {
+  const root = process.cwd();
+  const kebab = (key: string) => key.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
+  const cssFromTokens = (tokens: Record<string, unknown>) =>
+    css(
+      Object.fromEntries(
+        Object.entries(tokens)
+          .filter(([, value]) => typeof value === "string" && parseCssColor(value) !== null)
+          .map(([key, value]) => [kebab(key), value as string]),
+      ),
+    );
+  const walk = (dir: string, match: RegExp): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+      entry.isDirectory() ? walk(path.join(dir, entry.name), match) : match.test(entry.name) ? [path.join(dir, entry.name)] : [],
+    );
+  const scaffoldsDir = path.join(root, "src/lib/gen/scaffolds");
+  const scaffoldIds = readdirSync(scaffoldsDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && existsSync(path.join(scaffoldsDir, entry.name, "files/app/globals.css")))
+    .map((entry) => entry.name);
+  const scaffoldFiles = (id: string): CodeFile[] => {
+    const filesDir = path.join(scaffoldsDir, id, "files");
+    return walk(filesDir, /\.(css|tsx|jsx)$/).map((full) =>
+      file(path.relative(filesDir, full).split(path.sep).join("/"), readFileSync(full, "utf8")),
+    );
+  };
+  const variantsOf = (id: string): Array<[string, Record<string, unknown>]> => {
+    const dir = path.join(root, "config/scaffold-variants", id);
+    if (!existsSync(dir)) return [];
+    return walk(dir, /\.json$/)
+      .map((full) => [path.basename(full), (JSON.parse(readFileSync(full, "utf8")) as { themeTokens?: Record<string, unknown> }).themeTokens] as const)
+      .filter((entry): entry is [string, Record<string, unknown>] => Boolean(entry[1]));
+  };
+
   it("repairs only nearly invisible labels: 3:1 for now, while the goal stays 4.5:1", () => {
     expect(BUTTON_TEXT_MIN_CONTRAST).toBe(3);
     expect(BUTTON_TEXT_MIN_CONTRAST).toBeLessThan(WCAG_AA_NORMAL_TEXT);
   });
 
   it("leaves a label between 3:1 and 4.5:1 alone (scaffold default blue, 4.10:1)", () => {
-    const tokens = { ...READABLE, primary: "oklch(0.58 0.16 258)", "primary-foreground": "oklch(0.98 0 0)" };
-    expect(ratio(tokens.primary, tokens["primary-foreground"])).toBeGreaterThan(BUTTON_TEXT_MIN_CONTRAST);
-    expect(ratio(tokens.primary, tokens["primary-foreground"])).toBeLessThan(WCAG_AA_NORMAL_TEXT);
     const files = [
-      file("app/globals.css", css(tokens)),
-      file("app/page.tsx", `export default function P() { return <a href="/boka" className="bg-primary text-primary-foreground">Boka</a>; }`),
+      file("app/globals.css", css(LANDING_PAGE)),
+      page(`      <a href="/boka" className="bg-primary text-primary-foreground">Boka</a>`),
     ];
     const result = fixButtonContrast(files);
     expect(result.files).toBe(files);
-    expect(result.fixes).toEqual([]);
   });
 
   /**
@@ -253,32 +376,11 @@ describe("fixButtonContrast — gate (orchestrator decision 2026-11-20, SM-153)"
    * 4.5:1 makes this fail until the palettes are fixed at source (SM-153).
    */
   it("leaves every curated palette untouched (scaffold defaults, variants, clusters)", () => {
-    const root = process.cwd();
-    const kebab = (key: string) => key.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
-    const cssFromTokens = (tokens: Record<string, unknown>) =>
-      css(
-        Object.fromEntries(
-          Object.entries(tokens)
-            .filter(([, value]) => typeof value === "string" && parseCssColor(value) !== null)
-            .map(([key, value]) => [kebab(key), value as string]),
-        ),
-      );
     const sources: Array<[string, string]> = [];
-
-    const scaffoldsDir = path.join(root, "src/lib/gen/scaffolds");
-    for (const entry of readdirSync(scaffoldsDir, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      try {
-        sources.push([`scaffold:${entry.name}`, readFileSync(path.join(scaffoldsDir, entry.name, "files/app/globals.css"), "utf8")]);
-      } catch {
-        // scaffold without its own globals.css
-      }
+    for (const id of scaffoldIds) {
+      sources.push([`scaffold:${id}`, readFileSync(path.join(scaffoldsDir, id, "files/app/globals.css"), "utf8")]);
     }
-    const walk = (dir: string): string[] =>
-      readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
-        entry.isDirectory() ? walk(path.join(dir, entry.name)) : entry.name.endsWith(".json") ? [path.join(dir, entry.name)] : [],
-      );
-    for (const variantFile of walk(path.join(root, "config/scaffold-variants"))) {
+    for (const variantFile of walk(path.join(root, "config/scaffold-variants"), /\.json$/)) {
       const json = JSON.parse(readFileSync(variantFile, "utf8")) as { themeTokens?: Record<string, unknown> };
       if (json.themeTokens) sources.push([`variant:${path.basename(variantFile)}`, cssFromTokens(json.themeTokens)]);
     }
@@ -286,7 +388,6 @@ describe("fixButtonContrast — gate (orchestrator decision 2026-11-20, SM-153)"
       sources.push([`cluster:${id}:light`, cssFromTokens(cluster.light as unknown as Record<string, unknown>)]);
       sources.push([`cluster:${id}:dark`, cssFromTokens(cluster.dark as unknown as Record<string, unknown>)]);
     }
-
     expect(sources.filter(([label]) => label.startsWith("scaffold:")).length).toBeGreaterThanOrEqual(10);
     expect(sources.filter(([label]) => label.startsWith("variant:")).length).toBeGreaterThanOrEqual(40);
     const restyled = sources
@@ -294,5 +395,39 @@ describe("fixButtonContrast — gate (orchestrator decision 2026-11-20, SM-153)"
       .filter((entry) => entry.fixes.length > 0)
       .map((entry) => `${entry.label}: ${entry.fixes.map((fix) => fix.description).join("; ")}`);
     expect(restyled).toEqual([]);
+  });
+
+  it("changes nothing on the scaffolds' real pages, with their own theme and every variant's", () => {
+    expect(scaffoldIds.length).toBeGreaterThanOrEqual(10);
+    const changed: string[] = [];
+    for (const id of scaffoldIds) {
+      const files = scaffoldFiles(id);
+      const themes: Array<[string, string]> = [
+        ["default", files.find((entry) => entry.path === "app/globals.css")!.content],
+        ...variantsOf(id).map(([name, tokens]): [string, string] => [name, cssFromTokens(tokens)]),
+      ];
+      for (const [theme, content] of themes) {
+        const withTheme = files.map((entry) => (entry.path === "app/globals.css" ? { ...entry, content } : entry));
+        for (const fix of fixButtonContrast(withTheme).fixes) changed.push(`${id}/${theme}: ${fix.file}:${fix.line} ${fix.description}`);
+      }
+    }
+    expect(changed).toEqual([]);
+  });
+});
+
+describe("where it runs", () => {
+  /**
+   * `repairGeneratedFiles` also runs at preview start, export and download on
+   * versions nobody is changing; the contrast pass belongs to a new version
+   * only (`finalize-preflight/runner.ts`, covered in finalize-preflight.test.ts).
+   */
+  it("is not part of repairGeneratedFiles", () => {
+    const files = [
+      file("app/globals.css", css(DARKENED_PRIMARY)),
+      page(`      <Link href="#karta" className="bg-primary text-foreground">Hitta hit</Link>`),
+    ];
+    const result = repairGeneratedFiles(files);
+    expect(result.fixes.some((fix) => fix.fixer === BUTTON_CONTRAST_FIXER_ID)).toBe(false);
+    expect(result.files.find((entry) => entry.path === "app/globals.css")?.content).toBe(files[0].content);
   });
 });
