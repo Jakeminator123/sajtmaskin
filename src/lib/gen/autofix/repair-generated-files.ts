@@ -441,7 +441,7 @@ export function repairGeneratedFiles(
     resultFiles = providerResult.files;
   }
 
-  // SM-135: button labels must meet WCAG AA against their background in the
+  // SM-135: unreadable button labels (below 3:1) are repaired to WCAG AA in the
   // merged project, including files the follow-up did not emit. A contrast
   // pass must never cost a build, so a throw leaves the files as they were.
   try {

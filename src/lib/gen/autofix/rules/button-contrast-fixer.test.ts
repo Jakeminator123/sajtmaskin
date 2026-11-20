@@ -1,6 +1,13 @@
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { THEME_CLUSTERS } from "@/lib/builder/theme-presets";
 import type { CodeFile } from "@/lib/gen/parser";
-import { BUTTON_CONTRAST_FIXER_ID, fixButtonContrast } from "./button-contrast-fixer";
+import {
+  BUTTON_CONTRAST_FIXER_ID,
+  BUTTON_TEXT_MIN_CONTRAST,
+  fixButtonContrast,
+} from "./button-contrast-fixer";
 import { WCAG_AA_NORMAL_TEXT, contrastRatio, parseCssColor } from "./color-contrast";
 import { countParseErrors } from "./import-binding-ast";
 
@@ -219,5 +226,73 @@ ${jsx}
     const second = fixButtonContrast(first.files);
     expect(second.fixes).toEqual([]);
     expect(second.files).toBe(first.files);
+  });
+});
+
+describe("fixButtonContrast — gate (orchestrator decision 2026-11-20, SM-153)", () => {
+  it("repairs only nearly invisible labels: 3:1 for now, while the goal stays 4.5:1", () => {
+    expect(BUTTON_TEXT_MIN_CONTRAST).toBe(3);
+    expect(BUTTON_TEXT_MIN_CONTRAST).toBeLessThan(WCAG_AA_NORMAL_TEXT);
+  });
+
+  it("leaves a label between 3:1 and 4.5:1 alone (scaffold default blue, 4.10:1)", () => {
+    const tokens = { ...READABLE, primary: "oklch(0.58 0.16 258)", "primary-foreground": "oklch(0.98 0 0)" };
+    expect(ratio(tokens.primary, tokens["primary-foreground"])).toBeGreaterThan(BUTTON_TEXT_MIN_CONTRAST);
+    expect(ratio(tokens.primary, tokens["primary-foreground"])).toBeLessThan(WCAG_AA_NORMAL_TEXT);
+    const files = [
+      file("app/globals.css", css(tokens)),
+      file("app/page.tsx", `export default function P() { return <a href="/boka" className="bg-primary text-primary-foreground">Boka</a>; }`),
+    ];
+    const result = fixButtonContrast(files);
+    expect(result.files).toBe(files);
+    expect(result.fixes).toEqual([]);
+  });
+
+  /**
+   * Curated palettes must not be restyled by a bug fix. Raising the gate to
+   * 4.5:1 makes this fail until the palettes are fixed at source (SM-153).
+   */
+  it("leaves every curated palette untouched (scaffold defaults, variants, clusters)", () => {
+    const root = process.cwd();
+    const kebab = (key: string) => key.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
+    const cssFromTokens = (tokens: Record<string, unknown>) =>
+      css(
+        Object.fromEntries(
+          Object.entries(tokens)
+            .filter(([, value]) => typeof value === "string" && parseCssColor(value) !== null)
+            .map(([key, value]) => [kebab(key), value as string]),
+        ),
+      );
+    const sources: Array<[string, string]> = [];
+
+    const scaffoldsDir = path.join(root, "src/lib/gen/scaffolds");
+    for (const entry of readdirSync(scaffoldsDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      try {
+        sources.push([`scaffold:${entry.name}`, readFileSync(path.join(scaffoldsDir, entry.name, "files/app/globals.css"), "utf8")]);
+      } catch {
+        // scaffold without its own globals.css
+      }
+    }
+    const walk = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+        entry.isDirectory() ? walk(path.join(dir, entry.name)) : entry.name.endsWith(".json") ? [path.join(dir, entry.name)] : [],
+      );
+    for (const variantFile of walk(path.join(root, "config/scaffold-variants"))) {
+      const json = JSON.parse(readFileSync(variantFile, "utf8")) as { themeTokens?: Record<string, unknown> };
+      if (json.themeTokens) sources.push([`variant:${path.basename(variantFile)}`, cssFromTokens(json.themeTokens)]);
+    }
+    for (const [id, cluster] of Object.entries(THEME_CLUSTERS)) {
+      sources.push([`cluster:${id}:light`, cssFromTokens(cluster.light as unknown as Record<string, unknown>)]);
+      sources.push([`cluster:${id}:dark`, cssFromTokens(cluster.dark as unknown as Record<string, unknown>)]);
+    }
+
+    expect(sources.filter(([label]) => label.startsWith("scaffold:")).length).toBeGreaterThanOrEqual(10);
+    expect(sources.filter(([label]) => label.startsWith("variant:")).length).toBeGreaterThanOrEqual(40);
+    const restyled = sources
+      .map(([label, content]) => ({ label, fixes: fixButtonContrast([file("app/globals.css", content)]).fixes }))
+      .filter((entry) => entry.fixes.length > 0)
+      .map((entry) => `${entry.label}: ${entry.fixes.map((fix) => fix.description).join("; ")}`);
+    expect(restyled).toEqual([]);
   });
 });

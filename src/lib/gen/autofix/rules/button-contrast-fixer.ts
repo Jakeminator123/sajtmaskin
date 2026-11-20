@@ -7,7 +7,9 @@
  * class and a text class from two different token pairs. A prompt cannot hold
  * that on its own, so the merged project is measured instead.
  *
- * Two deterministic passes, both against WCAG 2 AA for normal text (4.5:1):
+ * Two deterministic passes. A pair is flagged below
+ * {@link BUTTON_TEXT_MIN_CONTRAST} (3:1, see there why not 4.5:1 yet); once
+ * flagged, the repair always lands at WCAG 2 AA for normal text (4.5:1):
  *
  *  1. Theme pairs in `app/globals.css` `@theme`: every `--color-X` that has a
  *     `--color-X-foreground`, plus background/foreground. A failing literal
@@ -41,6 +43,19 @@ import {
 } from "./color-contrast";
 
 export const BUTTON_CONTRAST_FIXER_ID = "button-contrast-fixer";
+
+/**
+ * Below this a button label counts as unreadable and is repaired.
+ *
+ * 3:1, not WCAG AA's 4.5:1 for normal text, by orchestrator decision
+ * 2026-11-20: the bug to fix is nearly invisible labels (SM-135, ~1.5:1).
+ * Every scaffold default theme (4.10:1), 11 of 41 variants (3.19–4.39:1) and
+ * 13 of 26 cluster palettes (3.95–4.48:1) are below 4.5 today, so a 4.5 gate
+ * would restyle most new builds as a side effect. None is below 3. The goal is
+ * {@link WCAG_AA_NORMAL_TEXT}: raise this once those palettes pass at the
+ * source (SM-153). The "curated palettes" test fails until they do.
+ */
+export const BUTTON_TEXT_MIN_CONTRAST = 3;
 
 const THEME_FILE_PATHS = ["app/globals.css", "src/app/globals.css"];
 const SCANNED_FILE_RE = /\.(tsx|jsx)$/i;
@@ -171,7 +186,7 @@ function fixThemePairs(css: string, tokens: ThemeTokens, path: string, fixes: Fi
     if (!bgColor || !fgColor || !declaration) continue;
     const bg = compositeOver(bgColor, bgName === "background" ? WHITE : pageBackground(tokens));
     const before = contrastRatio(compositeOver(fgColor, bg), bg);
-    if (before >= WCAG_AA_NORMAL_TEXT) continue;
+    if (before >= BUTTON_TEXT_MIN_CONTRAST) continue;
     // A `var()` value is part of a light/dark switch this pass does not model.
     if (!parseCssColor(declaration.raw)) continue;
     const replacement = readableForegroundFor(bg, fgColor);
@@ -384,7 +399,7 @@ function fixButtonsInFile(file: CodeFile, tokens: ThemeTokens, fixes: FixEntryDr
     if (!text) return;
 
     const before = contrastRatio(compositeOver(text.color, bg.color), bg.color);
-    if (before >= WCAG_AA_NORMAL_TEXT) return;
+    if (before >= BUTTON_TEXT_MIN_CONTRAST) return;
 
     const choice = pickReadableTextToken(bg, tokens);
     const replacement = `text-${choice}`;
@@ -421,7 +436,7 @@ function fixButtonsInFile(file: CodeFile, tokens: ThemeTokens, fixes: FixEntryDr
 
 /**
  * Project-level pass over the merged files. Returns the input array untouched
- * (and no fixes) when every evaluated pair already meets WCAG AA.
+ * (and no fixes) when every evaluated pair reaches {@link BUTTON_TEXT_MIN_CONTRAST}.
  */
 export function fixButtonContrast(files: CodeFile[]): { files: CodeFile[]; fixes: FixEntryDraft[] } {
   const themeFile = THEME_FILE_PATHS.map((path) => files.find((file) => file.path === path)).find(
