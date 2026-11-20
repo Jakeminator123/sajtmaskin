@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "c49a8bde2",
+    "commit": "4f4475ab9",
     "commitDate": "2026-11-20",
     "sinceDays": 14
   },
@@ -71,7 +71,7 @@ const DATA: CanvasData = {
     "processes": 8,
     "openP0": 0,
     "openP1": 5,
-    "openP2": 11,
+    "openP2": 10,
     "openP3": 15,
     "blocked": 1,
     "shaky": 6,
@@ -91,9 +91,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 1,
+      "churn": 0,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "1 commits / 14d"
+      "note": "Inga oppna signaler"
     },
     {
       "name": "Codegen core",
@@ -108,7 +108,7 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 2,
+      "churn": 0,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
       "note": "2 oppna backlog-rader (P0:0 P1:0 P2:2 P3:0)"
     },
@@ -125,7 +125,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 2,
+      "churn": 0,
       "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-re",
       "note": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
     },
@@ -142,7 +142,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 1,
+      "churn": 2,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
       "note": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
     },
@@ -159,7 +159,7 @@ const DATA: CanvasData = {
         "P3": 3,
         "other": 0
       },
-      "churn": 2,
+      "churn": 1,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): dynamiska filträd direkt från respektive scaffold-rot, kopiering till webbläsarens ",
       "note": "3 oppna backlog-rader (P0:0 P1:0 P2:0 P3:3)"
     },
@@ -185,11 +185,11 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 28,
+      "openBugs": 27,
       "openByPrio": {
         "P0": 0,
         "P1": 5,
-        "P2": 9,
+        "P2": 8,
         "P3": 14,
         "other": 0
       },
@@ -210,7 +210,7 @@ const DATA: CanvasData = {
         "P3": 2,
         "other": 0
       },
-      "churn": 2,
+      "churn": 0,
       "summary": "Backoffice-yta för den canonicala evalen (`npm run eval`). Ett läge (gratis / smoke / full), en knapp. Scaffold-lanen läser senaste lokala JSON-rapport. Codegen-lanen läser data/ev",
       "note": "3 oppna backlog-rader (P0:0 P1:0 P2:1 P3:2)"
     }
@@ -235,16 +235,16 @@ const DATA: CanvasData = {
       "reason": "3 oppna backlog-rader (P0:0 P1:0 P2:1 P3:2)"
     },
     {
+      "name": "ai_models",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
+    },
+    {
       "name": "Codegen core",
       "statusLabel": "Skakigt",
       "tone": "warning",
       "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:2 P3:0)"
-    },
-    {
-      "name": "prompt-core",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
     }
   ],
   "topOpenRisks": [
@@ -321,7 +321,7 @@ const DATA: CanvasData = {
       "fynd": "`SM-105` Oautentiserad konversationsendpoint kunde skicka leadmejl till fasta mottagare. Svärm 2026-11-03 `A9…"
     }
   ],
-  "topOpenRisksOmitted": 4,
+  "topOpenRisksOmitted": 3,
   "evals": null,
   "phases": [
     "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",

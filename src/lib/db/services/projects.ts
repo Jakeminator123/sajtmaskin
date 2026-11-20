@@ -13,6 +13,7 @@ import {
 import { assertDbConfigured } from "./shared";
 import { hasPostgresErrorCode } from "../postgres-errors";
 import { withProjectOwner } from "./project-owner";
+import { startedProjectCondition } from "./project-started";
 import type { Project, ProjectData, PromptHandoff } from "./shared";
 import {
   buildBrandedLiveDomain,
@@ -160,6 +161,11 @@ export function allocateProjectId(): string {
   return nanoid();
 }
 
+/**
+ * Ägarens projekt för `/projects`. Tomma projekt (ingen chatt, se
+ * `startedProjectCondition`) är med flit utelämnade, med samma definition som
+ * projekttaket räknar (SM-133).
+ */
 export async function getAllProjectsForOwner(scope: ProjectOwnerScope): Promise<Project[]> {
   assertDbConfigured();
   const ownerCondition = buildProjectOwnerCondition(scope);
@@ -167,7 +173,7 @@ export async function getAllProjectsForOwner(scope: ProjectOwnerScope): Promise<
   return await db
     .select()
     .from(appProjects)
-    .where(ownerCondition)
+    .where(and(ownerCondition, startedProjectCondition()))
     .orderBy(desc(appProjects.updated_at));
 }
 
