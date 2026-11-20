@@ -637,6 +637,33 @@ describe("OpenClawMessage — direktbygg via bryggan", () => {
     expect(bridge.sendMessage).toHaveBeenCalledTimes(1);
   });
 
+  // Modellen fick [BYGGMEDGIVANDE] NEJ (eller ingen edit-prompt alls) när
+  // turen skickades. Slås befogenheten på medan svaret strömmar ska kortet
+  // ändå hålla det modellen sa: ett förslag.
+  it("håller sig till beskedet turen skickades med, även om befogenheten hinner slås på", async () => {
+    grantPowers();
+    const bridge = makeBridge();
+    registerBuilderBridge(bridge);
+    const reply = startBuildReply("sb-told-no", { consentAtSend: false });
+    act(() => {
+      useOpenClawStore.setState({ messages: [userTurn("u-told-no", "Gör hero tydligare"), reply] });
+    });
+    render(<OpenClawMessage msg={reply} />);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    });
+    expect(bridge.sendMessage).not.toHaveBeenCalled();
+    expect(screen.getByText("Byggförslag")).toBeTruthy();
+
+    // Samma tur med JA kör direkt.
+    const told = startBuildReply("sb-told-yes", { consentAtSend: true });
+    act(() => {
+      useOpenClawStore.setState({ messages: [userTurn("u-told-yes", "Gör hero tydligare"), told] });
+    });
+    render(<OpenClawMessage msg={told} />);
+    await waitFor(() => expect(bridge.sendMessage).toHaveBeenCalledTimes(1));
+  });
+
   it("kör inte direkt utan befogenheten, även när turen bär medgivande", async () => {
     const bridge = makeBridge();
     registerBuilderBridge(bridge);

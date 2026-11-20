@@ -597,7 +597,7 @@ export function describeComposerDecision(
     return {
       tone: "neutral",
       label: "Auto – frågor besvaras, ändringar byggs",
-      hint: "Frågor går till Sajtagenten och ändrar inget. Ändringar skapar en ny version.",
+      hint: "Frågor besvaras av Sajtagenten. Ber du om en ändring skapas en ny version.",
     };
   }
   if (decision.route === "agent" && context.agentCanAct && context.mode !== "agent") {

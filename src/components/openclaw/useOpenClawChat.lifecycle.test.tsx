@@ -110,6 +110,26 @@ describe("useOpenClawChat — turn ownership", () => {
     expect(payload.buildConsent).toBe(expected);
   });
 
+  it("stores on the reply what the model was told about this turn's actions", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => reply("Jag startar bygget.")));
+    const { result } = renderHook(() => useOpenClawChat());
+    const replies = () => useOpenClawStore.getState().messages.filter((message) => message.role === "assistant");
+
+    // Utan befogenhet får modellen ingen edit-prompt: åtgärder blir förslag.
+    await act(async () => { await result.current.send("Gör hero tydligare", { allowBuild: true }); });
+    expect(replies().at(-1)?.consentAtSend).toBe(false);
+
+    act(() => {
+      useOpenClawStore.setState({ editEnabled: true, powersOn: true, grantedPowers: ["armed_autonomy"] });
+    });
+    await act(async () => { await result.current.send("Gör rubriken större", { allowBuild: true }); });
+    expect(replies().at(-1)?.consentAtSend).toBe(true);
+
+    // En fråga bär aldrig medgivande, med eller utan befogenhet.
+    await act(async () => { await result.current.send("Vad tycker du om startsidan?", { allowBuild: true }); });
+    expect(replies().at(-1)?.consentAtSend).toBe(false);
+  });
+
   it("a stop — typed or clicked — ends the mission: earlier turns lose their consent", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => reply("Okej, jag stoppar.")));
     useOpenClawStore.setState({

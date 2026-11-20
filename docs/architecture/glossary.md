@@ -84,10 +84,9 @@ respektive kod, manifest eller policy. Aktuella inventarier finns i
 | Minor-version | Quick-edit-version under en major, exempelvis `v3.1`. |
 | Sajtagenten / OpenClaw | Användarsynlig assistent; OpenClaw är agentplattformen bakom (gateway på Render). I buildern i samma chatt som byggmotorn, annars flytande bubbla. |
 | Gemensam chatt (builder) | En input och en tidslinje för byggmotor och Sajtagent; `composer-route.ts` väljer mottagare. Agenthistorik i `agent_messages`, aldrig `engine_messages`; `start_build` startar bygge. |
-| Extra befogenheter (OpenClaw) | UI-opt-in ovanpå `OC_EDIT`: sköldknapp + befogenhet (`armed_autonomy` «Agerar direkt» / `quick_edit` / `live_review`); ny builderchatt får alla tre som standard. Med dem på agerar Sajtagenten direkt inom ett uppdrag. |
-| Armerad autonomi | OpenClaw-läge där Sajtagenten efter uttrycklig armering («gör 5 follow-ups …») får skicka ett begränsat antal follow-ups genom den ordinarie pipelinevägen. Ingår i befogenheten `armed_autonomy`, som i gränssnittet heter «Agerar direkt» och även täcker direktbygg och reparation. |
-| Handlingsmedgivande / uppdrag (Sajtagenten) | Regeln som avgör om Sajtagentens `start_build`, `request_repair` och `apply_quick_edit` körs direkt eller visas som kort. Medgivande = text i läget Auto eller Bygg (inte Fråga, «ändra inget», stopp eller frågeord). Ett uppdrag = ett användarmeddelande med högst tre automatiska åtgärder; `[Byggresultat]` för det vidare bara efter agentens eget bygge. Ägs av `agent-action-consent.ts`. |
-| Snabbändring (OpenClaw) | OpenClaw-befogenhet: `apply_quick_edit` med exakta filoperationer som körs genom Fast Edit Lane till en minor-version — direkt när turen bär handlingsmedgivande, annars efter godkännande på kortet. |
+| Extra befogenheter (OpenClaw) | UI-opt-in ovanpå `OC_EDIT`: sköldknapp + `armed_autonomy` («Agerar direkt») / `quick_edit` / `live_review`; ny builderchatt får alla tre. |
+| Armerad autonomi | Sajtagentens follow-up-serie efter uttrycklig armering. Övriga åtgärder körs direkt enligt handlingsmedgivandet (`agent-action-consent.ts`). |
+| Snabbändring (OpenClaw) | Befogenhet: `apply_quick_edit` med exakta filoperationer via Fast Edit Lane till en minor-version, direkt eller efter godkännande. |
 | False-green | Systemet visar grönt trots blocker/degradation. |
 | Innehållsrevision (`files_revision`) | Innehållsidentiteten för en `engine_versions`-rad: DB-genererad `md5(files_json)`. |
 | Error-log RAG | TF-IDF-retriever över historiska fault/fix-events. |

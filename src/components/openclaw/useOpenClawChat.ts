@@ -305,6 +305,18 @@ export function useOpenClawChat() {
       addMessage(userMsg);
 
       const placeholderId = makeId();
+      // Same rule that decides whether an action card runs by itself, so the
+      // server can tell the model the truth about this turn
+      // (`[BYGGMEDGIVANDE]`). It is prompt text only: the card re-checks the
+      // rule before anything runs, so a forged value cannot start a build.
+      // Decided before the placeholder exists, from the turn it will answer,
+      // and stored on the reply so the card cannot act on a turn whose model
+      // was told that its actions only become proposals.
+      const buildConsent = powers.any &&
+        resolveAgentActionConsent(
+          [...nextConversation, { id: placeholderId, role: "assistant", content: "", timestamp: Date.now() }],
+          placeholderId,
+        ).allowed;
       addMessage({
         id: placeholderId,
         role: "assistant",
@@ -312,6 +324,7 @@ export function useOpenClawChat() {
         content: "",
         timestamp: Date.now(),
         kind: "chat",
+        consentAtSend: buildConsent,
         anchorBuilderMessageId,
         anchorBuilderMessageIndex,
         // Bind svaret till builder-målet som gäller NÄR turen skickas — samma
@@ -333,13 +346,6 @@ export function useOpenClawChat() {
         useOpenClawStore.getState().scopeKey === turn.scopeKey &&
         !turn.controller.signal.aborted;
       setStreaming(true);
-
-      // Same rule that decides whether an action card runs by itself, so the
-      // server can tell the model the truth about this turn
-      // (`[BYGGMEDGIVANDE]`). It is prompt text only: the card re-checks the
-      // rule before anything runs, so a forged value cannot start a build.
-      const buildConsent = powers.any &&
-        resolveAgentActionConsent(useOpenClawStore.getState().messages, placeholderId).allowed;
 
       const reference = options?.proposalReference;
       const selectedContext = reference

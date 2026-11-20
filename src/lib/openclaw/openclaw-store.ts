@@ -83,6 +83,14 @@ export interface OpenClawMessage {
    * hydrerad rad — annars startar varje omladdning gamla byggen igen.
    */
   hydrated?: boolean;
+  /**
+   * Svarets tur skickades med `[BYGGMEDGIVANDE] JA` (`buildConsent` i
+   * `useOpenClawChat`). `false` betyder att modellen fick veta att dess
+   * åtgärder bara blir förslag — då får kortet inte köra av sig självt, även
+   * om befogenheten slås på innan svaret är klart. Saknas på rader som inte
+   * skapats av en skickad tur. Hydreras och persisteras aldrig.
+   */
+  consentAtSend?: boolean;
   /** Live transport state. Only completed replies may execute action cards;
    * historical/seeded messages without this field retain their old behavior. */
   delivery?: "streaming" | "complete" | "interrupted";

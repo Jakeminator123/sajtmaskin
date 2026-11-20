@@ -920,10 +920,12 @@ export function ChatInterface({
     const restrictBuild = composerMode === "agent" || isReadOnlyComposerRequest(trimmed);
     // Ett skrivet stopp återkallar oavsett läge och mottagare: i Bygg-läget når
     // texten aldrig agenten, och under ett pågående bygge skickas den inte alls.
+    // Varje mening räknas («Det blev fel. Sluta!»): en falsk träff avslutar bara
+    // autonomin, vilket är den säkra riktningen. Routningen läser snävare.
     if (
       restrictBuild ||
       hasScopedComposerChangeRestriction(trimmed) ||
-      parseStopDirective(trimmed, "leading")
+      parseStopDirective(trimmed)
     ) {
       revokeOpenClawBuildConsent();
     }

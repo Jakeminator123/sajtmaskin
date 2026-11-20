@@ -357,7 +357,11 @@ export function OpenClawMessage({
         : null,
     [actsDirectly, msg.id],
   );
-  const consentAllowsAutoRun = Boolean(actionConsent?.allowed) && isLiveMessage(msg);
+  // `consentAtSend === false`: the model was told this turn's actions only
+  // become proposals, so the card keeps that promise even if a power was
+  // switched on while the reply streamed.
+  const consentAllowsAutoRun =
+    Boolean(actionConsent?.allowed) && isLiveMessage(msg) && msg.consentAtSend !== false;
   const missionTurnId = actionConsent?.missionTurnId ?? null;
   const answeredTurnId = actionConsent?.userTurnId ?? null;
   const mission = useMemo<AgentMission | null>(

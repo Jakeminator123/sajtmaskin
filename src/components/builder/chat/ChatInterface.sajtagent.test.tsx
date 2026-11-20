@@ -329,7 +329,9 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
       });
     });
 
-    await typeAndSend("Stopp");
+    // Stoppet står i andra meningen: routningen läser bara den första, men
+    // återkallandet räknar varje mening.
+    await typeAndSend("Det blev fel. Sluta!");
 
     expect(useOpenClawStore.getState().messages[0].allowBuild).toBe(false);
   });
