@@ -79,11 +79,11 @@ describe("lanyard consent helpers", () => {
     expect(readStoredCookieConsent()).toBeNull();
   });
 
-  it("preloads the 3D card only with consent and without staticOnly", () => {
+  it("preloads the 3D card without staticOnly, with or without consent", () => {
     originalMatchMedia = stubMatchMedia(false);
     restoreConnection = stubConnection(undefined);
 
-    expect(shouldPreloadLanyardCard()).toBe(false);
+    expect(shouldPreloadLanyardCard()).toBe(true);
 
     localStorage.setItem(LANYARD_CONSENT_KEY, "accepted");
     expect(shouldPreloadLanyardCard()).toBe(true);

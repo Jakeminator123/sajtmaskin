@@ -1,5 +1,6 @@
 "use client";
 
+import { APP_VIEWPORT_HEIGHT_CLASS } from "@/lib/app-viewport";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { LandingFooter } from "@/components/landing-v2/landing-footer";
@@ -28,7 +29,7 @@ export function ExempelShell({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <div className="flex h-screen min-h-0 w-full flex-col overflow-x-hidden bg-background supports-[height:100dvh]:h-dvh">
+      <div className={`flex min-h-0 w-full flex-col overflow-x-hidden bg-background ${APP_VIEWPORT_HEIGHT_CLASS}`}>
         <Navbar onLoginClick={handleLoginClick} onRegisterClick={handleRegisterClick} />
 
         <div className="landing-v2-page relative flex min-h-0 flex-1 flex-col overflow-hidden">

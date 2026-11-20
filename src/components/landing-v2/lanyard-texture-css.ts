@@ -24,8 +24,8 @@ export const LANYARD_FRONT_TEXTURE_CROP = {
 } as const satisfies LanyardTextureCrop;
 
 /**
- * CSS-motsvarighet till Three-crop: samma fönster på 2D-fallback och
- * cookie-flippens baksida som på 3D-planen.
+ * CSS-motsvarighet till Three-crop: samma fönster på 2D-fallbacken som på
+ * 3D-planen.
  */
 export function lanyardTextureToCss(crop: LanyardTextureCrop): LanyardTextureCss {
   const widthPct = 100 / crop.repeatX;

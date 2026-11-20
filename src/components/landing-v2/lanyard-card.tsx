@@ -357,7 +357,7 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true, onReady }: BandP
 
   // Ge kortet en liten knuff i starten så det gungar mjukt till liv.
   // Knuffen är lagom stor så att snodden känns spänd och kortet snabbt
-  // hittar tillbaka till mitten. Hoppas över efter cookie-flippen.
+  // hittar tillbaka till mitten.
   useEffect(() => {
     if (!autoSwing) return
     const t = setTimeout(() => {

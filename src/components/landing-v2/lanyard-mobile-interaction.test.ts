@@ -222,7 +222,6 @@ describe("lanyard mobile interactions", () => {
     expect(fallback).toContain("const CARD_HEIGHT = 480");
     expect(fallback).not.toContain("/branding/lanyard-card.png");
     expect(fallback).not.toContain("decoding");
-    expect(experience).toContain("LanyardBrandFace");
     expect(hero).toContain("preloadReturningLanyard");
     expect(hero).toContain('import { LanyardExperience } from "@/components/landing-v2/lanyard-experience"');
     expect(experience).toContain("onReady");
@@ -237,9 +236,15 @@ describe("lanyard mobile interactions", () => {
     expect(stageClass).not.toContain("-translate-x-1/2");
     expect(stageClass).not.toContain("max-w-[440px]");
     expect(stageClass).not.toContain("max-w-[min(100%,580px)]");
-    expect(experience).toContain("createPortal");
-    expect(experience).toContain("bg-[#05070a]");
-    expect(experience).toContain("z-[200]");
+    // Rigg V-05 (SM-137): inget helskärmskort för samtycket på startsidan.
+    expect(experience).not.toContain("createPortal");
+    expect(experience).not.toContain('role="dialog"');
+    expect(experience).not.toContain("z-[200]");
+    // Rigg V-16 (SM-138): det statiska kortet storleksätts efter stagens
+    // höjd, så snöre + kort ryms i stagen i stället för att nå rubriken.
+    expect(fallback).toContain("h-[min(76%,187px)]");
+    expect(fallback).toContain("md:h-[min(70%,293px)]");
+    expect(fallback).toContain("aspect-[3/4]");
   });
 
   it("drops the logged-in welcome chip and personalizes the card back instead", () => {
