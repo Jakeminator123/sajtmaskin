@@ -1269,7 +1269,7 @@ export function ChatInterface({
               <button
                 type="button"
                 onClick={agent.stop}
-                className="border-border/70 hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                className="border-border/70 hover:bg-muted hover:text-foreground focus-visible:ring-ring inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
                 aria-label="Stoppa Sajtagenten"
               >
                 <Square className="size-3" aria-hidden="true" />
@@ -1292,7 +1292,7 @@ export function ChatInterface({
               type="button"
               onClick={() => void handlePlanRequest()}
               disabled={inputDisabled || builderLocked || !input.trim()}
-              className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
+              className="border-border/70 bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
               title="Gör en plan eller PRD innan kod"
             >
               <FileText className="size-3" />
@@ -1302,7 +1302,7 @@ export function ChatInterface({
               type="button"
               onClick={() => void handlePromptAssist()}
               disabled={inputDisabled || promptAssistBusy || !input.trim()}
-              className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
+              className="border-border/70 bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
               title="Rätta och strukturera utkastet utan att skicka"
             >
               {promptAssistBusy ? (
@@ -1359,7 +1359,7 @@ export function ChatInterface({
                   type="button"
                   onClick={() => setIsMediaDrawerOpen(true)}
                   disabled={inputDisabled}
-                  className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                  className="border-border/70 bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
                   title="Öppna mediabibliotek"
                 >
                   <ImageIcon className="size-3" />
@@ -1369,7 +1369,7 @@ export function ChatInterface({
                   type="button"
                   onClick={() => setIsTextUploaderOpen(true)}
                   disabled={inputDisabled}
-                  className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                  className="border-border/70 bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
                   title="Lägg till text eller PDF"
                 >
                   <FileText className="size-3" />
@@ -1416,8 +1416,10 @@ export function ChatInterface({
                       : "Plan, Förbättra texten, block, inspektion, media, röst och modell"
                 }
                 className={cn(
-                  "border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring relative inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-                  toolsOpen && "bg-accent text-foreground",
+                  "border-border/70 bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring relative inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+                  // Öppet läge i builderns tonade aktiva stil (samma som
+                  // lägesväljaren), inte temats gröna accent.
+                  toolsOpen && "border-primary/50 bg-primary/10 text-foreground hover:bg-primary/15",
                 )}
               >
                 <SlidersHorizontal className="size-3" aria-hidden="true" />
