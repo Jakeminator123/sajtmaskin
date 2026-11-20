@@ -10,7 +10,7 @@
  *
  * Säkerhet: testet SKRIVER fixturrader och vägrar allt utom en dev-target via
  * `check-db-env-target.mjs`. Fotavtryck: projekt med ett unikt körprefix,
- * raderade i `afterAll` (chattarna följer projektet via CASCADE).
+ * raderade i `afterAll` (chattar och project_data följer projektet via CASCADE).
  */
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -181,6 +181,71 @@ describe.skipIf(!target.url)("projekttaket vid första chatten mot riktig Postgr
       limit: 8,
       current: 8,
     });
+  });
+
+  async function filledProjects(user: string, prefix: string, count: number, meta: string) {
+    for (let index = 0; index < count; index += 1) {
+      const projectId = id(`${prefix}_${index}`);
+      await project(projectId, { userId: user });
+      await pool.query(`insert into project_data (project_id, meta) values ($1, '${meta}'::jsonb)`, [
+        projectId,
+      ]);
+    }
+  }
+
+  async function buildInOrder(user: string, prefix: string, count: number) {
+    const statuses: string[] = [];
+    for (let index = 0; index < count; index += 1) {
+      statuses.push((await firstChat(id(`${prefix}_${index}`), freeUser(user))).status);
+    }
+    return statuses;
+  }
+
+  it("nio tomma projekt med företagsuppgifter: åtta byggs, det nionde nekas", async () => {
+    const user = id("u_business");
+    await filledProjects(user, "business", 9, '{"business":{"phone":"070-000 00 00"}}');
+
+    expect(await buildInOrder(user, "business", 9)).toEqual([
+      ...Array.from({ length: 8 }, () => "created"),
+      "project_limit",
+    ]);
+    expect(await chatCount(id("business_8"))).toBe(0);
+  });
+
+  it("nio tomma projekt med miljövariabler: åtta byggs, det nionde nekas", async () => {
+    const user = id("u_env");
+    await filledProjects(user, "env", 9, '{"projectEnvVars":[{"key":"API_KEY"}]}');
+
+    expect(await buildInOrder(user, "env", 9)).toEqual([
+      ...Array.from({ length: 8 }, () => "created"),
+      "project_limit",
+    ]);
+  });
+
+  it("ett projekt med företagsuppgifter under taket får bygga", async () => {
+    const user = id("u_under");
+    await startedProjects({ userId: user }, 3);
+    await filledProjects(user, "under_business", 1, '{"business":{"phone":"070-000 00 00"}}');
+
+    const created = await firstChat(id("under_business_0"), freeUser(user));
+    expect(created.status).toBe("created");
+  });
+
+  it("äldre byggda projekt räknas, men ett nytt bygge i ett av dem går igenom", async () => {
+    const user = id("u_legacy");
+    for (let index = 0; index < 8; index += 1) {
+      const projectId = id(`legacy_${index}`);
+      await project(projectId, { userId: user });
+      await pool.query("insert into project_data (project_id, chat_id) values ($1, $2)", [
+        projectId,
+        `v0_chat_${index}`,
+      ]);
+    }
+    await project(id("legacy_new"), { userId: user });
+
+    expect((await firstChat(id("legacy_new"), freeUser(user))).status).toBe("project_limit");
+    // Det äldre projektet räknas inte mot sig självt.
+    expect((await firstChat(id("legacy_0"), freeUser(user))).status).toBe("created");
   });
 
   it("betalande konto: taket är 100, inte 8", async () => {

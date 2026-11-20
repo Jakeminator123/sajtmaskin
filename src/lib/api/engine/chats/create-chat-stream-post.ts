@@ -28,7 +28,6 @@ import {
 } from "@/lib/builder/server-auto-brief-policy";
 import { tryGenerateServerAutoBrief, type BriefTrace } from "@/lib/builder/site-brief-generation";
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
-import { invalidateProjectListCache } from "@/lib/projects/project-list-cache";
 import {
   checkProjectCapForFirstChat,
   createFirstChatWithinProjectCap,
@@ -164,12 +163,8 @@ async function createChatAfterAcquiringInitLock(input: {
       await releaseChatGenerationLock(lockResult.lock).catch(() => {});
       return { status: "project_limit", denial: created.denial };
     }
-    const chat = created.chat;
-    // SM-133: ett projekt syns i /projects först när det har en chatt. Utan
-    // nollning kunde en lista hämtad under Deep Brief gömma det i 120 s.
-    // Fire-and-forget: deleteCache kastar aldrig och bygget väntar inte.
-    void invalidateProjectListCache(input.owner.userId, input.owner.sessionId);
-    return { status: "acquired", chat, lock: lockResult.lock };
+    // createFirstChatWithinProjectCap nollar /projects-cachen efter commit.
+    return { status: "acquired", chat: created.chat, lock: lockResult.lock };
   } catch (error) {
     await releaseChatGenerationLock(lockResult.lock).catch(() => {});
     throw error;

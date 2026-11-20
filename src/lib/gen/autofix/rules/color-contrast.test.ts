@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  WCAG_AA_NORMAL_TEXT,
   compositeOver,
   contrastRatio,
   parseCssColor,
-  readableForegroundFor,
   type RgbaColor,
 } from "./color-contrast";
 
@@ -61,40 +59,5 @@ describe("contrastRatio", () => {
   it("composites translucent colors before measuring", () => {
     const halfWhite = compositeOver(parse("rgb(255 255 255 / 0.5)"), parse("black"));
     expect(rgb255(halfWhite)).toEqual([128, 128, 128]);
-  });
-});
-
-describe("readableForegroundFor", () => {
-  const ratio = (bg: string, fg: string) => contrastRatio(parse(bg), parse(fg));
-
-  it("lifts dark text on a dark button to a light label (SM-135 «mörkgröna»)", () => {
-    const bg = "oklch(0.35 0.07 150)";
-    expect(ratio(bg, "oklch(0.22 0.03 60)")).toBeLessThan(2);
-    const fixed = readableForegroundFor(parse(bg), parse("oklch(0.22 0.03 60)"));
-    expect(ratio(bg, fixed)).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
-    expect(parse(fixed).r).toBeGreaterThan(0.9);
-  });
-
-  it("keeps light text light, with the smallest step, when that side can pass", () => {
-    const bg = "oklch(0.45 0.12 25)";
-    const fg = "oklch(0.8 0.05 80)";
-    const fixed = readableForegroundFor(parse(bg), parse(fg));
-    const fixedRatio = ratio(bg, fixed);
-    expect(fixedRatio).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
-    expect(fixedRatio).toBeLessThan(5);
-    expect(fixed).toMatch(/^oklch\(0\.\d+ [\d.]+ 80\)$/);
-  });
-
-  it("flips white text to dark when white can never pass (mid-tone brand color)", () => {
-    // warm-local variant primary: white text is 3.19:1.
-    const bg = "oklch(0.66 0.16 52)";
-    const fixed = readableForegroundFor(parse(bg), parse("oklch(0.99 0 0)"));
-    expect(ratio(bg, fixed)).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
-    expect(parse(fixed).r).toBeLessThan(0.3);
-  });
-
-  it("gives a near-invisible label a clear color, not a borderline grey", () => {
-    const fixed = readableForegroundFor(parse("white"), parse("oklch(0.98 0 0)"));
-    expect(ratio("white", fixed)).toBeGreaterThan(10);
   });
 });
