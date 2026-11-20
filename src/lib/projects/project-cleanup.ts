@@ -225,7 +225,7 @@ export async function canCreateProject(
       : CLEANUP_CONFIG.MAX_USER_PROJECTS_FREE;
 
     const [{ count }] = await database
-      .select({ count: sql<number>`count(*)` })
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
       .from(appProjects)
       .where(and(eq(appProjects.user_id, userId), startedProjectCondition()));
 
@@ -247,7 +247,7 @@ export async function canCreateProject(
     // Anonymous session
     const limit = CLEANUP_CONFIG.MAX_ANONYMOUS_PROJECTS_PER_SESSION;
     const [{ count }] = await database
-      .select({ count: sql<number>`count(*)` })
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
       .from(appProjects)
       .where(and(eq(appProjects.session_id, sessionId), startedProjectCondition()));
 

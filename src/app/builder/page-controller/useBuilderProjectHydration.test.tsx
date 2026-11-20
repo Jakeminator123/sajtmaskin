@@ -159,8 +159,9 @@ describe("useBuilderProjectHydration new entry", () => {
   });
 
   it("two tabs on new=1 each create their own project and never share one (SM-133, R-1744)", async () => {
-    // Shared between tabs: the remembered project. A fresh start must not reuse
-    // it or any other project, or two builds could land in one project.
+    // localStorage is shared between tabs. After the first tab the remembered
+    // project is the first tab's own, still empty project; a second fresh start
+    // must not reuse it, or two builds could land in one project.
     localStorage.setItem("sajtmaskin:lastProjectId", "project_old");
     createProject
       .mockResolvedValueOnce({ id: "project_tab_one" })
@@ -203,15 +204,18 @@ describe("useBuilderProjectHydration new entry", () => {
     };
 
     const first = tab();
-    const second = tab();
+    await waitFor(() => expect(first.setAppProjectId).toHaveBeenCalledWith("project_tab_one"));
+    expect(localStorage.getItem("sajtmaskin:lastProjectId")).toBe("project_tab_one");
 
-    await waitFor(() => expect(createProject).toHaveBeenCalledTimes(2));
+    const second = tab();
+    await waitFor(() => expect(second.setAppProjectId).toHaveBeenCalledWith("project_tab_two"));
+
     // Only the placeholder name goes to the server: no project id to reuse.
     expect(createProject.mock.calls).toEqual([["Namnlöst projekt"], ["Namnlöst projekt"]]);
-    await waitFor(() => expect(first.setAppProjectId).toHaveBeenCalledWith("project_tab_one"));
-    await waitFor(() => expect(second.setAppProjectId).toHaveBeenCalledWith("project_tab_two"));
-    expect(first.setAppProjectId).not.toHaveBeenCalledWith("project_tab_two");
     expect(second.setAppProjectId).not.toHaveBeenCalledWith("project_tab_one");
+    expect(second.router.replace).not.toHaveBeenCalledWith(
+      expect.stringContaining("project_tab_one"),
+    );
     for (const { router } of [first, second]) {
       expect(router.replace).not.toHaveBeenCalledWith(expect.stringContaining("project_old"));
     }
