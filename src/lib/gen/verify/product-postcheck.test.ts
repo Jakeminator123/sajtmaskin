@@ -35,6 +35,7 @@ vi.mock("@/lib/gen/verify/live-review", async (importOriginal) => {
 });
 
 import {
+  detectNextErrorOverlayInBrowser,
   evaluateBrowserRuntimeIssues,
   evaluateHydrationDomLoss,
   evaluateHydrationDomLossForViewports,
@@ -855,6 +856,90 @@ describe("evaluateRuntimeErrors (M#f2et — never green when the preview is dead
     const result = evaluateRuntimeErrors([elementTypeInvalid, elementTypeInvalid, elementTypeInvalid]);
     expect(result.productBlocked).toBe(true);
     expect(result.warnings).toHaveLength(1);
+  });
+});
+
+/**
+ * Next 16.4 lägger insiktspanelen (säkerhetsnotisen) i samma dialogskal som
+ * felöverlägget, dolt. Prodbygget 2026-11-20 flaggade därför varje rutt som
+ * kraschad. Markupen nedan följer Next 16.4:s devtools: etiketten bär samma id
+ * i båda fallen, insikten skiljs ut med `data-nextjs-vulnerability-label`.
+ */
+describe("detectNextErrorOverlayInBrowser", () => {
+  const securityInsight =
+    '<div data-nextjs-dialog role="dialog">' +
+    '<span id="nextjs__container_errors_label" class="nextjs__container_errors_label nextjs__container_errors_label_instant" data-nextjs-vulnerability-label>Security Insight</span>' +
+    '<div data-nextjs-vulnerability-insight><p>Next.js 16.4.2 is affected by a known security vulnerability.</p></div>' +
+    "</div>";
+  const errorOverlay = (label: string) =>
+    '<div data-nextjs-dialog-overlay><div data-nextjs-dialog role="dialog">' +
+    `<span id="nextjs__container_errors_label" class="nextjs__container_errors_label ">${label}</span>` +
+    '<h2 id="nextjs__container_errors_desc" class="nextjs__container_errors_desc">Cannot read properties of undefined</h2>' +
+    "</div></div>";
+
+  function mountPortal(html: string, shownSelectors: string[] = []): void {
+    const portal = document.createElement("nextjs-portal");
+    document.body.appendChild(portal);
+    const shadow = portal.attachShadow({ mode: "open" });
+    shadow.innerHTML = html;
+    // jsdom has no layout: every box is 0×0 unless a test says it is shown.
+    for (const selector of shownSelectors) {
+      for (const element of Array.from(shadow.querySelectorAll(selector))) {
+        element.getBoundingClientRect = () =>
+          ({ x: 0, y: 0, top: 0, left: 0, right: 640, bottom: 480, width: 640, height: 480 }) as DOMRect;
+      }
+    }
+  }
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("larmar inte på den dolda säkerhetsnotisen (läget i prod 2026-11-20)", () => {
+    mountPortal(
+      `${securityInsight}<div data-nextjs-dialog-overlay style="display:none">No issues · Insights 1/1 · Next.js 16.4.2 (stale) · Webpack</div>`,
+    );
+    expect(detectNextErrorOverlayInBrowser()).toBe(false);
+  });
+
+  it("larmar inte när en markör har storlek men är display:none eller visibility:hidden", () => {
+    mountPortal(
+      `<div data-nextjs-dialog style="display:none">x</div><div data-nextjs-error-overlay style="visibility:hidden">y</div>`,
+      ["[data-nextjs-dialog]", "[data-nextjs-error-overlay]"],
+    );
+    expect(detectNextErrorOverlayInBrowser()).toBe(false);
+  });
+
+  it("larmar inte när insiktspanelen är öppen och syns", () => {
+    mountPortal(securityInsight, ["[data-nextjs-dialog]", "#nextjs__container_errors_label"]);
+    expect(detectNextErrorOverlayInBrowser()).toBe(false);
+  });
+
+  it.each(["Runtime Error", "Build Error"])("larmar på ett synligt felöverlägg (%s)", (label) => {
+    mountPortal(errorOverlay(label), [
+      "[data-nextjs-dialog-overlay]",
+      "[data-nextjs-dialog]",
+      "#nextjs__container_errors_label",
+    ]);
+    expect(detectNextErrorOverlayInBrowser()).toBe(true);
+  });
+
+  it("larmar på ett synligt felöverlägg även när en dold insikt ligger bredvid", () => {
+    mountPortal(`${securityInsight}${errorOverlay("Runtime Error")}`, [
+      "[data-nextjs-dialog-overlay]",
+      "[data-nextjs-dialog-overlay] [data-nextjs-dialog]",
+      "[data-nextjs-dialog-overlay] #nextjs__container_errors_label",
+    ]);
+    expect(detectNextErrorOverlayInBrowser()).toBe(true);
+  });
+
+  it("larmar på en synlig dialog utan etikett och utan insiktsinnehåll", () => {
+    mountPortal("<div data-nextjs-dialog>Unhandled Runtime Error</div>", ["[data-nextjs-dialog]"]);
+    expect(detectNextErrorOverlayInBrowser()).toBe(true);
+  });
+
+  it("svarar nej utan nextjs-portal", () => {
+    expect(detectNextErrorOverlayInBrowser()).toBe(false);
   });
 });
 
