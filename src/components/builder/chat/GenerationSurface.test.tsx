@@ -116,9 +116,55 @@ describe("GenerationSurface", () => {
     fireEvent.click(screen.getByRole("button", { name: "Visa detaljer" }));
     expect(screen.getByText(/Sajtmaskin planerade sajtens upplägg\./)).toBeTruthy();
     expect(screen.queryByText("The model considered a warm palette.")).toBeNull();
+    // Loggen visar nyckel och värde i var sin cell, så hela raden som en
+    // sträng räcker inte som bevis: varken regionen, nyckeln eller värdet finns.
+    expect(screen.queryByRole("region", { name: "Arbetslogg" })).toBeNull();
+    expect(screen.queryByText("Körmodell")).toBeNull();
+    expect(screen.queryByText("intern")).toBeNull();
     expect(screen.queryByText("Körmodell: intern")).toBeNull();
     expect(screen.queryByRole("button", { name: "Visa råtext" })).toBeNull();
     expect(screen.getByText("app/page.tsx")).toBeTruthy();
+  });
+
+  it("shows the work log as key/value tables and a timeline, in the log's own order", () => {
+    render(
+      <GenerationSurface
+        {...base}
+        showInternalDetails
+        content={code}
+        items={[
+          { label: "Byggprofil: Låg" },
+          { label: "Körmodell: gpt-6.1-sol" },
+          { label: "Deep Brief (resonemang)", detail: "Hela underlaget" },
+          { label: "Startar own-engine-strömmen" },
+          { label: "Verifiering: misslyckades", failed: true },
+          { label: "Faser: wait 2.0s, reasoning 11s, output 63s" },
+        ]}
+        isStreaming={false}
+        isActive={false}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Visa detaljer" }));
+
+    const log = screen.getByRole("region", { name: "Arbetslogg" });
+    const tables = within(log).getAllByTestId("agent-log-facts");
+    expect(tables).toHaveLength(2);
+    // Nyckel och värde hör ihop som term och beskrivning.
+    const key = within(tables[0]).getByText("Körmodell");
+    expect(key.tagName).toBe("DT");
+    expect(key.nextElementSibling?.tagName).toBe("DD");
+    expect(key.nextElementSibling?.textContent).toBe("gpt-6.1-sol");
+    expect(within(tables[1]).getByText("wait 2.0s, reasoning 11s, output 63s")).toBeTruthy();
+
+    // Steg, underlag och fel ligger kvar i tidslinjen, aldrig i en tabell.
+    const steps = within(log).getAllByTestId("agent-log-step");
+    expect(steps.map((step) => step.textContent)).toEqual([
+      expect.stringContaining("Deep Brief (resonemang)"),
+      "Startar own-engine-strömmen",
+      "Verifiering: misslyckades",
+    ]);
+    expect(within(steps[0]).getByRole("button", { name: "Visa underlag" })).toBeTruthy();
+    expect(within(steps[2]).getByLabelText("Steget misslyckades")).toBeTruthy();
   });
 
   it("keeps the same card and the user's detail choice through text, files, done and postchecks", () => {

@@ -341,7 +341,8 @@ export function FileUploadZone({
             size="sm"
             onClick={handleClick}
             disabled={disabled}
-            className="h-7 gap-1 border-gray-700 text-xs text-gray-400 hover:bg-gray-800 hover:text-white"
+            // Samma form och tokens som komposerns övriga verktygsknappar.
+            className="border-border/70 bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground h-8 gap-1.5 rounded-lg px-2.5 text-[11px] font-medium"
           >
             <Upload className="h-3 w-3" />
             Lägg till media

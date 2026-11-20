@@ -18,6 +18,12 @@ function selectableIndex(tier: ModelTier): number {
   return SELECTABLE_MODEL_IDS.indexOf(HIDDEN_TIER_DISPLAY);
 }
 
+/**
+ * Modellnivå som en rad: etikett, reglage, valt värde. Värdet stod förut
+ * ovanpå reglaget i en 148 px bred ruta, där tummen (16 px, absolut placerad
+ * av Radix) ritades över texten eftersom spåret bara är 6 px högt. Reglaget
+ * har nu tummens höjd, och värdet står bredvid i stället för ovanför.
+ */
 export function ModelTierSlider({
   value,
   onChange,
@@ -43,12 +49,15 @@ export function ModelTierSlider({
     <div
       ref={rootRef}
       className={cn(
-        "border-border inline-flex w-[148px] shrink-0 flex-col justify-center gap-0.5 rounded border px-1.5 py-1",
+        "border-border/70 bg-background/80 flex h-8 min-w-44 flex-1 items-center gap-2.5 rounded-lg border px-2.5",
         className,
       )}
       title={option.description}
+      data-testid="model-tier-slider"
     >
-      <span className="text-foreground text-[10px] leading-none font-medium">{label}</span>
+      <span className="text-muted-foreground shrink-0 text-[11px] font-medium" aria-hidden="true">
+        Modell
+      </span>
       <Slider
         aria-label="Modellväg"
         aria-valuetext={label}
@@ -63,8 +72,17 @@ export function ModelTierSlider({
           const next = SELECTABLE_MODEL_IDS[nextIndex];
           if (next) onChange(next);
         }}
-        className="w-full"
+        // Tummens höjd, så den ryms i raden i stället för att sticka ut.
+        className="h-4 min-w-14 flex-1"
       />
+      {/* Fast bredd för den längsta nivån («Extra hög»), så raden inte hoppar. */}
+      <span
+        className="text-foreground w-14 shrink-0 text-right text-[11px] leading-none font-medium"
+        aria-hidden="true"
+        data-testid="model-tier-value"
+      >
+        {label}
+      </span>
     </div>
   );
 }
