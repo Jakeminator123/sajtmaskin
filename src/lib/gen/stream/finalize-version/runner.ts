@@ -41,6 +41,7 @@ import {
 import { postFinalizeQualityGateIncludesTypecheck } from "../post-finalize-policies";
 import { hasBuildBreakingVerifierFindings } from "@/lib/gen/preview/should-start-preview";
 import { runFinalizeFastPath } from "./fast-path";
+import { countButtonContrastFixes } from "@/lib/gen/autofix/rules/button-contrast-fixer";
 import { getDossierById } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import { resolveDossiersPresentInVersion } from "@/lib/gen/dossiers/version-presence";
@@ -555,6 +556,7 @@ export async function finalizeAndSaveVersion(
       routeNames: routePlan?.routes?.map((route) => route.name) ?? null,
       dossierLabels: selectedDossiers.map((dossier) => dossier.label),
       autofixFixCount: autoFixFixCount,
+      buttonContrastFixes: countButtonContrastFixes(preflightResult.postMergeFixes ?? []),
       rejectedShrinks,
       rejectedStructural,
       previewBlocked: Boolean(previewBlockingReason),

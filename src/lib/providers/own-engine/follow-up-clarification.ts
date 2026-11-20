@@ -98,6 +98,10 @@ const FOLLOW_UP_SPECIFIC_TARGET_PATTERNS = [
 // innebär att /\bändra\b/ aldrig matchar "ändra" i början av ett ord.
 const FOLLOW_UP_DESIGN_PIN_PATTERNS: RegExp[] = [
   /(?<![\p{L}\p{N}_])(bakgrund(?:en|er|sbild)?|färg(?:er|en|schema|schemat)?|tema|teman|temat|animation(?:en|er)?|ljus(?:t|are)?|mörk(?:t|are)?|stil(?:en|ar)?|look(?:en)?)(?![\p{L}\p{N}_])/iu,
+  // Named colors, also as compounds («mörkgröna», «ljusblå»): «gör knapparna
+  // mörkröda» names no design noun, so the theme file was not pinned (SM-135).
+  /(?<![\p{L}\p{N}_])(?:mörk|ljus)?(?:röd|rött|grön|blå|gul|svart|vit|grå|brun|rosa|lila|orange|turkos|beige|guld)(?:a|t|e)?(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:red|green|blue|yellow|black|white|gr[ae]y|pink|purple|orange|brown|teal|navy|beige|gold)(?![\p{L}\p{N}_])/iu,
 ];
 
 export function hasDesignFollowUpSignal(message: string): boolean {

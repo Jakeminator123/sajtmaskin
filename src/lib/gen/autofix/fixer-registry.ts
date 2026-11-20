@@ -720,6 +720,30 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     status: "active",
     ownerPhase: "post-merge",
   },
+  {
+    id: "button-contrast-fixer",
+    category: "mechanical-tailwind",
+    // Edits a shared theme token and LLM-written class lists across files.
+    risk: "risky",
+    sourcePath: "src/lib/gen/autofix/rules/button-contrast-fixer.ts",
+    targetFailureMode:
+      "Button label below 3:1 against its background (nearly invisible): a recolored --color-X kept " +
+      "an unreadable --color-X-foreground, or a filled button mixes bg-*/text-* from different pairs",
+    triggers: [
+      "@theme --color-X / --color-X-foreground below 3:1, both literal and declared only in @theme",
+      "<Button> default/secondary, <button>, <a>, <Link> whose own bg-* and text-* (or variant label) are certain and below 3:1",
+    ],
+    status: "active",
+    ownerPhase: "post-merge",
+    notes:
+      "SM-135. Runs once per new version from finalize-preflight/runner.ts, not in repairGeneratedFiles " +
+      "(preview start/export). Changes a label only when both colors are certain: any unresolved bg-/text- " +
+      "class (Tailwind palette, bg-transparent, bg-none, unknown var()), gradient, translucent fill, style, " +
+      "spread, asChild, dark: color, conditional or computed class list, inherited text, or a token declared " +
+      "outside @theme skips the button; hover:/focus: fills must also stay readable. Gate " +
+      "BUTTON_TEXT_MIN_CONTRAST = 3 until curated palettes pass 4.5 (SM-153); a repair lands at 4.5:1. " +
+      "Never changes the brand/background color (SM-016 choice).",
+  },
   // ---- validators (read-only, may emit warnings) ----
   {
     id: "syntax-validator",
