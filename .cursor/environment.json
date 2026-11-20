@@ -1,5 +1,5 @@
 {
-  "name": "sajtmaskin-node22-cloud",
+  "name": "sajtmaskin-node24-cloud",
   "build": {
     "dockerfile": "Dockerfile"
   },

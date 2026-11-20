@@ -14,7 +14,7 @@ describe("buildOwnerTransferPackage", () => {
         {
           path: "package.json",
           content: JSON.stringify({
-            engines: { node: ">=22.14.0 <23" },
+            engines: { node: ">=24.11.0 <25" },
             scripts: { build: "next build", dev: "next dev" },
           }),
           language: "json",

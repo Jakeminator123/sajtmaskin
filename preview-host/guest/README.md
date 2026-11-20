@@ -13,7 +13,7 @@ här bilden; ingenting här deployas med `fly deploy` som en tjänst.
 | `lib/process.js` | `sh -lc`-körning med timeout/processgrupp, allowlistad barn-env, en dev-process med generation. |
 | `warm/package.json` | Baslinjens beroenden; bygget förvärmer npm-cachen och ett `node_modules` som kopieras vid exakt fingerprint-träff. |
 | `scripts/write-warm-state.cjs` | Stämplar den varma baslinjens fingerprint (samma algoritm som hostens `dependencyFingerprint`). |
-| `Dockerfile`, `fly.toml` | Bild (node:22-alpine, egen användare `guest`) och gäst-appens hem. |
+| `Dockerfile`, `fly.toml` | Bild (node:24-alpine, egen användare `guest`) och gäst-appens hem. |
 
 Agentens miljö är **bara** token, chatId och portar. Hostens API-nyckel,
 Fly-token eller andra projekts filer finns inte i maskinen. Dev-servern
