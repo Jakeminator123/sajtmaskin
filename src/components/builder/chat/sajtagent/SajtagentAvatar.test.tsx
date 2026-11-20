@@ -165,3 +165,71 @@ describe("SajtagentAvatar — voice output in the shared conversation", () => {
     expect(state.connect).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("SajtagentAvatar — scenen", () => {
+  it("visar en stående scen som går att förstora, i stället för en miniatyr", () => {
+    const { rerender } = render(<SajtagentAvatar />);
+    fireEvent.click(screen.getByRole("button", { name: "Aktivera avatar" }));
+    const stage = screen.getByTestId("sajtagent-avatar-stage");
+    expect(stage.className).toContain("aspect-4/5");
+    expect(stage.className).toContain("h-36");
+    expect(screen.getByLabelText("Sajtagentens avatar").tagName).toBe("VIDEO");
+
+    fireEvent.click(screen.getByRole("button", { name: "Förstora avatar" }));
+    expect(screen.getByTestId("sajtagent-avatar-stage").className).toContain("h-64");
+    fireEvent.click(screen.getByRole("button", { name: "Förminska avatar" }));
+    expect(screen.getByTestId("sajtagent-avatar-stage").className).toContain("h-36");
+
+    state.avatar.connectionState = "speaking";
+    rerender(<SajtagentAvatar />);
+    expect(screen.getByTestId("sajtagent-avatar-stage").getAttribute("data-avatar-speaking")).toBe("true");
+    expect(screen.getByRole("status").textContent).toContain("Sajtagenten talar");
+  });
+
+  it("håller scenens plats medan avataren ansluter, utan video och utan förstoringsknapp", () => {
+    state.avatar.connectionState = "connecting";
+    state.avatar.avatarReady = false;
+    render(<SajtagentAvatar />);
+    fireEvent.click(screen.getByRole("button", { name: "Aktivera avatar" }));
+    expect(screen.getByTestId("sajtagent-avatar-stage")).toBeTruthy();
+    expect(screen.queryByLabelText("Sajtagentens avatar")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Förstora avatar" })).toBeNull();
+    expect(screen.getByRole("status").textContent).toContain("Ansluter avatar");
+  });
+});
+
+describe("SajtagentAvatar — som egen yta (variant stage)", () => {
+  it("ansluter först efter start och kopplar ner med «Endast text»", () => {
+    render(<SajtagentAvatar variant="stage" />);
+    expect(screen.getByText("Prata med Sajtagenten")).toBeTruthy();
+    expect(state.connect).not.toHaveBeenCalled();
+
+    // Knapparna heter som de ser ut, så röststyrning hittar dem.
+    fireEvent.click(screen.getByRole("button", { name: "Starta avataren" }));
+    expect(state.connect).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("Sajtagentens avatar").tagName).toBe("VIDEO");
+    expect(screen.getByRole("status").textContent).toContain("Avataren är redo");
+    // Scenen fyller ytan; ingen förstoringsknapp behövs där.
+    expect(screen.queryByRole("button", { name: "Förstora avatar" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Endast text" }));
+    expect(state.disconnect).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Prata med Sajtagenten")).toBeTruthy();
+  });
+
+  it("läser upp nya svar även som egen yta", () => {
+    const { rerender } = render(<SajtagentAvatar variant="stage" />);
+    fireEvent.click(screen.getByRole("button", { name: "Starta avataren" }));
+    state.agent.messages = [reply("old"), reply("new", "Jag har gjort rubriken större.")];
+    rerender(<SajtagentAvatar variant="stage" />);
+    expect(state.avatar.speak).toHaveBeenCalledWith("Jag har gjort rubriken större.");
+  });
+
+  it("säger varför ytan är tom när avataren inte finns i miljön", () => {
+    state.enabled = false;
+    render(<SajtagentAvatar variant="stage" />);
+    expect(screen.getByRole("status").textContent).toContain("Avataren är inte tillgänglig här");
+    expect(screen.queryByRole("button", { name: "Starta avataren" })).toBeNull();
+    expect(state.connect).not.toHaveBeenCalled();
+  });
+});
