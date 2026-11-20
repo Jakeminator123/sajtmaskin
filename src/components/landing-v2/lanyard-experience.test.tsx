@@ -126,7 +126,9 @@ describe("LanyardExperience", () => {
     });
 
     const dialog = screen.getByRole("dialog", { name: "Cookie-inställningar" });
-    expect(dialog.className).toContain("bottom-4");
+    // Rigg V-05 (SM-137): en remsa i nederkanten, inte ett kort över promptfältet.
+    expect(dialog.className).toContain("bottom-0");
+    expect(dialog.className).toContain("inset-x-0");
     expect(dialog.className).toContain("z-[80]");
     expect(dialog.className).not.toContain("bg-[#05070a]");
     expect(dialog.className).not.toContain("z-[200]");

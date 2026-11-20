@@ -32,6 +32,14 @@ function readyBuildPlan() {
 }
 
 describe("MessageList", () => {
+  it("lämnar luft under sista raden så scrollknappen inte täcker kvittot (rigg § 11, 390 px)", () => {
+    const { container } = render(<MessageList chatId="chat_scroll_gap" messages={[{
+      id: "assistant_receipt", role: "assistant", content: "Klart. Sidan har en ny meny.",
+    }]} />);
+    const content = container.querySelector('[data-slot="message-scroller-content"]');
+    expect(content?.className).toContain("pb-16");
+  });
+
   it("keeps completed review panels inside the shared details while their warning stays visible", () => {
     render(<MessageList chatId="chat_review" messages={[{
       id: "assistant_review", role: "assistant", content: "Menyn är uppdaterad.",

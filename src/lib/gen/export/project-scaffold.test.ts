@@ -414,7 +414,7 @@ describe("buildCompleteProject", () => {
       devDependencies: Record<string, string>;
       scripts: Record<string, string>;
     };
-    expect(pkg.engines.node).toBe(">=22.14.0 <23");
+    expect(pkg.engines.node).toBe(">=24.11.0 <25");
     for (const name of ["next", "react", "react-dom"]) {
       expect(pkg.dependencies[name]).toBe(baseline.dependencies[name]);
     }

@@ -86,8 +86,13 @@ describe("BuilderPreviewTools — saved code without a preview session", () => {
 
     expect(screen.getByRole("button", { name: "Kod" }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("button", { name: "Öppna i ny flik" }).hasAttribute("disabled")).toBe(false);
+    // Omstart förstör inget (sajten är sparad): neutral hover, inte röd
+    // papperskorgston.
+    const restart = screen.getByRole("button", { name: "Starta om förhandsvisningen" });
+    expect(restart.className).not.toMatch(/red-/);
+    expect(restart.className).toContain("hover:text-foreground");
     // Riggen 2026-11-11 klickade fel: ett klick får aldrig starta om.
-    fireEvent.click(screen.getByRole("button", { name: "Starta om förhandsvisningen" }));
+    fireEvent.click(restart);
     expect(onClear).not.toHaveBeenCalled();
     const dialog = screen.getByRole("alertdialog");
     // Dialogen säger vad som händer: omstart, inte stängning.

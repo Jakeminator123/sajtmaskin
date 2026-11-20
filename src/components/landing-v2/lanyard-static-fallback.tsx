@@ -57,9 +57,12 @@ export function StaticLanyardFallback() {
           boxShadow: "0 0 14px rgba(45,212,191,0.45)",
         }}
       />
+      {/* Höjden styr storleken (bredden följer 3:4), så snöre + kort ryms i
+          stagen även när den är låg (1440×900, rigg V-16). Taken är de gamla
+          måtten: 140×187 px på mobil och 220×293 px från md. */}
       <LanyardBrandFace
         priority
-        className="relative mt-1 aspect-[3/4] w-[min(40vw,140px)] shrink-0 rounded-[26px] shadow-2xl ring-1 ring-primary/30 md:w-[min(60vw,220px)]"
+        className="relative mt-1 aspect-[3/4] h-[min(76%,187px)] w-auto shrink-0 rounded-[26px] shadow-2xl ring-1 ring-primary/30 md:h-[min(70%,293px)]"
       />
     </div>
   );
