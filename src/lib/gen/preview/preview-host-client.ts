@@ -438,6 +438,13 @@ export type PreviewHostReadinessVerdict = Pick<
    * a boot in progress from a dead runtime (see `isBootingPinnedSession`).
    */
   hostStatus?: string | null;
+  /**
+   * The URL the host gives this session right now, or `null` when it omitted
+   * it. M03: the host renders it per answer from `PREVIEW_HOST_ORIGIN_MODE`
+   * (shared host or the chat's own origin), so a saved copy can be in the
+   * other form.
+   */
+  previewUrl?: string | null;
 };
 
 export async function fetchPreviewHostReadinessVerdict(
@@ -483,6 +490,7 @@ export async function fetchPreviewHostReadinessVerdict(
       running: body.running === true,
       versionId: hostVersionId,
       hostStatus: nonEmptyString(body.status),
+      previewUrl: readPreviewUrlFromHostBody(body),
       lifecycleToken,
       mutationRevision: readMutationRevisionFromHostBody(body),
       installAttemptRevision: readInstallAttemptRevisionFromHostBody(body),
