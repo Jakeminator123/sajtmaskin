@@ -1,7 +1,6 @@
 import { useChatOutputCollapse } from "@/components/builder/chat/useChatOutputCollapse";
 import { usePreviewSurfaceMode } from "@/components/builder/preview-panel/usePreviewSurfaceMode";
 import { isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
-import { postPreviewDestroy } from "@/lib/builder/preview-session/api";
 import { openDossiersPanel } from "@/lib/builder/project-env-events";
 import { F3_KICK_PROMPT } from "@/lib/builder/types";
 import { saveProjectData } from "@/lib/projects/project-client";
@@ -11,7 +10,6 @@ import {
 } from "@/lib/hooks/chat/useAutoFix";
 import type { F3BuilderStatus, F3MissingIntegration } from "@/lib/builder/f3-status";
 import { useCallback, useEffect, type Dispatch, type SetStateAction } from "react";
-import { toast } from "sonner";
 import type { BuilderViewModel } from "../useBuilderPageController";
 
 export function useShellPreviewLayout(
@@ -65,33 +63,6 @@ export function useShellPreviewLayout(
     },
     [vm],
   );
-
-  const handleClearPreview = useCallback(() => {
-    void (async () => {
-      const activeVersionId = vm.activeVersionId ?? null;
-      const activePreviewSessionId = vm.activePreviewSessionId?.trim() || null;
-
-      if (vm.chatId && activeVersionId && activePreviewSessionId) {
-        const destroy = await postPreviewDestroy({
-          chatId: vm.chatId,
-          versionId: activeVersionId,
-          previewSessionId: activePreviewSessionId,
-        });
-        if (!destroy || destroy.ok !== true) {
-          toast.error(
-            destroy?.message?.trim() || "Kunde inte stänga live-preview och frigöra VM-sessionen.",
-          );
-          return;
-        }
-      }
-
-      vm.clearPreviewSessionState(activeVersionId);
-      vm.setClearedPreviewVersionId(activeVersionId);
-      vm.setCurrentPreviewUrl(null);
-      void persistPreviewOverride(null, null);
-      void vm.mutateVersions();
-    })();
-  }, [vm, persistPreviewOverride]);
 
   const handleVersionSelect = useCallback(
     (versionId: string, demoUrl?: string) => {
@@ -168,7 +139,6 @@ export function useShellPreviewLayout(
   const isChatOutputCollapsed = chatOutputCollapse.isCollapsed && vm.messages.length > 0;
   return {
     persistPreviewOverride,
-    handleClearPreview,
     handleVersionSelect,
     handleF3MissingEnv,
     handleF3Ready,

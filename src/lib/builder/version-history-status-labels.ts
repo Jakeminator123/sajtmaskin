@@ -484,7 +484,7 @@ export function versionHistoryPreviewChip(
     case "starting":
       return {
         label: "Förhandsvisning startar",
-        title: "Förhandsvisningen startar. Det tar oftast 30–90 sekunder.",
+        title: "Förhandsvisningen startar. Det kan ta ett par minuter.",
         className: SKY,
       };
     case "stopped":
