@@ -31,6 +31,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { Box, ChevronDown, GripVertical, LayoutGrid, Minus, PanelLeft, Plus, RotateCcw } from "lucide-react";
+import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import {
   CUBE_FACE_IDS,
@@ -139,19 +140,6 @@ const CARD_HEAD = 40;
 const MAX_TILT_DEG = 5;
 const NARROW_QUERY = `(max-width: ${NARROW_MAX_WIDTH - 0.02}px)`;
 const REDUCED_QUERY = "(prefers-reduced-motion: reduce)";
-
-function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false);
-  useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    const mql = window.matchMedia(query);
-    const sync = () => setMatches(mql.matches);
-    sync();
-    mql.addEventListener?.("change", sync);
-    return () => mql.removeEventListener?.("change", sync);
-  }, [query]);
-  return matches;
-}
 
 function canAnimate(el: Element | null | undefined): el is HTMLElement {
   return !!el && typeof (el as HTMLElement).animate === "function";
@@ -675,6 +663,22 @@ export function BuilderCube({
     },
     [setCards, activeFace, onActiveFaceChange],
   );
+  // Ett nedtryck var som helst i kortet lyfter det. Lyssnaren sitter i DOM:en:
+  // en sidas innehåll kan vara värdat utifrån (`relocation.tsx`), och
+  // React-händelser därifrån bubblar inte genom kubens komponentträd.
+  useEffect(() => {
+    if (layoutMode !== "cards") return;
+    const release = CUBE_FACE_IDS.map((face) => {
+      const el = faceEls.current[face];
+      if (!el) return null;
+      const onDown = () => raiseCard(face);
+      el.addEventListener("pointerdown", onDown, true);
+      return () => el.removeEventListener("pointerdown", onDown, true);
+    });
+    return () => {
+      for (const off of release) off?.();
+    };
+  }, [layoutMode, raiseCard]);
   const cardDrag = usePointerDrag({
     onStart: () => {
       const face = cardDragFace.current;
@@ -1066,7 +1070,6 @@ export function BuilderCube({
               aria-hidden={interactive ? undefined : true}
               inert={!interactive}
               tabIndex={-1}
-              onPointerDownCapture={asCard ? () => raiseCard(face) : undefined}
               style={{ ...rectStyle(rect), zIndex: zFor(face) }}
               className={cn(
                 "bg-background text-foreground absolute flex flex-col overflow-hidden rounded-xl border border-border/80 outline-none",

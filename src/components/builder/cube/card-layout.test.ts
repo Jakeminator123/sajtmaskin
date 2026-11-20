@@ -8,7 +8,9 @@ import {
   CUBE_DOCK,
   CUBE_HEAD,
   CUBE_LIMITS,
+  DEFAULT_FOLDED_CARDS,
   STAGE_MARGIN,
+  cascadeCardRects,
   clampPoint,
   cubeFrame,
   defaultCardRects,
@@ -24,9 +26,60 @@ import { CUBE_FACE_IDS } from "./cube-model";
 const DESKTOP = { width: 1440, height: 900 };
 const LAPTOP = { width: 1024, height: 640 };
 
+function overlaps(a: { x: number; y: number; width: number; height: number }, b: typeof a) {
+  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+}
+
 describe("defaultCardRects", () => {
-  it("places all six cards inside the stage, above the bar, cascading per column", () => {
+  it.each([DESKTOP, LAPTOP])("places all six cards inside the stage, above the bar (%o)", (stage) => {
+    const rects = defaultCardRects(stage);
+    for (const face of CUBE_FACE_IDS) {
+      const r = rects[face];
+      expect(r.x).toBeGreaterThanOrEqual(STAGE_MARGIN);
+      expect(r.y).toBeGreaterThanOrEqual(STAGE_MARGIN);
+      expect(r.x + r.width).toBeLessThanOrEqual(stage.width - STAGE_MARGIN);
+      expect(r.y + r.height).toBeLessThanOrEqual(stage.height - STAGE_MARGIN - CARD_BAR_RESERVE);
+      expect(r.width).toBeGreaterThanOrEqual(CARD_LIMITS.min.width);
+      expect(r.height).toBeGreaterThanOrEqual(CARD_LIMITS.min.height);
+    }
+  });
+
+  it.each([DESKTOP, LAPTOP])("keeps the open cards apart and the middle of the stage free (%o)", (stage) => {
+    const rects = defaultCardRects(stage);
+    const open = CUBE_FACE_IDS.filter((face) => !DEFAULT_FOLDED_CARDS.includes(face));
+    expect([...open].sort()).toEqual(["answers", "avatar", "buildlog", "chat"]);
+    for (const a of open) {
+      for (const b of open) {
+        if (a !== b) expect(overlaps(rects[a], rects[b])).toBe(false);
+      }
+    }
+    // Svaren över chatten till vänster, som i chattpanelen.
+    expect(rects.answers.x).toBe(rects.chat.x);
+    expect(rects.answers.y + rects.answers.height).toBeLessThan(rects.chat.y);
+    // Mellan kolumnerna syns sajten.
+    const free = rects.avatar.x - (rects.chat.x + rects.chat.width);
+    expect(free).toBeGreaterThanOrEqual(stage.width * 0.3);
+  });
+
+  it("opens the two folded cards in the middle, at the top", () => {
     const rects = defaultCardRects(DESKTOP);
+    for (const face of DEFAULT_FOLDED_CARDS) {
+      expect(rects[face].x).toBeGreaterThan(rects.chat.x + rects.chat.width);
+      expect(rects[face].x + rects[face].width).toBeLessThan(rects.avatar.x);
+      expect(rects[face].y).toBe(STAGE_MARGIN);
+    }
+    expect(overlaps(rects.tools, rects.sitemap)).toBe(false);
+  });
+
+  it("falls back to the cascade on a stage too small for two columns", () => {
+    const small = { width: 560, height: 400 };
+    expect(defaultCardRects(small)).toEqual(cascadeCardRects(small));
+  });
+});
+
+describe("cascadeCardRects", () => {
+  it("places all six cards inside the stage, cascading per column", () => {
+    const rects = cascadeCardRects(DESKTOP);
     for (const face of CUBE_FACE_IDS) {
       const r = rects[face];
       expect(r.x).toBeGreaterThanOrEqual(STAGE_MARGIN);
@@ -39,8 +92,8 @@ describe("defaultCardRects", () => {
     expect(origins.size).toBe(6);
   });
 
-  it("falls back to fewer columns on a narrow stage", () => {
-    const rects = defaultCardRects({ width: 700, height: 800 });
+  it("uses fewer columns on a narrow stage", () => {
+    const rects = cascadeCardRects({ width: 700, height: 800 });
     const xs = new Set(CUBE_FACE_IDS.map((f) => rects[f].x));
     expect(xs.size).toBeGreaterThanOrEqual(2); // en kolumn, kaskad i x
     for (const f of CUBE_FACE_IDS) expect(rects[f].x + rects[f].width).toBeLessThanOrEqual(700 - STAGE_MARGIN);

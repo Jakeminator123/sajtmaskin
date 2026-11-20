@@ -6,9 +6,16 @@
  * värden; skrivning är debouncad och töms vid `pagehide`.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CUBE_FACE_IDS, type CubeFaceId } from "./cube-model";
-import { CARD_LIMITS, CUBE_LIMITS, clampSize, type Rect, type SizeLimits } from "./card-layout";
+import {
+  CARD_LIMITS,
+  CUBE_LIMITS,
+  DEFAULT_FOLDED_CARDS,
+  clampSize,
+  type Rect,
+  type SizeLimits,
+} from "./card-layout";
 
 export const CUBE_LAYOUT_STORAGE_KEY = "sajtmaskin:builder-cube:v1";
 export const CUBE_LAYOUT_WRITE_DELAY_MS = 250;
@@ -28,7 +35,13 @@ export interface CubeLayoutState {
 export const DEFAULT_CUBE_RECT: Rect = { x: 24, y: 24, width: 400, height: 560 };
 
 export function defaultCubeLayout(): CubeLayoutState {
-  return { mode: "cube", cube: { ...DEFAULT_CUBE_RECT }, cards: {}, folded: [], order: [...CUBE_FACE_IDS] };
+  return {
+    mode: "cube",
+    cube: { ...DEFAULT_CUBE_RECT },
+    cards: {},
+    folded: [...DEFAULT_FOLDED_CARDS],
+    order: [...CUBE_FACE_IDS],
+  };
 }
 
 const MAX_COORD = 20_000;
@@ -112,7 +125,8 @@ type Updater = CubeLayoutState | ((prev: CubeLayoutState) => CubeLayoutState);
 
 /**
  * Kontrollerad layout med persistens. Första renderingen (även på servern)
- * använder standardvärden; sparad layout läses i en effekt.
+ * använder standardvärden; sparad layout läses i en layouteffekt, alltså före
+ * första bilden, så panelen inte ritas på standardplatsen och sedan hoppar.
  */
 export function useCubeLayout() {
   const [layout, setLayoutState] = useState<CubeLayoutState>(defaultCubeLayout);
@@ -127,7 +141,7 @@ export function useCubeLayout() {
     pending.current = null;
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const saved = readCubeLayout();
     // Lagring kan bara läsas efter montering (SSR); en extra rendering är priset.
     // eslint-disable-next-line react-hooks/set-state-in-effect

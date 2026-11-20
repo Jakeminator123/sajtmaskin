@@ -57,6 +57,8 @@ interface FloatingCollapsedChatInputProps {
   builderMessages: ReadonlyArray<ChatMessage>;
   isStreaming: boolean;
   statusText?: string | null;
+  /** Byter chattpanelen mot byggkuben; knappen sitter i raden ovanför inmatningen. */
+  onOpenCube?: () => void;
   children: ReactNode;
 }
 
@@ -72,6 +74,7 @@ export function FloatingCollapsedChatInput({
   builderMessages,
   isStreaming,
   statusText = null,
+  onOpenCube,
   children,
 }: FloatingCollapsedChatInputProps) {
   const agentMessages = useSajtagent()?.messages;
@@ -290,6 +293,7 @@ export function FloatingCollapsedChatInput({
           onDragHandlePointerUp={handleDragEnd}
           onDragHandlePointerCancel={handleDragEnd}
           onMinimize={floatActive ? minimize : undefined}
+          onOpenCube={onOpenCube}
         />
       ) : null}
       {/* Flytande läge: lägre textruta så kortet tar mindre av sajten. */}

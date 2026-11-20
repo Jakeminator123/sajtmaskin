@@ -135,6 +135,20 @@ describe("BuilderCube", () => {
     expect(Math.max(...CUBE_FACE_IDS.map(z))).toBe(z("chat"));
   });
 
+  it("raises a card on a press anywhere in it, also in content hosted from outside", () => {
+    render(<Harness initialMode="cards" />);
+    const z = (id: CubeFaceId) => Number(face(id).style.zIndex);
+    const top = () => CUBE_FACE_IDS.reduce((a, b) => (z(a) >= z(b) ? a : b));
+    fireEvent.pointerDown(screen.getByTestId("content-tools"));
+    expect(top()).toBe("tools");
+    // Värdat innehåll (`relocation.tsx`): en nod som React inte renderade under
+    // sidan. Dess React-händelser bubblar inte hit, så lyftet lyssnar i DOM:en.
+    const hosted = document.createElement("div");
+    face("avatar").querySelector("[data-cube-content]")?.appendChild(hosted);
+    fireEvent.pointerDown(hosted);
+    expect(top()).toBe("avatar");
+  });
+
   it("shrinks and grows a card by multiplying its size", () => {
     render(<Harness initialMode="cards" />);
     const before = parseFloat(face("tools").style.width);

@@ -210,6 +210,12 @@ interface ChatInterfaceProps {
   } | null;
   selectedModelTier?: ModelTier;
   onSelectedModelTierChange?: (tier: ModelTier) => void;
+  /**
+   * Avataren har en egen yta (byggkubens Avatar-sida). Komposern visar då
+   * ingen egen avatarknapp: två ytor som var för sig kan starta en ström vore
+   * två betalda D-ID-anslutningar för samma samtal.
+   */
+  avatarElsewhere?: boolean;
 }
 
 const IMAGE_EXTENSION_MIME: Record<string, string> = {
@@ -309,6 +315,7 @@ export function ChatInterface({
   previewModes,
   selectedModelTier,
   onSelectedModelTierChange,
+  avatarElsewhere = false,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const activeComposerChatRef = useRef(chatId);
@@ -1029,7 +1036,7 @@ export function ChatInterface({
 
   return (
     <div className="border-border bg-background border-t p-4">
-      {agentAvailable ? <SajtagentAvatar key={chatId} /> : null}
+      {agentAvailable && !avatarElsewhere ? <SajtagentAvatar key={chatId} /> : null}
       {followUpBaseInfo && (
         // P19 Steg 3 — basversions-indikator. The composer sends the next
         // follow-up against the currently active version (see

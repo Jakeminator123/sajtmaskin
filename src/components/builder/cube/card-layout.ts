@@ -30,6 +30,12 @@ export const CARD_BAR_RESERVE = 56;
 export const CARD_SHRINK = 0.88;
 export const CARD_GROW = 1.14;
 export const CARD_CASCADE = 28;
+export const CARD_GAP = 12;
+/**
+ * Sidor som börjar nedfällda i kortläget. De fyra övriga står längs scenens
+ * kanter, så att sajten syns i mitten.
+ */
+export const DEFAULT_FOLDED_CARDS: readonly CubeFaceId[] = ["tools", "sitemap"];
 
 export const CARD_LIMITS: SizeLimits = {
   min: { width: 240, height: 180 },
@@ -102,11 +108,56 @@ export function scaleCard(rect: Rect, factor: number, stage: Size, limits = CARD
 }
 
 /**
- * Standardplacering: kort i kolumner (så många som får plats, högst tre),
- * varje kolumn kaskad med `CARD_CASCADE` px nedåt/åt höger. Kolumnerna
- * fylls från höger kant, där förhandsvisningen brukar ha minst innehåll.
+ * Standardplacering. Fyra kort står längs kanterna så att sajten syns i
+ * mitten: svaren över chatten till vänster (som i chattpanelen), avataren över
+ * byggloggen till höger. Verktyg och sajtkarta börjar nedfällda
+ * (`DEFAULT_FOLDED_CARDS`) och öppnas i mitten, upptill.
+ *
+ * En scen som är för smal eller låg för två kolumner får kaskaden i stället.
  */
-export function defaultCardRects(
+export function defaultCardRects(stage: Size): Record<CubeFaceId, Rect> {
+  const room = {
+    width: stage.width - STAGE_MARGIN * 2,
+    height: stage.height - STAGE_MARGIN * 2 - CARD_BAR_RESERVE,
+  };
+  const column = Math.round(clamp(stage.width * 0.26, 300, 400));
+  // Chatten behöver höjd för komposern; svaren får resten.
+  const chat = Math.round(clamp(room.height * 0.44, 260, 340));
+  const answers = room.height - CARD_GAP - chat;
+  if (room.width < column * 2 + CARD_GAP || answers < CARD_LIMITS.min.height) {
+    return cascadeCardRects(stage);
+  }
+  const left = STAGE_MARGIN;
+  const right = stage.width - STAGE_MARGIN - column;
+  const top = STAGE_MARGIN;
+  const avatar = Math.round(clamp(room.height * 0.5, 220, 420));
+  const middle = 320;
+  const placed: Record<CubeFaceId, Rect> = {
+    answers: { x: left, y: top, width: column, height: answers },
+    chat: { x: left, y: top + answers + CARD_GAP, width: column, height: chat },
+    avatar: { x: right, y: top, width: column, height: avatar },
+    buildlog: {
+      x: right,
+      y: top + avatar + CARD_GAP,
+      width: column,
+      height: room.height - CARD_GAP - avatar,
+    },
+    tools: { x: left + column + CARD_GAP, y: top, width: middle, height: 320 },
+    sitemap: { x: right - CARD_GAP - middle, y: top, width: middle, height: 380 },
+  };
+  const out = {} as Record<CubeFaceId, Rect>;
+  for (const face of CUBE_FACE_IDS) {
+    out[face] = fitRect(placed[face], stage, CARD_LIMITS, STAGE_MARGIN, CARD_BAR_RESERVE);
+  }
+  return out;
+}
+
+/**
+ * Kaskad: kort i kolumner (så många som får plats, högst tre), varje kolumn
+ * förskjuten `CARD_CASCADE` px nedåt/åt höger. Kolumnerna fylls från höger
+ * kant. Reserv för scener där standardplaceringen inte får plats.
+ */
+export function cascadeCardRects(
   stage: Size,
   faces: readonly CubeFaceId[] = CUBE_FACE_IDS,
   cardSize: Size = { width: 360, height: 440 },

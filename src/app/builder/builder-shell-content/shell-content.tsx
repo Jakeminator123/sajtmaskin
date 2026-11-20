@@ -5,6 +5,7 @@ import { MessageList } from "@/components/builder/chat/MessageList";
 import { PreviewPanel } from "@/components/builder/preview-panel/PreviewPanel";
 import { BuilderPreviewTools } from "@/components/builder/shell/BuilderPreviewTools";
 import { FloatingCollapsedChatInput } from "@/components/builder/chat/FloatingCollapsedChatInput";
+import { Relocatable, useRelocationSlot } from "@/components/builder/cube/relocation";
 import { BuilderHeader } from "@/components/builder/shell/BuilderHeader";
 import { ModelTraceOverlay } from "@/components/builder/diagnostics/ModelTraceOverlay";
 import {
@@ -19,6 +20,7 @@ import { CampaignAccountBanner } from "@/components/kostnadsfri/campaign-account
 import { currentBuilderReturnTo } from "@/lib/builder/pending-builder-draft";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { requestF3Rebuild } from "@/lib/builder/project-env-events";
+import { setBuilderCubeEnabled, useBuilderCubeEnabled } from "@/lib/builder/builder-cube-preference";
 import { resolveChatCollapseStatusText } from "@/lib/builder/chat-collapse-status";
 import { localizeVerificationSummary } from "@/lib/builder/version-history-status-labels";
 import { Button } from "@/components/ui/button";
@@ -32,9 +34,10 @@ import { LG_UP_MEDIA_QUERY, useMediaQuery } from "@/lib/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, Eye, MessageSquare } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BuilderLayout } from "../BuilderLayout";
 import type { BuilderViewModel } from "../useBuilderPageController";
+import { BuilderCubeSurface, type BuilderCubeSlots } from "./cube-surface";
 import { BuilderShellDialogs } from "./shell-dialogs";
 import { useShellDeployDomain } from "./use-deploy-domain";
 import { useShellDevContextEffects } from "./use-dev-context-effects";
@@ -58,6 +61,16 @@ const VersionHistory = dynamic(
     })),
   { ssr: false },
 );
+
+/**
+ * Chattpanelens innehåll medan byggkuben visar det: osynligt och ur flödet,
+ * men utlagt med den dockade panelens mått (`lg:w-96` med höger kant).
+ * Layouten måste finnas kvar och vara densamma som nyss: rullägena läses när
+ * innehållet flyttas till kuben, och en tidslinje som just lagts om i en
+ * annan bredd svarar med ett annat läge än det användaren stod på.
+ */
+const CHAT_PANEL_PARKED_CLASS =
+  "pointer-events-none invisible absolute inset-y-0 left-0 flex w-96 flex-col border-r border-transparent";
 
 export function BuilderShellContent(vm: BuilderViewModel) {
   const [hasMountedImportModal, setHasMountedImportModal] = useState(vm.isImportModalOpen);
@@ -213,6 +226,25 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     />
   );
 
+  // Byggkuben (valfri, lg+): chattpanelens innehåll som sex sidor i en
+  // flyttbar panel över förhandsvisningen. Under lg och utan chatt gäller den
+  // vanliga panelen: kuben har ingen mobil form, och välkomstläget har bara
+  // inmatningen att visa.
+  const cubeEnabled = useBuilderCubeEnabled();
+  const cubeActive = cubeEnabled && isDesktopShell && Boolean(vm.chatId);
+  const openCube = useCallback(() => setBuilderCubeEnabled(true), []);
+  const closeCube = useCallback(() => setBuilderCubeEnabled(false), []);
+  // Komposern, tidslinjen och F3-ytorna renderas en gång, i panelen nedan.
+  // Kuben visar samma instanser genom utlopp i stället för att rendera egna,
+  // så ett layoutbyte avmonterar ingenting (`relocation.tsx`).
+  const composerSlot = useRelocationSlot();
+  const timelineSlot = useRelocationSlot();
+  const noticesSlot = useRelocationSlot();
+  const cubeSlots = useMemo<BuilderCubeSlots>(
+    () => ({ composer: composerSlot, timeline: timelineSlot, notices: noticesSlot }),
+    [composerSlot, timelineSlot, noticesSlot],
+  );
+
   return (
     <BuilderLayout chatId={vm.chatId} versionId={vm.activeVersionId}>
       <BuilderHeader
@@ -343,7 +375,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           role="tabpanel"
           className={cn(
             "border-border bg-background min-h-0 w-full flex-col lg:flex",
-            isChatOutputCollapsed
+            // Kuben använder samma överlägg som den nedfällda chatten:
+            // panelen täcker ytan utan att fånga klick, kuben fångar sina egna.
+            isChatOutputCollapsed || cubeActive
               ? "lg:pointer-events-none lg:absolute lg:inset-0 lg:z-30 lg:border-0 lg:bg-transparent"
               : "border-r lg:w-96",
             isChatOutputCollapsed && "max-lg:border-t",
@@ -361,8 +395,29 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             isAnyStreaming={vm.isAnyStreaming}
             digestEnabled={vm.tipsEnabled}
           >
+          {cubeActive ? (
+            <BuilderCubeSurface
+              // Nycklad på chatten: en ny chatt börjar på Chatt-sidan, utan
+              // den förra chattens olästa svar.
+              key={vm.chatId}
+              vm={vm}
+              slots={cubeSlots}
+              locked={isInteractionLocked}
+              statusText={chatCollapseStatusText}
+              noticesPending={Boolean(visibleF3Requirements)}
+              onExit={closeCube}
+            />
+          ) : null}
+          {/* Panelens innehåll är alltid monterat. I kubläget syns det inte här
+              utan genom kubens utlopp. Utan kub ger `contents` omslaget ingen
+              egen ruta, så panelens flexlayout är densamma som utan det. */}
+          <div
+            className={cubeActive ? CHAT_PANEL_PARKED_CLASS : "contents"}
+            data-testid="builder-chat-panel-content"
+          >
           {/* F3 stannar utanför float-boxen; göms i collapsed lg+. */}
           <div className={cn(isChatOutputCollapsed && "lg:hidden")}>
+            <Relocatable slot={noticesSlot}>
             {/* Lucka 3 (ägarbeslut 2026-08-11): render while an F3-blocked
                 episode is tracked at all — NOT only while `missingByIntegration`
                 is still non-empty. `visibleF3Requirements` shrinks that list
@@ -390,6 +445,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
               />
             ) : null}
+            </Relocatable>
           </div>
           {/* Ägarbeslut 2026-07-22: ProjectEnvVarsPanel är borttagen — Byggblock-
               popovern (PreviewPanelDossiers) är den enda env-ytan i både F2 och F3. */}
@@ -400,6 +456,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               isChatOutputCollapsed && "hidden",
             )}
           >
+            <Relocatable slot={timelineSlot}>
             <MessageList
               chatId={vm.chatId}
               versionId={vm.activeVersionId}
@@ -419,16 +476,20 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
               isStreaming={vm.isAnyStreaming}
             />
+            </Relocatable>
           </div>
           <FloatingCollapsedChatInput
-            floatEnabled={isChatOutputCollapsed}
+            // I kubläget är panelen dold; då ska den inte flyta.
+            floatEnabled={isChatOutputCollapsed && !cubeActive}
             chatId={vm.chatId}
             isCollapsed={isChatOutputCollapsed}
             onToggleCollapse={chatOutputCollapse.toggle}
             builderMessages={vm.messages}
             isStreaming={vm.isAnyStreaming}
             statusText={chatCollapseStatusText}
+            onOpenCube={openCube}
           >
+            <Relocatable slot={composerSlot}>
             <ChatInterface
               chatId={vm.chatId}
               initialPrompt={vm.initialPrompt}
@@ -445,6 +506,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               followUpBaseInfo={followUpBaseInfo}
               selectedModelTier={vm.selectedModelTier}
               onSelectedModelTierChange={vm.setSelectedModelTier}
+              // I kuben har avataren en egen sida; komposern visar då ingen egen knapp.
+              avatarElsewhere={cubeActive}
               previewModes={
                 vm.currentPreviewUrl
                   ? {
@@ -459,7 +522,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                   : null
               }
             />
+            </Relocatable>
           </FloatingCollapsedChatInput>
+          </div>
           <BuilderShellDialogs
             vm={vm}
             githubExportOpen={githubExportOpen}
