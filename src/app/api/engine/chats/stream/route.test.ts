@@ -344,6 +344,31 @@ vi.mock("@/lib/data/redis", async (importOriginal) => {
 const invalidateProjectListCache = vi.hoisted(() => vi.fn(async () => undefined));
 vi.mock("@/lib/projects/project-list-cache", () => ({ invalidateProjectListCache }));
 
+// Projekttaket vid första chatten (SM-133). Standard: tillåtet, och chatten
+// skrivs genom en skenbar transaktion så att testet ser att den går den vägen.
+const projectCapState = vi.hoisted(() => ({
+  early: { allowed: true } as
+    | { allowed: true }
+    | { allowed: false; reason: string; limit: number; current: number },
+  locked: null as null | { allowed: false; reason: string; limit: number; current: number },
+}));
+vi.mock("@/lib/projects/project-cap", () => ({
+  checkProjectCapForFirstChat: async () => projectCapState.early,
+  createFirstChatWithinProjectCap: async ({
+    createChat,
+  }: {
+    createChat: (database: unknown) => Promise<unknown>;
+  }) =>
+    projectCapState.locked
+      ? { status: "project_limit", denial: projectCapState.locked }
+      : { status: "created", chat: await createChat("project-cap-tx") },
+}));
+
+beforeEach(() => {
+  projectCapState.early = { allowed: true };
+  projectCapState.locked = null;
+});
+
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   createChat,
   addMessage,
@@ -1212,6 +1237,8 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
       "scaffold_1",
       expect.objectContaining({ id: expect.stringMatching(/^[0-9a-f-]{36}$/i) }),
     );
+    // SM-133: chatten skrivs genom takkontrollens transaktion.
+    expect(createChat.mock.calls[0]?.[4]).toMatchObject({ database: "project-cap-tx" });
     // SM-133: första chatten gör projektet synligt i /projects.
     expect(invalidateProjectListCache).toHaveBeenCalledWith("user_1", "sess_1");
   });
@@ -1237,6 +1264,44 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     });
     expect(createChat).not.toHaveBeenCalled();
     expect(addMessage).not.toHaveBeenCalled();
+    expect(invalidateProjectListCache).not.toHaveBeenCalled();
+  });
+
+  it("nekar första bygget över projekttaket innan krediter, brief och chatt (SM-133)", async () => {
+    projectCapState.early = { allowed: false, reason: "Du har nått maxgränsen för gratiskonton (8 projekt). Ta bort ett projekt eller uppgradera för att bygga fler.", limit: 8, current: 8 };
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Bygg en enkel landningssida." }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ success: false, error: "Du har nått maxgränsen för gratiskonton (8 projekt). Ta bort ett projekt eller uppgradera för att bygga fler.", limitReached: true, current: 8, limit: 8 });
+    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(createChat).not.toHaveBeenCalled();
+    expect(invalidateProjectListCache).not.toHaveBeenCalled();
+  });
+
+  it("nekar i den låsta kontrollen när en annan flik hann först (SM-133)", async () => {
+    projectCapState.locked = { allowed: false, reason: "Du har nått maxgränsen för gratiskonton (8 projekt). Ta bort ett projekt eller uppgradera för att bygga fler.", limit: 8, current: 8 };
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Bygg en enkel landningssida." }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ success: false, error: "Du har nått maxgränsen för gratiskonton (8 projekt). Ta bort ett projekt eller uppgradera för att bygga fler.", limitReached: true, current: 8, limit: 8 });
+    expect(createChat).not.toHaveBeenCalled();
+    expect(addMessage).not.toHaveBeenCalled();
+    expect(createGenerationPipeline).not.toHaveBeenCalled();
+    expect(commitCredits).not.toHaveBeenCalled();
     expect(invalidateProjectListCache).not.toHaveBeenCalled();
   });
 

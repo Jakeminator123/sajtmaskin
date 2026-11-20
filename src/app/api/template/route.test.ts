@@ -75,6 +75,31 @@ vi.mock("@/lib/gen/preview/preview-session", () => ({
   startPreviewSession,
 }));
 
+// Projekttaket vid första chatten (SM-133). Standard: tillåtet, och chatten
+// skrivs genom en skenbar transaktion så att testet ser att den går den vägen.
+const projectCapState = vi.hoisted(() => ({
+  early: { allowed: true } as
+    | { allowed: true }
+    | { allowed: false; reason: string; limit: number; current: number },
+  locked: null as null | { allowed: false; reason: string; limit: number; current: number },
+}));
+vi.mock("@/lib/projects/project-cap", () => ({
+  checkProjectCapForFirstChat: async () => projectCapState.early,
+  createFirstChatWithinProjectCap: async ({
+    createChat,
+  }: {
+    createChat: (database: unknown) => Promise<unknown>;
+  }) =>
+    projectCapState.locked
+      ? { status: "project_limit", denial: projectCapState.locked }
+      : { status: "created", chat: await createChat("project-cap-tx") },
+}));
+
+beforeEach(() => {
+  projectCapState.early = { allowed: true };
+  projectCapState.locked = null;
+});
+
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   createChat: chatRepoCreateChat,
   addMessage: chatRepoAddMessage,
@@ -381,6 +406,73 @@ describe("POST /api/template", () => {
     expect(getLocalV0TemplateSourceById).not.toHaveBeenCalled();
     expect(prepareCredits).not.toHaveBeenCalled();
     expect(createProject).not.toHaveBeenCalled();
+  });
+
+  function mockImportableTemplate() {
+    const source = {
+      templateId: "tmpl_1",
+      archivePath: "C:\\templates_v0\\downloads\\AI\\tmpl_1\\repo.zip",
+      sourceSlugs: ["ai"],
+      sourceLabelsSv: ["AI"],
+      categoryLabel: "AI",
+      timestamp: freshTimestamp(),
+      archiveSha256: "a".repeat(64),
+    };
+    getLocalV0TemplateSourceById.mockResolvedValue(source);
+    loadLocalV0TemplateFiles.mockResolvedValue({
+      source,
+      files: [
+        {
+          path: "app/page.tsx",
+          content: "export default function Page() { return <div>Repo</div>; }",
+          language: "tsx",
+        },
+        {
+          path: "package.json",
+          content: '{"name":"repo-template","scripts":{"dev":"next dev"}}',
+          language: "json",
+        },
+      ],
+    });
+  }
+
+  it("nekar mallen över projekttaket innan krediter och import (SM-133)", async () => {
+    mockImportableTemplate();
+    projectCapState.early = { allowed: false, reason: "Du har nått maxgränsen för gratiskonton (8 projekt). Ta bort ett projekt eller uppgradera för att bygga fler.", limit: 8, current: 8 };
+
+    const response = await POST(
+      new Request("https://example.com/api/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId: "tmpl_1", quality: "standard" }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ success: false, error: "Du har nått maxgränsen för gratiskonton (8 projekt). Ta bort ett projekt eller uppgradera för att bygga fler.", limitReached: true, current: 8, limit: 8 });
+    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(loadLocalV0TemplateFiles).not.toHaveBeenCalled();
+    expect(createProject).not.toHaveBeenCalled();
+    expect(chatRepoCreateChat).not.toHaveBeenCalled();
+  });
+
+  it("nekar mallen i den låsta kontrollen utan att skriva chatt eller debitera (SM-133)", async () => {
+    mockImportableTemplate();
+    projectCapState.locked = { allowed: false, reason: "Du har nått maxgränsen för gratiskonton (8 projekt). Ta bort ett projekt eller uppgradera för att bygga fler.", limit: 8, current: 8 };
+
+    const response = await POST(
+      new Request("https://example.com/api/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId: "tmpl_1", quality: "standard" }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ success: false, error: "Du har nått maxgränsen för gratiskonton (8 projekt). Ta bort ett projekt eller uppgradera för att bygga fler.", limitReached: true, current: 8, limit: 8 });
+    expect(chatRepoCreateChat).not.toHaveBeenCalled();
+    expect(chatRepoCreateDraftVersion).not.toHaveBeenCalled();
+    expect(commitCredits).not.toHaveBeenCalled();
   });
 
   it("does not expose unexpected template initialization errors", async () => {

@@ -70,6 +70,31 @@ vi.mock("@/lib/gen/scaffold-variants/variant-hints", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/gen/scaffold-variants/variant-hints")>();
   return { ...actual, buildVariantHintsForBrief: vi.fn(actual.buildVariantHintsForBrief) };
 });
+// Projekttaket vid första chatten (SM-133). Standard: tillåtet, och chatten
+// skrivs genom en skenbar transaktion så att testet ser att den går den vägen.
+const projectCapState = vi.hoisted(() => ({
+  early: { allowed: true } as
+    | { allowed: true }
+    | { allowed: false; reason: string; limit: number; current: number },
+  locked: null as null | { allowed: false; reason: string; limit: number; current: number },
+}));
+vi.mock("@/lib/projects/project-cap", () => ({
+  checkProjectCapForFirstChat: async () => projectCapState.early,
+  createFirstChatWithinProjectCap: async ({
+    createChat,
+  }: {
+    createChat: (database: unknown) => Promise<unknown>;
+  }) =>
+    projectCapState.locked
+      ? { status: "project_limit", denial: projectCapState.locked }
+      : { status: "created", chat: await createChat("project-cap-tx") },
+}));
+
+beforeEach(() => {
+  projectCapState.early = { allowed: true };
+  projectCapState.locked = null;
+});
+
 vi.mock("@/lib/db/chat-repository-pg", () => ({ createChat: vi.fn() }));
 vi.mock("@/lib/db/services/kostnadsfri-campaign", () => ({
   bindKostnadsfriCampaignInitialChat: vi.fn(),

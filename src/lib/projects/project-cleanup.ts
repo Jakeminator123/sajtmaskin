@@ -235,8 +235,8 @@ export async function canCreateProject(
       return {
         allowed: false,
         reason: isPaidUser
-          ? `Du har nått maxgränsen för projekt (${limit}). Ta bort gamla projekt för att skapa nya.`
-          : `Du har nått maxgränsen för gratiskonton (${limit} projekt). Uppgradera för fler!`,
+          ? `Du har nått maxgränsen för projekt (${limit}). Ta bort ett gammalt projekt för att bygga ett nytt.`
+          : `Du har nått maxgränsen för gratiskonton (${limit} projekt). Ta bort ett projekt eller uppgradera för att bygga fler.`,
         limit,
         current,
       };
