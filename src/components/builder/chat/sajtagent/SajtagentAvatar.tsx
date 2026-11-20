@@ -51,7 +51,7 @@ export function SajtagentAvatar({ variant = "inline" }: { variant?: SajtagentAva
                 samma chatt som vanligt.
               </p>
             </div>
-            <Button type="button" size="sm" onClick={() => setEnabled(true)} aria-label="Aktivera avatar">
+            <Button type="button" size="sm" onClick={() => setEnabled(true)}>
               <Video className="size-3.5" aria-hidden="true" />
               Starta avataren
             </Button>
@@ -248,7 +248,7 @@ function ActiveSajtagentAvatar({
             variant="ghost"
             size="xs"
             onClick={onTextOnly}
-            aria-label="Stäng av avatar"
+            title="Stäng av avataren och fortsätt i text"
             className="text-muted-foreground h-7"
           >
             <VideoOff className="size-3" aria-hidden="true" />

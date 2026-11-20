@@ -204,21 +204,22 @@ describe("SajtagentAvatar — som egen yta (variant stage)", () => {
     expect(screen.getByText("Prata med Sajtagenten")).toBeTruthy();
     expect(state.connect).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Aktivera avatar" }));
+    // Knapparna heter som de ser ut, så röststyrning hittar dem.
+    fireEvent.click(screen.getByRole("button", { name: "Starta avataren" }));
     expect(state.connect).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText("Sajtagentens avatar").tagName).toBe("VIDEO");
     expect(screen.getByRole("status").textContent).toContain("Avataren är redo");
     // Scenen fyller ytan; ingen förstoringsknapp behövs där.
     expect(screen.queryByRole("button", { name: "Förstora avatar" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Stäng av avatar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Endast text" }));
     expect(state.disconnect).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Prata med Sajtagenten")).toBeTruthy();
   });
 
   it("läser upp nya svar även som egen yta", () => {
     const { rerender } = render(<SajtagentAvatar variant="stage" />);
-    fireEvent.click(screen.getByRole("button", { name: "Aktivera avatar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Starta avataren" }));
     state.agent.messages = [reply("old"), reply("new", "Jag har gjort rubriken större.")];
     rerender(<SajtagentAvatar variant="stage" />);
     expect(state.avatar.speak).toHaveBeenCalledWith("Jag har gjort rubriken större.");
@@ -228,7 +229,7 @@ describe("SajtagentAvatar — som egen yta (variant stage)", () => {
     state.enabled = false;
     render(<SajtagentAvatar variant="stage" />);
     expect(screen.getByRole("status").textContent).toContain("Avataren är inte tillgänglig här");
-    expect(screen.queryByRole("button", { name: "Aktivera avatar" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Starta avataren" })).toBeNull();
     expect(state.connect).not.toHaveBeenCalled();
   });
 });

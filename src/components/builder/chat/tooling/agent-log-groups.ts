@@ -23,6 +23,12 @@ export type AgentLogGroup =
 
 /** En nyckel är en kort etikett, inte en mening. */
 const FACT_KEY_MAX_CHARS = 32;
+/**
+ * Nycklar vars rad är ett pågående steg, inte en uppgift: «Verifiering: läser
+ * av projektet efter syntax (…)» har formen nyckel: värde men beskriver vad
+ * som händer just nu (`stream-handlers-progress.ts`).
+ */
+const STEP_KEYS: ReadonlySet<string> = new Set(["verifiering"]);
 /** Längre värden är löptext och hör hemma i tidslinjen. */
 const FACT_VALUE_MAX_CHARS = 120;
 
@@ -42,6 +48,7 @@ export function parseAgentLogFact(item: AgentLogItem): AgentLogFact | null {
   if (!key || !value) return null;
   if (key.length > FACT_KEY_MAX_CHARS || value.length > FACT_VALUE_MAX_CHARS) return null;
   if (/[.!?—–(]/u.test(key)) return null;
+  if (STEP_KEYS.has(key.toLowerCase())) return null;
   return { key, value };
 }
 

@@ -22,6 +22,7 @@ describe("parseAgentLogFact", () => {
     "Expanderar kortade URL:er till fulla adresser",
     "Väntar på första kod- eller textoutput från modellen",
     "Klar 12:30",
+    "Verifiering: läser av projektet efter syntax (ingen kodändring i detta steg)",
     "Modellen svarade. Nästa steg: verifiering",
     ": utan nyckel",
     "Utan värde: ",
