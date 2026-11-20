@@ -157,4 +157,63 @@ describe("useBuilderProjectHydration new entry", () => {
       "/builder?project=proj_1&buildMethod=freeform&gclid=KeepMe",
     );
   });
+
+  it("two tabs on new=1 each create their own project and never share one (SM-133, R-1744)", async () => {
+    // Shared between tabs: the remembered project. A fresh start must not reuse
+    // it or any other project, or two builds could land in one project.
+    localStorage.setItem("sajtmaskin:lastProjectId", "project_old");
+    createProject
+      .mockResolvedValueOnce({ id: "project_tab_one" })
+      .mockResolvedValueOnce({ id: "project_tab_two" });
+    const setter = () => vi.fn() as never;
+    const tab = () => {
+      const setAppProjectId = vi.fn();
+      const router = { replace: vi.fn() };
+      renderHook(() =>
+        useBuilderProjectHydration({
+          appProjectId: null,
+          chatId: null,
+          chatIdParam: null,
+          entryKind: "blank",
+          forceNew: true,
+          hasEntryParams: false,
+          isAuthLoading: false,
+          paletteState: getDefaultPaletteState(),
+          projectParam: null,
+          autoProjectInitRef: ref(false),
+          lastPaletteSavedRef: ref<string | null>(null),
+          lastProjectIdRef: ref<string | null>(null),
+          paletteLoadedRef: ref(false),
+          router,
+          searchParams: new URLSearchParams("new=1") as never,
+          setAppProjectId: setAppProjectId as never,
+          setAppProjectName: setter(),
+          setAuthModalReason: setter(),
+          setClearedPreviewVersionId: setter(),
+          setEntryIntentActive: setter(),
+          setPaletteState: setter(),
+          setServerProjectChatId: setter(),
+          setServerProjectDemoUrl: setter(),
+          setServerProjectMessages: setter(),
+          setServerProjectPreviewOverrideUrl: setter(),
+          setServerProjectPreviewOverrideVersionId: setter(),
+        }),
+      );
+      return { setAppProjectId, router };
+    };
+
+    const first = tab();
+    const second = tab();
+
+    await waitFor(() => expect(createProject).toHaveBeenCalledTimes(2));
+    // Only the placeholder name goes to the server: no project id to reuse.
+    expect(createProject.mock.calls).toEqual([["Namnlöst projekt"], ["Namnlöst projekt"]]);
+    await waitFor(() => expect(first.setAppProjectId).toHaveBeenCalledWith("project_tab_one"));
+    await waitFor(() => expect(second.setAppProjectId).toHaveBeenCalledWith("project_tab_two"));
+    expect(first.setAppProjectId).not.toHaveBeenCalledWith("project_tab_two");
+    expect(second.setAppProjectId).not.toHaveBeenCalledWith("project_tab_one");
+    for (const { router } of [first, second]) {
+      expect(router.replace).not.toHaveBeenCalledWith(expect.stringContaining("project_old"));
+    }
+  });
 });
