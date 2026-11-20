@@ -11,6 +11,7 @@ import {
   invalidateProjectListCache,
   projectListCacheKey,
 } from "@/lib/projects/project-list-cache";
+import { isPaidProjectTier, projectLimitResponseBody } from "@/lib/projects/project-limit";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest, getSessionIdFromRequest } from "@/lib/auth/session";
 
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
         ),
       );
     }
-    const isPaidUser = user ? user.diamonds > 100 : false; // Simple check - could be more sophisticated
+    const isPaidUser = isPaidProjectTier(user);
 
     const limitCheck = await canCreateProject(user?.id || null, sessionId || null, isPaidUser);
 
@@ -129,13 +130,7 @@ export async function POST(request: NextRequest) {
       });
       return attachSessionCookie(
         NextResponse.json(
-          {
-            success: false,
-            error: limitCheck.reason,
-            limitReached: true,
-            current: limitCheck.current,
-            limit: limitCheck.limit,
-          },
+          projectLimitResponseBody(limitCheck),
           { status: 403 },
         ),
       );

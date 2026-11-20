@@ -1,3 +1,13 @@
+import {
+  checkProjectCapForFirstChat,
+  createFirstChatWithinProjectCap,
+} from "@/lib/projects/project-cap";
+import {
+  isPaidProjectTier,
+  projectLimitResponseBody,
+  ProjectLimitError,
+  type ProjectCapOwner,
+} from "@/lib/projects/project-limit";
 import { NextRequest, NextResponse } from "next/server";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import {
@@ -201,6 +211,8 @@ const PREVIEW_START_FAILED_MESSAGE =
 async function initializeLocalTemplateProject(params: {
   projectId: string;
   template: Template;
+  /** Projekttaket prövas när mallen ger projektet sin första chatt (SM-133). */
+  owner: ProjectCapOwner;
 }): Promise<{
   chatId: string;
   projectId: string;
@@ -264,7 +276,14 @@ async function initializeLocalTemplateProject(params: {
   const templateBuildIntent =
     getTemplateCatalogItemById(template.id)?.buildIntent === "app" ? "app" : "template";
 
-  const chat = await chatRepo.createChat(projectId, String(engineModel));
+  const created = await createFirstChatWithinProjectCap({
+    projectId,
+    owner: params.owner,
+    createChat: (database) =>
+      chatRepo.createChat(projectId, String(engineModel), undefined, undefined, { database }),
+  });
+  if (created.status === "project_limit") throw new ProjectLimitError(created.denial);
+  const chat = created.chat;
   // The imported base version is NOT an AI-generated "version 1": say so.
   // The copy sets the user's mental model for the whole chat — the template's
   // own stack/file tree is authoritative and the first real prompt is a
@@ -487,6 +506,11 @@ export async function POST(request: NextRequest) {
 
       const user = await getCurrentUser(request);
       const userId = user?.id || null;
+      const templateCapOwner: ProjectCapOwner = {
+        userId,
+        sessionId: sessionId || null,
+        isPaidUser: isPaidProjectTier(user),
+      };
       const resolvedRequestedProjectId = requestedProjectId
         ? await resolveAppProjectIdForRequest(
             request,
@@ -764,6 +788,18 @@ export async function POST(request: NextRequest) {
       }
 
       try {
+        // SM-133: mallen ger projektet (eller ett nytt) dess första chatt. Pröva
+        // taket innan krediter förbereds och innan något importeras.
+        const earlyProjectCap = await checkProjectCapForFirstChat(
+          projectId ?? acquired.projectId ?? null,
+          templateCapOwner,
+        );
+        if (!earlyProjectCap.allowed) {
+          await failAcquiredClaim("project_limit");
+          return attachSessionCookie(
+            NextResponse.json(projectLimitResponseBody(earlyProjectCap), { status: 403 }),
+          );
+        }
         const creditCheck = await prepareCredits(
           request,
           "prompt.template",
@@ -812,6 +848,7 @@ export async function POST(request: NextRequest) {
         const imported = await initializeLocalTemplateProject({
           projectId,
           template: templateMeta,
+          owner: templateCapOwner,
         });
         let recorded: boolean;
         try {
@@ -906,6 +943,11 @@ export async function POST(request: NextRequest) {
         throw error;
       }
     } catch (error) {
+      if (error instanceof ProjectLimitError) {
+        return attachSessionCookie(
+          NextResponse.json(projectLimitResponseBody(error.denial), { status: 403 }),
+        );
+      }
       console.error("[API /template] Error:", error);
 
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
