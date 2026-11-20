@@ -11,10 +11,13 @@
  * - AI-generated images: Delete with project
  */
 
-import { and, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { projectIdsWithBillingRows } from "@/lib/db/billing-retention-guard";
 import { db } from "@/lib/db/client";
-import { startedProjectCondition } from "@/lib/db/services/project-started";
+import {
+  builtProjectCondition,
+  startedProjectCondition,
+} from "@/lib/db/services/project-started";
 import {
   appProjects,
   images,
@@ -210,14 +213,22 @@ async function deleteProjectAndData(projectId: string): Promise<void> {
  * Returns { allowed: boolean, reason?: string, limit: number, current: number }
  *
  * `current` räknar bara startade projekt (`startedProjectCondition`, SM-133):
- * builderns platshållare utan chatt tar ingen plats under taket.
+ * builderns platshållare utan chatt tar ingen plats under taket. Vid första
+ * chatten räknar `project-cap.ts` i stället byggda projekt utom det aktuella
+ * (`counted: "built"`, `excludeProjectId`), med samma gräns och besked.
  */
 export async function canCreateProject(
   userId: string | null,
   sessionId: string | null,
   isPaidUser: boolean = false,
   database: Pick<typeof db, "select"> = db,
+  options: { counted?: "started" | "built"; excludeProjectId?: string | null } = {},
 ): Promise<{ allowed: boolean; reason?: string; limit: number; current: number }> {
+  const countedCondition =
+    options.counted === "built" ? builtProjectCondition() : startedProjectCondition();
+  const excludeCondition = options.excludeProjectId
+    ? ne(appProjects.id, options.excludeProjectId)
+    : undefined;
   if (userId) {
     // Authenticated user
     const limit = isPaidUser
@@ -227,7 +238,7 @@ export async function canCreateProject(
     const [{ count }] = await database
       .select({ count: sql<number>`count(*)`.mapWith(Number) })
       .from(appProjects)
-      .where(and(eq(appProjects.user_id, userId), startedProjectCondition()));
+      .where(and(eq(appProjects.user_id, userId), countedCondition, excludeCondition));
 
     const current = count || 0;
 
@@ -249,7 +260,7 @@ export async function canCreateProject(
     const [{ count }] = await database
       .select({ count: sql<number>`count(*)`.mapWith(Number) })
       .from(appProjects)
-      .where(and(eq(appProjects.session_id, sessionId), startedProjectCondition()));
+      .where(and(eq(appProjects.session_id, sessionId), countedCondition, excludeCondition));
 
     const current = count || 0;
 
