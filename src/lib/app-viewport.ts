@@ -1,6 +1,7 @@
 /**
- * Cookie-remsan (`CompactCookieBanner`) ligger fast i fönstrets nederkant och
- * skriver sin höjd till den här CSS-variabeln på `<html>` medan den syns.
+ * Cookie-remsan (`CompactCookieBanner` under `md`) ligger fast i fönstrets
+ * nederkant och skriver sin höjd till den här CSS-variabeln på `<html>` medan
+ * den syns. Från `md` är bannern ett litet kort och variabeln sätts inte.
  */
 export const COOKIE_BANNER_HEIGHT_VAR = "--cookie-banner-h";
 
