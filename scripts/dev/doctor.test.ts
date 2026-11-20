@@ -1,14 +1,22 @@
 // @vitest-environment node
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
   checkMcp,
   checkMcpSecrets,
   checkNode,
+  checkNodePins,
   checkPluginCost,
   checkRtk,
   checkSkillDuplication,
+  rangeAcceptsVersion,
+  readNodePins,
 } from "./doctor.mjs";
+
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
 /**
  * The doctor reports machine-local drift, so its own logic cannot be verified by
@@ -17,10 +25,52 @@ import {
  */
 describe("doctor — node pin", () => {
   it("accepterar exakt pin och flaggar avvikelse", () => {
-    expect(checkNode("22.23.1", "v22.23.1").level).toBe("ok");
-    const drift = checkNode("22.23.1", "v20.11.0");
+    expect(checkNode("24.22.3", "v24.22.3").level).toBe("ok");
+    const drift = checkNode("24.22.3", "v22.23.5");
     expect(drift.level).toBe("warn");
-    expect(drift.message).toContain("22.23.1");
+    expect(drift.message).toContain("24.22.3");
+    expect(drift.message).toContain("annan major");
+    expect(drift.fix).toContain("node@24.22.3");
+  });
+
+  it("säger samma major som en notis, inte en varning", () => {
+    const patch = checkNode("24.22.3", "v24.21.0");
+    expect(patch.level).toBe("note");
+    expect(patch.message).toContain("samma major");
+  });
+});
+
+describe("doctor — Node-pinnarna", () => {
+  it("läser engines-intervallen som repot använder", () => {
+    expect(rangeAcceptsVersion(">=24.11.0 <25", "24.22.3")).toBe(true);
+    expect(rangeAcceptsVersion(">=24.11.0 <25", "24.10.0")).toBe(false);
+    expect(rangeAcceptsVersion(">=24.11.0 <25", "25.0.0")).toBe(false);
+    expect(rangeAcceptsVersion("24.x", "24.1.0")).toBe(true);
+    expect(rangeAcceptsVersion("^24", "24.1.0")).toBeNull();
+  });
+
+  it("pekar ut pinnarna som inte följde med", () => {
+    // Läget 2026-11-20: ett lokalt verktyg skrev 22.23.5 i tre filer och lämnade
+    // resten på 22.23.1.
+    const verdict = checkNodePins("22.23.5", [
+      { source: ".nvmrc", kind: "exact", value: "22.23.5" },
+      { source: ".tool-versions", kind: "exact", value: "22.23.1" },
+      { source: "package.json engines", kind: "range", value: ">=24.11.0 <25" },
+      { source: "preview-host/Dockerfile", kind: "major", value: "24" },
+      { source: ".cursor/Dockerfile", kind: "exact", value: null },
+    ]);
+    expect(verdict.level).toBe("warn");
+    expect(verdict.message).toContain(".tool-versions 22.23.1");
+    expect(verdict.message).toContain('package.json engines ">=24.11.0 <25"');
+    expect(verdict.message).toContain("preview-host/Dockerfile node:24");
+    expect(verdict.message).toContain(".cursor/Dockerfile saknas");
+    expect(verdict.message).not.toContain(".nvmrc");
+  });
+
+  it("repots alla pinnar säger samma sak som .node-version", () => {
+    const pinned = readFileSync(join(REPO_ROOT, ".node-version"), "utf8").trim();
+    const verdict = checkNodePins(pinned, readNodePins(REPO_ROOT));
+    expect(verdict.message).toBe(`Alla Node-pinnar följer .node-version ${pinned}`);
   });
 });
 

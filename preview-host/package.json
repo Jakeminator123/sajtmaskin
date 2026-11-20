@@ -4,7 +4,7 @@
   "private": true,
   "description": "Stateful preview host; project processes share the host runtime.",
   "engines": {
-    "node": ">=22.14.0 <23"
+    "node": ">=24.11.0 <25"
   },
   "scripts": {
     "dev": "node --watch src/server.js",

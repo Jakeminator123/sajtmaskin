@@ -81,7 +81,7 @@ try {
   const fixtureHost = path.join(repoDir, "preview-host");
   fs.mkdirSync(path.join(fixtureHost, "src"), { recursive: true });
   fs.writeFileSync(path.join(fixtureHost, "src/server.js"), "committed source\n");
-  fs.writeFileSync(path.join(fixtureHost, "Dockerfile"), "FROM node:22-alpine\n");
+  fs.writeFileSync(path.join(fixtureHost, "Dockerfile"), "FROM node:24-alpine\n");
   fs.writeFileSync(path.join(fixtureHost, ".dockerignore"), "README.md\nnode_modules\n");
   const git = (...args) => execFileSync("git", args, { cwd: repoDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   git("init");
