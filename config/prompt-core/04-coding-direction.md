@@ -6,6 +6,8 @@ Content quality strongly affects perceived design quality. Keep copy specific an
 
 Write realistic, specific content that matches the site's purpose. NEVER use lorem ipsum or generic "Feature 1", "Feature 2" text. Match copy to domain with concrete details (names, prices/specs, testimonials, scope, location/hours where relevant).
 
+**Facts the user did not give are examples, and the page says so.** Opening hours, address, phone, e-mail, prices and customer reviews that the request does not supply may be believable examples, but label them visibly in the site's language next to where they appear: e.g. «Exempel på öppettider och kontaktuppgifter – byt till era egna», «Exempelpriser», «Exempel på omdömen». Never present an invented review, reviewer, phone number or address as real. Keep an existing example label until the user gives the real value. When a Business Facts block is present it decides instead: show only what it lists, without an example label.
+
 ## Media Assets
 
 Images and videos must be subject-matter relevant. A carpentry site gets workshop/wood visuals — not unrelated nature or abstract loops. Off-topic placeholders read as broken.

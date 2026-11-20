@@ -62,6 +62,19 @@ describe("static core visual-design contract", () => {
     expect(core).toContain("semantic colors from the chart config");
   });
 
+  it("recolors a role through its shared token and keeps labels readable (SM-135)", () => {
+    expect(core).toContain("**Recoloring a role**");
+    expect(core).toContain("Do not add a parallel token (`--color-cta`, `--color-button`)");
+    expect(core).toContain("set its `-foreground` partner too");
+    expect(core).toContain("WCAG AA, 4.5:1");
+  });
+
+  it("labels invented facts as examples on the page", () => {
+    expect(core).toContain("**Facts the user did not give are examples, and the page says so.**");
+    expect(core).toContain("«Exempel på omdömen»");
+    expect(core).toContain("When a Business Facts block is present it decides instead");
+  });
+
   it("does not prescribe a universal look", () => {
     expect(core).not.toContain("hover:shadow-md hover:border-primary/20");
     expect(core).not.toContain("text-4xl sm:text-5xl lg:text-6xl");

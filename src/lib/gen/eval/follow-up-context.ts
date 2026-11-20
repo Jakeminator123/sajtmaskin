@@ -22,6 +22,8 @@ type FollowUpEvalCase = {
   expected: {
     maxOptimizedMessageChars: number;
     maxSystemPromptChars: number;
+    /** Files whose full content must reach the model for this request. */
+    pinnedFiles?: string[];
   };
 };
 
@@ -123,6 +125,21 @@ const CASES: FollowUpEvalCase[] = [
     expected: {
       maxOptimizedMessageChars: 22_000,
       maxSystemPromptChars: 76_000,
+    },
+  },
+  {
+    // SM-135: a recolor names no design noun; the theme tokens every button
+    // reads must still be in full context.
+    id: "button-recolor",
+    message: "Gör knapparna mörkröda.",
+    previousFiles: landingPreviousFiles,
+    persistedScaffoldId: "landing-page",
+    persistedVariantId: "warm-local",
+    buildIntent: "website",
+    expected: {
+      maxOptimizedMessageChars: 22_000,
+      maxSystemPromptChars: 76_000,
+      pinnedFiles: ["app/globals.css"],
     },
   },
 ];
@@ -227,6 +244,9 @@ async function runCase(testCase: FollowUpEvalCase): Promise<FollowUpEvalResult> 
     issues.push(
       `optimizedMessage ${optimizedMessage.length} > ${testCase.expected.maxOptimizedMessageChars}`,
     );
+  }
+  for (const path of testCase.expected.pinnedFiles ?? []) {
+    if (!fileContextDecision.pinnedFiles.includes(path)) issues.push(`${path} not pinned`);
   }
   if (generationInput.promptSize.total.chars > testCase.expected.maxSystemPromptChars) {
     issues.push(
