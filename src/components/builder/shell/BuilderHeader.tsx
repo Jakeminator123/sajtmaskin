@@ -47,6 +47,7 @@ import {
   Plus,
   Lightbulb,
   Globe,
+  History,
   Save,
   Settings2,
   Wand2,
@@ -57,6 +58,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { LG_UP_MEDIA_QUERY, useMediaQuery } from "@/lib/hooks/use-media-query";
+import { cn } from "@/lib/utils";
 import { BuilderPublishControl } from "./BuilderPublishControl";
 import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
 
@@ -142,6 +145,11 @@ export function BuilderHeader(props: {
    * Ägaren avgör själv när klustret ska finnas — utan preview skickas inget.
    */
   previewTools?: ReactNode;
+  /**
+   * Öppnar versionshistoriken där den annars saknas (under `lg` visar
+   * shellen ingen versionspanel). Ger ett menyval i Mer.
+   */
+  onOpenVersionHistory?: () => void;
 }) {
   const {
     scaffoldMode,
@@ -199,8 +207,13 @@ export function BuilderHeader(props: {
     onRetryDeploymentHistory,
     deployDisabledReason,
     previewTools,
+    onOpenVersionHistory,
   } = props;
 
+  // Under `lg` (mobilflikarna) är headern EN rad: logotyp, Mer och
+  // Publicera. Ny chatt, versionshistorik och Logga ut flyttar in i Mer, och
+  // shellen lägger previewverktygen i förhandsvisningsfliken (rigg V-10).
+  const compact = !useMediaQuery(LG_UP_MEDIA_QUERY, true);
   const isBusy = isAnyStreaming || isCreatingChat;
   const actionsLocked = isBusy || pipelineLocked;
   const isConfigLocked = isAnyStreaming;
@@ -234,22 +247,30 @@ export function BuilderHeader(props: {
     runDeferredAction(onGoHome);
   }, [logout, onGoHome, runDeferredAction]);
 
-  // Headerns höjd är ett golv, inte ett tak: högergruppen är `flex-wrap`, så en
-  // smal skärm lägger knapparna på flera rader. Med fast `h-14` ritades de
-  // raderna utanför headern, ovanpå mobilflikarna och previewen.
+  // Headerns höjd är ett golv, inte ett tak: `flex-wrap` finns kvar som
+  // skyddsnät för sällsynta lägen (t.ex. publiceringsfel), men normalläget är
+  // en rad även på 390 px eftersom de sekundära knapparna bor i Mer där.
   return (
-    <header className="border-border bg-background flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b px-4 py-2">
-      <div className="flex items-center gap-3">
+    <header
+      className={cn(
+        "border-border bg-background flex shrink-0 flex-wrap items-center justify-between border-b",
+        compact ? "min-h-12 gap-x-2 gap-y-1.5 px-3 py-1.5" : "min-h-14 gap-x-3 gap-y-2 px-4 py-2",
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"
           onClick={onGoHome}
-          className="text-xl font-semibold tracking-tight transition-opacity hover:opacity-80"
+          className={cn(
+            "font-semibold tracking-tight transition-opacity hover:opacity-80",
+            compact ? "text-lg" : "text-xl",
+          )}
           aria-label="Sajtmaskin — gå till startsidan"
           title="Till startsidan"
         >
           Sajtmaskin
         </button>
-        {hasMounted && isAuthenticated && (
+        {!compact && hasMounted && isAuthenticated && (
           <Button variant="ghost" size="sm" onClick={handleLogout} title="Logga ut">
             <LogOut className="h-4 w-4" />
             <span className="hidden sm:inline">Logga ut</span>
@@ -257,7 +278,19 @@ export function BuilderHeader(props: {
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className={cn("flex flex-wrap items-center", compact ? "gap-1.5" : "gap-2")}>
+        {compact && isBusy ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => runDeferredAction(onCancelGeneration)}
+            aria-label="Avbryt pågående generering"
+            title="Avbryt pågående generering"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        ) : null}
+
         <DropdownMenu>
           <TooltipProvider>
             <Tooltip>
@@ -271,8 +304,16 @@ export function BuilderHeader(props: {
                   <Button
                     variant="outline"
                     size="sm"
-                    aria-label="Mer — spara, inställningar, import och export"
-                    title="Spara, inställningar, import och export"
+                    aria-label={
+                      compact
+                        ? "Mer — ny chatt, versionshistorik, spara, inställningar och konto"
+                        : "Mer — spara, inställningar, import och export"
+                    }
+                    title={
+                      compact
+                        ? "Ny chatt, versionshistorik, spara, inställningar och konto"
+                        : "Spara, inställningar, import och export"
+                    }
                   >
                     <MoreHorizontal className="h-4 w-4" />
                     <span className="hidden sm:inline">Mer</span>
@@ -286,6 +327,29 @@ export function BuilderHeader(props: {
             </Tooltip>
           </TooltipProvider>
           <DropdownMenuContent align="end" className="w-60">
+            {compact ? (
+              <>
+                <DropdownMenuLabel>Chatt</DropdownMenuLabel>
+                <DropdownMenuItem
+                  disabled={actionsLocked}
+                  onSelect={() => runDeferredAction(onNewChat)}
+                >
+                  {isCreatingChat ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="mr-2 h-4 w-4" />
+                  )}
+                  Ny chatt
+                </DropdownMenuItem>
+                {onOpenVersionHistory ? (
+                  <DropdownMenuItem onSelect={() => runDeferredAction(onOpenVersionHistory)}>
+                    <History className="mr-2 h-4 w-4" />
+                    Versionshistorik
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
             <DropdownMenuLabel>Projekt</DropdownMenuLabel>
             <DropdownMenuItem
               disabled={!canSaveProject || actionsLocked || isSavingProject}
@@ -594,10 +658,19 @@ export function BuilderHeader(props: {
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
+            {compact && hasMounted && isAuthenticated ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Logga ut
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {isBusy ? (
+        {!compact && isBusy ? (
           <Button
             variant="outline"
             size="sm"
@@ -609,22 +682,24 @@ export function BuilderHeader(props: {
           </Button>
         ) : null}
 
-        {previewTools}
+        {compact ? null : previewTools}
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => runDeferredAction(onNewChat)}
-          disabled={actionsLocked}
-          title="Starta en ny chatt (den nuvarande finns kvar i historiken)"
-        >
-          {isCreatingChat ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Plus className="h-4 w-4" />
-          )}
-          <span className="hidden sm:inline">Ny chatt</span>
-        </Button>
+        {compact ? null : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => runDeferredAction(onNewChat)}
+            disabled={actionsLocked}
+            title="Starta en ny chatt (den nuvarande finns kvar i historiken)"
+          >
+            {isCreatingChat ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">Ny chatt</span>
+          </Button>
+        )}
 
         <BuilderPublishControl
           activeVersionId={activeVersionId}

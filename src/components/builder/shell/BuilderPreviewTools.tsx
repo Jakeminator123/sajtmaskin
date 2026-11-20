@@ -15,9 +15,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import {
-  BUILDER_DESTRUCTIVE_ICON_CLASS,
   BUILDER_HEADER_ICON_CLASS,
   BUILDER_LIGHT_ICON_CLASS,
+  BUILDER_NEUTRAL_ICON_CLASS,
 } from "@/lib/builder/icon-language";
 import { PreviewCodeViewMenu } from "@/components/builder/preview-panel/code/PreviewCodeViewMenu";
 import { PreviewPanelDossiers } from "@/components/builder/preview-panel/PreviewPanelDossiers";
@@ -58,6 +58,8 @@ interface BuilderPreviewToolsProps {
   onDossierCountsChange?: PreviewPanelDossiersProps["onCountsChange"];
   /** Lucka 2 (ägarbeslut 2026-08-11): buren av versionslistan, ingen ny signal. */
   activeVersionMeta?: PreviewPanelDossiersProps["activeVersionMeta"];
+  /** Placering när klustret bor i förhandsvisningsfliken (under `lg`). */
+  className?: string;
 }
 
 /**
@@ -83,6 +85,7 @@ export function BuilderPreviewTools({
   f3RequiresRealBuildKeys = null,
   onDossierCountsChange,
   activeVersionMeta,
+  className,
 }: BuilderPreviewToolsProps) {
   // Sparad kod kan öppnas även utan en aktiv preview-session. Behåll också
   // kontrollerna i kod-/registervyn så att användaren kan ta sig tillbaka.
@@ -95,7 +98,7 @@ export function BuilderPreviewTools({
 
   return (
     <div
-      className="border-border flex items-center gap-0.5 rounded-md border px-1 py-0.5"
+      className={cn("border-border flex items-center gap-0.5 rounded-md border px-1 py-0.5", className)}
       aria-label="Previewverktyg"
     >
       <PreviewCodeViewMenu
@@ -145,7 +148,7 @@ export function BuilderPreviewTools({
               disabled={clearDisabled}
               aria-label="Starta om förhandsvisningen"
               title="Starta om förhandsvisningen (sajten är sparad)"
-              className={cn(BUILDER_HEADER_ICON_CLASS, BUILDER_DESTRUCTIVE_ICON_CLASS)}
+              className={cn(BUILDER_HEADER_ICON_CLASS, BUILDER_NEUTRAL_ICON_CLASS)}
             >
               <RotateCcw className="h-4 w-4" />
             </Button>

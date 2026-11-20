@@ -22,6 +22,13 @@ import { requestF3Rebuild } from "@/lib/builder/project-env-events";
 import { resolveChatCollapseStatusText } from "@/lib/builder/chat-collapse-status";
 import { localizeVerificationSummary } from "@/lib/builder/version-history-status-labels";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { LG_UP_MEDIA_QUERY, useMediaQuery } from "@/lib/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, Eye, MessageSquare } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -54,6 +61,10 @@ const VersionHistory = dynamic(
 
 export function BuilderShellContent(vm: BuilderViewModel) {
   const [hasMountedImportModal, setHasMountedImportModal] = useState(vm.isImportModalOpen);
+  // Under `lg` (mobilflikarna) bor previewverktygen i förhandsvisningsfliken
+  // och versionshistoriken öppnas som ett ark från Mer (rigg V-10, § 9).
+  const isDesktopShell = useMediaQuery(LG_UP_MEDIA_QUERY, true);
+  const [isVersionSheetOpen, setIsVersionSheetOpen] = useState(false);
 
   const {
     isBusy,
@@ -177,6 +188,31 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     f3Status: visibleF3Status,
   });
 
+  // Ett enda kluster åt gången: i headern på desktop, i förhandsvisnings-
+  // fliken under `lg` (där headern är en rad).
+  const previewTools = (className?: string) => (
+    <BuilderPreviewTools
+      className={className}
+      surface={previewSurface}
+      chatId={vm.chatId}
+      versionId={vm.activeVersionId}
+      previewUrl={vm.currentPreviewUrl}
+      lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
+      isBusy={isInteractionLocked}
+      onClear={() => vm.forcePreviewResync()}
+      clearDisabled={isPreviewLoading}
+      onRequestDossier={handleRequestDossier}
+      catalogPickDisabled={catalogPickDisabled}
+      onF3MissingEnv={handleF3MissingEnv}
+      onF3Status={setF3Status}
+      onF3Ready={handleF3Ready}
+      onF3ReleaseSettled={vm.handleDeterministicF3Settled}
+      f3RequiresRealBuildKeys={vm.deployReadiness?.info?.hasRealBuildIntegrations ?? null}
+      onDossierCountsChange={handleDossierCountsChange}
+      activeVersionMeta={activeVersionSummary}
+    />
+  );
+
   return (
     <BuilderLayout chatId={vm.chatId} versionId={vm.activeVersionId}>
       <BuilderHeader
@@ -245,29 +281,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         deploymentHistoryHydrationFailed={vm.deploymentHistoryHydrationFailed}
         onRetryDeploymentHistory={vm.refetchDeploymentHistory}
         deployDisabledReason={deployDisabledReason}
-        previewTools={
-          <BuilderPreviewTools
-            surface={previewSurface}
-            chatId={vm.chatId}
-            versionId={vm.activeVersionId}
-            previewUrl={vm.currentPreviewUrl}
-            lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
-            isBusy={isInteractionLocked}
-            onClear={() => vm.forcePreviewResync()}
-            clearDisabled={isPreviewLoading}
-            onRequestDossier={handleRequestDossier}
-            catalogPickDisabled={catalogPickDisabled}
-            onF3MissingEnv={handleF3MissingEnv}
-            onF3Status={setF3Status}
-            onF3Ready={handleF3Ready}
-            onF3ReleaseSettled={vm.handleDeterministicF3Settled}
-            f3RequiresRealBuildKeys={
-              vm.deployReadiness?.info?.hasRealBuildIntegrations ?? null
-            }
-            onDossierCountsChange={handleDossierCountsChange}
-            activeVersionMeta={activeVersionSummary}
-          />
-        }
+        previewTools={isDesktopShell ? previewTools() : null}
+        onOpenVersionHistory={isDesktopShell ? undefined : () => setIsVersionSheetOpen(true)}
       />
       <ModelTraceOverlay
         selectedModelTier={vm.selectedModelTier}
@@ -464,6 +479,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           )}
         >
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            {isDesktopShell ? null : previewTools("bg-background m-1.5 self-end")}
             <PreviewPanel
               chatId={vm.chatId}
               versionId={vm.activeVersionId}
@@ -553,6 +569,36 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           )}
         </div>
       </div>
+
+      {isDesktopShell ? null : (
+        <Sheet open={isVersionSheetOpen} onOpenChange={setIsVersionSheetOpen}>
+          <SheetContent side="right" showCloseButton={false} className="w-full gap-0 p-0 sm:max-w-sm">
+            <SheetTitle className="sr-only">Versionshistorik</SheetTitle>
+            <SheetDescription className="sr-only">
+              Välj en version för att visa den i förhandsvisningen.
+            </SheetDescription>
+            {isVersionSheetOpen ? (
+              <VersionHistory
+                chatId={vm.chatId}
+                selectedVersionId={vm.activeVersionId}
+                activePreviewSessionId={vm.activePreviewSessionId}
+                onVersionSelect={(versionId, demoUrl) => {
+                  handleVersionSelect(versionId, demoUrl);
+                  setIsVersionSheetOpen(false);
+                  setMobileTab("preview");
+                }}
+                onPreviewResync={(versionId) => vm.forcePreviewResync(versionId)}
+                isCollapsed={false}
+                onToggleCollapse={() => setIsVersionSheetOpen(false)}
+                versions={vm.effectiveVersionsList}
+                mutateVersions={vm.mutateVersions}
+                lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
+                selectDisabled={isInteractionLocked}
+              />
+            ) : null}
+          </SheetContent>
+        </Sheet>
+      )}
 
       {hasMountedImportModal || vm.isImportModalOpen ? (
         <InitFromRepoModal
