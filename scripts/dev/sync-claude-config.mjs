@@ -67,9 +67,10 @@ export const CLAUDE_ASK_RULES = Object.freeze([
   "Edit(~/.cursor/*.json)",
   "Edit(~/.cursor/rules/**)",
   "Edit(~/.cursor/commands/**)",
-  "Edit(~/.cursor/skills/**)",
+  "Edit(~/.cursor/skills*/**)",
   "Edit(~/.cursor/agents/**)",
   "Edit(~/.cursor/plugins/**)",
+  "Edit(~/.cursor/hooks/**)",
   "Edit(~/.codex/**)",
   "Edit(~/.claude/**)",
 ]);
