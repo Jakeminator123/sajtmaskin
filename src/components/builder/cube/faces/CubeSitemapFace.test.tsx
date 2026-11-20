@@ -1,5 +1,9 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  publishPreviewPageNavigator,
+  type PreviewPageNavigator,
+} from "../../preview-panel/pages/preview-page-navigator";
 import type { PreviewRouteInfo } from "../../preview-panel/pages/preview-route-helpers";
 import { buildSitemapTree, CubeSitemapFace } from "./CubeSitemapFace";
 
@@ -19,10 +23,28 @@ function page(route: string, extra: Partial<PreviewRouteInfo> = {}): PreviewRout
   return { route, label: route, dynamic: false, navigable: true, reachable: true, ...extra };
 }
 
+let unpublish: (() => void) | null = null;
+/** Stands in for the preview panel: it publishes where the iframe is and how to change page. */
+function publishPreview(activeRoute: string | null): PreviewPageNavigator {
+  const navigator: PreviewPageNavigator = { activeRoute, navigate: vi.fn() };
+  act(() => {
+    unpublish?.();
+    unpublish = publishPreviewPageNavigator(navigator);
+  });
+  return navigator;
+}
+
+const PREVIEW_URL = "/api/preview-render?chatId=c1&versionId=v1";
+
 beforeEach(() => {
   routesState.routes = [];
   routesState.loading = false;
   routesState.calls = [];
+});
+
+afterEach(() => {
+  act(() => unpublish?.());
+  unpublish = null;
 });
 
 describe("buildSitemapTree", () => {
@@ -56,57 +78,58 @@ describe("buildSitemapTree", () => {
 });
 
 describe("CubeSitemapFace", () => {
-  const ownEngineUrl = "/api/preview-render?chatId=c1&versionId=v1";
-
   it("reads the pages of the active version from the same source as the preview tabs", () => {
     routesState.routes = [page("/")];
-    render(
-      <CubeSitemapFace chatId="c1" versionId="v1" previewUrl={null} refreshToken={7} visible onNavigatePreviewUrl={vi.fn()} />,
-    );
+    render(<CubeSitemapFace chatId="c1" versionId="v1" previewUrl={null} refreshToken={7} visible />);
     expect(routesState.calls.at(-1)).toEqual(["c1", "v1", 7]);
     expect(screen.getByText("1 sida")).toBeTruthy();
   });
 
   it("reads no pages while the face is out of sight", () => {
     const { rerender } = render(
-      <CubeSitemapFace chatId="c1" versionId="v1" previewUrl={null} visible={false} onNavigatePreviewUrl={vi.fn()} />,
+      <CubeSitemapFace chatId="c1" versionId="v1" previewUrl={null} visible={false} />,
     );
     // The list is built from all files of the version: it is not fetched for a hidden face.
     expect(routesState.calls.at(-1)).toEqual([null, null, undefined]);
 
-    rerender(
-      <CubeSitemapFace chatId="c1" versionId="v1" previewUrl={null} visible onNavigatePreviewUrl={vi.fn()} />,
-    );
+    rerender(<CubeSitemapFace chatId="c1" versionId="v1" previewUrl={null} visible />);
     expect(routesState.calls.at(-1)).toEqual(["c1", "v1", undefined]);
   });
 
-  it("shows the tree, marks the page on screen and navigates on click", () => {
+  it("marks the page the preview really shows and changes page through the preview", () => {
     routesState.routes = [page("/"), page("/tjanster"), page("/tjanster/badrum"), page("/kontakt")];
-    const onNavigate = vi.fn();
-    render(
-      <CubeSitemapFace
-        chatId="c1"
-        versionId="v1"
-        previewUrl={`${ownEngineUrl}&route=%2Fkontakt`}
-        visible
-        onNavigatePreviewUrl={onNavigate}
-      />,
-    );
+    // The controlled address still says "/", but the visitor clicked on to
+    // "/kontakt" inside the site: the preview reports that page.
+    const preview = publishPreview("/kontakt");
+    render(<CubeSitemapFace chatId="c1" versionId="v1" previewUrl={PREVIEW_URL} visible />);
 
     const nav = screen.getByRole("navigation", { name: "Sajtkarta" });
     expect(within(nav).getByRole("button", { name: /Kontakt/ }).getAttribute("aria-current")).toBe("page");
     expect(within(nav).getByRole("button", { name: /Start/ }).getAttribute("aria-current")).toBeNull();
     expect(screen.getByText("4 sidor")).toBeTruthy();
 
+    // "Start" is the controlled address, but not what is on screen: it must
+    // still change page (the preview decides whether that is a reload).
+    fireEvent.click(within(nav).getByRole("button", { name: /Start/ }));
+    expect(preview.navigate).toHaveBeenLastCalledWith("/");
     fireEvent.click(within(nav).getByRole("button", { name: /Badrum/ }));
-    expect(onNavigate).toHaveBeenCalledTimes(1);
-    const target = new URL(onNavigate.mock.calls[0][0], "http://localhost");
-    expect(target.searchParams.get("route")).toBe("/tjanster/badrum");
-    expect(target.searchParams.get("versionId")).toBe("v1");
+    expect(preview.navigate).toHaveBeenLastCalledWith("/tjanster/badrum");
 
     // The page already on screen is not reloaded.
     fireEvent.click(within(nav).getByRole("button", { name: /Kontakt/ }));
-    expect(onNavigate).toHaveBeenCalledTimes(1);
+    expect(preview.navigate).toHaveBeenCalledTimes(2);
+  });
+
+  it("follows the preview when it moves to another page", () => {
+    routesState.routes = [page("/"), page("/kontakt")];
+    publishPreview("/");
+    render(<CubeSitemapFace chatId="c1" versionId="v1" previewUrl={PREVIEW_URL} visible />);
+    const nav = screen.getByRole("navigation", { name: "Sajtkarta" });
+    expect(within(nav).getByRole("button", { name: /Start/ }).getAttribute("aria-current")).toBe("page");
+
+    publishPreview("/kontakt");
+    expect(within(nav).getByRole("button", { name: /Kontakt/ }).getAttribute("aria-current")).toBe("page");
+    expect(within(nav).getByRole("button", { name: /Start/ }).getAttribute("aria-current")).toBeNull();
   });
 
   it("lists a dynamic or unlinked page without making it a dead button", () => {
@@ -115,9 +138,8 @@ describe("CubeSitemapFace", () => {
       page("/blogg/[slug]", { label: "/blogg/:slug", dynamic: true, navigable: false }),
       page("/gammal", { reachable: false }),
     ];
-    render(
-      <CubeSitemapFace chatId="c1" versionId="v1" previewUrl={ownEngineUrl} visible onNavigatePreviewUrl={vi.fn()} />,
-    );
+    publishPreview("/");
+    render(<CubeSitemapFace chatId="c1" versionId="v1" previewUrl={PREVIEW_URL} visible />);
     expect(screen.getByText("/blogg/:slug")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /slug/ })).toBeNull();
     expect(screen.getByText("olänkad")).toBeTruthy();
@@ -126,17 +148,24 @@ describe("CubeSitemapFace", () => {
 
   it("offers no navigation without a preview, and explains an empty map", () => {
     routesState.routes = [page("/")];
+    publishPreview(null);
     const { rerender } = render(
-      <CubeSitemapFace chatId="c1" versionId="v1" previewUrl={null} visible onNavigatePreviewUrl={vi.fn()} />,
+      <CubeSitemapFace chatId="c1" versionId="v1" previewUrl={null} visible />,
     );
     expect(screen.queryByRole("button")).toBeNull();
     expect(screen.getByText("Start")).toBeTruthy();
 
+    // A preview address alone is not enough: the panel must be there to change page.
+    act(() => unpublish?.());
+    unpublish = null;
+    rerender(<CubeSitemapFace chatId="c1" versionId="v1" previewUrl={PREVIEW_URL} visible />);
+    expect(screen.queryByRole("button")).toBeNull();
+
     routesState.routes = [];
-    rerender(<CubeSitemapFace chatId="c1" versionId="v1" previewUrl={null} visible onNavigatePreviewUrl={vi.fn()} />);
+    rerender(<CubeSitemapFace chatId="c1" versionId="v1" previewUrl={null} visible />);
     expect(screen.getByText("Inga sidor hittades i den här versionen.")).toBeTruthy();
 
-    rerender(<CubeSitemapFace chatId={null} versionId={null} previewUrl={null} visible onNavigatePreviewUrl={vi.fn()} />);
+    rerender(<CubeSitemapFace chatId={null} versionId={null} previewUrl={null} visible />);
     expect(screen.getByText("Sajtkartan visas när sajten har en första version.")).toBeTruthy();
   });
 });

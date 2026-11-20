@@ -37,7 +37,11 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BuilderLayout } from "../BuilderLayout";
 import type { BuilderViewModel } from "../useBuilderPageController";
-import { BuilderCubeSurface, type BuilderCubeSlots } from "./cube-surface";
+import {
+  BuilderCubeSurface,
+  focusAfterLayoutSwitch,
+  type BuilderCubeSlots,
+} from "./cube-surface";
 import { BuilderShellDialogs } from "./shell-dialogs";
 import { useShellDeployDomain } from "./use-deploy-domain";
 import { useShellDevContextEffects } from "./use-dev-context-effects";
@@ -169,11 +173,42 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     [bridgeChatId, bridgeVersionId, bridgeCancel, isInteractionLocked, sendMessage],
   );
 
+  // Byggkuben (valfri, lg+): chattpanelens innehåll som sex sidor i en
+  // flyttbar panel över förhandsvisningen. Under lg och utan chatt gäller den
+  // vanliga panelen: kuben har ingen mobil form, och välkomstläget har bara
+  // inmatningen att visa.
+  const cubeEnabled = useBuilderCubeEnabled();
+  const cubeActive = cubeEnabled && isDesktopShell && Boolean(vm.chatId);
+  // Fokus följer bytet. Knappen som öppnade kuben blir osynlig och knappen
+  // som stängde den avmonteras; utan det här hamnar fokus på <body> och den
+  // som använder tangentbordet tappar sin plats. Bara när användaren själv
+  // bytte: ett smalare fönster eller en omladdning flyttar inget fokus.
+  const focusAfterCubeSwitchRef = useRef(false);
+  const openCube = useCallback(() => {
+    focusAfterCubeSwitchRef.current = true;
+    setBuilderCubeEnabled(true);
+  }, []);
+  const closeCube = useCallback(() => {
+    focusAfterCubeSwitchRef.current = true;
+    setBuilderCubeEnabled(false);
+  }, []);
+  useEffect(() => {
+    if (!focusAfterCubeSwitchRef.current) return;
+    focusAfterCubeSwitchRef.current = false;
+    const panel = document.getElementById("builder-chat-panel");
+    if (panel) focusAfterLayoutSwitch(panel);
+  }, [cubeActive]);
+  // Komposerns egna utskick, inte Sajtagentens via bryggan: kuben vrider fram
+  // Svar på dem och på inget annat.
+  const [composerTurns, setComposerTurns] = useState(0);
+  const handleComposerTurn = useCallback(() => setComposerTurns((count) => count + 1), []);
+
   // En nedfälld chatt döljer utdatan men inte den flytande komposern, som kan
   // skicka till Sajtagenten. Svaret får inte landa i en dold yta: fäll ut när
   // en ny agentrad kommer (samma skäl som tips-popovern förut expanderade).
   // Hydrerad historik räknas inte — att öppna en chatt får inte skriva över
-  // användarens sparade nedfällda läge.
+  // användarens sparade nedfällda läge. Inte heller kuben: där syns svaret
+  // under Svar, och panelens sparade läge gäller när man går tillbaka.
   const agentMessageCount = useOpenClawStore((s) =>
     s.messages.reduce((count, message) => count + (message.hydrated ? 0 : 1), 0),
   );
@@ -182,8 +217,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   useEffect(() => {
     const grew = agentMessageCount > prevAgentMessageCountRef.current;
     prevAgentMessageCountRef.current = agentMessageCount;
-    if (grew && isChatOutputCollapsed) expandChatOutput();
-  }, [agentMessageCount, isChatOutputCollapsed, expandChatOutput]);
+    if (grew && isChatOutputCollapsed && !cubeActive) expandChatOutput();
+  }, [agentMessageCount, isChatOutputCollapsed, cubeActive, expandChatOutput]);
 
   // Ett stopp är ett stopp: headerns «Avbryt» avbryter bygget OCH släpper ett
   // aktivt agentmandat, så continuation-slingan inte skickar nästa steg på en
@@ -226,14 +261,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     />
   );
 
-  // Byggkuben (valfri, lg+): chattpanelens innehåll som sex sidor i en
-  // flyttbar panel över förhandsvisningen. Under lg och utan chatt gäller den
-  // vanliga panelen: kuben har ingen mobil form, och välkomstläget har bara
-  // inmatningen att visa.
-  const cubeEnabled = useBuilderCubeEnabled();
-  const cubeActive = cubeEnabled && isDesktopShell && Boolean(vm.chatId);
-  const openCube = useCallback(() => setBuilderCubeEnabled(true), []);
-  const closeCube = useCallback(() => setBuilderCubeEnabled(false), []);
   // Komposern, tidslinjen och F3-ytorna renderas en gång, i panelen nedan.
   // Kuben visar samma instanser genom utlopp i stället för att rendera egna,
   // så ett layoutbyte avmonterar ingenting (`relocation.tsx`).
@@ -405,6 +432,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               locked={isInteractionLocked}
               statusText={chatCollapseStatusText}
               noticesPending={Boolean(visibleF3Requirements)}
+              composerTurns={composerTurns}
               onExit={closeCube}
             />
           ) : null}
@@ -508,6 +536,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onSelectedModelTierChange={vm.setSelectedModelTier}
               // I kuben har avataren en egen sida; komposern visar då ingen egen knapp.
               avatarElsewhere={cubeActive}
+              onTurnSent={handleComposerTurn}
               previewModes={
                 vm.currentPreviewUrl
                   ? {

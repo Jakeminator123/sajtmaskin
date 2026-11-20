@@ -216,6 +216,12 @@ interface ChatInterfaceProps {
    * två betalda D-ID-anslutningar för samma samtal.
    */
   avatarElsewhere?: boolean;
+  /**
+   * Ett utskick från komposern har gått iväg: byggmotorn har fått turen, eller
+   * Sajtagenten har tagit emot frågan. Byggkuben vrider då fram Svar.
+   * Sajtagentens egna utskick till byggmotorn (bryggan) går inte hit.
+   */
+  onTurnSent?: () => void;
 }
 
 const IMAGE_EXTENSION_MIME: Record<string, string> = {
@@ -316,6 +322,7 @@ export function ChatInterface({
   selectedModelTier,
   onSelectedModelTierChange,
   avatarElsewhere = false,
+  onTurnSent,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const activeComposerChatRef = useRef(chatId);
@@ -836,6 +843,8 @@ export function ChatInterface({
         if (created === false) return;
       } else {
         if (!onSendMessage) return;
+        // Före svaret: `onSendMessage` löser först när hela bygget är klart.
+        onTurnSent?.();
         const outcome = await onSendMessage(payload.finalMessage, msgOpts);
         // Utfallskontraktet (BB#shadcn-lane1): en avvisad tur som servern INTE
         // skrev ner (`turnRecorded: false` — 409 stale base, 412 tier-3-env)
@@ -951,6 +960,7 @@ export function ChatInterface({
         onDispatchAccepted: () => {
           if (activeComposerChatRef.current === sendingChatId) {
             setInput((current) => current.trim() === trimmed ? "" : current);
+            onTurnSent?.();
           }
         },
       }).catch(() => toast("Sajtagenten kunde inte ta emot frågan. Ditt utkast finns kvar."));

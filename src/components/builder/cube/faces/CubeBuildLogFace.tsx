@@ -35,10 +35,13 @@ interface LatestBuild {
 }
 
 /**
- * Det senaste svaret från byggmotorn som faktiskt är ett bygge: det bär
- * verktygssteg eller filer, eller strömmar just nu. Ett rent textsvar (en
- * motfråga, en plan) är inget bygge och får inte rapporteras som «klart, 0
- * filer».
+ * Det senaste svaret från byggmotorn som faktiskt är ett bygge: det strömmar
+ * just nu, har skrivit filer, eller har ett steg som misslyckades.
+ *
+ * Verktygsdelar räcker inte som tecken. Varje svar från byggmotorn har sådana
+ * (modellinfo och genereringssteget kommer före allt annat), och en motfråga
+ * eller plan bär dessutom `tool:awaiting-input`. Ett sådant svar är inget
+ * bygge och får inte rapporteras som «klart, 0 filer» — då gäller bygget före.
  */
 export function selectLatestBuild(messages: ReadonlyArray<ChatMessage>): LatestBuild | null {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -53,13 +56,11 @@ export function selectLatestBuild(messages: ReadonlyArray<ChatMessage>): LatestB
       .map((part) => part.text)
       .join("\n");
     const isStreaming = Boolean(message.isStreaming);
-    if (
-      toolParts.length === 0 &&
-      !isStreaming &&
-      parseGenerationContent(content).files.length === 0
-    ) {
-      continue;
-    }
+    const isBuild =
+      isStreaming ||
+      parseGenerationContent(content).files.length > 0 ||
+      toolParts.some((part) => part.tool.state === "output-error");
+    if (!isBuild) continue;
     return { toolParts, content, isStreaming };
   }
   return null;

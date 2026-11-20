@@ -66,7 +66,38 @@ export interface BuilderCubeSurfaceProps {
   statusText: string | null;
   /** F3 väntar på användaren (nycklar eller «Fortsätt integrationsbygget»). */
   noticesPending: boolean;
+  /**
+   * Räknare för komposerns egna utskick (`ChatInterface.onTurnSent`). Den
+   * vrider fram Svar; Sajtagentens utskick till byggmotorn räknas inte.
+   */
+  composerTurns: number;
   onExit: () => void;
+}
+
+/** Där fokus landar efter ett byte mellan panel och kub, i den ordningen. */
+const FOCUS_AFTER_SWITCH = [
+  // Komposern: i kuben på Chatt-sidan, i panelen där den står.
+  'textarea[data-openclaw-text-target="builder.chat.primary"]',
+  // Kubens valda flik, när Chatt-sidan inte står fram.
+  '[role="tab"][aria-selected="true"]',
+  // Kortlägets fält, när Chatt-kortet är nedfällt.
+  '[role="toolbar"][aria-label="Kort"] button',
+  // Panelen med den flytande inmatningen hopfälld.
+  'button[aria-label^="Visa inmatningen"]',
+] as const;
+
+/**
+ * Flyttar fokus efter ett byte mellan chattpanelen och byggkuben, till det
+ * första i `FOCUS_AFTER_SWITCH` som tar emot fokus. Ett dolt eller inaktivt
+ * element tar inte emot fokus, och då prövas nästa.
+ */
+export function focusAfterLayoutSwitch(root: ParentNode): void {
+  for (const selector of FOCUS_AFTER_SWITCH) {
+    const element = root.querySelector<HTMLElement>(selector);
+    if (!element) continue;
+    element.focus({ preventScroll: true });
+    if (element.ownerDocument.activeElement === element) return;
+  }
 }
 
 const FACE_BUTTON_CLASS =
@@ -78,6 +109,7 @@ export function BuilderCubeSurface({
   locked,
   statusText,
   noticesPending,
+  composerTurns,
   onExit,
 }: BuilderCubeSurfaceProps) {
   const { layout, setLayout, resetLayout } = useCubeLayout();
@@ -91,35 +123,36 @@ export function BuilderCubeSurface({
   // Samma räkning som chattens «N meddelanden», utom agentens hydrerade
   // historik: den laddas efter monteringen och är inte nya svar.
   const agentMessages = agent?.messages;
-  const { messageCount, sentCount } = useMemo(() => {
-    const liveAgentMessages = (agentMessages ?? []).filter((message) => !message.hydrated);
-    return {
-      messageCount: countVisibleConversationMessages(vm.messages, liveAgentMessages),
-      // Det användaren själv har skickat, till byggmotorn eller Sajtagenten.
-      sentCount: countVisibleConversationMessages(
-        vm.messages.filter((message) => message.role === "user"),
-        liveAgentMessages.filter((message) => message.role === "user"),
+  const messageCount = useMemo(
+    () =>
+      countVisibleConversationMessages(
+        vm.messages,
+        (agentMessages ?? []).filter((message) => !message.hydrated),
       ),
-    };
-  }, [vm.messages, agentMessages]);
+    [vm.messages, agentMessages],
+  );
 
-  // Det användaren skickar vrider fram svaren: frågan och svaret hamnar på
-  // Svar-sidan, inte där man skrev. Ett svar som kommer senare vrider inget —
-  // det får inte ta inmatningen från den som redan skriver nästa meddelande —
-  // utan räknas som oläst. I kortläget syns båda, så där rörs inget.
+  // Det användaren skickar från komposern vrider fram svaren: frågan och
+  // svaret hamnar på Svar-sidan, inte där man skrev. Inget annat vrider —
+  // varken ett svar som kommer senare eller Sajtagentens egna utskick till
+  // byggmotorn; de får inte ta inmatningen från den som redan skriver nästa
+  // meddelande. De räknas som olästa. I kortläget syns båda, så där rörs inget.
   // Tillståndet justeras under rendering (inte i en effekt), som i
-  // `FloatingCollapsedChatInput`: en ny räkning ger rätt sida i samma bild.
-  const [tracked, setTracked] = useState({ messages: messageCount, sent: sentCount });
-  const [seenCount, setSeenCount] = useState(messageCount);
-  if (tracked.messages !== messageCount || tracked.sent !== sentCount) {
-    setTracked({ messages: messageCount, sent: sentCount });
-    if (tracked.messages === 0) {
-      // En öppnad chatt laddar sin historik efter monteringen. Den är varken
-      // något att vrida fram eller något oläst.
-      setSeenCount(messageCount);
-    } else if (sentCount > tracked.sent && layout.mode === "cube" && activeFace === "chat") {
+  // `FloatingCollapsedChatInput`: ett nytt värde ger rätt sida i samma bild.
+  const [trackedTurns, setTrackedTurns] = useState(composerTurns);
+  if (trackedTurns !== composerTurns) {
+    setTrackedTurns(composerTurns);
+    if (composerTurns > trackedTurns && layout.mode === "cube" && activeFace === "chat") {
       setActiveFace("answers");
     }
+  }
+  const [trackedCount, setTrackedCount] = useState(messageCount);
+  const [seenCount, setSeenCount] = useState(messageCount);
+  if (trackedCount !== messageCount) {
+    setTrackedCount(messageCount);
+    // En öppnad chatt laddar sin historik efter monteringen. Den är inget
+    // oläst.
+    if (trackedCount === 0) setSeenCount(messageCount);
   }
   const answersVisible =
     layout.mode === "cards" ? !layout.folded.includes("answers") : activeFace === "answers";
@@ -275,7 +308,6 @@ export function BuilderCubeSurface({
             previewUrl={vm.currentPreviewUrl}
             refreshToken={vm.previewRefreshToken}
             visible={sitemapVisible}
-            onNavigatePreviewUrl={vm.setCurrentPreviewUrl}
           />
         ),
       },
@@ -305,7 +337,6 @@ export function BuilderCubeSurface({
       vm.messages,
       vm.previewRefreshToken,
       vm.selectedModelTier,
-      vm.setCurrentPreviewUrl,
       vm.setEnableImageGenerations,
       vm.setEnableThinking,
       vm.setSelectedModelTier,

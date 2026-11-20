@@ -5,26 +5,24 @@
  * klick visar sidan i förhandsvisningen.
  *
  * Sidorna kommer från samma källa som förhandsvisningens sidflikar
- * (`usePreviewPanelPreviewRoutes` → versionens filer), och navigeringen bygger
- * adressen med samma hjälpare som flikarna. Kartan äger alltså ingen egen
- * sanning om vilka sidor som finns.
+ * (`usePreviewPanelPreviewRoutes` → versionens filer), och sidbytet går genom
+ * förhandsvisningens egen sidnavigering (`preview-page-navigator.ts`): den
+ * vet vilken sida iframen faktiskt visar, även efter en navigering inne i
+ * sajten. Kartan äger alltså ingen egen sanning om sidorna eller om var
+ * förhandsvisningen står.
  */
 
 import { useMemo } from "react";
 import { FileText, Folder, Loader2 } from "lucide-react";
-import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { cn } from "@/lib/utils";
-import {
-  buildExternalRoutePreviewUrl,
-  buildOwnEngineRoutePreviewUrl,
-  extractTier2AppRoute,
-  type PreviewRouteInfo,
-} from "../../preview-panel/pages/preview-route-helpers";
+import { usePreviewPageNavigator } from "../../preview-panel/pages/preview-page-navigator";
+import type { PreviewRouteInfo } from "../../preview-panel/pages/preview-route-helpers";
 import { usePreviewPanelPreviewRoutes } from "../../preview-panel/pages/usePreviewPanelPreviewRoutes";
 
 export interface CubeSitemapFaceProps {
   chatId: string | null;
   versionId: string | null;
+  /** Förhandsvisningens adress; utan den finns ingen sida att visa. */
   previewUrl: string | null;
   /** Byts när versionens sidor kan ha ändrats utan nytt versions-id. */
   refreshToken?: number;
@@ -34,7 +32,6 @@ export interface CubeSitemapFaceProps {
    * filer till sina flikar.
    */
   visible: boolean;
-  onNavigatePreviewUrl: (url: string) => void;
 }
 
 export interface SitemapNode {
@@ -89,25 +86,12 @@ export function buildSitemapTree(routes: ReadonlyArray<PreviewRouteInfo>): Sitem
   return roots;
 }
 
-function activeRouteOf(previewUrl: string | null): string | null {
-  if (!previewUrl || typeof window === "undefined") return null;
-  try {
-    const url = new URL(previewUrl, window.location.origin);
-    return isCompatibilityShimPreviewUrl(previewUrl)
-      ? url.searchParams.get("route") || "/"
-      : extractTier2AppRoute(url.pathname);
-  } catch {
-    return null;
-  }
-}
-
 export function CubeSitemapFace({
   chatId,
   versionId,
   previewUrl,
   refreshToken,
   visible,
-  onNavigatePreviewUrl,
 }: CubeSitemapFaceProps) {
   const { previewRoutes, previewRoutesLoading } = usePreviewPanelPreviewRoutes(
     visible ? chatId : null,
@@ -115,20 +99,19 @@ export function CubeSitemapFace({
     refreshToken,
   );
   const tree = useMemo(() => buildSitemapTree(previewRoutes), [previewRoutes]);
-  const activeRoute = activeRouteOf(previewUrl);
+  const navigator = usePreviewPageNavigator();
+  const activeRoute = navigator?.activeRoute ?? null;
 
+  // Sidan som redan visas laddas inte om; allt annat avgör förhandsvisningen.
   const navigate = (route: string) => {
-    if (!previewUrl) return;
-    const nextUrl = isCompatibilityShimPreviewUrl(previewUrl)
-      ? buildOwnEngineRoutePreviewUrl(previewUrl, route)
-      : buildExternalRoutePreviewUrl(previewUrl, route);
-    if (nextUrl && nextUrl !== previewUrl) onNavigatePreviewUrl(nextUrl);
+    if (!navigator || route === navigator.activeRoute) return;
+    navigator.navigate(route);
   };
 
   const renderNode = (node: SitemapNode) => {
     const page = node.page;
     const isActive = Boolean(page && activeRoute === page.route);
-    const canOpen = Boolean(page?.navigable && previewUrl);
+    const canOpen = Boolean(page?.navigable && previewUrl && navigator);
     const row = (
       <>
         {page ? (

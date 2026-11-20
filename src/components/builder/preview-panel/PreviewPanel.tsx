@@ -56,6 +56,7 @@ import {
 import { classifyInspectedElement } from "@/lib/builder/inspect-element-actions";
 import { usePreviewPanelCodeFiles } from "./code/usePreviewPanelCodeFiles";
 import { usePreviewPanelPreviewRoutes } from "./pages/usePreviewPanelPreviewRoutes";
+import { publishPreviewPageNavigator } from "./pages/preview-page-navigator";
 import { usePreviewPanelComposerActions } from "./composer/usePreviewPanelComposerActions";
 import { usePreviewPanelPageActions } from "./pages/usePreviewPanelPageActions";
 import { usePreviewPanelInspectorActions } from "./inspect/usePreviewPanelInspectorActions";
@@ -950,6 +951,17 @@ export function PreviewPanel({
       setIframeError,
       setIframeErrorMessage,
     ],
+  );
+
+  // Byggkubens sajtkarta byter sida genom samma väg som sidflikarna, och
+  // markerar sidan iframen faktiskt visar (`preview-page-navigator.ts`).
+  useEffect(
+    () =>
+      publishPreviewPageNavigator({
+        activeRoute: activePreviewRoute,
+        navigate: handleNavigateRoute,
+      }),
+    [activePreviewRoute, handleNavigateRoute],
   );
 
   const handleIframeError = useCallback(() => {

@@ -43,7 +43,7 @@ vi.mock("@/components/builder/cube/faces/CubeSitemapFace", () => ({
   ),
 }));
 
-import { BuilderCubeSurface } from "./cube-surface";
+import { BuilderCubeSurface, focusAfterLayoutSwitch } from "./cube-surface";
 
 function message(id: string, role: "user" | "assistant" = "assistant"): ChatMessage {
   return { id, role, content: `Meddelande ${id}` } as ChatMessage;
@@ -80,6 +80,7 @@ interface HarnessProps {
   locked?: boolean;
   statusText?: string | null;
   noticesPending?: boolean;
+  composerTurns?: number;
   onExit?: () => void;
 }
 
@@ -89,6 +90,7 @@ function Harness({
   locked = false,
   statusText = null,
   noticesPending = false,
+  composerTurns = 0,
   onExit = () => {},
 }: HarnessProps) {
   const composer = useRelocationSlot();
@@ -113,6 +115,7 @@ function Harness({
         locked={locked}
         statusText={statusText}
         noticesPending={noticesPending}
+        composerTurns={composerTurns}
         onExit={onExit}
       />
     </>
@@ -189,10 +192,24 @@ describe("BuilderCubeSurface", () => {
     const { rerender } = render(<Harness />);
     expect(selected("Chatt")).toBe(true);
 
-    rerender(<Harness vm={makeVm({ messages: [message("u1", "user"), message("a1"), message("u2", "user")] })} />);
+    const sent = makeVm({ messages: [message("u1", "user"), message("a1"), message("u2", "user")] });
+    rerender(<Harness vm={sent} composerTurns={1} />);
     expect(selected(/^Svar/)).toBe(true);
     // Nothing is unread: the answers are in front.
     expect(tab(/^Svar/).getAttribute("aria-label")).toBe("Svar");
+  });
+
+  it("does not turn when Sajtagenten sends to the build engine itself", () => {
+    const { rerender } = render(<Harness />);
+    const composer = screen.getByLabelText("Skriv en uppdatering");
+    composer.focus();
+
+    // An armed follow-up: the agent's next step reaches the build engine as a
+    // user turn through the bridge, while the user is typing the next message.
+    rerender(<Harness vm={makeVm({ messages: [message("u1", "user"), message("a1"), message("u2", "user")] })} />);
+    expect(selected("Chatt")).toBe(true);
+    expect(document.activeElement).toBe(composer);
+    expect(tab(/^Svar/).getAttribute("aria-label")).toBe("Svar, 1 nya");
   });
 
   it("counts answers that arrive behind another face and clears the count once they are shown", () => {
@@ -235,25 +252,14 @@ describe("BuilderCubeSurface", () => {
     expect(selected("Chatt")).toBe(true);
     expect(tab(/^Svar/).getAttribute("aria-label")).toBe("Svar");
 
-    // A live reply from the agent is a new answer …
+    // A live reply from the agent is a new answer.
     agentState.value = {
       available: true,
       messages: [agentMessage("h1", { hydrated: true }), agentMessage("r1")],
     };
     rerender(<Harness vm={makeVm()} />);
+    expect(selected("Chatt")).toBe(true);
     expect(tab(/^Svar/).getAttribute("aria-label")).toBe("Svar, 1 nya");
-
-    // … and a question sent to the agent turns the cube, like a build order does.
-    agentState.value = {
-      available: true,
-      messages: [
-        agentMessage("h1", { hydrated: true }),
-        agentMessage("r1"),
-        agentMessage("q1", { role: "user" }),
-      ],
-    };
-    rerender(<Harness vm={makeVm()} />);
-    expect(selected(/^Svar/)).toBe(true);
   });
 
   it("leaves the composer in front when an answer arrives while the user writes", () => {
@@ -343,6 +349,21 @@ describe("BuilderCubeSurface", () => {
     expect(Math.max(...(["chat", "answers", "tools", "avatar", "sitemap"] as const).map(z))).toBeLessThan(
       z("buildlog"),
     );
+  });
+
+  it("moves focus to the composer after a switch, or to the chosen tab when it cannot take it", () => {
+    render(<Harness />);
+    const composer = screen.getByLabelText("Skriv en uppdatering") as HTMLTextAreaElement;
+    composer.setAttribute("data-openclaw-text-target", "builder.chat.primary");
+
+    focusAfterLayoutSwitch(document.body);
+    expect(document.activeElement).toBe(composer);
+
+    // A send in progress disables the composer: the chosen tab takes focus instead.
+    composer.blur();
+    composer.disabled = true;
+    focusAfterLayoutSwitch(document.body);
+    expect(document.activeElement).toBe(tab("Chatt"));
   });
 
   it("hands back to the chat panel", () => {
