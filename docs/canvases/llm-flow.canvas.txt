@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "ce60e635b",
+    "commit": "c49a8bde2",
     "commitDate": "2026-11-20",
     "sinceDays": 14
   },
@@ -72,9 +72,9 @@ const DATA: CanvasData = {
     "openP0": 0,
     "openP1": 5,
     "openP2": 11,
-    "openP3": 14,
+    "openP3": 15,
     "blocked": 1,
-    "shaky": 5,
+    "shaky": 6,
     "evalExactHitPct": null
   },
   "processes": [
@@ -91,9 +91,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 0,
+      "churn": 1,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "Inga oppna signaler"
+      "note": "1 commits / 14d"
     },
     {
       "name": "Codegen core",
@@ -108,7 +108,7 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 0,
+      "churn": 2,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
       "note": "2 oppna backlog-rader (P0:0 P1:0 P2:2 P3:0)"
     },
@@ -125,7 +125,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 0,
+      "churn": 2,
       "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-re",
       "note": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
     },
@@ -151,34 +151,34 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 2,
+      "openBugs": 3,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
         "P2": 0,
-        "P3": 2,
+        "P3": 3,
         "other": 0
       },
-      "churn": 1,
+      "churn": 2,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): dynamiska filträd direkt från respektive scaffold-rot, kopiering till webbläsarens ",
-      "note": "2 oppna backlog-rader (P0:0 P1:0 P2:0 P3:2)"
+      "note": "3 oppna backlog-rader (P0:0 P1:0 P2:0 P3:3)"
     },
     {
       "name": "Scaffolds & varianter: skapa, redigera, klona, ta bort",
-      "status": "done",
-      "statusLabel": "Klart",
-      "tone": "success",
-      "openBugs": 0,
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 1,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
         "P2": 0,
-        "P3": 0,
+        "P3": 1,
         "other": 0
       },
       "churn": 1,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "1 commits / 14d"
+      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     },
     {
       "name": "Preview och versioner",
@@ -210,7 +210,7 @@ const DATA: CanvasData = {
         "P3": 2,
         "other": 0
       },
-      "churn": 0,
+      "churn": 2,
       "summary": "Backoffice-yta för den canonicala evalen (`npm run eval`). Ett läge (gratis / smoke / full), en knapp. Scaffold-lanen läser senaste lokala JSON-rapport. Codegen-lanen läser data/ev",
       "note": "3 oppna backlog-rader (P0:0 P1:0 P2:1 P3:2)"
     }
@@ -223,28 +223,28 @@ const DATA: CanvasData = {
       "reason": "BLOCKER: `SM-073` Inspector-bridgen stämplar bara meddelanden när `previewSessionId` finns; utan d…"
     },
     {
+      "name": "Scaffolds: titta & justera",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "3 oppna backlog-rader (P0:0 P1:0 P2:0 P3:3)"
+    },
+    {
       "name": "Eval",
       "statusLabel": "Skakigt",
       "tone": "warning",
       "reason": "3 oppna backlog-rader (P0:0 P1:0 P2:1 P3:2)"
     },
     {
-      "name": "ai_models",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
-    },
-    {
-      "name": "Scaffolds: titta & justera",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:0 P3:2)"
-    },
-    {
       "name": "Codegen core",
       "statusLabel": "Skakigt",
       "tone": "warning",
       "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:2 P3:0)"
+    },
+    {
+      "name": "prompt-core",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
     }
   ],
   "topOpenRisks": [

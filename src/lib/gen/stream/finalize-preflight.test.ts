@@ -1247,4 +1247,42 @@ describe("runFinalizePreflight", () => {
     );
     expect(parityIssue).toBeUndefined();
   });
+
+  // SM-135: the contrast pass runs here, once per new version, and not in
+  // repairGeneratedFiles (preview start, export), which this suite mocks.
+  it("repairs an unreadable button label in the new version and records it as a post-merge fix", async () => {
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    const result = await runFinalizePreflight({
+      chatId: "chat_contrast",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        { path: "app/page.tsx", content: RICH_PAGE_CONTENT, language: "tsx" },
+        { path: "app/globals.css", content: "@import \"tailwindcss\";\n@theme inline {\n  --color-background: oklch(0.98 0.01 85);\n  --color-foreground: oklch(0.22 0.03 60);\n  --color-primary: oklch(0.35 0.07 150);\n  --color-primary-foreground: oklch(0.24 0.03 60);\n}\n", language: "css" },
+      ]),
+    });
+    const globals = (JSON.parse(result.filesJson) as Array<{ path: string; content: string }>).find(
+      (file) => file.path === "app/globals.css",
+    );
+    expect(globals?.content).not.toContain("--color-primary-foreground: oklch(0.24 0.03 60);");
+    expect(globals?.content).toContain("--color-primary: oklch(0.35 0.07 150);");
+    expect(result.postMergeFixes).toEqual([
+      expect.objectContaining({ fixer: "button-contrast-fixer", lane: "post_merge", file: "app/globals.css" }),
+    ]);
+  });
+
+  it("imported-repo mode: leaves button labels exactly as the repo wrote them", async () => {
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    const result = await runFinalizePreflight({
+      chatId: "chat_contrast_imported",
+      model: "gpt-5.4",
+      importedRepoMode: true,
+      filesJson: JSON.stringify([
+        { path: "app/page.tsx", content: RICH_PAGE_CONTENT, language: "tsx" },
+        { path: "app/globals.css", content: "@import \"tailwindcss\";\n@theme inline {\n  --color-background: oklch(0.98 0.01 85);\n  --color-foreground: oklch(0.22 0.03 60);\n  --color-primary: oklch(0.35 0.07 150);\n  --color-primary-foreground: oklch(0.24 0.03 60);\n}\n", language: "css" },
+        { path: "package.json", content: "{}", language: "json" },
+      ]),
+    });
+    expect(result.filesJson).toContain("--color-primary-foreground: oklch(0.24 0.03 60);");
+    expect(result.postMergeFixes.some((fix) => fix.fixer === "button-contrast-fixer")).toBe(false);
+  });
 });

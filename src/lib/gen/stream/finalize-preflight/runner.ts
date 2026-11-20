@@ -8,7 +8,8 @@ import {
   getRoutePlanPrimarySource,
 } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
-import type { FixEntry } from "@/lib/gen/autofix/types";
+import { fixButtonContrast } from "@/lib/gen/autofix/rules/button-contrast-fixer";
+import { toFixEntries, type FixEntry } from "@/lib/gen/autofix/types";
 import {
   completeProjectDependencies,
   detectLockfilePackageManager,
@@ -201,12 +202,27 @@ export async function runFinalizePreflight({
       : repairGeneratedFiles(finalFiles, { verbatimRepo: false });
     finalFiles = repairResult.files;
     postMergeFixes = repairResult.fixes;
-    if (repairResult.fixes.length > 0) {
+    // SM-135: unreadable button labels, once per new version (first build,
+    // follow-up, repair). Deliberately not in `repairGeneratedFiles`, which
+    // also runs at preview start, export and download on versions nobody is
+    // changing. A contrast pass must never cost the build.
+    if (!importedRepoMode) {
+      try {
+        const contrast = fixButtonContrast(finalFiles);
+        if (contrast.fixes.length > 0) {
+          finalFiles = contrast.files;
+          postMergeFixes = [...postMergeFixes, ...toFixEntries(contrast.fixes, "post_merge")];
+        }
+      } catch {
+        // Leave the files as they were.
+      }
+    }
+    if (postMergeFixes.length > 0) {
       nextFilesJson = JSON.stringify(finalFiles);
       devLogAppend("in-progress", {
         type: "file-repair",
         chatId,
-        fixes: repairResult.fixes,
+        fixes: postMergeFixes,
       });
     }
 
