@@ -14,6 +14,7 @@
 import { and, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { projectIdsWithBillingRows } from "@/lib/db/billing-retention-guard";
 import { db } from "@/lib/db/client";
+import { startedProjectCondition } from "@/lib/db/services/project-started";
 import {
   appProjects,
   images,
@@ -207,6 +208,9 @@ async function deleteProjectAndData(projectId: string): Promise<void> {
 /**
  * Check if user can create more projects
  * Returns { allowed: boolean, reason?: string, limit: number, current: number }
+ *
+ * `current` räknar bara startade projekt (`startedProjectCondition`, SM-133):
+ * builderns platshållare utan chatt tar ingen plats under taket.
  */
 export async function canCreateProject(
   userId: string | null,
@@ -221,9 +225,9 @@ export async function canCreateProject(
       : CLEANUP_CONFIG.MAX_USER_PROJECTS_FREE;
 
     const [{ count }] = await database
-      .select({ count: sql<number>`count(*)` })
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
       .from(appProjects)
-      .where(eq(appProjects.user_id, userId));
+      .where(and(eq(appProjects.user_id, userId), startedProjectCondition()));
 
     const current = count || 0;
 
@@ -243,9 +247,9 @@ export async function canCreateProject(
     // Anonymous session
     const limit = CLEANUP_CONFIG.MAX_ANONYMOUS_PROJECTS_PER_SESSION;
     const [{ count }] = await database
-      .select({ count: sql<number>`count(*)` })
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
       .from(appProjects)
-      .where(eq(appProjects.session_id, sessionId));
+      .where(and(eq(appProjects.session_id, sessionId), startedProjectCondition()));
 
     const current = count || 0;
 
