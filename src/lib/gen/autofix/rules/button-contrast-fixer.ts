@@ -16,7 +16,10 @@
  *  1. Theme pairs in `app/globals.css` `@theme`: `--color-X` against
  *     `--color-X-foreground` (not `muted`, `card`, `popover`), both literal
  *     colors declared only in `@theme`. Below {@link BUTTON_TEXT_MIN_CONTRAST}
- *     the foreground moves to the nearest readable lightness and keeps its hue.
+ *     the foreground moves to the nearest readable lightness and keeps its hue,
+ *     but only to a value readable on every fill the label meets: `X` and its
+ *     state tokens (`X-hover`, `X-active`, …) plus the Button's own hover
+ *     fill. One unreadable or unknown state fill leaves the token alone.
  *     The brand color itself is never changed (same choice as the app's own
  *     SM-016 fix). This edits a shared token: every `text-X-foreground` follows.
  *  2. Filled buttons in TSX/JSX (`<Button>` default/secondary, `<button>`, `<a>`,
@@ -179,6 +182,32 @@ function readThemeTokens(css: string): ThemeTokens | null {
   return colors.size > 0 ? { colors, declarations, declared } : null;
 }
 
+/** State tokens a theme may define for a fill (`--color-primary-hover`, …). */
+const STATE_SUFFIXES = ["hover", "active", "focus", "focus-visible", "pressed"];
+
+/**
+ * The other backgrounds an `X-foreground` label meets: `X`'s state tokens
+ * and the host Button's state fill for that variant (`primary-hover`,
+ * `secondary/80`). Undeclared names produce no utility and are skipped;
+ * `null` when one is declared but not certain.
+ */
+function stateFillsFor(bgName: string, tokens: ThemeTokens): RgbaColor[] | null {
+  const values = new Set([
+    ...STATE_SUFFIXES.map((suffix) => `${bgName}-${suffix}`),
+    ...Object.values(BUTTON_VARIANTS)
+      .filter((variant) => variant.bg === bgName)
+      .flatMap((variant) => Object.values(variant.states)),
+  ]);
+  const fills: RgbaColor[] = [];
+  for (const value of values) {
+    if (!tokens.declared.has(value.split("/")[0])) continue;
+    const resolved = resolveColorValue(value, tokens);
+    if (!resolved) return null;
+    fills.push(resolved.color);
+  }
+  return fills;
+}
+
 function fixThemePairs(css: string, tokens: ThemeTokens, path: string, fixes: FixEntryDraft[]): string {
   const edits: Edit[] = [];
   for (const [bgName, bgColor] of [...tokens.colors]) {
@@ -189,9 +218,20 @@ function fixThemePairs(css: string, tokens: ThemeTokens, path: string, fixes: Fi
     if (!fgColor || !declaration || bgColor.alpha < 1) continue;
     const before = contrastRatio(compositeOver(fgColor, bgColor), bgColor);
     if (before >= BUTTON_TEXT_MIN_CONTRAST) continue;
-    const replacement = readableForegroundFor(bgColor, fgColor);
-    const replacementColor = parseCssColor(replacement);
-    if (!replacementColor) continue;
+    const stateFills = stateFillsFor(bgName, tokens);
+    if (!stateFills) continue;
+    // Nearest readable value first, then clear near-white/near-black labels.
+    const choice = [readableForegroundFor(bgColor, fgColor), "oklch(0.985 0 0)", "oklch(0.145 0 0)", "oklch(1 0 0)", "oklch(0 0 0)"]
+      .map((value) => ({ value, color: parseCssColor(value) }))
+      .find(
+        (candidate): candidate is { value: string; color: RgbaColor } =>
+          candidate.color !== null &&
+          readableOn(candidate.color, bgColor) &&
+          stateFills.every((fill) => readableOn(candidate.color!, fill)),
+      );
+    // No label reads on the fill and all its states: leave the token as it is.
+    if (!choice) continue;
+    const { value: replacement, color: replacementColor } = choice;
     edits.push({ start: declaration.start, end: declaration.end, text: replacement });
     tokens.colors.set(fgName, replacementColor);
     fixes.push({
