@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "07672d2aa",
+    "commit": "eae9245cd",
     "commitDate": "2026-11-20",
     "sinceDays": 14
   },
@@ -71,7 +71,7 @@ const DATA: CanvasData = {
     "processes": 8,
     "openP0": 0,
     "openP1": 5,
-    "openP2": 10,
+    "openP2": 11,
     "openP3": 19,
     "blocked": 1,
     "shaky": 6,
@@ -185,11 +185,11 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 28,
+      "openBugs": 29,
       "openByPrio": {
         "P0": 0,
         "P1": 5,
-        "P2": 9,
+        "P2": 10,
         "P3": 14,
         "other": 0
       },
@@ -321,7 +321,7 @@ const DATA: CanvasData = {
       "fynd": "`SM-105` Oautentiserad konversationsendpoint kunde skicka leadmejl till fasta mottagare. Svärm 2026-11-03 `A9…"
     }
   ],
-  "topOpenRisksOmitted": 3,
+  "topOpenRisksOmitted": 4,
   "evals": null,
   "phases": [
     "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",
