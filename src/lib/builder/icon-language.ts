@@ -28,8 +28,10 @@
  *    lika lätt ut som en ofarlig.
  *    - Tyngst (startar ett riktigt bygge, kostar diamonds): FYLLD solid knapp
  *      (`bg-violet-600 text-white`) — "Bygg integrationer".
- *    - Destruktiv (river preview-sessionen, frågar först): neutral i vila, RÖD
- *      ton på hover — "Starta om förhandsvisningen" ({@link BUILDER_DESTRUCTIVE_ICON_CLASS}).
+ *    - Neutral (gör om något utan att förstöra, frågar först): dämpad i vila,
+ *      neutral ton på hover — "Starta om förhandsvisningen"
+ *      ({@link BUILDER_NEUTRAL_ICON_CLASS}). Knappen var en papperskorg med röd
+ *      hover; den startar bara om och sajten är sparad (rigg 2026-11-11).
  *    - Lätt/ofarlig (öppnar en flik): neutral i vila, SVAG ack-ton på hover
  *      ({@link BUILDER_LIGHT_ICON_CLASS}). Låg mättnad så den aldrig konkurrerar
  *      visuellt med den fyllda bygg-knappen.
@@ -50,12 +52,11 @@ export const BUILDER_LIGHT_ICON_CLASS =
   "text-sky-300/80 hover:bg-sky-500/10 hover:text-sky-200";
 
 /**
- * Destruktiv ikon-only-åtgärd (t.ex. "Starta om förhandsvisningen" som river
- * sessionen efter en bekräftelse): neutral i vila, röd ton på hover. Signalerar destruktivitet utan
- * att skrika (regel 4).
+ * Neutral ikon-only-åtgärd (t.ex. "Starta om förhandsvisningen", som frågar
+ * först och inte förstör något): dämpad i vila, neutral ton på hover (regel 4).
  */
-export const BUILDER_DESTRUCTIVE_ICON_CLASS =
-  "text-muted-foreground hover:bg-red-500/10 hover:text-red-300";
+export const BUILDER_NEUTRAL_ICON_CLASS =
+  "text-muted-foreground hover:bg-accent hover:text-foreground";
 
 const MODE_TOGGLE_BASE =
   "inline-flex h-7 w-7 items-center justify-center rounded-md border border-zinc-700/60 bg-zinc-800/50 text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40";

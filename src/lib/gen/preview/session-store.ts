@@ -330,11 +330,14 @@ function sameAuthoritativeReceipt(
   left: PreviewSessionEntry,
   right: PreviewSessionEntry,
 ): boolean {
+  // previewUrl is not part of the receipt. M03: the host renders it per answer
+  // from the chat id and PREVIEW_HOST_ORIGIN_MODE, so the same mutation comes
+  // back on the shared host or on the chat's own origin. Comparing it read a
+  // resume after a mode switch as stale and failed the start.
   return (
     left.previewSessionId === right.previewSessionId &&
     left.lifecycleToken === right.lifecycleToken &&
     left.mutationRevision === right.mutationRevision &&
-    left.previewUrl === right.previewUrl &&
     left.versionId === right.versionId &&
     left.filesRevision === right.filesRevision
   );

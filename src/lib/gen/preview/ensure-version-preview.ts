@@ -6,6 +6,7 @@ import { recordPreviewRuntimeOutcomeForVersion } from "@/lib/db/services/generat
 import { getVersionFilesSnapshot, parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { startPreviewSession, type PreviewSessionResult, type PreviewSessionError } from "./preview-session";
 import { getActivePreviewSessionAsync } from "./session-store";
+import { fetchPreviewHostReadinessVerdict } from "./preview-host-client";
 import { isTier2LivePreviewUrl } from "./preview-url-classifier";
 import { logPreviewLifecycleTelemetry } from "./lifecycle-telemetry";
 import { devLogAppend } from "@/lib/logging/dev-log";
@@ -41,6 +42,29 @@ export type EnsureVersionPreviewOutcome =
   | { ok: false; reason: "preview_blocked" | "no_files" | "version_changed" }
   | { ok: false; reason: "start_failed"; error: PreviewSessionError };
 
+/**
+ * M03: the host renders a session's URL per answer (shared host or the chat's
+ * own origin, per `PREVIEW_HOST_ORIGIN_MODE`), so the version row and the
+ * session pointer only hold earlier answers. A saved URL is reused as is only
+ * when the host does not answer with another one; otherwise the normal path
+ * below resumes the same session and stores the host's URL.
+ */
+async function hostKeepsPreviewUrl(params: {
+  previewSessionId: string;
+  versionId: string;
+  lifecycleToken: string | null;
+  previewUrl: string;
+  previewDeadlineEpochMs?: number;
+}): Promise<boolean> {
+  const verdict = await fetchPreviewHostReadinessVerdict(params.previewSessionId, {
+    expectedVersionId: params.versionId,
+    expectedLifecycleToken: params.lifecycleToken,
+    ...(params.previewDeadlineEpochMs !== undefined ? { previewDeadlineEpochMs: params.previewDeadlineEpochMs } : {}),
+  }).catch(() => null);
+  const hostUrl = verdict?.previewUrl?.trim();
+  return !hostUrl || hostUrl === params.previewUrl;
+}
+
 /** Shared bootstrap/resync orchestration. Never schedules work or takes a lease. */
 export async function ensureVersionPreview(
   input: EnsureVersionPreviewInput,
@@ -65,7 +89,13 @@ export async function ensureVersionPreview(
     const active = await getActivePreviewSessionAsync(chat.id);
     if (deadlineExceeded()) return budgetStop;
     if (active?.versionId === version.id && active.previewUrl === previewUrl &&
-        active.previewSessionId && (!revision || active.filesRevision === revision)) {
+        active.previewSessionId && (!revision || active.filesRevision === revision) &&
+        await hostKeepsPreviewUrl({
+          previewSessionId: active.previewSessionId, versionId: version.id,
+          lifecycleToken: active.lifecycleToken ?? null, previewUrl,
+          ...(input.previewDeadlineEpochMs !== undefined ? { previewDeadlineEpochMs: input.previewDeadlineEpochMs } : {}),
+        })) {
+      if (deadlineExceeded()) return budgetStop;
       try { incIngressEvent("preview_reused_url"); } catch {}
       try {
         devLogAppend("latest", { type: "preview.reused-url", chatId: chat.id,

@@ -855,6 +855,7 @@ export async function finalizeAndSaveVersion(
     autoFixDependencyCount,
     autoFixRisk,
     autoFixFixers: allAutoFixFixers,
+    buttonContrastFindings: preflightResult.buttonContrastFindings ?? [],
     verifierBlocked,
     verifierBlockingFindings: effectiveVerifierBlockingFindings,
     preflightIssueCount: preflightIssues.length,

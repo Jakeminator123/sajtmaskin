@@ -11,9 +11,13 @@
  * - AI-generated images: Delete with project
  */
 
-import { and, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { projectIdsWithBillingRows } from "@/lib/db/billing-retention-guard";
 import { db } from "@/lib/db/client";
+import {
+  builtProjectCondition,
+  startedProjectCondition,
+} from "@/lib/db/services/project-started";
 import {
   appProjects,
   images,
@@ -207,13 +211,24 @@ async function deleteProjectAndData(projectId: string): Promise<void> {
 /**
  * Check if user can create more projects
  * Returns { allowed: boolean, reason?: string, limit: number, current: number }
+ *
+ * `current` räknar bara startade projekt (`startedProjectCondition`, SM-133):
+ * builderns platshållare utan chatt tar ingen plats under taket. Vid första
+ * chatten räknar `project-cap.ts` i stället byggda projekt utom det aktuella
+ * (`counted: "built"`, `excludeProjectId`), med samma gräns och besked.
  */
 export async function canCreateProject(
   userId: string | null,
   sessionId: string | null,
   isPaidUser: boolean = false,
   database: Pick<typeof db, "select"> = db,
+  options: { counted?: "started" | "built"; excludeProjectId?: string | null } = {},
 ): Promise<{ allowed: boolean; reason?: string; limit: number; current: number }> {
+  const countedCondition =
+    options.counted === "built" ? builtProjectCondition() : startedProjectCondition();
+  const excludeCondition = options.excludeProjectId
+    ? ne(appProjects.id, options.excludeProjectId)
+    : undefined;
   if (userId) {
     // Authenticated user
     const limit = isPaidUser
@@ -221,9 +236,9 @@ export async function canCreateProject(
       : CLEANUP_CONFIG.MAX_USER_PROJECTS_FREE;
 
     const [{ count }] = await database
-      .select({ count: sql<number>`count(*)` })
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
       .from(appProjects)
-      .where(eq(appProjects.user_id, userId));
+      .where(and(eq(appProjects.user_id, userId), countedCondition, excludeCondition));
 
     const current = count || 0;
 
@@ -231,8 +246,8 @@ export async function canCreateProject(
       return {
         allowed: false,
         reason: isPaidUser
-          ? `Du har nått maxgränsen för projekt (${limit}). Ta bort gamla projekt för att skapa nya.`
-          : `Du har nått maxgränsen för gratiskonton (${limit} projekt). Uppgradera för fler!`,
+          ? `Du har nått maxgränsen för projekt (${limit}). Ta bort ett gammalt projekt för att bygga ett nytt.`
+          : `Du har nått maxgränsen för gratiskonton (${limit} projekt). Ta bort ett projekt eller uppgradera för att bygga fler.`,
         limit,
         current,
       };
@@ -243,9 +258,9 @@ export async function canCreateProject(
     // Anonymous session
     const limit = CLEANUP_CONFIG.MAX_ANONYMOUS_PROJECTS_PER_SESSION;
     const [{ count }] = await database
-      .select({ count: sql<number>`count(*)` })
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
       .from(appProjects)
-      .where(eq(appProjects.session_id, sessionId));
+      .where(and(eq(appProjects.session_id, sessionId), countedCondition, excludeCondition));
 
     const current = count || 0;
 

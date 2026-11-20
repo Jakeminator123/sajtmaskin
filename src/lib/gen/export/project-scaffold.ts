@@ -24,11 +24,11 @@ import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 /**
  * Node-engine-range för **exporterade/nedladdade** projekt.
  *
- * Matcha Vercel/preview-host-lanen: Node 22. Bredare ranges kan få Vercel
+ * Matcha Vercel/preview-host-lanen: Node 24. Bredare ranges kan få Vercel
  * att välja/varna om runtime-versioner som Next/Vercel inte stödjer för
  * exporterade projekt.
  */
-const GENERATED_PROJECT_NODE_RANGE = ">=22.14.0 <23";
+const GENERATED_PROJECT_NODE_RANGE = ">=24.11.0 <25";
 
 const PACKAGE_JSON = `{
   "name": "sajtmaskin-project",
@@ -45,7 +45,7 @@ const PACKAGE_JSON = `{
     "lint": "eslint ."
   },
   "dependencies": {
-    "next": "16.4.2",
+    "next": "16.4.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "radix-ui": "1.8.1",
@@ -75,9 +75,9 @@ const PACKAGE_JSON = `{
   },
   "devDependencies": {
     "eslint": "9.39.4",
-    "eslint-config-next": "16.4.2",
+    "eslint-config-next": "16.4.6",
     "typescript": "5.9.3",
-    "@types/node": "22.19.17",
+    "@types/node": "24.19.2",
     "@types/react": "19.2.13",
     "@types/react-dom": "19.2.3",
     "@types/canvas-confetti": "1.9.0",

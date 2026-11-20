@@ -2,6 +2,7 @@ import type { CodeFile } from "@/lib/gen/parser";
 import type { ProjectEnvLocalOptions } from "@/lib/gen/export/project-scaffold";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import type { FixEntry } from "@/lib/gen/autofix/types";
+import type { ButtonContrastFinding } from "@/lib/gen/autofix/rules/button-contrast-check";
 import type { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
@@ -72,4 +73,10 @@ export interface RunFinalizePreflightResult {
    * merges these into `generation_telemetry.meta.autofix.fixers`.
    */
   postMergeFixes: FixEntry[];
+  /**
+   * SM-135, advisory: buttons in this version whose resting label is below
+   * 3:1. Nothing was changed; the finalize runner records them in
+   * `generation_telemetry.meta.buttonContrast`.
+   */
+  buttonContrastFindings?: ButtonContrastFinding[];
 }

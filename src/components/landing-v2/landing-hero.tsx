@@ -64,9 +64,12 @@ export function LandingHero({
 
   return (
     <section className="relative flex min-h-[calc(100vh-57px)] flex-col items-center justify-start overflow-x-visible pt-0 pb-8 supports-[height:100svh]:min-h-[calc(100svh-57px)] md:pt-0 md:pb-12">
+      {/* Mobil: låg stage och tätare marginaler, så promptfältet syns utan
+          scroll på 390×844 även när cookie-remsan tar plats längst ned
+          (rigg V-05, ägarbeslut 2026-11-20). sm och uppåt är oförändrade. */}
       <div
         data-lanyard-stage
-        className="pointer-events-auto relative z-0 mb-4 h-[min(32vh,260px)] w-screen max-w-none shrink-0 overflow-visible sm:mb-6 sm:h-[min(48vh,520px)] md:h-[min(36vh,420px)]"
+        className="pointer-events-auto relative z-0 mb-2 h-[min(20vh,170px)] w-screen max-w-none shrink-0 overflow-visible sm:mb-6 sm:h-[min(48vh,520px)] md:h-[min(36vh,420px)]"
       >
         <LanyardExperience className="h-full w-full overflow-visible" />
       </div>
@@ -87,7 +90,7 @@ export function LandingHero({
         </p>
         <p className="mb-2 text-center text-xs text-muted-foreground md:mb-3 md:text-sm">{homepageHeroCopy.audience}</p>
         <p
-          className="mb-5 text-center text-sm text-muted-foreground/80 md:mb-8"
+          className="mb-3 text-center text-sm text-muted-foreground/80 sm:mb-5 md:mb-8"
           aria-hidden="true"
         >
           {homepageHeroCopy.rotatingPrefix}{" "}
@@ -111,7 +114,7 @@ export function LandingHero({
         {homepageHeroCopy.methodLabel}
       </p>
       <div
-        className="flex flex-wrap items-center justify-center gap-2.5 mb-8 animate-fade-up"
+        className="flex flex-wrap items-center justify-center gap-2.5 mb-5 sm:mb-8 animate-fade-up"
         style={{ animationDelay: "0.5s" }}
       >
         {categories.map((cat) => {

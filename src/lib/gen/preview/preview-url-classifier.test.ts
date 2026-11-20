@@ -3,6 +3,7 @@ import {
   decidePreviewHandoff,
   isSameTier2PreviewSession,
   isTier2LivePreviewUrl,
+  rehomeTier2PreviewUrl,
 } from "./preview-url-classifier";
 
 // M03: the app must recognise BOTH the shared path form and the per-chat
@@ -33,6 +34,45 @@ describe("isTier2LivePreviewUrl — path and per-chat origin forms", () => {
 // of set-url / bump / noop — never URL-set + token-bump together (each causes
 // its own iframe reload), and never a replay of an already-applied
 // versionId:url handoff.
+// M03 (prod 2026-11-20, chat 3fdcf6be): a saved URL can be in the host's other
+// origin form. Only the same chat moves, and only between the two forms.
+describe("rehomeTier2PreviewUrl", () => {
+  const SHARED = "https://vm-fly-jakem.fly.dev/chat_1";
+  const OWN = "https://p-0123456789abcdef0123.vm.sajtmaskin.com/chat_1";
+
+  it("moves a saved shared-host URL to the chat's own origin, keeping the route", () => {
+    expect(rehomeTier2PreviewUrl(`${SHARED}/om?viewer=v1#kontakt`, OWN)).toBe(
+      `${OWN}/om?viewer=v1#kontakt`,
+    );
+  });
+
+  it("moves a saved own-origin URL back to the shared host (path mode)", () => {
+    expect(rehomeTier2PreviewUrl(OWN, SHARED)).toBe(SHARED);
+  });
+
+  it("returns null when nothing moved", () => {
+    expect(rehomeTier2PreviewUrl(SHARED, `${SHARED}/om`)).toBeNull();
+    expect(rehomeTier2PreviewUrl(OWN, OWN)).toBeNull();
+  });
+
+  it.each([
+    ["another chat on its own origin", "https://p-fedcba9876543210fedc.vm.sajtmaskin.com/chat_2"],
+    ["another chat on the shared host", "https://vm-fly-jakem.fly.dev/chat_2"],
+    ["a look-alike under another domain", "https://p-0123456789abcdef0123.evil.example/chat_1"],
+    ["a foreign host", "https://evil.example/chat_1"],
+    ["the app itself", "https://sajtmaskin.se/chat_1"],
+    ["another shared host", "https://other-vm.fly.dev/chat_1"],
+  ])("never moves to %s", (_label, hostUrl) => {
+    expect(rehomeTier2PreviewUrl(SHARED, hostUrl)).toBeNull();
+  });
+
+  it("never moves between two per-chat origins", () => {
+    expect(
+      rehomeTier2PreviewUrl(OWN, "https://p-fedcba9876543210fedc.vm.sajtmaskin.com/chat_1"),
+    ).toBeNull();
+  });
+});
+
 describe("decidePreviewHandoff", () => {
   const URL_A = "https://vm-fly-jakem.fly.dev/chat_1";
   const URL_B = "https://vm-fly-jakem.fly.dev/chat_2";

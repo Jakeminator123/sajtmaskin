@@ -541,6 +541,59 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
   });
 
+  // M03 (prod 2026-11-20, chatt 3fdcf6be): versionens adress sparades före bytet
+  // av PREVIEW_HOST_ORIGIN_MODE. Kvittona bär hostens andra form för samma chatt,
+  // version och session; iframen ska flyttas dit i stället för att dömas ut.
+  const OWN_ORIGIN_URL = "https://p-0123456789abcdef0123.vm.sajtmaskin.com/chat_1";
+
+  it.each([
+    ["delad värd → egen origin (läget slogs på)", TIER2_URL, OWN_ORIGIN_URL, "starting"],
+    ["egen origin → delad värd (rollback till path)", OWN_ORIGIN_URL, TIER2_URL, "running"],
+  ] as const)("flyttar iframen till hostens adress: %s", async (_label, savedUrl, hostUrl, state) => {
+    fetchPreviewStatus.mockResolvedValue(status(state, "ps_1", "ver_1", hostUrl, "life_1"));
+    const onPreviewSessionRotated = vi.fn();
+    const iframeRef = makeIframeRef(`${savedUrl}/om`);
+    const params = makeParams({ previewUrl: `${savedUrl}/om`, iframeRef, onPreviewSessionRotated });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(onPreviewSessionRotated).toHaveBeenCalledTimes(1);
+    expect(onPreviewSessionRotated).toHaveBeenCalledWith({
+      previewSessionId: "ps_1",
+      versionId: "ver_1",
+      lifecycleToken: "life_1",
+      previewUrl: `${hostUrl}/om`,
+    });
+    // Den gamla adressen laddas aldrig om som om kvittot gällde den.
+    expect(iframeRef.setSrc).not.toHaveBeenCalled();
+    expect(params.onPreviewSessionSuspect).not.toHaveBeenCalled();
+    expect(result.current.iframeError).toBe(false);
+  });
+
+  it.each([
+    ["en annan chatts egen origin", "https://p-fedcba9876543210fedc.vm.sajtmaskin.com/chat_2"],
+    ["en främmande värd", "https://evil.example/chat_1"],
+  ])("flyttar aldrig iframen till %s", async (_label, hostUrl) => {
+    fetchPreviewStatus.mockResolvedValue(status("running", "ps_1", "ver_1", hostUrl, "life_1"));
+    const onPreviewSessionRotated = vi.fn();
+    const iframeRef = makeIframeRef();
+    const params = makeParams({ iframeRef, onPreviewSessionRotated });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(onPreviewSessionRotated).not.toHaveBeenCalled();
+    expect(iframeRef.setSrc).not.toHaveBeenCalled();
+    expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
+  });
+
   it("failar ändå när deadline-kontrollen själv hänger (bunden vakt)", async () => {
     fetchPreviewStatus.mockReturnValue(new Promise(() => {}));
     const params = makeParams({ iframeRef: makeIframeRef() });

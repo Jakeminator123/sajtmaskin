@@ -515,7 +515,10 @@ const MessageListComponent = ({
           from the previous chat never leaks into the next one (messages can be
           swapped in place on chat switch without an empty intermediate state). */}
       <Conversation key={chatId ?? "no-chat"} className="h-full">
-        <ConversationContent>
+        {/* pb-16 = scrollknappens yta (36 px + bottom-4) plus luft: den sista
+            raden (kvittot) hamnar ovanför knappen i stället för under den,
+            även när scrollern står en hårsmån från slutet (rigg § 11, 390 px). */}
+        <ConversationContent className="pb-16">
           {timeline.map((entry) => {
           if (entry.kind === "agent") {
             const agentMessage = entry.message;

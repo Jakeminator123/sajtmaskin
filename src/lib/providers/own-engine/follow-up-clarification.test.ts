@@ -337,6 +337,16 @@ describe("hasDesignFollowUpSignal (Fix A)", () => {
     expect(hasDesignFollowUpSignal("ljusare look")).toBe(true);
   });
 
+  it("matches named colors, also as Swedish compounds (SM-135)", () => {
+    expect(hasDesignFollowUpSignal("Gör knapparna mörkgröna")).toBe(true);
+    expect(hasDesignFollowUpSignal("Gör knappen mörkröd")).toBe(true);
+    expect(hasDesignFollowUpSignal("gör rubriken ljusblå")).toBe(true);
+    expect(hasDesignFollowUpSignal("vita kort med svart text")).toBe(true);
+    expect(hasDesignFollowUpSignal("make the buttons dark green")).toBe(true);
+    expect(hasDesignFollowUpSignal("lägg till ett vitamin-avsnitt")).toBe(false);
+    expect(hasDesignFollowUpSignal("byt ut brunchmenyn")).toBe(false);
+  });
+
   it("does not match unrelated text-only edits", () => {
     expect(hasDesignFollowUpSignal("uppdatera priserna i hero-sektionen")).toBe(false);
     expect(hasDesignFollowUpSignal("rätta stavfelet i rubriken")).toBe(false);

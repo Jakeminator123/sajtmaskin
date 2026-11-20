@@ -9,6 +9,7 @@ const stamp = vi.hoisted(() => vi.fn());
 const canExpose = vi.hoisted(() => vi.fn());
 const acquire = vi.hoisted(() => vi.fn());
 const release = vi.hoisted(() => vi.fn());
+const verdict = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   updateVersionPreviewUrl: write, acquireVersionLease: acquire, releaseVersionLease: release,
 }));
@@ -17,6 +18,7 @@ vi.mock("@/lib/db/services/generation-telemetry", () => ({ recordPreviewRuntimeO
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFilesSnapshot: snapshot, parseCodeFilesFromFilesJson: parse }));
 vi.mock("./preview-session", () => ({ startPreviewSession: start }));
 vi.mock("./session-store", () => ({ getActivePreviewSessionAsync: active }));
+vi.mock("./preview-host-client", () => ({ fetchPreviewHostReadinessVerdict: verdict }));
 vi.mock("./preview-url-classifier", () => ({ isTier2LivePreviewUrl: () => true }));
 vi.mock("./lifecycle-telemetry", () => ({ logPreviewLifecycleTelemetry: vi.fn() }));
 vi.mock("@/lib/logging/dev-log", () => ({ devLogAppend: vi.fn() }));
@@ -46,6 +48,7 @@ describe("ensureVersionPreview shared server orchestration", () => {
     start.mockResolvedValue({ ok: true, result });
     write.mockResolvedValue(true);
     stamp.mockResolvedValue(undefined);
+    verdict.mockResolvedValue(null);
   });
 
   it("uses explicit policy and preserves lifecycle, dossier-env and receipt identity", async () => {
@@ -105,6 +108,46 @@ describe("ensureVersionPreview shared server orchestration", () => {
       expect(start).toHaveBeenCalledTimes(1);
     },
   );
+
+  // M03 (prod 2026-11-20, chatt 3fdcf6be): the row and the session pointer hold
+  // the URL from before PREVIEW_HOST_ORIGIN_MODE changed. It is reused only when
+  // the host still gives it; otherwise the normal path resumes the session.
+  const SHARED = "https://vm-fly-jakem.fly.dev/chat";
+  const OWN = "https://p-0123456789abcdef0123.vm.sajtmaskin.com/chat";
+
+  it("reuses a saved URL that the host still gives", async () => {
+    active.mockResolvedValue(session);
+    verdict.mockResolvedValue({ previewUrl: "https://preview.example" });
+    expect(await ensureVersionPreview(input)).toMatchObject({
+      ok: true, result: { startOutcome: "reused_url", previewUrl: "https://preview.example" },
+    });
+    expect(verdict).toHaveBeenCalledWith("session", expect.objectContaining({
+      expectedVersionId: "version", expectedLifecycleToken: "life",
+    }));
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["shared host saved, host on the chat's own origin", SHARED, OWN],
+    ["own origin saved, host back in path mode", OWN, SHARED],
+  ])("does not reuse a saved URL in the host's other form: %s", async (_label, saved, hostUrl) => {
+    active.mockResolvedValue({ ...session, previewUrl: saved });
+    verdict.mockResolvedValue({ previewUrl: hostUrl });
+    start.mockResolvedValue({ ok: true, result: { ...result, previewUrl: hostUrl, startOutcome: "resumed" } });
+    const outcome = await ensureVersionPreview({ ...input, version: { ...input.version, preview_url: saved } });
+    expect(outcome).toMatchObject({ ok: true, result: {
+      previewUrl: hostUrl, startOutcome: "resumed", bookkeepingRequired: true,
+    } });
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledWith(files, expect.objectContaining({ forceRestart: false }));
+  });
+
+  it("keeps the earlier reuse when the host does not answer", async () => {
+    active.mockResolvedValue(session);
+    verdict.mockRejectedValue(new Error("host unreachable"));
+    expect(await ensureVersionPreview(input)).toMatchObject({ ok: true, result: { startOutcome: "reused_url" } });
+    expect(start).not.toHaveBeenCalled();
+  });
 
   it("forceRestart bypasses exposure/reuse and preserves design env keys", async () => {
     canExpose.mockReturnValue(false);

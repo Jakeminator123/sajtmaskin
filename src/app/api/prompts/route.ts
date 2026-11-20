@@ -1,3 +1,4 @@
+import { isPaidProjectTier } from "@/lib/projects/project-limit";
 import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
         try {
           const handoff = await createAuditProjectHandoff({
             attemptId: auditBuildAttemptId, userId: user.id,
-            isPaidUser: user.diamonds > 100, payload,
+            isPaidUser: isPaidProjectTier(user), payload,
           });
           // Cache is an acceleration, never part of the transaction's success ACK.
           await Promise.all([

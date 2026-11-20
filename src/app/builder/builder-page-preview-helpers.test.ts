@@ -178,6 +178,33 @@ describe("shouldPreserveUserRouteNavigation", () => {
     ).toBe(false);
   });
 
+  it("preserves the same chat when the row holds the host's other origin form (M03)", () => {
+    // A row saved before PREVIEW_HOST_ORIGIN_MODE changed must not snap the
+    // iframe back from the host's current form (or bounce it between the two).
+    const own = "https://p-0123456789abcdef0123.vm.sajtmaskin.com/chat-123";
+    expect(
+      shouldPreserveUserRouteNavigation({
+        didChangeVersion: false,
+        nextDemoUrl: sessionBase,
+        currentPreviewUrl: `${own}/om`,
+      }),
+    ).toBe(true);
+    expect(
+      shouldPreserveUserRouteNavigation({
+        didChangeVersion: false,
+        nextDemoUrl: own,
+        currentPreviewUrl: `${sessionBase}/om`,
+      }),
+    ).toBe(true);
+    expect(
+      shouldPreserveUserRouteNavigation({
+        didChangeVersion: false,
+        nextDemoUrl: "https://p-0123456789abcdef0123.vm.sajtmaskin.com/chat-456",
+        currentPreviewUrl: `${sessionBase}/om`,
+      }),
+    ).toBe(false);
+  });
+
   it("does NOT preserve non-tier-2 URLs (shim)", () => {
     expect(
       shouldPreserveUserRouteNavigation({

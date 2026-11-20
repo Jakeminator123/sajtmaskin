@@ -56,17 +56,116 @@ function dirNames(path) {
   }
 }
 
-/** Node must match the pin every other tool reads. */
+function versionParts(version) {
+  return String(version)
+    .trim()
+    .replace(/^v/, "")
+    .split(".")
+    .map((part) => Number(part));
+}
+
+function compareVersions(a, b) {
+  for (let i = 0; i < 3; i += 1) {
+    const diff = (a[i] ?? 0) - (b[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+/**
+ * Node must match `.node-version`, the pin CI reads (`setup-node` with
+ * `node-version-file`). Same major with another patch is a note; another major
+ * is a warning, because builds and tests can then differ from CI and Vercel.
+ */
 export function checkNode(pinned, running) {
   if (!pinned) return { level: "note", area: "node", message: ".node-version saknas" };
   const actual = String(running).replace(/^v/, "");
-  return actual === pinned
-    ? { level: "ok", area: "node", message: `Node ${actual} matchar pinnen` }
+  if (actual === pinned) return { level: "ok", area: "node", message: `Node ${actual} matchar pinnen` };
+  const sameMajor = versionParts(actual)[0] === versionParts(pinned)[0];
+  return {
+    level: sameMajor ? "note" : "warn",
+    area: "node",
+    message: sameMajor
+      ? `Node ${actual} körs, repot pinnar ${pinned}: samma major, men CI kör ${pinned}`
+      : `Node ${actual} körs, repot pinnar ${pinned}: annan major än CI och Vercel, så bygg och tester kan bete sig annorlunda`,
+    fix: `volta install node@${pinned}  (nvm/fnm: läser .nvmrc/.node-version)`,
+  };
+}
+
+/**
+ * `>=24.11.0 <25` (engines) or `24.x`. Returns null for a shape it cannot
+ * judge, which the pin check reports instead of guessing.
+ */
+export function rangeAcceptsVersion(range, version) {
+  const text = String(range ?? "").trim();
+  const v = versionParts(version);
+  const xRange = /^(\d+)\.x$/.exec(text);
+  if (xRange) return v[0] === Number(xRange[1]);
+  const floor = /^>=\s*(\d+)\.(\d+)\.(\d+)\s+<\s*(\d+)(?:\.(\d+)\.(\d+))?$/.exec(text);
+  if (!floor) return null;
+  const low = floor.slice(1, 4).map(Number);
+  const high = [Number(floor[4]), Number(floor[5] ?? 0), Number(floor[6] ?? 0)];
+  return compareVersions(v, low) >= 0 && compareVersions(v, high) < 0;
+}
+
+const readEngines = (text) => JSON.parse(text).engines?.node;
+
+/**
+ * Every place outside `.node-version` that pins Node. `exact` must equal the
+ * pin, `range` must accept it, `major` (rolling Docker tags) must share its
+ * major. On 2026-11-20 a local tool rewrote three pins and left the rest, which
+ * this list exists to catch; a new pin belongs here, not in a second check.
+ */
+export const NODE_PIN_SOURCES = [
+  { file: ".nvmrc", kind: "exact", read: (text) => text.trim() },
+  { file: ".tool-versions", kind: "exact", read: (text) => /^nodejs\s+(\S+)/m.exec(text)?.[1] },
+  { file: "package.json", label: "package.json volta", kind: "exact", read: (text) => JSON.parse(text).volta?.node },
+  { file: ".cursor/Dockerfile", kind: "exact", read: (text) => /^FROM node:(\d+\.\d+\.\d+)/m.exec(text)?.[1] },
+  { file: "package.json", label: "package.json engines", kind: "range", read: readEngines },
+  { file: "preview-host/package.json", label: "preview-host engines", kind: "range", read: readEngines },
+  { file: "preview-host/guest/package.json", label: "gästens engines", kind: "range", read: readEngines },
+  {
+    file: "src/lib/gen/export/project-scaffold.ts",
+    label: "genererade projekts engines",
+    kind: "range",
+    read: (text) => /GENERATED_PROJECT_NODE_RANGE = "([^"]+)"/.exec(text)?.[1],
+  },
+  { file: "preview-host/Dockerfile", kind: "major", read: (text) => /^FROM node:(\d+)/m.exec(text)?.[1] },
+  { file: "preview-host/guest/Dockerfile", kind: "major", read: (text) => /^FROM node:(\d+)/m.exec(text)?.[1] },
+];
+
+export function readNodePins(root = REPO_ROOT) {
+  return NODE_PIN_SOURCES.map((source) => {
+    let value = null;
+    try {
+      value = source.read(readFileSync(join(root, source.file), "utf8")) ?? null;
+    } catch {
+      value = null;
+    }
+    return { source: source.label ?? source.file, kind: source.kind, value };
+  });
+}
+
+/** All pins must say the same thing as `.node-version`. */
+export function checkNodePins(pinned, pins) {
+  if (!pinned) return { level: "note", area: "node-pins", message: ".node-version saknas" };
+  const major = versionParts(pinned)[0];
+  const drift = [];
+  for (const pin of pins) {
+    if (pin.value == null) drift.push(`${pin.source} saknas eller går inte att läsa`);
+    else if (pin.kind === "exact" && pin.value !== pinned) drift.push(`${pin.source} ${pin.value}`);
+    else if (pin.kind === "major" && Number(pin.value) !== major) drift.push(`${pin.source} node:${pin.value}`);
+    else if (pin.kind === "range" && rangeAcceptsVersion(pin.value, pinned) !== true) {
+      drift.push(`${pin.source} "${pin.value}"`);
+    }
+  }
+  return drift.length === 0
+    ? { level: "ok", area: "node-pins", message: `Alla Node-pinnar följer .node-version ${pinned}` }
     : {
         level: "warn",
-        area: "node",
-        message: `Node ${actual} men repot pinnar ${pinned}`,
-        fix: "volta install node@" + pinned,
+        area: "node-pins",
+        message: `Node-pinnarna säger olika: .node-version ${pinned}, men ${drift.join(", ")}`,
+        fix: "Ändra inte en pinne lokalt. Byt alla i samma PR (lista: NODE_PIN_SOURCES i scripts/dev/doctor.mjs), eller återställ lokala ändringar med git restore.",
       };
 }
 
@@ -288,6 +387,7 @@ export function collectFindings() {
     ? readFileSync(join(REPO_ROOT, ".node-version"), "utf8").trim()
     : null;
   findings.push(checkNode(pinned, process.version));
+  findings.push(checkNodePins(pinned, readNodePins()));
 
   findings.push(
     checkRtk({

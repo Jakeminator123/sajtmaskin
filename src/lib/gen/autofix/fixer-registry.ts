@@ -722,6 +722,28 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   },
   // ---- validators (read-only, may emit warnings) ----
   {
+    id: "button-contrast-check",
+    category: "validator-jsx",
+    // Reads the version's files and reports; never edits generated code.
+    risk: "safe",
+    sourcePath: "src/lib/gen/autofix/rules/button-contrast-check.ts",
+    targetFailureMode:
+      "Advisory: a button label below 3:1 against its background (nearly invisible), e.g. a recolored " +
+      "--color-X with an unreadable --color-X-foreground. Reported, never changed",
+    triggers: [
+      "<Button> (shadcn, imported from components/ui/button) default/secondary, <button>, <a>, <Link> whose own bg-* and text-* (or variant label) are certain and below 3:1",
+    ],
+    status: "active",
+    ownerPhase: "preflight",
+    telemetryCounter: "generation_telemetry.meta.buttonContrast",
+    notes:
+      "SM-135. Advisory since #1770: four rounds of automatic repair each broke a case they had not seen, " +
+      "and the rig showed the real failure (a color change that never took effect) is carried by the prompt " +
+      "contract. Runs once per new version at the end of finalize-preflight/runner.ts; no fix, no block. " +
+      "Automatic repair returns only if the telemetry shows the failure in real builds, and then for verified " +
+      "shadcn buttons only.",
+  },
+  {
     id: "syntax-validator",
     category: "validator-syntax",
     risk: "safe",

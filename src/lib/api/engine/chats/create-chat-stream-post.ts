@@ -28,6 +28,16 @@ import {
 } from "@/lib/builder/server-auto-brief-policy";
 import { tryGenerateServerAutoBrief, type BriefTrace } from "@/lib/builder/site-brief-generation";
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
+import {
+  checkProjectCapForFirstChat,
+  createFirstChatWithinProjectCap,
+} from "@/lib/projects/project-cap";
+import {
+  isPaidProjectTier,
+  projectLimitResponseBody,
+  type ProjectCapOwner,
+  type ProjectLimitDenial,
+} from "@/lib/projects/project-limit";
 import { resolveConfiguredEnvKeys } from "./configured-env-keys";
 import { requireNotBot } from "@/lib/bot-protection";
 import { devLogAppend, devLogStartNewSite } from "@/lib/logging/dev-log";
@@ -113,12 +123,18 @@ import {
  * A fresh id cannot already be held, so the realistic failure is Redis
  * `unavailable` (503). Taking the lock first means that failure leaves no
  * `engine_chats` row. Follow-up locking is unchanged — it locks an existing id.
+ *
+ * SM-133: the INSERT runs inside the project-cap transaction. When this chat
+ * would turn an empty project into one over the owner's cap, no row is written
+ * and `project_limit` comes back instead.
  */
 async function createChatAfterAcquiringInitLock(input: {
   projectId: string;
   model: string;
   systemPrompt?: string;
   scaffoldId?: string;
+  /** Ägaren vars projekttak prövas och vars `/projects`-cache nollas (SM-133). */
+  owner: ProjectCapOwner;
 }): Promise<
   | {
       status: "acquired";
@@ -126,6 +142,7 @@ async function createChatAfterAcquiringInitLock(input: {
       lock: ChatGenerationLock;
     }
   | { status: "held" | "unavailable" }
+  | { status: "project_limit"; denial: ProjectLimitDenial }
 > {
   const id = crypto.randomUUID();
   const lockResult = await acquireChatGenerationLock(id);
@@ -133,14 +150,21 @@ async function createChatAfterAcquiringInitLock(input: {
     return { status: lockResult.status };
   }
   try {
-    const chat = await chatRepo.createChat(
-      input.projectId,
-      input.model,
-      input.systemPrompt,
-      input.scaffoldId,
-      { id },
-    );
-    return { status: "acquired", chat, lock: lockResult.lock };
+    const created = await createFirstChatWithinProjectCap({
+      projectId: input.projectId,
+      owner: input.owner,
+      createChat: (database) =>
+        chatRepo.createChat(input.projectId, input.model, input.systemPrompt, input.scaffoldId, {
+          id,
+          database,
+        }),
+    });
+    if (created.status === "project_limit") {
+      await releaseChatGenerationLock(lockResult.lock).catch(() => {});
+      return { status: "project_limit", denial: created.denial };
+    }
+    // createFirstChatWithinProjectCap nollar /projects-cachen efter commit.
+    return { status: "acquired", chat: created.chat, lock: lockResult.lock };
   } catch (error) {
     await releaseChatGenerationLock(lockResult.lock).catch(() => {});
     throw error;
@@ -216,6 +240,19 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           );
         }
         const ownerUser = await getCurrentUser(req).catch(() => null);
+        // SM-133: första chatten gör ett tomt projekt startat. Pröva taket innan
+        // brief, krediter och bygge; den låsta kontrollen vid INSERT stänger
+        // fönstret mellan två flikar som startar samtidigt.
+        const earlyProjectCap = await checkProjectCapForFirstChat(projectIdForChat, {
+          userId: ownerUser?.id ?? null,
+          sessionId,
+          isPaidUser: isPaidProjectTier(ownerUser),
+        });
+        if (!earlyProjectCap.allowed) {
+          return attachSessionCookie(
+            NextResponse.json(projectLimitResponseBody(earlyProjectCap), { status: 403 }),
+          );
+        }
         const auditPayload = await resolveAuditHandoffForOwner({
           promptHandoffId: parsedMeta.promptHandoffId,
           userId: ownerUser?.id ?? null,
@@ -715,10 +752,20 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           const plannerChatDbStartedAt = Date.now();
           const plannerBoot = await createChatAfterAcquiringInitLock({
             projectId: projectIdForChat,
+            owner: {
+              userId: creditCheck.user.id,
+              sessionId,
+              isPaidUser: isPaidProjectTier(creditCheck.user),
+            },
             model: planModel,
             systemPrompt: planSystemPrompt,
             scaffoldId: planOrchestration.resolvedScaffold?.id,
           });
+          if (plannerBoot.status === "project_limit") {
+            return attachSessionCookie(
+              NextResponse.json(projectLimitResponseBody(plannerBoot.denial), { status: 403 }),
+            );
+          }
           if (plannerBoot.status !== "acquired") {
             return attachSessionCookie(chatGenerationLockFailureResponse(plannerBoot.status));
           }
@@ -962,10 +1009,20 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           const engineChatDbStartedAt = Date.now();
           const initBoot = await createChatAfterAcquiringInitLock({
             projectId: projectIdForChat,
+            owner: {
+              userId: creditCheck.user.id,
+              sessionId,
+              isPaidUser: isPaidProjectTier(creditCheck.user),
+            },
             model: engineModel,
             systemPrompt: engineSystemPrompt,
             scaffoldId: resolvedScaffold?.id,
           });
+          if (initBoot.status === "project_limit") {
+            return attachSessionCookie(
+              NextResponse.json(projectLimitResponseBody(initBoot.denial), { status: 403 }),
+            );
+          }
           if (initBoot.status !== "acquired") {
             return attachSessionCookie(chatGenerationLockFailureResponse(initBoot.status));
           }

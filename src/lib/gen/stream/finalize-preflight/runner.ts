@@ -8,6 +8,10 @@ import {
   getRoutePlanPrimarySource,
 } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
+import {
+  findUnreadableButtons,
+  type ButtonContrastFinding,
+} from "@/lib/gen/autofix/rules/button-contrast-check";
 import type { FixEntry } from "@/lib/gen/autofix/types";
 import {
   completeProjectDependencies,
@@ -812,6 +816,24 @@ export async function runFinalizePreflight({
     });
   }
 
+  // SM-135, advisory: read the version's final files and report nearly
+  // invisible button labels to telemetry. Nothing is edited or blocked.
+  let buttonContrastFindings: ButtonContrastFinding[] = [];
+  if (!importedRepoMode) {
+    try {
+      buttonContrastFindings = findUnreadableButtons(JSON.parse(nextFilesJson) as CodeFile[]);
+    } catch {
+      buttonContrastFindings = [];
+    }
+    if (buttonContrastFindings.length > 0) {
+      devLogAppend("in-progress", {
+        type: "button-contrast",
+        chatId,
+        findings: buttonContrastFindings.slice(0, 20),
+      });
+    }
+  }
+
   return {
     filesJson: nextFilesJson,
     finalizedFilesForPreview,
@@ -821,5 +843,6 @@ export async function runFinalizePreflight({
     previewStart,
     unresolvedImportFallbackUsed,
     postMergeFixes,
+    buttonContrastFindings,
   };
 }

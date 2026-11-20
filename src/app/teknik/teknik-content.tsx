@@ -1,5 +1,6 @@
 "use client";
 
+import { APP_VIEWPORT_HEIGHT_CLASS } from "@/lib/app-viewport";
 import { useCallback, useState } from "react";
 import { useHashScroll } from "@/components/landing-v2/landing-hooks";
 import Link from "next/link";
@@ -31,7 +32,7 @@ export function TeknikContent() {
 
   return (
     <>
-      <div className="flex h-screen min-h-0 w-full flex-col overflow-x-hidden bg-background supports-[height:100dvh]:h-dvh md:overflow-hidden">
+      <div className={`flex min-h-0 w-full flex-col overflow-x-hidden bg-background md:overflow-hidden ${APP_VIEWPORT_HEIGHT_CLASS}`}>
         <Navbar onLoginClick={handleLoginClick} onRegisterClick={handleRegisterClick} />
 
         <main className="landing-v2-page relative flex min-h-0 flex-1 flex-col overflow-hidden">

@@ -1,3 +1,12 @@
+import {
+  checkProjectCapForFirstChat,
+  createFirstChatWithinProjectCap,
+} from "@/lib/projects/project-cap";
+import {
+  isPaidProjectTier,
+  projectLimitResponseBody,
+  type ProjectCapOwner,
+} from "@/lib/projects/project-limit";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rate-limit";
 import { z } from "zod/v4";
@@ -184,6 +193,20 @@ export async function POST(req: Request) {
         );
       }
 
+      // SM-133: importen ger projektet (eller ett nytt) dess första chatt. Pröva
+      // taket innan arkivet hämtas och innan krediter förbereds.
+      const importCapOwner: ProjectCapOwner = {
+        userId: user.id,
+        sessionId: sessionId || null,
+        isPaidUser: isPaidProjectTier(user),
+      };
+      const earlyProjectCap = await checkProjectCapForFirstChat(resolvedProjectId, importCapOwner);
+      if (!earlyProjectCap.allowed) {
+        return attachSessionCookie(
+          NextResponse.json(projectLimitResponseBody(earlyProjectCap), { status: 403 }),
+        );
+      }
+
       let importLabel = `ZIP Import ${new Date().toISOString().slice(0, 10)}`;
       let importedFiles: CodeFile[] = [];
 
@@ -305,7 +328,18 @@ export async function POST(req: Request) {
             );
 
       const engineModel = resolveEngineModelId(DEFAULT_MODEL_ID);
-      const chat = await chatRepo.createChat(project.id, engineModel);
+      const createdChat = await createFirstChatWithinProjectCap({
+        projectId: project.id,
+        owner: importCapOwner,
+        createChat: (database) =>
+          chatRepo.createChat(project.id, engineModel, undefined, undefined, { database }),
+      });
+      if (createdChat.status === "project_limit") {
+        return attachSessionCookie(
+          NextResponse.json(projectLimitResponseBody(createdChat.denial), { status: 403 }),
+        );
+      }
+      const chat = createdChat.chat;
       if (trimmedMessage) {
         await chatRepo.addMessage(chat.id, "user", trimmedMessage);
       }

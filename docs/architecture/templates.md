@@ -144,7 +144,7 @@ Verifierat i `preview-host/`:
 
 | Guardrail        | Värde                                                                                                                                              |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Node             | 22.x                                                                                                                                               |
+| Node             | 24.x                                                                                                                                               |
 | Start            | `npm run dev -- --hostname 127.0.0.1 --port N` → **kräver `dev`-script**                                                                           |
 | Install          | Lockfil-drivet: `pnpm-lock.yaml`→pnpm, `yarn.lock`→yarn, `package-lock.json`→`npm ci`, annars `npm install`. Timeout 10 min.                       |
 | Payload-tak      | **500 filer · 2 MiB/fil · 12 MiB totalt** (`preview-host/src/validate.js`)                                                                         |
