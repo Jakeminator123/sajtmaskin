@@ -19,6 +19,10 @@ import type {
   FinalizeSyntaxResult,
 } from "./types";
 import type { AutofixFixerSummary, AutofixRiskSummary } from "./pre-phases";
+import {
+  BUTTON_TEXT_MIN_CONTRAST,
+  type ButtonContrastFinding,
+} from "@/lib/gen/autofix/rules/button-contrast-check";
 
 export async function persistTelemetryRecord(params: {
   chatId: string;
@@ -79,6 +83,13 @@ export async function persistTelemetryRecord(params: {
    * `fixCount`/riskfälten är fortsatt Normalize-lanen enbart.
    */
   autoFixFixers?: AutofixFixerSummary[];
+  /**
+   * SM-135, advisory: nearly invisible button labels the check found and left
+   * as they were (`findUnreadableButtons`). Persisted in
+   * `meta.buttonContrast` only when something was found, so whether the
+   * failure occurs in real builds can be answered with SQL.
+   */
+  buttonContrastFindings?: ButtonContrastFinding[];
   verifierBlocked: boolean;
   verifierBlockingFindings: Array<{ id: string; detail: string }>;
   preflightIssueCount: number;
@@ -122,6 +133,7 @@ export async function persistTelemetryRecord(params: {
     autoFixDependencyCount,
     autoFixRisk,
     autoFixFixers,
+    buttonContrastFindings,
     verifierBlocked,
     verifierBlockingFindings,
     preflightIssueCount,
@@ -186,6 +198,16 @@ export async function persistTelemetryRecord(params: {
     // ska förbli jämförbara med "ingen dossier").
     if (selectedDossierIds && selectedDossierIds.length > 0) {
       telemetryMeta.selectedDossierIds = selectedDossierIds;
+    }
+
+    if (buttonContrastFindings && buttonContrastFindings.length > 0) {
+      telemetryMeta.buttonContrast = {
+        threshold: BUTTON_TEXT_MIN_CONTRAST,
+        belowThreshold: buttonContrastFindings.length,
+        findings: buttonContrastFindings
+          .slice(0, 10)
+          .map(({ file, line, tag, ratio }) => ({ file, line, tag, ratio })),
+      };
     }
 
     const sources = orchestrationStreamMeta?.sources;

@@ -720,31 +720,29 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     status: "active",
     ownerPhase: "post-merge",
   },
+  // ---- validators (read-only, may emit warnings) ----
   {
-    id: "button-contrast-fixer",
-    category: "mechanical-tailwind",
-    // Edits a shared theme token and LLM-written class lists across files.
-    risk: "risky",
-    sourcePath: "src/lib/gen/autofix/rules/button-contrast-fixer.ts",
+    id: "button-contrast-check",
+    category: "validator-jsx",
+    // Reads the version's files and reports; never edits generated code.
+    risk: "safe",
+    sourcePath: "src/lib/gen/autofix/rules/button-contrast-check.ts",
     targetFailureMode:
-      "Button label below 3:1 against its background (nearly invisible): a recolored --color-X kept " +
-      "an unreadable --color-X-foreground, or a filled button mixes bg-*/text-* from different pairs",
+      "Advisory: a button label below 3:1 against its background (nearly invisible), e.g. a recolored " +
+      "--color-X with an unreadable --color-X-foreground. Reported, never changed",
     triggers: [
-      "@theme --color-X / --color-X-foreground below 3:1, both literal and declared only in @theme",
-      "<Button> default/secondary, <button>, <a>, <Link> whose own bg-* and text-* (or variant label) are certain and below 3:1",
+      "<Button> (shadcn, imported from components/ui/button) default/secondary, <button>, <a>, <Link> whose own bg-* and text-* (or variant label) are certain and below 3:1",
     ],
     status: "active",
-    ownerPhase: "post-merge",
+    ownerPhase: "preflight",
+    telemetryCounter: "generation_telemetry.meta.buttonContrast",
     notes:
-      "SM-135. Runs once per new version from finalize-preflight/runner.ts, not in repairGeneratedFiles " +
-      "(preview start/export). Changes a label only when both colors are certain: any unresolved bg-/text- " +
-      "class (Tailwind palette, bg-transparent, bg-none, unknown var()), gradient, translucent fill, style, " +
-      "spread, asChild, dark: color, conditional or computed class list, inherited text, or a token declared " +
-      "outside @theme skips the button; hover:/focus: fills must also stay readable. Gate " +
-      "BUTTON_TEXT_MIN_CONTRAST = 3 until curated palettes pass 4.5 (SM-153); a repair lands at 4.5:1. " +
-      "Never changes the brand/background color (SM-016 choice).",
+      "SM-135. Advisory since #1770: four rounds of automatic repair each broke a case they had not seen, " +
+      "and the rig showed the real failure (a color change that never took effect) is carried by the prompt " +
+      "contract. Runs once per new version at the end of finalize-preflight/runner.ts; no fix, no block. " +
+      "Automatic repair returns only if the telemetry shows the failure in real builds, and then for verified " +
+      "shadcn buttons only.",
   },
-  // ---- validators (read-only, may emit warnings) ----
   {
     id: "syntax-validator",
     category: "validator-syntax",
