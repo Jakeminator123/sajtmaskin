@@ -51,15 +51,26 @@ const bothShells = (pattern) => [`Bash(${pattern})`, `PowerShell(${pattern})`];
  * underagenter blev de dussintals ja-klick utan verklig granskning, och
  * skyddet bärs redan av shell-guard-hooken (force-push, delete, worktree,
  * commit-guard), GitHubs rulesets och `pr-merge.mdc`. Kvar är det som är
- * sällsynt och svårt att ångra: promote till produktion, databaskommandon
- * och ändringar i agenternas egna konfigurationsfiler.
+ * sällsynt och svårt att ångra: databaskommandon och ändringar i agenternas
+ * egna konfigurationsfiler.
+ *
+ * Ägarbeslut 2026-11-20 (Jakob): `npm run promote` frågar inte längre.
+ * Kommandot öppnar bara promote-PR:en och mergar aldrig; mergegrinden mot
+ * `master` ägs av `pr-merge.mdc` och GitHubs rulesets. Frågan för
+ * `~/.cursor/**` gäller bara agentkonfigurationen där, inte worktrees under
+ * `~/.cursor/worktrees`, där varje filändring annars gav en ja-ruta.
  */
 export const CLAUDE_ASK_RULES = Object.freeze([
-  ...bothShells("npm run promote*"),
   ...bothShells("npm run db:*"),
   "Edit(/.cursor/mcp.json)",
   "Edit(/.mcp.json)",
-  "Edit(~/.cursor/**)",
+  "Edit(~/.cursor/*.json)",
+  "Edit(~/.cursor/rules/**)",
+  "Edit(~/.cursor/commands/**)",
+  "Edit(~/.cursor/skills*/**)",
+  "Edit(~/.cursor/agents/**)",
+  "Edit(~/.cursor/plugins/**)",
+  "Edit(~/.cursor/hooks/**)",
   "Edit(~/.codex/**)",
   "Edit(~/.claude/**)",
 ]);

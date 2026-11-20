@@ -203,13 +203,17 @@
       "mcp__user-vercel__get_*"
     ],
     "ask": [
-      "Bash(npm run promote*)",
-      "PowerShell(npm run promote*)",
       "Bash(npm run db:*)",
       "PowerShell(npm run db:*)",
       "Edit(/.cursor/mcp.json)",
       "Edit(/.mcp.json)",
-      "Edit(~/.cursor/**)",
+      "Edit(~/.cursor/*.json)",
+      "Edit(~/.cursor/rules/**)",
+      "Edit(~/.cursor/commands/**)",
+      "Edit(~/.cursor/skills*/**)",
+      "Edit(~/.cursor/agents/**)",
+      "Edit(~/.cursor/plugins/**)",
+      "Edit(~/.cursor/hooks/**)",
       "Edit(~/.codex/**)",
       "Edit(~/.claude/**)"
     ],
