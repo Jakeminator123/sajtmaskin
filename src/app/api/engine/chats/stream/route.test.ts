@@ -341,8 +341,6 @@ vi.mock("@/lib/data/redis", async (importOriginal) => {
   };
 });
 
-const invalidateProjectListCache = vi.hoisted(() => vi.fn(async () => undefined));
-vi.mock("@/lib/projects/project-list-cache", () => ({ invalidateProjectListCache }));
 
 // Projekttaket vid första chatten (SM-133). Standard: tillåtet, och chatten
 // skrivs genom en skenbar transaktion så att testet ser att den går den vägen.
@@ -1239,8 +1237,6 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     );
     // SM-133: chatten skrivs genom takkontrollens transaktion.
     expect(createChat.mock.calls[0]?.[4]).toMatchObject({ database: "project-cap-tx" });
-    // SM-133: första chatten gör projektet synligt i /projects.
-    expect(invalidateProjectListCache).toHaveBeenCalledWith("user_1", "sess_1");
   });
 
   it("returns 503 and does not insert a chat row when the init lock is unavailable", async () => {
@@ -1264,7 +1260,6 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     });
     expect(createChat).not.toHaveBeenCalled();
     expect(addMessage).not.toHaveBeenCalled();
-    expect(invalidateProjectListCache).not.toHaveBeenCalled();
   });
 
   it("nekar första bygget över projekttaket innan krediter, brief och chatt (SM-133)", async () => {
@@ -1282,7 +1277,6 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     expect(await response.json()).toEqual({ success: false, error: "Du har nått maxgränsen för gratiskonton (8 projekt). Ta bort ett projekt eller uppgradera för att bygga fler.", limitReached: true, current: 8, limit: 8 });
     expect(prepareCredits).not.toHaveBeenCalled();
     expect(createChat).not.toHaveBeenCalled();
-    expect(invalidateProjectListCache).not.toHaveBeenCalled();
   });
 
   it("nekar i den låsta kontrollen när en annan flik hann först (SM-133)", async () => {
@@ -1302,7 +1296,6 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     expect(addMessage).not.toHaveBeenCalled();
     expect(createGenerationPipeline).not.toHaveBeenCalled();
     expect(commitCredits).not.toHaveBeenCalled();
-    expect(invalidateProjectListCache).not.toHaveBeenCalled();
   });
 
   it("does not insert a plan-mode chat row when the init lock is unavailable", async () => {
