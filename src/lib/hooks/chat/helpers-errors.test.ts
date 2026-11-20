@@ -127,6 +127,30 @@ describe("buildApiErrorMessage auth mapping", () => {
   });
 });
 
+describe("buildApiErrorMessage projekttaket (SM-133)", () => {
+  it("visar serverns besked i stället för den generiska 403-texten", () => {
+    const error =
+      "Du har nått maxgränsen för gratiskonton (8 projekt). Ta bort ett projekt eller uppgradera för att bygga fler.";
+    expect(
+      buildApiErrorMessage({
+        response: jsonResponse(403),
+        errorData: { success: false, error, limitReached: true, current: 8, limit: 8 },
+        fallbackMessage: "Failed to create chat",
+      }),
+    ).toBe(error);
+  });
+
+  it("lämnar en vanlig 403 utan limitReached orörd", () => {
+    expect(
+      buildApiErrorMessage({
+        response: jsonResponse(403),
+        errorData: { error: "forbidden" },
+        fallbackMessage: "Failed to create chat",
+      }),
+    ).toBe("Åtkomst nekad av AI-tjänsten (403). Kontrollera behörigheter.");
+  });
+});
+
 describe("buildStreamErrorMessage auth mapping", () => {
   it("prefers Sajtmaskin login copy over unauthorized", () => {
     expect(
