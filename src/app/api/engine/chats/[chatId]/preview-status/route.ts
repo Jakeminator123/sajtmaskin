@@ -179,6 +179,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           expectedVersionId: sessionVid,
           expectedLifecycleToken: session.lifecycleToken ?? null,
         }).catch(() => null);
+        // M03: the host renders the URL per answer; the stored one can be in
+        // the form from before PREVIEW_HOST_ORIGIN_MODE changed.
+        const hostPreviewUrl = verdict?.previewUrl?.trim() || session.previewUrl;
         if (verdict?.readinessState === "failed") {
           const failureDecision = decidePreviewReadinessOutcome(verdict);
           after(async () => {
@@ -194,7 +197,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
             status: "build_error",
             previewSessionId: session.previewSessionId,
             lifecycleToken: session.lifecycleToken,
-            previewUrl: session.previewUrl,
+            previewUrl: hostPreviewUrl,
             versionId: sessionVid,
             sessionExpiresAt: sessionSoftExpiryAt(session),
             reason: readinessFailureReason(failureDecision.buildError),
@@ -224,7 +227,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           status,
           previewSessionId: session.previewSessionId,
           lifecycleToken: session.lifecycleToken,
-          previewUrl: session.previewUrl,
+          previewUrl: hostPreviewUrl,
           versionId: sessionVid,
           sessionExpiresAt: sessionSoftExpiryAt(session),
           reason,

@@ -201,3 +201,43 @@ describe("usePreviewRouteBridge", () => {
     expect(result.current).toBeNull();
   });
 });
+
+describe("usePreviewRouteBridge — egen origin per chatt (M03)", () => {
+  const OWN_ORIGIN = "https://p-0123456789abcdef0123.vm.sajtmaskin.com";
+
+  function render(previewUrl: string) {
+    const { child, iframeRef } = createHarness();
+    const view = renderHook(
+      (props: { previewUrl: string }) =>
+        usePreviewRouteBridge({
+          previewUrl: props.previewUrl,
+          versionId: "ver_1",
+          activePreviewSessionId: "ps_1",
+          viewerId: "viewer_1",
+          iframeRef,
+        }),
+      { initialProps: { previewUrl } },
+    );
+    return { child, ...view };
+  }
+
+  it("godtar chattens egen origin först när buildern flyttat iframen dit", () => {
+    // Sparad adress på den delade värden; hostens 307 landar på chattens origin.
+    const { child, result, rerender } = render(PREVIEW_URL);
+    act(() => postRoute({ child, origin: OWN_ORIGIN, href: `${OWN_ORIGIN}/chat_1/om` }));
+    expect(result.current).toBeNull();
+
+    rerender({ previewUrl: `${OWN_ORIGIN}/chat_1` });
+    act(() => postRoute({ child, origin: OWN_ORIGIN, href: `${OWN_ORIGIN}/chat_1/om` }));
+    expect(result.current).toBe("/om");
+  });
+
+  it("avvisar en annan chatts origin och den delade värden när iframen står på egen origin", () => {
+    const { child, result } = render(`${OWN_ORIGIN}/chat_1`);
+    const otherChatOrigin = "https://p-fedcba9876543210fedc.vm.sajtmaskin.com";
+    act(() => postRoute({ child, origin: otherChatOrigin, href: `${otherChatOrigin}/chat_1/om` }));
+    expect(result.current).toBeNull();
+    act(() => postRoute({ child, origin: PREVIEW_ORIGIN, href: `${PREVIEW_URL}/om` }));
+    expect(result.current).toBeNull();
+  });
+});
