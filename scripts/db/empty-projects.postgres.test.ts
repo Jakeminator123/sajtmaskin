@@ -10,8 +10,9 @@
  *
  * Säkerhet: testet SKRIVER fixturrader och vägrar allt utom en dev-target via
  * `check-db-env-target.mjs`. Fotavtryck: användare och projekt med ett unikt
- * körprefix, raderade i `afterAll` (chattar och project_data följer projektet
- * via CASCADE; domänordern saknar FK och raderas uttryckligen).
+ * körprefix, raderade i `afterAll` (chattar, project_data, project_files och
+ * images följer projektet via CASCADE; domänorder, mediabibliotek och
+ * företagsprofil raderas uttryckligen).
  */
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -78,6 +79,7 @@ describe.skipIf(!target.url)("tomma projekt mot riktig Postgres (SM-133)", () =>
     cap: id("u_cap"),
     under: id("u_under"),
     login: id("u_login"),
+    content: id("u_content"),
   };
   const guestSession = id("sess_guest");
   const projectIds: string[] = [];
@@ -127,9 +129,11 @@ describe.skipIf(!target.url)("tomma projekt mot riktig Postgres (SM-133)", () =>
 
   afterAll(async () => {
     if (!pool) return;
-    await pool
-      .query("delete from domain_orders where project_id = any($1::text[])", [projectIds])
-      .catch(() => null);
+    for (const table of ["domain_orders", "media_library", "company_profiles"]) {
+      await pool
+        .query(`delete from ${table} where project_id = any($1::text[])`, [projectIds])
+        .catch(() => null);
+    }
     await pool
       .query("delete from app_projects where id = any($1::text[])", [projectIds])
       .catch(() => null);
@@ -191,6 +195,70 @@ describe.skipIf(!target.url)("tomma projekt mot riktig Postgres (SM-133)", () =>
     ].sort();
     expect(await listIds({ userId: users.def })).toEqual(started);
     expect((await canCreateProject(users.def, null)).current).toBe(started.length);
+  });
+
+  it("innehåll utan chatt: sparad kod, filer, meddelanden, uppladdningar och egna uppgifter räknas", async () => {
+    const owner = { userId: users.content };
+    const withProjectData = async (name: string, columns: string, values: string) => {
+      await project(id(name), owner);
+      await pool.query(`insert into project_data (project_id, ${columns}) values ($1, ${values})`, [
+        id(name),
+      ]);
+    };
+
+    // Äldre projekt (v0-eran, tidig egen motor, «Spara») utan chatt och demo-url.
+    await withProjectData("c_code", "current_code", "'export default function Page() {}'");
+    await withProjectData("c_files", "files", `'[{"path":"app/page.tsx","content":"x"}]'::jsonb`);
+    await withProjectData("c_messages", "messages", `'[{"role":"user","content":"hej"}]'::jsonb`);
+    // Användarens egna uppgifter före första bygget.
+    await withProjectData("c_business", "meta", `'{"business":{"phone":"070-000 00 00"}}'::jsonb`);
+    await withProjectData("c_env", "meta", `'{"projectEnvVars":[{"key":"API_KEY"}]}'::jsonb`);
+
+    await project(id("c_project_file"), owner);
+    await pool.query("insert into project_files (project_id, path) values ($1, 'public/logo.png')", [
+      id("c_project_file"),
+    ]);
+    await project(id("c_image"), owner);
+    await pool.query(
+      "insert into images (project_id, filename, file_path) values ($1, 'logo.png', '/uploads/logo.png')",
+      [id("c_image")],
+    );
+    await project(id("c_media"), owner);
+    await pool.query(
+      `insert into media_library
+         (user_id, filename, original_name, file_path, mime_type, file_type, size_bytes, project_id)
+       values ($1, 'hero.jpg', 'hero.jpg', '/media/hero.jpg', 'image/jpeg', 'image', 1024, $2)`,
+      [users.content, id("c_media")],
+    );
+    await project(id("c_company"), owner);
+    await pool.query(
+      "insert into company_profiles (project_id, company_name) values ($1, 'Café Lindgren')",
+      [id("c_company")],
+    );
+
+    // Tomt trots project_data: paletten sparas automatiskt, och tomma fält räknas inte.
+    await withProjectData(
+      "e_palette",
+      "current_code, files, messages, meta",
+      `'  ', '[]'::jsonb, '[]'::jsonb, '{"palette":{"selections":[]},"business":null,"projectEnvVars":[]}'::jsonb`,
+    );
+    await project(id("e_bare"), owner);
+
+    const withContent = [
+      "c_business",
+      "c_code",
+      "c_company",
+      "c_env",
+      "c_files",
+      "c_image",
+      "c_media",
+      "c_messages",
+      "c_project_file",
+    ]
+      .map(id)
+      .sort();
+    expect(await listIds(owner)).toEqual(withContent);
+    expect((await canCreateProject(users.content, null)).current).toBe(withContent.length);
   });
 
   it("ägarkontrollen: en annan ägares startade projekt räknas och syns bara för den ägaren", async () => {

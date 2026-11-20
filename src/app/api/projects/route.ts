@@ -7,6 +7,10 @@ import {
 import type { Project } from "@/lib/db/services/shared";
 import { getCache, setCache, deleteCache } from "@/lib/data/redis";
 import { canCreateProject } from "@/lib/projects/project-cleanup";
+import {
+  invalidateProjectListCache,
+  projectListCacheKey,
+} from "@/lib/projects/project-list-cache";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest, getSessionIdFromRequest } from "@/lib/auth/session";
 
@@ -16,29 +20,12 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function getOwnerCacheSegment(userId: string | null, sessionId: string | null): string {
-  if (userId && sessionId) return `user:${userId}:session:${sessionId}`;
-  if (userId) return `user:${userId}`;
-  if (sessionId) return `session:${sessionId}`;
-  return "anonymous";
-}
-
-function getOwnerCacheSegments(userId: string | null, sessionId: string | null): string[] {
-  return Array.from(
-    new Set(
-      [getOwnerCacheSegment(userId, sessionId), userId ? `user:${userId}` : null, sessionId ? `session:${sessionId}` : null]
-        .filter((value): value is string => Boolean(value)),
-    ),
-  );
-}
-
 // GET /api/projects - List all projects
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser(request);
     const sessionId = getSessionIdFromRequest(request);
-    const ownerKey = getOwnerCacheSegment(user?.id ?? null, sessionId);
-    const cacheKey = `projects:list:${ownerKey}`;
+    const cacheKey = projectListCacheKey(user?.id ?? null, sessionId);
 
     // Try Redis cache first (short TTL for freshness)
     const cached = await getCache<{ projects: Array<Project & { demo_url?: string | null }> }>(cacheKey);
@@ -163,11 +150,7 @@ export async function POST(request: NextRequest) {
     );
 
     // Invalidate projects list caches
-    const ownerKeys = getOwnerCacheSegments(user?.id ?? null, sessionId);
-    await Promise.all([
-      deleteCache("projects:list"),
-      ...ownerKeys.map((ownerKey) => deleteCache(`projects:list:${ownerKey}`)),
-    ]);
+    await invalidateProjectListCache(user?.id ?? null, sessionId);
 
     return attachSessionCookie(
       NextResponse.json({

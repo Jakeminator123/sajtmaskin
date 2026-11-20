@@ -51,17 +51,8 @@ function countingDatabase(count: number) {
 }
 
 describe("startedProjectCondition", () => {
-  it("är sant för chatt, äldre chatt/demo-url, domänorder och publiceringsidentitet", () => {
+  it("är sant för publicering, chatt och allt användaren sparat eller lagt in", () => {
     const { sql: text, params } = compile(startedProjectCondition());
-    expect(text).toContain(
-      'exists (select 1 from "engine_chats" where "engine_chats"."project_id" = "app_projects"."id")',
-    );
-    expect(text).toContain('"project_data"."project_id" = "app_projects"."id"');
-    expect(text).toContain(`coalesce(btrim("project_data"."chat_id"), '') <> ''`);
-    expect(text).toContain(`coalesce(btrim("project_data"."demo_url"), '') <> ''`);
-    expect(text).toContain(
-      'exists (select 1 from "domain_orders" where "domain_orders"."project_id" = "app_projects"."id")',
-    );
     for (const column of [
       "vercel_project_id",
       "published_slug",
@@ -69,6 +60,35 @@ describe("startedProjectCondition", () => {
       "custom_domain",
     ]) {
       expect(text).toContain(`"app_projects"."${column}" is not null`);
+    }
+
+    expect(text).toContain('"project_data"."project_id" = "app_projects"."id"');
+    for (const column of ["chat_id", "demo_url", "current_code"]) {
+      expect(text).toContain(`coalesce(btrim("project_data"."${column}"), '') <> ''`);
+    }
+    const emptyJson = `, 'null'::jsonb) not in ('null'::jsonb, '[]'::jsonb, '{}'::jsonb)`;
+    for (const value of [
+      '"project_data"."files"',
+      '"project_data"."messages"',
+      `"project_data"."meta" -> 'business'`,
+      `"project_data"."meta" -> 'projectEnvVars'`,
+    ]) {
+      expect(text).toContain(`coalesce(${value}${emptyJson}`);
+    }
+    // Paletten sparas automatiskt för varje nytt projekt och får inte räknas.
+    expect(text).not.toContain("palette");
+
+    for (const table of [
+      "engine_chats",
+      "domain_orders",
+      "project_files",
+      "images",
+      "media_library",
+      "company_profiles",
+    ]) {
+      expect(text).toContain(
+        `exists (select 1 from "${table}" where "${table}"."project_id" = "app_projects"."id")`,
+      );
     }
     // Ett OR-block utan bundna värden: kan inte råka binda en annan ägares id.
     expect(params).toEqual([]);
