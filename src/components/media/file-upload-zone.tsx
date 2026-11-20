@@ -35,7 +35,6 @@ import {
   AlertCircle,
   Trash2,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // Accepted file types — kept in sync with the server allow-list in
@@ -335,18 +334,18 @@ export function FileUploadZone({
 
         {/* Add button */}
         {canAddMore && (
-          <Button
+          // En vanlig knapp med samma klasser som komposerns övriga
+          // verktygsknappar. `Button variant="outline"` bär egna `dark:`-klasser
+          // och skugga som inte går att skriva över med en className.
+          <button
             type="button"
-            variant="outline"
-            size="sm"
             onClick={handleClick}
             disabled={disabled}
-            // Samma form och tokens som komposerns övriga verktygsknappar.
-            className="border-border/70 bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground h-8 gap-1.5 rounded-lg px-2.5 text-[11px] font-medium"
+            className="border-border/70 bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
           >
-            <Upload className="h-3 w-3" />
+            <Upload className="h-3 w-3" aria-hidden="true" />
             Lägg till media
-          </Button>
+          </button>
         )}
 
         <input

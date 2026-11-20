@@ -49,7 +49,8 @@ export function ModelTierSlider({
     <div
       ref={rootRef}
       className={cn(
-        "border-border/70 bg-background/80 flex h-8 min-w-44 flex-1 items-center gap-2.5 rounded-lg border px-2.5",
+        // min-w-48: etikett + reglage (min 56 px) + värde (56 px) + luft ryms.
+        "border-border/70 bg-background/80 flex h-8 min-w-48 flex-1 items-center gap-2.5 rounded-lg border px-2.5",
         className,
       )}
       title={option.description}
