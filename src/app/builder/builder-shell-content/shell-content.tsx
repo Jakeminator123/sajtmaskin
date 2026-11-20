@@ -110,7 +110,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   });
 
   const {
-    handleClearPreview,
     handleVersionSelect,
     handleF3MissingEnv,
     handleF3Ready,
@@ -254,7 +253,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             previewUrl={vm.currentPreviewUrl}
             lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
             isBusy={isInteractionLocked}
-            onClear={handleClearPreview}
+            onClear={() => vm.forcePreviewResync()}
             clearDisabled={isPreviewLoading}
             onRequestDossier={handleRequestDossier}
             catalogPickDisabled={catalogPickDisabled}
@@ -295,7 +294,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           )}
         >
           <MessageSquare className="h-4 w-4" />
-          Chat
+          Chatt
         </button>
         <button
           role="tab"
@@ -310,7 +309,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           )}
         >
           <Eye className="h-4 w-4" />
-          Preview
+          Förhandsvisning
           {vm.currentPreviewUrl && mobileTab !== "preview" && (
             <span className="bg-brand-blue h-2 w-2 rounded-full" />
           )}
@@ -394,6 +393,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 status: activeVersionStatus,
                 isLatest: activeVersionIsLatest,
               } : null}
+              previewVisible={vm.previewLifecycle === "live"}
               messages={vm.messages}
               showStructuredParts={vm.showStructuredChat}
               onQuickReply={async (text, options) => {
@@ -410,7 +410,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             chatId={vm.chatId}
             isCollapsed={isChatOutputCollapsed}
             onToggleCollapse={chatOutputCollapse.toggle}
-            messageCount={vm.messages.length}
+            builderMessages={vm.messages}
             isStreaming={vm.isAnyStreaming}
             statusText={chatCollapseStatusText}
           >
@@ -482,6 +482,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 activeVersionSummary?.verificationSummary ?? null,
               )}
               activeVersionPromotedAt={activeVersionSummary?.promotedAt ?? null}
+              activeVersionNumber={activeVersionSummary?.versionNumber ?? null}
               activeVersionIsLatest={activeVersionIsLatest}
               activeVersionRepairPassIndex={activeVersionBusStatus?.repairPassIndex ?? 0}
               onPreviewSessionSuspect={vm.handlePreviewSessionSuspect}
@@ -508,6 +509,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onRestartGeneration={vm.handleRestartGeneration}
               templateInitError={vm.templateInitError}
               onRetryTemplateInit={vm.retryTemplateInit}
+              hasPrefilledPrompt={Boolean(vm.initialPrompt)}
               onFilesSaved={vm.handleFilesSaved}
               refreshToken={vm.previewRefreshToken}
               onComposerAiFallback={handleComposerAiFallback}

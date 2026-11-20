@@ -91,12 +91,107 @@ describe("GitHubExportDialog", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /^Exportera$/i }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    const init = fetchMock.mock.calls[0]?.[1];
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(true),
+    );
+    const init = fetchMock.mock.calls.find(([, call]) => call?.method === "POST")?.[1];
     expect(init).toBeDefined();
     expect(JSON.parse(String(init?.body))).toMatchObject({
       projectId: "proj_1",
       siteUrl: "https://kund.se",
     });
+  });
+
+  it("suggests the repo the project was last exported to", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        return new Response(JSON.stringify({ repoUrl: "https://github.com/Alice/kund-site" }), {
+          status: 200,
+        });
+      }
+      expect(String(input)).toBe("/api/github/export?chatId=chat_1");
+      return new Response(
+        JSON.stringify({ success: true, lastExport: { repo: "Alice/kund-site" } }),
+        { status: 200 },
+      );
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    render(
+      <GitHubExportDialog
+        open
+        onClose={() => {}}
+        chatId="chat_1"
+        versionId="ver_1"
+        suggestedRepoName="Nytt namn"
+        hasGitHub
+        isAuthenticated
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Alice/kund-site")).toBeTruthy();
+    });
+    expect(screen.getByText(/Senast exporterad till Alice\/kund-site/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Exportera$/i }));
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(true),
+    );
+    const body = fetchMock.mock.calls.find(([, init]) => init?.method === "POST")?.[1]?.body;
+    expect(JSON.parse(String(body)).repo).toBe("Alice/kund-site");
+  });
+
+  it("keeps a repo name the user already typed", async () => {
+    let resolveLookup: (response: Response) => void = () => {};
+    globalThis.fetch = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveLookup = resolve;
+        }),
+    ) as unknown as typeof fetch;
+
+    render(
+      <GitHubExportDialog
+        open
+        onClose={() => {}}
+        chatId="chat_1"
+        versionId="ver_1"
+        hasGitHub
+        isAuthenticated
+      />,
+    );
+
+    const input = screen.getByPlaceholderText("mitt-projekt");
+    fireEvent.change(input, { target: { value: "eget-namn" } });
+    resolveLookup(
+      new Response(JSON.stringify({ success: true, lastExport: { repo: "alice/old" } }), {
+        status: 200,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Senast exporterad till alice\/old/)).toBeTruthy();
+    });
+    expect((input as HTMLInputElement).value).toBe("eget-namn");
+  });
+
+  it("does not look up a last export before GitHub is connected", () => {
+    const fetchMock = vi.fn();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    render(
+      <GitHubExportDialog
+        open
+        onClose={() => {}}
+        chatId="chat_1"
+        versionId="ver_1"
+        hasGitHub={false}
+        isAuthenticated
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: /Koppla GitHub/i })).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

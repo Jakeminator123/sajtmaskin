@@ -89,6 +89,8 @@ export interface PreviewPanelProps {
   /** Failed template import while `?templateId=` remains without `chatId`. */
   templateInitError?: string | null;
   onRetryTemplateInit?: () => void;
+  /** Landing prompt prefilled in the composer, not yet sent. */
+  hasPrefilledPrompt?: boolean;
   refreshToken?: number;
   /**
    * Called after a manual file save. When the Fast Edit Lane created a new minor
@@ -128,6 +130,11 @@ export interface PreviewPanelProps {
   /** Server-written promotion boundary used to scope preview client-error dedupe. */
   activeVersionPromotedAt?: string | Date | null;
   activeVersionIsLatest?: boolean;
+  /**
+   * Human version number of the active version ("Visar version 2"). Optional:
+   * without it the indicator shows nothing (never a text without a number).
+   */
+  activeVersionNumber?: number | null;
   /** Latest repair pass index (0 when none), for bounded "Reparerar (X/2)" copy. */
   activeVersionRepairPassIndex?: number;
   /** Non-blocking overlay payload when the selected version and preview-VM diverge. */

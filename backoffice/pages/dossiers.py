@@ -72,6 +72,7 @@ from .dossiers_lib.io import (
     _recover_pending_default_transaction,
     _list_dossier_dirs,
     _walk_all_dossiers,
+    _walk_dossier_pool,
     _validate_manifest,
     _save_raw_manifest,
     _load_group_view,
@@ -174,6 +175,8 @@ __all__ = [
     "_section_system_map",
     "_summarize_enforcement",
     "_validate_manifest",
+    "_walk_all_dossiers",
+    "_walk_dossier_pool",
     "backup_file",
     "backup_tree",
     "class_description",
@@ -226,7 +229,16 @@ def render(ctx) -> None:
         )
         st.markdown("- Validera efter ändring: `npm run dossiers:validate-all`")
 
-    dossiers = _walk_all_dossiers()
+    dossiers, broken = _walk_dossier_pool()
+    if broken:
+        # Runtime/CI underkänner dessa; tidigare försvann de tyst ur alla listor.
+        st.warning(
+            f"{len(broken)} byggblock har trasigt manifest och saknas i listor och "
+            "Systemkarta (runtime/CI underkänner dem). Rätta via Redigera → Rå JSON:\n"
+            + "\n".join(
+                f"- `{item['_class']}/{item['id']}`: {item['_broken']}" for item in broken
+            )
+        )
     # Fem tabbar — Översikt är konsoliderad in i Systemkarta (som är NAV: se →
     # redigera → byt capability → radera på samma rad, se 04-backoffice-
     # systemkarta.md). OBS: st.tabs kör ALLA tab-bodies vid varje rerun —
@@ -238,7 +250,7 @@ def render(ctx) -> None:
     with tabs[1]:
         _section_list(dossiers)
     with tabs[2]:
-        _section_edit(dossiers)
+        _section_edit(dossiers, broken)
         _section_delete(dossiers)
     with tabs[3]:
         _section_curate()

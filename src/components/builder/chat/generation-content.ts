@@ -1,4 +1,5 @@
 import { splitTrailingStreamWarning } from "@/lib/builder/stream-warning";
+import { TURN_SUMMARY_TECHNICAL_PREFIX } from "@/lib/gen/stream/turn-summary";
 
 interface GeneratedFile {
   path: string;
@@ -90,6 +91,31 @@ function collectTailFiles(tail: string): GeneratedFile[] {
     language: header.language,
     lineCount: tail.slice(header.end, headers[i + 1]?.start ?? tail.length).split("\n").length,
   }));
+}
+
+/**
+ * Kvittots tekniska stycke (`turn-summary.ts`: filnamn, automatiska
+ * rättningar) hör hemma i detaljerna, inte i svaret. Stycken som börjar med
+ * prefixet lyfts ut; allt annat, även varningar, ligger kvar i svaret.
+ * Meddelanden från före 2026-11-11 saknar prefixet och visas som förut.
+ */
+export function splitTechnicalDetails(prose: string): { prose: string; technical: string | null } {
+  if (!prose.includes(TURN_SUMMARY_TECHNICAL_PREFIX)) return { prose, technical: null };
+  const kept: string[] = [];
+  const technical: string[] = [];
+  for (const paragraph of prose.split(/\n{2,}/)) {
+    const trimmed = paragraph.trim();
+    if (trimmed.startsWith(TURN_SUMMARY_TECHNICAL_PREFIX)) {
+      const detail = trimmed.slice(TURN_SUMMARY_TECHNICAL_PREFIX.length).trim();
+      if (detail) technical.push(detail);
+    } else {
+      kept.push(paragraph);
+    }
+  }
+  return {
+    prose: kept.join("\n\n").trim(),
+    technical: technical.length > 0 ? technical.join(" ") : null,
+  };
 }
 
 export function parseGenerationContent(content: string): ParsedContent {

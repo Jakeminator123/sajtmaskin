@@ -193,7 +193,7 @@ describe("GET /api/stripe/checkout", () => {
       success: true,
       credited: true,
       packageId: "popular",
-      name: "Popular",
+      name: "Mellanpaket",
       amount: 9900,
       currency: "SEK",
     });

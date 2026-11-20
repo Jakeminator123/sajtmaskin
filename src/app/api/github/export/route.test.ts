@@ -11,6 +11,8 @@ const getVersionById = vi.hoisted(() => vi.fn());
 const parseCodeFilesFromFilesJson = vi.hoisted(() => vi.fn());
 const buildPortableExportProject = vi.hoisted(() => vi.fn());
 const getProjectByIdForOwner = vi.hoisted(() => vi.fn());
+const getProjectData = vi.hoisted(() => vi.fn());
+const saveProjectData = vi.hoisted(() => vi.fn());
 const loadProjectExportMedia = vi.hoisted(() => vi.fn());
 const loadProjectProviderOrigin = vi.hoisted(() => vi.fn());
 
@@ -38,13 +40,17 @@ vi.mock("@/lib/gen/export/build-portable-export-project", () => ({
   buildPortableExportProject,
 }));
 
-vi.mock("@/lib/db/services/projects", () => ({ getProjectByIdForOwner }));
+vi.mock("@/lib/db/services/projects", () => ({
+  getProjectByIdForOwner,
+  getProjectData,
+  saveProjectData,
+}));
 vi.mock("@/lib/projects/project-export-media", () => ({
   loadProjectExportMedia,
   loadProjectProviderOrigin,
 }));
 
-const { POST } = await import("./route");
+const { GET, POST } = await import("./route");
 
 type TreeEntry = {
   path: string;
@@ -98,7 +104,9 @@ function installGitHubMock(state: GitHubState = {}) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = (init?.method || "GET").toUpperCase();
-    const pathname = new URL(url).pathname.replace(/^\/+/, "");
+    const pathname = new URL(url).pathname
+      .replace(/^\/+/, "")
+      .replace(/^repos\/alice\//i, "repos/alice/");
 
     if (method === "GET" && pathname === "repos/alice/site") {
       if (!repoExists) return jsonResponse({ message: "Not Found" }, 404);
@@ -209,6 +217,8 @@ describe("POST /api/github/export", () => {
     });
     getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1", project_id: "proj_1" });
     getProjectByIdForOwner.mockResolvedValue({ id: "proj_1" });
+    getProjectData.mockResolvedValue(null);
+    saveProjectData.mockResolvedValue(undefined);
     loadProjectExportMedia.mockResolvedValue([]);
     loadProjectProviderOrigin.mockResolvedValue(null);
     getVersionById.mockResolvedValue({ id: "ver_1", chat_id: "chat_1", files_json: "[]" });
@@ -569,4 +579,149 @@ describe("POST /api/github/export", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("treats the connected login case-insensitively when creating the repo", async () => {
+    buildPortableExportProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "page", language: "tsx" },
+    ]);
+    const { fetchMock, recorded } = installGitHubMock({ missingRepo: true, empty: true });
+
+    const res = await POST(exportRequest({ repo: "Alice/site" }));
+
+    expect(res.status).toBe(200);
+    expect(recorded.repoCreated).toBe(true);
+    const createUrls = fetchMock.mock.calls
+      .filter(([, init]) => (init?.method || "GET").toUpperCase() === "POST")
+      .map(([url]) => String(url));
+    expect(createUrls.some((url) => url.includes("/orgs/"))).toBe(false);
+  });
+
+  it("creates the repo under an organisation when the owner is another login", async () => {
+    buildPortableExportProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "page", language: "tsx" },
+    ]);
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method || "GET").toUpperCase();
+      if (method === "GET") return jsonResponse({ message: "Not Found" }, 404);
+      return jsonResponse({ message: "Forbidden" }, 403);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      await POST(exportRequest({ repo: "acme/site" }));
+    } finally {
+      error.mockRestore();
+    }
+
+    const createCall = fetchMock.mock.calls.find(
+      ([, init]) => (init?.method || "GET").toUpperCase() === "POST",
+    );
+    expect(new URL(String(createCall?.[0])).pathname).toBe("/orgs/acme/repos");
+  });
+
+  it("remembers the exported repo on the project for the next export", async () => {
+    buildPortableExportProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "page", language: "tsx" },
+    ]);
+    installGitHubMock();
+
+    const res = await POST(exportRequest());
+
+    expect(res.status).toBe(200);
+    expect(saveProjectData).toHaveBeenCalledWith({
+      project_id: "proj_1",
+      meta_patch: {
+        githubExport: expect.objectContaining({
+          repo: "alice/site",
+          repoUrl: "https://github.com/alice/site",
+          commitSha: "commit-new",
+          versionId: "ver_1",
+        }),
+      },
+    });
+  });
+
+  it("keeps a landed export successful when remembering the repo fails", async () => {
+    buildPortableExportProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "page", language: "tsx" },
+    ]);
+    installGitHubMock();
+    saveProjectData.mockRejectedValueOnce(new Error("db down"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const res = await POST(exportRequest());
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.repo).toBe("alice/site");
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
+describe("GET /api/github/export", () => {
+  function lastExportRequest(chatId = "chat_1"): NextRequest {
+    return new NextRequest(
+      `http://localhost/api/github/export?chatId=${encodeURIComponent(chatId)}`,
+    );
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getCurrentUser.mockResolvedValue({ id: "user_1", github_token: null, github_username: null });
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1", project_id: "proj_1" });
+    getProjectByIdForOwner.mockResolvedValue({ id: "proj_1" });
+  });
+
+  it("returns the repo the project was last exported to", async () => {
+    getProjectData.mockResolvedValue({
+      meta: {
+        palette: { primary: "#000" },
+        githubExport: {
+          repo: "alice/site",
+          repoUrl: "https://github.com/alice/site",
+          commitSha: "commit-new",
+          versionId: "ver_1",
+          at: "2026-11-11T10:00:00.000Z",
+        },
+      },
+    });
+
+    const res = await GET(lastExportRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.lastExport).toMatchObject({ repo: "alice/site" });
+    expect(getProjectByIdForOwner).toHaveBeenCalledWith(
+      "proj_1",
+      expect.objectContaining({ userId: "user_1" }),
+    );
+  });
+
+  it("returns null when the project was never exported", async () => {
+    getProjectData.mockResolvedValue({ meta: { palette: {} } });
+
+    const body = await (await GET(lastExportRequest())).json();
+
+    expect(body).toEqual({ success: true, lastExport: null });
+  });
+
+  it("requires a signed-in user", async () => {
+    getCurrentUser.mockResolvedValue(null);
+
+    const res = await GET(lastExportRequest());
+
+    expect(res.status).toBe(401);
+    expect(getEngineChatByIdForRequest).not.toHaveBeenCalled();
+  });
+
+  it("does not read another tenant's project", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue(null);
+
+    const res = await GET(lastExportRequest("foreign_chat"));
+
+    expect(res.status).toBe(404);
+    expect(getProjectData).not.toHaveBeenCalled();
+  });
 });

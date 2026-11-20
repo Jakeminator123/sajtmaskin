@@ -934,6 +934,7 @@ const ALL_TABLES = [
   "images",
   "media_library",
   "users",
+  "password_reset_tokens",
   "user_integrations",
   "transactions",
   "wizard_runs",

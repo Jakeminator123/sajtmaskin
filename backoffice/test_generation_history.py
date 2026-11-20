@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import re
 import subprocess
 import tempfile
 import unittest
@@ -149,6 +150,38 @@ class RecentDataframePreviewColumnTests(unittest.TestCase):
         self.assertEqual(list(df["chat_id"]), ["c1", "c2", "c3", "c4"])
 
 
+class PreviewSummaryTests(unittest.TestCase):
+    """KPI:n "Preview ok" fick tidigare legacy-`true` från scriptets summary
+    (DEV, limit 50: 39 visade mot 28 runtime-ready)."""
+
+    def test_legacy_true_is_not_counted_as_ready(self) -> None:
+        cutoff = gh._PREVIEW_SUCCESS_SEMANTIC_CUTOFF
+        rows = [
+            {"created_at": (cutoff + timedelta(hours=1)).isoformat(), "preview_success": True},
+            {"created_at": (cutoff - timedelta(hours=1)).isoformat(), "preview_success": True},
+            {"created_at": (cutoff - timedelta(days=9)).isoformat(), "preview_success": True},
+            {"created_at": cutoff.isoformat(), "preview_success": False},
+            {"created_at": cutoff.isoformat(), "preview_success": None},
+        ]
+        self.assertEqual(
+            gh._preview_summary(rows),
+            {"total": 5, "ready": 1, "legacy": 2, "failed": 1, "pending": 1},
+        )
+
+    def test_cutoff_constant_matches_node_scripts(self) -> None:
+        """Python-etiketten och scriptens summary måste dela cutoff."""
+        root = Path(__file__).resolve().parents[1]
+        expected = gh._PREVIEW_SUCCESS_SEMANTIC_CUTOFF.strftime("%Y-%m-%dT%H:%M:%SZ")
+        for rel in ("scripts/db/control-stats.mjs", "scripts/db/generation-history.mjs"):
+            with self.subTest(script=rel):
+                source = (root / rel).read_text(encoding="utf-8")
+                match = re.search(
+                    r'const PREVIEW_SUCCESS_SEMANTIC_CUTOFF = "([^"]+)"', source
+                )
+                self.assertIsNotNone(match, f"cutoff-konstanten saknas i {rel}")
+                self.assertEqual(match.group(1), expected)
+
+
 class RunHistoryTests(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
@@ -281,6 +314,13 @@ class QualityGateLabelTests(unittest.TestCase):
     def test_legend_names_the_postcheck_overlay(self) -> None:
         self.assertIn("product_postcheck.summary", gh.GATE_COLUMN_LEGEND)
         self.assertIn("product_blocked", gh.GATE_COLUMN_LEGEND)
+        # Andra overlay-värdet från resolveReportedQualityGateResult.
+        self.assertIn("product_postcheck_degraded", gh.GATE_COLUMN_LEGEND)
+
+    def test_time_column_names_its_timezone(self) -> None:
+        df = gh._recent_dataframe([{"created_at": "2026-11-05T02:23:00.216Z"}])
+        self.assertIn("UTC", gh.COLUMN_TIME)
+        self.assertEqual(df[gh.COLUMN_TIME].iloc[0], "2026-11-05T02:23:00")
 
 
 class GlossaryColumnHeaderTests(unittest.TestCase):

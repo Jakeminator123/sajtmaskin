@@ -311,6 +311,31 @@ export async function updateProject(
 }
 
 /**
+ * Compare-and-set rename: sets `name` only while the row still has
+ * `expectedName` and belongs to the caller, in one conditional UPDATE. The
+ * builder names a placeholder project from the first prompt this way, so a
+ * name it loaded earlier (another tab, the portal) can never overwrite a name
+ * set since. Returns the updated row, or null when the name had changed or
+ * the project is not the caller's.
+ */
+export async function renameProjectIfNameIs(
+  id: string,
+  expectedName: string,
+  nextName: string,
+  scope: ProjectOwnerScope,
+): Promise<Project | null> {
+  assertDbConfigured();
+  const ownerCondition = buildProjectOwnerCondition(scope);
+  if (!ownerCondition) return null;
+  const rows = await db
+    .update(appProjects)
+    .set({ name: nextName, updated_at: new Date() })
+    .where(and(eq(appProjects.id, id), ownerCondition, eq(appProjects.name, expectedName)))
+    .returning();
+  return rows[0] ?? null;
+}
+
+/**
  * Persist the project thumbnail and return the PREVIOUS path so the caller
  * can delete the superseded blob (each capture uploads under a unique name —
  * Vercel Blob rejects overwrites by default).

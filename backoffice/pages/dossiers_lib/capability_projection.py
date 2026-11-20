@@ -79,6 +79,11 @@ def _capability_map_source_paths(
     entries = [(key, repo_root / key) for key in fixed]
     for klass in ("hard", "soft"):
         for path in sorted((dossier_root / klass).glob("*/manifest.json")):
+            # Mirror `listIds()` in regenerate-capability-map.ts (and the
+            # registry): `_`-prefixed directories are not part of the pool.
+            # Hashing them made a fresh projection look permanently stale.
+            if path.parent.name.startswith("_"):
+                continue
             entries.append((path.relative_to(repo_root).as_posix(), path))
     return sorted(entries, key=lambda entry: entry[0])
 

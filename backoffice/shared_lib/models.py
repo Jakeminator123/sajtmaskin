@@ -29,14 +29,14 @@ MODEL_LABELS = {
     "text-embedding-3-small": "OpenAI text-embedding-3-small",
     "whisper-1": "OpenAI Whisper-1",
     "gpt-transcribe": "gpt-transcribe",
-    "claude-sonnet-4.6": "Claude Sonnet 4.6",
+    "claude-sonnet-4.6": "Claude Sonnet 4.6 (pensionerad → Claude Opus 4.8)",
     "claude-opus-4.8": "Claude Opus 4.8",
     "claude-opus-4.6": "Claude Opus 4.6",
-    "anthropic/claude-sonnet-4.6": "Anthropic Claude Sonnet 4.6",
+    "anthropic/claude-sonnet-4.6": "Anthropic Claude Sonnet 4.6 (pensionerad → Claude Opus 4.8)",
     "anthropic/claude-opus-4.8": "Anthropic Claude Opus 4.8",
     "anthropic/claude-opus-4.6": "Anthropic Claude Opus 4.6",
     "anthropic-direct/claude-haiku-4-5-20251001": "Anthropic Claude Haiku 4.5 (direct)",
-    "anthropic-direct/claude-sonnet-4-6": "Anthropic Claude Sonnet 4.6 (direct)",
+    "anthropic-direct/claude-sonnet-4-6": "Anthropic Claude Sonnet 4.6 (direct, pensionerad → Opus 4.8)",
     "anthropic-direct/claude-opus-4-8": "Anthropic Claude Opus 4.8 (direct)",
     "anthropic-direct/claude-opus-4-6": "Anthropic Claude Opus 4.6 (direct)",
     "selected_build_model": "Följ vald byggprofil (`selected_build_model`)",
@@ -61,6 +61,10 @@ PHASE_ORDER = (
 )
 REASONING_EFFORT_OPTIONS = ("none", "low", "medium", "high", "xhigh", "max")
 REASONING_MODE_OPTIONS = ("standard", "pro")
+# `OWN_MODEL_IDS` i `src/lib/models/catalog.ts` minus nycklarna i
+# `RETIRED_MODEL_ALIAS`: ett pensionerat id (t.ex. `claude-sonnet-4.6`) körs aldrig,
+# runtime byter det via `aliasRetiredModelId`. Paritet grindas i
+# `backoffice/test_shared_manifest_parity.py`.
 AVAILABLE_PHASE_MODELS = (
     "selected_build_model",
     "gpt-6.1-sol",
@@ -72,7 +76,6 @@ AVAILABLE_PHASE_MODELS = (
     "gpt-5.5",
     "gpt-5.4",
     "gpt-5.2",
-    "claude-sonnet-4.6",
     "claude-opus-4.8",
     "claude-opus-4.6",
 )
@@ -308,10 +311,12 @@ def describe_workload_model_resolution(
         )
 
     if workload_id == "own_engine_codegen":
+        # Runtime: `resolvePhaseModel(tier, "generator")` — phaseRouting först,
+        # `selected_build_model` faller tillbaka på buildProfiles.defaults.
         return (
-            summarize_tier_models(build_profile_defaults(manifest)),
-            "buildProfiles.defaults",
-            "Generatorn följer vald byggprofil; varje profil har eget standardmodellval.",
+            summarize_tier_models(resolve_phase_models_for_dashboard(manifest, "generator")),
+            "phaseRouting.generator → buildProfiles.defaults",
+            "Generatorn följer generator-fasen; `selected_build_model` betyder byggprofilens modell.",
         )
 
     if workload_id == "autofix_llm":

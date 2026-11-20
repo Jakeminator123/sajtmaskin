@@ -21,7 +21,9 @@ import { TextUploader } from "@/components/media/text-uploader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  AlertCircle,
   Bot,
+  ChevronDown,
   FileText,
   Globe,
   Hammer,
@@ -31,20 +33,27 @@ import {
   Plus,
   Search,
   SearchX,
+  SlidersHorizontal,
   Sparkles,
   Square,
   X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
   classifyComposerIntent,
   composerAllowsAgentBuild,
+  describeComposerDecision,
   hasScopedComposerChangeRestriction,
   isAgentProposalReference,
   isComposerMode,
   isReadOnlyComposerRequest,
-  resolveComposerRoute,
+  resolveComposerDecision,
+  type ComposerAttachmentKind,
+  type ComposerDecision,
   type ComposerMode,
+  type ComposerRouteTone,
 } from "@/lib/builder/composer-route";
+import { cn } from "@/lib/utils";
 import { resolveAgentProposalReference, type AgentProposalReference } from "@/lib/builder/composer-route-reference";
 import { readActiveBuilderTarget } from "@/lib/openclaw/builder-target";
 import { OpenClawPowersControl } from "@/components/openclaw/OpenClawPowersControl";
@@ -55,7 +64,7 @@ import { SajtagentAvatar } from "./sajtagent/SajtagentAvatar";
 import type { AuditComposerToken } from "@/lib/builder/audit-handoff";
 import { builderModeToggleClassName } from "@/lib/builder/icon-language";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { type PromptSourceMeta } from "@/lib/builder/prompt-builder";
 import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
 import { buildInspectPointsPrompt } from "@/lib/builder/focus-point-prompt";
@@ -79,6 +88,7 @@ import {
   currentBuilderReturnTo,
 } from "@/lib/builder/pending-builder-draft";
 import { INIT_BRIEF_STATUS_EVENT, type InitBriefStatusDetail } from "@/lib/hooks/useInitBrief";
+import { publishWelcomeComposer } from "@/lib/builder/welcome-composer-bridge";
 import {
   FILL_CHAT_INPUT_EVENT,
   type FillChatInputDetail,
@@ -244,26 +254,43 @@ function isFigmaUrl(url: string): boolean {
   }
 }
 
-const COMPOSER_MODE_STORAGE_KEY = "sajtmaskin:composerMode";
+/**
+ * Läget gäller per chatt (UX-05, 2026-11-11). Förut sparades det globalt, så
+ * ett Bygg-val följde med till nästa projekt och gjorde en fråga där till ett
+ * betalande bygge. En ny chatt, eller ingen chatt alls, börjar alltid i Auto.
+ */
+const COMPOSER_MODE_STORAGE_PREFIX = "sajtmaskin:composerMode:";
+/** Den globala nyckeln före 2026-11-11. Rensas så ett gammalt Bygg inte lever kvar. */
+const LEGACY_COMPOSER_MODE_STORAGE_KEY = "sajtmaskin:composerMode";
 
-function readStoredComposerMode(): ComposerMode {
-  if (typeof window === "undefined") return "auto";
+function readStoredComposerMode(chatId: string | null): ComposerMode {
+  if (!chatId || typeof window === "undefined") return "auto";
   try {
-    const stored = sessionStorage.getItem(COMPOSER_MODE_STORAGE_KEY);
+    sessionStorage.removeItem(LEGACY_COMPOSER_MODE_STORAGE_KEY);
+    const stored = sessionStorage.getItem(`${COMPOSER_MODE_STORAGE_PREFIX}${chatId}`);
     return isComposerMode(stored) ? stored : "auto";
   } catch {
     return "auto";
   }
 }
 
-function storeComposerMode(mode: ComposerMode): void {
-  if (typeof window === "undefined") return;
+function storeComposerMode(chatId: string | null, mode: ComposerMode): void {
+  if (!chatId || typeof window === "undefined") return;
   try {
-    sessionStorage.setItem(COMPOSER_MODE_STORAGE_KEY, mode);
+    const key = `${COMPOSER_MODE_STORAGE_PREFIX}${chatId}`;
+    if (mode === "auto") sessionStorage.removeItem(key);
+    else sessionStorage.setItem(key, mode);
   } catch {
     // ignore storage errors
   }
 }
+
+const ROUTE_TONE_STYLE: Record<ComposerRouteTone, { icon: LucideIcon; text: string; iconClass: string }> = {
+  neutral: { icon: Sparkles, text: "text-muted-foreground", iconClass: "text-muted-foreground" },
+  agent: { icon: Bot, text: "text-foreground", iconClass: "text-brand-teal" },
+  build: { icon: Hammer, text: "text-foreground", iconClass: "text-primary" },
+  blocked: { icon: AlertCircle, text: "text-amber-600 dark:text-amber-300", iconClass: "" },
+};
 
 export function ChatInterface({
   chatId,
@@ -326,14 +353,46 @@ export function ChatInterface({
   // Oklar text går till agenten bara när den själv kan starta bygget
   // (`start_build` kräver armerad autonomi); annars är byggmotorn närmast.
   const agentCanBuild = useOpenClawPowers().armedAutonomy;
-  const [composerMode, setComposerMode] = useState<ComposerMode>("auto");
+  // Läget bär sin chatt: under renderingen där chatId just bytts är läget
+  // redan Auto, innan effekten hunnit läsa den nya chattens sparade val.
+  const [modeState, setModeState] = useState<{ chatId: string | null; mode: ComposerMode }>(
+    () => ({ chatId, mode: "auto" }),
+  );
   useEffect(() => {
-    setComposerMode(readStoredComposerMode());
-  }, []);
-  const handleComposerModeChange = useCallback((mode: ComposerMode) => {
-    setComposerMode(mode);
-    storeComposerMode(mode);
-  }, []);
+    setModeState({ chatId, mode: readStoredComposerMode(chatId) });
+  }, [chatId]);
+  const composerMode: ComposerMode = modeState.chatId === chatId ? modeState.mode : "auto";
+  const handleComposerModeChange = useCallback(
+    (mode: ComposerMode) => {
+      setModeState({ chatId, mode });
+      storeComposerMode(chatId, mode);
+    },
+    [chatId],
+  );
+  const routeLabelId = useId();
+  const toolsRowId = useId();
+  // Sekundära verktyg (Plan, Förbättra texten, block, inspektion, media,
+  // röst, modell) ligger i EN rad bakom «Verktyg» (UX-granskningen
+  // 2026-11-11, C2). Raden döljs men avmonteras inte, så en pågående
+  // röstinspelning eller ett modellval överlever att den fälls ihop.
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const previewModeActive = Boolean(previewModes?.composerOpen || previewModes?.inspectOpen);
+  // En röstinspelning i den hopfällda raden får inte pågå osynligt
+  // (granskningen av #1747). Inspelaren byter nyckel per chatt.
+  const [voiceRecording, setVoiceRecording] = useState<{ chatId: string | null; on: boolean }>(
+    () => ({ chatId, on: false }),
+  );
+  const isRecordingVoice = voiceRecording.chatId === chatId && voiceRecording.on;
+  const handleRecordingChange = useCallback(
+    (on: boolean) => setVoiceRecording({ chatId, on }),
+    [chatId],
+  );
+  const hiddenToolActive = !toolsOpen && (previewModeActive || isRecordingVoice);
+  // Block och inspektion styrs bara härifrån. Slås ett läge på visas raden,
+  // så läget och knappen som stänger det syns.
+  useEffect(() => {
+    if (previewModeActive) setToolsOpen(true);
+  }, [previewModeActive]);
 
   // Medan ett bygge pågår är byggmotorn låst, men en fråga till Sajtagenten
   // («vad händer nu?») ska fortfarande gå att ställa. Inputen hålls därför
@@ -457,7 +516,7 @@ export function ChatInterface({
           }
           const message =
             (data && typeof data === "object" && data.error) ||
-            `Preview failed (HTTP ${response.status})`;
+            `Förhandsbilden kunde inte hämtas (HTTP ${response.status})`;
           throw new Error(String(message));
         }
 
@@ -803,7 +862,7 @@ export function ChatInterface({
   const hasComposerAttachments =
     hasSuccessFiles || Boolean(normalizedFigmaUrl) || inspectPoints.length > 0;
 
-  const resolveRouteFor = (text: string) => {
+  const resolveDecisionFor = (text: string): ComposerDecision => {
     // Prepared build instructions keep their route; a field marker cannot
     // override a question, explicit read-only request or unresolved reference.
     if (
@@ -816,9 +875,9 @@ export function ChatInterface({
         message: text,
       })
     ) {
-      return "build";
+      return { route: "build" };
     }
-    return resolveComposerRoute({
+    return resolveComposerDecision({
       mode: composerMode,
       text,
       hasChat: Boolean(chatId),
@@ -829,6 +888,19 @@ export function ChatInterface({
       builderAwaitingReply: builderAwaitingReply || continuePlanMode,
     });
   };
+  const composerAttachmentKinds: ComposerAttachmentKind[] = [
+    ...(hasSuccessFiles ? (["file"] as const) : []),
+    ...(normalizedFigmaUrl ? (["figma"] as const) : []),
+    ...(inspectPoints.length > 0 ? (["inspect"] as const) : []),
+  ];
+  const describeDecision = (decision: ComposerDecision, emptyDraft = false) =>
+    describeComposerDecision(decision, {
+      mode: composerMode,
+      hasChat: Boolean(chatId),
+      builderLocked,
+      emptyDraft,
+      attachmentKinds: composerAttachmentKinds,
+    });
 
   const handleSubmit = async ({ text }: { text: string }) => {
     if (submitDisabled) return;
@@ -838,11 +910,11 @@ export function ChatInterface({
 
     const restrictBuild = composerMode === "agent" || isReadOnlyComposerRequest(trimmed);
     if (restrictBuild || hasScopedComposerChangeRestriction(trimmed)) revokeOpenClawBuildConsent();
-    const route = resolveRouteFor(trimmed);
+    const decision = resolveDecisionFor(trimmed);
+    const route = decision.route;
     if (route === "blocked") {
-      toast(!agentAvailable
-        ? "Sajtagenten är inte tillgänglig just nu. Ditt utkast finns kvar."
-        : "Frågan kan inte skickas med dessa bilagor eller före första bygget. Ditt utkast finns kvar.");
+      // Samma text som etiketten vid Skicka: vad som hände och vad man kan göra.
+      toast(`${describeDecision(decision).hint} Utkastet finns kvar.`);
       return;
     }
     if (trimmed && agent && route === "agent") {
@@ -926,6 +998,35 @@ export function ChatInterface({
     });
   };
 
+  const routeDescription = describeDecision(
+    resolveDecisionFor(input.trim()),
+    !input.trim() && !hasComposerAttachments,
+  );
+  const routeStyle = ROUTE_TONE_STYLE[routeDescription.tone];
+  const RouteIcon = routeStyle.icon;
+  const showModeToggle = agentConfigured || Boolean(chatId);
+
+  // Välkomstpanelen (paket F, `welcome-composer-bridge.ts`) visar ett förslag
+  // utifrån utkastet och «Skapa första utkastet». Knappen finns bara när
+  // Skicka skulle bygga, och den gör exakt samma utskick som Skicka.
+  const welcomeStartRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    welcomeStartRef.current = () => void handleSubmit({ text: input });
+  });
+  const startFromWelcome = useCallback(() => welcomeStartRef.current(), []);
+  const welcomeCanStart =
+    !chatId && !submitDisabled && Boolean(input.trim()) && routeDescription.tone === "build";
+  useEffect(() => {
+    publishWelcomeComposer(
+      chatId ? null : { draft: input, start: welcomeCanStart ? startFromWelcome : null },
+    );
+  }, [chatId, input, welcomeCanStart, startFromWelcome]);
+  useEffect(() => () => publishWelcomeComposer(null), []);
+  const disabledComposerModes: ComposerMode[] = [
+    ...(builderLocked ? (["build"] as const) : []),
+    ...(agentConfigured ? [] : (["agent"] as const)),
+  ];
+
   return (
     <div className="border-border bg-background border-t p-4">
       {agentAvailable ? <SajtagentAvatar key={chatId} /> : null}
@@ -971,11 +1072,11 @@ export function ChatInterface({
       >
         <PromptInputHeader className="flex-col items-stretch gap-2 border-0 px-3 pt-3 pb-0">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            {agentConfigured ? (
+            {showModeToggle ? (
               <ComposerModeToggle
                 value={composerMode}
                 onChange={handleComposerModeChange}
-                disabledModes={builderLocked ? ["build"] : []}
+                disabledModes={disabledComposerModes}
               />
             ) : (
               <p className="text-foreground text-xs font-medium">
@@ -992,7 +1093,7 @@ export function ChatInterface({
               <Input
                 value={figmaUrl}
                 onChange={(event) => setFigmaUrl(event.target.value)}
-                placeholder="Figma URL (delningslänk)"
+                placeholder="Figma-länk (delningslänk)"
                 autoComplete="url"
                 disabled={inputDisabled}
                 className="h-8 min-w-0 flex-1"
@@ -1025,11 +1126,11 @@ export function ChatInterface({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={figmaPreviewUrl}
-                  alt={figmaPreviewName || "Figma preview"}
+                  alt={figmaPreviewName || "Förhandsbild från Figma"}
                   className="h-14 w-20 rounded-sm object-cover"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="text-muted-foreground text-xs">Figma preview</p>
+                  <p className="text-muted-foreground text-xs">Förhandsbild från Figma</p>
                   {figmaPreviewName && (
                     <p className="text-foreground truncate text-xs">{figmaPreviewName}</p>
                   )}
@@ -1107,7 +1208,7 @@ export function ChatInterface({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={point.previewDataUrl}
-                        alt={`Preview punkt ${index + 1}`}
+                        alt={`Förhandsbild, punkt ${index + 1}`}
                         className="mt-1 h-24 w-full rounded object-cover"
                       />
                     )}
@@ -1155,50 +1256,38 @@ export function ChatInterface({
               {initBriefStatus ?? "Förbereder prompt..."}
             </div>
           )}
-          {agentConfigured && (agentStreaming || input.trim()) ? (
+          {agentStreaming && agent ? (
             <div
-              className="text-muted-foreground flex items-center justify-between gap-2 text-[11px]"
-              data-testid="composer-route-hint"
+              className="text-muted-foreground flex items-center justify-between gap-2 text-xs"
+              data-testid="composer-agent-streaming"
               aria-live="polite"
             >
-              {agentStreaming ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <Loader2 className="size-3 animate-spin" />
-                  Sajtagenten svarar…
-                </span>
-              ) : resolveRouteFor(input) === "blocked" ? (
-                <span>Frågan kan inte skickas just nu – utkastet finns kvar</span>
-              ) : resolveRouteFor(input) === "agent" ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <Bot className="size-3" aria-hidden="true" />
-                  Skickas till Sajtagenten
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5">
-                  <Hammer className="size-3" aria-hidden="true" />
-                  {builderLocked ? "Bygget pågår — byggordrar väntar" : "Startar ett bygge"}
-                </span>
-              )}
-              {agentStreaming && agent ? (
-                <button
-                  type="button"
-                  onClick={agent.stop}
-                  className="inline-flex h-6 items-center gap-1 rounded border border-zinc-700/60 px-1.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100"
-                  aria-label="Stoppa Sajtagenten"
-                >
-                  <Square className="size-3" />
-                  Stoppa
-                </button>
-              ) : null}
+              <span className="inline-flex items-center gap-1.5">
+                <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                Sajtagenten svarar…
+              </span>
+              <button
+                type="button"
+                onClick={agent.stop}
+                className="border-border/70 hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                aria-label="Stoppa Sajtagenten"
+              >
+                <Square className="size-3" aria-hidden="true" />
+                Stoppa
+              </button>
             </div>
           ) : null}
-          <div className="flex flex-wrap gap-1.5">
-            {/* "Avancerat"-popovern togs bort 2026-07-31: efter att
-                temaväljaren flyttade till Byggval-reglagen (ägarbeslut,
-                se preview-panelens välkomstläge) blev popovern en
-                enda-knapps-meny som bara gömde "Plan" bakom ett extra
-                klick. Plan renderas nu som en vanlig verktygsknapp,
-                samma mönster som de andra Verktyg-radsknapparna nedan. */}
+          <div
+            id={toolsRowId}
+            role="group"
+            aria-label="Fler verktyg"
+            hidden={!toolsOpen}
+            className={cn("flex-wrap items-center gap-1.5", toolsOpen ? "flex" : "hidden")}
+            data-testid="composer-tools"
+          >
+            {/* "Avancerat"-popovern togs bort 2026-07-31; sedan 2026-11-11
+                ligger Plan och de andra sekundära verktygen i den här raden,
+                som «Verktyg» fäller ut. */}
             <button
               type="button"
               onClick={() => void handlePlanRequest()}
@@ -1221,7 +1310,7 @@ export function ChatInterface({
               ) : (
                 <Sparkles className="size-3" />
               )}
-              Prompt-assist
+              Förbättra texten
             </button>
             {previewModes ? (
               <>
@@ -1264,61 +1353,131 @@ export function ChatInterface({
                 ) : null}
               </>
             ) : null}
-          </div>
-          <div className="flex items-end justify-between gap-2">
-            <PromptInputTools className="min-w-0 flex-1 flex-wrap items-center gap-1.5">
-              {mediaEnabled && (
-                <>
-                  <FileUploadZone
-                    projectId={null}
-                    files={files}
-                    onFilesChange={setFiles}
-                    disabled={inputDisabled}
-                    compact
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setIsMediaDrawerOpen(true)}
-                    disabled={inputDisabled}
-                    className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-                    title="Öppna mediabibliotek"
-                  >
-                    <ImageIcon className="size-3" />
-                    Media
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsTextUploaderOpen(true)}
-                    disabled={inputDisabled}
-                    className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-                    title="Lägg till text eller PDF"
-                  >
-                    <FileText className="size-3" />
-                    Text
-                  </button>
-                </>
-              )}
-              <VoiceRecorder
-                key={chatId ?? "new-chat"}
-                compact
-                disabled={inputDisabled}
-                onTranscript={(text) => setInput((prev) => (prev ? `${prev} ${text}` : text))}
-              />
-              {selectedModelTier && onSelectedModelTierChange ? (
-                <ModelTierSlider
-                  value={selectedModelTier}
-                  onChange={onSelectedModelTierChange}
+            {mediaEnabled && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsMediaDrawerOpen(true)}
                   disabled={inputDisabled}
+                  className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                  title="Öppna mediabibliotek"
+                >
+                  <ImageIcon className="size-3" />
+                  Media
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsTextUploaderOpen(true)}
+                  disabled={inputDisabled}
+                  className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                  title="Lägg till text eller PDF"
+                >
+                  <FileText className="size-3" />
+                  Text/PDF
+                </button>
+              </>
+            )}
+            <VoiceRecorder
+              key={chatId ?? "new-chat"}
+              compact
+              disabled={inputDisabled}
+              onRecordingChange={handleRecordingChange}
+              onTranscript={(text) => setInput((prev) => (prev ? `${prev} ${text}` : text))}
+            />
+            {selectedModelTier && onSelectedModelTierChange ? (
+              <ModelTierSlider
+                value={selectedModelTier}
+                onChange={onSelectedModelTierChange}
+                disabled={inputDisabled}
+              />
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <PromptInputTools className="flex-wrap items-end gap-1.5">
+              {mediaEnabled && (
+                <FileUploadZone
+                  projectId={null}
+                  files={files}
+                  onFilesChange={setFiles}
+                  disabled={inputDisabled}
+                  compact
                 />
-              ) : null}
+              )}
+              <button
+                type="button"
+                onClick={() => setToolsOpen((open) => !open)}
+                aria-expanded={toolsOpen}
+                aria-controls={toolsRowId}
+                title={
+                  isRecordingVoice && !toolsOpen
+                    ? "Röstinspelning pågår"
+                    : previewModeActive && !toolsOpen
+                      ? "Ett verktyg är på i förhandsvisningen"
+                      : "Plan, Förbättra texten, block, inspektion, media, röst och modell"
+                }
+                className={cn(
+                  "border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring relative inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+                  toolsOpen && "bg-accent text-foreground",
+                )}
+              >
+                <SlidersHorizontal className="size-3" aria-hidden="true" />
+                Verktyg
+                <ChevronDown
+                  className={cn(
+                    "size-3 transition-transform motion-reduce:transition-none",
+                    toolsOpen && "rotate-180",
+                  )}
+                  aria-hidden="true"
+                />
+                {hiddenToolActive ? (
+                  <span
+                    className={cn(
+                      "absolute -top-0.5 -right-0.5 size-2 rounded-full",
+                      isRecordingVoice ? "bg-red-500 motion-safe:animate-pulse" : "bg-primary",
+                    )}
+                    aria-hidden="true"
+                    data-testid="composer-tools-active-dot"
+                  />
+                ) : null}
+                {isRecordingVoice && !toolsOpen ? (
+                  <span className="sr-only">Röstinspelning pågår</span>
+                ) : null}
+              </button>
             </PromptInputTools>
-            <PromptInputSubmit
-              className="focus-visible:ring-brand-blue/50 focus-visible:ring-offset-background size-10 rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-              data-openclaw-send-target="builder.chat.primary"
-              disabled={submitDisabled}
-            >
-              {isSending ? <Loader2 className="size-4 animate-spin" /> : undefined}
-            </PromptInputSubmit>
+            {/* Etiketten och Skicka hör ihop och bryts aldrig isär (UX-07).
+                Etiketten läser samma beslut som utskicket i handleSubmit. */}
+            <div className="flex min-w-44 flex-1 items-center justify-end gap-2">
+              <div
+                id={routeLabelId}
+                className={cn("flex min-w-0 flex-col items-end gap-0.5 text-right text-xs", routeStyle.text)}
+                data-testid="composer-route-hint"
+                data-route-tone={routeDescription.tone}
+                aria-live="polite"
+                aria-atomic="true"
+                title={routeDescription.hint}
+              >
+                <span className="inline-flex items-center gap-1.5 font-medium">
+                  <RouteIcon className={cn("size-3.5 shrink-0", routeStyle.iconClass)} aria-hidden="true" />
+                  {routeDescription.label}
+                </span>
+                {routeDescription.tone === "blocked" ? (
+                  <span className="text-muted-foreground font-normal">{routeDescription.hint}</span>
+                ) : (
+                  <span className="sr-only">{routeDescription.hint}</span>
+                )}
+              </div>
+              {/* Ett blockerat utskick ska se avstängt ut. Enter i textrutan
+                  ger fortfarande beskedet om vad man kan göra. */}
+              <PromptInputSubmit
+                className="focus-visible:ring-brand-blue/50 focus-visible:ring-offset-background size-10 shrink-0 rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                data-openclaw-send-target="builder.chat.primary"
+                aria-label="Skicka"
+                aria-describedby={routeLabelId}
+                disabled={submitDisabled || routeDescription.tone === "blocked"}
+              >
+                {isSending ? <Loader2 className="size-4 animate-spin" /> : undefined}
+              </PromptInputSubmit>
+            </div>
           </div>
         </PromptInputFooter>
       </PromptInput>

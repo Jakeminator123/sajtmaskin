@@ -1,9 +1,13 @@
 "use strict";
 
 const { createHash } = require("node:crypto");
-const { SESSION_TTL_MS } = require("./config.js");
+const { PREVIEW_BASE_URL, SESSION_TTL_MS } = require("./config.js");
 const { nowIso } = require("./http.js");
-const { getSessionChatId } = require("../runtime.js");
+const {
+  buildPreviewUrl,
+  getSessionChatId,
+  sessionPreviewOriginSlug,
+} = require("../runtime.js");
 const { readMutationRevision, withChatLifecycleLock } = require("../session-lifecycle.js");
 
 /**
@@ -16,6 +20,18 @@ const UNHASHABLE_FILE_MARKER = "unhashable";
 
 function sessionExpiresAtIso() {
   return new Date(Date.now() + SESSION_TTL_MS).toISOString();
+}
+
+/**
+ * M03: previewUrl räknas ut vid svaret i stället för att läsas från den
+ * lagrade sessionen, så att både påslag och rollback av
+ * `PREVIEW_HOST_ORIGIN_MODE` slår igenom vid nästa statusfråga.
+ * @param {object} session
+ */
+function currentPreviewUrlForSession(session) {
+  const chatId = getSessionChatId(session);
+  if (!chatId) return session.previewUrl;
+  return buildPreviewUrl(PREVIEW_BASE_URL, chatId, sessionPreviewOriginSlug(session, chatId));
 }
 
 /**
@@ -35,7 +51,7 @@ function sessionResponse(session) {
     sandboxId: previewSessionId,
     chatId: getSessionChatId(session),
     versionId: session.versionId,
-    previewUrl: session.previewUrl,
+    previewUrl: currentPreviewUrlForSession(session),
     status: session.status,
     lastAction: session.lastAction,
     changeClass: session.changeClass,
@@ -143,6 +159,7 @@ module.exports = {
   UNHASHABLE_FILE_MARKER,
   sessionExpiresAtIso,
   sessionResponse,
+  currentPreviewUrlForSession,
   appendLog,
   findSessionById,
   findSessionByPreviewSessionId,

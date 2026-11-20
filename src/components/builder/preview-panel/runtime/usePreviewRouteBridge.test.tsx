@@ -46,6 +46,48 @@ function postRoute(options: {
   );
 }
 
+describe("usePreviewRouteBridge — klibbig rapport (R-1742 P3)", () => {
+  function render(initial: { lifecycleToken?: string | null; frameLoadCount?: number }) {
+    const { child, iframeRef } = createHarness();
+    const view = renderHook(
+      (props: { lifecycleToken?: string | null; frameLoadCount?: number }) =>
+        usePreviewRouteBridge({
+          previewUrl: PREVIEW_URL,
+          versionId: "ver_1",
+          activePreviewSessionId: "ps_1",
+          viewerId: "viewer_1",
+          iframeRef,
+          ...props,
+        }),
+      { initialProps: initial },
+    );
+    return { child, ...view };
+  }
+
+  it("släpper rapporten när iframen laddat ett nytt dokument som inte rapporterat (hostens startsida)", () => {
+    const { child, result, rerender } = render({ lifecycleToken: "life_1", frameLoadCount: 0 });
+    act(() => postRoute({ child }));
+    // The reporting document's own load.
+    rerender({ lifecycleToken: "life_1", frameLoadCount: 1 });
+    expect(result.current).toBe("/about");
+    // Restart: the host's start page loads and never reports.
+    rerender({ lifecycleToken: "life_1", frameLoadCount: 2 });
+    expect(result.current).toBeNull();
+    // The restarted site reports while it parses, then loads.
+    act(() => postRoute({ child }));
+    rerender({ lifecycleToken: "life_1", frameLoadCount: 3 });
+    expect(result.current).toBe("/about");
+  });
+
+  it("binder rapporten till lifecycle-token", () => {
+    const { child, result, rerender } = render({ lifecycleToken: "life_1", frameLoadCount: 0 });
+    act(() => postRoute({ child }));
+    expect(result.current).toBe("/about");
+    rerender({ lifecycleToken: "life_2", frameLoadCount: 0 });
+    expect(result.current).toBeNull();
+  });
+});
+
 describe("usePreviewRouteBridge", () => {
   it("accepts a fully validated route change for the active tier-2 identity", () => {
     const { child, iframeRef } = createHarness();

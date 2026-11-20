@@ -351,6 +351,30 @@ export const users = pgTable(
 );
 
 /**
+ * Engångslänkar för "Glömt lösenord?". Bara sha256-hashen av token sparas.
+ * Egen tabell (inte kolumner på `users`) så att `select().from(users)` inte
+ * beror på att migrationen hunnit appliceras. En ny begäran ersätter äldre
+ * rader för samma konto; en lyckad återställning tar bort kontots rader.
+ */
+export const passwordResetTokens = pgTable(
+  "password_reset_tokens",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamptz("expires_at").notNull(),
+    usedAt: timestamptz("used_at"),
+    createdAt: timestamptz("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    tokenHashIdx: uniqueIndex("idx_password_reset_tokens_token_hash").on(table.tokenHash),
+    userIdx: index("idx_password_reset_tokens_user").on(table.userId),
+  }),
+);
+
+/**
  * No app code reads or writes this table since the Vercel Marketplace routes
  * were removed (2026-08-04, zero callers and zero rows in production). The
  * definition stays because `db-init.mjs` still creates the table and

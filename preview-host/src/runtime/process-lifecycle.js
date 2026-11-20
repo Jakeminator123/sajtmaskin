@@ -121,9 +121,10 @@ const { readMutationRevision, withChatLifecycleLock } = require("../session-life
 // readiness och proxy; bara exekveringsplatsen byts.
 const {
   isMachineRuntime,
-  parkProjectMachine,
+  noteGuestActivity,
   patchWorkspaceInMachine,
   startRemoteDevServer,
+  sweepIdleGuestMachines,
   syncAndInstallInMachine,
 } = require("./machine-runtime.js");
 
@@ -948,6 +949,8 @@ async function stopTrackedRuntime(sessionId, previewSessionId = null) {
   if (!tracked) return false;
   runtimeChildren.delete(sessionId);
   tracked.ignoreExit = true;
+  // SM-080: the guest's idle clock continues from this runtime's last traffic.
+  noteGuestActivity(tracked.chatId, tracked.lastActivityAt);
   // Hibernate/idle/restart used to drop the in-memory Next tail. Persist it
   // before SIGTERM so /preview/logs still explains a boot that never answered.
   // A store/log failure must not skip SIGTERM — the child would stay in
@@ -1119,6 +1122,7 @@ async function spawnDevServer(session, workspaceDir, runtimePort, machineGuest =
     if (runtimeChildren.get(session.sessionId) === tracked) {
       runtimeChildren.delete(session.sessionId);
     }
+    noteGuestActivity(chatId, tracked.lastActivityAt);
     if (tracked.ignoreExit) return;
     const outputTail = tracked.recentOutput.slice(-RUNTIME_OUTPUT_EXIT_TAIL).join("\n");
     let cleanExitLoopDetected = false;
@@ -1710,11 +1714,10 @@ async function hibernateChatRuntime(chatId) {
   const session = findSessionByChatId(data, chatId);
   if (!session) return null;
   await stopRuntimeForSession(session);
-  // A verify running inside the same machine must not lose it; the verify
-  // parks the machine itself when it finishes.
-  if (isMachineRuntime() && !activeVerifyChatKeys.has(safeChatKey(chatId))) {
-    await parkProjectMachine(chatId, { previewSessionId: session.previewSessionId });
-  }
+  // SM-080: the guest stays up (a quick return only restarts the dev process)
+  // and its idle clock starts now — the viewer was here until this call. The
+  // idle sweep destroys it after PREVIEW_GUEST_IDLE_DESTROY_MS.
+  noteGuestActivity(chatId);
   return session;
 }
 
@@ -1724,9 +1727,20 @@ async function hibernateChatRuntime(chatId) {
  * Sessionen markeras `hibernated` — samma vilotillstånd som klientens
  * hibernate-anrop — så att status-pollningen INTE auto-bootar om den; nästa
  * riktiga preview-besök väcker den via den vanliga startsidan i proxyn.
+ *
+ * SM-080: i maskinläge förstörs därefter gäster som varit inaktiva i
+ * PREVIEW_GUEST_IDLE_DESTROY_MS, även de som saknar spårad runtime (efter en
+ * host-omstart). Det svepet körs även när runtime-reapern är avstängd.
  */
 async function sweepIdleRuntimes(nowMs = Date.now()) {
-  if (!(RUNTIME_IDLE_STOP_MS > 0)) return { stoppedRuntimes: 0 };
+  const stoppedRuntimes = RUNTIME_IDLE_STOP_MS > 0 ? await stopIdleRuntimes(nowMs) : 0;
+  const guests = isMachineRuntime()
+    ? await sweepIdleGuestMachines(nowMs).catch(() => ({ destroyed: [] }))
+    : { destroyed: [] };
+  return { stoppedRuntimes, destroyedGuestMachines: guests.destroyed.length };
+}
+
+async function stopIdleRuntimes(nowMs) {
   let stoppedRuntimes = 0;
   for (const [sessionId, tracked] of [...runtimeChildren.entries()]) {
     const chatId = typeof tracked.chatId === "string" ? tracked.chatId : "";
@@ -1800,12 +1814,9 @@ async function sweepIdleRuntimes(nowMs = Date.now()) {
           `Runtime idle-stopped after ${Math.round(RUNTIME_IDLE_STOP_MS / 60000)} min without preview traffic; next visit boots it again.`,
         ).catch(() => {});
       }
-      if (isMachineRuntime() && chatId) {
-        await parkProjectMachine(chatId, { previewSessionId });
-      }
     });
   }
-  return { stoppedRuntimes };
+  return stoppedRuntimes;
 }
 
 function createFakeRuntimeChildForTesting() {

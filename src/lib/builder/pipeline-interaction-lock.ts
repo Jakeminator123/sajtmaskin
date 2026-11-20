@@ -24,7 +24,12 @@ export const PIPELINE_LOCK_DISPLAY_STATUSES: ReadonlySet<VersionDisplayStatus> =
 
 export function isPipelineInteractionLocked(
   status: VersionDisplayStatus | null | undefined,
+  options: { previewVisible?: boolean } = {},
 ): boolean {
+  // Background server verification never blocks once the version's preview
+  // is on screen (prod 2026-11-11: 4-5 min lock after the site was visible).
+  // A new send aborts the old verify lane server-side (generation lock).
+  if (status === "verifying" && options.previewVisible === true) return false;
   return Boolean(status && PIPELINE_LOCK_DISPLAY_STATUSES.has(status));
 }
 

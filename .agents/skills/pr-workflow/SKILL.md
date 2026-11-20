@@ -52,11 +52,12 @@ runtime-enforcement; läs rapportens `runtimeStatus`.
   `npm run verify:pr` är frivillig felsökning, inte en extra lokal fullsvit. För
   CI-/verifieringsmotorn: `npm run test:workflow`, `npm run workflow:contract`,
   typecheck och berörda integrationstester.
-- GitHub Actions publicerar required checks på varje head: tung profil för ready
-  runtime, högrisk och `master`; explicit light-kvitto för safe docs (även
-  preview-push) och vanliga drafts. Dossiermatrisen körs bara vid promote (PR
-  mot `master`), veckovis och manuellt; PR och push mot `preview` skjuter upp
-  den (ägarbeslut 2026-10-22).
+- GitHub Actions publicerar required checks på varje head: tung profil för push
+  till `master`/`preview`, promote-PR, `ready_for_review`, etiketten
+  `run-full-ci` och icke-draft Dependabot; explicit light-kvitto för vanliga
+  PR-pushar (även non-draft och högrisk) och safe docs. Dossiermatrisen körs
+  bara vid promote (PR mot `master`), veckovis och manuellt; PR och push mot
+  `preview` skjuter upp den (ägarbeslut 2026-10-22).
   Preview-genvägar kräver grön föregående push för respektive workflow; okänd,
   pågående eller fallerad bas kör full profil. `test:ci` delas på fyra
   parallella jobb som `quality` kräver. Återgång till draft startar ingen ny

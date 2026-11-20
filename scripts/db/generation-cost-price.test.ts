@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  dayBucketSql,
   groupCostUsd,
   priceUsageRow,
   resolveCostBasis,
@@ -12,6 +13,16 @@ import {
 const pricing = JSON.parse(
   readFileSync(join(process.cwd(), "config/ai_models/pricing.json"), "utf8"),
 );
+
+describe("generation-cost day bucket", () => {
+  it("returns the day as text so node-postgres never shifts it to the previous UTC evening", () => {
+    // `::date` parsas av pg som lokal midnatt → `2026-11-04T23:00:00.000Z`
+    // för 2026-11-05 i svensk tid. Texten är tidszonsoberoende.
+    const sql = dayBucketSql();
+    expect(sql).toBe("to_char(date_trunc('day', created_at), 'YYYY-MM-DD')");
+    expect(sql).not.toContain("::date");
+  });
+});
 
 describe("generation-cost source routing", () => {
   it("defaults unknown values to llm_usage", () => {

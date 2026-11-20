@@ -590,6 +590,17 @@ export function PromptWizardModalV2({
     onComplete,
   ]);
 
+  // Esc stänger guiden. Utkastet ligger kvar i localStorage (useWizardDraft),
+  // så inget går förlorat — till skillnad från ett oavsiktligt bakgrundsklick.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
@@ -598,7 +609,12 @@ export function PromptWizardModalV2({
       <div className="absolute inset-0 bg-background/90 backdrop-blur-md" />
 
       {/* Modal - same visual language as landing */}
-      <div className="relative mx-4 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border/40 bg-background/95 shadow-2xl backdrop-blur-xl">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Frågeguiden"
+        className="relative mx-4 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border/40 bg-background/95 shadow-2xl backdrop-blur-xl"
+      >
         {/* Decorative background */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
           <div className="absolute -top-32 -right-32 h-64 w-64 bg-primary/10 blur-3xl" />
@@ -608,8 +624,9 @@ export function PromptWizardModalV2({
         {/* Close button */}
         <button
           onClick={onClose}
+          type="button"
           className="absolute top-4 right-4 z-10 p-2 text-muted-foreground transition-colors duration-200 hover:rotate-90 hover:text-foreground"
-          aria-label="Stäng"
+          aria-label="Stäng frågeguiden"
         >
           <X className="h-5 w-5" />
         </button>

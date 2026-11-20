@@ -42,6 +42,13 @@
  * same archive SHA-256 is NOT re-uploaded (pass --overwrite to force). Templates
  * from earlier runs that are not re-discovered are preserved in the manifest.
  *
+ * Blob keys are content-addressed (`.../<templateId>/<sha256>.zip`, images
+ * `.../images/<templateId>/<sha256><ext>`). The manifest is written only at the
+ * end, so a run that is interrupted leaves uploaded blobs the manifest does not
+ * know about; a retry then writes the same bytes to the same key, which is safe
+ * to overwrite. A fixed key without allowOverwrite made every retry fail with
+ * "blob already exists".
+ *
  * Usage:
  *   node scripts/v0-templates/upload-mallar-blob.mjs                         # dry-run
  *   node scripts/v0-templates/upload-mallar-blob.mjs --upload                # upload missing + write manifest
@@ -466,9 +473,13 @@ function extnameLower(fileName) {
   return idx >= 0 ? fileName.slice(idx).toLowerCase() : "";
 }
 
-async function uploadStillImage(templateId, absolutePath, buffer) {
+function stillImageKeyFor(templateId, imageSha256, ext) {
+  return `${blobPrefix}/images/${templateId}/${imageSha256}${ext}`;
+}
+
+async function uploadStillImage(templateId, absolutePath, buffer, imageSha256) {
   const ext = extnameLower(absolutePath);
-  const key = `${blobPrefix}/images/${templateId}/still${ext}`;
+  const key = stillImageKeyFor(templateId, imageSha256, ext);
   if (dryRun) return { url: `blob-dry-run://${key}` };
   const blob = await put(key, buffer, {
     access: "public",
@@ -692,17 +703,19 @@ async function computePreviewFit(buffer) {
   }
 }
 
-function blobKeyFor(appCategory, templateId) {
-  return `${blobPrefix}/raw/${appCategory}/${templateId}/template.zip`;
+function blobKeyFor(appCategory, templateId, archiveSha256) {
+  return `${blobPrefix}/raw/${appCategory}/${templateId}/${archiveSha256}.zip`;
 }
 
-async function uploadZip(appCategory, templateId, buffer) {
-  const key = blobKeyFor(appCategory, templateId);
+async function uploadZip(appCategory, templateId, buffer, archiveSha256) {
+  const key = blobKeyFor(appCategory, templateId, archiveSha256);
   if (dryRun) return { url: `blob-dry-run://${key}` };
   const blob = await put(key, buffer, {
     access: "public",
     addRandomSuffix: false,
-    allowOverwrite: overwrite,
+    // Content-addressed key: an existing blob has the same bytes, so a retry
+    // after an interrupted run overwrites it harmlessly instead of failing.
+    allowOverwrite: true,
     contentType: "application/zip",
     token: blobReadWriteToken,
   });
@@ -836,7 +849,12 @@ async function main() {
       skippedCount += 1;
       console.log(`[mallar-blob] skip (already uploaded, same sha) ${candidate.templateId}`);
     } else {
-      const uploaded = await uploadZip(candidate.appCategory, candidate.templateId, buffer);
+      const uploaded = await uploadZip(
+        candidate.appCategory,
+        candidate.templateId,
+        buffer,
+        archiveSha256,
+      );
       archiveUrl = uploaded.url;
       uploadedCount += 1;
       console.log(
@@ -869,7 +887,12 @@ async function main() {
       if (imageAlreadyUploaded) {
         imageSkippedCount += 1;
       } else {
-        const uploadedImage = await uploadStillImage(candidate.templateId, stillPath, imageBuffer);
+        const uploadedImage = await uploadStillImage(
+          candidate.templateId,
+          stillPath,
+          imageBuffer,
+          imageSha,
+        );
         stillImageUrl = uploadedImage.url;
         stillImageSha256 = imageSha;
         imageUploadedCount += 1;

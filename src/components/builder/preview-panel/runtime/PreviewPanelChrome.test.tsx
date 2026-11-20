@@ -28,6 +28,86 @@ const BASE_PROPS = {
   showExternalWarning: false,
 };
 
+describe("PreviewPanelChrome versionsindikator", () => {
+  it("visar vilken version previewn visar", () => {
+    const { getByTestId } = render(
+      <PreviewPanelChrome {...BASE_PROPS} versionIndicator={{ text: "Visar version 2", tone: "live" }} />,
+    );
+    const chip = getByTestId("preview-version-indicator");
+    expect(chip.textContent).toBe("Visar version 2");
+    expect(chip.getAttribute("role")).toBe("status");
+    expect(chip.dataset.tone).toBe("live");
+  });
+
+  it("erbjuder omstart bara när ägaren säger att starten dröjt", () => {
+    const onRestartStalledPreview = vi.fn();
+    const indicator = { text: "Version 2 är sparad, förhandsvisningen startar", tone: "pending" as const };
+    const { queryByRole, rerender, getByRole } = render(
+      <PreviewPanelChrome {...BASE_PROPS} versionIndicator={indicator} />,
+    );
+    expect(queryByRole("button", { name: "Starta om förhandsvisningen" })).toBeNull();
+    rerender(
+      <PreviewPanelChrome
+        {...BASE_PROPS}
+        versionIndicator={indicator}
+        onRestartStalledPreview={onRestartStalledPreview}
+      />,
+    );
+    fireEvent.click(getByRole("button", { name: "Starta om förhandsvisningen" }));
+    expect(onRestartStalledPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it("visas inte i kodvyn och inte utan indikator", () => {
+    const { queryByTestId, rerender } = render(<PreviewPanelChrome {...BASE_PROPS} />);
+    expect(queryByTestId("preview-version-indicator")).toBeNull();
+    rerender(
+      <PreviewPanelChrome
+        {...BASE_PROPS}
+        isCodeView
+        versionIndicator={{ text: "Visar version 2", tone: "live" }}
+      />,
+    );
+    expect(queryByTestId("preview-version-indicator")).toBeNull();
+  });
+});
+
+describe("PreviewPanelChrome Dator/Mobil-växlare", () => {
+  it("visas bara när en ägare tar emot bytet", () => {
+    const { queryByTestId } = render(<PreviewPanelChrome {...BASE_PROPS} />);
+    expect(queryByTestId("preview-device-toggle")).toBeNull();
+  });
+
+  it("markerar valt läge med aria-pressed och byter med tangentbordsbara knappar", () => {
+    const onPreviewDeviceChange = vi.fn();
+    const { getByRole } = render(
+      <PreviewPanelChrome
+        {...BASE_PROPS}
+        previewDevice="desktop"
+        onPreviewDeviceChange={onPreviewDeviceChange}
+      />,
+    );
+    const group = getByRole("group", { name: "Förhandsvisningens bredd" });
+    const dator = getByRole("button", { name: "Dator" });
+    const mobil = getByRole("button", { name: "Mobil" });
+    expect(group).toBeTruthy();
+    expect(dator.getAttribute("aria-pressed")).toBe("true");
+    expect(mobil.getAttribute("aria-pressed")).toBe("false");
+    expect(mobil.getAttribute("type")).toBe("button");
+
+    fireEvent.click(mobil);
+    expect(onPreviewDeviceChange).toHaveBeenCalledWith("mobile");
+    fireEvent.click(dator);
+    expect(onPreviewDeviceChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("finns inte i kodvyn", () => {
+    const { queryByTestId } = render(
+      <PreviewPanelChrome {...BASE_PROPS} isCodeView onPreviewDeviceChange={vi.fn()} />,
+    );
+    expect(queryByTestId("preview-device-toggle")).toBeNull();
+  });
+});
+
 describe("PreviewPanelChrome sidflik-rad", () => {
   it("renderar raden redan innan några routes är kända", () => {
     const { container } = render(<PreviewPanelChrome {...BASE_PROPS} />);

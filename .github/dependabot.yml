@@ -126,6 +126,9 @@ updates:
       - dependency-name: "*"
         update-types:
           - "version-update:semver-major"
+      # 7.1.1 (#1680) gav 132 nya lintvarningar. Pausad tills hook-migreringen
+      # beställs; ta bort raden i samma PR som migreringen.
+      - dependency-name: "eslint-plugin-react-hooks"
 
   - package-ecosystem: "github-actions"
     directory: "/"

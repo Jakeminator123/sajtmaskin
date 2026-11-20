@@ -515,27 +515,30 @@ def _variant_embeddings_index_path(ctx: BackofficeContext) -> Path:
 
 
 def _sync_variant_embeddings_cache(ctx: BackofficeContext) -> bool:
-    """Best-effort: refresh local variant-embeddings cache from Blob/manifest.
+    """Best-effort: refresh the local variant-embeddings cache from Blob.
 
-    Always prefer Blob as source of truth before prune+push, so a stale on-disk
-    cache cannot overwrite newer Blob entries. Returns True when the local
-    cache file exists afterwards.
+    Returns True only when ``embeddings:sync`` exited 0 and the cache exists, so
+    a failed sync can never pass for a fresh cache. The cache is local and
+    gitignored; nothing here publishes to Blob.
     """
     import subprocess
 
+    repo_root = getattr(ctx, "repo_root", None)
+    if repo_root is None:
+        return False
     path = _variant_embeddings_index_path(ctx)
     try:
-        subprocess.run(
+        result = subprocess.run(
             resolve_command(("npm", "run", "embeddings:sync")),
-            cwd=str(ctx.repo_root),
+            cwd=str(repo_root),
             check=False,
             capture_output=True,
             text=True,
             timeout=180,
         )
-    except Exception:
-        pass
-    return path.is_file()
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0 and path.is_file()
 
 
 def _prune_variant_embeddings(
@@ -554,8 +557,13 @@ def _prune_variant_embeddings(
     deleted variants, so delete-flows call this to keep the index in lockstep
     with the variant files. No-op (returns 0) when the index is missing/unreadable
     or has no matching entries, so it never blocks a delete.
+
+    Only the local, gitignored cache is touched. Blob is published solely by
+    the index gate's full ``--require-blob`` rebuild, which every delete flow
+    queues: uploading this cache (``embeddings:promote``) would overwrite Blob
+    with a stale file whenever ``embeddings:sync`` had failed.
     """
-    # Refresh from Blob first so prune+push cannot clobber a newer remote index.
+    # Refresh from Blob first so the local prune starts from the newest index.
     _sync_variant_embeddings_cache(ctx)
     path = _variant_embeddings_index_path(ctx)
     if not path.is_file():
@@ -584,7 +592,6 @@ def _prune_variant_embeddings(
         if isinstance(data.get("_meta"), dict):
             data["_meta"]["count"] = len(filtered)
         write_json(path, data)
-        _push_variant_embeddings_to_blob(ctx)
     return removed
 
 
@@ -622,27 +629,6 @@ def _prune_scaffold_embeddings(ctx: BackofficeContext, scaffold_id: str) -> int:
             data["_meta"]["count"] = len(filtered)
         write_json(path, data)
     return removed
-
-
-def _push_variant_embeddings_to_blob(ctx: BackofficeContext) -> None:
-    """Best-effort: upload pruned local variant-embeddings JSON to Vercel Blob.
-
-    Uses ``npm run embeddings:promote -- --only=variant``. No-op when the command
-    fails (missing token, offline) so deletes never block on Blob.
-    """
-    import subprocess
-
-    try:
-        subprocess.run(
-            resolve_command(("npm", "run", "embeddings:promote", "--", "--only=variant")),
-            cwd=str(ctx.repo_root),
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-    except Exception:
-        return
 
 
 def _load_variants(ctx: BackofficeContext) -> list[dict[str, Any]]:

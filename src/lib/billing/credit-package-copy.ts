@@ -12,7 +12,7 @@ export const creditPackageCopy: Record<
       "Kostnaden beror på vad du gör",
       "Engångsköp — credits går inte ut",
     ],
-    cta: "Köp Starter",
+    cta: "Köp Startpaket",
   },
   popular: {
     description: "Bästa balans för de flesta",
@@ -21,7 +21,7 @@ export const creditPackageCopy: Record<
       "Kostnaden beror på vad du gör",
       "Engångsköp — credits går inte ut",
     ],
-    cta: "Köp Popular",
+    cta: "Köp Mellanpaket",
   },
   pro: {
     description: "För högre tempo och fler ändringar",
@@ -30,6 +30,6 @@ export const creditPackageCopy: Record<
       "Kostnaden beror på vad du gör",
       "Engångsköp — credits går inte ut",
     ],
-    cta: "Köp Pro",
+    cta: "Köp Storpaket",
   },
 };

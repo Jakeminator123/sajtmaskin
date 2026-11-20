@@ -49,7 +49,7 @@ const { isSafeRelativePath } = require("../validate.js");
 // HMR-plugin (när SAJTMASKIN_PREVIEW_DISABLE_HMR=true). Spread:as in
 // i Next config med `...EXPRESSION`. Funkar för .js/.mjs/.ts.
 const NEXT_CONFIG_ENV_SNIPPET =
-  "(()=>{const o={};if(process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim())o.basePath=process.env.SAJTMASKIN_PREVIEW_BASE_PATH.trim();if(process.env.SAJTMASKIN_PREVIEW_DISABLE_HMR===\"true\"){o.webpack=(c)=>{c.plugins=(c.plugins||[]).filter((p)=>!(p&&p.constructor&&p.constructor.name===\"HotModuleReplacementPlugin\"));return c;};}return o;})()";
+  "(()=>{const o={};if(process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim()){o.basePath=process.env.SAJTMASKIN_PREVIEW_BASE_PATH.trim();o.devIndicators=false;}if(process.env.SAJTMASKIN_PREVIEW_DISABLE_HMR===\"true\"){o.webpack=(c)=>{c.plugins=(c.plugins||[]).filter((p)=>!(p&&p.constructor&&p.constructor.name===\"HotModuleReplacementPlugin\"));return c;};}return o;})()";
 
 function findNextConfigPath(workspaceDir) {
   for (const name of NEXT_CONFIG_CANDIDATES) {

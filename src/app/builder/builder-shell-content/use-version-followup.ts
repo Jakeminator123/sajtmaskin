@@ -103,12 +103,13 @@ export function useShellVersionFollowup(vm: BuilderViewModel) {
     preferredVersionBusStatus,
     preferredVersionSummary,
   ]);
+  const previewVisible = vm.previewLifecycle === "live";
   const isInteractionLocked =
     isBusy ||
     pipelineWorkActive ||
     f3FinalizeActive ||
-    isPipelineInteractionLocked(activeVersionStatus) ||
-    isPipelineInteractionLocked(preferredVersionStatus);
+    isPipelineInteractionLocked(activeVersionStatus, { previewVisible }) ||
+    isPipelineInteractionLocked(preferredVersionStatus, { previewVisible });
   const followUpBaseInfo = useMemo(() => {
     if (activeVersionIsLatest) return null;
     if (!vm.activeVersionId || !vm.latestVersionId) return null;

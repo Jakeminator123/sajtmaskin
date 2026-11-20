@@ -50,7 +50,9 @@ export async function startFakeFlyMachinesApi({
   const machines = new Map();
   const calls = [];
   let nextHostOctet = 2;
-  const options = { chatIdOverride };
+  // `createFailures`: queued failure responses for the next creates, e.g.
+  // `[{ status: 429 }, { status: 412, error: "insufficient memory available" }]`.
+  const options = { chatIdOverride, createFailures: [] };
 
   async function spawnAgent(machine) {
     const env = { ...machine.config.env };
@@ -140,6 +142,10 @@ export async function startFakeFlyMachinesApi({
 
       if (rest === "" && req.method === "POST") {
         const body = await readJson(req);
+        const failure = options.createFailures.shift();
+        if (failure) {
+          return json(res, failure.status, { error: failure.error ?? `fake create failure ${failure.status}` });
+        }
         const id = randomBytes(7).toString("hex");
         const machine = {
           id,

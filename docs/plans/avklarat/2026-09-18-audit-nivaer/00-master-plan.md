@@ -6,8 +6,8 @@
 
 Gäller den inloggade Audit-ytan på startsidan
 ([`site-audit-section.tsx`](../../../../src/components/layout/site-audit-section.tsx)),
-inte publika `/analys`. Publik lead magnet ägs av
-[`../active/2026-09-18-analys-audit-leadmagnet/00-master-plan.md`](../../active/2026-09-18-analys-audit-leadmagnet/00-master-plan.md).
+inte publika `/analys`. Publik lead magnet: raden i
+[avklarat-indexet](../README.md) (planen raderad 2026-11-11; git är arkiv).
 
 Kanonisk runtime-ägare: [`src/lib/audit/audit-tier.ts`](../../../../src/lib/audit/audit-tier.ts)
 (`resolveAuditRun`). `AuditMode` är fortfarande `"basic" | "advanced"`.

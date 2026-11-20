@@ -17,6 +17,7 @@ const {
   cleanupPreviewHostStorage,
   sweepIdleRuntimes,
 } = require("./runtime.js");
+const { getMetricsHistory } = require("./metrics-history.js");
 
 if (require.main === module) {
   const server = createServer();
@@ -32,6 +33,8 @@ if (require.main === module) {
     void sweepIdleRuntimes().catch(() => null);
   }, RUNTIME_IDLE_SWEEP_INTERVAL_MS);
   idleSweepTimer.unref?.();
+  // Samtidighetshistorik för backoffice: en sampling/min till /data, 14 dagar.
+  getMetricsHistory().start();
 }
 
 module.exports = {

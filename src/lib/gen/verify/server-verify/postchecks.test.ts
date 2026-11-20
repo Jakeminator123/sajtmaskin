@@ -5,6 +5,7 @@ vi.mock("@/lib/logging/event-bus-error-log-sink", () => ({}));
 vi.mock("@/lib/logging/event-bus", () => ({ emit: vi.fn() }));
 vi.mock("@/lib/db/promote-guard", () => ({ assertPromoteAllowed: vi.fn() }));
 import * as repo from "@/lib/db/chat-repository-pg";
+import * as promoteGuard from "@/lib/db/promote-guard";
 import * as budget from "@/lib/db/services/server-repair-budget";
 import * as billing from "@/lib/db/services/generation-billing";
 import * as usage from "@/lib/observability/llm-usage";
@@ -366,6 +367,29 @@ describe("ONE generation/cron postchecks core", () => {
     expect(gate.runQualityGateOnExportable).toHaveBeenCalledWith(expect.objectContaining({ verifyDeadlineEpochMs: deadline,
       checks: lane === "f3_verify" ? INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS : DESIGN_PREVIEW_QUALITY_GATE_CHECKS }));
     expect(repo.promoteVersion).not.toHaveBeenCalled(); expect(buildRepair.repairBuildErrorUnderLease).not.toHaveBeenCalled();
+  });
+  it("QG branch: the chain outcome is the gate's stop decision plus the gate response the cron route serializes", async () => {
+    policy.postChecks.willRunQualityGate = true;
+    // Byte-level lock: GET /api/engine/postchecks returns this object as `results[].outcome`.
+    expect(JSON.stringify(await runVersionPostchecks(input))).toBe(JSON.stringify({
+      body: { error: "Quality gate not configured (missing preview-host verify lane).", code: "quality_gate_disabled",
+        hint: gate.QUALITY_GATE_SETUP_HINT },
+      status: 501, kind: "stop", reason: "quality_gate_disabled", retryable: false, vmGatePassed: false, promoted: false }));
+    expect(budget.completeServerPostchecks).not.toHaveBeenCalled();
+  });
+  it("QG branch: a promoted gate continues the chain on the gated revision and completes the initial postchecks", async () => {
+    policy.postChecks.qualityGatePlanned = true;
+    const check = { check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 1 };
+    vi.mocked(gate.runQualityGateOnExportable).mockResolvedValue({ results: [check], verifyLaneDurationMs: 1,
+      firstFailureCheck: null, jobStartedAt: null, jobFinishedAt: null });
+    vi.mocked(promoteGuard.assertPromoteAllowed).mockResolvedValue({ allowed: true });
+    vi.mocked(repo.promoteVersion).mockResolvedValue(target.version);
+    expect(JSON.stringify(await runVersionPostchecks(input))).toBe(JSON.stringify({
+      body: { passed: true, checks: [check], verifyLaneDurationMs: 1, firstFailureCheck: null, jobStartedAt: null,
+        jobFinishedAt: null, promoted: true },
+      status: 200, kind: "continue", filesRevision: "r2", vmGatePassed: true, promoted: true, advisory: false }));
+    expect(repo.promoteVersion).toHaveBeenCalledWith("v", "Automatic verification passed.", "holder");
+    expect(budget.completeServerPostchecks).toHaveBeenCalledTimes(1);
   });
   it.each(["image", "preview", "persist", "product", "renew"])("original deadline exhausted during %s stops before another phase/model/gate", async phase => {
     const expire = () => vi.mocked(Date.now).mockReturnValue(deadline);

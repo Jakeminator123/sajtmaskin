@@ -340,9 +340,13 @@ async function cleanupPreviewHostStorage() {
 
 /**
  * SM-080: destroy guest machines whose chat no longer has a usable session or
- * an active verify. `activeWorkspaceEntries` holds safeChatKey()s; machine
- * records are keyed by raw chatId, so decode before comparing. Best effort:
- * a Machines API outage must not fail the host's own storage cleanup.
+ * an active verify, plus untagged orphans. Guests of chats that DO have a
+ * usable session are the idle sweep's job (`sweepIdleGuestMachines`, every
+ * idle-reaper tick): it destroys them after PREVIEW_GUEST_IDLE_DESTROY_MS
+ * without activity, also when no runtime is tracked (after a host restart).
+ * `activeWorkspaceEntries` holds safeChatKey()s; machine records are keyed by
+ * raw chatId, so decode before comparing. Best effort: a Machines API outage
+ * must not fail the host's own storage cleanup.
  */
 async function reconcileGuestMachines(activeWorkspaceEntries) {
   const { isMachineRuntime } = require("./machine-runtime.js");

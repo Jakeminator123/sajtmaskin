@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
   isSameTier2PreviewSession,
   isTier2LivePreviewUrl,
@@ -13,6 +13,8 @@ export const PREVIEW_ROUTE_BRIDGE_SOURCE = "sajtmaskin-preview-host";
 type ObservedRoute = {
   identityKey: string;
   route: string;
+  /** Frame loads counted when the report arrived (see `frameLoadCount`). */
+  loadCount: number;
 };
 
 function bridgeIdentityKey(
@@ -20,13 +22,17 @@ function bridgeIdentityKey(
   previewSessionId: string,
   versionId: string,
   viewerId: string,
+  lifecycleToken: string,
 ): string | null {
   const session = previewSessionId.trim();
   const version = versionId.trim();
   const viewer = viewerId.trim();
   if (!session || !version || !viewer) return null;
   if (session.length > 256 || version.length > 256 || viewer.length > 256) return null;
-  return `${previewUrl}\n${session}\n${version}\n${viewer}`;
+  // The host's report carries no lifecycle token, so the key uses the
+  // builder's current one: a new lifecycle on the same session id (restart)
+  // invalidates the old report until the restarted site reports again.
+  return `${previewUrl}\n${session}\n${version}\n${viewer}\n${lifecycleToken}`;
 }
 
 function expectedOrigin(previewUrl: string): string | null {
@@ -63,14 +69,30 @@ export function usePreviewRouteBridge(options: {
   activePreviewSessionId: string | null;
   viewerId: string | null;
   iframeRef: RefObject<HTMLIFrameElement | null>;
+  /** Builder's lifecycle token for the session (part of the identity). */
+  lifecycleToken?: string | null;
+  /**
+   * Number of iframe `load` events so far. The host's bootstrap reports while
+   * its document parses, before that document's `load`. A report older than
+   * the previous load belongs to a document that has since been replaced (for
+   * example by the host's start page after a restart), so it stops counting.
+   * Omitted: reports never expire by load (previous behaviour).
+   */
+  frameLoadCount?: number;
 }): string | null {
   const { previewUrl, versionId, activePreviewSessionId, viewerId, iframeRef } = options;
+  const lifecycleToken = options.lifecycleToken?.trim() ?? "";
+  const frameLoadCount = options.frameLoadCount;
   const identityKey = useMemo(() => {
     if (!previewUrl || !isTier2LivePreviewUrl(previewUrl)) return null;
     if (!activePreviewSessionId || !versionId || !viewerId) return null;
-    return bridgeIdentityKey(previewUrl, activePreviewSessionId, versionId, viewerId);
-  }, [activePreviewSessionId, previewUrl, versionId, viewerId]);
+    return bridgeIdentityKey(previewUrl, activePreviewSessionId, versionId, viewerId, lifecycleToken);
+  }, [activePreviewSessionId, previewUrl, versionId, viewerId, lifecycleToken]);
   const [observed, setObserved] = useState<ObservedRoute | null>(null);
+  const loadCountRef = useRef(frameLoadCount ?? 0);
+  useLayoutEffect(() => {
+    loadCountRef.current = frameLoadCount ?? 0;
+  }, [frameLoadCount]);
 
   useEffect(() => {
     if (!previewUrl || !isTier2LivePreviewUrl(previewUrl) || !viewerId?.trim()) return;
@@ -120,20 +142,26 @@ export function usePreviewRouteBridge(options: {
         reportedSessionId,
         reportedVersionId,
         expectedViewerId,
+        lifecycleToken,
       );
       if (!reportedIdentityKey) return;
       const route = observedRouteFromHref(previewUrl, payload.href);
       if (!route) return;
+      const loadCount = loadCountRef.current;
       setObserved((current) =>
-        current?.identityKey === reportedIdentityKey && current.route === route
+        current?.identityKey === reportedIdentityKey &&
+        current.route === route &&
+        current.loadCount === loadCount
           ? current
-          : { identityKey: reportedIdentityKey, route },
+          : { identityKey: reportedIdentityKey, route, loadCount },
       );
     };
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [activePreviewSessionId, iframeRef, previewUrl, versionId, viewerId]);
+  }, [activePreviewSessionId, iframeRef, previewUrl, versionId, viewerId, lifecycleToken]);
 
-  return observed?.identityKey === identityKey ? observed.route : null;
+  if (!observed || observed.identityKey !== identityKey) return null;
+  if (frameLoadCount !== undefined && observed.loadCount < frameLoadCount - 1) return null;
+  return observed.route;
 }

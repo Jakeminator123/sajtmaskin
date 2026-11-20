@@ -199,6 +199,28 @@ export async function updateProject(id: string, updates: Partial<Project>): Prom
   return data.project;
 }
 
+/**
+ * Server-side compare-and-set: sets `name` only while the project still has
+ * `expectedName`. `renamed: false` means the name had already changed and
+ * nothing was written.
+ */
+export async function renameProjectIfNameIs(
+  id: string,
+  expectedName: string,
+  name: string,
+): Promise<{ renamed: boolean; project: Project | null }> {
+  const response = await fetch(`/api/projects/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, ifNameIs: expectedName }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data?.success) {
+    throw new Error(data?.error || "Failed to rename project");
+  }
+  return { renamed: data.renamed === true, project: data.project ?? null };
+}
+
 // Delete project
 export async function deleteProject(id: string): Promise<void> {
   const response = await fetch(`/api/projects/${id}`, {

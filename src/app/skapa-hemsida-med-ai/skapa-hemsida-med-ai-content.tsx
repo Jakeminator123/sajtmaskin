@@ -130,7 +130,7 @@ export const FAQS = [
   },
   {
     q: "Vad kostar det?",
-    a: "Du kan börja utan kreditkort. Ett konto får en första slutförd generering utan coin-debitering. Därefter köper du credits i engångspaket, utan prenumeration. Publicering debiterar credits. Aktuella paket finns på prissidan — inga belopp här, de ändras.",
+    a: "Du kan börja utan kreditkort. Ett konto får en första slutförd generering gratis. Därefter köper du credits i engångspaket, utan prenumeration. Publicering debiterar credits. Aktuella paket finns på prissidan — inga belopp här, de ändras.",
   },
 ] as const;
 

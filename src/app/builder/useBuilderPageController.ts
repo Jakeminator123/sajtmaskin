@@ -35,6 +35,7 @@ import { useBuilderGenerationPreferences } from "./page-controller/useBuilderGen
 import { useBuilderInstructionPreferences } from "./page-controller/useBuilderInstructionPreferences";
 import { useBuilderPreviewVersionSync } from "./page-controller/useBuilderPreviewVersionSync";
 import { useBuilderProjectHydration } from "./page-controller/useBuilderProjectHydration";
+import { useNameProjectOnFirstBuild } from "./page-controller/project-naming";
 import { useBuilderRouteFeedback } from "./page-controller/useBuilderRouteFeedback";
 import { useBuilderVersionNotices } from "./page-controller/useBuilderVersionNotices";
 import {
@@ -55,6 +56,10 @@ export function useBuilderPageController() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [, startUiTransition] = useTransition();
+  // V-07 (2026-11-11): «Ny chatt» frågar i en vanlig dialog, inte i
+  // webbläsarens confirm(), och texten säger det som stämmer: den nuvarande
+  // chatten finns kvar i historiken.
+  const [newChatConfirmOpen, setNewChatConfirmOpen] = useState(false);
   const { fetchUser, isAuthenticated, isLoading: isAuthLoading, isInitialized } = useAuth();
   const [authModalReason, setAuthModalReason] = useState<
     "builder" | "save" | "generation" | "refine" | null
@@ -537,6 +542,22 @@ export function useBuilderPageController() {
 
   const sendMessage = rawSendMessage;
 
+  // V-02 (2026-11-11): a build started in the builder left the project as
+  // "Namnlöst projekt". The first build of a chat names a placeholder project
+  // after the prompt; a name the user chose is never touched.
+  const nameProjectOnFirstBuild = useNameProjectOnFirstBuild({
+    appProjectId: state.appProjectId,
+    appProjectName: state.appProjectName,
+    setAppProjectName: state.setAppProjectName,
+  });
+  const createNewChatNamingProject = useCallback(
+    (...args: Parameters<typeof createNewChat>) => {
+      nameProjectOnFirstBuild(args[0]);
+      return createNewChat(...args);
+    },
+    [createNewChat, nameProjectOnFirstBuild],
+  );
+
   // ── Init brief (Deep Brief) ─────────────────────────────────────────
   const { generateDynamicInstructions } = useInitBrief({
     model: state.promptAssistModel,
@@ -582,7 +603,7 @@ export function useBuilderPageController() {
     setDesignTheme: state.setDesignTheme,
     setPaletteState: state.setPaletteState,
     generateDynamicInstructions,
-    createNewChat,
+    createNewChat: createNewChatNamingProject,
     cancelActiveGeneration,
     resetBeforeCreateChat,
     applyAppProjectId: projectActions.applyAppProjectId,
@@ -988,13 +1009,19 @@ export function useBuilderPageController() {
     handleSaveProject: projectActions.handleSaveProject,
     resetToNewChat: useCallback(() => {
       if (state.chatId && state.messages.length > 0) {
-        if (!window.confirm("Vill du verkligen starta en ny chat? Osparade ändringar försvinner.")) {
-          return;
-        }
+        setNewChatConfirmOpen(true);
+        return;
       }
       autoProjectInitRef.current = false;
       projectActions.resetToNewChat();
     }, [projectActions, autoProjectInitRef, state.chatId, state.messages.length]),
+    newChatConfirmOpen,
+    cancelNewChat: useCallback(() => setNewChatConfirmOpen(false), []),
+    confirmNewChat: useCallback(() => {
+      setNewChatConfirmOpen(false);
+      autoProjectInitRef.current = false;
+      projectActions.resetToNewChat();
+    }, [projectActions, autoProjectInitRef]),
 
     // Deploy actions
     handleOpenDeployDialog: deployActions.handleOpenDeployDialog,

@@ -2,13 +2,15 @@
 
 Repots tester körs med [Vitest](https://vitest.dev). Den fulla sviten
 (`npm run test:ci`) är `vitest run` och ingår i den tunga profilen i
-[`.github/workflows/ci.yml`](../.github/workflows/ci.yml): ready runtime,
-högrisk-PR:ar och `master`. Bevisat safe docs och vanliga drafts får i stället
-ett explicit light-kvitto; required checknamn publiceras fortfarande för varje
-PR-head. Ett träd som redan passerat full profil körs inte om: ready/reopened
-med samma head, bas och träd samt preview-push med identiskt träd återanvänder
-det gröna kvittot (`scripts/workflow/ci-receipt.mjs`). Ovanpå den finns smalare
-lanes:
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml): push till `master`
+eller `preview`, `workflow_dispatch`, PR mot `master`, `ready_for_review`,
+etiketten `run-full-ci` och icke-draft Dependabot. Vanliga PR-pushar (även
+non-draft och högrisk) får light-kvittot: kontrakt plus typecheck/lint, medan
+required checknamn fortfarande publiceras. Bevisat safe docs hoppar även över
+typecheck/lint. Ett träd som redan passerat full profil körs inte om:
+ready/reopened med samma head, bas och träd samt preview-push med identiskt
+träd återanvänder det gröna kvittot (`scripts/workflow/ci-receipt.mjs`). Ovanpå
+den finns smalare lanes:
 
 | Lane                      | Kommando                               | Filnamn                            | Blockerar merge?                                                  |
 | ------------------------- | -------------------------------------- | ---------------------------------- | ----------------------------------------------------------------- |
@@ -94,8 +96,8 @@ av blockerande grindar (grandmaster S4):
 
 | Del                                                                  | CI-jobb                                                                                            | Trigger                                                                | Blockerande?                                       | Varför                                                                                                                                                                                                                                          |
 | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `db:schema-drift`                                                    | `schema-drift`                                                                                     | push + PR mot `preview`/`master`, tung profil                          | **Ja** — hård gate                                 | Deterministisk, nyckelfri, billig → trygg att blockera                                                                                                                                                                                          |
-| Deterministisk `*.stability.test.*`-allowlist                        | `quality` (`quality-core`-steget `test:stability:blocking`)                                        | tung profil (ready/runtime/högrisk/`master`)                           | **Ja** — hård gate                                 | Alla nuvarande stability-filer är hermetiska (ingen nätverk/DB/väggklocka); allowlisten ägs av `scripts/workflow/check-contract.mjs`                                                                                                            |
+| `db:schema-drift`                                                    | `schema-drift`                                                                                     | tung profil; light-kvitto på vanliga PR-headar                         | **Ja** — hård gate                                 | Deterministisk, nyckelfri, billig → trygg att blockera                                                                                                                                                                                          |
+| Deterministisk `*.stability.test.*`-allowlist                        | `quality` (`quality-core`-steget `test:stability:blocking`)                                        | tung profil (push `master`/`preview`, promote-PR, `ready_for_review`, `run-full-ci`) | **Ja** — hård gate                                 | Alla nuvarande stability-filer är hermetiska (ingen nätverk/DB/väggklocka); allowlisten ägs av `scripts/workflow/check-contract.mjs`                                                                                                            |
 | Stability-discovery = allowlist                                      | `quality` (`quality-contracts`-steget `test:discovery:check`)                                      | varje PR-head och push                                                 | **Ja** — hård gate                                 | En ny `*.stability.test.ts(x)` som inte finns i allowlisten fäller grinden, så ingen stability-fil kan hamna utanför den blockerande mängden                                                                                                    |
 | Ordlista-check (`check:terms`)                                       | `quality` (`quality-contracts`-steget, `continue-on-error`)                                        | varje PR-head och push                                                 | **Nej** — rådgivande                               | Bred prosascanning; terminologi-ownership blockerar separat via `check:terms:contract`                                                                                                                                                          |
 | Integrationsbas + checkproveniens | GitHubs strict required checks | Native ruleset mot aktuell PR-head och bas | **Ja** | Ny head eller flyttad bas kräver nya giltiga resultat; ingen separat tidsgrind eller custom check används. |

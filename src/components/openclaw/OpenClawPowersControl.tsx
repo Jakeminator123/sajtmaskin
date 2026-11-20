@@ -168,15 +168,15 @@ export function OpenClawPowersControl() {
         type="button"
         aria-pressed={powersOn}
         className={cn(classes.toggle, powersOn ? classes.toggleOn : classes.toggleOff)}
-        aria-label={powersOn ? "Stäng av extra befogenheter" : "Slå på extra befogenheter"}
+        aria-label="Låt agenten ändra"
         title={
           powersOn
-            ? "Extra befogenheter är på — välj vilka i listan"
-            : "Extra befogenheter är av — Sajtagenten guidar bara"
+            ? "Sajtagenten får göra ändringar åt dig — välj vilka i listan"
+            : "Sajtagenten ger bara råd och ändrar inget själv"
         }
       >
         {powersOn ? <ShieldCheck className={classes.icon} /> : <Shield className={classes.icon} />}
-        <span>Befogenheter</span>
+        <span>Låt agenten ändra</span>
         {activeCount > 0 ? (
           <span className={classes.count}>{activeCount}</span>
         ) : null}
@@ -184,8 +184,8 @@ export function OpenClawPowersControl() {
       <DropdownMenu>
         <DropdownMenuTrigger
           className={classes.chevron}
-          aria-label="Välj extra befogenheter"
-          title="Välj extra befogenheter"
+          aria-label="Välj vad agenten får ändra"
+          title="Välj vad agenten får ändra"
           onClick={(event) => event.stopPropagation()}
         >
           <ChevronDown className="h-3 w-3" />
@@ -196,7 +196,7 @@ export function OpenClawPowersControl() {
           onClick={(event) => event.stopPropagation()}
         >
           <DropdownMenuLabel className={classes.menuLabel}>
-            Extra befogenheter
+            Vad agenten får göra
           </DropdownMenuLabel>
           <DropdownMenuSeparator className={classes.menuSeparator} />
           {OPENCLAW_POWER_IDS.map((id) => (
@@ -225,8 +225,8 @@ export function OpenClawPowersControl() {
             {powersOn
               ? activeCount > 0
                 ? "Aktivt. Sajtagenten agerar alltid genom builderns vanliga flöde."
-                : "Knappen är intryckt, men ingen befogenhet är vald — inget extra händer."
-              : "Tryck in sköldknappen först. Utan den guidar Sajtagenten bara, precis som vanligt."}
+                : "Knappen är intryckt, men inget är valt — agenten ändrar inget än."
+              : "Tryck in sköldknappen först. Utan den ger Sajtagenten bara råd, precis som vanligt."}
           </p>
         </DropdownMenuContent>
       </DropdownMenu>

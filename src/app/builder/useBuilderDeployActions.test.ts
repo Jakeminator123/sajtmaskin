@@ -348,3 +348,31 @@ describe("useBuilderDeployActions — republishWithFix after isolate 504 (C2)", 
     );
   });
 });
+
+// V-03 (2026-11-11): the dialog prefilled "Bygg en hemsida för Café Lindgren,
+// ett" and the address followed it.
+describe("useBuilderDeployActions — handleOpenDeployDialog prefill", () => {
+  it("uses the project's own name", () => {
+    const args = makeArgs({ appProjectName: "Café Lindgren" });
+    const { result } = renderHook(() => useBuilderDeployActions(args));
+    act(() => result.current.handleOpenDeployDialog());
+    expect(args.setDeployNameInput).toHaveBeenCalledWith("Café Lindgren");
+    expect(args.resolveSuggestedProjectName).not.toHaveBeenCalled();
+    expect(args.setDeployNameDialogOpen).toHaveBeenCalledWith(true);
+  });
+
+  it("replaces the placeholder name with the prompt suggestion, hosting name as fallback", () => {
+    const resolveSuggestedProjectName = vi.fn(() => "Café Lindgren");
+    const args = makeArgs({
+      appProjectName: "Namnlöst projekt",
+      hydratedProjectName: "sajtmaskin-bygg-en-hemsida-for-cafe-lindg-4ee58be9",
+      resolveSuggestedProjectName,
+    });
+    const { result } = renderHook(() => useBuilderDeployActions(args));
+    act(() => result.current.handleOpenDeployDialog());
+    expect(resolveSuggestedProjectName).toHaveBeenCalledWith(
+      "sajtmaskin-bygg-en-hemsida-for-cafe-lindg-4ee58be9",
+    );
+    expect(args.setDeployNameInput).toHaveBeenCalledWith("Café Lindgren");
+  });
+});

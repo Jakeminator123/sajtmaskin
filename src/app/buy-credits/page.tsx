@@ -10,8 +10,8 @@ import { useAuth } from "@/lib/auth/auth-store";
 import { noteAccountCreatedIfSignup } from "@/lib/ads/fire-google-ads-conversion";
 import { noteOpenAiOrderCreated, noteOpenAiRegistrationIfSignup } from "@/lib/ads/fire-openai-ads";
 import { CreditPackageGrid } from "@/components/billing/CreditPackageGrid";
-import { usePublicPricing } from "@/lib/credits/use-public-pricing";
-import { MODEL_LABELS } from "@/lib/models/catalog";
+import { CreditCostTable } from "@/components/billing/CreditCostTable";
+import { resolveCreditPackageId } from "@/lib/billing/credit-packages";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,9 +29,7 @@ import {
   Coins,
   ArrowLeft,
   CheckCircle,
-  Wand2,
   Loader2,
-  Zap,
   Building2,
   Mail,
   Send,
@@ -94,7 +92,7 @@ function buildMailtoLink(data: {
   notes: string;
 }): string {
   const subject = encodeURIComponent(
-    `Projektförfrågan via SajtMaskin – ${data.company || data.name}`,
+    `Projektförfrågan via Sajtmaskin – ${data.company || data.name}`,
   );
 
   const lines = [
@@ -134,7 +132,7 @@ function BuyCreditsContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { isAuthenticated, isInitialized, diamonds, fetchUser } = useAuth();
-  const { breakdown } = usePublicPricing();
+  const requestedPackageId = resolveCreditPackageId(searchParams.get("package") ?? "") ?? null;
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("register");
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
@@ -471,6 +469,7 @@ function BuyCreditsContent() {
                 <CreditPackageGrid
                   disabled={isLoading}
                   pendingId={selectedPackage}
+                  highlightId={requestedPackageId}
                   onSelect={(packageId) => {
                     void handlePurchase(packageId);
                   }}
@@ -478,104 +477,7 @@ function BuyCreditsContent() {
                 />
 
                 {/* Pricing breakdown */}
-                <div className="mt-16">
-                  <h2 className="text-foreground mb-8 text-center text-xl font-semibold">
-                    Vad kostar det?
-                  </h2>
-                  <div className="mx-auto grid max-w-2xl gap-3 sm:grid-cols-2">
-                    {[
-                      {
-                        label: `Generering (${MODEL_LABELS.pro})`,
-                        cost: breakdown.generatePro,
-                        icon: Wand2,
-                        color: "text-brand-teal",
-                      },
-                      {
-                        label: `Generering (${MODEL_LABELS.max})`,
-                        cost: breakdown.generateMax,
-                        icon: Wand2,
-                        color: "text-brand-teal",
-                      },
-                      {
-                        label: `Generering (${MODEL_LABELS.premium})`,
-                        cost: breakdown.generatePremium,
-                        icon: Wand2,
-                        color: "text-brand-teal",
-                      },
-                      {
-                        label: `Generering (${MODEL_LABELS.ultra})`,
-                        cost: breakdown.generateUltra,
-                        icon: Wand2,
-                        color: "text-brand-teal",
-                      },
-                      {
-                        label: `Förfining (${MODEL_LABELS.pro})`,
-                        cost: breakdown.refinePro,
-                        icon: Zap,
-                        color: "text-brand-amber",
-                      },
-                      {
-                        label: `Förfining (${MODEL_LABELS.max})`,
-                        cost: breakdown.refineMax,
-                        icon: Zap,
-                        color: "text-brand-amber",
-                      },
-                      {
-                        label: `Förfining (${MODEL_LABELS.premium})`,
-                        cost: breakdown.refinePremium,
-                        icon: Zap,
-                        color: "text-brand-amber",
-                      },
-                      {
-                        label: `Förfining (${MODEL_LABELS.ultra})`,
-                        cost: breakdown.refineUltra,
-                        icon: Zap,
-                        color: "text-brand-amber",
-                      },
-                      {
-                        label: "Wizard-läge",
-                        cost: breakdown.wizard,
-                        icon: Sparkles,
-                        color: "text-brand-blue",
-                      },
-                      {
-                        label: "Audit (Basic)",
-                        cost: breakdown.auditBasic,
-                        icon: Globe,
-                        color: "text-brand-warm",
-                      },
-                      {
-                        label: "Audit (Advanced)",
-                        cost: breakdown.auditAdvanced,
-                        icon: Globe,
-                        color: "text-brand-warm",
-                      },
-                      {
-                        label: "Publicering",
-                        cost: breakdown.deploy,
-                        icon: ArrowRight,
-                        color: "text-muted-foreground",
-                      },
-                    ].map((item) => (
-                      <div
-                        key={item.label}
-                        className="border-border bg-card/50 flex items-center justify-between rounded-lg border px-4 py-2.5"
-                      >
-                        <span className="text-muted-foreground flex items-center gap-2 text-sm">
-                          <item.icon className={`h-4 w-4 shrink-0 ${item.color}`} />
-                          {item.label}
-                        </span>
-                        <span className="text-foreground flex items-center gap-1 text-sm font-semibold">
-                          <Coins className="text-brand-amber h-3.5 w-3.5" />
-                          {item.cost}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-muted-foreground mt-4 text-center text-xs">
-                    Engångsköp – credits gäller för alltid, ingen prenumeration.
-                  </p>
-                </div>
+                <CreditCostTable className="mt-16" />
 
                 {/* Payment footer */}
                 <p className="text-muted-foreground mt-12 text-center text-sm">
@@ -601,7 +503,7 @@ function BuyCreditsContent() {
                   <p className="text-muted-foreground mx-auto max-w-lg">
                     Behöver du mer än vad AI kan erbjuda? Vårt systerföretag{" "}
                     <a
-                      href="https://www.sajtmaskin.se"
+                      href="https://sajtstudio.se"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-brand-blue hover:text-brand-blue/80 inline-flex items-center gap-1 font-medium"
@@ -675,7 +577,7 @@ function BuyCreditsContent() {
                           maila oss direkt.
                         </p>
                         <a
-                          href={`mailto:${MAILTO_RECIPIENTS}?subject=${encodeURIComponent("Projektförfrågan via SajtMaskin")}`}
+                          href={`mailto:${MAILTO_RECIPIENTS}?subject=${encodeURIComponent("Projektförfrågan via Sajtmaskin")}`}
                           className="text-brand-blue hover:text-brand-blue/80 inline-flex items-center gap-1 text-sm font-medium"
                         >
                           <Mail className="h-4 w-4" />
@@ -975,7 +877,7 @@ function BuyCreditsContent() {
                 <span className="text-muted-foreground text-sm">Har du frågor? Kontakta oss:</span>
               </div>
               <a
-                href={`mailto:${MAILTO_RECIPIENTS}?subject=${encodeURIComponent("Fråga via SajtMaskin")}`}
+                href={`mailto:${MAILTO_RECIPIENTS}?subject=${encodeURIComponent("Fråga via Sajtmaskin")}`}
                 className="text-brand-blue hover:text-brand-blue/80 inline-flex items-center gap-2 text-lg font-semibold transition-colors"
               >
                 <span>{DISPLAY_EMAIL}</span>

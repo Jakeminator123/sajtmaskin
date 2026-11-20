@@ -673,6 +673,8 @@ def render(ctx: BackofficeContext) -> None:
     for column, (scope_name, label) in zip(metric_cols, _SCOPE_LABELS):
         column.metric(label, counts[scope_name])
 
+    from scripts.template_curator.runner import MAX_ANALYZE_TEMPLATES
+
     scope_by_label = {label: name for name, label in _SCOPE_LABELS}
     scope_label = st.selectbox("Population", tuple(scope_by_label), index=3)
     scope_name = scope_by_label[scope_label]
@@ -685,13 +687,17 @@ def render(ctx: BackofficeContext) -> None:
     with filter_cols[1]:
         query = st.text_input("Sök på namn, id eller kategori")
     with filter_cols[2]:
+        # Same bound as the runner/CLI: more options make the page slow and an
+        # analysis above the cap is rejected anyway.
+        max_visible = max(min(len(scoped), MAX_ANALYZE_TEMPLATES), 1)
         limit = int(
             st.number_input(
                 "Visa högst",
                 min_value=1,
-                max_value=max(len(scoped), 1),
-                value=min(100, max(len(scoped), 1)),
+                max_value=max_visible,
+                value=max_visible,
                 step=10,
+                help=f"Högst {MAX_ANALYZE_TEMPLATES} mallar per analys.",
             )
         )
 
@@ -714,6 +720,7 @@ def render(ctx: BackofficeContext) -> None:
             format_func=lambda template_id: _format_catalog_option(
                 template_id, visible_lookup
             ),
+            max_selections=MAX_ANALYZE_TEMPLATES,
             help="Bara dessa id:n hämtas när du startar analysen.",
         )
     )

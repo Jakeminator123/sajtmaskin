@@ -99,3 +99,20 @@ describe("dump-logs.mjs chats kind", () => {
     expect(dumpLogsSource).toContain("chat-display-title.mjs");
   });
 });
+
+describe("dump-logs.mjs --chat på kinds utan chatt-kolumn", () => {
+  it("kinds utan chatColumn har ingen chat-filtrering och loopen hoppar över dem", () => {
+    // Source lock: loopen kan inte importeras (scriptet ansluter vid load).
+    for (const kind of ["drain", "openai"]) {
+      const start = dumpLogsSource.indexOf(`\n  ${kind}: {`);
+      expect(start, `${kind} kind block`).toBeGreaterThan(-1);
+      const block = dumpLogsSource.slice(start, dumpLogsSource.indexOf("\n  },", start));
+      expect(block).toContain("chatColumn: null");
+    }
+    const loop = dumpLogsSource.match(/for \(const kind of kinds\) \{[\s\S]*?const cols =/)?.[0];
+    expect(loop, "kind loop head").toBeDefined();
+    expect(loop).toContain("chatFilterSkipReason(spec, chatId)");
+    expect(loop).toContain("skipped[kind] = chatSkip");
+    expect(loop).toContain("continue");
+  });
+});

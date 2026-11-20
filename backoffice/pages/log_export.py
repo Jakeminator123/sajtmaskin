@@ -144,6 +144,23 @@ def _run_vercel_pull(ctx: BackofficeContext) -> dict[str, Any]:
     }
 
 
+def _skipped_warnings(payload: dict[str, Any]) -> list[str]:
+    """En varningsrad per kind som scriptet hoppade över.
+
+    `dump-logs.mjs` fångar fel per kind (saknad tabell/kolumn, eller
+    `ej chattfiltrerbar`) i `skipped` och lämnar `data[kind] = []`. Utan den
+    här raden såg ett fel ut som "0 rader / Inga rader".
+    """
+    skipped = payload.get("skipped") or {}
+    if not isinstance(skipped, dict):
+        return []
+    return [
+        f"`{kind}` hoppades över: {reason}"
+        for kind, reason in skipped.items()
+        if reason
+    ]
+
+
 def _truncate_cols(df: pd.DataFrame, limit: int = 160) -> pd.DataFrame:
     out = df.copy()
     for col in out.columns:
@@ -312,6 +329,9 @@ def render(ctx: BackofficeContext) -> None:
     )
     counts = payload.get("counts") or {}
     st.caption("Rader: " + " · ".join(f"{k}={v}" for k, v in counts.items()))
+    for warning in _skipped_warnings(payload):
+        st.warning(warning)
+    skipped = payload.get("skipped") or {}
 
     # Hela nedladdningen som JSON (full data, inte trunkerad).
     full_json = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
@@ -329,7 +349,10 @@ def render(ctx: BackofficeContext) -> None:
         label = _KIND_LABELS.get(kind, (kind, ""))[0]
         st.markdown(f"#### {label} — {len(rows)} rader")
         if not rows:
-            st.caption("Inga rader.")
+            if isinstance(skipped, dict) and skipped.get(kind):
+                st.caption("Hoppades över — se varningen ovan (inte samma sak som 0 rader).")
+            else:
+                st.caption("Inga rader.")
             continue
         df = pd.DataFrame(rows)
         st.dataframe(_truncate_cols(df), hide_index=True, width="stretch")

@@ -14,6 +14,8 @@ type CreditPackageGridProps = {
   ctaLabel: (pkg: CreditPackage) => string;
   disabled?: boolean;
   pendingId?: string | null;
+  /** Paket som besökaren valde på /priser (`?package=`) markeras. */
+  highlightId?: CreditPackageId | null;
 };
 
 export function CreditPackageGrid({
@@ -21,12 +23,14 @@ export function CreditPackageGrid({
   ctaLabel,
   disabled = false,
   pendingId = null,
+  highlightId = null,
 }: CreditPackageGridProps) {
   return (
     <div className="grid items-start gap-6 md:grid-cols-3">
       {CREDIT_PACKAGES.map((pkg) => {
         const copy = creditPackageCopy[pkg.id];
         const pending = pendingId === pkg.id;
+        const highlighted = highlightId === pkg.id;
         return (
           <div
             key={pkg.id}
@@ -34,7 +38,8 @@ export function CreditPackageGrid({
               pkg.popular
                 ? "border-primary/30 bg-primary/5 shadow-xl shadow-primary/5 md:-my-2 md:scale-105"
                 : "border-border/20 bg-card/50"
-            }`}
+            }${highlighted ? " ring-primary ring-2" : ""}`}
+            aria-current={highlighted ? "true" : undefined}
           >
             {pkg.popular ? (
               <div className="bg-primary text-primary-foreground absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[10px] font-semibold tracking-wider uppercase">

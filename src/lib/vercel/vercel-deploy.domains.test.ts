@@ -327,6 +327,7 @@ describe("getVercelProjectProductionIdentity", () => {
     await expect(getVercelProjectProductionIdentity("vp_1")).resolves.toEqual({
       vercelProjectId: "vp_1",
       productionDeploymentId: "dpl_a",
+      productionProviderAlias: "demo.vercel.app",
     });
   });
 

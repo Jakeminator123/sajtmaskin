@@ -32,6 +32,7 @@ import {
   writeCreateChatLock,
 } from "./helpers";
 import { handleSseStream } from "./stream-handlers";
+import { SITE_SAVED_TOAST_OPTIONS, SITE_SAVED_TOAST_TITLE } from "./site-saved-toast";
 import { ENGINE_CHATS_API_PREFIX } from "@/lib/api/engine-chats-path";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 import {
@@ -421,7 +422,7 @@ export function useCreateChat(
         if (pendingCreateKeyRef.current) {
           updateCreateChatLockChatId(pendingCreateKeyRef.current, String(newChatId));
         }
-        toast.success("Sajt skapad!");
+        toast.success(SITE_SAVED_TOAST_TITLE, SITE_SAVED_TOAST_OPTIONS);
 
         if (resolvedDemoUrl) {
           if (applyPreviewHandoff) {

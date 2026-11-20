@@ -264,5 +264,42 @@ class ExtractorFingerprintTests(unittest.TestCase):
             self.assertEqual(compute_extractor_sha256(root), expected)
 
 
+class ManifestStillImageTests(unittest.TestCase):
+    """The uploader writes stillImageUrl: null for templates without an image."""
+
+    def _load(self, still: object) -> object:
+        from scripts.template_curator.catalog import _load_manifest
+
+        row = {
+            "id": "tmpl1",
+            "title": "Demo",
+            "slug": "tmpl1",
+            "category": "ai",
+            "archiveUrl": "https://unit.public.blob.vercel-storage.com/a.zip",
+            "archiveSha256": "a" * 64,
+            "archiveSizeBytes": 10,
+            "stillImageUrl": still,
+            "previewFits": True,
+        }
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            manifest = root / "src/lib/templates/template-blob-manifest.json"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text(json.dumps({"templates": [row]}), encoding="utf-8")
+            return _load_manifest(root)
+
+    def test_null_still_image_does_not_block_the_catalog(self) -> None:
+        records = self._load(None)
+        self.assertIsNone(records["tmpl1"].still_image_url)
+
+    def test_present_still_image_is_kept(self) -> None:
+        url = "https://unit.public.blob.vercel-storage.com/still.png"
+        self.assertEqual(self._load(url)["tmpl1"].still_image_url, url)
+
+    def test_blank_still_image_is_still_rejected(self) -> None:
+        with self.assertRaises(CatalogValidationError):
+            self._load("   ")
+
+
 if __name__ == "__main__":
     unittest.main()

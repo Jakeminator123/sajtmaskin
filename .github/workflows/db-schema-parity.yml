@@ -22,6 +22,10 @@ on:
     - cron: "37 4 * * *"
   workflow_dispatch: {}
 
+concurrency:
+  group: db-schema-parity-scheduled
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -29,6 +33,7 @@ jobs:
   reject-untrusted-manual-ref:
     if: ${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/master' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Reject secret-bearing dispatch outside master
         run: |
@@ -38,6 +43,7 @@ jobs:
   db-schema-parity-scheduled:
     if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout

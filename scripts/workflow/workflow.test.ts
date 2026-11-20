@@ -954,6 +954,15 @@ describe("agent workflow repository contract", () => {
     const weakened = [
       replaceOnce("reopened, ready_for_review", "reopened"),
       replaceOnce(
+        "types: [opened, synchronize, reopened, ready_for_review]",
+        "types: [opened, synchronize, reopened, ready_for_review, labeled]",
+      ),
+      replaceOnce("timeout-minutes: 40\n", "timeout-minutes: 360\n"),
+      replaceOnce(
+        'SAJTMASKIN_PR_LABELS: "${{ toJSON(github.event.pull_request.labels.*.name) }}"\n',
+        "",
+      ),
+      replaceOnce(
         "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
         "cancel-in-progress: true",
       ),

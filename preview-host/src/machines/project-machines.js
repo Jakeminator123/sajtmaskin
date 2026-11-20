@@ -105,7 +105,8 @@ function machineConfigPayload(config, { chatId, token }) {
         [METADATA_HOST_KEY]: config.hostIdentity,
       },
       // The control plane owns the lifecycle: a crashed agent is restarted by
-      // the next boot, not by Fly; a stopped machine stays around for resume.
+      // the next boot, not by Fly; idle guests are destroyed by the host's
+      // idle sweep (machine-runtime.js), never left stopped.
       auto_destroy: false,
       restart: { policy: "no" },
     },
@@ -148,9 +149,45 @@ async function destroyMachineQuietly(fly, machineId) {
   }
 }
 
+const CREATE_MAX_ATTEMPTS = 4;
+const CREATE_RETRY_MAX_DELAY_MS = 10_000;
+let createRetryBaseMs = 1000;
+
+/** Exponential backoff with jitter: base·2^(n-1), randomised to 50–100 %. */
+function createRetryDelayMs(attempt, error) {
+  const ceiling = createRetryBaseMs * 2 ** (attempt - 1);
+  const jittered = Math.round(ceiling / 2 + Math.random() * (ceiling / 2));
+  const hinted = Number.isFinite(error?.retryAfterMs) ? error.retryAfterMs : 0;
+  return Math.min(CREATE_RETRY_MAX_DELAY_MS, Math.max(jittered, hinted));
+}
+
+/**
+ * Create with a few retries on 429, 5xx and capacity misses (the region is
+ * momentarily full). Same region every time: a guest elsewhere would put the
+ * preview proxy's hop to it across regions. Each attempt mints a fresh
+ * name and token so a create that did land despite an error response is a
+ * plain orphan for the reconcile sweep, never a second holder of our token.
+ */
+async function createMachineWithRetry(fly, config, chatId, log) {
+  for (let attempt = 1; ; attempt += 1) {
+    const token = randomBytes(32).toString("base64url");
+    try {
+      const created = await fly.createMachine(machineConfigPayload(config, { chatId, token }));
+      return { created, token };
+    } catch (error) {
+      const retryable = error instanceof FlyMachinesError && error.retryableCreate;
+      if (!retryable || attempt >= CREATE_MAX_ATTEMPTS) throw error;
+      const delayMs = createRetryDelayMs(attempt, error);
+      await log?.(
+        `Guest machine create failed (attempt ${attempt}/${CREATE_MAX_ATTEMPTS}: ${error.message}); retrying in ${delayMs} ms.`,
+      );
+      await sleep(delayMs);
+    }
+  }
+}
+
 async function createFreshMachine(fly, config, chatId, log) {
-  const token = randomBytes(32).toString("base64url");
-  const created = await fly.createMachine(machineConfigPayload(config, { chatId, token }));
+  const { created, token } = await createMachineWithRetry(fly, config, chatId, log);
   const machineId = created?.id;
   if (!machineId) throw new Error("Fly Machines create returned no machine id.");
   const record = {
@@ -250,8 +287,9 @@ function ensureProjectMachine(chatId, { log, allowReplace = true } = {}) {
         // Fly's echoed/normalized config string.
         await replace("runs an old image");
       } else if (machine.state === "stopping") {
-        // `stop` returns before the machine is down; a quick resume must not
-        // throw away node_modules and the fingerprint by recreating it.
+        // The host never stops guests, but the agent can exit (restart policy
+        // "no") or Fly can stop one for maintenance. Wait for it to settle and
+        // start it again; the boot reinstalls into the fresh rootfs.
         await waitForMachineState(fly, record.machineId, "stopped", 60_000);
         await fly.startMachine(record.machineId);
       } else if (machine.state === "stopped" || machine.state === "suspended" || machine.state === "created") {
@@ -303,32 +341,17 @@ function guestForChat(chatId) {
   return guestClientFor(record, machineIsolationConfig());
 }
 
-function stopProjectMachine(chatId, { log } = {}) {
+/**
+ * `shouldDestroy(record)` is re-evaluated under the machine lock, after any
+ * queued ensure/create for the same chat has finished, so a caller that
+ * decided from a snapshot (the idle sweep) never destroys a guest a boot or
+ * verify just claimed.
+ */
+function destroyProjectMachine(chatId, { log, shouldDestroy } = {}) {
   return withMachineLock(chatId, async () => {
     const record = readMachineRecord(chatId);
     if (!record) return false;
-    const config = assertMachineIsolationReady();
-    const fly = flyClient(config);
-    try {
-      await fly.stopMachine(record.machineId);
-      record.state = "stopped";
-      await writeMachineRecord(chatId, record);
-      await log?.(`Guest machine ${record.machineId} stopped.`);
-      return true;
-    } catch (error) {
-      if (error instanceof FlyMachinesError && error.notFound) {
-        await writeMachineRecord(chatId, null);
-        return false;
-      }
-      throw error;
-    }
-  });
-}
-
-function destroyProjectMachine(chatId, { log } = {}) {
-  return withMachineLock(chatId, async () => {
-    const record = readMachineRecord(chatId);
-    if (!record) return false;
+    if (typeof shouldDestroy === "function" && !shouldDestroy(record)) return false;
     const config = assertMachineIsolationReady();
     const fly = flyClient(config);
     await destroyMachineQuietly(fly, record.machineId);
@@ -422,9 +445,10 @@ async function reconcileProjectMachines({ keepChatIds }) {
   return { destroyed };
 }
 
-function setMachineClientsForTesting({ fly, guestFactory } = {}) {
+function setMachineClientsForTesting({ fly, guestFactory, createRetryBaseMs: retryBaseMs } = {}) {
   flyClientForTesting = fly ?? null;
   guestClientFactoryForTesting = typeof guestFactory === "function" ? guestFactory : null;
+  createRetryBaseMs = Number.isFinite(retryBaseMs) && retryBaseMs >= 0 ? retryBaseMs : 1000;
 }
 
 module.exports = {
@@ -432,6 +456,7 @@ module.exports = {
   METADATA_HOST_KEY,
   METADATA_ROLE,
   METADATA_ROLE_KEY,
+  CREATE_MAX_ATTEMPTS,
   destroyProjectMachine,
   ensureProjectMachine,
   guestForChat,
@@ -440,5 +465,4 @@ module.exports = {
   readMachineRecord,
   reconcileProjectMachines,
   setMachineClientsForTesting,
-  stopProjectMachine,
 };

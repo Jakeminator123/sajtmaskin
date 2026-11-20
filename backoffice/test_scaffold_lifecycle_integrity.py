@@ -968,6 +968,63 @@ class PruneVariantEmbeddingsTests(unittest.TestCase):
             )
             self.assertEqual(sl._prune_variant_embeddings(ctx, "landing-page", ["x"]), 0)
 
+    def test_failed_sync_prunes_locally_but_never_publishes_to_blob(self) -> None:
+        """En misslyckad `embeddings:sync` lämnar en inaktuell cache.
+
+        Att då ladda upp den (`embeddings:promote`) skrev över Blob för
+        scaffolds som aldrig rörts. Bara indexgrindens `--require-blob` publicerar.
+        """
+        import subprocess
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = self._write_index(
+                root,
+                [
+                    {"id": "keep", "scaffoldId": "landing-page", "embedding": [0.1]},
+                    {"id": "gone", "scaffoldId": "landing-page", "embedding": [0.2]},
+                ],
+            )
+            ctx = SimpleNamespace(
+                repo_root=root, variants_dir=root / "config" / "scaffold-variants"
+            )
+            commands: list[list[str]] = []
+
+            def fake_run(command, **_kwargs):  # noqa: ANN001
+                commands.append([str(part) for part in command])
+                return subprocess.CompletedProcess(command, 1, "", "sync failed")
+
+            with patch("subprocess.run", side_effect=fake_run):
+                self.assertFalse(variants_lib._sync_variant_embeddings_cache(ctx))
+                removed = sl._prune_variant_embeddings(ctx, "landing-page", ["gone"])
+
+            self.assertEqual(removed, 1)
+            data = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual([e["id"] for e in data["embeddings"]], ["keep"])
+            self.assertTrue(commands, "sync should still be attempted")
+            for command in commands:
+                self.assertNotIn("embeddings:promote", command)
+                self.assertIn("embeddings:sync", command)
+
+    def test_sync_reports_success_only_on_exit_zero(self) -> None:
+        import subprocess
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_index(root, [])
+            ctx = SimpleNamespace(
+                repo_root=root, variants_dir=root / "config" / "scaffold-variants"
+            )
+            for code, expected in ((0, True), (1, False)):
+                with self.subTest(exit_code=code):
+                    with patch(
+                        "subprocess.run",
+                        return_value=subprocess.CompletedProcess([], code, "", ""),
+                    ):
+                        self.assertIs(
+                            variants_lib._sync_variant_embeddings_cache(ctx), expected
+                        )
+
 
 class PruneScaffoldEmbeddingsTests(unittest.TestCase):
     def test_prune_removes_matching_id(self) -> None:

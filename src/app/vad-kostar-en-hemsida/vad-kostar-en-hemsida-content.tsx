@@ -89,7 +89,7 @@ export const FAQS = [
   },
   {
     q: "Vad kostar Sajtmaskin just nu?",
-    a: "Inte ett belopp i den här texten. Credits köps som engångspaket, utan prenumeration. Ett konto får en första slutförd generering utan coin-debitering. Titta på prissidan för aktuella paket.",
+    a: "Inte ett belopp i den här texten. Credits köps som engångspaket, utan prenumeration. Ett konto får en första slutförd generering gratis. Titta på prissidan för aktuella paket.",
   },
 ] as const;
 

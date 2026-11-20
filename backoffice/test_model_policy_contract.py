@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import unittest
 
 from backoffice import REPO_ROOT
@@ -118,6 +119,17 @@ class ModelPolicyContractTests(unittest.TestCase):
             ROUTE_LOCAL_WORKLOAD_MODELS["runtime_embeddings_query"][0],
             "text-embedding-3-small",
         )
+
+    def test_route_local_models_match_their_source_files(self) -> None:
+        transcribe = (REPO_ROOT / "src/app/api/transcribe/route.ts").read_text(encoding="utf-8")
+        self.assertEqual(
+            sorted(set(re.findall(r'\bmodel: "([^"]+)"', transcribe))),
+            [ROUTE_LOCAL_WORKLOAD_MODELS["transcribe"][0]],
+        )
+        search = (REPO_ROOT / "src/lib/templates/template-search.ts").read_text(encoding="utf-8")
+        match = re.search(r'const EMBEDDING_MODEL = "([^"]+)"', search)
+        self.assertIsNotNone(match, "EMBEDDING_MODEL not found in template-search.ts")
+        self.assertEqual(match.group(1), ROUTE_LOCAL_WORKLOAD_MODELS["runtime_embeddings_query"][0])
 
 
 if __name__ == "__main__":

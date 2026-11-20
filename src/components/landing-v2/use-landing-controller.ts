@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { toBuilderStartHref } from "@/lib/ads/ads-click-params"
 import { createProject, deleteProject } from "@/lib/projects/project-client"
+import { projectNameFromPrompt } from "@/lib/builder/project-name-suggestion"
 import { resolveLandingRouteTarget } from "@/components/landing-v2/route-target"
 import { trackHomepageEvent } from "@/components/landing-v2/landing-analytics"
 import { categories, siteTypes } from "@/components/landing-v2/landing-chat-data"
@@ -114,8 +115,9 @@ export function useLandingController({
 
       try {
         const categoryLabel = categories.find((category) => category.id === targetCategory)?.label ?? "Sajt"
+        // Named after the business, not "Beskriv själv - <datum>" (prod 2026-11-11).
         const project = await createProject(
-          `${categoryLabel} - ${new Date().toLocaleDateString("sv-SE")}`,
+          projectNameFromPrompt(prompt) || categoryLabel,
           routeTarget.buildMethod,
           prompt ? prompt.slice(0, 100) : undefined,
         )

@@ -20,7 +20,11 @@
  */
 import { config } from "dotenv";
 import pg from "pg";
-import { normalizeEnvUrl, warnIfProdLikeReadTarget } from "./db-target-guard.mjs";
+import {
+  normalizeEnvUrl,
+  summarizeTarget,
+  warnIfProdLikeReadTarget,
+} from "./db-target-guard.mjs";
 import {
   CURRENT_VERSION_ERROR_LOG_PREDICATE_SQL,
   LATEST_PRODUCT_POSTCHECK_JOIN,
@@ -28,7 +32,27 @@ import {
 } from "./lib/reported-quality-gate.mjs";
 
 config({ path: ".env.local", quiet: true });
-warnIfProdLikeReadTarget({ commandName: "generation-history" });
+// The prod-like warning goes to stderr, which the backoffice discards when
+// stdout has JSON — so the target is ALSO part of every JSON payload.
+const dbTarget = warnIfProdLikeReadTarget({ commandName: "generation-history" });
+const targetFields = {
+  target: summarizeTarget(dbTarget.current),
+  isProdLike: dbTarget.isProdLike === true,
+};
+
+// M#pv1 semantik-cutoff — SAMMA värde som `PREVIEW_SUCCESS_SEMANTIC_CUTOFF` i
+// `scripts/db/control-stats.mjs` (kanonisk) och `_PREVIEW_SUCCESS_SEMANTIC_CUTOFF`
+// i `backoffice/pages/generation_history.py`. `preview_success = true` före
+// cutoffen betyder "preflight blockerade inte", inte runtime-ready.
+const PREVIEW_SUCCESS_SEMANTIC_CUTOFF = "2026-07-03T14:30:00Z";
+const PREVIEW_SUCCESS_SEMANTIC_CUTOFF_MS = Date.parse(PREVIEW_SUCCESS_SEMANTIC_CUTOFF);
+
+function isBeforePreviewSemanticCutoff(createdAt) {
+  const ms =
+    createdAt instanceof Date ? createdAt.getTime() : Date.parse(String(createdAt ?? ""));
+  // Okänd tid → konservativt legacy (samma riktning som backoffice-etiketten).
+  return !Number.isFinite(ms) || ms < PREVIEW_SUCCESS_SEMANTIC_CUTOFF_MS;
+}
 
 const argv = process.argv.slice(2);
 const wantJson = argv.includes("--json");
@@ -219,6 +243,7 @@ try {
     const payload = {
       mode: "chat",
       generatedAt: new Date().toISOString(),
+      ...targetFields,
       chat: meta.rows[0] ?? { id: chatId, missing: true },
       versions: versions.rows,
       telemetry: telemetry.rows.map(projectHistoryRow),
@@ -235,25 +260,35 @@ try {
 
   const result = await client.query(RECENT_QUERY, [limit]);
   const rows = result.rows.map(projectHistoryRow);
+  // `success` = runtime-ready only. Pre-cutoff `true` is counted as `legacy`
+  // so the headline number never mixes the old "preflight did not block"
+  // semantics into "preview ok".
   let success = 0;
+  let legacy = 0;
   let failed = 0;
   let pending = 0;
   for (const r of rows) {
-    if (r.preview_success === true) success += 1;
-    else if (r.preview_success === false) failed += 1;
+    if (r.preview_success === true) {
+      if (isBeforePreviewSemanticCutoff(r.created_at)) legacy += 1;
+      else success += 1;
+    } else if (r.preview_success === false) failed += 1;
     else pending += 1;
   }
   const payload = {
     mode: "recent",
     limit,
     generatedAt: new Date().toISOString(),
-    summary: { total: rows.length, success, failed, pending },
+    ...targetFields,
+    summary: { total: rows.length, success, legacy, failed, pending },
     rows,
   };
   if (wantJson) {
     process.stdout.write(JSON.stringify(payload));
   } else {
-    console.log(`Senaste ${rows.length} genereringar (success=${success}, failed=${failed}, pending=${pending}).`);
+    console.log(`Target ${targetFields.target}${targetFields.isProdLike ? " (PROD-LIKE)" : ""}`);
+    console.log(
+      `Senaste ${rows.length} genereringar (success=${success}, legacy=${legacy}, failed=${failed}, pending=${pending}).`,
+    );
     for (const r of rows.slice(0, 30)) {
       console.log(
         [
@@ -261,7 +296,13 @@ try {
           r.project_name || "—",
           r.scaffold_id || "—",
           r.model || "—",
-          r.preview_success === true ? "ok" : r.preview_success === false ? "FAIL" : "pending",
+          r.preview_success === true
+            ? isBeforePreviewSemanticCutoff(r.created_at)
+              ? "legacy"
+              : "ok"
+            : r.preview_success === false
+              ? "FAIL"
+              : "pending",
         ].join("\t"),
       );
     }

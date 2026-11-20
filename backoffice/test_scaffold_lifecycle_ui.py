@@ -41,6 +41,7 @@ DESTRUCTIVE_RENDERERS = (
     "_render_delete_variant",
     "_render_delete_scaffold",
     "_render_baseline_tab",
+    "_render_move_baseline",
 )
 
 # Engelska etiketter som Fas B ersatte. Dyker någon upp igen står två språk för
@@ -278,6 +279,29 @@ class TypedConfirmationTests(unittest.TestCase):
                 calls,
                 f"{name} saknar typad bekräftelse",
             )
+
+    def test_tag_move_is_its_own_typed_action(self) -> None:
+        """Per åtgärd, inte per funktion: reset-grenens bekräftelse fick tidigare
+        `_render_baseline_tab` att se säker ut fast `git tag -f` bara hade en kryssruta.
+        """
+        from backoffice.pages.scaffold_lifecycle_lib import ui_danger
+
+        module = ast.parse(inspect.getsource(ui_danger))
+        owners: list[str] = []
+        for function in (n for n in module.body if isinstance(n, ast.FunctionDef)):
+            for node in ast.walk(function):
+                if isinstance(node, ast.List):
+                    values = [
+                        element.value
+                        for element in node.elts
+                        if isinstance(element, ast.Constant)
+                    ]
+                    if values[:2] == ["tag", "-f"]:
+                        owners.append(function.name)
+        self.assertEqual(owners, ["_render_move_baseline"])
+        calls = _called_names(_function_ast(sl._render_move_baseline))
+        self.assertIn("confirm_by_typing", calls)
+        self.assertNotIn("checkbox", calls)
 
     def test_variant_delete_no_longer_confirms_with_a_checkbox(self) -> None:
         """Kryssrutan var den svagaste friktionen och ersattes, inte kompletterades."""
@@ -648,6 +672,61 @@ class IndexGateQueueTests(unittest.TestCase):
                 self.assertIn("--require-blob", step["command"])
                 self.assertNotIn("embeddings:promote", step["command"])
                 self.assertTrue(step["needs_blob"])
+
+
+class MoveBaselineTests(unittest.TestCase):
+    """`git tag -f` kräver typad bekräftelse och visar den gamla pekaren."""
+
+    OLD = "a" * 40
+    HEAD = "b" * 40
+
+    def _run(self, *, typed: bool, submitted: bool, rev_parse_ok: bool = True):
+        from backoffice.pages.scaffold_lifecycle_lib import ui_danger
+
+        git_calls: list[list[str]] = []
+
+        def fake_git(_ctx, args, *, timeout: int = 60):  # noqa: ARG001
+            git_calls.append(list(args))
+            if args[:1] == ["rev-parse"]:
+                if not rev_parse_ok:
+                    return 128, "fatal: bad revision"
+                return 0, self.OLD if args[1].startswith(sl.BASELINE_TAG) else self.HEAD
+            return 0, ""
+
+        fake_st = mock.MagicMock()
+        fake_st.form_submit_button.return_value = submitted
+        flash = mock.MagicMock()
+        with (
+            mock.patch.object(ui_danger, "st", fake_st),
+            mock.patch.object(ui_danger, "_baseline_tag_exists", return_value=True),
+            mock.patch.object(ui_danger, "confirm_by_typing", return_value=typed),
+            mock.patch.object(ui_danger, "_flash_note", flash),
+            mock.patch.object(sl, "_run_git", side_effect=fake_git),
+        ):
+            ui_danger._render_move_baseline(mock.Mock())
+        tag_moves = [call for call in git_calls if call[:2] == ["tag", "-f"]]
+        return tag_moves, flash, fake_st
+
+    def test_without_typed_confirmation_nothing_moves(self) -> None:
+        tag_moves, flash, fake_st = self._run(typed=False, submitted=True)
+        self.assertEqual(tag_moves, [])
+        flash.assert_not_called()
+        fake_st.error.assert_called()
+
+    def test_typed_confirmation_moves_to_head_and_flashes_old_sha(self) -> None:
+        tag_moves, flash, _ = self._run(typed=True, submitted=True)
+        self.assertEqual(tag_moves, [["tag", "-f", sl.BASELINE_TAG, self.HEAD]])
+        note = flash.call_args.args[0]
+        self.assertIn(self.OLD, note)
+        self.assertIn(f"git tag -f {sl.BASELINE_TAG} {self.OLD}", note)
+
+    def test_unreadable_old_sha_disables_the_move(self) -> None:
+        tag_moves, flash, fake_st = self._run(
+            typed=True, submitted=True, rev_parse_ok=False
+        )
+        self.assertEqual(tag_moves, [])
+        flash.assert_not_called()
+        fake_st.form_submit_button.assert_not_called()
 
 
 if __name__ == "__main__":

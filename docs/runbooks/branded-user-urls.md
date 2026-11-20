@@ -155,7 +155,7 @@ Domänen blir kanonisk först när Vercels verify-endpoint returnerar `verified:
 
 ## Preview
 
-Preview-hosten behåller path-routing på `chatId`; ingen wildcard-/host-routing krävs. Alla publika preview-svar skickar `X-Robots-Tag: noindex, nofollow, noarchive` och `Cache-Control: private, no-store`.
+Preview-hosten routar på `chatId` i sökvägen. Med `PREVIEW_HOST_ORIGIN_MODE=subdomain` får varje chatt dessutom en egen origin under en wildcard på `sajtmaskin.com` (inte `.se`, så att previews förblir cross-site mot portalen); se `preview-host/README.md` § Webbläsar-origin per chatt. Alla publika preview-svar skickar `X-Robots-Tag: noindex, nofollow, noarchive` och `Cache-Control: private, no-store`.
 
 ## A3 offline-bevis (2026-09-15)
 

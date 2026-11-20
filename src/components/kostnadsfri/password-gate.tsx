@@ -20,7 +20,7 @@ import { IntroVideo } from "./intro-video";
 /** Written out because the film must not be the only carrier of this. */
 const STEPS = [
   "Svara på tre korta frågor om er verksamhet.",
-  "SajtMaskin bygger ett förslag på er nya webbplats.",
+  "Sajtmaskin bygger ett förslag på er nya webbplats.",
   "Ni behöver inte installera något — allt sker i webbläsaren.",
 ];
 
@@ -249,7 +249,7 @@ export function PasswordGate({ slug, companyName, onSuccess }: PasswordGateProps
         </ul>
 
         <p className="text-center text-xs text-muted-foreground lg:col-span-2 lg:row-start-3 lg:pt-2">
-          Drivs av SajtMaskin — AI-driven webbdesign
+          Drivs av Sajtmaskin — AI-driven webbdesign
         </p>
       </main>
     </div>

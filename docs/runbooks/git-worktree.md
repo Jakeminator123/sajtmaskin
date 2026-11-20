@@ -40,6 +40,15 @@ npm ci
 npm run hooks:install
 ```
 
+**Cursor kan radera worktrees.** Med inställningarna `worktreeMaxCount: 5` och
+`worktreesGlobalMaxSizeGb: 8` tar Cursor bort de äldsta mapparna under
+`.cursor/worktrees` när gränsen nås, även med ocommittat arbete (2026-11-11:
+sex mappar mitt under arbetet). Håll dig under fem, committa och pusha efter
+varje steg och lägg ändringsskript utanför worktreet. En raderad mapp står kvar
+som `prunable` i `git worktree list`; återskapa den med
+`git worktree add -f <worktree> <branch>`. `npm run worktree:remove` kraschar på
+en saknad mapp.
+
 Kör repokommandon i den nya checkouten med dess Node-pin. I Codex används
 appens worktree-funktion för apphanterade ytor; skapa inte en andra manuell
 worktree för samma uppdrag.

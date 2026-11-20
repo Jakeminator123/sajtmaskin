@@ -1,8 +1,8 @@
 "use strict";
 
 // Verifieringsjobb (F3/ReleaseGate-lanen): isolerade verify-workspaces,
-// serialiserad jobbkö och lint-klassificering. Ren extraktion ur runtime.js —
-// ingen beteendeändring.
+// jobbkö (hostgemensam i shared-läge, per chat i maskinläge) och
+// lint-klassificering.
 
 const { createHash } = require("node:crypto");
 const fs = require("node:fs");
@@ -12,8 +12,6 @@ const {
   activeVerifyChatKeys,
   clipVerifyOutput,
   dependencyStatePathForWorkspace,
-  inflightBootByChat,
-  runtimeChildren,
   removeDirWithRetries,
   runShellCommand,
   safeChatKey,
@@ -34,7 +32,7 @@ const { ensureProjectMachine } = require("../machines/project-machines.js");
 const {
   installInGuest,
   isMachineRuntime,
-  parkProjectMachine,
+  noteGuestActivity,
   prepareGuestFiles,
 } = require("./machine-runtime.js");
 
@@ -55,7 +53,9 @@ const VERIFY_LOCAL_TOOL_PATHS = {
 };
 
 const inflightVerifyByKey = new Map();
-let verifyQueue = Promise.resolve();
+// Shared mode: one host-wide chain. Machine mode: one chain per chat.
+let sharedVerifyQueue = Promise.resolve();
+const verifyQueueByChat = new Map();
 
 function inspectProjectLintSetup(filesJson) {
   const names = new Set(
@@ -148,6 +148,8 @@ function classifyLintResult(result) {
 
 let verifyInstallRunner = runInstallCommandWithFallback;
 let verifyCommandRunner = runShellCommand;
+/** Replaces the whole job inside the queue so guards can observe scheduling. */
+let verifyJobRunnerForTesting = null;
 
 /**
  * SM-080: the same verify job executed inside the chat's own guest machine.
@@ -327,14 +329,9 @@ async function runVerifyJobInMachine(params) {
     return finish();
   } finally {
     await guest.deleteWorkspace(workspace).catch(() => {});
-    // A verify may have started a parked machine. Park it again unless a live
-    // dev process or an in-flight boot for this chat is using it.
-    const chatHasLiveRuntime = [...runtimeChildren.values()].some(
-      (tracked) => tracked?.chatId === chatId && tracked.child?.exitCode === null,
-    );
-    if (!chatHasLiveRuntime && !inflightBootByChat.has(chatId)) {
-      await parkProjectMachine(chatId).catch(() => false);
-    }
+    // The guest stays up; its idle clock restarts now and the idle sweep
+    // destroys it after PREVIEW_GUEST_IDLE_DESTROY_MS without activity.
+    noteGuestActivity(chatId);
   }
 }
 
@@ -579,22 +576,36 @@ function runQueuedVerifyJob(params) {
     return existing;
   }
 
-  // Verify runs beside live previews on the same VM, so serialize jobs to avoid
-  // duplicated installs/typechecks fighting for RAM and disk at the same time.
-  const task = verifyQueue
+  // Shared mode: verify runs beside every live preview on this one host, so
+  // jobs serialize host-wide to keep installs/typechecks from fighting for
+  // RAM and disk. Machine mode: each chat's verify runs in that chat's own
+  // guest, so only jobs for the same chat (same guest, same verify slot)
+  // serialize; different chats verify in parallel.
+  const chatQueueKey = isMachineRuntime() ? String(params.chatId ?? "") : null;
+  const previous =
+    chatQueueKey === null ? sharedVerifyQueue : (verifyQueueByChat.get(chatQueueKey) ?? Promise.resolve());
+  const task = previous
     .catch(() => undefined)
     .then(async () => {
       const chatKey = safeChatKey(params.chatId);
       activeVerifyChatKeys.add(chatKey);
       try {
-        return await runVerifyJob(params);
+        return await (verifyJobRunnerForTesting ?? runVerifyJob)(params);
       } finally {
         activeVerifyChatKeys.delete(chatKey);
       }
     });
 
   inflightVerifyByKey.set(jobKey, task);
-  verifyQueue = task.catch(() => undefined);
+  const tail = task.catch(() => undefined);
+  if (chatQueueKey === null) {
+    sharedVerifyQueue = tail;
+  } else {
+    verifyQueueByChat.set(chatQueueKey, tail);
+    tail.then(() => {
+      if (verifyQueueByChat.get(chatQueueKey) === tail) verifyQueueByChat.delete(chatQueueKey);
+    });
+  }
 
   return task.finally(() => {
     if (inflightVerifyByKey.get(jobKey) === task) {
@@ -612,6 +623,7 @@ function setVerifyRunnersForTesting(params = {}) {
     typeof params.commandRunner === "function"
       ? params.commandRunner
       : runShellCommand;
+  verifyJobRunnerForTesting = typeof params.jobRunner === "function" ? params.jobRunner : null;
 }
 
 module.exports = {

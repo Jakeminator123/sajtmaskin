@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { homepageCreditFaq } from "@/lib/billing/credit-faq";
+import { CreditCostTable } from "@/components/billing/CreditCostTable";
 import { Footer } from "@/components/layout/footer";
 import {
   FaqPageJsonLd,
@@ -80,17 +81,29 @@ export default function PriserPage() {
                       {`${pkg.credits} credits`}
                     </span>
                   </p>
-                  <ul className="space-y-2 text-sm text-muted-foreground">
+                  <ul className="flex-1 space-y-2 text-sm text-muted-foreground">
                     {copy.features.map((feature) => (
                       <li key={feature}>{feature}</li>
                     ))}
                   </ul>
+                  <Link
+                    href={`/buy-credits?package=${pkg.id}`}
+                    className={`inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium transition-colors ${
+                      pkg.popular
+                        ? "bg-primary text-primary-foreground hover:bg-primary-hover"
+                        : "border border-border/40 text-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    {copy.cta}
+                  </Link>
                 </article>
               );
             })}
           </div>
 
-          <p className="mt-8 text-sm text-muted-foreground">
+          <CreditCostTable className="mt-14" />
+
+          <p className="mt-10 text-sm text-muted-foreground">
             Credits används när du bygger, ändrar, kör analys eller publicerar — inte som en
             månadsavgift. Mallimport räknas inte som den gratis första genereringen. Läs mer om
             kostnadsdelar i{" "}

@@ -11,6 +11,7 @@ import {
 import { noteGoogleAdsConversion } from "@/lib/ads/fire-google-ads-conversion";
 import { noteOpenAiRegistrationCompleted } from "@/lib/ads/fire-openai-ads";
 import { Button } from "@/components/ui/button";
+import { ForgotPasswordPanel } from "@/components/auth/forgot-password-panel";
 import { Input } from "@/components/ui/input";
 import { X, Mail, Lock, User, Eye, EyeOff, Loader2, Wand2 } from "lucide-react";
 
@@ -31,7 +32,7 @@ export function AuthModal({
   returnTo,
   onSuccess,
 }: AuthModalProps) {
-  const [mode, setMode] = useState<"login" | "register">(defaultMode);
+  const [mode, setMode] = useState<"login" | "register" | "forgot">(defaultMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -76,7 +77,7 @@ export function AuthModal({
     onClose();
   };
 
-  const handleModeChange = (nextMode: "login" | "register") => {
+  const handleModeChange = (nextMode: "login" | "register" | "forgot") => {
     attemptEpochRef.current += 1;
     setIsLoading(false);
     setMode(nextMode);
@@ -121,6 +122,7 @@ export function AuthModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const attemptEpoch = ++attemptEpochRef.current;
+    if (mode === "forgot") return;
     const attemptMode = mode;
     const attemptIsActive = () => attemptEpochRef.current === attemptEpoch;
     setError(null);
@@ -277,6 +279,13 @@ export function AuthModal({
           <X className="h-5 w-5" />
         </button>
 
+        {mode === "forgot" ? (
+          <ForgotPasswordPanel
+            initialEmail={email}
+            onBack={() => handleModeChange("login")}
+          />
+        ) : (
+        <>
         {/* Header */}
         <div className="relative z-10 p-6 pb-4 text-center">
           <h2
@@ -288,7 +297,7 @@ export function AuthModal({
           <p className="text-muted-foreground mt-2 text-sm">
             {mode === "login"
               ? "Logga in för att fortsätta bygga"
-              : "Få din första generering utan coin-debitering"}
+              : "Få din första generering gratis"}
           </p>
 
           {/* Account-bound first-generation entitlement */}
@@ -407,6 +416,17 @@ export function AuthModal({
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            {mode === "login" && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => handleModeChange("forgot")}
+                  className="text-primary hover:text-primary/80 text-xs font-medium"
+                >
+                  Glömt lösenord?
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Error message */}
@@ -484,6 +504,8 @@ export function AuthModal({
             </>
           )}
         </div>
+        </>
+        )}
       </div>
     </div>
   );

@@ -40,6 +40,9 @@ class ScoresPayload:
     scaffolds: list[dict[str, Any]]
     warnings: list[dict[str, Any]]
     error: str | None = None
+    # Vilken DB scriptet läste — stderr-varningen för prod-lik DB syns inte här.
+    target: str | None = None
+    is_prod_like: bool = False
 
 
 def _run_scaffold_scores(repo_root) -> ScoresPayload:
@@ -122,6 +125,8 @@ def _run_scaffold_scores(repo_root) -> ScoresPayload:
         generated_at=str(data.get("generatedAt", "")),
         scaffolds=list(data.get("scaffolds", [])),
         warnings=list(data.get("warnings", [])),
+        target=str(data["target"]) if data.get("target") else None,
+        is_prod_like=data.get("isProdLike") is True,
     )
 
 
@@ -177,6 +182,14 @@ def render(ctx: BackofficeContext) -> None:
         )
         return
 
+    if payload.target:
+        st.caption(f"DB: `{payload.target}`")
+    if payload.is_prod_like:
+        st.warning(
+            "DB-målet matchar `.env.vercel.production.pulled` — du läser "
+            "produktionslik data (read-only)."
+        )
+
     if payload.warnings:
         for warning in payload.warnings:
             severity = (warning.get("severity") or "").lower()
@@ -191,7 +204,10 @@ def render(ctx: BackofficeContext) -> None:
     col1, col2, col3 = st.columns(3)
     col1.metric("Scaffolds med data", len(payload.scaffolds))
     col2.metric("Lookback", f"{payload.lookback_days} dagar")
-    col3.metric("Senast hämtad", payload.generated_at[:19].replace("T", " ") if payload.generated_at else "—")
+    col3.metric(
+        "Senast hämtad (UTC)",
+        payload.generated_at[:19].replace("T", " ") if payload.generated_at else "—",
+    )
 
     if not payload.scaffolds:
         st.info(

@@ -337,6 +337,20 @@
       "strictSchemaPaths": ["docs/schemas/strict/redis-health-check-report.schema.json"],
       "codeReaders": ["backoffice/test_database_health_smoke.py", "src/app/api/health/route.ts"]
     },
+    "Samtidighet (byggen & maskiner)": {
+      "summary": "Read-only: samtidiga byggen och levande förhandsvisningsmaskiner över tid (dag/vecka/14 dagar), aktuellt värde, max per dag och en tröskel (default 3) som markerar toppar. Byggen räknas fram ur engine_generation_logs via scripts/db/build-concurrency.mjs mot vald env-fil; maskiner samplas en gång per minut av preview-hosten och läses från dess API-nyckelskyddade GET /admin/metrics (14 dagar i /data).",
+      "canonicalPaths": [
+        "backoffice/pages/concurrency.py",
+        "backoffice/concurrency.py",
+        "scripts/db/build-concurrency.mjs",
+        "preview-host/src/metrics-history.js",
+        "preview-host/src/server/routes.js"
+      ],
+      "docsPaths": ["preview-host/README.md"],
+      "humanSchemaPaths": [],
+      "strictSchemaPaths": [],
+      "codeReaders": ["backoffice/test_concurrency.py", "preview-host/scripts/test-metrics-history.mjs"]
+    },
     "Generation History": {
       "summary": "Read-only genererings-historik per användarsida + vad varje steg gjorde (scaffold, model, retry/Normalize, preflight, RenderGate/ReleaseGate, preview-utfall). Kör scripts/db/generation-history.mjs via subprocess read-only mot DB:n som .env.local pekar på. Källor: generation_telemetry, engine_versions, engine_version_error_logs, engine_generation_logs.",
       "canonicalPaths": [

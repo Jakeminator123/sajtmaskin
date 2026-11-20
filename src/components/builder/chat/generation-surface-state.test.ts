@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasGenerationWarnings, reconcileCanonicalPreviewParts, type CanonicalGenerationStatus } from "./generation-surface-state";
+import { hasGenerationWarnings, hasPendingVerification, reconcileCanonicalPreviewParts, type CanonicalGenerationStatus } from "./generation-surface-state";
 import { getActiveAgentLogLabel } from "./tooling/agent-log";
 import type { ToolPart } from "./tooling/types";
 
@@ -33,6 +33,30 @@ describe("canonical preview reconciliation", () => {
     const parts = [pending];
     expect(reconcileCanonicalPreviewParts(parts, { ...context, ...override })).toBe(parts);
     expect(getActiveAgentLogLabel(parts, { includePipelineProgress: false })).toBeTruthy();
+  });
+
+  it("releases the preview step while verification runs once the preview is visible", () => {
+    const parts = reconcileCanonicalPreviewParts([pending], {
+      ...context,
+      canonical: { ...canonical, status: "verifying" },
+      previewVisible: true,
+    });
+    expect(parts[0].tool.state).toBe("output-available");
+    expect(getActiveAgentLogLabel(parts, { includePipelineProgress: false })).toBeNull();
+    expect(hasPendingVerification(parts)).toBe(true);
+    expect(hasGenerationWarnings(parts)).toBe(false);
+    expect(pending.tool.state).toBe("input-streaming");
+  });
+
+  it("keeps the preview step while verifying when the preview is not visible", () => {
+    const parts = [pending];
+    expect(
+      reconcileCanonicalPreviewParts(parts, {
+        ...context,
+        canonical: { ...canonical, status: "verifying" },
+        previewVisible: false,
+      }),
+    ).toBe(parts);
   });
 
   it("does not settle an unbound legacy preview or other active tools", () => {

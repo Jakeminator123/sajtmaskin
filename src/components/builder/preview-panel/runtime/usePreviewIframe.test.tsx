@@ -478,6 +478,49 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
   });
 
+  it("adopterar en ny session som fortfarande startar i stället för att döma ut den", async () => {
+    // 2026-11-11 (chat ff62820f): servern startade ps_2 för samma version medan
+    // buildern höll ps_1. "starting" under ny identitet ska adopteras, inte
+    // rapporteras som misstänkt (som ledde till tvångsomstart och ny maskin).
+    fetchPreviewStatus.mockResolvedValue(
+      status("starting", "ps_2", "ver_1", TIER2_URL, "life_2"),
+    );
+    const onPreviewSessionRotated = vi.fn();
+    const params = makeParams({ iframeRef: makeIframeRef(), onPreviewSessionRotated });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(onPreviewSessionRotated).toHaveBeenCalledTimes(1);
+    expect(onPreviewSessionRotated).toHaveBeenCalledWith({
+      previewSessionId: "ps_2",
+      versionId: "ver_1",
+      lifecycleToken: "life_2",
+    });
+    expect(params.onPreviewSessionSuspect).not.toHaveBeenCalled();
+    expect(result.current.iframeError).toBe(false);
+  });
+
+  it("adopterar inte en stoppad session med nytt id (fail-closed kvar)", async () => {
+    fetchPreviewStatus.mockResolvedValue(
+      status("stopped", "ps_2", "ver_1", TIER2_URL, "life_2"),
+    );
+    const onPreviewSessionRotated = vi.fn();
+    const params = makeParams({ iframeRef: makeIframeRef(), onPreviewSessionRotated });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(onPreviewSessionRotated).not.toHaveBeenCalled();
+    expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
+  });
+
   it("adopterar aldrig rotation för fel version eller annan chat-URL", async () => {
     fetchPreviewStatus
       .mockReturnValueOnce(new Promise(() => {}))

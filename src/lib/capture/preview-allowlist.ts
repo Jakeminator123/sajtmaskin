@@ -9,6 +9,7 @@
  * kopior — nästa capture-yta ärver skyddet i stället för att sakna det.
  */
 
+import { isPreviewOriginHost } from "@/lib/gen/preview/preview-origin";
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 
 function normalizePathPrefix(pathname: string): string {
@@ -89,6 +90,13 @@ export function assertPreviewUrlAllowed(
     return { ok: true };
   }
 
+  // M03: preview-hostens per-chatt-origin. Exakt slug-etikett under en domän vi
+  // själva styr (inte suffix), så ingen främmande värd slinker igenom. Krävs
+  // också för capture som startar på bas-URL:en och följer hostens 307 hit.
+  if (isPreviewOriginHost(targetHost)) {
+    return { ok: true };
+  }
+
   return {
     ok: false,
     status: 403,
@@ -128,5 +136,6 @@ export function isTrustedCaptureDnsHost(hostname: string): boolean {
     }
   }
 
+  if (isPreviewOriginHost(host)) return true;
   return configuredPreviewAllowlistHosts().some((entry) => entry === host);
 }

@@ -4,7 +4,9 @@ Operatörsflöde:
   1. Välj mappen där dina nedladdade mallar ligger (``mallar``-intag med
      ``out/downloaded.jsonl`` + ``downloads/<kategori>/<id>/*.zip``).
   2. "Skanna" kör en dry-run och visar vad som skulle laddas upp.
-  3. "Ladda upp saknade + uppdatera katalog" kör
+  3. Uppladdningen kräver en lyckad dry-run för samma mapp och samma manifest,
+     typad bekräftelse och ett lås så att bara en uppladdning körs åt gången.
+     "Ladda upp saknade + uppdatera katalog" kör
      ``scripts/v0-templates/upload-mallar-blob.mjs --upload --write-catalog`` som:
        - laddar upp de zippar som inte redan ligger i Blob (inkrementellt, per SHA-256),
        - skriver ``template-blob-manifest.json`` (runtime-källa för preview i VM),
@@ -18,24 +20,35 @@ Projekt/chat/version skapas först när en användare klickar på en mall
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import streamlit as st
 
 from backoffice.shared import (
     BackofficeContext,
+    confirm_by_typing,
+    danger_zone,
     render_building_blocks_nav,
     render_save_scope,
     tech_details,
 )
+from backoffice.shared_lib.repo_lock import RepoMutationLockTimeout, repo_mutation_lock
 
 PAGE_NAME = "Mallar (v0): inspiration & uppladdning"
 
 _UPLOADER_REL = "scripts/v0-templates/upload-mallar-blob.mjs"
 _MANIFEST_REL = "src/lib/templates/template-blob-manifest.json"
 _TIMEOUT_S = 900
+_DRY_RUN_STATE_KEY = "mallar_blob_dry_run"
+_UPLOAD_RESULT_KEY = "mallar_blob_upload_result"
+_UPLOAD_CONFIRM_KEY = "mallar_blob_upload_confirm"
+_UPLOAD_CONFIRM_WORD = "ladda upp"
+_UPLOAD_LOCK_NAME = "template-blob-upload"
 
 
 def _default_source(repo_root: Path) -> str:
@@ -100,6 +113,54 @@ def _run_uploader(repo_root: Path, source: str, *, upload: bool) -> dict:
         return {"ok": False, "error": "`node` saknas på PATH"}
     output = (result.stdout or "") + (("\n" + result.stderr) if result.stderr else "")
     return {"ok": result.returncode == 0, "output": output.strip(), "code": result.returncode}
+
+
+def _upload_binding(repo_root: Path, source: str) -> dict[str, str | None]:
+    """Det en dry-run gäller för: källmappen och manifestets innehåll.
+
+    Ändras någon av dem efter skanningen visar dry-run inte längre vad
+    uppladdningen skulle göra, och då krävs en ny skanning.
+    """
+    try:
+        digest = hashlib.sha256((repo_root / _MANIFEST_REL).read_bytes()).hexdigest()
+    except OSError:
+        digest = None
+    return {"source": str(source).strip(), "manifestSha256": digest}
+
+
+def _upload_block_reason(
+    dry_run: Any, binding: Mapping[str, Any], *, confirmed: bool
+) -> str | None:
+    """Varför uppladdningen är spärrad, eller None när den får köras."""
+    if not isinstance(dry_run, Mapping) or not dry_run.get("ok"):
+        return "Kör en lyckad dry-run (Skanna) först."
+    if dry_run.get("binding") != dict(binding):
+        return "Mappen eller Blob-manifestet har ändrats sedan dry-run. Skanna igen."
+    if not confirmed:
+        return f"Skriv `{_UPLOAD_CONFIRM_WORD}` för att bekräfta uppladdningen."
+    return None
+
+
+def _run_upload_locked(repo_root: Path, source: str) -> dict:
+    """Kör uppladdningen under ett processlås; en andra samtidig körning nekas."""
+    try:
+        with repo_mutation_lock(repo_root, _UPLOAD_LOCK_NAME, timeout_seconds=0):
+            return _run_uploader(repo_root, source, upload=True)
+    except RepoMutationLockTimeout:
+        return {
+            "ok": False,
+            "error": "En annan uppladdning pågår redan. Vänta tills den är klar.",
+        }
+
+
+def _render_run_result(result: Mapping[str, Any], *, success: str, failure: str) -> None:
+    if result.get("ok"):
+        st.success(success)
+        st.code(result.get("output") or "(ingen output)", language="text")
+    else:
+        st.error(result.get("error") or failure)
+        if result.get("output"):
+            st.code(result["output"], language="text")
 
 
 def _load_manifest_summary(repo_root: Path) -> dict | None:
@@ -186,35 +247,58 @@ def render(ctx: BackofficeContext) -> None:
         st.caption("Inget Blob-manifest ännu.")
 
     st.divider()
-    col_scan, col_upload = st.columns(2)
-    with col_scan:
-        if st.button("Skanna (dry-run)", width="stretch"):
-            with st.spinner("Skannar mappen…"):
-                res = _run_uploader(repo_root, source, upload=False)
-            if res.get("ok"):
-                st.success("Dry-run klar.")
-                st.code(res.get("output") or "(ingen output)", language="text")
-            else:
-                st.error(res.get("error") or "Dry-run misslyckades")
-                if res.get("output"):
-                    st.code(res["output"], language="text")
+    if st.button("Skanna (dry-run)"):
+        with st.spinner("Skannar mappen…"):
+            res = _run_uploader(repo_root, source, upload=False)
+        st.session_state[_DRY_RUN_STATE_KEY] = {
+            **res,
+            "binding": _upload_binding(repo_root, source),
+        }
+        st.session_state.pop(_UPLOAD_RESULT_KEY, None)
 
-    with col_upload:
-        if st.button("Ladda upp saknade + uppdatera katalog", type="primary", width="stretch"):
+    dry_run = st.session_state.get(_DRY_RUN_STATE_KEY)
+    if isinstance(dry_run, Mapping):
+        _render_run_result(dry_run, success="Dry-run klar.", failure="Dry-run misslyckades")
+
+    with danger_zone(
+        "Ladda upp till Vercel Blob (live)",
+        help_text="Skriver zip-filer och bilder till Blob och regenererar katalogfilerna i repot.",
+    ):
+        confirmed = confirm_by_typing(
+            _UPLOAD_CONFIRM_WORD,
+            _UPLOAD_CONFIRM_KEY,
+            label=f"Bekräfta genom att skriva `{_UPLOAD_CONFIRM_WORD}`",
+        )
+        block_reason = _upload_block_reason(
+            dry_run, _upload_binding(repo_root, source), confirmed=confirmed
+        )
+        if block_reason:
+            st.caption(block_reason)
+        if st.button(
+            "Ladda upp saknade + uppdatera katalog",
+            type="primary",
+            disabled=block_reason is not None,
+        ):
             with st.spinner("Laddar upp till Blob och regenererar katalog… (kan ta en stund)"):
-                res = _run_uploader(repo_root, source, upload=True)
+                res = _run_upload_locked(repo_root, source)
+            st.session_state[_UPLOAD_RESULT_KEY] = res
             if res.get("ok"):
-                st.success("Uppladdning klar. Katalogen (templates.json) är uppdaterad.")
-                st.code(res.get("output") or "(ingen output)", language="text")
-                st.info(
-                    "Committa `src/lib/templates/template-blob-manifest.json`, "
-                    "`templates.json` och `template-categories.json` för att publicera."
-                )
+                # Nästa uppladdning kräver en ny dry-run mot det nya manifestet.
+                st.session_state.pop(_DRY_RUN_STATE_KEY, None)
                 st.cache_data.clear()
-            else:
-                st.error(res.get("error") or "Uppladdning misslyckades")
-                if res.get("output"):
-                    st.code(res["output"], language="text")
+
+    upload_result = st.session_state.get(_UPLOAD_RESULT_KEY)
+    if isinstance(upload_result, Mapping):
+        _render_run_result(
+            upload_result,
+            success="Uppladdning klar. Katalogen (templates.json) är uppdaterad.",
+            failure="Uppladdning misslyckades",
+        )
+        if upload_result.get("ok"):
+            st.info(
+                "Committa `src/lib/templates/template-blob-manifest.json`, "
+                "`templates.json` och `template-categories.json` för att publicera."
+            )
 
     st.divider()
     st.caption(

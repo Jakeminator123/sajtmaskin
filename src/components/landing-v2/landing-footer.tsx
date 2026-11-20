@@ -19,12 +19,12 @@ export function LandingFooter() {
               <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
                 <Zap className="w-3.5 h-3.5 text-primary-foreground" />
               </div>
-              <span className="text-sm text-foreground font-(--font-heading)">SajtMaskin</span>
+              <span className="text-sm text-foreground font-(--font-heading)">Sajtmaskin</span>
             </div>
             <p className="text-xs text-muted-foreground leading-relaxed max-w-[200px]">
               Professionella hemsidor f&ouml;r svenska f&ouml;retag &mdash; snabbt, enkelt och med riktig teknik bakom.
             </p>
-            <p className="mt-3 max-w-[200px] text-[10px] leading-relaxed text-muted-foreground/70">
+            <p className="mt-3 max-w-[200px] text-xs leading-relaxed text-muted-foreground">
               En tj&auml;nst fr&aring;n{" "}
               <a
                 href="/om"
@@ -32,7 +32,6 @@ export function LandingFooter() {
               >
                 Pretty Good B.V.
               </a>
-              .
             </p>
           </div>
           <div>
@@ -60,7 +59,7 @@ export function LandingFooter() {
               </li>
               <li>
                 <a href="/templates" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  Templates
+                  Mallar
                 </a>
               </li>
             </ul>
@@ -182,7 +181,7 @@ export function LandingFooter() {
           </ul>
         </div>
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-6 border-t border-border/15">
-          <p className="text-xs text-muted-foreground/60">
+          <p className="text-xs text-muted-foreground">
             &copy; {new Date().getFullYear()} Pretty Good B.V. Alla r&auml;ttigheter f&ouml;rbeh&aring;llna.
           </p>
         </div>

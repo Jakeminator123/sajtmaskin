@@ -345,6 +345,24 @@ export function getActiveAgentLogLabel(
   return null;
 }
 
+/**
+ * Faser som beskriver tiden FÖRE första filen. Servern kan stå kvar i
+ * `awaiting-output` medan filerna redan strömmar in (V-13, 2026-11-11), så
+ * ytan som ser koden ersätter dem med vad som faktiskt händer.
+ */
+const PRE_OUTPUT_LABELS = {
+  start: "Förbereder din sajt…",
+  reasoning: "Planerar hur din sajt ska byggas…",
+  reasoningSlow: "Planeringen tar lite längre tid. Arbetet pågår.",
+  awaitingOutput: "Väntar på det första förslaget…",
+} as const;
+
+const PRE_OUTPUT_GENERATION_ACTIVITIES: ReadonlySet<string> = new Set(Object.values(PRE_OUTPUT_LABELS));
+
+export function isPreOutputGenerationActivity(label: string | null | undefined): boolean {
+  return Boolean(label && PRE_OUTPUT_GENERATION_ACTIVITIES.has(label));
+}
+
 /** Customer-facing activity comes from the real phase, not the last debug line.
  * Detailed timings, filenames and tool output stay in the existing work log.
  * This function never decides whether a step succeeded or is still running.
@@ -359,13 +377,13 @@ function describeCurrentEngineActivity(toolType: string, output: unknown): strin
   if (step === "generation") {
     switch (phase) {
       case "start":
-        return "Förbereder din sajt…";
+        return PRE_OUTPUT_LABELS.start;
       case "reasoning":
-        return "Planerar hur din sajt ska byggas…";
+        return PRE_OUTPUT_LABELS.reasoning;
       case "reasoning-slow":
-        return "Planeringen tar lite längre tid. Arbetet pågår.";
+        return PRE_OUTPUT_LABELS.reasoningSlow;
       case "awaiting-output":
-        return "Väntar på det första förslaget…";
+        return PRE_OUTPUT_LABELS.awaitingOutput;
       case "awaiting-input":
         return "Ditt svar behövs för att fortsätta.";
       case "empty-output":
@@ -434,13 +452,13 @@ function extractToolSteps(tool: Partial<ToolUIPart> & { input?: unknown }) {
       }
       const syntaxCleanGateFailed = obj.syntaxCleanGateFailed === true;
       if (syntaxCleanGateFailed) {
-        lines.push("Kvarvarande fel: 0 syntaxfel (esbuild) — men quality gate (typecheck/build) failar fortfarande");
+        lines.push("Koden går att läsa, men sajten bygger fortfarande inte felfritt");
       } else if (typeof obj.remainingErrors === "number" && Number.isFinite(obj.remainingErrors)) {
         const sourceLabel =
           obj.remainingErrorsSource === "esbuild_syntax"
-            ? "syntax (esbuild)"
+            ? "kodfel"
             : obj.remainingErrorsSource === "quality_gate"
-              ? "quality gate"
+              ? "byggkontroll"
               : null;
         lines.push(
           sourceLabel

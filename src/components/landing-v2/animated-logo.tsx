@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const FULL_TEXT = "SajtMaskin";
+const FULL_TEXT = "Sajtmaskin";
 const SCRAMBLE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz0123456789";
 const BOOST_PARTICLES = [
   { size: 3.1, opacity: 0.48, bottom: -2, left: 14.6, duration: 0.34, delay: 0 },
@@ -71,7 +71,7 @@ export function AnimatedLogo({ className = "" }: { className?: string }) {
       className={`inline-flex items-center gap-2 select-none cursor-pointer group ${className}`}
       onMouseEnter={startScramble}
       role="img"
-      aria-label="SajtMaskin"
+      aria-label="Sajtmaskin"
     >
       <span className="relative flex items-center justify-center w-9 h-9 shrink-0">
         <span

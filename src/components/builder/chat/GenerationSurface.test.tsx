@@ -18,7 +18,15 @@ vi.mock("streamdown", () => ({
 }));
 
 const code = '```tsx file="app/page.tsx"\nconst CODE_BODY = 1;\n```';
-const base = { content: "", isStreaming: true, isActive: true, items: [], toolParts: [] };
+// Admin view: reasoning, work log and raw text. The customer view has its own test.
+const base = {
+  content: "",
+  isStreaming: true,
+  isActive: true,
+  items: [],
+  toolParts: [],
+  showInternalDetails: true,
+};
 
 function toolPart(part: UiMessagePart): ToolPart {
   return toAIElementsFormat({
@@ -29,11 +37,94 @@ function toolPart(part: UiMessagePart): ToolPart {
   }).parts.find((entry): entry is ToolPart => entry.type === "tool")!;
 }
 
+describe("GenerationSurface — status medan filerna strömmar (V-13)", () => {
+  it("säger inte att den väntar på första förslaget när filerna redan kommer", () => {
+    render(
+      <GenerationSurface
+        {...base}
+        showInternalDetails={false}
+        content={'```tsx file="app/page.tsx"\nconst A = 1;\n```\n```tsx file="app/om/page.tsx"\nconst B'}
+        activeLabel="Väntar på det första förslaget…"
+      />,
+    );
+    expect(screen.queryByText("Väntar på det första förslaget…")).toBeNull();
+    expect(screen.getByText("Skapar sidor och komponenter…")).toBeTruthy();
+  });
+
+  it("visar väntefasen så länge ingen fil har kommit", () => {
+    render(
+      <GenerationSurface
+        {...base}
+        showInternalDetails={false}
+        content=""
+        activeLabel="Väntar på det första förslaget…"
+      />,
+    );
+    expect(screen.getByText("Väntar på det första förslaget…")).toBeTruthy();
+  });
+});
+
+describe("GenerationSurface — kvittots tekniska detaljer", () => {
+  const receipt =
+    "Klart — jag har sparat en ny version av sajten. Jag ändrade startsidan.\n\n" +
+    "Tekniska detaljer: Ändrade filer: page.tsx. Jag rättade ett småfel i koden automatiskt.";
+
+  it("visar svaret men fäller ihop filnamn och rättningar i detaljerna", () => {
+    render(
+      <GenerationSurface
+        {...base}
+        showInternalDetails={false}
+        content={`${code}\n\n${receipt}\n`}
+        isStreaming={false}
+        isActive={false}
+      />,
+    );
+    expect(screen.getByText(/Jag ändrade startsidan\./)).toBeTruthy();
+    expect(screen.queryByText(/Ändrade filer: page\.tsx/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Visa detaljer" }));
+    const details = screen.getByRole("region", { name: "Tekniska detaljer" });
+    expect(within(details).getByText(/Ändrade filer: page\.tsx\. Jag rättade ett småfel/)).toBeTruthy();
+  });
+
+  it("visar äldre kvitton utan prefix som förut", () => {
+    render(
+      <GenerationSurface
+        {...base}
+        showInternalDetails={false}
+        content={`${code}\n\nKlart — jag har uppdaterat sajten. Ändrade page.tsx.\n`}
+        isStreaming={false}
+        isActive={false}
+      />,
+    );
+    expect(screen.getByText(/Ändrade page\.tsx\./)).toBeTruthy();
+  });
+});
+
 describe("GenerationSurface", () => {
+  it("gives customers a short Swedish summary instead of model reasoning and the work log", () => {
+    render(
+      <GenerationSurface
+        {...base}
+        showInternalDetails={false}
+        content={code}
+        reasoning="The model considered a warm palette."
+        items={[{ label: "Körmodell: intern" }]}
+        isStreaming={false}
+        isActive={false}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Visa detaljer" }));
+    expect(screen.getByText(/Sajtmaskin planerade sajtens upplägg\./)).toBeTruthy();
+    expect(screen.queryByText("The model considered a warm palette.")).toBeNull();
+    expect(screen.queryByText("Körmodell: intern")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Visa råtext" })).toBeNull();
+    expect(screen.getByText("app/page.tsx")).toBeTruthy();
+  });
+
   it("keeps the same card and the user's detail choice through text, files, done and postchecks", () => {
     const { rerender } = render(<GenerationSurface {...base} />);
     const surface = screen.getByTestId("generation-surface");
-    expect(screen.getByText("Förbereder underlaget…")).toBeTruthy();
+    expect(screen.getByText("Planerar din sajt…")).toBeTruthy();
 
     rerender(
       <GenerationSurface

@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:f78861c62ceff41c -->
+<!-- source-fingerprint: config/env-policy.json sha256:0b17bde2a02e6252 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:906768b4c309ab32 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:ed83b142db793efe -->
 
@@ -89,6 +89,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `NEXT_PUBLIC_OPENAI_ADS_ENABLED`                     | `optional_runtime`     | `preview`                              | Yes           | No           |
 | `NEXT_PUBLIC_OPENAI_ADS_PIXEL_ID`                    | `optional_runtime`     | `production`                           | Yes           | No           |
 | `NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL`                   | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
+| `NEXT_PUBLIC_SAJTMASKIN_PREVIEW_ORIGIN_DOMAIN`       | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE`             | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`                 | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |

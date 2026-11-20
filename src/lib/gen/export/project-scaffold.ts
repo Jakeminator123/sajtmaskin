@@ -121,7 +121,9 @@ const NEXT_CONFIG = `import type { NextConfig } from "next";
 const previewBasePath = process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim() || "";
 
 const nextConfig: NextConfig = {
-  ...(previewBasePath ? { basePath: previewBasePath } : {}),
+  // Preview only: no Next dev indicator in the builder iframe. Published
+  // sites have no SAJTMASKIN_PREVIEW_BASE_PATH, so nothing changes there.
+  ...(previewBasePath ? { basePath: previewBasePath, devIndicators: false as const } : {}),
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },

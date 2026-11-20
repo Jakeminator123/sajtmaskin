@@ -5,7 +5,8 @@ import { runWithLlmUsageContext, safeUsageOwnerId, setLlmUsageContext } from "@/
 import { getEngineVersionForChatByIdForRequest, getRequestUserId } from "@/lib/tenant";
 import { acquireVersionLease, releaseVersionLease } from "@/lib/db/chat-repository-pg";
 import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
-import { runVersionQualityGateUnderLease } from "@/lib/gen/verify/server-verify/verify-run";
+import { qualityGateHttpResponse } from "@/lib/gen/verify/server-verify/quality-gate-http";
+import { runVersionQualityGateUnderLease } from "@/lib/gen/verify/server-verify/quality-gate-run";
 import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS, QUALITY_GATE_CHECK_VALUES } from "@/lib/gen/verify/quality-gate-checks";
 
 export const runtime = "nodejs";
@@ -94,9 +95,10 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     try {
       const snapshot = await getVersionFilesSnapshot(internalVersionId);
       if (!snapshot?.files.length) return NextResponse.json({ error: "No files found for version" }, { status: 404 });
-      const result = await runVersionQualityGateUnderLease({ chatId, versionId: internalVersionId,
+      const outcome = await runVersionQualityGateUnderLease({ chatId, versionId: internalVersionId,
         holderRunId: lease.runId, snapshot, gate });
-      return NextResponse.json(result.body, { status: result.status });
+      const http = qualityGateHttpResponse(outcome);
+      return NextResponse.json(http.body, { status: http.status });
     } catch {
       return NextResponse.json({ error: "Quality gate pre-checks failed before verification started. Try again shortly.", code: "quality_gate_unavailable", retryable: true }, { status: 503 });
     } finally {

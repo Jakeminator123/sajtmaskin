@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess
+import unicodedata
 from collections.abc import Callable
 from datetime import datetime, timezone
 from functools import wraps
@@ -25,6 +26,7 @@ from backoffice.shared import (
     field_label,
     render_building_blocks_nav,
     render_save_scope,
+    resolve_command,
     run_repo_command,
     tech_details,
     validate_json_against_schema,
@@ -185,12 +187,47 @@ def _existing_default_for_capability(capability: str, *, exclude: Path) -> str |
 
 
 def _load_json(path: Path) -> dict[str, Any] | None:
+    """Parsed JSON object, or ``None`` for missing/unreadable/non-object files.
+
+    Never raises: a cp1252-encoded manifest (``UnicodeDecodeError``) or an
+    unreadable file must not crash the whole dossier page. Callers that need
+    to *explain* the failure use :func:`_manifest_load_error`.
+    """
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return None
+    return data if isinstance(data, dict) else None
+
+
+def _manifest_load_error(path: Path) -> str | None:
+    """Why ``path`` is not a usable manifest, in the same terms as runtime/CI.
+
+    ``JSON.parse(readFileSync(path, "utf-8"))`` in the registry and
+    ``validate-all`` rejects a UTF-8 BOM, non-UTF-8 bytes and invalid JSON, so
+    those are reported as broken instead of being normalized away here.
+    """
+    try:
+        raw = path.read_bytes()
+    except FileNotFoundError:
+        return "saknar manifest.json"
+    except OSError as exc:
+        return f"manifest.json kunde inte läsas ({exc})"
+    if raw.startswith(b"\xef\xbb\xbf"):
+        return "manifest.json har UTF-8-BOM (runtime/CI:s JSON.parse underkänner den)"
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        return f"manifest.json är inte giltig UTF-8 (byte {exc.start})"
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return f"manifest.json är ogiltig JSON: {exc.msg} (rad {exc.lineno})"
+    if not isinstance(data, dict) or not data:
+        return "manifest.json är inte ett icke-tomt JSON-objekt"
+    return None
 
 
 def _required_file_snapshot(path: Path) -> tuple[bytes | None, str | None]:
@@ -445,17 +482,228 @@ def _list_dossier_dirs(root: Path) -> list[Path]:
     )
 
 
-def _walk_all_dossiers() -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
+def _walk_dossier_pool() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Readable manifests plus the directories whose manifest is broken.
+
+    A broken manifest used to vanish silently from every list, which also made
+    the raw-JSON repair path unreachable. Broken entries carry ``id`` (the
+    directory name), ``_class``, ``_path``, ``_broken`` (reason) and
+    ``_has_manifest`` so the page can warn and offer the raw editor.
+    """
+    readable: list[dict[str, Any]] = []
+    broken: list[dict[str, Any]] = []
     for klass, root in (("hard", _facade().HARD_ROOT), ("soft", _facade().SOFT_ROOT)):
         for d in _list_dossier_dirs(root):
-            manifest = _load_json(d / "manifest.json")
+            manifest_path = d / "manifest.json"
+            rel_path = str(d.relative_to(_facade().REPO_ROOT))
+            manifest = _load_json(manifest_path)
             if not manifest:
+                broken.append(
+                    {
+                        "id": d.name,
+                        "_class": klass,
+                        "_path": rel_path,
+                        "_broken": _manifest_load_error(manifest_path)
+                        or "manifest.json kunde inte läsas",
+                        "_has_manifest": manifest_path.is_file(),
+                    }
+                )
                 continue
             manifest["_class"] = klass
-            manifest["_path"] = str(d.relative_to(_facade().REPO_ROOT))
-            out.append(manifest)
-    return out
+            manifest["_path"] = rel_path
+            readable.append(manifest)
+    return readable, broken
+
+
+def _walk_all_dossiers() -> list[dict[str, Any]]:
+    return _walk_dossier_pool()[0]
+
+
+def _dossier_key_id(dossier: dict[str, Any]) -> str:
+    """Stable id for selectors: ``manifest.id`` or, when missing, the directory."""
+    manifest_id = str(dossier.get("id") or "").strip()
+    if manifest_id:
+        return manifest_id
+    return (
+        str(dossier.get("_path") or "").replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+    )
+
+
+# ── files[].path / exposes[].import (Python mirror of output-path.ts) ────────
+# Mirrors `assertPortableRelativePath`, `mapValidatedPathToOutput`, the
+# collision checks in `validateDossierManifest` and
+# `findExposesImportMismatches`. NOT mirrored (full TS parity remains):
+# scaffold-reserved output paths (`SCAFFOLD_PROTECTED_PATHS`) and the
+# generated-project `validateFilePath` rules — `dossiers:validate-all` still
+# owns those, and this mirror can only be stricter-or-equal on what it checks.
+_FILE_PATH_MIN = 3
+_FILE_PATH_MAX = 240
+_FILE_ROOT_LEVEL = frozenset({"middleware.ts", "instrumentation.ts", "drizzle.config.ts"})
+_FILE_SENTRY_RE = re.compile(r"^sentry\.(client|server|edge)\.config\.ts$")
+_FILE_DEVICE_RE = re.compile(
+    r"^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\..*)?$", re.IGNORECASE
+)
+_FILE_CONSOLE_DEVICE_RE = re.compile(r"^(?:conin\$|conout\$)$", re.IGNORECASE)
+_FILE_FORBIDDEN_CHAR_RE = re.compile(r'[<>:"|?*]')
+_FILE_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
+_EXPOSES_SUFFIXES = ("", ".ts", ".tsx", ".js", ".jsx", "/index.ts", "/index.tsx")
+
+
+def _portable_file_path_error(path: str) -> str | None:
+    if not (_FILE_PATH_MIN <= len(path) <= _FILE_PATH_MAX):
+        return f"must be {_FILE_PATH_MIN}..{_FILE_PATH_MAX} characters"
+    if "\\" in path:
+        return "must use forward slashes"
+    if _FILE_CONTROL_CHAR_RE.search(path):
+        return "must not contain control characters"
+    if _FILE_FORBIDDEN_CHAR_RE.search(path):
+        return 'contains a Windows-forbidden character (< > : " | ? *)'
+    if path.startswith("/") or re.match(r"^[a-z]:", path, re.IGNORECASE):
+        return "must be relative"
+    for segment in path.split("/"):
+        if not segment:
+            return "must not contain empty path segments"
+        if segment in (".", ".."):
+            return "must not contain traversal segments"
+        if segment.endswith((".", " ")):
+            return "segments must not end in a dot or space"
+        if segment != segment.strip() or segment.strip("﻿") != segment:
+            return "segments must not start or end with whitespace"
+        if _FILE_DEVICE_RE.match(segment) or _FILE_CONSOLE_DEVICE_RE.match(segment):
+            return f"uses reserved Windows device name {json.dumps(segment)}"
+    return None
+
+
+def _dossier_output_path(source_path: str) -> str:
+    if not source_path.startswith("components/"):
+        return source_path
+    rest = source_path[len("components/") :]
+    if rest.startswith("api/"):
+        return f"app/{rest}"
+    if rest in _FILE_ROOT_LEVEL or _FILE_SENTRY_RE.match(rest):
+        return rest
+    if rest.startswith("lib/"):
+        return rest
+    return source_path
+
+
+def _output_identity(path: str) -> str:
+    return unicodedata.normalize("NFC", path).lower()
+
+
+def _has_file_directory_conflict(left: str, right: str) -> bool:
+    left_id, right_id = _output_identity(left), _output_identity(right)
+    return left_id != right_id and (
+        left_id.startswith(f"{right_id}/") or right_id.startswith(f"{left_id}/")
+    )
+
+
+def _files_and_exposes_errors(data: dict[str, Any]) -> list[str]:
+    """Runtime file-path and exposes rules the strict JSON schema cannot see."""
+    files = data.get("files")
+    errors: list[str] = []
+    outputs: list[str] = []
+    if isinstance(files, list):
+        source_owners: list[tuple[str, int]] = []
+        source_ids: dict[str, tuple[str, int]] = {}
+        output_owners: list[tuple[str, str, int]] = []
+        output_ids: dict[str, tuple[str, int]] = {}
+        for index, entry in enumerate(files):
+            path = entry.get("path") if isinstance(entry, dict) else None
+            if not isinstance(path, str):
+                continue
+            reason = _portable_file_path_error(path)
+            output = _dossier_output_path(path) if reason is None else ""
+            if reason is None:
+                output_reason = _portable_file_path_error(output)
+                if output_reason:
+                    reason = output_reason
+            if reason:
+                errors.append(
+                    f"/files/{index}/path invalid dossier file path {json.dumps(path)}: {reason}"
+                )
+                continue
+            source_id = _output_identity(path)
+            if source_id in source_ids:
+                errors.append(
+                    f"/files/{index}/path {json.dumps(path)} collides with "
+                    f"files[{source_ids[source_id][1]}].path "
+                    f"{json.dumps(source_ids[source_id][0])} under portable source path identity"
+                )
+            else:
+                source_ids[source_id] = (path, index)
+            for previous_path, previous_index in source_owners:
+                if _has_file_directory_conflict(previous_path, path):
+                    errors.append(
+                        f"/files/{index}/path {json.dumps(path)} has a portable source "
+                        f"path file/directory conflict with files[{previous_index}].path "
+                        f"{json.dumps(previous_path)}"
+                    )
+            source_owners.append((path, index))
+            output_id = _output_identity(output)
+            if output_id in output_ids:
+                errors.append(
+                    f"/files/{index}/path {json.dumps(path)} maps to {json.dumps(output)}, "
+                    f"which collides with files[{output_ids[output_id][1]}].path "
+                    f"{json.dumps(output_ids[output_id][0])} under portable case-folded "
+                    "output identity"
+                )
+            else:
+                output_ids[output_id] = (path, index)
+            for previous_path, previous_output, previous_index in output_owners:
+                if _has_file_directory_conflict(previous_output, output):
+                    errors.append(
+                        f"/files/{index}/path {json.dumps(path)} has a portable "
+                        f"file/directory conflict with files[{previous_index}].path "
+                        f"{json.dumps(previous_path)}"
+                    )
+            output_owners.append((path, output, index))
+            outputs.append(output)
+    if errors:
+        return errors
+    exposes = data.get("exposes")
+    if not isinstance(exposes, list):
+        return errors
+    for item in exposes:
+        import_path = item.get("import") if isinstance(item, dict) else None
+        if not isinstance(import_path, str) or not import_path.startswith("@/"):
+            continue
+        target = import_path[2:]
+        if not any(f"{target}{suffix}" in outputs for suffix in _EXPOSES_SUFFIXES):
+            errors.append(
+                f'exposes[].import "{import_path}" does not resolve to any files[].path '
+                "(after resolveDossierFilePath) — candidates: "
+                + (", ".join(outputs) or "(none)")
+            )
+    return errors
+
+
+def _hard_mock_error(
+    manifest: dict[str, Any],
+    dossier_class: str,
+    *,
+    exceptions: frozenset[str] | None = None,
+) -> str | None:
+    """`findMissingMockFallbacks` for one manifest, shared by every writer.
+
+    A Kopplad (hard) dossier needs `mock` ≠ `none` unless its capability is on
+    ``MOCKLESS_CAPABILITY_EXCEPTIONS`` (read from the projection). Returns the
+    error text without a trailing "nothing saved" clause; callers add theirs.
+    """
+    if dossier_class != "hard":
+        return None
+    mock_value = str(manifest.get("mock") or "").strip() or None
+    if mock_value not in (None, "none"):
+        return None
+    capability = str(manifest.get("capability") or "").strip()
+    allowed = _load_mockless_capability_exceptions() if exceptions is None else exceptions
+    if capability in allowed:
+        return None
+    return (
+        "En Kopplad (hard) dossier måste ha ett demoläge (`mock` ≠ `none`) "
+        f"— funktionen `{capability}` står inte på undantagslistan "
+        f"({', '.join(sorted(allowed))})."
+    )
 
 
 def _validate_manifest(
@@ -555,6 +803,7 @@ def _validate_manifest(
                             f'providerSetup[{idx}].references.configInputIds '
                             f'unknown configInputs.id "{item_id}"'
                         )
+    errors.extend(_files_and_exposes_errors(data))
     return errors
 
 
@@ -790,14 +1039,32 @@ def _save_manifest_with_default_handoff(
 
 @_dossier_mutation_locked
 def _save_raw_manifest(
-    manifest_path: Path, manifest: dict[str, Any], *, dossier_class: str
+    manifest_path: Path,
+    manifest: dict[str, Any],
+    *,
+    dossier_class: str,
+    expected_sha256: str | None = None,
 ) -> tuple[bool, str]:
     """Fail-closed raw-editor write: class-aware pre-check + strict schema
     before the shared backup/write helper. Raw JSON gives access to every
-    schema field, not permission to bypass the runtime contract."""
+    schema field, not permission to bypass the runtime contract.
+
+    ``expected_sha256`` is the digest of the bytes the editor was loaded from.
+    The raw editor submits a whole manifest, so a disk change after it loaded
+    (another tab, session or process) must refuse the save instead of silently
+    reverting that change."""
     original, snapshot_error = _required_file_snapshot(manifest_path)
     if snapshot_error or original is None:
         return False, snapshot_error or "Kunde inte läsa manifestet — sparade inte."
+    if (
+        expected_sha256 is not None
+        and hashlib.sha256(original).hexdigest() != expected_sha256
+    ):
+        return False, (
+            "Manifestet har ändrats på disk sedan rå-editorn laddades — sparade inte, "
+            "så den nyare ändringen inte skrivs över. Ladda om editorn från disk "
+            "och gör om ändringen."
+        )
     identity_error = _manifest_identity_error(
         manifest_path, manifest, dossier_class=dossier_class
     )
@@ -819,6 +1086,9 @@ def _save_raw_manifest(
             "Strict-schema (samma regler som runtime/CI) misslyckades — sparade inte:\n"
             + "\n".join(f"- {error}" for error in schema_errors)
         )
+    mock_error = _hard_mock_error(manifest, dossier_class)
+    if mock_error:
+        return False, f"{mock_error} Sparade inte."
     default_errors = _default_invariant_errors_after_change(
         manifest_path, manifest, dossier_class=dossier_class
     )
@@ -1004,17 +1274,9 @@ def _apply_manifest_field_edits(
             + "\n".join(f"- {e}" for e in schema_errors)
         )
     capability = str(manifest.get("capability") or "").strip()
-    if dossier_class == "hard":
-        mock_value = str(manifest.get("mock") or "").strip() or None
-        exceptions = _load_mockless_capability_exceptions()
-        if (
-            mock_value is None or mock_value == "none"
-        ) and capability not in exceptions:
-            return False, (
-                "En Kopplad (hard) dossier måste ha ett demoläge (`mock` ≠ `none`) "
-                f"— funktionen `{capability}` står inte på undantagslistan "
-                f"({', '.join(sorted(exceptions))}). Sparade inte."
-            )
+    mock_error = _hard_mock_error(manifest, dossier_class)
+    if mock_error:
+        return False, f"{mock_error} Sparade inte."
     if is_default_for_capability(manifest):
         taken = _existing_default_for_capability(capability, exclude=manifest_path)
         if taken:
@@ -2530,7 +2792,7 @@ def _run_curate(
     håller inte låset över LLM-subprocessen — det skulle deadloka barnets
     allocate-anrop.
     """
-    cmd = [
+    args = [
         "npx",
         "tsx",
         "scripts/dossiers/curate-from-reference.ts",
@@ -2540,9 +2802,11 @@ def _run_curate(
         "--stage-only",
     ]
     if model.strip():
-        cmd.append(f"--model={model.strip()}")
+        args.append(f"--model={model.strip()}")
     if capability.strip():
-        cmd.append(f"--capability={capability.strip()}")
+        args.append(f"--capability={capability.strip()}")
+    # `npx` is a `.cmd` shim on Windows; shell=False needs the PATHEXT lookup.
+    cmd = resolve_command(tuple(args))
     try:
         result = subprocess.run(
             cmd,
@@ -2632,10 +2896,12 @@ def _commit_curated_dossier_stage(
         )
     except Exception as exc:  # noqa: BLE001 - fail closed at the live boundary
         schema_errors = [f"Strict-schemavalidering kunde inte köras: {exc}"]
-    if errors or schema_errors:
+    mock_error = _hard_mock_error(manifest, target_class)
+    if errors or schema_errors or mock_error:
         _cleanup_tree(staged_dir)
         return False, "Kurations-stage är ogiltig:\n" + "\n".join(
-            f"- {error}" for error in [*errors, *schema_errors]
+            f"- {error}"
+            for error in [*errors, *schema_errors, *([mock_error] if mock_error else [])]
         )
     target_dir, target_error = _verified_live_target(target_class, target_id)
     if target_error or target_dir is None:
@@ -2805,6 +3071,9 @@ def _apply_capability_override(
             "capability-bytet — sparar inte:\n"
             + "\n".join(f"- {e}" for e in schema_errors)
         )
+    mock_error = _hard_mock_error(manifest, target_class)
+    if mock_error:
+        return False, f"{mock_error} Sparar inte capability-bytet."
     if replacement_default_path is not None:
         return _save_manifest_with_default_handoff(
             manifest_path,
@@ -2902,16 +3171,11 @@ def _create_dossier_skeleton(
                 f"{provider!r} — inget skapades."
             )
     mock_value = (mock or "").strip() or None
-    if target_class == "hard":
-        exceptions = _load_mockless_capability_exceptions()
-        if (
-            mock_value is None or mock_value == "none"
-        ) and capability not in exceptions:
-            return False, (
-                "En Kopplad (hard) dossier måste ha ett demoläge (`mock` ≠ `none`) "
-                f"— funktionen `{capability}` står inte på undantagslistan "
-                f"({', '.join(sorted(exceptions))}). Inget skapades."
-            )
+    mock_error = _hard_mock_error(
+        {"capability": capability, "mock": mock_value}, target_class
+    )
+    if mock_error:
+        return False, f"{mock_error} Inget skapades."
 
     manifest: dict[str, Any] = {
         "$schema": "../../../../docs/schemas/strict/dossier.schema.json",

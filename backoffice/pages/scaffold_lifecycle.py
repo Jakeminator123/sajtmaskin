@@ -140,6 +140,7 @@ from .scaffold_lifecycle_lib.ui_danger import (
     _render_dependency_report,
     _render_delete_scaffold,
     _render_baseline_tab,
+    _render_move_baseline,
 )
 
 
@@ -1057,6 +1058,12 @@ def render(ctx: BackofficeContext) -> None:
             "det som tillkommit efter den.",
         ):
             _render_baseline_tab(ctx)
+        with danger_zone(
+            "Flytta baseline-taggen",
+            help_text="Gör nuvarande commit till ny fabriksinställning (`git tag -f`). "
+            "Den gamla pekaren visas så flytten kan ångras.",
+        ):
+            _render_move_baseline(ctx)
 
     with maintenance_tab:
         st.subheader("Scaffold/variant-pipeline")

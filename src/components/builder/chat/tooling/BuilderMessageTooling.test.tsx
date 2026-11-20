@@ -681,7 +681,7 @@ describe("StructuredToolParts", () => {
       />,
     );
 
-    expect(screen.getByText("Status: quality gate körs fortfarande")).toBeTruthy();
+    expect(screen.getByText("Status: byggkontrollen körs fortfarande")).toBeTruthy();
     expect(screen.queryByText(/autofix är köad/i)).toBeNull();
   });
 
@@ -774,7 +774,7 @@ describe("StructuredToolParts", () => {
       />,
     );
 
-    expect(screen.getByText("Godkänd med varningar (lint advisory)")).toBeTruthy();
+    expect(screen.getByText("Godkänd med varningar (lint)")).toBeTruthy();
     expect(screen.queryByText(/^Godkänd$/)).toBeNull();
   });
 

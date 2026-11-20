@@ -1,5 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { decidePreviewHandoff } from "./preview-url-classifier";
+import {
+  decidePreviewHandoff,
+  isSameTier2PreviewSession,
+  isTier2LivePreviewUrl,
+} from "./preview-url-classifier";
+
+// M03: the app must recognise BOTH the shared path form and the per-chat
+// origin form, whatever mode the preview host currently runs in.
+describe("isTier2LivePreviewUrl — path and per-chat origin forms", () => {
+  const ORIGIN_URL = "https://p-0123456789abcdef0123.vm.sajtmaskin.com/chat_1";
+
+  it("accepts the shared fly.dev path form and the per-chat origin form", () => {
+    expect(isTier2LivePreviewUrl("https://vm-fly-jakem.fly.dev/chat_1")).toBe(true);
+    expect(isTier2LivePreviewUrl(ORIGIN_URL)).toBe(true);
+  });
+
+  it("rejects look-alikes under the preview domain", () => {
+    expect(isTier2LivePreviewUrl("https://vm.sajtmaskin.com/chat_1")).toBe(false);
+    expect(isTier2LivePreviewUrl("https://www.vm.sajtmaskin.com/chat_1")).toBe(false);
+    expect(isTier2LivePreviewUrl("https://sajtmaskin.se/chat_1")).toBe(false);
+  });
+
+  it("keeps same-session detection on origin + chatId", () => {
+    expect(isSameTier2PreviewSession(ORIGIN_URL, `${ORIGIN_URL}/om-oss`)).toBe(true);
+    expect(
+      isSameTier2PreviewSession(ORIGIN_URL, "https://vm-fly-jakem.fly.dev/chat_1"),
+    ).toBe(false);
+  });
+});
 
 // 2026-07 preview-lifecycle simplification: a preview handoff is exactly ONE
 // of set-url / bump / noop — never URL-set + token-bump together (each causes

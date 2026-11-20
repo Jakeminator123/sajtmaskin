@@ -2,22 +2,53 @@
 
 // Minimal Fly Machines REST client (https://docs.fly.io/machines/api/). Only
 // the calls the per-project guest lifecycle needs. No SDK: the host has no
-// dependency budget for one, and the surface is six endpoints.
+// dependency budget for one, and the surface is six endpoints. There is no
+// stop: a stopped Machine loses its rootfs anyway, so idle guests are
+// destroyed (project-machines.js) and the next visit creates a fresh one.
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+// Placement failures Fly reports when the region has no room for the guest
+// size right now ("could not reserve resource for machine: insufficient
+// memory available…"). The status code for these varies (412/422/5xx), so
+// the message decides.
+const CAPACITY_ERROR_RE =
+  /insufficient (?:resources|memory|cpus?|capacity)|could not reserve resource|no capacity|capacity (?:exceeded|unavailable)/i;
+
 class FlyMachinesError extends Error {
-  constructor(message, { status = null, body = null, method = null, path = null } = {}) {
+  constructor(
+    message,
+    { status = null, body = null, method = null, path = null, retryAfterMs = null } = {},
+  ) {
     super(message);
     this.name = "FlyMachinesError";
     this.status = status;
     this.body = body;
     this.method = method;
     this.path = path;
+    this.retryAfterMs = retryAfterMs;
   }
   get notFound() {
     return this.status === 404;
   }
+  /**
+   * Worth retrying a create: rate limit, server error or a capacity miss.
+   * A transport error without a status is not retried — the create may have
+   * gone through, and the orphan reconcile is the cleanup path for that.
+   */
+  get retryableCreate() {
+    if (this.status === 429) return true;
+    if (Number.isInteger(this.status) && this.status >= 500) return true;
+    return CAPACITY_ERROR_RE.test(this.message);
+  }
+}
+
+function parseRetryAfterMs(value) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const seconds = Number(value.trim());
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1000);
+  const at = Date.parse(value);
+  return Number.isFinite(at) ? Math.max(0, at - Date.now()) : null;
 }
 
 /**
@@ -85,7 +116,13 @@ function createFlyMachinesClient({ apiBase, apiToken, appName, fetchImpl = globa
           : text.slice(0, 300);
       throw new FlyMachinesError(
         `Fly Machines ${method} ${path} returned HTTP ${response.status}${detail ? `: ${detail}` : ""}`,
-        { status: response.status, body: parsed, method, path },
+        {
+          status: response.status,
+          body: parsed,
+          method,
+          path,
+          retryAfterMs: parseRetryAfterMs(response.headers?.get?.("retry-after") ?? null),
+        },
       );
     }
     return parsed;
@@ -114,14 +151,6 @@ function createFlyMachinesClient({ apiBase, apiToken, appName, fetchImpl = globa
     },
     startMachine(machineId) {
       return request("POST", `${appPath}/machines/${encodeURIComponent(machineId)}/start`);
-    },
-    stopMachine(machineId, { signal, timeout } = {}) {
-      const body = {};
-      if (signal) body.signal = signal;
-      if (timeout) body.timeout = timeout;
-      return request("POST", `${appPath}/machines/${encodeURIComponent(machineId)}/stop`, {
-        body: Object.keys(body).length > 0 ? body : undefined,
-      });
     },
     destroyMachine(machineId, { force = true } = {}) {
       return request("DELETE", `${appPath}/machines/${encodeURIComponent(machineId)}`, {

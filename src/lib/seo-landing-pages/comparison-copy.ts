@@ -70,7 +70,7 @@ export const COMPARISON_COPY = {
       {
         title: "Betalmodell",
         them: "Prenumeration för att hålla sajten publicerad i deras miljö. Planer och valuta varierar. Kolla Squarespace, inte den här sidan.",
-        sm: "Credits som engångsköp, utan prenumeration. Publicering debiterar credits. Ett konto får en första slutförd generering utan coin-debitering.",
+        sm: "Credits som engångsköp, utan prenumeration. Publicering debiterar credits. Ett konto får en första slutförd generering gratis.",
       },
       {
         title: "Exit",
@@ -162,7 +162,7 @@ export const COMPARISON_COPY = {
       {
         title: "Svensk vardag",
         them: "Stark igenkänning i Norden för just domän och drift. Support och kassa är byggda för den affären.",
-        sm: "Byggd för svenska småföretagssidor: svenska copy-flöden, credits, första generering utan coin-debitering.",
+        sm: "Byggd för svenska småföretagssidor: svenska copy-flöden, credits, första generering gratis.",
       },
       {
         title: "Betalmodell",

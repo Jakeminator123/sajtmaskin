@@ -303,6 +303,43 @@ class BaselineResetTests(unittest.TestCase):
         self.assertTrue(first.exists(), "an earlier file must not be deleted already")
         self.assertTrue(second.exists(), "the failing file must not be deleted")
 
+    def test_refuses_when_tag_would_retrack_now_ignored_paths(self) -> None:
+        """Taggen från före Blob-flytten innehåller embeddings-cachar som nu är
+        gitignorerade. `git restore --staged` skulle spåra dem igen och skriva
+        över den lokala cachen utan snapshot — vägra innan något rörs.
+        """
+        cache_rel = "config/scaffold-variants/_index/variant-embeddings.json"
+        cache = self.repo / cache_rel
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_text('{"stale": true}\n', encoding="utf-8")
+        _git(self.repo, "add", "-A")
+        _git(self.repo, "commit", "-m", "tracked cache at baseline")
+        _git(self.repo, "tag", "-f", sl.BASELINE_TAG)
+
+        _git(self.repo, "rm", "--cached", "--", cache_rel)
+        (self.repo / ".gitignore").write_text(cache_rel + "\n", encoding="utf-8")
+        _git(self.repo, "add", ".gitignore")
+        _git(self.repo, "commit", "-m", "cache moved to blob")
+        cache.write_text('{"fresh": true}\n', encoding="utf-8")
+        modified = self.scaffolds / "base.txt"
+        modified.write_text("v2-experiment\n", encoding="utf-8")
+
+        with self.assertRaisesRegex(RuntimeError, "gitignorerade"):
+            sl._factory_reset_to_baseline(self.ctx)
+
+        self.assertEqual(cache.read_text(encoding="utf-8"), '{"fresh": true}\n')
+        self.assertEqual(modified.read_text(encoding="utf-8"), "v2-experiment\n")
+        code, tracked = sl._run_git(self.ctx, ["ls-files", "--", cache_rel])
+        self.assertEqual((code, tracked), (0, ""), "cache must not be re-tracked")
+
+    def test_deleted_tracked_file_that_is_not_ignored_still_restores(self) -> None:
+        base = self.scaffolds / "base.txt"
+        base.unlink()
+
+        sl._factory_reset_to_baseline(self.ctx)
+
+        self.assertEqual(base.read_text(encoding="utf-8"), "v1\n")
+
     def test_inherited_git_dir_cannot_write_parent_config(self) -> None:
         """An inherited GIT_DIR at the parent checkout must not receive config writes."""
         parent_tmp = tempfile.mkdtemp(prefix="baseline-parent-")

@@ -28,6 +28,7 @@ from .flash import _flash_note
 from .index_gate import queue_index_after_create
 
 from .baseline import (
+    _facade,
     _run_git,
     _baseline_tag_exists,
     _baseline_drift,
@@ -451,17 +452,56 @@ def _render_baseline_tab(ctx: BackofficeContext) -> None:
             )
             st.rerun()
 
-    st.divider()
-    with st.expander("Uppdatera baselinen (gör nuvarande läge till nya 'standard')", expanded=False):
-        st.caption(
-            "Flyttar taggen till nuvarande commit (`git tag -f`). Gör detta när ett "
-            "experiment blivit godkänt och committat och ska bli den nya fabriksinställningen."
+
+def _render_move_baseline(ctx: BackofficeContext) -> None:
+    """Flytta baseline-taggen till HEAD — egen farlig åtgärd med typad bekräftelse.
+
+    Taggar har ingen reflog: efter `git tag -f` finns den gamla pekaren bara
+    kvar om någon skrev ned den. Därför visas och flashas den gamla SHA:n, och
+    flytten vägras om den inte kan läsas.
+    """
+    run_git = _facade()._run_git
+    if not _baseline_tag_exists(ctx):
+        st.caption(f"Taggen `{BASELINE_TAG}` finns inte ännu — skapa den ovan först.")
+        return
+    old_code, old_sha = run_git(ctx, ["rev-parse", f"{BASELINE_TAG}^{{commit}}"])
+    head_code, head_sha = run_git(ctx, ["rev-parse", "HEAD"])
+    if old_code != 0 or head_code != 0 or not old_sha.strip() or not head_sha.strip():
+        st.error(
+            "Kunde inte läsa baseline-taggens eller HEAD:s commit — flytten är "
+            "avstängd så den gamla pekaren inte går förlorad."
         )
-        confirm_move = st.checkbox("Jag vill flytta baselinen till nuvarande läge.")
-        if st.button("Flytta baseline-taggen", disabled=not confirm_move):
-            code, output = _run_git(ctx, ["tag", "-f", BASELINE_TAG])
-            if code == 0:
-                st.success(f"`{BASELINE_TAG}` pekar nu på nuvarande commit.")
-                st.rerun()
-            else:
-                st.error(output)
+        return
+    old_sha = old_sha.strip().splitlines()[-1]
+    head_sha = head_sha.strip().splitlines()[-1]
+    st.caption(
+        "Flyttar taggen till nuvarande commit (`git tag -f`). Gör detta när ett "
+        "experiment blivit godkänt och committat och ska bli den nya fabriksinställningen."
+    )
+    st.markdown(f"- Nu: `{BASELINE_TAG}` → `{old_sha}`\n- Efter flytten: `{head_sha}` (HEAD)")
+    if old_sha == head_sha:
+        st.info("Baselinen pekar redan på HEAD. Inget att flytta.")
+        return
+
+    with st.form("move_baseline_form"):
+        typed_ok = confirm_by_typing(
+            BASELINE_TAG,
+            "move_baseline_confirm",
+            label="Bekräfta genom att skriva taggens namn",
+        )
+        submitted = st.form_submit_button("Flytta baseline-taggen", type="primary")
+    if not submitted:
+        return
+    if not typed_ok:
+        st.error(f"Bekräftelsetexten måste vara exakt `{BASELINE_TAG}`.")
+        return
+    code, output = run_git(ctx, ["tag", "-f", BASELINE_TAG, head_sha])
+    if code != 0:
+        st.error(output)
+        return
+    _flash_note(
+        f"Flyttade `{BASELINE_TAG}` från `{old_sha}` till `{head_sha}`. "
+        f"Ångra: `git tag -f {BASELINE_TAG} {old_sha}`.",
+        level="warning",
+    )
+    st.rerun()

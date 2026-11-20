@@ -6,6 +6,8 @@ const destroyPreviewHostSession = vi.hoisted(() => vi.fn());
 const patchPreviewHostSession = vi.hoisted(() => vi.fn());
 const fetchPreviewHostFilesManifest = vi.hoisted(() => vi.fn());
 const fetchPreviewHostStatus = vi.hoisted(() => vi.fn());
+// No verdict = old host: keeps the destroy + re-pin behaviour these tests pin.
+const fetchPreviewHostReadinessVerdict = vi.hoisted(() => vi.fn(async () => null));
 const buildCompleteProject = vi.hoisted(() => vi.fn());
 const logPreviewLifecycleTelemetry = vi.hoisted(() => vi.fn());
 const getStoredProjectEnvVarMap = vi.hoisted(() =>
@@ -23,6 +25,7 @@ vi.mock("@/lib/data/redis", () => ({
 vi.mock("@/lib/gen/preview/preview-host-client", () => ({
   destroyPreviewHostSession,
   fetchPreviewHostFilesManifest,
+  fetchPreviewHostReadinessVerdict,
   fetchPreviewHostStatus,
   patchPreviewHostSession,
   startPreviewHostSession,

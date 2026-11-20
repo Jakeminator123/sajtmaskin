@@ -73,7 +73,7 @@ inte "ingen kolumn"; `pollAndApplyPreviewReadinessOutcome` fyller fältet headle
 ```powershell
 node scripts/db/dump-logs.mjs --json `
   --env=.env.vercel.production.pulled `
-  --kinds=prompts,generations,versions,telemetry,errors,chats,oc,ragevents,deploys,defects,drain `
+  --kinds=prompts,generations,versions,telemetry,errors,chats,oc,ragevents,deploys,defects `
   --chat=<chatId> --limit=100 --allow-insecure-ssl
 ```
 

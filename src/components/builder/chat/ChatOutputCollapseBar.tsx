@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Minus } from "lucide-react";
 import type { PointerEventHandler } from "react";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +22,8 @@ interface ChatOutputCollapseBarProps {
   onDragHandlePointerMove?: PointerEventHandler<HTMLDivElement>;
   onDragHandlePointerUp?: PointerEventHandler<HTMLDivElement>;
   onDragHandlePointerCancel?: PointerEventHandler<HTMLDivElement>;
+  /** Flytande läge: fäller ihop hela kortet till en liten knapp. */
+  onMinimize?: () => void;
 }
 
 function formatMessageCount(count: number): string {
@@ -44,6 +46,7 @@ export function ChatOutputCollapseBar({
   onDragHandlePointerMove,
   onDragHandlePointerUp,
   onDragHandlePointerCancel,
+  onMinimize,
 }: ChatOutputCollapseBarProps) {
   const Chevron = isCollapsed ? ChevronUp : ChevronDown;
   const countLabel = formatMessageCount(messageCount);
@@ -94,6 +97,21 @@ export function ChatOutputCollapseBar({
         </span>
       ) : statusText ? (
         <span className="ml-auto truncate">{statusText}</span>
+      ) : null}
+      {onMinimize ? (
+        <button
+          type="button"
+          onClick={onMinimize}
+          onPointerDown={(event) => event.stopPropagation()}
+          aria-label="Fäll ihop inmatningen"
+          title="Fäll ihop inmatningen så att sajten syns"
+          className={cn(
+            "hover:text-foreground hover:bg-muted/50 focus-visible:ring-ring inline-flex size-6 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none",
+            !isStreaming && !statusText && "ml-auto",
+          )}
+        >
+          <Minus className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
       ) : null}
     </div>
   );

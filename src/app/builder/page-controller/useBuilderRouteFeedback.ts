@@ -6,6 +6,7 @@ import type { ReadonlyURLSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { noteAccountCreatedIfSignup } from "@/lib/ads/fire-google-ads-conversion";
 import { noteOpenAiRegistrationIfSignup } from "@/lib/ads/fire-openai-ads";
+import { useAuthStore } from "@/lib/auth/auth-store";
 import type { ChatMessage } from "@/lib/builder/types";
 import { debugLog } from "@/lib/utils/debug";
 
@@ -64,6 +65,9 @@ export function useBuilderRouteFeedback({
     noteOpenAiRegistrationIfSignup(signup);
 
     if (connected) {
+      // The callback stored the token server-side; reload the user so
+      // `hasGitHub` flips without waiting for another mount-time fetch.
+      void useAuthStore.getState().fetchUser();
       toast.success(username ? `GitHub kopplat: @${username}` : "GitHub kopplat");
     } else if (githubError) {
       const message =

@@ -66,7 +66,7 @@ export function LandingHero({
     <section className="relative flex min-h-[calc(100vh-57px)] flex-col items-center justify-start overflow-x-visible pt-0 pb-8 supports-[height:100svh]:min-h-[calc(100svh-57px)] md:pt-0 md:pb-12">
       <div
         data-lanyard-stage
-        className="pointer-events-auto relative z-0 mb-4 h-[min(32vh,260px)] w-screen max-w-none shrink-0 overflow-visible sm:mb-6 sm:h-[min(48vh,520px)] md:h-[min(64vh,720px)]"
+        className="pointer-events-auto relative z-0 mb-4 h-[min(32vh,260px)] w-screen max-w-none shrink-0 overflow-visible sm:mb-6 sm:h-[min(48vh,520px)] md:h-[min(36vh,420px)]"
       >
         <LanyardExperience className="h-full w-full overflow-visible" />
       </div>
@@ -172,7 +172,7 @@ export function LandingHero({
           </div>
         )}
 
-        <div className={`input-3d bg-secondary/50 backdrop-blur-xl rounded-2xl border border-border/30 ${isAuditMode ? "p-3" : "p-4"} shadow-2xl`}>
+        <div className={`input-3d bg-secondary/50 backdrop-blur-xl rounded-2xl border border-border/30 transition-shadow focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/60 ${isAuditMode ? "p-3" : "p-4"} shadow-2xl`}>
           <div className={isAuditMode ? "space-y-2" : "space-y-3"}>
             {isAuditMode ? (
               <input

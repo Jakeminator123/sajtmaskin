@@ -126,6 +126,13 @@ describe("isAllowedProductPostcheckUrl", () => {
     expect(isAllowedProductPostcheckUrl("https://vm-fly-jakem.fly.dev/chat_1")).toBe(true);
   });
 
+  it("allows the per-chat preview origin (M03) but no other label under its domain", () => {
+    expect(
+      isAllowedProductPostcheckUrl("https://p-0123456789abcdef0123.vm.sajtmaskin.com/chat_1"),
+    ).toBe(true);
+    expect(isAllowedProductPostcheckUrl("https://evil.vm.sajtmaskin.com/chat_1")).toBe(false);
+  });
+
   it("rejects arbitrary external URLs", () => {
     expect(isAllowedProductPostcheckUrl("https://example.com")).toBe(false);
     expect(isAllowedProductPostcheckUrl("javascript:alert(1)")).toBe(false);

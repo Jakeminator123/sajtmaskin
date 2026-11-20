@@ -35,6 +35,7 @@ import {
 } from "@/lib/templates/template-data";
 import { toBuilderStartHref } from "@/lib/ads/ads-click-params";
 import { createProject } from "@/lib/projects/project-client";
+import { projectNameFromPrompt } from "@/lib/builder/project-name-suggestion";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { getTemplateCatalogItemById } from "@/lib/templates/template-catalog";
 import { PreviewModal } from "@/components/templates/preview-modal";
@@ -120,7 +121,7 @@ export default function CategoryPage() {
       try {
         // Create project in database first
         const project = await createProject(
-          `${displayCategory.title} - ${new Date().toLocaleDateString("sv-SE")}`,
+          projectNameFromPrompt(prompt) || displayCategory.title,
           type,
           prompt.trim().substring(0, 100),
         );

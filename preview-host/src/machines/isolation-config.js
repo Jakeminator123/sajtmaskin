@@ -59,8 +59,12 @@ function machineIsolationConfig() {
     hostIdentity: readTrimmed("PREVIEW_GUEST_HOST_IDENTITY") || readTrimmed("FLY_APP_NAME") || "local",
     machineStartTimeoutMs: readInt("PREVIEW_GUEST_MACHINE_START_TIMEOUT_MS", 120_000),
     agentReadyTimeoutMs: readInt("PREVIEW_GUEST_AGENT_READY_TIMEOUT_MS", 90_000),
-    stopMachineOnHibernate:
-      (readTrimmed("PREVIEW_GUEST_STOP_ON_HIBERNATE") || "true").toLowerCase() !== "false",
+    // A guest with no boot, verify, live dev process or open preview socket is
+    // destroyed after this much inactivity; the next visit creates a new one
+    // (cold start). Destroy, not stop: a stopped Machine loses its rootfs, so
+    // a stop would save nothing on resume. 0 disables (the guest then lives
+    // until its session is cleaned up).
+    idleDestroyMs: readInt("PREVIEW_GUEST_IDLE_DESTROY_MS", 25 * 60 * 1000, { min: 0 }),
   };
 }
 
@@ -114,6 +118,7 @@ function describeIsolation() {
           image: config.image || null,
           region: config.region,
           guest: { cpuKind: config.cpuKind, cpus: config.cpus, memoryMb: config.memoryMb },
+          idleDestroyMs: config.idleDestroyMs,
           hostIdentity: config.hostIdentity,
         }
       : {}),

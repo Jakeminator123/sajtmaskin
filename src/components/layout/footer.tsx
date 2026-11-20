@@ -9,7 +9,7 @@ import {
 const productLinks = [
   { label: "Skapa", href: "/" },
   { label: "Analys", href: "/analys" },
-  { label: "Templates", href: "/templates" },
+  { label: "Mallar", href: "/templates" },
   { label: "Priser", href: "/priser" },
 ];
 
@@ -39,7 +39,7 @@ export function Footer() {
             <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
               AI-driven webbplatsgenerering. Skapa professionella webbplatser på minuter.
             </p>
-            <p className="text-muted-foreground/60 mt-4 text-xs">
+            <p className="text-muted-foreground mt-4 text-xs">
               En tjänst från{" "}
               <a
                 href="/om"
@@ -163,7 +163,7 @@ export function Footer() {
 
         {/* Bottom */}
         <div className="border-border/50 mt-10 border-t pt-6">
-          <p className="text-muted-foreground/60 text-center text-xs">
+          <p className="text-muted-foreground text-center text-xs">
             &copy; {new Date().getFullYear()} Pretty Good B.V. Alla rättigheter förbehållna.
           </p>
         </div>

@@ -42,7 +42,7 @@ async function typeAndSend(outcome: SendMessageOutcome) {
   fireEvent.change(textarea, { target: { value: DRAFT } });
   expect((textarea as HTMLTextAreaElement).value).toBe(DRAFT);
 
-  fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+  fireEvent.click(screen.getByRole("button", { name: "Skicka" }));
   await waitFor(() => expect(onSendMessage).toHaveBeenCalledTimes(1));
   return textarea as HTMLTextAreaElement;
 }

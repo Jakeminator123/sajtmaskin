@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuthModal } from "./auth-modal";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ const REASONS = {
   generation: {
     title: "Skapa konto för att generera",
     description:
-      "Generering kräver ett konto. När kontot är aktiverat får du din första generering utan coin-debitering.",
+      "Generering kräver ett konto. När kontot är aktiverat får du din första generering gratis.",
     icon: Wand2,
   },
   refine: {
@@ -43,8 +43,8 @@ const REASONS = {
     icon: Lock,
   },
   builder: {
-    title: "Logga in för att använda Builder",
-    description: "Du måste vara inloggad för att skapa och redigera webbplatser i Builder.",
+    title: "Logga in för att bygga din sajt",
+    description: "Du behöver vara inloggad för att skapa och ändra webbplatser.",
     icon: Lock,
   },
   kostnadsfri: {
@@ -59,6 +59,15 @@ export function RequireAuthModal({ isOpen, onClose, reason, returnTo }: RequireA
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("register");
   const router = useRouter();
+
+  useEffect(() => {
+    if (!isOpen || showAuthModal) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, showAuthModal, onClose]);
 
   if (!isOpen) return null;
 
@@ -77,11 +86,17 @@ export function RequireAuthModal({ isOpen, onClose, reason, returnTo }: RequireA
         <div className="absolute inset-0 bg-black/70 backdrop-blur-lg" onClick={onClose} />
 
         {/* Modal */}
-        <div className="animate-in fade-in zoom-in-95 border-border/35 bg-card/85 relative w-full max-w-md overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-2xl duration-200">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="require-auth-modal-title"
+          className="animate-in fade-in zoom-in-95 border-border/35 bg-card/85 relative w-full max-w-md overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-2xl duration-200"
+        >
           <div className="from-primary/12 to-primary/4 pointer-events-none absolute inset-0 bg-linear-to-br via-transparent" />
 
           {/* Close button */}
           <button
+            type="button"
             onClick={onClose}
             className="border-border/20 bg-secondary/60 text-muted-foreground hover:text-foreground hover:bg-secondary absolute top-4 right-4 z-20 rounded-lg border p-1.5 transition-colors"
             aria-label="Stäng inloggningskrav"
@@ -97,7 +112,10 @@ export function RequireAuthModal({ isOpen, onClose, reason, returnTo }: RequireA
             </div>
 
             {/* Title */}
-            <h2 className="text-foreground mb-3 text-2xl font-(--font-heading) tracking-tight">
+            <h2
+              id="require-auth-modal-title"
+              className="text-foreground mb-3 text-2xl font-(--font-heading) tracking-tight"
+            >
               {reasonData.title}
             </h2>
 
@@ -111,7 +129,7 @@ export function RequireAuthModal({ isOpen, onClose, reason, returnTo }: RequireA
                 <span className="text-primary text-sm font-medium">
                   {reason === "kostnadsfri"
                     ? "Första bygget och en ändringsrunda ingår"
-                    : "Första genereringen utan coin-debitering"}
+                    : "Första genereringen gratis"}
                 </span>
               </div>
             )}

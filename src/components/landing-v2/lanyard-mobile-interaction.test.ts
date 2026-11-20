@@ -233,7 +233,7 @@ describe("lanyard mobile interactions", () => {
     expect(stageClass).toContain("w-screen");
     expect(stageClass).toContain("max-w-none");
     expect(stageClass).toContain("h-[min(32vh,260px)]");
-    expect(stageClass).toContain("md:h-[min(64vh,720px)]");
+    expect(stageClass).toContain("md:h-[min(36vh,420px)]");
     expect(stageClass).not.toContain("-translate-x-1/2");
     expect(stageClass).not.toContain("max-w-[440px]");
     expect(stageClass).not.toContain("max-w-[min(100%,580px)]");

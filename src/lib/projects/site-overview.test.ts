@@ -102,6 +102,34 @@ describe("resolveSiteAddress", () => {
 });
 
 describe("resolveOverviewAddress", () => {
+  it("prefers the attested production alias over the per-deployment host", () => {
+    const result = resolveOverviewAddress(
+      {},
+      {
+        providerUrl: "https://sajtmaskin-frisor-ab12cd34-k9x8y7z6w-team-projects.vercel.app",
+        url: null,
+      },
+      "sajtmaskin-frisor-ab12cd34.vercel.app",
+    );
+
+    expect(result).toEqual({
+      liveUrl: "https://sajtmaskin-frisor-ab12cd34.vercel.app",
+      kind: "provider",
+    });
+  });
+
+  it("falls back to the alias-shaped url column before the stored provider host", () => {
+    const result = resolveOverviewAddress(
+      {},
+      {
+        providerUrl: "https://sajtmaskin-frisor-ab12cd34-k9x8y7z6w-team-projects.vercel.app",
+        url: "https://sajtmaskin-frisor-ab12cd34.vercel.app",
+      },
+    );
+
+    expect(result.liveUrl).toBe("https://sajtmaskin-frisor-ab12cd34.vercel.app");
+  });
+
   it("classifies a ready row whose only host lives in deployments.url", () => {
     // Older rows never got providerUrl written; the deploy list already
     // recovers the vercel.app host via resolveLegacyProviderUrl.

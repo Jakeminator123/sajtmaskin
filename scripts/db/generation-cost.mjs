@@ -17,6 +17,7 @@ import pg from "pg";
 import { normalizeEnvUrl, inspectDbTarget, summarizeTarget } from "./db-target-guard.mjs";
 import { mergeEnvFileOverProcess } from "./env-merge.mjs";
 import {
+  dayBucketSql,
   groupCostUsd,
   resolveCostBasis,
   priceUsageRow,
@@ -190,13 +191,13 @@ try {
   const byDayRaw = await safe(
     "byDay",
     source === "usage"
-      ? `SELECT date_trunc('day', created_at)::date AS day,
+      ? `SELECT ${dayBucketSql()} AS day,
                 ${usageSelect}
          FROM ${TABLE}
          WHERE created_at > ${W}
          GROUP BY 1, 2, 3
          ORDER BY 1 DESC, COALESCE(SUM(input_tokens), 0) + COALESCE(SUM(output_tokens), 0) DESC`
-      : `SELECT date_trunc('day', created_at)::date AS day,
+      : `SELECT ${dayBucketSql()} AS day,
                 model,
                 COALESCE(SUM(prompt_tokens), 0)::bigint AS prompt_tokens,
                 COALESCE(SUM(completion_tokens), 0)::bigint AS completion_tokens
@@ -207,6 +208,8 @@ try {
   );
 
   if (byModelRaw._error) fail(byModelRaw._error);
+  // En misslyckad dagsfråga får inte se ut som "ingen data per dag".
+  const byDayError = Array.isArray(byDayRaw) ? null : byDayRaw._error;
 
   const byModelPriced = byModelRaw.map((row) => {
     const usage = toUsageRow(row);
@@ -346,6 +349,9 @@ try {
     caveats.push(
       "engine_generation_logs är bara codegen-strömmen. Cache prissätts som ocachad här. Använd source=usage för hela notan.",
     );
+  }
+  if (byDayError) {
+    caveats.push(`Dagsuppdelningen kunde inte hämtas (${byDayError}). Totalen och per modell gäller ändå.`);
   }
   if (anyEstimated) {
     caveats.push("Vissa modeller är ESTIMERADE (t.ex. gpt-5.3-codex) — se pricing.json.");

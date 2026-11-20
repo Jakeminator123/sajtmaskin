@@ -3,12 +3,21 @@ name: CI
 on:
   push:
     branches: [master, preview]
+    # No workflow-level paths-ignore: required checks must still publish a
+    # successful light receipt. Markdown is often runtime/authority in this
+    # repo; ci-scope.mjs owns the safe-docs shortcut instead.
   pull_request:
     branches: [master, preview]
     # Draft blocks merge already; changing to draft must not cancel/restart
-    # an otherwise valid same-head run. Ready still upgrades deferred checks.
+    # an otherwise valid same-head run. Heavy CI is opt-in on the next head:
+    # ready_for_review, the `run-full-ci` label (read on opened/synchronize),
+    # Dependabot, or a PR targeting master. `labeled` is intentionally omitted:
+    # it would cancel in-progress runs and replace required checks on the same SHA.
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch: {}
+  # No nightly full suite. master/preview push already run heavy CI; a second
+  # scheduled full run on active days would add billed minutes without covering
+  # new commits. Re-run via workflow_dispatch.
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.run_id }}
@@ -39,6 +48,7 @@ jobs:
       checks: read
       pull-requests: read
     runs-on: ubuntu-slim
+    timeout-minutes: 10
     outputs:
       run_heavy: ${{ steps.classify.outputs.run_heavy }}
       safe_docs_only: ${{ steps.classify.outputs.safe_docs_only }}
@@ -65,6 +75,8 @@ jobs:
           SAJTMASKIN_PR_DRAFT: ${{ github.event.pull_request.draft }}
           SAJTMASKIN_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           SAJTMASKIN_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SAJTMASKIN_PR_LABELS: "${{ toJSON(github.event.pull_request.labels.*.name) }}"
+          SAJTMASKIN_PR_USER: ${{ github.event.pull_request.user.login }}
           SAJTMASKIN_PUSH_BASE_SHA: ${{ github.event.before }}
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/workflow/ci-scope.mjs
@@ -73,6 +85,7 @@ jobs:
     needs: scope
     if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 40
 
     # Efemär Postgres för de DB-backade kontraktstesterna (t.ex.
     # `scripts/db/files-revision-contract.postgres.test.ts`). Föds och dör med
@@ -205,6 +218,7 @@ jobs:
     needs: scope
     if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -241,6 +255,7 @@ jobs:
     needs: scope
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -256,6 +271,18 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Ensure embeddings (light PR lane)
+        if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' && needs.scope.outputs.safe_docs_only != 'true' }}
+        run: npm run embeddings:ensure
+
+      - name: Typecheck (light PR lane)
+        if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' && needs.scope.outputs.safe_docs_only != 'true' }}
+        run: npm run typecheck
+
+      - name: Lint (light PR lane)
+        if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' && needs.scope.outputs.safe_docs_only != 'true' }}
+        run: npm run lint
 
       - name: Verify baseline dependency versions
         if: ${{ !cancelled() }}
@@ -380,7 +407,15 @@ jobs:
         run: npm ci
       - name: Prepare locked browser and disposable database image
         run: |
-          node node_modules/@playwright/test/cli.js install --with-deps chromium
+          # `--with-deps` runs apt. When the runner cannot reach the Ubuntu
+          # mirrors (DNS failures since 2026-11-11 13:53 UTC), the packages it
+          # misses are fonts; the runner image already carries Chromium's
+          # libraries. Bounded attempt, then the browser alone. A library that
+          # is really missing still fails the persistence step below.
+          if ! timeout 240 node node_modules/@playwright/test/cli.js install --with-deps chromium; then
+            echo "::warning title=Playwright system packages::install --with-deps failed or timed out (apt mirrors unreachable?); installing Chromium without system packages"
+            node node_modules/@playwright/test/cli.js install chromium
+          fi
           IMAGE=$(node --input-type=module -e 'import { POSTGRES_IMAGE } from "./scripts/e2e/project-persistence-env.mjs"; console.log(POSTGRES_IMAGE)')
           docker pull "$IMAGE"
       - name: Real isolated project persistence (blocking)
@@ -392,6 +427,7 @@ jobs:
     # en stale concurrency-cancelled PR-run dö i stället för att leva vidare.
     if: ${{ !cancelled() }}
     runs-on: ubuntu-slim
+    timeout-minutes: 5
     steps:
       - name: Aggregate required quality result
         env:
@@ -448,6 +484,7 @@ jobs:
     if: ${{ !cancelled() }}
     # Lätt kvitto på ubuntu-slim; tung körning och saknat scope alltid ubuntu-latest.
     runs-on: ${{ (needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false') && 'ubuntu-slim' || 'ubuntu-latest' }}
+    timeout-minutes: 30
     env:
       RUN_HEAVY: ${{ needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false' }}
 
@@ -495,6 +532,7 @@ jobs:
     if: ${{ !cancelled() }}
     # Lätt kvitto på ubuntu-slim; tung körning och saknat scope alltid ubuntu-latest.
     runs-on: ${{ (needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false') && 'ubuntu-slim' || 'ubuntu-latest' }}
+    timeout-minutes: 25
     env:
       RUN_HEAVY: ${{ needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false' }}
 
@@ -558,6 +596,7 @@ jobs:
     if: ${{ !cancelled() }}
     # Lätt kvitto på ubuntu-slim; tung körning och saknat scope alltid ubuntu-latest.
     runs-on: ${{ (needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false') && 'ubuntu-slim' || 'ubuntu-latest' }}
+    timeout-minutes: 20
     env:
       RUN_HEAVY: ${{ needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false' }}
 
@@ -602,6 +641,7 @@ jobs:
     needs: scope
     if: ${{ !cancelled() }}
     runs-on: ${{ (needs.scope.result == 'success' && needs.scope.outputs.run_preview_host == 'false') && 'ubuntu-slim' || 'ubuntu-latest' }}
+    timeout-minutes: 15
     env:
       RUN_PREVIEW_HOST: ${{ needs.scope.result != 'success' || needs.scope.outputs.run_preview_host != 'false' }}
 
@@ -652,6 +692,7 @@ jobs:
     if: ${{ !cancelled() }}
     # Lätt kvitto på ubuntu-slim; tung körning och saknat scope alltid ubuntu-latest.
     runs-on: ${{ (needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false') && 'ubuntu-slim' || 'ubuntu-latest' }}
+    timeout-minutes: 20
     env:
       RUN_HEAVY: ${{ needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false' }}
 
@@ -697,6 +738,7 @@ jobs:
   prod-migrations-applied:
     if: ${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/preview') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -749,6 +791,7 @@ jobs:
   db-schema-parity:
     if: ${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/preview') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout

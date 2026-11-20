@@ -10,7 +10,7 @@ import { getSeoLandingCompareLinks, getSeoLandingHubLinks } from "@/lib/seo-land
 const faqs = [
   {
     q: "Behöver jag kunna programmera?",
-    a: "Nej, absolut inte. SajtMaskin är byggt för att vem som helst ska kunna skapa en professionell hemsida. Berätta bara om ditt företag så sköter AI:n resten. Under huven används React och Next.js, men du behöver aldrig röra en rad kod.",
+    a: "Nej, absolut inte. Sajtmaskin är byggt för att vem som helst ska kunna skapa en professionell hemsida. Berätta bara om ditt företag så sköter AI:n resten. Under huven används React och Next.js, men du behöver aldrig röra en rad kod.",
   },
   {
     q: "Vilken teknik byggs mina sidor med?",
@@ -18,19 +18,19 @@ const faqs = [
   },
   {
     q: "Hur snabbt kan jag få en färdig sajt?",
-    a: "Första utkastet genereras på några sekunder. Därefter kan du förfina, iterera och publicera samma dag om du vill.",
+    a: "Första utkastet är oftast klart på några minuter. Därefter kan du förfina, ändra och publicera samma dag om du vill.",
   },
   {
     q: "Kan jag använda min egen domän?",
-    a: "Ja. Med rätt plan och setup kan du koppla din egen domän med automatisk SSL. Vi hjälper gärna till om du vill ha stöd hela vägen.",
+    a: "Ja. När sajten är publicerad kan du koppla din egen domän, med automatiskt SSL-certifikat. Vi hjälper gärna till om du vill ha stöd hela vägen.",
   },
   {
     q: "Är det GDPR-anpassat?",
     a: "Ja. Plattformen är byggd med GDPR i åtanke och vi försöker hålla både datalagring och arbetsflöden så rena och relevanta som möjligt.",
   },
   {
-    q: "Kan jag byta plan när som helst?",
-    a: "Ja, du kan skala upp när du behöver mer tempo eller fler iterationer. Credits som du redan köpt ligger kvar.",
+    q: "Finns det någon prenumeration eller bindningstid?",
+    a: "Nej. Du köper credits som engångspaket när du behöver fler, och credits du redan köpt går inte ut.",
   },
 ];
 
@@ -80,7 +80,7 @@ export default function FAQPage() {
             asChild
           >
             <Link href="/builder?new=1">
-              Öppna builder
+              Börja bygga
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
@@ -92,7 +92,7 @@ export default function FAQPage() {
               Vanliga frågor
             </p>
             <h1 className="text-foreground text-3xl font-(--font-heading) tracking-tight md:text-5xl">
-              Frågor och svar om SajtMaskin
+              Frågor och svar om Sajtmaskin
             </h1>
             <p className="text-muted-foreground mt-4 max-w-2xl text-sm leading-relaxed md:text-base">
               Här samlar vi de vanligaste frågorna om hur plattformen fungerar, vilken teknik som
@@ -109,7 +109,7 @@ export default function FAQPage() {
             </div>
 
             <aside className="border-primary/20 bg-primary/8 rounded-[28px] border p-5">
-              <p className="text-primary/75 text-xs font-medium tracking-[0.18em] uppercase">
+              <p className="text-primary text-xs font-medium tracking-[0.18em] uppercase">
                 Fortfarande osäker?
               </p>
               <h2 className="text-foreground mt-3 text-xl font-(--font-heading)">

@@ -1,5 +1,6 @@
 /**
- * Design theme presets for Sajtmaskin — the "Färg" control in Byggval.
+ * Design theme presets for Sajtmaskin — the palette in Byggval's "Sidans
+ * utseende" (local suggestion in `site-look-suggestion.ts`).
  *
  * Based on shadcn/ui official themes (https://ui.shadcn.com/themes), in OKLch
  * because that is what the generated `@theme inline` block uses natively.
@@ -137,6 +138,31 @@ export const DESIGN_THEME_OPTIONS: Array<{
 ];
 
 export type ThemeClusterId = Exclude<DesignTheme, "custom" | "off">;
+
+/**
+ * Stämningsnamn för palettkorten i "Sidans utseende". En småföretagare väljer
+ * på känsla ("Varm & inbjudande"), inte på nyans ("Bärnsten"), så kortet visar
+ * stämningen som rubrik och nyansnamnet som undertext.
+ *
+ * Bara presentation: nyansnamnet i `DESIGN_THEME_OPTIONS` förblir det kanoniska
+ * namnet, och det är också det som promptens låsta palettblock skriver ut via
+ * `THEME_CLUSTERS[id].label`. Värdet på tråden är fortfarande cluster-id:t.
+ */
+export const DESIGN_THEME_MOODS: Record<ThemeClusterId, string> = {
+  blue: "Trygg & klar",
+  cyan: "Frisk & luftig",
+  teal: "Lugn & balanserad",
+  green: "Grön & naturlig",
+  lime: "Fräsch & levande",
+  yellow: "Glad & solig",
+  orange: "Varm & inbjudande",
+  red: "Rustik & kraftfull",
+  rose: "Mjuk & personlig",
+  fuchsia: "Lekfull & modig",
+  violet: "Kreativ & djup",
+  indigo: "Elegant & seriös",
+  slate: "Stilren & neutral",
+};
 
 /** Full surface palette for one cluster in one color mode. */
 export interface ThemePalette {

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import streamlit as st
 
 from backoffice.shared import (
@@ -10,6 +12,34 @@ from backoffice.shared import (
     write_env_flag,
     write_json,
 )
+
+
+def fragment_path_errors(config_dir: Path, fragments: list[str]) -> list[str]:
+    """Samma krav som ``src/lib/gen/static-core-loader.ts`` ställer vid körning.
+
+    Loadern kastar på en tom lista, ett ``..``-segment, en absolut sökväg eller
+    en fil som saknas — och då stannar varje generering. Kontrollera därför före
+    sparning: minst ett fragment, varje fil finns och ligger under ``config/``.
+    """
+    if not fragments:
+        return ["Minst ett fragment krävs (en tom lista ger ingen systemprompt)."]
+    root = config_dir.resolve()
+    errors: list[str] = []
+    for rel in fragments:
+        normalized = rel.replace("\\", "/").strip()
+        segments = normalized.split("/")
+        if normalized.startswith("/") or ".." in segments or ":" in segments[0]:
+            errors.append(f"`{rel}`: måste vara en relativ sökväg under config/.")
+            continue
+        candidate = (config_dir / normalized).resolve()
+        try:
+            candidate.relative_to(root)
+        except ValueError:
+            errors.append(f"`{rel}`: ligger utanför config/.")
+            continue
+        if not candidate.is_file():
+            errors.append(f"`{rel}`: filen finns inte under config/.")
+    return errors
 
 
 def _section_domain_rules(ctx: BackofficeContext) -> None:
@@ -174,6 +204,13 @@ def render(ctx: BackofficeContext) -> None:
             cleaned.append({"_o": o, "sökväg": pth})
         cleaned.sort(key=lambda x: x["_o"])
         new_frags = [x["sökväg"] for x in cleaned]
+        errors = fragment_path_errors(ctx.config_dir, new_frags)
+        if errors:
+            st.error(
+                "Sparar inte — fragmentlistan skulle stoppa systemprompten:\n"
+                + "\n".join(f"- {message}" for message in errors)
+            )
+            st.stop()
         out = {**data, "fragmentSeparator": sep, "fragments": new_frags}
         write_json(path, out)
         st.success("Sparat.")

@@ -432,6 +432,12 @@ export type PreviewHostReadinessVerdict = Pick<
   running: boolean;
   /** Version the host says this session is pinned to, or `null` if unknown. */
   versionId: string | null;
+  /**
+   * Persisted host session status (`starting`, `warm_project`, `error`,
+   * `hibernated`, …) or `null` when an older host omits it. Lets the app tell
+   * a boot in progress from a dead runtime (see `isBootingPinnedSession`).
+   */
+  hostStatus?: string | null;
 };
 
 export async function fetchPreviewHostReadinessVerdict(
@@ -476,6 +482,7 @@ export async function fetchPreviewHostReadinessVerdict(
     return {
       running: body.running === true,
       versionId: hostVersionId,
+      hostStatus: nonEmptyString(body.status),
       lifecycleToken,
       mutationRevision: readMutationRevisionFromHostBody(body),
       installAttemptRevision: readInstallAttemptRevisionFromHostBody(body),

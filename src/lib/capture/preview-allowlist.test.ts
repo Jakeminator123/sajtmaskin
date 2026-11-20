@@ -92,6 +92,31 @@ describe("assertPreviewUrlAllowed", () => {
   });
 });
 
+describe("per-chatt-preview-origin (M03)", () => {
+  const SLUG = "p-0123456789abcdef0123";
+
+  it("släpper igenom exakt <slug>.vm.sajtmaskin.com men inga andra etiketter", async () => {
+    const { assertPreviewUrlAllowed, isTrustedCaptureDnsHost } = await import(
+      "./preview-allowlist"
+    );
+    expect(assertPreviewUrlAllowed(new URL(`https://${SLUG}.vm.sajtmaskin.com/chat_1`))).toEqual({
+      ok: true,
+    });
+    expect(isTrustedCaptureDnsHost(`${SLUG}.vm.sajtmaskin.com`)).toBe(true);
+    for (const host of ["vm.sajtmaskin.com", "evil.vm.sajtmaskin.com", `${SLUG}.vm.sajtmaskin.com.evil.example`]) {
+      expect(assertPreviewUrlAllowed(new URL(`https://${host}/x`)).ok, host).toBe(false);
+      expect(isTrustedCaptureDnsHost(host), host).toBe(false);
+    }
+  });
+
+  it("släpper fortfarande igenom bas-URL:en (sökvägsform) oavsett hostens läge", async () => {
+    const { assertPreviewUrlAllowed } = await import("./preview-allowlist");
+    expect(assertPreviewUrlAllowed(new URL("https://preview.sajtmaskin.dev/p/chat_1"))).toEqual({
+      ok: true,
+    });
+  });
+});
+
 describe("isAllowedCaptureUrl", () => {
   it("kräver både http(s) och allowlist", async () => {
     const { isAllowedCaptureUrl } = await import("./preview-allowlist");

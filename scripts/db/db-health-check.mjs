@@ -57,6 +57,7 @@ const EXPECTED_TABLES = [
   "media_library",
   // Användare & integrations
   "users",
+  "password_reset_tokens",
   "user_integrations",
   "transactions",
   "wizard_runs",

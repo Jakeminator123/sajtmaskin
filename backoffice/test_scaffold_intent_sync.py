@@ -867,6 +867,123 @@ class ScaffoldIntentWriterTests(unittest.TestCase):
 
         self.assertFalse(client_list_path.exists())
 
+    def _write_bracket_manifest(self) -> Path:
+        manifest_path = self.scaffolds_dir / "base-nextjs" / "manifest.ts"
+        manifest_path.write_text(
+            MANIFEST_FIXTURE.replace(
+                '"First check",',
+                '"Store name replaces [Butiksnamn] everywhere.",',
+            ),
+            encoding="utf-8",
+            newline="\n",
+        )
+        return manifest_path
+
+    def test_edit_keeps_checklist_with_brackets_inside_strings(self) -> None:
+        """`[Butiksnamn]` i en sträng får inte stänga arrayen (ecommerce/saas-landing).
+
+        Den gamla `\\[.*?\\]`-regexen läste checklistan som tom, och varje
+        sparning lämnade resten av arrayen som trasig TypeScript.
+        """
+        manifest_path = self._write_bracket_manifest()
+        before = manifest_path.read_text(encoding="utf-8")
+        checklist = extract_ts_string_array_field(before, "qualityChecklist")
+        self.assertEqual(
+            checklist,
+            [
+                "Store name replaces [Butiksnamn] everywhere.",
+                "Second check",
+                "Third check",
+            ],
+        )
+
+        changed = _save_scaffold_metadata(
+            self.ctx,
+            scaffold_id="base-nextjs",
+            tags=["base", "ny-tagg"],
+            allowed_build_intents=["website", "template"],
+            prompt_hints=["First hint", "Second hint"],
+            quality_checklist=checklist,
+        )
+
+        self.assertTrue(changed)
+        after = manifest_path.read_text(encoding="utf-8")
+        self.assertEqual(extract_ts_string_array_field(after, "qualityChecklist"), checklist)
+        self.assertEqual(extract_ts_string_array_field(after, "tags"), ["base", "ny-tagg"])
+        # Only the tags line changed; the checklist block is byte-identical.
+        self.assertEqual(
+            after.replace('tags: ["base", "ny-tagg"]', 'tags: ["base"]'), before
+        )
+
+    def test_edit_round_trips_backslashes_and_quotes(self) -> None:
+        manifest_path = self.scaffolds_dir / "base-nextjs" / "manifest.ts"
+        tags = ["x\\ny", 'say "hi"', "a]b"]
+        _save_scaffold_metadata(
+            self.ctx,
+            scaffold_id="base-nextjs",
+            tags=tags,
+            allowed_build_intents=["website"],
+            prompt_hints=["First hint", "Second hint"],
+            quality_checklist=["First check", "Second check", "Third check"],
+        )
+        after = manifest_path.read_text(encoding="utf-8")
+        self.assertIn('tags: ["x\\\\ny", "say \\"hi\\"", "a]b"]', after)
+        self.assertEqual(extract_ts_string_array_field(after, "tags"), tags)
+
+    def test_edit_refuses_non_literal_arrays_without_writing(self) -> None:
+        manifest_path = self.scaffolds_dir / "base-nextjs" / "manifest.ts"
+        manifest_path.write_text(
+            MANIFEST_FIXTURE.replace('tags: ["base"]', 'tags: [...BASE_TAGS, "base"]'),
+            encoding="utf-8",
+            newline="\n",
+        )
+        before = manifest_path.read_bytes()
+        with self.assertRaisesRegex(ValueError, "strängliteraler"):
+            _save_scaffold_metadata(
+                self.ctx,
+                scaffold_id="base-nextjs",
+                tags=["base"],
+                allowed_build_intents=["app"],
+                prompt_hints=["First hint", "Second hint"],
+                quality_checklist=["First check", "Second check", "Third check"],
+            )
+        self.assertEqual(manifest_path.read_bytes(), before)
+        self.generator_mock.assert_not_called()
+
+
+class TsStringArrayParsingTests(unittest.TestCase):
+    def test_real_manifests_with_bracket_placeholders_read_fully(self) -> None:
+        """Repots egna manifest — där buggen syntes — läses nu komplett."""
+        from backoffice import REPO_ROOT
+
+        scaffolds = REPO_ROOT / "src" / "lib" / "gen" / "scaffolds"
+        for scaffold_id, needle in (
+            ("ecommerce", "[Butiksnamn]"),
+            ("saas-landing", "[Produktnamn]"),
+        ):
+            with self.subTest(scaffold=scaffold_id):
+                text = (scaffolds / scaffold_id / "manifest.ts").read_text(encoding="utf-8")
+                checklist = extract_ts_string_array_field(text, "qualityChecklist")
+                self.assertGreaterEqual(len(checklist), 3)
+                self.assertTrue(any(needle in item for item in checklist))
+
+    def test_field_must_be_a_whole_key_outside_strings(self) -> None:
+        text = 'metaTags: ["no"],\n  note: "tags: [x]",\n  tags: ["yes"],\n'
+        self.assertEqual(extract_ts_string_array_field(text, "tags"), ["yes"])
+
+    def test_comments_and_escaped_quotes_inside_array(self) -> None:
+        text = 'tags: [\n  // a ] comment\n  "a \\"]\\" b", /* ] */ "c",\n],'
+        self.assertEqual(extract_ts_string_array_field(text, "tags"), ['a "]" b', "c"])
+
+    def test_escape_and_unescape_are_inverse(self) -> None:
+        from backoffice.shared import _escape_ts_string, unescape_ts_string
+
+        for value in ("plain", 'q"uote', "back\\slash", "line\nbreak", "tab\there", "\\n"):
+            with self.subTest(value=value):
+                escaped = _escape_ts_string(value)
+                self.assertNotIn("\n", escaped)
+                self.assertEqual(unescape_ts_string(escaped), value)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,7 +5,9 @@ import {
   CircleCheck,
   Info,
   Loader2,
+  Monitor,
   Plus,
+  Smartphone,
   X,
 } from "lucide-react";
 import { useRef, useState } from "react";
@@ -15,6 +17,8 @@ import {
   type PreviewBuildErrorState,
 } from "@/lib/builder/preview-lifecycle";
 import type { PreviewRouteInfo } from "../pages/preview-route-helpers";
+import type { PreviewVersionIndicator } from "./preview-version-indicator";
+import { PREVIEW_MOBILE_WIDTH_PX, type PreviewDevice } from "./preview-device";
 import { cn } from "@/lib/utils";
 
 interface PreviewPanelChromeProps {
@@ -22,6 +26,13 @@ interface PreviewPanelChromeProps {
   isTier2LivePreview: boolean;
   previewBuildError?: PreviewBuildErrorState | null;
   previewProdBuild?: { verified: boolean; logSnippet?: string | null } | null;
+  /** Which version the preview shows, and whether it is still starting. */
+  versionIndicator?: PreviewVersionIndicator | null;
+  /** Dator/Mobil-växlaren visas bara när en ägare tar emot bytet. */
+  previewDevice?: PreviewDevice;
+  onPreviewDeviceChange?: (device: PreviewDevice) => void;
+  /** Shown only when "startar" has lasted too long; runs the forced restart. */
+  onRestartStalledPreview?: () => void;
   isCodeView: boolean;
   previewRoutesLoading: boolean;
   previewRoutes: PreviewRouteInfo[];
@@ -47,6 +58,10 @@ export function PreviewPanelChrome({
   isTier2LivePreview,
   previewBuildError,
   previewProdBuild,
+  versionIndicator = null,
+  previewDevice = "desktop",
+  onPreviewDeviceChange,
+  onRestartStalledPreview,
   isCodeView,
   previewRoutesLoading,
   previewRoutes,
@@ -260,6 +275,25 @@ export function PreviewPanelChrome({
                 </button>
               )
             ) : null}
+
+            {versionIndicator || onPreviewDeviceChange ? (
+              <span className="ml-auto inline-flex items-center gap-3">
+                {onPreviewDeviceChange ? (
+                  <PreviewDeviceToggle device={previewDevice} onChange={onPreviewDeviceChange} />
+                ) : null}
+                {versionIndicator ? <PreviewVersionIndicatorChip indicator={versionIndicator} /> : null}
+                {onRestartStalledPreview ? (
+                  <button
+                    type="button"
+                    onClick={onRestartStalledPreview}
+                    title="Förhandsvisningen har startat länge. Starta om den; sajten och versionerna är sparade."
+                    className="h-6 rounded-md border border-gray-700 px-2 text-[11px] whitespace-nowrap text-gray-300 hover:bg-gray-800 hover:text-white focus-visible:ring-1 focus-visible:ring-sky-500/60 focus-visible:outline-none"
+                  >
+                    Starta om förhandsvisningen
+                  </button>
+                ) : null}
+              </span>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -323,6 +357,94 @@ export function PreviewPanelChrome({
         </div>
       ) : null}
     </div>
+  );
+}
+
+const PREVIEW_DEVICES: Array<{ id: PreviewDevice; label: string; title: string; Icon: typeof Monitor }> = [
+  { id: "desktop", label: "Dator", title: "Visa sajten i full bredd", Icon: Monitor },
+  {
+    id: "mobile",
+    label: "Mobil",
+    title: `Visa sajten som på en mobil (${PREVIEW_MOBILE_WIDTH_PX} px bred)`,
+    Icon: Smartphone,
+  },
+];
+
+/**
+ * Dator/Mobil (V-20, 2026-11-11): tidigare var "Öppna i ny flik" enda vägen
+ * till mobilvyn. Vanliga knappar med `aria-pressed` (Tab + Enter/mellanslag).
+ * Dold på smala skärmar, där förhandsvisningen redan är mobilbred.
+ */
+function PreviewDeviceToggle({
+  device,
+  onChange,
+}: {
+  device: PreviewDevice;
+  onChange: (device: PreviewDevice) => void;
+}) {
+  return (
+    <span
+      role="group"
+      aria-label="Förhandsvisningens bredd"
+      data-testid="preview-device-toggle"
+      className="hidden items-center overflow-hidden rounded-md border border-gray-700 sm:inline-flex"
+    >
+      {PREVIEW_DEVICES.map(({ id, label, title, Icon }) => {
+        const active = device === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            aria-pressed={active}
+            title={title}
+            onClick={() => {
+              if (!active) onChange(id);
+            }}
+            className={cn(
+              "flex h-6 items-center gap-1 px-2 text-[11px] focus-visible:ring-1 focus-visible:ring-sky-500/60 focus-visible:outline-none",
+              active ? "bg-gray-800 text-gray-100" : "text-gray-400 hover:bg-gray-800/60 hover:text-gray-200",
+            )}
+          >
+            <Icon className="h-3 w-3" aria-hidden="true" />
+            {label}
+          </button>
+        );
+      })}
+    </span>
+  );
+}
+
+/**
+ * Which version the preview shows. Quiet by design: grey text, a small dot
+ * when the version is on screen, a spinner while it starts, amber only when
+ * the preview does not show the saved version. `role="status"` lets screen
+ * readers hear "Visar version 2" once the preview is up.
+ */
+function PreviewVersionIndicatorChip({ indicator }: { indicator: PreviewVersionIndicator }) {
+  return (
+    <span
+      role="status"
+      aria-live="polite"
+      data-testid="preview-version-indicator"
+      data-tone={indicator.tone}
+      className={cn(
+        "inline-flex items-center gap-1.5 text-[11px] whitespace-nowrap",
+        indicator.tone === "attention" ? "text-amber-300/90" : "text-gray-400",
+      )}
+    >
+      {indicator.tone === "pending" ? (
+        <Loader2 className="h-3 w-3 animate-spin text-gray-500" aria-hidden="true" />
+      ) : (
+        <span
+          aria-hidden="true"
+          className={cn(
+            "h-1.5 w-1.5 rounded-full",
+            indicator.tone === "attention" ? "bg-amber-400/80" : "bg-emerald-400/70",
+          )}
+        />
+      )}
+      {indicator.text}
+    </span>
   );
 }
 

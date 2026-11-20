@@ -39,6 +39,7 @@ jobs:
   reject-untrusted-manual-ref:
     if: ${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/master' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Reject secret-bearing dispatch outside master
         run: |
@@ -48,6 +49,7 @@ jobs:
   db-blob-sync:
     if: ${{ github.event_name == 'pull_request' || (github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')) }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout

@@ -37,7 +37,7 @@ const CRITERIA = [
   {
     title: "Betalmodell",
     wix: "Gratis att skapa. Premium är prenumeration. Planer och valuta varierar — kolla Wix, inte den här sidan.",
-    sm: "Credits som engångsköp, utan prenumeration. Publicering debiterar credits. Ett konto får en första slutförd generering utan coin-debitering.",
+    sm: "Credits som engångsköp, utan prenumeration. Publicering debiterar credits. Ett konto får en första slutförd generering gratis.",
   },
   {
     title: "Exit",

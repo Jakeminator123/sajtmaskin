@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -77,6 +78,7 @@ from .io import (
     _rebuild_capability_map,
     _extract_ts_union_values,
     _default_handoff_candidates,
+    _dossier_key_id,
     _apply_manifest_field_edits,
     _is_link_like,
     _delete_dossier_dir,
@@ -88,6 +90,63 @@ from .io import (
     _run_sdk_version_check,
     _rerun_after_dossier_mutation,
 )
+
+
+def _raw_editor_text(raw_bytes: bytes) -> tuple[str, str | None]:
+    """Editable text for the raw editor, plus a warning for a broken encoding.
+
+    A BOM or non-UTF-8 manifest is exactly what the raw editor must be able to
+    repair, so it never raises: the BOM is dropped and non-UTF-8 bytes are
+    shown as Windows-1252 (the usual Windows editor default). Saving writes
+    plain UTF-8 through the normal validated path.
+    """
+    if raw_bytes.startswith(b"\xef\xbb\xbf"):
+        try:
+            return raw_bytes.decode("utf-8-sig"), (
+                "Filen har UTF-8-BOM, som runtime/CI underkänner — en sparning "
+                "skriver den utan BOM."
+            )
+        except UnicodeDecodeError:
+            pass
+    try:
+        return raw_bytes.decode("utf-8"), None
+    except UnicodeDecodeError:
+        return raw_bytes.decode("cp1252", errors="replace"), (
+            "Filen är inte giltig UTF-8 och visas tolkad som Windows-1252. "
+            "Kontrollera å/ä/ö innan du sparar — sparningen skriver UTF-8."
+        )
+
+
+def _sync_raw_editor_state(
+    state: Any,
+    *,
+    text_key: str,
+    loaded_key: str,
+    sha_key: str,
+    disk_text: str,
+    disk_sha: str,
+) -> bool:
+    """Keep the keyed raw editor in step with disk; True = unsaved stale edits.
+
+    A keyed ``st.text_area`` keeps its old value when ``value=`` changes, so
+    after e.g. "Byt capability" the editor still showed the old manifest and a
+    later "Spara rå JSON" silently wrote it back. Unedited editors now reload
+    the new disk bytes; edited ones are reported stale and the save is refused
+    by the sha CAS in ``_save_raw_manifest``.
+    """
+    if text_key not in state or loaded_key not in state or sha_key not in state:
+        state[text_key] = disk_text
+        state[loaded_key] = disk_text
+        state[sha_key] = disk_sha
+        return False
+    if state[sha_key] == disk_sha:
+        return False
+    if state[text_key] == state[loaded_key]:
+        state[text_key] = disk_text
+        state[loaded_key] = disk_text
+        state[sha_key] = disk_sha
+        return False
+    return True
 
 
 def _render_manifest_edit_controls(
@@ -111,7 +170,9 @@ def _render_manifest_edit_controls(
         st.caption(
             f"{field_label('capability')}: `{manifest.get('capability')}` · "
             f"Klass: {class_label(chosen['_class'])} — funktion byts via "
-            '"Byt capability" nedan, klass via rå JSON.'
+            '"Byt capability" nedan. Klassen är katalogen (`hard/` eller '
+            "`soft/`) och kan inte bytas här; ett klassbyte kräver att "
+            "katalogen flyttas manuellt."
         )
         current_mock = str(manifest.get("mock") or "none")
         mock_index = (
@@ -226,10 +287,36 @@ def _render_manifest_edit_controls(
     # men samma klassregel + strict-schema som runtime måste vara gröna före
     # backup/skrivning.
     with tech_details("Rå JSON (full kontroll över alla fält)"):
-        raw = manifest_path.read_text(encoding="utf-8")
-        edited = st.text_area(
-            "manifest.json", value=raw, height=400, key=f"{key_prefix}_raw_json"
+        try:
+            raw_bytes = manifest_path.read_bytes()
+        except OSError as exc:
+            st.error(f"Kunde inte läsa `manifest.json`: {exc}")
+            return
+        disk_text, encoding_warning = _raw_editor_text(raw_bytes)
+        text_key = f"{key_prefix}_raw_json"
+        loaded_key = f"{key_prefix}_raw_json_loaded"
+        sha_key = f"{key_prefix}_raw_json_sha256"
+        stale = _sync_raw_editor_state(
+            st.session_state,
+            text_key=text_key,
+            loaded_key=loaded_key,
+            sha_key=sha_key,
+            disk_text=disk_text,
+            disk_sha=hashlib.sha256(raw_bytes).hexdigest(),
         )
+        if encoding_warning:
+            st.warning(encoding_warning)
+        if stale:
+            st.warning(
+                "Manifestet har ändrats på disk sedan du började redigera här. "
+                "Sparning blockeras tills du laddar om från disk (dina osparade "
+                "ändringar i rutan försvinner då)."
+            )
+            if st.button("Ladda om från disk", key=f"{key_prefix}_raw_json_reload"):
+                for state_key in (text_key, loaded_key, sha_key):
+                    st.session_state.pop(state_key, None)
+                st.rerun()
+        edited = st.text_area("manifest.json", height=400, key=text_key)
         if st.button(
             "Spara rå JSON", type="primary", key=f"{key_prefix}_raw_json_save"
         ):
@@ -238,12 +325,20 @@ def _render_manifest_edit_controls(
             except json.JSONDecodeError as exc:
                 st.error(f"Ogiltig JSON: {exc}")
                 return
+            if not isinstance(parsed, dict):
+                st.error("Manifestet måste vara ett JSON-objekt — sparade inte.")
+                return
             ok, msg = _save_raw_manifest(
-                manifest_path, parsed, dossier_class=chosen["_class"]
+                manifest_path,
+                parsed,
+                dossier_class=chosen["_class"],
+                expected_sha256=st.session_state.get(sha_key),
             )
             if not ok:
                 st.error(msg)
                 return
+            for state_key in (text_key, loaded_key, sha_key):
+                st.session_state.pop(state_key, None)
             _rerun_after_dossier_mutation(
                 f"Sparat {manifest_path.relative_to(_facade().REPO_ROOT)}"
             )
@@ -348,22 +443,43 @@ def _render_capability_change_action(
                 st.error(msg)
 
 
-def _section_edit(dossiers: list[dict[str, Any]]) -> None:
+def _dossier_options(dossiers: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """``<klass>/<id>`` → dossier; a manifest without ``id`` falls back to its
+    directory name instead of crashing every tab with ``KeyError``."""
+    return {f"{d['_class']}/{_dossier_key_id(d)}": d for d in dossiers}
+
+
+def _dossier_option_label(dossier: dict[str, Any]) -> str:
+    label = f"{_dossier_key_id(dossier)} — {class_label(dossier['_class'])}"
+    return f"{label} · ⚠ trasigt manifest" if dossier.get("_broken") else label
+
+
+def _section_edit(
+    dossiers: list[dict[str, Any]],
+    broken: list[dict[str, Any]] | None = None,
+) -> None:
     st.subheader("Redigera byggblock")
-    if not dossiers:
+    # Trasiga manifest (BOM, icke-UTF-8, ogiltig JSON) listas också, så att
+    # rå-JSON-editorn faktiskt kan nås för att rätta dem.
+    repairable = [b for b in (broken or []) if b.get("_has_manifest")]
+    if not dossiers and not repairable:
         return
-    options = {f"{d['_class']}/{d['id']}": d for d in dossiers}
+    options = _dossier_options([*dossiers, *repairable])
     pick_key = st.selectbox(
         "Välj byggblock",
         list(options.keys()),
-        format_func=lambda k: (
-            f"{options[k]['id']} — {class_label(options[k]['_class'])}"
-        ),
+        format_func=lambda k: _dossier_option_label(options[k]),
     )
     if not pick_key:
         return
     chosen = options[pick_key]
     manifest_path = _facade().REPO_ROOT / chosen["_path"] / "manifest.json"
+    if chosen.get("_broken"):
+        st.error(f"Trasigt manifest: {chosen['_broken']}. Rätta det i rå-JSON nedan.")
+        _render_manifest_edit_controls(
+            chosen, manifest_path, None, key_prefix=f"edit_{pick_key}"
+        )
+        return
     manifest = _load_json(manifest_path)
     _render_manifest_edit_controls(
         chosen, manifest_path, manifest, key_prefix=f"edit_{pick_key}"
@@ -523,14 +639,12 @@ def _render_delete_action(
 
 
 def _render_delete_body(dossiers: list[dict[str, Any]]) -> None:
-    options = {f"{d['_class']}/{d['id']}": d for d in dossiers}
+    options = _dossier_options(dossiers)
     pick_key = st.selectbox(
         "Välj byggblock att radera",
         list(options.keys()),
         key="delete_pick",
-        format_func=lambda k: (
-            f"{options[k]['id']} — {class_label(options[k]['_class'])}"
-        ),
+        format_func=lambda k: _dossier_option_label(options[k]),
     )
     if not pick_key:
         return

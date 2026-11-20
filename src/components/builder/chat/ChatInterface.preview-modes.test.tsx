@@ -3,6 +3,9 @@
  * previewpanelens verktygsrad till chatpanelens Verktyg-rad. Testet låser att
  * de renderas där, att de speglar lägena de styr, och att de INTE finns kvar i
  * previewpanelen (två knappar mot ett läge är värre än ingen).
+ *
+ * Sedan 2026-11-11 (C2) är Verktyg-raden hopfälld bakom knappen «Verktyg»;
+ * testerna fäller ut den först. Ett påslaget läge fäller ut raden själv.
  */
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -53,9 +56,14 @@ function buildPreviewModes(
   };
 }
 
+function openTools() {
+  fireEvent.click(screen.getByRole("button", { name: "Verktyg" }));
+}
+
 describe("ChatInterface — previewlägen i Verktyg-raden", () => {
   it("renderar Lägg till block och Inspektera preview bredvid Plan", () => {
     render(<ChatInterface chatId="chat_1" previewModes={buildPreviewModes()} />);
+    openTools();
 
     // "Avancerat"-popovern togs bort 2026-07-31: när temaväljaren flyttade
     // till Byggval-reglagen blev popovern en enda-knapps-meny (bara "Plan"),
@@ -67,6 +75,7 @@ describe("ChatInterface — previewlägen i Verktyg-raden", () => {
 
   it("bär ägarbeslutets tooltip på Lägg till block", () => {
     render(<ChatInterface chatId="chat_1" previewModes={buildPreviewModes()} />);
+    openTools();
 
     expect(screen.getByRole("button", { name: "Lägg till block" }).getAttribute("title")).toBe(
       "Lägg till färdiga block och innehåll i previewen",
@@ -78,6 +87,8 @@ describe("ChatInterface — previewlägen i Verktyg-raden", () => {
       <ChatInterface chatId="chat_1" previewModes={buildPreviewModes({ composerOpen: true })} />,
     );
 
+    // Ett påslaget läge fäller ut raden, så knappen som stänger det syns.
+    expect(screen.getByRole("button", { name: "Verktyg" }).getAttribute("aria-expanded")).toBe("true");
     const button = screen.getByRole("button", { name: "Stäng block" });
     expect(button.getAttribute("aria-pressed")).toBe("true");
     expect(screen.queryByRole("button", { name: "Lägg till block" })).toBeNull();
@@ -86,6 +97,7 @@ describe("ChatInterface — previewlägen i Verktyg-raden", () => {
   it("anropar ägarens togglar", () => {
     const modes = buildPreviewModes();
     render(<ChatInterface chatId="chat_1" previewModes={modes} />);
+    openTools();
 
     fireEvent.click(screen.getByRole("button", { name: "Lägg till block" }));
     fireEvent.click(screen.getByRole("button", { name: "Inspektera preview" }));
@@ -101,12 +113,14 @@ describe("ChatInterface — previewlägen i Verktyg-raden", () => {
         previewModes={buildPreviewModes({ inspectAvailable: false })}
       />,
     );
+    openTools();
 
     expect(screen.queryByRole("button", { name: "Inspektera preview" })).toBeNull();
   });
 
   it("renderar ingen av knapparna utan preview att styra", () => {
     render(<ChatInterface chatId="chat_1" />);
+    openTools();
 
     expect(screen.queryByRole("button", { name: "Lägg till block" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Inspektera preview" })).toBeNull();

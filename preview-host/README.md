@@ -43,6 +43,14 @@ legacy-alias där kontraktet fortfarande kräver kompatibilitet. En `previewUrl`
   pending tills reconnect.
 - Prewarm är opt-in, får inte exponera skelettet publikt och måste deployas på
   hosten före aktivering i huvudappen.
+- En webbläsarnavigering (`Sec-Fetch-Mode: navigate`) till `/:chatId/*` innan
+  chattens session finns får hostens startsida (503, laddar om var 4:e sekund),
+  aldrig rå JSON i iframen. I subdomän-läget gäller samma sak för en välformad
+  `p-<hex>`-origin vars chatt saknar session; en origin som redan äger en chatt,
+  bas-värden och kontrollrouter (`/admin`, `/preview`, `/health`) behåller 404.
+  Prober och fetch utan navigate-headers behåller JSON-404.
+- Next dev-indikatorn är avstängd i förhandsvisningen (`devIndicators: false`,
+  bara när `SAJTMASKIN_PREVIEW_BASE_PATH` är satt). Publicerade sajter påverkas inte.
 - Saknade lokala TypeScript-, ESLint- eller Next-binaries är toolingfel, inte
   reparerbara kodfel.
 
@@ -85,6 +93,15 @@ deployens Git-snapshot utan att kontakta Fly.
 
 Adminendpoints för storage, sessions, cleanup och destroy-all är operativa
 verktyg och ska skyddas av samma hostnyckel i icke-lokal miljö.
+
+`GET /admin/metrics[?hours=N]` (samma hostnyckel) ger samtidighetshistoriken
+som backofficesidan "Samtidighet (byggen & maskiner)" läser: en sampling per
+minut av startade gästmaskiner, förhandsvisningar med dev-process och aktiva
+sessioner, plus en färsk `current`. Samplingen läser bara storen (inga
+Machines-API-anrop), sparas som `metrics-history.ndjson` i datakatalogen
+(`/data` på Fly) och avgränsas till 14 dagar. `PREVIEW_HOST_METRICS_SAMPLE_MS`
+ändrar intervallet (default 60000). Ägare: `src/metrics-history.js`; guard:
+`scripts/test-metrics-history.mjs`.
 
 ## Deployordning
 
@@ -163,14 +180,15 @@ Resursgränser, start/stopp och destroy ägs av kontrollplanet.
 
 ### Maskinläge (`PREVIEW_HOST_ISOLATION=machine`)
 
-Koden för det läget finns och är guard-testad, men är **inte driftsatt**:
+Läget är påslaget på `vm-fly-jakem` sedan 2026-10-22 (`PREVIEW_HOST_ISOLATION`
+och gästkonfigurationen ligger som Fly-secrets, inte i `fly.toml`):
 
 | Del | Fil |
 | --- | --- |
 | Läge och fail-closed-validering | `src/machines/isolation-config.js` |
-| Fly Machines-klient (create/get/wait/start/stop/destroy/list) | `src/machines/fly-machines-client.js` |
-| Maskin per chat: skapa, starta, identitetsbevis, parkera, förstöra, reconcile | `src/machines/project-machines.js` (store: `data.machines`) |
-| Boot/patch/verify inne i gästen; dev-processen som fjärrbarn | `src/runtime/machine-runtime.js`, inkopplat i `process-lifecycle.js`, `preview-proxy.js`, `verify-jobs.js`, `storage-cleanup.js` |
+| Fly Machines-klient (create/get/wait/start/destroy/list; avgör vilka create-fel som får nytt försök) | `src/machines/fly-machines-client.js` |
+| Maskin per chat: skapa (med omförsök), starta, identitetsbevis, förstöra, reconcile | `src/machines/project-machines.js` (store: `data.machines`) |
+| Boot/patch/verify inne i gästen; dev-processen som fjärrbarn; idle-destroy | `src/runtime/machine-runtime.js`, inkopplat i `process-lifecycle.js`, `preview-proxy.js`, `verify-jobs.js`, `storage-cleanup.js` |
 | Gästagent + bild (kör som egen användare, varm paketcache i bilden) | `guest/` ([pilotrunbook](guest/README.md)) |
 
 Så fungerar det: hosten skapar en maskin ur `PREVIEW_GUEST_IMAGE` med en
@@ -180,11 +198,34 @@ synkas filsnapshotet (inklusive `.env.local` och in-memory-patchad
 `next.config`) till gästens `live`-workspace, install körs där (fingerprint-skip
 och varm seed som i delat läge), `npm run dev` startas på gästens loopback och
 proxyn/readiness går till agentens autentiserade `/proxy`. Hot patch,
-hibernate (stoppar maskinen), resume (startar den), destroy (förstör den) och
-verify (eget `verify-<id>`-workspace som tas bort efteråt) går samma väg.
+hibernate (stoppar bara dev-processen; maskinen lever kvar), resume
+(återanvänder maskinen), destroy (förstör den) och verify (eget
+`verify-<id>`-workspace som tas bort efteråt) går samma väg.
 Saknas token, app, bild eller identitetsbevis **failar booten** med
 `PREVIEW_ISOLATION_UNAVAILABLE`/identitetsfel; ingenting körs på hosten.
-`GET /health` visar `isolation.mode` och `GET /admin/machines` poster utan token.
+`GET /health` visar `isolation.mode` (och `idleDestroyMs`) och
+`GET /admin/machines` poster utan token.
+
+Kapacitet och kostnad i maskinläget:
+
+- **Verify per chat.** Shared-läget kör alla verify-jobb i en hostgemensam kö
+  (de delar RAM och disk). I maskinläget har varje chat egen gäst, så kön är
+  per chat: olika chattar verifierar parallellt, samma chat i tur och ordning,
+  och identiska förfrågningar dedupas fortfarande per jobbnyckel.
+- **Idle-destroy.** En gäst förstörs efter `PREVIEW_GUEST_IDLE_DESTROY_MS`
+  (default 25 min) utan aktivitet: ingen boot, verify, levande dev-process
+  eller öppen preview-socket. Klockan räknas från senaste proxade trafik,
+  hibernate eller verify; efter en host-omstart från omstarten, så även gäster
+  utan spårad runtime städas. Förstörs, stoppas aldrig: en stoppad Fly Machine
+  tappar ändå sin rootfs. Nästa besök skapar en ny maskin (kallstart med
+  install från bildens varma cache). Svepet går med idle-reapern var 60 s.
+- **Omförsök vid create.** 429, 5xx och kapacitetsfel (`insufficient
+  memory`/`could not reserve resource`) får upp till 4 försök med exponentiell
+  backoff och jitter (cirka 0,5–1, 1–2, 2–4 s; `Retry-After` respekteras upp
+  till 10 s). Samma region varje gång. Andra fel failar direkt.
+- **Kontrollplanet är litet.** `fly.toml` kör `performance-1x`/2 GB: hosten
+  kör inga kundprocesser. Återgång till shared-läget kräver att storleken höjs
+  igen, se [baslinjen](../docs/runbooks/preview-host-shared-baseline.md).
 
 Nycklar (hostens env, se [`../docs/ENV.md`](../docs/ENV.md)):
 `PREVIEW_HOST_ISOLATION`, `PREVIEW_GUEST_FLY_APP`, `PREVIEW_GUEST_IMAGE`,
@@ -195,8 +236,9 @@ Fly `http://_api.internal:4280`), `PREVIEW_GUEST_REGION`,
 `PREVIEW_GUEST_CPU_KIND`/`_CPUS`/`_MEMORY_MB` (default shared/2/2048),
 `PREVIEW_GUEST_AGENT_PORT` (7070), `PREVIEW_GUEST_DEV_PORT` (3000),
 `PREVIEW_GUEST_HOST_IDENTITY` (default `FLY_APP_NAME`; märker maskiner så en
-annan host aldrig reconcile-förstör dem), `PREVIEW_GUEST_STOP_ON_HIBERNATE`
-(default `true`).
+annan host aldrig reconcile-förstör dem), `PREVIEW_GUEST_IDLE_DESTROY_MS`
+(default `1500000` = 25 min; `0` stänger av, då lever gästen tills sessionen
+städas).
 
 Lokalt bevis: `npm run test:guest-agent` och `npm run test:isolation` (riktig
 gästagent per "maskin" på egna loopback-adresser, fejkat Machines-API). De
@@ -225,8 +267,76 @@ Acceptans i en disponibel testmiljö, endast med syntetiska data:
    kontrollplanets `/preview/*` utan nyckel, `_api.internal:4280` utan token,
    eller ett eventuellt `/.fly/api`. Kräver ägaren full nätseparation behövs
    dessutom egen Fly-nätverkspolicy eller ett separat privat nät; det är inte
-   bevisat av tokenkontrollen. Alla previews delar fortfarande webbläsar-origin
-   på hostens domän.
+   bevisat av tokenkontrollen. Webbläsar-origin isoleras separat, se
+   [Webbläsar-origin per chatt](#webbläsar-origin-per-chatt-preview_host_origin_mode).
+
+### Webbläsar-origin per chatt (`PREVIEW_HOST_ORIGIN_MODE`)
+
+I `path`-läge (default) delar alla previews webbläsar-origin:
+`https://vm-fly-jakem.fly.dev/<chatId>`. En preview kan då läsa en annan
+chatts localStorage, service worker och cookies. `subdomain`-läget ger varje
+chatt en egen origin: `https://p-<20 hex>.<PREVIEW_HOST_PREVIEW_DOMAIN>/<chatId>`.
+Etiketten är `sha256("sajtmaskin-preview-origin:v1:" + chatId)` (20 hex), sparas
+som `previewOriginSlug` på sessionen och är auktoritet för routingen.
+Sökvägen behåller `/<chatId>` eftersom runtimen kör Next med `basePath`.
+
+| Läge och värd | Beteende |
+| --- | --- |
+| `path` | Exakt som tidigare. `Host` ignoreras |
+| `subdomain`, `<slug>.<domän>` + egen `/<chatId>/…` | Proxas (HTTP och WebSocket/HMR) |
+| Samma värd, rotabsolut `/_next/…`, `/__nextjs…`, `/api/…` | Chatten slås upp via värdens slug, ingen Referer behövs |
+| Samma värd, `/` | `307` till `/<chatId>` |
+| Samma värd, `/placeholder.svg` | Hostens SVG |
+| Samma värd, annan chatts sökväg, `/health`, `/preview/*`, `/admin/*` | `404`, WebSocket stängs |
+| Annan etikett under domänen eller domänen själv | `404` |
+| Bas-värden, sökväg som pekar på en chatt (direkt eller via Referer) | `307` + `Cache-Control: no-store` till chattens origin; WebSocket stängs |
+| Bas-värden, kontrollplanet | Som tidigare |
+| Domän saknas/ogiltig eller okänt läge (fail-closed) | Previews `503 preview_origin_unavailable`, `start`/`update`/`patch` `503 configuration_error`; status, verify, hibernate, destroy, admin och health fungerar |
+
+`previewUrl` räknas ut vid varje svar (`/status`, `start`, `update`, `patch`,
+`GET /preview/session/:id`), så påslag och rollback slår igenom vid nästa
+statusfråga utan migrering. Redirecten är `307`, aldrig `308`, så att en cachad
+redirect inte låser fast rollback. `GET /health` visar `origin: { mode,
+configured, domain }`. Ägare: `src/runtime/preview-origin.js`; uppslagningen
+ligger i `resolvePreviewTarget` (`src/runtime/preview-proxy.js`). Gästagenten
+behöver ingen ändring (proxyn kör `changeOrigin: false`).
+
+Appen känner igen båda formerna oavsett hostens läge
+(`src/lib/gen/preview/preview-origin.ts`, domän via
+`NEXT_PUBLIC_SAJTMASKIN_PREVIEW_ORIGIN_DOMAIN`, kod-default `vm.sajtmaskin.com`):
+tier-2-klassning, CSP `frame-src`/`connect-src` (`https://*.<domän>`),
+capture-allowlist och produktkontrollens URL-grind. Matchningen är exakt
+`p-<20 hex>.<domän>`, aldrig suffix.
+
+**Aktiveringsordning (impact 5).** Samma host betjänar produktion, staging och
+lokal dev. Slås läget på innan produktionsappen känner domänen klassas
+preview-URL:en inte som tier-2 och iframen blockeras av CSP.
+
+1. Appkoden ligger i `master` och är deployad till produktion. Grind:
+   `curl -sI https://sajtmaskin.se/ | grep -i content-security-policy` visar
+   `https://*.vm.sajtmaskin.com` i `frame-src`.
+2. Cert: `fly certs add "*.vm.sajtmaskin.com" -a vm-fly-jakem` och
+   `fly certs setup "*.vm.sajtmaskin.com" -a vm-fly-jakem` (visar
+   `_acme-challenge`-målet).
+3. DNS hos one.com, zon `sajtmaskin.com`: `*.vm CNAME vm-fly-jakem.fly.dev` och
+   `_acme-challenge.vm CNAME <målet från steg 2>`.
+4. `fly certs check "*.vm.sajtmaskin.com" -a vm-fly-jakem` tills certet är utfärdat,
+   och `curl -sI https://p-00000000000000000000.vm.sajtmaskin.com/` ger `404`
+   från preview-hosten (DNS + cert + routing fungerar).
+5. `fly secrets set --stage PREVIEW_HOST_ORIGIN_MODE=subdomain PREVIEW_HOST_PREVIEW_DOMAIN=vm.sajtmaskin.com -a vm-fly-jakem`
+   och `npm --prefix preview-host run deploy`. Kontroll: `curl -s https://vm-fly-jakem.fly.dev/health`
+   visar `"origin":{"mode":"subdomain","configured":true,"domain":"vm.sajtmaskin.com"}`.
+6. Tvåchattsprov: iframens `src` har olika värdar; `localStorage.setItem("probe","A")`
+   i A:s preview och `localStorage.getItem("probe")` i B:s ger `null`;
+   `curl -sI https://<slugA>.vm.sajtmaskin.com/<chatB>/` ger `404` och
+   `curl -sI https://vm-fly-jakem.fly.dev/<chatA>/` ger `307`.
+
+Öppna builderflikar vid påslaget kan behöva laddas om en gång (ny origin).
+Rollback: `fly secrets set --stage PREVIEW_HOST_ORIGIN_MODE=path -a vm-fly-jakem`
+och deploy; appen behöver ingen ändring. Kvarstående risk utan PSL-post: en
+preview kan sätta en cookie med `Domain=sajtmaskin.com` som syns för andra
+previews. localStorage, service workers och host-only-cookies är isolerade.
+Lokal bevisning: `npm run test:proxy-contract` och `npm run test:isolation`.
 
 Den delade baslinjen (värden och varför den fungerar) finns i
 [`../docs/runbooks/preview-host-shared-baseline.md`](../docs/runbooks/preview-host-shared-baseline.md).

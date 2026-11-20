@@ -91,11 +91,11 @@ export function useBuilderPromptActions({
   isAnyStreaming,
   isTemplateLoading,
   isPreparingPrompt,
-  buildMethod: _buildMethod,
+  buildMethod,
   designTheme: _designTheme,
   appProjectId: _appProjectId,
   pendingBriefRef,
-  promptHandoffId: _promptHandoffId = null,
+  promptHandoffId = null,
   auditHandoff = null,
   pendingInstructionsRef,
   pendingInstructionsOnceRef,
@@ -275,6 +275,38 @@ export function useBuilderPromptActions({
       }
 
       setEntryIntentActive(false);
+      // The deep brief before the create takes 10-20 s. Without these rows the
+      // chat read "Ingen chat vald ännu" the whole time (prod 2026-11-11).
+      // `createNewChat` replaces the list with its own rows; a create that
+      // never starts removes them again below.
+      const optimisticTurn = isNewChat && auditHandoff?.payloadKind !== "audit";
+      const optimisticKey = Date.now();
+      const optimisticIds = new Set([
+        `user-pending-${optimisticKey}`,
+        `assistant-pending-${optimisticKey}`,
+      ]);
+      let created = false;
+      if (optimisticTurn) {
+        setMessages([
+          {
+            id: `user-pending-${optimisticKey}`,
+            role: "user",
+            content: message,
+            uiParts:
+              buildMethod === "kostnadsfri" && promptHandoffId
+                ? [{ type: "prompt-source", sourceKind: "kostnadsfri" }]
+                : undefined,
+          },
+          {
+            id: `assistant-pending-${optimisticKey}`,
+            role: "assistant",
+            content: "",
+            thinking: "",
+            isStreaming: true,
+            uiParts: [],
+          },
+        ]);
+      }
       try {
         const userInstructions = await applyDynamicInstructionsForNewChat(message);
         // Dynamic path sets pendingInstructionsRef synchronously to `combined`; captureInstructionSnapshot
@@ -283,7 +315,8 @@ export function useBuilderPromptActions({
           captureInstructionSnapshot();
         }
         const systemOverride = userInstructions?.trim() ? userInstructions.trim() : undefined;
-        return await createNewChat(message, options, systemOverride);
+        created = await createNewChat(message, options, systemOverride);
+        return created;
       } catch (error) {
         if (error instanceof BriefUsageReceiptError) {
           toast.error(error.message);
@@ -302,12 +335,19 @@ export function useBuilderPromptActions({
         if (isNewChat) {
           createPreparationInFlightRef.current = false;
         }
+        if (optimisticTurn && !created) {
+          setMessages((prev) => prev.filter((m) => !optimisticIds.has(m.id)));
+        }
       }
     },
     [
       applyDynamicInstructionsForNewChat,
+      auditHandoff,
+      buildMethod,
       captureInstructionSnapshot,
       chatId,
+      promptHandoffId,
+      setMessages,
       templateId,
       createNewChat,
       isAnyStreaming,
