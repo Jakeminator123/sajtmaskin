@@ -1,7 +1,12 @@
 import { render, waitFor } from "@testing-library/react";
 import { act, StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
+import { revokeOpenClawBuildConsent, useOpenClawStore } from "@/lib/openclaw/openclaw-store";
+import {
+  claimMissionAction,
+  markMissionAwaitingResult,
+  resetAgentMissionLedgerForTests,
+} from "@/lib/openclaw/agent-action-consent";
 import { OPENCLAW_SURFACE_BODY_ATTR } from "@/lib/openclaw/surface-flag";
 import { resetAgentHistoryForTests } from "@/lib/openclaw/agent-history";
 import { SajtagentProvider, useSajtagent } from "./SajtagentProvider";
@@ -81,6 +86,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
   document.body.removeAttribute(OPENCLAW_SURFACE_BODY_ATTR);
   resetAgentHistoryForTests();
+  resetAgentMissionLedgerForTests();
   act(() => {
     useOpenClawStore.setState({
       messages: [],
@@ -343,6 +349,129 @@ describe("SajtagentProvider — anrop bara när ytan finns", () => {
       await new Promise((resolve) => setTimeout(resolve, 30));
     });
     expect(chatCalls).toHaveLength(1);
+  });
+
+  // Orkestrering (ägarbeslut 2026-11-20): bygget som agenten själv startade
+  // för uppdraget vidare; användarens eget bygge ger bara ett besked.
+  describe("byggresultat inom ett uppdrag", () => {
+    const scopeKey = "/builder::builder::chat_1";
+
+    function editEnabledFetch(chatCalls: string[]) {
+      const base = healthOkFetch(chatCalls);
+      return async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith("/api/openclaw/health")) {
+          return new Response(
+            JSON.stringify({ status: "ok", readiness: "ready", surfaceEnabled: true, editEnabled: true, debugEnabled: false }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return base(input, init);
+      };
+    }
+
+    async function mountWithMission(digestEnabled: boolean) {
+      document.body.setAttribute(OPENCLAW_SURFACE_BODY_ATTR, "1");
+      const chatCalls: string[] = [];
+      fetchMock.mockImplementation(editEnabledFetch(chatCalls));
+      const utils = renderProvider("chat_1", { digestEnabled, activeVersionStatus: "ready" });
+      await waitFor(() => expect(utils.seen.at(-1)).toBe(true));
+      act(() => {
+        useOpenClawStore.setState({
+          powersOn: true,
+          grantedPowers: ["armed_autonomy"],
+          messages: [
+            { id: "u-mission", role: "user", kind: "chat", content: "Gör om kontaktsidan", timestamp: Date.now(), allowBuild: true },
+            { id: "a-mission", role: "assistant", kind: "chat", content: "Jag startar bygget.", timestamp: Date.now(), delivery: "complete" },
+          ],
+        });
+      });
+      return { ...utils, chatCalls };
+    }
+
+    function buildFinishes(
+      rerenderWith: (next: Partial<ProviderProps>) => void,
+      digestEnabled: boolean,
+      status = "failed",
+    ) {
+      rerenderWith({ activeVersionId: "v1", activeVersionStatus: "generating", isAnyStreaming: true, digestEnabled });
+      rerenderWith({ activeVersionId: "v2", activeVersionStatus: status, isAnyStreaming: false, digestEnabled });
+    }
+
+    it("för uppdraget vidare efter agentens eget bygge, även när kommentaren efter bygget är avstängd", async () => {
+      const { rerenderWith, chatCalls } = await mountWithMission(false);
+      expect(claimMissionAction("u-mission", "u-mission")).toBe(true);
+      markMissionAwaitingResult("u-mission", scopeKey);
+
+      buildFinishes(rerenderWith, false);
+
+      await waitFor(() => expect(chatCalls).toHaveLength(1));
+      const digest = useOpenClawStore
+        .getState()
+        .messages.find((message) => message.content.startsWith("[Byggresultat]"));
+      expect(digest).toMatchObject({ kind: "internal", allowBuild: true, missionTurnId: "u-mission" });
+      expect(digest?.content).toContain("status: failed");
+      expect(digest?.content).toContain("2 automatiska steg");
+      // Servern får samma besked som kortet: åtgärden i svaret körs direkt.
+      expect(JSON.parse(chatCalls[0]).buildConsent).toBe(true);
+    });
+
+    it("ger bara ett besked efter ett bygge användaren själv startade", async () => {
+      const { rerenderWith, chatCalls } = await mountWithMission(true);
+
+      buildFinishes(rerenderWith, true, "ready");
+
+      await waitFor(() => expect(chatCalls).toHaveLength(1));
+      const digest = useOpenClawStore
+        .getState()
+        .messages.find((message) => message.content.startsWith("[Byggresultat]"));
+      expect(digest?.allowBuild).toBe(false);
+      expect(digest?.missionTurnId).toBeUndefined();
+      expect(digest?.content).toContain("Starta inget bygge");
+      expect(JSON.parse(chatCalls[0]).buildConsent).toBe(false);
+    });
+
+    it("väcker inte alls efter användarens eget bygge när kommentaren är avstängd", async () => {
+      const { rerenderWith, chatCalls } = await mountWithMission(false);
+
+      buildFinishes(rerenderWith, false, "ready");
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 30));
+      });
+
+      expect(chatCalls).toHaveLength(0);
+    });
+
+    it("för inte vidare ett uppdrag som stoppats innan bygget blev klart", async () => {
+      const { rerenderWith, chatCalls } = await mountWithMission(true);
+      expect(claimMissionAction("u-mission", "u-mission")).toBe(true);
+      markMissionAwaitingResult("u-mission", scopeKey);
+      act(() => revokeOpenClawBuildConsent());
+
+      buildFinishes(rerenderWith, true);
+
+      await waitFor(() => expect(chatCalls).toHaveLength(1));
+      const digest = useOpenClawStore
+        .getState()
+        .messages.find((message) => message.content.startsWith("[Byggresultat]"));
+      expect(digest?.allowBuild).toBe(false);
+      expect(digest?.content).toContain("Starta inget bygge");
+    });
+
+    it("för inte uppdraget vidare utan befogenheten att agera", async () => {
+      const { rerenderWith, chatCalls } = await mountWithMission(true);
+      expect(claimMissionAction("u-mission", "u-mission")).toBe(true);
+      markMissionAwaitingResult("u-mission", scopeKey);
+      act(() => useOpenClawStore.setState({ grantedPowers: ["quick_edit"] }));
+
+      buildFinishes(rerenderWith, true);
+
+      await waitFor(() => expect(chatCalls).toHaveLength(1));
+      const digest = useOpenClawStore
+        .getState()
+        .messages.find((message) => message.content.startsWith("[Byggresultat]"));
+      expect(digest?.allowBuild).toBe(false);
+      expect(digest?.content).toContain("Starta inget bygge");
+    });
   });
 
   it("väntar med historik och befogenheter tills scopen pekar på chatten, och hydrerar om efter ett scope-byte", async () => {

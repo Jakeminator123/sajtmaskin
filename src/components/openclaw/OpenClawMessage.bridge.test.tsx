@@ -24,10 +24,12 @@ import {
   triggerOpenClawSend,
 } from "@/lib/openclaw/text-field-actions";
 import {
-  OpenClawMessage,
-  resetOpenClawActionLedgersForTests,
-  resolveStartBuildAutoRun,
-} from "./OpenClawMessage";
+  AGENT_MISSION_ACTION_BUDGET,
+  claimMissionAction,
+  hasMissionAwaitingResult,
+  resolveAgentActionConsent,
+} from "@/lib/openclaw/agent-action-consent";
+import { OpenClawMessage, resetOpenClawActionLedgersForTests } from "./OpenClawMessage";
 
 vi.mock("@/lib/openclaw/text-field-actions", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/openclaw/text-field-actions")>();
@@ -161,8 +163,8 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("resolveStartBuildAutoRun", () => {
-  it("tillåter bara svar på en uttrycklig byggorder (eller dess filtur)", () => {
+describe("resolveAgentActionConsent", () => {
+  it("tillåter bara svar på en tur med medgivande (eller dess filtur)", () => {
     const messages: Msg[] = [
       userTurn("u1", "Gör hero tydligare"),
       { id: "a1", role: "assistant", content: "läser", timestamp: 1 },
@@ -171,10 +173,10 @@ describe("resolveStartBuildAutoRun", () => {
       userTurn("d1", "[Byggresultat] Builderturen är klar.", "internal"),
       { id: "a3", role: "assistant", content: "digest", timestamp: 3 },
     ];
-    expect(resolveStartBuildAutoRun(messages, "a1")).toEqual({ allowed: true, userTurnId: "u1" });
-    expect(resolveStartBuildAutoRun(messages, "a2")).toEqual({ allowed: true, userTurnId: "u1" });
-    expect(resolveStartBuildAutoRun(messages, "a3")).toEqual({ allowed: false, userTurnId: "d1" });
-    expect(resolveStartBuildAutoRun(messages, "nope")).toEqual({
+    expect(resolveAgentActionConsent(messages, "a1")).toMatchObject({ allowed: true, userTurnId: "u1", missionTurnId: "u1" });
+    expect(resolveAgentActionConsent(messages, "a2")).toMatchObject({ allowed: true, userTurnId: "u1", missionTurnId: "u1" });
+    expect(resolveAgentActionConsent(messages, "a3")).toMatchObject({ allowed: false, userTurnId: "d1", denial: "machine-turn" });
+    expect(resolveAgentActionConsent(messages, "nope")).toMatchObject({
       allowed: false,
       userTurnId: null,
     });
@@ -199,8 +201,8 @@ describe("resolveStartBuildAutoRun", () => {
       fileReply,
     ];
 
-    expect(resolveStartBuildAutoRun(messages, reply.id)).toEqual({ allowed: false, userTurnId: user.id });
-    expect(resolveStartBuildAutoRun(messages, fileReply.id)).toEqual({ allowed: false, userTurnId: user.id });
+    expect(resolveAgentActionConsent(messages, reply.id)).toMatchObject({ allowed: false, userTurnId: user.id });
+    expect(resolveAgentActionConsent(messages, fileReply.id)).toMatchObject({ allowed: false, userTurnId: user.id });
   });
 
   it("låter inte ett internt byggresultat låna tidigare byggmandat", () => {
@@ -212,15 +214,15 @@ describe("resolveStartBuildAutoRun", () => {
       reply,
     ];
 
-    expect(resolveStartBuildAutoRun(messages, reply.id)).toEqual({ allowed: false, userTurnId: "u-digest" });
+    expect(resolveAgentActionConsent(messages, reply.id)).toMatchObject({ allowed: false, userTurnId: "u-digest", denial: "machine-turn" });
   });
 
   it("ger inte en ensam read_files-tur eget byggmandat", () => {
     const reply = startBuildReply("a-orphan-files");
-    expect(resolveStartBuildAutoRun([
+    expect(resolveAgentActionConsent([
       userTurn("f-orphan", "[Filinnehåll] --- app/page.tsx ---", "internal", { allowBuild: true }),
       reply,
-    ], reply.id)).toEqual({ allowed: false, userTurnId: null });
+    ], reply.id)).toMatchObject({ allowed: false, userTurnId: null });
   });
 });
 
@@ -494,6 +496,128 @@ describe("OpenClawMessage — direktbygg via bryggan", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
     expect(bridge.sendMessage).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Starta bygget" })).toBeTruthy();
+  });
+
+  // Ägarbeslut 2026-11-20: en artig begäran är nog. Agenten avgör att texten
+  // är en ändring; kortet kör utan klick.
+  it.each([
+    "Kan du göra hero-sektionen tydligare?",
+    "Jag vill ha en rosa knapp i headern",
+    "Blåare knappar",
+  ])("startar bygget direkt på en artig eller kort begäran: %s", async (text) => {
+    grantPowers();
+    const bridge = makeBridge();
+    registerBuilderBridge(bridge);
+    const reply = startBuildReply("sb-polite");
+    act(() => {
+      useOpenClawStore.setState({ messages: [userTurn("u-polite", text), reply] });
+    });
+    render(<OpenClawMessage msg={reply} />);
+    await waitFor(() => expect(bridge.sendMessage).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/Bygget är startat/)).toBeTruthy();
+    expect(screen.getByText("Direktbygg")).toBeTruthy();
+  });
+
+  it("markerar att uppdraget väntar på sitt byggresultat, och släpper det när buildern avvisar", async () => {
+    grantPowers();
+    const scopeKey = useOpenClawStore.getState().scopeKey;
+    const bridge = makeBridge();
+    registerBuilderBridge(bridge);
+    const reply = startBuildReply("sb-await");
+    act(() => {
+      useOpenClawStore.setState({ messages: [userTurn("u-await", "Gör hero tydligare"), reply] });
+    });
+    const first = render(<OpenClawMessage msg={reply} />);
+    await waitFor(() => expect(bridge.sendMessage).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/Bygget är startat/)).toBeTruthy();
+    expect(hasMissionAwaitingResult(scopeKey)).toBe(true);
+    first.unmount();
+
+    resetOpenClawActionLedgersForTests();
+    const rejecting = makeBridge({
+      sendMessage: vi.fn(
+        async () => ({ status: "rejected", reason: "credit_gate", turnRecorded: false }) as never,
+      ),
+    });
+    registerBuilderBridge(rejecting);
+    const rejected = startBuildReply("sb-await-rejected");
+    act(() => {
+      useOpenClawStore.setState({ messages: [userTurn("u-await-2", "Gör hero tydligare"), rejected] });
+    });
+    render(<OpenClawMessage msg={rejected} />);
+    expect(await screen.findByText(/Buildern tog inte emot bygget/)).toBeTruthy();
+    expect(hasMissionAwaitingResult(scopeKey)).toBe(false);
+  });
+
+  it("för uppdraget vidare på ett byggresultat som providern bundit till uppdraget", async () => {
+    grantPowers();
+    const bridge = makeBridge();
+    registerBuilderBridge(bridge);
+    const reply = startBuildReply("sb-continue");
+    act(() => {
+      useOpenClawStore.setState({
+        messages: [
+          userTurn("u-mission", "Gör om kontaktsidan"),
+          { id: "a-first", role: "assistant", content: "Jag startar bygget.", timestamp: Date.now() },
+          userTurn("d-mission", "[Byggresultat] Builderturen är misslyckad.", "internal", {
+            allowBuild: true,
+            missionTurnId: "u-mission",
+          }),
+          reply,
+        ],
+      });
+    });
+    render(<OpenClawMessage msg={reply} />);
+    await waitFor(() => expect(bridge.sendMessage).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/Bygget är startat/)).toBeTruthy();
+  });
+
+  it("gör nästa steg till ett förslag när uppdragets automatiska steg är slut", async () => {
+    grantPowers();
+    const bridge = makeBridge();
+    registerBuilderBridge(bridge);
+    for (let step = 0; step < AGENT_MISSION_ACTION_BUDGET; step += 1) {
+      expect(claimMissionAction("u-spent", `earlier-${step}`)).toBe(true);
+    }
+    const reply = startBuildReply("sb-spent");
+    act(() => {
+      useOpenClawStore.setState({
+        messages: [
+          userTurn("u-spent", "Gör om kontaktsidan"),
+          userTurn("d-spent", "[Byggresultat] Builderturen är klar.", "internal", {
+            allowBuild: true,
+            missionTurnId: "u-spent",
+          }),
+          reply,
+        ],
+      });
+    });
+    render(<OpenClawMessage msg={reply} />);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(bridge.sendMessage).not.toHaveBeenCalled();
+    expect(screen.getByText("Byggförslag")).toBeTruthy();
+    expect(screen.getByText(/Jag har använt uppdragets automatiska steg/)).toBeTruthy();
+    // One click continues: the user's own approval is not bound by the budget.
+    fireEvent.click(screen.getByRole("button", { name: "Starta bygget" }));
+    expect(await screen.findByText(/Bygget är startat/)).toBeTruthy();
+    expect(bridge.sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("kör inte direkt utan befogenheten, även när turen bär medgivande", async () => {
+    const bridge = makeBridge();
+    registerBuilderBridge(bridge);
+    const reply = startBuildReply("sb-no-power");
+    act(() => {
+      useOpenClawStore.setState({ messages: [userTurn("u-no-power", "Gör hero tydligare"), reply] });
+    });
+    render(<OpenClawMessage msg={reply} />);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(bridge.sendMessage).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Starta bygget" })).toBeTruthy();
   });
 });

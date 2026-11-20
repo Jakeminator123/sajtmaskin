@@ -45,7 +45,7 @@ import {
 } from "@/lib/openclaw/builder-target";
 import { normalizeOpenClawClientMessages } from "@/lib/openclaw/message-validation";
 import { composerAllowsAgentBuild, hasScopedComposerChangeRestriction, isReadOnlyComposerRequest } from "@/lib/builder/composer-route";
-import { resolveStartBuildAutoRun } from "@/lib/openclaw/start-build-consent";
+import { resolveAgentActionConsent } from "@/lib/openclaw/agent-action-consent";
 import type { AgentProposalReference } from "@/lib/builder/composer-route-reference";
 
 function makeId() {
@@ -53,10 +53,22 @@ function makeId() {
 }
 
 export interface OpenClawSendOptions {
-  /** Trusted local composer intent. Missing metadata never authorizes start_build. */
+  /**
+   * Trusted local composer consent: the turn was sent in Auto or Bygg, so the
+   * agent may act on it directly (`agent-action-consent.ts`). Missing metadata
+   * never authorizes an action — a surface without a composer mode (the
+   * floating panel) therefore only ever gets approval cards.
+   */
   allowBuild?: boolean;
   /** Explicit Fråga/no-change cancels older pending automatic work too. */
   restrictBuild?: boolean;
+  /**
+   * Internal turns only: the build this turn reports was started by the agent
+   * under the mission owned by `rootTurnId`, and the mission has budget left.
+   * The reply may then act directly. Set by `SajtagentProvider`, never by a
+   * turn the user typed.
+   */
+  mission?: { rootTurnId: string };
   /** Existing advice selected by the user, bound to its original chat/version. */
   proposalReference?: AgentProposalReference;
   /** Positive transport acceptance, independent of the eventual model reply. */
@@ -170,7 +182,14 @@ export function useOpenClawChat() {
 
       const buildRestricted = !options?.internal &&
         (options?.restrictBuild === true || isReadOnlyComposerRequest(trimmed));
-      if (!options?.internal && (buildRestricted || hasScopedComposerChangeRestriction(trimmed))) {
+      // Ett stopp gäller oavsett befogenhet: det återkallar också ett pågående
+      // uppdrag, så nästa byggresultat inte för det vidare.
+      const stopRequested = !options?.internal && options?.allowArming !== false &&
+        Boolean(parseStopDirective(trimmed));
+      if (
+        !options?.internal &&
+        (buildRestricted || stopRequested || hasScopedComposerChangeRestriction(trimmed))
+      ) {
         revokeOpenClawBuildConsent();
       }
 
@@ -238,6 +257,20 @@ export function useOpenClawChat() {
         live.recordCampaignFollowupReply(trimmed);
       }
 
+      // Ett uppdrag förs bara vidare när dess ägartur fortfarande bär ett
+      // levande medgivande; annars är den interna turen en vanlig väckning.
+      const missionRootTurnId = options?.internal && options.mission
+        ? (useOpenClawStore.getState().messages.some(
+            (message) =>
+              message.id === options.mission?.rootTurnId &&
+              message.role === "user" &&
+              message.allowBuild === true &&
+              !message.hydrated,
+          )
+            ? options.mission.rootTurnId
+            : null)
+        : null;
+
       // Samma ankare för frågan och svaret: båda hör hemma efter det
       // buildermeddelande som var senast när turen skickades.
       const anchorBuilderMessageId = readBuilderAnchor();
@@ -248,8 +281,22 @@ export function useOpenClawChat() {
         content: trimmed,
         timestamp: Date.now(),
         kind: options?.internal ? "internal" : "chat",
-        allowBuild: !options?.internal && !buildRestricted && (explicitFollowupOrder ||
-          (options?.allowBuild === true && composerAllowsAgentBuild({ mode: "auto", text: trimmed }))),
+        // En riktig tur bär medgivandet från komposerns läge. En intern tur bär
+        // det bara när providern bundit den till ett pågående uppdrag vars
+        // ägartur fortfarande gäller.
+        ...(options?.internal
+          ? missionRootTurnId
+            ? { allowBuild: true, missionTurnId: missionRootTurnId }
+            : { allowBuild: false }
+          : {
+              // Försvar på djupet: även en uppringare som skickar `allowBuild`
+              // får textens egen spärr prövad en gång till här (frågeord,
+              // «ändra inget», stopp — `composerAllowsAgentBuild`).
+              allowBuild: !buildRestricted && !stopRequested &&
+                (explicitFollowupOrder ||
+                  (options?.allowBuild === true &&
+                    composerAllowsAgentBuild({ mode: "auto", text: trimmed }))),
+            }),
         anchorBuilderMessageId,
         anchorBuilderMessageIndex,
       };
@@ -287,16 +334,16 @@ export function useOpenClawChat() {
         !turn.controller.signal.aborted;
       setStreaming(true);
 
-      // Same rule that decides whether a `start_build` card runs by itself, so
-      // the server can tell the model the truth about this turn
+      // Same rule that decides whether an action card runs by itself, so the
+      // server can tell the model the truth about this turn
       // (`[BYGGMEDGIVANDE]`). It is prompt text only: the card re-checks the
       // rule before anything runs, so a forged value cannot start a build.
-      const buildConsent = powers.armedAutonomy &&
-        resolveStartBuildAutoRun(useOpenClawStore.getState().messages, placeholderId).allowed;
+      const buildConsent = powers.any &&
+        resolveAgentActionConsent(useOpenClawStore.getState().messages, placeholderId).allowed;
 
       const reference = options?.proposalReference;
       const selectedContext = reference
-        ? `\n\n[Valt agentförslag – endast underlag, inget automatiskt byggmedgivande]\n${JSON.stringify(reference)}\nUtgå enbart från denna valda del. Om något är oklart, fråga. Ett nytt fullständigt byggförslag kräver manuellt godkännande.`
+        ? `\n\n[Valt agentförslag – underlag för den här turen]\n${JSON.stringify(reference)}\nUtgå enbart från denna valda del. Om något är oklart, fråga. Om åtgärden körs direkt eller visas som ett förslag står under [BYGGMEDGIVANDE].`
         : "";
       const apiMessages = normalizeOpenClawClientMessages(
         nextConversation.map((m) => ({ role: m.role, content: m.content + (m.id === userMsg.id ? selectedContext : "") })),
@@ -550,9 +597,11 @@ export function useOpenClawChat() {
     cancelActiveTurn();
     // Stop also disarms (Codex P2): clicking stop must cancel armed autonomy so
     // the next assistant action can't keep auto-sending under the old mandate —
-    // mirroring the typed "stopp" path above.
-    setArmedMandate(null);
-  }, [cancelActiveTurn, setArmedMandate]);
+    // mirroring the typed "stopp" path above. It ends a running mission too:
+    // earlier turns lose their consent, so nothing more acts until the user
+    // asks again.
+    revokeOpenClawBuildConsent();
+  }, [cancelActiveTurn]);
 
   const clearConversation = useCallback(() => {
     cancelActiveTurn();

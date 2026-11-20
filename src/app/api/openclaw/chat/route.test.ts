@@ -6,7 +6,11 @@ const mocks = vi.hoisted(() => ({
   surfaceStatus: { surfaceEnabled: true, surfaceStatus: "ready", blockers: [] as string[] },
   gateway: vi.fn(),
   validateMessages: vi.fn(),
-  powers: { any: false, armedAutonomy: false } as { any: boolean; armedAutonomy: boolean },
+  powers: { any: false, armedAutonomy: false } as {
+    any: boolean;
+    armedAutonomy: boolean;
+    quickEdit?: boolean;
+  },
 }));
 
 vi.mock("@/lib/config", () => ({
@@ -35,7 +39,7 @@ vi.mock("@/lib/openclaw/live-review-access", () => ({
 vi.mock("@/lib/db/services/live-review-grants", () => ({ readLiveReviewGrant: vi.fn() }));
 vi.mock("@/lib/openclaw/edit-system-prompt", () => ({
   buildOpenClawEditSystemPrompt: (powers: { any: boolean }) => (powers.any ? "EDIT-PROMPT" : null),
-  buildStartBuildConsentPrompt: (allowed: boolean) => (allowed ? "CONSENT-YES" : "CONSENT-NO"),
+  buildAgentActionConsentPrompt: (allowed: boolean) => (allowed ? "CONSENT-YES" : "CONSENT-NO"),
 }));
 vi.mock("@/lib/openclaw/server-context", () => ({
   buildOpenClawContextSystemMessage: vi.fn(),
@@ -197,13 +201,25 @@ describe("POST /api/openclaw/chat byggmedgivande", () => {
     expect(system).toContain(expected);
   });
 
-  it("nämner inget byggmedgivande när direktbygg inte är beviljat", async () => {
-    mocks.powers = { any: true, armedAutonomy: false };
+  // Snabbändringar körs också direkt under medgivande (ägarbeslut 2026-11-20),
+  // så även en chatt med bara den befogenheten får veta vad turen tillåter.
+  it("säger sanningen om turen när bara snabbändringar är beviljade", async () => {
+    mocks.powers = { any: true, armedAutonomy: false, quickEdit: true };
 
     await POST(request(body({ buildConsent: true })));
 
     const system = systemContents();
     expect(system).toContain("EDIT-PROMPT");
+    expect(system).toContain("CONSENT-YES");
+  });
+
+  it("nämner inget byggmedgivande utan en redigeringsbefogenhet", async () => {
+    mocks.powers = { any: false, armedAutonomy: false, quickEdit: false };
+
+    await POST(request(body({ buildConsent: true })));
+
+    const system = systemContents();
+    expect(system).not.toContain("EDIT-PROMPT");
     expect(system.some((content) => content.startsWith("CONSENT"))).toBe(false);
   });
 });

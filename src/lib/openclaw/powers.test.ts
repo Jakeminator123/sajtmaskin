@@ -141,8 +141,19 @@ describe("power metadata", () => {
     expect(OPENCLAW_POWER_META.live_review).toEqual({
       label: "Granskar sajten live",
       description:
-        "Får titta på din färdiga sajt, säga vad som är fel och föreslå ändringar. Du godkänner varje ändring.",
+        "Får titta på din färdiga sajt och säga vad som är fel. Själva ändringarna görs med befogenheterna ovan.",
     });
+  });
+
+  // Ägarbeslut 2026-11-20: befogenheterna agerar direkt. Texten får inte lova
+  // ett godkännande per steg som inte längre finns.
+  it("describes the edit powers as acting directly, not as proposals to approve", () => {
+    expect(OPENCLAW_POWER_META.armed_autonomy.label).toBe("Agerar direkt");
+    expect(OPENCLAW_POWER_META.armed_autonomy.description).toContain("högst tre automatiska steg per uppdrag");
+    expect(OPENCLAW_POWER_META.quick_edit.description).toContain("direkt");
+    for (const id of OPENCLAW_POWER_IDS) {
+      expect(OPENCLAW_POWER_META[id].description).not.toMatch(/Du godkänner varje/);
+    }
   });
 });
 

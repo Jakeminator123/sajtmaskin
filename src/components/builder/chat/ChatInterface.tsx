@@ -366,6 +366,9 @@ export function ChatInterface({
     (mode: ComposerMode) => {
       setModeState({ chatId, mode });
       storeComposerMode(chatId, mode);
+      // «Fråga – ändrar inget» gäller från valet, inte först vid nästa
+      // utskick: ett pågående agentuppdrag ska inte ta ett steg till.
+      if (mode === "agent") revokeOpenClawBuildConsent();
     },
     [chatId],
   );

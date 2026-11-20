@@ -18,8 +18,8 @@ import {
 } from "@/lib/openclaw/live-review-access";
 import { readLiveReviewGrant } from "@/lib/db/services/live-review-grants";
 import {
+  buildAgentActionConsentPrompt,
   buildOpenClawEditSystemPrompt,
-  buildStartBuildConsentPrompt,
 } from "@/lib/openclaw/edit-system-prompt";
 import { buildOpenClawNavigationSystemPrompt } from "@/lib/openclaw/navigation-system-prompt";
 import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
@@ -59,9 +59,9 @@ interface ChatRequestBody {
   /** Extra powers the user granted in the chat UI. Narrowing only — see
    * `resolveOpenClawPowersFromRequest`. */
   powers?: unknown;
-  /** Whether this turn's `start_build` card may run by itself
-   * (`resolveStartBuildAutoRun` on the client). Prompt honesty only: the card
-   * re-checks before running, so a forged `true` cannot start a build. */
+  /** Whether this turn's action card may run by itself
+   * (`resolveAgentActionConsent` on the client). Prompt honesty only: the card
+   * re-checks before running, so a forged `true` cannot start anything. */
   buildConsent?: unknown;
 }
 
@@ -99,8 +99,8 @@ Regler:
 <openclaw-action>
 {"type":"request_repair","label":"Kort etikett","reason":"Kort motivering grundad i [BUGGFYND]"}
 </openclaw-action>
-- request_repair startar en vanlig reparation som skapar en NY version att godkänna. Du ändrar ALDRIG filer direkt och ska aldrig påstå att buggen redan är fixad — säg att en reparation startas efter att användaren godkänt. Föreslå det bara när det finns [BUGGFYND] och användaren ber om en fix; annars förklara fynden utan action-block.
-- Du får inte klicka på knappar, skicka formulär, publicera live eller ändra inställningar åt användaren.
+- request_repair startar en vanlig reparation som skapar en NY version. Du ändrar ALDRIG filer direkt och ska aldrig påstå att buggen redan är fixad — säg att en reparation startas efter att användaren godkänt, om inte [BYGGMEDGIVANDE] säger att blocket körs direkt. Använd det bara när det finns [BUGGFYND]; annars förklara fynden utan action-block.
+- Du publicerar aldrig live och ändrar aldrig inställningar åt användaren. Finns inget avsnitt "Internt läge: EDIT" längre ned klickar du inte heller på knappar och skickar inga formulär: då föreslår du, och användaren godkänner. Med det avsnittet gäller dess regler för vad du får göra direkt.
 - Påstå aldrig att du redan har fyllt ett fält innan användaren har godkänt det.
 - Kodkontext skickas sparsamt för att spara tokens. I en öppen builderchatt ser du alltid filmanifestet och kan läsa filer med read_files (se Kodnavigering) — gör det innan du uttalar dig om koden. Utanför buildern: hitta inte på detaljer, be om en mer specifik fråga eller en öppen version.
 - Nämn ALDRIG Vercel, v0, v0 Platform API eller specifik underliggande infrastruktur. Säg istället "publicera live", "vår AI-motor" eller "modern molninfrastruktur".
@@ -239,11 +239,11 @@ export async function POST(req: NextRequest) {
     const editSystemPrompt = buildOpenClawEditSystemPrompt(powers);
     if (editSystemPrompt) {
       messages.push({ role: "system", content: editSystemPrompt });
-    }
-    if (editSystemPrompt && powers.armedAutonomy) {
+      // Every edit power acts directly under consent, so every edit turn gets
+      // the per-turn truth about what its action block will do.
       messages.push({
         role: "system",
-        content: buildStartBuildConsentPrompt(body.buildConsent === true),
+        content: buildAgentActionConsentPrompt(body.buildConsent === true, powers),
       });
     }
 

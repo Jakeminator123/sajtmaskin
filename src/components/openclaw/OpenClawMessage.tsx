@@ -75,7 +75,14 @@ import {
 } from "@/lib/openclaw/debug/armed-mandate";
 import { OPENCLAW_EMPTY_REPLY_COPY } from "@/lib/openclaw/gateway-response";
 import { classifyComposerIntent, isReadOnlyComposerRequest } from "@/lib/builder/composer-route";
-import { resolveStartBuildAutoRun } from "@/lib/openclaw/start-build-consent";
+import {
+  claimMissionAction,
+  clearMissionAwaitingResult,
+  isAgentActionConsentLive,
+  markMissionAwaitingResult,
+  resetAgentMissionLedgerForTests,
+  resolveAgentActionConsent,
+} from "@/lib/openclaw/agent-action-consent";
 import { useSmoothText } from "./useSmoothText";
 import {
   OpenClawAppearanceProvider,
@@ -105,19 +112,80 @@ const armedSendAttempts = new Map<string, ArmedSendAttempt>();
 
 /** Same idempotency for direct builds (`start_build`). */
 const consumedStartBuilds = new Set<string>();
-/** At most ONE automatic direct build per user question (keyed by the user turn). */
-const autoStartBuildsByUserTurn = new Set<string>();
+
+type AgentActionResult = { ok: true } | { ok: false; error: string };
+
+/** Shown on a proposal that would have run by itself with budget left. */
+const MISSION_BUDGET_SPENT_COPY =
+  "Jag har använt uppdragets automatiska steg. Starta det här steget själv om du vill att jag fortsätter.";
+
+/**
+ * Uppdraget ett svar hör till: ägarturen (budgetnyckeln) och turen som svaret
+ * besvarar (högst en automatisk åtgärd per besvarad tur).
+ */
+type AgentMission = { turnId: string; answeredTurnId: string | null };
+
+/**
+ * En åtgärd som Sajtagenten kör direkt under ett uppdrag
+ * (`agent-action-consent.ts`). Körningen hör till MEDDELANDET, inte till
+ * kortet: kortet kan monteras om (StrictMode, en omrendering högre upp, ett
+ * hopfällt och utfällt chattflöde) utan att åtgärden avbryts, körs två gånger
+ * eller drar två gånger ur uppdragets budget. Samma tanke som
+ * `armedSendAttempts` ovan.
+ */
+type MissionAutoRun = {
+  state: "running" | "done" | "failed";
+  error: string | null;
+  finished: Promise<void>;
+};
+const missionAutoRuns = new Map<string, MissionAutoRun>();
+
+/**
+ * Starta (eller återfinn) den automatiska körningen för ett meddelandes
+ * åtgärd. `null` betyder att uppdragets budget är slut: åtgärden ska då visas
+ * som ett förslag. Budgeten reserveras här, innan något skickas, så två svar
+ * som monteras i samma commit inte båda kan köra.
+ */
+function beginMissionAutoRun(
+  key: string,
+  mission: AgentMission | null,
+  run: () => Promise<AgentActionResult>,
+): MissionAutoRun | null {
+  const existing = missionAutoRuns.get(key);
+  if (existing) return existing;
+  if (!mission || !claimMissionAction(mission.turnId, mission.answeredTurnId)) return null;
+  let finish = () => {};
+  const attempt: MissionAutoRun = {
+    state: "running",
+    error: null,
+    finished: new Promise<void>((resolve) => {
+      finish = resolve;
+    }),
+  };
+  missionAutoRuns.set(key, attempt);
+  void run()
+    .then(
+      (result) => {
+        attempt.state = result.ok ? "done" : "failed";
+        attempt.error = result.ok ? null : result.error;
+      },
+      () => {
+        attempt.state = "failed";
+        attempt.error = "Åtgärden kunde inte köras.";
+      },
+    )
+    .finally(() => finish());
+  return attempt;
+}
 
 /** Module-scoped idempotency ledgers survive across tests — clear them per test. */
 export function resetOpenClawActionLedgersForTests(): void {
   consumedArmedSends.clear();
   armedSendAttempts.clear();
   consumedStartBuilds.clear();
-  autoStartBuildsByUserTurn.clear();
+  missionAutoRuns.clear();
+  resetAgentMissionLedgerForTests();
 }
-
-/** Whether a `start_build` reply may run on its own; owned by `start-build-consent.ts`. */
-export { resolveStartBuildAutoRun };
 
 /** Internal followups retain their explicit bounded mandate; new questions do not. */
 function armedReplyAllowsBuild(messages: readonly Msg[], messageId: string): boolean {
@@ -251,15 +319,32 @@ export function OpenClawMessage({
     msg.timestamp >= armedMandate.createdAt &&
     !msg.hydrated;
 
-  // Direct build (`start_build`): decided once per message, at mount — the
-  // card auto-runs on mount, so a later store change must not re-decide it.
-  const startBuildAuto = useMemo(
+  // Direct action (`start_build`, `request_repair`, `apply_quick_edit`):
+  // decided once per message, at mount — the card auto-runs on mount, so a
+  // later store change must not re-decide it. The run itself re-checks that
+  // the consent is still live right before it dispatches.
+  const actsDirectly =
+    !isUser &&
+    (action?.type === "start_build" ||
+      action?.type === "request_repair" ||
+      action?.type === "apply_quick_edit");
+  const actionConsent = useMemo(
     () =>
-      !isUser && action?.type === "start_build"
-        ? resolveStartBuildAutoRun(useOpenClawStore.getState().messages, msg.id)
-        : { allowed: false, userTurnId: null },
-    [isUser, action?.type, msg.id],
+      actsDirectly
+        ? resolveAgentActionConsent(useOpenClawStore.getState().messages, msg.id)
+        : null,
+    [actsDirectly, msg.id],
   );
+  const consentAllowsAutoRun = Boolean(actionConsent?.allowed) && isLiveMessage(msg);
+  const missionTurnId = actionConsent?.missionTurnId ?? null;
+  const answeredTurnId = actionConsent?.userTurnId ?? null;
+  const mission = useMemo<AgentMission | null>(
+    () => (missionTurnId ? { turnId: missionTurnId, answeredTurnId } : null),
+    [missionTurnId, answeredTurnId],
+  );
+  // The mission's automatic steps are used up: the action is a proposal, and
+  // the card says why (one click continues).
+  const missionBudgetSpent = actionConsent?.denial === "budget-spent" && isLiveMessage(msg);
 
   // A row hydrated from history must never act again: its cards become a
   // read-only receipt. Powers are default-on, so a clickable «Starta bygget»
@@ -377,7 +462,14 @@ export function OpenClawMessage({
         ) : null}
 
         {interactive && action?.type === "request_repair" ? (
-          <OpenClawRepairRequestCard key="request_repair" action={action} />
+          <OpenClawRepairRequestCard
+            key={`request_repair:${msg.id}`}
+            action={action}
+            messageId={msg.id}
+            autoRun={powers.armedAutonomy && consentAllowsAutoRun}
+            mission={mission}
+            budgetSpent={powers.armedAutonomy && missionBudgetSpent}
+          />
         ) : null}
 
         {!isUser && action?.type === "start_bug_hunt" ? (
@@ -393,8 +485,9 @@ export function OpenClawMessage({
             key={`start_build:${msg.id}`}
             action={action}
             messageId={msg.id}
-            autoRun={powers.armedAutonomy && isLiveMessage(msg) && startBuildAuto.allowed}
-            userTurnId={startBuildAuto.userTurnId}
+            autoRun={powers.armedAutonomy && consentAllowsAutoRun}
+            mission={mission}
+            budgetSpent={powers.armedAutonomy && missionBudgetSpent}
             builderTarget={msg.builderTarget ?? null}
           />
         ) : null}
@@ -405,9 +498,13 @@ export function OpenClawMessage({
 
         {interactive && action?.type === "apply_quick_edit" ? (
           <OpenClawQuickEditCard
-            key="apply_quick_edit"
+            key={`apply_quick_edit:${msg.id}`}
             action={action}
+            messageId={msg.id}
             quickEditGranted={powers.quickEdit}
+            autoRun={powers.quickEdit && consentAllowsAutoRun}
+            mission={mission}
+            budgetSpent={powers.quickEdit && missionBudgetSpent}
             builderTarget={msg.builderTarget ?? null}
           />
         ) : null}
@@ -1039,8 +1136,8 @@ function OpenClawStartBugHuntCard({
   if (!armedAutonomyGranted) {
     return (
       <OpenClawPowerOffNotice>
-        Armerad autonomi är inaktiverad. Tryck in sköldknappen i chattens topprad och kryssa i
-        &quot;Armerad autonomi&quot; om du vill tillåta den.
+        Sajtagenten får inte agera direkt just nu. Tryck in sköldknappen i chattens topprad och
+        kryssa i &quot;Agerar direkt&quot; om du vill tillåta det.
       </OpenClawPowerOffNotice>
     );
   }
@@ -1356,31 +1453,42 @@ function OpenClawArmedSendCard({
 }
 
 /**
- * Direct build (`start_build`). With armed autonomy granted and a message
- * from this session it runs on mount through the builder bridge; otherwise it
- * is a card the user approves. Never spends a mandate step and never
- * registers a continuation watch — the post-build digest (SajtagentProvider)
- * wakes the agent when the turn is done.
+ * Direct build (`start_build`). When the turn carries the agent's action
+ * consent (`agent-action-consent.ts`) and the mission has budget left, it
+ * runs on mount through the builder bridge; otherwise it is a card the user
+ * approves. Never spends a mandate step and never registers a continuation
+ * watch — the post-build digest (SajtagentProvider) wakes the agent when the
+ * turn is done, and carries the mission on when this card started the build.
  */
 function OpenClawStartBuildCard({
   action,
   messageId,
   autoRun,
-  userTurnId,
+  mission,
+  budgetSpent,
   builderTarget,
 }: {
   action: OpenClawStartBuildAction;
   messageId: string;
   autoRun: boolean;
-  /** The user question this reply answers — one automatic build per question. */
-  userTurnId: string | null;
+  /** The mission this reply belongs to — its budget pays for this build. */
+  mission: AgentMission | null;
+  /** The mission's automatic steps are used up, so this is a proposal. */
+  budgetSpent: boolean;
   builderTarget: OpenClawBuilderTarget | null;
 }) {
-  const [state, setState] = useState<"pending" | "sending" | "sent" | "failed">(
-    consumedStartBuilds.has(messageId) ? "sent" : autoRun ? "sending" : "pending",
+  const autoRunKey = `start_build:${messageId}`;
+  const [state, setState] = useState<"pending" | "sending" | "sent" | "failed">(() => {
+    if (consumedStartBuilds.has(messageId)) return "sent";
+    const attempt = missionAutoRuns.get(autoRunKey);
+    if (attempt) {
+      return attempt.state === "done" ? "sent" : attempt.state === "failed" ? "failed" : "sending";
+    }
+    return autoRun ? "sending" : "pending";
+  });
+  const [error, setError] = useState<string | null>(
+    () => missionAutoRuns.get(autoRunKey)?.error ?? null,
   );
-  const [error, setError] = useState<string | null>(null);
-  const startedRef = useRef(false);
   const approveInFlightRef = useRef(false);
   const mountedRef = useRef(true);
   const scopeKeyRef = useRef(useOpenClawStore.getState().scopeKey);
@@ -1396,65 +1504,47 @@ function OpenClawStartBuildCard({
     };
   }, []);
 
-  // The per-user-turn claim happens HERE, in commit order, not during render:
-  // two replies mounted in the same commit would otherwise both read an
-  // unclaimed turn and both auto-run. The claim is also kept out of the deps so
-  // a re-render after it cannot cancel the run it just started.
-  useEffect(() => {
-    if (!autoRun) return;
-    if (consumedStartBuilds.has(messageId)) return;
-    if (startedRef.current) return;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    if (userTurnId && autoStartBuildsByUserTurn.has(userTurnId)) {
-      // Another reply already built for this question — this one is a proposal.
-      timer = setTimeout(() => setState("pending"), 0);
-      return () => {
-        if (timer) clearTimeout(timer);
+  const startBuild = async (automatic: boolean): Promise<AgentActionResult> => {
+    const prompt = actionRef.current.prompt;
+    const scopeKey = scopeKeyRef.current;
+    // An automatic build belongs to the message and survives a remount; what
+    // stops it is lost authority (chat switched, power withdrawn, consent
+    // revoked by «stopp» or Fråga). A manual one belongs to the click.
+    const cancelled = () =>
+      useOpenClawStore.getState().scopeKey !== scopeKey ||
+      (automatic
+        ? !readOpenClawPowers().armedAutonomy ||
+          !isAgentActionConsentLive(useOpenClawStore.getState().messages, messageId)
+        : !mountedRef.current);
+    if (cancelled()) {
+      return {
+        ok: false,
+        error: automatic
+          ? "Det automatiska byggmedgivandet gäller inte längre."
+          : "Sändningen avbröts.",
       };
     }
-    startedRef.current = true;
-    if (userTurnId) autoStartBuildsByUserTurn.add(userTurnId);
-    let cancelled = false;
-    void (async () => {
-      const result = await startBuild(() => cancelled, true);
-      if (cancelled) return;
-      if (!result.ok) {
-        setState("failed");
-        setError(result.error);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the message, not the parsed action object
-  }, [messageId, autoRun]);
-
-  const startBuild = async (
-    isCancelled?: () => boolean,
-    automatic = false,
-  ): Promise<{ ok: true } | { ok: false; error: string }> => {
-    const prompt = actionRef.current.prompt;
-    const cancelled = () => Boolean(isCancelled?.()) || !mountedRef.current ||
-      useOpenClawStore.getState().scopeKey !== scopeKeyRef.current ||
-      (automatic && (!readOpenClawPowers().armedAutonomy ||
-        !resolveStartBuildAutoRun(useOpenClawStore.getState().messages, messageId).allowed));
-    if (cancelled()) return { ok: false, error: "Det automatiska byggmedgivandet gäller inte längre." };
+    const trackedMissionTurnId = automatic ? (mission?.turnId ?? null) : null;
     if (getBuilderBridge()) {
       const result = await sendViaBuilderBridge(prompt, {
         expectedTarget: targetRef.current,
         isCancelled: cancelled,
+        // Marked at dispatch, so the stream this send starts always begins
+        // after the mark (`takeMissionContinuation`).
+        onDispatch: () => {
+          if (trackedMissionTurnId) markMissionAwaitingResult(trackedMissionTurnId, scopeKey);
+        },
       });
-      if (!result.ok) return result;
       // The bridge resolves with the builder's own verdict (`SendMessageOutcome`):
       // a refusal (credits, stale base, F3 gate) must not read as «started».
-      const rejection = describeRejectedOutcome(result.outcome);
+      const rejection = result.ok ? describeRejectedOutcome(result.outcome) : result.error;
       if (rejection) {
+        if (trackedMissionTurnId) clearMissionAwaitingResult(trackedMissionTurnId);
         return { ok: false, error: rejection };
       }
       // Först builderns accepterade kvitto får göra actionen förbrukad. Ett
       // throw/avslag lämnar kortet återförsökbart utan falskt startkvitto.
       consumedStartBuilds.add(messageId);
-      setState("sent");
       return { ok: true };
     }
     // Outside the builder bridge: fall back to the composer DOM path.
@@ -1477,7 +1567,6 @@ function OpenClawStartBuildCard({
         const sent = triggerOpenClawSend(OPENCLAW_BUILDER_CHAT_TARGET);
         if (sent.ok) {
           consumedStartBuilds.add(messageId);
-          setState("sent");
           return { ok: true };
         }
       }
@@ -1486,14 +1575,46 @@ function OpenClawStartBuildCard({
     return { ok: false, error: "Send-knappen blev aldrig klar (composern kan vara upptagen)." };
   };
 
+  // The run is keyed on the message (`beginMissionAutoRun`): a remount finds
+  // the same attempt instead of starting a second build or drawing twice from
+  // the mission's budget.
+  useEffect(() => {
+    if (!autoRun) return;
+    if (consumedStartBuilds.has(messageId)) return;
+    let mounted = true;
+    const attempt = beginMissionAutoRun(autoRunKey, mission, () => startBuild(true));
+    if (!attempt) {
+      // Another reply used the mission's last step first — this one is a proposal.
+      const timer = setTimeout(() => {
+        if (mounted) setState("pending");
+      }, 0);
+      return () => {
+        mounted = false;
+        clearTimeout(timer);
+      };
+    }
+    void attempt.finished.then(() => {
+      if (!mounted) return;
+      setState(attempt.state === "done" ? "sent" : "failed");
+      setError(attempt.error);
+    });
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the message, not the parsed action object
+  }, [messageId, autoRun]);
+
   const handleApprove = async () => {
     if (approveInFlightRef.current || (state !== "pending" && state !== "failed")) return;
     approveInFlightRef.current = true;
     setState("sending");
     setError(null);
     try {
-      const result = await startBuild();
-      if (!result.ok && mountedRef.current) {
+      const result = await startBuild(false);
+      if (!mountedRef.current) return;
+      if (result.ok) {
+        setState("sent");
+      } else {
         setState("failed");
         setError(result.error);
       }
@@ -1512,6 +1633,9 @@ function OpenClawStartBuildCard({
       </ActionCardLabel>
       <ActionCardTitle>{action.label || "Starta ett bygge i buildern"}</ActionCardTitle>
       {action.reason ? <ActionCardText>{action.reason}</ActionCardText> : null}
+      {budgetSpent && state === "pending" ? (
+        <ActionCardText>{MISSION_BUDGET_SPENT_COPY}</ActionCardText>
+      ) : null}
       <ActionCardDisclosure
         summary="Visa byggprompten"
         panelClassName="mt-2 rounded-xl border border-white/10 bg-black/20 p-2"
@@ -1588,46 +1712,125 @@ async function isLatestChatVersion(chatId: string, versionId: string): Promise<b
   }
 }
 
-function OpenClawRepairRequestCard({ action }: { action: OpenClawRequestRepairAction }) {
+function OpenClawRepairRequestCard({
+  action,
+  messageId,
+  autoRun,
+  mission,
+  budgetSpent,
+}: {
+  action: OpenClawRequestRepairAction;
+  messageId: string;
+  /** The turn carries the agent's action consent: the repair starts by itself. */
+  autoRun: boolean;
+  mission: AgentMission | null;
+  budgetSpent: boolean;
+}) {
+  const autoRunKey = `request_repair:${messageId}`;
   const [actionState, setActionState] = useState<
     "pending" | "working" | "approved" | "declined" | "failed"
-  >("pending");
-  const [actionError, setActionError] = useState<string | null>(null);
+  >(() => {
+    const attempt = missionAutoRuns.get(autoRunKey);
+    if (attempt) {
+      return attempt.state === "done" ? "approved" : attempt.state === "failed" ? "failed" : "working";
+    }
+    return autoRun ? "working" : "pending";
+  });
+  const [actionError, setActionError] = useState<string | null>(
+    () => missionAutoRuns.get(autoRunKey)?.error ?? null,
+  );
+  const scopeKeyRef = useRef(useOpenClawStore.getState().scopeKey);
+  const approveInFlightRef = useRef(false);
   const target = readActiveBuilderTarget();
   const actionLabel = action.label || "Starta reparation av den här versionen";
 
-  const handleApprove = async () => {
+  const startRepair = async (automatic: boolean): Promise<AgentActionResult> => {
+    const scopeKey = scopeKeyRef.current;
     const current = readActiveBuilderTarget();
     if (!current) {
-      setActionState("failed");
-      setActionError("Ingen aktiv version hittades. Öppna versionen i buildern och försök igen.");
-      return;
+      return {
+        ok: false,
+        error: "Ingen aktiv version hittades. Öppna versionen i buildern och försök igen.",
+      };
     }
-    setActionState("working");
-    setActionError(null);
 
     // Codex P2: only the latest version can be repaired — block (don't fake
     // success) when an older version is selected.
     if (!(await isLatestChatVersion(current.chatId, current.versionId))) {
-      setActionState("failed");
-      setActionError(
-        "Reparation kan bara startas på den senaste versionen. Välj den senaste versionen i historiken och försök igen.",
-      );
-      return;
+      return {
+        ok: false,
+        error:
+          "Reparation kan bara startas på den senaste versionen. Välj den senaste versionen i historiken och försök igen.",
+      };
+    }
+
+    // The version check awaited the network: a «stopp», a switch to Fråga or a
+    // changed chat in the meantime must stop an automatic repair here.
+    if (
+      useOpenClawStore.getState().scopeKey !== scopeKey ||
+      (automatic &&
+        (!readOpenClawPowers().armedAutonomy ||
+          !isAgentActionConsentLive(useOpenClawStore.getState().messages, messageId)))
+    ) {
+      return { ok: false, error: "Det automatiska medgivandet gäller inte längre." };
     }
 
     // Reuse the vetted client repair flow: the builder's useAutoFix listener
     // picks this up (manual trigger), enriches context, runs the lease-/base-
     // bound repair, and produces a new version awaiting acceptance. OC never
     // writes files itself.
+    if (automatic && mission) markMissionAwaitingResult(mission.turnId, scopeKey);
     dispatchAutoFixEvent({
       chatId: current.chatId,
       versionId: current.versionId,
       manual: true,
       reasons: ["openclaw_requested_repair"],
     });
-    setActionState("approved");
+    return { ok: true };
+  };
+
+  // Keyed on the message (`beginMissionAutoRun`): a remount finds the same
+  // attempt instead of dispatching a second repair.
+  useEffect(() => {
+    if (!autoRun) return;
+    let mounted = true;
+    const attempt = beginMissionAutoRun(autoRunKey, mission, () => startRepair(true));
+    if (!attempt) {
+      const timer = setTimeout(() => {
+        if (mounted) setActionState("pending");
+      }, 0);
+      return () => {
+        mounted = false;
+        clearTimeout(timer);
+      };
+    }
+    void attempt.finished.then(() => {
+      if (!mounted) return;
+      setActionState(attempt.state === "done" ? "approved" : "failed");
+      setActionError(attempt.error);
+    });
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the message, not the parsed action object
+  }, [messageId, autoRun]);
+
+  const handleApprove = async () => {
+    if (approveInFlightRef.current) return;
+    approveInFlightRef.current = true;
+    setActionState("working");
     setActionError(null);
+    try {
+      const result = await startRepair(false);
+      if (result.ok) {
+        setActionState("approved");
+      } else {
+        setActionState("failed");
+        setActionError(result.error);
+      }
+    } finally {
+      approveInFlightRef.current = false;
+    }
   };
 
   const handleDecline = () => {
@@ -1641,15 +1844,20 @@ function OpenClawRepairRequestCard({ action }: { action: OpenClawRequestRepairAc
         icon={Wrench}
         panelClassName="text-[11px] font-medium tracking-[0.16em] text-amber-200/80 uppercase"
       >
-        Reparationsförslag
+        {autoRun ? "Reparation" : "Reparationsförslag"}
       </ActionCardLabel>
       <ActionCardTitle>{actionLabel}</ActionCardTitle>
       <ActionCardText>
-        {target
-          ? "Jag kan starta en reparation av den aktiva versionen när du godkänner. Den körs som ett vanligt fix-pass och skapar en ny version som du sedan godkänner — jag ändrar aldrig filer direkt."
-          : "Öppna en version i buildern först — reparation kan bara startas där."}
+        {!target
+          ? "Öppna en version i buildern först — reparation kan bara startas där."
+          : autoRun
+            ? "Jag startar en reparation av den aktiva versionen. Den körs som ett vanligt fix-pass och skapar en ny version — jag ändrar aldrig filer direkt."
+            : "Jag kan starta en reparation av den aktiva versionen när du godkänner. Den körs som ett vanligt fix-pass och skapar en ny version som du sedan godkänner — jag ändrar aldrig filer direkt."}
       </ActionCardText>
       {action.reason ? <ActionCardInset>{action.reason}</ActionCardInset> : null}
+      {budgetSpent && actionState === "pending" ? (
+        <ActionCardText>{MISSION_BUDGET_SPENT_COPY}</ActionCardText>
+      ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {actionState === "pending" ? (
           <>
@@ -1673,8 +1881,9 @@ function OpenClawRepairRequestCard({ action }: { action: OpenClawRequestRepairAc
 
         {actionState === "approved" ? (
           <ActionCardStatus tone="success">
-            Reparation startad på den senaste versionen. En ny version dyker upp för godkännande när
-            den är klar.
+            {autoRun
+              ? "Reparation startad på den senaste versionen. En ny version dyker upp när den är klar."
+              : "Reparation startad på den senaste versionen. En ny version dyker upp för godkännande när den är klar."}
           </ActionCardStatus>
         ) : null}
 
@@ -1692,36 +1901,61 @@ function OpenClawRepairRequestCard({ action }: { action: OpenClawRequestRepairAc
   );
 }
 
+type QuickEditReceipt = { versionId: string; changedFiles: string[]; previewError?: string };
+type QuickEditResult = { ok: true; applied: QuickEditReceipt } | { ok: false; error: string };
+
+/** Kvitton för snabbändringar som körts direkt — ett ommonterat kort visar samma resultat. */
+const quickEditReceipts = new Map<string, QuickEditReceipt>();
+
 /**
- * Godkännandekort för `apply_quick_edit`: Sajtagenten föreslår små exakta
- * filändringar som körs genom den befintliga Fast Edit Lane-klienten
- * (`quickEditChatFiles`) FÖRST när användaren godkänner.
+ * Kort för `apply_quick_edit`: små exakta filändringar genom den befintliga
+ * Fast Edit Lane-klienten (`quickEditChatFiles`).
  *
- * Medveten v1-begränsning: kortet exekverar ALDRIG automatiskt — inte ens
- * när ett armerat mandat (Mode A) är aktivt. Mandatet auktoriserar bara
- * auto-send av builder-prompter genom den vanliga pipelinen; direkta
- * filändringar kräver alltid ett manuellt klick på Godkänn.
+ * Bär turen Sajtagentens handlingsmedgivande (`agent-action-consent.ts`) körs
+ * ändringen direkt och kortet blir ett kvitto (ägarbeslut 2026-11-20; tidigare
+ * krävdes alltid ett klick). Annars — läget Fråga, en fråga, slut på uppdragets
+ * steg, en rad från historiken — är det ett förslag att godkänna. Vakterna är
+ * desamma på båda vägarna: versionen modellen såg är bas, filen måste finnas,
+ * och en flyttad bas ger 409 i stället för en tyst skrivning.
  */
 function OpenClawQuickEditCard({
   action,
+  messageId,
   quickEditGranted,
+  autoRun,
+  mission,
+  budgetSpent,
   builderTarget,
 }: {
   action: OpenClawApplyQuickEditAction;
+  messageId: string;
   quickEditGranted: boolean;
+  /** The turn carries the agent's action consent: the edit is applied directly. */
+  autoRun: boolean;
+  mission: AgentMission | null;
+  budgetSpent: boolean;
   /** Builder-mål bundet när turen SKICKADES (versionen modellen såg), eller null. */
   builderTarget: { chatId: string; versionId: string } | null;
 }) {
+  const autoRunKey = `apply_quick_edit:${messageId}`;
   const [actionState, setActionState] = useState<
     "pending" | "working" | "applied" | "declined" | "failed"
-  >("pending");
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [applied, setApplied] = useState<{ versionId: string; changedFiles: string[]; previewError?: string } | null>(
-    null,
+  >(() => {
+    const attempt = missionAutoRuns.get(autoRunKey);
+    if (attempt) {
+      return attempt.state === "done" ? "applied" : attempt.state === "failed" ? "failed" : "working";
+    }
+    return autoRun ? "working" : "pending";
+  });
+  const [actionError, setActionError] = useState<string | null>(
+    () => missionAutoRuns.get(autoRunKey)?.error ?? null,
+  );
+  const [applied, setApplied] = useState<QuickEditReceipt | null>(
+    () => quickEditReceipts.get(autoRunKey) ?? null,
   );
   // Bind förslaget till versionen som var aktiv när TUREN SKICKADES — det är
-  // den kod modellen faktiskt såg (Bugbot rond 7+8). Ett godkännande senare
-  // får inte tyst appliceras mot en annan bas: ops:en skickas med förslagets
+  // den kod modellen faktiskt såg (Bugbot rond 7+8). En ändring senare får
+  // inte tyst appliceras mot en annan bas: ops:en skickas med förslagets
   // version som bas + engineLatestKnownVersionId, så serverns stale-base-guard
   // svarar 409 om huvudet hunnit flytta (samma svenska copy som kodvyn).
   //
@@ -1729,7 +1963,7 @@ function OpenClawQuickEditCard({
   // window utan att OpenClaw-panelen re-renderar, så en render-ögonblicksbild
   // vore både för pessimistisk (knappen fastnar avstängd) och för optimistisk
   // (stale bas vid klick). Därför: hint-texten använder render-läsningen, men
-  // knappen är alltid klickbar och SJÄLVA målet löses om vid klicktillfället —
+  // knappen är alltid klickbar och SJÄLVA målet löses om när ändringen körs —
   // samma mönster som reparationskortet. Saknas mål då: tydligt fel, inget körs.
   const renderTarget = builderTarget ?? readActiveBuilderTarget();
   const actionLabel = action.label || "Liten kodändring på sajten";
@@ -1737,38 +1971,28 @@ function OpenClawQuickEditCard({
   // efter re-render, så två snabba klick kan annars starta överlappande
   // POST:ar mot samma bas (forkad historik / förvirrande stale_base_version).
   const approveInFlightRef = useRef(false);
+  const scopeKeyRef = useRef(useOpenClawStore.getState().scopeKey);
   const isBuilder = useIsBuilderAppearance();
 
-  if (!quickEditGranted) {
-    return (
-      <OpenClawPowerOffNotice>
-        Snabbändringar är inaktiverade. Tryck in sköldknappen i chattens topprad och kryssa i
-        &quot;Snabbändringar&quot; om du vill kunna godkänna dem.
-      </OpenClawPowerOffNotice>
-    );
-  }
-
-  const handleApprove = async () => {
-    if (approveInFlightRef.current) return;
-    approveInFlightRef.current = true;
-    try {
-      // Send-tidens mål vinner; annars klicktidens live-läsning (rond 9).
-      const effectiveTarget = builderTarget ?? readActiveBuilderTarget();
-      if (!effectiveTarget) {
-        setActionState("failed");
-        setActionError("Ingen aktiv version hittades. Öppna versionen i buildern och försök igen.");
-        return;
-      }
-      setActionState("working");
-      setActionError(null);
-
-      await runApprovedOps(effectiveTarget);
-    } finally {
-      approveInFlightRef.current = false;
+  const runOps = async (automatic: boolean): Promise<QuickEditResult> => {
+    const scopeKey = scopeKeyRef.current;
+    // Send-tidens mål vinner; annars körtidens live-läsning (rond 9).
+    const current = builderTarget ?? readActiveBuilderTarget();
+    if (!current) {
+      return {
+        ok: false,
+        error: "Ingen aktiv version hittades. Öppna versionen i buildern och försök igen.",
+      };
     }
-  };
+    const lostAuthority = () =>
+      useOpenClawStore.getState().scopeKey !== scopeKey ||
+      (automatic &&
+        (!readOpenClawPowers().quickEdit ||
+          !isAgentActionConsentLive(useOpenClawStore.getState().messages, messageId)));
+    if (lostAuthority()) {
+      return { ok: false, error: "Det automatiska medgivandet gäller inte längre." };
+    }
 
-  const runApprovedOps = async (current: { chatId: string; versionId: string }) => {
     // Kontraktsvakt (Bugbot): replace_content på en okänd path skulle SKAPA en
     // ny fil server-side, men OC-kontraktet lovar "endast befintliga filer".
     // Verifiera därför mot versionens fillista innan något skrivs. Fail-closed:
@@ -1794,17 +2018,21 @@ function OpenClawQuickEditCard({
         // fail-closed nedan
       }
       if (!existingPaths) {
-        setActionState("failed");
-        setActionError("Kunde inte verifiera versionens filer — försök igen om en stund.");
-        return;
+        return {
+          ok: false,
+          error: "Kunde inte verifiera versionens filer — försök igen om en stund.",
+        };
       }
       const missing = replaceContentPaths.filter((path) => !existingPaths.has(path));
       if (missing.length > 0) {
-        setActionState("failed");
-        setActionError(
-          `Filen finns inte i versionen: ${missing.join(", ")}. Nya filer kan inte skapas via snabbändring — använd en vanlig follow-up-prompt i stället.`,
-        );
-        return;
+        return {
+          ok: false,
+          error: `Filen finns inte i versionen: ${missing.join(", ")}. Nya filer kan inte skapas via snabbändring — använd en vanlig follow-up-prompt i stället.`,
+        };
+      }
+      // Fillistan hämtades över nätet: kontrollera medgivandet igen före skrivningen.
+      if (lostAuthority()) {
+        return { ok: false, error: "Det automatiska medgivandet gäller inte längre." };
       }
     }
 
@@ -1821,9 +2049,7 @@ function OpenClawQuickEditCard({
     });
 
     if (!result.ok) {
-      setActionState("failed");
-      setActionError(describeQuickEditHardError(result));
-      return;
+      return { ok: false, error: describeQuickEditHardError(result) };
     }
     // Sync the builder (Bugbot P1): without this the builder keeps the
     // superseded base selected — the version list misses the new v.x row and
@@ -1839,8 +2065,73 @@ function OpenClawQuickEditCard({
       previewMode: result.previewMode,
       ...(result.previewError ? { previewError: result.previewError } : {}),
     });
-    setApplied({ versionId: result.versionId, changedFiles: result.changedFiles, previewError: result.previewError });
-    setActionState("applied");
+    return {
+      ok: true,
+      applied: {
+        versionId: result.versionId,
+        changedFiles: result.changedFiles,
+        previewError: result.previewError,
+      },
+    };
+  };
+
+  // Keyed on the message (`beginMissionAutoRun`): a remount finds the same
+  // attempt instead of writing the same edit twice.
+  useEffect(() => {
+    if (!autoRun) return;
+    let mounted = true;
+    const attempt = beginMissionAutoRun(autoRunKey, mission, async () => {
+      const result = await runOps(true);
+      if (result.ok) quickEditReceipts.set(autoRunKey, result.applied);
+      return result.ok ? { ok: true } : result;
+    });
+    if (!attempt) {
+      const timer = setTimeout(() => {
+        if (mounted) setActionState("pending");
+      }, 0);
+      return () => {
+        mounted = false;
+        clearTimeout(timer);
+      };
+    }
+    void attempt.finished.then(() => {
+      if (!mounted) return;
+      setApplied(quickEditReceipts.get(autoRunKey) ?? null);
+      setActionState(attempt.state === "done" ? "applied" : "failed");
+      setActionError(attempt.error);
+    });
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the message, not the parsed action object
+  }, [messageId, autoRun]);
+
+  if (!quickEditGranted) {
+    return (
+      <OpenClawPowerOffNotice>
+        Snabbändringar är inaktiverade. Tryck in sköldknappen i chattens topprad och kryssa i
+        &quot;Snabbändringar&quot; om du vill kunna använda dem.
+      </OpenClawPowerOffNotice>
+    );
+  }
+
+  const handleApprove = async () => {
+    if (approveInFlightRef.current) return;
+    approveInFlightRef.current = true;
+    setActionState("working");
+    setActionError(null);
+    try {
+      const result = await runOps(false);
+      if (result.ok) {
+        setApplied(result.applied);
+        setActionState("applied");
+      } else {
+        setActionState("failed");
+        setActionError(result.error);
+      }
+    } finally {
+      approveInFlightRef.current = false;
+    }
   };
 
   const handleDecline = () => {
@@ -1854,18 +2145,24 @@ function OpenClawQuickEditCard({
         icon={Zap}
         panelClassName="text-[11px] font-medium tracking-[0.16em] text-emerald-200/80 uppercase"
       >
-        Snabbändringsförslag
+        {autoRun ? "Snabbändring" : "Snabbändringsförslag"}
       </ActionCardLabel>
       <ActionCardTitle>{actionLabel}</ActionCardTitle>
       <ActionCardText>
-        {renderTarget
-          ? "Jag genomför ändringen först när du godkänner. Den skapar en ny version och uppdaterar förhandsvisningen."
-          : "Kräver en öppen version i buildern — godkännandet kontrollerar detta."}
+        {!renderTarget
+          ? "Kräver en öppen version i buildern — det kontrolleras när ändringen körs."
+          : autoRun
+            ? "Jag genomför ändringen direkt. Den skapar en ny version och uppdaterar förhandsvisningen — du kan gå tillbaka i versionshistoriken."
+            : "Jag genomför ändringen först när du godkänner. Den skapar en ny version och uppdaterar förhandsvisningen."}
       </ActionCardText>
       {action.reason ? <ActionCardInset>{action.reason}</ActionCardInset> : null}
+      {budgetSpent && actionState === "pending" ? (
+        <ActionCardText>{MISSION_BUDGET_SPENT_COPY}</ActionCardText>
+      ) : null}
       {/* Full payload-transparens (Bugbot): användaren ska se exakt VAD som
-          skrivs innan godkännande — inte bara op-typ + fil. Fill-kortet visar
-          hela texten; samma princip här, avgränsat och scrollbart. */}
+          skrivs — före ett godkännande, och som kvitto när ändringen körts
+          direkt — inte bara op-typ + fil. Fill-kortet visar hela texten; samma
+          princip här, avgränsat och scrollbart. */}
       <ul
         className={
           isBuilder

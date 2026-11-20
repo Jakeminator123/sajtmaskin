@@ -66,13 +66,45 @@ const STATUS_LABEL: Record<string, string> = {
   blocked: "stoppad av kontrollerna",
 };
 
-/** Intern tur. Får inte tolkas som armering eller stopp (locked by test). */
-export function buildPostBuildDigestPrompt(input: { versionStatus: string }): string {
+/**
+ * Intern tur. Får inte tolkas som armering eller stopp (locked by test).
+ *
+ * `continuation` sätts bara när bygget som blev klart startades av agenten
+ * själv under ett uppdrag med steg kvar (`takeMissionContinuation`). Då får
+ * svaret agera direkt, och prompten säger det. Annars är det ett rent besked:
+ * sammanfattningen efter ett bygge användaren själv beställde får aldrig
+ * starta nästa.
+ */
+export function buildPostBuildDigestPrompt(input: {
+  versionStatus: string;
+  continuation?: { remaining: number } | null;
+}): string {
   const label = STATUS_LABEL[input.versionStatus] ?? input.versionStatus;
+  const head = `[Byggresultat] Builderturen är ${label} (status: ${input.versionStatus}).`;
+  if (!input.continuation) {
+    return (
+      head +
+      " Läs byggkontexten och svara kort på svenska, max tre meningar:" +
+      " vad ändrades, och ETT konkret nästa steg som användaren kan be om." +
+      " Starta inget bygge och fyll inget fält nu — bara ett kort besked."
+    );
+  }
+  const steps =
+    input.continuation.remaining === 1
+      ? "ett automatiskt steg"
+      : `${input.continuation.remaining} automatiska steg`;
+  // «Granska» är med flit: ordet ger turen granskningsintention på servern
+  // (`decideOpenClawRoutingIntent`), så [BUGGFYND] och tidslinjen följer med.
+  // Utan dem kan agenten inte grunda en reparation i faktiska fynd.
   return (
-    `[Byggresultat] Builderturen är ${label} (status: ${input.versionStatus}).` +
-    " Läs byggkontexten och svara kort på svenska, max tre meningar:" +
-    " vad ändrades, och ETT konkret nästa steg som användaren kan be om." +
-    " Starta inget bygge och fyll inget fält nu — bara ett kort besked."
+    head +
+    " Bygget startades av dig inom användarens uppdrag. Granska resultatet i byggkontexten och avgör:" +
+    " Är uppdraget klart — svara kort på svenska, max tre meningar, med vad som ändrades" +
+    " och ETT konkret nästa steg som användaren kan be om, utan action-block." +
+    " Misslyckades bygget, stoppades det av kontrollerna, eller återstår en uttalad del av" +
+    " uppdraget — säg i en mening vad du gör och lägg EXAKT ett action-block sist" +
+    " (request_repair när det finns fynd att laga, annars start_build)." +
+    ` Du har ${steps} kvar för uppdraget. Hitta inte på nya uppgifter: fortsätt bara med` +
+    " det användaren bad om."
   );
 }

@@ -398,14 +398,32 @@ function matchesAtStart(regex: RegExp, lower: string): boolean {
   return !/[\p{L}\p{N}]/u.test(prefix);
 }
 
-/** Build tools need a complete positive command even when the UI uses Auto. */
+/** Texten öppnar med ett frågeord eller en samtalsöppning («Vad tycker du …»). */
+export function opensWithQuestionWord(rawText: string): boolean {
+  const lower = normalize(rawText).toLowerCase();
+  return QUESTION_OPENERS.test(lower) && matchesAtStart(QUESTION_OPENERS, lower);
+}
+
+/**
+ * Bär komposerturen medgivande för Sajtagenten att agera direkt
+ * (`agent-action-consent.ts`)? Ägarbeslut 2026-11-20: agenten är orkestrator
+ * och avgör själv om en text är en ändring — «Kan du lägga till en karta?» ska
+ * inte kräva ett klick till. Den deterministiska spärren är därför smal och
+ * gäller bara där ett bygge säkert vore fel:
+ *
+ * - läget Fråga («Fråga – ändrar inget»),
+ * - en uttrycklig «ändra inget»-formulering,
+ * - ett stopp,
+ * - text som öppnar med ett frågeord («Vad tycker du om startsidan?»): en
+ *   fråga blir aldrig tyst ett bygge.
+ *
+ * Tidigare krävdes en komplett order som började med ett ändringsverb. Den
+ * regeln skickade i praktiken varje agentbygge till ett godkännandekort.
+ */
 export function composerAllowsAgentBuild(input: { mode: ComposerMode; text: string }): boolean {
-  return (
-    input.mode !== "agent" &&
-    !isReadOnlyComposerRequest(input.text) &&
-    !isAgentProposalReference(input.text) &&
-    classifyComposerIntent(input.text) === "build"
-  );
+  if (input.mode === "agent" || !normalize(input.text)) return false;
+  if (isReadOnlyComposerRequest(input.text) || parseStopDirective(input.text)) return false;
+  return !opensWithQuestionWord(input.text);
 }
 
 export interface ResolveComposerRouteInput {

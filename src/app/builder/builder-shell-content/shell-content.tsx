@@ -14,7 +14,7 @@ import {
 import { SajtagentProvider } from "@/components/builder/chat/sajtagent/SajtagentProvider";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { registerBuilderBridge } from "@/lib/openclaw/builder-bridge";
-import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
+import { revokeOpenClawBuildConsent, useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import { CampaignAccountBanner } from "@/components/kostnadsfri/campaign-account-banner";
 import { currentBuilderReturnTo } from "@/lib/builder/pending-builder-draft";
 import { useAuthStore } from "@/lib/auth/auth-store";
@@ -172,11 +172,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     if (grew && isChatOutputCollapsed) expandChatOutput();
   }, [agentMessageCount, isChatOutputCollapsed, expandChatOutput]);
 
-  // Ett stopp är ett stopp: headerns «Avbryt» avbryter bygget OCH släpper ett
-  // aktivt agentmandat, så continuation-slingan inte skickar nästa steg på en
-  // tur användaren just avbröt.
+  // Ett stopp är ett stopp: headerns «Avbryt» avbryter bygget OCH släpper
+  // agentens mandat och pågående uppdrag (`revokeOpenClawBuildConsent`), så
+  // varken continuation-slingan eller nästa byggresultat skickar ett steg till
+  // på en tur användaren just avbröt.
   const handleCancelGeneration = useCallback(() => {
-    useOpenClawStore.getState().setArmedMandate(null);
+    revokeOpenClawBuildConsent();
     vm.cancelActiveGeneration();
   }, [vm]);
 

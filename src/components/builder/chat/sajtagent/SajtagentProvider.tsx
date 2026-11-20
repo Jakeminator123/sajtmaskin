@@ -24,7 +24,15 @@ import {
 } from "react";
 import type { ArmedMandate } from "@/lib/openclaw/debug/armed-mandate";
 import type { KostnadsfriCampaignScriptState } from "@/lib/kostnadsfri/agent-campaign-script";
-import { useOpenClawStore, type OpenClawMessage } from "@/lib/openclaw/openclaw-store";
+import {
+  readOpenClawPowers,
+  useOpenClawStore,
+  type OpenClawMessage,
+} from "@/lib/openclaw/openclaw-store";
+import {
+  hasMissionAwaitingResult,
+  takeMissionContinuation,
+} from "@/lib/openclaw/agent-action-consent";
 import { hydrateAgentHistory, persistAgentMessages } from "@/lib/openclaw/agent-history";
 import { hydrateOpenClawPowersForChat } from "@/lib/openclaw/persist-openclaw-powers";
 import {
@@ -345,7 +353,15 @@ export function SajtagentProvider({
     wasStreaming: boolean;
     streamed: boolean;
     versionIdAtStreamStart: string | null;
-  }>({ chatId, wasStreaming: false, streamed: false, versionIdAtStreamStart: null });
+    /** Klientklocka när strömmen startade — binder resultatet till agentens åtgärd. */
+    streamStartedAt: number | null;
+  }>({
+    chatId,
+    wasStreaming: false,
+    streamed: false,
+    versionIdAtStreamStart: null,
+    streamStartedAt: null,
+  });
   useEffect(() => {
     const track = streamTrackRef.current;
     if (track.chatId !== chatId) {
@@ -353,11 +369,13 @@ export function SajtagentProvider({
       track.wasStreaming = false;
       track.streamed = false;
       track.versionIdAtStreamStart = null;
+      track.streamStartedAt = null;
       lastDigestVersionIdRef.current = null;
     }
     if (isAnyStreaming && !track.wasStreaming) {
       track.streamed = true;
       track.versionIdAtStreamStart = activeVersionId;
+      track.streamStartedAt = Date.now();
     }
     track.wasStreaming = isAnyStreaming;
 
@@ -376,9 +394,12 @@ export function SajtagentProvider({
       track.streamed = false;
       return;
     }
+    // Ett uppdrag som väntar på sitt byggresultat väcker agenten även när
+    // användaren stängt av kommentaren efter bygget: agenten startade bygget
+    // och måste få se hur det gick.
     const decision = decidePostBuildDigest({
       next,
-      enabled: digestEnabled,
+      enabled: digestEnabled || hasMissionAwaitingResult(live.scopeKey),
       agentStreaming: live.isStreaming,
       continuationActive: live.armedContinuation !== null,
       lastDigestVersionId: lastDigestVersionIdRef.current,
@@ -388,11 +409,27 @@ export function SajtagentProvider({
     if (decision.kind !== "digest") return;
     lastDigestVersionIdRef.current = decision.versionId;
     track.streamed = false;
-    void sendRef.current(buildPostBuildDigestPrompt({ versionStatus: decision.versionStatus }), {
-      allowArming: false,
-      countTowardCampaignQuota: false,
-      internal: true,
-    });
+    // Orkestrering: startade agenten själv det här bygget inom ett uppdrag med
+    // steg kvar får svaret agera direkt (laga, fortsätta). Ett bygge användaren
+    // beställde själv ger alltid bara ett besked.
+    const continuation = readOpenClawPowers().armedAutonomy
+      ? takeMissionContinuation({
+          messages: live.messages,
+          scopeKey: live.scopeKey,
+          streamStartedAt: track.streamStartedAt,
+        })
+      : null;
+    // Kommentaren är avstängd och det fanns inget uppdrag att föra vidare.
+    if (!digestEnabled && !continuation) return;
+    void sendRef.current(
+      buildPostBuildDigestPrompt({ versionStatus: decision.versionStatus, continuation }),
+      {
+        allowArming: false,
+        countTowardCampaignQuota: false,
+        internal: true,
+        ...(continuation ? { mission: { rootTurnId: continuation.missionTurnId } } : {}),
+      },
+    );
   }, [
     available,
     chatId,
