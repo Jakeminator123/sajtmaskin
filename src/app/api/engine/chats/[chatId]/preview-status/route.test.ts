@@ -521,6 +521,28 @@ describe("GET preview-status — readiness-failure utan levande process", () => 
     });
   });
 
+  it("svarar med hostens aktuella adress, inte den sparade, medan versionen bootar (M03)", async () => {
+    fetchPreviewHostReadinessVerdict.mockResolvedValue({
+      running: false,
+      versionId: "v1",
+      readinessState: "starting",
+      hostStatus: "starting",
+      readinessError: null,
+      httpReady: false,
+      regeneratedLockfile: null,
+      previewUrl: "https://p-0123456789abcdef0123.vm.sajtmaskin.com/chat_1",
+    } as never);
+
+    const res = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/preview-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    const body = (await res.json()) as { status: string; previewUrl: string | null };
+    expect(body.status).toBe("starting");
+    expect(body.previewUrl).toBe("https://p-0123456789abcdef0123.vm.sajtmaskin.com/chat_1");
+  });
+
   it("frågar hosten med sessionens version så ett annat versions verdikt aldrig tillskrivs denna", async () => {
     await GET(
       new Request("http://localhost/api/engine/chats/chat_1/preview-status?versionId=v1"),
