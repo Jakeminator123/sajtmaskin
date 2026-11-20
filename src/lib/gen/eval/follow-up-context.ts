@@ -22,6 +22,10 @@ type FollowUpEvalCase = {
   expected: {
     maxOptimizedMessageChars: number;
     maxSystemPromptChars: number;
+    /** Files whose full content must reach the model for this request. */
+    pinnedFiles?: string[];
+    /** Contract text the system prompt must carry for this request. */
+    systemPromptIncludes?: string[];
   };
 };
 
@@ -123,6 +127,26 @@ const CASES: FollowUpEvalCase[] = [
     expected: {
       maxOptimizedMessageChars: 22_000,
       maxSystemPromptChars: 76_000,
+    },
+  },
+  {
+    // SM-135: a recolor names no design noun; the theme tokens every button
+    // reads must still be in full context.
+    id: "button-recolor",
+    message: "Gör knapparna mörkröda.",
+    previousFiles: landingPreviousFiles,
+    persistedScaffoldId: "landing-page",
+    persistedVariantId: "warm-local",
+    buildIntent: "website",
+    expected: {
+      maxOptimizedMessageChars: 22_000,
+      maxSystemPromptChars: 76_000,
+      pinnedFiles: ["app/globals.css"],
+      // V-2: the model must learn where Tailwind reads the color (`@theme inline`).
+      systemPromptIncludes: [
+        "only changes when you edit the `--color-primary` line inside that block",
+        "a color or style change the user asks for in the current message outranks items 2–4",
+      ],
     },
   },
 ];
@@ -227,6 +251,14 @@ async function runCase(testCase: FollowUpEvalCase): Promise<FollowUpEvalResult> 
     issues.push(
       `optimizedMessage ${optimizedMessage.length} > ${testCase.expected.maxOptimizedMessageChars}`,
     );
+  }
+  for (const path of testCase.expected.pinnedFiles ?? []) {
+    if (!fileContextDecision.pinnedFiles.includes(path)) issues.push(`${path} not pinned`);
+  }
+  for (const snippet of testCase.expected.systemPromptIncludes ?? []) {
+    if (!generationInput.engineSystemPrompt.includes(snippet)) {
+      issues.push(`system prompt lacks «${snippet.slice(0, 40)}…»`);
+    }
   }
   if (generationInput.promptSize.total.chars > testCase.expected.maxSystemPromptChars) {
     issues.push(
