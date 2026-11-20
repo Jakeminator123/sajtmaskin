@@ -186,6 +186,8 @@ export function renderDesignPriorityBlock(): string[] {
     "3. Scaffold Variant defaults (theme tokens, font pairings, signature motif, prompt hints) — fallback when brief is silent",
     "4. Static core defaults — fallback values from Core Rules when neither brief nor variant provides guidance",
     "",
+    "On a follow-up, a color or style change the user asks for in the current message outranks items 2–4 and the Brief-Locked Design Values: those describe where the site started, not a veto on later edits.",
+    "",
   ];
 }
 
