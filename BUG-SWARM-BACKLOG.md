@@ -176,7 +176,6 @@ Jake äger samtliga frågor. Ej omverifierade 2026-10-19.
 | P2 | Ska fritext från startsidan starta bygget automatiskt? I dag fylls bara chattrutan (beslut 2026-07-02 i [`useBuilderAutoStartGeneration.ts`](src/app/builder/page-controller/useBuilderAutoStartGeneration.ts), rad 29–34); ett ja ersätter det beslutet. | Före nästa konverteringspass. |
 | P2 | Hur ska generatorn hantera företagsuppgifter och omdömen som användaren inte angett: fråga före bygget, märka dem som exempel i sajten, eller lämna? I dag säger kvittot det ärligt (`src/lib/gen/stream/turn-summary.ts:44`, #1741) och riggens sajter märkte omdömen som fiktiva. | Före öppen lansering. |
 | P2 | Lat skapning av projekt (raden om tomma projekt i aktiv kö): ska projektet skapas först vid första bygget eller sparningen, och ska tomma projekt räknas mot projekttaket? | Före öppen lansering (gratiskonton når taket 8). |
-| P3 | Ska repot gå till Node 24? I dag pinnas 22 (`package.json` `engines` `>=22.14.0 <23`, `.node-version` 22.23.1); Vercel erbjuder 24. | Fritt; efter en grön CI-körning på 24. |
 
 Fattade beslut flyttas till
 [`docs/decisions/README.md`](docs/decisions/README.md); implementationen hör
