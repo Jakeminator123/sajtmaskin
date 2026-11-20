@@ -28,6 +28,7 @@ import {
 } from "@/lib/builder/server-auto-brief-policy";
 import { tryGenerateServerAutoBrief, type BriefTrace } from "@/lib/builder/site-brief-generation";
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
+import { invalidateProjectListCache } from "@/lib/projects/project-list-cache";
 import { resolveConfiguredEnvKeys } from "./configured-env-keys";
 import { requireNotBot } from "@/lib/bot-protection";
 import { devLogAppend, devLogStartNewSite } from "@/lib/logging/dev-log";
@@ -119,6 +120,8 @@ async function createChatAfterAcquiringInitLock(input: {
   model: string;
   systemPrompt?: string;
   scaffoldId?: string;
+  /** Ägaren vars `/projects`-cache nollas när chatten finns (SM-133). */
+  owner: { userId: string | null; sessionId: string | null };
 }): Promise<
   | {
       status: "acquired";
@@ -140,6 +143,10 @@ async function createChatAfterAcquiringInitLock(input: {
       input.scaffoldId,
       { id },
     );
+    // SM-133: ett projekt syns i /projects först när det har en chatt. Utan
+    // nollning kunde en lista hämtad under Deep Brief gömma det i 120 s.
+    // Fire-and-forget: deleteCache kastar aldrig och bygget väntar inte.
+    void invalidateProjectListCache(input.owner.userId, input.owner.sessionId);
     return { status: "acquired", chat, lock: lockResult.lock };
   } catch (error) {
     await releaseChatGenerationLock(lockResult.lock).catch(() => {});
@@ -715,6 +722,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           const plannerChatDbStartedAt = Date.now();
           const plannerBoot = await createChatAfterAcquiringInitLock({
             projectId: projectIdForChat,
+            owner: { userId: creditCheck.user.id, sessionId },
             model: planModel,
             systemPrompt: planSystemPrompt,
             scaffoldId: planOrchestration.resolvedScaffold?.id,
@@ -962,6 +970,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           const engineChatDbStartedAt = Date.now();
           const initBoot = await createChatAfterAcquiringInitLock({
             projectId: projectIdForChat,
+            owner: { userId: creditCheck.user.id, sessionId },
             model: engineModel,
             systemPrompt: engineSystemPrompt,
             scaffoldId: resolvedScaffold?.id,
