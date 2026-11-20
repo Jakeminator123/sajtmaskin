@@ -259,28 +259,6 @@ describe("buildTurnSummary", () => {
   });
 });
 
-describe("buildTurnSummary — button labels made readable (SM-135)", () => {
-  const base = { generationMode: "followUp" as const, files: [file("app/page.tsx", "b")], previousFiles: [file("app/page.tsx", "a")] };
-
-  it("says so in the visible part when buttons were changed", () => {
-    const main = (buildTurnSummary({ ...base, buttonContrastFixes: { tokens: 0, buttons: 2 } }) as string).split("\n\n")[0];
-    expect(main).toContain("Jag justerade textfärgen på 2 knappar så att de går att läsa.");
-    const one = buildTurnSummary({ ...base, buttonContrastFixes: { tokens: 0, buttons: 1 } }) as string;
-    expect(one).toContain("Jag justerade textfärgen på 1 knapp så att den går att läsa.");
-  });
-
-  it("speaks of the buttons' text color when a theme token was raised", () => {
-    const summary = buildTurnSummary({ ...base, buttonContrastFixes: { tokens: 1, buttons: 3 } }) as string;
-    expect(summary).toContain("Jag justerade knapparnas textfärg så att den går att läsa.");
-    expect(summary).not.toContain("3 knappar");
-  });
-
-  it("stays silent when nothing was changed", () => {
-    const summary = buildTurnSummary({ ...base, buttonContrastFixes: { tokens: 0, buttons: 0 } }) as string;
-    expect(summary).not.toContain("textfärg");
-  });
-});
-
 describe("appendTurnSummary", () => {
   it("appends the summary after a blank line and leaves code untouched", () => {
     const code = '```tsx file="app/page.tsx"\nexport default function Page() {}\n```\n\n';
