@@ -138,6 +138,41 @@ export function isSameTier2PreviewSession(
   }
 }
 
+/**
+ * M03 (SM-080): the host renders a chat's preview URL per answer, on the shared
+ * host (`https://<host>.fly.dev/<chatId>`) or on the chat's own origin
+ * (`https://p-<hex>.<domain>/<chatId>`), depending on PREVIEW_HOST_ORIGIN_MODE.
+ * A URL saved before a mode switch is therefore in the other form, and the
+ * shared host answers it with a 307 to the chat's origin.
+ *
+ * Returns `current` moved onto `hostUrl`'s origin (path, query and hash kept)
+ * when both are tier-2 URLs for the same chatId and exactly one of them is a
+ * per-chat origin; otherwise null. Only for a `hostUrl` from a server receipt
+ * for this exact chat. The bridges' postMessage checks still compare exact
+ * origins; this moves the expected origin to the document the frame shows.
+ */
+export function rehomeTier2PreviewUrl(
+  current: string | null | undefined,
+  hostUrl: string | null | undefined,
+): string | null {
+  const from = normalizePreviewUrl(current);
+  const to = normalizePreviewUrl(hostUrl);
+  if (!from || !to || !isTier2LivePreviewUrl(from) || !isTier2LivePreviewUrl(to)) return null;
+  try {
+    const moved = new URL(from);
+    const host = new URL(to);
+    if (moved.origin === host.origin) return null;
+    if (isPreviewOriginHost(moved.hostname) === isPreviewOriginHost(host.hostname)) return null;
+    const chat = firstPathSegment(moved.pathname);
+    if (chat === null || chat !== firstPathSegment(host.pathname)) return null;
+    moved.protocol = host.protocol;
+    moved.host = host.host;
+    return moved.toString();
+  } catch {
+    return null;
+  }
+}
+
 export type PreviewHandoffAction = "noop" | "set-url" | "bump";
 
 export type PreviewHandoffDecision = {

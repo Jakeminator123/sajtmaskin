@@ -168,6 +168,60 @@ describe("fixButtonContrast — theme pairs", () => {
     expect(result.fixes).toEqual([]);
   });
 
+  /**
+   * Promote #1763, Codex P2: raising primary-foreground for the base fill
+   * dropped the default Button's hover (`hover:bg-primary-hover`) from 13.71:1
+   * to 1.11:1. The label must read on every state fill, or stay as it is.
+   */
+  it("leaves the token alone when no label reads on both the fill and its hover fill (Codex case)", () => {
+    const content = css({ background: "#ffffff", foreground: "#111111", primary: "#111111", "primary-foreground": "#222222", "primary-hover": "#eeeeee" });
+    const files = [file("app/globals.css", content), page(`      <Button>Boka</Button>`)];
+    const result = fixButtonContrast(files);
+    expect(result.files).toBe(files);
+    expect(result.fixes).toEqual([]);
+  });
+
+  it("raises the label on the fill alone when the theme has no hover token", () => {
+    const content = css({ background: "#ffffff", foreground: "#111111", primary: "#111111", "primary-foreground": "#222222" });
+    const after = fixButtonContrast([file("app/globals.css", content)]).files[0].content;
+    expect(ratio("#111111", token(after, "primary-foreground"))).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
+  });
+
+  it("picks a label that reads on the fill and on every state token", () => {
+    const content = css({
+      background: "#ffffff",
+      foreground: "#111111",
+      primary: "#111111",
+      "primary-foreground": "#222222",
+      "primary-hover": "#333333",
+      "primary-active": "#2a2a2a",
+    });
+    const after = fixButtonContrast([file("app/globals.css", content)]).files[0].content;
+    const label = token(after, "primary-foreground");
+    for (const fill of ["#111111", "#333333", "#2a2a2a"]) {
+      expect(ratio(fill, label)).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
+    }
+  });
+
+  it("leaves the token alone when a state fill cannot be read", () => {
+    const content = css(
+      { background: "#ffffff", foreground: "#111111", primary: "#111111", "primary-foreground": "#222222", "primary-hover": "#333333" },
+      `:root { --color-primary-hover: #eeeeee; }\n`,
+    );
+    const result = fixButtonContrast([file("app/globals.css", content)]);
+    expect(result.files[0].content).toBe(content);
+    expect(result.fixes).toEqual([]);
+  });
+
+  it("checks the secondary Button's own hover fill (secondary/80)", () => {
+    // Dark secondary with a dark label: a light label must also read on 80 % of it over any backdrop.
+    const content = css({ background: "#ffffff", foreground: "#111111", secondary: "#1a1a1a", "secondary-foreground": "#262626" });
+    const after = fixButtonContrast([file("app/globals.css", content)]).files[0].content;
+    const label = token(after, "secondary-foreground");
+    expect(label).not.toBe("#262626");
+    expect(ratio("#1a1a1a", label)).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
+  });
+
   it("is a no-op without a theme file and returns the same array", () => {
     const files = [page(`      <button className="bg-primary">x</button>`)];
     const result = fixButtonContrast(files);

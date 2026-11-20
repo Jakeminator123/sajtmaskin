@@ -549,10 +549,13 @@ async function resumeBootingPinnedSession(params: {
   if (!verdict || !isBootingPinnedSession(verdict)) return null;
   const lifecycleToken = verdict.lifecycleToken ?? sess.lifecycleToken;
   const filesRevision = params.filesRevision ?? sess.filesRevision;
+  // M03: the host renders the URL per answer; its current form wins over the
+  // one saved before PREVIEW_HOST_ORIGIN_MODE changed.
+  const previewUrl = verdict.previewUrl?.trim() || sess.previewUrl;
   const stored = await touchPreviewSessionAsync({
     chatId,
     previewSessionId: sess.previewSessionId,
-    previewUrl: sess.previewUrl,
+    previewUrl,
     versionId,
     filesRevision,
     lifecycleToken,
@@ -578,7 +581,7 @@ async function resumeBootingPinnedSession(params: {
   return {
     ok: true,
     result: {
-      previewUrl: sess.previewUrl,
+      previewUrl,
       previewSessionId: sess.previewSessionId,
       lifecycleToken,
       previewMode: params.previewMode,

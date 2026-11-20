@@ -4,6 +4,7 @@ import {
   isSameTier2PreviewSession,
   isTier2LivePreviewUrl,
   normalizePreviewUrl,
+  rehomeTier2PreviewUrl,
 } from "@/lib/gen/preview/preview-url-classifier";
 import type { VersionSummary } from "./useBuilderDerivedState";
 
@@ -102,6 +103,11 @@ export function shouldRetainLastGoodPreviewOnVersionChange(params: {
  * the overwrite only when the version did NOT change and both URLs resolve
  * to the same tier-2 session (same origin + same chatId segment). A version
  * change always re-syncs (fresh generation must reload the iframe).
+ *
+ * M03: the row can hold the same chat in the host's other origin form (saved
+ * before PREVIEW_HOST_ORIGIN_MODE changed). That is the same session too; the
+ * status receipts move the iframe to the host's current form, and snapping back
+ * to the row's form here would bounce the frame between the two.
  */
 export function shouldPreserveUserRouteNavigation(params: {
   didChangeVersion: boolean;
@@ -111,7 +117,10 @@ export function shouldPreserveUserRouteNavigation(params: {
   const { didChangeVersion, nextDemoUrl, currentPreviewUrl } = params;
   if (didChangeVersion) return false;
   if (!nextDemoUrl || !currentPreviewUrl) return false;
-  return isSameTier2PreviewSession(currentPreviewUrl, nextDemoUrl);
+  return (
+    isSameTier2PreviewSession(currentPreviewUrl, nextDemoUrl) ||
+    rehomeTier2PreviewUrl(nextDemoUrl, currentPreviewUrl) !== null
+  );
 }
 
 /**
