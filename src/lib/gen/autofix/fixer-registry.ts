@@ -720,6 +720,25 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     status: "active",
     ownerPhase: "post-merge",
   },
+  {
+    id: "button-contrast-fixer",
+    category: "mechanical-tailwind",
+    risk: "safe",
+    sourcePath: "src/lib/gen/autofix/rules/button-contrast-fixer.ts",
+    targetFailureMode:
+      "Button label below WCAG AA (4.5:1) against its background: a recolored --color-X kept " +
+      "an unreadable --color-X-foreground, or a filled button mixes bg-*/text-* from different pairs",
+    triggers: [
+      "@theme --color-X / --color-X-foreground (or background/foreground) below 4.5:1",
+      "opaque bg-* on <Button>/<button>/<a>/<Link> whose text or inherited color is below 4.5:1",
+    ],
+    status: "active",
+    ownerPhase: "post-merge",
+    notes:
+      "SM-135. Moves only foreground tokens and text classes; the brand/background color is never " +
+      "changed (same choice as the app's SM-016 fix). Skips translucent backgrounds, gradients, " +
+      "Tailwind palette classes, var()-indirected theme values and components/ui/*.",
+  },
   // ---- validators (read-only, may emit warnings) ----
   {
     id: "syntax-validator",
