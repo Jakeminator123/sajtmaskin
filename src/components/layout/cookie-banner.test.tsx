@@ -3,9 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { COOKIE_CONSENT_CHANGE_EVENT } from "@/lib/ads/fire-google-ads-conversion";
 import { APP_VIEWPORT_HEIGHT_CLASS, COOKIE_BANNER_HEIGHT_VAR } from "@/lib/app-viewport";
-import { CookieBanner } from "./cookie-banner";
+import { CompactCookieBanner, CookieBanner } from "./cookie-banner";
 
-let pathname = "/";
+let pathname = "/builder";
 vi.mock("next/navigation", () => ({
   usePathname: () => pathname,
 }));
@@ -16,7 +16,7 @@ const CONSENT_DATE_KEY = "cookie-consent-date";
 describe("CookieBanner — kompakt remsa i nederkanten (V-05, SM-137)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    pathname = "/";
+    pathname = "/builder";
   });
 
   afterEach(() => {
@@ -35,7 +35,7 @@ describe("CookieBanner — kompakt remsa i nederkanten (V-05, SM-137)", () => {
     return screen.getByRole("dialog", { name: "Cookie-inställningar" });
   }
 
-  it("visas på startsidan som en icke-modal remsa i nederkanten, inte som helskärmskort", () => {
+  it("är en icke-modal remsa i nederkanten, inte ett kort i hörnet", () => {
     render(<CookieBanner />);
     expect(screen.queryByRole("dialog")).toBeNull();
     act(() => {
@@ -47,9 +47,7 @@ describe("CookieBanner — kompakt remsa i nederkanten (V-05, SM-137)", () => {
     expect(strip.className).toContain("fixed");
     expect(strip.className).toContain("inset-x-0");
     expect(strip.className).toContain("bottom-0");
-    expect(strip.className).not.toContain("inset-0 ");
-    expect(strip.className).not.toContain("z-[200]");
-    expect(strip.className).not.toContain("bg-[#05070a]");
+    expect(strip.className).not.toContain("left-4");
     expect(document.body.style.overflow).not.toBe("hidden");
     expect(strip.textContent).toContain("Vi använder cookies.");
     expect(strip.textContent).toContain(
@@ -60,9 +58,13 @@ describe("CookieBanner — kompakt remsa i nederkanten (V-05, SM-137)", () => {
     );
   });
 
-  it("visas på andra rutter också", () => {
-    pathname = "/builder";
-    expect(showBanner()).toBeTruthy();
+  it("lämnar startsidan åt LanyardExperience (flip-kortet på desktop, remsan på mobil)", () => {
+    pathname = "/";
+    render(<CookieBanner />);
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("visas inte när besökaren redan har valt", () => {
@@ -93,6 +95,16 @@ describe("CookieBanner — kompakt remsa i nederkanten (V-05, SM-137)", () => {
     }
   });
 
+  it("meddelar startsidans ägare när valet görs", () => {
+    const onConsent = vi.fn();
+    render(<CompactCookieBanner delayMs={0} onConsent={onConsent} />);
+    act(() => {
+      vi.advanceTimersByTime(0);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Acceptera alla" }));
+    expect(onConsent).toHaveBeenCalledWith("accepted");
+  });
+
   it("publicerar sin höjd så app-skalen lämnar plats, och tar bort den efter valet", () => {
     showBanner();
     expect(document.documentElement.style.getPropertyValue(COOKIE_BANNER_HEIGHT_VAR)).toMatch(
@@ -104,7 +116,6 @@ describe("CookieBanner — kompakt remsa i nederkanten (V-05, SM-137)", () => {
   });
 
   it("app-skalens höjdklass drar av remsans höjd", () => {
-    expect(APP_VIEWPORT_HEIGHT_CLASS).toContain("var(--cookie-banner-h,0px)");
     expect(APP_VIEWPORT_HEIGHT_CLASS).toContain("100dvh");
     expect(APP_VIEWPORT_HEIGHT_CLASS).toContain(`var(${COOKIE_BANNER_HEIGHT_VAR},0px)`);
   });

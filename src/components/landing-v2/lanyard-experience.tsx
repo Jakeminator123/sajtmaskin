@@ -1,49 +1,102 @@
 "use client"
 
 /**
- * LanyardExperience — hjältens nyckelband med Sajtmaskins visitkort.
+ * LanyardExperience — kombinerar cookie-samtycke och det fysikdrivna 3D-kortet
+ * till EN sammanhängande fysisk pryl.
  *
- * Det statiska WebP-kortet SSR:as och är LCP. På kapabel desktop laddas
- * 3D-kortet (Three/Rapier) vid idle och monteras OVANFÖR stagen; först när
- * fysiken rapporterar sin första riktiga frame glider hela lanyarden ner på
- * plats. Laddtiden blir en avsiktlig entré i stället för ett stillbildskort
- * som byter pose. Mobil, reduced-motion och Save-Data hoppar över Three/Rapier
- * och behåller det statiska kortet.
+ * Vid första besöket på kapabel desktop hänger kortet stort och mitt i vyn i
+ * sitt nyckelband, med cookie-samtycket på FRAMSIDAN. När besökaren klickar
+ * på ett val sparas samtycket och EXAKT samma kort roterar 180° runt sin
+ * egen lodräta axel (så att den varumärkta baksidan kommer fram), åker
+ * samtidigt bakåt i djupled och krymper — fortfarande hängande i samma snodd.
+ * 3D-chunken startar vid klicket (inte under LCP). Mobil, reduced-motion och
+ * Save-Data hoppar över Three/Rapier och visar ett statiskt WebP-kort plus
+ * en kompakt cookie-banner som inte kan bli LCP.
  *
- * Cookie-samtycket bor inte här längre. Det var tidigare ett helskärmskort
- * på desktop som dolde hela startsidan (rigg V-05, SM-137); nu sköter den
- * globala cookie-remsan (`CookieBanner`) samtycket på alla rutter, och kortet
- * laddas oberoende av samtycket (det sätter inga cookies).
+ * Har besökaren redan valt tidigare hoppas cookie-steget över. Då monteras
+ * 3D-kortet direkt men OVANFÖR stagen; först när fysiken rapporterar sin
+ * första riktiga frame glider hela lanyarden ner på plats. Laddtiden blir
+ * en avsiktlig entré i stället för ett stillbildskort som byter pose.
  */
 
-import { Component, useCallback, useEffect, useState, type ReactNode } from "react"
+import {
+  Component,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type AnimationEvent,
+  type ReactNode,
+  type TransitionEvent,
+} from "react"
+import { createPortal } from "react-dom"
 import dynamic from "next/dynamic"
+import { Cookie } from "lucide-react"
+import {
+  LANYARD_CONSENT_DATE_KEY,
+  LANYARD_CONSENT_KEY,
+  readStoredCookieConsent,
+} from "@/components/landing-v2/lanyard-consent"
+import { dispatchCookieConsentChange } from "@/lib/ads/fire-google-ads-conversion"
 import {
   readLanyardStaticOnly,
   scheduleWhenIdle,
   usePrefersReducedMotion,
   useSaveData,
 } from "@/components/landing-v2/landing-hooks"
-import { StaticLanyardFallback } from "@/components/landing-v2/lanyard-static-fallback"
+import {
+  LANYARD_CARD_GRAIN_STYLE,
+  LanyardBrandFace,
+  StaticLanyardFallback,
+} from "@/components/landing-v2/lanyard-static-fallback"
+import { CompactCookieBanner } from "@/components/layout/cookie-banner"
 
-// Platshållaren syns bara om 3D-chunken laddas långsamt. Wrappern står ovanför
-// stagen tills onReady, så i praktiken syns den aldrig.
+// Platshållaren täcker cookie-flippens överlämning om 3D-chunken inte hunnit
+// in vid reveal. I drop-in-läget står wrappern ovanför stagen tills onReady,
+// så där syns den aldrig.
 const LanyardCard = dynamic(
   () => import("@/components/landing-v2/lanyard-card").then((m) => m.LanyardCard),
   { ssr: false, loading: () => <StaticLanyardFallback /> },
 )
 
+export const FLIP_MS_DESKTOP = 1550
+const FLIP_MS_MOBILE = 1150
+export const FLIP_END_FALLBACK_MS = 400
 /** Om fysiken aldrig rapporterar redo (t.ex. pausad tabb) visas kortet ändå. */
 const DROP_IN_FALLBACK_MS = 6000
 const DROP_IN_HIDDEN_CLASS = "-translate-y-[120%] pointer-events-none"
 const DROP_IN_SHOWN_CLASS =
   "translate-y-0 transition-transform duration-[1100ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
 
+/** Mobil eller reduced motion avgör hur påträngande upplevelsen får vara. */
+function useExperienceMode() {
+  const [mode, setMode] = useState<{ mobile: boolean; reducedMotion: boolean }>({
+    mobile: false,
+    reducedMotion: false,
+  })
+  useEffect(() => {
+    const mqMobile = window.matchMedia("(max-width: 767px)")
+    const mqMotion = window.matchMedia("(prefers-reduced-motion: reduce)")
+    const update = () => setMode({ mobile: mqMobile.matches, reducedMotion: mqMotion.matches })
+    update()
+    mqMobile.addEventListener("change", update)
+    mqMotion.addEventListener("change", update)
+    return () => {
+      mqMobile.removeEventListener("change", update)
+      mqMotion.removeEventListener("change", update)
+    }
+  }, [])
+  return mode
+}
+
+type Phase = "checking" | "intro" | "reveal"
+
 /**
  * Fångar init-/renderfel från 3D-kortet (pr-ai-review F-713ac602fd01 på
- * #1026): kortet får aldrig dö för att WebGL är avstängt eller Canvas/Rapier
- * inte kan starta. Fallback = det statiska varumärkeskortet, så hjälteytan
- * aldrig blir tom.
+ * #1026): samtyckeskortet är ren DOM och får aldrig dö för att WebGL är
+ * avstängt eller Canvas/Rapier inte kan starta. Fallback = det statiska
+ * varumärkeskortet, så hjälteytan aldrig blir tom.
  */
 class LanyardErrorBoundary extends Component<
   { children: ReactNode; onFailed?: () => void },
@@ -64,27 +117,66 @@ class LanyardErrorBoundary extends Component<
   }
 }
 
+function subscribeCookieConsent() {
+  return () => {}
+}
+
+function readClientCookieConsent(): "yes" | "no" {
+  return readStoredCookieConsent() ? "yes" : "no"
+}
+
+function readServerCookieConsent(): "ssr" {
+  return "ssr"
+}
+
 export function LanyardExperience({ className = "" }: { className?: string }) {
   const reducedMotion = usePrefersReducedMotion()
   const saveData = useSaveData()
   const staticOnly = reducedMotion || saveData || readLanyardStaticOnly()
+  // SSR snapshot is "ssr" so the WebP card is in the first HTML (LCP). After
+  // hydration the client snapshot reads localStorage without a mismatch warning.
+  const storedConsent = useSyncExternalStore(
+    subscribeCookieConsent,
+    readClientCookieConsent,
+    readServerCookieConsent,
+  )
+  const [acceptedThisVisit, setAcceptedThisVisit] = useState(false)
+  const [flipPlaying, setFlipPlaying] = useState(false)
+  const phase: Phase = flipPlaying
+    ? "intro"
+    : acceptedThisVisit || storedConsent === "yes"
+      ? "reveal"
+      : storedConsent === "ssr"
+        ? "checking"
+        : "intro"
+  const autoSwing = storedConsent === "yes" && !acceptedThisVisit && !flipPlaying
   const [loadPhysics, setLoadPhysics] = useState(false)
   const [physicsReady, setPhysicsReady] = useState(false)
+  const dropIn = autoSwing && loadPhysics && !staticOnly
   const handleReady = useCallback(() => setPhysicsReady(true), [])
 
   useEffect(() => {
-    if (staticOnly) return
+    if (staticOnly || phase !== "reveal" || !autoSwing) return
     return scheduleWhenIdle(() => setLoadPhysics(true))
+  }, [staticOnly, phase, autoSwing])
+
+  useEffect(() => {
+    if (!dropIn || physicsReady) return
+    const timer = window.setTimeout(() => setPhysicsReady(true), DROP_IN_FALLBACK_MS)
+    return () => window.clearTimeout(timer)
+  }, [dropIn, physicsReady])
+
+  const handleDone = useCallback(() => {
+    setFlipPlaying(false)
+    setAcceptedThisVisit(true)
+  }, [])
+
+  const handleStartHandoff = useCallback(() => {
+    setFlipPlaying(true)
+    if (!staticOnly) setLoadPhysics(true)
   }, [staticOnly])
 
   const showPhysics = loadPhysics && !staticOnly
-
-  useEffect(() => {
-    if (!showPhysics || physicsReady) return
-    const timer = window.setTimeout(() => setPhysicsReady(true), DROP_IN_FALLBACK_MS)
-    return () => window.clearTimeout(timer)
-  }, [showPhysics, physicsReady])
-
   const showStatic = !showPhysics || !physicsReady
 
   return (
@@ -94,14 +186,310 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
         <div
           data-testid="lanyard-stage-3d"
           className={`h-full w-full will-change-transform ${
-            physicsReady ? DROP_IN_SHOWN_CLASS : DROP_IN_HIDDEN_CLASS
+            dropIn
+              ? physicsReady
+                ? DROP_IN_SHOWN_CLASS
+                : DROP_IN_HIDDEN_CLASS
+              : `transition-opacity duration-300 ${
+                  physicsReady ? "opacity-100" : "pointer-events-none opacity-0"
+                }`
           }`}
         >
           <LanyardErrorBoundary onFailed={handleReady}>
-            <LanyardCard className="h-full" onReady={handleReady} />
+            <LanyardCard
+              className="h-full"
+              autoSwing={autoSwing}
+              onReady={handleReady}
+            />
           </LanyardErrorBoundary>
         </div>
       )}
+      {phase === "intro" && staticOnly && (
+        <CompactCookieBanner delayMs={800} onConsent={handleDone} />
+      )}
+      {phase === "intro" && !staticOnly && (
+        <CookieFlipCard onDone={handleDone} onStartHandoff={handleStartHandoff} />
+      )}
     </div>
   )
+}
+
+function CookieFlipCard({
+  onDone,
+  onStartHandoff,
+}: {
+  onDone: () => void
+  onStartHandoff?: () => void
+}) {
+  const [leaving, setLeaving] = useState(false)
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+  const { mobile, reducedMotion } = useExperienceMode()
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const finishedRef = useRef(false)
+
+  const finish = useCallback(() => {
+    if (finishedRef.current) return
+    finishedRef.current = true
+    onDone()
+  }, [onDone])
+
+  useEffect(() => {
+    setPortalTarget(document.body)
+  }, [])
+
+  // Modal-hygien (Bugbot medium + pr-ai-review F-93ef8ad7636f på #1026):
+  // dialogen deklarerar aria-modal och blockerar pekaren, så den måste också
+  // låsa bakgrundsscrollen, flytta in tangentbordsfokus vid mount, hålla
+  // Tab-cykeln inne i dialogen och lämna tillbaka fokus när den stängs.
+  useEffect(() => {
+    // Läs alltid dialognoden via ref:en i stället för en mount-closure:
+    // 3D-kortets suspense/init kan få React att byta ut dialog-DOM:en efter
+    // mount, och då pekar en fångad nod på ett urkopplat element.
+    const getDialog = () => dialogRef.current
+    // body räknas inte som "tidigare fokus": att återställa till body vid
+    // cleanup skulle ångra dialogens egen fokusering (StrictMode kör
+    // mount→cleanup→mount i dev, och då blev kortets knapp av-fokuserad).
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+        ? document.activeElement
+        : null
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
+    const focusables = () =>
+      Array.from(getDialog()?.querySelectorAll<HTMLElement>("button, a[href]") ?? []).filter(
+        (el) => !el.hasAttribute("disabled"),
+      )
+    // Fokusera med omtag: 3D-kortets texturladdning suspenderar trädet
+    // (dynamic-boundaryn ligger ovanför), och React kopplar då tillfälligt ur
+    // dialog-DOM:en — fokus faller till body, focus() är ett tyst no-op och
+    // effekterna körs INTE om när noden sätts tillbaka. Försök därför tills
+    // noden är tillbaka och fokuset faktiskt fastnat i dialogen (max ~5 s).
+    let focusTimer: number | undefined
+    let focusTries = 0
+    const focusIntoDialog = () => {
+      const dialog = getDialog()
+      if (dialog?.isConnected) {
+        if (!dialog.contains(document.activeElement)) focusables()[0]?.focus()
+        if (dialog.contains(document.activeElement)) return
+      }
+      if (focusTries++ < 50) focusTimer = window.setTimeout(focusIntoDialog, 100)
+    }
+    focusIntoDialog()
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return
+      const els = focusables()
+      if (els.length === 0) return
+      const first = els[0]
+      const last = els[els.length - 1]
+      const active = document.activeElement
+      const inside = getDialog()?.contains(active) ?? false
+      if (event.shiftKey) {
+        if (!inside || active === first) {
+          event.preventDefault()
+          last.focus()
+        }
+      } else if (!inside || active === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    // Fokusvakt: om fokus lämnar dialogen utan nytt mål i den (blur till
+    // body eller DOM-byte från 3D-kortets init) dras det tillbaka. Refokus
+    // skjuts upp en tick — mitt i fokusbytet ignorerar Chrome focus()-anrop
+    // från focusout-handlers. Lyssnaren ligger på document (capture) så den
+    // överlever att dialognoden byts ut.
+    const onFocusOut = () => {
+      // En tick senare — mitt i fokusbytet ignorerar Chrome focus()-anrop
+      // från focusout-handlers.
+      setTimeout(() => {
+        focusTries = 0
+        focusIntoDialog()
+      }, 0)
+    }
+    document.addEventListener("keydown", onKeyDown, true)
+    document.addEventListener("focusout", onFocusOut, true)
+    return () => {
+      window.clearTimeout(focusTimer)
+      document.removeEventListener("keydown", onKeyDown, true)
+      document.removeEventListener("focusout", onFocusOut, true)
+      document.body.style.overflow = prevOverflow
+      previouslyFocused?.focus()
+    }
+  }, [])
+
+  // Mobil: kortare, snabbare flygbana. Reduced motion: bara en mjuk uttoning.
+  const flipMs = reducedMotion ? 350 : mobile ? FLIP_MS_MOBILE : FLIP_MS_DESKTOP
+
+  useEffect(() => {
+    if (!leaving) return
+    const timer = window.setTimeout(finish, flipMs + FLIP_END_FALLBACK_MS)
+    return () => window.clearTimeout(timer)
+  }, [leaving, flipMs, finish])
+
+  const choose = useCallback(
+    (value: "accepted" | "declined") => {
+      if (leaving) return
+      try {
+        localStorage.setItem(LANYARD_CONSENT_KEY, value)
+        if (value === "accepted") {
+          localStorage.setItem(LANYARD_CONSENT_DATE_KEY, new Date().toISOString())
+        }
+      } catch {
+        /* localStorage kan vara blockerat — fortsätt ändå med animationen. */
+      }
+      dispatchCookieConsentChange(value)
+      onStartHandoff?.()
+      setLeaving(true)
+    },
+    [leaving, onStartHandoff],
+  )
+
+  const onFlipAnimationEnd = (event: AnimationEvent<HTMLDivElement>) => {
+    if (!leaving || event.target !== event.currentTarget) return
+    finish()
+  }
+
+  const onFlipTransitionEnd = (event: TransitionEvent<HTMLDivElement>) => {
+    if (!leaving || event.target !== event.currentTarget) return
+    if (event.propertyName !== "transform") return
+    finish()
+  }
+
+  const dialog = (
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Cookie-inställningar"
+      className={`fixed inset-0 z-[200] flex items-center justify-center p-4 transition-all duration-700 ease-out ${
+        leaving
+          ? "pointer-events-none bg-transparent"
+          : "bg-[#05070a]"
+      }`}
+    >
+      {/* "Spänd båge": kortet dras först tydligt MOT dig (bågen spänns),
+          sedan släpper spänningen och hela prylen (snodd + clips + kort)
+          SKJUTS iväg långt bak i djupled — förbi sitt viloläge — och
+          fjädrar sedan tillbaka fram till överlämningsstorleken. */}
+      <style>{`
+        @keyframes lanyard-fly-back {
+          0% { transform: translateY(0) translateZ(0) scale(1); }
+          18% { transform: translateY(2.4vh) translateZ(190px) scale(1.09); }
+          72% { transform: translateY(-30vh) translateZ(-1050px) scale(0.5); }
+          100% { transform: translateY(-24vh) translateZ(-560px) scale(0.66); }
+        }
+        @keyframes lanyard-fly-back-mobile {
+          0% { transform: translateY(0) translateZ(0) scale(1); }
+          18% { transform: translateY(1.6vh) translateZ(120px) scale(1.06); }
+          72% { transform: translateY(-21vh) translateZ(-720px) scale(0.56); }
+          100% { transform: translateY(-16vh) translateZ(-380px) scale(0.7); }
+        }
+        @keyframes lanyard-fade-out {
+          0% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+      `}</style>
+      <div
+        data-testid="cookie-flip-motion"
+        className="flex flex-col items-center"
+        onAnimationEnd={onFlipAnimationEnd}
+        style={{
+          perspective: "1600px",
+          transformStyle: "preserve-3d",
+          animation: leaving
+            ? reducedMotion
+              ? `lanyard-fade-out ${flipMs}ms ease-out forwards`
+              : `${mobile ? "lanyard-fly-back-mobile" : "lanyard-fly-back"} ${flipMs}ms cubic-bezier(0.34, 0.02, 0.26, 1) forwards`
+            : "none",
+        }}
+      >
+        {/* Snodd/band som kortet hänger i — samma teal som 3D-bandet. */}
+        <div className="relative flex flex-col items-center" aria-hidden="true">
+          <span
+            className="block w-[6px] rounded-full"
+            style={{
+              height: mobile ? "clamp(56px, 9vh, 96px)" : "clamp(90px, 16vh, 150px)",
+              background:
+                "linear-gradient(180deg, rgba(45,212,191,0) 0%, rgba(45,212,191,0.55) 22%, rgba(45,212,191,0.95) 100%)",
+              boxShadow: "0 0 14px rgba(45,212,191,0.45)",
+            }}
+          />
+          {/* Metallclips */}
+          <span className="-mt-1 h-4 w-4 rounded-full border-2 border-slate-300 bg-slate-400/30 shadow-[0_0_8px_rgba(203,213,225,0.5)]" />
+          <span className="-mt-1 h-3 w-2.5 rounded-sm bg-gradient-to-b from-slate-300 to-slate-500" />
+        </div>
+
+        {/* Kortet — roterar 180° runt sin egen axel för att visa baksidan. */}
+        <div className="mt-1" style={{ perspective: "1400px" }}>
+          <div
+            data-testid="cookie-flip-card"
+            className={`relative aspect-[3/4] [transform-style:preserve-3d] ${
+              mobile ? "w-[min(78vw,300px)]" : "w-[min(84vw,340px)]"
+            }`}
+            onTransitionEnd={onFlipTransitionEnd}
+            style={{
+              transition: `transform ${flipMs}ms cubic-bezier(0.34, 1.2, 0.4, 1)`,
+              transform: leaving && !reducedMotion ? "rotateY(180deg)" : "rotateY(0deg)",
+            }}
+          >
+            {/* FRAMSIDA — cookie-samtycke, samma plastkort-känsla som 3D-baksidan. */}
+            <div className="absolute inset-0 isolate flex flex-col overflow-hidden rounded-[26px] border border-white/10 bg-[#0b1016] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.65)] [backface-visibility:hidden]">
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 opacity-20"
+                style={LANYARD_CARD_GRAIN_STYLE}
+              />
+              <span className="pointer-events-none absolute inset-x-8 top-0 h-16 bg-[radial-gradient(ellipse_at_top,rgba(45,212,191,0.16),transparent_70%)]" />
+              {/* Litet urtag högst upp där snodden fäster */}
+              <span
+                aria-hidden="true"
+                className="absolute left-1/2 top-2 h-1.5 w-10 -translate-x-1/2 rounded-full bg-foreground/20"
+              />
+              <div className="mt-3 flex items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <Cookie className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <p className="text-lg font-semibold text-foreground font-(--font-heading)">Vi använder cookies</p>
+              </div>
+
+              <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                För att förbättra din upplevelse, analysera trafik och visa relevant innehåll. Läs mer i vår{" "}
+                <a href="/privacy" className="text-primary underline underline-offset-2">
+                  integritetspolicy
+                </a>
+                .
+              </p>
+
+              <div className="mt-auto flex flex-col gap-2.5 pt-6">
+                <button
+                  type="button"
+                  onClick={() => choose("accepted")}
+                  className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover"
+                >
+                  Acceptera alla
+                </button>
+                <button
+                  type="button"
+                  onClick={() => choose("declined")}
+                  className="w-full rounded-xl border border-border px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                >
+                  Endast nödvändiga
+                </button>
+                <p className="mt-1 text-center text-[11px] text-muted-foreground/70">
+                  Ditt val sparas på den här enheten.
+                </p>
+              </div>
+            </div>
+
+            {/* BAKSIDA — det varumärkta kortet (samma crop som 3D-nyckelbandet). */}
+            <LanyardBrandFace className="absolute inset-0 rounded-[26px] shadow-2xl ring-1 ring-primary/30 [backface-visibility:hidden] [transform:rotateY(180deg)]" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  return portalTarget ? createPortal(dialog, portalTarget) : dialog
 }

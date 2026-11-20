@@ -1,20 +1,24 @@
 "use client";
 
 /**
- * Cookie-remsan: samma kompakta samtyckesyta på alla rutter och bredder,
- * startsidan inräknad.
+ * Cookie-remsan för alla rutter UTOM landningssidan i desktop-läge.
  *
- * Riggen 2026-11-11 (V-05, SM-137): på desktop var samtycket ett helskärmskort
- * som dolde hela startsidan, och på 390 px låg det kompakta kortet över
- * promptfältet. Nu är det en låg remsa i fönstrets nederkant. Den är inte
- * modal (ingen fokusfälla), portas till body och skriver sin höjd till
+ * På "/" i desktop äger LanyardExperience samtycket (kortet med
+ * flip-animationen, ägarbeslut 2026-11-20: desktop kräver fortfarande ett
+ * val). Mobil / reduced-motion / Save-Data på "/" använder den här remsan via
+ * LanyardExperience, så cookietexten inte blir LCP. Direktbesök till t.ex.
+ * /privacy, /faq, /teknik eller /builder passerar aldrig landningssidan, så
+ * utan den här remsan skulle de aldrig få någon samtyckesyta alls (Bugbot
+ * high + pr-ai-review F-c429fecc1255 på #1026). Remsan läser/skriver samma
+ * localStorage-nycklar som lanyard-flödet, så ett val på ett ställe gäller
+ * överallt.
+ *
+ * Riggen 2026-11-11 (V-05, SM-137): det kompakta kortet låg över promptfältet
+ * på 390 px. Nu är det en låg remsa i fönstrets nederkant. Den är inte modal
+ * (ingen fokusfälla), portas till body och skriver sin höjd till
  * `--cookie-banner-h` på `<html>`. App-skalen som fyller fönstret drar av den
  * höjden (`APP_VIEWPORT_HEIGHT_CLASS`), så remsan tar egen plats i stället för
  * att ligga över promptfältet eller komposern.
- *
- * Samtycket är oförändrat: samma localStorage-nycklar som tidigare, samma
- * händelse till annonstaggarna, och ett val på ett ställe gäller överallt.
- * Fördröjningen gör att cookietexten inte blir LCP på startsidan.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
@@ -29,14 +33,15 @@ import {
   readStoredCookieConsent,
 } from "@/components/landing-v2/lanyard-consent";
 
-const COOKIE_BANNER_DELAY_MS = 800;
-
 const BUTTON_FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 export function CookieBanner() {
   const pathname = usePathname();
-  // `key` nollställer synlighetstillståndet vid varje ruttbyte.
+  // Landningssidan äger samtycket via LanyardExperience (flip-kort på
+  // desktop, remsan på mobil). `key` nollställer synlighetstillståndet vid
+  // varje ruttbyte.
+  if (pathname === "/") return null;
   return <CompactCookieBanner key={pathname} />;
 }
 
@@ -61,29 +66,39 @@ function usePublishedBannerHeight(element: HTMLElement | null) {
   }, [element]);
 }
 
-function CompactCookieBanner() {
+export function CompactCookieBanner({
+  delayMs = 800,
+  onConsent,
+}: {
+  delayMs?: number;
+  onConsent?: (value: "accepted" | "declined") => void;
+}) {
   const [isVisible, setIsVisible] = useState(false);
   const [strip, setStrip] = useState<HTMLDivElement | null>(null);
   usePublishedBannerHeight(isVisible ? strip : null);
 
   useEffect(() => {
     if (readStoredCookieConsent()) return;
-    const timer = setTimeout(() => setIsVisible(true), COOKIE_BANNER_DELAY_MS);
+    const timer = setTimeout(() => setIsVisible(true), delayMs);
     return () => clearTimeout(timer);
-  }, []);
+  }, [delayMs]);
 
-  const persistConsent = useCallback((value: "accepted" | "declined") => {
-    try {
-      localStorage.setItem(LANYARD_CONSENT_KEY, value);
-      if (value === "accepted") {
-        localStorage.setItem(LANYARD_CONSENT_DATE_KEY, new Date().toISOString());
+  const persistConsent = useCallback(
+    (value: "accepted" | "declined") => {
+      try {
+        localStorage.setItem(LANYARD_CONSENT_KEY, value);
+        if (value === "accepted") {
+          localStorage.setItem(LANYARD_CONSENT_DATE_KEY, new Date().toISOString());
+        }
+      } catch {
+        /* localStorage kan vara blockerat — dölj remsan ändå. */
       }
-    } catch {
-      /* localStorage kan vara blockerat — dölj remsan ändå. */
-    }
-    dispatchCookieConsentChange(value);
-    setIsVisible(false);
-  }, []);
+      dispatchCookieConsentChange(value);
+      setIsVisible(false);
+      onConsent?.(value);
+    },
+    [onConsent],
+  );
 
   if (!isVisible) return null;
 

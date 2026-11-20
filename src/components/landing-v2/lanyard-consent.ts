@@ -15,18 +15,15 @@ export function readStoredCookieConsent(): string | null {
   }
 }
 
-/**
- * 3D-kortet förladdas bara när staticOnly är av. Samtycket styr det inte:
- * kortet sätter inga cookies, och samtycket bor i den globala cookie-remsan.
- */
+/** 3D-kortet får bara förladdas när samtycke finns och staticOnly är av. */
 export function shouldPreloadLanyardCard(): boolean {
-  return !readLanyardStaticOnly();
+  return Boolean(readStoredCookieConsent()) && !readLanyardStaticOnly();
 }
 
 /**
- * Startar experience-chunken. 3D/Rapier laddas bara på kapabel desktop, och
- * först vid idle — samma regel som LanyardExperience. Mobil, reduced-motion
- * och Save-Data hoppar över fysikchunken helt.
+ * Startar experience-chunken för återbesökare. 3D/Rapier laddas bara på
+ * kapabel desktop, och först vid idle — samma regel som LanyardExperience.
+ * Mobil, reduced-motion och Save-Data hoppar över fysikchunken helt.
  */
 export function preloadReturningLanyard(): void {
   void import("@/components/landing-v2/lanyard-experience");

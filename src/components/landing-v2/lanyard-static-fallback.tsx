@@ -7,12 +7,12 @@ const CARD_IMAGE = "/branding/lanyard-card-static.webp";
 const CARD_WIDTH = 360;
 const CARD_HEIGHT = 480;
 
-const LANYARD_CARD_GRAIN_STYLE: CSSProperties = {
+export const LANYARD_CARD_GRAIN_STYLE: CSSProperties = {
   backgroundImage:
     "repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 4px)",
 };
 
-function LanyardBrandFace({
+export function LanyardBrandFace({
   className = "",
   priority = false,
 }: {
