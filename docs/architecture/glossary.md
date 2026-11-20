@@ -17,7 +17,6 @@ respektive kod, manifest eller policy. Aktuella inventarier finns i
 | Init | Första riktiga genereringen i en chat; får välja projektets grund. |
 | Byggval | Strukturerade init-reglage; hårda val vinner över promptens tolkning. |
 | Företagsuppgifter | Kundens standardiserade öppettider och kontaktuppgifter per projekt (`project_data.meta.business`), redigeras på `/projects/[id]`. Går in i prompten som `## Business Facts` och skrivs om i sajtens `lib/business-facts.ts` vid varje publicering. Inte en Dossier och inte `company_profiles` (wizardens fritext). |
-| Tomt projekt | Projekt utan chatt, äldre chatt/demo-url, domänorder och publiceringsidentitet; builderns platshållare före första bygget. Räknas inte mot projekttaket och visas inte i `/projects`. Ägs av `startedProjectCondition` (`src/lib/db/services/project-started.ts`). |
 | Follow-up | Delta på befintlig version. Ska bevara grund om inte användaren ändrar den. |
 | Briefing | Lagret före kodgeneratorn; ett produktlager, inte en modell. |
 | Deep Brief | LLM-läge i Briefing som strukturerar fritext före Orkestrering. |
