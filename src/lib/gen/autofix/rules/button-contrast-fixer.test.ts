@@ -156,6 +156,17 @@ ${jsx}
     expect(countParseErrors(out, "app/page.tsx")).toBe(0);
   });
 
+  it("appends only into the literal that holds the bg class, never into a comparison operand", () => {
+    const tokens = { ...READABLE, cta: "oklch(0.3 0.08 25)" };
+    const result = fixButtonContrast([
+      file("app/globals.css", css(tokens)),
+      page(`      <button className={cn(tone === "dark" && "rounded bg-cta", size === "lg" && "px-8")}>Beställ</button>`),
+    ]);
+    const out = result.files[1].content;
+    expect(out).toContain(`cn(tone === "dark" && "rounded bg-cta text-background", size === "lg" && "px-8")`);
+    expect(result.fixes[0]?.description).toContain("inherited text");
+  });
+
   it("fixes a white pill whose label is also white", () => {
     const result = fixButtonContrast([
       file("app/globals.css", css(READABLE)),

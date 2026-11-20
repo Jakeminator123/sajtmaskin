@@ -243,13 +243,19 @@ interface ClassToken {
   start: number;
   end: number;
   important: boolean;
+  /** End of the string literal this class sits in. */
+  literalEnd: number;
 }
 
 interface ClassList {
   tokens: ClassToken[];
-  /** Where a missing text class is appended (end of the first literal). */
-  appendAt: number | null;
-  appendNeedsSpace: boolean;
+  /**
+   * End of a plain `className="..."` string. Inside an expression a literal
+   * may be a comparison operand, so only the literal that holds the bg class
+   * is ever appended to there.
+   */
+  plainEnd: number | null;
+  plainNeedsSpace: boolean;
 }
 
 function stringLiteralRange(node: ts.Node, sf: ts.SourceFile): { start: number; end: number } {
@@ -292,14 +298,15 @@ function readClassList(attr: ts.JsxAttribute | undefined, sf: ts.SourceFile): Cl
         start,
         end: start + rawClass.length,
         important: rawClass.startsWith("!"),
+        literalEnd: range.end,
       });
     }
   }
-  const first = ranges[0];
+  const plain = init && ts.isStringLiteral(init) ? ranges[0] : undefined;
   return {
     tokens,
-    appendAt: first ? first.end : null,
-    appendNeedsSpace: first ? source.slice(first.start, first.end).trim().length > 0 : false,
+    plainEnd: plain ? plain.end : null,
+    plainNeedsSpace: plain ? source.slice(plain.start, plain.end).trim().length > 0 : false,
   };
 }
 
@@ -384,9 +391,12 @@ function fixButtonsInFile(file: CodeFile, tokens: ThemeTokens, fixes: FixEntryDr
     if (textClass) {
       const { token } = textClass;
       edits.push({ start: token.start, end: token.end, text: `${token.important ? "!" : ""}${replacement}` });
-    } else if (classList.appendAt !== null) {
-      const at = classList.appendAt;
-      edits.push({ start: at, end: at, text: classList.appendNeedsSpace ? ` ${replacement}` : replacement });
+    } else if (bgClass) {
+      const at = bgClass.token.literalEnd;
+      edits.push({ start: at, end: at, text: ` ${replacement}` });
+    } else if (classList.plainEnd !== null) {
+      const at = classList.plainEnd;
+      edits.push({ start: at, end: at, text: classList.plainNeedsSpace ? ` ${replacement}` : replacement });
     } else {
       return;
     }
@@ -394,7 +404,7 @@ function fixButtonsInFile(file: CodeFile, tokens: ThemeTokens, fixes: FixEntryDr
     fixes.push({
       fixer: BUTTON_CONTRAST_FIXER_ID,
       category: "mechanical",
-      description: `Readable <${tagName}> text: ${bgClass?.token.value ?? `bg-${bg.token}`} with ${textClass?.token.value ?? "inherited text"} was ${formatRatio(before)}, now ${replacement} at ${formatRatio(after)} (WCAG AA)`,
+      description: `Readable <${tagName}> text: ${bgClass?.token.value ?? `bg-${bg.token}`} with ${textClass?.token.value ?? (variantStyle?.text ? `variant text-${variantStyle.text}` : "inherited text")} was ${formatRatio(before)}, now ${replacement} at ${formatRatio(after)} (WCAG AA)`,
       file: file.path,
       line: lineAt(source, node.getStart(sf)),
     });
