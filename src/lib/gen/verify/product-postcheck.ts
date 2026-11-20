@@ -919,19 +919,53 @@ export function isRenderFatalError(message: string): boolean {
  * whenever a render/runtime error fires — INCLUDING the ambiguous class the
  * structural pattern list deliberately skips (e.g. "Cannot read properties of
  * undefined" during render → Next shows its overlay). The overlay lives in a
- * separate portal, not in the app content, so its presence is an unambiguous
- * "preview crashed" signal that does not over-block a normally-rendered page
- * (Codex #321 P1). Degrades to `false` if Next changes its markers — no
- * over-block.
+ * separate portal, not in the app content, so a SHOWN error overlay is an
+ * unambiguous "preview crashed" signal that does not over-block a
+ * normally-rendered page (Codex #321 P1).
+ *
+ * Presence alone is not enough: Next 16.4 keeps the same dialog shell in the
+ * DOM, hidden (0×0 or `display:none`), for its insight panel, and labels a
+ * security notice with the same `#nextjs__container_errors_label` id. That
+ * flagged every route of every healthy preview as crashed in production
+ * 2026-11-20. So a marker counts only when it has a box and is not
+ * `display:none`/`visibility:hidden`, and a shown label counts only when it
+ * is an error label (Next opens the overlay itself for blocking and
+ * root-boundary errors: "Runtime Error", "Build Error"), not the
+ * security/instant insight label. A shown dialog without any label still
+ * counts unless it holds the insight content. No named inner helpers: the
+ * function is serialized, and a bundler's name helper would not exist in the
+ * page.
  */
-function detectNextErrorOverlayInBrowser(): boolean {
+export function detectNextErrorOverlayInBrowser(): boolean {
   const portal = document.querySelector("nextjs-portal");
   const shadow = portal ? portal.shadowRoot : null;
   if (!shadow) return false;
-  return Boolean(
-    shadow.querySelector(
+  const shown = Array.from(
+    shadow.querySelectorAll(
       "[data-nextjs-dialog], [data-nextjs-dialog-overlay], [data-nextjs-error-overlay], #nextjs__container_errors_label",
     ),
+  ).filter((element) => {
+    // A hidden ancestor collapses the box to 0×0, so this covers the panel's
+    // `display:none` wrapper too.
+    const box = element.getBoundingClientRect();
+    if (box.width < 1 || box.height < 1) return false;
+    const style = window.getComputedStyle(element);
+    return style.display !== "none" && style.visibility !== "hidden";
+  });
+  if (shown.length === 0) return false;
+  const labels = shown.filter((element) => element.id === "nextjs__container_errors_label");
+  if (labels.length > 0) {
+    return labels.some(
+      (label) =>
+        !label.hasAttribute("data-nextjs-vulnerability-label") &&
+        !label.classList.contains("nextjs__container_errors_label_instant"),
+    );
+  }
+  return shown.some(
+    (element) =>
+      element.querySelector(
+        "[data-nextjs-vulnerability-insight], [data-nextjs-vulnerability-label], .nextjs__container_errors_label_instant",
+      ) === null,
   );
 }
 
