@@ -341,6 +341,9 @@ vi.mock("@/lib/data/redis", async (importOriginal) => {
   };
 });
 
+const invalidateProjectListCache = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock("@/lib/projects/project-list-cache", () => ({ invalidateProjectListCache }));
+
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   createChat,
   addMessage,
@@ -1209,6 +1212,8 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
       "scaffold_1",
       expect.objectContaining({ id: expect.stringMatching(/^[0-9a-f-]{36}$/i) }),
     );
+    // SM-133: första chatten gör projektet synligt i /projects.
+    expect(invalidateProjectListCache).toHaveBeenCalledWith("user_1", "sess_1");
   });
 
   it("returns 503 and does not insert a chat row when the init lock is unavailable", async () => {
@@ -1232,6 +1237,7 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     });
     expect(createChat).not.toHaveBeenCalled();
     expect(addMessage).not.toHaveBeenCalled();
+    expect(invalidateProjectListCache).not.toHaveBeenCalled();
   });
 
   it("does not insert a plan-mode chat row when the init lock is unavailable", async () => {
