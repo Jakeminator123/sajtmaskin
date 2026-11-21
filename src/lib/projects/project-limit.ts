@@ -8,6 +8,8 @@
  * samma kropp och status 403, så klienten känner igen taket på `limitReached`.
  */
 
+import { isAdminEmailEdge } from "@/lib/auth/edge-auth";
+
 /** Vems tak som gäller. Gäster räknas per session, inloggade per konto. */
 export type ProjectCapOwner = {
   userId: string | null;
@@ -24,8 +26,17 @@ export type ProjectLimitDenial = {
 
 export type ProjectCapCheck = { allowed: true } | ProjectLimitDenial;
 
-/** Samma gräns som `POST /api/projects` alltid har använt för betalande konton. */
-export function isPaidProjectTier(user: { diamonds?: number | null } | null | undefined): boolean {
+/**
+ * Om kontot får betalkontots projekttak. Admin får det alltid (beslut
+ * 2026-11-21, `SM-154`): admin bygger testprojekt i mängd och ska inte stoppas
+ * av gratistaket. Övriga konton: samma saldogräns som `POST /api/projects`
+ * alltid har använt. Att gränsen ska följa köp i stället för saldo är beslutat
+ * men inte gjort (backloggen, `SM-154`).
+ */
+export function isPaidProjectTier(
+  user: { diamonds?: number | null; email?: string | null } | null | undefined,
+): boolean {
+  if (user?.email && isAdminEmailEdge(user.email)) return true;
   return (user?.diamonds ?? 0) > 100;
 }
 
