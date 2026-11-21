@@ -6,7 +6,7 @@ import { publicPageAlternates } from "@/lib/public-canonical-url";
 export const metadata: Metadata = {
   title: "Om oss",
   description:
-    "Om Sajtmaskin — svensk AI-hemsidebyggare för småföretag. Drivs av Pretty Good B.V.",
+    "Sajtmaskin är en svensk AI-hemsidebyggare för småföretag: beskriv verksamheten, granska utkastet och publicera. Drivs av Pretty Good B.V. i Nederländerna.",
   alternates: publicPageAlternates("/om"),
 };
 
@@ -37,6 +37,42 @@ export default function OmPage() {
                 Vi hjälper företag att gå från idé till publicerad sajt snabbare — med tydlig
                 struktur, bra prestanda och verktyg som följer svensk kontext och språk där det
                 spelar roll.
+              </p>
+            </section>
+            <section className="space-y-3 text-sm leading-relaxed">
+              <h2 className="text-lg font-medium text-foreground">Så fungerar det</h2>
+              <p>
+                Du beskriver verksamheten med egna ord. Sajtmaskin tar fram en första version som
+                riktig kod och visar den i en förhandsvisning. Sedan ändrar du texter, färger och
+                sektioner genom att skriva vad du vill ha, och publicerar när uppgifterna stämmer.
+                Hela flödet finns steg för steg på sidan{" "}
+                <Link
+                  href="/skapa-hemsida-med-ai"
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  Skapa hemsida med AI
+                </Link>
+                .
+              </p>
+            </section>
+            <section className="space-y-3 text-sm leading-relaxed">
+              <h2 className="text-lg font-medium text-foreground">Vem det passar</h2>
+              <p>
+                Sajtmaskin är byggt för småföretag och enskilda firmor som behöver en tydlig
+                företagssida: vad ni gör, för vem, var ni finns och hur man når er. Behöver ni en stor
+                butik eller tunga integrationer är en byrå eller kod från start ett ärligare val.
+              </p>
+            </section>
+            <section className="space-y-3 text-sm leading-relaxed">
+              <h2 className="text-lg font-medium text-foreground">Pris och ägande</h2>
+              <p>
+                Du betalar med credits som köps en gång, utan prenumeration eller bindningstid.
+                Aktuella paket står på{" "}
+                <Link href="/priser" className="text-primary underline-offset-4 hover:underline">
+                  prissidan
+                </Link>
+                . Som inloggad ägare kan du ladda ner projektet som ZIP eller exportera det till
+                GitHub. Med följer den genererade koden, inte databas, API-nycklar eller domän.
               </p>
             </section>
             <section className="space-y-3 text-sm leading-relaxed">
