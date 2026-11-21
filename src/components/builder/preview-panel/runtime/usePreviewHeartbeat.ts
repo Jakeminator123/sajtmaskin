@@ -140,17 +140,17 @@ export function usePreviewHeartbeat(params: {
       }
     };
 
-    const handlePageHide = () => {
-      clearHiddenHibernateTimer();
-      requestHibernate();
-    };
-
+    // Ingen hibernation vid `pagehide` (SM-163). Händelsen kommer även vid en
+    // vanlig omladdning, och hosten väcker inte en hibernerad session när den
+    // nya sidan frågar efter status: buildern startade då en ny maskin, en
+    // kallstart på cirka 2 min. En stängd flik stoppas i stället av hostens
+    // tomgångsstopp (`PREVIEW_HOST_RUNTIME_IDLE_STOP_MS`, 10 min utan trafik),
+    // och en flik som ligger dold hiberneras efter `HIDDEN_HIBERNATE_DELAY_MS`
+    // som förut. En sida som laddas ur hinner aldrig dit: timern dör med den.
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("pagehide", handlePageHide);
     return () => {
       clearHiddenHibernateTimer();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("pagehide", handlePageHide);
     };
   }, [
     chatId,
