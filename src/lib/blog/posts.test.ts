@@ -6,6 +6,7 @@ import {
   PUBLISHED_BLOG_POSTS,
 } from "./posts";
 import { BLOG_HAS_PUBLISHED_POSTS } from "./status";
+import { SEO_LANDING_PAGES } from "@/lib/seo-landing-pages/registry";
 
 describe("published blog posts", () => {
   it("exposes three indexable Swedish guides", () => {
@@ -37,6 +38,16 @@ describe("published blog posts", () => {
       expect(post.sections.length).toBeGreaterThanOrEqual(4);
       expect(getPublishedBlogPost(post.slug)?.title).toBe(post.title);
     }
+  });
+
+  it("does not compete with a landing page for the same query", () => {
+    for (const post of PUBLISHED_BLOG_POSTS) {
+      const landing = SEO_LANDING_PAGES.find((entry) => post.keyword.toLowerCase() === entry.slug.replaceAll("-", " "));
+      expect(landing, `${post.slug} targets the query of /${landing?.slug}`).toBeUndefined();
+    }
+    const aiGuide = getPublishedBlogPost("skapa-hemsida-med-ai-sa-funkar-det");
+    expect(aiGuide?.title).not.toMatch(/^skapa hemsida med ai/i);
+    expect(aiGuide?.lead).toEqual(expect.objectContaining({ href: "/skapa-hemsida-med-ai" }));
   });
 
   it("treats a non-empty list as published", () => {

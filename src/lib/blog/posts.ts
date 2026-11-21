@@ -20,6 +20,8 @@ export type PublishedBlogPost = {
   updatedAt: string;
   keyword: string;
   excerpt: string;
+  /** Sentence under the excerpt that sends readers to the product page for the same topic. */
+  lead?: { text: string; href: string; label: string };
   sections: readonly BlogPostSection[];
   faqs: readonly { q: string; a: string }[];
   related: readonly { href: string; label: string }[];
@@ -188,22 +190,29 @@ export const PUBLISHED_BLOG_POSTS: readonly PublishedBlogPost[] = [
     ],
   },
   {
+    // The slug is kept so existing links and Google's index keep working. Title and keyword
+    // are a checklist angle so the post no longer competes with /skapa-hemsida-med-ai.
     slug: "skapa-hemsida-med-ai-sa-funkar-det",
-    title: "Skapa hemsida med AI: så funkar det",
+    title: "Hemsida med AI: checklista före, under och efter",
     description:
-      "Så fungerar det att skapa hemsida med AI i praktiken: brief, utkast, granskning och publicering. Vad du fortfarande måste göra själv.",
+      "Checklista för er som tar fram hemsidan med AI: vad briefen behöver, vad ni granskar i utkastet och vad ni kontrollerar innan sidan publiceras.",
     publishedAt: "2026-10-18",
-    updatedAt: "2026-10-18",
-    keyword: "skapa hemsida med AI",
+    updatedAt: "2026-11-20",
+    keyword: "checklista hemsida med AI",
     excerpt:
-      "AI kan ta fram en första version i kod. Den kan inte ta ansvar för era priser, bilder eller om sidan får gå live. Så ser flödet ut.",
+      "AI kan ta fram en första version i kod. Den kan inte ta ansvar för era priser, bilder eller om sidan får gå live. Det här är er del av arbetet.",
+    lead: {
+      text: "Vill du se hur själva verktyget fungerar, från beskrivning till publicering? Det visar sidan",
+      href: "/skapa-hemsida-med-ai",
+      label: "Skapa hemsida med AI",
+    },
     sections: [
       {
-        heading: "Vad “skapa hemsida med AI” betyder — och inte",
+        heading: "Vad AI gör åt er, och vad den inte gör",
         paragraphs: [
           "En chatt kan skriva brödtext. En hemsidebyggare ska också ge struktur, layout och något ni kan öppna som en sajt. I Sajtmaskin är resultatet kod i en preview, inte bara ett dokument.",
           "AI gissar utifrån er beskrivning. Den känner inte era öppettider, era avtal eller vilka foton ni får använda. Granskning är en del av arbetet, inte ett extra moment för pedanter.",
-          "Den produktnära steg-för-steg-sidan Skapa hemsida med AI visar flödet i verktyget. Den här artikeln förklarar vad ni som människor gör före, under och efter.",
+          "Checklistan nedan handlar om er del: vad ni förbereder, vad ni granskar och vad ni kontrollerar innan sidan går live.",
         ],
       },
       {

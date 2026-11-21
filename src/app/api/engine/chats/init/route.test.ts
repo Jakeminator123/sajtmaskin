@@ -30,6 +30,31 @@ vi.mock("@/lib/db/services/projects", () => ({
   getProjectData,
 }));
 
+// Projekttaket vid första chatten (SM-133). Standard: tillåtet, och chatten
+// skrivs genom en skenbar transaktion så att testet ser att den går den vägen.
+const projectCapState = vi.hoisted(() => ({
+  early: { allowed: true } as
+    | { allowed: true }
+    | { allowed: false; reason: string; limit: number; current: number },
+  locked: null as null | { allowed: false; reason: string; limit: number; current: number },
+}));
+vi.mock("@/lib/projects/project-cap", () => ({
+  checkProjectCapForFirstChat: async () => projectCapState.early,
+  createFirstChatWithinProjectCap: async ({
+    createChat,
+  }: {
+    createChat: (database: unknown) => Promise<unknown>;
+  }) =>
+    projectCapState.locked
+      ? { status: "project_limit", denial: projectCapState.locked }
+      : { status: "created", chat: await createChat("project-cap-tx") },
+}));
+
+beforeEach(() => {
+  projectCapState.early = { allowed: true };
+  projectCapState.locked = null;
+});
+
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   createChat,
   addMessage,
@@ -224,7 +249,9 @@ describe("POST /api/engine/chats/init", () => {
     });
     expect(json.previewUrl).toContain("chatId=chat_import");
     expect(Array.isArray(json.lockedFiles)).toBe(true);
-    expect(createChat).toHaveBeenCalledWith("proj_import", "gpt-5.4");
+    expect(createChat).toHaveBeenCalledWith("proj_import", "gpt-5.4", undefined, undefined, {
+      database: "project-cap-tx",
+    });
     expect(createDraftVersion).toHaveBeenCalledWith(
       "chat_import",
       "msg_assistant",
@@ -285,6 +312,49 @@ describe("POST /api/engine/chats/init", () => {
     );
     expect(commitCredits).toHaveBeenCalled();
     expect(getStoredProjectEnvVarMap).not.toHaveBeenCalled();
+  });
+
+  it("nekar importen över projekttaket innan krediter och projekt (SM-133)", async () => {
+    projectCapState.early = { allowed: false, reason: "Du har nått maxgränsen för gratiskonton (8 projekt). Ta bort ett projekt eller uppgradera för att bygga fler.", limit: 8, current: 8 };
+    const zip = new JSZip();
+    zip.file("repo-root/src/app/page.tsx", "export default function Page() { return null; }");
+    const buffer = await zip.generateAsync({ type: "nodebuffer" });
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: { type: "zip", content: buffer.toString("base64") } }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ success: false, error: "Du har nått maxgränsen för gratiskonton (8 projekt). Ta bort ett projekt eller uppgradera för att bygga fler.", limitReached: true, current: 8, limit: 8 });
+    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(createProject).not.toHaveBeenCalled();
+    expect(createChat).not.toHaveBeenCalled();
+  });
+
+  it("nekar importen i den låsta kontrollen utan att skriva chatt eller debitera (SM-133)", async () => {
+    projectCapState.locked = { allowed: false, reason: "Du har nått maxgränsen för gratiskonton (8 projekt). Ta bort ett projekt eller uppgradera för att bygga fler.", limit: 8, current: 8 };
+    const zip = new JSZip();
+    zip.file("repo-root/src/app/page.tsx", "export default function Page() { return null; }");
+    zip.file("repo-root/package.json", '{ "name": "demo" }');
+    const buffer = await zip.generateAsync({ type: "nodebuffer" });
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: { type: "zip", content: buffer.toString("base64") } }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ success: false, error: "Du har nått maxgränsen för gratiskonton (8 projekt). Ta bort ett projekt eller uppgradera för att bygga fler.", limitReached: true, current: 8, limit: 8 });
+    expect(createChat).not.toHaveBeenCalled();
+    expect(createDraftVersion).not.toHaveBeenCalled();
+    expect(commitCredits).not.toHaveBeenCalled();
   });
 
   it("persists importer language and downloads the actual saved projection without inventing binary markers", async () => {

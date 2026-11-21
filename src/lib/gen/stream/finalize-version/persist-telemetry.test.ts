@@ -71,6 +71,18 @@ describe("persistTelemetryRecord — dossier-val (Fas 0)", () => {
     expect(arg.meta).not.toHaveProperty("selectedDossierIds");
   });
 
+  it("skriver meta.buttonContrast bara när kontrollen hittade något (SM-135, rådgivande)", async () => {
+    const finding = { file: "app/page.tsx", line: 7, tag: "Button", background: "variant default (bg-primary)", text: "variant default (text-primary-foreground)", ratio: 1.19 };
+    await persistTelemetryRecord(makeParams({ buttonContrastFindings: [finding] }));
+    expect(createGenerationTelemetryRecord.mock.calls[0][0].meta.buttonContrast).toEqual({
+      threshold: 3,
+      belowThreshold: 1,
+      findings: [{ file: "app/page.tsx", line: 7, tag: "Button", ratio: 1.19 }],
+    });
+    await persistTelemetryRecord(makeParams({ buttonContrastFindings: [] }));
+    expect(createGenerationTelemetryRecord.mock.calls[1][0].meta).not.toHaveProperty("buttonContrast");
+  });
+
   it("utelämnar nyckeln när selectedDossierIds saknas", async () => {
     await persistTelemetryRecord(makeParams());
     const arg = createGenerationTelemetryRecord.mock.calls[0][0];

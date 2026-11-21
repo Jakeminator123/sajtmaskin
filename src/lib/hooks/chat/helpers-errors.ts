@@ -127,6 +127,14 @@ export function buildApiErrorMessage(params: {
 }): string {
   const { response, errorData, fallbackMessage } = params;
   const status = response.status;
+  // Projekttaket (403 + limitReached): serverns besked säger vad användaren kan göra.
+  if (
+    errorData?.limitReached === true &&
+    typeof errorData.error === "string" &&
+    errorData.error.trim()
+  ) {
+    return errorData.error;
+  }
   const code = typeof errorData?.code === "string" ? errorData.code : "";
   const retryAfter = getRetryAfterSeconds(response, errorData);
 

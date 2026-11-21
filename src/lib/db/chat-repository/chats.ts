@@ -10,18 +10,23 @@ export async function createChat(
   model = "gpt-5.4",
   systemPrompt?: string,
   scaffoldId?: string,
-  options?: { id?: string },
+  options?: {
+    id?: string;
+    /** Transaktion att skriva genom, t.ex. takkontrollen i `project-cap.ts`. */
+    database?: Pick<typeof db, "insert" | "select">;
+  },
 ): Promise<Chat> {
   const suppliedId = options?.id?.trim();
   const id = suppliedId || uuid();
-  await db.insert(engineChats).values({
+  const database = options?.database ?? db;
+  await database.insert(engineChats).values({
     id,
     projectId,
     model,
     systemPrompt: systemPrompt ?? null,
     scaffoldId: scaffoldId ?? null,
   });
-  const rows = await db.select().from(engineChats).where(eq(engineChats.id, id)).limit(1);
+  const rows = await database.select().from(engineChats).where(eq(engineChats.id, id)).limit(1);
   return toRow(rows[0]) as unknown as Chat;
 }
 

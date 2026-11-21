@@ -88,6 +88,42 @@ describe("ChatOutputCollapseBar", () => {
 
     expect(screen.getByText("Nycklar saknas")).toBeTruthy();
   });
+
+  it("erbjuder byggkuben bara där panelen kan bytas mot den", () => {
+    const onOpenCube = vi.fn();
+    const onDragStart = vi.fn();
+    const { rerender } = render(
+      <ChatOutputCollapseBar
+        isCollapsed={false}
+        onToggle={vi.fn()}
+        messageCount={2}
+        isStreaming={false}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Öppna byggkuben" })).toBeNull();
+
+    rerender(
+      <ChatOutputCollapseBar
+        isCollapsed
+        onToggle={vi.fn()}
+        messageCount={2}
+        isStreaming={false}
+        dragEnabled
+        onDragHandlePointerDown={onDragStart}
+        onOpenCube={onOpenCube}
+      />,
+    );
+    const button = screen.getByRole("button", { name: "Öppna byggkuben" });
+    // Kuben har ingen mobil form: knappen finns bara från `lg`.
+    expect(button.className).toContain("hidden");
+    expect(button.className).toContain("lg:inline-flex");
+
+    // Ett tryck på knappen börjar inte dra det flytande kortet.
+    fireEvent.pointerDown(button);
+    expect(onDragStart).not.toHaveBeenCalled();
+    fireEvent.click(button);
+    expect(onOpenCube).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("useChatOutputCollapse", () => {

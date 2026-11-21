@@ -26,7 +26,7 @@ vi.mock("@/lib/db/client", () => ({
 }));
 vi.mock("./shared", () => ({ assertDbConfigured: vi.fn() }));
 
-const { startedProjectCondition } = await import("./project-started");
+const { builtProjectCondition, startedProjectCondition } = await import("./project-started");
 const { canCreateProject } = await import("@/lib/projects/project-cleanup");
 const { getAllProjectsForOwner } = await import("./projects");
 
@@ -95,6 +95,39 @@ describe("startedProjectCondition", () => {
   });
 });
 
+describe("builtProjectCondition", () => {
+  it("räknar bygge, publicering och äldre sparad kod men inte eget innehåll utan bygge", () => {
+    const { sql: text, params } = compile(builtProjectCondition());
+    for (const table of ["engine_chats", "domain_orders"]) {
+      expect(text).toContain(
+        `exists (select 1 from "${table}" where "${table}"."project_id" = "app_projects"."id")`,
+      );
+    }
+    for (const column of ["chat_id", "demo_url", "current_code"]) {
+      expect(text).toContain(`coalesce(btrim("project_data"."${column}"), '') <> ''`);
+    }
+    expect(text).toContain('"project_data"."files"');
+    expect(text).toContain('"project_data"."messages"');
+    expect(text).toContain('"app_projects"."published_slug" is not null');
+    // Inställningar och uppladdningar kan läggas in utan bygge: de räknas inte här.
+    for (const content of [
+      "business",
+      "projectEnvVars",
+      "project_files",
+      '"images"',
+      "media_library",
+      "company_profiles",
+    ]) {
+      expect(text).not.toContain(content);
+    }
+    expect(params).toEqual([]);
+  });
+
+  it("är en del av startat: allt byggt är också startat", () => {
+    expect(compile(startedProjectCondition()).sql).toContain(compile(builtProjectCondition()).sql);
+  });
+});
+
 describe("canCreateProject räknar bara startade projekt", () => {
   it("inloggad: ägarvillkoret oförändrat, plus definitionen", async () => {
     const { database, seen } = countingDatabase(3);
@@ -112,6 +145,21 @@ describe("canCreateProject räknar bara startade projekt", () => {
     expect(result.allowed).toBe(false);
     expect(result.current).toBe(8);
     expect(result.reason).toContain("8 projekt");
+  });
+
+  it("vid första chatten: byggda projekt utom det aktuella", async () => {
+    const { database, seen } = countingDatabase(7);
+    const result = await canCreateProject("user_1", null, false, database, {
+      counted: "built",
+      excludeProjectId: "proj_1",
+    });
+
+    expect(result).toEqual({ allowed: true, limit: 8, current: 7 });
+    const { sql: text, params } = compile(seen.where);
+    expect(text).toBe(
+      `("app_projects"."user_id" = $1 and ${compile(builtProjectCondition()).sql} and "app_projects"."id" <> $2)`,
+    );
+    expect(params).toEqual(["user_1", "proj_1"]);
   });
 
   it("gäst: samma definition mot sessionens projekt", async () => {

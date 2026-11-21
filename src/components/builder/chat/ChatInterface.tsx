@@ -212,6 +212,24 @@ interface ChatInterfaceProps {
   } | null;
   selectedModelTier?: ModelTier;
   onSelectedModelTierChange?: (tier: ModelTier) => void;
+  /**
+   * Avataren har en egen yta (byggkubens Avatar-sida). Komposern visar då
+   * ingen egen avatarknapp: två ytor som var för sig kan starta en ström vore
+   * två betalda D-ID-anslutningar för samma samtal.
+   */
+  avatarElsewhere?: boolean;
+  /**
+   * Ett utskick från komposern har gått iväg: byggmotorn har fått turen, eller
+   * Sajtagenten har tagit emot frågan. Byggkuben vrider då fram Svar.
+   * Sajtagentens egna utskick till byggmotorn (bryggan) går inte hit.
+   */
+  onTurnSent?: () => void;
+  /**
+   * Ett utskick som `onTurnSent` redan meddelat avvisades innan servern skrev
+   * ner det (`turnRecorded: false`), eller misslyckades: utkastet ligger kvar
+   * i komposern. Byggkuben vrider då tillbaka till Chatt.
+   */
+  onTurnKept?: () => void;
 }
 
 const IMAGE_EXTENSION_MIME: Record<string, string> = {
@@ -311,6 +329,9 @@ export function ChatInterface({
   previewModes,
   selectedModelTier,
   onSelectedModelTierChange,
+  avatarElsewhere = false,
+  onTurnSent,
+  onTurnKept,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const activeComposerChatRef = useRef(chatId);
@@ -835,7 +856,15 @@ export function ChatInterface({
         if (created === false) return;
       } else {
         if (!onSendMessage) return;
-        const outcome = await onSendMessage(payload.finalMessage, msgOpts);
+        // Före svaret: `onSendMessage` löser först när hela bygget är klart.
+        onTurnSent?.();
+        let outcome: Awaited<ReturnType<typeof onSendMessage>>;
+        try {
+          outcome = await onSendMessage(payload.finalMessage, msgOpts);
+        } catch (error) {
+          onTurnKept?.();
+          throw error;
+        }
         // Utfallskontraktet (BB#shadcn-lane1): en avvisad tur som servern INTE
         // skrev ner (`turnRecorded: false` — 409 stale base, 412 tier-3-env)
         // finns bara här, så utkastet inklusive bilagor, Figma-länk och
@@ -843,7 +872,10 @@ export function ChatInterface({
         // sändvägen resolvade utan kast. Skrev servern ner turen ligger prompten
         // i tråden i stället och utkastet rensas — annars finns den på två
         // ställen och ett omsänd kan dubblera turen (bugbot på #610).
-        if (outcome.status === "rejected" && !outcome.turnRecorded) return;
+        if (outcome.status === "rejected" && !outcome.turnRecorded) {
+          onTurnKept?.();
+          return;
+        }
       }
       // The fill was consumed by THIS send (tagged or not) — drop the marker
       // unconditionally so a later send can't inherit it. Deliberately outside
@@ -963,6 +995,7 @@ export function ChatInterface({
         onDispatchAccepted: () => {
           if (activeComposerChatRef.current === sendingChatId) {
             setInput((current) => current.trim() === trimmed ? "" : current);
+            onTurnSent?.();
           }
         },
       }).catch(() => toast("Sajtagenten kunde inte ta emot frågan. Ditt utkast finns kvar."));
@@ -1053,7 +1086,7 @@ export function ChatInterface({
 
   return (
     <div className="border-border bg-background border-t p-4">
-      {agentAvailable ? <SajtagentAvatar key={chatId} /> : null}
+      {agentAvailable && !avatarElsewhere ? <SajtagentAvatar key={chatId} /> : null}
       {followUpBaseInfo && (
         // P19 Steg 3 — basversions-indikator. The composer sends the next
         // follow-up against the currently active version (see
@@ -1293,7 +1326,7 @@ export function ChatInterface({
               <button
                 type="button"
                 onClick={agent.stop}
-                className="border-border/70 hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                className="border-border/70 hover:bg-muted hover:text-foreground focus-visible:ring-ring inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
                 aria-label="Stoppa Sajtagenten"
               >
                 <Square className="size-3" aria-hidden="true" />
@@ -1316,7 +1349,7 @@ export function ChatInterface({
               type="button"
               onClick={() => void handlePlanRequest()}
               disabled={inputDisabled || builderLocked || !input.trim()}
-              className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
+              className="border-border/70 bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
               title="Gör en plan eller PRD innan kod"
             >
               <FileText className="size-3" />
@@ -1326,7 +1359,7 @@ export function ChatInterface({
               type="button"
               onClick={() => void handlePromptAssist()}
               disabled={inputDisabled || promptAssistBusy || !input.trim()}
-              className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
+              className="border-border/70 bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
               title="Rätta och strukturera utkastet utan att skicka"
             >
               {promptAssistBusy ? (
@@ -1383,7 +1416,7 @@ export function ChatInterface({
                   type="button"
                   onClick={() => setIsMediaDrawerOpen(true)}
                   disabled={inputDisabled}
-                  className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                  className="border-border/70 bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
                   title="Öppna mediabibliotek"
                 >
                   <ImageIcon className="size-3" />
@@ -1393,7 +1426,7 @@ export function ChatInterface({
                   type="button"
                   onClick={() => setIsTextUploaderOpen(true)}
                   disabled={inputDisabled}
-                  className="border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                  className="border-border/70 bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
                   title="Lägg till text eller PDF"
                 >
                   <FileText className="size-3" />
@@ -1440,8 +1473,10 @@ export function ChatInterface({
                       : "Plan, Förbättra texten, block, inspektion, media, röst och modell"
                 }
                 className={cn(
-                  "border-border/70 bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring relative inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-                  toolsOpen && "bg-accent text-foreground",
+                  "border-border/70 bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring relative inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+                  // Öppet läge i builderns tonade aktiva stil (samma som
+                  // lägesväljaren), inte temats gröna accent.
+                  toolsOpen && "border-primary/50 bg-primary/10 text-foreground hover:bg-primary/15",
                 )}
               >
                 <SlidersHorizontal className="size-3" aria-hidden="true" />
