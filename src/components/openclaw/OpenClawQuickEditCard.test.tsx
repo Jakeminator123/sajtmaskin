@@ -126,7 +126,11 @@ describe("OpenClawQuickEditCard — gating", () => {
     expect(quickEditMock).not.toHaveBeenCalled();
   });
 
-  it("never auto-executes — even with an active armed mandate", async () => {
+  // Ett armerat follow-up-mandat är inte det som låter en snabbändring köra
+  // direkt: det gör bara turens handlingsmedgivande (ägarbeslut 2026-11-20,
+  // låst i OpenClawMessage.direct-actions.test.tsx). Utan en tur med
+  // medgivande är kortet ett förslag, mandat eller ej.
+  it("stays a proposal under an armed mandate when no turn carries action consent", async () => {
     grantQuickEdit();
     useOpenClawStore.setState({
       grantedPowers: ["armed_autonomy", "quick_edit"],

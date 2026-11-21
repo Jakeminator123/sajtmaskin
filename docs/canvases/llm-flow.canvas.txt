@@ -63,8 +63,8 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "cdd7d4371",
-    "commitDate": "2026-11-20",
+    "commit": "b03cc3b69",
+    "commitDate": "2026-11-21",
     "sinceDays": 14
   },
   "totals": {
@@ -72,7 +72,7 @@ const DATA: CanvasData = {
     "openP0": 0,
     "openP1": 5,
     "openP2": 10,
-    "openP3": 15,
+    "openP3": 21,
     "blocked": 1,
     "shaky": 6,
     "evalExactHitPct": null
@@ -91,60 +91,60 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 1,
+      "churn": 2,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "1 commits / 14d"
+      "note": "2 commits / 14d"
     },
     {
       "name": "Codegen core",
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 2,
+      "openBugs": 4,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 2,
-        "P3": 0,
+        "P2": 3,
+        "P3": 1,
         "other": 0
       },
       "churn": 1,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
-      "note": "2 oppna backlog-rader (P0:0 P1:0 P2:2 P3:0)"
+      "note": "4 oppna backlog-rader (P0:0 P1:0 P2:3 P3:1)"
     },
     {
       "name": "prompt-core",
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 2,
+      "openBugs": 3,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 1,
+        "P2": 2,
         "P3": 1,
         "other": 0
       },
       "churn": 1,
       "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-re",
-      "note": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
+      "note": "3 oppna backlog-rader (P0:0 P1:0 P2:2 P3:1)"
     },
     {
       "name": "ai_models",
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 2,
+      "openBugs": 5,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
         "P2": 1,
-        "P3": 1,
+        "P3": 4,
         "other": 0
       },
-      "churn": 3,
+      "churn": 4,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
-      "note": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
+      "note": "5 oppna backlog-rader (P0:0 P1:0 P2:1 P3:4)"
     },
     {
       "name": "Scaffolds: titta & justera",
@@ -185,12 +185,12 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 28,
+      "openBugs": 29,
       "openByPrio": {
         "P0": 0,
         "P1": 5,
         "P2": 9,
-        "P3": 14,
+        "P3": 15,
         "other": 0
       },
       "churn": 5,
@@ -223,28 +223,28 @@ const DATA: CanvasData = {
       "reason": "BLOCKER: `SM-073` Inspector-bridgen stämplar bara meddelanden när `previewSessionId` finns; utan d…"
     },
     {
+      "name": "ai_models",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "5 oppna backlog-rader (P0:0 P1:0 P2:1 P3:4)"
+    },
+    {
+      "name": "Codegen core",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "4 oppna backlog-rader (P0:0 P1:0 P2:3 P3:1)"
+    },
+    {
       "name": "Scaffolds: titta & justera",
       "statusLabel": "Skakigt",
       "tone": "warning",
       "reason": "3 oppna backlog-rader (P0:0 P1:0 P2:0 P3:3)"
     },
     {
-      "name": "Eval",
+      "name": "prompt-core",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "3 oppna backlog-rader (P0:0 P1:0 P2:1 P3:2)"
-    },
-    {
-      "name": "ai_models",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
-    },
-    {
-      "name": "Codegen core",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:2 P3:0)"
+      "reason": "3 oppna backlog-rader (P0:0 P1:0 P2:2 P3:1)"
     }
   ],
   "topOpenRisks": [

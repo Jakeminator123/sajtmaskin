@@ -81,7 +81,8 @@ describe("OpenClawMessage — terminal empty state", () => {
     );
 
     expect(screen.queryByText(OPENCLAW_EMPTY_REPLY_COPY)).toBeNull();
-    expect(screen.getByText(/Armerad/)).toBeTruthy();
+    // Utan befogenheten visas bug-hunt-kortets besked (inte tomläget).
+    expect(screen.getByText(/får inte agera direkt just nu/)).toBeTruthy();
     expect(waitingDots(container)).toHaveLength(0);
     expect(screen.queryByText("Fältförslag")).toBeNull();
   });

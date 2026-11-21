@@ -109,7 +109,7 @@ describe("OpenClawPowersControl", () => {
     const chevron = screen.getByRole("button", { name: "Välj vad agenten får ändra" });
     chevron.focus();
     fireEvent.keyDown(chevron, { key: "Enter" });
-    fireEvent.click(await screen.findByRole("menuitemcheckbox", { name: /Armerad autonomi/ }));
+    fireEvent.click(await screen.findByRole("menuitemcheckbox", { name: /Agerar direkt/ }));
 
     expect(useOpenClawStore.getState().powersOn).toBe(true);
     expect(useOpenClawStore.getState().grantedPowers).toEqual(["armed_autonomy"]);
