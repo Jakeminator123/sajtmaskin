@@ -9,7 +9,7 @@ const hasPosts = hasPublishedBlogPosts();
 export const metadata: Metadata = {
   title: "Blogg",
   description: hasPosts
-    ? "Guider om att skapa hemsida, pris och enskild firma. Skrivet av Sajtmaskin för svenska småföretag."
+    ? "Guider från Sajtmaskin för svenska småföretag: vad en hemsida kostar, hemsida för enskild firma och en checklista för er som bygger hemsidan med AI."
     : "Artiklar om Sajtmaskin, webb bästa praxis och produktnyheter — första inlägg publiceras när redaktionen är igång.",
   alternates: publicPageAlternates("/blogg"),
   robots: hasPosts ? publicIndexRobots() : { ...publicIndexRobots(), index: false },
