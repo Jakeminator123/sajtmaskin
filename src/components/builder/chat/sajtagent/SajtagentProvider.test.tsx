@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { revokeOpenClawBuildConsent, useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import {
   claimMissionAction,
+  hasMissionAwaitingResult,
   markMissionAwaitingResult,
   resetAgentMissionLedgerForTests,
 } from "@/lib/openclaw/agent-action-consent";
@@ -471,6 +472,9 @@ describe("SajtagentProvider — anrop bara när ytan finns", () => {
         .messages.find((message) => message.content.startsWith("[Byggresultat]"));
       expect(digest?.allowBuild).toBe(false);
       expect(digest?.content).toContain("Starta inget bygge");
+      // The result consumed the wait: a later build cannot inherit the mission
+      // when the power is switched back on.
+      expect(hasMissionAwaitingResult(scopeKey)).toBe(false);
     });
   });
 

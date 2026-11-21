@@ -200,8 +200,11 @@ export function markMissionAwaitingResult(
  * förbrukar ingenting. Providern använder den för att väcka agenten efter
  * agentens eget bygge även när användaren stängt av kommentaren efter bygget.
  */
-export function hasMissionAwaitingResult(scopeKey: string): boolean {
-  return awaitingMissionResult?.scopeKey === scopeKey;
+export function hasMissionAwaitingResult(scopeKey: string, now: number = Date.now()): boolean {
+  const waiting = awaitingMissionResult;
+  return Boolean(
+    waiting && waiting.scopeKey === scopeKey && now - waiting.at <= AGENT_MISSION_RESULT_TTL_MS,
+  );
 }
 
 /** Släpp väntan: bygget startade aldrig, avbröts, eller uppdraget återkallades. */
@@ -225,9 +228,11 @@ export function takeMissionContinuation(input: {
 }): { missionTurnId: string; remaining: number } | null {
   const waiting = awaitingMissionResult;
   if (!waiting) return null;
+  // En annan chatts väntan rörs inte: ett byggresultat här får inte tyst
+  // avsluta ett uppdrag där. Tidsgränsen och strömfönstret skyddar den chatten.
+  if (waiting.scopeKey !== input.scopeKey) return null;
   awaitingMissionResult = null;
   const now = input.now ?? Date.now();
-  if (waiting.scopeKey !== input.scopeKey) return null;
   if (now - waiting.at > AGENT_MISSION_RESULT_TTL_MS) return null;
   if (
     input.streamStartedAt === null ||

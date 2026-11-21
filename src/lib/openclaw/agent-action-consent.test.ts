@@ -231,7 +231,7 @@ describe("takeMissionContinuation", () => {
   it("continues the mission after the build the agent itself started", () => {
     claimMissionAction("u1", "u1");
     markMissionAwaitingResult("u1", scopeKey, 1_000);
-    expect(hasMissionAwaitingResult(scopeKey)).toBe(true);
+    expect(hasMissionAwaitingResult(scopeKey, 60_000)).toBe(true);
     expect(
       takeMissionContinuation({ messages, scopeKey, streamStartedAt: 1_200, now: 60_000 }),
     ).toEqual({ missionTurnId: "u1", remaining: AGENT_MISSION_ACTION_BUDGET - 1 });
@@ -272,7 +272,15 @@ describe("takeMissionContinuation", () => {
     expect(
       takeMissionContinuation({ messages, scopeKey: "builder::chat-2", streamStartedAt: 1_200, now: 2_000 }),
     ).toBeNull();
+    // A build result in another chat does not end the mission in this one.
+    expect(hasMissionAwaitingResult(scopeKey, 2_000)).toBe(true);
+    expect(
+      takeMissionContinuation({ messages, scopeKey, streamStartedAt: 1_200, now: 3_000 }),
+    ).toEqual({ missionTurnId: "u1", remaining: AGENT_MISSION_ACTION_BUDGET });
+
     markMissionAwaitingResult("u1", scopeKey, 1_000);
+    // Past its time limit the wait no longer wakes the agent either.
+    expect(hasMissionAwaitingResult(scopeKey, 1_000 + AGENT_MISSION_RESULT_TTL_MS + 1)).toBe(false);
     expect(
       takeMissionContinuation({
         messages,
@@ -298,7 +306,7 @@ describe("takeMissionContinuation", () => {
   it("releases the wait when the build never started", () => {
     markMissionAwaitingResult("u1", scopeKey, 1_000);
     clearMissionAwaitingResult("another-mission");
-    expect(hasMissionAwaitingResult(scopeKey)).toBe(true);
+    expect(hasMissionAwaitingResult(scopeKey, 2_000)).toBe(true);
     clearMissionAwaitingResult("u1");
     expect(hasMissionAwaitingResult(scopeKey)).toBe(false);
   });
