@@ -169,6 +169,9 @@ promote: synkbranch från färsk preview som tar in master med merge-commit, PR 
 preview och separat merge med merge-commit (inte squash eller auto-merge) enligt
 `pr-merge.mdc`. Ingen blandad feature-PR. Releasetext avgörs av träddiff.
 
+När produktionen är verifierad: `npm run indexnow` ber Bing läsa om sitemapens
+sidor (`--dry-run` visar bara vad som skulle skickas).
+
 ## 5. Merge och städ
 
 Mandat enligt `pr-merge.mdc` punkt 4 (stående för vanlig PR till `preview`

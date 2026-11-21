@@ -29,6 +29,7 @@
     "hotfix:push": "node scripts/workflow/hotfix-push.mjs",
     "promote": "node scripts/workflow/promote.mjs",
     "promote:dry": "node scripts/workflow/promote.mjs --dry-run",
+    "indexnow": "node scripts/seo/indexnow.mjs",
     "preview-host:verify": "npm --prefix preview-host ci --no-audit --no-fund && npm --prefix preview-host run check && npm --prefix preview-host run test:guards && npm --prefix preview-host run test:patch",
     "sync:derived": "npm run docs:generate && npm run dossiers:capability-map:write && npm run canvas:build && npm run claude:sync",
     "docs:generate": "node --import tsx scripts/docs/generate-contract-docs.mjs",

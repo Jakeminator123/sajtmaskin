@@ -10,6 +10,10 @@ import { metadata as homeMetadata } from "./page";
 import { metadata as omMetadata } from "./om/page";
 import { metadata as priserMetadata } from "./priser/page";
 import { metadata as templatesMetadata } from "./templates/page";
+import { metadata as termsMetadata } from "./terms/page";
+import { metadata as privacyMetadata } from "./privacy/page";
+import { metadata as bloggMetadata } from "./blogg/page";
+import { metadata as exempelMetadata } from "./exempel/page";
 import { generateMetadata as generateCategoryMetadata } from "./category/[type]/layout";
 
 const NOINDEX = { index: false, follow: false };
@@ -36,6 +40,25 @@ describe("public and private SEO metadata", () => {
     expect(templatesMetadata.alternates).toEqual({
       canonical: `${PUBLIC_CANONICAL_ORIGIN}/templates`,
     });
+  });
+
+  // Bing Webmaster Tools (2026-11-21) flagged descriptions under about 100 characters as too
+  // short. Search engines cut them off after roughly 160.
+  it("keeps public meta descriptions long enough to be useful and short enough to show", () => {
+    const pages = {
+      "/om": omMetadata,
+      "/terms": termsMetadata,
+      "/privacy": privacyMetadata,
+      "/templates": templatesMetadata,
+      "/priser": priserMetadata,
+      "/blogg": bloggMetadata,
+      "/exempel": exempelMetadata,
+    };
+    for (const [path, metadata] of Object.entries(pages)) {
+      const length = String(metadata.description ?? "").length;
+      expect(length, `${path} description is ${length} characters`).toBeGreaterThanOrEqual(110);
+      expect(length, `${path} description is ${length} characters`).toBeLessThanOrEqual(160);
+    }
   });
 
   it("marks app-internal surfaces noindex", () => {
