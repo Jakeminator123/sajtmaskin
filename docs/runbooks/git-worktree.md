@@ -40,11 +40,15 @@ npm ci
 npm run hooks:install
 ```
 
-**Cursor kan radera worktrees.** Med inställningarna `worktreeMaxCount: 5` och
-`worktreesGlobalMaxSizeGb: 8` tar Cursor bort de äldsta mapparna under
-`.cursor/worktrees` när gränsen nås, även med ocommittat arbete (2026-11-11:
-sex mappar mitt under arbetet). Håll dig under fem, committa och pusha efter
-varje steg och lägg ändringsskript utanför worktreet. En raderad mapp står kvar
+**Cursor kan radera worktrees.** Cursors användarinställningar
+`cursor.worktreeMaxCount` och `cursor.worktreesGlobalMaxSizeGb` styr hur många
+mappar och hur många GB som får ligga under `.cursor/worktrees`. Passeras någon
+gräns tar Cursor bort de äldsta mapparna vid nästa städning
+(`cursor.worktreeCleanupIntervalHours`, 6 h), även med ocommittat arbete
+(2026-11-11, med gränserna 5 och 8 GB: sex mappar mitt under arbetet). Sedan
+2026-11-21 är gränserna 10 och 40 GB; en worktree med `node_modules` är cirka
+1,1 GB. Håll dig under tio, committa och pusha efter varje steg och lägg
+ändringsskript utanför worktreet. En raderad mapp står kvar
 som `prunable` i `git worktree list`; återskapa den med
 `git worktree add -f <worktree> <branch>`. `npm run worktree:remove` kraschar på
 en saknad mapp.

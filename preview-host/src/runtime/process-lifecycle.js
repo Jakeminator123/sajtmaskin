@@ -258,7 +258,7 @@ const RUNTIME_DRAIN_MS = parseInt(process.env.PREVIEW_HOST_RUNTIME_DRAIN_MS ?? "
 // Idle-reaper (M#fly1): en dev-runtime utan preview-trafik (HTTP eller öppen
 // WebSocket från en iframe) stoppas efter detta fönster och sessionen markeras
 // `hibernated`. Nästa besök bootar om den via den vanliga startsidan. Detta är
-// VM-sidans skyddsnät — klientens hibernate-anrop (pagehide / dold tab) är
+// VM-sidans skyddsnät — klientens hibernate-anrop (dold tab) är
 // best-effort och når inte alltid fram, och utan reapern levde varje dev-server
 // kvar till sessions-TTL:en (2 h på Fly) och trängde ut `npm install` (OOM).
 // 0 eller negativt värde stänger av reapern.

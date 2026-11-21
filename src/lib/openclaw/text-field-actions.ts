@@ -30,19 +30,22 @@ export interface OpenClawFillTextFieldAction {
   label?: string;
   focus?: boolean;
   /**
-   * Debug-mode only: when true AND an armed mandate is active, the client fills
-   * the field and then clicks the real send button (no manual approval). Outside
-   * debug + armed mandate this flag is ignored and the normal fill-but-never-send
-   * behavior applies. The server only emits `submit:true` in debug mode.
+   * Armed follow-up mandate only: when true AND a `followups` mandate is
+   * active, the client fills the field and sends it (no manual approval).
+   * Without a mandate the flag is ignored and the normal fill-but-never-send
+   * behavior applies. The model is told about it in the armed-autonomy section
+   * of the edit prompt; a direct build without a mandate uses `start_build`.
    */
   submit?: boolean;
 }
 
 /**
  * Fas 5: the assistant asks to start a repair of the active version. It carries
- * no files — approval in the UI dispatches the existing client autofix event
+ * no files — the card dispatches the existing client autofix event
  * (`sajtmaskin:auto-fix`, manual), which runs the vetted repair flow and yields
- * a new version awaiting acceptance. OC never writes files directly.
+ * a new version. The card runs by itself when the turn carries the agent's
+ * action consent (`agent-action-consent.ts`), otherwise on the user's click.
+ * OC never writes files directly.
  */
 export interface OpenClawRequestRepairAction {
   type: "request_repair";
@@ -66,8 +69,9 @@ export interface OpenClawStartBugHuntAction {
  * Direktbygg: Sajtagenten startar en byggtur i den gemensamma chatten utan
  * att gå via komposern. Körs genom builder-bryggan (`builder-bridge.ts`) —
  * samma inlindade `sendMessage` som Skicka-knappen — så pipeline, kreditgrind
- * och stale-base-skydd är oförändrade. Med armerad autonomi beviljad körs den
- * direkt; annars visas ett kort som användaren godkänner. Utanför buildern
+ * och stale-base-skydd är oförändrade. Med befogenheten att agera direkt och
+ * ett levande handlingsmedgivande för turen (`agent-action-consent.ts`) körs
+ * den direkt; annars visas ett kort som användaren godkänner. Utanför buildern
  * (ingen brygga) degraderar den till ett fältförslag.
  */
 export interface OpenClawStartBuildAction {

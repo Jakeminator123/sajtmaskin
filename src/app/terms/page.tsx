@@ -6,7 +6,7 @@ import { publicPageAlternates } from "@/lib/public-canonical-url";
 export const metadata: Metadata = {
   title: "Användarvillkor",
   description:
-    "Användarvillkor för Sajtmaskin – AI-driven webbplatsgenerering av Pretty Good B.V.",
+    "Användarvillkor för Sajtmaskin: konto, credits och betalning, genererat innehåll, acceptabel användning och ansvar. Tjänsten drivs av Pretty Good B.V.",
   alternates: publicPageAlternates("/terms"),
 };
 

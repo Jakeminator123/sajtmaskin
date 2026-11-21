@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOpenClawEditSystemPrompt, buildStartBuildConsentPrompt } from "./edit-system-prompt";
+import { buildAgentActionConsentPrompt, buildOpenClawEditSystemPrompt } from "./edit-system-prompt";
 import { resolveOpenClawPowersFromRequest } from "./powers";
 
 /** What the route does with a raw request body, in one line. */
@@ -73,19 +73,65 @@ describe("OpenClaw edit system prompt — server gate", () => {
   });
 });
 
-describe("OpenClaw start_build consent line", () => {
-  it("says a start_build block starts directly only when the turn allows it, and only if one is placed", () => {
-    const yes = buildStartBuildConsentPrompt(true);
+describe("OpenClaw edit system prompt — orkestrator (ägarbeslut 2026-11-20)", () => {
+  it("tells the agent to act on a change request instead of asking for approval", () => {
+    const prompt = promptFor(true, ["armed_autonomy"]);
+    expect(prompt).toContain("startar du bygget själv");
+    expect(prompt).toContain("fråga inte om lov");
+    // The old passive rules must be gone, or the model hedges every action.
+    expect(prompt).not.toContain("Du bygger ALDRIG en sajt oombett");
+    expect(prompt).not.toContain("Starta inget nytt bygge på det meddelandet");
+  });
+
+  it("keeps a question, a review and hesitation as text answers", () => {
+    expect(promptFor(true, ["armed_autonomy"])).toContain(
+      "På en ren fråga, en granskning eller när användaren tvekar svarar du i text utan action-block",
+    );
+  });
+
+  it("states the mission budget and that [Byggresultat] decides whether to continue", () => {
+    const prompt = promptFor(true, ["armed_autonomy"]);
+    expect(prompt).toContain("högst 3 automatiska steg");
+    expect(prompt).toContain("[Byggresultat]");
+  });
+
+  it("lets a quick edit run directly but never unprompted", () => {
+    const prompt = promptFor(true, ["quick_edit"]);
+    expect(prompt).toContain("Gör ALDRIG en snabbändring oombett");
+    expect(prompt).toContain("[BYGGMEDGIVANDE]");
+    expect(prompt).not.toContain("Förslaget körs ALDRIG automatiskt");
+  });
+});
+
+describe("OpenClaw action consent line", () => {
+  const both = resolveOpenClawPowersFromRequest({
+    editEnabled: true,
+    requested: ["armed_autonomy", "quick_edit"],
+  });
+  const quickOnly = resolveOpenClawPowersFromRequest({
+    editEnabled: true,
+    requested: ["quick_edit"],
+  });
+
+  it("says an action block runs directly only when the turn allows it, and only if one is placed", () => {
+    const yes = buildAgentActionConsentPrompt(true, both);
     expect(yes).toContain("[BYGGMEDGIVANDE] JA");
-    expect(yes).toContain("Om du lägger ett start_build-block startar det bygget direkt");
+    expect(yes).toContain("start_build, request_repair, apply_quick_edit körs direkt");
     expect(yes).toContain("Lägg inget block på en fråga, en granskning");
-    expect(yes).toContain("säg aldrig att ett bygge startar utan att lägga blocket");
+    expect(yes).toContain("säg aldrig att något startar utan att lägga blocket");
   });
 
   it("makes the model describe a manual proposal when the turn does not allow it", () => {
-    const no = buildStartBuildConsentPrompt(false);
+    const no = buildAgentActionConsentPrompt(false, both);
     expect(no).toContain("[BYGGMEDGIVANDE] NEJ");
     expect(no).toContain("väntar på godkännande");
-    expect(no).toContain("Påstå aldrig att bygget startar");
+    expect(no).toContain("Påstå aldrig att något startar");
+  });
+
+  it("names only the actions the chat actually granted", () => {
+    const yes = buildAgentActionConsentPrompt(true, quickOnly);
+    expect(yes).toContain("apply_quick_edit");
+    expect(yes).not.toContain("start_build");
+    expect(yes).not.toContain("request_repair");
   });
 });

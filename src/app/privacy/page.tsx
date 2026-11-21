@@ -6,7 +6,7 @@ import { publicPageAlternates } from "@/lib/public-canonical-url";
 export const metadata: Metadata = {
   title: "Integritetspolicy",
   description:
-    "Integritetspolicy för Sajtmaskin – hur vi hanterar dina personuppgifter. Pretty Good B.V.",
+    "Integritetspolicy för Sajtmaskin: vilka personuppgifter vi samlar in, hur de används, cookies, tredjepartstjänster och dina rättigheter enligt GDPR.",
   alternates: publicPageAlternates("/privacy"),
 };
 

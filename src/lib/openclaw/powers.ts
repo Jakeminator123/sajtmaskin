@@ -54,17 +54,19 @@ export const OPENCLAW_POWER_META: Record<
   { label: string; description: string }
 > = {
   armed_autonomy: {
-    label: "Armerad autonomi",
-    description: "Får starta en ändring som du ber om. Flera automatiska steg kräver ett separat uppdrag från dig.",
+    label: "Agerar direkt",
+    description:
+      "Startar byggen och reparationer åt dig utan att du godkänner varje steg, högst tre automatiska steg per uppdrag. Längre serier ber du om uttryckligen.",
   },
   quick_edit: {
     label: "Snabbändringar",
-    description: "Får föreslå exakta småändringar i sajtens filer. Du godkänner varje förslag.",
+    description:
+      "Gör exakta småändringar i sajtens filer direkt. Varje ändring blir en egen version som du kan gå tillbaka från.",
   },
   live_review: {
     label: "Granskar sajten live",
     description:
-      "Får titta på din färdiga sajt, säga vad som är fel och föreslå ändringar. Du godkänner varje ändring.",
+      "Får titta på din färdiga sajt och säga vad som är fel. Själva ändringarna görs med befogenheterna ovan.",
   },
 };
 

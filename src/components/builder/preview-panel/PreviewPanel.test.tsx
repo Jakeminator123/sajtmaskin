@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PreviewPanel } from "./PreviewPanel";
+import { getPreviewPageNavigator } from "./pages/preview-page-navigator";
 import { PreviewCodeViewMenu } from "./code/PreviewCodeViewMenu";
 import { usePreviewSurfaceMode } from "./usePreviewSurfaceMode";
 import { PreviewPanelFrame } from "./runtime/PreviewPanelFrame";
@@ -277,6 +278,70 @@ describe("PreviewPanel", () => {
     expect(setSrc).toHaveBeenCalledTimes(1);
     expect(setSrc).toHaveBeenCalledWith(controlledSrc);
     expect(onNavigatePreviewUrl).not.toHaveBeenCalled();
+  });
+
+  it("publishes the page it really shows, and the tabs' way of changing page, for the build cube", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES", "preview.example");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            files: [
+              { name: "app/page.tsx", content: '<a href="/about">About</a>' },
+              { name: "app/about/page.tsx", content: "export default function About() {}" },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+    const onNavigatePreviewUrl = vi.fn();
+    const props = {
+      previewUrl: "https://preview.example/chat_1",
+      activePreviewSessionId: "session_1",
+      previewLifecycle: "live" as const,
+      onNavigatePreviewUrl,
+    };
+    const { unmount, rerender } = renderPreviewPanel(props);
+
+    const iframe = (await screen.findByTitle("Preview")) as HTMLIFrameElement;
+    await waitFor(() => expect(getPreviewPageNavigator()?.activeRoute).toBe("/"));
+    // The shell passes a new arrow on every render; that is not a new page.
+    const published = getPreviewPageNavigator();
+    rerender(<PreviewPanel {...buildPreviewPanelProps({ ...props, onNavigatePreviewUrl: (url: string) => onNavigatePreviewUrl(url) })} />);
+    expect(getPreviewPageNavigator()).toBe(published);
+    const viewerId = new URL(iframe.src).searchParams.get("__sm_viewer");
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        origin: "https://preview.example",
+        source: iframe.contentWindow,
+        data: {
+          type: "sajtmaskin:preview:route-change",
+          source: "sajtmaskin-preview-host",
+          payload: {
+            href: "https://preview.example/chat_1/about",
+            previewSessionId: "session_1",
+            versionId: "ver_1",
+            viewerId,
+          },
+        },
+      }),
+    );
+    // The controlled address still says "/", the iframe moved on to "/about".
+    await waitFor(() => expect(getPreviewPageNavigator()?.activeRoute).toBe("/about"));
+
+    const controlledSrc = iframe.getAttribute("src");
+    const setSrc = vi.spyOn(iframe, "src", "set");
+    act(() => getPreviewPageNavigator()?.navigate("/"));
+    // Same as a click on the "/" tab: one reload of the controlled address.
+    expect(setSrc).toHaveBeenCalledTimes(1);
+    expect(setSrc).toHaveBeenCalledWith(controlledSrc);
+    expect(onNavigatePreviewUrl).not.toHaveBeenCalled();
+
+    unmount();
+    expect(getPreviewPageNavigator()).toBeNull();
   });
 
   // Delat fetch-stub för drop-testerna: dossier-overviewn kräver sin riktiga
