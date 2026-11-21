@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -56,6 +57,7 @@ import {
 import { classifyInspectedElement } from "@/lib/builder/inspect-element-actions";
 import { usePreviewPanelCodeFiles } from "./code/usePreviewPanelCodeFiles";
 import { usePreviewPanelPreviewRoutes } from "./pages/usePreviewPanelPreviewRoutes";
+import { publishPreviewPageNavigator } from "./pages/preview-page-navigator";
 import { usePreviewPanelComposerActions } from "./composer/usePreviewPanelComposerActions";
 import { usePreviewPanelPageActions } from "./pages/usePreviewPanelPageActions";
 import { usePreviewPanelInspectorActions } from "./inspect/usePreviewPanelInspectorActions";
@@ -950,6 +952,25 @@ export function PreviewPanel({
       setIframeError,
       setIframeErrorMessage,
     ],
+  );
+
+  // Byggkubens sajtkarta byter sida genom samma väg som sidflikarna, och
+  // markerar sidan iframen faktiskt visar (`preview-page-navigator.ts`).
+  // Funktionen som publiceras är stabil och läser den senaste hanteraren, så
+  // en ny publicering sker bara när sidan byts — inte vid varje rendering,
+  // där hanteraren får ny identitet.
+  const navigateRouteRef = useRef(handleNavigateRoute);
+  useLayoutEffect(() => {
+    navigateRouteRef.current = handleNavigateRoute;
+  });
+  const navigateRouteStable = useCallback((route: string) => navigateRouteRef.current(route), []);
+  useEffect(
+    () =>
+      publishPreviewPageNavigator({
+        activeRoute: activePreviewRoute,
+        navigate: navigateRouteStable,
+      }),
+    [activePreviewRoute, navigateRouteStable],
   );
 
   const handleIframeError = useCallback(() => {

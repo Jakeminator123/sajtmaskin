@@ -210,6 +210,24 @@ interface ChatInterfaceProps {
   } | null;
   selectedModelTier?: ModelTier;
   onSelectedModelTierChange?: (tier: ModelTier) => void;
+  /**
+   * Avataren har en egen yta (byggkubens Avatar-sida). Komposern visar då
+   * ingen egen avatarknapp: två ytor som var för sig kan starta en ström vore
+   * två betalda D-ID-anslutningar för samma samtal.
+   */
+  avatarElsewhere?: boolean;
+  /**
+   * Ett utskick från komposern har gått iväg: byggmotorn har fått turen, eller
+   * Sajtagenten har tagit emot frågan. Byggkuben vrider då fram Svar.
+   * Sajtagentens egna utskick till byggmotorn (bryggan) går inte hit.
+   */
+  onTurnSent?: () => void;
+  /**
+   * Ett utskick som `onTurnSent` redan meddelat avvisades innan servern skrev
+   * ner det (`turnRecorded: false`), eller misslyckades: utkastet ligger kvar
+   * i komposern. Byggkuben vrider då tillbaka till Chatt.
+   */
+  onTurnKept?: () => void;
 }
 
 const IMAGE_EXTENSION_MIME: Record<string, string> = {
@@ -309,6 +327,9 @@ export function ChatInterface({
   previewModes,
   selectedModelTier,
   onSelectedModelTierChange,
+  avatarElsewhere = false,
+  onTurnSent,
+  onTurnKept,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const activeComposerChatRef = useRef(chatId);
@@ -829,7 +850,15 @@ export function ChatInterface({
         if (created === false) return;
       } else {
         if (!onSendMessage) return;
-        const outcome = await onSendMessage(payload.finalMessage, msgOpts);
+        // Före svaret: `onSendMessage` löser först när hela bygget är klart.
+        onTurnSent?.();
+        let outcome: Awaited<ReturnType<typeof onSendMessage>>;
+        try {
+          outcome = await onSendMessage(payload.finalMessage, msgOpts);
+        } catch (error) {
+          onTurnKept?.();
+          throw error;
+        }
         // Utfallskontraktet (BB#shadcn-lane1): en avvisad tur som servern INTE
         // skrev ner (`turnRecorded: false` — 409 stale base, 412 tier-3-env)
         // finns bara här, så utkastet inklusive bilagor, Figma-länk och
@@ -837,7 +866,10 @@ export function ChatInterface({
         // sändvägen resolvade utan kast. Skrev servern ner turen ligger prompten
         // i tråden i stället och utkastet rensas — annars finns den på två
         // ställen och ett omsänd kan dubblera turen (bugbot på #610).
-        if (outcome.status === "rejected" && !outcome.turnRecorded) return;
+        if (outcome.status === "rejected" && !outcome.turnRecorded) {
+          onTurnKept?.();
+          return;
+        }
       }
       // The fill was consumed by THIS send (tagged or not) — drop the marker
       // unconditionally so a later send can't inherit it. Deliberately outside
@@ -944,6 +976,7 @@ export function ChatInterface({
         onDispatchAccepted: () => {
           if (activeComposerChatRef.current === sendingChatId) {
             setInput((current) => current.trim() === trimmed ? "" : current);
+            onTurnSent?.();
           }
         },
       }).catch(() => toast("Sajtagenten kunde inte ta emot frågan. Ditt utkast finns kvar."));
@@ -1029,7 +1062,7 @@ export function ChatInterface({
 
   return (
     <div className="border-border bg-background border-t p-4">
-      {agentAvailable ? <SajtagentAvatar key={chatId} /> : null}
+      {agentAvailable && !avatarElsewhere ? <SajtagentAvatar key={chatId} /> : null}
       {followUpBaseInfo && (
         // P19 Steg 3 — basversions-indikator. The composer sends the next
         // follow-up against the currently active version (see

@@ -37,6 +37,29 @@ historik läses inte upp. Chattbyte och «Endast text» avslutar anslutningen.
 Vid anslutningsfel fungerar textchatten vidare. Knappen finns bara när de
 befintliga publika D-ID-nycklarna och avatarflaggan är konfigurerade.
 
+## Byggkuben
+
+Från `lg` kan chattpanelen bytas mot byggkuben: en flyttbar panel över
+förhandsvisningen med sex sidor. Kubknappen sitter i raden ovanför
+inmatningen, och valet sparas per webbläsare. Under `lg` och utan chatt gäller
+panelen.
+
+| Sida | Innehåll |
+|---|---|
+| Chatt | Inmatningen. Det du skickar vrider fram Svar. |
+| Svar | Tidslinjen. Svar som kommer medan en annan sida står fram räknas på fliken. |
+| Bygglogg | F3-ytorna, senaste byggets läge och filer; arbetsloggen bara för admin. |
+| Verktyg | Modellnivå, resonemang, AI-bilder och kommentar efter bygge. |
+| Avatar | D-ID-avataren som egen yta; knappen vid komposern visas då inte. |
+| Sajtkarta | Versionens sidor som träd; ett klick visar sidan i förhandsvisningen. |
+
+Kuben kan fällas ut till kort som dras, ändrar storlek och fälls ned till ett
+fält. Komposern, tidslinjen och F3-ytorna är samma instanser i panelen och i
+kuben: [`relocation.tsx`](../../src/components/builder/cube/relocation.tsx)
+flyttar DOM-noden, så ett layoutbyte tappar varken utkast, bilagor eller
+rulläge. Ytan ägs av
+[`cube-surface.tsx`](../../src/app/builder/builder-shell-content/cube-surface.tsx).
+
 ## Vad Sajtagenten ser
 
 Allt skickas per tur till `/api/openclaw/chat`; servern verifierar att den som

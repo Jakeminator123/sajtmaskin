@@ -455,3 +455,58 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     }));
   });
 });
+
+describe("ChatInterface — kvitto när ett utskick gått iväg (byggkuben)", () => {
+  it("says so once per sent turn, to Sajtagenten and to the build engine", async () => {
+    const agent = makeAgent();
+    sajtagent.value = agent;
+    const onTurnSent = vi.fn();
+    const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
+    render(<ChatInterface chatId="chat_1" onSendMessage={build} onTurnSent={onTurnSent} />);
+
+    await typeAndSend("Vad tycker du om startsidan?");
+    expect(agent.send).toHaveBeenCalledTimes(1);
+    expect(onTurnSent).toHaveBeenCalledTimes(1);
+
+    await typeAndSend("Byt rubriken till Välkommen");
+    expect(build).toHaveBeenCalledTimes(1);
+    expect(onTurnSent).toHaveBeenCalledTimes(2);
+  });
+
+  it("says so again when the build engine refused the turn and the draft stays", async () => {
+    sajtagent.value = makeAgent();
+    const onTurnSent = vi.fn();
+    const onTurnKept = vi.fn();
+    const build = vi.fn(async () => ({
+      status: "rejected" as const,
+      reason: "stale_base_version" as const,
+      turnRecorded: false,
+    }));
+    render(
+      <ChatInterface chatId="chat_1" onSendMessage={build} onTurnSent={onTurnSent} onTurnKept={onTurnKept} />,
+    );
+
+    await typeAndSend("Byt rubriken till Välkommen");
+    expect(build).toHaveBeenCalledTimes(1);
+    expect(onTurnSent).toHaveBeenCalledTimes(1);
+    expect(onTurnKept).toHaveBeenCalledTimes(1);
+    expect((screen.getByRole("textbox", { name: "Skriv en uppdatering" }) as HTMLTextAreaElement).value).toBe(
+      "Byt rubriken till Välkommen",
+    );
+  });
+
+  it("says nothing when the turn never left the composer", async () => {
+    const agent = makeAgent({ isStreaming: true });
+    sajtagent.value = agent;
+    const onTurnSent = vi.fn();
+    const build = vi.fn();
+    render(<ChatInterface chatId="chat_1" onSendMessage={build} onTurnSent={onTurnSent} isBusy />);
+
+    // Sajtagenten is still answering, and a build is running.
+    await typeAndSend("Vad tycker du om startsidan?");
+    await typeAndSend("Byt rubriken till Välkommen");
+    expect(agent.send).not.toHaveBeenCalled();
+    expect(build).not.toHaveBeenCalled();
+    expect(onTurnSent).not.toHaveBeenCalled();
+  });
+});
