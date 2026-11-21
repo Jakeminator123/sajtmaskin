@@ -412,13 +412,15 @@ export function SajtagentProvider({
     // Orkestrering: startade agenten själv det här bygget inom ett uppdrag med
     // steg kvar får svaret agera direkt (laga, fortsätta). Ett bygge användaren
     // beställde själv ger alltid bara ett besked.
-    const continuation = readOpenClawPowers().armedAutonomy
-      ? takeMissionContinuation({
-          messages: live.messages,
-          scopeKey: live.scopeKey,
-          streamStartedAt: track.streamStartedAt,
-        })
-      : null;
+    // Väntan förbrukas av det här byggresultatet även när befogenheten att
+    // agera är avstängd. Annars låg den kvar, och ett senare bygge i samma
+    // chatt kunde ärva uppdraget när befogenheten slogs på igen.
+    const taken = takeMissionContinuation({
+      messages: live.messages,
+      scopeKey: live.scopeKey,
+      streamStartedAt: track.streamStartedAt,
+    });
+    const continuation = readOpenClawPowers().armedAutonomy ? taken : null;
     // Kommentaren är avstängd och det fanns inget uppdrag att föra vidare.
     if (!digestEnabled && !continuation) return;
     void sendRef.current(
