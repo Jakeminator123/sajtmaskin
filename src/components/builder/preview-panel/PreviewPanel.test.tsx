@@ -298,15 +298,20 @@ describe("PreviewPanel", () => {
       ),
     );
     const onNavigatePreviewUrl = vi.fn();
-    const { unmount } = renderPreviewPanel({
+    const props = {
       previewUrl: "https://preview.example/chat_1",
       activePreviewSessionId: "session_1",
-      previewLifecycle: "live",
+      previewLifecycle: "live" as const,
       onNavigatePreviewUrl,
-    });
+    };
+    const { unmount, rerender } = renderPreviewPanel(props);
 
     const iframe = (await screen.findByTitle("Preview")) as HTMLIFrameElement;
     await waitFor(() => expect(getPreviewPageNavigator()?.activeRoute).toBe("/"));
+    // The shell passes a new arrow on every render; that is not a new page.
+    const published = getPreviewPageNavigator();
+    rerender(<PreviewPanel {...buildPreviewPanelProps({ ...props, onNavigatePreviewUrl: (url: string) => onNavigatePreviewUrl(url) })} />);
+    expect(getPreviewPageNavigator()).toBe(published);
     const viewerId = new URL(iframe.src).searchParams.get("__sm_viewer");
     window.dispatchEvent(
       new MessageEvent("message", {

@@ -473,6 +473,28 @@ describe("ChatInterface — kvitto när ett utskick gått iväg (byggkuben)", ()
     expect(onTurnSent).toHaveBeenCalledTimes(2);
   });
 
+  it("says so again when the build engine refused the turn and the draft stays", async () => {
+    sajtagent.value = makeAgent();
+    const onTurnSent = vi.fn();
+    const onTurnKept = vi.fn();
+    const build = vi.fn(async () => ({
+      status: "rejected" as const,
+      reason: "stale_base_version" as const,
+      turnRecorded: false,
+    }));
+    render(
+      <ChatInterface chatId="chat_1" onSendMessage={build} onTurnSent={onTurnSent} onTurnKept={onTurnKept} />,
+    );
+
+    await typeAndSend("Byt rubriken till Välkommen");
+    expect(build).toHaveBeenCalledTimes(1);
+    expect(onTurnSent).toHaveBeenCalledTimes(1);
+    expect(onTurnKept).toHaveBeenCalledTimes(1);
+    expect((screen.getByRole("textbox", { name: "Skriv en uppdatering" }) as HTMLTextAreaElement).value).toBe(
+      "Byt rubriken till Välkommen",
+    );
+  });
+
   it("says nothing when the turn never left the composer", async () => {
     const agent = makeAgent({ isStreaming: true });
     sajtagent.value = agent;

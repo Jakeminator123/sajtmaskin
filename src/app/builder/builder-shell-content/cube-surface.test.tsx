@@ -81,6 +81,7 @@ interface HarnessProps {
   statusText?: string | null;
   noticesPending?: boolean;
   composerTurns?: number;
+  composerTurnsKept?: number;
   onExit?: () => void;
 }
 
@@ -91,6 +92,7 @@ function Harness({
   statusText = null,
   noticesPending = false,
   composerTurns = 0,
+  composerTurnsKept = 0,
   onExit = () => {},
 }: HarnessProps) {
   const composer = useRelocationSlot();
@@ -116,6 +118,7 @@ function Harness({
         statusText={statusText}
         noticesPending={noticesPending}
         composerTurns={composerTurns}
+        composerTurnsKept={composerTurnsKept}
         onExit={onExit}
       />
     </>
@@ -197,6 +200,21 @@ describe("BuilderCubeSurface", () => {
     expect(selected(/^Svar/)).toBe(true);
     // Nothing is unread: the answers are in front.
     expect(tab(/^Svar/).getAttribute("aria-label")).toBe("Svar");
+  });
+
+  it("turns back to the composer when the send was refused and the draft kept", () => {
+    const { rerender } = render(<Harness />);
+    rerender(<Harness composerTurns={1} />);
+    expect(selected(/^Svar/)).toBe(true);
+
+    // A stale base version: the server refused the turn before writing it down.
+    rerender(<Harness composerTurns={1} composerTurnsKept={1} />);
+    expect(selected("Chatt")).toBe(true);
+
+    // A refusal that comes after the user went elsewhere moves nothing.
+    fireEvent.click(tab("Verktyg"));
+    rerender(<Harness composerTurns={2} composerTurnsKept={2} />);
+    expect(selected("Verktyg")).toBe(true);
   });
 
   it("does not turn when Sajtagenten sends to the build engine itself", () => {

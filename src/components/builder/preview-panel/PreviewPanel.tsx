@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -955,13 +956,21 @@ export function PreviewPanel({
 
   // Byggkubens sajtkarta byter sida genom samma väg som sidflikarna, och
   // markerar sidan iframen faktiskt visar (`preview-page-navigator.ts`).
+  // Funktionen som publiceras är stabil och läser den senaste hanteraren, så
+  // en ny publicering sker bara när sidan byts — inte vid varje rendering,
+  // där hanteraren får ny identitet.
+  const navigateRouteRef = useRef(handleNavigateRoute);
+  useLayoutEffect(() => {
+    navigateRouteRef.current = handleNavigateRoute;
+  });
+  const navigateRouteStable = useCallback((route: string) => navigateRouteRef.current(route), []);
   useEffect(
     () =>
       publishPreviewPageNavigator({
         activeRoute: activePreviewRoute,
-        navigate: handleNavigateRoute,
+        navigate: navigateRouteStable,
       }),
-    [activePreviewRoute, handleNavigateRoute],
+    [activePreviewRoute, navigateRouteStable],
   );
 
   const handleIframeError = useCallback(() => {

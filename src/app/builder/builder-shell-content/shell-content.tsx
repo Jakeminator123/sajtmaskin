@@ -195,13 +195,25 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   useEffect(() => {
     if (!focusAfterCubeSwitchRef.current) return;
     focusAfterCubeSwitchRef.current = false;
-    const panel = document.getElementById("builder-chat-panel");
-    if (panel) focusAfterLayoutSwitch(panel);
+    // En bild senare: kuben är osynlig tills den har mätt sin yta, och det
+    // sker i renderingen efter monteringen. Ett osynligt element tar inte
+    // emot fokus.
+    const frame = requestAnimationFrame(() => {
+      const panel = document.getElementById("builder-chat-panel");
+      if (panel) focusAfterLayoutSwitch(panel);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [cubeActive]);
   // Komposerns egna utskick, inte Sajtagentens via bryggan: kuben vrider fram
-  // Svar på dem och på inget annat.
+  // Svar på dem och på inget annat. Ett utskick som avvisas innan det skrivs
+  // ner vrider tillbaka till Chatt, där utkastet ligger kvar.
   const [composerTurns, setComposerTurns] = useState(0);
+  const [composerTurnsKept, setComposerTurnsKept] = useState(0);
   const handleComposerTurn = useCallback(() => setComposerTurns((count) => count + 1), []);
+  const handleComposerTurnKept = useCallback(
+    () => setComposerTurnsKept((count) => count + 1),
+    [],
+  );
 
   // En nedfälld chatt döljer utdatan men inte den flytande komposern, som kan
   // skicka till Sajtagenten. Svaret får inte landa i en dold yta: fäll ut när
@@ -433,6 +445,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               statusText={chatCollapseStatusText}
               noticesPending={Boolean(visibleF3Requirements)}
               composerTurns={composerTurns}
+              composerTurnsKept={composerTurnsKept}
               onExit={closeCube}
             />
           ) : null}
@@ -537,6 +550,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               // I kuben har avataren en egen sida; komposern visar då ingen egen knapp.
               avatarElsewhere={cubeActive}
               onTurnSent={handleComposerTurn}
+              onTurnKept={handleComposerTurnKept}
               previewModes={
                 vm.currentPreviewUrl
                   ? {

@@ -71,6 +71,12 @@ export interface BuilderCubeSurfaceProps {
    * vrider fram Svar; Sajtagentens utskick till byggmotorn räknas inte.
    */
   composerTurns: number;
+  /**
+   * Räknare för komposerns utskick som avvisades innan de skrevs ner
+   * (`ChatInterface.onTurnKept`). Utkastet ligger kvar, så kuben vrider
+   * tillbaka till Chatt.
+   */
+  composerTurnsKept: number;
   onExit: () => void;
 }
 
@@ -110,6 +116,7 @@ export function BuilderCubeSurface({
   statusText,
   noticesPending,
   composerTurns,
+  composerTurnsKept,
   onExit,
 }: BuilderCubeSurfaceProps) {
   const { layout, setLayout, resetLayout } = useCubeLayout();
@@ -144,6 +151,15 @@ export function BuilderCubeSurface({
     setTrackedTurns(composerTurns);
     if (composerTurns > trackedTurns && layout.mode === "cube" && activeFace === "chat") {
       setActiveFace("answers");
+    }
+  }
+  // Avvisades utskicket innan det skrevs ner ligger utkastet kvar under Chatt:
+  // dit vrids kuben tillbaka, om den fortfarande står på Svar.
+  const [trackedKept, setTrackedKept] = useState(composerTurnsKept);
+  if (trackedKept !== composerTurnsKept) {
+    setTrackedKept(composerTurnsKept);
+    if (composerTurnsKept > trackedKept && layout.mode === "cube" && activeFace === "answers") {
+      setActiveFace("chat");
     }
   }
   const [trackedCount, setTrackedCount] = useState(messageCount);
