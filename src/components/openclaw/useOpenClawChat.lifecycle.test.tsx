@@ -86,14 +86,20 @@ describe("useOpenClawChat — turn ownership", () => {
     expect(useOpenClawStore.getState().messages.find(message => message.role === "user")?.allowBuild).toBe(expected);
   });
 
+  // Ägarbeslut 2026-11-20: en artig begäran bär medgivande — agenten avgör
+  // själv om den är en ändring. Frågeord och saknad metadata nekas fortfarande,
+  // och utan en redigeringsbefogenhet finns inget att medge.
   it.each([
     ["Byt rubriken till Välkommen", true, ["armed_autonomy"], true],
-    ["Kan du lägga till en karta på kontaktsidan", true, ["armed_autonomy"], false],
+    ["Kan du lägga till en karta på kontaktsidan", true, ["armed_autonomy"], true],
+    ["Kan du lägga till en karta på kontaktsidan?", true, ["armed_autonomy"], true],
+    ["Kan du göra punkt 2", true, ["armed_autonomy"], true],
+    ["Byt rubriken till Välkommen", true, ["quick_edit"], true],
     ["Vad tycker du om sidan?", true, ["armed_autonomy"], false],
     ["Byt rubriken till Välkommen", undefined, ["armed_autonomy"], false],
     ["Byt rubriken till Välkommen", true, [], false],
-    ["Kan du göra punkt 2", true, ["armed_autonomy"], false],
-    ["Kan du göra en granskning av sajten", true, ["armed_autonomy"], false],
+    ["Byt rubriken till Välkommen", true, ["live_review"], false],
+    ["Stopp!", true, ["armed_autonomy"], false],
   ] as const)("sends the per-turn build consent for «%s»", async (text, allowBuild, granted, expected) => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => reply("Ett svar"));
     vi.stubGlobal("fetch", fetchMock);
@@ -102,6 +108,80 @@ describe("useOpenClawChat — turn ownership", () => {
     await act(async () => { await result.current.send(text, { allowBuild }); });
     const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(payload.buildConsent).toBe(expected);
+  });
+
+  it("stores on the reply what the model was told about this turn's actions", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => reply("Jag startar bygget.")));
+    const { result } = renderHook(() => useOpenClawChat());
+    const replies = () => useOpenClawStore.getState().messages.filter((message) => message.role === "assistant");
+
+    // Utan befogenhet får modellen ingen edit-prompt: åtgärder blir förslag.
+    await act(async () => { await result.current.send("Gör hero tydligare", { allowBuild: true }); });
+    expect(replies().at(-1)?.consentAtSend).toBe(false);
+
+    act(() => {
+      useOpenClawStore.setState({ editEnabled: true, powersOn: true, grantedPowers: ["armed_autonomy"] });
+    });
+    await act(async () => { await result.current.send("Gör rubriken större", { allowBuild: true }); });
+    expect(replies().at(-1)?.consentAtSend).toBe(true);
+
+    // En fråga bär aldrig medgivande, med eller utan befogenhet.
+    await act(async () => { await result.current.send("Vad tycker du om startsidan?", { allowBuild: true }); });
+    expect(replies().at(-1)?.consentAtSend).toBe(false);
+  });
+
+  it("a stop — typed or clicked — ends the mission: earlier turns lose their consent", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => reply("Okej, jag stoppar.")));
+    useOpenClawStore.setState({
+      messages: [{ id: "order", role: "user", content: "Gör om kontaktsidan", timestamp: 1, allowBuild: true }],
+    });
+    const { result } = renderHook(() => useOpenClawChat());
+
+    await act(async () => { await result.current.send("Stopp!", { allowBuild: true }); });
+    const users = useOpenClawStore.getState().messages.filter((message) => message.role === "user");
+    expect(users.map((message) => message.allowBuild)).toEqual([false, false]);
+
+    act(() => {
+      useOpenClawStore.setState({
+        messages: [{ id: "order-2", role: "user", content: "Gör om kontaktsidan", timestamp: 1, allowBuild: true }],
+      });
+    });
+    act(() => result.current.stop());
+    expect(useOpenClawStore.getState().messages[0].allowBuild).toBe(false);
+  });
+
+  it("binds a build-result turn to its mission only while the mission's own turn carries consent", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => reply("Jag lagar felet.")));
+    useOpenClawStore.setState({
+      messages: [{ id: "order", role: "user", content: "Gör om kontaktsidan", timestamp: 1, allowBuild: true }],
+    });
+    const { result } = renderHook(() => useOpenClawChat());
+    const internal = { internal: true, allowArming: false, countTowardCampaignQuota: false } as const;
+
+    await act(async () => {
+      await result.current.send("[Byggresultat] Builderturen är misslyckad.", { ...internal, mission: { rootTurnId: "order" } });
+    });
+    const carried = useOpenClawStore.getState().messages.find((message) => message.content.startsWith("[Byggresultat]"));
+    expect(carried).toMatchObject({ kind: "internal", allowBuild: true, missionTurnId: "order" });
+
+    // Utan uppdrag, eller med ett återkallat uppdrag, är turen en ren väckning.
+    act(() => {
+      useOpenClawStore.setState({
+        messages: [{ id: "revoked", role: "user", content: "Gör om kontaktsidan", timestamp: 1, allowBuild: false }],
+      });
+    });
+    await act(async () => {
+      await result.current.send("[Byggresultat] Builderturen är klar.", { ...internal, mission: { rootTurnId: "revoked" } });
+    });
+    await act(async () => {
+      await result.current.send("[Byggresultat] Builderturen är klar igen.", internal);
+    });
+    const plain = useOpenClawStore.getState().messages.filter((message) => message.content.startsWith("[Byggresultat]"));
+    expect(plain).toHaveLength(2);
+    for (const message of plain) {
+      expect(message.allowBuild).toBe(false);
+      expect(message.missionTurnId).toBeUndefined();
+    }
   });
 
   it("keeps selected proposal context with the user request without changing its displayed text", async () => {

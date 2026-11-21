@@ -6,6 +6,7 @@ import type {
 } from "@/lib/openclaw/debug/armed-continuation";
 import type { OpenClawPreparedFill } from "@/lib/openclaw/prepared-prompt";
 import type { AgentMessageKind } from "@/lib/openclaw/agent-message-kind";
+import { clearMissionAwaitingResult } from "@/lib/openclaw/agent-action-consent";
 import {
   beginCampaignFollowupSession,
   bindCampaignScriptProjectId,
@@ -50,8 +51,19 @@ export interface OpenClawMessage {
    * med prefixfallback i `agent-message-kind.ts`.
    */
   kind?: AgentMessageKind;
-  /** Local composer consent for THIS live user turn. Never hydrated or persisted. */
+  /**
+   * Lokalt handlingsmedgivande för den här levande turen
+   * (`agent-action-consent.ts`). Sätts på en riktig användartur av komposern
+   * och på en `[Byggresultat]`-tur av providern när den för ett uppdrag
+   * vidare. Hydreras och persisteras aldrig.
+   */
   allowBuild?: boolean;
+  /**
+   * Uppdragets ägartur för en intern tur som bär `allowBuild`: den riktiga
+   * användartur vars budget turen räknas mot. Saknas på riktiga användarturer
+   * (de äger sitt eget uppdrag). Hydreras och persisteras aldrig.
+   */
+  missionTurnId?: string | null;
   /**
    * Builderns senaste meddelande-id när den här raden skapades. Ger den
    * gemensamma tidslinjen sin ordning (`unified-timeline.ts`). `null` = chatten
@@ -71,6 +83,14 @@ export interface OpenClawMessage {
    * hydrerad rad — annars startar varje omladdning gamla byggen igen.
    */
   hydrated?: boolean;
+  /**
+   * Svarets tur skickades med `[BYGGMEDGIVANDE] JA` (`buildConsent` i
+   * `useOpenClawChat`). `false` betyder att modellen fick veta att dess
+   * åtgärder bara blir förslag — då får kortet inte köra av sig självt, även
+   * om befogenheten slås på innan svaret är klart. Saknas på rader som inte
+   * skapats av en skickad tur. Hydreras och persisteras aldrig.
+   */
+  consentAtSend?: boolean;
   /** Live transport state. Only completed replies may execute action cards;
    * historical/seeded messages without this field retain their old behavior. */
   delivery?: "streaming" | "complete" | "interrupted";
@@ -91,9 +111,10 @@ interface OpenClawState {
   /** Server-reported OC_EDIT state (from /api/openclaw/health) — act side.
    * Gates the armed-autonomy auto-send path on the client. Default false. */
   editEnabled: boolean;
-  /** The chat's "extra befogenheter" master toggle. Must be pressed before any
-   * power is live, even with OC_EDIT on. Session-only and default off: a
-   * reload always lands back on today's guide behaviour. */
+  /** The chat's "extra befogenheter" master toggle. Must be on before any
+   * power is live, even with OC_EDIT on. Off until the chat's grant has been
+   * hydrated: a new builder chat then gets the defaults, an existing one its
+   * persisted choice (`persist-openclaw-powers.ts`). */
   powersOn: boolean;
   /** Which powers the user ticked in the menu. Empty = nothing extra. */
   grantedPowers: OpenClawPowerId[];
@@ -449,8 +470,12 @@ export function readOpenClawPowers(): OpenClawPowers {
   return resolveOpenClawPowers({ editEnabled, powersOn, granted: grantedPowers });
 }
 
-/** An explicit read-only turn revokes pending automatic work, including old replies. */
+/**
+ * An explicit read-only turn or a stop revokes pending automatic work,
+ * including old replies and a mission waiting for its build result.
+ */
 export function revokeOpenClawBuildConsent(): void {
+  clearMissionAwaitingResult();
   useOpenClawStore.setState((state) => ({
     armedMandate: null,
     armedContinuation: null,

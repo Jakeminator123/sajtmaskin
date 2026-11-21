@@ -1,9 +1,11 @@
 # Sajtagenten i buildern
 
-Sajtagenten är samtalspartnern i builderchatten. Byggmotorn (own-engine)
-bygger, verifierar och skapar versioner; Sajtagenten förklarar, granskar,
-navigerar i koden och startar byggen åt användaren. De delar en input och en
-tidslinje, men är två skilda LLM-flöden. Koden äger kontrakten — den här
+Sajtagenten är samtalspartnern och orkestratorn i builderchatten. Byggmotorn
+(own-engine) bygger, verifierar och skapar versioner; Sajtagenten förklarar,
+granskar, navigerar i koden och får jobbet gjort genom byggmotorn: den startar
+byggen, reparationer och småändringar direkt när användaren ber om dem
+(ägarbeslut 2026-11-20). De delar en input och en tidslinje, men är två skilda
+LLM-flöden. Koden äger kontrakten — den här
 sidan är den mentala modellen. Plan och status:
 [`docs/plans/avklarat/2026-10-22-en-chatt-sajtagenten/`](../plans/avklarat/2026-10-22-en-chatt-sajtagenten/00-master-plan.md).
 
@@ -11,7 +13,8 @@ sidan är den mentala modellen. Plan och status:
 
 | Du skriver | Vem svarar | Varför |
 |---|---|---|
-| En fråga, en granskning, något oklart («Vad tycker du om startsidan?», «Granska före publicering», «Blåare knappar?») | Sajtagenten | Kostar inget bygge; agenten kan läsa koden och föreslå. |
+| En fråga eller en granskning («Vad tycker du om startsidan?», «Granska före publicering») | Sajtagenten | Kostar inget bygge; agenten läser koden och svarar. |
+| En artig eller kort ändringsbegäran («Kan du lägga till en karta?», «Blåare knappar») | Sajtagenten | Agenten avgör att det är en ändring och startar bygget själv, utan kort att godkänna (se Handlingsmedgivande nedan). |
 | En uttrycklig ändring («Byt rubriken till Välkommen», «Lägg till en kontaktsida») | Byggmotorn | Skapar en ny version direkt, som i dag. |
 | Första bygget, eller en ändring med bilaga, Figma-länk eller inspect-punkter | Byggmotorn | Där finns ingen agentväg. |
 | En artig begäran med bilaga («Kan du lägga in den här loggan i sidhuvudet?») | Byggmotorn | Bilagan följer bara byggmotorn, och ett ändringsverb direkt efter «kan du» gör texten till en beställning. |
@@ -20,8 +23,9 @@ sidan är den mentala modellen. Plan och status:
 Lägesväljaren Auto · Fråga · Bygg i komposern tvingar mottagaren. Läget gäller
 per chatt; en ny chatt börjar i Auto. Regeln bor i
 [`composer-route.ts`](../../src/lib/builder/composer-route.ts), och en etikett
-intill Skicka («Fråga – ändrar inget», «Ändring – skapar en ny version») visar
-samma beslut innan du skickar.
+intill Skicka («Fråga – ändrar inget», «Till Sajtagenten – kan ändra sajten»,
+«Ändring – skapar en ny version») visar samma beslut innan du skickar. Den
+lovar «ändrar inget» bara när agenten faktiskt inte får agera på texten.
 
 När byggmotorn väntar på svar på en motfråga eller plan hör svaret fortsatt
 till byggmotorn i Auto-läget. Välj Fråga uttryckligen för att diskutera med
@@ -79,35 +83,62 @@ Agenten svarar med text och högst ett `<openclaw-action>`-block per svar.
 Parsern i [`text-field-actions.ts`](../../src/lib/openclaw/text-field-actions.ts)
 är enda vägen in; allt den inte känner igen blir ett synligt «kunde inte tolkas».
 
-| Action | Vad händer | Grind |
+| Action | Vad händer | Körs direkt när |
 |---|---|---|
-| `read_files` | Klienten hämtar de begärda filerna (ägarverifierat) och skickar tillbaka dem som en intern `[Filinnehåll]`-tur; agenten svarar med koden framför sig. Högst 4 filer per runda, 3 rundor per fråga; hela turen ryms under chat-transportens tak per meddelande (stora filer klipps och markeras). | Ingen befogenhet krävs — läsning. |
-| `start_build` | Startar en byggtur genom builder-bryggan (samma `sendMessage` som Skicka-knappen). | Armerad autonomi och byggmedgivande för turen: körs direkt. Annars ett kort att godkänna. Medgivande ger bara en komplett ändringsorder (`start-build-consent.ts`, `composerAllowsAgentBuild`); sådana ordrar går i Auto direkt till byggmotorn, så från komposern blir `start_build` i praktiken ett kort. En artig begäran utan ändringsverb först («kan du lägga till en karta») går till agenten och blir ett förslag att godkänna. Servern skriver samma besked till modellen som `[BYGGMEDGIVANDE]`, så agenten aldrig lovar ett bygge som bara blir ett kort. |
-| `fill_text_field` | Fyller komposern med en föreslagen prompt. Med `submit:true` under ett armerat mandat skickas den också. | Kort att godkänna, eller mandat. |
-| `apply_quick_edit` | Exakta filoperationer genom Fast Edit Lane till en minor-version. | Snabbändringar beviljad + manuellt godkännande per förslag, alltid. |
-| `request_repair` | Startar den befintliga autofix-vägen på aktiva versionen. | Kort att godkänna. |
-| `start_bug_hunt` | Bekräftar ett mandat användaren själv armerat («gör 3 follow-ups och buggranska»). | Armerad autonomi. |
+| `read_files` | Klienten hämtar de begärda filerna (ägarverifierat) och skickar tillbaka dem som en intern `[Filinnehåll]`-tur; agenten svarar med koden framför sig. Högst 4 filer per runda, 3 rundor per fråga; hela turen ryms under chat-transportens tak per meddelande (stora filer klipps och markeras). | Alltid — läsning kräver ingen befogenhet. |
+| `start_build` | Startar en byggtur genom builder-bryggan (samma `sendMessage` som Skicka-knappen). | **Agerar direkt** är beviljad och turen bär handlingsmedgivande. |
+| `request_repair` | Startar den befintliga autofix-vägen på aktiva versionen. Bara på den senaste versionen. | **Agerar direkt** är beviljad och turen bär handlingsmedgivande. |
+| `apply_quick_edit` | Exakta filoperationer genom Fast Edit Lane till en minor-version, bundna till versionen modellen såg. | **Snabbändringar** är beviljad och turen bär handlingsmedgivande. |
+| `fill_text_field` | Fyller komposern med en föreslagen prompt. Med `submit:true` under ett armerat follow-up-mandat skickas den också. | Aldrig utan mandat: ett kort att godkänna. |
+| `start_bug_hunt` | Bekräftar ett mandat användaren själv armerat («gör 3 follow-ups och buggranska»). | **Agerar direkt** är beviljad. |
 
-Agenten skriver aldrig filer själv; varje ändring går genom builderns
-ordinarie pipeline (ägarbeslut 2026-08-14). Byggkommandon går via
+När en åtgärd inte körs direkt visas den som ett kort med en knapp — samma
+åtgärd, ett klick.
+
+### Handlingsmedgivande och uppdrag
+
+En regel avgör om en åtgärd körs direkt, och servern skriver samma besked till
+modellen som `[BYGGMEDGIVANDE]`, så agenten aldrig lovar något som bara blir
+ett kort ([`agent-action-consent.ts`](../../src/lib/openclaw/agent-action-consent.ts)).
+
+| Fråga | Svar |
+|---|---|
+| Vilka turer bär medgivande? | Det du skriver i läget Auto eller Bygg. Agenten avgör själv om texten är en ändring — «Kan du lägga till en karta?» räcker. |
+| Vilka gör det aldrig? | Läget Fråga, «ändra inget», ett stopp och text som öppnar med ett frågeord («Vad tycker du om startsidan?»): en fråga blir aldrig tyst ett bygge ([`composerAllowsAgentBuild`](../../src/lib/builder/composer-route.ts)). |
+| Hur långt får agenten gå? | Ett **uppdrag** = ditt meddelande. Högst tre automatiska åtgärder per uppdrag, och högst en per besvarad tur. Nästa åtgärd blir ett kort som säger varför. |
+| Får den fortsätta efter ett bygge? | Bara efter ett bygge den själv startade inom uppdraget: då säger `[Byggresultat]` att den får laga eller ta nästa uttalade steg. Efter ett bygge du själv beställde ger den bara ett besked. |
+| Hur stoppar jag? | Skriv «stopp», tryck Stoppa eller headerns Avbryt, eller välj Fråga. Alla återkallar medgivandet: inget mer körs förrän du ber om något nytt. |
+| Vad händer efter en omladdning? | Ingenting körs igen. Rader från historiken är kvitton utan knappar. |
+| Kan ett gammalt förslag köra i efterhand? | Nej. Beslutet fattas en gång, när kortet först visas. Ett förslag som visades med befogenheten av förblir ett förslag även om du slår på den igen. |
+
+Agenten har ingen egen skrivväg: varje ändring går genom builderns ordinarie
+pipeline eller Fast Edit Lane (ägarbeslut 2026-08-14), med samma creditgrind,
+versionsbindning och stale-base-skydd som när du gör den själv. Byggkommandon
+går via
 [`builder-bridge.ts`](../../src/lib/openclaw/builder-bridge.ts); DOM-ifyllning
 är fallback utanför buildern.
 
 ## Befogenheter
 
 `OC_EDIT` är env-grinden. Ovanpå den finns sköldknappen i komposern med tre
-befogenheter: **Armerad autonomi**, **Snabbändringar**, **Granskar sajten
-live**. En ny builderchatt utan persisterad grant får alla tre
-(`OPENCLAW_BUILDER_DEFAULT_POWERS`); sköldknappen stänger av per chatt och ett
-uttryckligt av-val respekteras. Läsning (`read_files`, manifest) är inte en
-befogenhet. Matrisen bor i [`powers.ts`](../../src/lib/openclaw/powers.ts).
+befogenheter: **Agerar direkt** (`armed_autonomy`: byggen, reparationer och
+armerade follow-up-serier), **Snabbändringar** och **Granskar sajten live**.
+En ny builderchatt utan persisterad grant får alla tre
+(`OPENCLAW_BUILDER_DEFAULT_POWERS`), och befintliga chattar med grant får det
+nya beteendet utan att göra något. Sköldknappen stänger av per chatt och ett
+uttryckligt av-val respekteras: utan den ger agenten bara råd och förslag.
+Läsning (`read_files`, manifest) är inte en befogenhet. Matrisen bor i
+[`powers.ts`](../../src/lib/openclaw/powers.ts).
 
 ## Efter ett bygge
 
 När en builder-tur når ett terminalt läge väcks agenten en gång med
 `[Byggresultat]` och svarar kort: vad som ändrades och ett nästa steg. Styrs av
-inställningen «Sajtagenten kommenterar efter varje bygge». Under ett armerat
-mandat äger continuation-slingan väckningen i stället
+inställningen «Sajtagenten kommenterar efter varje bygge». Startade agenten
+själv bygget inom ett uppdrag med steg kvar väcks den oavsett inställningen,
+och får då agera direkt: laga ett misslyckat bygge eller ta nästa uttalade
+steg ([`post-build-digest.ts`](../../src/lib/openclaw/post-build-digest.ts)).
+Under ett armerat mandat äger continuation-slingan väckningen i stället
 ([`armed-continuation.ts`](../../src/lib/openclaw/debug/armed-continuation.ts)).
 
 ## Vad som syns i chatten
@@ -116,7 +147,7 @@ mandat äger continuation-slingan väckningen i stället
 |---|---|
 | Din fråga och agentens svar | Vanliga rader med etiketten «Sajtagenten» / «Till Sajtagenten». |
 | `[Automatisk fortsättning]`, `[Automatisk väckning]`, `[Byggresultat]`, `[Filinnehåll]` | En kort statusrad — aldrig en användarbubbla. |
-| Förslag och byggkommandon | Kort med knappar (eller en kvittens när de kört automatiskt). |
+| Byggen, reparationer och småändringar | En kvittens när de kört direkt («Direktbygg», «Reparation», «Snabbändring»), annars ett kort med en knapp. |
 | Byggmotorns svar, kontroller och filer | Byggkortet som förut; detaljer under «Visa detaljer». |
 
 Agentens samtal persisteras i `agent_messages` per chatt

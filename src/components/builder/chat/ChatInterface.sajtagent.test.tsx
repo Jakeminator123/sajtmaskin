@@ -34,6 +34,11 @@ vi.mock("./sajtagent/SajtagentProvider", () => ({
 
 import { ChatInterface } from "./ChatInterface";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
+import {
+  hasMissionAwaitingResult,
+  markMissionAwaitingResult,
+  resetAgentMissionLedgerForTests,
+} from "@/lib/openclaw/agent-action-consent";
 import type { OpenClawSendOptions } from "@/components/openclaw/useOpenClawChat";
 
 function makeAgent(overrides: Partial<SajtagentContextValue> = {}): SajtagentContextValue {
@@ -52,7 +57,16 @@ function makeAgent(overrides: Partial<SajtagentContextValue> = {}): SajtagentCon
 
 afterEach(() => {
   sajtagent.value = null;
-  useOpenClawStore.setState({ messages: [], preparedFill: null, armedMandate: null, armedContinuation: null });
+  resetAgentMissionLedgerForTests();
+  useOpenClawStore.setState({
+    messages: [],
+    preparedFill: null,
+    armedMandate: null,
+    armedContinuation: null,
+    editEnabled: false,
+    powersOn: false,
+    grantedPowers: [],
+  });
   delete window.__SITEMASKIN_CONTEXT;
   try {
     sessionStorage.clear();
@@ -199,7 +213,9 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     await typeAndSend("Gör punkt två");
     expect(build).not.toHaveBeenCalled();
     const options = vi.mocked(agent.send).mock.calls[0]?.[1] as OpenClawSendOptions;
-    expect(options.allowBuild).toBe(false);
+    // Ägarbeslut 2026-11-20: «gör punkt två» är en beställning av just den
+    // punkten, så turen bär medgivande och agenten får bygga den direkt.
+    expect(options.allowBuild).toBe(true);
     expect(options.proposalReference).toEqual({ agentMessageId: "advice-1", selectedPart: "2",
       instruction: "Byt CTA till Boka rum", builderTarget: { chatId: "chat_1", versionId: "v1" } });
   });
@@ -249,6 +265,108 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
         (screen.getByRole("textbox", { name: "Skriv en uppdatering" }) as HTMLTextAreaElement).value,
       ).toBe(""),
     );
+  });
+
+  // Ägarbeslut 2026-11-20: agenten är orkestrator. En artig begäran når
+  // agenten med medgivande att agera direkt — den går varken tyst till
+  // byggmotorn eller fastnar bakom ett kort.
+  it.each([
+    "Kan du lägga till en karta på kontaktsidan?",
+    "Jag vill ha en rosa knapp i headern",
+  ])("skickar en artig begäran till Sajtagenten med handlingsmedgivande: %s", async (text) => {
+    act(() => {
+      useOpenClawStore.setState({ editEnabled: true, powersOn: true, grantedPowers: ["armed_autonomy"] });
+    });
+    const agent = makeAgent();
+    sajtagent.value = agent;
+    const onSendMessage = vi.fn();
+
+    render(<ChatInterface chatId="chat_1" onSendMessage={onSendMessage} />);
+    await typeAndSend(text);
+
+    expect(agent.send).toHaveBeenCalledWith(text, expect.objectContaining({ allowBuild: true, restrictBuild: false }));
+    expect(onSendMessage).not.toHaveBeenCalled();
+  });
+
+  it("säger före klicket om Sajtagenten kan ändra sajten på den här texten", () => {
+    sajtagent.value = makeAgent();
+    render(<ChatInterface chatId="chat_1" onSendMessage={vi.fn()} />);
+    const hint = () => screen.getByTestId("composer-route-hint");
+    const textarea = screen.getByRole("textbox", { name: "Skriv en uppdatering" });
+    const polite = "Kan du lägga till en karta på kontaktsidan?";
+
+    // Utan befogenhet: agenten kan bara svara.
+    fireEvent.change(textarea, { target: { value: polite } });
+    expect(hint().textContent).toContain("Fråga – ändrar inget");
+
+    act(() => {
+      useOpenClawStore.setState({ editEnabled: true, powersOn: true, grantedPowers: ["armed_autonomy"] });
+    });
+    expect(hint().textContent).toContain("Till Sajtagenten – kan ändra sajten");
+    expect(hint().textContent).not.toContain("ändrar inget");
+
+    // En fråga med frågeord bär aldrig medgivande, så löftet står kvar.
+    fireEvent.change(textarea, { target: { value: "Vad tycker du om startsidan?" } });
+    expect(hint().textContent).toContain("Fråga – ändrar inget");
+
+    // Läget Fråga ändrar aldrig något.
+    fireEvent.change(textarea, { target: { value: polite } });
+    fireEvent.click(screen.getByRole("radio", { name: "Fråga" }));
+    expect(hint().textContent).toContain("Fråga – ändrar inget");
+  });
+
+  it("återkallar uppdraget när man skriver stopp i Bygg-läget", async () => {
+    sajtagent.value = makeAgent();
+    const onSendMessage = vi.fn(async (_m: string, _o?: MessageOptions) => ({
+      status: "started" as const,
+      via: "stream" as const,
+    }));
+    render(<ChatInterface chatId="chat_1" onSendMessage={onSendMessage} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Bygg" }));
+    act(() => {
+      useOpenClawStore.setState({
+        messages: [{ id: "mission", role: "user", content: "Gör om kontaktsidan", timestamp: 1, allowBuild: true }],
+      });
+    });
+
+    // Stoppet står i andra meningen: routningen läser bara den första, men
+    // återkallandet räknar varje mening.
+    await typeAndSend("Det blev fel. Sluta!");
+
+    expect(useOpenClawStore.getState().messages[0].allowBuild).toBe(false);
+  });
+
+  it("släpper agentens väntan när användaren själv bygger från komposern", async () => {
+    const scopeKey = useOpenClawStore.getState().scopeKey;
+    markMissionAwaitingResult("mission", scopeKey);
+    expect(hasMissionAwaitingResult(scopeKey)).toBe(true);
+    sajtagent.value = makeAgent();
+    const onSendMessage = vi.fn(async (_m: string, _o?: MessageOptions) => ({
+      status: "started" as const,
+      via: "stream" as const,
+    }));
+    render(<ChatInterface chatId="chat_1" onSendMessage={onSendMessage} />);
+
+    await typeAndSend("Byt rubriken till Välkommen");
+
+    expect(onSendMessage).toHaveBeenCalledTimes(1);
+    expect(hasMissionAwaitingResult(scopeKey)).toBe(false);
+  });
+
+  it("återkallar ett pågående uppdrag redan när läget Fråga väljs", () => {
+    useOpenClawStore.setState({
+      armedMandate: { mode: "followups", remaining: 2, createdAt: 1, reason: "Explicit order" },
+      messages: [{ id: "mission", role: "user", content: "Gör om kontaktsidan", timestamp: 1, allowBuild: true }],
+    });
+    sajtagent.value = makeAgent();
+    render(<ChatInterface chatId="chat_1" onSendMessage={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("radio", { name: "Bygg" }));
+    expect(useOpenClawStore.getState().messages[0].allowBuild).toBe(true);
+
+    fireEvent.click(screen.getByRole("radio", { name: "Fråga" }));
+    expect(useOpenClawStore.getState().messages[0].allowBuild).toBe(false);
+    expect(useOpenClawStore.getState().armedMandate).toBeNull();
   });
 
   it("skickar en byggorder till byggmotorn", async () => {

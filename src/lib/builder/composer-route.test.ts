@@ -20,9 +20,10 @@ describe("autonomy mandate routing", () => {
     expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true, builderAwaitingReply: true })).toBe("agent");
     expect(createArmedMandate(parseArmingDirective(text)!).remaining).toBe(5);
     expect(isReadOnlyComposerRequest(text)).toBe(false);
-    // Routing does not grant the ordinary direct-build permission. The hook's
-    // explicitFollowupOrder + armedAutonomy gates still authorize a mandate.
-    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(false);
+    // The turn carries the agent's action consent like any other Auto turn.
+    // The follow-up mandate itself is still armed by the hook's
+    // explicitFollowupOrder + armedAutonomy gates, not by this flag.
+    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(true);
     expect(composerAllowsAgentBuild({ mode: "agent", text })).toBe(false);
   });
 
@@ -160,7 +161,8 @@ describe("isAgentProposalReference", () => {
     for (const object of ["det", "den", "detta"]) {
       const text = `Gör punkt 2: ${opener} ${object}`;
       expect(isAgentProposalReference(text)).toBe(true);
-      expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(false);
+      expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(true);
+      expect(composerAllowsAgentBuild({ mode: "agent", text })).toBe(false);
       expect(classifyComposerIntent(text)).toBe("agent");
       expect(resolveComposerRoute({ mode: "build", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("agent");
     }
@@ -184,7 +186,7 @@ describe("isAgentProposalReference", () => {
     "Gör punkt 2: byt rubriken enligt ditt förslag",
   ])("keeps an anaphoric colon suffix dependent on the actual advice: %s", text => {
     expect(isAgentProposalReference(text)).toBe(true);
-    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(false);
+    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(true);
     expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("agent");
   });
 
@@ -194,7 +196,7 @@ describe("isAgentProposalReference", () => {
     "Gör punkt två men behåll något annat", "Gör enligt ditt förslag och något mer",
   ])("recognizes unresolved reference intent before build routing: %s", text => {
     expect(isAgentProposalReference(text)).toBe(true);
-    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(false);
+    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(true);
     for (const mode of ["auto", "build", "agent"] as const) {
       expect(resolveComposerRoute({ mode, text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("agent");
       expect(resolveComposerRoute({ mode, text, hasChat: true, hasAttachments: false, agentAvailable: false, agentConfigured: true })).toBe("blocked");
@@ -237,33 +239,66 @@ describe("composerAllowsAgentBuild", () => {
     ).toBe(true);
   });
 
-  it.each(["auto", "build", "agent"] as const)("nekar fråga, negation, referens och osäker text i %s", (mode) => {
-    for (const text of ["Vad tycker du?", "Ändra inget", "Bygg inte", "Gör punkt två", "Apply suggestion 2", "Blåare knappar", ""]) {
-      expect(composerAllowsAgentBuild({ mode, text })).toBe(false);
-    }
-  });
+  // Ägarbeslut 2026-11-20: agenten är orkestrator och avgör själv om en text är
+  // en ändring. Medgivandet nekas bara där ett bygge säkert vore fel.
+  it.each(["auto", "build", "agent"] as const)(
+    "nekar frågeord, negation, stopp och tom text i %s",
+    (mode) => {
+      for (const text of [
+        "Vad tycker du?",
+        "Hur ser kontaktsidan ut på mobil?",
+        "Varför är rubriken så liten",
+        "Kan du förklara vad hero-sektionen gör",
+        "Tycker du att färgerna passar",
+        "Borde jag ha en kontaktsida",
+        "Ändra inget",
+        "Bygg inte",
+        "Stopp!",
+        "",
+        "   ",
+      ]) {
+        expect(composerAllowsAgentBuild({ mode, text })).toBe(false);
+      }
+    },
+  );
 
-  // En artig begäran utan ett uttryckligt ändringsverb i början är oklar. Den
-  // går till agenten, som lägger ett byggförslag att godkänna; den startar
-  // aldrig ett bygge av sig själv och går aldrig direkt till byggmotorn.
-  // Två försök med deterministiska regler för artiga begäranden släppte
-  // igenom granskningar, offerter och tvekan (oberoende review av PR 1711).
+  // En artig begäran utan ett uttryckligt ändringsverb i början är oklar för
+  // de deterministiska reglerna och går därför till agenten. Två försök att
+  // låta regler avgöra om den är en beställning släppte igenom granskningar,
+  // offerter och tvekan (oberoende review av PR 1711). Sedan 2026-11-20 avgör
+  // agenten det själv: turen bär medgivande, och agenten lägger bara ett
+  // action-block när texten faktiskt ber om en ändring.
   it.each([
     "kan du lägga till en karta på kontaktsidan",
+    "Kan du lägga till en karta på kontaktsidan?",
     "Kan du göra hero-sektionen mörkare",
     "jag vill ha en rosa knapp i headern",
     "Jag vill att rubriken blir större",
     "Kan vi få en mörkare header",
     "I'd like a bigger logo",
+    "Blåare knappar",
+    "Kan du göra punkt 2",
+    "Kan du göra enligt ditt förslag",
+    "Jag vill att du gör punkt 2",
+    "Gör punkt två",
+    "Apply suggestion 2",
+  ])("en artig eller oklar ändringsbegäran går till agenten med medgivande: %s", (text) => {
+    expect(classifyComposerIntent(text)).not.toBe("build");
+    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(true);
+    expect(composerAllowsAgentBuild({ mode: "agent", text })).toBe(false);
+    expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("agent");
+  });
+
+  // Dessa är inga beställningar, men det avgör inte längre en regel: de når
+  // agenten, aldrig byggmotorn, och agenten svarar i text. Det som låses här
+  // är routningen — att ingen av dem blir ett bygge på egen hand.
+  it.each([
     "Kan du göra en granskning av sajten",
     "Jag vill att du granskar sajten",
     "Kan jag få veta vad det kostar",
     "I want to know how to publish",
     "Jag vill ha det som det är",
     "I'd like nothing changed",
-    "Kan du göra punkt 2",
-    "Kan du göra enligt ditt förslag",
-    "Jag vill att du gör punkt 2",
     "Kan du lägga till en karta, men vänta lite",
     "Jag vill att du slutar",
     "Kan jag få en sammanfattning av ändringarna",
@@ -279,9 +314,9 @@ describe("composerAllowsAgentBuild", () => {
     "Jag vill att sajten ska vara klar till fredag",
     "Kan du göra en sammanfattning för mina användare",
     "Kan du skapa en plan för sajten",
-  ])("en artig eller oklar begäran går till agenten utan byggmedgivande: %s", (text) => {
+  ])("en oklar text som inte är en beställning går till agenten, aldrig direkt till byggmotorn: %s", (text) => {
     expect(classifyComposerIntent(text)).not.toBe("build");
-    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(false);
+    expect(composerAllowsAgentBuild({ mode: "agent", text })).toBe(false);
     expect(resolveComposerRoute({ mode: "auto", text, hasChat: true, hasAttachments: false, agentAvailable: true })).toBe("agent");
   });
 
@@ -541,6 +576,31 @@ describe("describeComposerDecision", () => {
       tone: "build",
       label: "Ändring – skapar en ny version",
     });
+  });
+
+  // Oberoende granskning av #1760: när agenten får agera på turen får
+  // etiketten inte lova «ändrar inget» strax innan ett bygge startar.
+  it("lovar inte «ändrar inget» när Sajtagenten får agera på turen", () => {
+    const polite = "Kan du lägga till en karta på kontaktsidan?";
+    const decision = resolveComposerDecision({ ...base, text: polite });
+    expect(decision.route).toBe("agent");
+    const acting = describeComposerDecision(decision, { mode: "auto", hasChat: true, agentCanAct: true });
+    expect(acting).toMatchObject({ tone: "agent", label: "Till Sajtagenten – kan ändra sajten" });
+    expect(acting.hint).toContain("gör den ändringen direkt");
+    expect(acting.label).not.toContain("ändrar inget");
+
+    // Utan befogenhet eller medgivande är beskedet det gamla och sant.
+    expect(describeComposerDecision(decision, { mode: "auto", hasChat: true })).toMatchObject({
+      label: "Fråga – ändrar inget",
+    });
+    expect(
+      describeComposerDecision(decision, { mode: "auto", hasChat: true, agentCanAct: false }).label,
+    ).toBe("Fråga – ändrar inget");
+    // Läget Fråga ändrar aldrig något, vad anroparen än påstår.
+    const forced = resolveComposerDecision({ ...base, mode: "agent", text: polite });
+    expect(
+      describeComposerDecision(forced, { mode: "agent", hasChat: true, agentCanAct: true }).label,
+    ).toBe("Fråga – ändrar inget");
   });
 
   it("följer samma beslut som utskicket i tvingat läge", () => {
