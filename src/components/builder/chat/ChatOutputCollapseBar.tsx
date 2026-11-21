@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronUp, Loader2, Minus } from "lucide-react";
+import { Box, ChevronDown, ChevronUp, Loader2, Minus } from "lucide-react";
 import type { PointerEventHandler } from "react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +24,8 @@ interface ChatOutputCollapseBarProps {
   onDragHandlePointerCancel?: PointerEventHandler<HTMLDivElement>;
   /** Flytande läge: fäller ihop hela kortet till en liten knapp. */
   onMinimize?: () => void;
+  /** Byter chattpanelen mot byggkuben. Bara på stora skärmar (lg+). */
+  onOpenCube?: () => void;
 }
 
 function formatMessageCount(count: number): string {
@@ -47,6 +49,7 @@ export function ChatOutputCollapseBar({
   onDragHandlePointerUp,
   onDragHandlePointerCancel,
   onMinimize,
+  onOpenCube,
 }: ChatOutputCollapseBarProps) {
   const Chevron = isCollapsed ? ChevronUp : ChevronDown;
   const countLabel = formatMessageCount(messageCount);
@@ -98,6 +101,21 @@ export function ChatOutputCollapseBar({
       ) : statusText ? (
         <span className="ml-auto truncate">{statusText}</span>
       ) : null}
+      {onOpenCube ? (
+        <button
+          type="button"
+          onClick={onOpenCube}
+          onPointerDown={(event) => event.stopPropagation()}
+          aria-label="Öppna byggkuben"
+          title="Byggkuben: chatt, svar, bygglogg, verktyg, avatar och sajtkarta i en flyttbar panel"
+          className={cn(
+            "hover:text-foreground hover:bg-muted/50 focus-visible:ring-ring hidden size-6 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none lg:inline-flex",
+            !isStreaming && !statusText && "ml-auto",
+          )}
+        >
+          <Box className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      ) : null}
       {onMinimize ? (
         <button
           type="button"
@@ -107,7 +125,8 @@ export function ChatOutputCollapseBar({
           title="Fäll ihop inmatningen så att sajten syns"
           className={cn(
             "hover:text-foreground hover:bg-muted/50 focus-visible:ring-ring inline-flex size-6 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none",
-            !isStreaming && !statusText && "ml-auto",
+            // Kubknappen före den här bär redan `ml-auto` på stora skärmar.
+            !isStreaming && !statusText && (onOpenCube ? "max-lg:ml-auto" : "ml-auto"),
           )}
         >
           <Minus className="h-3.5 w-3.5" aria-hidden="true" />
