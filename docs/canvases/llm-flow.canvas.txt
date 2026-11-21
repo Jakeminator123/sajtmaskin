@@ -63,16 +63,16 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "eae9245cd",
-    "commitDate": "2026-11-20",
+    "commit": "b03cc3b69",
+    "commitDate": "2026-11-21",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
     "openP1": 5,
-    "openP2": 11,
-    "openP3": 19,
+    "openP2": 10,
+    "openP3": 21,
     "blocked": 1,
     "shaky": 6,
     "evalExactHitPct": null
@@ -134,17 +134,17 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 4,
+      "openBugs": 5,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
         "P2": 1,
-        "P3": 3,
+        "P3": 4,
         "other": 0
       },
       "churn": 4,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
-      "note": "4 oppna backlog-rader (P0:0 P1:0 P2:1 P3:3)"
+      "note": "5 oppna backlog-rader (P0:0 P1:0 P2:1 P3:4)"
     },
     {
       "name": "Scaffolds: titta & justera",
@@ -189,8 +189,8 @@ const DATA: CanvasData = {
       "openByPrio": {
         "P0": 0,
         "P1": 5,
-        "P2": 10,
-        "P3": 14,
+        "P2": 9,
+        "P3": 15,
         "other": 0
       },
       "churn": 5,
@@ -226,7 +226,7 @@ const DATA: CanvasData = {
       "name": "ai_models",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "4 oppna backlog-rader (P0:0 P1:0 P2:1 P3:3)"
+      "reason": "5 oppna backlog-rader (P0:0 P1:0 P2:1 P3:4)"
     },
     {
       "name": "Codegen core",
@@ -321,7 +321,7 @@ const DATA: CanvasData = {
       "fynd": "`SM-105` Oautentiserad konversationsendpoint kunde skicka leadmejl till fasta mottagare. Svärm 2026-11-03 `A9…"
     }
   ],
-  "topOpenRisksOmitted": 4,
+  "topOpenRisksOmitted": 3,
   "evals": null,
   "phases": [
     "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",

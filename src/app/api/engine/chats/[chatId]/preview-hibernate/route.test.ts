@@ -137,7 +137,7 @@ describe("POST preview-hibernate", () => {
     });
   });
 
-  it("does not let a stale pagehide from lifecycle N hibernate lifecycle N+1", async () => {
+  it("does not let a stale hibernate from lifecycle N hibernate lifecycle N+1", async () => {
     getActivePreviewSessionAsync.mockResolvedValue({
       previewSessionId: "ps1",
       previewUrl: "https://preview.example",
