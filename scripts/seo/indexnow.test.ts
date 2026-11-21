@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import {
   INDEXNOW_KEY,
   INDEXNOW_KEY_URL,
-  indexNowPayload,
   sitemapUrls,
   submitIndexNow,
 } from "./indexnow.mjs";
@@ -41,8 +40,15 @@ describe("indexnow", () => {
     expect(result.submitted).toBe(2);
     const post = calls.find((call) => call.init?.method === "POST");
     expect(post?.url).toBe("https://api.indexnow.org/indexnow");
-    expect(JSON.parse(String(post?.init?.body))).toEqual(
-      indexNowPayload(["https://sajtmaskin.se", "https://sajtmaskin.se/priser"]),
+    // Field names are spelled out here because IndexNow rejects any other spelling.
+    expect(JSON.parse(String(post?.init?.body))).toEqual({
+      host: "sajtmaskin.se",
+      key: "ea26d3db1b0e560f960e899258a2589d",
+      keyLocation: "https://sajtmaskin.se/ea26d3db1b0e560f960e899258a2589d.txt",
+      urlList: ["https://sajtmaskin.se", "https://sajtmaskin.se/priser"],
+    });
+    expect(new Headers(post?.init?.headers).get("content-type")).toBe(
+      "application/json; charset=utf-8",
     );
   });
 

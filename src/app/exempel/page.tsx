@@ -7,7 +7,7 @@ import { publicIndexRobots } from "@/lib/public-canonical-url";
 export const metadata: Metadata = {
   title: "Exempel på hemsidor",
   description:
-    "Tio exempel på hemsidor från Sajtmaskin, bland dem DG97 Kontorsguiden, Scout Gaming och Palma. Egna projekt och rekonstruktioner, inte kundomdömen.",
+    "Tio exempel på hemsidor: egna projekt som DG97 Kontorsguiden och Scout Gaming samt rekonstruktioner som Palma. Inte kundomdömen och inte exakt output.",
   alternates: { canonical: EXEMPEL_CANONICAL_URL },
   robots: publicIndexRobots(),
   openGraph: {

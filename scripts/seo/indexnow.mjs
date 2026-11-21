@@ -24,7 +24,7 @@ export function sitemapUrls(xml, host = INDEXNOW_HOST) {
   });
 }
 
-export function indexNowPayload(urlList) {
+function indexNowPayload(urlList) {
   return { host: INDEXNOW_HOST, key: INDEXNOW_KEY, keyLocation: INDEXNOW_KEY_URL, urlList };
 }
 
