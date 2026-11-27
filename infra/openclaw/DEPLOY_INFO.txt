@@ -9,8 +9,9 @@ Purpose and architecture
   to the gateway over HTTPS with a shared Bearer token.
 - The public product remains Sajtagenten. Fast/balanced/strong are internal
   OpenClaw agent targets selected by server-owned routing.
-- Dockerfile pins OpenClaw 2026.7.1-2. Upgrade the pin only in a dedicated PR
-  with config tests and a Render smoke test; never use latest in production.
+- Dockerfile pins OpenClaw 2026.10.34 and Node 24.22.1. The OpenClaw release
+  adds GPT-6.2 Astra and Sol support on the OpenAI Responses route.
+  https://github.com/openclaw/openclaw/releases/tag/v2026.10.34
 
 
 Repo paths
@@ -58,26 +59,33 @@ Committed safe defaults in render.yaml:
 - OPENCLAW_GATEWAY_PORT=10000
 - OPENCLAW_GATEWAY_BIND=lan
 - OPENCLAW_HEARTBEAT_EVERY=0m
-- OPENCLAW_MODEL_PRIMARY=openai/gpt-5.6-sol
-- OPENCLAW_MODEL_FALLBACK=openai/gpt-5.6-terra,openai/gpt-5.5
-- OPENCLAW_MODEL_BALANCED=openai/gpt-5.6-terra
+- OPENCLAW_MODEL_PRIMARY=openai/gpt-6.2-astra
+- OPENCLAW_MODEL_FALLBACK=openai/gpt-6.2-sol,openai/gpt-5.6-sol,openai/gpt-5.5
+- OPENCLAW_MODEL_BALANCED=openai/gpt-6.2-sol
 - OPENCLAW_MODEL_BALANCED_FALLBACK=openai/gpt-5.6-sol,openai/gpt-5.5
-- OPENCLAW_MODEL_FAST=openai/gpt-5.6-luna
+- OPENCLAW_MODEL_FAST=openai/gpt-6.2-sol
 - OPENCLAW_MODEL_FAST_FALLBACK=openai/gpt-5.6-terra,openai/gpt-5.5
 
 The config generator validates URL/model envs, JSON-serializes all values and
 writes /root/.openclaw/openclaw.json with mode 0600. Never build JSON via shell
 interpolation. Heartbeat stays off until a real delivery channel exists.
+Nonempty Render Environment values override the generator defaults. A Blueprint
+sync can apply the YAML values to a connected service. Paste only each value,
+without quotes or the key prefix. Keep the existing OPENAI_API_KEY and gateway
+token in their current environment variables.
 
 
 Internal agents
 ---------------
-- openclaw:sajtagenten          strong/default, Sol + high thinking
-- openclaw:sajtagenten-balanced balanced, Terra + medium thinking
-- openclaw:sajtagenten-fast     fast, Luna + low thinking
+- openclaw:sajtagenten          strong, GPT-6.2 Astra + high thinking
+- openclaw:sajtagenten-balanced balanced, GPT-6.2 Sol + medium thinking
+- openclaw:sajtagenten-fast     fast, GPT-6.2 Sol + low thinking
 
 Each target has its own agent directory, explicit model/fallback chain, empty
-skills list and tools.profile=minimal. OpenClaw bootstrap generation is off.
+skills list and the same explicit tool policy as the gateway. OpenClaw bootstrap generation is off.
+The fast primary is also the utility model with low thinking. OpenAI entries
+use the built-in OpenClaw runtime. The keyed agent roster preserves the old
+agent IDs and paths, with sajtagenten as system-agent and heartbeat owner.
 Session maintenance is enforced: pruneAfter 14d, maxEntries 500,
 resetArchiveRetention 7d, maxDiskBytes 512mb and highWaterBytes 400mb.
 
@@ -104,19 +112,49 @@ OpenClaw. OPENCLAW_GATEWAY_URL must never point to the app itself; that creates
 a self-proxy loop. No D-ID Studio env changes are needed.
 
 
-Rollout order
--------------
-1. Merge/deploy Render with the model envs above.
-2. Confirm GET <gateway>/health = 200 and authenticated GET <gateway>/v1/models
-   lists openclaw/sajtagenten, openclaw/sajtagenten-balanced and
-   openclaw/sajtagenten-fast.
-3. Deploy Vercel while OPENCLAW_MODEL_ROUTING_ENABLED is false/unset.
-4. Confirm GET <app>/api/openclaw/health has status=ok and readiness=ready.
-5. Set OPENCLAW_MODEL_ROUTING_ENABLED=true on Vercel, redeploy, and confirm
-   readiness=ready with all three requiredAgentIds.
-6. Run one tips question, one normal Sajtagenten question, one review/debug
-   question and one D-ID/avatar question. Logs show lane + agent, never model
-   provider secrets.
+Rollout order from 2026.7.1-2
+----------------------------
+1. Before promotion to master, record the live Render deploy ID and the six
+   effective model values. Check project access to GPT-6.2 Astra and Sol with
+   the existing Render OpenAI key using GET /v1/models/<model-id>. Confirm the
+   fallback models are available to that project too.
+2. Schedule the deploy window and verify a recoverable pre-upgrade backup of
+   /root/.openclaw. The disk holds SQLite and other agent state. Keep a
+   consistent backup with the gateway stopped or use its supported backup
+   procedure. Render disk snapshots are daily, retained seven days, and
+   restore the whole disk. Keep the backup private and rehearse migration on
+   an isolated compatible copy before mounting the live disk on the new build.
+   If OpenClaw reports retired formats requiring an intermediate release, use
+   the documented 2026.9.5 bridge on the copy and follow its Doctor instructions.
+   https://render.com/docs/disks#disk-snapshots
+   https://github.com/openclaw/openclaw/blob/v2026.10.34/docs/install/updating.md#upgrading-very-old-versions
+3. In Render → openclaw-sajtagenten → Environment update the six values above
+   and choose Save only shortly before the reviewed upgrade deploy. Coordinate
+   with master promotion or disable auto-deploy during the window, because the
+   next deploy consumes these values. Promote the new Dockerfile and deploy
+   that commit. Save and deploy would reuse the existing build.
+   https://render.com/docs/configure-environment-variables
+4. Wait for the upgraded deploy to go live. Check the version and primaries in
+   boot logs, GET <gateway>/health and /startupz = 200, and authenticated GET /v1/models
+   listing openclaw/sajtagenten, openclaw/sajtagenten-balanced and
+   openclaw/sajtagenten-fast. Confirm GET <app>/api/openclaw/health has
+   readiness=ready and all three requiredAgentIds when routing is enabled.
+5. Verify one tips question, one normal Sajtagenten question, one review/debug
+   question and one D-ID/avatar question in the approved smoke test. Confirm
+   actual provider model and auth route as well as the agent ID. If agent auth
+   requires a saved OpenAI API-key profile, reuse the existing key via protected
+   stdin with openclaw models auth paste-api-key --provider openai and verify
+   the profile selected by each agent. Keep device approval and minimal tools.
+   https://github.com/openclaw/openclaw/blob/v2026.10.34/docs/cli/models.md#auth-profiles
+
+For a model-only rollback, restore the previous six env values and redeploy
+the verified compatible build. A Dashboard deploy rollback uses that deploy's
+saved env values for the rollback instance. Restore the saved service env
+values separately for future standard deploys. The persistent disk is shared
+across deploys. If the schema was migrated, restore a compatible backup while
+the gateway is stopped before starting the older version. This recovery can
+discard newer session data and requires the operator's approval.
+https://render.com/docs/rollbacks#whats-rolled-back
 
 
 Health semantics
@@ -165,14 +203,18 @@ Common failures
 The app retries exactly one failure class during rolling deploys: HTTP 400
 "Unknown agent" for fast/balanced is retried once against sajtagenten. Auth,
 quota, network and generic upstream failures are not retried.
+Provider model fallbacks share the OpenAI credential route. An invalid OpenAI
+key can fail the entire chain. Check provider access and gateway token auth
+separately when investigating a 401.
 
 
 Security and incident handoff
 -----------------------------
 - Never commit or log keys/tokens.
 - Device auth remains enabled.
-- tools.profile=minimal and skills=[] prevent the public chat surface from
-  receiving filesystem, shell, browser, messaging or subagent tools.
+- The global and per-agent policies allow session_status and deny gateway and
+  presence. The explicit allowlist preserves the pre-upgrade tool set even if
+  upstream adds tools to its minimal profile. Builder actions are app-owned.
 - Client-supplied system roles are rejected. Tips file context is rebuilt only
   after tenant ownership is verified. D-ID sends bounded explicit history and
   does not also create a client-controlled persistent OpenClaw session.
