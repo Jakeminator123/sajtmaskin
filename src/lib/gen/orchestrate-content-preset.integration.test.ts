@@ -222,6 +222,8 @@ describe("content subjects from Byggval through brief and generation", () => {
     ["Build an app with login and a form that sends submissions to my email", true, true],
     ["Build an app with login, then a form that sends submissions to my email", true, true],
     ["Build an app with login, a separate form that sends submissions to my email", true, true],
+    ["Build an app with login, add a form that sends submissions to my email", true, true],
+    ["Bygg en app med inloggning, lägg till ett formulär som skickar svar till min e-post", true, true],
     ["Build an app with login then a form that sends submissions to my email", true, true],
     ["Bygg en app med inloggning, sedan ett formulär som skickar svar till min e-post", true, true],
     ["Bygg en app med inloggning och ett formulär som skickar svar till min e-post", true, true],

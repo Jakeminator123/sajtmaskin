@@ -39,6 +39,19 @@ const EXPLICIT_ADD_ROUTE_PATTERNS = [
   /\b(?:ny\s+)(?:sida|route)\b/i,
 ];
 
+const SUBJECT_COORDINATOR = uWord(String.raw`(?:and|och|samt|plus|then|sedan)`);
+const SUBJECT_CLAUSE_BOUNDARY = String.raw`(?:[,.;!?\n&+]|${SUBJECT_COORDINATOR})`;
+const SUBJECT_CLAUSE_BOUNDARY_RE = new RegExp(SUBJECT_CLAUSE_BOUNDARY, "iu");
+const SUBJECT_EDIT_CLAUSE_RE = new RegExp(
+  String.raw`(?:^|${SUBJECT_CLAUSE_BOUNDARY})\s*(?:(?:please|also)\s+)?` +
+  uWord(String.raw`(?:polish|edit|update|improve|rewrite|redesign|adjust|change|putsa|redigera|ändra|uppdatera|förbättra)`),
+  "iu",
+);
+const SUBJECT_ADDITION_LIST_TAIL_RE = new RegExp(
+  String.raw`(?:,\s*(?:${SUBJECT_COORDINATOR}\s+)?|${SUBJECT_COORDINATOR}\s+|[&+]\s*)(?:(?:an?|en|ett)\s+)?$`,
+  "iu",
+);
+
 const PAGE_NOUN = String.raw`(?:sidor|sida|pages?|routes?|vyer?|views?)`;
 const PAGE_NOUN_PLURAL = String.raw`(?:sidor|pages|routes|vyer|views)`;
 const PAGE_NOUN_SINGULAR = String.raw`(?:sidan?|pages?|routes?|vyer?|views?)`;
@@ -575,10 +588,10 @@ export function extractExplicitNamedPages(
     while (subject && out.length < MAX_NAMED_PAGES_FROM_LIST) {
       // An edit target elsewhere in the prompt is not a new route. A bare
       // coordinated page can inherit the immediately preceding addition.
-      const clausePrefix = subject.before.split(/[,.;!?\n]|\b(?:and|och|samt|then|sedan)\b/iu).at(-1) ?? "";
-      const interveningEdit = /(?:^|[,.;!?]|\b(?:and|och|then|sedan)\b)\s*(?:(?:please|also)\s+)?(?:polish|edit|update|improve|rewrite|redesign|adjust|change|putsa|redigera|ändra|uppdatera|förbättra)(?![\p{L}\p{N}_])/iu.test(subject.before);
+      const clausePrefix = subject.before.split(SUBJECT_CLAUSE_BOUNDARY_RE).at(-1) ?? "";
+      const interveningEdit = SUBJECT_EDIT_CLAUSE_RE.test(subject.before);
       const continuesAdditionList: boolean = previousSubjectWasAddition &&
-        /(?:,\s*(?:(?:and|och|samt)\s+)?|(?:and|och|samt|plus|&|\+)\s+)(?:(?:an?|en|ett)\s+)?$/iu.test(subject.before) &&
+        SUBJECT_ADDITION_LIST_TAIL_RE.test(subject.before) &&
         !interveningEdit;
       const isAddition: boolean = hasExplicitAddRouteIntent(clausePrefix + subject.intro) || continuesAdditionList;
       if (isAddition) {

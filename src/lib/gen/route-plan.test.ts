@@ -90,6 +90,24 @@ describe("buildRoutePlan", () => {
     expect(plan.routes.map((route) => route.path)).toEqual(["/", addedPath]);
   });
 
+  it.each(["and", "then", "plus", "&", "+"])("ends an addition list before %s edit", (connector) => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: `Add a page about bears with photos ${connector} edit the header and a page about owls`,
+      generationMode: "followUp", existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(["/", "/bears"]);
+  });
+
+  it.each(["och", "samt", "sedan"])("ends an addition list before %s uppdatera", (connector) => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: `Lägg till en sida om björnar med foton ${connector} uppdatera sidhuvudet och en sida om ugglor`,
+      generationMode: "followUp", existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(["/", "/bjornar"]);
+  });
+
   it("keeps existing routes for a follow-up copy edit about a company page", () => {
     const plan = buildRoutePlan({
       ...websiteBase, prompt: "Polish the page about our company", generationMode: "followUp", existingRoutePaths: ["/"],
