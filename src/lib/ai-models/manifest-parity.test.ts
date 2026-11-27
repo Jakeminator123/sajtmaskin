@@ -337,10 +337,10 @@ describe("config/ai_models/manifest.json parity", () => {
     const m = getAiModelsManifest();
     const liveReview = m.workloads.find((w) => w.id === "live_review");
     expect(liveReview?.invocation).toBe("ai_generateObject");
-    expect(liveReview?.defaultModel).toBe("gpt-6.1-terra");
+    expect(liveReview?.defaultModel).toBe("gpt-6.2-sol");
     expect(liveReview?.reasoningEffort).toBe("medium");
     expect(liveReview?.fallbackModels).toBeUndefined();
-    expect(liveReview?.visionModels).toEqual(["gpt-6.1-terra", "gpt-6.2-sol"]);
+    expect(liveReview?.visionModels).toEqual(["gpt-6.2-sol", "gpt-6.2-astra"]);
     expect(liveReview?.visionModels).not.toContain("gpt-4o");
     expect(liveReview?.codeEntry).toContain("src/lib/gen/verify/live-review.ts");
   });

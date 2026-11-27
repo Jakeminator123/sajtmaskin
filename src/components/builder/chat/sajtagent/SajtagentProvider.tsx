@@ -78,6 +78,8 @@ export function useSajtagent(): SajtagentContextValue | null {
 
 export interface SajtagentProviderProps {
   chatId: string | null;
+  lastBuilderMessageId?: string | null;
+  builderMessageCount?: number;
   activeVersionId: string | null;
   activeVersionStatus: string | null;
   activeVersionIsLatest: boolean;
@@ -98,6 +100,8 @@ type HealthResponse = {
 
 export function SajtagentProvider({
   chatId,
+  lastBuilderMessageId,
+  builderMessageCount,
   activeVersionId,
   activeVersionStatus,
   activeVersionIsLatest,
@@ -231,6 +235,10 @@ export function SajtagentProvider({
       await chatSend(text, {
         ...options,
         builderChatId: chatAtSend ?? undefined,
+        builderAnchor: chatId === chatAtSend && typeof builderMessageCount === "number" &&
+          (lastBuilderMessageId || builderMessageCount === 0)
+          ? { messageId: lastBuilderMessageId ?? null, position: builderMessageCount }
+          : undefined,
         fastMode,
         onFastModeUnavailable: fastMode && chatAtSend ? () => {
           updateFastChat(chatAtSend, false);
@@ -243,7 +251,7 @@ export function SajtagentProvider({
         },
       });
     },
-    [chatSend, fastModeReady, fastChats, updateFastChat],
+    [chatSend, chatId, lastBuilderMessageId, builderMessageCount, fastModeReady, fastChats, updateFastChat],
   );
 
   useOpenClawArmedContinuation(send);

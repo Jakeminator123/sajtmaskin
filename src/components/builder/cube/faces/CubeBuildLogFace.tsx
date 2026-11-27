@@ -11,27 +11,52 @@
  * admin, alla andra ser läge och filer.
  */
 
-import { Fragment, useMemo } from "react";
+import { useMemo } from "react";
 import { AlertTriangle, CheckCircle2, FileCode2, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { toAIElementsFormat, type MessagePart } from "@/lib/builder/message-adapter";
 import type { ChatMessage } from "@/lib/builder/types";
-import { cn } from "@/lib/utils";
 import { parseGenerationContent } from "../../chat/generation-content";
+import { reconcileCanonicalPreviewParts } from "../../chat/generation-surface-state";
 import { buildAgentLogItems, getActiveAgentLogLabel } from "../../chat/tooling/agent-log";
-import { groupAgentLogItems } from "../../chat/tooling/agent-log-groups";
+import { AgentWorkLog } from "../../chat/tooling/AgentWorkLog";
 import type { ToolPart } from "../../chat/tooling/types";
+
+export type BuildLogPreview = Pick<
+  Parameters<typeof reconcileCanonicalPreviewParts>[1], "chatId" | "versionId" | "canonical" | "previewVisible"
+>;
 
 export interface CubeBuildLogFaceProps {
   messages: ReadonlyArray<ChatMessage>;
   /** En byggström pågår i chatten. */
   isStreaming: boolean;
+  selectedMessageId?: string | null;
+  preview?: BuildLogPreview;
+  onShowLatest?: () => void;
 }
 
-interface LatestBuild {
+interface BuildLog {
+  id: string;
   toolParts: ToolPart[];
   content: string;
   isStreaming: boolean;
+}
+
+function buildLogFor(message: ChatMessage, preview?: BuildLogPreview, chatStreaming = false): BuildLog {
+  const formatted = toAIElementsFormat(message);
+  const rawToolParts = formatted.parts.filter(
+    (part): part is Extract<MessagePart, { type: "tool" }> => part.type === "tool",
+  );
+  const content = formatted.parts
+    .filter((part): part is Extract<MessagePart, { type: "text" }> => part.type === "text")
+    .map((part) => part.text)
+    .join("\n");
+  const isStreaming = Boolean(message.isStreaming);
+  // As in the answers face, only the current message can inherit its version's terminal verdict.
+  const toolParts = preview ? reconcileCanonicalPreviewParts(rawToolParts, {
+    ...preview, messageId: message.id, isCurrentTurn: true, isStreaming: isStreaming || chatStreaming,
+  }) : rawToolParts;
+  return { id: message.id, toolParts, content, isStreaming };
 }
 
 /**
@@ -43,57 +68,64 @@ interface LatestBuild {
  * eller plan bär dessutom `tool:awaiting-input`. Ett sådant svar är inget
  * bygge och får inte rapporteras som «klart, 0 filer» — då gäller bygget före.
  */
-export function selectLatestBuild(messages: ReadonlyArray<ChatMessage>): LatestBuild | null {
+export function selectLatestBuild(
+  messages: ReadonlyArray<ChatMessage>, preview?: BuildLogPreview, chatStreaming = false,
+): BuildLog | null {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
     if (message.role !== "assistant") continue;
-    const formatted = toAIElementsFormat(message);
-    const toolParts = formatted.parts.filter(
-      (part): part is Extract<MessagePart, { type: "tool" }> => part.type === "tool",
-    );
-    const content = formatted.parts
-      .filter((part): part is Extract<MessagePart, { type: "text" }> => part.type === "text")
-      .map((part) => part.text)
-      .join("\n");
-    const isStreaming = Boolean(message.isStreaming);
-    const isBuild =
-      isStreaming ||
-      parseGenerationContent(content).files.length > 0 ||
-      toolParts.some((part) => part.tool.state === "output-error");
-    if (!isBuild) continue;
-    return { toolParts, content, isStreaming };
+    const log = buildLogFor(message, index === messages.length - 1 ? preview : undefined, chatStreaming);
+    if (
+      log.isStreaming ||
+      parseGenerationContent(log.content).files.length > 0 ||
+      log.toolParts.some((part) => part.tool.state === "output-error")
+    ) return log;
   }
   return null;
 }
 
-export function CubeBuildLogFace({ messages, isStreaming }: CubeBuildLogFaceProps) {
+export function CubeBuildLogFace({
+  messages, isStreaming, selectedMessageId, onShowLatest, preview,
+}: CubeBuildLogFaceProps) {
   const isAdmin = useAuthStore((state) => state.user?.isAdmin === true);
-  const latest = useMemo(() => selectLatestBuild(messages), [messages]);
-  const files = useMemo(
-    () => (latest ? parseGenerationContent(latest.content).files : []),
-    [latest],
-  );
-  const items = useMemo(() => (latest ? buildAgentLogItems(latest.toolParts) : []), [latest]);
-  const groups = useMemo(() => groupAgentLogItems(items), [items]);
+  const latest = useMemo(() => selectLatestBuild(messages, preview, isStreaming), [messages, preview, isStreaming]);
+  const log = useMemo(() => {
+    if (!selectedMessageId || selectedMessageId === latest?.id) return latest;
+    const selected = messages.find((row) => row.id === selectedMessageId && row.role === "assistant");
+    return selected ? buildLogFor(selected, selected === messages.at(-1) ? preview : undefined, isStreaming) : null;
+  }, [messages, latest, selectedMessageId, preview, isStreaming]);
+  const files = useMemo(() => log ? parseGenerationContent(log.content).files : [], [log]);
+  const items = useMemo(() => log ? buildAgentLogItems(log.toolParts) : [], [log]);
+  const showLatest = selectedMessageId && selectedMessageId !== latest?.id && onShowLatest ? (
+    <button type="button" onClick={onShowLatest} className="text-primary rounded-sm text-xs underline underline-offset-4">
+      Visa senaste bygget
+    </button>
+  ) : null;
 
-  if (!latest) {
+  if (!log) {
     return (
-      <div className="text-muted-foreground flex h-full items-center justify-center p-6 text-center text-xs leading-5">
-        Här visas vad byggmotorn gör när ett bygge pågår, och vad det senaste bygget gav.
+      <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-xs leading-5">
+        {selectedMessageId
+          ? "Det valda byggsvaret finns inte längre i den här vyn."
+          : "Här visas vad byggmotorn gör när ett bygge pågår, och vad det senaste bygget gav."}
+        {showLatest}
       </div>
     );
   }
 
-  const building = isStreaming || latest.isStreaming;
+  const building = log.isStreaming || (isStreaming && log.id === messages.at(-1)?.id);
   const failed = items.some((item) => item.failed);
   const activeLabel = building
-    ? getActiveAgentLogLabel(latest.toolParts, { includePipelineProgress: latest.isStreaming })
+    ? getActiveAgentLogLabel(log.toolParts, { includePipelineProgress: log.isStreaming })
     : null;
+  const buildName = selectedMessageId && log.id !== latest?.id ? "Det valda bygget" : "Senaste bygget";
   const headline = building
     ? (activeLabel ?? "Bygger din sajt…")
     : failed
-      ? "Senaste bygget hade ett steg som misslyckades"
-      : "Senaste bygget är klart";
+      ? `${buildName} hade ett steg som misslyckades`
+      : files.length > 0
+        ? `${buildName} är klart`
+        : "Arbetslogg för svaret";
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="cube-buildlog">
@@ -115,51 +147,12 @@ export function CubeBuildLogFace({ messages, isStreaming }: CubeBuildLogFaceProp
             {files.length === 1 ? "1 fil i svaret" : `${files.length} filer i svaret`}
             {building ? " hittills" : ""}
           </p>
+          {showLatest}
         </div>
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3">
-        {isAdmin && groups.length > 0 ? (
-          <section aria-label="Arbetslogg" className="space-y-2">
-            <h3 className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
-              Arbetslogg
-            </h3>
-            <ol className="space-y-2 text-xs">
-              {groups.map((group, index) =>
-                group.kind === "facts" ? (
-                  <li key={index}>
-                    <dl className="border-border/60 bg-muted/20 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-lg border px-2.5 py-2">
-                      {group.facts.map((fact, factIndex) => (
-                        <Fragment key={factIndex}>
-                          <dt className="text-muted-foreground">{fact.key}</dt>
-                          <dd className="text-foreground min-w-0 font-medium wrap-break-word">
-                            {fact.value}
-                          </dd>
-                        </Fragment>
-                      ))}
-                    </dl>
-                  </li>
-                ) : (
-                  <li
-                    key={index}
-                    className={cn(
-                      "border-border ml-1 border-l pl-3 wrap-break-word",
-                      group.item.failed ? "text-destructive" : "text-muted-foreground",
-                    )}
-                  >
-                    {group.item.failed ? (
-                      <AlertTriangle
-                        className="mr-1 inline size-3"
-                        aria-label="Steget misslyckades"
-                      />
-                    ) : null}
-                    {group.item.label}
-                  </li>
-                ),
-              )}
-            </ol>
-          </section>
-        ) : null}
+        {isAdmin && items.length > 0 ? <AgentWorkLog items={items} /> : null}
 
         {files.length > 0 ? (
           <section aria-label="Filer" className="space-y-2">

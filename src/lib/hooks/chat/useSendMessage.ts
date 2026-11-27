@@ -123,6 +123,7 @@ export function useSendMessage(
       }
 
       const now = Date.now();
+      const createdAt = new Date(now).toISOString();
       const userMessageId = `user-${now}`;
       const assistantMessageId = `assistant-${now}`;
 
@@ -218,12 +219,14 @@ export function useSendMessage(
         ...prev,
         {
           id: userMessageId,
+          createdAt,
           role: "user",
           content: messageText,
           uiParts: promptSourceUiPart ? [promptSourceUiPart] : undefined,
         },
         {
           id: assistantMessageId,
+          createdAt,
           role: "assistant",
           content: "",
           thinking: "",

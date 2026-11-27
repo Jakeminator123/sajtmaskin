@@ -25,6 +25,28 @@ en förberedd JSON-brief i det aktuella meddelandet efter validering med
 Vanlig formaterad text tar briefsteget så färg, typografi, sidor och funktioner
 får typade värden före scaffold- och dossierval.
 
+[Briefens Byggval-formatter](../../src/lib/builder/brief-build-choices-format.ts)
+förmedlar samma strukturerade val till klientbrief och serverbrief. Temafamilj
+och uttryckligt färgläge påverkar briefens färgpalett. Med Auto beslutar briefen
+bakgrund och textfärg utifrån innehållet. [Promptfinaliseringen](../../src/lib/gen/orchestrate/finalize-prompts.ts)
+bevarar de beslutade ytorna och tillämpar vald temafamiljs accentfärger. Saknas
+en fullständig briefpalett används variantens färgläge som utgångspunkt.
+
+[Capability-bryggan](../../src/lib/gen/capability-dossier-bridge.ts) undertrycker
+kontaktleverans när formulärsignalen enbart kommer från identifierade
+autentiseringsformulär i samma klausul. Separata formulär efter exempelvis
+`login, then` behåller den ordinarie bryggan.
+Tidigare briefval följer den ordinarie capability-unionen och F2/F3-scope.
+
+Vid uppföljningar går uttryckligt beställda ämnessidor till planeringen för
+namngivna rutter. Tilläggsavsikten knyts till varje ämnesklausul, så ett samtidigt
+redigeringsmål inte blir en ny rutt. Välkända sidtyper återanvänder befintliga rutemönster och
+övriga ämnen får en innehållsrutt från ämnesnamnet. Den första sidans
+innehållsämne kan därmed planeras separat från senare beställda undersidor.
+Inloggningsformulär behåller formulärvalidering. Kontaktmejl följer det separat
+beställda kontaktbehovet, med sparade briefval och versionsförmågor i den
+befintliga dossierunionen.
+
 Den råa användartexten, user message och chatthistoriken är requestunderlag.
 User prompt ska inte dupliceras som systemkontext. Typen
 [GenerationInputPackage](../../src/lib/gen/generation-input-package.ts) äger

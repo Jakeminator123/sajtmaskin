@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { db, dbConfigured } from "@/lib/db/client";
 import { agentMessages } from "@/lib/db/schema";
 import type { AgentMessageKind } from "@/lib/openclaw/agent-message-kind";
@@ -49,7 +49,9 @@ export async function listAgentMessages(
       .select()
       .from(agentMessages)
       .where(eq(agentMessages.chatId, id))
-      .orderBy(desc(agentMessages.createdAt), desc(agentMessages.id))
+      // Läser baklänges: vid samma millisekund väljs svaret före frågan.
+      // Efter reverse() står frågan först även när id:na har slumpmässiga suffix.
+      .orderBy(desc(agentMessages.createdAt), asc(agentMessages.role), desc(agentMessages.id))
       .limit(limit);
     rows.reverse();
     return rows

@@ -137,6 +137,54 @@ describe("CubeBuildLogFace", () => {
     expect(within(log).getByText("Startar own-engine-strömmen")).toBeTruthy();
   });
 
+  it.each(["failed", "blocked"] as const)("shows the same terminal %s verdict as the current answer", (status) => {
+    setAdmin(true);
+    const pending = (id: string) => assistant(id, { uiParts: [{
+      type: "tool:engine-preview", state: "input-streaming", toolCallId: "preview-" + id,
+      output: { chatId: "chat-a", versionId: "v2", assistantMessageId: id, steps: ["Startar preview"] },
+    }] });
+    const messages = [pending("older"), pending("latest")];
+    const preview = { chatId: "chat-a", versionId: "v2", previewVisible: false,
+      canonical: { chatId: "chat-a", versionId: "v2", status, isLatest: true } };
+    const rendered = render(<CubeBuildLogFace messages={messages} isStreaming={false} preview={preview} selectedMessageId="latest" />);
+    expect(screen.getByRole("status").textContent).toContain("ett steg som misslyckades");
+    expect(screen.getByRole("region", { name: "Arbetslogg" }).textContent).toContain(
+      status === "blocked" ? "Versionsstatus: blockerad." : "Versionsstatus: misslyckad.",
+    );
+    rendered.rerender(<CubeBuildLogFace messages={messages} isStreaming={false} preview={preview} selectedMessageId="older" />);
+    expect(screen.getByRole("status").textContent).toContain("Det valda bygget är klart");
+    expect(screen.getByRole("region", { name: "Arbetslogg" }).textContent).not.toContain("Versionsstatus:");
+  });
+
+  it("shows the selected historical log and its files during a different build", () => {
+    setAdmin(true);
+    const messages = [
+      assistant("old", { content: CODE.replace("components/hero.tsx", "components/older.tsx"),
+        uiParts: [toolPart("tool:engine-generation", ["Tidigare kontroll"])] }),
+      assistant("new", { isStreaming: true, uiParts: [toolPart("tool:engine-generation", ["Ny kontroll"])] }),
+    ];
+    render(<CubeBuildLogFace messages={messages} isStreaming selectedMessageId="old" onShowLatest={() => {}} />);
+    expect(screen.getByRole("status").textContent).toContain("Det valda bygget är klart");
+    expect(screen.getByText("Tidigare kontroll")).toBeTruthy();
+    expect(screen.getByText("components/older.tsx")).toBeTruthy();
+    expect(screen.queryByText("Ny kontroll")).toBeNull();
+    expect(screen.getByRole("button", { name: "Visa senaste bygget" })).toBeTruthy();
+  });
+
+  it("shows a counter-question's selected log without declaring that it built a site", () => {
+    setAdmin(true);
+    render(<CubeBuildLogFace messages={[assistant("build"), counterQuestion("question")]}
+      isStreaming={false} selectedMessageId="question" onShowLatest={() => {}} />);
+    expect(screen.getByRole("status").textContent).toContain("Arbetslogg för svaret");
+    expect(screen.queryByText("Det valda bygget är klart")).toBeNull();
+  });
+
+  it("does not substitute another log when the selected message disappears", () => {
+    render(<CubeBuildLogFace messages={[assistant("new")]} isStreaming={false} selectedMessageId="gone" onShowLatest={() => {}} />);
+    expect(screen.getByText(/Det valda byggsvaret finns inte längre/)).toBeTruthy();
+    expect(screen.queryByText("components/hero.tsx")).toBeNull();
+  });
+
   it("says that a build is running while the stream is open", () => {
     render(<CubeBuildLogFace messages={[assistant("a1", { isStreaming: true })]} isStreaming />);
     const status = screen.getByRole("status");
