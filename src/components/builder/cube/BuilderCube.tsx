@@ -910,8 +910,6 @@ export function BuilderCube({
       pendingCubePosition.current = null;
       pendingCubeResize.current = null;
       liveFrame.current = frame;
-      if (layoutMode === "cube") writeCubeGeometry(frame);
-      releaseTilt();
     }
     const cardGeometryChangedDuringGesture = cardStart.current !== null;
     const cardDragCancelled = (layoutMode !== "cards" || cardGeometryChangedDuringGesture) && cancelCardDrag();
@@ -920,8 +918,15 @@ export function BuilderCube({
     if (cardCancelled) {
       cardStart.current = null;
       pendingCardRect.current = null;
+    }
+    if (cubeCancelled || cardCancelled) {
+      // En målad drag-frame kan skilja sig från Reacts senast sparade style.
+      // Skriv därför hela det nya lägets geometri, även om dess propvärden
+      // råkar vara identiska med värdena före lägesbytet.
       if (layoutMode === "cards") {
         for (const face of CUBE_FACE_IDS) writeRect(faceEls.current[face], cardRect(face));
+      } else {
+        writeCubeGeometry(frame);
       }
       releaseTilt();
     }

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { BuilderCube, type CubeCardsState, type CubeFaceSpec } from "./BuilderCube";
 import { CUBE_FACE_IDS, type CubeFaceId } from "./cube-model";
 import type { CubeMode } from "./cube-layout-storage";
+import { cubeFrame, type Size } from "./card-layout";
 
 function faces(): Record<CubeFaceId, CubeFaceSpec> {
   const out = {} as Record<CubeFaceId, CubeFaceSpec>;
@@ -28,20 +29,24 @@ function Harness({
   onSize = () => {},
   onCards = () => {},
   resetTo,
+  initialCards,
+  initialSize = { width: 400, height: 500 },
   initialMode = "cube" as CubeMode,
 }: {
   onPosition?: (p: { x: number; y: number }) => void;
   onSize?: (size: { width: number; height: number }) => void;
   onCards?: (cards: CubeCardsState) => void;
   resetTo?: { x: number; y: number };
+  initialCards?: CubeCardsState;
+  initialSize?: Size;
   initialMode?: CubeMode;
 }) {
   const [active, setActive] = useState<CubeFaceId>("chat");
   const [mode, setMode] = useState<CubeMode>(initialMode);
   const [pos, setPos] = useState({ x: 40, y: 40 });
-  const [size, setSize] = useState({ width: 400, height: 500 });
+  const [size, setSize] = useState(initialSize);
   const [chatRevision, setChatRevision] = useState(0);
-  const [cards, setCards] = useState<CubeCardsState>({
+  const [cards, setCards] = useState<CubeCardsState>(initialCards ?? {
     rects: {},
     folded: [],
     order: [...CUBE_FACE_IDS],
@@ -410,6 +415,57 @@ describe("BuilderCube", () => {
       act(() => vi.advanceTimersToNextFrame());
       fireEvent.pointerUp(cubeHeader, { pointerId: 14, clientX: 120, clientY: 110 });
       expect(onPosition).toHaveBeenLastCalledWith({ x: 60, y: 50 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    ["cards", "drag", 400, 500],
+    ["cards", "resize", 400, 500],
+    ["cube", "drag", 400, 500],
+    ["cube", "resize", 400, 500],
+    ["cards", "drag", 520, 340],
+    ["cards", "resize", 520, 340],
+    ["cube", "drag", 520, 340],
+    ["cube", "resize", 520, 340],
+  ] as const)("restores every face after a painted %s %s before switching mode at %s × %s", (mode, gesture, width, height) => {
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame"] });
+    try {
+      const size = { width, height };
+      const expected = cubeFrame({ x: 40, y: 40 }, size, { width: window.innerWidth, height: window.innerHeight }, false);
+      const cards: CubeCardsState = { rects: {}, folded: [], order: [...CUBE_FACE_IDS] };
+      for (const id of CUBE_FACE_IDS) cards.rects[id] = { ...expected.body };
+      const onCards = vi.fn();
+      const onPosition = vi.fn();
+      const onSize = vi.fn();
+      render(<Harness initialMode={mode} initialCards={cards} initialSize={size} onCards={onCards} onPosition={onPosition} onSize={onSize} />);
+      const selector = {
+        cards: {
+          drag: '[data-card-header="chat"]',
+          resize: '[data-cube-face="chat"] [data-card-resize="se"]',
+        },
+        cube: {
+          drag: "[data-cube-header]",
+          resize: '[data-cube-resize="se"]',
+        },
+      }[mode][gesture];
+      const handle = document.querySelector(selector) as HTMLElement;
+      fireEvent.pointerDown(handle, { pointerId: 22, button: 0, clientX: 100, clientY: 100 });
+      onCards.mockClear();
+      fireEvent.pointerMove(handle, { pointerId: 22, clientX: 130, clientY: 120 });
+      act(() => vi.advanceTimersToNextFrame());
+      expect(parseFloat(face("chat").style[gesture === "drag" ? "left" : "width"])).not.toBe(gesture === "drag" ? expected.body.x : expected.body.width);
+      fireEvent.pointerMove(handle, { pointerId: 22, clientX: 150, clientY: 130 });
+      fireEvent.click(screen.getByRole("button", { name: mode === "cards" ? "Samla till kub" : "Fäll ut till kort" }));
+      act(() => vi.advanceTimersToNextFrame());
+      for (const id of CUBE_FACE_IDS) {
+        const node = face(id);
+        expect({ x: parseFloat(node.style.left), y: parseFloat(node.style.top), width: parseFloat(node.style.width), height: parseFloat(node.style.height) }).toEqual(expected.body);
+      }
+      expect(onCards).not.toHaveBeenCalled();
+      expect(onPosition).not.toHaveBeenCalled();
+      expect(onSize).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
