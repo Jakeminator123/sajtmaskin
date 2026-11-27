@@ -82,7 +82,7 @@ Internal agents
 - openclaw:sajtagenten-fast     fast, GPT-6.2 Sol + low thinking
 
 Each target has its own agent directory, explicit model/fallback chain, empty
-skills list and tools.profile=minimal. OpenClaw bootstrap generation is off.
+skills list and the same explicit tool policy as the gateway. OpenClaw bootstrap generation is off.
 The fast primary is also the utility model with low thinking. OpenAI entries
 use the built-in OpenClaw runtime. The keyed agent roster preserves the old
 agent IDs and paths, with sajtagenten as system-agent and heartbeat owner.
@@ -212,8 +212,9 @@ Security and incident handoff
 -----------------------------
 - Never commit or log keys/tokens.
 - Device auth remains enabled.
-- tools.profile=minimal and skills=[] prevent the public chat surface from
-  receiving filesystem, shell, browser, messaging or subagent tools.
+- The global and per-agent policies allow session_status and deny gateway and
+  presence. The explicit allowlist preserves the pre-upgrade tool set even if
+  upstream adds tools to its minimal profile. Builder actions are app-owned.
 - Client-supplied system roles are rejected. Tips file context is rebuilt only
   after tenant ownership is verified. D-ID sends bounded explicit history and
   does not also create a client-controlled persistent OpenClaw session.

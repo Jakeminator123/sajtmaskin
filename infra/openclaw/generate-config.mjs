@@ -122,6 +122,14 @@ const modelSettings = Object.fromEntries(
 );
 const workspace = path.join(openClawDir, "workspace-sajtagenten");
 
+// Preserve the gateway's previous minimal tool set across OpenClaw releases.
+// Version 2026.10.34 also includes gateway administration and presence in minimal.
+const chatTools = {
+  profile: "minimal",
+  allow: ["session_status"],
+  deny: ["gateway", "presence"],
+};
+
 function agent({ id, model, thinkingDefault }) {
   return {
     name: id,
@@ -130,7 +138,7 @@ function agent({ id, model, thinkingDefault }) {
     model,
     thinkingDefault,
     skills: [],
-    tools: { profile: "minimal" },
+    tools: chatTools,
   };
 }
 
@@ -158,7 +166,7 @@ const config = {
       },
     },
   },
-  tools: { profile: "minimal" },
+  tools: chatTools,
   agents: {
     ownership: "explicit",
     defaults: {

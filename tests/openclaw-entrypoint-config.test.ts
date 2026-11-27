@@ -220,12 +220,16 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
       "medium",
       "low",
     ]);
-    expect(config.tools.profile).toBe("minimal");
+    expect(config.tools).toEqual({
+      profile: "minimal",
+      allow: ["session_status"],
+      deny: ["gateway", "presence"],
+    });
     expect(config.agents.defaults.skipBootstrap).toBe(true);
     expect(config.agents.defaults.skills).toEqual([]);
     for (const agent of Object.values(config.agents.entries)) {
       expect(agent.skills).toEqual([]);
-      expect(agent.tools.profile).toBe("minimal");
+      expect(agent.tools).toEqual(config.tools);
     }
   });
 

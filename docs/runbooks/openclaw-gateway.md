@@ -55,6 +55,10 @@ fel retryas inte.
 Gatewayn använder varje agents `thinkingDefault`. Snabba interna hjälpanrop
 har också en egen låg resonemangsnivå i den genererade konfigurationen.
 
+Alla tre agentmål har `session_status` som enda tillåtna gatewayverktyg.
+Sajtmaskin verkställer snabbändringar, byggen och reparationer genom sina
+versionshanterade byggkommandon och chattens befogenheter.
+
 ## Dashboard-inloggning
 
 Control UI är publikt nåbar. Inloggning är **token + engångsgodkännande av
