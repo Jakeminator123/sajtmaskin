@@ -1,5 +1,5 @@
 import type { CanonicalModelId, OwnModelId } from "./catalog";
-import { aliasRetiredModelId, canonicalModelIdToOwnModelId } from "./catalog";
+import { resolveOwnEngineModelId, canonicalModelIdToOwnModelId } from "./catalog";
 import {
   getPhaseThinkingFromManifest,
   getPhaseRoutingFromManifest,
@@ -63,7 +63,7 @@ export function resolvePhaseModel(
   const baseModel = canonicalModelIdToOwnModelId(selectedTier);
   const phaseRef = resolvePhaseModelRef(selectedTier, phase);
   const selectedBuildModel = phaseRef === SELECTED_BUILD_MODEL_REF;
-  const modelId = aliasRetiredModelId(selectedBuildModel ? baseModel : phaseRef) as OwnModelId;
+  const modelId = resolveOwnEngineModelId(selectedBuildModel ? baseModel : phaseRef) as OwnModelId;
 
   if (selectedBuildModel && selectedTier === "premium") {
     return { phase, modelId, reason: "premium-tier-unified" };

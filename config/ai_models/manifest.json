@@ -1288,10 +1288,10 @@
         "src/lib/gen/verify/product-postcheck.ts"
       ],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-6.1-terra",
-      "visionModels": ["gpt-6.1-terra", "gpt-6.2-sol"],
+      "defaultModel": "gpt-6.2-sol",
+      "visionModels": ["gpt-6.2-sol", "gpt-6.2-astra"],
       "reasoningEffort": "medium",
-      "notes": "Image input uses GPT-6.1 Terra at medium. GPT-6.2 Sol is also eligible for explicitly selected vision calls."
+      "notes": "Product Postcheck reviews eligible version screenshots with GPT-6.2 Sol at medium. Follow-ups need a sensor finding. F3 readiness reads the recorded Product Postcheck verdict. Publishing does not start another visual review."
     },
     {
       "id": "qa_short_circuit",

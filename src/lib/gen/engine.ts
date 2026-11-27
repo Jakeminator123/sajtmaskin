@@ -1,6 +1,6 @@
 import { stepCountIs, streamText, type ModelMessage, type ToolSet } from "ai";
 
-import { aliasRetiredModelId } from "@/lib/models/catalog";
+import { resolveOwnEngineModelId } from "@/lib/models/catalog";
 import {
   clampOpenAIReasoningEffort,
   minimumOpenAIReasoningEffort,
@@ -120,7 +120,7 @@ export function generateCode(
     usagePhase,
   } = options;
   const resolvedThinking = thinking ?? defaultThinkingEnabled;
-  const resolvedId = aliasRetiredModelId(modelId ?? DEFAULT_MODEL);
+  const resolvedId = resolveOwnEngineModelId(modelId ?? DEFAULT_MODEL);
   const model = getOpenAIModel(resolvedId);
 
   const messages = [

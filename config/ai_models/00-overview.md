@@ -15,7 +15,7 @@ Alla **standardvärden** som går att styra centralt ligger i [`manifest.json`](
 | **Vissa admin/wizard/inspektor** | Analys, JSON | OpenAI **Responses** API | `OPENAI_API_KEY` |
 | **Projektanalys** | Gratis kodöversikt | OpenAI Responses API | `OPENAI_API_KEY` |
 
-Text och kod använder i regel `gpt-6.2-sol`. Klassificering, inspektörsmatchning, domänförslag, shadcn-sökning och wizardguiden använder låg effort. Bildgranskning använder `gpt-6.1-terra` på medium. Extra hög bygger planner/generator med GPT-6.2 Astra. Embeddings och transkribering använder sina specialmodeller.
+Text och kod använder i regel `gpt-6.2-sol`. Klassificering, inspektörsmatchning, domänförslag, shadcn-sökning och wizardguiden använder låg effort. Byggversionens skärmbilder granskas med `gpt-6.2-sol` på medium. Presentationsanalysens bildrutor och scaffoldguidens referensbild använder `gpt-6.1-terra` på medium. Extra hög bygger planner/generator med GPT-6.2 Astra. Embeddings och transkribering använder sina specialmodeller.
 
 > **Plattformsberoende:** AI SDK (`ai` npm-paketet) är open-source (MIT) och provideragnostiskt — det är inte Vercel-låst.
 
