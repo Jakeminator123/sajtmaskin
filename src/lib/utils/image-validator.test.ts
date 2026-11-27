@@ -9,6 +9,7 @@ vi.mock("@/lib/ssrf-guard", () => ({
 }));
 
 import {
+  applyKnownImageReplacementsToContent,
   applyKnownImageReplacementsToFiles,
   buildKnownImageReplacementMap,
   coerceKnownImageReplacementMap,
@@ -88,6 +89,37 @@ describe("unwrapNextImageUrl", () => {
 });
 
 describe("extractImageRefs", () => {
+
+  it("reads gallery source literals and localized alt text across TSX and JSON data", () => {
+    const photo = "https://images.unsplash.com/photo-fixture?w=1000";
+    const publicPhoto = "https://media.example.org/gallery/summer.jpg";
+    const content = [
+      'const gallery = [{src: "' + photo + '", label: ["Cykling"], alt: ["Cyklist i skogen", "Forest cyclist"]}];',
+      'gallery.map(item => <Image src={item.src} alt={item.alt[0]} />);',
+    ].join("\n");
+    const catalogue = JSON.stringify([
+      { imageUrl: publicPhoto, alt: "Sommar" },
+      { src: photo, alt: "Samma bild" },
+      { href: "https://example.org/page", alt: "Länk" },
+      { src: "https://cdn.example.org/movie.mp4", alt: "Film" },
+      { src: "https://preview.vusercontent.net/showreel.mp4", alt: "Video" },
+      { kind: "video", src: "https://preview.vusercontent.net/playback?id=1", alt: "Ström" },
+      { src: "https://site.example.org/about", alt: null },
+      { src: "https://preview.vusercontent.net/movie.m3u8", alt: "HLS" },
+      { src: "https://preview.vusercontent.net/playback", alt: "Uppspelning" },
+      { src: "https://preview.vusercontent.net/about", alt: null },
+      { src: "https://customer.public.blob.vercel-storage.com/mine.jpg", alt: "Egen bild" },
+    ]);
+
+    expect(extractImageRefs([
+      { name: "app/page.tsx", content },
+      { name: "data/gallery.json", content: catalogue },
+    ])).toEqual([
+      { url: photo, alt: "Cyklist i skogen", file: "app/page.tsx" },
+      { url: publicPhoto, alt: "Sommar", file: "data/gallery.json" },
+    ]);
+  });
+
   it("extracts CSS background-image urls", () => {
     const files: TextFile[] = [
       {
@@ -312,6 +344,169 @@ describe("validateImages", () => {
 
     afterEach(() => {
       fetchSpy.mockRestore();
+    });
+
+    it("repairs a confirmed 404 in a mapped gallery and preserves its other entries", async () => {
+      const dead = "https://images.unsplash.com/photo-missing?w=900";
+      const kept = "https://customer.public.blob.vercel-storage.com/upload.jpg";
+      const files = [{
+        name: "data/gallery.ts",
+        content: 'export const gallery = [{src:"' + dead + '",alt:["Cyklist i skogen","Forest cyclist"]},{src:"' + kept + '",alt:"Foto"}];',
+      }];
+      fetchSpy.mockResolvedValue(new Response(null, { status: 404 }));
+
+      const result = await validateImages({ files, autoFix: true, unsplashAccessKey: null });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(result.broken).toMatchObject([{ url: dead, alt: "Cyklist i skogen", status: 404 }]);
+      expect(result.replacedCount).toBe(1);
+      expect(result.files[0].content).toContain("/api/placeholder?w=1200&h=800&label=Cyklist%20i%20skogen");
+      expect(result.files[0].content).toContain(kept);
+      expect(result.files[0].content).not.toContain(dead);
+    });
+
+    it("reuses one URL check for a direct image and a static object binding, then replays both", async () => {
+      const dead = "https://images.unsplash.com/photo-missing?w=900";
+      const original = {
+        name: "app/page.tsx",
+        content: [
+          'import Image from "next/image";',
+          'const hero = { src: "' + dead + '", alt: "Cyklist" };',
+          'export default function Page() { return <>',
+          '  <img alt="Cyklist" src="' + dead + '" />',
+          '  <Image alt={hero.alt} src={hero.src} />',
+          '  <a href={hero.src}>Original</a>',
+          '  <video src={hero.src} />',
+          '</>; }',
+        ].join("\n"),
+      };
+      fetchSpy.mockResolvedValue(new Response(null, { status: 404 }));
+      const result = await validateImages({ files: [original], autoFix: true, unsplashAccessKey: null });
+      expect(fetchSpy).toHaveBeenCalledExactlyOnceWith(dead, expect.objectContaining({ method: "HEAD" }));
+      expect(result.broken).toMatchObject([{ url: dead, alt: "Cyklist", status: 404 }]);
+      expect(result.replacedCount).toBe(2);
+      const replacement = "/api/placeholder?w=1200&h=800&label=Cyklist";
+      const corrected = original.content
+        .replace('src="' + dead + '"', 'src="' + replacement + '"')
+        .replace("<Image alt={hero.alt} src={hero.src}", '<Image alt={hero.alt} src={"' + replacement + '"}');
+      expect(result.files[0].content).toBe(corrected);
+
+      fetchSpy.mockClear();
+      const known = buildKnownImageReplacementMap(result.broken);
+      const replay = applyKnownImageReplacementsToFiles([{ path: original.name, content: original.content }], known);
+      expect(replay).toEqual({ files: [{ path: original.name, content: corrected }], replacedCount: 2 });
+      const fence = '```tsx file="app/page.tsx"\n';
+      const closingFence = "\n```";
+      expect(applyKnownImageReplacementsToContent(fence + original.content + closingFence, known)).toEqual({
+        content: fence + corrected + closingFence,
+        replacedCount: 2,
+      });
+      expect(applyKnownImageReplacementsToContent(original.content, known)).toEqual({
+        content: corrected,
+        replacedCount: 2,
+      });
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("discovers an indirect-only image and honors lexical scope and dynamic values", async () => {
+      const dead = "https://images.unsplash.com/photo-missing?w=900";
+      const other = "https://images.unsplash.com/photo-kept?w=900";
+      const content = [
+        "{",
+        '  const hero = { src: "' + dead + '", alt: "Skog" } as const;',
+        '  const unrelated = { src: "' + dead + '" };',
+        '  const imageUrl = "' + dead + '";',
+        '  const mutable = { src: "' + dead + '" };',
+        "  mutable.src = runtime();",
+        '  let variable = { src: "' + dead + '" };',
+        '  const make = () => ({ src: "' + dead + '" });',
+        "  const runtimeObject = make();",
+        "  function Shadow(hero: { src: string }) { return <Image src={hero.src} alt=\"Dynamic\" />; }",
+        '  function Other() { const hero = { src: "' + other + '" }; return <Image src={hero.src} alt="Other" />; }',
+        "  const page = <>",
+        "    <Image src={hero[\"src\"]} alt={hero.alt} />",
+        "    <a href={imageUrl} />",
+        "    <video src={unrelated.src} />",
+        "    <Image src={mutable.src} alt=\"Mutable\" />",
+        "    <Image src={variable.src} alt=\"Variable\" />",
+        "    <Image src={runtimeObject.src} alt=\"Runtime\" />",
+        "    <Image src={hero.src} {...runtime()} />",
+        '    <Image src={getImage("' + dead + '")} />',
+        "  </>;",
+        "}",
+      ].join("\n");
+      const files = [{ name: "app/page.tsx", content }];
+      expect(extractImageRefs(files)).toEqual([
+        { file: "app/page.tsx", url: other, alt: "Other" },
+        { file: "app/page.tsx", url: dead, alt: "Skog" },
+      ]);
+      fetchSpy.mockImplementation(async (url: RequestInfo | URL) =>
+        new Response(null, { status: url === dead ? 404 : 200 }),
+      );
+      const result = await validateImages({ files, autoFix: true, unsplashAccessKey: null });
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(result.broken).toMatchObject([{ url: dead, alt: "Skog", status: 404 }]);
+      expect(result.replacedCount).toBe(1);
+
+      const corrected = content.replace('src={hero["src"]}', 'src={"/api/placeholder?w=1200&h=800&label=Skog"}');
+      expect(result.files[0].content).toBe(corrected);
+      expect(applyKnownImageReplacementsToContent(content, buildKnownImageReplacementMap(result.broken))).toEqual({
+        content: corrected,
+        replacedCount: 1,
+      });
+    });
+
+    it("repairs an escaped JSON image URL and replays the saved correction", async () => {
+      const dead = "https://images.unsplash.com/photo-missing?w=900&fit=crop";
+      const original = {
+        name: "data/gallery.json",
+        content: JSON.stringify([{ src: dead, alt: "Cykling" }]).replace("&", "\\u0026"),
+      };
+      fetchSpy.mockResolvedValue(new Response(null, { status: 404 }));
+      const result = await validateImages({ files: [original], autoFix: true, unsplashAccessKey: null });
+      expect(result.replacedCount).toBe(1);
+      expect(JSON.parse(result.files[0].content)[0].src).toBe("/api/placeholder?w=1200&h=800&label=Cykling");
+
+      const replay = applyKnownImageReplacementsToFiles([original], buildKnownImageReplacementMap(result.broken));
+      expect(replay.replacedCount).toBe(1);
+      expect(replay.files[0].content).toBe(result.files[0].content);
+      const fences = "```json file=\"data/gallery.json\"\n" + original.content + "\n```";
+      const healed = applyKnownImageReplacementsToContent(fences, buildKnownImageReplacementMap(result.broken));
+      expect(healed.replacedCount).toBe(1);
+      expect(healed.content).toContain(result.files[0].content);
+      expect(applyKnownImageReplacementsToContent(original.content, buildKnownImageReplacementMap(result.broken)).replacedCount).toBe(1);
+    });
+
+    it("preserves excluded gallery media and longer variants when one exact image is dead", async () => {
+      const photo = "https://cdn.example.org/bicycle.jpg";
+      const variant = photo + "?variant=webm";
+      const file = {
+        name: "data/gallery.json",
+        content: JSON.stringify([
+          { src: photo, alt: "Foto" },
+          { src: variant, kind: "video" },
+          { src: photo, kind: "video", image: "/poster.jpg" },
+        ]),
+      };
+      fetchSpy.mockResolvedValue(new Response(null, { status: 404 }));
+      const result = await validateImages({ files: [file], autoFix: true, unsplashAccessKey: null });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const corrected = JSON.parse(result.files[0].content);
+      expect(result.replacedCount).toBe(1);
+      expect(corrected.map((row: { src: string }) => row.src)).toEqual([
+        "/api/placeholder?w=1200&h=800&label=Foto", variant, photo,
+      ]);
+      const replay = applyKnownImageReplacementsToFiles([file], buildKnownImageReplacementMap(result.broken));
+      expect(replay.files[0].content).toBe(result.files[0].content);
+      const literal = [
+        'const video = "' + variant + '"; const image = "' + photo + '";',
+        '<a href="' + photo + '">Foto</a>',
+        '<video src="' + photo + '" />',
+      ].join("\n");
+      const exact = applyKnownImageReplacementsToContent(literal, buildKnownImageReplacementMap(result.broken));
+      expect(exact.replacedCount).toBe(1);
+      expect(exact.content).toContain('"' + variant + '"');
+      expect(exact.content).toContain('<a href="' + photo + '"');
+      expect(exact.content).toContain('<video src="' + photo + '"');
     });
 
     const filesForUrl = (url: string): TextFile[] => [

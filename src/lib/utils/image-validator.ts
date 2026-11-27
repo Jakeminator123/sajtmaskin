@@ -1,4 +1,7 @@
-import type { CodeFile } from "@/lib/gen/parser";
+import ts from "typescript";
+import { createTsxSourceFile, isGuardablePath } from "@/lib/gen/autofix/rules/import-binding-ast";
+import { hasImageFormatHint } from "@/lib/images/image-assets";
+import { parseCodeProject, replaceCodeProjectFileContent, type CodeFile } from "@/lib/gen/parser";
 import { collectDanglingStaticAssetRefs } from "@/lib/gen/validation/project-sanity";
 import {
   buildUnsplashSearchCandidates,
@@ -6,6 +9,7 @@ import {
 } from "@/lib/images/unsplash-query-fallback";
 import { safeFetch } from "@/lib/ssrf-guard";
 import { debugLog } from "@/lib/utils/debug";
+import { collectJsxImageSources } from "./image-jsx-sources";
 import { urlForLog } from "@/lib/utils/url-for-log";
 
 /**
@@ -319,6 +323,61 @@ function isExternalImageUrl(url: string): boolean {
   }
 }
 
+/** Static image descriptors used by galleries such as <Image src={item.src} />. */
+type GallerySource = ImageRef & { start: number; end: number; isImage: boolean };
+
+function gallerySources(file: TextFile): GallerySource[] {
+  if (!/\b(?:src|image|imageUrl)["']?\s*:/.test(file.content)) return [];
+
+  const isJson = file.name.toLowerCase().endsWith(".json");
+  if (!isJson && !isGuardablePath(file.name)) return [];
+  const source = isJson
+    ? ts.parseJsonText(file.name, file.content)
+    : createTsxSourceFile(file.name, file.content);
+  const refs: GallerySource[] = [];
+
+  function visit(node: ts.Node): void {
+    if (ts.isArrayLiteralExpression(node)) {
+      for (const item of node.elements) {
+        if (!ts.isObjectLiteralExpression(item)) continue;
+        const sources: ts.StringLiteralLike[] = [];
+        let alt: ts.Expression | undefined;
+        let declaredNonImage = false;
+        let declaredImage = false;
+        for (const property of item.properties) {
+          if (!ts.isPropertyAssignment(property)) continue;
+          const name = property.name;
+          if (!ts.isIdentifier(name) && !ts.isStringLiteral(name)) continue;
+          const value = property.initializer;
+          if ((name.text === "src" || name.text === "image" || name.text === "imageUrl") &&
+              ts.isStringLiteralLike(value) && isExternalImageUrl(value.text)) sources.push(value);
+          if (name.text === "alt") alt = value;
+          if (["kind", "type", "mediaType", "mimeType"].includes(name.text) && ts.isStringLiteralLike(value)) {
+            declaredNonImage ||= /^(?:video|audio)(?:\/|$)/i.test(value.text);
+            declaredImage ||= /^image(?:\/|$)/i.test(value.text);
+          }
+        }
+        const label = alt && ts.isArrayLiteralExpression(alt) ? alt.elements.find(ts.isStringLiteralLike) : alt;
+        for (const src of sources) {
+          const isImage = !declaredNonImage && (declaredImage || isUnsplashUrl(src.text) ||
+            isDeadUnsplashSourceUrl(src.text) || hasImageFormatHint(new URL(src.text)));
+          refs.push({
+            url: src.text,
+            alt: label && ts.isStringLiteralLike(label) ? label.text : "",
+            file: file.name,
+            start: src.getStart(source),
+            end: src.end,
+            isImage,
+          });
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  return refs;
+}
+
 /**
  * Extract all external image URLs with their alt text context from files.
  */
@@ -329,17 +388,30 @@ export function extractImageRefs(files: TextFile[]): ImageRef[] {
   for (const file of files) {
     const { name, content } = file;
 
-    // <img src="..." alt="..."> (both orderings)
-    for (const re of [IMG_SRC_RE, NEXT_IMAGE_RE]) {
-      re.lastIndex = 0;
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(content)) !== null) {
-        const url = m[1] || m[4] || "";
-        const alt = m[2] || m[3] || "";
-        if (isExternalImageUrl(url) && !seen.has(url)) {
+    if (isGuardablePath(name)) {
+      for (const { url, alt, legacyScalar } of collectJsxImageSources(file)) {
+        if (legacyScalar || !isExternalImageUrl(url) || seen.has(url)) continue;
+        seen.add(url);
+        refs.push({ url, alt, file: name });
+      }
+    } else {
+      for (const re of [IMG_SRC_RE, NEXT_IMAGE_RE]) {
+        re.lastIndex = 0;
+        let match: RegExpExecArray | null;
+        while ((match = re.exec(content)) !== null) {
+          const url = match[1] || match[4] || "";
+          const alt = match[2] || match[3] || "";
+          if (!isExternalImageUrl(url) || seen.has(url)) continue;
           seen.add(url);
           refs.push({ url, alt, file: name });
         }
+      }
+    }
+
+    for (const ref of gallerySources(file)) {
+      if (ref.isImage && !seen.has(ref.url)) {
+        seen.add(ref.url);
+        refs.push({ url: ref.url, alt: ref.alt, file: ref.file });
       }
     }
 
@@ -637,6 +709,50 @@ async function findReplacements(
  * Replace broken image URLs in file contents with their replacements.
  * Returns updated files and count of replacements made.
  */
+// Replace complete URLs. Data literals use their AST span so escaped URLs can
+// be repaired and non-image media in the same gallery keep their exact source.
+function rewriteImageUrls(file: TextFile, replacements: Map<string, string>) {
+  const counts = new Map<string, number>();
+  function replacementFor(url: string): string | undefined {
+    const replacement = replacements.get(url);
+    if (!replacement || replacement === url) return undefined;
+    counts.set(url, (counts.get(url) ?? 0) + 1);
+    return replacement;
+  }
+  const isScript = isGuardablePath(file.name);
+  function rewritePlain(fragment: string): string {
+    const markup = isScript ? fragment : fragment.replace(/<(?:img|Image)\b[^>]*>/gi, (tag) =>
+      tag.replace(/(\s+src\s*=\s*\{?\s*)(["'])([^"']+)\2/g, (attr, prefix, quote, url) => {
+        const replacement = replacementFor(url);
+        return replacement ? prefix + quote + replacement + quote : attr;
+      }),
+    );
+    return markup.replace(BG_IMAGE_RE, (css, url: string) => {
+      const replacement = replacementFor(url);
+      return replacement ? css.replace(url, () => replacement) : css;
+    });
+  }
+
+  const spans = [
+    ...gallerySources(file),
+    ...(isScript ? collectJsxImageSources(file).map((ref) => ({ ...ref, isImage: true })) : []),
+  ].sort((left, right) => left.start - right.start);
+  const parts: string[] = [];
+  let cursor = 0;
+  for (const ref of spans) {
+    parts.push(rewritePlain(file.content.slice(cursor, ref.start)));
+    const replacement = ref.isImage ? replacementFor(ref.url) : undefined;
+    const quote = "attributeQuote" in ref ? ref.attributeQuote : undefined;
+    if (!replacement) parts.push(file.content.slice(ref.start, ref.end));
+    else if (!quote) parts.push(JSON.stringify(replacement));
+    else if (replacement.includes(quote) || /[\r\n]/.test(replacement)) parts.push(`{${JSON.stringify(replacement)}}`);
+    else parts.push(quote + replacement + quote);
+    cursor = ref.end;
+  }
+  parts.push(rewritePlain(file.content.slice(cursor)));
+  return { content: parts.join(""), counts };
+}
+
 function applyReplacements(
   files: TextFile[],
   broken: BrokenImage[],
@@ -655,83 +771,81 @@ function applyReplacements(
     );
   if (replacements.length === 0) return { files, replacedCount: 0, placeholderCount: 0 };
 
-  // Sort longest URL first to prevent shorter URLs from corrupting longer ones
-  // e.g., "photo-abc" must not match inside "photo-abc?w=400"
-  const sorted = [...replacements].sort((a, b) => b.url.length - a.url.length);
-
+  const replacementByUrl = new Map(replacements.map((entry) => [entry.url, entry.replacementUrl]));
   let replacedCount = 0;
   let placeholderCount = 0;
   const emittedPlaceholderTelemetry = new Set<string>();
-  const updatedFiles = files.map((f) => {
-    let content = f.content;
-    for (const entry of sorted) {
-      const parts = content.split(entry.url);
-      const occurrences = parts.length - 1;
-      if (occurrences > 0) {
-        content = parts.join(entry.replacementUrl);
-        replacedCount += occurrences;
-        if (entry.isPlaceholder) placeholderCount += occurrences;
-        if (entry.isPlaceholder && !emittedPlaceholderTelemetry.has(entry.url)) {
-          debugLog("images", "image_replaced_with_placeholder", {
-            originalUrl: entry.url,
-            alt: entry.alt,
-          });
-          emittedPlaceholderTelemetry.add(entry.url);
-        }
+  const updatedFiles = files.map((file) => {
+    const result = rewriteImageUrls(file, replacementByUrl);
+    for (const entry of replacements) {
+      const occurrences = result.counts.get(entry.url) ?? 0;
+      replacedCount += occurrences;
+      if (!entry.isPlaceholder || !occurrences) continue;
+      placeholderCount += occurrences;
+      if (!emittedPlaceholderTelemetry.has(entry.url)) {
+        debugLog("images", "image_replaced_with_placeholder", { originalUrl: entry.url, alt: entry.alt });
+        emittedPlaceholderTelemetry.add(entry.url);
       }
     }
-    return { ...f, content };
+    return result.content === file.content ? file : { ...file, content: result.content };
   });
 
   return { files: updatedFiles, replacedCount, placeholderCount };
 }
 
-function sortedKnownImageReplacements(replacements: KnownImageReplacementMap) {
-  return Object.entries(coerceKnownImageReplacementMap(replacements))
-    .map(([deadUrl, replacementUrl]) => ({ deadUrl, replacementUrl }))
-    .filter((entry) => entry.deadUrl !== entry.replacementUrl)
-    .sort((a, b) => b.deadUrl.length - a.deadUrl.length);
+function knownReplacementsMap(replacements: KnownImageReplacementMap): Map<string, string> {
+  return new Map(Object.entries(coerceKnownImageReplacementMap(replacements)));
+}
+
+function countRewrites(counts: Map<string, number>): number {
+  let total = 0;
+  for (const occurrences of counts.values()) total += occurrences;
+  return total;
 }
 
 export function applyKnownImageReplacementsToContent(
   content: string,
   replacements: KnownImageReplacementMap,
 ): { content: string; replacedCount: number } {
-  const sorted = sortedKnownImageReplacements(replacements);
-  if (sorted.length === 0 || !content) return { content, replacedCount: 0 };
-
-  let nextContent = content;
-  let replacedCount = 0;
-  for (const entry of sorted) {
-    const parts = nextContent.split(entry.deadUrl);
-    const occurrences = parts.length - 1;
-    if (occurrences === 0) continue;
-    nextContent = parts.join(entry.replacementUrl);
-    replacedCount += occurrences;
+  const byUrl = knownReplacementsMap(replacements);
+  if (!byUrl.size || !content) return { content, replacedCount: 0 };
+  const files = parseCodeProject(content).files;
+  if (!files.length) {
+    let name = "source.tsx";
+    if (/^\s*[\[{]/.test(content)) {
+      try {
+        JSON.parse(content);
+        name = "gallery.json";
+      } catch {
+        // Raw TSX can also start with a block or an array.
+      }
+    }
+    const result = rewriteImageUrls({ name, content }, byUrl);
+    return { content: result.content, replacedCount: countRewrites(result.counts) };
   }
-  return { content: nextContent, replacedCount };
+  let updated = content;
+  let replacedCount = 0;
+  for (const file of files) {
+    const result = rewriteImageUrls({ name: file.path, content: file.content }, byUrl);
+    if (result.content === file.content) continue;
+    updated = replaceCodeProjectFileContent(updated, file, result.content);
+    replacedCount += countRewrites(result.counts);
+  }
+  return { content: updated, replacedCount };
 }
 
-export function applyKnownImageReplacementsToFiles<T extends { content: string }>(
+export function applyKnownImageReplacementsToFiles<T extends { content: string; name?: string; path?: string }>(
   files: T[],
   replacements: KnownImageReplacementMap,
 ): { files: T[]; replacedCount: number } {
-  const sorted = sortedKnownImageReplacements(replacements);
-  if (sorted.length === 0 || files.length === 0) return { files, replacedCount: 0 };
-
+  const byUrl = knownReplacementsMap(replacements);
+  if (!byUrl.size || !files.length) return { files, replacedCount: 0 };
   let replacedCount = 0;
   const updatedFiles = files.map((file) => {
-    let content = file.content;
-    for (const entry of sorted) {
-      const parts = content.split(entry.deadUrl);
-      const occurrences = parts.length - 1;
-      if (occurrences === 0) continue;
-      content = parts.join(entry.replacementUrl);
-      replacedCount += occurrences;
-    }
-    return content === file.content ? file : { ...file, content };
+    const result = rewriteImageUrls({ name: file.name ?? file.path ?? "source.tsx", content: file.content }, byUrl);
+    replacedCount += countRewrites(result.counts);
+    return result.content === file.content ? file : { ...file, content: result.content };
   });
-
   return { files: updatedFiles, replacedCount };
 }
 
