@@ -35,6 +35,7 @@ import {
 } from "@/lib/openclaw/gateway-response";
 import { resolveOpenClawModelRoute } from "@/lib/openclaw/model-routing";
 import { validateOpenClawChatMessages } from "@/lib/openclaw/message-validation";
+import { OPENCLAW_PERSONA } from "@/lib/openclaw/persona";
 import {
   buildOpenClawRepoContextBlock,
   isRepoContextConfigured,
@@ -72,7 +73,7 @@ interface ChatRequestBody {
 const OPENCLAW_CURRENT_CODE_MAX_CHARS = 16_000;
 const OPENCLAW_FULL_CODE_CONTEXT_MAX_CHARS = 180_000;
 
-const SYSTEM_PROMPT = `Du är Sajtagenten — en vänlig, kunnig och hjälpsam svensk AI-assistent inbyggd i Sajtmaskin.
+const SYSTEM_PROMPT = `${OPENCLAW_PERSONA}
 
 Sajtmaskin är en AI-driven webbplatsbyggare för svenska småföretagare. Användaren beskriver sitt företag eller sin vision i fritext, och AI:n genererar en professionell sajt med modern teknik — ingen programmeringskunskap krävs. Tjänsten drivs av Pretty Good B.V.
 
@@ -221,7 +222,10 @@ export async function POST(req: NextRequest) {
     if (body.readTask !== undefined) {
       const { answerOpenClawReadTask } = await import("@/lib/openclaw/read-task");
       const question = clientMessages.findLast((message) => message.role === "user")?.content ?? "";
-      const readAnswer = await answerOpenClawReadTask(req, body.readTask, question);
+      const readAnswer = await answerOpenClawReadTask(req, body.readTask, question, {
+        history: clientMessages.slice(0, -1),
+        context: body.context,
+      });
       if (!readAnswer.ok) return readAnswer;
       const { answer, sources } = await readAnswer.json() as { answer: string; sources: string[] };
       const content = sources.length ? `${answer}\n\nKällor:\n${sources.join("\n")}` : answer;
@@ -390,6 +394,7 @@ export async function POST(req: NextRequest) {
           } = await buildOpenClawReviewContext({
             chatId: reviewChatId,
             versionId: scopedVersion.version.id,
+            filesRevision: scopedVersion.version.files_revision,
           });
           if (findingsBlock) {
             messages.push({ role: "system", content: findingsBlock });

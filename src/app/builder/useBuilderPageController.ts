@@ -11,6 +11,7 @@ import { useChatReadiness } from "@/lib/hooks/useChatReadiness";
 import { useAuth } from "@/lib/auth/auth-store";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useRef, useState, useTransition } from "react";
+import type { ChatGenerationSettings, CreatedChatGenerationSettings } from "@/lib/builder/chat-generation-settings";
 
 import { useBuilderCallbacks } from "./useBuilderCallbacks";
 import { useBuilderDeployActions } from "./useBuilderDeployActions";
@@ -95,10 +96,10 @@ export function useBuilderPageController() {
     setServerProjectPreviewOverrideUrl, setServerProjectPreviewOverrideVersionId,
     setClearedPreviewVersionId,
     setShowStructuredChat, setExternalProjectId,
-    applyingGenerationSettingsRef, autoProjectInitRef, featureWarnedRef,
+    autoProjectInitRef, featureWarnedRef,
     hasLoadedInstructions, hasLoadedInstructionsOnce, lastActiveVersionIdRef,
     lastPaletteSavedRef, lastProjectIdRef,
-    loadedGenerationSettingsChatRef, paletteLoadedRef, pendingBriefRef,
+    paletteLoadedRef, pendingBriefRef,
     pendingInstructionsOnceRef, pendingInstructionsRef,
     filesContextKeyRef, promptFetchDoneRef,
     promptFetchInFlightRef,
@@ -135,7 +136,7 @@ export function useBuilderPageController() {
   const chatHooksChatId = readyForChatHooks ? chatId : null;
 
   // ── External data hooks ──────────────────────────────────────────────
-  const { chat, projectId: hydratedChatProjectId, mutate: mutateChat, isError: isChatError, isLoading: isChatLoading } =
+  const { chat, modelTier: serverModelTier, projectId: hydratedChatProjectId, mutate: mutateChat, isError: isChatError, isLoading: isChatLoading } =
     useChat(chatHooksChatId);
 
   const isAnyStreamingEarly = useMemo(
@@ -497,6 +498,25 @@ export function useBuilderPageController() {
   ]);
 
   // ── Chat messaging ───────────────────────────────────────────────────
+  const createdChatSettingsRef = useRef<CreatedChatGenerationSettings | null>(null);
+  const rememberCreatedChatSettings = useCallback((id: string, settings: ChatGenerationSettings) => {
+    createdChatSettingsRef.current = { chatId: id, ...settings };
+  }, []);
+  const isModelTierReady = useBuilderGenerationPreferences({
+    chatId,
+    serverModelTier,
+    createdChatSettingsRef,
+    enableThinking,
+    setEnableThinking,
+    selectedModelTier,
+    setSelectedModelTier,
+    enableImageGenerations,
+    setEnableImageGenerations,
+    enableBlobMedia,
+    setEnableBlobMedia,
+    designTheme,
+    setDesignTheme,
+  });
   const { isCreatingChat, createNewChat, sendMessage: rawSendMessage, cancelActiveGeneration } =
     useChatMessaging({
       chatId: state.chatId,
@@ -506,11 +526,13 @@ export function useBuilderPageController() {
       // older version). Forwarded as `meta.engineLatestKnownVersionId`.
       latestKnownVersionId: derived.latestVersionId,
       setChatId: state.setChatId,
+      onChatCreated: rememberCreatedChatSettings,
       chatIdParam: state.chatIdParam,
       router,
       appProjectId: state.appProjectId,
       linkedProjectId: state.externalProjectId,
       selectedModelTier: state.selectedModelTier,
+      isModelTierReady,
       enableImageGenerations: state.enableImageGenerations,
       enableImageMaterialization: derived.mediaEnabled,
       enableThinking: state.effectiveThinking,
@@ -662,6 +684,8 @@ export function useBuilderPageController() {
     isCreatingChat,
     isAnyStreaming: derived.isAnyStreaming,
     selectedModelTier: state.selectedModelTier,
+    enableImageGenerations: state.enableImageGenerations,
+    onChatCreated: rememberCreatedChatSettings,
     appProjectId: state.appProjectId,
     applyAppProjectId: projectActions.applyAppProjectId,
     searchParams,
@@ -709,22 +733,6 @@ export function useBuilderPageController() {
     setSelectedVersionId,
     setPromptHandoffId: state.setPromptHandoffId,
     setAuditHandoff: state.setAuditHandoff,
-  });
-
-  useBuilderGenerationPreferences({
-    chatId,
-    enableThinking,
-    setEnableThinking,
-    selectedModelTier,
-    setSelectedModelTier,
-    enableImageGenerations,
-    setEnableImageGenerations,
-    enableBlobMedia,
-    setEnableBlobMedia,
-    designTheme,
-    setDesignTheme,
-    applyingGenerationSettingsRef,
-    loadedGenerationSettingsChatRef,
   });
 
   useBuilderProjectHydration({

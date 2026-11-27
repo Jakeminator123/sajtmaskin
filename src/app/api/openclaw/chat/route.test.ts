@@ -102,7 +102,9 @@ it("answers a read-only attachment turn in chat without dispatching the gateway"
   })));
   expect(result.headers.get(OPENCLAW_DISPATCH_HEADER)).toBe(OPENCLAW_DISPATCH_STARTED);
   expect(await result.text()).toContain('"content":"En stol."');
-  expect(mocks.answerReadTask).toHaveBeenCalledWith(expect.any(Request), { attachmentIds: [42] }, "hej");
+  expect(mocks.answerReadTask).toHaveBeenCalledWith(expect.any(Request), { attachmentIds: [42] }, "hej", {
+    history: [], context: undefined,
+  });
   expect(mocks.gateway).not.toHaveBeenCalled();
 });
 

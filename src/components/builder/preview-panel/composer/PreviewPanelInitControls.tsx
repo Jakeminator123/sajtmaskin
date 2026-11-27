@@ -263,7 +263,13 @@ const PALETTE_CARD_CLASS = cn(
 
 const MINIATURE_CLASS = "flex min-h-[76px] w-full flex-col gap-1 rounded-lg border p-2";
 
-function PaletteMiniature({ palette }: { palette: ThemePalette }) {
+function PaletteMiniature({
+  palette,
+  compact = false,
+}: {
+  palette: ThemePalette;
+  compact?: boolean;
+}) {
   // Verklig bakgrund, rubrik, brödtext och knapp ur temats palett — samma
   // strängar som `renderLockedColorPaletteBlock` låser i sajtens globals.css.
   // Värdena går in som CSS-variabler på roten och läses av klasserna nedan.
@@ -288,15 +294,25 @@ function PaletteMiniature({ palette }: { palette: ThemePalette }) {
         <span className="size-1.5 rounded-full bg-[color:var(--mini-accent)]" />
         <span className="h-1 w-6 rounded-full bg-[color:var(--mini-muted)]" />
       </span>
-      <span className="text-[11px] leading-tight font-semibold text-[color:var(--mini-fg)]">
-        Välkommen
-      </span>
-      <span className="text-[9px] leading-snug text-[color:var(--mini-muted-fg)]">
-        Lugn och läsbar.
-      </span>
-      <span className="mt-0.5 w-fit rounded bg-[color:var(--mini-primary)] px-1.5 py-0.5 text-[9px] leading-none font-semibold text-[color:var(--mini-on-primary)]">
-        Kontakt
-      </span>
+      {compact ? (
+        <>
+          <span className="mt-1 h-1.5 w-3/4 rounded bg-[color:var(--mini-fg)]" />
+          <span className="h-1 w-full rounded bg-[color:var(--mini-muted-fg)]" />
+          <span className="mt-1 h-3 w-2/3 rounded bg-[color:var(--mini-primary)]" />
+        </>
+      ) : (
+        <>
+          <span className="text-[11px] leading-tight font-semibold text-[color:var(--mini-fg)]">
+            Välkommen
+          </span>
+          <span className="text-[9px] leading-snug text-[color:var(--mini-muted-fg)]">
+            Lugn och läsbar.
+          </span>
+          <span className="mt-0.5 w-fit rounded bg-[color:var(--mini-primary)] px-1.5 py-0.5 text-[9px] leading-none font-semibold text-[color:var(--mini-on-primary)]">
+            Kontakt
+          </span>
+        </>
+      )}
     </span>
   );
 }
@@ -345,7 +361,7 @@ function PaletteCard({
   suggested,
 }: {
   id: ThemeClusterId;
-  mode: "light" | "dark";
+  mode: ColorModeChoice;
   suggested: boolean;
 }) {
   const mood = DESIGN_THEME_MOODS[id];
@@ -356,7 +372,14 @@ function PaletteCard({
       aria-label={`${mood}, ${hue}${suggested ? ", förslag" : ""}`}
       className={PALETTE_CARD_CLASS}
     >
-      <PaletteMiniature palette={THEME_CLUSTERS[id][mode]} />
+      {mode === "auto" ? (
+        <span className="grid w-full grid-cols-2 gap-1" aria-hidden="true">
+          <PaletteMiniature palette={THEME_CLUSTERS[id].light} compact />
+          <PaletteMiniature palette={THEME_CLUSTERS[id].dark} compact />
+        </span>
+      ) : (
+        <PaletteMiniature palette={THEME_CLUSTERS[id][mode]} />
+      )}
       <CardCaption title={mood} subtitle={hue} badge={suggested ? "Förslag" : null} />
       <SelectedMark />
     </ToggleGroupItem>
@@ -483,9 +506,6 @@ export function PreviewPanelInitControls({
     return trio;
   }, [suggestion.themes, showAllColors, selectedTheme]);
   const extraThemes = ALL_THEME_IDS.filter((id) => !featuredThemes.includes(id));
-  // Korten ritas i det läge bygget faktiskt får: Mörkt → mörk palett, annars
-  // ljus (Auto blir ljust om inte varianten är mörk, se resolveThemePalette).
-  const previewMode: "light" | "dark" = choices.colorMode === "dark" ? "dark" : "light";
   const suggestedTheme = suggestion.matched ? suggestion.themes[0] : null;
   const suggestedMode =
     suggestion.colorMode && choices.colorMode === "auto" ? suggestion.colorMode : null;
@@ -576,7 +596,7 @@ export function PreviewPanelInitControls({
                   <PaletteCard
                     key={id}
                     id={id}
-                    mode={previewMode}
+                    mode={choices.colorMode}
                     suggested={id === suggestedTheme}
                   />
                 ))}
@@ -587,7 +607,7 @@ export function PreviewPanelInitControls({
                     <PaletteCard
                       key={id}
                       id={id}
-                      mode={previewMode}
+                      mode={choices.colorMode}
                       suggested={id === suggestedTheme}
                     />
                   ))}
@@ -658,7 +678,7 @@ export function PreviewPanelInitControls({
           </div>
           {choices.colorMode === "auto" ? (
             <p className="text-muted-foreground mt-2 text-[11px] leading-snug">
-              Auto blir ljust, om inte AI väljer en mörk stil.
+              Auto låter AI välja färgläge utifrån din beskrivning. Temakorten visar båda lägena.
             </p>
           ) : null}
         </section>
