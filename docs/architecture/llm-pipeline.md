@@ -19,6 +19,13 @@ bakgrund och textfärg utifrån innehållet. [Promptfinaliseringen](../../src/li
 bevarar de beslutade ytorna och tillämpar vald temafamiljs accentfärger. Saknas
 en fullständig briefpalett används variantens färgläge som utgångspunkt.
 
+[Capability-bryggan](../../src/lib/gen/capability-dossier-bridge.ts) använder
+det explicita kontaktbehovet för att skilja auth-formulär från kontaktleverans.
+Tidigare briefval följer den ordinarie capability-unionen och F2/F3-scope.
+Inloggningsformulär behåller formulärvalidering. Kontaktmejl följer det separat
+beställda kontaktbehovet, med sparade briefval och versionsförmågor i den
+befintliga dossierunionen.
+
 Den råa användartexten, user message och chatthistoriken är requestunderlag.
 User prompt ska inte dupliceras som systemkontext. Typen
 [GenerationInputPackage](../../src/lib/gen/generation-input-package.ts) äger

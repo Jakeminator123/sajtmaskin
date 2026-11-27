@@ -209,6 +209,47 @@ describe("content subjects from Byggval through brief and generation", () => {
     expect(base.dossierSelection?.selected.some(({ entry }) => entry.capability === "visual-3d")).toBe(true);
   });
 
+  it.each([
+    ["Build a webpage about owls featuring a login form", true, false],
+    ["En sida om björnungar med ett formulär för inloggning", true, false],
+    ["En sida om björnungar med kontaktformulär", false, true],
+    ["Build a webpage about owls with a login form and a contact form", true, true],
+  ] as const)("selects only the requested auth/contact integrations for %s", async (prompt, auth, contact) => {
+    const input = generationInput(prompt, { buildIntent: "website", brief: null });
+    const design = await resolveOrchestrationBase(input);
+    expect(design.mutedCapabilities.includes("auth")).toBe(auth);
+    expect(design.mutedCapabilities.includes("contact-form")).toBe(contact);
+    const integrations = await resolveOrchestrationBase({ ...input, lifecycleStage: "integrations" });
+    const capabilities = integrations.dossierSelection?.selected.map(({ entry }) => entry.capability) ?? [];
+    expect(capabilities.includes("auth")).toBe(auth);
+    expect(capabilities.includes("contact-form")).toBe(contact);
+    expect(integrations.preGenerationContracts.contracts.integrations.some(({ providerKey }) => providerKey === "resend"))
+      .toBe(contact);
+  });
+
+  it("preserves prior auth/contact brief choices through the normal integration approval", async () => {
+    const input = generationInput("Build a webpage about owls with a login form", {
+      brief: { requestedCapabilities: ["auth", "contact-form"] },
+    });
+    const design = await resolveOrchestrationBase(input);
+    expect(design.mutedCapabilities).toEqual(expect.arrayContaining(["auth", "contact-form"]));
+    const base = await resolveOrchestrationBase({
+      ...input, lifecycleStage: "integrations",
+      requestedDossierCapabilities: design.mutedCapabilities,
+      dossierProviderHints: ["clerk-auth", "resend-contact-form"],
+    });
+    const selected = base.dossierSelection?.selected.map(({ entry }) => entry.capability);
+    expect(selected).toContain("auth");
+    expect(selected).toContain("contact-form");
+  });
+
+  it("keeps validation guidance for a generic survey form", async () => {
+    const base = await resolveOrchestrationBase(generationInput("Create a survey form", { brief: null }));
+    expect(base.capabilities.needsForms).toBe(true);
+    expect(base.capabilityHints).toContain("react-hook-form");
+    expect(base.capabilityHints).toContain("zod");
+  });
+
   it("preserves the brief palette when the customer leaves the color preset off", async () => {
     const input = generationInput(bearPrompt, { designThemePreset: "off" });
     const final = await finalizeOrchestrationPrompts(await resolveOrchestrationBase(input), input);
