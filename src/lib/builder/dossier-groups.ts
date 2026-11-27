@@ -87,6 +87,7 @@ const CAPABILITY_TO_GROUP_ID: Record<string, DossierGroupId> = {
   // Media & gallery: showing images — click-to-enlarge vs swipe slider — and
   // the owner's own hosted heavy media (vercel-blob-media, 2026-09-02).
   "gallery-lightbox": "media",
+  "video-embed": "media",
   carousel: "media",
   "media-storage": "media",
   // Interactive & 3D: motion/3D/games/data-viz where presentation is the point.

@@ -1,6 +1,6 @@
 {
   "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-11-03T16:04:04.215Z",
+  "generatedAt": "2026-11-27T08:38:29.151Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -64,6 +64,9 @@
     "spatial-canvas": [
       "xyflow-spatial-canvas"
     ],
+    "video-embed": [
+      "native-video-embed"
+    ],
     "visual-3d": [
       "three-fiber-canvas"
     ]
@@ -114,7 +117,8 @@
       "capabilities": [
         "carousel",
         "gallery-lightbox",
-        "media-storage"
+        "media-storage",
+        "video-embed"
       ]
     },
     "interactive": {
@@ -1095,6 +1099,41 @@
       }
     },
     {
+      "id": "native-video-embed",
+      "label": "Video på sajten",
+      "class": "soft",
+      "capability": "video-embed",
+      "providers": [],
+      "defaultForCapability": true,
+      "mock": "none",
+      "envVars": [],
+      "configInputs": [],
+      "providerSetup": [],
+      "fileRoles": {},
+      "dependencies": [],
+      "summarySv": "Bäddar in en vald film på sajten med webbläsarens videokontroller, valfri omslagsbild och responsiv placering. Fungerar med befintliga videofiler och sparade filmer från mediebanken.",
+      "verificationStatus": "unverified",
+      "lastVerified": "2026-11-27",
+      "f2Disposition": "available",
+      "f2Reason": "available",
+      "buildServerRequirement": false,
+      "buildServerReasons": [],
+      "labelsSv": {
+        "class": {
+          "label": "Fristående",
+          "hint": "Har ingen deklarerad extern provider eller hemlig nyckel. Kan använda npm-paket, lokala filer och publika nyckelfria resurser."
+        },
+        "mock": {
+          "label": "Ingen demo-yta",
+          "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
+        },
+        "requiresF3": {
+          "label": "Klar utan extra bygge",
+          "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
+        }
+      }
+    },
+    {
       "id": "scroll-story-orchestrator",
       "label": "Scrollberättelse (scrollytelling)",
       "class": "soft",
@@ -1333,6 +1372,7 @@
     "data/dossiers/soft/local-site-search/manifest.json": "a71d090610f5e8784bcc1b8773ee6678fc7f8748ba0aa2d3843c3a22727600c2",
     "data/dossiers/soft/maplibre-map/manifest.json": "45ecfd3588c401895e9850b0d18f4e98a67029aa207fc164551974902006ac02",
     "data/dossiers/soft/matter-physics-2d/manifest.json": "beece2350465b4628fe804f577df737213f25e0770469612c25ed607f308111d",
+    "data/dossiers/soft/native-video-embed/manifest.json": "9d03d7dd5c90724cdc684cda900e2b231a855470f058610bf6860e4c20d2a243",
     "data/dossiers/soft/scroll-story-orchestrator/manifest.json": "2b4673ffe542674392184c1f7c3929bb1fd129788d653ccf95962a7ca2dc033a",
     "data/dossiers/soft/three-fiber-canvas/manifest.json": "a465b0c30f26663c8b0067f16f4e99ec2bfae59d3463d170a38c04d3f6bffad2",
     "data/dossiers/soft/three-fiber-physics/manifest.json": "2a5e800eec37b151ba4f63b449a9e9a9c038984f872cb9c962f0f098e10eff72",
@@ -1340,7 +1380,7 @@
     "docs/schemas/strict/dossier.schema.json": "e3f45b08ee6039304a9151ec0bacc1f0ee9f576a1ecacc8869fae6473ce505bd",
     "scripts/dossiers/regenerate-capability-map.ts": "a4662607c00dd187deb3dc40caa79ae3af60d8e67f93d4b72c6c96c0c5374602",
     "src/lib/builder/dossier-axes.ts": "e216ee94304cf5f02a308c7be4c653d1d3d1d6fb128597bf555bf6938ffa825a",
-    "src/lib/builder/dossier-groups.ts": "cec7995deac773287a69ff81951e4ebf4b344fd7ca4c8b5a2c022f9930f3abe1",
+    "src/lib/builder/dossier-groups.ts": "acec0e38c91b60a81bddeaf367195bae0fd06574674d9b1b56d07d2205250d6d",
     "src/lib/gen/dossiers/f2-mute.ts": "709ac6df9c5eec5d03f7249c732023614865577e61e8a1bc86a5f2d3d5b902b7",
     "src/lib/gen/dossiers/output-path.ts": "b0f9a7107577b3fa083cda16e8f9d0d85277f38c6d95e4ba333dedbb90e62f9f",
     "src/lib/gen/dossiers/registry.ts": "1735ea0ce202cdfce5712146034728f6fe5e9b9b3074f57fd8710c89c7999dc0",

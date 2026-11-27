@@ -134,9 +134,9 @@ export interface OrchestrationInput {
   designThemePreset?: string | null;
   designReferences?: DesignReferenceAsset[];
   /**
-   * User-turn attachments for this generation. Finalize uses them only to
-   * decide whether the variant still image survives the vision-channel cap
-   * (`getVisualReferenceAttachments`). The send path still owns mounting.
+   * User-turn attachments for this generation. Video files can select the
+   * native video dossier. Finalize uses them for variant image budget checks.
+   * The send path owns attaching media to the model request.
    */
   requestAttachments?: RequestAttachment[];
   /**

@@ -241,7 +241,7 @@ function formatEmbeddableMediaReferences(attachments: RequestAttachment[]): stri
 
   if (videos.length > 0) {
     lines.push(
-      '**Videos** — embed with `<video controls playsInline src="<url>" …>` (or a `<source>` child) using the exact URL; add a subject-relevant `poster` and graceful fallback copy:',
+      '**Videos** — embed with `<video controls playsInline src="<url>" …>` (or a `<source>` child) using the exact URL; use a subject-relevant `poster` if available and provide graceful fallback copy:',
       "",
     );
     for (const a of videos) lines.push(...describe(a, "video"));
