@@ -125,6 +125,19 @@ describe.skipIf(!target)("paid video orders in isolated Postgres", () => {
     };
   }
 
+  function saveUploadedVideo(userId: string, name: string, projectId?: string) {
+    const parts = projectId ? [userId, "projects", projectId, "media-library"] : [userId];
+    const filePath = [...parts, name].join("/");
+    const blobUrl = "https://test-store.public.blob.vercel-storage.com/" + filePath;
+    return media.saveMediaLibraryItem(userId, name, name, filePath, "video/mp4", 16, blobUrl, projectId);
+  }
+
+  async function leaveOneVideoSlot(userId: string) {
+    for (let index = 0; index < MAX_MEDIA_VIDEOS - 1; index += 1) {
+      await saveUploadedVideo(userId, "seed-" + index + ".mp4");
+    }
+  }
+
   function jobs(userId: string) {
     return db.select({ id: schema.videoGenerationJobs.id })
       .from(schema.videoGenerationJobs).where(eq(schema.videoGenerationJobs.user_id, userId));
@@ -171,12 +184,7 @@ describe.skipIf(!target)("paid video orders in isolated Postgres", () => {
 
   it("charges only the one distinct order that reserves the final account video slot", async () => {
     const { userId, projectId, order } = await prepare();
-    for (let index = 0; index < MAX_MEDIA_VIDEOS - 1; index += 1) {
-      const name = "seed-" + index + ".mp4";
-      const filePath = userId + "/" + name;
-      const blobUrl = "https://test-store.public.blob.vercel-storage.com/" + filePath;
-      await media.saveMediaLibraryItem(userId, name, name, filePath, "video/mp4", 16, blobUrl);
-    }
+    await leaveOneVideoSlot(userId);
 
     const results = await Promise.allSettled([
       video.orderVideoGeneration(userId, order, price, true),
@@ -193,6 +201,43 @@ describe.skipIf(!target)("paid video orders in isolated Postgres", () => {
     ]);
     await expect(balance(userId)).resolves.toBe(initialBalance - price.credits);
     await expect(media.getMediaLibraryCounts(userId, projectId)).resolves.toMatchObject({ videos: MAX_MEDIA_VIDEOS });
+  });
+
+  it("lets either an ordinary upload or a paid order claim the last video slot", async () => {
+    const { userId, projectId, order } = await prepare();
+    await leaveOneVideoSlot(userId);
+    const filename = "ordinary.mp4";
+
+    const [upload, generation] = await Promise.allSettled([
+      saveUploadedVideo(userId, filename, projectId),
+      video.orderVideoGeneration(userId, order, price, true),
+    ]);
+
+    expect([upload, generation].filter(({ status }) => status === "fulfilled")).toHaveLength(1);
+    const overQuota = { status: 400, message: expect.stringContaining("gränsen") };
+    if (generation.status === "fulfilled") {
+      expect(upload).toMatchObject({ status: "rejected", reason: overQuota });
+      await expect(jobs(userId)).resolves.toEqual([{ id: generation.value }]);
+      await expect(ledger(userId)).resolves.toEqual([
+        { type: "video_generation_usage", amount: -price.credits, key: generation.value },
+      ]);
+      await expect(balance(userId)).resolves.toBe(initialBalance - price.credits);
+    } else {
+      expect(generation.reason).toMatchObject(overQuota);
+      await expect(jobs(userId)).resolves.toEqual([]);
+      await expect(ledger(userId)).resolves.toEqual([]);
+      await expect(balance(userId)).resolves.toBe(initialBalance);
+    }
+
+    const stored = await db.select({ id: schema.mediaLibrary.id })
+      .from(schema.mediaLibrary).where(and(
+        eq(schema.mediaLibrary.user_id, userId),
+        eq(schema.mediaLibrary.project_id, projectId),
+        eq(schema.mediaLibrary.filename, filename),
+      ));
+    expect(stored).toEqual(upload.status === "fulfilled" ? [{ id: upload.value.id }] : []);
+    await expect(media.getMediaLibraryCounts(userId, projectId))
+      .resolves.toMatchObject({ videos: MAX_MEDIA_VIDEOS });
   });
 
   it("refunds two simultaneous failure callbacks once and releases the reservation", async () => {
