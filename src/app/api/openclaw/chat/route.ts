@@ -491,7 +491,7 @@ export async function POST(req: NextRequest) {
         if (fastMode && [404, 405, 503].includes(upstream.status)) {
           return NextResponse.json({
             code: OPENCLAW_FAST_UNAVAILABLE,
-            error: "OpenAI Fast är tillfälligt otillgängligt. Stäng av Snabbare svar i Inställningar för att använda standard.",
+            error: "OpenAI Fast är tillfälligt otillgängligt. Ditt utkast finns kvar och nästa fråga använder standard.",
           }, { status: 503 });
         }
         return NextResponse.json(

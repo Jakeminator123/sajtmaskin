@@ -50,13 +50,14 @@ async function send(params: GatewayChatRequest): Promise<Response> {
 /**
  * Sends a chat request to the server-selected OpenClaw agent. During a rolling
  * deploy, old gateways may not know the fast/balanced agents yet; only that
- * exact 400 gets one compatibility retry on the stable strong agent. Auth,
+ * exact 400 gets one compatibility retry on the stable strong agent for a standard turn.
+ * Paid Fast requests are dispatched once using the originally selected agent. Auth,
  * quota, network and generic upstream failures are never retried here.
  */
 export async function postOpenClawChatCompletion(params: GatewayChatRequest): Promise<OpenClawGatewayResult> {
   const response = await send(params);
 
-  if (params.route.lane !== "strong" && response.status === 400) {
+  if (!params.fastMode && params.route.lane !== "strong" && response.status === 400) {
     const detail = await response.clone().text().catch(() => "");
     if (isUnknownAgentResponse(detail, params.route)) {
       console.warn(

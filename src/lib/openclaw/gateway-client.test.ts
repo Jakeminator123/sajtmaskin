@@ -52,6 +52,23 @@ describe("postOpenClawChatCompletion", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps paid Fast to one dispatch when the server-selected agent is unavailable", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("Unknown agent 'sajtagenten-fast'.", { status: 400 }),
+    );
+    const result = await postOpenClawChatCompletion({
+      gatewayUrl: "https://gateway.example",
+      gatewayToken: "secret",
+      route: fastRoute,
+      body: { messages: [], stream: true },
+      timeoutMs: 1_000,
+      fastMode: true,
+    });
+    expect(result.response.status).toBe(400);
+    expect(result.fellBackToStrong).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("retries only an unknown routed agent once on the strong agent", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")

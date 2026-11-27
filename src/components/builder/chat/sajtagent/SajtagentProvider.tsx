@@ -114,17 +114,20 @@ export function SajtagentProvider({
   const [available, setAvailable] = useState(false);
   const [configured, setConfigured] = useState(false);
   const [fastModeSupported, setFastModeSupported] = useState(false);
+  const [healthRevision, refreshHealth] = useState(0);
   const [fastChats, setFastChats] = useState<ReadonlySet<string>>(() => new Set());
   const fastModeReady = available && fastModeSupported;
-  const setFastMode = useCallback((enabled: boolean) => {
-    if (!chatId || !fastModeReady) return;
+  const updateFastChat = useCallback((id: string, enabled: boolean) => {
     setFastChats((previous) => {
       const next = new Set(previous);
-      if (enabled) next.add(chatId);
-      else next.delete(chatId);
+      if (enabled) next.add(id);
+      else next.delete(id);
       return next;
     });
-  }, [chatId, fastModeReady]);
+  }, []);
+  const setFastMode = useCallback((enabled: boolean) => {
+    if (chatId && fastModeReady) updateFastChat(chatId, enabled);
+  }, [chatId, fastModeReady, updateFastChat]);
   const [healthStatus, setHealthStatus] = useState<NonNullable<SajtagentContextValue["healthStatus"]>>("disabled");
 
   // Health: ytans aktivering + läs-/agera-grindarna. Samma best-effort som
@@ -178,7 +181,7 @@ export function SajtagentProvider({
       clearTimeout(timeoutTimer);
       controller?.abort();
     };
-  }, [setDebugEnabled, setEditEnabled]);
+  }, [setDebugEnabled, setEditEnabled, healthRevision]);
 
   // Beständig historik: fyll på storen när en chatt öppnas — först när ytan
   // bekräftats, så builderns egen laddning (projekt, versioner, filer) inte
@@ -224,17 +227,23 @@ export function SajtagentProvider({
   const send = useCallback(
     async (text: string, options?: OpenClawSendOptions) => {
       const chatAtSend = chatIdRef.current;
+      const fastMode = Boolean(fastModeReady && chatAtSend && fastChats.has(chatAtSend) && !options?.internal);
       await chatSend(text, {
         ...options,
-        fastModeChatId: fastModeReady && chatAtSend && fastChats.has(chatAtSend) && !options?.internal
-          ? chatAtSend : undefined,
+        builderChatId: chatAtSend ?? undefined,
+        fastMode,
+        onFastModeUnavailable: fastMode && chatAtSend ? () => {
+          updateFastChat(chatAtSend, false);
+          setFastModeSupported(false);
+          refreshHealth((previous) => previous + 1);
+        } : undefined,
         onConversationSettled: (messages) => {
           if (chatAtSend) void persistAgentMessages(chatAtSend, messages);
           options?.onConversationSettled?.(messages);
         },
       });
     },
-    [chatSend, fastModeReady, fastChats],
+    [chatSend, fastModeReady, fastChats, updateFastChat],
   );
 
   useOpenClawArmedContinuation(send);
