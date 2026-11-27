@@ -12,6 +12,13 @@ om generationen. Deep Brief, Byggval och tidigare versionsunderlag matas till
 [orchestrate.ts](../../src/lib/gen/orchestrate.ts). Vanlig follow-up återanvänder
 Snapshot-Brief; `clear-redesign` kan begära ny brief.
 
+[Briefens Byggval-formatter](../../src/lib/builder/brief-build-choices-format.ts)
+förmedlar samma strukturerade val till klientbrief och serverbrief. Temafamilj
+och uttryckligt färgläge påverkar briefens färgpalett. Med Auto beslutar briefen
+bakgrund och textfärg utifrån innehållet. [Promptfinaliseringen](../../src/lib/gen/orchestrate/finalize-prompts.ts)
+bevarar de beslutade ytorna och tillämpar vald temafamiljs accentfärger. Saknas
+en fullständig briefpalett används variantens färgläge som utgångspunkt.
+
 Den råa användartexten, user message och chatthistoriken är requestunderlag.
 User prompt ska inte dupliceras som systemkontext. Typen
 [GenerationInputPackage](../../src/lib/gen/generation-input-package.ts) äger

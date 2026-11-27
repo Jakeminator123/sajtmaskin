@@ -7,6 +7,7 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import { applyBriefColorPalette } from "@/lib/builder/brief-build-choices";
 import {
   normalizeDesignTheme,
+  getThemeColors,
   resolveThemePalette,
   THEME_CLUSTERS,
   type ThemeClusterId,
@@ -265,12 +266,20 @@ export async function finalizeOrchestrationPrompts(
   // surface. Persisting the resolved mode in the orchestration snapshot would let
   // the block render on follow-ups too; that is a schema change, not a fix here.
   //
-  // On init with Färgläge=Auto, inherit the resolved variant's light/dark mode
-  // so a dark terminal variant does not get a forced light palette that then
-  // claims to supersede the variant's own tokens.
+  // On Auto, a complete brief palette carries the early light/dark decision.
+  // Older briefs without surfaces keep using the resolved variant's mode.
   const normalizedDesignTheme = normalizeDesignTheme(designThemePreset);
+  const briefVisual = brief?.visualDirection as {
+    colorPalette?: { background?: unknown; text?: unknown };
+  } | undefined;
+  const briefBackground = briefVisual?.colorPalette?.background;
+  const briefText = briefVisual?.colorPalette?.text;
+  const hasBriefSurfaces =
+    typeof briefBackground === "string" && briefBackground.trim().length > 0 &&
+    typeof briefText === "string" && briefText.trim().length > 0;
+  const useAutoBriefSurfaces = !input.colorModeHint && hasBriefSurfaces;
   const lockedColorPalette =
-    resolvedMode === "init"
+    resolvedMode === "init" && !useAutoBriefSurfaces
       ? resolveThemePalette(normalizedDesignTheme, input.colorModeHint ?? "auto", {
           variantColorMode: resolvedVariant?.colorMode ?? null,
         })
@@ -279,7 +288,10 @@ export async function finalizeOrchestrationPrompts(
     ? (THEME_CLUSTERS[normalizedDesignTheme as ThemeClusterId]?.label ?? null)
     : null;
 
-  const effectiveBrief = applyBriefColorPalette(brief, resolvedMode === "init" ? lockedColorPalette ?? themeColors : null);
+  const colorThemeOverride = resolvedMode === "init"
+    ? lockedColorPalette ?? getThemeColors(normalizedDesignTheme) ?? themeColors
+    : themeColors;
+  const effectiveBrief = applyBriefColorPalette(brief, resolvedMode === "init" ? colorThemeOverride : null);
   // The registry variant is shared. Adapt only this generation's color fields;
   // typography, geometry and the user's selected variant id retain their owners.
   if (resolvedVariant && lockedColorPalette) {
@@ -288,12 +300,24 @@ export async function finalizeOrchestrationPrompts(
       colorMode: input.colorModeHint ?? resolvedVariant.colorMode,
       themeTokens: { ...resolvedVariant.themeTokens, ...lockedColorPalette },
     };
+  } else if (resolvedVariant && resolvedMode === "init" && hasBriefSurfaces) {
+    resolvedVariant = {
+      ...resolvedVariant,
+      colorMode: input.colorModeHint ?? "either",
+      themeTokens: {
+        radius: resolvedVariant.themeTokens?.radius,
+        bodyBackgroundImage: resolvedVariant.themeTokens?.bodyBackgroundImage,
+        ...colorThemeOverride,
+        background: briefBackground as string,
+        foreground: briefText as string,
+      },
+    };
   }
 
   const dynamicOpts: DynamicContextOptions = {
     intent: finalBuildIntent,
     brief: effectiveBrief as DynamicContextOptions["brief"],
-    themeOverride: lockedColorPalette ?? themeColors,
+    themeOverride: colorThemeOverride,
     imageGenerations,
     scaffoldContext: base.scaffoldContext,
     capabilityHints: base.capabilityHints,

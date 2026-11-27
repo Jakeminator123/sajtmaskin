@@ -10,6 +10,8 @@ import {
 } from "@/lib/gen/scaffold-variants/variant-hints";
 import { resolveVariantForStyleChoice } from "@/lib/gen/scaffold-variants/style-choice-variants";
 import type { BriefBuildChoicesInput } from "@/lib/builder/brief-build-choices";
+import { getThemeColors, normalizeDesignTheme, resolveThemePalette } from "./theme-presets";
+import type { VariantHints } from "@/lib/gen/scaffold-variants/variant-hints";
 
 /**
  * Prompt appendix for Deep Brief: structured Byggval constraints plus, when a
@@ -18,8 +20,10 @@ import type { BriefBuildChoicesInput } from "@/lib/builder/brief-build-choices";
  */
 export function formatBriefBuildChoicesForPrompt(
   input: BriefBuildChoicesInput | null | undefined,
+  preMatchedHints?: VariantHints | null,
 ): string | undefined {
-  if (!input) return undefined;
+  if (!input && !preMatchedHints) return undefined;
+  input ??= {};
   const lines: string[] = [];
   if (input.buildIntent === "website" || input.buildIntent === "app") {
     lines.push(`- Build intent (user choice): ${input.buildIntent}`);
@@ -46,21 +50,45 @@ export function formatBriefBuildChoicesForPrompt(
   if (input.complexityHint) {
     lines.push(`- Complexity: ${input.complexityHint}`);
   }
-  if (lines.length === 0) return undefined;
+  const theme = normalizeDesignTheme(input.designThemePreset);
+  const palette = input.colorModeHint
+    ? resolveThemePalette(theme, input.colorModeHint)
+    : getThemeColors(theme);
+  const colors = palette ?? input.themeColors;
+  if (colors) {
+    lines.push(`- Color theme family: ${theme === "off" ? "custom" : theme}`);
+    lines.push(`- Brand colors: primary ${colors.primary}, secondary ${colors.secondary}, accent ${colors.accent}`);
+    if (palette && "background" in palette && "foreground" in palette) {
+      lines.push(`- Surface colors: background ${palette.background}, text ${palette.foreground}`);
+    }
+  }
+  if (input.designThemePreset !== undefined && !input.colorModeHint) {
+    lines.push("- Color mode: auto. Decide light or dark from the subject, content and chosen style, then record coherent background and text colors in visualDirection.colorPalette.");
+  }
 
-  const constraintBlock = [
+  const constraintBlock = lines.length ? [
     "Byggval constraints (user selections — treat as hard requirements, not suggestions):",
     ...lines,
-  ].join("\n");
+  ].join("\n") : undefined;
 
-  let variantBlock: string | undefined;
-  if (input.scaffoldId) {
+  let hints = preMatchedHints;
+  if (!hints && input.scaffoldId) {
     const scaffold = getScaffoldById(input.scaffoldId);
     const pinned =
       resolveVariantForStyleChoice(input.scaffoldId, input.styleChoiceHint) ?? null;
-    const hints = buildVariantHintsForBrief(scaffold, pinned);
-    if (hints) variantBlock = formatVariantHintsForPrompt(hints);
+    hints = buildVariantHintsForBrief(scaffold, pinned);
   }
+  if (hints && input.designThemePreset !== undefined && !input.colorModeHint) {
+    hints = {
+      ...hints,
+      colorMode: "either",
+      themeTokens: hints.themeTokens ? {
+        radius: hints.themeTokens.radius,
+        bodyBackgroundImage: hints.themeTokens.bodyBackgroundImage,
+      } : null,
+    };
+  }
+  const variantBlock = hints ? formatVariantHintsForPrompt(hints) : undefined;
 
-  return [constraintBlock, variantBlock].filter(Boolean).join("\n\n");
+  return [variantBlock, constraintBlock].filter(Boolean).join("\n\n") || undefined;
 }

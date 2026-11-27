@@ -48,6 +48,8 @@ export type BriefBuildChoicesInput = {
   toneKeywordsHint?: string[];
   colorModeHint?: "light" | "dark";
   complexityHint?: "simple" | "medium" | "complex";
+  designThemePreset?: string;
+  themeColors?: ThemeColors | null;
 };
 
 export function briefBuildChoicesFromMeta(
@@ -79,5 +81,9 @@ export function briefBuildChoicesCacheExtras(
     toneKeywordsHint: (input.toneKeywordsHint ?? []).join("|") || null,
     colorModeHint: input.colorModeHint ?? null,
     complexityHint: input.complexityHint ?? null,
+    designThemePreset: input.designThemePreset ?? null,
+    themeColors: input.themeColors
+      ? [input.themeColors.primary, input.themeColors.secondary, input.themeColors.accent].join("|")
+      : null,
   };
 }

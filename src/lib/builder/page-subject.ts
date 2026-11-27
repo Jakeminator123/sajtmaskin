@@ -3,7 +3,7 @@
 const PAGE_SUBJECT_INTRO =
   /(?<![\p{L}\p{N}_])(?:hemsida|webbsida|webbplats|(?:informations)?(?:sida|sajt)|website|web\s*page|page|site)\s+(?:om|about)\s+(?!(?:oss|us)(?![\p{L}\p{N}_]))(?=[\p{L}\p{N}])/iu;
 const SUBJECT_END =
-  /[.!?;,+\n]|\s+(?:med|with|utan|without|inklusive|including|via|using|där|where|som|that|which|och\s+(?:en|ett|lägg|ska|visa|bygg)|and\s+(?:an?|add|include|show|build))\s+/iu;
+  /[.!?;,+\n]|\s+(?:med|with|utan|without|inklusive|including|featuring|to\s+include|via|using|där|where|som|that|which|och\s+(?:en|ett|lägg|ska|visa|bygg)|and\s+(?:an?|add|include|show|build))\s+/iu;
 
 /** Text outside the stated topic; null if the prompt names no page subject. */
 export function outsidePageSubject(prompt: string): string | null {

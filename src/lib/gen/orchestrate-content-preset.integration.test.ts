@@ -168,7 +168,11 @@ describe("content subjects from Byggval through brief and generation", () => {
     ["En sida om CRM-system med inloggning", "app"],
     ["En informationssida om inloggning där besökare behöver kunna logga in", "app"],
     ["En informationssida om inloggning där besökare behöver kunna logga in", "website"],
-  ] as const)("keeps a Swedish login request after a content subject: %s (%s)", async (prompt, buildIntent) => {
+    ["Build a webpage about owls including a login form", "app"],
+    ["Build a webpage about owls featuring a login form", "app"],
+    ["Build a webpage about owls to include a login form", "app"],
+    ["Build a webpage about owls featuring a login form", "website"],
+  ] as const)("keeps a login request after a content subject: %s (%s)", async (prompt, buildIntent) => {
     const detected = detectFollowUpCapabilities(prompt, { mode: "init" });
     expect(inferCapabilities(prompt)).toMatchObject({ needsAppShell: false, needsAuth: true });
     expect(detected.capabilityIds).toContain("auth");
@@ -180,12 +184,49 @@ describe("content subjects from Byggval through brief and generation", () => {
     expect(integrations.dossierSelection?.selected.some(({ entry }) => entry.capability === "auth")).toBe(true);
   });
 
+  it.each([
+    "Build a webpage about owls including a 3D model",
+    "Build a webpage about owls featuring a 3D model",
+    "Build a webpage about owls to include a 3D model",
+  ])("carries the requested 3D model through init in %s", async (prompt) => {
+    const detected = detectFollowUpCapabilities(prompt, { mode: "init" });
+    expect(inferCapabilities(prompt).needs3D).toBe(true);
+    expect(detected.capabilityIds).toContain("visual-3d");
+    const base = await resolveOrchestrationBase(generationInput(prompt, {
+      buildIntent: "website", brief: null, requestedDossierCapabilities: detected.capabilityIds,
+    }));
+    expect(base.capabilities.needs3D).toBe(true);
+    expect(base.dossierRequestedCapabilities).toContain("visual-3d");
+    expect(base.dossierSelection?.selected.some(({ entry }) => entry.capability === "visual-3d")).toBe(true);
+  });
+
   it("preserves the brief palette when the customer leaves the color preset off", async () => {
     const input = generationInput(bearPrompt, { designThemePreset: "off" });
     const final = await finalizeOrchestrationPrompts(await resolveOrchestrationBase(input), input);
     expect(final.effectiveBrief).toBe(input.brief);
     expect(final.dynamicContext).toContain("#abcdef");
     expect(final.dynamicContext).not.toContain("## Locked Color Palette");
+  });
+
+  it.each([
+    ["off", undefined], ["orange", undefined], ["off", "dark"],
+  ] as const)("keeps the brief's surfaces with theme %s and mode %s", async (designThemePreset, colorModeHint) => {
+    const input = generationInput(bearPrompt, {
+      colorModeHint,
+      designThemePreset,
+      brief: { visualDirection: { colorPalette: {
+        primary: "#abcdef", background: "#17121b", text: "#fff6eb",
+      } } },
+    });
+    const base = await resolveOrchestrationBase(input);
+    const final = await finalizeOrchestrationPrompts(base, input);
+    const pkg = buildGenerationInputPackage(base, input, final);
+    expect(pkg.brief).toMatchObject({ visualDirection: { colorPalette: {
+      background: "#17121b", text: "#fff6eb",
+    } } });
+    expect(final.dynamicContext).toContain("#17121b");
+    expect(final.dynamicContext).toContain("#fff6eb");
+    expect(final.dynamicContext).not.toContain(resolveThemePalette("orange", "light")!.background);
   });
 
   it("respects manual App Shell, its optional route and an explicit page ceiling", async () => {

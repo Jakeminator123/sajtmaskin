@@ -125,6 +125,8 @@ export async function POST(req: Request) {
         toneKeywordsHint,
         colorModeHint,
         complexityHint,
+        designThemePreset,
+        themeColors,
       } = parsed.data;
       const normalizedModel = normalizeAssistModel(model);
       const briefSource = source?.trim() || "unspecified_client";
@@ -137,6 +139,8 @@ export async function POST(req: Request) {
         toneKeywordsHint,
         colorModeHint,
         complexityHint,
+        designThemePreset,
+        themeColors,
       };
       const buildChoicesExtras = briefBuildChoicesCacheExtras(buildChoices);
       const buildChoicesHints = formatBriefBuildChoicesForPrompt(buildChoices);

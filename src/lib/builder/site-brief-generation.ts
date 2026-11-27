@@ -63,6 +63,12 @@ export const briefRequestSchema = z.object({
   toneKeywordsHint: z.array(z.string().trim().min(1).max(40)).max(8).optional(),
   colorModeHint: z.enum(["light", "dark"]).optional(),
   complexityHint: z.enum(["simple", "medium", "complex"]).optional(),
+  designThemePreset: z.string().max(30).optional(),
+  themeColors: z.object({
+    primary: z.string().max(200),
+    secondary: z.string().max(200),
+    accent: z.string().max(200),
+  }).nullable().optional(),
 });
 
 function resolveMaxTokens(requested: number | undefined): number {
@@ -616,6 +622,7 @@ export async function generateSiteBriefObject(
     extraHashFields: {
       ...(extraHashFields ?? {}),
       auditContext: auditContext ?? null,
+      variantHints: variantHints ?? null,
     },
   });
 
