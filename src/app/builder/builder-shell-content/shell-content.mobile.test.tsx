@@ -130,14 +130,14 @@ describe("BuilderShellContent mobile cube entry", () => {
     expect(screen.getByTestId("shell-sitemap").dataset.visible).toBe("true");
 
     fireEvent.click(screen.getByRole("button", { name: "Öppna Om sajten" }));
-    expect(screen.getByRole("tab", { name: "Förhandsvisning", exact: true }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: "Förhandsvisning" }).getAttribute("aria-selected")).toBe("true");
     expect(document.getElementById("builder-chat-panel")?.classList.contains("hidden")).toBe(true);
     expect(document.getElementById("builder-preview-panel")?.classList.contains("flex")).toBe(true);
     expect(screen.getByTestId("shell-sitemap").dataset.visible).toBe("false");
     const outerTabs = within(screen.getByRole("tablist", { name: "Byggarvyer" }));
-    fireEvent.click(outerTabs.getByRole("tab", { name: "Byggvyer", exact: true }));
+    fireEvent.click(outerTabs.getByRole("tab", { name: "Byggvyer" }));
     expect(screen.getByTestId("shell-sitemap").dataset.visible).toBe("true");
-    fireEvent.click(views().getByRole("tab", { name: "Chatt", exact: true }));
+    fireEvent.click(views().getByRole("tab", { name: "Chatt" }));
     expect(screen.getByLabelText("Skriv till Sajtagenten")).toBe(composer);
     expect(composer.value).toBe("Mitt mobilutkast");
     expect(document.querySelectorAll("textarea")).toHaveLength(1);
