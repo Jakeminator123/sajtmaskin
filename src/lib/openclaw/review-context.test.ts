@@ -26,8 +26,40 @@ vi.mock("@/lib/db/services/version-errors", () => ({
 }));
 
 import { buildOpenClawReviewContext } from "./review-context";
+import { getLiveReviewRunForVersion } from "@/lib/db/services/live-review-runs";
+import type { LiveReviewRunRow } from "@/lib/gen/verify/live-review-claim";
+
+function savedReview(changes: Partial<LiveReviewRunRow> = {}): LiveReviewRunRow {
+  return {
+    id: "review-own",
+    chatId: "chat-own", versionId: "v1", filesRevision: "revision-current", userId: "owner",
+    status: "skipped", skipReason: "no_screenshots", result: { status: "skipped", reason: "no_screenshots" },
+    desktopUrl: null, mobileUrl: null, desktopBlobPath: null, mobileBlobPath: null,
+    modelAttempts: 0, claimedAt: new Date(), completedAt: new Date(), expiresAt: new Date(Date.now() + 60_000),
+    ...changes,
+  };
+}
 
 describe("buildOpenClawReviewContext", () => {
+  it("attaches the current owned revision's persisted review", async () => {
+    vi.mocked(getLiveReviewRunForVersion).mockResolvedValueOnce(savedReview());
+    const ctx = await buildOpenClawReviewContext({ versionId: "v1", chatId: "chat-own", filesRevision: "revision-current" });
+    expect(ctx.liveReview).toContain("no_screenshots");
+  });
+
+  it.each([
+    { filesRevision: "revision-old" },
+    { chatId: "chat-other" },
+    { versionId: "version-other" },
+    { expiresAt: new Date(0) },
+  ])("omits unrelated or expired reviews while retaining version diagnostics ($filesRevision $chatId $versionId)", async (changes) => {
+    vi.mocked(getLiveReviewRunForVersion).mockResolvedValueOnce(savedReview(changes));
+    const ctx = await buildOpenClawReviewContext({ versionId: "v1", chatId: "chat-own", filesRevision: "revision-current" });
+    expect(ctx.liveReview).toBeNull();
+    expect(ctx.findings).toContain("app/page.tsx");
+    expect(ctx.timeline).toContain("[TIDSLINJE]");
+  });
+
   it("returns both findings and timeline from a single read", async () => {
     const ctx = await buildOpenClawReviewContext({ versionId: "v1" });
     expect(ctx.findings).toContain("[BUGGFYND]");

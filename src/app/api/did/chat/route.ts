@@ -16,6 +16,7 @@ import { OPENCLAW_VIDEO_PROPOSAL_PROMPT } from "@/lib/openclaw/video-proposal";
 import { postOpenClawChatCompletion } from "@/lib/openclaw/gateway-client";
 import { resolveOpenClawModelRoute } from "@/lib/openclaw/model-routing";
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
+import { OPENCLAW_PERSONA } from "@/lib/openclaw/persona";
 import {
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
@@ -49,7 +50,8 @@ const MAX_MESSAGE_CHARS = 2_000;
 const MAX_HISTORY_MESSAGES = 8;
 const MAX_HISTORY_MESSAGE_CHARS = 800;
 
-const DID_BRIDGE_SYSTEM_PROMPT = `Du är Sajtagenten som hjärna bakom en svensk D-ID-avatar i Sajtmaskin.
+const DID_BRIDGE_SYSTEM_PROMPT = `${OPENCLAW_PERSONA}
+Du svarar genom en talande avatar.
 
 OpenClaw/Sajtagenten är en separat assistent- och agentyta. Builderns own-engine, promptassist, brief, verifiering och andra LLM-pass är andra LLM-flöden. Blanda inte ihop dem när du förklarar vad som händer.
 
@@ -212,7 +214,11 @@ export async function POST(req: NextRequest) {
     const history = sanitizeHistory(body.recentMessages);
     if (body.readTask !== undefined) {
       const { answerOpenClawReadTask } = await import("@/lib/openclaw/read-task");
-      const readAnswer = await answerOpenClawReadTask(req, body.readTask, userMessage);
+      const readAnswer = await answerOpenClawReadTask(req, body.readTask, userMessage, {
+        history,
+        context: body.context,
+        spoken: true,
+      });
       if (!readAnswer.ok) return readAnswer;
       const { answer, sources } = await readAnswer.json() as { answer: string; sources: string[] };
       return NextResponse.json({ success: true, sessionId, reply: answer, sources });
