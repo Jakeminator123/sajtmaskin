@@ -12,25 +12,28 @@
  */
 
 import type { InitBuildChoicesMeta } from "@/lib/builder/init-build-choices";
-import type { ThemePalette } from "@/lib/builder/theme-presets";
+import type { ThemeColors, ThemePalette } from "@/lib/builder/theme-presets";
 
 /** Project the resolved Byggval palette into the existing Deep Brief schema. */
 export function applyBriefColorPalette(
   brief: Record<string, unknown> | null,
-  palette: ThemePalette | null,
+  palette: ThemePalette | ThemeColors | null,
 ): Record<string, unknown> | null {
   if (!brief || !palette) return brief;
   const visual = brief.visualDirection;
   const visualDirection = visual && typeof visual === "object" && !Array.isArray(visual)
     ? visual as Record<string, unknown>
     : {};
+  const prior = visualDirection.colorPalette;
+  const priorColors = prior && typeof prior === "object" && !Array.isArray(prior) ? prior : {};
   return {
     ...brief,
     visualDirection: {
       ...visualDirection,
       colorPalette: {
+        ...priorColors,
         primary: palette.primary, secondary: palette.secondary, accent: palette.accent,
-        background: palette.background, text: palette.foreground,
+        ...("background" in palette ? { background: palette.background, text: palette.foreground } : {}),
       },
     },
   };

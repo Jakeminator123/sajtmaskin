@@ -279,7 +279,7 @@ export async function finalizeOrchestrationPrompts(
     ? (THEME_CLUSTERS[normalizedDesignTheme as ThemeClusterId]?.label ?? null)
     : null;
 
-  const effectiveBrief = applyBriefColorPalette(brief, lockedColorPalette);
+  const effectiveBrief = applyBriefColorPalette(brief, resolvedMode === "init" ? lockedColorPalette ?? themeColors : null);
   // The registry variant is shared. Adapt only this generation's color fields;
   // typography, geometry and the user's selected variant id retain their owners.
   if (resolvedVariant && lockedColorPalette) {
