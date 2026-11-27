@@ -129,8 +129,6 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const lastActiveVersionIdRef = useRef<string | null>(null);
   const promptFetchInFlightRef = useRef<string | null>(null);
   const promptFetchDoneRef = useRef<string | null>(null);
-  const loadedGenerationSettingsChatRef = useRef<string | null>(null);
-  const applyingGenerationSettingsRef = useRef(false);
   const templateInitAttemptKeyRef = useRef<string | null>(null);
 
   const [scaffoldMode, setScaffoldMode] = useState<ScaffoldMode>(DEFAULT_SCAFFOLD_MODE);
@@ -299,8 +297,6 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     lastActiveVersionIdRef,
     promptFetchInFlightRef,
     promptFetchDoneRef,
-    loadedGenerationSettingsChatRef,
-    applyingGenerationSettingsRef,
     templateInitAttemptKeyRef,
     scaffoldMode,
     setScaffoldMode,

@@ -17,6 +17,7 @@ import { MODEL_TIER_TO_QUALITY } from "./types";
 import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { normalizePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
 import { readPreviewUrl } from "@/lib/api/preview-url-contract";
+import type { ChatGenerationSettings } from "@/lib/builder/chat-generation-settings";
 
 type UseBuilderEffectsArgs = {
   auditPromptLoaded: boolean;
@@ -25,6 +26,8 @@ type UseBuilderEffectsArgs = {
   isCreatingChat: boolean;
   isAnyStreaming: boolean;
   selectedModelTier: ModelTier;
+  enableImageGenerations: boolean;
+  onChatCreated: (chatId: string, settings: ChatGenerationSettings) => void;
   appProjectId: string | null;
   applyAppProjectId: (nextProjectId: string | null, options?: { chatId?: string | null }) => void;
   searchParams: ReadonlyURLSearchParams;
@@ -50,6 +53,8 @@ export function useBuilderEffects({
   isCreatingChat,
   isAnyStreaming,
   selectedModelTier,
+  enableImageGenerations,
+  onChatCreated,
   appProjectId,
   applyAppProjectId,
   searchParams,
@@ -142,6 +147,9 @@ export function useBuilderEffects({
       if (!isCurrent()) return;
 
       if (data?.chatId) {
+        if (data.cached !== true) {
+          onChatCreated(data.chatId, { modelTier: selectedModelTier, imageGenerations: enableImageGenerations });
+        }
         setChatId(data.chatId);
         if (appProjectId) {
           applyAppProjectId(appProjectId, { chatId: data.chatId });
@@ -199,6 +207,8 @@ export function useBuilderEffects({
   }, [
     templateId,
     selectedModelTier,
+    enableImageGenerations,
+    onChatCreated,
     appProjectId,
     applyAppProjectId,
     searchParams,

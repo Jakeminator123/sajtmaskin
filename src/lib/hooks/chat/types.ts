@@ -8,6 +8,7 @@ import type { PromptSourceMeta } from "@/lib/builder/prompt-builder";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import type { OpenClawPreparedPromptSource } from "@/lib/openclaw/prepared-prompt";
 import type { ModelTier } from "@/lib/validations/chat-schemas";
+import type { ChatGenerationSettings } from "@/lib/builder/chat-generation-settings";
 import type { DesignTheme, ThemeColors } from "@/lib/builder/theme-presets";
 import type { MutableRefObject } from "react";
 
@@ -282,12 +283,14 @@ export type ChatMessagingParams = {
    */
   latestKnownVersionId?: string | null;
   setChatId: (id: string | null) => void;
+  onChatCreated?: (chatId: string, settings: ChatGenerationSettings) => void;
   chatIdParam: string | null;
   router: RouterLike;
   appProjectId?: string | null;
   /** Maps to API `projectId` / legacy `v0ProjectId` in responses. */
   linkedProjectId?: string | null;
   selectedModelTier: ModelTier;
+  isModelTierReady?: () => boolean;
   enableImageGenerations: boolean;
   enableImageMaterialization?: boolean;
   enableThinking: boolean;

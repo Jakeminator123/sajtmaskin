@@ -33,6 +33,10 @@ const finalizeOrHandleEmptyGeneration = vi.hoisted(() => vi.fn());
 const buildFileContext = vi.hoisted(() => vi.fn());
 const parseSSEBuffer = vi.hoisted(() => vi.fn());
 const createPromptLog = vi.hoisted(() => vi.fn());
+const resolveModelSelection = vi.hoisted(() => vi.fn(() => ({
+  modelId: "test-model-id",
+  modelTier: "test-tier",
+})));
 const checkTier3ReadinessForVersion = vi.hoisted(() => vi.fn());
 const prewarmPreviewSession = vi.hoisted(() => vi.fn());
 const createPreviewPrewarmLeaseKey = vi.hoisted(() => vi.fn(() => "a".repeat(64)));
@@ -159,14 +163,12 @@ vi.mock("@/lib/db/services/prompt-logs", () => ({
 }));
 
 vi.mock("@/lib/models/selection", () => ({
-  resolveModelSelection: () => ({
-    modelId: "test-model-id",
-    modelTier: "test-tier",
-  }),
+  resolveModelSelection,
   resolveEngineModelId: () => "gpt-5.4",
 }));
 
-vi.mock("@/lib/models/catalog", () => ({
+vi.mock("@/lib/models/catalog", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/models/catalog")>()),
   DEFAULT_MODEL_ID: "test-model-id",
   DEFAULT_OWN_MODEL_ID: "gpt-5.4",
   MODEL_LABELS: {
@@ -852,6 +854,35 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       createGenerationPipeline.mock.calls[0]?.[0] as { prompt: string }
     ).prompt;
     expect(pipelinePrompt).toContain(message);
+  });
+
+  it.each([
+    [undefined, "ultra", "ultra"],
+    [undefined, "historic-unknown", "test-model-id"],
+    ["pro", "ultra", "test-model-id"],
+  ])("hands off the correct tier when requested %s and stored %s", async (modelId, storedTier, fallbackTier) => {
+    sendMessageSchemaSafeParse.mockReturnValueOnce({
+      success: true,
+      data: { message: "Change the page title", modelId, thinking: true, meta: { appProjectId: "app_proj_1" } },
+    });
+    getEngineChatByIdForRequest.mockResolvedValueOnce({
+      id: "chat_1", project_id: "app_proj_1", scaffold_id: null, messages: [],
+      orchestration_snapshot: { modelTier: storedTier },
+    });
+    createGenerationPipeline.mockReturnValueOnce(buildPipelineStream([
+      { event: "content", data: { text: "<main>New title</main>" } },
+      { event: "done", data: {} },
+    ]));
+
+    const response = await POST(new Request("https://example.com/api/engine/chats/chat_1/stream", {
+      method: "POST",
+      body: "{}",
+    }), { params: Promise.resolve({ chatId: "chat_1" }) });
+    expect(response.status).toBe(200);
+    await readSseEvents(response);
+    expect(resolveModelSelection).toHaveBeenCalledWith(expect.objectContaining({
+      requestedModelId: modelId, fallbackTier,
+    }));
   });
 
   it("persists the rematched scaffold when a follow-up round generates", async () => {

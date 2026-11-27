@@ -55,6 +55,7 @@ export function useCreateChat(
   const {
     chatId: _chatId,
     setChatId,
+    onChatCreated,
     chatIdParam,
     router,
     appProjectId,
@@ -223,6 +224,10 @@ export function useCreateChat(
       const userMessageId = `user-${now}`;
       const assistantMessageId = `assistant-${now}`;
       const canonicalTier = canonicalizeModelId(selectedModelTier) ?? "max";
+      const setCreatedChatId = (id: string | null) => {
+        if (id) onChatCreated?.(id, { modelTier: canonicalTier, imageGenerations: enableImageGenerations });
+        setChatId(id);
+      };
       const engineModel = canonicalModelIdToOwnModelId(canonicalTier);
       const buildProfileId = getBuildProfileId(canonicalTier);
 
@@ -407,7 +412,7 @@ export function useCreateChat(
           throw new Error("No chat ID returned from API");
         }
 
-        setChatId(String(newChatId));
+        setCreatedChatId(String(newChatId));
         if (newLinkedProjectId) {
           onLinkedProjectId?.(String(newLinkedProjectId));
         }
@@ -648,7 +653,7 @@ export function useCreateChat(
               chatId: null,
               setMessages,
               touchStreamSafetyTimer,
-              setChatId,
+              setChatId: setCreatedChatId,
               chatIdParam,
               // Force Byggval-effective intent into SSE URL writes. Without this
               // the shared builder falls back to stale React state (landing
@@ -760,6 +765,7 @@ export function useCreateChat(
       systemPrompt,
       setMessages,
       setChatId,
+      onChatCreated,
       chatIdParam,
       router,
       appProjectId,
