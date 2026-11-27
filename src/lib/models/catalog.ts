@@ -98,6 +98,10 @@ const LEGACY_MODEL_IDS = Object.keys(LEGACY_ALIAS) as (keyof typeof LEGACY_ALIAS
  * GPT-4o mini as deprecated (2026-10-17); they route to GPT-6.2 Sol.
  */
 const RETIRED_MODEL_ALIAS: Record<string, string> = {
+  "gpt-6-astra": "gpt-6.2-astra",
+  "openai/gpt-6-astra": "openai/gpt-6.2-astra",
+  "gpt-6.1-astra": "gpt-6.2-astra",
+  "openai/gpt-6.1-astra": "openai/gpt-6.2-astra",
   // Read saved Luna selections while routing subsequent text calls through Sol.
   "gpt-6-luna": "gpt-6.2-sol",
   "openai/gpt-6-luna": "openai/gpt-6.2-sol",
@@ -130,6 +134,11 @@ export function aliasRetiredModelId(value: string | null | undefined): string {
   return RETIRED_MODEL_ALIAS[trimmed] ?? trimmed;
 }
 
+/** Concrete model ID used by the own engine, its phase routing and token budgets. */
+export function resolveOwnEngineModelId(value: string | null | undefined): string {
+  return aliasRetiredModelId(value).replace(/^openai\//, "");
+}
+
 /** Union of every model ID accepted as input (canonical + legacy). */
 export const ACCEPTED_MODEL_IDS = [...CANONICAL_MODEL_IDS, ...LEGACY_MODEL_IDS] as const;
 
@@ -155,8 +164,11 @@ export function ownModelIdToCanonicalModelId(
   const persistedTier = canonicalizeModelId(value);
   if (persistedTier) return persistedTier;
 
-  const trimmed = aliasRetiredModelId(value);
+  const storedModel = value?.trim() ?? "";
+  const trimmed = resolveOwnEngineModelId(storedModel);
   if (!trimmed) return null;
+  // Old Astra IDs identified Ultra before today's configurable model assignments.
+  if (trimmed === "gpt-6.2-astra" && Object.hasOwn(RETIRED_MODEL_ALIAS, storedModel)) return "ultra";
 
   // Since 2026-09-02 Låg/Mellan/Hög all persist the same Sol id as chat.model
   // across model upgrades, so the build model alone cannot identify the tier. Resolve a shared model to Mellan: its
@@ -174,12 +186,11 @@ export function ownModelIdToCanonicalModelId(
   // Fall back to canonical manifest defaults when live env overrides have
   // changed since the chat was persisted.
   for (const candidate of CANONICAL_MODEL_IDS) {
-    if (aliasRetiredModelId(getBuildProfileDefaultOwnEngineModel(candidate)) === trimmed) {
+    if (resolveOwnEngineModelId(getBuildProfileDefaultOwnEngineModel(candidate)) === trimmed) {
       return candidate;
     }
   }
-  // Astra was exclusive to Ultra before the 6.2 upgrade.
-  return trimmed === "gpt-6-astra" ? "ultra" : null;
+  return null;
 }
 
 /**
@@ -306,5 +317,5 @@ export function canonicalModelIdToOwnModelId(modelId: CanonicalModelId): OwnMode
       getBuildProfileDefaultOwnEngineModel("ultra"),
   };
   const raw = tierMap[modelId] ?? getBuildProfileDefaultOwnEngineModel("pro");
-  return aliasRetiredModelId(raw) as OwnModelId;
+  return resolveOwnEngineModelId(raw) as OwnModelId;
 }
