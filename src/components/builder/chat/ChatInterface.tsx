@@ -320,6 +320,17 @@ export function ChatInterface({
   const sourcePagePanel = useRef<SourcePagePanelHandle>(null);
   const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
   const videoScope = JSON.stringify([chatId, projectId]);
+  const composerScope = useMemo(() => ({ key: videoScope }), [videoScope]);
+  const activeComposerScopeRef = useRef(composerScope);
+  activeComposerScopeRef.current = composerScope;
+  const [preparedVideoScope, setPreparedVideoScope] = useState<string>();
+  // The video instruction is editable after handoff. Reset its whole composer
+  // draft on a scope change so an edited copy cannot travel with the attachment.
+  if (preparedVideoScope && preparedVideoScope !== videoScope) {
+    setPreparedVideoScope(undefined);
+    setInput("");
+    setFiles([]);
+  }
   const [videoDraft, setVideoDraft] = useState<{ scope: string; id: string; intent: VideoGenerationIntent }>();
   const activeVideoDraft = videoDraft?.scope === videoScope ? videoDraft : undefined;
   if (videoDraft && !activeVideoDraft) setVideoDraft(undefined);
@@ -328,9 +339,10 @@ export function ChatInterface({
     const controller = new AbortController();
     const prepareDraft = (event: Event) => {
       const command = (event as CustomEvent<BuilderVideoDraft>).detail;
-      if (controller.signal.aborted || activeComposerChatRef.current !== chatId ||
+      if (controller.signal.aborted || activeComposerScopeRef.current !== composerScope ||
           command?.chatId !== chatId || command.projectId !== projectId) return;
       event.preventDefault();
+      setPreparedVideoScope(composerScope.key);
       setFiles((current) => current.some((file) => file.url === command.media.url)
         ? current
         : [...current, {
@@ -354,7 +366,7 @@ export function ChatInterface({
       controller.abort();
       window.removeEventListener(BUILDER_VIDEO_DRAFT_EVENT, prepareDraft);
     };
-  }, [chatId, projectId]);
+  }, [chatId, projectId, composerScope]);
   const [figmaUrl, setFigmaUrl] = useState("");
   const [internalFigmaInputOpen, setInternalFigmaInputOpen] = useState(false);
   const [isTextUploaderOpen, setIsTextUploaderOpen] = useState(false);
@@ -825,7 +837,7 @@ export function ChatInterface({
     setIsSending(true);
     try {
       const payload = await buildMessagePayload(baseMessage);
-      if (!payload.finalMessage.trim()) return;
+      if (activeComposerScopeRef.current !== composerScope || !payload.finalMessage.trim()) return;
       // OpenClaw prepared-prompt fast lane: tag a follow-up send whose FINAL
       // message is exactly what OpenClaw filled into this composer (a power
       // granted, no user edits, no appended Figma/inspect blocks or
@@ -860,7 +872,7 @@ export function ChatInterface({
         try {
           outcome = await onSendMessage(payload.finalMessage, msgOpts);
         } catch (error) {
-          onTurnKept?.();
+          if (activeComposerScopeRef.current === composerScope) onTurnKept?.();
           throw error;
         }
         // Utfallskontraktet (BB#shadcn-lane1): en avvisad tur som servern INTE
@@ -870,6 +882,7 @@ export function ChatInterface({
         // sändvägen resolvade utan kast. Skrev servern ner turen ligger prompten
         // i tråden i stället och utkastet rensas — annars finns den på två
         // ställen och ett omsänd kan dubblera turen (bugbot på #610).
+        if (activeComposerScopeRef.current !== composerScope) return;
         if (outcome.status === "rejected" && !outcome.turnRecorded) {
           onTurnKept?.();
           return;
@@ -884,6 +897,7 @@ export function ChatInterface({
         useOpenClawStore.getState().setPreparedFill(null);
       }
       if (options.clearDraft !== false) {
+        setPreparedVideoScope(undefined);
         setInput("");
         setFiles([]);
         setSelectedSource(undefined);
@@ -948,7 +962,7 @@ export function ChatInterface({
     });
 
   const handleSubmit = async ({ text }: { text: string }) => {
-    if (submitDisabled) return;
+    if (submitDisabled || activeComposerScopeRef.current !== composerScope) return;
     const trimmed = text.trim() || (composerMode === "agent"
       ? sourceSelection ? "Vad visar den valda källan?" : hasAgentReadableAttachments ? "Vad visar mina bilagor?" : ""
       : "");
