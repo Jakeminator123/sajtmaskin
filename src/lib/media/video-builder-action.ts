@@ -1,4 +1,4 @@
-import type { VideoGenerationJob, VideoGenerationMedia } from "@/lib/media/video-generation-contract";
+import { parseVideoGenerationMediaId, type VideoGenerationJob, type VideoGenerationMedia } from "@/lib/media/video-generation-contract";
 import { getBuilderBridge } from "@/lib/openclaw/builder-bridge";
 
 type Target = { chatId: string; projectId: string; placement?: string; versionId?: string };
@@ -27,7 +27,9 @@ export function prepareGeneratedVideoInBuilder(
   signal: AbortSignal,
   { allowHandoff = false }: { allowHandoff?: boolean } = {},
 ): InsertionOutcome {
-  if (signal.aborted || job.projectId !== target.projectId || job.status !== "succeeded" || job.media?.mimeType !== "video/mp4") {
+  const mediaId = parseVideoGenerationMediaId(job.media?.id);
+  if (signal.aborted || job.projectId !== target.projectId || job.status !== "succeeded" ||
+      job.media?.mimeType !== "video/mp4" || !mediaId) {
     throw new Error("Videon är inte klar i den här sajten.");
   }
   const bridge = getBuilderBridge();
@@ -54,7 +56,7 @@ export function prepareGeneratedVideoInBuilder(
     detail: {
       chatId: target.chatId,
       projectId: target.projectId,
-      media: job.media,
+      media: { ...job.media, id: mediaId },
       prompt: `Lägg in den färdiga bifogade MP4-videon på sajten med en vanlig uppspelningskontroll. Använd exakt den bifogade filen.${placement}`,
     },
   }));

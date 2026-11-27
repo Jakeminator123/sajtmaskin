@@ -8,13 +8,15 @@ import { getBuilderBridge } from "@/lib/openclaw/builder-bridge";
 import {
   VIDEO_GENERATION_PROMPT_MAX_LENGTH,
   VIDEO_GENERATION_SOURCE_MIME_TYPES,
+  parseVideoGenerationMediaId,
   type VideoGenerationJob,
   type VideoGenerationOrder,
   type VideoGenerationsResponse,
   type VideoGenerationResponse,
 } from "@/lib/media/video-generation-contract";
 
-type SourceImage = { id: number; filename: string; mimeType: string; fileType: string; projectId: string | null };
+type SourceImage = { id: string; filename: string; mimeType: string; fileType: string; projectId: string | null };
+type MediaLibraryImage = Omit<SourceImage, "id"> & { id: unknown };
 type Context = VideoGenerationsResponse & { projectId: string; images: SourceImage[] };
 type Props = {
   projectId?: string;
@@ -54,7 +56,7 @@ function isActive(job: VideoGenerationJob | undefined) {
 export function VideoGenerationPanel({ projectId, chatId, intent, onClose, onSaved, requestId, allowBuilderHandoff = false }: Props) {
   const [context, setContext] = useState<Context>();
   const [prompt, setPrompt] = useState(intent?.prompt ?? "");
-  const [sourceId, setSourceId] = useState(intent?.sourceMediaId?.toString() ?? "");
+  const [sourceId, setSourceId] = useState(intent?.sourceMediaId ?? "");
   const [job, setJob] = useState<VideoGenerationJob>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -82,7 +84,7 @@ export function VideoGenerationPanel({ projectId, chatId, intent, onClose, onSav
         { signal: controller.signal },
       );
       const [media, knownQuote] = await Promise.all([
-        readJson<{ success: boolean; projectId: string | null; items: SourceImage[] }>(
+        readJson<{ success: boolean; projectId: string | null; items: MediaLibraryImage[] }>(
           `/api/media/upload?${params}`,
           { signal: controller.signal },
         ),
@@ -94,13 +96,14 @@ export function VideoGenerationPanel({ projectId, chatId, intent, onClose, onSav
       const verifiedProjectId = media.projectId;
       const config = knownQuote ?? await readQuote(verifiedProjectId);
       if (!controller.signal.aborted) {
-        const images = media.items.filter((item) =>
-          (item.projectId === verifiedProjectId || item.projectId === null) &&
-          (item.fileType === "image" || item.fileType === "logo") &&
-          VIDEO_GENERATION_SOURCE_MIME_TYPES.includes(item.mimeType) &&
-          Number.isSafeInteger(item.id) && item.id > 0,
-        );
-        setSourceId((current) => images.some((item) => String(item.id) === current) ? current : "");
+        const images = media.items.flatMap((item) => {
+          if ((item.projectId !== verifiedProjectId && item.projectId !== null) ||
+              (item.fileType !== "image" && item.fileType !== "logo") ||
+              !VIDEO_GENERATION_SOURCE_MIME_TYPES.includes(item.mimeType)) return [];
+          const id = parseVideoGenerationMediaId(item.id);
+          return id ? [{ ...item, id }] : [];
+        });
+        setSourceId((current) => images.some((item) => item.id === current) ? current : "");
         setContext({ ...config, images, projectId: verifiedProjectId });
       }
     })().catch((reason: unknown) => {
@@ -112,7 +115,7 @@ export function VideoGenerationPanel({ projectId, chatId, intent, onClose, onSav
   const submit = useCallback(async (maxCredits: number) => {
     const signal = scope.current?.signal;
     if (!signal || signal.aborted || !context?.enabled || posting.current || paidJobId.current) return;
-    const source = context.images.find((image) => String(image.id) === sourceId);
+    const source = context.images.find((image) => image.id === sourceId);
     if (!source || !prompt.trim() || prompt.trim().length > VIDEO_GENERATION_PROMPT_MAX_LENGTH || context.quote.credits > maxCredits) return;
     // After an ambiguous network failure, repeat precisely the same order ID.
     const next = order.current ?? {
@@ -160,7 +163,7 @@ export function VideoGenerationPanel({ projectId, chatId, intent, onClose, onSav
   useEffect(() => {
     if (autoTried.current || approvedCredits === undefined || !context?.enabled ||
         context.quote.credits > approvedCredits || !intent?.sourceMediaId ||
-        sourceId !== String(intent.sourceMediaId) || prompt !== intent.prompt || !prompt.trim()) return;
+        sourceId !== intent.sourceMediaId || prompt !== intent.prompt || !prompt.trim()) return;
     // The budget is explicit in the user’s command. The price is shown before
     // sending and the API receives the same pre-approved cap.
     const timer = window.setTimeout(() => {

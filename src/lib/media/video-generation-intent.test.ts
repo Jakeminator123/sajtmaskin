@@ -8,8 +8,14 @@ describe("video generation intent", () => {
       [{ id: "media-123", mimeType: "image/jpeg", status: "success" }],
     )).toEqual({
       prompt: "låt bilen köra framåt", insert: true, placement: "den i heron",
-      approvedCredits: 30, sourceMediaId: 123,
+      approvedCredits: 30, sourceMediaId: "123",
     });
+  });
+
+  it.each(["9007199254740993", "media-9223372036854775807"])("keeps the exact attached image id %s", (id) => {
+    expect(resolveVideoGenerationIntent("Skapa en video: låt bilen svänga", [
+      { id, mimeType: "image/jpeg", status: "success" },
+    ])?.sourceMediaId).toBe(id.replace(/^media-/, ""));
   });
 
   it.each([

@@ -6,7 +6,7 @@ import { BUILDER_VIDEO_DRAFT_EVENT, prepareGeneratedVideoInBuilder, resumeVideoI
 
 const job: VideoGenerationJob = {
   id: "job-1", projectId: "site-a", status: "succeeded", credits: 18,
-  media: { id: 1, filename: "film.mp4", mimeType: "video/mp4",
+  media: { id: "9223372036854775807", filename: "film.mp4", mimeType: "video/mp4",
     url: "https://files.public.blob.vercel-storage.com/owner/film.mp4" },
 };
 

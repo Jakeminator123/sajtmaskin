@@ -1,21 +1,19 @@
-import { VIDEO_GENERATION_SOURCE_MIME_TYPES } from "./video-generation-contract";
+import { parseVideoGenerationMediaId, VIDEO_GENERATION_SOURCE_MIME_TYPES } from "./video-generation-contract";
 
 export type VideoGenerationIntent = {
   prompt: string;
   insert: boolean;
   placement?: string;
   approvedCredits?: number;
-  sourceMediaId?: number;
+  sourceMediaId?: string;
 };
 
 type IntentAttachment = { id: string; mimeType: string; status: string };
 
-function selectedImageId(files: readonly IntentAttachment[]): number | undefined {
+function selectedImageId(files: readonly IntentAttachment[]): string | undefined {
   const images = files.filter((file) => file.status === "success" && VIDEO_GENERATION_SOURCE_MIME_TYPES.includes(file.mimeType));
   if (images.length !== 1) return undefined;
-  const id = /^(?:media-)?([1-9]\d*)$/.exec(images[0].id)?.[1];
-  const numeric = Number(id);
-  return Number.isSafeInteger(numeric) && numeric > 0 ? numeric : undefined;
+  return parseVideoGenerationMediaId(images[0].id.replace(/^media-/, "")) ?? undefined;
 }
 
 export function resolveVideoGenerationIntent(
