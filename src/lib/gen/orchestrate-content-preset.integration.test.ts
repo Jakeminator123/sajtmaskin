@@ -217,8 +217,9 @@ describe("content subjects from Byggval through brief and generation", () => {
   ] as const)("selects only the requested auth/contact integrations for %s", async (prompt, auth, contact) => {
     const input = generationInput(prompt, { buildIntent: "website", brief: null });
     const design = await resolveOrchestrationBase(input);
-    expect(design.mutedCapabilities.includes("auth")).toBe(auth);
-    expect(design.mutedCapabilities.includes("contact-form")).toBe(contact);
+    const muted = design.mutedCapabilities ?? [];
+    expect(muted.includes("auth")).toBe(auth);
+    expect(muted.includes("contact-form")).toBe(contact);
     const integrations = await resolveOrchestrationBase({ ...input, lifecycleStage: "integrations" });
     const capabilities = integrations.dossierSelection?.selected.map(({ entry }) => entry.capability) ?? [];
     expect(capabilities.includes("auth")).toBe(auth);
