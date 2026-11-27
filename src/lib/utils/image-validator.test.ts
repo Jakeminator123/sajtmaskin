@@ -364,6 +364,97 @@ describe("validateImages", () => {
       expect(result.files[0].content).not.toContain(dead);
     });
 
+    it("reuses one URL check for a direct image and a static object binding, then replays both", async () => {
+      const dead = "https://images.unsplash.com/photo-missing?w=900";
+      const original = {
+        name: "app/page.tsx",
+        content: [
+          'import Image from "next/image";',
+          'const hero = { src: "' + dead + '", alt: "Cyklist" };',
+          'export default function Page() { return <>',
+          '  <img alt="Cyklist" src="' + dead + '" />',
+          '  <Image alt={hero.alt} src={hero.src} />',
+          '  <a href={hero.src}>Original</a>',
+          '  <video src={hero.src} />',
+          '</>; }',
+        ].join("\n"),
+      };
+      fetchSpy.mockResolvedValue(new Response(null, { status: 404 }));
+      const result = await validateImages({ files: [original], autoFix: true, unsplashAccessKey: null });
+      expect(fetchSpy).toHaveBeenCalledExactlyOnceWith(dead, expect.objectContaining({ method: "HEAD" }));
+      expect(result.broken).toMatchObject([{ url: dead, alt: "Cyklist", status: 404 }]);
+      expect(result.replacedCount).toBe(2);
+      const replacement = "/api/placeholder?w=1200&h=800&label=Cyklist";
+      const corrected = original.content
+        .replace('src="' + dead + '"', 'src="' + replacement + '"')
+        .replace("<Image alt={hero.alt} src={hero.src}", '<Image alt={hero.alt} src={"' + replacement + '"}');
+      expect(result.files[0].content).toBe(corrected);
+
+      fetchSpy.mockClear();
+      const known = buildKnownImageReplacementMap(result.broken);
+      const replay = applyKnownImageReplacementsToFiles([{ path: original.name, content: original.content }], known);
+      expect(replay).toEqual({ files: [{ path: original.name, content: corrected }], replacedCount: 2 });
+      const fence = '```tsx file="app/page.tsx"\n';
+      const closingFence = "\n```";
+      expect(applyKnownImageReplacementsToContent(fence + original.content + closingFence, known)).toEqual({
+        content: fence + corrected + closingFence,
+        replacedCount: 2,
+      });
+      expect(applyKnownImageReplacementsToContent(original.content, known)).toEqual({
+        content: corrected,
+        replacedCount: 2,
+      });
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("discovers an indirect-only image and honors lexical scope and dynamic values", async () => {
+      const dead = "https://images.unsplash.com/photo-missing?w=900";
+      const other = "https://images.unsplash.com/photo-kept?w=900";
+      const content = [
+        "{",
+        '  const hero = { src: "' + dead + '", alt: "Skog" } as const;',
+        '  const unrelated = { src: "' + dead + '" };',
+        '  const imageUrl = "' + dead + '";',
+        '  const mutable = { src: "' + dead + '" };',
+        "  mutable.src = runtime();",
+        '  let variable = { src: "' + dead + '" };',
+        '  const make = () => ({ src: "' + dead + '" });',
+        "  const runtimeObject = make();",
+        "  function Shadow(hero: { src: string }) { return <Image src={hero.src} alt=\"Dynamic\" />; }",
+        '  function Other() { const hero = { src: "' + other + '" }; return <Image src={hero.src} alt="Other" />; }',
+        "  const page = <>",
+        "    <Image src={hero[\"src\"]} alt={hero.alt} />",
+        "    <a href={imageUrl} />",
+        "    <video src={unrelated.src} />",
+        "    <Image src={mutable.src} alt=\"Mutable\" />",
+        "    <Image src={variable.src} alt=\"Variable\" />",
+        "    <Image src={runtimeObject.src} alt=\"Runtime\" />",
+        "    <Image src={hero.src} {...runtime()} />",
+        '    <Image src={getImage("' + dead + '")} />',
+        "  </>;",
+        "}",
+      ].join("\n");
+      const files = [{ name: "app/page.tsx", content }];
+      expect(extractImageRefs(files)).toEqual([
+        { file: "app/page.tsx", url: other, alt: "Other" },
+        { file: "app/page.tsx", url: dead, alt: "Skog" },
+      ]);
+      fetchSpy.mockImplementation(async (url: RequestInfo | URL) =>
+        new Response(null, { status: url === dead ? 404 : 200 }),
+      );
+      const result = await validateImages({ files, autoFix: true, unsplashAccessKey: null });
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(result.broken).toMatchObject([{ url: dead, alt: "Skog", status: 404 }]);
+      expect(result.replacedCount).toBe(1);
+
+      const corrected = content.replace('src={hero["src"]}', 'src={"/api/placeholder?w=1200&h=800&label=Skog"}');
+      expect(result.files[0].content).toBe(corrected);
+      expect(applyKnownImageReplacementsToContent(content, buildKnownImageReplacementMap(result.broken))).toEqual({
+        content: corrected,
+        replacedCount: 1,
+      });
+    });
+
     it("repairs an escaped JSON image URL and replays the saved correction", async () => {
       const dead = "https://images.unsplash.com/photo-missing?w=900&fit=crop";
       const original = {

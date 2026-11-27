@@ -9,6 +9,7 @@ import {
 } from "@/lib/images/unsplash-query-fallback";
 import { safeFetch } from "@/lib/ssrf-guard";
 import { debugLog } from "@/lib/utils/debug";
+import { collectJsxImageSources } from "./image-jsx-sources";
 import { urlForLog } from "@/lib/utils/url-for-log";
 
 /**
@@ -387,14 +388,20 @@ export function extractImageRefs(files: TextFile[]): ImageRef[] {
   for (const file of files) {
     const { name, content } = file;
 
-    // <img src="..." alt="..."> (both orderings)
-    for (const re of [IMG_SRC_RE, NEXT_IMAGE_RE]) {
-      re.lastIndex = 0;
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(content)) !== null) {
-        const url = m[1] || m[4] || "";
-        const alt = m[2] || m[3] || "";
-        if (isExternalImageUrl(url) && !seen.has(url)) {
+    if (isGuardablePath(name)) {
+      for (const { url, alt, legacyScalar } of collectJsxImageSources(file)) {
+        if (legacyScalar || !isExternalImageUrl(url) || seen.has(url)) continue;
+        seen.add(url);
+        refs.push({ url, alt, file: name });
+      }
+    } else {
+      for (const re of [IMG_SRC_RE, NEXT_IMAGE_RE]) {
+        re.lastIndex = 0;
+        let match: RegExpExecArray | null;
+        while ((match = re.exec(content)) !== null) {
+          const url = match[1] || match[4] || "";
+          const alt = match[2] || match[3] || "";
+          if (!isExternalImageUrl(url) || seen.has(url)) continue;
           seen.add(url);
           refs.push({ url, alt, file: name });
         }
@@ -712,36 +719,34 @@ function rewriteImageUrls(file: TextFile, replacements: Map<string, string>) {
     counts.set(url, (counts.get(url) ?? 0) + 1);
     return replacement;
   }
+  const isScript = isGuardablePath(file.name);
   function rewritePlain(fragment: string): string {
-    // Repair sources used as images. The same URL can be an href, an Open
-    // Graph URL or a video source elsewhere in the very same file.
-    const tags = fragment.replace(/<(?:img|Image)\b[^>]*>/gi, (tag) =>
+    const markup = isScript ? fragment : fragment.replace(/<(?:img|Image)\b[^>]*>/gi, (tag) =>
       tag.replace(/(\s+src\s*=\s*\{?\s*)(["'])([^"']+)\2/g, (attr, prefix, quote, url) => {
         const replacement = replacementFor(url);
         return replacement ? prefix + quote + replacement + quote : attr;
       }),
     );
-    const styles = tags.replace(BG_IMAGE_RE, (css, url: string) => {
+    return markup.replace(BG_IMAGE_RE, (css, url: string) => {
       const replacement = replacementFor(url);
       return replacement ? css.replace(url, () => replacement) : css;
     });
-    // Generated pages also put a scalar URL in a named image binding.
-    return styles.replace(
-      /(\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*)(["'\x60])(https?:\/\/[^\s"'\x60<>\\]+)\3/g,
-      (declaration, prefix, name: string, quote, url) => {
-        if (!/(?:image|photo|picture|thumbnail|poster|logo)(?:url|src)?$/i.test(name)) return declaration;
-        const replacement = replacementFor(url);
-        return replacement ? prefix + quote + replacement + quote : declaration;
-      },
-    );
   }
 
+  const spans = [
+    ...gallerySources(file),
+    ...(isScript ? collectJsxImageSources(file).map((ref) => ({ ...ref, isImage: true })) : []),
+  ].sort((left, right) => left.start - right.start);
   const parts: string[] = [];
   let cursor = 0;
-  for (const ref of gallerySources(file).sort((left, right) => left.start - right.start)) {
+  for (const ref of spans) {
     parts.push(rewritePlain(file.content.slice(cursor, ref.start)));
     const replacement = ref.isImage ? replacementFor(ref.url) : undefined;
-    parts.push(replacement ? JSON.stringify(replacement) : file.content.slice(ref.start, ref.end));
+    const quote = "attributeQuote" in ref ? ref.attributeQuote : undefined;
+    if (!replacement) parts.push(file.content.slice(ref.start, ref.end));
+    else if (!quote) parts.push(JSON.stringify(replacement));
+    else if (replacement.includes(quote) || /[\r\n]/.test(replacement)) parts.push(`{${JSON.stringify(replacement)}}`);
+    else parts.push(quote + replacement + quote);
     cursor = ref.end;
   }
   parts.push(rewritePlain(file.content.slice(cursor)));
@@ -806,7 +811,15 @@ export function applyKnownImageReplacementsToContent(
   if (!byUrl.size || !content) return { content, replacedCount: 0 };
   const files = parseCodeProject(content).files;
   if (!files.length) {
-    const name = /^\s*[\[{]/.test(content) ? "gallery.json" : "source.tsx";
+    let name = "source.tsx";
+    if (/^\s*[\[{]/.test(content)) {
+      try {
+        JSON.parse(content);
+        name = "gallery.json";
+      } catch {
+        // Raw TSX can also start with a block or an array.
+      }
+    }
     const result = rewriteImageUrls({ name, content }, byUrl);
     return { content: result.content, replacedCount: countRewrites(result.counts) };
   }
