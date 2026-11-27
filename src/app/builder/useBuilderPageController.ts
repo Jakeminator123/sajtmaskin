@@ -573,6 +573,7 @@ export function useBuilderPageController() {
     imageGenerations: state.enableImageGenerations,
     buildIntent: state.resolvedBuildIntent,
     themeColors: state.themeColors,
+    designThemePreset: state.designTheme,
   });
 
   // ── Prompt actions ───────────────────────────────────────────────────

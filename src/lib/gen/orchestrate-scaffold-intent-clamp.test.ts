@@ -311,11 +311,11 @@ describe("resolveOrchestrationBase scaffold/intent clamping", () => {
     });
   });
 
-  it("keeps tone-only brief data out of production-like embedding selection", async () => {
+  it("keeps style and tone out of production-like embedding selection", async () => {
     const portfolio = getScaffoldById("portfolio");
     expect(portfolio).toBeTruthy();
     mockedSearchScaffoldsWithDiagnostics.mockImplementation(async (query) => ({
-      results: query.includes("Tone: personal, creative")
+      results: query.includes("personal, creative")
         ? [{ scaffold: portfolio!, score: 0.9 }]
         : [],
       diagnostics: {
@@ -343,13 +343,13 @@ describe("resolveOrchestrationBase scaffold/intent clamping", () => {
       // the old tone leak select portfolio while the corrected path stays
       // on the generic website baseline.
       embeddingScaffoldMatch: true,
-      brief: { toneAndVoice: ["personal", "creative"] },
+      brief: { toneAndVoice: ["personal", "creative"], visualDirection: { styleKeywords: ["personal", "creative"] } },
       capabilities: noCapabilities,
       promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
     });
 
     expect(mockedSearchScaffoldsWithDiagnostics).toHaveBeenCalledWith(
-      expect.not.stringContaining("Tone:"),
+      expect.not.stringContaining("personal, creative"),
       expect.any(Number),
     );
     expect(base.resolvedScaffold?.id).toBe("landing-page");

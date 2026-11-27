@@ -24,6 +24,7 @@
  * regex banks across these three files.
  */
 
+import { outsidePageSubject } from "@/lib/builder/page-subject";
 import { uWord, uWordRegex } from "@/lib/utils/unicode-word-boundary";
 import {
   CLAUSE_BOUNDARY_RE,
@@ -408,7 +409,8 @@ const RULES: CapabilityRule[] = [
   },
 ];
 
-export function inferCapabilities(prompt: string): InferredCapabilities {
+export function inferCapabilities(message: string): InferredCapabilities {
+  const prompt = outsidePageSubject(message) ?? message;
   const result: InferredCapabilities = {
     needsMotion: false,
     needs3D: false,
@@ -505,12 +507,32 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
       /(^|[^\p{L}\p{N}])(?:restaurang|restaurant|café|cafe|kafé|bistro|hotell|hotel|spa|salong|salon|klinik|clinic|bakeri|bageri|bakery|pizzeria|catering|matrestaurang|boka bord|book a table|meny|menu|öppettider|opening hours)(?=[^\p{L}\p{N}]|$)/iu;
     const strongEcommerceIntent =
       /(^|[^\p{L}\p{N}])(?:webshop|webbshop|e-handel|ecommerce|e-commerce|varukorg|kundvagn|cart|checkout|kassa|storefront|nätbutik|online store)(?=[^\p{L}\p{N}]|$)/iu;
-    if (hospitalityVeto.test(prompt) && !strongEcommerceIntent.test(prompt)) {
+    // Domain context can be the page's subject even when product vocabulary
+    // belongs to a requested content feature outside that subject.
+    if (hospitalityVeto.test(message) && !strongEcommerceIntent.test(prompt)) {
       result.needsEcommerce = false;
     }
   }
 
   return result;
+}
+
+/** Auth forms are removed before the normal form detector checks the remainder. */
+export function hasOnlyAuthenticationForms(message: string): boolean {
+  const subject = "login|log[-\\s]?in|logga\\s+in|sign[-\\s]?(?:in|up)|" +
+    "auth(?:entication)?|registration|register|registrering(?:s)?|inloggning(?:s)?|" +
+    "password[-\\s]?reset|reset[-\\s]?password|forgot[-\\s]?password|lösenordsåterställning(?:s)?";
+  const separateFormObject = String.raw`(?:(?:(?:an?|another|en|ett)\s+)[^.;:!?\n]{0,60}?)?(?:form|formulär)(?![\p{L}\p{N}_])`;
+  const formRequestJoin = String.raw`(?:,\s*|\b(?:and|och|samt|plus)\s+)`;
+  const optionalFormVerb = String.raw`(?:(?:(?:please|also|vänligen)\s+)?(?:add|create|make|lägg\s+till|skapa)\s+)?`;
+  const separateFormClause = `${formRequestJoin}${optionalFormVerb}${separateFormObject}`;
+  const formContext = String.raw`(?:(?!(?:\b(?:then|sedan|survey|questionnaire|feedback|booking|newsletter)\b|${separateFormClause}))[^.;:!?\n]){0,80}?`;
+  const authenticationForms = uWordRegex(
+    `(?:(?:${subject})${formContext}(?:form|formulär)|(?:form|formulär)\\s+(?:for|to|för)\\s+(?:${subject}))`,
+    "giu",
+  );
+  const remainder = message.replace(authenticationForms, " ");
+  return remainder !== message && !inferCapabilities(remainder).needsForms;
 }
 
 /**
