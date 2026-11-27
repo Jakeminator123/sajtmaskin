@@ -149,6 +149,24 @@ beforeEach(() => {
 });
 
 describe("create handler — actual scaffold/variant hints before the brief", () => {
+  it("passes the same structured choices and auto color decision to the server brief", async () => {
+    await handleCreateChatStreamPost(new Request("https://example.com/api/engine/chats/stream", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message: landingPrompt, meta: {
+        buildIntent: "website", buildIntentExplicit: true,
+        pageCountHint: 2, styleChoiceHint: "warm", complexityHint: "simple",
+        designTheme: "orange",
+      } }),
+    }));
+    const hints = vi.mocked(tryGenerateServerAutoBrief).mock.calls[0][0].variantHints;
+    expect(hints).toContain("Build intent (user choice): website");
+    expect(hints).toContain("Page count ceiling (this round): 2");
+    expect(hints).toContain("Style choice: warm");
+    expect(hints).toContain("Complexity: simple");
+    expect(hints).toContain("Color theme family: orange");
+    expect(hints).toContain("Color mode: auto");
+  });
+
   it.each([false, true])("rejects a missing/unowned project before paid work (planMode=%s)", async (planMode) => {
     vi.mocked(resolveAppProjectIdForRequest).mockResolvedValueOnce(null);
     const response = await handleCreateChatStreamPost(new Request("https://example.com/api/engine/chats/stream", {
@@ -247,6 +265,6 @@ describe("create handler — actual scaffold/variant hints before the brief", ()
     expect(tryGenerateServerAutoBrief).toHaveBeenCalledTimes(1);
     const briefInput = vi.mocked(tryGenerateServerAutoBrief).mock.calls[0][0];
     if (expectedScaffold) expect(briefInput.variantHints).toContain(scaffold!.label);
-    else expect(briefInput.variantHints).toBeUndefined();
+    else expect(briefInput.variantHints).not.toContain("Scaffold variant hint");
   });
 });

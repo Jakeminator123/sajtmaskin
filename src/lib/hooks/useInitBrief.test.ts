@@ -154,6 +154,23 @@ describe("useInitBrief — A2: flödesstatus går via window-event, inte toast",
 });
 
 describe("useInitBrief — B1: returnerar briefen, ingen addendum-sträng", () => {
+  it("sends the shared theme family and custom colors to the brief route", async () => {
+    const themeColors = { primary: "#aabbcc", secondary: "#112233", accent: "#ddeeff" };
+    const { result } = renderHook(() => useInitBrief({
+      model: "openai/gpt-4.1", deep: true, imageGenerations: false,
+      designThemePreset: "custom", themeColors,
+    }));
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ pages: [] })));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await result.current.generateDynamicInstructions("En sida om björnungar", { forceDeepBrief: true });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ designThemePreset: "custom", themeColors });
+  });
+
   it("stops initialization instead of silently falling back to another paid call when the brief receipt is unavailable", async () => {
     const { result } = renderHook(() => useInitBrief({ model: "openai/gpt-4.1", deep: true, imageGenerations: false }));
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ code: "brief_usage_unavailable", error: "Kostnadskvitto saknas" }), { status: 503 })));

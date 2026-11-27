@@ -75,7 +75,7 @@ function classifyFailureType(
     .join("\n")
     .toLowerCase();
 
-  if (buildIntent === "app" && !isAppScaffold(resolvedScaffold.id)) {
+  if (buildIntent === "app" && !resolvedScaffold.allowedBuildIntents.includes(buildIntent)) {
     return "app-shell-mismatch";
   }
 
