@@ -57,8 +57,8 @@ import { cn } from "@/lib/utils";
 import { resolveAgentProposalReference, type AgentProposalReference } from "@/lib/builder/composer-route-reference";
 import { readActiveBuilderTarget } from "@/lib/openclaw/builder-target";
 import { OpenClawPowersControl } from "@/components/openclaw/OpenClawPowersControl";
-import { SourcePagePanel } from "@/components/openclaw/SourcePagePanel";
-import { formatSelectedSourcePage, type SelectedSourcePage } from "@/lib/openclaw/source-page";
+import { SourcePagePanel, type SourcePagePanelHandle } from "@/components/openclaw/SourcePagePanel";
+import { formatSelectedSourcePage, unselectedSourcePageUrl, type SelectedSourcePage } from "@/lib/openclaw/source-page";
 import { readTaskAttachmentIds } from "@/lib/openclaw/read-task-input";
 import { useOpenClawPowers } from "@/components/openclaw/useOpenClawPowers";
 import { ComposerModeToggle } from "./sajtagent/ComposerModeToggle";
@@ -344,6 +344,7 @@ export function ChatInterface({
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [selectedSource, setSelectedSource] = useState<{ chatId: typeof chatId; source: SelectedSourcePage; imageId?: string }>();
   const sourceSelection = selectedSource?.chatId === chatId ? selectedSource : undefined;
+  const sourcePagePanel = useRef<SourcePagePanelHandle>(null);
   const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
   const [figmaUrl, setFigmaUrl] = useState("");
   const [internalFigmaInputOpen, setInternalFigmaInputOpen] = useState(false);
@@ -961,6 +962,12 @@ export function ChatInterface({
     const trimmed = text.trim() || (composerMode === "agent"
       ? sourceSelection ? "Vad visar den valda källan?" : hasAgentReadableAttachments ? "Vad visar mina bilagor?" : ""
       : "");
+    const directSource = unselectedSourcePageUrl(trimmed, sourceSelection?.source);
+    if (directSource) {
+      revokeOpenClawBuildConsent();
+      sourcePagePanel.current?.read(directSource);
+      return;
+    }
     const hasAuditToken = Boolean(auditHandoff && !chatId);
     if (!trimmed && !hasSuccessFiles && !hasAuditToken) return;
 
@@ -1079,11 +1086,9 @@ export function ChatInterface({
     });
   };
 
-  const routeDescription = describeDecision(
-    resolveDecisionFor(input.trim()),
-    !input.trim() && !hasComposerAttachments,
-    input.trim(),
-  );
+  const routeDescription = unselectedSourcePageUrl(input, sourceSelection?.source)
+    ? { tone: "agent" as const, label: "Läser en webbsida", hint: "Välj det textstycke eller den bild du vill använda." }
+    : describeDecision(resolveDecisionFor(input.trim()), !input.trim() && !hasComposerAttachments, input.trim());
   const routeStyle = ROUTE_TONE_STYLE[routeDescription.tone];
   const RouteIcon = routeStyle.icon;
   const showModeToggle = agentConfigured || Boolean(chatId);
@@ -1486,6 +1491,7 @@ export function ChatInterface({
           <div className="flex flex-wrap items-end gap-2">
             <PromptInputTools className="flex-wrap items-end gap-1.5">
               <SourcePagePanel
+                ref={sourcePagePanel}
                 key={chatId ?? "new-chat"}
                 chatId={chatId}
                 disabled={inputDisabled || hasUploading}

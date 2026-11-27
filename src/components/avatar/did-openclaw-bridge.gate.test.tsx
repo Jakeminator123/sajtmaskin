@@ -56,7 +56,7 @@ describe("DidOpenClawBridge avatar-disabled text-chat fallback", () => {
     const upload = view.container.querySelector('input[type="file"]')!;
     fireEvent.change(upload, { target: { files: [new File(["image"], "ny.png", { type: "image/png" })] } });
     await screen.findByText(reason);
-    fireEvent.change(screen.getByTestId("avatar-bridge-input"), { target: { value: "Vad visar bilden?" } });
+    fireEvent.change(screen.getByTestId("avatar-bridge-input"), { target: { value: "Sök på webben efter modellen på bilden." } });
     expect(screen.getByTestId<HTMLButtonElement>("avatar-bridge-send").disabled).toBe(true);
     fireEvent.click(screen.getByTestId("avatar-bridge-send"));
     expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -68,7 +68,46 @@ describe("DidOpenClawBridge avatar-disabled text-chat fallback", () => {
     await waitFor(() => expect(screen.getAllByTestId("avatar-bridge-last-assistant")
       .some((node) => node.textContent?.includes("En stol."))).toBe(true));
     expect(mockFetch.mock.calls[2]?.[0]).toBe("/api/did/chat");
-    expect(JSON.parse(mockFetch.mock.calls[2]?.[1].body)).toMatchObject({ readTask: { attachmentIds: [42] } });
+    expect(JSON.parse(mockFetch.mock.calls[2]?.[1].body)).toMatchObject({ readTask: { search: true, attachmentIds: [42] } });
+  });
+
+  it("opens one page from a typed request, then sends the rights-approved imported image for vision", async () => {
+    vi.stubEnv("NEXT_PUBLIC_AVATAR_ENABLED", "");
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        url: "https://www.minbil.se/", title: "Min bil", passages: ["Textstycke Y"],
+        images: [{ url: "https://cdn.example.org/photo", alt: "Bild X" }],
+      }))
+      .mockResolvedValueOnce(Response.json({
+        media: { id: 43, url: "https://files.public.blob.vercel-storage.com/owner/media/photo.png",
+          filename: "photo.png", contentType: "image/png", storageType: "blob" },
+      }))
+      .mockResolvedValueOnce(Response.json({ success: true, reply: "Jag ser bilden." }));
+    vi.stubGlobal("fetch", mockFetch);
+    const DidOpenClawBridge = await loadBridge();
+    render(<DidOpenClawBridge chatId="owned-chat" />);
+    fireEvent.change(screen.getByTestId("avatar-bridge-input"), { target: {
+      value: "Kan du gå till www.minbil.se och hämta bild X och textstycke Y?",
+    } });
+    fireEvent.click(screen.getByTestId("avatar-bridge-send"));
+    await screen.findByText("Min bil");
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch.mock.calls[0]?.[0]).toBe("/api/openclaw/source-page");
+    fireEvent.change(screen.getByLabelText("Textstycke"), { target: { value: "Textstycke Y" } });
+    fireEvent.change(screen.getByLabelText("Bild"), { target: { value: "https://cdn.example.org/photo" } });
+    fireEvent.click(screen.getByLabelText("Jag får återanvända bilden"));
+    fireEvent.click(screen.getByRole("button", { name: "Använd i utkastet" }));
+    await screen.findByText("Vald källa https://www.minbil.se/");
+    expect(mockFetch.mock.calls[1]?.[0]).toBe("/api/media/upload-from-url");
+    expect(JSON.parse(mockFetch.mock.calls[1]?.[1].body)).toMatchObject({ chatId: "owned-chat" });
+
+    fireEvent.click(screen.getByTestId("avatar-bridge-send"));
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(3));
+    expect(mockFetch.mock.calls[2]?.[0]).toBe("/api/did/chat");
+    expect(JSON.parse(mockFetch.mock.calls[2]?.[1].body)).toMatchObject({
+      readTask: { attachmentIds: [43], source: { url: "https://www.minbil.se/", passage: "Textstycke Y" } },
+    });
+    expect(JSON.parse(mockFetch.mock.calls[2]?.[1].body).readTask.search).toBeUndefined();
   });
 
   it("keeps text chat usable when the flag is ON but a key is missing", async () => {

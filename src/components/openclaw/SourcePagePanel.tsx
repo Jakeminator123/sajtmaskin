@@ -1,27 +1,42 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useImperativeHandle, useRef, useState, type Ref } from "react";
+import type { UploadedFile } from "@/components/media/file-upload-zone";
 import type { PublicSourcePage, SelectedSourcePage } from "@/lib/openclaw/source-page";
 
-interface ImportedSourceImage {
+export interface ImportedSourceImage {
   id: string;
   url: string;
   filename: string;
   mimeType: string;
 }
 
+export function replaceImportedSourceImage(files: UploadedFile[], previousId?: string, image?: ImportedSourceImage): UploadedFile[] {
+  const remaining = previousId ? files.filter((file) => file.id !== previousId) : files;
+  if (!image || remaining.some((file) => file.url === image.url)) return remaining;
+  return [...remaining, { ...image, size: 0, status: "success", isPublicUrl: true }];
+}
+
+export interface SourcePagePanelHandle {
+  read: (url: string) => void;
+}
+
 export function SourcePagePanel({
+  ref,
   disabled,
   importImage = true,
   chatId,
   onUse,
 }: {
+  ref?: Ref<SourcePagePanelHandle>;
   disabled?: boolean;
   importImage?: boolean;
   chatId?: string | null;
   onUse: (source: SelectedSourcePage, image?: ImportedSourceImage) => void;
 }) {
   const id = useId();
+  const details = useRef<HTMLDetailsElement>(null);
+  const readUrl = useRef<string | undefined>(undefined);
   const [link, setLink] = useState("");
   const [page, setPage] = useState<PublicSourcePage>();
   const [passage, setPassage] = useState("");
@@ -51,7 +66,9 @@ export function SourcePagePanel({
     }
   }
 
-  function readPage() {
+  function readPage(url: string) {
+    readUrl.current = undefined;
+    setLink(url);
     void run(async (signal) => {
       setPage(undefined);
       setPassage("");
@@ -60,19 +77,29 @@ export function SourcePagePanel({
       const response = await fetch("/api/openclaw/source-page", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: link }),
+        body: JSON.stringify({ url }),
         signal,
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Sidan gick inte att läsa.");
-      if (!signal.aborted) setPage(data);
+      if (!signal.aborted) {
+        readUrl.current = url;
+        setPage(data);
+      }
     });
   }
+
+  useImperativeHandle(ref, () => ({
+    read(url) {
+      if (details.current) details.current.open = true;
+      if (readUrl.current !== url && !activeRequest.current && !disabled) readPage(url);
+    },
+  }));
 
   function usePage() {
     if (!page || (!passage && !imageUrl)) return;
     const image = page.images.find((candidate) => candidate.url === imageUrl);
-    const source = { url: page.url, passage, image };
+    const source = { url: page.url, requestedUrl: readUrl.current, passage, image };
     const accept = (imported?: ImportedSourceImage) => {
       onUse(source, imported);
       setPassage("");
@@ -113,16 +140,16 @@ export function SourcePagePanel({
   }
 
   return (
-    <details className="max-w-full text-sm">
+    <details ref={details} className="max-w-full text-sm">
       <summary className="cursor-pointer">Läs en webbsida</summary>
       <div className="mt-2 grid gap-2">
         <p>Skriv ”Sök på webben …” i chatten när du vill söka bredare.</p>
         <label htmlFor={id}>Publik URL</label>
         <input id={id} type="url" className="rounded border p-2" value={link}
-          maxLength={2048} onChange={(event) => { setLink(event.target.value); setPage(undefined); }}
+          maxLength={2048} onChange={(event) => { setLink(event.target.value); setPage(undefined); readUrl.current = undefined; }}
           disabled={pending || disabled} />
         <button type="button" className="rounded border px-2 py-1"
-          disabled={!link.trim() || pending || disabled} onClick={readPage}>
+          disabled={!link.trim() || pending || disabled} onClick={() => readPage(link)}>
           {pending && !page ? "Läser sidan…" : "Läs sidan"}
         </button>
         {page && (
@@ -151,7 +178,7 @@ export function SourcePagePanel({
               </label>
             )}
             {imageUrl && <a href={imageUrl} target="_blank" rel="noopener noreferrer">Visa vald bild</a>}
-            {imageUrl && !importImage && <p>Bara bildens alt-text följer med. Lägg till bilden som bilaga för bildanalys.</p>}
+            {imageUrl && !importImage && <p>Bildens alt-text följer med om den finns. Lägg till bilden som bilaga för bildanalys.</p>}
             {imageUrl && importImage && (
               <label>
                 <input type="checkbox" checked={permit} disabled={pending || disabled}

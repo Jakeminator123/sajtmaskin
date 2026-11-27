@@ -7,7 +7,11 @@ export interface OpenClawReadTask {
 }
 
 export function isExplicitOpenClawWebSearch(text: string): boolean {
-  return /^(?:(?:kan du|vänligen)\s+)?(?:sök(?:\s+(?:efter\s+[^\n.!?]{1,100})?)?\s+(?:på|via)\s+(?:webben|internet|nätet)|webbsök|googla)(?:[\s:?!.,]|$)/iu.test(text.trim());
+  return /^(?:(?:kan du|vänligen)\s+)?(?:sök(?:\s+(?:efter\s+[^\n!?]{1,350})?)?\s+(?:på|via)\s+(?:webben|internet|nätet)|webbsök|googla)(?:[\s:?!.,]|$)/iu.test(text.trim());
+}
+
+export function resolveOpenClawReadTask(text: string, task?: OpenClawReadTask): OpenClawReadTask | undefined {
+  return isExplicitOpenClawWebSearch(text) ? { ...task, search: true } : task;
 }
 
 export function readTaskAttachmentIds(files: ReadonlyArray<{ id: string; status: string; mimeType: string }>): number[] {

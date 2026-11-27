@@ -120,6 +120,22 @@ describe("useOpenClawChat — arming consent", () => {
     expect(useOpenClawStore.getState().armedMandate).toBeNull();
   });
 
+  it("sends one explicit search together with a structured source and selected attachment", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(sseResponse("Sökresultat."));
+    vi.stubGlobal("fetch", fetchMock);
+    const source = { url: "https://example.org/", passage: "En stol." };
+    const { result } = renderHook(() => useOpenClawChat());
+    await act(async () => {
+      await result.current.send("Sök efter https://example.com på webben.", {
+        readTask: { source, attachmentIds: [42] }, allowBuild: true,
+      });
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetchMock.mock.calls[0]?.[1].body)).toMatchObject({
+      readTask: { search: true, source, attachmentIds: [42] }, buildConsent: false,
+    });
+  });
+
   it("ignores an arming directive on a machine-generated turn", async () => {
     const { result } = renderHook(() => useOpenClawChat());
 

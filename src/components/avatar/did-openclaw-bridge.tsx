@@ -3,9 +3,9 @@
 import Link from "next/link";
 import type { UploadedFile } from "@/components/media/file-upload-zone";
 import { ReadTaskAttachments } from "@/components/openclaw/ReadTaskAttachments";
-import { SourcePagePanel } from "@/components/openclaw/SourcePagePanel";
-import { isExplicitOpenClawWebSearch, readTaskAttachmentIds } from "@/lib/openclaw/read-task-input";
-import type { SelectedSourcePage } from "@/lib/openclaw/source-page";
+import { replaceImportedSourceImage, SourcePagePanel, type SourcePagePanelHandle } from "@/components/openclaw/SourcePagePanel";
+import { readTaskAttachmentIds, resolveOpenClawReadTask } from "@/lib/openclaw/read-task-input";
+import { unselectedSourcePageUrl, type SelectedSourcePage } from "@/lib/openclaw/source-page";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { collectOpenClawClientContext } from "@/lib/openclaw/client-context";
 import { DID_CONNECT_TIMEOUT_MS } from "@/lib/openclaw/use-did-avatar";
@@ -181,9 +181,11 @@ function connectionDotClass(state: ConnectionState) {
 export function DidOpenClawBridge({
   testMode = false,
   iframeHref = "/avatar?mode=iframe",
+  chatId,
 }: {
   testMode?: boolean;
   iframeHref?: string;
+  chatId?: string;
 }) {
   const sessionIdRef = useRef("");
   const agentRef = useRef<DidAgentManager | null>(null);
@@ -231,7 +233,9 @@ export function DidOpenClawBridge({
   ]);
   const [textInput, setTextInput] = useState("");
   const [sourceFiles, setSourceFiles] = useState<UploadedFile[]>([]);
-  const [source, setSource] = useState<SelectedSourcePage>();
+  const [selectedSource, setSelectedSource] = useState<{ source: SelectedSourcePage; imageId?: string }>();
+  const source = selectedSource?.source;
+  const sourcePagePanel = useRef<SourcePagePanelHandle>(null);
   const [thinking, setThinking] = useState(false);
   const [listening, setListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -650,15 +654,20 @@ export function DidOpenClawBridge({
 
   const sendMessage = useCallback(
     async (rawText: string) => {
+      const directSource = unselectedSourcePageUrl(rawText, source);
+      if (directSource && !thinking) {
+        sourcePagePanel.current?.read(directSource);
+        return;
+      }
       const attachmentIds = readTaskAttachmentIds(sourceFiles);
       if (sourceFiles.some((file) => file.status !== "success") || attachmentIds.length > 3 ||
           attachmentIds.length !== sourceFiles.filter((file) => file.status === "success").length) return;
       const message = rawText.trim() || (source ? "Vad visar den valda källan?"
         : attachmentIds.length ? "Vad visar mina bilagor?" : "");
-      const readTask = attachmentIds.length || source ? { attachmentIds, source }
-        : isExplicitOpenClawWebSearch(message) ? { search: true } : undefined;
+      const readTask = resolveOpenClawReadTask(message, attachmentIds.length || source ? { attachmentIds, source } : undefined);
       if (!message || thinking) return;
 
+      setTextInput((current) => current.trim() === message ? "" : current);
       setThinking(true);
       setInterimTranscript("");
       setLastError(null);
@@ -708,7 +717,7 @@ export function DidOpenClawBridge({
           },
         ]);
         if (attachmentIds.length) setSourceFiles([]);
-        if (source) setSource((current) => current === source ? undefined : current);
+        if (source) setSelectedSource((current) => current?.source === source ? undefined : current);
         await speakText(reply);
       } catch (error) {
         const messageText =
@@ -971,11 +980,18 @@ export function DidOpenClawBridge({
           )}
 
           <ReadTaskAttachments files={sourceFiles} onFilesChange={setSourceFiles} disabled={thinking} />
-          <SourcePagePanel disabled={thinking} importImage={false} onUse={setSource} />
+          <SourcePagePanel ref={sourcePagePanel} disabled={thinking} chatId={chatId} importImage={Boolean(chatId)}
+            onUse={(source, image) => {
+              setSourceFiles((files) => replaceImportedSourceImage(files, selectedSource?.imageId, image));
+              setSelectedSource({ source, imageId: image?.id });
+            }} />
           {source && (
             <div className="flex items-start gap-2 text-xs">
               <span className="min-w-0 flex-1 break-all">Vald källa {source.url}</span>
-              <button type="button" className="underline" onClick={() => setSource(undefined)}>Ta bort källan</button>
+              <button type="button" className="underline" onClick={() => {
+                setSourceFiles((files) => replaceImportedSourceImage(files, selectedSource?.imageId));
+                setSelectedSource(undefined);
+              }}>Ta bort källan</button>
             </div>
           )}
           <form
@@ -983,7 +999,6 @@ export function DidOpenClawBridge({
             onSubmit={(event) => {
               event.preventDefault();
               void sendMessage(textInput);
-              setTextInput("");
             }}
           >
             {speechSupported && (

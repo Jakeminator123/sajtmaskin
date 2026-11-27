@@ -52,6 +52,33 @@ it.each([
   expect(await response.json()).toEqual({ error: expect.stringContaining("inga verifierbara källor") });
 });
 
+it("can search once while analyzing owned image pixels and an explicit source", async () => {
+  logIn();
+  const imageUrl = "https://test.public.blob.vercel-storage.com/owner/media/info.png";
+  getMediaLibraryItemById.mockResolvedValue({ blob_url: imageUrl, mime_type: "image/png" });
+  create.mockResolvedValue({
+    output_text: "Enligt källan är det ek.",
+    output: [{ type: "web_search_call", status: "completed" }, {
+      type: "message", content: [{ type: "output_text", annotations: [
+        { type: "url_citation", url: "https://example.org/search-source" },
+      ] }],
+    }],
+  });
+  const response = await answerOpenClawReadTask(request, {
+    search: true, attachmentIds: [4], source: { url: "https://example.org/original", passage: "En stol." },
+  }, "Sök på webben efter modellen på fotot.");
+  expect(await response.json()).toEqual({ answer: "Enligt källan är det ek.", sources: ["https://example.org/original", "https://example.org/search-source"] });
+  expect(create).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+    max_tool_calls: 1,
+    tools: [{ type: "web_search_preview", search_context_size: "low" }],
+    input: [{ role: "user", content: [
+      { type: "input_text", text: expect.stringContaining("https://example.org/original") },
+      { type: "input_image", image_url: imageUrl, detail: "low" },
+    ] }],
+  }), expect.any(Object));
+  expect(safeFetch).not.toHaveBeenCalled();
+});
+
 it("does not spend without a session or on another user's media", async () => {
   expect((await answerOpenClawReadTask(request, { search: true }, "Sök på webben efter ek.")).status).toBe(401);
   logIn();
@@ -84,6 +111,7 @@ it("uses a selected URL only as source text and clearly distinguishes alt metada
     image: { url: "https://images.example.org/chair", alt: "En stol" },
   } }, "Vad beskriver källan?");
   expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ sources: ["https://example.org/"] });
   const [payload] = create.mock.calls[0]!;
   expect(payload.tools).toBeUndefined();
   expect(payload.instructions).toContain("alt-text");

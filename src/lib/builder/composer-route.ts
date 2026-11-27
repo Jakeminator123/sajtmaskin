@@ -23,6 +23,7 @@
 
 import { uWord, uWordRegex } from "@/lib/utils/unicode-word-boundary";
 import { isExplicitOpenClawWebSearch } from "@/lib/openclaw/read-task-input";
+import { requestedSourcePageUrl } from "@/lib/openclaw/source-page";
 import { parseArmingDirective, parseStopDirective } from "@/lib/openclaw/debug/armed-mandate";
 
 export type ComposerMode = "auto" | "agent" | "build";
@@ -301,6 +302,7 @@ export function hasScopedComposerChangeRestriction(rawText: string): boolean {
 
 /** Explicit no-change requests must be recognized before their build verbs. */
 export function isReadOnlyComposerRequest(rawText: string): boolean {
+  if (isExplicitOpenClawWebSearch(rawText) || requestedSourcePageUrl(rawText)) return true;
   const normalized = normalize(rawText);
   const text = hasScopedComposerChangeRestriction(normalized)
     ? withoutScopedRestriction(normalized) : normalized;
@@ -484,7 +486,6 @@ export function resolveComposerDecision(input: ResolveComposerRouteInput): Compo
     agentReachable ? { route: "agent" } : { route: "blocked", blockReason: agentBlockReason(input) };
   if (
     input.mode === "agent" ||
-    (input.mode === "auto" && isExplicitOpenClawWebSearch(input.text)) ||
     (input.mode === "auto" && Boolean(parseArmingDirective(input.text) || parseStopDirective(input.text, "leading"))) ||
     isReadOnlyComposerRequest(input.text) ||
     isAgentProposalReference(input.text)

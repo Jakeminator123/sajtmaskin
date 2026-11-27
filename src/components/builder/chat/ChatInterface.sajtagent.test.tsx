@@ -89,10 +89,16 @@ it("keeps a selected source outside route intent and sends its exact media URL t
     }));
   vi.stubGlobal("fetch", fetchMock);
   render(<ChatInterface chatId="chat_1" mediaEnabled onSendMessage={build} />);
-  fireEvent.click(screen.getByText("Läs en webbsida"));
-  fireEvent.change(screen.getByLabelText("Publik URL"), { target: { value: "https://example.org/source" } });
-  fireEvent.click(screen.getByRole("button", { name: "Läs sidan" }));
+  const request = "Kan du gå till www.minbil.se och hämta bild X och textstycke Y?";
+  await typeAndSend(request);
+  expect(screen.getByTestId("composer-route-hint").textContent).toContain("Läser en webbsida");
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith("/api/openclaw/source-page", expect.objectContaining({
+    body: JSON.stringify({ url: "https://www.minbil.se/" }),
+  }));
   await screen.findByText("Vald sida");
+  await typeAndSend(request);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(sajtagent.value.send).not.toHaveBeenCalled();
   fireEvent.change(screen.getByLabelText("Textstycke"), { target: { value: "Välj den här exakta texten." } });
   fireEvent.change(screen.getByLabelText("Bild"), { target: { value: "https://images.example/asset" } });
   fireEvent.click(screen.getByLabelText("Jag får återanvända bilden"));
@@ -337,6 +343,9 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     });
     expect(hint().textContent).toContain("Till Sajtagenten – kan ändra sajten");
     expect(hint().textContent).not.toContain("ändrar inget");
+
+    fireEvent.change(textarea, { target: { value: "Sök efter https://example.com på webben." } });
+    expect(hint().textContent).toContain("Fråga – ändrar inget");
 
     // En fråga med frågeord bär aldrig medgivande, så löftet står kvar.
     fireEvent.change(textarea, { target: { value: "Vad tycker du om startsidan?" } });

@@ -27,6 +27,11 @@ function hostedMediaUrl(value: string | null): string | null {
   return url.href;
 }
 
+function isSourceUrl(address: string): boolean {
+  const url = URL.parse(address);
+  return Boolean(url && (url.protocol === "http:" || url.protocol === "https:") && !url.username && !url.password);
+}
+
 function sourceLinks(response: OpenAI.Responses.Response): string[] {
   const links = new Set<string>();
   for (const item of response.output) {
@@ -53,12 +58,12 @@ export async function answerOpenClawReadTask(request: Request, raw: unknown, que
   const ids = [...new Set(parsed.data.attachmentIds)];
   const search = parsed.data.search === true;
   const source = parsed.data.source;
-  if (search === Boolean(ids.length || source)) {
+  if (!search && !ids.length && !source) {
     return NextResponse.json({ error: "Välj webbsökning, en sidkälla eller upp till tre bilagor." }, { status: 400 });
   }
   if (source && (
     (!source.passage.trim() && !source.image) ||
-    [source.url, source.image?.url].some((address) => address && !/^https?:\/\//i.test(address))
+    [source.url, source.image?.url].some((address) => address && !isSourceUrl(address))
   )) {
     return NextResponse.json({ error: "Den valda sidkällan saknas eller är ogiltig." }, { status: 400 });
   }
@@ -120,7 +125,7 @@ export async function answerOpenClawReadTask(request: Request, raw: unknown, que
       if (!answer) {
         return NextResponse.json({ error: "Källan gav inget användbart svar." }, { status: 502 });
       }
-      return NextResponse.json({ answer, sources });
+      return NextResponse.json({ answer, sources: [...new Set(source ? [source.url, ...sources] : sources)] });
     } catch {
       return NextResponse.json({ error: "Källan gick inte att läsa just nu." }, { status: 502 });
     }

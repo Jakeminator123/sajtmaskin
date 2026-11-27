@@ -36,8 +36,8 @@ import {
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import type { UploadedFile } from "@/components/media/file-upload-zone";
 import { ReadTaskAttachments } from "./ReadTaskAttachments";
-import { SourcePagePanel } from "./SourcePagePanel";
-import type { SelectedSourcePage } from "@/lib/openclaw/source-page";
+import { replaceImportedSourceImage, SourcePagePanel, type SourcePagePanelHandle } from "./SourcePagePanel";
+import { unselectedSourcePageUrl, type SelectedSourcePage } from "@/lib/openclaw/source-page";
 import { readTaskAttachmentIds } from "@/lib/openclaw/read-task-input";
 import {
   DID_AVATAR_AVAILABLE,
@@ -318,7 +318,11 @@ export function OpenClawChatPanel({
   const [input, setInput] = useState("");
   const [sourceFiles, setSourceFiles] = useState<UploadedFile[]>([]);
   const sourceScope = useOpenClawStore((state) => state.scopeKey);
-  const [selectedSource, setSelectedSource] = useState<{ scope: string; source: SelectedSourcePage }>();
+  const [selectedSource, setSelectedSource] = useState<{ scope: string; source: SelectedSourcePage; imageId?: string }>();
+  const sourcePagePanel = useRef<SourcePagePanelHandle>(null);
+  const builderContext = typeof window === "undefined" ? undefined : window.__SITEMASKIN_CONTEXT;
+  const sourceChatId = builderContext?.page === "builder" && typeof builderContext.chatId === "string"
+    ? builderContext.chatId : undefined;
   const source = selectedSource && selectedSource.scope === sourceScope ? selectedSource.source : undefined;
   const [avatarExpanded, setAvatarExpanded] = useState(false);
   const [listening, setListening] = useState(false);
@@ -518,6 +522,11 @@ export function OpenClawChatPanel({
   }, []);
 
   const sendQuestion = useCallback((text: string) => {
+    const directSource = unselectedSourcePageUrl(text, source);
+    if (directSource && !isStreaming) {
+      sourcePagePanel.current?.read(directSource);
+      return false;
+    }
     const attachmentIds = readTaskAttachmentIds(sourceFiles);
     if (sourceFiles.some((file) => file.status !== "success") || attachmentIds.length > 3 ||
         attachmentIds.length !== sourceFiles.filter((file) => file.status === "success").length) return false;
@@ -962,12 +971,19 @@ export function OpenClawChatPanel({
               </div>
             ) : null}
             <ReadTaskAttachments files={sourceFiles} onFilesChange={setSourceFiles} disabled={isStreaming} />
-            <SourcePagePanel key={sourceScope} disabled={isStreaming} importImage={false}
-              onUse={(source) => setSelectedSource({ scope: sourceScope, source })} />
+            <SourcePagePanel ref={sourcePagePanel} key={sourceScope} disabled={isStreaming}
+              chatId={sourceChatId} importImage={Boolean(sourceChatId)}
+              onUse={(source, image) => {
+                setSourceFiles((files) => replaceImportedSourceImage(files, selectedSource?.imageId, image));
+                setSelectedSource({ scope: sourceScope, source, imageId: image?.id });
+              }} />
             {source && (
               <div className="flex items-start gap-2 text-xs">
                 <span className="min-w-0 flex-1 break-all">Vald källa {source.url}</span>
-                <button type="button" className="underline" onClick={() => setSelectedSource(undefined)}>Ta bort källan</button>
+                <button type="button" className="underline" onClick={() => {
+                  setSourceFiles((files) => replaceImportedSourceImage(files, selectedSource?.imageId));
+                  setSelectedSource(undefined);
+                }}>Ta bort källan</button>
               </div>
             )}
             <div className="min-w-0 rounded-2xl border border-white/15 bg-white/[0.045] p-2 shadow-sm transition-[border-color,box-shadow] focus-within:border-cyan-400/45 focus-within:ring-2 focus-within:ring-cyan-400/10">

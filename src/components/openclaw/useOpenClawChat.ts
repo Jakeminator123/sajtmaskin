@@ -47,7 +47,7 @@ import { normalizeOpenClawClientMessages } from "@/lib/openclaw/message-validati
 import { composerAllowsAgentBuild, hasScopedComposerChangeRestriction, isReadOnlyComposerRequest } from "@/lib/builder/composer-route";
 import { resolveAgentActionConsent } from "@/lib/openclaw/agent-action-consent";
 import type { AgentProposalReference } from "@/lib/builder/composer-route-reference";
-import { isExplicitOpenClawWebSearch, type OpenClawReadTask } from "@/lib/openclaw/read-task-input";
+import { resolveOpenClawReadTask, type OpenClawReadTask } from "@/lib/openclaw/read-task-input";
 
 function makeId() {
   return `oc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -182,9 +182,7 @@ export function useOpenClawChat() {
         return;
       }
 
-      const readTask = options?.readTask ?? (
-        !options?.internal && isExplicitOpenClawWebSearch(trimmed) ? { search: true } : undefined
-      );
+      const readTask = options?.internal ? options.readTask : resolveOpenClawReadTask(trimmed, options?.readTask);
       const buildRestricted = !options?.internal &&
         (Boolean(readTask) || options?.restrictBuild === true || isReadOnlyComposerRequest(trimmed));
       // Ett stopp gäller oavsett befogenhet: det återkallar också ett pågående

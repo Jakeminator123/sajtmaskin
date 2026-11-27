@@ -31,6 +31,7 @@ it("keeps reading separate from a rights-approved image import and returns the c
   fireEvent.click(screen.getByRole("button", { name: "Använd i utkastet" }));
   await waitFor(() => expect(onUse).toHaveBeenCalledWith({
     url: "https://example.com/atelier",
+    requestedUrl: "https://example.com/atelier",
     passage: "Valt stycke",
     image: { url: "https://images.example/chair.png", alt: "Stol i ek" },
   }, expect.objectContaining({ id: "42", url: "https://blob.example/chair.png" })));
