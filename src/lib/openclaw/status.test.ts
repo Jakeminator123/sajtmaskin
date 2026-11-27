@@ -107,16 +107,18 @@ describe("OpenClaw surface status", () => {
     ]);
   });
 
-  it("reports ready when the configured agent targets are present", async () => {
+  it.each([false, true])("reports ready and negotiates Fast support (%s)", async (supported) => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(new Response("ok", { status: 200 }))
-      .mockResolvedValueOnce(
-        Response.json({ data: [{ id: "openclaw/sajtagenten" }] }),
-      );
+      .mockResolvedValueOnce(Response.json(
+        { data: [{ id: "openclaw/sajtagenten" }] },
+        { headers: supported ? { "x-sajtmaskin-fast-mode": "1" } : {} },
+      ));
 
     const health = await checkOpenClawGatewayHealth();
 
     expect(health.status).toBe("ok");
     expect(health.readiness).toBe("ready");
+    expect(health.fastModeSupported).toBe(supported);
   });
 });

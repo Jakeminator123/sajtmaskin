@@ -1,4 +1,5 @@
 import { OPENCLAW } from "@/lib/config";
+import { OPENCLAW_FAST_MODE_HEADER } from "./gateway-client";
 
 export type OpenClawSurfaceStatus =
   | "enabled"
@@ -29,6 +30,7 @@ export interface OpenClawGatewayHealth extends OpenClawSurfaceSnapshot {
   upstream?: number;
   requiredAgentIds?: string[];
   missingAgentIds?: string[];
+  fastModeSupported?: boolean;
   error?: string;
 }
 
@@ -181,6 +183,7 @@ export async function checkOpenClawGatewayHealth(
       readiness: "ready",
       requiredAgentIds,
       missingAgentIds: [],
+      fastModeSupported: modelsRes.headers.get(OPENCLAW_FAST_MODE_HEADER) === "1",
     };
   } catch (error) {
     return {
