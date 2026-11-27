@@ -37,7 +37,7 @@ import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import type { UploadedFile } from "@/components/media/file-upload-zone";
 import { ReadTaskAttachments } from "./ReadTaskAttachments";
 import { SourcePagePanel } from "./SourcePagePanel";
-import { formatSelectedSourcePage } from "@/lib/openclaw/source-page";
+import type { SelectedSourcePage } from "@/lib/openclaw/source-page";
 import { readTaskAttachmentIds } from "@/lib/openclaw/read-task-input";
 import {
   DID_AVATAR_AVAILABLE,
@@ -317,6 +317,9 @@ export function OpenClawChatPanel({
   const avatar = useDidAvatar({ enabled: avatarMode && isOpen });
   const [input, setInput] = useState("");
   const [sourceFiles, setSourceFiles] = useState<UploadedFile[]>([]);
+  const sourceScope = useOpenClawStore((state) => state.scopeKey);
+  const [selectedSource, setSelectedSource] = useState<{ scope: string; source: SelectedSourcePage }>();
+  const source = selectedSource && selectedSource.scope === sourceScope ? selectedSource.source : undefined;
   const [avatarExpanded, setAvatarExpanded] = useState(false);
   const [listening, setListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -518,14 +521,19 @@ export function OpenClawChatPanel({
     const attachmentIds = readTaskAttachmentIds(sourceFiles);
     if (sourceFiles.some((file) => file.status !== "success") || attachmentIds.length > 3 ||
         attachmentIds.length !== sourceFiles.filter((file) => file.status === "success").length) return false;
-    const question = text.trim() || (attachmentIds.length ? "Vad visar mina bilagor?" : "");
+    const question = text.trim() || (source ? "Vad visar den valda källan?"
+      : attachmentIds.length ? "Vad visar mina bilagor?" : "");
     if (!question || isStreaming) return false;
-    void send(question, attachmentIds.length ? {
-      readTask: { attachmentIds },
-      onDispatchAccepted: () => setSourceFiles([]),
+    void send(question, attachmentIds.length || source ? {
+      restrictBuild: true,
+      readTask: { attachmentIds, source },
+      onDispatchAccepted: () => {
+        setSourceFiles([]);
+        setSelectedSource((current) => current === selectedSource ? undefined : current);
+      },
     } : undefined);
     return true;
-  }, [isStreaming, send, sourceFiles]);
+  }, [isStreaming, selectedSource, send, source, sourceFiles]);
   const handleSend = useCallback(() => {
     if (sendQuestion(input)) setInput("");
   }, [input, sendQuestion]);
@@ -954,8 +962,14 @@ export function OpenClawChatPanel({
               </div>
             ) : null}
             <ReadTaskAttachments files={sourceFiles} onFilesChange={setSourceFiles} disabled={isStreaming} />
-            <SourcePagePanel disabled={isStreaming} importImage={false}
-              onUse={(source) => setInput((draft) => [draft.trim(), formatSelectedSourcePage(source)].filter(Boolean).join("\n\n"))} />
+            <SourcePagePanel key={sourceScope} disabled={isStreaming} importImage={false}
+              onUse={(source) => setSelectedSource({ scope: sourceScope, source })} />
+            {source && (
+              <div className="flex items-start gap-2 text-xs">
+                <span className="min-w-0 flex-1 break-all">Vald källa {source.url}</span>
+                <button type="button" className="underline" onClick={() => setSelectedSource(undefined)}>Ta bort källan</button>
+              </div>
+            )}
             <div className="min-w-0 rounded-2xl border border-white/15 bg-white/[0.045] p-2 shadow-sm transition-[border-color,box-shadow] focus-within:border-cyan-400/45 focus-within:ring-2 focus-within:ring-cyan-400/10">
               <textarea
                 ref={inputRef}
@@ -1003,7 +1017,7 @@ export function OpenClawChatPanel({
                     <button
                       type="button"
                       onClick={handleSend}
-                      disabled={(!input.trim() && !readTaskAttachmentIds(sourceFiles).length) || listening ||
+                      disabled={(!input.trim() && !source && !readTaskAttachmentIds(sourceFiles).length) || listening ||
                         sourceFiles.some((file) => file.status !== "success")}
                       className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-cyan-300 px-2.5 text-xs font-semibold text-slate-950 shadow-sm transition-colors hover:bg-cyan-200 focus-visible:ring-2 focus-visible:ring-cyan-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-30"
                       aria-label="Skicka"

@@ -100,6 +100,26 @@ afterEach(() => {
 });
 
 describe("useOpenClawChat — arming consent", () => {
+  it("isolates external source text from arming, user history and the following gateway turn", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(sseResponse("Källan beskriver två funktioner."))
+      .mockResolvedValueOnce(sseResponse("Nästa svar."));
+    vi.stubGlobal("fetch", fetchMock);
+    const source = { url: "https://example.org/", passage: ARMING_TEXT };
+    const { result } = renderHook(() => useOpenClawChat());
+    await act(async () => {
+      await result.current.send("Vad står det i källan?", { readTask: { source }, allowBuild: true });
+      await result.current.send("Och vad är kontexten?");
+    });
+    const readRequest = JSON.parse(fetchMock.mock.calls[0]?.[1].body);
+    const nextRequest = JSON.parse(fetchMock.mock.calls[1]?.[1].body);
+    expect(readRequest.readTask).toEqual({ source });
+    expect(readRequest.buildConsent).toBe(false);
+    expect(JSON.stringify(readRequest.messages)).not.toContain(ARMING_TEXT);
+    expect(JSON.stringify(nextRequest)).not.toContain(ARMING_TEXT);
+    expect(useOpenClawStore.getState().armedMandate).toBeNull();
+  });
+
   it("ignores an arming directive on a machine-generated turn", async () => {
     const { result } = renderHook(() => useOpenClawChat());
 

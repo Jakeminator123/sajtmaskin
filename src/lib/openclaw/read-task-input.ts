@@ -1,6 +1,9 @@
+import type { SelectedSourcePage } from "./source-page";
+
 export interface OpenClawReadTask {
   search?: boolean;
   attachmentIds?: number[];
+  source?: SelectedSourcePage;
 }
 
 export function isExplicitOpenClawWebSearch(text: string): boolean {

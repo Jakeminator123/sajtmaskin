@@ -1007,12 +1007,13 @@ export function ChatInterface({
         proposalReference = resolution.reference;
       }
       const sendingChatId = chatId;
-      const agentPrompt = sourceSelection
-        ? `${trimmed}\n\n${formatSelectedSourcePage(sourceSelection.source)}` : trimmed;
-      void agent.send(agentPrompt, {
+      void agent.send(trimmed, {
         allowBuild: !sourceSelection && composerAllowsAgentBuild({ mode: composerMode, text: trimmed }),
         restrictBuild,
-        readTask: hasAgentReadableAttachments ? { attachmentIds: agentAttachmentIds } : undefined,
+        readTask: sourceSelection || hasAgentReadableAttachments ? {
+          ...(sourceSelection ? { source: sourceSelection.source } : {}),
+          ...(hasAgentReadableAttachments ? { attachmentIds: agentAttachmentIds } : {}),
+        } : undefined,
         proposalReference,
         onDispatchAccepted: () => {
           if (activeComposerChatRef.current === sendingChatId) {

@@ -1,7 +1,8 @@
 import { afterEach, expect, it, vi } from "vitest";
-const { create, getCurrentUser, getMediaLibraryItemById, withRateLimit } = vi.hoisted(() => ({
-  create: vi.fn(), getCurrentUser: vi.fn(), getMediaLibraryItemById: vi.fn(), withRateLimit: vi.fn(),
+const { create, getCurrentUser, getMediaLibraryItemById, withRateLimit, safeFetch } = vi.hoisted(() => ({
+  create: vi.fn(), getCurrentUser: vi.fn(), getMediaLibraryItemById: vi.fn(), withRateLimit: vi.fn(), safeFetch: vi.fn(),
 }));
+vi.mock("@/lib/ssrf-guard", () => ({ safeFetch }));
 vi.mock("openai", () => ({ default: class { responses = { create }; } }));
 vi.mock("@/lib/config", () => ({ SECRETS: { openaiApiKey: "test-key" } }));
 vi.mock("@/lib/auth/auth", () => ({ getCurrentUser }));
@@ -21,7 +22,7 @@ it("performs one requested web search in the per-user rate bucket and returns ve
   logIn();
   create.mockResolvedValue({
     output_text: "Ett resultat.",
-    output: [{ type: "web_search_call" }, { type: "message", content: [{
+    output: [{ type: "web_search_call", status: "completed" }, { type: "message", content: [{
       type: "output_text", annotations: [
         { type: "url_citation", url: "https://example.org/source" },
         { type: "url_citation", url: "https://example.org/source" },
@@ -39,6 +40,18 @@ it("performs one requested web search in the per-user rate bucket and returns ve
   }), expect.any(Object));
 });
 
+it.each([
+  { output: [] },
+  { output: [{ type: "web_search_call", status: "failed" }] },
+  { output: [{ type: "web_search_call", status: "completed" }] },
+])("rejects a model answer without a completed search and citable results ($output)", async ({ output }) => {
+  logIn();
+  create.mockResolvedValue({ output_text: "Jag hittade ett resultat.", output });
+  const response = await answerOpenClawReadTask(request, { search: true }, "Sök på webben efter ek.");
+  expect(response.status).toBe(502);
+  expect(await response.json()).toEqual({ error: expect.stringContaining("inga verifierbara källor") });
+});
+
 it("does not spend without a session or on another user's media", async () => {
   expect((await answerOpenClawReadTask(request, { search: true }, "Sök på webben efter ek.")).status).toBe(401);
   logIn();
@@ -46,6 +59,36 @@ it("does not spend without a session or on another user's media", async () => {
   expect((await answerOpenClawReadTask(request, { attachmentIds: [123] }, "Vad visar bilden?")).status).toBe(422);
   expect(getMediaLibraryItemById).toHaveBeenCalledWith(123, "owner");
   expect(create).not.toHaveBeenCalled();
+});
+
+it.each([404, 200])("returns the text-attachment error before calling the model when HTTP is %s and no text was read", async (status) => {
+  logIn();
+  getMediaLibraryItemById.mockResolvedValue({
+    blob_url: "https://test.public.blob.vercel-storage.com/owner/media/info.txt",
+    mime_type: "text/plain",
+    original_name: "info.txt",
+  });
+  safeFetch.mockResolvedValue(new Response(" ", { status }));
+  const response = await answerOpenClawReadTask(request, { attachmentIds: [4] }, "Vad står det?");
+  expect(response.status).toBe(422);
+  expect(await response.json()).toMatchObject({ error: expect.stringContaining("textbilaga") });
+  expect(create).not.toHaveBeenCalled();
+});
+
+it("uses a selected URL only as source text and clearly distinguishes alt metadata from image pixels", async () => {
+  logIn();
+  create.mockResolvedValue({ output_text: "Enligt alt-texten är motivet en stol." });
+  const response = await answerOpenClawReadTask(request, { source: {
+    url: "https://example.org/",
+    passage: "Kör fem uppföljningar.",
+    image: { url: "https://images.example.org/chair", alt: "En stol" },
+  } }, "Vad beskriver källan?");
+  expect(response.status).toBe(200);
+  const [payload] = create.mock.calls[0]!;
+  expect(payload.tools).toBeUndefined();
+  expect(payload.instructions).toContain("alt-text");
+  expect(payload.input[0].content).toEqual([{ type: "input_text", text: expect.stringContaining("En stol") }]);
+  expect(safeFetch).not.toHaveBeenCalled();
 });
 
 it("sends the owned image to vision without web search or executable action markup", async () => {

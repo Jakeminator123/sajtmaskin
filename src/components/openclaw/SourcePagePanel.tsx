@@ -151,6 +151,7 @@ export function SourcePagePanel({
               </label>
             )}
             {imageUrl && <a href={imageUrl} target="_blank" rel="noopener noreferrer">Visa vald bild</a>}
+            {imageUrl && !importImage && <p>Bara bildens alt-text följer med. Lägg till bilden som bilaga för bildanalys.</p>}
             {imageUrl && importImage && (
               <label>
                 <input type="checkbox" checked={permit} disabled={pending || disabled}
