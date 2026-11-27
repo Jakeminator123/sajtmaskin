@@ -51,6 +51,14 @@ import { OpenClawMessage } from "./OpenClawMessage";
 import { OpenClawPowersControl } from "./OpenClawPowersControl";
 import { describeMandate, isMandateActive } from "@/lib/openclaw/debug/armed-mandate";
 
+interface ReadTaskDraft {
+  scope: string;
+  generation: number;
+  files: UploadedFile[];
+  source?: SelectedSourcePage;
+  imageId?: string;
+}
+
 export interface OpenClawChatPanelContent {
   badgeLabel: string;
   assistantLabel: string;
@@ -316,14 +324,29 @@ export function OpenClawChatPanel({
   const isTakeover = panelPresentation === "takeover";
   const avatar = useDidAvatar({ enabled: avatarMode && isOpen });
   const [input, setInput] = useState("");
-  const [sourceFiles, setSourceFiles] = useState<UploadedFile[]>([]);
   const sourceScope = useOpenClawStore((state) => state.scopeKey);
-  const [selectedSource, setSelectedSource] = useState<{ scope: string; source: SelectedSourcePage; imageId?: string }>();
+  const scopeRevision = useOpenClawStore((state) => state.scopeRevision);
+  const isCurrentScope = useCallback(() => {
+    const current = useOpenClawStore.getState();
+    return current.scopeKey === sourceScope && current.scopeRevision === scopeRevision;
+  }, [sourceScope, scopeRevision]);
+  const [readDraft, setReadDraft] = useState<ReadTaskDraft>(() => ({
+    scope: sourceScope, generation: scopeRevision, files: [],
+  }));
+  if (readDraft.scope !== sourceScope || readDraft.generation !== scopeRevision) {
+    setReadDraft({ scope: sourceScope, generation: scopeRevision, files: [] });
+  }
+  const { files: sourceFiles, source, generation } = readDraft;
+  // A picker, upload or dispatch from an earlier visit may finish after a chat switch.
+  const updateReadDraft = useCallback((update: (current: ReadTaskDraft) => ReadTaskDraft) => {
+    if (isCurrentScope()) {
+      setReadDraft((current) => current.generation === generation ? update(current) : current);
+    }
+  }, [generation, isCurrentScope]);
   const sourcePagePanel = useRef<SourcePagePanelHandle>(null);
   const builderContext = typeof window === "undefined" ? undefined : window.__SITEMASKIN_CONTEXT;
   const sourceChatId = builderContext?.page === "builder" && typeof builderContext.chatId === "string"
     ? builderContext.chatId : undefined;
-  const source = selectedSource && selectedSource.scope === sourceScope ? selectedSource.source : undefined;
   const [avatarExpanded, setAvatarExpanded] = useState(false);
   const [listening, setListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -513,15 +536,18 @@ export function OpenClawChatPanel({
     void avatar.speak(speechText);
   }, [isOpen, avatarMode, avatar, avatar.avatarReady, avatar.connectionState, messages]);
 
-  // Cleanup speech recognition on unmount
-  useEffect(() => {
-    return () => {
-      recognitionRef.current?.abort?.();
-      recognitionRef.current = null;
-    };
-  }, []);
+  useEffect(() => () => {
+    const recording = recognitionRef.current;
+    recognitionRef.current = null;
+    if (recording) {
+      recording.abort();
+      setListening(false);
+      setInterimTranscript("");
+    }
+  }, [scopeRevision, sourceScope]);
 
   const sendQuestion = useCallback((text: string) => {
+    if (!isCurrentScope()) return false;
     const directSource = unselectedSourcePageUrl(text, source);
     if (directSource && !isStreaming) {
       sourcePagePanel.current?.read(directSource);
@@ -537,12 +563,13 @@ export function OpenClawChatPanel({
       restrictBuild: true,
       readTask: { attachmentIds, source },
       onDispatchAccepted: () => {
-        setSourceFiles([]);
-        setSelectedSource((current) => current === selectedSource ? undefined : current);
+        setReadDraft((current) => current === readDraft
+          ? { scope: current.scope, generation: current.generation, files: [] }
+          : current);
       },
     } : undefined);
     return true;
-  }, [isStreaming, selectedSource, send, source, sourceFiles]);
+  }, [isCurrentScope, isStreaming, readDraft, send, source, sourceFiles]);
   const handleSend = useCallback(() => {
     if (sendQuestion(input)) setInput("");
   }, [input, sendQuestion]);
@@ -558,8 +585,11 @@ export function OpenClawChatPanel({
     const SpeechRecognition = getSpeechRecognitionCtor();
     if (!SpeechRecognition || isStreaming) return;
 
-    recognitionRef.current?.abort?.();
+    const previous = recognitionRef.current;
+    recognitionRef.current = null;
+    previous?.abort();
     const recognition = new SpeechRecognition();
+    const isCurrentRecording = () => recognitionRef.current === recognition && isCurrentScope();
     recognition.lang = "sv-SE";
     recognition.continuous = false;
     recognition.interimResults = true;
@@ -578,9 +608,10 @@ export function OpenClawChatPanel({
     };
 
     recognition.onstart = () => {
-      setListening(true);
+      if (isCurrentRecording()) setListening(true);
     };
     recognition.onresult = (event: unknown) => {
+      if (!isCurrentRecording()) return;
       const ev = event as {
         results: Array<Array<{ transcript: string; isFinal?: boolean }>>;
       };
@@ -600,9 +631,10 @@ export function OpenClawChatPanel({
       }
     };
     recognition.onerror = () => {
-      setListening(false);
+      if (isCurrentRecording()) setListening(false);
     };
     recognition.onend = () => {
+      if (!isCurrentRecording()) return;
       setListening(false);
       // Fallback: no isFinal result flushed — submit whatever we captured.
       submitTranscript(capturedTranscript);
@@ -612,7 +644,7 @@ export function OpenClawChatPanel({
 
     recognitionRef.current = recognition;
     recognition.start();
-  }, [isStreaming, sendQuestion]);
+  }, [isCurrentScope, isStreaming, sendQuestion]);
 
   const stopListening = useCallback(() => {
     // Graceful stop() (not abort) so the recognizer can flush its result;
@@ -970,19 +1002,26 @@ export function OpenClawChatPanel({
                 ) : null}
               </div>
             ) : null}
-            <ReadTaskAttachments files={sourceFiles} onFilesChange={setSourceFiles} disabled={isStreaming} />
-            <SourcePagePanel ref={sourcePagePanel} key={sourceScope} disabled={isStreaming}
+            <ReadTaskAttachments key={`attachments:${scopeRevision}:${sourceScope}`} files={sourceFiles} disabled={isStreaming}
+              onFilesChange={(files) => updateReadDraft((current) => ({ ...current, files }))} />
+            <SourcePagePanel ref={sourcePagePanel} key={`page:${scopeRevision}:${sourceScope}`} disabled={isStreaming}
               chatId={sourceChatId} importImage={Boolean(sourceChatId)}
               onUse={(source, image) => {
-                setSourceFiles((files) => replaceImportedSourceImage(files, selectedSource?.imageId, image));
-                setSelectedSource({ scope: sourceScope, source, imageId: image?.id });
+                updateReadDraft((current) => ({
+                  ...current,
+                  files: replaceImportedSourceImage(current.files, current.imageId, image),
+                  source, imageId: image?.id,
+                }));
               }} />
             {source && (
               <div className="flex items-start gap-2 text-xs">
                 <span className="min-w-0 flex-1 break-all">Vald källa {source.url}</span>
                 <button type="button" className="underline" onClick={() => {
-                  setSourceFiles((files) => replaceImportedSourceImage(files, selectedSource?.imageId));
-                  setSelectedSource(undefined);
+                  updateReadDraft((current) => ({
+                    ...current,
+                    files: replaceImportedSourceImage(current.files, current.imageId),
+                    source: undefined, imageId: undefined,
+                  }));
                 }}>Ta bort källan</button>
               </div>
             )}

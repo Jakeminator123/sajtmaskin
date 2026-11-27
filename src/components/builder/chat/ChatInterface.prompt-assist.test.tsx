@@ -58,13 +58,14 @@ describe("ChatInterface — Förbättra texten (Prompt-assist)", () => {
     expect(screen.getByRole("button", { name: "Plan" })).toBeTruthy();
     expect(assist.getAttribute("title")).toBe("Rätta och strukturera utkastet utan att skicka");
 
-    fireEvent.change(screen.getByRole("textbox"), {
+    const composer = screen.getByRole("textbox", { name: "Beskriv vad du vill bygga" }) as HTMLTextAreaElement;
+    fireEvent.change(composer, {
       target: { value: "en cafe sida i malmo, inga betalningar" },
     });
     fireEvent.click(assist);
 
     await waitFor(() => {
-      expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe(
+      expect(composer.value).toBe(
         "En café-sajt i Malmö utan betalningar",
       );
     });
