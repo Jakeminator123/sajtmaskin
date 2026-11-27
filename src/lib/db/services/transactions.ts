@@ -23,6 +23,8 @@ export class InsufficientCreditsError extends Error {
   }
 }
 
+type TransactionExecutor = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 export async function createTransaction(
   userId: string,
   type: string,
@@ -30,7 +32,11 @@ export async function createTransaction(
   description?: string,
   stripePaymentIntent?: string,
   stripeSessionId?: string,
-  options?: { rejectIfNegative?: boolean; idempotencyKey?: string | null },
+  options?: {
+    rejectIfNegative?: boolean;
+    idempotencyKey?: string | null;
+    executor?: TransactionExecutor;
+  },
 ): Promise<Transaction> {
   assertDbConfigured();
 
@@ -38,7 +44,7 @@ export async function createTransaction(
   // against the freshly-locked diamonds value (so concurrent purchases or
   // refunds cannot read-then-stomp each other), then write the user row
   // and the transaction ledger row inside the same transaction.
-  return db.transaction(async (tx) => {
+  const apply = async (tx: TransactionExecutor) => {
     const lockedUsers = await tx
       .select({ diamonds: users.diamonds })
       .from(users)
@@ -106,7 +112,10 @@ export async function createTransaction(
       .returning();
 
     return rows[0];
-  });
+  };
+
+  // A caller may include the debit/refund in the transaction that owns delivery.
+  return options?.executor ? apply(options.executor) : db.transaction(apply);
 }
 
 export async function getTransactionByIdempotency(

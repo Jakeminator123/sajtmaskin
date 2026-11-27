@@ -169,6 +169,7 @@ export const MIGRATION_ORDER = [
   // med FK mot users (skapas tidigare) + RLS. Bara återställningsrutterna läser
   // tabellen, så inget annat flöde väntar på apply.
   "add-password-reset-tokens.sql",
+  "add-video-generation-jobs.sql",
 ];
 
 /**

@@ -52,6 +52,7 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "kostnadsfri:unsubscribe": { maxRequests: 30, windowMs: 60 * 60 * 1000 },
   "media:upload": { maxRequests: 20, windowMs: 60 * 1000 },
   "media:upload-url": { maxRequests: 12, windowMs: 60 * 1000 },
+  "media:video-generation": { maxRequests: 12, windowMs: 60 * 1000 },
   "unsplash:search": { maxRequests: 30, windowMs: 60 * 1000 },
   "unsplash:download": { maxRequests: 60, windowMs: 60 * 1000 },
   "audio:transcribe": { maxRequests: 10, windowMs: 60 * 1000 },

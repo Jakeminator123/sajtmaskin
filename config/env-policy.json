@@ -381,6 +381,12 @@
       "notes": "Required for the default own-engine path."
     },
     {
+      "key": "RUNWAY_API_KEY",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Server-only Runway credential for paid five-second image-to-video orders. Video creation also needs BLOB_READ_WRITE_TOKEN to persist the output."
+    },
+    {
       "key": "OPENAI_WEBHOOK",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],

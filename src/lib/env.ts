@@ -159,6 +159,7 @@ export const serverSchema = z.object({
 
   // AI – Direct OpenAI (Responses API)
   OPENAI_API_KEY: z.string().optional(),
+  RUNWAY_API_KEY: z.string().optional(),
   /** Server-only organization Admin key. Used exclusively by the admin-gated
    *  Costs API reconciliation; never sent to the browser or generation path. */
   OPENAI_ADMIN_KEY: z.string().optional(),

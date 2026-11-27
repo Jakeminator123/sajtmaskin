@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { MAX_GENERATED_VIDEO_BYTES } from "@/lib/media/video-generation-contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const rows = vi.hoisted(() => ({ queue: [] as Array<Array<Record<string, unknown>>> }));
@@ -130,6 +131,48 @@ describe("loadProjectExportMedia", () => {
 
     const result = await loadProjectExportMedia({ projectId: "proj_1", userId: "user_1", referencedText: url });
     expect(result).toEqual([expect.objectContaining({ sourceUrls: expect.arrayContaining([url]) })]);
+  });
+
+  it("includes a full-size owned MP4 and an ordinary image through the same export", async () => {
+    const storagePath = "user_1/projects/proj_1/media-library/film-job.mp4";
+    const videoUrl = "https://store.public.blob.vercel-storage.com/" + storagePath;
+    const video = Buffer.alloc(MAX_GENERATED_VIDEO_BYTES);
+    const image = Buffer.from("png");
+    rows.queue = [[mediaRow(), mediaRow({
+      id: 2,
+      file_path: storagePath,
+      blob_url: videoUrl,
+      original_name: "film-job.mp4",
+      mime_type: "video/mp4",
+      file_type: "video",
+      size_bytes: video.byteLength,
+    })], []];
+    fetchWithPinnedDns
+      .mockResolvedValueOnce({ status: 200, body: image })
+      .mockResolvedValueOnce({ status: 200, body: video });
+
+    const result = await loadProjectExportMedia({
+      projectId: "proj_1", userId: "user_1", referencedText: videoUrl,
+    });
+
+    expect(result).toHaveLength(2);
+    expect(result[0]?.body).toBe(image);
+    expect(result[1]).toMatchObject({ originalName: "film-job.mp4", mimeType: "video/mp4" });
+    expect(result[1]?.body).toBe(video);
+    expect(fetchWithPinnedDns).toHaveBeenNthCalledWith(
+      1, expect.any(String), expect.objectContaining({ maxBodyBytes: PROJECT_EXPORT_MEDIA_MAX_FILE_BYTES }),
+    );
+    expect(fetchWithPinnedDns).toHaveBeenNthCalledWith(
+      2, videoUrl, expect.objectContaining({ maxBodyBytes: MAX_GENERATED_VIDEO_BYTES }),
+    );
+  });
+
+  it("keeps the existing file limit for ordinary images", async () => {
+    rows.queue = [[mediaRow({ size_bytes: PROJECT_EXPORT_MEDIA_MAX_FILE_BYTES + 1 })], []];
+    await expect(loadProjectExportMedia({
+      projectId: "proj_1", userId: "user_1", referencedText: "",
+    })).rejects.toThrow("för stor för export");
+    expect(fetchWithPinnedDns).not.toHaveBeenCalled();
   });
 
   it("does not remotely fetch an arbitrary or path-mismatched URL", async () => {

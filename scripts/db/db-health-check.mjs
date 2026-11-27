@@ -55,6 +55,7 @@ const EXPECTED_TABLES = [
   "project_files",
   "images",
   "media_library",
+  "video_generation_jobs",
   // Användare & integrations
   "users",
   "password_reset_tokens",
@@ -265,6 +266,12 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
   ],
   project_files: [{ name: "idx_project_files_project", columns: ["project_id"] }],
   images: [{ name: "idx_images_project", columns: ["project_id"] }],
+  video_generation_jobs: [
+    { name: "video_generation_jobs_user_request_unique", columns: ["user_id", "request_id"], unique: true },
+    { name: "idx_video_generation_jobs_owner_project", columns: ["user_id", "project_id", "created_at"] },
+    { name: "idx_video_generation_jobs_active_user", columns: ["user_id"], partial: true },
+    { name: "idx_video_generation_jobs_active_due", columns: ["next_check_at"], partial: true },
+  ],
   media_library: [
     { name: "idx_media_library_user_id", columns: ["user_id"] },
     { name: "idx_media_library_project_id", columns: ["project_id"] },
@@ -376,6 +383,12 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
 // tabellen och dess index fortfarande finns. Håll listan smal: full live
 // dev↔prod-kolumnparitet ägs av check-schema-parity.mjs.
 const EXPECTED_REQUIRED_COLUMNS = {
+  video_generation_jobs: [
+    "id", "user_id", "project_id", "request_id", "source_media_id", "source_url",
+    "prompt", "status", "credits", "provider_cost_ore", "billable_ore",
+    "provider_task_id", "result_media_id", "error", "lease_id", "lease_until",
+    "next_check_at", "poll_failures", "created_at",
+  ],
   generation_billings: [
     "claim_keys",
     "free_generation_eligible",

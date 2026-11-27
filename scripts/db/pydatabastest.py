@@ -170,6 +170,7 @@ PRESERVED_TABLES: Tuple[str, ...] = (
     "kostnadsfri_campaign_entitlements",
     "user_integrations",
     "media_library",
+    "video_generation_jobs",
     "prompt_logs",
     # D1: abonnemang per publicerad sajt och Stripe-läge. Betalningsdata —
     # abonnemangsraden är beviset för att en sajt får vara publicerad, och
