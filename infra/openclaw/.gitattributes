@@ -1,0 +1,3 @@
+# Unified diff context starts with a space before upstream indentation.
+openclaw-2026.10.34-fast.patch text eol=lf whitespace=-space-before-tab
+openclaw-2026.10.34-fast.sha256 text eol=lf
