@@ -55,7 +55,7 @@ it("quotes the job before one order and saves a normal media-bank video", async 
   });
 });
 
-it("uses a preapproved budget once and attaches exactly the saved MP4 to the matching builder", async () => {
+it("pays once within the video budget and requires separate approval before the builder gets the MP4", async () => {
   const fetchMock = quoteFetch();
   vi.stubGlobal("fetch", fetchMock);
   const sendMessage = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
@@ -69,7 +69,10 @@ it("uses a preapproved budget once and attaches exactly the saved MP4 to the mat
   render(<VideoGenerationPanel chatId="chat-a" projectId="site-a" onClose={vi.fn()}
     intent={{ prompt: "Löv i vinden", insert: true, placement: "i heron", approvedCredits: 20, sourceMediaId: 21 }} />);
 
-  await screen.findByText("Godkänt budgettak 20 krediter");
+  await screen.findByText("Godkänt budgettak för videon 20 krediter");
+  await screen.findByText("Videon har sparats i mediebanken.");
+  expect(sendMessage).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Godkänn byggkostnaden och lägg in videon" }));
   await screen.findByText("Videon sparades och skickades till byggaren.");
   expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
   const paid = fetchMock.mock.calls.find(([, init]) => init?.method === "POST");
@@ -101,7 +104,7 @@ it("offers a picker and keeps an over-budget start uncharged", async () => {
   vi.stubGlobal("fetch", fetchMock);
   render(<VideoGenerationPanel chatId="chat-a" onClose={vi.fn()}
     intent={{ prompt: "Löv i vinden", insert: false, approvedCredits: 10 }} />);
-  await screen.findByText(/Priset överstiger ditt budgettak/);
+  await screen.findByText(/Videopriset överstiger ditt budgettak/);
   const submit = screen.getByRole<HTMLButtonElement>("button", { name: "Beställ video för 18 krediter" });
   expect(submit.disabled).toBe(true);
   fireEvent.change(screen.getByLabelText("Startbild från mediebanken"), { target: { value: "21" } });
@@ -146,7 +149,7 @@ it("suppresses a late paid response after a chat switch", async () => {
   });
   const view = render(<VideoGenerationPanel key="chat-a" chatId="chat-a" onClose={vi.fn()}
     intent={{ prompt: "Löv i vinden", insert: true, sourceMediaId: 21 }} />);
-  fireEvent.click(await screen.findByRole("button", { name: "Skapa och lägg in för 18 krediter" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Beställ video för 18 krediter" }));
   await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(true));
   view.rerender(<VideoGenerationPanel key="chat-b" chatId="chat-b" onClose={vi.fn()} />);
   await act(async () => complete(Response.json({ job: ready })));

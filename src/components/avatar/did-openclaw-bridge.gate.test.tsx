@@ -95,7 +95,8 @@ describe("DidOpenClawBridge avatar-disabled text-chat fallback", () => {
       target: { value: "Skapa en video: låt bilen köra framåt och lägg in den i heron." },
     });
     fireEvent.click(screen.getByTestId("avatar-bridge-send"));
-    expect(await screen.findByRole("button", { name: "Skapa och lägg in för 18 krediter" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Beställ video för 18 krediter" })).toBeTruthy();
+    expect(screen.getByText(/Infogning startar en separat debiterad byggtur/)).toBeTruthy();
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       "/api/media/upload?chatId=owned-chat",
       "/api/media/video-generations?projectId=owned-site",

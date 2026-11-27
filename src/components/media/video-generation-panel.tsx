@@ -240,10 +240,7 @@ export function VideoGenerationPanel({ projectId, chatId, intent, onClose, onSav
     if (!job || job.status !== "succeeded" || !job.media || savedJobs.current.has(job.id)) return;
     savedJobs.current.add(job.id);
     onSaved?.(job);
-    if (paidJobId.current === job.id && intent?.insert && chatId) void insert(job);
-  }, [chatId, insert, intent?.insert, job, onSaved]);
-
-  const purchaseLabel = intent?.insert ? "Skapa och lägg in" : "Beställ video";
+  }, [job, onSaved]);
   return (
     <section aria-label="Skapa video" className="space-y-3 rounded-xl border border-current/20 p-3 text-sm">
       <div className="flex items-center justify-between gap-2">
@@ -256,8 +253,8 @@ export function VideoGenerationPanel({ projectId, chatId, intent, onClose, onSav
       {context && (context.enabled || job) && <p>{context.quote.durationSeconds} sekunders video · {job?.credits ?? context.quote.credits} krediter</p>}
       {context?.enabled && approvedCredits !== undefined && (!job || context.quote.credits <= approvedCredits) && (
         <p>{context.quote.credits <= approvedCredits
-          ? `Godkänt budgettak ${approvedCredits} krediter`
-          : `Priset överstiger ditt budgettak på ${approvedCredits} krediter. En ny beställning kräver ditt godkännande.`}</p>
+          ? `Godkänt budgettak för videon ${approvedCredits} krediter`
+          : `Videopriset överstiger ditt budgettak på ${approvedCredits} krediter. En ny beställning kräver ditt godkännande.`}</p>
       )}
       {context?.enabled && !job && (
         <form className="space-y-2" onSubmit={(event) => {
@@ -265,7 +262,7 @@ export function VideoGenerationPanel({ projectId, chatId, intent, onClose, onSav
           void submit(order.current?.maxCredits ?? context.quote.credits);
         }}>
           {intent?.insert && <p>
-            Infogningen fortsätter i byggaren som en vanlig byggtur.
+            Infogning startar en separat debiterad byggtur. Du godkänner byggkostnaden när videon är klar.
             {intent.placement ? ` Placering: ${intent.placement}` : ""}
           </p>}
           <label className="block">
@@ -283,7 +280,7 @@ export function VideoGenerationPanel({ projectId, chatId, intent, onClose, onSav
               value={prompt} disabled={busy || retryOrder} onChange={(event) => setPrompt(event.currentTarget.value)} />
           </label>
           <Button type="submit" size="sm" disabled={busy || !sourceId || !prompt.trim() || prompt.trim().length > VIDEO_GENERATION_PROMPT_MAX_LENGTH}>
-            {busy ? "Beställer…" : retryOrder ? "Kontrollera samma beställning" : `${purchaseLabel} för ${context.quote.credits} krediter`}
+            {busy ? "Beställer…" : retryOrder ? "Kontrollera samma beställning" : `Beställ video för ${context.quote.credits} krediter`}
           </Button>
         </form>
       )}
@@ -303,7 +300,14 @@ export function VideoGenerationPanel({ projectId, chatId, intent, onClose, onSav
                   setError("Videon finns i mediebanken. Kunde inte öppna infogningen.");
                 }
               }}>Öppna rätt sajt och lägg in videon</a>
-              : chatId ? <Button type="button" size="sm" variant="outline" onClick={() => void insert(job)}>Lägg in sparad video</Button> : null
+              : chatId ? (
+                <div className="space-y-1">
+                  <p>Byggaren debiterar en separat byggtur för att lägga in videon.</p>
+                  <Button type="button" size="sm" variant="outline" onClick={() => void insert(job)}>
+                    Godkänn byggkostnaden och lägg in videon
+                  </Button>
+                </div>
+              ) : null
           )}
         </div>
       )}
