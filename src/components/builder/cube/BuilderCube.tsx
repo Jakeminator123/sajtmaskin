@@ -30,7 +30,16 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { flushSync } from "react-dom";
-import { Box, ChevronDown, GripVertical, LayoutGrid, Minus, PanelLeft, Plus, RotateCcw } from "lucide-react";
+import {
+  Box,
+  ChevronDown,
+  GripVertical,
+  LayoutGrid,
+  Minus,
+  PanelLeft,
+  Plus,
+  RotateCcw,
+} from "lucide-react";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import {
@@ -49,7 +58,13 @@ import {
   type CubeTurnState,
   type CubeTurnStep,
 } from "./cube-model";
-import { boxTurnPoses, easeTurn, virtualTurnPoses, type CubeGeometry, type FacePose } from "./cube-geometry";
+import {
+  boxTurnPoses,
+  easeTurn,
+  virtualTurnPoses,
+  type CubeGeometry,
+  type FacePose,
+} from "./cube-geometry";
 import {
   CARD_BAR_RESERVE,
   CARD_GROW,
@@ -167,6 +182,19 @@ function rectStyle(r: Rect): CSSProperties {
   return { left: r.x, top: r.y, width: r.width, height: r.height };
 }
 
+/**
+ * Pointerdrag writes geometry straight to the already-mounted cube nodes.
+ * React receives the final value on pointerup, so a drag does not reconcile
+ * all six (potentially heavy) faces once per pointer frame.
+ */
+function writeRect(el: HTMLElement | null | undefined, rect: Rect): void {
+  if (!el) return;
+  el.style.left = `${rect.x}px`;
+  el.style.top = `${rect.y}px`;
+  el.style.width = `${rect.width}px`;
+  el.style.height = `${rect.height}px`;
+}
+
 function flipFrom(from: Rect, to: Rect): string {
   const sx = to.width > 0 ? from.width / to.width : 1;
   const sy = to.height > 0 ? from.height / to.height : 1;
@@ -176,7 +204,12 @@ function flipFrom(from: Rect, to: Rect): string {
 function Badge({ badge }: { badge?: number | "dot" }) {
   if (badge === undefined || badge === 0) return null;
   if (badge === "dot") {
-    return <span className="bg-primary absolute -top-0.5 -right-0.5 size-2 rounded-full" aria-hidden="true" />;
+    return (
+      <span
+        className="bg-primary absolute -top-0.5 -right-0.5 size-2 rounded-full"
+        aria-hidden="true"
+      />
+    );
   }
   return (
     <span
@@ -240,7 +273,9 @@ export function BuilderCube({
       // jsdom mäter 0; fall tillbaka till fönstret.
       const width = r.width || window.innerWidth;
       const height = r.height || window.innerHeight;
-      setStage((prev) => (prev && prev.width === width && prev.height === height ? prev : { width, height }));
+      setStage((prev) =>
+        prev && prev.width === width && prev.height === height ? prev : { width, height },
+      );
     };
     measure();
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
@@ -253,10 +288,25 @@ export function BuilderCube({
   }, []);
 
   const stageSize = useMemo<Size>(() => stage ?? { width: 0, height: 0 }, [stage]);
-  const frame = useMemo(() => cubeFrame(position, size, stageSize, narrow), [position, size, stageSize, narrow]);
+  const { x: positionX, y: positionY } = position;
+  const { width: sizeWidth, height: sizeHeight } = size;
+  const frame = useMemo(
+    () => cubeFrame(
+      { x: positionX, y: positionY },
+      { width: sizeWidth, height: sizeHeight },
+      stageSize,
+      narrow,
+    ),
+    [positionX, positionY, sizeWidth, sizeHeight, stageSize, narrow],
+  );
+  const liveFrame = useRef(frame);
 
   // ---- Kortläge (kontrollerat eller internt) -----------------------------
-  const [cardsInternal, setCardsInternal] = useState<CubeCardsState>({ rects: {}, folded: [], order: [...CUBE_FACE_IDS] });
+  const [cardsInternal, setCardsInternal] = useState<CubeCardsState>({
+    rects: {},
+    folded: [],
+    order: [...CUBE_FACE_IDS],
+  });
   const cards = cardsProp ?? cardsInternal;
   const cardsRef = useRef(cards);
   useLayoutEffect(() => {
@@ -275,9 +325,19 @@ export function BuilderCube({
   const defaults = useMemo(() => defaultCardRects(stageSize), [stageSize]);
   const cardRect = useCallback(
     (face: CubeFaceId): Rect =>
-      fitRect(cards.rects[face] ?? defaults[face], stageSize, CARD_LIMITS, STAGE_MARGIN, CARD_BAR_RESERVE),
+      fitRect(
+        cards.rects[face] ?? defaults[face],
+        stageSize,
+        CARD_LIMITS,
+        STAGE_MARGIN,
+        CARD_BAR_RESERVE,
+      ),
     [cards.rects, defaults, stageSize],
   );
+  const activeFaceRef = useRef(activeFace);
+  useLayoutEffect(() => {
+    activeFaceRef.current = activeFace;
+  }, [activeFace]);
 
   // ---- Vridmotor -----------------------------------------------------------
   const engine = useRef<CubeTurnState>(idleTurnState(activeFace));
@@ -422,21 +482,43 @@ export function BuilderCube({
 
   const prevActive = useRef(activeFace);
   useEffect(() => {
-    if (prevActive.current === activeFace && turnDestination(engine.current) === activeFace) return;
+    if (
+      prevActive.current === activeFace &&
+      turnDestination(engine.current) === activeFace &&
+      (layoutMode === "cards" || displayed === activeFace)
+    ) {
+      return;
+    }
     const from = displayed;
     prevActive.current = activeFace;
     const fromEl = faceEls.current[from];
     const hadFocus = !!fromEl && fromEl.contains(document.activeElement);
-    if (layoutMode !== "cube" || reduced) {
+    if (layoutMode === "cards") {
+      // Kortläget visar alla öppna sidor samtidigt. Håll vridmotorns ref redo
+      // för en senare återgång till kuben, men rendera inte om de sex korten
+      // en extra gång bara för ett osynligt `settled`-värde.
+      const path = planTurn(engine.current.current?.after ?? engine.current.settled, activeFace);
+      const anchor = path.at(-1)?.after.anchor ?? engine.current.settled.anchor;
+      engine.current = idleTurnState(activeFace, anchor);
+      clearPoses();
+      return;
+    }
+    // Active face may have changed while cards were shown. Materialize the
+    // ref-backed orientation once when the cube becomes visible again.
+    const materializeActive =
+      isTurnIdle(engine.current) &&
+      turnDestination(engine.current) === activeFace &&
+      displayed !== activeFace;
+    if (materializeActive || layoutMode !== "cube" || reduced) {
       // Motorn bor i refs och rAF; att landa direkt måste ske här, inte under rendering.
       // eslint-disable-next-line react-hooks/set-state-in-effect -- synkar extern motor mot prop
       snapTo(activeFace);
-      if (hadFocus && layoutMode !== "cards") {
+      if (hadFocus) {
         // Sidan man stod på försvann: flytta fokus till nya flikpanelen.
         requestAnimationFrame(() => faceEls.current[activeFace]?.focus({ preventScroll: true }));
       }
       const el = faceEls.current[activeFace];
-      if (layoutMode !== "cards" && reduced && from !== activeFace && canAnimate(el)) {
+      if (reduced && from !== activeFace && canAnimate(el)) {
         el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: FADE_MS, easing: "ease-out" });
       }
       return;
@@ -446,11 +528,12 @@ export function BuilderCube({
     if (rafId.current === null && !isTurnIdle(engine.current)) {
       rafId.current = requestAnimationFrame(tickRef.current);
     }
-  }, [activeFace, displayed, layoutMode, reduced, snapTo]);
+  }, [activeFace, displayed, layoutMode, reduced, snapTo, clearPoses]);
 
   // Byte av läge mitt i en vridning: landa direkt.
   useEffect(() => {
-    if (layoutMode !== "cube" && !isTurnIdle(engine.current)) snapTo(turnDestination(engine.current));
+    if (layoutMode !== "cube" && !isTurnIdle(engine.current))
+      snapTo(turnDestination(engine.current));
   }, [layoutMode, snapTo]);
 
   useEffect(
@@ -465,7 +548,8 @@ export function BuilderCube({
   const [foldPhase, setFoldPhase] = useState<null | "folding" | "unfolding">(null);
   if (prevLayoutMode !== layoutMode) {
     setPrevLayoutMode(layoutMode);
-    const animated = !reduced && stage !== null && prevLayoutMode !== "tabs" && layoutMode !== "tabs";
+    const animated =
+      !reduced && stage !== null && prevLayoutMode !== "tabs" && layoutMode !== "tabs";
     setFoldPhase(animated ? (layoutMode === "cube" ? "folding" : "unfolding") : null);
   }
 
@@ -492,7 +576,8 @@ export function BuilderCube({
         if (reduced && layoutMode !== "tabs") {
           for (const face of CUBE_FACE_IDS) {
             const el = faceEls.current[face];
-            if (canAnimate(el)) anims.push(el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: FADE_MS }));
+            if (canAnimate(el))
+              anims.push(el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: FADE_MS }));
           }
         }
       } else {
@@ -507,7 +592,11 @@ export function BuilderCube({
           const frames: Keyframe[] =
             foldPhase === "unfolding"
               ? [
-                  { transform: flipFrom(from, to), opacity: isFront ? 1 : 0, transformOrigin: "0 0" },
+                  {
+                    transform: flipFrom(from, to),
+                    opacity: isFront ? 1 : 0,
+                    transformOrigin: "0 0",
+                  },
                   { transform: "none", opacity: 1, transformOrigin: "0 0", offset: 1 },
                 ]
               : [
@@ -567,7 +656,11 @@ export function BuilderCube({
   const tiltTargets = useRef<HTMLElement[]>([]);
   /** Lutning efter draghastighet; varje element får kubens mitt som origo. */
   const applyTilt = useCallback(
-    (targets: Array<{ el: HTMLElement; origin: Point }>, velocity: { x: number; y: number }, perspective: number) => {
+    (
+      targets: Array<{ el: HTMLElement; origin: Point }>,
+      velocity: { x: number; y: number },
+      perspective: number,
+    ) => {
       if (reduced) return;
       const ry = Math.max(-MAX_TILT_DEG, Math.min(MAX_TILT_DEG, velocity.x * 6));
       const rx = Math.max(-MAX_TILT_DEG, Math.min(MAX_TILT_DEG, -velocity.y * 6));
@@ -587,15 +680,24 @@ export function BuilderCube({
 
   // ---- Kubens dragning och storlek ----------------------------------------
   const dragStart = useRef<Rect | null>(null);
+  const pendingCubePosition = useRef<Point | null>(null);
+  const writeCubeGeometry = useCallback((nextFrame: ReturnType<typeof cubeFrame>) => {
+    liveFrame.current = nextFrame;
+    live.current = { ...live.current, body: nextFrame.body };
+    writeRect(chromeRef.current, nextFrame.outer);
+    for (const face of CUBE_FACE_IDS) writeRect(faceEls.current[face], nextFrame.body);
+  }, []);
   const cubeDrag = usePointerDrag({
     onStart: () => {
       if (layoutMode !== "cube") return false;
-      dragStart.current = frame.outer;
+      dragStart.current = liveFrame.current.outer;
     },
     onMove: (dx, dy, velocity) => {
       const start = dragStart.current;
       if (!start) return;
-      onPositionChange(clampPoint({ x: start.x + dx, y: start.y + dy }, stageSize, start));
+      const nextPosition = clampPoint({ x: start.x + dx, y: start.y + dy }, stageSize, start);
+      pendingCubePosition.current = nextPosition;
+      writeCubeGeometry(cubeFrame(nextPosition, size, stageSize, narrow));
       const chrome = chromeRef.current;
       const face = faceEls.current[displayed];
       if (chrome && face && isTurnIdle(engine.current)) {
@@ -613,33 +715,48 @@ export function BuilderCube({
         );
       }
     },
-    onEnd: () => {
+    onEnd: (moved) => {
+      const nextPosition = moved ? pendingCubePosition.current : null;
       dragStart.current = null;
       releaseTilt();
+      pendingCubePosition.current = null;
+      if (nextPosition) onPositionChange(nextPosition);
     },
   });
 
   const moveCubeBy = (dx: number, dy: number) => {
-    onPositionChange(clampPoint({ x: frame.outer.x + dx, y: frame.outer.y + dy }, stageSize, frame.outer));
+    const current = liveFrame.current.outer;
+    const nextPosition = clampPoint({ x: current.x + dx, y: current.y + dy }, stageSize, current);
+    liveFrame.current = cubeFrame(nextPosition, size, stageSize, narrow);
+    onPositionChange(nextPosition);
   };
 
   const resizeStart = useRef<Rect | null>(null);
   const resizeEdge = useRef<ResizeEdge>("se");
+  const pendingCubeResize = useRef<{ position: Point; size: Size } | null>(null);
   const cubeResize = usePointerDrag(
     {
       onStart: () => {
         if (layoutMode !== "cube") return false;
-        resizeStart.current = frame.outer;
+        resizeStart.current = liveFrame.current.outer;
       },
       onMove: (dx, dy) => {
         const start = resizeStart.current;
         if (!start) return;
         const next = resizeCube(start, resizeEdge.current, dx, dy, stageSize);
-        onSizeChange(next.size);
-        if (next.position.x !== start.x || next.position.y !== start.y) onPositionChange(next.position);
+        pendingCubeResize.current = next;
+        writeCubeGeometry(cubeFrame(next.position, next.size, stageSize, narrow));
       },
-      onEnd: () => {
+      onEnd: (moved) => {
+        const next = moved ? pendingCubeResize.current : null;
+        const start = resizeStart.current;
         resizeStart.current = null;
+        pendingCubeResize.current = null;
+        if (!next) return;
+        onSizeChange(next.size);
+        if (!start || next.position.x !== start.x || next.position.y !== start.y) {
+          onPositionChange(next.position);
+        }
       },
     },
     { exempt: false },
@@ -653,18 +770,43 @@ export function BuilderCube({
   const cardDragFace = useRef<CubeFaceId | null>(null);
   const cardStart = useRef<Rect | null>(null);
   const cardEdge = useRef<ResizeEdge>("se");
+  const pendingCardRect = useRef<{ face: CubeFaceId; rect: Rect } | null>(null);
   const setCardRect = useCallback(
-    (face: CubeFaceId, rect: Rect) => setCards((prev) => ({ ...prev, rects: { ...prev.rects, [face]: rect } })),
+    (face: CubeFaceId, rect: Rect) =>
+      setCards((prev) => ({ ...prev, rects: { ...prev.rects, [face]: rect } })),
     [setCards],
   );
   const raiseCard = useCallback(
     (face: CubeFaceId) => {
-      setCards((prev) => (prev.order.at(-1) === face ? prev : { ...prev, order: raise(prev.order, face) }));
-      if (face !== activeFace) onActiveFaceChange(face);
+      const previous = cardsRef.current;
+      const nextCards =
+        previous.order.at(-1) === face
+          ? previous
+          : { ...previous, order: raise(previous.order, face) };
+      const activeChanged = activeFaceRef.current !== face;
+      if (nextCards === previous && !activeChanged) return;
+
+      // Uppdatera z-ordningen direkt och spara samma ordning i refen innan
+      // föräldern får ändringen. Ett efterföljande pekar-/fokusevent ser då
+      // redan det lyfta kortet och behöver ingen ytterligare uppdatering.
+      if (nextCards !== previous) {
+        cardsRef.current = nextCards;
+        nextCards.order.forEach((id, index) => {
+          const el = faceEls.current[id];
+          if (el) el.style.zIndex = String(10 + index);
+        });
+      }
+      if (activeChanged) activeFaceRef.current = face;
+      if (nextCards !== previous) {
+        if (onCardsChange) onCardsChange(nextCards);
+        else setCardsInternal(nextCards);
+      }
+      if (activeChanged) onActiveFaceChange(face);
     },
-    [setCards, activeFace, onActiveFaceChange],
+    [onActiveFaceChange, onCardsChange],
   );
-  // Ett nedtryck var som helst i kortet lyfter det. Lyssnaren sitter i DOM:en:
+  // Ett nedtryck eller tangentbordsfokus var som helst i kortet lyfter det.
+  // Lyssnaren sitter i DOM:en:
   // en sidas innehåll kan vara värdat utifrån (`relocation.tsx`), och
   // React-händelser därifrån bubblar inte genom kubens komponentträd.
   useEffect(() => {
@@ -673,8 +815,13 @@ export function BuilderCube({
       const el = faceEls.current[face];
       if (!el) return null;
       const onDown = () => raiseCard(face);
+      const onFocus = () => raiseCard(face);
       el.addEventListener("pointerdown", onDown, true);
-      return () => el.removeEventListener("pointerdown", onDown, true);
+      el.addEventListener("focusin", onFocus, true);
+      return () => {
+        el.removeEventListener("pointerdown", onDown, true);
+        el.removeEventListener("focusin", onFocus, true);
+      };
     });
     return () => {
       for (const off of release) off?.();
@@ -684,20 +831,32 @@ export function BuilderCube({
     onStart: () => {
       const face = cardDragFace.current;
       if (!face || layoutMode !== "cards") return false;
-      cardStart.current = cardRect(face);
+      cardStart.current = fitRect(cardsRef.current.rects[face] ?? defaults[face], stageSize, CARD_LIMITS, STAGE_MARGIN, CARD_BAR_RESERVE);
     },
     onMove: (dx, dy, velocity) => {
       const face = cardDragFace.current;
       const start = cardStart.current;
       if (!face || !start) return;
-      const p = clampPoint({ x: start.x + dx, y: start.y + dy }, stageSize, start, STAGE_MARGIN, CARD_BAR_RESERVE);
-      setCardRect(face, { ...start, ...p });
+      const p = clampPoint(
+        { x: start.x + dx, y: start.y + dy },
+        stageSize,
+        start,
+        STAGE_MARGIN,
+        CARD_BAR_RESERVE,
+      );
+      const next = { ...start, ...p };
+      pendingCardRect.current = { face, rect: next };
+      writeRect(faceEls.current[face], next);
       const el = faceEls.current[face];
-      if (el) applyTilt([{ el, origin: { x: start.width / 2, y: start.height / 2 } }], velocity, 1400);
+      if (el)
+        applyTilt([{ el, origin: { x: start.width / 2, y: start.height / 2 } }], velocity, 1400);
     },
-    onEnd: () => {
+    onEnd: (moved) => {
+      const pending = moved ? pendingCardRect.current : null;
       cardStart.current = null;
+      pendingCardRect.current = null;
       releaseTilt();
+      if (pending) setCardRect(pending.face, pending.rect);
     },
   });
   const cardResize = usePointerDrag(
@@ -705,20 +864,74 @@ export function BuilderCube({
       onStart: () => {
         const face = cardDragFace.current;
         if (!face || layoutMode !== "cards") return false;
-        cardStart.current = cardRect(face);
+        cardStart.current = fitRect(cardsRef.current.rects[face] ?? defaults[face], stageSize, CARD_LIMITS, STAGE_MARGIN, CARD_BAR_RESERVE);
       },
       onMove: (dx, dy) => {
         const face = cardDragFace.current;
         const start = cardStart.current;
         if (!face || !start) return;
-        setCardRect(face, resizeFrom(start, cardEdge.current, dx, dy, stageSize, CARD_LIMITS, CARD_BAR_RESERVE));
+        const next = resizeFrom(
+          start,
+          cardEdge.current,
+          dx,
+          dy,
+          stageSize,
+          CARD_LIMITS,
+          CARD_BAR_RESERVE,
+        );
+        pendingCardRect.current = { face, rect: next };
+        writeRect(faceEls.current[face], next);
       },
-      onEnd: () => {
+      onEnd: (moved) => {
+        const pending = moved ? pendingCardRect.current : null;
         cardStart.current = null;
+        pendingCardRect.current = null;
+        if (pending) setCardRect(pending.face, pending.rect);
       },
     },
     { exempt: false },
   );
+
+  const cancelCubeDrag = cubeDrag.cancel;
+  const cancelCubeResize = cubeResize.cancel;
+  const cancelCardDrag = cardDrag.cancel;
+  const cancelCardResize = cardResize.cancel;
+  useLayoutEffect(() => {
+    if (!dragStart.current && !resizeStart.current) liveFrame.current = frame;
+  }, [frame]);
+
+  useLayoutEffect(() => {
+    const cubeGeometryChangedDuringGesture = dragStart.current !== null || resizeStart.current !== null;
+    const cubeDragCancelled = (layoutMode !== "cube" || cubeGeometryChangedDuringGesture) && cancelCubeDrag();
+    const cubeResizeCancelled = (layoutMode !== "cube" || cubeGeometryChangedDuringGesture) && cancelCubeResize();
+    const cubeCancelled = cubeDragCancelled || cubeResizeCancelled;
+    if (cubeCancelled) {
+      dragStart.current = null;
+      resizeStart.current = null;
+      pendingCubePosition.current = null;
+      pendingCubeResize.current = null;
+      liveFrame.current = frame;
+    }
+    const cardGeometryChangedDuringGesture = cardStart.current !== null;
+    const cardDragCancelled = (layoutMode !== "cards" || cardGeometryChangedDuringGesture) && cancelCardDrag();
+    const cardResizeCancelled = (layoutMode !== "cards" || cardGeometryChangedDuringGesture) && cancelCardResize();
+    const cardCancelled = cardDragCancelled || cardResizeCancelled;
+    if (cardCancelled) {
+      cardStart.current = null;
+      pendingCardRect.current = null;
+    }
+    if (cubeCancelled || cardCancelled) {
+      // En målad drag-frame kan skilja sig från Reacts senast sparade style.
+      // Skriv därför hela det nya lägets geometri, även om dess propvärden
+      // råkar vara identiska med värdena före lägesbytet.
+      if (layoutMode === "cards") {
+        for (const face of CUBE_FACE_IDS) writeRect(faceEls.current[face], cardRect(face));
+      } else {
+        writeCubeGeometry(frame);
+      }
+      releaseTilt();
+    }
+  }, [cancelCardDrag, cancelCardResize, cancelCubeDrag, cancelCubeResize, cardRect, frame, layoutMode, releaseTilt, writeCubeGeometry]);
 
   const foldingCards = useRef(new Set<CubeFaceId>());
   const foldCard = (face: CubeFaceId) => {
@@ -729,10 +942,14 @@ export function BuilderCube({
     const hadFocus = !!el && el.contains(document.activeElement);
     const commit = () => {
       foldingCards.current.delete(face);
-      setCards((prev) => (prev.folded.includes(face) ? prev : { ...prev, folded: [...prev.folded, face] }));
+      setCards((prev) =>
+        prev.folded.includes(face) ? prev : { ...prev, folded: [...prev.folded, face] },
+      );
       if (hadFocus) requestAnimationFrame(() => barButtons.current[face]?.focus());
       if (activeFace === face) {
-        const open = cardsRef.current.order.filter((f) => f !== face && !cardsRef.current.folded.includes(f));
+        const open = cardsRef.current.order.filter(
+          (f) => f !== face && !cardsRef.current.folded.includes(f),
+        );
         const top = open.at(-1);
         if (top) onActiveFaceChange(top);
       }
@@ -767,7 +984,11 @@ export function BuilderCube({
   };
   const toggleCard = (face: CubeFaceId) => {
     if (cards.folded.includes(face)) {
-      setCards((prev) => ({ ...prev, folded: prev.folded.filter((f) => f !== face), order: raise(prev.order, face) }));
+      setCards((prev) => ({
+        ...prev,
+        folded: prev.folded.filter((f) => f !== face),
+        order: raise(prev.order, face),
+      }));
       if (face !== activeFace) onActiveFaceChange(face);
     } else {
       foldCard(face);
@@ -777,7 +998,9 @@ export function BuilderCube({
   // Kortläge: en extern aktivering lyfter kortet överst.
   useEffect(() => {
     if (layoutMode !== "cards") return;
-    setCards((prev) => (prev.order.at(-1) === activeFace ? prev : { ...prev, order: raise(prev.order, activeFace) }));
+    setCards((prev) =>
+      prev.order.at(-1) === activeFace ? prev : { ...prev, order: raise(prev.order, activeFace) },
+    );
   }, [activeFace, layoutMode, setCards]);
 
   // ---- Dockan (tablist) ----------------------------------------------------
@@ -822,7 +1045,10 @@ export function BuilderCube({
 
   const neighbours = useMemo(() => {
     const dirs: CubeDirection[] = ["up", "right", "down", "left"];
-    return Object.fromEntries(dirs.map((d) => [d, neighborOf(settled, d)])) as Record<CubeDirection, CubeFaceId>;
+    return Object.fromEntries(dirs.map((d) => [d, neighborOf(settled, d)])) as Record<
+      CubeDirection,
+      CubeFaceId
+    >;
   }, [settled]);
 
   const outer = frame.outer;
@@ -842,7 +1068,7 @@ export function BuilderCube({
       role="tablist"
       aria-label="Sidor"
       aria-orientation="horizontal"
-      className="bg-background pointer-events-auto flex items-stretch gap-1 rounded-xl border border-border/70 p-1"
+      className="bg-background border-border/70 pointer-events-auto flex items-stretch gap-1 rounded-xl border p-1"
     >
       {CUBE_FACE_IDS.map((face) => {
         const spec = faces[face];
@@ -864,10 +1090,15 @@ export function BuilderCube({
             onKeyDown={(e) => onTabKeyDown(e, face)}
             className={cn(
               "focus-visible:ring-ring relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-[10px] font-medium transition-colors outline-none focus-visible:ring-2",
-              selected ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+              selected
+                ? "bg-primary/10 text-foreground"
+                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
             )}
           >
-            <span className={cn("relative [&_svg]:size-4", selected && FACE_ACCENTS[face].text)} aria-hidden="true">
+            <span
+              className={cn("relative [&_svg]:size-4", selected && FACE_ACCENTS[face].text)}
+              aria-hidden="true"
+            >
               {spec.icon}
               <Badge badge={spec.badge} />
             </span>
@@ -882,34 +1113,37 @@ export function BuilderCube({
     const face = neighbours[dir];
     const spec = faces[face];
     const s = CUBE_BEVEL;
-    const body = frame.body;
-    const geom: Record<CubeDirection, { rect: Rect; clip: string }> = {
+    const geom: Record<CubeDirection, { style: CSSProperties; clip: string }> = {
       up: {
-        rect: { x: body.x - s, y: body.y - s, width: body.width + 2 * s, height: s },
+        style: { left: 0, right: 0, top: CUBE_HEAD, height: s },
         clip: `polygon(0 0, 100% 0, calc(100% - ${s}px) 100%, ${s}px 100%)`,
       },
       down: {
-        rect: { x: body.x - s, y: body.y + body.height, width: body.width + 2 * s, height: s },
+        style: { left: 0, right: 0, bottom: CUBE_DOCK, height: s },
         clip: `polygon(${s}px 0, calc(100% - ${s}px) 0, 100% 100%, 0 100%)`,
       },
       left: {
-        rect: { x: body.x - s, y: body.y - s, width: s, height: body.height + 2 * s },
+        style: { left: 0, top: CUBE_HEAD, bottom: CUBE_DOCK, width: s },
         clip: `polygon(0 0, 100% ${s}px, 100% calc(100% - ${s}px), 0 100%)`,
       },
       right: {
-        rect: { x: body.x + body.width, y: body.y - s, width: s, height: body.height + 2 * s },
+        style: { right: 0, top: CUBE_HEAD, bottom: CUBE_DOCK, width: s },
         clip: `polygon(0 ${s}px, 100% 0, 100% 100%, 0 calc(100% - ${s}px))`,
       },
     };
     const g = geom[dir];
-    const local = { ...g.rect, x: g.rect.x - outer.x, y: g.rect.y - outer.y };
     const shading: Record<CubeDirection, string> = {
       up: "bg-gradient-to-b from-white/[0.10] to-white/[0.03]",
       left: "bg-gradient-to-r from-white/[0.07] to-white/[0.02]",
       right: "bg-gradient-to-l from-black/50 to-black/15",
       down: "bg-gradient-to-t from-black/55 to-black/15",
     };
-    const dirLabel: Record<CubeDirection, string> = { up: "uppåt", down: "nedåt", left: "åt vänster", right: "åt höger" };
+    const dirLabel: Record<CubeDirection, string> = {
+      up: "uppåt",
+      down: "nedåt",
+      left: "åt vänster",
+      right: "åt höger",
+    };
     return (
       <button
         key={dir}
@@ -919,9 +1153,9 @@ export function BuilderCube({
         title={`${spec.label} (vrid ${dirLabel[dir]})`}
         aria-label={`Vrid ${dirLabel[dir]} till ${spec.label}`}
         onClick={() => onActiveFaceChange(face)}
-        style={{ ...rectStyle(local), clipPath: g.clip }}
+        style={{ ...g.style, clipPath: g.clip }}
         className={cn(
-          "group pointer-events-auto absolute flex items-center justify-center border-0 bg-muted/40 p-0 transition-colors hover:bg-muted/80",
+          "group bg-muted/40 hover:bg-muted/80 pointer-events-auto absolute flex items-center justify-center border-0 p-0 transition-colors",
         )}
       >
         <span className={cn("absolute inset-0", shading[dir])} aria-hidden="true" />
@@ -958,24 +1192,34 @@ export function BuilderCube({
           {layoutMode === "cube" ? (
             <>
               <div
-                {...cubeDrag}
                 data-cube-header=""
-                className="from-muted to-background pointer-events-auto absolute inset-x-0 top-0 flex cursor-grab touch-none items-center gap-2 rounded-t-xl border border-b-0 border-border bg-linear-to-b px-2 select-none active:cursor-grabbing"
+                onPointerDown={cubeDrag.onPointerDown}
+                onPointerMove={cubeDrag.onPointerMove}
+                onPointerUp={cubeDrag.onPointerUp}
+                onPointerCancel={cubeDrag.onPointerCancel}
+                onLostPointerCapture={cubeDrag.onLostPointerCapture}
+                className="from-muted to-background border-border pointer-events-auto absolute inset-x-0 top-0 flex cursor-grab touch-none items-center gap-2 rounded-t-xl border border-b-0 bg-linear-to-b px-2 select-none active:cursor-grabbing"
                 style={{ height: CUBE_HEAD }}
               >
                 <button
                   type="button"
                   data-cube-grip=""
                   aria-label="Flytta panelen. Piltangenter flyttar 10 px, med Skift 40 px."
-                  onKeyDown={nudgeHandler(moveCubeBy)}
+                  onKeyDown={(event) => nudgeHandler(moveCubeBy)(event)}
                   className="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-md p-1 outline-none focus-visible:ring-2"
                 >
                   <GripVertical className="size-4" aria-hidden="true" />
                 </button>
-                <span className={cn("[&_svg]:size-4", FACE_ACCENTS[activeFace].text)} aria-hidden="true">
+                <span
+                  className={cn("[&_svg]:size-4", FACE_ACCENTS[activeFace].text)}
+                  aria-hidden="true"
+                >
                   {faces[activeFace].icon}
                 </span>
-                <span className="text-foreground min-w-0 flex-1 truncate text-sm font-medium" aria-live="polite">
+                <span
+                  className="text-foreground min-w-0 flex-1 truncate text-sm font-medium"
+                  aria-live="polite"
+                >
                   {faces[activeFace].label}
                 </span>
                 {onResetLayout ? (
@@ -998,7 +1242,7 @@ export function BuilderCube({
                     className="border-primary/30 bg-primary/10 text-foreground hover:bg-primary/20 focus-visible:ring-ring inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium outline-none focus-visible:ring-2"
                   >
                     <PanelLeft className="size-3.5" aria-hidden="true" />
-                  Sidopanel
+                    Sidopanel
                   </button>
                 ) : null}
                 <button
@@ -1012,7 +1256,7 @@ export function BuilderCube({
                 </button>
               </div>
               <div
-                className="from-background to-muted/80 pointer-events-none absolute inset-x-0 rounded-b-xl border border-t-0 border-border bg-linear-to-b shadow-[0_22px_56px_-24px_rgba(0,0,0,0.65)]"
+                className="from-background to-muted/80 border-border pointer-events-none absolute inset-x-0 rounded-b-xl border border-t-0 bg-linear-to-b shadow-[0_22px_56px_-24px_rgba(0,0,0,0.65)]"
                 style={{ top: CUBE_HEAD, bottom: 0 }}
                 aria-hidden="true"
               />
@@ -1027,6 +1271,7 @@ export function BuilderCube({
                 onPointerMove={cubeResize.onPointerMove}
                 onPointerUp={cubeResize.onPointerUp}
                 onPointerCancel={cubeResize.onPointerCancel}
+                onLostPointerCapture={cubeResize.onLostPointerCapture}
                 data-cube-resize="e"
               />
               <div
@@ -1036,21 +1281,26 @@ export function BuilderCube({
                 onPointerMove={cubeResize.onPointerMove}
                 onPointerUp={cubeResize.onPointerUp}
                 onPointerCancel={cubeResize.onPointerCancel}
+                onLostPointerCapture={cubeResize.onLostPointerCapture}
                 data-cube-resize="s"
               />
               <div
                 aria-hidden="true"
-                className="pointer-events-auto absolute -right-1 -bottom-1 size-5 cursor-nwse-resize touch-none after:absolute after:top-1 after:left-1 after:size-2 after:rounded-br-sm after:border-r-2 after:border-b-2 after:border-muted-foreground/60"
+                className="after:border-muted-foreground/60 pointer-events-auto absolute -right-1 -bottom-1 size-5 cursor-nwse-resize touch-none after:absolute after:top-1 after:left-1 after:size-2 after:rounded-br-sm after:border-r-2 after:border-b-2"
                 onPointerDown={startCubeResize("se")}
                 onPointerMove={cubeResize.onPointerMove}
                 onPointerUp={cubeResize.onPointerUp}
                 onPointerCancel={cubeResize.onPointerCancel}
+                onLostPointerCapture={cubeResize.onLostPointerCapture}
                 data-cube-resize="se"
               />
             </>
           ) : (
             <>
-              <div className="pointer-events-none absolute inset-0 border-t border-border/70 bg-background" aria-hidden="true" />
+              <div
+                className="border-border/70 bg-background pointer-events-none absolute inset-0 border-t"
+                aria-hidden="true"
+              />
               <div className="absolute inset-x-1 top-1" style={{ height: CUBE_DOCK - 8 }}>
                 {dock}
               </div>
@@ -1084,8 +1334,8 @@ export function BuilderCube({
               tabIndex={-1}
               style={{ ...rectStyle(rect), zIndex: zFor(face) }}
               className={cn(
-                "bg-background text-foreground absolute flex flex-col overflow-hidden rounded-xl border border-border outline-none",
-                "shadow-[0_18px_50px_-24px_rgba(0,0,0,0.75)] focus-within:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring",
+                "bg-background text-foreground border-border absolute flex flex-col overflow-hidden rounded-xl border outline-none",
+                "focus-within:border-primary/40 focus-visible:ring-ring shadow-[0_18px_50px_-24px_rgba(0,0,0,0.75)] focus-visible:ring-2",
                 open ? "pointer-events-auto" : hiddenClass[hiddenStrategy],
                 asCard && cn("border-t-2", accent.edge),
                 layoutMode === "tabs" && "rounded-none border-x-0 border-b-0",
@@ -1103,9 +1353,20 @@ export function BuilderCube({
                   }}
                   onNudge={(dx, dy) => {
                     const r = cardRect(face);
-                    setCardRect(face, { ...r, ...clampPoint({ x: r.x + dx, y: r.y + dy }, stageSize, r, STAGE_MARGIN, CARD_BAR_RESERVE) });
+                    setCardRect(face, {
+                      ...r,
+                      ...clampPoint(
+                        { x: r.x + dx, y: r.y + dy },
+                        stageSize,
+                        r,
+                        STAGE_MARGIN,
+                        CARD_BAR_RESERVE,
+                      ),
+                    });
                   }}
-                  onShrink={() => setCardRect(face, scaleCard(cardRect(face), CARD_SHRINK, stageSize))}
+                  onShrink={() =>
+                    setCardRect(face, scaleCard(cardRect(face), CARD_SHRINK, stageSize))
+                  }
                   onGrow={() => setCardRect(face, scaleCard(cardRect(face), CARD_GROW, stageSize))}
                   onFold={() => foldCard(face)}
                 />
@@ -1136,6 +1397,7 @@ export function BuilderCube({
                       onPointerMove={cardResize.onPointerMove}
                       onPointerUp={cardResize.onPointerUp}
                       onPointerCancel={cardResize.onPointerCancel}
+                      onLostPointerCapture={cardResize.onLostPointerCapture}
                       className={cn(
                         "absolute touch-none",
                         edge === "e" && "top-10 right-0 bottom-4 w-1.5 cursor-ew-resize",
@@ -1156,7 +1418,7 @@ export function BuilderCube({
         <div
           role="toolbar"
           aria-label="Kort"
-          className="bg-background pointer-events-auto absolute bottom-3 left-1/2 z-[100] flex -translate-x-1/2 items-center gap-1 rounded-xl border border-border/70 p-1 shadow-[0_8px_30px_-18px_rgba(0,0,0,0.6)]"
+          className="bg-background border-border/70 pointer-events-auto absolute bottom-3 left-1/2 z-[100] flex -translate-x-1/2 items-center gap-1 rounded-xl border p-1 shadow-[0_8px_30px_-18px_rgba(0,0,0,0.6)]"
         >
           {CUBE_FACE_IDS.map((face) => {
             const spec = faces[face];
@@ -1175,10 +1437,15 @@ export function BuilderCube({
                 onClick={() => toggleCard(face)}
                 className={cn(
                   "focus-visible:ring-ring relative flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs outline-none focus-visible:ring-2",
-                  expanded ? "text-foreground hover:bg-muted/60" : "text-muted-foreground bg-muted/40 hover:bg-muted/70",
+                  expanded
+                    ? "text-foreground hover:bg-muted/60"
+                    : "text-muted-foreground bg-muted/40 hover:bg-muted/70",
                 )}
               >
-                <span className={cn("relative [&_svg]:size-3.5", expanded && FACE_ACCENTS[face].text)} aria-hidden="true">
+                <span
+                  className={cn("relative [&_svg]:size-3.5", expanded && FACE_ACCENTS[face].text)}
+                  aria-hidden="true"
+                >
                   {spec.icon}
                   <Badge badge={spec.badge} />
                 </span>
@@ -1217,7 +1484,7 @@ export function BuilderCube({
               className="border-primary/30 bg-primary/10 text-foreground hover:bg-primary/20 focus-visible:ring-ring inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium outline-none focus-visible:ring-2"
             >
               <PanelLeft className="size-3.5" aria-hidden="true" />
-                  Sidopanel
+              Sidopanel
             </button>
           ) : null}
         </div>
@@ -1238,18 +1505,31 @@ interface CardHeaderProps {
   onFold: () => void;
 }
 
-function CardHeader({ face, spec, titleId, drag, onGrabFace, onNudge, onShrink, onGrow, onFold }: CardHeaderProps) {
+function CardHeader({
+  face,
+  spec,
+  titleId,
+  drag,
+  onGrabFace,
+  onNudge,
+  onShrink,
+  onGrow,
+  onFold,
+}: CardHeaderProps) {
   const btn =
     "text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring rounded-md p-1 outline-none focus-visible:ring-2";
   return (
     <div
-      {...drag}
       onPointerDown={(e) => {
         onGrabFace();
         drag.onPointerDown(e);
       }}
+      onPointerMove={drag.onPointerMove}
+      onPointerUp={drag.onPointerUp}
+      onPointerCancel={drag.onPointerCancel}
+      onLostPointerCapture={drag.onLostPointerCapture}
       data-card-header={face}
-      className="flex shrink-0 cursor-grab touch-none items-center gap-1.5 border-b border-border/60 px-1.5 select-none active:cursor-grabbing"
+      className="border-border/60 flex shrink-0 cursor-grab touch-none items-center gap-1.5 border-b px-1.5 select-none active:cursor-grabbing"
       style={{ height: CARD_HEAD }}
     >
       <button
@@ -1268,13 +1548,31 @@ function CardHeader({ face, spec, titleId, drag, onGrabFace, onNudge, onShrink, 
       <h2 id={titleId} className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">
         {spec.label}
       </h2>
-      <button type="button" onClick={onShrink} aria-label={`Mindre ${spec.label}`} title="Mindre" className={btn}>
+      <button
+        type="button"
+        onClick={onShrink}
+        aria-label={`Mindre ${spec.label}`}
+        title="Mindre"
+        className={btn}
+      >
         <Minus className="size-3.5" aria-hidden="true" />
       </button>
-      <button type="button" onClick={onGrow} aria-label={`Större ${spec.label}`} title="Större" className={btn}>
+      <button
+        type="button"
+        onClick={onGrow}
+        aria-label={`Större ${spec.label}`}
+        title="Större"
+        className={btn}
+      >
         <Plus className="size-3.5" aria-hidden="true" />
       </button>
-      <button type="button" onClick={onFold} aria-label={`Fäll ned ${spec.label} till fältet`} title="Fäll ned" className={btn}>
+      <button
+        type="button"
+        onClick={onFold}
+        aria-label={`Fäll ned ${spec.label} till fältet`}
+        title="Fäll ned"
+        className={btn}
+      >
         <ChevronDown className="size-3.5" aria-hidden="true" />
       </button>
     </div>
