@@ -21,8 +21,13 @@ export function useChat(chatId: string | null) {
     },
   );
 
+  const responseChatId = data?.chatId ?? data?.id;
+  const projectId = responseChatId === chatId && typeof data?.projectId === "string"
+    ? data.projectId.trim() || null : null;
+
   return {
     chat: data,
+    projectId,
     isLoading,
     isError: error,
     mutate,

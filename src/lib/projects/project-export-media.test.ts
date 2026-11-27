@@ -94,6 +94,44 @@ describe("loadProjectExportMedia", () => {
     );
   });
 
+  it("skips nine unreferenced 4 MiB bank assets before fetching while keeping the used and explicitly exported media", async () => {
+    const bankImage = (id: number) => {
+      const storagePath = `user_1/projects/proj_1/media-library/${id}.png`;
+      return mediaRow({
+        id,
+        file_path: storagePath,
+        blob_url: `https://store.public.blob.vercel-storage.com/${storagePath}`,
+        size_bytes: 4 * 1024 * 1024,
+      });
+    };
+    const used = bankImage(10);
+    const explicit = mediaRow({ id: 11 });
+    rows.queue = [[...Array.from({ length: 9 }, (_, index) => bankImage(index + 1)), used, explicit], []];
+    const largeImage = Buffer.alloc(4 * 1024 * 1024);
+    fetchWithPinnedDns.mockImplementation(async (url: string) => ({
+      status: 200,
+      headers: {},
+      body: url.endsWith("/media/hero.png") ? Buffer.from("old") : largeImage,
+    }));
+
+    const result = await loadProjectExportMedia({
+      projectId: "proj_1", userId: "user_1", referencedText: String(used.blob_url),
+    });
+
+    expect(result.map(({ id }) => id)).toEqual([10, 11]);
+    expect(fetchWithPinnedDns.mock.calls.map(([url]) => url)).toEqual([used.blob_url, explicit.blob_url]);
+  });
+
+  it("exports a referenced image from another owned project's bank", async () => {
+    const storagePath = "user_1/projects/other/media-library/hero.png";
+    const url = `https://store.public.blob.vercel-storage.com/${storagePath}`;
+    rows.queue = [[mediaRow({ project_id: "other", file_path: storagePath, blob_url: url })], []];
+    fetchWithPinnedDns.mockResolvedValue({ status: 200, headers: {}, body: Buffer.from("png") });
+
+    const result = await loadProjectExportMedia({ projectId: "proj_1", userId: "user_1", referencedText: url });
+    expect(result).toEqual([expect.objectContaining({ sourceUrls: expect.arrayContaining([url]) })]);
+  });
+
   it("does not remotely fetch an arbitrary or path-mismatched URL", async () => {
     rows.queue = [
       [
@@ -151,8 +189,8 @@ describe("loadProjectExportMedia", () => {
     );
   });
 
-  it("includes referenced shared media but skips unrelated library files", async () => {
-    const shared = mediaRow({ id: 2, project_id: null });
+  it.each([null, "another-owned-project"])("includes referenced shared media in scope %s but skips unrelated library files", async (projectId) => {
+    const shared = mediaRow({ id: 2, project_id: projectId });
     rows.queue = [[shared, mediaRow({ id: 3, project_id: null, blob_url: null })], []];
     fetchWithPinnedDns.mockResolvedValue({
       status: 200,
@@ -203,7 +241,7 @@ describe("loadProjectExportMedia", () => {
     const result = await loadProjectExportMedia({
       projectId: "proj_1",
       userId: "user_1",
-      referencedText: blobUrl,
+      referencedText: "",
     });
 
     expect(result).toEqual([

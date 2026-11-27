@@ -60,6 +60,7 @@ import { OpenClawPowersControl } from "@/components/openclaw/OpenClawPowersContr
 import { SourcePagePanel, type SourcePagePanelHandle } from "@/components/openclaw/SourcePagePanel";
 import { formatSelectedSourcePage, unselectedSourcePageUrl, type SelectedSourcePage } from "@/lib/openclaw/source-page";
 import { readTaskAttachmentIds } from "@/lib/openclaw/read-task-input";
+import { appendProjectMediaLibraryScope } from "@/lib/media/project-media-library";
 import { useOpenClawPowers } from "@/components/openclaw/useOpenClawPowers";
 import { ComposerModeToggle } from "./sajtagent/ComposerModeToggle";
 import { useSajtagent } from "./sajtagent/SajtagentProvider";
@@ -171,6 +172,7 @@ function getExtensionFromDataUrl(dataUrl?: string): string {
 
 interface ChatInterfaceProps {
   chatId: string | null;
+  projectId?: string | null;
   initialPrompt?: string | null;
   auditHandoff?: AuditComposerToken | null;
   onCreateChat?: (message: string, options?: MessageOptions) => Promise<boolean | void>;
@@ -317,6 +319,7 @@ const ROUTE_TONE_STYLE: Record<ComposerRouteTone, { icon: LucideIcon; text: stri
 
 export function ChatInterface({
   chatId,
+  projectId,
   initialPrompt,
   auditHandoff = null,
   onCreateChat,
@@ -589,6 +592,7 @@ export function ChatInterface({
     const formData = new FormData();
     formData.append("file", file);
     formData.append("description", "Inspector point preview");
+    appendProjectMediaLibraryScope(formData, projectId);
     const response = await fetch("/api/media/upload", {
       method: "POST",
       body: formData,
@@ -600,7 +604,7 @@ export function ChatInterface({
     }
 
     return { media: result.media, file };
-  }, []);
+  }, [projectId]);
 
   const handleRemoveInspectPoint = useCallback((pointId: string) => {
     setInspectPoints((prevPoints) => {
@@ -1494,6 +1498,7 @@ export function ChatInterface({
                 ref={sourcePagePanel}
                 key={chatId ?? "new-chat"}
                 chatId={chatId}
+                projectId={projectId}
                 disabled={inputDisabled || hasUploading}
                 importImage={mediaEnabled}
                 onUse={(source, image) => {
@@ -1504,7 +1509,7 @@ export function ChatInterface({
               />
               {mediaEnabled && (
                 <FileUploadZone
-                  projectId={null}
+                  projectId={projectId ?? null}
                   files={files}
                   onFilesChange={setFiles}
                   disabled={inputDisabled}
@@ -1596,6 +1601,7 @@ export function ChatInterface({
       {mediaEnabled && (
         <MediaDrawer
           isOpen={isMediaDrawerOpen}
+          projectId={projectId ?? undefined}
           onClose={() => setIsMediaDrawerOpen(false)}
           onFileSelect={handleMediaSelect}
         />
@@ -1604,6 +1610,7 @@ export function ChatInterface({
       {mediaEnabled && (
         <TextUploader
           isOpen={isTextUploaderOpen}
+          projectId={projectId}
           onClose={() => setIsTextUploaderOpen(false)}
           onContentReady={handleTextContentReady}
           disabled={inputDisabled}

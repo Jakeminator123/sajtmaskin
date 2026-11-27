@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProjectByIdForOwner } from "@/lib/db/services/projects";
-import { saveImage } from "@/lib/db/services/media";
+import { canUserUploadFile, saveImage } from "@/lib/db/services/media";
+import { MAX_MEDIA_FILE_BYTES } from "@/lib/media/upload-limits";
+import { MediaUploadPolicyError } from "@/lib/media/upload-policy-error";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
+import { deleteBlob, uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
 import { readRequestFormDataWithLimit } from "@/lib/api/read-limited-body";
 
 interface RouteParams {
@@ -11,7 +13,7 @@ interface RouteParams {
 
 // Mirror media-upload limits so project image uploads can't bypass them
 // by hitting the legacy project-scoped endpoint.
-const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4 MB (matches Vercel Blob preview budget)
+const MAX_FILE_SIZE = MAX_MEDIA_FILE_BYTES;
 const MAX_UPLOAD_BODY_BYTES = 5 * 1024 * 1024;
 const MAX_PROJECT_ID_CHARS = 200;
 const MAX_FILENAME_CHARS = 255;
@@ -91,6 +93,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const quota = await canUserUploadFile(user.id, file.type, id);
+    if (!quota.allowed) {
+      return NextResponse.json({ success: false, error: quota.reason }, { status: 400 });
+    }
+
     // Generate unique filename
     const filename = generateUniqueFilename(file.name);
 
@@ -119,6 +126,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let imageRecord: Awaited<ReturnType<typeof saveImage>>;
     try {
       imageRecord = await saveImage(
+        user.id,
         id,
         filename,
         uploadResult.path,
@@ -127,6 +135,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         file.size,
       );
     } catch (persistError) {
+      if (persistError instanceof MediaUploadPolicyError) {
+        await deleteBlob(uploadResult.storageType === "blob" ? uploadResult.url : uploadResult.path);
+        throw persistError;
+      }
       console.error("[API] Failed to persist uploaded image:", persistError);
       // A failed response does not prove the insert rolled back. Preserve the
       // file in case the database already references it.
@@ -145,6 +157,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error: unknown) {
+    if (error instanceof MediaUploadPolicyError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+    }
     console.error("[API] Failed to upload image:", error);
     return NextResponse.json(
       { success: false, error: "Failed to upload image" },

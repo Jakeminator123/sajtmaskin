@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useImperativeHandle, useRef, useState, type Ref } from "react";
 import type { UploadedFile } from "@/components/media/file-upload-zone";
+import { PROJECT_MEDIA_LIBRARY_CATEGORY } from "@/lib/media/project-media-library";
 import type { PublicSourcePage, SelectedSourcePage } from "@/lib/openclaw/source-page";
 
 export interface ImportedSourceImage {
@@ -26,12 +27,14 @@ export function SourcePagePanel({
   disabled,
   importImage = true,
   chatId,
+  projectId,
   onUse,
 }: {
   ref?: Ref<SourcePagePanelHandle>;
   disabled?: boolean;
   importImage?: boolean;
   chatId?: string | null;
+  projectId?: string | null;
   onUse: (source: SelectedSourcePage, image?: ImportedSourceImage) => void;
 }) {
   const id = useId();
@@ -119,8 +122,10 @@ export function SourcePagePanel({
           url: image.url,
           filename: "kallbild",
           source: "sajtagent-source",
+          mediaScope: PROJECT_MEDIA_LIBRARY_CATEGORY,
           sourcePageUrl: page.url,
           ...(chatId ? { chatId } : {}),
+          ...(projectId ? { projectId } : {}),
         }),
         signal,
       });

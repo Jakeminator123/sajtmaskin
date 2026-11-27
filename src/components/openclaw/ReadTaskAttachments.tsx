@@ -6,10 +6,14 @@ import { MediaDrawer } from "@/components/media/media-drawer";
 import { readTaskAttachmentIds } from "@/lib/openclaw/read-task-input";
 
 export function ReadTaskAttachments({
+  chatId,
+  projectId,
   files,
   onFilesChange,
   disabled,
 }: {
+  chatId?: string;
+  projectId?: string;
   files: UploadedFile[];
   onFilesChange: (files: UploadedFile[]) => void;
   disabled: boolean;
@@ -21,13 +25,13 @@ export function ReadTaskAttachments({
     <details className="mb-2 text-sm">
       <summary className="cursor-pointer">Bilagor till frågan</summary>
       <p>Upp till tre bilder eller textfiler.</p>
-      <FileUploadZone projectId={null} files={files} onFilesChange={onFilesChange} compact disabled={disabled} />
+      <FileUploadZone projectId={projectId ?? null} chatId={chatId} files={files} onFilesChange={onFilesChange} compact disabled={disabled} />
       <button type="button" className="underline" disabled={disabled || files.some((file) => file.status === "uploading")}
         onClick={() => setLibraryOpen(true)}>
         Välj från mediebanken
       </button>
       {hasUnsupported || ids.length > 3 ? <p role="alert">Ta bort filtyper som inte stöds eller välj högst tre filer.</p> : null}
-      <MediaDrawer isOpen={libraryOpen} onClose={() => setLibraryOpen(false)} onFileSelect={(item) => {
+      <MediaDrawer isOpen={libraryOpen} projectId={projectId} chatId={chatId} onClose={() => setLibraryOpen(false)} onFileSelect={(item) => {
         if (!files.some(({ url }) => url === item.url)) {
           onFilesChange([...files, {
             id: item.id,

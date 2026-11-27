@@ -979,7 +979,7 @@ export function DidOpenClawBridge({
             </div>
           )}
 
-          <ReadTaskAttachments files={sourceFiles} onFilesChange={setSourceFiles} disabled={thinking} />
+          <ReadTaskAttachments chatId={chatId} files={sourceFiles} onFilesChange={setSourceFiles} disabled={thinking} />
           <SourcePagePanel ref={sourcePagePanel} disabled={thinking} chatId={chatId} importImage={Boolean(chatId)}
             onUse={(source, image) => {
               setSourceFiles((files) => replaceImportedSourceImage(files, selectedSource?.imageId, image));

@@ -1,8 +1,10 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MediaUploadPolicyError } from "@/lib/media/upload-policy-error";
 
 const getProjectByIdForOwner = vi.hoisted(() => vi.fn());
 const saveImage = vi.hoisted(() => vi.fn());
+const canUserUploadFile = vi.hoisted(() => vi.fn());
 const getCurrentUser = vi.hoisted(() => vi.fn());
 const uploadBlob = vi.hoisted(() => vi.fn());
 const deleteBlob = vi.hoisted(() => vi.fn());
@@ -12,6 +14,7 @@ vi.mock("@/lib/db/services/projects", () => ({
 }));
 
 vi.mock("@/lib/db/services/media", () => ({
+  canUserUploadFile,
   saveImage,
 }));
 
@@ -54,6 +57,26 @@ describe("POST /api/projects/[id]/upload", () => {
     });
     deleteBlob.mockResolvedValue(true);
     saveImage.mockResolvedValue({ id: "image_1" });
+    canUserUploadFile.mockResolvedValue({ allowed: true });
+  });
+
+  it("obeys the same quota as modern uploads while retaining the legacy export record", async () => {
+    const file = new File(["png"], "project.png", { type: "image/png" });
+    canUserUploadFile.mockResolvedValueOnce({ allowed: false, reason: "Bildkvoten är nådd." });
+    const rejected = await POST(makeUploadRequest(file) as never, makeParams());
+    expect(rejected.status).toBe(400);
+    expect(uploadBlob).not.toHaveBeenCalled();
+
+    const response = await POST(makeUploadRequest(file) as never, makeParams());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ image: { id: "image_1", url: "https://blob.example/project.png" } });
+    expect(canUserUploadFile).toHaveBeenCalledWith("user_1", "image/png", PROJECT_ID);
+    expect(saveImage.mock.calls[0]?.slice(0, 2)).toEqual(["user_1", PROJECT_ID]);
+
+    saveImage.mockRejectedValueOnce(new MediaUploadPolicyError("Bildkvoten är nådd.", 400));
+    const raceRejected = await POST(makeUploadRequest(file) as never, makeParams());
+    expect(raceRejected.status).toBe(400);
+    expect(deleteBlob).toHaveBeenCalledExactlyOnceWith("https://blob.example/project.png");
   });
 
   it("rejects SVG uploads like the canonical media upload route", async () => {

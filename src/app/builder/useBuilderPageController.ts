@@ -135,7 +135,7 @@ export function useBuilderPageController() {
   const chatHooksChatId = readyForChatHooks ? chatId : null;
 
   // ── External data hooks ──────────────────────────────────────────────
-  const { chat, mutate: mutateChat, isError: isChatError, isLoading: isChatLoading } =
+  const { chat, projectId: hydratedChatProjectId, mutate: mutateChat, isError: isChatError, isLoading: isChatLoading } =
     useChat(chatHooksChatId);
 
   const isAnyStreamingEarly = useMemo(
@@ -959,6 +959,7 @@ export function useBuilderPageController() {
     existingUiComponents: state.existingUiComponents,
     appProjectId: state.appProjectId,
     appProjectName: state.appProjectName,
+    mediaProjectId: hydratedChatProjectId ?? state.appProjectId,
 
     // Setters the shell needs for onChange handlers
     setSelectedModelTier: state.setSelectedModelTier,

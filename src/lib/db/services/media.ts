@@ -1,6 +1,8 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { images, mediaLibrary } from "@/lib/db/schema";
+import { appProjects, images, mediaLibrary } from "@/lib/db/schema";
+import { MAX_MEDIA_IMAGES, MAX_MEDIA_VIDEOS } from "@/lib/media/upload-limits";
+import { MediaUploadPolicyError } from "@/lib/media/upload-policy-error";
 import { deleteBlob } from "@/lib/vercel/blob-service";
 import { assertDbConfigured } from "./shared";
 import type { MediaLibraryItem } from "./shared";
@@ -13,33 +15,71 @@ function resolveMediaFileType(mimeType: string): string {
   return "other";
 }
 
+type MediaExecutor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+type MediaCounts = { images: number; videos: number; other: number };
+
+function mediaQuotaError(fileType: string, counts: MediaCounts, projectId?: string): string | null {
+  if (fileType === "image" && counts.images >= MAX_MEDIA_IMAGES) {
+    return projectId
+      ? `Sajten har nått gränsen på ${MAX_MEDIA_IMAGES} bilder och logotyper.`
+      : `Ditt personliga utrymme har nått gränsen på ${MAX_MEDIA_IMAGES} bilder och logotyper.`;
+  }
+  if (fileType === "video" && counts.videos >= MAX_MEDIA_VIDEOS) {
+    return `Kontot har nått gränsen på ${MAX_MEDIA_VIDEOS} videor.`;
+  }
+  return null;
+}
+
+export async function requireMediaUploadProject(
+  userId: string,
+  projectId?: string,
+  executor: MediaExecutor = db,
+) {
+  if (!projectId) return;
+  assertDbConfigured();
+  const query = executor.select({ id: appProjects.id }).from(appProjects)
+    .where(and(eq(appProjects.id, projectId), eq(appProjects.user_id, userId)));
+  // Inside the upload transaction, keep ownership stable until the row is saved.
+  const [project] = executor === db ? await query : await query.for("share");
+  if (!project) throw new MediaUploadPolicyError("Sajten hittades inte.", 404);
+}
+
 export async function canUserUploadFile(
   userId: string,
   mimeType: string,
-  maxImages: number,
-  maxVideos: number,
+  projectId?: string,
 ): Promise<{ allowed: boolean; reason?: string }> {
-  const counts = await getMediaLibraryCounts(userId);
+  await requireMediaUploadProject(userId, projectId);
+  const fileType = resolveMediaFileType(mimeType);
+  if (fileType !== "image" && fileType !== "video") return { allowed: true };
+  const reason = mediaQuotaError(fileType, await getMediaLibraryCounts(userId, projectId), projectId);
+  return reason ? { allowed: false, reason } : { allowed: true };
+}
 
-  if (mimeType.startsWith("image/")) {
-    if (counts.images >= maxImages) {
-      return {
-        allowed: false,
-        reason: `Max ${maxImages} bilder/logos. Ta bort någon först.`,
-      };
+type MediaTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function withMediaQuota<T>(
+  userId: string,
+  fileType: string,
+  projectId: string | undefined,
+  write: (tx: MediaTransaction) => Promise<T>,
+): Promise<T> {
+  assertDbConfigured();
+  return db.transaction(async (tx) => {
+    if (fileType === "image" || fileType === "video") {
+      const key = fileType === "image"
+        ? JSON.stringify(["media-images", userId, projectId ?? null])
+        : JSON.stringify(["media-videos", userId]);
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
     }
-  }
-
-  if (mimeType.startsWith("video/")) {
-    if (counts.videos >= maxVideos) {
-      return {
-        allowed: false,
-        reason: `Max ${maxVideos} videos. Ta bort någon först.`,
-      };
+    await requireMediaUploadProject(userId, projectId, tx);
+    if (fileType === "image" || fileType === "video") {
+      // A separate statement after the lock sees any row committed by its previous holder.
+      const reason = mediaQuotaError(fileType, await getMediaLibraryCounts(userId, projectId, tx), projectId);
+      if (reason) throw new MediaUploadPolicyError(reason, 400);
     }
-  }
-
-  return { allowed: true };
+    return write(tx);
+  }, { isolationLevel: "read committed" });
 }
 
 export async function saveMediaLibraryItem(
@@ -54,26 +94,24 @@ export async function saveMediaLibraryItem(
   description?: string,
   tags?: string[],
 ): Promise<MediaLibraryItem> {
-  assertDbConfigured();
-  const now = new Date();
-  const rows = await db
-    .insert(mediaLibrary)
-    .values({
+  const fileType = resolveMediaFileType(mimeType);
+  return withMediaQuota(userId, fileType, projectId, async (tx) => {
+    const [item] = await tx.insert(mediaLibrary).values({
       user_id: userId,
       filename,
       original_name: originalName,
       file_path: filePath,
       blob_url: blobUrl,
       mime_type: mimeType,
-      file_type: resolveMediaFileType(mimeType),
+      file_type: fileType,
       size_bytes: sizeBytes,
       description: description || null,
       tags: tags || null,
       project_id: projectId || null,
-      created_at: now,
-    })
-    .returning();
-  return rows[0];
+      created_at: new Date(),
+    }).returning();
+    return item;
+  });
 }
 
 export async function getMediaLibraryByUser(
@@ -95,32 +133,27 @@ export async function getMediaLibraryByUser(
     .orderBy(desc(mediaLibrary.created_at));
 }
 
-export async function getMediaLibraryCounts(userId: string): Promise<{
-  images: number;
-  videos: number;
-  other: number;
-}> {
+export async function getMediaLibraryCounts(userId: string, projectId?: string, executor: MediaExecutor = db): Promise<MediaCounts> {
   assertDbConfigured();
-  const rows = await db
-    .select({
-      file_type: mediaLibrary.file_type,
-      count: sql<number>`count(*)`,
-    })
-    .from(mediaLibrary)
-    .where(eq(mediaLibrary.user_id, userId))
-    .groupBy(mediaLibrary.file_type);
-
-  let imageCount = 0;
-  let videos = 0;
-  let other = 0;
-
-  rows.forEach((row) => {
-    if (row.file_type === "image" || row.file_type === "logo") imageCount += row.count;
-    else if (row.file_type === "video") videos += row.count;
-    else other += row.count;
-  });
-
-  return { images: imageCount, videos, other };
+  const imageTypes = sql`${mediaLibrary.file_type} in ('image', 'logo')`;
+  // Legacy exports keep their images rows. The canonical paths avoid double-counting a shared asset.
+  const imageCount = projectId ? sql<string>`(
+    select count(*) from (
+      select ${mediaLibrary.file_path} from ${mediaLibrary}
+      where ${eq(mediaLibrary.user_id, userId)} and ${eq(mediaLibrary.project_id, projectId)} and ${imageTypes}
+      union
+      select ${images.file_path} from ${images}
+      join ${appProjects} on ${eq(images.project_id, appProjects.id)}
+      where ${eq(images.project_id, projectId)} and ${eq(appProjects.user_id, userId)}
+    ) as owned_image_paths
+  )` : sql<string>`count(*) filter (where ${imageTypes} and ${isNull(mediaLibrary.project_id)})`;
+  const [row] = await executor.select({
+    images: imageCount,
+    videos: sql<string>`count(*) filter (where ${mediaLibrary.file_type} = 'video')`,
+    other: sql<string>`count(*) filter (where ${mediaLibrary.file_type} not in ('image', 'logo', 'video'))`,
+  }).from(mediaLibrary).where(eq(mediaLibrary.user_id, userId));
+  // COUNT returns int8, which node-postgres decodes as a string.
+  return { images: Number(row.images), videos: Number(row.videos), other: Number(row.other) };
 }
 
 export async function getMediaLibraryItemById(
@@ -151,6 +184,7 @@ export async function deleteMediaLibraryItem(id: number, userId: string): Promis
 }
 
 export async function saveImage(
+  userId: string,
   projectId: string,
   filename: string,
   filePath: string,
@@ -158,10 +192,8 @@ export async function saveImage(
   mimeType: string,
   sizeBytes: number,
 ) {
-  assertDbConfigured();
-  const rows = await db
-    .insert(images)
-    .values({
+  return withMediaQuota(userId, "image", projectId, async (tx) => {
+    const [image] = await tx.insert(images).values({
       project_id: projectId,
       filename,
       file_path: filePath,
@@ -169,7 +201,7 @@ export async function saveImage(
       mime_type: mimeType,
       size_bytes: sizeBytes,
       created_at: new Date(),
-    })
-    .returning();
-  return rows[0];
+    }).returning();
+    return image;
+  });
 }

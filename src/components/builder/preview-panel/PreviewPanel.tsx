@@ -93,6 +93,7 @@ const PREVIEW_REFRESH_QUERY_PARAM = "__sm_refresh";
  */
 export function PreviewPanel({
   chatId,
+  mediaProjectId,
   versionId,
   designTheme,
   onDesignThemeChange,
@@ -1103,6 +1104,7 @@ export function PreviewPanel({
 
   return (
     <PreviewPanelSurface
+      mediaProjectId={mediaProjectId}
       previewUrl={previewUrl}
       isOwnEnginePreview={isOwnEnginePreview}
       isTier2LivePreview={isTier2LivePreview}
