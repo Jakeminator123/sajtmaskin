@@ -55,7 +55,7 @@ function extractHttpUrls(text: string): string[] {
   return text.match(re) ?? [];
 }
 
-function looksLikeImageUrl(rawUrl: string): boolean {
+export function looksLikeImageUrl(rawUrl: string): boolean {
   if (!rawUrl) return false;
   if (rawUrl.startsWith("data:")) return false;
 

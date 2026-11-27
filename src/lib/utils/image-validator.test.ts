@@ -88,6 +88,31 @@ describe("unwrapNextImageUrl", () => {
 });
 
 describe("extractImageRefs", () => {
+
+  it("reads gallery source literals and localized alt text across TSX and JSON data", () => {
+    const photo = "https://images.unsplash.com/photo-fixture?w=1000";
+    const publicPhoto = "https://media.example.org/gallery/summer.jpg";
+    const content = [
+      'const gallery = [{src: "' + photo + '", label: ["Cykling"], alt: ["Cyklist i skogen", "Forest cyclist"]}];',
+      'gallery.map(item => <Image src={item.src} alt={item.alt[0]} />);',
+    ].join("\n");
+    const catalogue = JSON.stringify([
+      { imageUrl: publicPhoto, alt: "Sommar" },
+      { src: photo, alt: "Samma bild" },
+      { href: "https://example.org/page", alt: "Länk" },
+      { src: "https://cdn.example.org/movie.mp4", alt: "Film" },
+      { src: "https://customer.public.blob.vercel-storage.com/mine.jpg", alt: "Egen bild" },
+    ]);
+
+    expect(extractImageRefs([
+      { name: "app/page.tsx", content },
+      { name: "data/gallery.json", content: catalogue },
+    ])).toEqual([
+      { url: photo, alt: "Cyklist i skogen", file: "app/page.tsx" },
+      { url: publicPhoto, alt: "Sommar", file: "data/gallery.json" },
+    ]);
+  });
+
   it("extracts CSS background-image urls", () => {
     const files: TextFile[] = [
       {
@@ -312,6 +337,24 @@ describe("validateImages", () => {
 
     afterEach(() => {
       fetchSpy.mockRestore();
+    });
+
+    it("repairs a confirmed 404 in a mapped gallery and preserves its other entries", async () => {
+      const dead = "https://images.unsplash.com/photo-missing?w=900";
+      const kept = "https://customer.public.blob.vercel-storage.com/upload.jpg";
+      const files = [{
+        name: "data/gallery.ts",
+        content: 'export const gallery = [{src:"' + dead + '",alt:["Cyklist i skogen","Forest cyclist"]},{src:"' + kept + '",alt:"Foto"}];',
+      }];
+      fetchSpy.mockResolvedValue(new Response(null, { status: 404 }));
+
+      const result = await validateImages({ files, autoFix: true, unsplashAccessKey: null });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(result.broken).toMatchObject([{ url: dead, alt: "Cyklist i skogen", status: 404 }]);
+      expect(result.replacedCount).toBe(1);
+      expect(result.files[0].content).toContain("/api/placeholder?w=1200&h=800&label=Cyklist%20i%20skogen");
+      expect(result.files[0].content).toContain(kept);
+      expect(result.files[0].content).not.toContain(dead);
     });
 
     const filesForUrl = (url: string): TextFile[] => [

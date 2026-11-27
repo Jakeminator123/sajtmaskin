@@ -1,3 +1,6 @@
+import ts from "typescript";
+import { createTsxSourceFile, isGuardablePath } from "@/lib/gen/autofix/rules/import-binding-ast";
+import { looksLikeImageUrl } from "@/lib/images/image-assets";
 import type { CodeFile } from "@/lib/gen/parser";
 import { collectDanglingStaticAssetRefs } from "@/lib/gen/validation/project-sanity";
 import {
@@ -319,6 +322,45 @@ function isExternalImageUrl(url: string): boolean {
   }
 }
 
+/** Static image descriptors used by galleries such as <Image src={item.src} />. */
+function galleryImageRefs(file: TextFile): ImageRef[] {
+  if (!/\b(?:src|image|imageUrl)["']?\s*:\s*["'\x60]https?:\/\//.test(file.content)) return [];
+
+  const isJson = file.name.toLowerCase().endsWith(".json");
+  if (!isJson && !isGuardablePath(file.name)) return [];
+  const source = isJson
+    ? ts.parseJsonText(file.name, file.content)
+    : createTsxSourceFile(file.name, file.content);
+  const refs: ImageRef[] = [];
+
+  function visit(node: ts.Node): void {
+    if (ts.isArrayLiteralExpression(node)) {
+      for (const item of node.elements) {
+        if (!ts.isObjectLiteralExpression(item)) continue;
+        let src: ts.Expression | undefined;
+        let alt: ts.Expression | undefined;
+        for (const property of item.properties) {
+          if (!ts.isPropertyAssignment(property)) continue;
+          const name = property.name;
+          if (!ts.isIdentifier(name) && !ts.isStringLiteral(name)) continue;
+          if (name.text === "src" || name.text === "image" || name.text === "imageUrl") src = property.initializer;
+          if (name.text === "alt") alt = property.initializer;
+        }
+        if (!src || !ts.isStringLiteralLike(src) || !isExternalImageUrl(src.text)) continue;
+        // A generic src may also point to a script, an audio file or a video.
+        const imageHint = isUnsplashUrl(src.text) || isDeadUnsplashSourceUrl(src.text) || looksLikeImageUrl(src.text);
+        const extensionlessAlt = alt && !new URL(src.text).pathname.split("/").pop()?.includes(".");
+        if (!imageHint && !extensionlessAlt) continue;
+        const label = alt && ts.isArrayLiteralExpression(alt) ? alt.elements.find(ts.isStringLiteralLike) : alt;
+        refs.push({ url: src.text, alt: label && ts.isStringLiteralLike(label) ? label.text : "", file: file.name });
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  return refs;
+}
+
 /**
  * Extract all external image URLs with their alt text context from files.
  */
@@ -340,6 +382,13 @@ export function extractImageRefs(files: TextFile[]): ImageRef[] {
           seen.add(url);
           refs.push({ url, alt, file: name });
         }
+      }
+    }
+
+    for (const ref of galleryImageRefs(file)) {
+      if (!seen.has(ref.url)) {
+        seen.add(ref.url);
+        refs.push(ref);
       }
     }
 
