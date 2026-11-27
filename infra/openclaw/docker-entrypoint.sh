@@ -45,8 +45,35 @@ fi
 # URLs/model refs, serializes every env value safely, and writes mode 0600. This
 # also handles valid secrets beginning with '-' without passing them as Node
 # command-line options.
-OPENCLAW_GATEWAY_BIND="$BIND_MODE" \
-  node "$CONFIG_GENERATOR" "$CONFIG_FILE" "$OPENCLAW_DIR"
+export OPENCLAW_STATE_DIR="$OPENCLAW_DIR" OPENCLAW_CONFIG_PATH="$CONFIG_FILE"
+write_config() {
+  OPENCLAW_GATEWAY_BIND="$BIND_MODE" node "$CONFIG_GENERATOR" "$CONFIG_FILE" "$OPENCLAW_DIR"
+}
+write_config
+
+# The pinned Doctor can exit 0 after blocking/deferment. Its successful outro
+# must be the final nonblank stdout line. Pass its exit code through the pipe
+# separately so POSIX sh can check both without logging the private report.
+echo "[entrypoint] Checking mounted OpenClaw state before gateway startup"
+if ! {
+  doctor_exit=0
+  # Doctor owns this container-local receipt for a sealed pre-repair capture.
+  # A restart still checks and repairs state without retaining a duplicate copy.
+  OPENCLAW_IMAGE_ACTIVATION_CAPTURE_MARKER=/run/sajtagenten-doctor-capture \
+    NO_COLOR=1 FORCE_COLOR=0 openclaw doctor --fix --non-interactive 2>/dev/null || doctor_exit=$?
+  printf '\nexit=%s\n' "$doctor_exit"
+} | awk '
+  NF { previous = last; last = $0 }
+  END { exit !(last == "exit=0" && previous ~ /^[[:space:]]*((—|└)[[:space:]]+)?Doctor complete\.[[:space:]]*$/) }
+'; then
+  echo "[entrypoint] OpenClaw state repair did not complete. Gateway startup stopped." >&2
+  exit 78
+fi
+
+# Doctor may rewrite openclaw.json. Render owns the gateway auth, models and
+# tools. Restore that contract after the repair and before starting the gateway.
+write_config >/dev/null
+echo "[entrypoint] OpenClaw state repair complete"
 
 echo "[entrypoint] OpenClaw version: ${OPENCLAW_VERSION:-unknown}"
 echo "[entrypoint] Target site: ${SAJTAGENT_TARGET_SITE_URL:-http://localhost:3000}"

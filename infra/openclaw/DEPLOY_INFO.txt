@@ -118,12 +118,15 @@ Rollout order from 2026.7.1-2
    effective model values. Check project access to GPT-6.2 Astra and Sol with
    the existing Render OpenAI key using GET /v1/models/<model-id>. Confirm the
    fallback models are available to that project too.
-2. Schedule the deploy window and verify a recoverable pre-upgrade backup of
-   /root/.openclaw. The disk holds SQLite and other agent state. Keep a
-   consistent backup with the gateway stopped or use its supported backup
-   procedure. Render disk snapshots are daily, retained seven days, and
-   restore the whole disk. Keep the backup private and rehearse migration on
-   an isolated compatible copy before mounting the live disk on the new build.
+2. Record a recoverable, private backup of the entire /root/.openclaw mount
+   before deployment (backup ID and timestamp). For a filesystem archive, stop
+   all writers first. Include every SQLite database and sidecar, agent session
+   stores and transcripts, device pairings, credentials, config and workspace.
+   Verify the backup on an isolated restore with the old runtime: check SQLite
+   integrity and the expected session history and pairing counts without
+   printing contents. Render snapshots restore the whole disk and are retained
+   seven days. Allow space for Doctor's pre-repair capture and per-store SQLite
+   backups on the mounted disk. Rehearse the upgrade on the restored copy.
    If OpenClaw reports retired formats requiring an intermediate release, use
    the documented 2026.9.5 bridge on the copy and follow its Doctor instructions.
    https://render.com/docs/disks#disk-snapshots
@@ -134,7 +137,11 @@ Rollout order from 2026.7.1-2
    next deploy consumes these values. Promote the new Dockerfile and deploy
    that commit. Save and deploy would reuse the existing build.
    https://render.com/docs/configure-environment-variables
-4. Wait for the upgraded deploy to go live. Check the version and primaries in
+4. The entrypoint runs exclusive openclaw doctor --fix --non-interactive
+   against the mounted config and state before gateway startup. If it reports
+   incomplete repairs, keep the gateway stopped and investigate privately.
+   https://github.com/openclaw/openclaw/blob/v2026.10.34/docs/cli/doctor/state-migrations.md
+   Wait for the upgraded deploy to go live. Check the version and primaries in
    boot logs, GET <gateway>/health and /startupz = 200, and authenticated GET /v1/models
    listing openclaw/sajtagenten, openclaw/sajtagenten-balanced and
    openclaw/sajtagenten-fast. Confirm GET <app>/api/openclaw/health has

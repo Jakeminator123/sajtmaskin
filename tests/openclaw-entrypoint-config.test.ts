@@ -28,13 +28,13 @@ function toShellPath(value: string): string {
 interface PosixShell {
   /** Absolute path to `sh`. */
   path: string;
-  /** Directories prepended to PATH so `tr` and `sed` resolve inside the shell. */
+  /** Directories prepended to PATH so `tr` and `awk` resolve inside the shell. */
   toolDirs: string[];
 }
 
 /**
  * A POSIX shell that can also reach the coreutils the entrypoint calls. Finding
- * `sh.exe` is not enough on Windows: Git ships it separately from `tr`/`sed`, so
+ * `sh.exe` is not enough on Windows: Git ships it separately from `tr`/`awk`, so
  * a shell found without its `usr/bin` on PATH fails on the entrypoint's first
  * `tr` and reports it as a config-generation failure. Probing for the utilities
  * too means the suite either runs truthfully or skips, never fails on setup.
@@ -52,7 +52,7 @@ function resolveShell(): PosixShell | null {
     try {
       execFileSync(
         candidate.path,
-        ["-c", "command -v tr >/dev/null && command -v sed >/dev/null"],
+        ["-c", "command -v tr >/dev/null && command -v awk >/dev/null"],
         {
           env: { NODE_ENV: process.env.NODE_ENV ?? "test", PATH: buildShellPath(candidate) },
           stdio: "ignore",
@@ -134,7 +134,7 @@ interface GeneratedConfig {
  * Run the entrypoint with a stubbed `openclaw` binary and a sandboxed home/seed
  * directory, then parse the config it wrote.
  */
-function bootAndReadConfig(env: Record<string, string>): GeneratedConfig {
+function createBootSandbox() {
   const sandbox = mkdtempSync(path.join(tmpdir(), "openclaw-entrypoint-"));
   sandboxes.push(sandbox);
 
@@ -145,33 +145,79 @@ function bootAndReadConfig(env: Record<string, string>): GeneratedConfig {
   mkdirSync(binDir, { recursive: true });
   writeFileSync(path.join(seed, "IDENTITY.md"), "# stub identity\n");
 
-  // The entrypoint calls `openclaw --version` and ends with `exec openclaw
-  // gateway ...`; a stub keeps it from needing the real package.
   const stub = path.join(binDir, "openclaw");
-  writeFileSync(stub, '#!/bin/sh\necho "openclaw-stub 0.0.0"\nexit 0\n');
+  writeFileSync(stub, [
+    "#!/bin/sh",
+    'if [ "$1" = "--version" ]; then echo openclaw-stub; exit 0; fi',
+    '[ "$OPENCLAW_STATE_DIR" = "$SAJTAGENT_HOME_DIR" ] || exit 82',
+    '[ "$OPENCLAW_CONFIG_PATH" = "$OPENCLAW_STATE_DIR/openclaw.json" ] || exit 83',
+    '[ -s "$OPENCLAW_CONFIG_PATH" ] || exit 84',
+    'echo "$1" >> "$OPENCLAW_STATE_DIR/boot-trace"',
+    'if [ "$1" = "doctor" ]; then',
+    '  [ "$*" = "doctor --fix --non-interactive" ] || exit 85',
+    '  echo private-doctor-output; echo private-doctor-error >&2',
+    '  echo "{}" > "$OPENCLAW_CONFIG_PATH"',
+    '  case "$TEST_DOCTOR_RESULT" in',
+    '    blocked) echo "—  Doctor blocked; required repairs remain incomplete."; exit 0 ;;',
+    '    failed) echo "—  Doctor complete."; exit 1 ;;',
+    '  esac',
+    '  echo "—  Doctor complete."',
+    'elif [ "$1" = "gateway" ]; then',
+    '  cp "$OPENCLAW_CONFIG_PATH" "$OPENCLAW_STATE_DIR/gateway-config.json"',
+    'else exit 86; fi',
+    "",
+  ].join("\n"));
   chmodSync(stub, 0o755);
 
   // Deliberately NOT spreading process.env: a developer with OPENCLAW_MODEL_*
   // set locally would otherwise change what the default case asserts.
-  execFileSync(shell!.path, [toShellPath(ENTRYPOINT)], {
-    env: {
-      NODE_ENV: process.env.NODE_ENV ?? "test",
-      PATH: `${binDir}${path.delimiter}${buildShellPath(shell!)}`,
-      SAJTAGENT_HOME_DIR: toShellPath(home),
-      SAJTAGENT_SEED_DIR: toShellPath(seed),
-      SAJTAGENT_CONFIG_GENERATOR: toShellPath(CONFIG_GENERATOR),
-      OPENCLAW_GATEWAY_TOKEN: "test-token",
-      ...env,
-    },
-    stdio: "pipe",
-  });
+  function run(env: Record<string, string>) {
+    return execFileSync(shell!.path, [toShellPath(ENTRYPOINT)], {
+      env: {
+        NODE_ENV: process.env.NODE_ENV ?? "test",
+        PATH: `${binDir}${path.delimiter}${buildShellPath(shell!)}`,
+        SAJTAGENT_HOME_DIR: toShellPath(home),
+        SAJTAGENT_SEED_DIR: toShellPath(seed),
+        SAJTAGENT_CONFIG_GENERATOR: toShellPath(CONFIG_GENERATOR),
+        OPENCLAW_GATEWAY_TOKEN: "test-token",
+        ...env,
+      },
+      stdio: "pipe",
+      encoding: "utf8",
+    });
+  }
+  return { home, run };
+}
 
-  return JSON.parse(readFileSync(path.join(home, "openclaw.json"), "utf8")) as GeneratedConfig;
+function bootAndReadConfig(env: Record<string, string>): GeneratedConfig {
+  const { home, run } = createBootSandbox();
+  run(env);
+  return JSON.parse(readFileSync(path.join(home, "gateway-config.json"), "utf8")) as GeneratedConfig;
 }
 
 // Each case boots the real entrypoint in `sh`; on Windows a single boot can
 // take 3–6 s, so the default 5 s per-test timeout is too tight.
 describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_000 }, () => {
+  it.each(["blocked", "failed"])("blocks %s repair and retries on the same mount", (failure) => {
+    const { home, run } = createBootSandbox();
+    const trace = () => readFileSync(path.join(home, "boot-trace"), "utf8").trim().split(/\r?\n/);
+
+    try {
+      run({ TEST_DOCTOR_RESULT: failure });
+      expect.unreachable("gateway started after failed repair");
+    } catch (error) {
+      expect(error).toMatchObject({ status: 78 });
+      const { stdout, stderr } = error as { stdout: string; stderr: string };
+      expect(stderr).toContain("Gateway startup stopped");
+      expect(stdout + stderr).not.toContain("private-doctor");
+    }
+    expect(trace()).toEqual(["doctor"]);
+    expect(run({})).not.toContain("private-doctor");
+    expect(trace()).toEqual(["doctor", "doctor", "gateway"]);
+    const config = JSON.parse(readFileSync(path.join(home, "gateway-config.json"), "utf8"));
+    expect(config.gateway.auth.token).toBe("test-token");
+  });
+
   it("pins the OpenClaw package used by production rebuilds", () => {
     const dockerfile = readFileSync(DOCKERFILE, "utf8");
     const versionPin = dockerfile.match(/^ARG OPENCLAW_VERSION=(.+)$/m)?.[1];
