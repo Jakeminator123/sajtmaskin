@@ -70,7 +70,7 @@ Aktuell capability→grupp-vy:
 | 4   | `contact`      | Kontakt & utskick   | `contact-form`, `newsletter-subscribe`, `booking`                            |
 | 5   | `ai`           | AI                  | `ai-chat`                                                                    |
 | 6   | `search-maps`  | Sök & karta         | `site-search`, `map-display`, `command-palette`                              |
-| 7   | `media`        | Media & galleri     | `gallery-lightbox`, `carousel`, `media-storage`                              |
+| 7   | `media`        | Media & galleri     | `gallery-lightbox`, `carousel`, `media-storage`, `video-embed`                              |
 | 8   | `interactive`  | Interaktivt & 3D    | `visual-3d`, `physics-3d`, `physics-2d`, `scroll-story`, `spatial-canvas`, `interactive-game`, `dashboard-charts` |
 | 9   | `ops`          | Drift & mätning     | `analytics`                                                                  |
 | 10  | `other`        | Övrigt              | (fångstnät för omappade capabilities)                                        |

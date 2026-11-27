@@ -78,6 +78,7 @@ describe("resolveDossierGroup", () => {
       "map-display": "search-maps",
       "command-palette": "search-maps",
       "gallery-lightbox": "media",
+      "video-embed": "media",
       carousel: "media",
       "media-storage": "media",
       "visual-3d": "interactive",
