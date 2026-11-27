@@ -40,6 +40,10 @@ describe("buildRoutePlan", () => {
     ["Add a page about account settings", "app", "/settings"],
     ["Add a page about owls", "website", "/owls"],
     ["Add a page about product photography", "website", "/product-photography"],
+    ["Add a Q&A page about billing", "website", "/pricing"],
+    ["Polish the header and add a Q&A page about billing", "website", "/pricing"],
+    ["Add a research & development page about owls", "website", "/owls"],
+    ["Add a research and development page about owls", "website", "/owls"],
     ["Lägg till en sida om björnungar", "website", "/bjornungar"],
   ] as const)("keeps the separate page request %s in a follow-up", (prompt, buildIntent, path) => {
     const plan = buildRoutePlan({
@@ -79,6 +83,7 @@ describe("buildRoutePlan", () => {
 
   it.each([
     ["Polish the page about owls and add a page about bears", "/bears"],
+    ["Add photos and polish the page about owls and add a page about bears", "/bears"],
     ["Add a page about bears and polish the page about owls", "/bears"],
     ["Add a page about bears, then polish the page about owls", "/bears"],
     ["Add a page about bears with photos, then edit the header and a page about owls", "/bears"],

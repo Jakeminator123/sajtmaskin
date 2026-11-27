@@ -40,12 +40,11 @@ const EXPLICIT_ADD_ROUTE_PATTERNS = [
 ];
 
 const SUBJECT_COORDINATOR = uWord(String.raw`(?:and|och|samt|plus|then|sedan)`);
-const SUBJECT_CLAUSE_BOUNDARY = String.raw`(?:[,.;!?\n&+]|${SUBJECT_COORDINATOR})`;
-const SUBJECT_CLAUSE_BOUNDARY_RE = new RegExp(SUBJECT_CLAUSE_BOUNDARY, "iu");
+const SUBJECT_CLAUSE_BOUNDARY = String.raw`(?:[,.;!?\n]|(?<=\s)[&+](?=\s)|${SUBJECT_COORDINATOR})`;
 const SUBJECT_EDIT_CLAUSE_RE = new RegExp(
   String.raw`(?:^|${SUBJECT_CLAUSE_BOUNDARY})\s*(?:(?:please|also)\s+)?` +
   uWord(String.raw`(?:polish|edit|update|improve|rewrite|redesign|adjust|change|putsa|redigera|ändra|uppdatera|förbättra)`),
-  "iu",
+  "giu",
 );
 const SUBJECT_ADDITION_LIST_TAIL_RE = new RegExp(
   String.raw`(?:,\s*(?:${SUBJECT_COORDINATOR}\s+)?|${SUBJECT_COORDINATOR}\s+|[&+]\s*)(?:(?:an?|en|ett)\s+)?$`,
@@ -588,11 +587,13 @@ export function extractExplicitNamedPages(
     while (subject && out.length < MAX_NAMED_PAGES_FROM_LIST) {
       // An edit target elsewhere in the prompt is not a new route. A bare
       // coordinated page can inherit the immediately preceding addition.
-      const clausePrefix = subject.before.split(SUBJECT_CLAUSE_BOUNDARY_RE).at(-1) ?? "";
-      const interveningEdit = SUBJECT_EDIT_CLAUSE_RE.test(subject.before);
+      const lastEditClause = [...subject.before.matchAll(SUBJECT_EDIT_CLAUSE_RE)].at(-1);
+      const clausePrefix = lastEditClause
+        ? subject.before.slice(lastEditClause.index + lastEditClause[0].length)
+        : subject.before;
       const continuesAdditionList: boolean = previousSubjectWasAddition &&
         SUBJECT_ADDITION_LIST_TAIL_RE.test(subject.before) &&
-        !interveningEdit;
+        !lastEditClause;
       const isAddition: boolean = hasExplicitAddRouteIntent(clausePrefix + subject.intro) || continuesAdditionList;
       if (isAddition) {
         const page = parseExplicitPageName(trimBarePageName(subject.subject), patterns);

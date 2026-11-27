@@ -231,6 +231,8 @@ describe("content subjects from Byggval through brief and generation", () => {
     ["Build a login form that sends password reset emails", true, false],
     ["Add a login page with a form", true, false],
     ["Add a login page with a simple, accessible form", true, false],
+    ["Add a login page, make the form accessible", true, false],
+    ["Add a login page, make its form accessible", true, false],
     ["Lägg till en sida för inloggning med ett formulär", true, false],
   ] as const)("selects only the requested auth/contact integrations for %s", async (prompt, auth, contact) => {
     const input = generationInput(prompt, { buildIntent: "website", brief: null });

@@ -21,6 +21,8 @@ describe("inferCapabilities", () => {
     "Create a form to sign in",
     "Add a login page with a form",
     "Add a login page with a simple, accessible form",
+    "Add a login page, make the form accessible",
+    "Add a login page, make its form accessible",
     "Skapa en inloggningssida med ett enkelt, tillgängligt formulär",
     "Build a sign-in screen that contains a standard form",
     "Lägg till en sida för inloggning med ett formulär",
