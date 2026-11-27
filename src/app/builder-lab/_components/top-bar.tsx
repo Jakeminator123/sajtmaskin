@@ -32,7 +32,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { Studio } from "../_lib/use-studio";
-import { IconButton, Kbd, LogoMark, Segmented } from "./ui-bits";
+import { LabLogo } from "./lab-logo";
+import { IconButton, Kbd, Segmented } from "./ui-bits";
 
 export type LayoutMode = "panel" | "cube" | "focus";
 
@@ -62,7 +63,7 @@ export function TopBar({
   onPublish: () => void;
   onExit: () => void;
 }) {
-  const { state, set, activeVersion, progress, cancel } = studio;
+  const { state, set, activeVersion, progress, engine } = studio;
   const [editingName, setEditingName] = useState(false);
   const canPublish = Boolean(activeVersion) && !state.pending;
 
@@ -80,7 +81,11 @@ export function TopBar({
           title="Till start (labbet nollställs)"
           className="shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-[var(--lab-blue)]"
         >
-          <LogoMark />
+          <LabLogo
+            building={Boolean(state.pending)}
+            launches={state.versions.length}
+            wordmarkFrom="2xl"
+          />
         </button>
         {isDesktop ? (
           <Segmented
@@ -122,12 +127,14 @@ export function TopBar({
             {state.projectName}
           </button>
         )}
+        {/* Statusen läser bara motorkontraktet (`engine.ts`), så den fungerar
+            oförändrad när den riktiga buildern kopplas in. */}
         <StatusPill
-          building={Boolean(state.pending)}
+          building={Boolean(engine.build)}
           progress={progress}
-          queued={state.queue.length}
-          versionNumber={state.pending?.version.number ?? activeVersion?.number ?? null}
-          onCancel={cancel}
+          queued={engine.queued}
+          versionNumber={engine.build?.versionNumber ?? activeVersion?.number ?? null}
+          onCancel={engine.cancel}
         />
       </div>
 

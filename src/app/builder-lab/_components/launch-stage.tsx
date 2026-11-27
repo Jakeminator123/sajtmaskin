@@ -20,9 +20,21 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { EXAMPLE_PROMPTS, SITE_THEMES, type ThemeKey } from "../_lib/mock-data";
 import type { Studio } from "../_lib/use-studio";
-import { IconButton, Kbd, LogoMark, Segmented, ThemeDots } from "./ui-bits";
+import { LabLogo } from "./lab-logo";
+import { IconButton, Kbd, ScrambleText, Segmented, ThemeDots, Ticker } from "./ui-bits";
 
 const EXAMPLE_ICONS = { coffee: Coffee, scissors: Scissors, hammer: Hammer } as const;
+
+/** Turordningen mellan människa och maskin, som löpband längst ner. */
+const TICKER: [string, string][] = [
+  ["Du", "beskriver idén"],
+  ["Sajtagent", "ritar strukturen"],
+  ["Du", "pekar och ändrar"],
+  ["Sajtagent", "bygger och granskar"],
+  ["Du", "jämför versioner"],
+  ["Sajtagent", "förbereder lansering"],
+  ["Du", "säger när den är klar"],
+];
 
 const TYPEWRITER_LINES = [
   "En hemsida för mitt kafé i Göteborg, varm och mysig…",
@@ -123,8 +135,7 @@ export function LaunchStage({
 
       <header className="relative z-10 flex items-center justify-between px-5 py-4 sm:px-8">
         <div className="flex items-center gap-2.5">
-          <LogoMark />
-          <span className="text-[15px] font-semibold tracking-tight">Sajtmaskin</span>
+          <LabLogo wordmarkFrom="always" className="text-[15px]" />
           <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium tracking-wider text-[var(--lab-muted)] uppercase">
             Studio · labb
           </span>
@@ -147,12 +158,12 @@ export function LaunchStage({
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
           className="text-center"
         >
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11.5px] text-[var(--lab-muted)] backdrop-blur">
+          <span className="inline-flex items-center gap-2.5 font-mono text-[11px] tracking-[0.32em] text-[var(--lab-muted)] uppercase">
             <span className="relative flex size-1.5">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-[var(--lab-teal)] opacity-75" />
               <span className="relative inline-flex size-1.5 rounded-full bg-[var(--lab-teal)]" />
             </span>
-            Från idé till publicerad sajt på några minuter
+            <ScrambleText text="AI-studio för företag" />
           </span>
           <h1 className="mt-5 text-[2.4rem] leading-[1.02] font-semibold tracking-[-0.03em] sm:text-6xl">
             Vad ska vi <span className="lab-gradient-text">bygga</span> idag?
@@ -170,9 +181,12 @@ export function LaunchStage({
           transition={{ duration: 0.7, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
           className="lab-glow-border mt-9 rounded-[1.6rem] bg-[#0b0f18]/80 shadow-[0_40px_120px_-30px_rgba(61,123,255,0.45)] backdrop-blur-2xl"
         >
-          <label htmlFor="lab-launch-prompt" className="sr-only">
-            Beskriv din sajt
-          </label>
+          <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-2.5 font-mono text-[10.5px] tracking-[0.18em] text-[var(--lab-muted)] uppercase">
+            <label htmlFor="lab-launch-prompt" className="flex items-center gap-2">
+              <Sparkles className="size-3.5 text-[#5eead4]" /> Beskriv din sida
+            </label>
+            <span className="hidden tracking-normal normal-case sm:inline">Sajtmaskin Studio</span>
+          </div>
           <textarea
             id="lab-launch-prompt"
             ref={textareaRef}
@@ -275,6 +289,19 @@ export function LaunchStage({
           })}
         </motion.ul>
       </main>
+
+      <div className="relative z-10 border-t border-white/[0.06] bg-[#07090e]/60 py-3 backdrop-blur">
+        <Ticker
+          className="font-mono text-[11px] tracking-wide text-[var(--lab-muted)]"
+          items={TICKER.map(([who, what]) => (
+            <>
+              <span className={who === "Du" ? "text-white" : "text-[#5eead4]"}>{who}</span>
+              <span className="text-white/25">/</span>
+              {what}
+            </>
+          ))}
+        />
+      </div>
     </motion.div>
   );
 }

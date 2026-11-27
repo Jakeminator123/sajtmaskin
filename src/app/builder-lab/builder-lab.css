@@ -232,6 +232,19 @@
   transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* Löpband (sajtagent-stil): två identiska rader som glider i en loop. */
+.lab-ticker {
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+.lab-ticker-row {
+  animation: lab-ticker 38s linear infinite;
+}
+@keyframes lab-ticker {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lab-gradient-text,
   .lab-glow-border::before,
@@ -240,7 +253,8 @@
   .lab-editing-sheen,
   .lab-shimmer-text,
   .lab-orb,
-  .lab-version-sweep {
+  .lab-version-sweep,
+  .lab-ticker-row {
     animation: none;
   }
   .lab-version-sweep {

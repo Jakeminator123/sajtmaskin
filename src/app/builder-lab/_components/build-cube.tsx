@@ -10,10 +10,12 @@ import {
 } from "framer-motion";
 import {
   Bot,
+  Box,
   Columns2,
   FilePlus2,
   GripHorizontal,
   History,
+  LayoutGrid,
   Map as MapIcon,
   MessageSquare,
   MousePointerClick,
@@ -49,53 +51,74 @@ const D = 340;
 const SIDES: FaceId[] = ["chat", "log", "versions", "map"];
 const ORDER: FaceId[] = ["chat", "log", "versions", "map", "agent", "tools"];
 
+type Pose = { x: number; y: number; z: number; rotateX: number; rotateY: number };
+
+/**
+ * Varje sida som en pose (translate först, sedan rotation — framer-motions
+ * ordning). Samma noder animeras mellan kubens poser och solfjäderns, så
+ * chattens scroll och ett halvskrivet utkast överlever bytet.
+ */
 const FACE: Record<
   FaceId,
-  { label: string; icon: LucideIcon; rx: number; ry: number; transform: string }
+  { label: string; icon: LucideIcon; rx: number; ry: number; pose: Pose }
 > = {
   chat: {
     label: "Chatt",
     icon: MessageSquare,
     rx: 0,
     ry: 0,
-    transform: `rotateY(0deg) translateZ(${D / 2}px)`,
+    pose: { x: 0, y: 0, z: D / 2, rotateX: 0, rotateY: 0 },
   },
   log: {
     label: "Bygglogg",
     icon: ScrollText,
     rx: 0,
     ry: -90,
-    transform: `rotateY(90deg) translateZ(${W / 2}px)`,
+    pose: { x: W / 2, y: 0, z: 0, rotateX: 0, rotateY: 90 },
   },
   versions: {
     label: "Versioner",
     icon: History,
     rx: 0,
     ry: -180,
-    transform: `rotateY(180deg) translateZ(${D / 2}px)`,
+    pose: { x: 0, y: 0, z: -D / 2, rotateX: 0, rotateY: 180 },
   },
   map: {
     label: "Sajtkarta",
     icon: MapIcon,
     rx: 0,
     ry: 90,
-    transform: `rotateY(-90deg) translateZ(${W / 2}px)`,
+    pose: { x: -W / 2, y: 0, z: 0, rotateX: 0, rotateY: -90 },
   },
   agent: {
     label: "Agent",
     icon: Bot,
     rx: -90,
     ry: 0,
-    transform: `rotateX(90deg) translateZ(${H / 2}px)`,
+    pose: { x: 0, y: -H / 2, z: 0, rotateX: 90, rotateY: 0 },
   },
   tools: {
     label: "Verktyg",
     icon: SlidersHorizontal,
     rx: 90,
     ry: 0,
-    transform: `rotateX(-90deg) translateZ(${H / 2}px)`,
+    pose: { x: 0, y: H / 2, z: 0, rotateX: -90, rotateY: 0 },
   },
 };
+
+/** Solfjäderns pose: korten som en utbredd hand, det hovrade lyfts fram. */
+function fanPose(index: number, lifted: boolean) {
+  const offset = index - (ORDER.length - 1) / 2;
+  return {
+    x: index * 122,
+    y: offset * offset * 7 - 18 - (lifted ? 46 : 0),
+    z: lifted ? 80 : index * 2,
+    rotateX: 0,
+    rotateY: 0,
+    rotateZ: lifted ? 0 : offset * 5.5,
+    scale: lifted ? 0.86 : 0.78,
+  };
+}
 
 /** Närmaste vinkel som motsvarar `target`, så kuben aldrig snurrar ett varv i onödan. */
 function nearestAngle(current: number, target: number) {
@@ -140,9 +163,12 @@ export function BuildCube({
   // Ett bygge som startat efter användarens senaste val visar byggloggen.
   const face: FaceId = state.pending && userFace.at < state.pending.startedAt ? "log" : userFace.id;
 
+  const [fanned, setFanned] = useState(false);
+  const [liftedFace, setLiftedFace] = useState<FaceId | null>(null);
   const rx = useMotionValue(0);
   const ry = useMotionValue(0);
   const scale = useMotionValue(1);
+  const cz = useMotionValue(-D / 2);
   const panBase = useRef<{ rx: number; ry: number } | null>(null);
 
   const rotateTo = useCallback(
@@ -160,10 +186,27 @@ export function BuildCube({
   );
 
   useEffect(() => {
+    if (fanned) return;
     rotateTo(face);
-  }, [face, rotateTo]);
+  }, [face, rotateTo, fanned]);
+
+  // Solfjädern: kuben rätar upp sig och sidorna glider ut som kort.
+  useEffect(() => {
+    const spring = reduceMotion
+      ? { duration: 0 }
+      : { type: "spring" as const, stiffness: 160, damping: 22 };
+    if (fanned) {
+      animate(rx, 0, spring);
+      animate(ry, nearestAngle(ry.get(), 0), spring);
+      animate(cz, 0, spring);
+    } else {
+      animate(cz, -D / 2, spring);
+    }
+  }, [fanned, reduceMotion, rx, ry, cz]);
 
   const choose = (id: FaceId) => {
+    setFanned(false);
+    setLiftedFace(null);
     setUserFace((previous) => ({
       id,
       at: Date.now(),
@@ -173,7 +216,7 @@ export function BuildCube({
   };
 
   const onPanStart = (event: PointerEvent) => {
-    if (isTextInput(event.target)) {
+    if (fanned || isTextInput(event.target)) {
       panBase.current = null;
       return;
     }
@@ -205,7 +248,12 @@ export function BuildCube({
   };
 
   const onKeyDown = (event: React.KeyboardEvent) => {
-    if (event.target !== event.currentTarget) return;
+    if (fanned && event.key === "Escape") {
+      setFanned(false);
+      event.preventDefault();
+      return;
+    }
+    if (event.target !== event.currentTarget || fanned) return;
     const sideIndex = SIDES.indexOf(
       face === "agent" || face === "tools" ? userFace.lastSide : face,
     );
@@ -251,20 +299,39 @@ export function BuildCube({
         <span>Byggkub</span>
         <span className="text-[var(--lab-muted)]">·</span>
         <motion.span
-          key={face}
+          key={fanned ? "fan" : face}
           initial={{ opacity: 0, y: 6, filter: "blur(4px)" }}
           animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           className="text-[var(--lab-muted)]"
         >
-          {FACE[face].label}
+          {fanned ? "Alla sidor" : FACE[face].label}
         </motion.span>
+        <button
+          type="button"
+          onClick={() => {
+            setLiftedFace(null);
+            setFanned((value) => !value);
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+          aria-pressed={fanned}
+          title={fanned ? "Fäll ihop till kub" : "Visa alla sidor som kort"}
+          aria-label={fanned ? "Fäll ihop till kub" : "Visa alla sidor som kort"}
+          className={cn(
+            "ml-auto flex size-7 items-center justify-center rounded-full transition-colors",
+            fanned
+              ? "bg-white text-[#0b0f18]"
+              : "text-[var(--lab-muted)] hover:bg-white/[0.08] hover:text-white",
+          )}
+        >
+          {fanned ? <Box className="size-3.5" /> : <LayoutGrid className="size-3.5" />}
+        </button>
         <button
           type="button"
           onClick={onExit}
           onPointerDown={(event) => event.stopPropagation()}
           title="Tillbaka till panelen"
           aria-label="Tillbaka till panelen"
-          className="ml-auto flex size-7 items-center justify-center rounded-full text-[var(--lab-muted)] hover:bg-white/[0.08] hover:text-white"
+          className="flex size-7 items-center justify-center rounded-full text-[var(--lab-muted)] hover:bg-white/[0.08] hover:text-white"
         >
           <PanelLeft className="size-3.5" />
         </button>
@@ -282,32 +349,72 @@ export function BuildCube({
       >
         <div
           aria-hidden
-          className="pointer-events-none absolute -bottom-6 left-1/2 h-10 w-[85%] -translate-x-1/2 rounded-[50%] bg-[var(--lab-blue)]/25 blur-2xl"
+          className={cn(
+            "pointer-events-none absolute -bottom-6 left-1/2 h-10 w-[85%] -translate-x-1/2 rounded-[50%] bg-[var(--lab-blue)]/25 blur-2xl transition-opacity duration-500",
+            fanned && "opacity-0",
+          )}
         />
         <motion.div
           className="relative size-full"
-          style={{ rotateX: rx, rotateY: ry, scale, z: -D / 2, transformStyle: "preserve-3d" }}
+          style={{ rotateX: rx, rotateY: ry, scale, z: cz, transformStyle: "preserve-3d" }}
         >
-          {ORDER.map((id) => {
+          {ORDER.map((id, index) => {
             const square = id === "agent" || id === "tools";
+            const interactive = !fanned && id === face;
+            const pose = fanned
+              ? fanPose(index, liftedFace === id)
+              : { ...FACE[id].pose, rotateZ: 0, scale: 1 };
             return (
-              <div
+              <motion.div
                 key={id}
-                aria-hidden={id !== face}
-                inert={id !== face}
-                className="absolute left-0 flex flex-col overflow-hidden rounded-[1.4rem] border border-white/[0.12] bg-[#0b0f18] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                initial={false}
+                animate={pose}
+                transition={
+                  reduceMotion
+                    ? { duration: 0 }
+                    : {
+                        type: "spring",
+                        stiffness: 170,
+                        damping: 22,
+                        delay: liftedFace ? 0 : (fanned ? index : ORDER.length - index) * 0.035,
+                      }
+                }
+                className={cn(
+                  "absolute left-0 flex flex-col overflow-hidden rounded-[1.4rem] border bg-[#0b0f18]",
+                  fanned && liftedFace === id
+                    ? "border-[var(--lab-teal)]/60 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9),0_0_40px_-10px_rgba(47,198,160,0.6)]"
+                    : "border-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_20px_50px_-20px_rgba(0,0,0,0.8)]",
+                )}
                 style={{
                   width: W,
                   height: square ? D : H,
                   top: square ? (H - D) / 2 : 0,
-                  transform: FACE[id].transform,
                   backfaceVisibility: "hidden",
                   WebkitBackfaceVisibility: "hidden",
                 }}
               >
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_60%_at_50%_0%,rgba(61,123,255,0.10),transparent_60%)]" />
-                {faces[id]}
-              </div>
+                <div
+                  aria-hidden={!interactive}
+                  inert={!interactive}
+                  className="relative flex min-h-0 flex-1 flex-col"
+                >
+                  {faces[id]}
+                </div>
+                {fanned ? (
+                  <button
+                    type="button"
+                    onClick={() => choose(id)}
+                    onMouseEnter={() => setLiftedFace(id)}
+                    onMouseLeave={() =>
+                      setLiftedFace((current) => (current === id ? null : current))
+                    }
+                    onFocus={() => setLiftedFace(id)}
+                    aria-label={`Öppna ${FACE[id].label}`}
+                    className="absolute inset-0 z-10 cursor-pointer rounded-[1.4rem] focus-visible:outline-2 focus-visible:outline-[var(--lab-teal)]"
+                  />
+                ) : null}
+              </motion.div>
             );
           })}
         </motion.div>
@@ -319,7 +426,7 @@ export function BuildCube({
       >
         {ORDER.map((id) => {
           const Icon = FACE[id].icon;
-          const active = id === face;
+          const active = !fanned && id === face;
           const busy = id === "log" && Boolean(state.pending);
           return (
             <button

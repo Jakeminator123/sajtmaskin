@@ -12,6 +12,7 @@ import {
   type SiteVersion,
   type ThemeKey,
 } from "./mock-data";
+import type { StudioEngine } from "./engine";
 
 export type Device = "desktop" | "tablet" | "mobile";
 export type CanvasView = "preview" | "code";
@@ -326,6 +327,52 @@ export function useStudio() {
   const reset = useCallback(() => dispatch({ type: "reset" }), []);
   const cancel = useCallback(() => dispatch({ type: "cancel" }), []);
 
+  // Motorsidan av labbet i kontraktets form (se `engine.ts`). En adapter mot
+  // den riktiga buildern ska ge exakt samma form.
+  const engine = useMemo(
+    () =>
+      ({
+        projectName: state.projectName,
+        messages: state.messages,
+        versions: state.versions.map(({ id, number, parentId, summary, changed, createdAt }) => ({
+          id,
+          number,
+          parentId,
+          summary,
+          changed,
+          createdAt,
+        })),
+        activeVersionId: state.activeVersionId,
+        latestVersionId: state.versions.at(-1)?.id ?? null,
+        build: pending
+          ? {
+              versionNumber: pending.version.number,
+              first: pending.first,
+              stepLabels: pending.steps.map((step) => step.label),
+              stepIndex: pending.stepIndex,
+              startedAt: pending.startedAt,
+            }
+          : null,
+        queued: state.queue.length,
+        submit,
+        cancel,
+        selectVersion,
+        reset,
+      }) satisfies StudioEngine,
+    [
+      state.projectName,
+      state.messages,
+      state.versions,
+      state.activeVersionId,
+      state.queue.length,
+      pending,
+      submit,
+      cancel,
+      selectVersion,
+      reset,
+    ],
+  );
+
   const started = state.messages.length > 0;
   const progress = pending
     ? Math.round(
@@ -336,6 +383,7 @@ export function useStudio() {
     : 100;
 
   return {
+    engine,
     state,
     activeVersion,
     previousVersion,

@@ -1,30 +1,10 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { SITE_THEMES, type ThemeKey } from "../_lib/mock-data";
-
-export function LogoMark({ className }: { className?: string }) {
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "relative inline-flex size-7 items-center justify-center overflow-hidden rounded-[9px] text-[13px] font-bold text-white shadow-[0_0_24px_-4px_rgba(61,123,255,0.7)]",
-        className,
-      )}
-      style={{
-        background: "conic-gradient(from 200deg, #3d7bff, #2fc6a0, #ff7a50, #8b7bff, #3d7bff)",
-      }}
-    >
-      <span className="absolute inset-[1.5px] rounded-[7.5px] bg-[#0b0f18]" />
-      <span className="relative bg-gradient-to-br from-white to-[#b9ccff] bg-clip-text text-transparent">
-        S
-      </span>
-    </span>
-  );
-}
 
 export function Kbd({ children, className }: { children: ReactNode; className?: string }) {
   return (
@@ -167,5 +147,77 @@ export function IconButton({
     >
       <Icon className="size-4" />
     </button>
+  );
+}
+
+const GLYPHS = "ABCDEFGHJKLMNPQRSTUVWXYZ0123456789#%&@*";
+
+/**
+ * Text som «avkodas» tecken för tecken (som ögonbrynet på sajtagent.se).
+ * Mellanslag och skiljetecken står still; resten slumpas tills de låses.
+ */
+export function ScrambleText({
+  text,
+  className,
+  delay = 250,
+}: {
+  text: string;
+  className?: string;
+  delay?: number;
+}) {
+  const reduceMotion = useReducedMotion();
+  const [display, setDisplay] = useState(text);
+  useEffect(() => {
+    if (reduceMotion) return;
+    let frame = 0;
+    let timer = 0;
+    const start = window.setTimeout(() => {
+      timer = window.setInterval(() => {
+        frame += 1;
+        const locked = Math.floor(frame / 2);
+        setDisplay(
+          text
+            .split("")
+            .map((char, index) =>
+              index < locked || !/[A-Za-zÅÄÖåäö0-9]/.test(char)
+                ? char
+                : GLYPHS[Math.floor(Math.random() * GLYPHS.length)],
+            )
+            .join(""),
+        );
+        if (locked >= text.length) window.clearInterval(timer);
+      }, 32);
+    }, delay);
+    return () => {
+      window.clearTimeout(start);
+      window.clearInterval(timer);
+    };
+  }, [text, delay, reduceMotion]);
+  return (
+    <span className={className} aria-label={text}>
+      <span aria-hidden>{display}</span>
+    </span>
+  );
+}
+
+/** Ändlöst löpband med mjukt tonade kanter. */
+export function Ticker({ items, className }: { items: ReactNode[]; className?: string }) {
+  const row = (hidden: boolean) => (
+    <div
+      className="lab-ticker-row flex shrink-0 items-center gap-10 pr-10"
+      aria-hidden={hidden || undefined}
+    >
+      {items.map((item, index) => (
+        <span key={index} className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+          {item}
+        </span>
+      ))}
+    </div>
+  );
+  return (
+    <div className={`lab-ticker flex overflow-hidden ${className ?? ""}`}>
+      {row(false)}
+      {row(true)}
+    </div>
   );
 }
