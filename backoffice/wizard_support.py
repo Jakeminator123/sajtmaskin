@@ -321,8 +321,8 @@ def _is_reasoning_model(model: str) -> bool:
 # Reasoning-modeller räknar sina DOLDA reasoning-tokens mot
 # `max_completion_tokens`. En budget som räckte för en klassisk chat-modell kan
 # därför konsumeras helt av tänkandet innan ett enda synligt tecken skrivs —
-# svaret blir tomt `content` och `_post_openai_chat` kastar. Persona och guide
-# defaultar till gpt-6.1-sol. Faktorn ger plats för resonemanget, och golvet
+# svaret blir tomt `content` och `_post_openai_chat` kastar.
+# Faktorn ger plats för resonemanget, och golvet
 # 8192 är ett totalt outputtak (inte uppmätt förbrukning). Klassiska modeller
 # behåller den synliga budgeten.
 _REASONING_TOKEN_HEADROOM = 4
@@ -346,10 +346,10 @@ def _chat_payload(
     response_format: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a Chat Completions payload valid for both classic and
-    reasoning (gpt-6.1-sol, gpt-6-luna, gpt-5.6-*) models. Uses `max_completion_tokens`
+    reasoning models. Uses `max_completion_tokens`
     (accepted by all current chat models); omits the custom `temperature` for
     reasoning models that only allow the default. Reasoning-modeller får
-    manifestets `reasoning_effort` (medium för Sol 6.1) i stället för
+    manifestets `reasoning_effort` i stället för
     providerns default. Klassiska och okända id:n får ingen effort."""
     payload: dict[str, Any] = {
         "model": model,

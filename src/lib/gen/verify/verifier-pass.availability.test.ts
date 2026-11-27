@@ -90,7 +90,7 @@ describe("runVerifierPass LLM availability receipt", () => {
     expect(result.quality).toEqual([]);
   });
 
-  it("aliases gpt-5.3-codex, clamps none to low, and logs gpt-6.1-sol", async () => {
+  it("aliases gpt-5.3-codex, clamps none to low, and logs gpt-6.2-sol", async () => {
     phaseRoutingOverride.modelId = "gpt-5.3-codex";
     phaseRoutingOverride.thinking = false;
     phaseRoutingOverride.reasoningEffort = "none";
@@ -108,7 +108,7 @@ describe("runVerifierPass LLM availability receipt", () => {
       }),
     );
     expect(recordLlmUsage).toHaveBeenCalledWith(
-      expect.objectContaining({ phase: "verifier", model: "gpt-6.1-sol" }),
+      expect.objectContaining({ phase: "verifier", model: "gpt-6.2-sol" }),
     );
   });
 

@@ -17,7 +17,8 @@ vi.mock("@/lib/rate-limit", () => ({
     handler: () => Promise<Response>,
   ) => handler(),
 }));
-vi.mock("@/lib/observability/llm-usage", () => ({
+vi.mock("@/lib/observability/llm-usage", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/observability/llm-usage")>(),
   recordLlmUsage: vi.fn(),
 }));
 
@@ -159,7 +160,7 @@ describe("small-call payloads", () => {
     vi.unstubAllGlobals();
   });
 
-  it("inspector POST sends raw Chat Sol medium with an 8192 ceiling", async () => {
+  it("inspector POST sends raw Chat Sol low with an 8192 ceiling", async () => {
     const captured = installFetch({
       text: JSON.stringify({
         tag: "button",
@@ -179,8 +180,8 @@ describe("small-call payloads", () => {
     expect(json.element?.tag).toBe("button");
     expect(captured).toHaveLength(1);
     expect(captured[0]?.url).toMatch(/\/v1\/chat\/completions$/);
-    expect(captured[0]?.body.model).toBe("gpt-6.1-sol");
-    expect(captured[0]?.body.reasoning_effort).toBe("medium");
+    expect(captured[0]?.body.model).toBe("gpt-6.2-sol");
+    expect(captured[0]?.body.reasoning_effort).toBe("low");
     expect(captured[0]?.body.max_completion_tokens).toBe(8192);
     expect(captured[0]?.body).not.toHaveProperty("max_tokens");
     expect(captured[0]?.body).not.toHaveProperty("temperature");
@@ -217,26 +218,25 @@ describe("small-call payloads", () => {
     expect(json.success).toBe(false);
     expect(json.element).toBeUndefined();
     expect(captured.length).toBeGreaterThan(0);
-    expect(captured.every((request) => request.body.model === "gpt-6.1-sol")).toBe(true);
+    expect(captured.every((request) => request.body.model === "gpt-6.2-sol")).toBe(true);
     expect(captured.some((request) => String(request.body.model).includes("luna"))).toBe(false);
   });
 
-  it.each(["", "gpt-4o-mini", "gpt-4.1"])("classifier override '%s' sends Responses Sol medium with 8192", async (override) => {
+  it.each(["", "gpt-4o-mini", "gpt-4.1"])("classifier override '%s' sends Responses Sol low with 8192", async (override) => {
     const captured = installFetch({ text: "{\"intent\":\"neutral\"}" });
     await expect(llmClassifyFollowUpIntent("hej", override ? { model: override } : {})).resolves.toBe("neutral");
 
     expect(captured.length).toBeGreaterThan(0);
     expect(captured[0]?.url).toMatch(/\/v1\/responses$/);
-    expect(captured[0]?.body.model).toBe("gpt-6.1-sol");
-    expect(captured[0]?.body.reasoning).toEqual({ effort: "medium" });
+    expect(captured[0]?.body.model).toBe("gpt-6.2-sol");
+    expect(captured[0]?.body.reasoning).toEqual({ effort: "low" });
     expect(captured[0]?.body.max_output_tokens).toBe(8192);
     expect(captured[0]?.body).not.toHaveProperty("temperature");
-    expect(captured[0]?.body.reasoning).not.toEqual({ effort: "low" });
     // Synthetic headroom contract, not a live consumption measurement: the
     // real SDK parses both 6000 reasoning and 100 visible output tokens while
     // the caller still returns the intended visible result within its cap.
     const usage = vi.mocked(recordLlmUsage).mock.calls.at(-1)?.[0].usage;
-    expect(vi.mocked(recordLlmUsage).mock.calls.at(-1)?.[0].model).toMatch(/^(openai\/)?gpt-6\.1-sol$/);
+    expect(vi.mocked(recordLlmUsage).mock.calls.at(-1)?.[0].model).toMatch(/^(openai\/)?gpt-6\.2-sol$/);
     expect(usage).toMatchObject({
       outputTokens: 6100,
       outputTokenDetails: { reasoningTokens: 6000, textTokens: 100 },
@@ -263,17 +263,17 @@ describe("small-call payloads", () => {
     const captured = installFetch({ status: 500 });
     await expect(llmClassifyFollowUpIntent("gör om sidan")).rejects.toThrow();
     expect(captured.length).toBeGreaterThan(0);
-    expect(captured.every((request) => request.body.model === "gpt-6.1-sol")).toBe(true);
+    expect(captured.every((request) => request.body.model === "gpt-6.2-sol")).toBe(true);
     expect(captured.some((request) => String(request.body.model).includes("luna"))).toBe(false);
   });
 
-  it.each(["", "gpt-4o-mini", "gpt-4.1"])("shadcn query/ranking resolve override '%s' to Sol medium and 8192", async (override) => {
+  it.each(["", "gpt-4o-mini", "gpt-4.1"])("shadcn query/ranking resolve override '%s' to Sol low and 8192", async (override) => {
     vi.stubEnv(getBriefingEnvKeysFromManifest().serverAutoOpenAI, override);
     const queryCaptured = installFetch({ text: "{\"queries\":[\"pricing table\"]}" });
     await expect(generateQueriesWithLlm("pricing table")).resolves.toEqual(["pricing table"]);
     expect(queryCaptured[0]?.url).toMatch(/\/v1\/responses$/);
-    expect(queryCaptured[0]?.body.model).toBe("gpt-6.1-sol");
-    expect(queryCaptured[0]?.body.reasoning).toEqual({ effort: "medium" });
+    expect(queryCaptured[0]?.body.model).toBe("gpt-6.2-sol");
+    expect(queryCaptured[0]?.body.reasoning).toEqual({ effort: "low" });
     expect(queryCaptured[0]?.body.max_output_tokens).toBe(8192);
     expect(queryCaptured[0]?.body).not.toHaveProperty("temperature");
 
@@ -294,8 +294,8 @@ describe("small-call payloads", () => {
     );
     expect(ranked.ranking).toBe("llm");
     expect(ranked.candidates[0]?.reason).toBe("matches pricing");
-    expect(rankCaptured[0]?.body.model).toBe("gpt-6.1-sol");
-    expect(rankCaptured[0]?.body.reasoning).toEqual({ effort: "medium" });
+    expect(rankCaptured[0]?.body.model).toBe("gpt-6.2-sol");
+    expect(rankCaptured[0]?.body.reasoning).toEqual({ effort: "low" });
     expect(rankCaptured[0]?.body.max_output_tokens).toBe(8192);
   });
 });

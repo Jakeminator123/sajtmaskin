@@ -32,7 +32,7 @@ export const maxDuration = 35;
 
 const WIZARD_WORKLOAD_ID = "wizard_enrich_competitors";
 const COMPETITORS_MODEL =
-  getWorkloadDefaultModelFromManifest(WIZARD_WORKLOAD_ID) ?? "openai/gpt-6.1-sol";
+  getWorkloadDefaultModelFromManifest(WIZARD_WORKLOAD_ID) ?? "openai/gpt-6.2-sol";
 const RESPONSES_MODEL = COMPETITORS_MODEL.replace(/^openai\//, "");
 const MAX_COMPETITORS_BODY_BYTES = 8_192;
 

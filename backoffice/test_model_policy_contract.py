@@ -1,4 +1,4 @@
-"""Sol 6.1 policy for small workloads. Dollar prices stay in the pricing docs."""
+"""Default model and effort contracts for text and vision workloads."""
 
 from __future__ import annotations
 
@@ -25,27 +25,26 @@ def _workloads(manifest: dict) -> dict[str, dict]:
 
 
 class ModelPolicyContractTests(unittest.TestCase):
-    def test_small_workloads_use_selected_sol_efforts_without_luna_fallbacks(self) -> None:
+    def test_small_workloads_use_selected_models_and_efforts(self) -> None:
         workloads = _workloads(_manifest())
         expected = {
-            "project_analyze": "gpt-6.1-sol",
-            "text_analyze": "gpt-6.1-sol",
-            "audit_structured_public": "openai/gpt-6.1-sol",
-            "prompt_rewrite": "openai/gpt-6.1-sol",
-            "analyze_presentation_vision": "gpt-6.1-sol",
-            "backoffice_scaffold_wizard_guide": "gpt-6.1-sol",
-            "backoffice_scaffold_wizard_persona": "gpt-6.1-sol",
-            "backoffice_dossier_curation": "gpt-6.1-sol",
-            "live_review": "gpt-6.1-sol",
-            "qa_short_circuit": "gpt-6.1-sol",
-            "shadcn_describe_queries": "openai/gpt-6.1-sol",
-            "shadcn_describe_ranking": "openai/gpt-6.1-sol",
+            "project_analyze": ("gpt-6.2-sol", "medium"),
+            "text_analyze": ("gpt-6.2-sol", "medium"),
+            "audit_structured_public": ("openai/gpt-6.2-sol", "medium"),
+            "prompt_rewrite": ("openai/gpt-6.2-sol", "low"),
+            "analyze_presentation_vision": ("gpt-6.1-terra", "medium"),
+            "backoffice_scaffold_wizard_guide": ("gpt-6.2-sol", "low"),
+            "backoffice_scaffold_wizard_persona": ("gpt-6.1-terra", "medium"),
+            "backoffice_dossier_curation": ("gpt-6.2-sol", "medium"),
+            "live_review": ("gpt-6.1-terra", "medium"),
+            "qa_short_circuit": ("gpt-6.2-sol", "medium"),
+            "shadcn_describe_queries": ("openai/gpt-6.2-sol", "low"),
+            "shadcn_describe_ranking": ("openai/gpt-6.2-sol", "low"),
         }
-        for workload_id, model in expected.items():
+        for workload_id, (model, effort) in expected.items():
             entry = workloads[workload_id]
             self.assertEqual(entry["defaultModel"], model, workload_id)
-            expected_effort = "low" if workload_id == "prompt_rewrite" else "medium"
-            self.assertEqual(entry["reasoningEffort"], expected_effort, workload_id)
+            self.assertEqual(entry["reasoningEffort"], effort, workload_id)
         for entry in workloads.values():
             for model in entry.get("fallbackModels") or []:
                 self.assertNotIn("luna", str(model).lower(), entry["id"])
@@ -60,7 +59,7 @@ class ModelPolicyContractTests(unittest.TestCase):
         ):
             self.assertEqual(
                 workloads[workload_id]["visionModels"],
-                ["gpt-6.1-sol", "gpt-6-luna"],
+                ["gpt-6.1-terra", "gpt-6.2-sol"],
             )
         self.assertNotIn("defaultModel", workloads["runtime_embeddings_query"])
         self.assertNotIn("defaultModel", workloads["transcribe"])
@@ -104,10 +103,10 @@ class ModelPolicyContractTests(unittest.TestCase):
         self.assertEqual(thinking["ultra"]["planner"]["reasoningEffort"], "high")
         self.assertEqual(thinking["ultra"]["generator"]["reasoningEffort"], "high")
         self.assertEqual(thinking["premium"]["fixer"]["reasoningEffort"], "high")
-        self.assertEqual(manifest["buildProfiles"]["defaults"]["ultra"], "gpt-6-astra")
+        self.assertEqual(manifest["buildProfiles"]["defaults"]["ultra"], "gpt-6.2-astra")
 
     def test_display_labels_follow_the_forward_policy(self) -> None:
-        self.assertIn("GPT-6.1 Sol", MODEL_LABELS["gpt-4o-mini"])
+        self.assertIn("GPT-6.2 Sol", MODEL_LABELS["gpt-4o-mini"])
         self.assertNotIn("Luna", MODEL_LABELS["gpt-4o-mini"])
         self.assertEqual(MODEL_LABELS["whisper-1"], "OpenAI Whisper-1")
         self.assertEqual(MODEL_LABELS["gpt-transcribe"], "gpt-transcribe")

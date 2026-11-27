@@ -1446,7 +1446,7 @@ describe("resolveVerifierProviderOptions", () => {
         reasoningEffort: "none",
       }),
     ).toEqual({ openai: { reasoningEffort: "low" } });
-    expect(resolveVerifierProviderOptions({ modelId: "gpt-6-luna", thinking: false })).toEqual({
+    expect(resolveVerifierProviderOptions({ modelId: "gpt-6.1-terra", thinking: false })).toEqual({
       openai: { reasoningEffort: "none" },
     });
   });

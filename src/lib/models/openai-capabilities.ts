@@ -3,8 +3,8 @@
  *
  * Model choice belongs to `config/ai_models/manifest.json`; this table only
  * answers what a model accepts. Values follow the OpenAI model pages
- * (verified 2026-10-17): GPT-6.1 Sol and GPT-6 Astra reject `none`, GPT-6 Luna
- * and the GPT-5.6 family accept it. Models outside the table keep the caller's
+ * (verified 2026-11-27): GPT-6.2 Sol and Astra reject `none`, while
+ * GPT-6.1 Terra accepts it. Models outside the table keep the caller's
  * existing provider-default behaviour.
  */
 
@@ -21,6 +21,9 @@ const EFFORTS_WITH_NONE = ["none", "low", "medium", "high", "xhigh", "max"] as c
 const EFFORTS_FROM_LOW = ["low", "medium", "high", "xhigh", "max"] as const;
 
 const OPENAI_MODEL_CAPABILITIES: Record<string, OpenAIModelCapabilities> = {
+  "gpt-6.2-sol": { efforts: EFFORTS_FROM_LOW, supportsReasoningMode: true },
+  "gpt-6.2-astra": { efforts: EFFORTS_FROM_LOW, supportsReasoningMode: true },
+  "gpt-6.1-terra": { efforts: EFFORTS_WITH_NONE, supportsReasoningMode: true },
   "gpt-6.1-sol": { efforts: EFFORTS_FROM_LOW, supportsReasoningMode: true },
   "gpt-6-astra": { efforts: EFFORTS_FROM_LOW, supportsReasoningMode: true },
   "gpt-6-luna": { efforts: EFFORTS_WITH_NONE, supportsReasoningMode: true },

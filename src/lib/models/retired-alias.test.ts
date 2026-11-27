@@ -34,8 +34,8 @@ describe("retired cheap model → shared Sol / Mellan", () => {
     const previous = process.env.SAJTMASKIN_MODEL_PREMIUM;
     process.env.SAJTMASKIN_MODEL_PREMIUM = "gpt-5.5";
     try {
-      expect(aliasRetiredModelId("gpt-5.4-mini")).toBe("gpt-6.1-sol");
-      expect(aliasRetiredModelId("openai/gpt-5.4-mini")).toBe("openai/gpt-6.1-sol");
+      expect(aliasRetiredModelId("gpt-5.4-mini")).toBe("gpt-6.2-sol");
+      expect(aliasRetiredModelId("openai/gpt-5.4-mini")).toBe("openai/gpt-6.2-sol");
       expect(ownModelIdToCanonicalModelId("fast")).toBe("premium");
       expect(ownModelIdToCanonicalModelId("gpt-5.4-mini")).toBe("max");
       // Both the pre-2026-10-17 and the current shared Sol resolve to Mellan
@@ -43,11 +43,12 @@ describe("retired cheap model → shared Sol / Mellan", () => {
       expect(ownModelIdToCanonicalModelId("gpt-5.6-sol")).toBe("max");
       expect(ownModelIdToCanonicalModelId("gpt-6.1-sol")).toBe("max");
       // Astra is built only by Extra hög, so it maps back to that tier.
+      expect(ownModelIdToCanonicalModelId("gpt-6.2-astra")).toBe("ultra");
       expect(ownModelIdToCanonicalModelId("gpt-6-astra")).toBe("ultra");
-      // Terra/Luna are side-phase siblings, not a persisted build-tier id.
+      // Terra has no build tier. Retired Luna selections now resolve to shared Sol.
       expect(ownModelIdToCanonicalModelId("gpt-5.6-terra")).toBeNull();
-      expect(ownModelIdToCanonicalModelId("gpt-5.6-luna")).toBeNull();
-      expect(ownModelIdToCanonicalModelId("gpt-6-luna")).toBeNull();
+      expect(ownModelIdToCanonicalModelId("gpt-5.6-luna")).toBe("max");
+      expect(ownModelIdToCanonicalModelId("gpt-6-luna")).toBe("max");
     } finally {
       if (previous === undefined) {
         delete process.env.SAJTMASKIN_MODEL_PREMIUM;
@@ -90,7 +91,7 @@ describe("aliasRetiredModelId — retired Sonnet 4.6 → Opus 4.8", () => {
       "openai/gpt-5.5",
       "gpt-5.6-sol",
       "gpt-6.1-sol",
-      "openai/gpt-6-luna",
+      "openai/gpt-6.2-sol",
     ]) {
       expect(aliasRetiredModelId(id)).toBe(id);
     }
@@ -104,13 +105,15 @@ describe("aliasRetiredModelId — retired Sonnet 4.6 → Opus 4.8", () => {
 
 describe("aliasRetiredModelId — OpenAI-deprecated models", () => {
   it.each([
-    ["gpt-5.3-codex", "gpt-6.1-sol"],
-    ["openai/gpt-5.3-codex", "openai/gpt-6.1-sol"],
-    ["gpt-5.3-codex-max", "gpt-6.1-sol"],
-    ["gpt-4.1", "gpt-6.1-sol"],
-    ["openai/gpt-4.1", "openai/gpt-6.1-sol"],
-    ["gpt-4o-mini", "gpt-6.1-sol"],
-    ["openai/gpt-4o-mini", "openai/gpt-6.1-sol"],
+    ["gpt-6-luna", "gpt-6.2-sol"],
+    ["openai/gpt-5.6-luna", "openai/gpt-6.2-sol"],
+    ["gpt-5.3-codex", "gpt-6.2-sol"],
+    ["openai/gpt-5.3-codex", "openai/gpt-6.2-sol"],
+    ["gpt-5.3-codex-max", "gpt-6.2-sol"],
+    ["gpt-4.1", "gpt-6.2-sol"],
+    ["openai/gpt-4.1", "openai/gpt-6.2-sol"],
+    ["gpt-4o-mini", "gpt-6.2-sol"],
+    ["openai/gpt-4o-mini", "openai/gpt-6.2-sol"],
   ])("maps %s -> %s", (input, expected) => {
     expect(aliasRetiredModelId(input)).toBe(expected);
   });

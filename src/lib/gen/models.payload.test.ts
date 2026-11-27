@@ -64,11 +64,11 @@ describe("OpenAI request payloads for the GPT-6 models", () => {
     vi.unstubAllGlobals();
   });
 
-  it("sends GPT-6.1 Sol to /responses with explicit effort and no temperature", async () => {
+  it("sends GPT-6.2 Sol to /responses with explicit effort and no temperature", async () => {
     const captured = captureOpenAIRequests();
 
     await generateText({
-      model: getOpenAIModel("gpt-6.1-sol"),
+      model: getOpenAIModel("gpt-6.2-sol"),
       prompt: "hej",
       temperature: 0.3,
       providerOptions: { openai: { reasoningEffort: "low" } },
@@ -76,12 +76,12 @@ describe("OpenAI request payloads for the GPT-6 models", () => {
 
     expect(captured).toHaveLength(1);
     expect(captured[0].url).toMatch(/\/v1\/responses$/);
-    expect(captured[0].body.model).toBe("gpt-6.1-sol");
+    expect(captured[0].body.model).toBe("gpt-6.2-sol");
     expect(captured[0].body.reasoning).toEqual({ effort: "low" });
     expect(captured[0].body).not.toHaveProperty("temperature");
   });
 
-  it("serializes prompt-assist as Sol 6.1 low with an 8192 cap and no sampling", async () => {
+  it("serializes prompt-assist as Sol 6.2 low with an 8192 cap and no sampling", async () => {
     const previous = process.env.SAJTMASKIN_PROMPT_REWRITE_MODEL;
     delete process.env.SAJTMASKIN_PROMPT_REWRITE_MODEL;
     const captured = captureOpenAIRequests();
@@ -97,10 +97,10 @@ describe("OpenAI request payloads for the GPT-6 models", () => {
         ...buildPromptAssistModelOptions(modelId),
       });
 
-      expect(modelId).toBe("openai/gpt-6.1-sol");
+      expect(modelId).toBe("openai/gpt-6.2-sol");
       expect(captured).toHaveLength(1);
       expect(captured[0].url).toMatch(/\/v1\/responses$/);
-      expect(captured[0].body.model).toBe("gpt-6.1-sol");
+      expect(captured[0].body.model).toBe("gpt-6.2-sol");
       expect(captured[0].body.reasoning).toEqual({ effort: "low" });
       expect(captured[0].body.max_output_tokens).toBe(8192);
       expect(captured[0].body).not.toHaveProperty("temperature");
@@ -112,14 +112,14 @@ describe("OpenAI request payloads for the GPT-6 models", () => {
     }
   });
 
-  it.each(["openai/gpt-5.6-terra", "openai/gpt-4o-mini", "openai/gpt-4.1"])("sends explicit rewrite override %s at its resolved workload effort", async (override) => {
+  it.each(["openai/gpt-5.6-terra", "openai/gpt-4o-mini", "openai/gpt-4.1", "openai/gpt-6-luna"])("sends explicit rewrite override %s at its resolved workload effort", async (override) => {
     const previous = process.env.SAJTMASKIN_PROMPT_REWRITE_MODEL;
     process.env.SAJTMASKIN_PROMPT_REWRITE_MODEL = override;
-    const expectedModel = override === "openai/gpt-5.6-terra" ? "gpt-5.6-terra" : "gpt-6.1-sol";
+    const expectedModel = override === "openai/gpt-5.6-terra" ? "gpt-5.6-terra" : "gpt-6.2-sol";
     const captured = captureOpenAIRequests();
     try {
       const modelId = resolvePromptRewriteModel();
-      expect(modelId).toBe(override);
+      expect(modelId).toBe(`openai/${expectedModel}`);
       await generateText({
         model: createDirectModel(modelId),
         prompt: "hej",
@@ -164,7 +164,7 @@ describe("OpenAI request payloads for the GPT-6 models", () => {
         }),
       ).rejects.toThrow();
       expect(captured.length).toBeGreaterThan(0);
-      expect(captured.map((request) => request.body.model)).toEqual(["gpt-6.1-sol"]);
+      expect(captured.map((request) => request.body.model)).toEqual(["gpt-6.2-sol"]);
     } finally {
       if (previous === undefined) delete process.env.SAJTMASKIN_PROMPT_REWRITE_MODEL;
       else process.env.SAJTMASKIN_PROMPT_REWRITE_MODEL = previous;

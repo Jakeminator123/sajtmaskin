@@ -34,7 +34,7 @@ vi.mock("@/lib/ai-models/load-manifest", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/ai-models/load-manifest")>();
   return {
     ...actual,
-    getWorkloadDefaultModelFromManifest: () => "openai/gpt-6.1-sol",
+    getWorkloadDefaultModelFromManifest: () => "openai/gpt-6.2-sol",
     getWorkloadReasoningEffortFromManifest: () => "medium",
   };
 });
@@ -217,9 +217,9 @@ describe("POST /api/analyze-website", () => {
       expect(res.status).toBe(200);
       expect(await res.json()).toMatchObject({
         success: true,
-        model: "openai/gpt-6.1-sol",
+        model: "openai/gpt-6.2-sol",
       });
-      expect(createDirectModel).toHaveBeenCalledWith("openai/gpt-6.1-sol");
+      expect(createDirectModel).toHaveBeenCalledWith("openai/gpt-6.2-sol");
       expect(generateText).toHaveBeenCalledTimes(1);
       const sdkOptions = generateText.mock.calls[0][0] as Record<string, unknown>;
       expect(sdkOptions).toEqual(

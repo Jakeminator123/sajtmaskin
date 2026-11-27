@@ -13,10 +13,12 @@
 
 Deep Brief använder **`provider/model`**-format, t.ex.:
 
-- `openai/gpt-6.1-sol` (default)
-- `openai/gpt-6-luna`
-- `openai/gpt-5.6-sol` / `-terra` / `-luna` (kvar för sparade val och env)
+- `openai/gpt-6.2-sol` (default)
+- `openai/gpt-6.1-sol` (sparade val och env)
+- `openai/gpt-5.6-sol` / `-terra` (kvar för sparade val och env)
 - `anthropic-direct/claude-opus-4-8` (direktlista med API-format i suffix)
+
+Sparade Luna-val översätts till `openai/gpt-6.2-sol` före anropet.
 
 Tillåtna värden kommer från **`manifest.json` → `briefing.allowed`** via `getPromptAssistAllowedFromManifest()` i [`src/lib/ai-models/load-manifest.ts`](../../src/lib/ai-models/load-manifest.ts) och konsumeras av [`src/lib/builder/prompt-assist/`](../../src/lib/builder/prompt-assist/). Funktionsnamnet är legacy. Paritet säkerställs av `manifest-parity.test.ts`.
 

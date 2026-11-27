@@ -24,6 +24,7 @@ services:
     healthCheckPath: /health
     # Keep the gateway on master, but rebuild it only when its own deploy
     # surface changes. Ordinary app/docs merges must not restart OpenClaw.
+    branch: master
     autoDeployTrigger: commit
     buildFilter:
       paths:
@@ -54,15 +55,15 @@ services:
       # Server-owned model lanes. The app selects only an OpenClaw agent id;
       # provider model refs and fallback chains stay on this Render service.
       - key: OPENCLAW_MODEL_PRIMARY
-        value: openai/gpt-5.6-sol
+        value: openai/gpt-6.2-astra
       - key: OPENCLAW_MODEL_FALLBACK
-        value: "openai/gpt-5.6-terra,openai/gpt-5.5"
+        value: "openai/gpt-6.2-sol,openai/gpt-5.6-sol,openai/gpt-5.5"
       - key: OPENCLAW_MODEL_BALANCED
-        value: openai/gpt-5.6-terra
+        value: openai/gpt-6.2-sol
       - key: OPENCLAW_MODEL_BALANCED_FALLBACK
         value: "openai/gpt-5.6-sol,openai/gpt-5.5"
       - key: OPENCLAW_MODEL_FAST
-        value: openai/gpt-5.6-luna
+        value: openai/gpt-6.2-sol
       - key: OPENCLAW_MODEL_FAST_FALLBACK
         value: "openai/gpt-5.6-terra,openai/gpt-5.5"
       # Heartbeat cadence for the agent. "0m" (the entrypoint default) keeps it
