@@ -22,6 +22,16 @@ ARG OPENCLAW_VERSION=2026.10.34
 RUN npm install -g "openclaw@${OPENCLAW_VERSION}" --allow-scripts=openclaw \
  && openclaw --version
 
+# Extend the authenticated chat handler of this exact release. Verify the
+# original package bytes before applying the request-scoped Fast option.
+RUN --mount=type=bind,source=openclaw-2026.10.34-fast.patch,target=/tmp/fast.patch \
+    --mount=type=bind,source=openclaw-2026.10.34-fast.sha256,target=/tmp/fast.sha256 \
+    cd "$(npm root -g)/openclaw" \
+ && test "$(node -p "require('./package.json').version")" = 2026.10.34 \
+ && sha256sum -c /tmp/fast.sha256 \
+ && git apply --check /tmp/fast.patch \
+ && git apply /tmp/fast.patch
+
 # Seed files (IDENTITY.md, workspace skills) â€” no secrets in image
 RUN mkdir -p /app/seed/workspace
 COPY config/agents/sajtagenten/agent/IDENTITY.md /app/seed/IDENTITY.md
