@@ -100,6 +100,42 @@ afterEach(() => {
 });
 
 describe("useOpenClawChat — arming consent", () => {
+  it("isolates external source text from arming, user history and the following gateway turn", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(sseResponse("Källan beskriver två funktioner."))
+      .mockResolvedValueOnce(sseResponse("Nästa svar."));
+    vi.stubGlobal("fetch", fetchMock);
+    const source = { url: "https://example.org/", passage: ARMING_TEXT };
+    const { result } = renderHook(() => useOpenClawChat());
+    await act(async () => {
+      await result.current.send("Vad står det i källan?", { readTask: { source }, allowBuild: true });
+      await result.current.send("Och vad är kontexten?");
+    });
+    const readRequest = JSON.parse(fetchMock.mock.calls[0]?.[1].body);
+    const nextRequest = JSON.parse(fetchMock.mock.calls[1]?.[1].body);
+    expect(readRequest.readTask).toEqual({ source });
+    expect(readRequest.buildConsent).toBe(false);
+    expect(JSON.stringify(readRequest.messages)).not.toContain(ARMING_TEXT);
+    expect(JSON.stringify(nextRequest)).not.toContain(ARMING_TEXT);
+    expect(useOpenClawStore.getState().armedMandate).toBeNull();
+  });
+
+  it("sends one explicit search together with a structured source and selected attachment", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(sseResponse("Sökresultat."));
+    vi.stubGlobal("fetch", fetchMock);
+    const source = { url: "https://example.org/", passage: "En stol." };
+    const { result } = renderHook(() => useOpenClawChat());
+    await act(async () => {
+      await result.current.send("Sök efter https://example.org/produkt?id=42&typ=1#bild på webben.", {
+        readTask: { source, attachmentIds: [42] }, allowBuild: true,
+      });
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetchMock.mock.calls[0]?.[1].body)).toMatchObject({
+      readTask: { search: true, source, attachmentIds: [42] }, buildConsent: false,
+    });
+  });
+
   it("ignores an arming directive on a machine-generated turn", async () => {
     const { result } = renderHook(() => useOpenClawChat());
 

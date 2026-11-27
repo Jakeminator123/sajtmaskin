@@ -6,11 +6,13 @@
  */
 import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
 import { validateSsrfTarget, safeFetch } from "@/lib/ssrf-guard";
+import { MAX_MEDIA_FILE_BYTES } from "./upload-limits";
+import { PROJECT_MEDIA_LIBRARY_CATEGORY } from "./project-media-library";
 import type { RequestAttachment } from "@/lib/gen/request-metadata";
 import type { AuditSourceImage } from "@/lib/builder/audit-handoff";
 import { urlForLog } from "@/lib/utils/url-for-log";
 
-export const MAX_REMOTE_IMAGE_BYTES = 4 * 1024 * 1024;
+export const MAX_REMOTE_IMAGE_BYTES = MAX_MEDIA_FILE_BYTES;
 export const ALLOWED_REMOTE_IMAGE_TYPES = new Map([
   ["image/jpeg", "jpg"],
   ["image/jpg", "jpg"],
@@ -70,6 +72,7 @@ export async function readRemoteImageBodyWithLimit(
 
 export type RehostRemoteImageSuccess = {
   url: string;
+  path: string;
   filename: string;
   contentType: string;
   size: number;
@@ -86,6 +89,8 @@ export async function rehostRemoteImage(params: {
   userId: string;
   filename?: string;
   source?: string;
+  projectId?: string;
+  category?: typeof PROJECT_MEDIA_LIBRARY_CATEGORY;
 }): Promise<
   | { ok: true; media: RehostRemoteImageSuccess }
   | { ok: false; failure: RehostRemoteImageFailure }
@@ -158,7 +163,8 @@ export async function rehostRemoteImage(params: {
     filename: uniqueFilename,
     buffer,
     contentType,
-    category: "media",
+    projectId: params.projectId,
+    category: params.category ?? "media",
   });
 
   if (!uploadResult) {
@@ -172,6 +178,7 @@ export async function rehostRemoteImage(params: {
     ok: true,
     media: {
       url: uploadResult.url,
+      path: uploadResult.path,
       filename: uniqueFilename,
       contentType,
       size: buffer.length,

@@ -45,6 +45,7 @@ export type InspectPulseMarker = {
 };
 
 export interface PreviewPanelProps {
+  mediaProjectId?: string | null;
   chatId: string | null;
   versionId: string | null;
   /**

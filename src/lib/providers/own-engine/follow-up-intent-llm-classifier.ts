@@ -10,7 +10,7 @@
  * provider error) is fail-safe.
  *
  * Model is manifest-controlled via the `match_classifier` workload
- * (`defaultModel`). A missing default uses GPT-6.1 Sol. The call stays on a
+ * (`defaultModel`). A missing default uses GPT-6.2 Sol. The call stays on a
  * short timeout and a short input. 8192 is the total output ceiling, including
  * reasoning, not a measured cost.
  */
@@ -28,7 +28,7 @@ import {
 
 const MATCH_CLASSIFIER_WORKLOAD_ID = "match_classifier";
 /** Used only if the manifest workload is missing a defaultModel. */
-const FALLBACK_MODEL = "openai/gpt-6.1-sol";
+const FALLBACK_MODEL = "openai/gpt-6.2-sol";
 const DEFAULT_TIMEOUT_MS = 4000;
 /** Follow-ups are short; cap input so a pasted wall of text stays cheap. */
 const MAX_PROMPT_CHARS = 2000;
@@ -111,7 +111,7 @@ export async function llmClassifyFollowUpIntent(
       // failures, so don't burn latency retrying non-transient errors.
       maxRetries: 1,
       abortSignal: controller.signal,
-      // Manifest effort (medium on Sol 6.1). Classic/unregistered ids omit the
+      // Manifest effort (low on Sol 6.2). Classic/unregistered ids omit the
       // field — do not invent `low` when the model has no registered support.
       ...workloadOpenAIProviderOptions(MATCH_CLASSIFIER_WORKLOAD_ID, modelId),
     });

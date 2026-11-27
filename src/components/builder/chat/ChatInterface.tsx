@@ -57,6 +57,10 @@ import { cn } from "@/lib/utils";
 import { resolveAgentProposalReference, type AgentProposalReference } from "@/lib/builder/composer-route-reference";
 import { readActiveBuilderTarget } from "@/lib/openclaw/builder-target";
 import { OpenClawPowersControl } from "@/components/openclaw/OpenClawPowersControl";
+import { SourcePagePanel, type SourcePagePanelHandle } from "@/components/openclaw/SourcePagePanel";
+import { formatSelectedSourcePage, unselectedSourcePageUrl, type SelectedSourcePage } from "@/lib/openclaw/source-page";
+import { readTaskAttachmentIds } from "@/lib/openclaw/read-task-input";
+import { appendProjectMediaLibraryScope } from "@/lib/media/project-media-library";
 import { useOpenClawPowers } from "@/components/openclaw/useOpenClawPowers";
 import { ComposerModeToggle } from "./sajtagent/ComposerModeToggle";
 import { useSajtagent } from "./sajtagent/SajtagentProvider";
@@ -168,6 +172,7 @@ function getExtensionFromDataUrl(dataUrl?: string): string {
 
 interface ChatInterfaceProps {
   chatId: string | null;
+  projectId?: string | null;
   initialPrompt?: string | null;
   auditHandoff?: AuditComposerToken | null;
   onCreateChat?: (message: string, options?: MessageOptions) => Promise<boolean | void>;
@@ -314,6 +319,7 @@ const ROUTE_TONE_STYLE: Record<ComposerRouteTone, { icon: LucideIcon; text: stri
 
 export function ChatInterface({
   chatId,
+  projectId,
   initialPrompt,
   auditHandoff = null,
   onCreateChat,
@@ -339,6 +345,9 @@ export function ChatInterface({
   const [isSending, setIsSending] = useState(false);
   const [promptAssistBusy, setPromptAssistBusy] = useState(false);
   const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [selectedSource, setSelectedSource] = useState<{ chatId: typeof chatId; source: SelectedSourcePage; imageId?: string }>();
+  const sourceSelection = selectedSource?.chatId === chatId ? selectedSource : undefined;
+  const sourcePagePanel = useRef<SourcePagePanelHandle>(null);
   const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
   const [figmaUrl, setFigmaUrl] = useState("");
   const [internalFigmaInputOpen, setInternalFigmaInputOpen] = useState(false);
@@ -364,6 +373,7 @@ export function ChatInterface({
   );
 
   const hasUploading = files.some((file) => file.status === "uploading");
+  const failedUpload = files.find((file) => file.status === "error");
   const hasSuccessFiles = files.some((file) => file.status === "success");
 
   // En chatt (plan 2026-10-22): samma input når både byggmotorn och
@@ -582,6 +592,7 @@ export function ChatInterface({
     const formData = new FormData();
     formData.append("file", file);
     formData.append("description", "Inspector point preview");
+    appendProjectMediaLibraryScope(formData, projectId);
     const response = await fetch("/api/media/upload", {
       method: "POST",
       body: formData,
@@ -593,7 +604,7 @@ export function ChatInterface({
     }
 
     return { media: result.media, file };
-  }, []);
+  }, [projectId]);
 
   const handleRemoveInspectPoint = useCallback((pointId: string) => {
     setInspectPoints((prevPoints) => {
@@ -797,6 +808,7 @@ export function ChatInterface({
     const contextBlocks = [
       figmaLink ? `Use this Figma design as a reference: ${figmaLink}` : "",
       inspectPointsPrompt,
+      sourceSelection ? formatSelectedSourcePage(sourceSelection.source) : "",
     ].filter(Boolean);
     const finalMessage = contextBlocks.length
       ? `${baseMessage}\n\n${contextBlocks.join("\n\n")}`
@@ -888,6 +900,7 @@ export function ChatInterface({
       if (options.clearDraft !== false) {
         setInput("");
         setFiles([]);
+        setSelectedSource(undefined);
         setFigmaUrl("");
         setFigmaInputOpen(false);
         setInspectPoints([]);
@@ -899,6 +912,10 @@ export function ChatInterface({
 
   const hasComposerAttachments =
     hasSuccessFiles || Boolean(normalizedFigmaUrl) || inspectPoints.length > 0;
+  const agentAttachmentIds = readTaskAttachmentIds(files);
+  const hasAgentReadableAttachments = agentAttachmentIds.length > 0 && agentAttachmentIds.length <= 3 &&
+    agentAttachmentIds.length === files.filter((file) => file.status === "success").length &&
+    !normalizedFigmaUrl && inspectPoints.length === 0;
 
   const resolveDecisionFor = (text: string): ComposerDecision => {
     // Prepared build instructions keep their route; a field marker cannot
@@ -920,6 +937,7 @@ export function ChatInterface({
       text,
       hasChat: Boolean(chatId),
       hasAttachments: hasComposerAttachments,
+      hasAgentReadableAttachments,
       agentAvailable,
       agentConfigured,
       agentCanBuild,
@@ -940,16 +958,24 @@ export function ChatInterface({
       attachmentKinds: composerAttachmentKinds,
       // Samma regel som utskicket sätter `allowBuild` med: etiketten lovar
       // «ändrar inget» bara när agenten faktiskt inte får agera på texten.
-      agentCanAct: agentPowers.any && composerAllowsAgentBuild({ mode: composerMode, text }),
+      agentCanAct: !sourceSelection && agentPowers.any && composerAllowsAgentBuild({ mode: composerMode, text }),
     });
 
   const handleSubmit = async ({ text }: { text: string }) => {
     if (submitDisabled) return;
-    const trimmed = text.trim();
+    const trimmed = text.trim() || (composerMode === "agent"
+      ? sourceSelection ? "Vad visar den valda källan?" : hasAgentReadableAttachments ? "Vad visar mina bilagor?" : ""
+      : "");
+    const directSource = unselectedSourcePageUrl(trimmed, sourceSelection?.source);
+    if (directSource) {
+      revokeOpenClawBuildConsent();
+      sourcePagePanel.current?.read(directSource);
+      return;
+    }
     const hasAuditToken = Boolean(auditHandoff && !chatId);
     if (!trimmed && !hasSuccessFiles && !hasAuditToken) return;
 
-    const restrictBuild = composerMode === "agent" || isReadOnlyComposerRequest(trimmed);
+    const restrictBuild = composerMode === "agent" || Boolean(sourceSelection) || isReadOnlyComposerRequest(trimmed);
     // Ett skrivet stopp återkallar oavsett läge och mottagare: i Bygg-läget når
     // texten aldrig agenten, och under ett pågående bygge skickas den inte alls.
     // Varje mening räknas («Det blev fel. Sluta!»): en falsk träff avslutar bara
@@ -969,6 +995,10 @@ export function ChatInterface({
       return;
     }
     if (trimmed && agent && route === "agent") {
+      if (failedUpload) {
+        toast.error(failedUpload.error || "Bilagan kunde inte laddas upp.");
+        return;
+      }
       if (agentStreaming) {
         toast("Sajtagenten svarar fortfarande — vänta en stund.");
         return;
@@ -989,12 +1019,18 @@ export function ChatInterface({
       }
       const sendingChatId = chatId;
       void agent.send(trimmed, {
-        allowBuild: composerAllowsAgentBuild({ mode: composerMode, text: trimmed }),
+        allowBuild: !sourceSelection && composerAllowsAgentBuild({ mode: composerMode, text: trimmed }),
         restrictBuild,
+        readTask: sourceSelection || hasAgentReadableAttachments ? {
+          ...(sourceSelection ? { source: sourceSelection.source } : {}),
+          ...(hasAgentReadableAttachments ? { attachmentIds: agentAttachmentIds } : {}),
+        } : undefined,
         proposalReference,
         onDispatchAccepted: () => {
           if (activeComposerChatRef.current === sendingChatId) {
             setInput((current) => current.trim() === trimmed ? "" : current);
+            if (hasAgentReadableAttachments) setFiles([]);
+            setSelectedSource((current) => current === sourceSelection ? undefined : current);
             onTurnSent?.();
           }
         },
@@ -1054,11 +1090,9 @@ export function ChatInterface({
     });
   };
 
-  const routeDescription = describeDecision(
-    resolveDecisionFor(input.trim()),
-    !input.trim() && !hasComposerAttachments,
-    input.trim(),
-  );
+  const routeDescription = unselectedSourcePageUrl(input, sourceSelection?.source)
+    ? { tone: "agent" as const, label: "Läser en webbsida", hint: "Välj det textstycke eller den bild du vill använda." }
+    : describeDecision(resolveDecisionFor(input.trim()), !input.trim() && !hasComposerAttachments, input.trim());
   const routeStyle = ROUTE_TONE_STYLE[routeDescription.tone];
   const RouteIcon = routeStyle.icon;
   const showModeToggle = agentConfigured || Boolean(chatId);
@@ -1290,6 +1324,15 @@ export function ChatInterface({
           </div>
         )}
         <PromptInputBody className="px-3 pt-3 pb-2">
+          {sourceSelection && (
+            <div className="mb-2 flex items-start gap-2 text-xs">
+              <span className="min-w-0 flex-1 break-all">Vald källa {sourceSelection.source.url}</span>
+              <button type="button" className="underline" onClick={() => {
+                if (sourceSelection.imageId) setFiles((current) => current.filter((file) => file.id !== sourceSelection.imageId));
+                setSelectedSource(undefined);
+              }}>Ta bort källan</button>
+            </div>
+          )}
           <PromptInputTextarea
             data-openclaw-text-target="builder.chat.primary"
             data-openclaw-text-label="Builderns huvudprompt"
@@ -1451,9 +1494,22 @@ export function ChatInterface({
           </div>
           <div className="flex flex-wrap items-end gap-2">
             <PromptInputTools className="flex-wrap items-end gap-1.5">
+              <SourcePagePanel
+                ref={sourcePagePanel}
+                key={chatId ?? "new-chat"}
+                chatId={chatId}
+                projectId={projectId}
+                disabled={inputDisabled || hasUploading}
+                importImage={mediaEnabled}
+                onUse={(source, image) => {
+                  if (sourceSelection?.imageId) setFiles((current) => current.filter((file) => file.id !== sourceSelection.imageId));
+                  setSelectedSource({ chatId, source, imageId: image?.id });
+                  if (image) handleMediaSelect(image);
+                }}
+              />
               {mediaEnabled && (
                 <FileUploadZone
-                  projectId={null}
+                  projectId={projectId ?? null}
                   files={files}
                   onFilesChange={setFiles}
                   disabled={inputDisabled}
@@ -1532,7 +1588,8 @@ export function ChatInterface({
                 data-openclaw-send-target="builder.chat.primary"
                 aria-label="Skicka"
                 aria-describedby={routeLabelId}
-                disabled={submitDisabled || routeDescription.tone === "blocked"}
+                disabled={submitDisabled || routeDescription.tone === "blocked" ||
+                  Boolean(failedUpload && routeDescription.tone === "agent")}
               >
                 {isSending ? <Loader2 className="size-4 animate-spin" /> : undefined}
               </PromptInputSubmit>
@@ -1544,6 +1601,7 @@ export function ChatInterface({
       {mediaEnabled && (
         <MediaDrawer
           isOpen={isMediaDrawerOpen}
+          projectId={projectId ?? undefined}
           onClose={() => setIsMediaDrawerOpen(false)}
           onFileSelect={handleMediaSelect}
         />
@@ -1552,6 +1610,7 @@ export function ChatInterface({
       {mediaEnabled && (
         <TextUploader
           isOpen={isTextUploaderOpen}
+          projectId={projectId}
           onClose={() => setIsTextUploaderOpen(false)}
           onContentReady={handleTextContentReady}
           disabled={inputDisabled}

@@ -22,6 +22,8 @@
  */
 
 import { uWord, uWordRegex } from "@/lib/utils/unicode-word-boundary";
+import { isExplicitOpenClawWebSearch } from "@/lib/openclaw/read-task-input";
+import { requestedSourcePageUrl } from "@/lib/openclaw/source-page";
 import { parseArmingDirective, parseStopDirective } from "@/lib/openclaw/debug/armed-mandate";
 
 export type ComposerMode = "auto" | "agent" | "build";
@@ -300,6 +302,7 @@ export function hasScopedComposerChangeRestriction(rawText: string): boolean {
 
 /** Explicit no-change requests must be recognized before their build verbs. */
 export function isReadOnlyComposerRequest(rawText: string): boolean {
+  if (isExplicitOpenClawWebSearch(rawText) || requestedSourcePageUrl(rawText)) return true;
   const normalized = normalize(rawText);
   const text = hasScopedComposerChangeRestriction(normalized)
     ? withoutScopedRestriction(normalized) : normalized;
@@ -431,8 +434,10 @@ export interface ResolveComposerRouteInput {
   text: string;
   /** `false` före första bygget — agentärenden kan inte skickas ännu. */
   hasChat: boolean;
-  /** Bilagor, Figma-länk eller inspect-punkter följer bara byggmotorn. */
+  /** Filer, Figma-länk eller inspect-punkter vid detta utskick. */
   hasAttachments: boolean;
+  /** Valda bilder och dokument som agentens läsväg stöder. */
+  hasAgentReadableAttachments?: boolean;
   /** Sajtagentens yta är aktiverad och nåbar från den här buildern. */
   agentAvailable: boolean;
   /** En konfigurerad men ännu otillgänglig agent får inte ersättas med bygge. */
@@ -475,7 +480,8 @@ function agentBlockReason(input: ResolveComposerRouteInput): ComposerBlockReason
  * och blockeringstexten läser samma beslut som själva utskicket.
  */
 export function resolveComposerDecision(input: ResolveComposerRouteInput): ComposerDecision {
-  const agentReachable = input.agentAvailable && input.hasChat && !input.hasAttachments;
+  const agentReachable = input.agentAvailable && input.hasChat &&
+    (!input.hasAttachments || input.hasAgentReadableAttachments === true);
   const toAgent = (): ComposerDecision =>
     agentReachable ? { route: "agent" } : { route: "blocked", blockReason: agentBlockReason(input) };
   if (
@@ -497,7 +503,7 @@ export function resolveComposerDecision(input: ResolveComposerRouteInput): Compo
     if (input.hasAttachments && isAttachmentBuildRequest(input.text)) return { route: "build" };
     return toAgent();
   }
-  if (!agentReachable) return { route: "build" };
+  if (!agentReachable || input.hasAttachments) return { route: "build" };
   return input.agentCanBuild === false ? { route: "build" } : { route: "agent" };
 }
 

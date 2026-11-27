@@ -28,13 +28,13 @@ function toShellPath(value: string): string {
 interface PosixShell {
   /** Absolute path to `sh`. */
   path: string;
-  /** Directories prepended to PATH so `tr` and `sed` resolve inside the shell. */
+  /** Directories prepended to PATH so `tr` and `awk` resolve inside the shell. */
   toolDirs: string[];
 }
 
 /**
  * A POSIX shell that can also reach the coreutils the entrypoint calls. Finding
- * `sh.exe` is not enough on Windows: Git ships it separately from `tr`/`sed`, so
+ * `sh.exe` is not enough on Windows: Git ships it separately from `tr`/`awk`, so
  * a shell found without its `usr/bin` on PATH fails on the entrypoint's first
  * `tr` and reports it as a config-generation failure. Probing for the utilities
  * too means the suite either runs truthfully or skips, never fails on setup.
@@ -52,7 +52,7 @@ function resolveShell(): PosixShell | null {
     try {
       execFileSync(
         candidate.path,
-        ["-c", "command -v tr >/dev/null && command -v sed >/dev/null"],
+        ["-c", "command -v tr >/dev/null && command -v awk >/dev/null"],
         {
           env: { NODE_ENV: process.env.NODE_ENV ?? "test", PATH: buildShellPath(candidate) },
           stdio: "ignore",
@@ -81,17 +81,17 @@ afterAll(() => {
 
 interface GeneratedConfig {
   agents: {
+    ownership: string;
     defaults: {
-      heartbeat: { every: string };
+      heartbeat: { agentId: string; every: string };
+      systemAgent: { agentId: string };
       model: { primary: string; fallbacks: string[] };
       utilityModel: string;
       skipBootstrap: boolean;
       skills: string[];
-      models: Record<string, Record<string, never>>;
+      models: Record<string, { agentRuntime?: { id: string }; params?: { thinking: string } }>;
     };
-    list: Array<{
-      id: string;
-      default?: boolean;
+    entries: Record<string, {
       model: { primary: string; fallbacks: string[] };
       thinkingDefault: string;
       skills: string[];
@@ -134,7 +134,7 @@ interface GeneratedConfig {
  * Run the entrypoint with a stubbed `openclaw` binary and a sandboxed home/seed
  * directory, then parse the config it wrote.
  */
-function bootAndReadConfig(env: Record<string, string>): GeneratedConfig {
+function createBootSandbox() {
   const sandbox = mkdtempSync(path.join(tmpdir(), "openclaw-entrypoint-"));
   sandboxes.push(sandbox);
 
@@ -145,33 +145,79 @@ function bootAndReadConfig(env: Record<string, string>): GeneratedConfig {
   mkdirSync(binDir, { recursive: true });
   writeFileSync(path.join(seed, "IDENTITY.md"), "# stub identity\n");
 
-  // The entrypoint calls `openclaw --version` and ends with `exec openclaw
-  // gateway ...`; a stub keeps it from needing the real package.
   const stub = path.join(binDir, "openclaw");
-  writeFileSync(stub, '#!/bin/sh\necho "openclaw-stub 0.0.0"\nexit 0\n');
+  writeFileSync(stub, [
+    "#!/bin/sh",
+    'if [ "$1" = "--version" ]; then echo openclaw-stub; exit 0; fi',
+    '[ "$OPENCLAW_STATE_DIR" = "$SAJTAGENT_HOME_DIR" ] || exit 82',
+    '[ "$OPENCLAW_CONFIG_PATH" = "$OPENCLAW_STATE_DIR/openclaw.json" ] || exit 83',
+    '[ -s "$OPENCLAW_CONFIG_PATH" ] || exit 84',
+    'echo "$1" >> "$OPENCLAW_STATE_DIR/boot-trace"',
+    'if [ "$1" = "doctor" ]; then',
+    '  [ "$*" = "doctor --fix --non-interactive" ] || exit 85',
+    '  echo private-doctor-output; echo private-doctor-error >&2',
+    '  echo "{}" > "$OPENCLAW_CONFIG_PATH"',
+    '  case "$TEST_DOCTOR_RESULT" in',
+    '    blocked) echo "—  Doctor blocked; required repairs remain incomplete."; exit 0 ;;',
+    '    failed) echo "—  Doctor complete."; exit 1 ;;',
+    '  esac',
+    '  echo "—  Doctor complete."',
+    'elif [ "$1" = "gateway" ]; then',
+    '  cp "$OPENCLAW_CONFIG_PATH" "$OPENCLAW_STATE_DIR/gateway-config.json"',
+    'else exit 86; fi',
+    "",
+  ].join("\n"));
   chmodSync(stub, 0o755);
 
   // Deliberately NOT spreading process.env: a developer with OPENCLAW_MODEL_*
   // set locally would otherwise change what the default case asserts.
-  execFileSync(shell!.path, [toShellPath(ENTRYPOINT)], {
-    env: {
-      NODE_ENV: process.env.NODE_ENV ?? "test",
-      PATH: `${binDir}${path.delimiter}${buildShellPath(shell!)}`,
-      SAJTAGENT_HOME_DIR: toShellPath(home),
-      SAJTAGENT_SEED_DIR: toShellPath(seed),
-      SAJTAGENT_CONFIG_GENERATOR: toShellPath(CONFIG_GENERATOR),
-      OPENCLAW_GATEWAY_TOKEN: "test-token",
-      ...env,
-    },
-    stdio: "pipe",
-  });
+  function run(env: Record<string, string>) {
+    return execFileSync(shell!.path, [toShellPath(ENTRYPOINT)], {
+      env: {
+        NODE_ENV: process.env.NODE_ENV ?? "test",
+        PATH: `${binDir}${path.delimiter}${buildShellPath(shell!)}`,
+        SAJTAGENT_HOME_DIR: toShellPath(home),
+        SAJTAGENT_SEED_DIR: toShellPath(seed),
+        SAJTAGENT_CONFIG_GENERATOR: toShellPath(CONFIG_GENERATOR),
+        OPENCLAW_GATEWAY_TOKEN: "test-token",
+        ...env,
+      },
+      stdio: "pipe",
+      encoding: "utf8",
+    });
+  }
+  return { home, run };
+}
 
-  return JSON.parse(readFileSync(path.join(home, "openclaw.json"), "utf8")) as GeneratedConfig;
+function bootAndReadConfig(env: Record<string, string>): GeneratedConfig {
+  const { home, run } = createBootSandbox();
+  run(env);
+  return JSON.parse(readFileSync(path.join(home, "gateway-config.json"), "utf8")) as GeneratedConfig;
 }
 
 // Each case boots the real entrypoint in `sh`; on Windows a single boot can
 // take 3–6 s, so the default 5 s per-test timeout is too tight.
 describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_000 }, () => {
+  it.each(["blocked", "failed"])("blocks %s repair and retries on the same mount", (failure) => {
+    const { home, run } = createBootSandbox();
+    const trace = () => readFileSync(path.join(home, "boot-trace"), "utf8").trim().split(/\r?\n/);
+
+    try {
+      run({ TEST_DOCTOR_RESULT: failure });
+      expect.unreachable("gateway started after failed repair");
+    } catch (error) {
+      expect(error).toMatchObject({ status: 78 });
+      const { stdout, stderr } = error as { stdout: string; stderr: string };
+      expect(stderr).toContain("Gateway startup stopped");
+      expect(stdout + stderr).not.toContain("private-doctor");
+    }
+    expect(trace()).toEqual(["doctor"]);
+    expect(run({})).not.toContain("private-doctor");
+    expect(trace()).toEqual(["doctor", "doctor", "gateway"]);
+    const config = JSON.parse(readFileSync(path.join(home, "gateway-config.json"), "utf8"));
+    expect(config.gateway.auth.token).toBe("test-token");
+  });
+
   it("pins the OpenClaw package used by production rebuilds", () => {
     const dockerfile = readFileSync(DOCKERFILE, "utf8");
     const versionPin = dockerfile.match(/^ARG OPENCLAW_VERSION=(.+)$/m)?.[1];
@@ -183,13 +229,28 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
   it("emits the documented defaults when no model env is set", () => {
     const config = bootAndReadConfig({});
 
-    expect(config.agents.defaults.model.primary).toBe("openai/gpt-5.6-sol");
-    expect(config.agents.defaults.model.fallbacks).toEqual([
-      "openai/gpt-5.6-terra",
-      "openai/gpt-5.5",
-    ]);
-    expect(config.agents.defaults.utilityModel).toBe("openai/gpt-5.6-luna");
-    expect(config.agents.list.map((agent) => agent.id)).toEqual([
+    expect(config.agents.ownership).toBe("explicit");
+    expect(config.agents.defaults.systemAgent).toEqual({ agentId: "sajtagenten" });
+    expect(config.agents.defaults.model).toEqual({
+      primary: "openai/gpt-6.2-astra",
+      fallbacks: ["openai/gpt-6.2-sol", "openai/gpt-5.6-sol", "openai/gpt-5.5"],
+    });
+    expect(config.agents.entries.sajtagenten.model).toEqual(config.agents.defaults.model);
+    expect(config.agents.entries["sajtagenten-balanced"].model).toEqual({
+      primary: "openai/gpt-6.2-sol",
+      fallbacks: ["openai/gpt-5.6-sol", "openai/gpt-5.5"],
+    });
+    expect(config.agents.entries["sajtagenten-fast"].model).toEqual({
+      primary: "openai/gpt-6.2-sol",
+      fallbacks: ["openai/gpt-5.6-terra", "openai/gpt-5.5"],
+    });
+    expect(config.agents.defaults.utilityModel).toBe("openai/gpt-6.2-sol");
+    const models = config.agents.defaults.models;
+    expect(models[config.agents.defaults.utilityModel].params?.thinking).toBe("low");
+    for (const settings of Object.values(models)) {
+      expect(settings.agentRuntime?.id).toBe("openclaw");
+    }
+    expect(Object.keys(config.agents.entries)).toEqual([
       "sajtagenten",
       "sajtagenten-balanced",
       "sajtagenten-fast",
@@ -200,17 +261,21 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
   it("pins per-lane thinking and a minimal no-skill tool surface", () => {
     const config = bootAndReadConfig({});
 
-    expect(config.agents.list.map((agent) => agent.thinkingDefault)).toEqual([
+    expect(Object.values(config.agents.entries).map((agent) => agent.thinkingDefault)).toEqual([
       "high",
       "medium",
       "low",
     ]);
-    expect(config.tools.profile).toBe("minimal");
+    expect(config.tools).toEqual({
+      profile: "minimal",
+      allow: ["session_status"],
+      deny: ["gateway", "presence"],
+    });
     expect(config.agents.defaults.skipBootstrap).toBe(true);
     expect(config.agents.defaults.skills).toEqual([]);
-    for (const agent of config.agents.list) {
+    for (const agent of Object.values(config.agents.entries)) {
       expect(agent.skills).toEqual([]);
-      expect(agent.tools.profile).toBe("minimal");
+      expect(agent.tools).toEqual(config.tools);
     }
   });
 
@@ -230,10 +295,10 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
     // hour on an instance with no delivery channel — pure credit burn
     // (2026-08-17). "0m" must survive every redeploy since this config is
     // regenerated on boot.
-    expect(bootAndReadConfig({}).agents.defaults.heartbeat).toEqual({ every: "0m" });
+    expect(bootAndReadConfig({}).agents.defaults.heartbeat).toEqual({ agentId: "sajtagenten", every: "0m" });
     expect(
       bootAndReadConfig({ OPENCLAW_HEARTBEAT_EVERY: "45m" }).agents.defaults.heartbeat,
-    ).toEqual({ every: "45m" });
+    ).toEqual({ agentId: "sajtagenten", every: "45m" });
   });
 
   it("splits a comma-separated fallback chain", () => {
@@ -245,7 +310,7 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
       "openai/gpt-5.4",
       "openai/gpt-5.5",
     ]);
-    expect(config.agents.list[0].model.fallbacks).toEqual([
+    expect(config.agents.entries.sajtagenten.model.fallbacks).toEqual([
       "openai/gpt-5.4",
       "openai/gpt-5.5",
     ]);
@@ -269,23 +334,23 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
     });
 
     expect(config.agents.defaults.model.primary).toBe("openai/gpt-5.4-mini");
-    expect(config.agents.list[0].model.primary).toBe("openai/gpt-5.4-mini");
+    expect(config.agents.entries.sajtagenten.model.primary).toBe("openai/gpt-5.4-mini");
   });
 
   it("configures independent fast and balanced model chains", () => {
     const config = bootAndReadConfig({
       OPENCLAW_MODEL_BALANCED: "openai/gpt-5.5",
       OPENCLAW_MODEL_BALANCED_FALLBACK: "openai/gpt-5.6-sol",
-      OPENCLAW_MODEL_FAST: "openai/gpt-5.6-luna",
+      OPENCLAW_MODEL_FAST: "openai/gpt-6.1-terra",
       OPENCLAW_MODEL_FAST_FALLBACK: "openai/gpt-5.6-terra",
     });
 
-    expect(config.agents.list[1].model).toEqual({
+    expect(config.agents.entries["sajtagenten-balanced"].model).toEqual({
       primary: "openai/gpt-5.5",
       fallbacks: ["openai/gpt-5.6-sol"],
     });
-    expect(config.agents.list[2].model).toEqual({
-      primary: "openai/gpt-5.6-luna",
+    expect(config.agents.entries["sajtagenten-fast"].model).toEqual({
+      primary: "openai/gpt-6.1-terra",
       fallbacks: ["openai/gpt-5.6-terra"],
     });
   });

@@ -101,6 +101,8 @@ interface OpenClawState {
   messages: OpenClawMessage[];
   isStreaming: boolean;
   scopeKey: string;
+  /** Advances on each conversation change, including a return to the same chat. */
+  scopeRevision: number;
   avatarMode: boolean;
   /** How the open panel is shown. Local `avatarExpanded` in the panel only
    * widens the bubble; it must not be reused as takeover. */
@@ -218,6 +220,7 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   messages: [],
   isStreaming: false,
   scopeKey: "global",
+  scopeRevision: 0,
   // Text first: opening the chat must not synchronously load the D-ID SDK or
   // start a video connection. The user can opt into the avatar from the panel.
   avatarMode: false,
@@ -246,6 +249,7 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
         ? state
         : {
             scopeKey,
+            scopeRevision: state.scopeRevision + 1,
             isOpen: false,
             messages: [],
             isStreaming: false,

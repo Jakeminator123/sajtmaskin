@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
+import { canUserUploadFile, saveMediaLibraryItem } from "@/lib/db/services/media";
+import { MediaUploadPolicyError } from "@/lib/media/upload-policy-error";
+import { PROJECT_MEDIA_LIBRARY_CATEGORY } from "@/lib/media/project-media-library";
+import { deleteBlob } from "@/lib/vercel/blob-service";
+import { resolveMediaUploadProject } from "@/lib/media/resolve-upload-project";
 import { readRequestJsonWithLimit } from "@/lib/api/read-limited-body";
 import { withRateLimit } from "@/lib/rate-limit";
 import { describeRemoteImageUrl, rehostRemoteImage } from "@/lib/media/rehost-remote-image";
@@ -50,7 +55,7 @@ export async function POST(request: NextRequest) {
       if (!body) {
         return NextResponse.json({ success: false, error: "Ogiltig förfrågan" }, { status: 400 });
       }
-      const { url, filename, source, photographer } = body;
+      const { url, filename, source, photographer, chatId, sourcePageUrl, projectId: rawProjectId } = body;
 
       if (typeof url !== "string" || !url.trim() || url.length > MAX_REMOTE_URL_CHARS) {
         return NextResponse.json({ success: false, error: "URL krävs" }, { status: 400 });
@@ -91,11 +96,34 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: "Ogiltig URL" }, { status: 400 });
       }
 
+      if (rawProjectId !== undefined && (typeof rawProjectId !== "string" || !rawProjectId.trim() || rawProjectId.length > 200)) {
+        return NextResponse.json({ success: false, error: "Ogiltig sajt" }, { status: 400 });
+      }
+      let projectId = typeof rawProjectId === "string" ? rawProjectId.trim() : undefined;
+      let originPage: string | undefined;
+      if (chatId !== undefined || sourcePageUrl !== undefined || normalizedSource === "sajtagent-source") {
+        const page = typeof sourcePageUrl === "string" && sourcePageUrl.length <= MAX_REMOTE_URL_CHARS
+          ? URL.parse(sourcePageUrl) : null;
+        if ((chatId !== undefined && (typeof chatId !== "string" || !chatId.trim() || chatId.length > 200)) ||
+            !page || !["http:", "https:"].includes(page.protocol) || page.username || page.password) {
+          return NextResponse.json({ success: false, error: "Ogiltig projektkälla" }, { status: 400 });
+        }
+        projectId = await resolveMediaUploadProject(request, user.id, projectId, typeof chatId === "string" ? chatId : undefined);
+        originPage = page.href;
+      }
+
+      const quota = await canUserUploadFile(user.id, "image/png", projectId);
+      if (!quota.allowed) {
+        return NextResponse.json({ success: false, error: quota.reason }, { status: 400 });
+      }
+
       const result = await rehostRemoteImage({
         url: normalizedUrl,
         userId: user.id,
         filename: normalizedFilename,
         source: normalizedSource,
+        ...(projectId ? { projectId } : {}),
+        ...(projectId && body.mediaScope === PROJECT_MEDIA_LIBRARY_CATEGORY ? { category: PROJECT_MEDIA_LIBRARY_CATEGORY } : {}),
       });
 
       if (!result.ok) {
@@ -105,11 +133,31 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      let item: Awaited<ReturnType<typeof saveMediaLibraryItem>>;
+      try {
+        item = await saveMediaLibraryItem(
+          user.id,
+          result.media.filename,
+          normalizedFilename || result.media.filename,
+          result.media.path,
+          result.media.contentType,
+          result.media.size,
+          result.media.url,
+          projectId,
+          originPage,
+        );
+      } catch (error) {
+        if (error instanceof MediaUploadPolicyError) {
+          await deleteBlob(result.media.storageType === "blob" ? result.media.url : result.media.path);
+        }
+        throw error;
+      }
       console.info(`[Media/UploadFromUrl] Saved (${result.media.storageType})`);
 
       return NextResponse.json({
         success: true,
         media: {
+          id: item.id,
           url: result.media.url,
           filename: result.media.filename,
           contentType: result.media.contentType,
@@ -120,6 +168,9 @@ export async function POST(request: NextRequest) {
         },
       });
     } catch (error) {
+      if (error instanceof MediaUploadPolicyError) {
+        return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+      }
       console.error("[Media/UploadFromUrl] Error:", error);
       return NextResponse.json(
         {

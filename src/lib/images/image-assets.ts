@@ -70,9 +70,6 @@ function looksLikeImageUrl(rawUrl: string): boolean {
   const host = u.hostname.toLowerCase();
   if (host.includes(".blob.vercel-storage.com")) return false;
   if (host === "localhost" || host === "127.0.0.1") return false;
-  // Some preview assets are hosted on vusercontent.net without extensions.
-  if (host.endsWith("vusercontent.net")) return true;
-
   const path = u.pathname.toLowerCase();
 
   const nonImageExts = [
@@ -98,6 +95,15 @@ function looksLikeImageUrl(rawUrl: string): boolean {
   ];
   if (nonImageExts.some((ext) => path.endsWith(ext))) return false;
 
+  // Extensionless assets are common on the preview CDN.
+  if (host === "vusercontent.net" || host.endsWith(".vusercontent.net")) return true;
+
+  return hasImageFormatHint(u);
+}
+
+/** Static file extension, Next image wrapper or an explicit image format in the URL. */
+export function hasImageFormatHint(u: URL): boolean {
+  const path = u.pathname.toLowerCase();
   const imageExts = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".avif", ".bmp", ".ico"];
   if (imageExts.some((ext) => path.endsWith(ext))) return true;
 

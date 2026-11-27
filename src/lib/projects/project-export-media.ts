@@ -4,6 +4,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { deployments, images, mediaLibrary } from "@/lib/db/schema";
 import { getUploadsDir } from "@/lib/db/services/shared";
+import { isProjectMediaLibraryPath } from "@/lib/media/project-media-library";
 import { resolveStorageAbsolutePath } from "@/lib/storage/shared";
 import { VercelBlobProvider } from "@/lib/storage/vercel-blob-provider";
 import { fetchWithPinnedDns } from "@/lib/capture/pinned-fetch";
@@ -159,11 +160,9 @@ export async function loadProjectExportMedia(params: {
     const sourceUrls = [row.blob_url, localMediaUrl(row.file_path)].filter(
       (value): value is string => Boolean(value),
     );
-    const belongsToProject = row.project_id === params.projectId;
-    const isReferencedSharedMedia =
-      row.project_id === null &&
-      sourceUrls.some((sourceUrl) => params.referencedText.includes(sourceUrl));
-    if (!belongsToProject && !isReferencedSharedMedia) continue;
+    const explicitlyExported = row.project_id === params.projectId && !isProjectMediaLibraryPath(row.file_path);
+    const referenced = sourceUrls.some((sourceUrl) => params.referencedText.includes(sourceUrl));
+    if (!explicitlyExported && !referenced) continue;
 
     if (row.size_bytes > PROJECT_EXPORT_MEDIA_MAX_FILE_BYTES) {
       throw new Error(`Mediafilen “${row.original_name}” är för stor för export`);

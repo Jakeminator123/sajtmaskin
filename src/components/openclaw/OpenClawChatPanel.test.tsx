@@ -63,6 +63,32 @@ describe("OpenClawChatPanel", () => {
     ).toBeNull();
   });
 
+  it.each([
+    ["builder with a chat", { page: "builder", chatId: "site-chat", projectId: "site" }, "site-chat", null],
+    ["builder before its first chat", { page: "builder", projectId: "site" }, null, "site"],
+    ["outside the builder", { page: "account", chatId: "old-chat", projectId: "old-site" }, null, null],
+  ] as const)("uploads to the matching library on %s", async (_name, context, chatId, projectId) => {
+    const previousContext = window.__SITEMASKIN_CONTEXT;
+    window.__SITEMASKIN_CONTEXT = context as typeof window.__SITEMASKIN_CONTEXT;
+    try {
+      const { container } = render(<OpenClawChatPanel onClose={vi.fn()} />);
+      fireEvent.click(screen.getByText("Bilagor till frågan"));
+      const upload = container.querySelector('input[type="file"]')!;
+      fireEvent.change(upload, { target: {
+        files: [new File(["image"], "hero.png", { type: "image/png" })],
+      } });
+      await waitFor(() => {
+        const call = vi.mocked(fetch).mock.calls.find(([url]) => url === "/api/media/upload");
+        const body = call?.[1]?.body as FormData | undefined;
+        expect(body?.get("chatId")).toBe(chatId);
+        expect(body?.get("projectId")).toBe(projectId);
+        expect(body?.get("mediaScope")).toBe(chatId || projectId ? "media-library" : null);
+      });
+    } finally {
+      window.__SITEMASKIN_CONTEXT = previousContext;
+    }
+  });
+
   it("keeps the collapsed panel out of the accessibility tree", () => {
     const { container } = render(<OpenClawChatPanel onClose={vi.fn()} isOpen={false} />);
     const panel = container.firstElementChild as HTMLElement;

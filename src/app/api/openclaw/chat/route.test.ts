@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   withRateLimit: vi.fn(),
   surfaceStatus: { surfaceEnabled: true, surfaceStatus: "ready", blockers: [] as string[] },
   gateway: vi.fn(),
+  answerReadTask: vi.fn(),
   validateMessages: vi.fn(),
   powers: { any: false, armedAutonomy: false } as {
     any: boolean;
@@ -12,6 +13,8 @@ const mocks = vi.hoisted(() => ({
     quickEdit?: boolean;
   },
 }));
+
+vi.mock("@/lib/openclaw/read-task", () => ({ answerOpenClawReadTask: mocks.answerReadTask }));
 
 vi.mock("@/lib/config", () => ({
   OPENCLAW: {
@@ -85,6 +88,20 @@ import {
   OPENCLAW_DISPATCH_STARTED,
 } from "@/lib/openclaw/gateway-response";
 import { POST } from "./route";
+
+it("answers a read-only attachment turn in chat without dispatching the gateway", async () => {
+  mocks.answerReadTask.mockResolvedValue(Response.json({ answer: "En stol.", sources: [] }));
+  const result = await POST(request(JSON.stringify({
+    messages: [{ role: "user", content: "hej" }],
+    readTask: { attachmentIds: [42] },
+    powers: ["armed_autonomy"],
+    buildConsent: true,
+  })));
+  expect(result.headers.get(OPENCLAW_DISPATCH_HEADER)).toBe(OPENCLAW_DISPATCH_STARTED);
+  expect(await result.text()).toContain('"content":"En stol."');
+  expect(mocks.answerReadTask).toHaveBeenCalledWith(expect.any(Request), { attachmentIds: [42] }, "hej");
+  expect(mocks.gateway).not.toHaveBeenCalled();
+});
 
 function request(body = JSON.stringify({ messages: [{ role: "user", content: "hej" }] })) {
   return new NextRequest("http://localhost/api/openclaw/chat", { method: "POST", body });

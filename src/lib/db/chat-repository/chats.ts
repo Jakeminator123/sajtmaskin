@@ -30,6 +30,15 @@ export async function createChat(
   return toRow(rows[0]) as unknown as Chat;
 }
 
+export async function getChatProjectId(id: string): Promise<string | null> {
+  const [chat] = await db
+    .select({ projectId: engineChats.projectId })
+    .from(engineChats)
+    .where(eq(engineChats.id, id))
+    .limit(1);
+  return chat?.projectId ?? null;
+}
+
 export async function getChat(id: string): Promise<ChatWithMessages | null> {
   const chatRows = await db.select().from(engineChats).where(eq(engineChats.id, id)).limit(1);
   if (chatRows.length === 0) return null;

@@ -15,10 +15,9 @@ vi.mock("sonner", () => ({
 
 vi.mock("@/components/forms/voice-recorder", () => ({ VoiceRecorder: () => null }));
 
-vi.mock("@/components/media/file-upload-zone", () => ({
+vi.mock("@/components/media/file-upload-zone", async (original) => ({
+  ...await original<typeof import("@/components/media/file-upload-zone")>(),
   FileUploadZone: () => null,
-  filesToAttachments: () => [],
-  filesToPromptText: () => "",
 }));
 
 vi.mock("@/components/media/media-drawer", () => ({ MediaDrawer: () => null }));
@@ -74,6 +73,46 @@ afterEach(() => {
     // ignore
   }
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
+});
+
+it("keeps a selected source outside route intent and sends its exact media URL to the builder", async () => {
+  const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
+  sajtagent.value = makeAgent();
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(Response.json({
+      url: "https://example.org/source", title: "Vald sida", passages: ["Välj den här exakta texten."],
+      images: [{ url: "https://images.example/asset", alt: "Detalj" }],
+    }))
+    .mockResolvedValueOnce(Response.json({
+      media: { id: 42, url: "https://blob.example/media/photo.png", filename: "photo.png", contentType: "image/png" },
+    }));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<ChatInterface chatId="chat_1" mediaEnabled onSendMessage={build} />);
+  const request = "Kan du gå till www.minbil.se och hämta bild X och textstycke Y?";
+  await typeAndSend(request);
+  expect(screen.getByTestId("composer-route-hint").textContent).toContain("Läser en webbsida");
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith("/api/openclaw/source-page", expect.objectContaining({
+    body: JSON.stringify({ url: "https://www.minbil.se/" }),
+  }));
+  await screen.findByText("Vald sida");
+  await typeAndSend(request);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(sajtagent.value.send).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText("Textstycke"), { target: { value: "Välj den här exakta texten." } });
+  fireEvent.change(screen.getByLabelText("Bild"), { target: { value: "https://images.example/asset" } });
+  fireEvent.click(screen.getByLabelText("Jag får återanvända bilden"));
+  fireEvent.click(screen.getByRole("button", { name: "Använd i utkastet" }));
+  await screen.findByText("Vald källa https://example.org/source");
+  expect(build).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("radio", { name: "Bygg" }));
+  await typeAndSend("Lägg in bilden och texten på startsidan.");
+  expect(build).toHaveBeenCalledWith(
+    expect.stringContaining("Välj den här exakta texten."),
+    expect.objectContaining({ attachments: [expect.objectContaining({ url: "https://blob.example/media/photo.png" })] }),
+  );
+  expect(sajtagent.value.send).not.toHaveBeenCalled();
 });
 
 async function typeAndSend(text: string) {
@@ -304,6 +343,9 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     });
     expect(hint().textContent).toContain("Till Sajtagenten – kan ändra sajten");
     expect(hint().textContent).not.toContain("ändrar inget");
+
+    fireEvent.change(textarea, { target: { value: "Sök efter https://example.org/produkt?id=42&typ=1#bild på webben." } });
+    expect(hint().textContent).toContain("Fråga – ändrar inget");
 
     // En fråga med frågeord bär aldrig medgivande, så löftet står kvar.
     fireEvent.change(textarea, { target: { value: "Vad tycker du om startsidan?" } });

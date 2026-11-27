@@ -24,6 +24,8 @@
  */
 
 import { useState, useRef, useCallback, useId } from "react";
+import { MAX_MEDIA_FILE_BYTES } from "@/lib/media/upload-limits";
+import { appendProjectMediaLibraryScope } from "@/lib/media/project-media-library";
 import {
   Upload,
   X,
@@ -57,7 +59,7 @@ const ACCEPTED_TYPES = [
   ...ACCEPTED_TEXT_TYPES,
 ];
 // The server enforces a 4MB Blob-safe cap for preview reliability; match it.
-const MAX_FILE_SIZE = 4 * 1024 * 1024;
+const MAX_FILE_SIZE = MAX_MEDIA_FILE_BYTES;
 const MAX_FILES = 5;
 
 export interface UploadedFile {
@@ -83,6 +85,7 @@ export type V0UserFileAttachment = {
 
 interface FileUploadZoneProps {
   projectId: string | null;
+  chatId?: string;
   onFilesChange: (files: UploadedFile[]) => void;
   files: UploadedFile[];
   disabled?: boolean;
@@ -91,6 +94,7 @@ interface FileUploadZoneProps {
 
 export function FileUploadZone({
   projectId,
+  chatId,
   onFilesChange,
   files,
   disabled = false,
@@ -159,13 +163,10 @@ export function FileUploadZone({
         onFilesChange(workingFiles);
 
         // Upload file to Vercel Blob via media API (gets public URLs!)
-        // Use project-specific endpoint if projectId exists, otherwise use general media API
         try {
           const formData = new FormData();
           formData.append("file", file);
-          if (projectId) {
-            formData.append("projectId", projectId);
-          }
+          appendProjectMediaLibraryScope(formData, projectId, chatId);
 
           // Use media upload API - it handles Vercel Blob uploads
           // and returns PUBLIC URLs that the preview can access.
@@ -228,7 +229,7 @@ export function FileUploadZone({
         }
       }
     },
-    [projectId, files, onFilesChange, disabled],
+    [projectId, chatId, files, onFilesChange, disabled],
   );
 
   // Remove file
@@ -324,7 +325,9 @@ export function FileUploadZone({
                   <AlertCircle className="h-3 w-3" />
                 )}
                 <span className="max-w-[100px] truncate">{file.filename}</span>
-                <button onClick={() => removeFile(file.id)} className="hover:text-white">
+                {file.status === "error" && <span role="alert">{file.error || "Uppladdning misslyckades"}</span>}
+                <button type="button" aria-label={`Ta bort ${file.filename}`}
+                  onClick={() => removeFile(file.id)} className="hover:text-white">
                   <X className="h-3 w-3" />
                 </button>
               </div>

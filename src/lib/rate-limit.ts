@@ -58,6 +58,8 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "text:extract": { maxRequests: 20, windowMs: 60 * 1000 },
   "text:analyze": { maxRequests: 20, windowMs: 60 * 1000 },
   "openclaw:chat": { maxRequests: 20, windowMs: 60 * 1000 },
+  "openclaw:source-page": { maxRequests: 8, windowMs: 60 * 1000 },
+  "openclaw:read-task": { maxRequests: 6, windowMs: 60 * 60 * 1000 },
   "openclaw:tips": { maxRequests: 20, windowMs: 60 * 1000 },
   // Sajtagentens beständiga historik i buildern: en läsning per chattbyte och
   // en skrivning per avslutad tur, så bucketen är rymligare än chat-routen.

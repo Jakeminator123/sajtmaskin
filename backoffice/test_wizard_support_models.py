@@ -115,7 +115,10 @@ class FallbackParityTests(unittest.TestCase):
                     dict.fromkeys([entry["defaultModel"], *entry.get("fallbackModels", [])])
                 )
                 self.assertEqual(fallback, expected)
-                self.assertEqual(expected[0], "gpt-6.1-sol")
+                default_model = (
+                    "gpt-6.1-terra" if workload_id == aw.WORKLOAD_SCAFFOLD_WIZARD_PERSONA else "gpt-6.2-sol"
+                )
+                self.assertEqual(expected[0], default_model)
                 self.assertNotIn("gpt-6-luna", expected)
 
     def test_vision_fallbacks_match_the_manifest(self) -> None:
@@ -125,12 +128,7 @@ class FallbackParityTests(unittest.TestCase):
                     fallback, frozenset(_workload(workload_id).get("visionModels", []))
                 )
 
-    def test_vision_models_cover_every_offered_5_6_id(self) -> None:
-        """visionModels är bild-allowlisten, inte en automatisk fallback.
-
-        Luna får stå kvar i personans visionModels utan att erbjudas som
-        default eller fallbackModels.
-        """
+    def test_vision_models_cover_every_offered_image_model(self) -> None:
         for workload_id in ALL_WORKLOADS:
             entry = _workload(workload_id)
             vision = set(entry.get("visionModels", []))
@@ -252,13 +250,13 @@ class ManifestMissingOrBrokenTests(unittest.TestCase):
             )
         )
 
-    def test_missing_manifest_documents_medium_only_for_sol_defaults(self) -> None:
+    def test_missing_manifest_uses_the_workload_default_effort(self) -> None:
         root = self._root_with_manifest(None)
         for workload_id in ALL_WORKLOADS:
             with self.subTest(workload_id=workload_id):
                 self.assertEqual(
-                    aw.resolve_reasoning_effort(root, workload_id, "gpt-6.1-sol"),
-                    "medium",
+                    aw.resolve_reasoning_effort(root, workload_id, aw.resolve_default_model(root, workload_id)),
+                    "low" if workload_id == aw.WORKLOAD_SCAFFOLD_WIZARD_GUIDE else "medium",
                 )
                 self.assertIsNone(aw.resolve_reasoning_effort(root, workload_id, "gpt-4o"))
                 self.assertIsNone(aw.resolve_reasoning_effort(root, workload_id, "gpt-6-luna"))
@@ -266,13 +264,13 @@ class ManifestMissingOrBrokenTests(unittest.TestCase):
                     aw.resolve_reasoning_effort(root, workload_id, "not-a-model")
                 )
 
-    def test_broken_manifest_uses_the_same_documented_sol_effort(self) -> None:
+    def test_broken_manifest_uses_the_same_documented_guide_effort(self) -> None:
         root = self._root_with_manifest("{ trasig json")
         self.assertEqual(
             aw.resolve_reasoning_effort(
-                root, aw.WORKLOAD_SCAFFOLD_WIZARD_GUIDE, "gpt-6.1-sol"
+                root, aw.WORKLOAD_SCAFFOLD_WIZARD_GUIDE, "gpt-6.2-sol"
             ),
-            "medium",
+            "low",
         )
         self.assertIsNone(
             aw.resolve_reasoning_effort(root, aw.WORKLOAD_DOSSIER_CURATION, "gpt-4o")
@@ -439,7 +437,7 @@ class ReasoningTokenBudgetTests(unittest.TestCase):
         reasoning = self._payload_for(_GUIDE, default_model)
         classic = self._payload_for(_GUIDE, "gpt-4o")
         self.assertEqual(reasoning["max_completion_tokens"], 8192)
-        self.assertEqual(reasoning["reasoning_effort"], "medium")
+        self.assertEqual(reasoning["reasoning_effort"], "low")
         self.assertNotIn("temperature", reasoning)
         self.assertEqual(classic["max_completion_tokens"], 500)
         self.assertNotIn("reasoning_effort", classic)

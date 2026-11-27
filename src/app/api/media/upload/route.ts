@@ -4,10 +4,15 @@ import {
   canUserUploadFile,
   getMediaLibraryByUser,
   getMediaLibraryCounts,
+  requireMediaUploadProject,
   saveMediaLibraryItem,
 } from "@/lib/db/services/media";
-import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
+import { deleteBlob, uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
 import { withRateLimit } from "@/lib/rate-limit";
+import { MAX_MEDIA_FILE_BYTES, MAX_MEDIA_IMAGES, MAX_MEDIA_VIDEOS } from "@/lib/media/upload-limits";
+import { MediaUploadPolicyError } from "@/lib/media/upload-policy-error";
+import { PROJECT_MEDIA_LIBRARY_CATEGORY } from "@/lib/media/project-media-library";
+import { resolveMediaUploadProject } from "@/lib/media/resolve-upload-project";
 import { errorLog, warnLog } from "@/lib/utils/debug";
 import { readRequestFormDataWithLimit } from "@/lib/api/read-limited-body";
 
@@ -18,7 +23,7 @@ import { readRequestFormDataWithLimit } from "@/lib/api/read-limited-body";
  * Handles uploading media files to a user's persistent media library.
  *
  * SUPPORTED FILE TYPES:
- * - Images (jpg, png, gif, webp) - max 10 total
+ * - Images (jpg, png, gif, webp) - per-site or personal quota
  * - Videos (mp4, webm, mov) - max 3 total
  * - PDFs - no limit
  * - Text files (txt, md, json, css) - no limit
@@ -40,11 +45,10 @@ import { readRequestFormDataWithLimit } from "@/lib/api/read-limited-body";
 // CONSTANTS
 // ============================================================================
 
-const MAX_IMAGES = 10; // Includes logos
-const MAX_VIDEOS = 3;
-const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB (Blob-safe for preview reliability)
+
+const MAX_FILE_SIZE = MAX_MEDIA_FILE_BYTES;
 const MAX_UPLOAD_BODY_BYTES = 5 * 1024 * 1024;
-const MAX_PROJECT_ID_LENGTH = 200;
+const MAX_SCOPE_ID_LENGTH = 200;
 const MAX_DESCRIPTION_LENGTH = 5_000;
 const MAX_TAG_LENGTH = 100;
 const MEDIA_FILE_TYPES = ["image", "video", "pdf", "text", "logo", "other"] as const;
@@ -118,7 +122,8 @@ export async function POST(request: NextRequest) {
 
     const { formData } = body;
     const file = formData.get("file");
-    const projectId = formData.get("projectId");
+    const rawProjectId = formData.get("projectId");
+    const rawChatId = formData.get("chatId");
     const description = formData.get("description");
     const tagsStr = formData.get("tags");
 
@@ -126,8 +131,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Ingen fil bifogad" }, { status: 400 });
     }
     if (
-      (projectId !== null &&
-        (typeof projectId !== "string" || projectId.length > MAX_PROJECT_ID_LENGTH)) ||
+      (rawProjectId !== null &&
+        (typeof rawProjectId !== "string" || !rawProjectId.trim() || rawProjectId.length > MAX_SCOPE_ID_LENGTH)) ||
+      (rawChatId !== null &&
+        (typeof rawChatId !== "string" || !rawChatId.trim() || rawChatId.length > MAX_SCOPE_ID_LENGTH)) ||
       (description !== null &&
         (typeof description !== "string" || description.length > MAX_DESCRIPTION_LENGTH)) ||
       (tagsStr !== null && typeof tagsStr !== "string")
@@ -161,8 +168,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const projectId = await resolveMediaUploadProject(
+      request,
+      user.id,
+      typeof rawProjectId === "string" ? rawProjectId.trim() : undefined,
+      typeof rawChatId === "string" ? rawChatId.trim() : undefined,
+    );
+    const category = projectId && formData.get("mediaScope") === PROJECT_MEDIA_LIBRARY_CATEGORY
+      ? PROJECT_MEDIA_LIBRARY_CATEGORY : "media";
+
     // SERVER-SIDE LIMIT CHECK - Can't be bypassed by client
-    const limitCheck = await canUserUploadFile(user.id, file.type, MAX_IMAGES, MAX_VIDEOS);
+    const limitCheck = await canUserUploadFile(user.id, file.type, projectId);
     if (!limitCheck.allowed) {
       return NextResponse.json({ success: false, error: limitCheck.reason }, { status: 400 });
     }
@@ -199,7 +215,7 @@ export async function POST(request: NextRequest) {
       buffer,
       contentType: file.type,
       projectId: projectId || undefined,
-      category: "media",
+      category,
     });
 
     if (!uploadResult) {
@@ -223,11 +239,15 @@ export async function POST(request: NextRequest) {
         file.type,
         file.size,
         uploadResult.url,
-        projectId || undefined,
+        projectId,
         description || undefined,
         tags,
       );
     } catch (persistError) {
+      if (persistError instanceof MediaUploadPolicyError) {
+        await deleteBlob(uploadResult.storageType === "blob" ? uploadResult.url : uploadResult.path);
+        return NextResponse.json({ success: false, error: persistError.message }, { status: persistError.status });
+      }
       errorLog("Media", "Metadata persistence failed after upload", persistError);
       // The insert may have committed before the connection failed. Preserve
       // the blob until persistence can be reconciled, rather than lose user data.
@@ -254,6 +274,9 @@ export async function POST(request: NextRequest) {
           : undefined,
     });
     } catch (error: unknown) {
+      if (error instanceof MediaUploadPolicyError) {
+        return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+      }
       errorLog("Media", "Upload error", error);
       return NextResponse.json(
         { success: false, error: "Kunde inte ladda upp filen" },
@@ -280,6 +303,16 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const rawFileType = searchParams.get("fileType");
+    const rawProjectId = searchParams.get("projectId");
+    const rawChatId = searchParams.get("chatId");
+    if (rawProjectId !== null && (!rawProjectId.trim() || rawProjectId.length > MAX_SCOPE_ID_LENGTH)) {
+      return NextResponse.json({ success: false, error: "Ogiltig sajt" }, { status: 400 });
+    }
+    if (rawChatId !== null && (!rawChatId.trim() || rawChatId.length > MAX_SCOPE_ID_LENGTH)) {
+      return NextResponse.json({ success: false, error: "Ogiltig chatt" }, { status: 400 });
+    }
+    const projectId = await resolveMediaUploadProject(request, user.id, rawProjectId?.trim(), rawChatId?.trim());
+    await requireMediaUploadProject(user.id, projectId);
     let fileType: MediaFileType | undefined;
     if (rawFileType) {
       if (!isMediaFileType(rawFileType)) {
@@ -291,12 +324,11 @@ export async function GET(request: NextRequest) {
       fileType = rawFileType;
     }
 
-    // SECURITY: Only return the current user's files
-    // projectId filter removed - users should only see their own files
+    // Listing stays account-wide so users can reuse their own media in another site.
     const [items, counts] = await Promise.all([
       getMediaLibraryByUser(user.id, fileType),
       // Also return counts for limit display in UI.
-      getMediaLibraryCounts(user.id),
+      getMediaLibraryCounts(user.id, projectId),
     ]);
 
     return NextResponse.json({
@@ -307,6 +339,7 @@ export async function GET(request: NextRequest) {
         filename: item.original_name,
         mimeType: item.mime_type,
         fileType: item.file_type,
+        projectId: item.project_id,
         size: item.size_bytes,
         description: item.description,
         tags: item.tags,
@@ -314,11 +347,14 @@ export async function GET(request: NextRequest) {
       })),
       counts,
       limits: {
-        maxImages: MAX_IMAGES,
-        maxVideos: MAX_VIDEOS,
+        maxImages: MAX_MEDIA_IMAGES,
+        maxVideos: MAX_MEDIA_VIDEOS,
       },
     });
   } catch (error: unknown) {
+    if (error instanceof MediaUploadPolicyError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+    }
     console.error("[API/Media/Upload] Error:", error);
     return NextResponse.json(
       { success: false, error: "Kunde inte hämta mediebiblioteket" },

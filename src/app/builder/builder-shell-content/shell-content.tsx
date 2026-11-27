@@ -534,6 +534,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             <Relocatable slot={composerSlot}>
             <ChatInterface
               chatId={vm.chatId}
+              projectId={vm.mediaProjectId}
               initialPrompt={vm.initialPrompt}
               auditHandoff={vm.auditHandoff}
               onCreateChat={vm.requestCreateChat}
@@ -542,7 +543,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onFigmaInputOpenChange={setIsFigmaInputOpen}
               isBusy={isInteractionLocked}
               isPreparingPrompt={vm.isPreparingPrompt}
-              mediaEnabled={vm.mediaEnabled}
+              mediaEnabled={vm.mediaEnabled && (!vm.chatId || Boolean(vm.mediaProjectId))}
               continuePlanMode={Boolean(latestPendingReply?.planMode)}
               builderAwaitingReply={vm.isAwaitingInput || Boolean(latestPendingReply)}
               followUpBaseInfo={followUpBaseInfo}
@@ -591,6 +592,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             {isDesktopShell ? null : previewTools("bg-background m-1.5 self-end")}
             <PreviewPanel
               chatId={vm.chatId}
+              mediaProjectId={vm.mediaProjectId}
               versionId={vm.activeVersionId}
               designTheme={vm.designTheme}
               onDesignThemeChange={vm.setDesignTheme}

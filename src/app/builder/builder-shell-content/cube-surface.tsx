@@ -312,7 +312,7 @@ export function BuilderCubeSurface({
       avatar: {
         label: "Avatar",
         icon: <Video />,
-        content: <SajtagentAvatar variant="stage" />,
+        content: <SajtagentAvatar variant="stage" chatId={vm.chatId} />,
       },
       sitemap: {
         label: "Sajtkarta",

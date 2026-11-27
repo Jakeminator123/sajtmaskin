@@ -32,6 +32,7 @@ interface ChatMessage {
 
 interface DidChatRequestBody {
   sessionId?: string;
+  readTask?: unknown;
   message?: string;
   text?: string;
   input?: string;
@@ -204,6 +205,13 @@ export async function POST(req: NextRequest) {
 
     const sessionId = sanitizeSessionId(body.sessionId) || `avatar-${crypto.randomUUID()}`;
     const history = sanitizeHistory(body.recentMessages);
+    if (body.readTask !== undefined) {
+      const { answerOpenClawReadTask } = await import("@/lib/openclaw/read-task");
+      const readAnswer = await answerOpenClawReadTask(req, body.readTask, userMessage);
+      if (!readAnswer.ok) return readAnswer;
+      const { answer, sources } = await readAnswer.json() as { answer: string; sources: string[] };
+      return NextResponse.json({ success: true, sessionId, reply: answer, sources });
+    }
 
     // Cross-tenant guard (Codex P1): the avatar bridge may only read generated
     // files for a chat/version the REQUESTER owns. Without this, a public avatar
