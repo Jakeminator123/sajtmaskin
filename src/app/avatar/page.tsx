@@ -34,6 +34,7 @@ type AvatarPageProps = {
   searchParams?: Promise<{
     mode?: string;
     mock?: string;
+    chatId?: string;
   }>;
 };
 
@@ -41,9 +42,12 @@ export default async function AvatarPage({ searchParams }: AvatarPageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const mode = resolvedSearchParams.mode === "bridge" ? "bridge" : "iframe";
   const mockMode = mode === "bridge" && resolvedSearchParams.mock === "1";
-  const iframeHref = "/avatar?mode=iframe";
-  const bridgeHref = "/avatar?mode=bridge";
-  const bridgeMockHref = "/avatar?mode=bridge&mock=1";
+  const chatId = typeof resolvedSearchParams.chatId === "string" && resolvedSearchParams.chatId.length <= 200
+    ? resolvedSearchParams.chatId.trim() || undefined : undefined;
+  const projectContext = chatId ? `&chatId=${encodeURIComponent(chatId)}` : "";
+  const iframeHref = `/avatar?mode=iframe${projectContext}`;
+  const bridgeHref = `/avatar?mode=bridge${projectContext}`;
+  const bridgeMockHref = `/avatar?mode=bridge&mock=1${projectContext}`;
 
   return (
     <main className="bg-background min-h-screen px-6 py-10 md:py-16">
@@ -104,7 +108,7 @@ export default async function AvatarPage({ searchParams }: AvatarPageProps) {
 
               <div className="border-border/20 bg-background/70 mt-6 rounded-[28px] border p-3 md:p-4">
                 {mode === "bridge" ? (
-                  <DidOpenClawBridge testMode={mockMode} iframeHref={iframeHref} />
+                  <DidOpenClawBridge key={chatId} testMode={mockMode} iframeHref={iframeHref} chatId={chatId} />
                 ) : (
                   <DidAvatarEmbed />
                 )}

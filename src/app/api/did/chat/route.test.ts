@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const answerReadTask = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/openclaw/read-task", () => ({ answerOpenClawReadTask: answerReadTask }));
+
 vi.mock("@/lib/config", () => ({
   OPENCLAW: {
     gatewayUrl: "https://gateway.example",
@@ -40,6 +43,20 @@ afterEach(() => {
 });
 
 describe("POST /api/did/chat", () => {
+  it("returns the readable answer separately from citations for the avatar", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    answerReadTask.mockResolvedValue(Response.json({ answer: "En bok.", sources: ["https://example.org/"] }));
+    const request = new NextRequest("http://localhost/api/did/chat", {
+      method: "POST",
+      body: JSON.stringify({ sessionId: "reader", message: "Sök på webben efter en bok", readTask: { search: true } }),
+    });
+
+    const response = await POST(request);
+    expect(await response.json()).toMatchObject({ success: true, reply: "En bok.", sources: ["https://example.org/"] });
+    expect(answerReadTask).toHaveBeenCalledWith(request, { search: true }, "Sök på webben efter en bok");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("keeps client sessionId out of OpenClaw persistence while sharing model routing", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       Response.json({ choices: [{ message: { content: "Hej!" } }] }),

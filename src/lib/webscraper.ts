@@ -136,16 +136,30 @@ function looksLikeLogo(value: string): boolean {
 
 type CheerioRoot = ReturnType<Awaited<ReturnType<typeof getCheerio>>["load"]>;
 
-function extractSiteImages($: CheerioRoot, baseUrl: URL): ScrapedSiteImage[] {
+function extractSiteImages(
+  $: CheerioRoot,
+  baseUrl: URL,
+  options?: { allowExtensionless: boolean },
+): ScrapedSiteImage[] {
   const seen = new Set<string>();
   const collected: ScrapedSiteImage[] = [];
 
   const push = (raw: string | undefined, alt: string | undefined, kind: ScrapedSiteImage["kind"]) => {
     const abs = raw ? absoluteUrl(raw, baseUrl) : null;
-    if (!abs || !IMAGE_EXTENSION_RE.test(abs) || seen.has(abs)) return;
-    seen.add(abs);
+    if (!abs) return;
+    let candidate = abs;
+    if (options?.allowExtensionless) {
+      const parsed = URL.parse(abs);
+      if (!parsed || parsed.username || parsed.password || !validateSsrfTarget(parsed).ok) return;
+      parsed.hash = "";
+      candidate = parsed.href;
+    } else if (!IMAGE_EXTENSION_RE.test(abs)) {
+      return;
+    }
+    if (seen.has(candidate)) return;
+    seen.add(candidate);
     collected.push({
-      url: abs,
+      url: candidate,
       ...(alt?.trim() ? { alt: alt.trim() } : {}),
       kind,
     });
@@ -172,7 +186,7 @@ function extractSiteImages($: CheerioRoot, baseUrl: URL): ScrapedSiteImage[] {
 
   $("img").each((_, el) => {
     const node = $(el);
-    const src = node.attr("src");
+    const src = (options?.allowExtensionless ? node.attr("data-src") : undefined) || node.attr("src");
     const alt = node.attr("alt");
     if (!src) return;
     if (looksLikeLogo([alt, src, node.attr("class"), node.attr("id")].filter(Boolean).join(" "))) {
@@ -584,7 +598,7 @@ async function tryWordPressFallback(
   return null;
 }
 
-async function fetchPage(url: string): Promise<{
+async function fetchPage(url: string, maxBodyBytes?: number): Promise<{
   html: string;
   finalUrl: string;
   responseTime: number;
@@ -601,6 +615,7 @@ async function fetchPage(url: string): Promise<{
   try {
     response = await guardedFetch(url, {
       timeoutMs: 15_000,
+      maxBodyBytes,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -846,6 +861,36 @@ async function parsePage(html: string, url: string, responseTime: number, logger
     linksForFollow: dedupeLinks(linksForFollow).sort((a, b) => b.score - a.score),
     contact,
     imageCandidates,
+  };
+}
+
+/** Read only the supplied document. The audit's link and CMS fallbacks stay out of this path. */
+export async function readPublicSourcePage(url: string): Promise<import("@/lib/openclaw/source-page").PublicSourcePage> {
+  const page = await fetchPage(url, 1_500_000);
+  const cheerio = await getCheerio();
+  const $ = cheerio.load(page.html);
+  $("script, style, noscript, template, nav, footer, [hidden]").remove();
+  const main = $("main, article, [role='main']").first();
+  const body = main.length ? main : $("body");
+  const passages = new Set<string>();
+  body.find("h1, h2, h3, p, li, blockquote, figcaption").each((_, element) => {
+    if (passages.size >= 30) return false;
+    const text = $(element).text().replace(/\s+/g, " ").trim().slice(0, 900);
+    if (text) passages.add(text);
+  });
+  if (passages.size === 0) {
+    const text = body.text().replace(/\s+/g, " ").trim().slice(0, 900);
+    if (text) passages.add(text);
+  }
+
+  return {
+    url: page.finalUrl,
+    title: $("title").text().trim().slice(0, 150),
+    passages: [...passages],
+    images: extractSiteImages($, new URL(page.finalUrl), { allowExtensionless: true })
+      .filter((image) => image.url.length <= 2_048)
+      .slice(0, 20)
+      .map(({ url, alt }) => ({ url, alt: alt?.slice(0, 160) })),
   };
 }
 

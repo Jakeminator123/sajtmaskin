@@ -8,6 +8,7 @@ import {
 } from "@/lib/db/services/media";
 import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
 import { withRateLimit } from "@/lib/rate-limit";
+import { MAX_MEDIA_IMAGES as MAX_IMAGES, MAX_MEDIA_VIDEOS as MAX_VIDEOS } from "@/lib/media/upload-limits";
 import { errorLog, warnLog } from "@/lib/utils/debug";
 import { readRequestFormDataWithLimit } from "@/lib/api/read-limited-body";
 
@@ -40,8 +41,7 @@ import { readRequestFormDataWithLimit } from "@/lib/api/read-limited-body";
 // CONSTANTS
 // ============================================================================
 
-const MAX_IMAGES = 10; // Includes logos
-const MAX_VIDEOS = 3;
+
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB (Blob-safe for preview reliability)
 const MAX_UPLOAD_BODY_BYTES = 5 * 1024 * 1024;
 const MAX_PROJECT_ID_LENGTH = 200;

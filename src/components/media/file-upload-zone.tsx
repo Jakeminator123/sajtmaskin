@@ -324,7 +324,9 @@ export function FileUploadZone({
                   <AlertCircle className="h-3 w-3" />
                 )}
                 <span className="max-w-[100px] truncate">{file.filename}</span>
-                <button onClick={() => removeFile(file.id)} className="hover:text-white">
+                {file.status === "error" && <span role="alert">{file.error || "Uppladdning misslyckades"}</span>}
+                <button type="button" aria-label={`Ta bort ${file.filename}`}
+                  onClick={() => removeFile(file.id)} className="hover:text-white">
                   <X className="h-3 w-3" />
                 </button>
               </div>

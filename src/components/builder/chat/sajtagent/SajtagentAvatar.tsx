@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useAuthStore } from "@/lib/auth/auth-store";
 import { Loader2, Maximize2, Minimize2, Video, VideoOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -21,7 +23,8 @@ export type SajtagentAvatarVariant = "inline" | "stage";
 
 /** D-ID is an output for the existing conversation, never a second chat.
  * The composer's microphone and text field remain the only input. */
-export function SajtagentAvatar({ variant = "inline" }: { variant?: SajtagentAvatarVariant }) {
+export function SajtagentAvatar({ variant = "inline", chatId }: { variant?: SajtagentAvatarVariant; chatId?: string | null }) {
+  const isAdmin = useAuthStore((state) => state.user?.isAdmin === true);
   const agent = useSajtagent();
   const [enabled, setEnabled] = useState(false);
   const available = DID_AVATAR_AVAILABLE && Boolean(agent?.available);
@@ -56,6 +59,11 @@ export function SajtagentAvatar({ variant = "inline" }: { variant?: SajtagentAva
               Starta avataren
             </Button>
           </>
+        )}
+        {isAdmin && chatId && (
+          <Link href={`/avatar?mode=bridge&chatId=${encodeURIComponent(chatId)}`} className="text-xs underline">
+            Öppna avatarpiloten
+          </Link>
         )}
       </div>
     );

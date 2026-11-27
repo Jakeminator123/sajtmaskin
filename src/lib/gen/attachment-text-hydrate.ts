@@ -13,6 +13,7 @@ export type HydrateTextAttachmentsOptions = {
   maxPerFileChars?: number;
   maxTotalChars?: number;
   fetchTimeoutMs?: number;
+  onUnavailable?: () => void;
 };
 
 function isLikelyTextAttachment(attachment: RequestAttachment): boolean {
@@ -41,6 +42,7 @@ export async function appendHydratedTextAttachmentExcerpts(
 ): Promise<string> {
   const list = attachments ?? [];
   const candidates = list.filter(isLikelyTextAttachment);
+  if (candidates.length < list.length) options?.onUnavailable?.();
   if (candidates.length === 0) return prompt;
 
   const maxPerFile = options?.maxPerFileChars ?? 12_000;
@@ -57,7 +59,10 @@ export async function appendHydratedTextAttachmentExcerpts(
   let used = 0;
 
   for (const attachment of candidates) {
-    if (used >= maxTotal) break;
+    if (used >= maxTotal) {
+      options?.onUnavailable?.();
+      break;
+    }
     const label =
       attachment.filename?.trim() ||
       (() => {
@@ -68,7 +73,10 @@ export async function appendHydratedTextAttachmentExcerpts(
         }
       })();
     const budget = Math.min(maxPerFile, maxTotal - used);
-    if (budget < 200) break;
+    if (budget < 200) {
+      options?.onUnavailable?.();
+      break;
+    }
 
     try {
       const res = await safeFetch(attachment.url, {
@@ -78,14 +86,17 @@ export async function appendHydratedTextAttachmentExcerpts(
         headers: { Accept: "text/*, application/json, application/xml, */*" },
       });
       if (!res.ok) {
+        options?.onUnavailable?.();
         sections.push(`### ${label}`, "", `_Fetch failed (${res.status})_`, "");
         continue;
       }
       const raw = await res.text();
+      if (!raw.trim()) options?.onUnavailable?.();
       const excerpt = sliceUtf8(raw, budget);
       used += excerpt.length;
       sections.push(`### ${label}`, "", "```", excerpt, "```", "");
     } catch {
+      options?.onUnavailable?.();
       sections.push(`### ${label}`, "", `_Could not load attachment text._`, "");
     }
   }

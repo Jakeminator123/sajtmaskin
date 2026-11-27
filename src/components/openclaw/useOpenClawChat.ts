@@ -47,12 +47,14 @@ import { normalizeOpenClawClientMessages } from "@/lib/openclaw/message-validati
 import { composerAllowsAgentBuild, hasScopedComposerChangeRestriction, isReadOnlyComposerRequest } from "@/lib/builder/composer-route";
 import { resolveAgentActionConsent } from "@/lib/openclaw/agent-action-consent";
 import type { AgentProposalReference } from "@/lib/builder/composer-route-reference";
+import { resolveOpenClawReadTask, type OpenClawReadTask } from "@/lib/openclaw/read-task-input";
 
 function makeId() {
   return `oc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export interface OpenClawSendOptions {
+  readTask?: OpenClawReadTask;
   /**
    * Trusted local composer consent: the turn was sent in Auto or Bygg, so the
    * agent may act on it directly (`agent-action-consent.ts`). Missing metadata
@@ -180,8 +182,9 @@ export function useOpenClawChat() {
         return;
       }
 
+      const readTask = options?.internal ? options.readTask : resolveOpenClawReadTask(trimmed, options?.readTask);
       const buildRestricted = !options?.internal &&
-        (options?.restrictBuild === true || isReadOnlyComposerRequest(trimmed));
+        (Boolean(readTask) || options?.restrictBuild === true || isReadOnlyComposerRequest(trimmed));
       // Ett stopp gäller oavsett befogenhet: det återkallar också ett pågående
       // uppdrag, så nästa byggresultat inte för det vidare.
       const stopRequested = !options?.internal && options?.allowArming !== false &&
@@ -364,6 +367,7 @@ export function useOpenClawChat() {
           body: JSON.stringify({
             messages: apiMessages,
             context: clientContext,
+            readTask,
             // Which extra powers the user granted for THIS turn. The server ANDs
             // the list with its own OC_EDIT, so it can only narrow the edit
             // instructions — never unlock anything the deployment forbids.
