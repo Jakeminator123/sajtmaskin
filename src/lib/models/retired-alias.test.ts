@@ -21,7 +21,7 @@ it.each(["openai/gpt-6-astra", "openai/gpt-6.1-astra", "openai/gpt-6.2-astra"])(
 
 it("preserves the original Astra tier when Pro is now configured for current Astra", ({ onTestFinished }) => {
   vi.stubEnv("SAJTMASKIN_MODEL_PRO", "gpt-6.2-astra");
-  onTestFinished(() => vi.unstubAllEnvs());
+  onTestFinished(() => { vi.unstubAllEnvs(); });
   for (const model of ["gpt-6-astra", "openai/gpt-6-astra", "gpt-6.1-astra", "openai/gpt-6.1-astra"]) {
     expect(resolveChatModelTier({ model }), model).toBe("ultra");
     expect(resolveChatModelTier({ model, orchestration_snapshot: { modelTier: "premium" } })).toBe("premium");
