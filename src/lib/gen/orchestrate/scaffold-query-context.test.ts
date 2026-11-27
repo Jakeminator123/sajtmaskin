@@ -34,17 +34,13 @@ describe("buildScaffoldQueryContext", () => {
     ).toBeUndefined();
   });
 
-  it("preserves explicit visual style as a scaffold-selection signal", () => {
+  it("keeps visual style and tone on the presentation side", () => {
     expect(
       buildScaffoldQueryContext({
         visualDirection: { styleKeywords: ["personal", "creative"] },
         toneAndVoice: ["lugn"],
       }),
-    ).toEqual({
-      briefPages: [],
-      styleKeywords: ["personal", "creative"],
-      domainHints: [],
-    });
+    ).toBeUndefined();
   });
 
   it("reads snapshot-shaped domainProfile objects", () => {
@@ -97,7 +93,7 @@ describe("brief domainProfile in scaffold match", () => {
     expect(result.scaffold?.id).toBe("landing-page");
   });
 
-  it("still lets personal+creative style select portfolio", async () => {
+  it("does not let personal+creative styling commission a portfolio", async () => {
     const queryContext = buildScaffoldQueryContext({
       visualDirection: { styleKeywords: ["personal", "creative"] },
     });
@@ -106,8 +102,8 @@ describe("brief domainProfile in scaffold match", () => {
       queryContext,
     });
 
-    expect(result.meta.keywordScores.portfolio).toBeGreaterThanOrEqual(2);
-    expect(result.scaffold?.id).toBe("portfolio");
+    expect(result.meta.keywordScores.portfolio).toBe(0);
+    expect(result.scaffold?.id).toBe("landing-page");
   });
 
   it("lets a saas brief prefer saas-landing", async () => {

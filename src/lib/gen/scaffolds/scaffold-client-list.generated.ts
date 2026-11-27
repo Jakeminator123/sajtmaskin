@@ -16,7 +16,7 @@ export type ScaffoldClientListEntry = {
 // Keep one deterministic row per manifest; the freshness gate owns this layout.
 // prettier-ignore
 export const SCAFFOLD_CLIENT_LIST: ReadonlyArray<ScaffoldClientListEntry> = [
-  { id: "base-nextjs", label: "Base Next.js", description: "Minimal Next.js starter with Tailwind, App Router, and dark theme.", allowedBuildIntents: ["website", "template"] },
+  { id: "base-nextjs", label: "Base Next.js", description: "Minimal Next.js starter with Tailwind, App Router, and dark theme.", allowedBuildIntents: ["website", "template", "app"] },
   { id: "landing-page", label: "Landing Page", description: "Polished one-page or multi-section layout for local businesses, service companies, and product launches.", allowedBuildIntents: ["website", "template"] },
   { id: "saas-landing", label: "SaaS Landing", description: "Product-led marketing starter with labelled sample metrics, example pricing and FAQ. Signup, billing and product integrations require a real connection.", allowedBuildIntents: ["website", "template"] },
   { id: "portfolio", label: "Portfolio", description: "Personal portfolio starter with intro, selected work, writing, credibility, and contact sections.", allowedBuildIntents: ["website", "template"] },

@@ -1,11 +1,11 @@
 /**
  * Builds a `ScaffoldQueryContext` from the Brief so scaffold selection
- * (keyword + embedding) can weigh pages, style and domain.
+ * (keyword + embedding) can weigh page structure and domain.
  *
  * `siteBriefSchema` owns `domainProfile` + `toneAndVoice`. Older readers
- * looked for `businessType` / `industry`, which the schema never had. Tone is
- * deliberately not a scaffold-selection signal: it belongs to copy and
- * scaffold-variant resolution and must not make a domain scaffold eligible.
+ * looked for `businessType` / `industry`, which the schema never had. Style and
+ * tone belong to scaffold variants and copy. A visual preset cannot decide
+ * that the user asked for another product or route contract.
  */
 
 import {
@@ -65,28 +65,15 @@ export function buildScaffoldQueryContext(
         }))
     : [];
 
-  const styleKeywords = Array.isArray(
-    (brief as { visualDirection?: { styleKeywords?: unknown } }).visualDirection?.styleKeywords,
-  )
-    ? ((brief as { visualDirection?: { styleKeywords?: unknown[] } }).visualDirection?.styleKeywords ?? [])
-        .filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0)
-        .slice(0, 12)
-    : [];
-
   const domainProfile = readDomainProfile(brief);
   const domainHints = domainProfile ? domainProfileToScaffoldHints(domainProfile) : [];
 
-  if (
-    briefPages.length === 0 &&
-    styleKeywords.length === 0 &&
-    domainHints.length === 0
-  ) {
+  if (briefPages.length === 0 && domainHints.length === 0) {
     return undefined;
   }
 
   return {
     briefPages,
-    styleKeywords,
     domainHints,
   };
 }

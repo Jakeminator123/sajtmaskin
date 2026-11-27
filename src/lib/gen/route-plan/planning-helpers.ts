@@ -1,3 +1,5 @@
+import { outsidePageSubject, splitPageSubject } from "@/lib/builder/page-subject";
+import { isTermFullyNegated } from "@/lib/builder/prompt-negation";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { escapeRegexLiteral, uWord, uWordRegex } from "@/lib/utils/unicode-word-boundary";
 import type { ScaffoldContractRoute, ScaffoldManifest } from "../scaffolds/types";
@@ -36,6 +38,34 @@ const EXPLICIT_ADD_ROUTE_PATTERNS = [
   /\b(?:lägg till|skapa)\b[\s\S]{0,32}\b(?:en\s+ny\s+|ny\s+)?(?:sida|route)\b/i,
   /\b(?:ny\s+)(?:sida|route)\b/i,
 ];
+
+const SUBJECT_COORDINATOR = uWord(String.raw`(?:and|och|samt|plus|then|sedan)`);
+const SUBJECT_CLAUSE_BOUNDARY = String.raw`(?:[,.;!?\n]|(?<=\s)[&+](?=\s)|${SUBJECT_COORDINATOR})`;
+const SUBJECT_EDIT_CLAUSE_RE = new RegExp(
+  String.raw`(?:^|${SUBJECT_CLAUSE_BOUNDARY})\s*(?:(?:please|also)\s+)?` +
+  uWord(String.raw`(?:polish|edit|update|improve|rewrite|redesign|adjust|change|putsa|redigera|ändra|uppdatera|förbättra)`),
+  "giu",
+);
+const SUBJECT_ADDITION_LIST_TAIL_RE = new RegExp(
+  String.raw`(?:,\s*(?:${SUBJECT_COORDINATOR}\s+)?|${SUBJECT_COORDINATOR}\s+|[&+]\s*)(?:(?:an?|en|ett)\s+)?$`,
+  "iu",
+);
+
+/** Retain dots inside names and abbreviations while scoping imperative intent. */
+function lastSubjectSentencePrefix(text: string): string {
+  let start = 0;
+  for (const separator of text.matchAll(/[;!?\n]|\.(?=\s|$)/gu)) {
+    if (separator[0] === ".") {
+      const token = text.slice(0, separator.index).match(/[\p{L}.]+$/u)?.[0] ?? "";
+      if (
+        /^(?:dr|mr|mrs|ms|prof|sr|jr|st|vs|e\.g|i\.e|t\.ex|bl\.a)$/iu.test(token) ||
+        /^(?:\p{L}\.)+\p{L}$/u.test(token)
+      ) continue;
+    }
+    start = separator.index + 1;
+  }
+  return text.slice(start);
+}
 
 const PAGE_NOUN = String.raw`(?:sidor|sida|pages?|routes?|vyer?|views?)`;
 const PAGE_NOUN_PLURAL = String.raw`(?:sidor|pages|routes|vyer|views)`;
@@ -535,10 +565,16 @@ function consumeLabeledPageList(rawList: string): string[] {
   return items;
 }
 
-function parseExplicitPageName(raw: string): ExplicitNamedPage | null {
+function parseExplicitPageName(raw: string, patterns?: RoutePatternEntry[]): ExplicitNamedPage | null {
   const name = cleanExplicitPageName(raw.replace(/[.;:]+$/g, ""));
   if (!name || name.length < 2) return null;
-  return { name, path: inferPathFromPageName(name) };
+  const canonical = patterns?.find((pattern) => {
+    if (!pattern.match.test(name)) return false;
+    const matchedWords = new RegExp(pattern.match.source, `${pattern.match.flags.replace(/g/g, "")}g`);
+    const modifiers = uWordRegex("our|my|the|a|an|account|vår|vårt|våra|min|mitt|mina", "giu");
+    return name.replace(matchedWords, " ").replace(modifiers, " ").trim().length === 0;
+  });
+  return canonical ? { name: canonical.name, path: canonical.path } : { name, path: inferPathFromPageName(name) };
 }
 
 function pushExplicitNamedPage(
@@ -553,10 +589,40 @@ function pushExplicitNamedPage(
   out.push(page);
 }
 
-export function extractExplicitNamedPages(prompt: string): ExplicitNamedPage[] {
+export function extractExplicitNamedPages(
+  prompt: string,
+  options?: { includeSubjects?: boolean; buildIntent?: BuildIntent },
+): ExplicitNamedPage[] {
   if (!prompt) return [];
   const seenPaths = new Set<string>();
   const out: ExplicitNamedPage[] = [];
+  if (options?.includeSubjects) {
+    const patterns = options.buildIntent === "app" ? APP_ROUTE_PATTERNS : WEBSITE_ROUTE_PATTERNS;
+    let subject = splitPageSubject(prompt);
+    let previousSubjectWasAddition = false;
+    while (subject && out.length < MAX_NAMED_PAGES_FROM_LIST) {
+      // An edit target elsewhere in the prompt is not a new route. A bare
+      // coordinated page can inherit the immediately preceding addition.
+      const sentencePrefix = lastSubjectSentencePrefix(subject.before);
+      const lastEditClause = [...sentencePrefix.matchAll(SUBJECT_EDIT_CLAUSE_RE)].at(-1);
+      const clausePrefix = lastEditClause
+        ? sentencePrefix.slice(lastEditClause.index + lastEditClause[0].length)
+        : sentencePrefix;
+      const continuesAdditionList: boolean = previousSubjectWasAddition &&
+        SUBJECT_ADDITION_LIST_TAIL_RE.test(subject.before) &&
+        !lastEditClause;
+      const isAddition: boolean = hasExplicitAddRouteIntent(clausePrefix + subject.intro) || continuesAdditionList;
+      if (isAddition) {
+        const page = parseExplicitPageName(trimBarePageName(subject.subject), patterns);
+        if (page && page.path !== "/" && !seenPaths.has(page.path)) {
+          seenPaths.add(page.path);
+          out.push(page);
+        }
+      }
+      previousSubjectWasAddition = isAddition;
+      subject = splitPageSubject(subject.after);
+    }
+  }
   for (const pattern of EXPLICIT_NAMED_PAGE_PATTERNS) {
     pattern.lastIndex = 0;
     for (const match of prompt.matchAll(pattern)) {
@@ -856,13 +922,14 @@ export function buildRoutesFromBrief(
 }
 
 export function applyPromptPatterns(
-  prompt: string,
+  message: string,
   patterns: RoutePatternEntry[],
   routes: RouteLike[],
 ): boolean {
+  const prompt = outsidePageSubject(message) ?? message;
   const before = new Set(routes.map((route) => normalizeRoutePath(route.path)));
   for (const pattern of patterns) {
-    if (pattern.match.test(prompt)) {
+    if (pattern.match.test(prompt) && !isTermFullyNegated(prompt, pattern.match)) {
       upsertRoute(routes, {
         path: pattern.path,
         name: pattern.name,

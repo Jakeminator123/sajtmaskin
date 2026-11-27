@@ -118,6 +118,18 @@ describe("inferScaffoldRetrySuggestion", () => {
     expect(suggestion?.failureType).not.toBe("app-shell-mismatch");
   });
 
+  it("keeps a subject app on its compatible starter for an unrelated preview failure", async () => {
+    const suggestion = await inferScaffoldRetrySuggestion({
+      prompt: "En sida om björnungar",
+      buildIntent: "app",
+      resolvedScaffold: getScaffoldById("base-nextjs"),
+      preflightIssues: [],
+      previewBlockingReason: "Preview failed",
+      finalizedFilesForPreview: [],
+    });
+    expect(suggestion).toBeNull();
+  });
+
   it("still flags a marketing scaffold as app-shell-mismatch on an app build", async () => {
     const landing = getScaffoldById("landing-page");
     expect(landing?.siteKind).not.toBe("app");

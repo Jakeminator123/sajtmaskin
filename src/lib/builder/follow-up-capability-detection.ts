@@ -31,6 +31,7 @@ import {
   CAPABILITY_VOCABULARY,
   type CapabilityVocabularyEntry,
 } from "./follow-up-capability-vocabulary";
+import { outsidePageSubject } from "./page-subject";
 import { isCapabilityNegated, isTermFullyNegated } from "./prompt-negation";
 
 export type CapabilitySpecificityTier = "generic" | "specific" | "beyond-dossier";
@@ -366,14 +367,15 @@ export function detectFollowUpCapabilities(
   message: string,
   options?: { mode?: "followUp" | "init" },
 ): FollowUpCapabilityDetection {
-  const trimmed = String(message ?? "").trim();
-  const wordCount = countWords(trimmed);
+  const raw = String(message ?? "").trim();
+  const trimmed = options?.mode === "init" ? (outsidePageSubject(raw) ?? raw).trim() : raw;
+  const wordCount = countWords(raw);
   if (!trimmed) {
     return {
       capabilities: [],
       capabilityIds: [],
       tierByCapability: {},
-      wordCount: 0,
+      wordCount,
       referencesExistingCapability: false,
       modifyReferenceMatches: [],
     };

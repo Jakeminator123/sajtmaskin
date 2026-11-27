@@ -75,5 +75,5 @@ export const APP_ROUTE_PATTERNS: RoutePatternEntry[] = [
   { match: /\b(report|reports|rapport|rapporter)\b/i, path: "/reports", name: "Reports", intent: "Show reports or exportable summaries." },
   { match: /\b(sign.?up|register|registr(?:era|ering)?)\b/i, path: "/signup", name: "Signup", intent: "Provide account registration for the application." },
   { match: /\b(forgot.?password|reset.?password|glömt lösenord|återställ)\b/i, path: "/forgot-password", name: "Forgot Password", intent: "Provide password recovery in the authentication flow." },
-  { match: /\b(login|inlogg|auth|sign.?in|logga in)\b/i, path: "/login", name: "Login", intent: "Provide authentication entry for the application." },
+  { match: uWordRegex("login|inlogg(?:ning)?|auth|sign.?in|logga in", "iu"), path: "/login", name: "Login", intent: "Provide authentication entry for the application." },
 ];

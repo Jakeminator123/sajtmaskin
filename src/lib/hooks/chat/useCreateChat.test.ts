@@ -4,7 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MutableRefObject } from "react";
 import type { ChatMessage } from "@/lib/builder/types";
 import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
-import { resetInitBuildChoices } from "@/lib/builder/init-build-choices";
+import { DEFAULT_INIT_BUILD_CHOICES, resetInitBuildChoices, setCurrentInitBuildChoices } from "@/lib/builder/init-build-choices";
+import { resolveThemePalette } from "@/lib/builder/theme-presets";
+import { toAIElementsFormat } from "@/lib/builder/message-adapter";
+import { buildAgentLogItems } from "@/components/builder/chat/tooling/agent-log";
 import { ENGINE_CHATS_API_PREFIX } from "@/lib/api/engine-chats-path";
 import { CREATE_CHAT_CONNECTION_BROKEN_MESSAGE } from "./helpers-errors";
 import type { ChatMessagingParams } from "./types";
@@ -227,6 +230,32 @@ describe("creation cancellation during explicit URL navigation", () => {
 });
 
 describe("useCreateChat broken-stream handling", () => {
+  it.each(["light", "dark", "auto"] as const)("shows the chosen palette in the reloaded Deep Brief blueprint with %s mode and no server visibility metadata", async (colorMode) => {
+    setCurrentInitBuildChoices({ ...DEFAULT_INIT_BUILD_CHOICES, colorMode });
+    const providerBrief = {
+      projectTitle: "Björnungar",
+      visualDirection: { colorPalette: { primary: "#abcdef", background: "#f1e2d3" } },
+    };
+    fetchMock.mockResolvedValue(jsonResponse(200, { chatId: "color-fixture", versionId: "v1" }));
+    const { result, messagesBox } = createHarness({
+      pendingBriefRef: { current: providerBrief },
+      designThemePreset: "orange",
+    });
+    expect(await create(result)).toBe(true);
+    const palette = resolveThemePalette("orange", colorMode)!;
+    persistMessages("color-fixture", messagesBox.current);
+    const tools = loadPersistedMessages("color-fixture")
+      .flatMap((message) => toAIElementsFormat(message).parts)
+      .filter((part) => part.type === "tool");
+    const blueprint = buildAgentLogItems(tools).find(({ label }) => label === "Deep Brief (ritning)");
+    expect(blueprint?.detail).toContain(palette.primary);
+    expect(blueprint?.detail).toContain(colorMode === "auto" ? "#f1e2d3" : palette.background);
+    expect(blueprint?.detail).not.toContain("#abcdef");
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.meta.brief.visualDirection.colorPalette.primary).toBe(palette.primary);
+    expect(providerBrief.visualDirection.colorPalette.primary).toBe("#abcdef");
+  });
+
   it("finishes a JSON generation without materialization, postcheck or verify requests", async () => {
     fetchMock.mockResolvedValue(jsonResponse(200, {
       chatId: "chat_json", versionId: "ver_json", previewUrl: "https://preview.example/json",
