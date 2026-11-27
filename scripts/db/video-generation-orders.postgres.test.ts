@@ -246,6 +246,25 @@ describe.skipIf(!target)("paid video orders in isolated Postgres", () => {
       .resolves.toMatchObject({ videos: MAX_MEDIA_VIDEOS });
   });
 
+  it("reads the persisted schedule while another poll owns or defers the job", async () => {
+    const { userId, order } = await prepare();
+    const id = await video.orderVideoGeneration(userId, order, price, true);
+    const started = Date.now();
+    const claim = await video.claimVideoGeneration(id);
+    if (!claim) throw new Error("Expected a submission claim");
+
+    await expect(video.claimVideoGeneration(id)).resolves.toBeNull();
+    const leased = await video.getActiveVideoGenerationSchedule(id);
+    expect(leased?.leaseUntil?.getTime()).toBeGreaterThan(started);
+
+    await video.deferVideoGeneration(claim, 60_000, { providerTaskId: randomUUID() });
+    await expect(video.claimVideoGeneration(id)).resolves.toBeNull();
+    const deferred = await video.getActiveVideoGenerationSchedule(id);
+    expect(deferred?.leaseUntil).toBeNull();
+    expect(deferred?.nextCheckAt.getTime()).toBeGreaterThanOrEqual(started + 60_000);
+    await expect(video.getActiveVideoGenerationSchedule(randomUUID())).resolves.toBeNull();
+  });
+
   it("refunds two simultaneous failure callbacks once and releases the reservation", async () => {
     const { userId, projectId, order } = await prepare();
     const id = await video.orderVideoGeneration(userId, order, price, true);
@@ -258,6 +277,7 @@ describe.skipIf(!target)("paid video orders in isolated Postgres", () => {
 
     expect(results.filter(Boolean)).toHaveLength(1);
     await expect(video.getVideoGenerationJob(userId, projectId, id)).resolves.toMatchObject({ status: "failed" });
+    await expect(video.getActiveVideoGenerationSchedule(id)).resolves.toBeNull();
     await expect(balance(userId)).resolves.toBe(initialBalance);
     await expect(ledger(userId)).resolves.toEqual([
       { type: "video_generation_usage", amount: -price.credits, key: id },

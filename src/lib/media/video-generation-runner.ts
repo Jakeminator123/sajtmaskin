@@ -14,10 +14,14 @@ import {
   completeVideoGeneration,
   deferVideoGeneration,
   failVideoGeneration,
+  getActiveVideoGenerationSchedule,
   type VideoGenerationClaim,
 } from "./video-generation-store";
 
 const INITIAL_POLL_WINDOW_MS = 240_000;
+const LEASE_RECHECK_MS = 5_000;
+const MIN_RECHECK_MS = 1_000;
+const POLL_MARGIN_MS = 100;
 const MAX_JOB_AGE_MS = 2 * 60 * 60 * 1_000;
 const PROVIDER_FAILED = "Filmen kunde inte skapas. Krediterna har återförts.";
 const SUBMISSION_UNKNOWN = "Filmbeställningen kunde inte bekräftas. Krediterna har återförts.";
@@ -118,10 +122,21 @@ export async function advanceVideoGeneration(id: string): Promise<number | null>
 
 export async function startVideoGenerationWorker(id: string) {
   const deadline = Date.now() + INITIAL_POLL_WINDOW_MS;
-  let waitMs = await advanceVideoGeneration(id);
-  while (waitMs !== null && Date.now() + waitMs < deadline) {
-    // Add a small margin so the DB is already due when the timer returns.
-    await sleep(waitMs + 100);
-    waitMs = await advanceVideoGeneration(id);
+  while (Date.now() < deadline) {
+    let waitMs = await advanceVideoGeneration(id);
+    if (waitMs === null) {
+      const schedule = await getActiveVideoGenerationSchedule(id);
+      if (!schedule) return;
+
+      // A status check can defer the job or hold its lease. Recheck a lease
+      // before expiry because its holder can release it as soon as polling ends.
+      const now = Date.now();
+      const nextCheckMs = schedule.nextCheckAt.getTime() - now;
+      const leaseMs = (schedule.leaseUntil?.getTime() ?? now) - now;
+      waitMs = Math.max(MIN_RECHECK_MS, nextCheckMs, Math.min(leaseMs, LEASE_RECHECK_MS));
+    }
+    const delay = waitMs + POLL_MARGIN_MS;
+    if (Date.now() + delay >= deadline) return;
+    await sleep(delay);
   }
 }

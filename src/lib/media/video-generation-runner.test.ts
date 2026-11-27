@@ -1,9 +1,10 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   sleep: vi.fn(),
   claimVideoGeneration: vi.fn(),
+  getActiveVideoGenerationSchedule: vi.fn(),
   completeVideoGeneration: vi.fn(),
   deferVideoGeneration: vi.fn(),
   failVideoGeneration: vi.fn(),
@@ -18,6 +19,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("node:timers/promises", () => ({ setTimeout: mocks.sleep }));
 vi.mock("./video-generation-store", () => ({
   claimVideoGeneration: mocks.claimVideoGeneration,
+  getActiveVideoGenerationSchedule: mocks.getActiveVideoGenerationSchedule,
   completeVideoGeneration: mocks.completeVideoGeneration,
   deferVideoGeneration: mocks.deferVideoGeneration,
   failVideoGeneration: mocks.failVideoGeneration,
@@ -48,8 +50,13 @@ function claim(status: "pending" | "processing", taskId: string | null = null, p
 
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.getActiveVideoGenerationSchedule.mockResolvedValue(null);
   mocks.getVideoGenerationCredentials.mockReturnValue({ apiKey: "test-api", blobToken: "test-blob" });
   mocks.submitRunwayVideo.mockResolvedValue("runway-task");
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("video generation worker", () => {
@@ -88,6 +95,87 @@ describe("video generation worker", () => {
     expect(mocks.sleep).toHaveBeenCalledTimes(2);
     expect(mocks.sleep.mock.calls.every(([ms]) => ms >= 5_000)).toBe(true);
     expect(mocks.completeVideoGeneration).toHaveBeenCalledExactlyOnceWith(processing, asset);
+  });
+
+  it("keeps polling after a status request defers the job past the worker's wake-up", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const pending = claim("pending");
+    const processing = claim("processing", "runway-task");
+    const asset = { path: "owner/film.mp4", url: "https://blob.example/film.mp4", size: 123 };
+    let nextCheckAt = new Date();
+
+    mocks.deferVideoGeneration.mockImplementation(async (_claim: unknown, delayMs: number) => {
+      nextCheckAt = new Date(Date.now() + delayMs);
+    });
+    mocks.getActiveVideoGenerationSchedule.mockImplementationOnce(async () => ({
+      nextCheckAt, leaseUntil: null,
+    }));
+    mocks.claimVideoGeneration
+      .mockResolvedValueOnce(pending)
+      .mockResolvedValueOnce(processing)
+      .mockImplementationOnce(async () => {
+        expect(nextCheckAt.getTime()).toBeGreaterThan(Date.now());
+        return null;
+      })
+      .mockImplementationOnce(async () => {
+        expect(nextCheckAt.getTime()).toBeLessThanOrEqual(Date.now());
+        return processing;
+      });
+    mocks.getRunwayVideoTask
+      .mockResolvedValueOnce({ status: "RUNNING" })
+      .mockResolvedValueOnce({ status: "SUCCEEDED", output: ["https://short.example/out"] });
+    mocks.storeRunwayVideo.mockResolvedValue(asset);
+    mocks.sleep
+      .mockImplementationOnce(async (ms: number) => {
+        vi.setSystemTime(Date.now() + ms);
+        // The authenticated status handler also advances one poll, then leaves.
+        await advanceVideoGeneration("job");
+      })
+      .mockImplementation(async (ms: number) => {
+        vi.setSystemTime(Date.now() + ms);
+      });
+
+    await startVideoGenerationWorker("job");
+
+    expect(mocks.claimVideoGeneration).toHaveBeenCalledTimes(4);
+    expect(mocks.sleep).toHaveBeenCalledTimes(2);
+    expect(mocks.sleep.mock.calls.every(([ms]) => ms >= 5_000)).toBe(true);
+    expect(mocks.submitRunwayVideo).toHaveBeenCalledTimes(1);
+    expect(mocks.completeVideoGeneration).toHaveBeenCalledExactlyOnceWith(processing, asset);
+  });
+
+  it("briefly waits for a held lease and retries before that lease would expire", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const processing = claim("processing", "runway-task");
+    const now = Date.now();
+    mocks.claimVideoGeneration.mockResolvedValueOnce(null).mockResolvedValueOnce(processing);
+    mocks.getActiveVideoGenerationSchedule.mockResolvedValueOnce({
+      nextCheckAt: new Date(now - 1_000),
+      leaseUntil: new Date(now + 90_000),
+    });
+    mocks.getRunwayVideoTask.mockResolvedValue({ status: "CANCELED" });
+
+    await startVideoGenerationWorker("job");
+
+    expect(mocks.sleep).toHaveBeenCalledExactlyOnceWith(5_100);
+    expect(mocks.failVideoGeneration).toHaveBeenCalledExactlyOnceWith(processing, expect.any(String));
+    expect(mocks.submitRunwayVideo).not.toHaveBeenCalled();
+  });
+
+  it("stops for a missing or terminal job or when its next poll is outside the window", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    mocks.claimVideoGeneration.mockResolvedValue(null);
+
+    await startVideoGenerationWorker("terminal");
+    mocks.getActiveVideoGenerationSchedule.mockResolvedValueOnce({
+      nextCheckAt: new Date(Date.now() + 239_950),
+      leaseUntil: null,
+    });
+    await startVideoGenerationWorker("later");
+
+    expect(mocks.claimVideoGeneration.mock.calls).toEqual([["terminal"], ["later"]]);
+    expect(mocks.sleep).not.toHaveBeenCalled();
+    expect(mocks.getRunwayVideoTask).not.toHaveBeenCalled();
   });
 
   it("refunds an expired submit lease without starting a replacement remote task", async () => {

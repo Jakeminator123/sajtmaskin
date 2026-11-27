@@ -179,6 +179,17 @@ export async function listDueVideoGenerationIds(limit: number) {
   return rows.map((row) => row.id);
 }
 
+export async function getActiveVideoGenerationSchedule(id: string) {
+  const [schedule] = await db.select({
+    nextCheckAt: videoGenerationJobs.next_check_at,
+    leaseUntil: videoGenerationJobs.lease_until,
+  }).from(videoGenerationJobs).where(and(
+    eq(videoGenerationJobs.id, id),
+    inArray(videoGenerationJobs.status, ACTIVE_STATUSES),
+  )).limit(1);
+  return schedule ?? null;
+}
+
 export async function claimVideoGeneration(id: string): Promise<VideoGenerationClaim | null> {
   const now = new Date();
   return db.transaction(async (tx) => {
