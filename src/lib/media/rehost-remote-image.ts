@@ -70,6 +70,7 @@ export async function readRemoteImageBodyWithLimit(
 
 export type RehostRemoteImageSuccess = {
   url: string;
+  path: string;
   filename: string;
   contentType: string;
   size: number;
@@ -86,6 +87,7 @@ export async function rehostRemoteImage(params: {
   userId: string;
   filename?: string;
   source?: string;
+  projectId?: string;
 }): Promise<
   | { ok: true; media: RehostRemoteImageSuccess }
   | { ok: false; failure: RehostRemoteImageFailure }
@@ -158,6 +160,7 @@ export async function rehostRemoteImage(params: {
     filename: uniqueFilename,
     buffer,
     contentType,
+    projectId: params.projectId,
     category: "media",
   });
 
@@ -172,6 +175,7 @@ export async function rehostRemoteImage(params: {
     ok: true,
     media: {
       url: uploadResult.url,
+      path: uploadResult.path,
       filename: uniqueFilename,
       contentType,
       size: buffer.length,

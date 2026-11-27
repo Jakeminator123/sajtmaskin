@@ -1,6 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import type { UploadedFile } from "@/components/media/file-upload-zone";
+import { ReadTaskAttachments } from "@/components/openclaw/ReadTaskAttachments";
+import { SourcePagePanel } from "@/components/openclaw/SourcePagePanel";
+import { isExplicitOpenClawWebSearch, readTaskAttachmentIds } from "@/lib/openclaw/read-task-input";
+import { formatSelectedSourcePage } from "@/lib/openclaw/source-page";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { collectOpenClawClientContext } from "@/lib/openclaw/client-context";
 import { DID_CONNECT_TIMEOUT_MS } from "@/lib/openclaw/use-did-avatar";
@@ -225,6 +230,7 @@ export function DidOpenClawBridge({
     },
   ]);
   const [textInput, setTextInput] = useState("");
+  const [sourceFiles, setSourceFiles] = useState<UploadedFile[]>([]);
   const [thinking, setThinking] = useState(false);
   const [listening, setListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -643,7 +649,12 @@ export function DidOpenClawBridge({
 
   const sendMessage = useCallback(
     async (rawText: string) => {
-      const message = rawText.trim();
+      const attachmentIds = readTaskAttachmentIds(sourceFiles);
+      if (sourceFiles.some((file) => file.status !== "success") || attachmentIds.length > 3 ||
+          attachmentIds.length !== sourceFiles.filter((file) => file.status === "success").length) return;
+      const message = rawText.trim() || (attachmentIds.length ? "Vad visar mina bilagor?" : "");
+      const readTask = attachmentIds.length ? { attachmentIds }
+        : isExplicitOpenClawWebSearch(message) ? { search: true } : undefined;
       if (!message || thinking) return;
 
       setThinking(true);
@@ -668,6 +679,7 @@ export function DidOpenClawBridge({
             message,
             recentMessages,
             context: collectOpenClawClientContext(),
+            readTask,
           }),
         });
 
@@ -675,6 +687,7 @@ export function DidOpenClawBridge({
           | {
               reply?: string;
               text?: string;
+              sources?: string[];
               error?: string;
             }
           | null;
@@ -689,9 +702,10 @@ export function DidOpenClawBridge({
           {
             id: createMessageId(),
             role: "assistant",
-            content: reply,
+            content: payload?.sources?.length ? `${reply}\n\nKällor:\n${payload.sources.join("\n")}` : reply,
           },
         ]);
+        if (attachmentIds.length) setSourceFiles([]);
         await speakText(reply);
       } catch (error) {
         const messageText =
@@ -710,7 +724,7 @@ export function DidOpenClawBridge({
         setThinking(false);
       }
     },
-    [speakText, thinking],
+    [sourceFiles, speakText, thinking],
   );
 
   const startListening = useCallback(() => {
@@ -953,6 +967,9 @@ export function DidOpenClawBridge({
             </div>
           )}
 
+          <ReadTaskAttachments files={sourceFiles} onFilesChange={setSourceFiles} disabled={thinking} />
+          <SourcePagePanel disabled={thinking} importImage={false}
+            onUse={(source) => setTextInput((draft) => [draft.trim(), formatSelectedSourcePage(source)].filter(Boolean).join("\n\n"))} />
           <form
             className="mt-4 flex items-center gap-2"
             onSubmit={(event) => {
@@ -983,7 +1000,8 @@ export function DidOpenClawBridge({
             />
             <button
               type="submit"
-              disabled={thinking || !textInput.trim()}
+              disabled={thinking || (!textInput.trim() && !readTaskAttachmentIds(sourceFiles).length) ||
+                sourceFiles.some((file) => file.status !== "success")}
               className="rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
               data-testid="avatar-bridge-send"
             >

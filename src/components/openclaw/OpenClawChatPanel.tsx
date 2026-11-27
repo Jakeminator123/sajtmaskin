@@ -34,6 +34,11 @@ import {
   KOSTNADSFRI_HANDOFF_INTRO_ID,
 } from "@/lib/kostnadsfri/agent-campaign-script";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
+import type { UploadedFile } from "@/components/media/file-upload-zone";
+import { ReadTaskAttachments } from "./ReadTaskAttachments";
+import { SourcePagePanel } from "./SourcePagePanel";
+import { formatSelectedSourcePage } from "@/lib/openclaw/source-page";
+import { readTaskAttachmentIds } from "@/lib/openclaw/read-task-input";
 import {
   DID_AVATAR_AVAILABLE,
   useDidAvatar,
@@ -311,6 +316,7 @@ export function OpenClawChatPanel({
   const isTakeover = panelPresentation === "takeover";
   const avatar = useDidAvatar({ enabled: avatarMode && isOpen });
   const [input, setInput] = useState("");
+  const [sourceFiles, setSourceFiles] = useState<UploadedFile[]>([]);
   const [avatarExpanded, setAvatarExpanded] = useState(false);
   const [listening, setListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -508,11 +514,21 @@ export function OpenClawChatPanel({
     };
   }, []);
 
+  const sendQuestion = useCallback((text: string) => {
+    const attachmentIds = readTaskAttachmentIds(sourceFiles);
+    if (sourceFiles.some((file) => file.status !== "success") || attachmentIds.length > 3 ||
+        attachmentIds.length !== sourceFiles.filter((file) => file.status === "success").length) return false;
+    const question = text.trim() || (attachmentIds.length ? "Vad visar mina bilagor?" : "");
+    if (!question || isStreaming) return false;
+    void send(question, attachmentIds.length ? {
+      readTask: { attachmentIds },
+      onDispatchAccepted: () => setSourceFiles([]),
+    } : undefined);
+    return true;
+  }, [isStreaming, send, sourceFiles]);
   const handleSend = useCallback(() => {
-    if (!input.trim() || isStreaming) return;
-    void send(input);
-    setInput("");
-  }, [input, isStreaming, send]);
+    if (sendQuestion(input)) setInput("");
+  }, [input, sendQuestion]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -541,7 +557,7 @@ export function OpenClawChatPanel({
       const trimmed = text.trim();
       if (submitted || !trimmed) return;
       submitted = true;
-      void send(trimmed);
+      sendQuestion(trimmed);
     };
 
     recognition.onstart = () => {
@@ -579,7 +595,7 @@ export function OpenClawChatPanel({
 
     recognitionRef.current = recognition;
     recognition.start();
-  }, [isStreaming, send]);
+  }, [isStreaming, sendQuestion]);
 
   const stopListening = useCallback(() => {
     // Graceful stop() (not abort) so the recognizer can flush its result;
@@ -937,6 +953,9 @@ export function OpenClawChatPanel({
                 ) : null}
               </div>
             ) : null}
+            <ReadTaskAttachments files={sourceFiles} onFilesChange={setSourceFiles} disabled={isStreaming} />
+            <SourcePagePanel disabled={isStreaming} importImage={false}
+              onUse={(source) => setInput((draft) => [draft.trim(), formatSelectedSourcePage(source)].filter(Boolean).join("\n\n"))} />
             <div className="min-w-0 rounded-2xl border border-white/15 bg-white/[0.045] p-2 shadow-sm transition-[border-color,box-shadow] focus-within:border-cyan-400/45 focus-within:ring-2 focus-within:ring-cyan-400/10">
               <textarea
                 ref={inputRef}
@@ -984,7 +1003,8 @@ export function OpenClawChatPanel({
                     <button
                       type="button"
                       onClick={handleSend}
-                      disabled={!input.trim() || listening}
+                      disabled={(!input.trim() && !readTaskAttachmentIds(sourceFiles).length) || listening ||
+                        sourceFiles.some((file) => file.status !== "success")}
                       className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-cyan-300 px-2.5 text-xs font-semibold text-slate-950 shadow-sm transition-colors hover:bg-cyan-200 focus-visible:ring-2 focus-visible:ring-cyan-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-30"
                       aria-label="Skicka"
                     >

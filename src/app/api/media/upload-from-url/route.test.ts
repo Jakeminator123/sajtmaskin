@@ -4,6 +4,11 @@ import { NextRequest } from "next/server";
 const getCurrentUser = vi.hoisted(() => vi.fn());
 const safeFetch = vi.hoisted(() => vi.fn());
 const uploadBlob = vi.hoisted(() => vi.fn());
+const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
+const saveMediaLibraryItem = vi.hoisted(() => vi.fn());
+const canUserUploadFile = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/tenant", () => ({ getEngineChatByIdForRequest }));
+vi.mock("@/lib/db/services/media", () => ({ canUserUploadFile, saveMediaLibraryItem }));
 
 vi.mock("@/lib/auth/auth", () => ({
   getCurrentUser,
@@ -45,6 +50,7 @@ describe("POST /api/media/upload-from-url", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getCurrentUser.mockResolvedValue({ id: "user_1" });
+    canUserUploadFile.mockResolvedValue({ allowed: true });
     safeFetch.mockResolvedValue(
       new Response(new Uint8Array([1, 2, 3]), {
         status: 200,
@@ -56,6 +62,40 @@ describe("POST /api/media/upload-from-url", () => {
       path: "user_1/media/hero.png",
       storageType: "blob",
     });
+  });
+
+  it("binds a selected source image to the authenticated owner's project and saves its origin", async () => {
+    const body = JSON.stringify({
+      url: "https://images.example/chair",
+      filename: "chair.png",
+      chatId: "preview-chat",
+      sourcePageUrl: "https://example.com/atelier",
+    });
+    getEngineChatByIdForRequest.mockResolvedValueOnce(null);
+    expect((await POST(makeRawRequest(body))).status).toBe(404);
+    expect(safeFetch).not.toHaveBeenCalled();
+
+    getEngineChatByIdForRequest.mockResolvedValueOnce({ project_id: "project-1" });
+    saveMediaLibraryItem.mockResolvedValueOnce({ id: 42 });
+    const response = await POST(makeRawRequest(body));
+    expect(await response.json()).toMatchObject({ success: true, media: { id: 42 } });
+    expect(uploadBlob).toHaveBeenCalledWith(expect.objectContaining({ userId: "user_1", projectId: "project-1" }));
+    expect(saveMediaLibraryItem.mock.calls[0]?.slice(-2)).toEqual(["project-1", "https://example.com/atelier"]);
+  });
+
+  it("shows the existing image quota before a source image is downloaded", async () => {
+    const reason = "Max 10 bilder/logos. Ta bort någon först.";
+    canUserUploadFile.mockResolvedValueOnce({ allowed: false, reason });
+    const response = await POST(makeRawRequest(JSON.stringify({
+      url: "https://images.example/chair",
+      filename: "chair.png",
+      source: "sajtagent-source",
+      sourcePageUrl: "https://example.com/atelier",
+    })));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: reason });
+    expect(canUserUploadFile).toHaveBeenCalledWith("user_1", "image/png", 10, 3);
+    expect(safeFetch).not.toHaveBeenCalled();
   });
 
   it("does not log query secrets from remote image URLs", async () => {

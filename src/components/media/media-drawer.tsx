@@ -36,13 +36,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { MediaFileType, MediaItem } from "./media-bank";
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-const MAX_IMAGES = 10;
-const MAX_VIDEOS = 3;
+import { MAX_MEDIA_IMAGES as MAX_IMAGES, MAX_MEDIA_VIDEOS as MAX_VIDEOS } from "@/lib/media/upload-limits";
 
 // ============================================================================
 // TYPES

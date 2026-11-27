@@ -55,6 +55,7 @@ interface ChatMessage {
 
 interface ChatRequestBody {
   messages?: unknown;
+  readTask?: unknown;
   context?: Record<string, unknown> | null;
   /** Extra powers the user granted in the chat UI. Narrowing only — see
    * `resolveOpenClawPowersFromRequest`. */
@@ -214,6 +215,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: validatedMessages.error }, { status: 400 });
     }
     const clientMessages = validatedMessages.messages;
+    if (body.readTask !== undefined) {
+      const { answerOpenClawReadTask } = await import("@/lib/openclaw/read-task");
+      const question = clientMessages.findLast((message) => message.role === "user")?.content ?? "";
+      const readAnswer = await answerOpenClawReadTask(req, body.readTask, question);
+      if (!readAnswer.ok) return readAnswer;
+      const { answer, sources } = await readAnswer.json() as { answer: string; sources: string[] };
+      const content = sources.length ? `${answer}\n\nKällor:\n${sources.join("\n")}` : answer;
+      gatewayDispatched = true;
+      return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\ndata: [DONE]\n\n`, {
+        headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+      });
+    }
 
     const routingIntent = decideOpenClawRoutingIntent({ messages: clientMessages });
     const debug = OPENCLAW.debugEnabled;
