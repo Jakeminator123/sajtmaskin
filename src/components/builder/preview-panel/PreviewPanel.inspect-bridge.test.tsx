@@ -184,7 +184,7 @@ describe("PreviewPanel inspect bridge recovery", () => {
 
     vi.useRealTimers();
     const aiButton = await waitFor(() =>
-      screen.getByTitle("AI: gpt-6-luna analyserar koden"),
+      screen.getByTitle("Analysera koden med AI"),
     );
     fireEvent.click(aiButton);
     await waitFor(() => {

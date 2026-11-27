@@ -18,6 +18,9 @@ describe("OpenAI model capabilities", () => {
   });
 
   it("knows GPT-6.1 Sol and GPT-6 Astra have no `none` effort; Luna and GPT-5.6 do", () => {
+    expect(minimumOpenAIReasoningEffort("gpt-6.2-sol")).toBe("low");
+    expect(minimumOpenAIReasoningEffort("gpt-6.2-astra")).toBe("low");
+    expect(minimumOpenAIReasoningEffort("gpt-6.1-terra")).toBe("none");
     expect(minimumOpenAIReasoningEffort("gpt-6.1-sol")).toBe("low");
     expect(minimumOpenAIReasoningEffort("gpt-6-astra")).toBe("low");
     expect(minimumOpenAIReasoningEffort("gpt-6-luna")).toBe("none");

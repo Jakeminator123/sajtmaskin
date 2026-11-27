@@ -28,30 +28,36 @@ Sajtagenten är en publik yta men gatewayn har tre interna agentmål:
 
 | Spår | Agent-id | Render-modell | Thinking | Användning |
 | --- | --- | --- | --- | --- |
-| Snabb | `sajtagenten-fast` | `openai/gpt-5.6-luna` | `low` | Tips och enkla frågor |
-| Normal | `sajtagenten-balanced` | `openai/gpt-5.6-terra` | `medium` | Begränsad kod-/filkontext |
-| Stark | `sajtagenten` | `openai/gpt-5.6-sol` | `high` | Review, debug, full kontext och aktiva befogenheter |
+| Snabb | `sajtagenten-fast` | `openai/gpt-6.2-sol` | `low` | Tips och enkla frågor |
+| Normal | `sajtagenten-balanced` | `openai/gpt-6.2-sol` | `medium` | Begränsad kod-/filkontext |
+| Stark | `sajtagenten` | `openai/gpt-6.2-astra` | `high` | Review, debug, full kontext och aktiva befogenheter |
 
 Appen väljer bara agent-id. Provider/modell, fallbackkedjor och thinking ägs av
 Render-konfigurationen. Om ett gammalt gatewaybygge saknar snabb-/normalagenten
 gör appen en enda kompatibilitetsretry mot `sajtagenten`; 401, 429 och generella
 fel retryas inte.
 
-Utrullningsordning:
+### Uppgradera en befintlig gateway
 
-1. Deploya Render med de sex `OPENCLAW_MODEL_*`-värdena från `render.yaml`.
-2. Kontrollera bootlogg och autentiserat `GET /v1/models`; där ska
-   `openclaw/sajtagenten`, `openclaw/sajtagenten-balanced` och
-   `openclaw/sajtagenten-fast` finnas.
-3. Deploya appen med `OPENCLAW_MODEL_ROUTING_ENABLED` osatt/`false`. Health ska
-   fortfarande vara `ready` på det bakåtkompatibla starka agentmålet.
-4. Sätt `OPENCLAW_MODEL_ROUTING_ENABLED=true` på Vercel för development,
-   preview och production och redeploya. Health ska åter vara `ready`, nu med
-   alla tre agent-id:n i `requiredAgentIds`.
+1. Spara tidigare modellvärden och kontrollera att den persistenta disken har en
+   återställningspunkt före runtimebytet. Render bygger gatewayn från `master`.
+2. När releasen med OpenClaw `2026.10.34` är tillgänglig på Render, använd de
+   sex värdena i [Blueprinten](../../infra/openclaw/render.yaml) och deploya den
+   versionen. Render behöver sin befintliga `OPENAI_API_KEY`.
+3. Kontrollera bootloggen, appens `/api/openclaw/health` och gatewayns
+   autentiserade `GET /v1/models`. De tre agent-id:na ovan ska finnas med
+   prefixet `openclaw/`. Prova därefter ett kort anrop i varje spår med
+   ett avsett testkonto. Modellistan verifierar bara att agentmålen finns.
+4. På en ny installation, aktivera `OPENCLAW_MODEL_ROUTING_ENABLED=true` i
+   den avsedda Vercel-miljön när de tre målen fungerar och deploya om appen.
+   En befintlig installation med flaggan aktiverad fortsätter använda den.
 
-`OPENCLAW_REVIEW_REASONING_EFFORT` är borttagen. OpenClaw `2026.7.1-2`
-vidarebefordrar inte det fältet från Chat Completions-routen; per-agent
-`thinkingDefault` ovan är den fungerande signalägaren.
+Gatewayn använder varje agents `thinkingDefault`. Snabba interna hjälpanrop
+har också en egen låg resonemangsnivå i den genererade konfigurationen.
+
+Alla tre agentmål har `session_status` som enda tillåtna gatewayverktyg.
+Sajtmaskin verkställer snabbändringar, byggen och reparationer genom sina
+versionshanterade byggkommandon och chattens befogenheter.
 
 ## Dashboard-inloggning
 

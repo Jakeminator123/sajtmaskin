@@ -176,7 +176,7 @@ describe("runLlmFixer merge behavior", () => {
         "```",
       ].join("\n"),
       ["app/page.tsx:1:1 broken"],
-      { model: "gpt-6.1-sol", thinking: false },
+      { model: "gpt-6.2-sol", thinking: false },
     );
 
     expect(streamTextMock).toHaveBeenCalledWith(
@@ -285,14 +285,14 @@ describe("runLlmFixer merge behavior", () => {
       { model: "gpt-5.3-codex", thinking: false, reasoningEffort: "none" },
     );
 
-    expect(getOpenAIModelMock).toHaveBeenCalledWith("gpt-6.1-sol");
+    expect(getOpenAIModelMock).toHaveBeenCalledWith("gpt-6.2-sol");
     expect(streamTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
         providerOptions: { openai: { reasoningEffort: "low" } },
       }),
     );
     expect(recordLlmUsageMock).toHaveBeenCalledWith(
-      expect.objectContaining({ phase: "fixer", model: "gpt-6.1-sol" }),
+      expect.objectContaining({ phase: "fixer", model: "gpt-6.2-sol" }),
     );
   });
 

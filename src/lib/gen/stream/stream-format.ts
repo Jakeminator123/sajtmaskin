@@ -50,7 +50,8 @@ type StreamUsageLike = {
  * coupling to the exact generic signature of `StreamTextResult<TOOLS>`.
  *
  * `usage` is the last step. `totalUsage`, when the SDK provides it, is the
- * aggregate across every step and is the telemetry source.
+ * aggregate across every step for the done event. Billing uses each
+ * finish-step's usage because long-context pricing applies per request.
  */
 interface StreamTextLike {
   fullStream: AsyncIterable<{
@@ -69,6 +70,8 @@ interface StreamTextLike {
     inputText?: string;
     inputTextDelta?: string;
     finishReason?: string | null;
+    usage?: StreamUsageLike;
+    response?: { modelId?: string };
   }>;
   usage: PromiseLike<StreamUsageLike>;
   totalUsage?: PromiseLike<StreamUsageLike>;
@@ -331,6 +334,13 @@ export function createCodeGenSSEStream(
     async start(controller) {
       return trackGenerationWork(async () => {
       const streamStartedAt = Date.now();
+      const completedSteps: Array<{
+        usage: StreamUsageLike;
+        model?: string;
+        durationMs: number | null;
+        errorCode: string | null;
+      }> = [];
+      let stepStartedAt: number | null = null;
       /**
        * Per-anrops-förbrukning för codegen. `done`-eventet driver fortfarande
        * engine_generation_logs/generation_telemetry — det här är den finkorniga
@@ -350,21 +360,48 @@ export function createCodeGenSSEStream(
         // dubbla tokensumman för just avbrutna körningar.
         if (codegenUsageRecorded) return;
         codegenUsageRecorded = true;
-        let usage = knownUsage;
-        if (usage === undefined) {
-          usage = await Promise.resolve(aggregateUsage(result)).catch(() => null);
-        }
-        recordLlmUsage({
+        const defaultModel = usageModelId ?? (typeof meta?.modelId === "string" ? meta.modelId : null);
+        const common = {
           phase: usagePhase ?? "codegen",
-          model: typeof meta?.modelId === "string" ? meta.modelId : (usageModelId ?? null),
           modelTier: typeof meta?.modelTier === "string" ? meta.modelTier : null,
-          usage,
-          durationMs: durationMs ?? Date.now() - streamStartedAt,
-          ok: errorCode === null,
-          errorCode,
           chatId: typeof meta?.chatId === "string" ? meta.chatId : null,
           versionId: typeof meta?.versionId === "string" ? meta.versionId : null,
           ...(usageMeta ? { meta: usageMeta } : {}),
+        } as const;
+        if (completedSteps.length) {
+          for (const step of completedSteps) {
+            recordLlmUsage({
+              ...common,
+              usage: step.usage,
+              model: step.model || defaultModel,
+              durationMs: step.durationMs,
+              errorCode: step.errorCode,
+              ok: step.errorCode === null,
+            });
+          }
+          if (errorCode && (stepStartedAt !== null || !completedSteps.at(-1)?.errorCode)) {
+            // A subsequent request may fail before the SDK emits start-step.
+            recordLlmUsage({
+              ...common,
+              usage: null,
+              model: defaultModel,
+              durationMs: stepStartedAt === null ? null : Date.now() - stepStartedAt,
+              errorCode,
+              ok: false,
+            });
+          }
+          return;
+        }
+        const usage = knownUsage === undefined
+          ? await Promise.resolve(aggregateUsage(result)).catch(() => null)
+          : knownUsage;
+        recordLlmUsage({
+          ...common,
+          usage,
+          model: defaultModel,
+          durationMs: durationMs ?? Date.now() - streamStartedAt,
+          errorCode,
+          ok: errorCode === null,
         });
       };
       const eventCounts = new Map<string, number>();
@@ -562,6 +599,19 @@ export function createCodeGenSSEStream(
             case "finish-step":
             case "finish": {
               ensureGenerationStarted();
+              if (part.type === "start-step") stepStartedAt = Date.now();
+              if (part.type === "finish-step") {
+                if (part.usage) {
+                  completedSteps.push({
+                    usage: part.usage,
+                    model: part.response?.modelId,
+                    durationMs: stepStartedAt === null ? null : Date.now() - stepStartedAt,
+                    errorCode: part.finishReason === "length" ? "output_truncated"
+                      : part.finishReason === "error" ? "provider_stream_error" : null,
+                  });
+                }
+                stepStartedAt = null;
+              }
               if (part.finishReason === "length") {
                 truncatedByLength = true;
               }
@@ -852,7 +902,11 @@ export function createCodeGenSSEStream(
 
         const usage = await aggregateUsage(result);
         const streamTiming = summarizeStream("done", usage);
-        await recordCodegenUsage(null, usage, streamTiming.durationMs);
+        await recordCodegenUsage(
+          providerErrorEmitted && !finishedCleanly ? "provider_stream_error" : null,
+          usage,
+          streamTiming.durationMs,
+        );
         devLogAppend("in-progress", {
           type: "stream.summary",
           chatId: meta?.chatId ?? null,

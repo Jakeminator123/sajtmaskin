@@ -210,20 +210,20 @@ describe("resolveServerAutoBriefPreferredModel", () => {
     delete process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC;
     try {
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "premium" })).toBe(
-        "openai/gpt-6.1-sol",
+        "openai/gpt-6.2-sol",
       );
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "max" })).toBe(
-        "openai/gpt-6.1-sol",
+        "openai/gpt-6.2-sol",
       );
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "anthropic" })).toBe(
         "anthropic/claude-opus-4.8",
       );
-      // Alla OpenAI-profiler, även DEFAULT_MODEL_TIER `pro`, briefs på GPT-6.1 Sol.
+      // Alla OpenAI-profiler, även Låg, använder samma briefmodell.
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "pro" })).toBe(
-        "openai/gpt-6.1-sol",
+        "openai/gpt-6.2-sol",
       );
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "codex" })).toBe(
-        "openai/gpt-6.1-sol",
+        "openai/gpt-6.2-sol",
       );
     } finally {
       if (previousOpenAI === undefined) delete process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
@@ -280,12 +280,15 @@ describe("resolveServerAutoBriefPreferredModel", () => {
     }
   });
 
-  it("lets the selected provider's auto-brief env override its tier default", () => {
+  it.each([
+    ["openai/gpt-6.1-sol", "openai/gpt-6.1-sol"],
+    ["openai/gpt-5.6-luna", "openai/gpt-6.2-sol"],
+  ])("resolves the selected provider override %s before auto-brief", (requested, resolved) => {
     const previous = process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
-    process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI = "openai/gpt-5.6-luna";
+    process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI = requested;
     try {
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "premium" })).toBe(
-        "openai/gpt-5.6-luna",
+        resolved,
       );
     } finally {
       if (previous === undefined) delete process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
@@ -309,7 +312,7 @@ describe("getTemperatureConfig (brief sampling, MB-2)", () => {
   it("still strips temperature for OpenAI reasoning models", () => {
     expect(getTemperatureConfig("openai/gpt-5.5", 0.2)).toEqual({});
     expect(getTemperatureConfig("openai/gpt-5.4", 0.2)).toEqual({});
-    expect(getTemperatureConfig("openai/gpt-6.1-sol", 0.2)).toEqual({});
+    expect(getTemperatureConfig("openai/gpt-6.2-sol", 0.2)).toEqual({});
     expect(getTemperatureConfig("openai/gpt-6-luna", 0.2)).toEqual({});
   });
 

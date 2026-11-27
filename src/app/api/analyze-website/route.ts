@@ -183,7 +183,7 @@ export async function POST(req: NextRequest) {
     const hasContent = contentForAnalysis?.textSummary && contentForAnalysis.textSummary.length > 20;
 
     const selectedModel =
-      getWorkloadDefaultModelFromManifest("analyze_website") ?? "openai/gpt-6.1-sol";
+      getWorkloadDefaultModelFromManifest("analyze_website") ?? "openai/gpt-6.2-sol";
 
     let userPrompt: string;
     let systemPrompt: string;

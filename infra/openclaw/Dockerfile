@@ -1,7 +1,7 @@
-FROM node:22-slim
+FROM node:24.22.1-bookworm-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates git wget \
+    ca-certificates git libgomp1 wget \
  && update-ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
@@ -16,8 +16,9 @@ RUN git config --global --add url."https://github.com/".insteadOf "ssh://git@git
 # semantics. Upgrade this pin in a dedicated PR after the entrypoint contract
 # test and the Render smoke checklist pass.
 ENV NODE_LLAMA_CPP_SKIP_DOWNLOAD=true
-ARG OPENCLAW_VERSION=2026.7.1-2
-RUN npm install -g "openclaw@${OPENCLAW_VERSION}" --ignore-scripts \
+ARG OPENCLAW_VERSION=2026.10.34
+# This release uses its lifecycle to prepare bundled provider plugins.
+RUN npm install -g "openclaw@${OPENCLAW_VERSION}" --allow-scripts=openclaw \
  && openclaw --version
 
 # Seed files (IDENTITY.md, workspace skills) — no secrets in image
@@ -28,6 +29,12 @@ COPY config/workspace/ /app/seed/workspace/
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY docker-healthcheck.sh /usr/local/bin/docker-healthcheck.sh
 COPY generate-config.mjs /usr/local/lib/openclaw/generate-config.mjs
+
+# Check the generated config with the exact package in the image, without provider credentials.
+RUN config_check_dir="$(mktemp -d)" \
+ && OPENCLAW_GATEWAY_TOKEN=image-config-check node /usr/local/lib/openclaw/generate-config.mjs "$config_check_dir/openclaw.json" "$config_check_dir" \
+ && OPENCLAW_STATE_DIR="$config_check_dir" OPENCLAW_CONFIG_PATH="$config_check_dir/openclaw.json" openclaw config validate \
+ && rm -rf -- "$config_check_dir"
 
 RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-healthcheck.sh \
  && chmod +x /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-healthcheck.sh

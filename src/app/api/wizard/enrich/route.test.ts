@@ -90,7 +90,7 @@ describe("POST /api/wizard/enrich", () => {
     expect(response.status).toBe(200);
     expect(responsesCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "gpt-6.1-sol",
+        model: "gpt-6.2-sol",
         max_output_tokens: 8192,
         reasoning: { effort: "medium" },
       }),

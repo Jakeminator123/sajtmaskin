@@ -2,8 +2,13 @@
   "schemaVersion": 2,
   "title": "Sajtmaskin model price table (USD per 1M tokens)",
   "description": "Canonical per-token price DATA (not just prose like 25-pricing.md). Read by scripts/db/generation-cost.mjs (default source: llm_usage) and the backoffice 'Generation Cost' page to turn logged token volumes into money. Prices are per 1,000,000 tokens in USD. Always re-verify against the provider pages before budget decisions — providers change prices.",
-  "verifiedAt": "2026-10-17",
+  "verifiedAt": "2026-11-27",
   "sources": [
+    {
+      "vendor": "OpenAI",
+      "url": "https://developers.openai.com/api/docs/pricing",
+      "note": "Verified 2026-11-27 for GPT-6.2 Sol, GPT-6.2 Astra and GPT-6.1 Terra. Standard rates use 30-minute cache writes and the 272K long-context threshold."
+    },
     {
       "vendor": "OpenAI",
       "url": "https://developers.openai.com/api/docs/pricing",
@@ -35,9 +40,45 @@
     "Tiers: standard = default sync API. batch = Batch API (~50% off, async). flex = Flex processing (cheaper, slower). priority = Priority processing (premium latency).",
     "Codex-suffixed models (gpt-5.3-codex) are NOT on the public per-token pricing page and are billed via the Codex credit rate card; the value here is an ESTIMATE flagged with estimated:true.",
     "Regional processing (data residency) endpoints add a 10% uplift for models released on/after 2026-03-05 — not modeled here.",
-    "GPT-6 Astra is the Extra hög (ultra) build model. Admission gates are 50 credits to create and 30 to refine; settlement still uses these per-token rates."
+    "GPT-6.2 Astra is the Extra hög (ultra) build model. Admission gates are 50 credits to create and 30 to refine; settlement still uses these per-token rates."
   ],
   "models": {
+    "gpt-6.2-sol": {
+      "provider": "openai",
+      "label": "GPT-6.2 Sol",
+      "match": ["gpt-6.2-sol"],
+      "contextThreshold": {
+        "inputTokens": 272000,
+        "aboveMultiplier": { "input": 2, "output": 1.5 }
+      },
+      "tiers": {
+        "standard": { "input": 2, "cachedInput": 0.1, "cacheWriteInput": 2.5, "output": 10 }
+      }
+    },
+    "gpt-6.2-astra": {
+      "provider": "openai",
+      "label": "GPT-6.2 Astra",
+      "match": ["gpt-6.2-astra"],
+      "contextThreshold": {
+        "inputTokens": 272000,
+        "aboveMultiplier": { "input": 2, "output": 1.5 }
+      },
+      "tiers": {
+        "standard": { "input": 8, "cachedInput": 0.4, "cacheWriteInput": 10, "output": 40 }
+      }
+    },
+    "gpt-6.1-terra": {
+      "provider": "openai",
+      "label": "GPT-6.1 Terra",
+      "match": ["gpt-6.1-terra"],
+      "contextThreshold": {
+        "inputTokens": 272000,
+        "aboveMultiplier": { "input": 2, "output": 1.5 }
+      },
+      "tiers": {
+        "standard": { "input": 1, "cachedInput": 0.05, "cacheWriteInput": 1.25, "output": 5 }
+      }
+    },
     "gpt-6.1-sol": {
       "provider": "openai",
       "label": "GPT-6.1 Sol",

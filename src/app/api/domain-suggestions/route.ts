@@ -70,7 +70,7 @@ Return ONLY a JSON array of 5 domain names (without TLD), like:
 
   try {
     const modelId =
-      getWorkloadDefaultModelFromManifest("domain_suggestions") ?? "openai/gpt-6.1-sol";
+      getWorkloadDefaultModelFromManifest("domain_suggestions") ?? "openai/gpt-6.2-sol";
     const result = await generateText({
       model: createDirectModel(modelId),
       messages: [

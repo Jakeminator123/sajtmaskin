@@ -62,12 +62,12 @@ describe("generateQaShortCircuitText", () => {
     await generateQaShortCircuitText({ optimizedMessage: "Hur är färgen?", signal });
 
     expect(resolveModel).toHaveBeenCalledWith("qa_short_circuit");
-    expect(createDirectModel).toHaveBeenCalledWith("gpt-6.1-sol");
+    expect(createDirectModel).toHaveBeenCalledWith("gpt-6.2-sol");
     expect(generateText.mock.calls[0][0]).toMatchObject({
       maxOutputTokens: 8192,
       providerOptions: { openai: { reasoningEffort: "medium" } },
     });
-    expect(recordLlmUsage.mock.calls[0][0].model).toBe("gpt-6.1-sol");
+    expect(recordLlmUsage.mock.calls[0][0].model).toBe("gpt-6.2-sol");
   });
 
   it("records one failed row with the real usage when the answer is empty", async () => {

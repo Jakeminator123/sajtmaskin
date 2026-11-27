@@ -5,7 +5,9 @@ import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@
 import { workloadChatReasoningEffort } from "@/lib/ai-models/workload-reasoning";
 import { calculateModelCost } from "@/lib/billing/model-cost";
 import { INSPECTOR_AI_MATCH_DEFAULT_MODEL } from "@/lib/gen/defaults";
+import { aliasRetiredModelId } from "@/lib/models/catalog";
 import { isOpenAIReasoningModelId } from "@/lib/models/openai-capabilities";
+import { normalizeUsage } from "@/lib/observability/llm-usage";
 import { withRateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 
@@ -15,7 +17,7 @@ export const maxDuration = 45;
 const REQUEST_TIMEOUT_MS = 30_000;
 
 const INSPECTOR_AI_MATCH_WORKLOAD_ID = "inspector_ai_match";
-const MODEL = INSPECTOR_AI_MATCH_DEFAULT_MODEL;
+const MODEL = aliasRetiredModelId(INSPECTOR_AI_MATCH_DEFAULT_MODEL);
 const MAX_CODE_CHARS = 12_000;
 const MAX_FILES = 6;
 /** Total output ceiling, including Sol medium reasoning tokens. Not a measured cost. */
@@ -166,16 +168,10 @@ ${codeBlock}`;
         : { max_tokens: 300, temperature: 0.1 }),
     }, { signal: req.signal, timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 });
 
-    const usage = completion.usage;
-    const inputTokens = usage?.prompt_tokens ?? 0;
-    const outputTokens = usage?.completion_tokens ?? 0;
-    const costUsd =
-      calculateModelCost(clientConfig.modelId, {
-        inputTokens,
-        cachedInputTokens: usage?.prompt_tokens_details?.cached_tokens ?? 0,
-        cacheWriteTokens: 0,
-        outputTokens,
-      })?.costUsd ?? null;
+    const usage = normalizeUsage(completion.usage);
+    const inputTokens = usage.inputTokens ?? 0;
+    const outputTokens = usage.outputTokens ?? 0;
+    const costUsd = calculateModelCost(clientConfig.modelId, usage)?.costUsd ?? null;
 
     const raw = completion.choices[0]?.message?.content?.trim() || "";
 

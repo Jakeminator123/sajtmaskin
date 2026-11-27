@@ -17,9 +17,9 @@ import {
  * `selected_build_model` means the tier's primary model; explicit IDs override.
  *
  * Tier ladder: Låg (`pro`), Mellan (`max`) and Hög (`premium`) all build
- * with GPT-6.1 Sol; they differ by generator effort (medium/high/xhigh,
+ * with GPT-6.2 Sol; they differ by generator effort (medium/high/xhigh,
  * always `reasoningMode: "standard"`) and by fixer effort. Extra hög (`ultra`)
- * builds planner and generator with GPT-6 Astra. Sol takes every side phase.
+ * builds planner and generator with GPT-6.2 Astra. Sol takes every side phase.
  * Fixers run without a thinking stream but honor the manifest effort.
  * `codex` mirrors Mellan; it and Anthropic (one model across phases) are hidden
  * from the UI. The concrete values live in the manifest, not here.

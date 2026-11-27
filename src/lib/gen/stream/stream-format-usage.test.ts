@@ -19,6 +19,8 @@ type StreamPart = {
   text?: string;
   finishReason?: string | null;
   error?: unknown;
+  usage?: { inputTokens: number; outputTokens: number };
+  response?: { modelId: string };
 };
 
 type StreamResultLike = Parameters<typeof createCodeGenSSEStream>[0];
@@ -82,6 +84,34 @@ describe("codegen-strömmens tokenloggning", () => {
       ok: false,
       errorCode: "output_truncated",
     });
+  });
+
+  it("bokför separata leverantörsanrop även när totalsumman passerar långkontextgränsen", async () => {
+    const first = { inputTokens: 150_000, outputTokens: 4_000 };
+    const second = { inputTokens: 160_000, outputTokens: 6_000 };
+    const response = { modelId: "gpt-6.2-sol" };
+    await drain({
+      ...createResult([
+        { type: "start-step" }, { type: "finish-step", usage: first, response },
+        { type: "start-step" }, { type: "text-delta", text: "klart" },
+        { type: "finish-step", usage: second, response }, { type: "finish", finishReason: "stop" },
+      ], second),
+      totalUsage: Promise.resolve({ inputTokens: 310_000, outputTokens: 10_000 }),
+    });
+    expect(recordLlmUsage.mock.calls.map(([row]) => [row.model, row.usage, row.ok])).toEqual([
+      [response.modelId, first, true], [response.modelId, second, true],
+    ]);
+  });
+
+  it("bevarar ett färdigt stegs kostnad när nästa steg avbryts utan tokenkvitto", async () => {
+    const first = { inputTokens: 150_000, outputTokens: 4_000 };
+    await drain(createResult([
+      { type: "start-step" }, { type: "finish-step", usage: first },
+      { type: "start-step" }, { type: "abort" }, { type: "finish" },
+    ], first));
+    expect(recordLlmUsage.mock.calls.map(([row]) => [row.usage, row.ok])).toEqual([
+      [first, true], [null, false],
+    ]);
   });
 
   it("skriver bara EN rad per API-anrop även när providern avbryter", async () => {

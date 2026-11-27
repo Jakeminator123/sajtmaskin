@@ -86,7 +86,7 @@ describe("curation model resolution", () => {
     const fallbacks = getWorkloadFallbackModelsFromManifest(CURATION_WORKLOAD_ID);
     expect(fallbacks).not.toContain("gpt-6-luna");
     expect(allowedCurationModels()).not.toContain("gpt-6-luna");
-    expect(allowedCurationModels()).toEqual(["gpt-6.1-sol"]);
+    expect(allowedCurationModels()).toEqual(["gpt-6.2-sol"]);
   });
 
   it("rejects an unlisted model id before a chat request exists", () => {
@@ -115,8 +115,8 @@ describe("curation model resolution", () => {
       },
       [{ name: "README.md", body: "# ref" }],
     );
-    expect(model).toBe("gpt-6.1-sol");
-    expect(payload.model).toBe("gpt-6.1-sol");
+    expect(model).toBe("gpt-6.2-sol");
+    expect(payload.model).toBe("gpt-6.2-sol");
     expect(payload.max_completion_tokens).toBe(CURATION_MAX_COMPLETION_TOKENS);
     expect(payload.max_completion_tokens).toBe(32_768);
     expect(payload.reasoning_effort).toBe("medium");

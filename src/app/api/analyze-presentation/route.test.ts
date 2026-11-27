@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getCurrentUser = vi.hoisted(() => vi.fn());
@@ -43,6 +44,7 @@ describe("POST /api/analyze-presentation", () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   it("requires a logged-in user before calling the vision model", async () => {
@@ -84,6 +86,37 @@ describe("POST /api/analyze-presentation", () => {
       expect.any(Function),
       { userId: "user_1" },
     );
+  });
+
+  it("sends presentation frames to Terra at medium effort", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user_1" });
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    const frame = "data:image/png;base64,AAAA";
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({
+      choices: [{ message: { content: JSON.stringify({ overallScore: 7 }) } }],
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(new Request("http://localhost/api/analyze-presentation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transcript: "En presentation med bildstöd", frames: [frame] }),
+    }));
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).analysis.overallScore).toBe(7);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, request] = fetchMock.mock.calls[0];
+    expect(JSON.parse(request.body)).toMatchObject({
+      model: "gpt-6.1-terra",
+      reasoning_effort: "medium",
+      messages: [
+        { role: "system" },
+        { role: "user", content: expect.arrayContaining([
+          { type: "image_url", image_url: { url: frame, detail: "low" } },
+        ]) },
+      ],
+    });
   });
 
   it("rejects remote frame URLs after login", async () => {
