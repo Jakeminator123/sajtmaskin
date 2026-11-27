@@ -18,7 +18,7 @@ export function isAnthropicModel(id: string): boolean {
  * Anthropic models use ANTHROPIC_API_KEY directly.
  */
 export function getOpenAIModel(modelId?: string) {
-  const id = aliasRetiredModelId(modelId ?? DEFAULT_MODEL);
+  const id = aliasRetiredModelId(modelId ?? DEFAULT_MODEL).replace(/^openai\//, "");
 
   if (ANTHROPIC_PREFIX_RE.test(id)) {
     const apiKey = process.env.ANTHROPIC_API_KEY?.trim();

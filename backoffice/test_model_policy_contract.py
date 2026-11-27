@@ -10,6 +10,10 @@ from backoffice import REPO_ROOT
 from backoffice.shared_lib.models import (
     DEFAULT_PHASE_THINKING_BY_TIER,
     MODEL_LABELS,
+    AVAILABLE_PHASE_MODELS,
+    active_phase_model,
+    phase_model_display_label,
+    resolve_phase_models_for_dashboard,
     ROUTE_LOCAL_WORKLOAD_MODELS,
     human_model_label,
 )
@@ -25,6 +29,17 @@ def _workloads(manifest: dict) -> dict[str, dict]:
 
 
 class ModelPolicyContractTests(unittest.TestCase):
+    def test_saved_astra_dispatches_to_current_phase_option(self) -> None:
+        for legacy in ("gpt-6-astra", "openai/gpt-6-astra", "gpt-6.1-astra", "openai/gpt-6.1-astra"):
+            self.assertNotIn(legacy, AVAILABLE_PHASE_MODELS)
+            self.assertEqual(active_phase_model(legacy), "gpt-6.2-astra")
+        manifest = _manifest()
+        manifest["phaseRouting"]["defaultByTier"]["ultra"]["verifier"] = "gpt-6-astra"
+        self.assertEqual(resolve_phase_models_for_dashboard(manifest, "verifier")["ultra"], "gpt-6.2-astra")
+        self.assertEqual(phase_model_display_label("gpt-6-astra", "ultra", {}), "GPT-6.2 Astra")
+        self.assertIn("gpt-6.2-astra", AVAILABLE_PHASE_MODELS)
+        self.assertEqual(human_model_label("gpt-6-astra"), "GPT-6 Astra (→ GPT-6.2 Astra)")
+
     def test_small_workloads_use_selected_models_and_efforts(self) -> None:
         workloads = _workloads(_manifest())
         expected = {
@@ -36,7 +51,7 @@ class ModelPolicyContractTests(unittest.TestCase):
             "backoffice_scaffold_wizard_guide": ("gpt-6.2-sol", "low"),
             "backoffice_scaffold_wizard_persona": ("gpt-6.1-terra", "medium"),
             "backoffice_dossier_curation": ("gpt-6.2-sol", "medium"),
-            "live_review": ("gpt-6.1-terra", "medium"),
+            "live_review": ("gpt-6.2-sol", "medium"),
             "qa_short_circuit": ("gpt-6.2-sol", "medium"),
             "shadcn_describe_queries": ("openai/gpt-6.2-sol", "low"),
             "shadcn_describe_ranking": ("openai/gpt-6.2-sol", "low"),
@@ -55,12 +70,13 @@ class ModelPolicyContractTests(unittest.TestCase):
         for workload_id in (
             "analyze_presentation_vision",
             "backoffice_scaffold_wizard_persona",
-            "live_review",
         ):
             self.assertEqual(
                 workloads[workload_id]["visionModels"],
                 ["gpt-6.1-terra", "gpt-6.2-sol"],
             )
+        self.assertEqual(workloads["live_review"]["visionModels"], ["gpt-6.2-sol", "gpt-6.2-astra"])
+        self.assertNotIn("fallbackModels", workloads["live_review"])
         self.assertNotIn("defaultModel", workloads["runtime_embeddings_query"])
         self.assertNotIn("defaultModel", workloads["transcribe"])
         self.assertEqual(

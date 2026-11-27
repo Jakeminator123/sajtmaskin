@@ -29,12 +29,13 @@ from backoffice.shared import (
     write_phase_thinking,
     write_text,
 )
+from backoffice.shared_lib.models import active_phase_model
 
 
 def _resolve_phase_model_ref(phase_ref: str, tier_build_model: str) -> str:
-    ref = (phase_ref or "").strip() or "selected_build_model"
+    ref = active_phase_model(phase_ref or "") or "selected_build_model"
     if ref == "selected_build_model":
-        return (tier_build_model or "").strip() or "selected_build_model"
+        return active_phase_model(tier_build_model or "") or "selected_build_model"
     return ref
 
 
@@ -284,7 +285,7 @@ def _render_generator_chain(
         edited_thinking[tier] = {}
         with tier_tabs[idx]:
             for phase in PHASE_ORDER:
-                current_model = str(tier_cfg.get(phase, "selected_build_model")).strip() or "selected_build_model"
+                current_model = active_phase_model(str(tier_cfg.get(phase, ""))) or "selected_build_model"
                 current_thinking_cfg = tier_thinking.get(phase) or {}
                 current_thinking = bool(current_thinking_cfg.get("thinking", False))
                 current_effort = str(current_thinking_cfg.get("reasoningEffort", "medium")).strip() or "medium"

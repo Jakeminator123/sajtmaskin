@@ -98,6 +98,10 @@ const LEGACY_MODEL_IDS = Object.keys(LEGACY_ALIAS) as (keyof typeof LEGACY_ALIAS
  * GPT-4o mini as deprecated (2026-10-17); they route to GPT-6.2 Sol.
  */
 const RETIRED_MODEL_ALIAS: Record<string, string> = {
+  "gpt-6-astra": "gpt-6.2-astra",
+  "openai/gpt-6-astra": "openai/gpt-6.2-astra",
+  "gpt-6.1-astra": "gpt-6.2-astra",
+  "openai/gpt-6.1-astra": "openai/gpt-6.2-astra",
   // Read saved Luna selections while routing subsequent text calls through Sol.
   "gpt-6-luna": "gpt-6.2-sol",
   "openai/gpt-6-luna": "openai/gpt-6.2-sol",
@@ -179,7 +183,7 @@ export function ownModelIdToCanonicalModelId(
     }
   }
   // Astra was exclusive to Ultra before the 6.2 upgrade.
-  return trimmed === "gpt-6-astra" ? "ultra" : null;
+  return value?.trim() === "gpt-6-astra" ? "ultra" : null;
 }
 
 /**

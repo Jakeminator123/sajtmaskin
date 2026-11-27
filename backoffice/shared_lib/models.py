@@ -8,7 +8,7 @@ MODEL_LABELS = {
     "openai/gpt-6.1-terra": "OpenAI GPT-6.1 Terra",
     "openai/gpt-6.1-sol": "OpenAI GPT-6.1 Sol",
     "openai/gpt-6-luna": "OpenAI GPT-6 Luna (→ GPT-6.2 Sol)",
-    "openai/gpt-6-astra": "OpenAI GPT-6 Astra",
+    "openai/gpt-6-astra": "OpenAI GPT-6 Astra (→ GPT-6.2 Astra)",
     "openai/gpt-5.5": "OpenAI GPT-5.5",
     "openai/gpt-5.4": "OpenAI GPT-5.4",
     "openai/gpt-5.3-codex": "OpenAI GPT-5.3 Codex (deprecated → GPT-6.2 Sol)",
@@ -24,7 +24,7 @@ MODEL_LABELS = {
     "gpt-6.1-terra": "GPT-6.1 Terra",
     "gpt-6.1-sol": "GPT-6.1 Sol",
     "gpt-6-luna": "GPT-6 Luna (→ GPT-6.2 Sol)",
-    "gpt-6-astra": "GPT-6 Astra",
+    "gpt-6-astra": "GPT-6 Astra (→ GPT-6.2 Astra)",
     "gpt-5.6-sol": "GPT-5.6 Sol",
     "gpt-5.6-terra": "GPT-5.6 Terra",
     "gpt-5.6-luna": "GPT-5.6 Luna (→ GPT-6.2 Sol)",
@@ -77,7 +77,6 @@ AVAILABLE_PHASE_MODELS = (
     "gpt-6.2-astra",
     "gpt-6.1-terra",
     "gpt-6.1-sol",
-    "gpt-6-astra",
     "gpt-5.6-sol",
     "gpt-5.6-terra",
     "gpt-5.5",
@@ -172,6 +171,14 @@ ROUTE_LOCAL_WORKLOAD_MODELS = {
 }
 
 
+def active_phase_model(model: str) -> str:
+    """Resolve saved Astra selections before editing active phase routing."""
+    model = model.strip()
+    if model.removeprefix("openai/") in ("gpt-6-astra", "gpt-6.1-astra"):
+        return "gpt-6.2-astra"
+    return model
+
+
 def human_model_label(model: str) -> str:
     model = (model or "").strip()
     if not model:
@@ -214,9 +221,9 @@ def phase_model_display_label(
     if model_id == "selected_build_model":
         tier_model = build_defaults.get(tier, "").strip()
         if tier_model:
-            return f"Tier model ({human_model_label(tier_model)})"
+            return f"Tier model ({human_model_label(active_phase_model(tier_model))})"
         return "Tier model"
-    return human_model_label(model_id)
+    return human_model_label(active_phase_model(model_id))
 
 
 def phase_thinking_defaults(manifest: dict[str, Any]) -> dict[str, dict[str, dict[str, Any]]]:
@@ -296,7 +303,7 @@ def resolve_phase_models_for_dashboard(
     resolved: dict[str, str] = {}
     for tier in BUILD_PROFILE_ORDER:
         phase_ref = routing.get(tier, {}).get(phase, "selected_build_model").strip()
-        resolved[tier] = (
+        resolved[tier] = active_phase_model(
             build_defaults.get(tier, "").strip()
             if phase_ref == "selected_build_model"
             else phase_ref
