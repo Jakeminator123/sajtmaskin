@@ -1,6 +1,6 @@
 import { tokenBudgetsForContextPolicy } from "@/lib/gen/build-spec/token-budgets";
 import { getModelContextWindowTokens } from "@/lib/models/context-window";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   aliasRetiredModelId,
   ownModelIdToCanonicalModelId,
@@ -18,6 +18,18 @@ it.each(["openai/gpt-6-astra", "openai/gpt-6.1-astra", "openai/gpt-6.2-astra"])(
     expect(resolveChatModelTier({ model })).toBe("ultra");
   },
 );
+
+it("preserves the original Astra tier when Pro is now configured for current Astra", ({ onTestFinished }) => {
+  vi.stubEnv("SAJTMASKIN_MODEL_PRO", "gpt-6.2-astra");
+  onTestFinished(() => vi.unstubAllEnvs());
+  for (const model of ["gpt-6-astra", "openai/gpt-6-astra", "gpt-6.1-astra", "openai/gpt-6.1-astra"]) {
+    expect(resolveChatModelTier({ model }), model).toBe("ultra");
+    expect(resolveChatModelTier({ model, orchestration_snapshot: { modelTier: "premium" } })).toBe("premium");
+  }
+  for (const model of ["gpt-6.2-astra", "openai/gpt-6.2-astra"]) {
+    expect(resolveChatModelTier({ model }), model).toBe("pro");
+  }
+});
 
 describe("resolveChatModelTier — shared Sol build model", () => {
   it("prefers the persisted snapshot tier over the ambiguous chat.model", () => {

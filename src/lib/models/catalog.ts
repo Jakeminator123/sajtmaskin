@@ -164,8 +164,11 @@ export function ownModelIdToCanonicalModelId(
   const persistedTier = canonicalizeModelId(value);
   if (persistedTier) return persistedTier;
 
-  const trimmed = resolveOwnEngineModelId(value);
+  const storedModel = value?.trim() ?? "";
+  const trimmed = resolveOwnEngineModelId(storedModel);
   if (!trimmed) return null;
+  // Old Astra IDs identified Ultra before today's configurable model assignments.
+  if (trimmed === "gpt-6.2-astra" && Object.hasOwn(RETIRED_MODEL_ALIAS, storedModel)) return "ultra";
 
   // Since 2026-09-02 Låg/Mellan/Hög all persist the same Sol id as chat.model
   // across model upgrades, so the build model alone cannot identify the tier. Resolve a shared model to Mellan: its
