@@ -12,6 +12,14 @@ Purpose and architecture
 - Dockerfile pins OpenClaw 2026.10.34 and Node 24.22.1. The OpenClaw release
   adds GPT-6.2 Astra and Sol support on the OpenAI Responses route.
   https://github.com/openclaw/openclaw/releases/tag/v2026.10.34
+- On successful authenticated GET /v1/models, X-Sajtmaskin-Fast-Mode: 1
+  advertises POST /v1/chat/completions/fast when chat completions are enabled.
+  The Fast route sets the native per-run fastMode option on the selected agent.
+  Successful JSON responses and accepted SSE streams confirm it with the same
+  header. POST /v1/chat/completions retains the upstream default.
+- The image build verifies the original module hashes before applying the
+  version-specific patch. Recheck these routes and the outbound OpenAI
+  service_tier on each OpenClaw upgrade.
 
 
 Repo paths
