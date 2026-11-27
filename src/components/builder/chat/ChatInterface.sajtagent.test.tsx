@@ -32,6 +32,7 @@ vi.mock("./sajtagent/SajtagentProvider", () => ({
 }));
 
 import { ChatInterface } from "./ChatInterface";
+import { BUILDER_VIDEO_DRAFT_EVENT, type BuilderVideoDraft } from "@/lib/media/video-builder-action";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import {
   hasMissionAwaitingResult,
@@ -133,6 +134,27 @@ it("opens a quoted video order via the ordinary builder composer without sending
   ]);
   expect(build).not.toHaveBeenCalled();
   expect(sajtagent.value.send).not.toHaveBeenCalled();
+});
+
+it("keeps the exact saved MP4 in a free draft until the user uses the ordinary builder send", async () => {
+  const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
+  const url = "https://files.public.blob.vercel-storage.com/owner/video.mp4";
+  const prompt = "Lägg in den färdiga bifogade MP4-videon på sajten.";
+  render(<ChatInterface chatId="chat_1" projectId="project_1" mediaEnabled onSendMessage={build} />);
+  const input = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Skriv en uppdatering" });
+  fireEvent.change(input, { target: { value: "Behåll rubriken." } });
+  await act(async () => {
+    window.dispatchEvent(new CustomEvent<BuilderVideoDraft>(BUILDER_VIDEO_DRAFT_EVENT, {
+      cancelable: true,
+      detail: { chatId: "chat_1", projectId: "project_1", prompt, media: { id: 42, url, filename: "video.mp4", mimeType: "video/mp4" } },
+    }));
+  });
+  expect(input.value).toBe(`Behåll rubriken.\n\n${prompt}`);
+  expect(build).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("radio", { name: "Bygg" }));
+  await typeAndSend(input.value);
+  expect(build).toHaveBeenCalledExactlyOnceWith(expect.stringContaining(prompt),
+    expect.objectContaining({ attachments: [expect.objectContaining({ url, mimeType: "video/mp4" })] }));
 });
 
 async function typeAndSend(text: string) {

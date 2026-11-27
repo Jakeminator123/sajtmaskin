@@ -19,7 +19,7 @@ import {
 import { MediaDrawer } from "@/components/media/media-drawer";
 import { VideoGenerationPanel } from "@/components/media/video-generation-panel";
 import { resolveVideoGenerationIntent, type VideoGenerationIntent } from "@/lib/media/video-generation-intent";
-import { resumeVideoInsertion } from "@/lib/media/video-builder-action";
+import { BUILDER_VIDEO_DRAFT_EVENT, resumeVideoInsertion, type BuilderVideoDraft } from "@/lib/media/video-builder-action";
 import { TextUploader } from "@/components/media/text-uploader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -359,12 +359,34 @@ export function ChatInterface({
   useEffect(() => {
     if (!projectId || !chatId) return;
     const controller = new AbortController();
-    void resumeVideoInsertion({ chatId, projectId }, controller.signal).then((outcome) => {
-      if (outcome?.kind === "sent" && !controller.signal.aborted) toast.success("Videon skickades till byggaren.");
-    }).catch((reason: unknown) => {
-      if (!controller.signal.aborted) toast.error(reason instanceof Error ? reason.message : "Infogningen misslyckades.");
+    const prepareDraft = (event: Event) => {
+      const command = (event as CustomEvent<BuilderVideoDraft>).detail;
+      if (controller.signal.aborted || activeComposerChatRef.current !== chatId ||
+          command?.chatId !== chatId || command.projectId !== projectId) return;
+      event.preventDefault();
+      setFiles((current) => current.some((file) => file.url === command.media.url)
+        ? current
+        : [...current, {
+          id: `media-${command.media.id}`,
+          url: command.media.url,
+          filename: command.media.filename,
+          mimeType: command.media.mimeType,
+          status: "success",
+          isPublicUrl: true,
+          size: 0,
+        }]);
+      setInput((current) => current.includes(command.prompt) ? current
+        : [current, command.prompt].filter(Boolean).join("\n\n"));
+      toast.success("Videon är bifogad i utkastet. Skicka i Bygg när du vill infoga den.");
+    };
+    window.addEventListener(BUILDER_VIDEO_DRAFT_EVENT, prepareDraft);
+    void resumeVideoInsertion({ chatId, projectId }, controller.signal).catch((reason: unknown) => {
+      if (!controller.signal.aborted) toast.error(reason instanceof Error ? reason.message : "Kunde inte förbereda byggutkastet.");
     });
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      window.removeEventListener(BUILDER_VIDEO_DRAFT_EVENT, prepareDraft);
+    };
   }, [chatId, projectId]);
   const [figmaUrl, setFigmaUrl] = useState("");
   const [internalFigmaInputOpen, setInternalFigmaInputOpen] = useState(false);

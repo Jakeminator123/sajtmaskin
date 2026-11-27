@@ -1,10 +1,18 @@
-import type { VideoGenerationJob } from "@/lib/media/video-generation-contract";
-import { getBuilderBridge, waitForBuilderSend } from "@/lib/openclaw/builder-bridge";
+import type { VideoGenerationJob, VideoGenerationMedia } from "@/lib/media/video-generation-contract";
+import { getBuilderBridge } from "@/lib/openclaw/builder-bridge";
 
 type Target = { chatId: string; projectId: string; placement?: string; versionId?: string };
 type PendingInsertion = Target & { jobId: string; expiresAt: number };
 export type VideoBuilderHandoff = { kind: "handoff"; href: string; prepare: () => void };
-type InsertionOutcome = { kind: "sent" } | VideoBuilderHandoff;
+type InsertionOutcome = { kind: "draft" } | VideoBuilderHandoff;
+export type BuilderVideoDraft = {
+  chatId: string;
+  projectId: string;
+  prompt: string;
+  media: VideoGenerationMedia;
+};
+
+export const BUILDER_VIDEO_DRAFT_EVENT = "sajtmaskin:builder-video-draft";
 
 const KEY_PREFIX = "sajtmaskin:video-insert:";
 const MAX_HANDOFF_AGE_MS = 15 * 60 * 1000;
@@ -13,12 +21,12 @@ function handoffKey(target: Pick<Target, "chatId" | "projectId">) {
   return KEY_PREFIX + JSON.stringify([target.chatId, target.projectId]);
 }
 
-export async function insertGeneratedVideo(
+export function prepareGeneratedVideoInBuilder(
   job: VideoGenerationJob,
   target: Target,
   signal: AbortSignal,
-  { allowHandoff = false, onDispatch }: { allowHandoff?: boolean; onDispatch?: () => void } = {},
-): Promise<InsertionOutcome> {
+  { allowHandoff = false }: { allowHandoff?: boolean } = {},
+): InsertionOutcome {
   if (signal.aborted || job.projectId !== target.projectId || job.status !== "succeeded" || job.media?.mimeType !== "video/mp4") {
     throw new Error("Videon är inte klar i den här sajten.");
   }
@@ -35,35 +43,23 @@ export async function insertGeneratedVideo(
       },
     };
   }
-  const expectedVersionId = target.versionId ?? bridge?.getActiveVersionId() ?? undefined;
-  const ready = await waitForBuilderSend({
-    expectedChatId: target.chatId,
-    expectedVersionId,
-    isCancelled: () => signal.aborted,
-    maxAttempts: 40,
-    intervalMs: 250,
-  });
-  if (!ready.ok || signal.aborted || getBuilderBridge() !== ready.bridge) {
-    throw new Error("Videon sparades. Byggaren kunde inte ta emot den här turen.");
+  if (bridge && (bridge.getChatId() !== target.chatId ||
+      (target.versionId && bridge.getActiveVersionId() !== target.versionId))) {
+    throw new Error("Videon sparades. Byggaren har bytt chatt eller version.");
   }
 
   const placement = target.placement ? ` Placering: ${target.placement}` : "";
-  onDispatch?.();
-  const outcome = await ready.bridge.sendMessage(
-    `Lägg in den färdiga bifogade MP4-videon på sajten med en vanlig uppspelningskontroll. Använd exakt den bifogade filen.${placement}`,
-    {
-      attachments: [{
-        type: "user_file",
-        url: job.media.url,
-        filename: job.media.filename,
-        mimeType: job.media.mimeType,
-      }],
+  const accepted = !window.dispatchEvent(new CustomEvent<BuilderVideoDraft>(BUILDER_VIDEO_DRAFT_EVENT, {
+    cancelable: true,
+    detail: {
+      chatId: target.chatId,
+      projectId: target.projectId,
+      media: job.media,
+      prompt: `Lägg in den färdiga bifogade MP4-videon på sajten med en vanlig uppspelningskontroll. Använd exakt den bifogade filen.${placement}`,
     },
-  );
-  if (outcome.status === "rejected" || outcome.status === "failed" || outcome.status === "aborted") {
-    throw new Error("Videon sparades. Byggaren kunde inte avsluta infogningen.");
-  }
-  return { kind: "sent" };
+  }));
+  if (!accepted) throw new Error("Videon sparades. Kunde inte öppna byggutkastet i den här sajten.");
+  return { kind: "draft" };
 }
 
 export async function resumeVideoInsertion(target: Pick<Target, "chatId" | "projectId">, signal: AbortSignal): Promise<InsertionOutcome | undefined> {
@@ -80,12 +76,7 @@ export async function resumeVideoInsertion(target: Pick<Target, "chatId" | "proj
   const data = await response.json().catch(() => null) as { job?: VideoGenerationJob } | null;
   if (signal.aborted || window.sessionStorage.getItem(key) !== raw) return undefined;
   if (!response.ok || !data?.job || data.job.id !== jobId) throw new Error("Kunde inte hämta den sparade videon. Den finns kvar i mediebanken.");
-  return insertGeneratedVideo(data.job, intent, signal, {
-    // Consume only when the scoped bridge is ready. No second send after an
-    // ambiguous response, a Strict Mode remount or a page refresh.
-    onDispatch: () => {
-      if (window.sessionStorage.getItem(key) !== raw) throw new Error("Infogningen har redan skickats.");
-      window.sessionStorage.removeItem(key);
-    },
-  });
+  const outcome = prepareGeneratedVideoInBuilder(data.job, intent, signal);
+  window.sessionStorage.removeItem(key);
+  return outcome;
 }

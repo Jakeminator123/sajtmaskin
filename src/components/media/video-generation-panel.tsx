@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { VideoGenerationIntent } from "@/lib/media/video-generation-intent";
-import { insertGeneratedVideo, type VideoBuilderHandoff } from "@/lib/media/video-builder-action";
+import { prepareGeneratedVideoInBuilder, type VideoBuilderHandoff } from "@/lib/media/video-builder-action";
 import { getBuilderBridge } from "@/lib/openclaw/builder-bridge";
 import {
   VIDEO_GENERATION_PROMPT_MAX_LENGTH,
@@ -58,9 +58,7 @@ export function VideoGenerationPanel({ projectId, chatId, intent, onClose, onSav
   const [job, setJob] = useState<VideoGenerationJob>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [inserting, setInserting] = useState(false);
-  const [inserted, setInserted] = useState(false);
-  const [insertionDispatched, setInsertionDispatched] = useState(false);
+  const [prepared, setPrepared] = useState(false);
   const [handoff, setHandoff] = useState<VideoBuilderHandoff>();
   const scope = useRef<AbortController>(null);
   const order = useRef<VideoGenerationOrder>(null);
@@ -69,8 +67,6 @@ export function VideoGenerationPanel({ projectId, chatId, intent, onClose, onSav
   const paidJobId = useRef<string | null>(null);
   const savedJobs = useRef(new Set<string>());
   const autoTried = useRef(false);
-  const insertTried = useRef(false);
-  const dispatchedInsertion = useRef(false);
   const [retryOrder, setRetryOrder] = useState(false);
 
   useEffect(() => {
@@ -204,37 +200,23 @@ export function VideoGenerationPanel({ projectId, chatId, intent, onClose, onSav
     };
   }, [context, job]);
 
-  const insert = useCallback(async (ready: VideoGenerationJob) => {
+  function prepareDraft(ready: VideoGenerationJob) {
     const signal = scope.current?.signal;
-    if (!chatId || !context || !signal || signal.aborted || insertTried.current) return;
-    insertTried.current = true;
-    setInserting(true);
+    if (!chatId || !context || !signal || signal.aborted) return;
     try {
-      const outcome = await insertGeneratedVideo(ready, {
+      const outcome = prepareGeneratedVideoInBuilder(ready, {
         chatId,
         projectId: context.projectId,
         placement: intent?.placement,
         versionId: orderedAgainstVersion.current,
-      }, signal, {
-        allowHandoff: allowBuilderHandoff,
-        onDispatch: () => {
-          dispatchedInsertion.current = true;
-          setInsertionDispatched(true);
-        },
-      });
-      if (!signal.aborted) {
-        if (outcome.kind === "sent") setInserted(true);
-        else setHandoff(outcome);
-      }
+      }, signal, { allowHandoff: allowBuilderHandoff });
+      setError("");
+      if (outcome.kind === "draft") setPrepared(true);
+      else setHandoff(outcome);
     } catch (reason: unknown) {
-      if (!signal.aborted) {
-        if (!dispatchedInsertion.current) insertTried.current = false;
-        setError(reason instanceof Error ? reason.message : "Videon sparades. Kunde inte lägga in den i bygget.");
-      }
-    } finally {
-      if (!signal.aborted) setInserting(false);
+      setError(reason instanceof Error ? reason.message : "Videon sparades. Kunde inte förbereda utkastet.");
     }
-  }, [allowBuilderHandoff, chatId, context, intent?.placement]);
+  }
 
   useEffect(() => {
     if (!job || job.status !== "succeeded" || !job.media || savedJobs.current.has(job.id)) return;
@@ -262,7 +244,7 @@ export function VideoGenerationPanel({ projectId, chatId, intent, onClose, onSav
           void submit(order.current?.maxCredits ?? context.quote.credits);
         }}>
           {intent?.insert && <p>
-            Infogning startar en separat debiterad byggtur. Du godkänner byggkostnaden när videon är klar.
+            Du kan öppna ett avgiftsfritt byggutkast när videon är klar. Infogningen startar när du själv skickar en byggtur.
             {intent.placement ? ` Placering: ${intent.placement}` : ""}
           </p>}
           <label className="block">
@@ -288,9 +270,9 @@ export function VideoGenerationPanel({ projectId, chatId, intent, onClose, onSav
       {job?.status === "failed" && <p role="alert">{job.error || "Det gick inte att skapa videon."}</p>}
       {job?.status === "succeeded" && job.media && (
         <div className="space-y-2">
-          <p role="status">{inserted ? "Videon sparades och skickades till byggaren." : inserting ? "Videon sparades. Skickar till byggaren…" : "Videon har sparats i mediebanken."}</p>
+          <p role="status">{prepared ? "Videon sparades och bifogades i byggutkastet." : "Videon har sparats i mediebanken."}</p>
           <a className="underline" href={job.media.url} target="_blank" rel="noreferrer">Öppna {job.media.filename}</a>
-          {paidJobId.current === job.id && intent?.insert && !inserting && !inserted && !insertionDispatched && (
+          {paidJobId.current === job.id && intent?.insert && !prepared && (
             handoff
               ? <a className="ml-2 underline" href={handoff.href} onClick={(event) => {
                 try {
@@ -299,12 +281,12 @@ export function VideoGenerationPanel({ projectId, chatId, intent, onClose, onSav
                   event.preventDefault();
                   setError("Videon finns i mediebanken. Kunde inte öppna infogningen.");
                 }
-              }}>Öppna rätt sajt och lägg in videon</a>
+              }}>Öppna byggutkastet i rätt sajt</a>
               : chatId ? (
                 <div className="space-y-1">
-                  <p>Byggaren debiterar en separat byggtur för att lägga in videon.</p>
-                  <Button type="button" size="sm" variant="outline" onClick={() => void insert(job)}>
-                    Godkänn byggkostnaden och lägg in videon
+                  <p>Öppna utkastet avgiftsfritt och skicka den separata byggturen när du är redo.</p>
+                  <Button type="button" size="sm" variant="outline" onClick={() => prepareDraft(job)}>
+                    Öppna i byggaren
                   </Button>
                 </div>
               ) : null

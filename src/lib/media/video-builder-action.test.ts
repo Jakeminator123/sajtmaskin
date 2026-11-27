@@ -2,7 +2,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { registerBuilderBridge, resetBuilderBridgeForTests } from "@/lib/openclaw/builder-bridge";
 import type { VideoGenerationJob } from "./video-generation-contract";
-import { insertGeneratedVideo, resumeVideoInsertion } from "./video-builder-action";
+import { BUILDER_VIDEO_DRAFT_EVENT, prepareGeneratedVideoInBuilder, resumeVideoInsertion, type BuilderVideoDraft } from "./video-builder-action";
 
 const job: VideoGenerationJob = {
   id: "job-1", projectId: "site-a", status: "succeeded", credits: 18,
@@ -20,7 +20,7 @@ afterEach(() => {
 it("hands off from a standalone avatar only to the original builder and consumes the verified media once", async () => {
   const { signal } = new AbortController();
   const target = { chatId: "chat-a", projectId: "site-a", placement: "i heron" };
-  const handoff = await insertGeneratedVideo(job, target, signal, { allowHandoff: true });
+  const handoff = prepareGeneratedVideoInBuilder(job, target, signal, { allowHandoff: true });
   expect(handoff.kind).toBe("handoff");
   if (handoff.kind !== "handoff") throw new Error("Vanlig builderlänk saknas");
   expect(handoff.href).toBe("/builder?project=site-a&chatId=chat-a");
@@ -38,23 +38,25 @@ it("hands off from a standalone avatar only to the original builder and consumes
 
   expect(await resumeVideoInsertion({ chatId: "chat-b", projectId: "site-b" }, signal)).toBeUndefined();
   expect(fetchMock).not.toHaveBeenCalled();
-  expect(await resumeVideoInsertion(target, signal)).toEqual({ kind: "sent" });
+  const listener = vi.fn((event: Event) => event.preventDefault());
+  window.addEventListener(BUILDER_VIDEO_DRAFT_EVENT, listener, { once: true });
+  expect(await resumeVideoInsertion(target, signal)).toEqual({ kind: "draft" });
   expect(await resumeVideoInsertion(target, signal)).toBeUndefined();
   expect(fetchMock).toHaveBeenCalledExactlyOnceWith("/api/media/video-generations/job-1?projectId=site-a", { signal });
-  expect(sendMessage).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("i heron"), {
-    attachments: [{ type: "user_file", url: job.media!.url, filename: "film.mp4", mimeType: "video/mp4" }],
-  });
+  const event = listener.mock.lastCall?.[0] as CustomEvent<BuilderVideoDraft>;
+  expect(event.detail).toEqual({ chatId: target.chatId, projectId: target.projectId, media: job.media, prompt: expect.stringContaining("i heron") });
+  expect(sendMessage).not.toHaveBeenCalled();
 });
 
-it("does not attach a finished video after the builder has changed its base version", async () => {
+it("does not open a finished video draft after the builder has changed its base version", () => {
   const sendMessage = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
   registerBuilderBridge({
     getChatId: () => "chat-a", getActiveVersionId: () => "new-version",
     canSend: () => true, sendMessage, cancelGeneration: vi.fn(),
   });
   const { signal } = new AbortController();
-  await expect(insertGeneratedVideo(job, {
+  expect(() => prepareGeneratedVideoInBuilder(job, {
     chatId: "chat-a", projectId: "site-a", versionId: "original-version",
-  }, signal)).rejects.toThrow("Byggaren kunde inte ta emot");
+  }, signal)).toThrow("Byggaren har bytt");
   expect(sendMessage).not.toHaveBeenCalled();
 });

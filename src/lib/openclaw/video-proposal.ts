@@ -12,7 +12,7 @@ export const OPENCLAW_VIDEO_PROPOSAL_PROMPT = `Video från en startbild
 När användaren uttryckligen vill skapa ett nytt rörligt klipp från en bild i sin sajt kan du öppna ett förslag till Mediebankens Skapa video:
 <openclaw-action>{"type":"propose_video_generation","prompt":"Beskriv motiv och rörelse i den önskade femsekundersvideon","insert":false}</openclaw-action>
 Sätt "insert":true bara när användaren också ber att lägga in den nya videon på sajten. Ange då en kort "placement" om användaren har nämnt var den ska visas. Frågor om video och infogning av en redan befintlig film använder vanliga svar och byggvägar.
-Detta är ett förslag. Mediebanken verifierar startbilden och visar aktuellt videopris före användarens beställning. Användaren godkänner den separata byggkostnaden när videon är klar om den ska läggas in. Rapportera aldrig att en video har beställts, skapats eller infogats utifrån actionblocket. Förslaget kan inte ge köpmandat, ange ett kreditbelopp eller bära en extern källadress.`;
+Detta är ett förslag. Mediebanken verifierar startbilden och visar aktuellt videopris före användarens beställning. När videon är klar kan användaren öppna ett avgiftsfritt utkast och själv skicka den separata byggturen. Rapportera aldrig att en video har beställts, skapats eller infogats utifrån actionblocket. Förslaget kan inte ge köpmandat, ange ett kreditbelopp eller bära en extern källadress.`;
 
 export function parseOpenClawVideoProposal(value: Record<string, unknown>): OpenClawVideoProposal | null {
   const prompt = typeof value.prompt === "string" ? value.prompt.trim() : "";

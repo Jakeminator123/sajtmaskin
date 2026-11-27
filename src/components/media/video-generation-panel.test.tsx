@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import { BUILDER_VIDEO_DRAFT_EVENT, type BuilderVideoDraft } from "@/lib/media/video-builder-action";
 import { registerBuilderBridge, resetBuilderBridgeForTests } from "@/lib/openclaw/builder-bridge";
 import { VideoGenerationPanel } from "./video-generation-panel";
 
@@ -55,7 +56,7 @@ it("quotes the job before one order and saves a normal media-bank video", async 
   });
 });
 
-it("pays once within the video budget and requires separate approval before the builder gets the MP4", async () => {
+it("pays only for the video and opens a free MP4 draft without calling the paid builder", async () => {
   const fetchMock = quoteFetch();
   vi.stubGlobal("fetch", fetchMock);
   const sendMessage = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
@@ -72,14 +73,16 @@ it("pays once within the video budget and requires separate approval before the 
   await screen.findByText("Godkänt budgettak för videon 20 krediter");
   await screen.findByText("Videon har sparats i mediebanken.");
   expect(sendMessage).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "Godkänn byggkostnaden och lägg in videon" }));
-  await screen.findByText("Videon sparades och skickades till byggaren.");
+  const receiveDraft = vi.fn((event: Event) => event.preventDefault());
+  window.addEventListener(BUILDER_VIDEO_DRAFT_EVENT, receiveDraft, { once: true });
+  fireEvent.click(screen.getByRole("button", { name: "Öppna i byggaren" }));
+  await screen.findByText("Videon sparades och bifogades i byggutkastet.");
   expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
   const paid = fetchMock.mock.calls.find(([, init]) => init?.method === "POST");
   expect(JSON.parse(String(paid?.[1]?.body)).maxCredits).toBe(18);
-  expect(sendMessage).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("i heron"), {
-    attachments: [{ type: "user_file", url: media.url, filename: "film.mp4", mimeType: "video/mp4" }],
-  });
+  const event = receiveDraft.mock.lastCall?.[0] as CustomEvent<BuilderVideoDraft>;
+  expect(event.detail).toEqual({ chatId: "chat-a", projectId: "site-a", prompt: expect.stringContaining("i heron"), media });
+  expect(sendMessage).not.toHaveBeenCalled();
 });
 
 it("polls the project-bound order and saves only the confirmed final file", async () => {
