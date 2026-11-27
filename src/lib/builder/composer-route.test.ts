@@ -414,6 +414,17 @@ describe("resolveComposerRoute", () => {
     ).toBe("agent");
   });
 
+  it("lets the armed Auto agent choose the edit path while preserving builder-owned turns", () => {
+    const order = { ...base, text: "Byt rubriken till Välkommen", agentCanBuild: true };
+    expect(resolveComposerRoute(order)).toBe("agent");
+    expect(resolveComposerRoute({ ...order, agentCanBuild: false })).toBe("build");
+    expect(resolveComposerRoute({ ...order, mode: "build" })).toBe("build");
+    expect(resolveComposerRoute({ ...order, builderAwaitingReply: true })).toBe("build");
+    expect(resolveComposerRoute({ ...order, hasChat: false })).toBe("build");
+    expect(resolveComposerRoute({ ...order, agentAvailable: false })).toBe("build");
+    expect(resolveComposerRoute({ ...order, hasAttachments: true, hasAgentReadableAttachments: true })).toBe("build");
+  });
+
   it("håller svar på byggmotorns motfråga/plan i samma flöde, med Fråga som uttryckligt undantag", () => {
     expect(resolveComposerRoute({ ...base, text: "Ja gärna", builderAwaitingReply: true })).toBe("build");
     expect(resolveComposerRoute({ ...base, builderAwaitingReply: true })).toBe("build");

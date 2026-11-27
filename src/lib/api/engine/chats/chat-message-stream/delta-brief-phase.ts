@@ -3,7 +3,7 @@
  * `chat-message-stream-post.ts`.
  */
 import { resolveBuildIntentForMethod } from "@/lib/builder/build-intent";
-import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
+import { siteBriefSchema, tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
 import { OPENCLAW } from "@/lib/config";
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 import type { FollowUpIntentMode } from "@/lib/gen/follow-up-intent-types";
@@ -26,7 +26,6 @@ import { matchScaffold, scaffoldForExplicitIntent } from "@/lib/gen/scaffolds/ma
 import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
 import { SCAFFOLD_OFF_BASELINE_ID, type ScaffoldMode } from "@/lib/gen/scaffolds/types";
 import {
-  isOpenClawPreparedPromptStructured,
   OPENCLAW_PREPARED_PROMPT_SOURCE,
 } from "@/lib/openclaw/prepared-prompt";
 import { shouldIgnorePersistedScaffoldForMatch } from "@/lib/providers/own-engine/follow-up-clarification";
@@ -34,11 +33,11 @@ import { debugLog } from "@/lib/utils/debug";
 import type { ParsedChatRequestMeta } from "../parse-chat-request-meta";
 
 export interface ClearRedesignDeltaBriefPhaseResult {
-  /** Generated delta-brief (also written back to `parsedMeta.brief`), or null. */
+  /** Generated or validated current-message brief, also written to `parsedMeta.brief`. */
   brief: Record<string, unknown> | null;
   /**
    * `"structured_prompt"` when the delta-brief LLM pass was deliberately
-   * skipped because the prompt already carried brief structure. Named after
+   * skipped because the current prompt carried a schema-valid JSON brief. Named after
    * what the server VERIFIED, not after who claimed to have sent it — the
    * request tag is an unauthenticated hint (see `prepared-prompt.ts`), so
    * naming the outcome after it would put a provenance claim in the telemetry
@@ -56,19 +55,16 @@ export interface ClearRedesignDeltaBriefPhaseResult {
  * `parsedMeta.brief` — 5-4/F1) or `null` when skipped/failed.
  *
  * Prepared-prompt fast lane (opt-in, `OPENCLAW.editEnabled` as the rollout
- * switch): the pass is skipped when the prompt ALREADY carries brief structure
- * — verified here, server-side, by the deterministic
- * `isOpenClawPreparedPromptStructured` check. The prepared prompt is then the
- * brief/spec input downstream (orchestration keeps the non-style snapshot
- * fallback for continuity — same lane as a failed delta-brief, minus the LLM
- * round).
+ * switch): a schema-valid JSON brief embedded in the current prompt is reused
+ * and written to parsedMeta.brief. Markdown headings and lists still take the
+ * normal delta-brief path so styles, pages and capabilities reach their typed
+ * orchestration owners.
  *
  * The request's `promptSource` tag only decides whether to LOOK: it is
  * client-controlled and proves nothing (see `prepared-prompt.ts` → trust
- * model). Everything that could be abused is guarded by the two checks the
- * client cannot influence — the structure check, and `followUpIntentMessage
- * === message` (a contract-gate retry classifies a DIFFERENT message than the
- * one the tag was set for, so the tag must not carry over to it).
+ * model). The brief must pass the canonical schema and belong to the exact
+ * message being classified. Contract-gate retries with another message take
+ * the normal delta-brief path.
  *
  * Every other step of the follow-up turn (intent classification, freeze,
  * versioning, credits, verification) is unchanged, and any failed condition
@@ -131,18 +127,19 @@ export async function runClearRedesignDeltaBriefPhase(params: {
     if (requestPromptSource === OPENCLAW_PREPARED_PROMPT_SOURCE) {
       if (
         OPENCLAW.editEnabled &&
-        followUpIntentMessage === message &&
-        isOpenClawPreparedPromptStructured(followUpIntentMessage)
+        followUpIntentMessage === message
       ) {
-        // Same outcome owner as the generated/failed logs below — the skip is
-        // recorded with its reason instead of a silent no-call.
-        debugLog("orchestration", "Delta-brief skipped or failed for clear-redesign follow-up", {
-          chatId,
-          durationMs: 0,
-          reason: "structured_prompt",
-          promptLength: followUpIntentMessage.length,
-        });
-        return { brief: null, skipReason: "structured_prompt" };
+        const preparedBrief = parsePreparedSiteBrief(followUpIntentMessage);
+        if (preparedBrief) {
+          parsedMeta.brief = preparedBrief;
+          debugLog("orchestration", "Delta-brief reused for clear-redesign follow-up", {
+            chatId,
+            durationMs: 0,
+            reason: "structured_prompt",
+            promptLength: followUpIntentMessage.length,
+          });
+          return { brief: preparedBrief, skipReason: "structured_prompt" };
+        }
       }
       // Edit gate off, indirect message or unstructured prompt → fail open
       // to the normal delta-brief LLM pass below.
@@ -255,4 +252,21 @@ export async function runClearRedesignDeltaBriefPhase(params: {
     }
   }
   return { brief: metaBrief, skipReason: null };
+}
+
+/** Parse current-message decisions, without treating stale meta/snapshot as a fresh brief. */
+function parsePreparedSiteBrief(message: string): Record<string, unknown> | null {
+  const trimmed = message.trim();
+  let json = trimmed;
+  if (!json.startsWith("{")) {
+    const blocks = Array.from(trimmed.matchAll(/^```json\s*\r?\n([\s\S]*?)^```\s*$/gim));
+    if (blocks.length !== 1) return null;
+    json = blocks[0][1];
+  }
+  try {
+    const parsed = siteBriefSchema.safeParse(JSON.parse(json));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
 }

@@ -112,6 +112,22 @@ function request(body = JSON.stringify({ messages: [{ role: "user", content: "he
   return new NextRequest("http://localhost/api/openclaw/chat", { method: "POST", body });
 }
 
+it("sends the gateway an accurate Auto role and movable builder views", async () => {
+  const response = await POST(request());
+  expect(response.status).toBe(200);
+  const call = mocks.gateway.mock.calls[0]?.[0] as {
+    body: { messages: { role: string; content: string }[] };
+  };
+  const systemPrompt = call.body.messages.filter((message) => message.role === "system")
+    .map((message) => message.content).join("\n");
+  expect(systemPrompt).toContain("Agerar direkt");
+  expect(systemPrompt).toContain("snabbändring eller byggkommando");
+  expect(systemPrompt).toContain("fria kort");
+  expect(systemPrompt).toContain("Bygglogg");
+  expect(systemPrompt).not.toContain("rena byggordrar går direkt till byggmotorn");
+  expect(systemPrompt).not.toContain("Builder-vyn har tre kolumner");
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.powers = { any: false, armedAutonomy: false };

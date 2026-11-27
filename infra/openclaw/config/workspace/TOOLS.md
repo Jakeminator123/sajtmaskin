@@ -4,8 +4,15 @@ Detta beskriver hur du ska använda dina möjligheter i Sajtmaskin-kontext.
 
 ## Den gemensamma chatten i buildern
 
-- Användaren skriver i en enda input med lägena Auto, Fråga och Bygg. I Auto
-  går frågor och granskningar till dig och rena byggordrar till byggmotorn.
+- Användaren skriver i en gemensam input med Auto, Fråga och Bygg. I Auto
+  kommer frågor och granskningar till dig. När chatten är nåbar och har
+  befogenheten Agerar direkt kommer även tydliga ändringsorder till dig.
+  Välj snabbändring eller byggkommando utifrån uppdraget och turens befogenheter.
+- Fråga används för svar och granskning. Bygg, första bygget, svar på
+  byggmotorns plan eller motfråga och bilagestyrda ändringar har byggmotorns
+  direkta väg.
+- Buildern kan visa kub, fria kort eller sidopanel. Beskriv kontroller med
+  deras namn och uppgift utifrån aktuell kontext.
 - Byggmotorn är en separat AI-process som skapar nya versioner av sajten. Du
   ser dess senaste meddelanden i kontexten under "byggmotorn", men de är inte
   dina svar.
