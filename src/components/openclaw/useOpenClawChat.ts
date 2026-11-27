@@ -58,6 +58,8 @@ export interface OpenClawSendOptions {
   readTask?: OpenClawReadTask;
   /** Bind a builder send to the chat which owns its history and preferences. */
   builderChatId?: string;
+  /** Snapshot from the builder that dispatched this turn, including automatic build summaries. */
+  builderAnchor?: { messageId: string | null; position: number };
   fastMode?: boolean;
   onFastModeUnavailable?: () => void;
   /**
@@ -291,8 +293,10 @@ export function useOpenClawChat() {
 
       // Samma ankare för frågan och svaret: båda hör hemma efter det
       // buildermeddelande som var senast när turen skickades.
-      const anchorBuilderMessageId = readBuilderAnchor();
-      const anchorBuilderMessageIndex = readBuilderAnchorIndex();
+      const anchorBuilderMessageId = options?.builderAnchor
+        ? options.builderAnchor.messageId
+        : readBuilderAnchor();
+      const anchorBuilderMessageIndex = options?.builderAnchor?.position ?? readBuilderAnchorIndex();
       const userMsg: OpenClawMessage = {
         id: makeId(),
         role: "user",

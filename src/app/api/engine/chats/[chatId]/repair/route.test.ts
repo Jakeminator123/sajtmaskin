@@ -580,6 +580,18 @@ describe("POST repair — stale-base no-op must not fail the user's newer edit (
     );
   });
 
+  it("keeps the original Ultra fixer when Pro now uses the newer Astra model", async ({ onTestFinished }) => {
+    vi.stubEnv("SAJTMASKIN_MODEL_PRO", "gpt-6.2-astra");
+    onTestFinished(() => { vi.unstubAllEnvs(); });
+    getChat.mockResolvedValue({ model: "openai/gpt-6-astra" });
+    await POST(req({
+      versionId: "ver-1", repairContext: { qualityGate: [{ check: "typecheck", exitCode: 1, output: "boom" }] },
+    }), { params: Promise.resolve({ chatId: "chat-1" }) });
+    expect(runRepairLoop).toHaveBeenCalledWith(expect.objectContaining({
+      fixerModel: "gpt-6.2-sol", fixerReasoningEffort: "high",
+    }));
+  });
+
   it("does NOT call failVersionVerification and reports superseded when the save is stale_base", async () => {
     const res = await POST(
       req({

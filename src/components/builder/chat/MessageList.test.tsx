@@ -32,6 +32,20 @@ function readyBuildPlan() {
 }
 
 describe("MessageList", () => {
+  it("opens the log belonging to the clicked earlier response", () => {
+    const openBuildLog = vi.fn();
+    const rows: ChatMessage[] = ["old", "new"].map((id) => ({
+      id,
+      role: "assistant",
+      content: ['```tsx file="app/' + id + '/page.tsx"', "export default function Page() { return null; }", "```"].join("\n"),
+    }));
+    render(<MessageList chatId="log-history" messages={rows} onOpenBuildLog={openBuildLog} />);
+    const old = within(screen.getAllByTestId("generation-surface")[0]);
+    fireEvent.click(old.getByRole("button", { name: "Visa detaljer" }));
+    fireEvent.click(old.getByRole("button", { name: "Visa bygglogg" }));
+    expect(openBuildLog).toHaveBeenCalledWith("old");
+  });
+
   it("lämnar luft under sista raden så scrollknappen inte täcker kvittot (rigg § 11, 390 px)", () => {
     const { container } = render(<MessageList chatId="chat_scroll_gap" messages={[{
       id: "assistant_receipt", role: "assistant", content: "Klart. Sidan har en ny meny.",

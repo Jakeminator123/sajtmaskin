@@ -86,6 +86,19 @@ describe("GenerationSurface — kvittots tekniska detaljer", () => {
     expect(within(details).getByText(/Ändrade filer: page\.tsx\. Jag rättade ett småfel/)).toBeTruthy();
   });
 
+  it("öppnar byggloggen för det visade svaret och behåller kvittot och kontrollresultatet", () => {
+    const openLog = vi.fn();
+    render(<GenerationSurface {...base} content={code + "\nKlart, startsidan är uppdaterad."}
+      items={[{ label: "Startar typkontroll" }]} onOpenBuildLog={openLog}
+      isStreaming={false} isActive={false} reviews={<span>Tester godkända</span>} />);
+    fireEvent.click(screen.getByRole("button", { name: "Visa detaljer" }));
+    expect(screen.queryByRole("region", { name: "Arbetslogg" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Genererade filer" })).toBeNull();
+    expect(screen.getByText("Tester godkända")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Visa bygglogg" }));
+    expect(openLog).toHaveBeenCalledOnce();
+  });
+
   it("visar äldre kvitton utan prefix som förut", () => {
     render(
       <GenerationSurface
