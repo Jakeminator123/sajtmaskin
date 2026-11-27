@@ -55,7 +55,7 @@ function extractHttpUrls(text: string): string[] {
   return text.match(re) ?? [];
 }
 
-export function looksLikeImageUrl(rawUrl: string): boolean {
+function looksLikeImageUrl(rawUrl: string): boolean {
   if (!rawUrl) return false;
   if (rawUrl.startsWith("data:")) return false;
 
@@ -98,6 +98,12 @@ export function looksLikeImageUrl(rawUrl: string): boolean {
   // Extensionless assets are common on the preview CDN.
   if (host === "vusercontent.net" || host.endsWith(".vusercontent.net")) return true;
 
+  return hasImageFormatHint(u);
+}
+
+/** Static file extension, Next image wrapper or an explicit image format in the URL. */
+export function hasImageFormatHint(u: URL): boolean {
+  const path = u.pathname.toLowerCase();
   const imageExts = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".avif", ".bmp", ".ico"];
   if (imageExts.some((ext) => path.endsWith(ext))) return true;
 

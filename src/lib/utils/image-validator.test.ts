@@ -9,6 +9,7 @@ vi.mock("@/lib/ssrf-guard", () => ({
 }));
 
 import {
+  applyKnownImageReplacementsToContent,
   applyKnownImageReplacementsToFiles,
   buildKnownImageReplacementMap,
   coerceKnownImageReplacementMap,
@@ -104,6 +105,9 @@ describe("extractImageRefs", () => {
       { src: "https://preview.vusercontent.net/showreel.mp4", alt: "Video" },
       { kind: "video", src: "https://preview.vusercontent.net/playback?id=1", alt: "Ström" },
       { src: "https://site.example.org/about", alt: null },
+      { src: "https://preview.vusercontent.net/movie.m3u8", alt: "HLS" },
+      { src: "https://preview.vusercontent.net/playback", alt: "Uppspelning" },
+      { src: "https://preview.vusercontent.net/about", alt: null },
       { src: "https://customer.public.blob.vercel-storage.com/mine.jpg", alt: "Egen bild" },
     ]);
 
@@ -374,6 +378,38 @@ describe("validateImages", () => {
       const replay = applyKnownImageReplacementsToFiles([original], buildKnownImageReplacementMap(result.broken));
       expect(replay.replacedCount).toBe(1);
       expect(replay.files[0].content).toBe(result.files[0].content);
+      const fences = "```json file=\"data/gallery.json\"\n" + original.content + "\n```";
+      const healed = applyKnownImageReplacementsToContent(fences, buildKnownImageReplacementMap(result.broken));
+      expect(healed.replacedCount).toBe(1);
+      expect(healed.content).toContain(result.files[0].content);
+      expect(applyKnownImageReplacementsToContent(original.content, buildKnownImageReplacementMap(result.broken)).replacedCount).toBe(1);
+    });
+
+    it("preserves excluded gallery media and longer variants when one exact image is dead", async () => {
+      const photo = "https://cdn.example.org/bicycle.jpg";
+      const variant = photo + "?variant=webm";
+      const file = {
+        name: "data/gallery.json",
+        content: JSON.stringify([
+          { src: photo, alt: "Foto" },
+          { src: variant, kind: "video" },
+          { src: photo, kind: "video" },
+        ]),
+      };
+      fetchSpy.mockResolvedValue(new Response(null, { status: 404 }));
+      const result = await validateImages({ files: [file], autoFix: true, unsplashAccessKey: null });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const corrected = JSON.parse(result.files[0].content);
+      expect(result.replacedCount).toBe(1);
+      expect(corrected.map((row: { src: string }) => row.src)).toEqual([
+        "/api/placeholder?w=1200&h=800&label=Foto", variant, photo,
+      ]);
+      const replay = applyKnownImageReplacementsToFiles([file], buildKnownImageReplacementMap(result.broken));
+      expect(replay.files[0].content).toBe(result.files[0].content);
+      const literal = 'const video = "' + variant + '"; const image = "' + photo + '";';
+      const exact = applyKnownImageReplacementsToContent(literal, buildKnownImageReplacementMap(result.broken));
+      expect(exact.replacedCount).toBe(1);
+      expect(exact.content).toContain('"' + variant + '"');
     });
 
     const filesForUrl = (url: string): TextFile[] => [
