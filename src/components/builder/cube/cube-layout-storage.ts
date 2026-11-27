@@ -177,7 +177,7 @@ export function useCubeLayout() {
     timer.current = null;
     pending.current = null;
     clearCubeLayout();
-    setLayoutState((prev) => ({ ...defaultCubeLayout(), mode: prev.mode }));
+    setLayoutState(defaultCubeLayout());
   }, []);
 
   return { layout, setLayout, resetLayout, hydrated };

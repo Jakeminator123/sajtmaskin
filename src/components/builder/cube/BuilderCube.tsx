@@ -107,6 +107,7 @@ export interface BuilderCubeProps {
   /** Kortlägets layout. Utelämnad → intern state. */
   cards?: CubeCardsState;
   onCardsChange?: (cards: CubeCardsState) => void;
+  /** Samla alla vyer i kuben på dess standardplats till vänster. */
   onResetLayout?: () => void;
   /**
    * Lämna kuben för den vanliga panelen. Utelämnad → ingen knapp (kuben är då
@@ -825,6 +826,16 @@ export function BuilderCube({
   }, [settled]);
 
   const outer = frame.outer;
+  const focusAfterReset = useRef(false);
+  const resetLayout = () => {
+    focusAfterReset.current = true;
+    onResetLayout?.();
+  };
+  useLayoutEffect(() => {
+    if (!focusAfterReset.current || foldPhase || !ready) return;
+    focusAfterReset.current = false;
+    tabRefs.current[activeFace]?.focus({ preventScroll: true });
+  });
 
   const dock = (
     <div
@@ -970,9 +981,9 @@ export function BuilderCube({
                 {onResetLayout ? (
                   <button
                     type="button"
-                    onClick={onResetLayout}
-                    aria-label="Återställ layout"
-                    title="Återställ layout"
+                    onClick={resetLayout}
+                    aria-label="Samla till vänster"
+                    title="Samla till vänster"
                     className="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring rounded-md p-1.5 outline-none focus-visible:ring-2"
                   >
                     <RotateCcw className="size-3.5" aria-hidden="true" />
@@ -1188,12 +1199,13 @@ export function BuilderCube({
           {onResetLayout ? (
             <button
               type="button"
-              onClick={onResetLayout}
-              aria-label="Återställ layout"
-              title="Återställ layout"
-              className="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring rounded-lg p-1.5 outline-none focus-visible:ring-2"
+              onClick={resetLayout}
+              aria-label="Samla till vänster"
+              title="Samla till vänster"
+              className="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring inline-flex shrink-0 items-center gap-1.5 rounded-lg p-1.5 text-xs outline-none focus-visible:ring-2"
             >
               <RotateCcw className="size-3.5" aria-hidden="true" />
+              Samla till vänster
             </button>
           ) : null}
           {onExit ? (

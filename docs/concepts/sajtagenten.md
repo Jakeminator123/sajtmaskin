@@ -64,6 +64,11 @@ flyttar DOM-noden, så ett layoutbyte tappar varken utkast, bilagor eller
 rulläge. Ytan ägs av
 [`cube-surface.tsx`](../../src/app/builder/builder-shell-content/cube-surface.tsx).
 
+**Samla till vänster** återställer kubens läge, storlek och kortplaceringar och
+samlar alla sex vyer i kuben till vänster. Vald vy och pågående utkast finns
+kvar. Valet gäller även efter omladdning. **Samla till kub** använder kubens
+senast sparade plats. **Sidopanel** öppnar den vanliga chatten till vänster.
+
 ## Vad Sajtagenten ser
 
 Allt skickas per tur till `/api/openclaw/chat`; servern verifierar att den som
