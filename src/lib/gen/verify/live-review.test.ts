@@ -433,6 +433,7 @@ describe("resolveLiveReviewModelIds", () => {
   it("product default is Sol medium and does not add Astra from visionModels", () => {
     expect(resolveLiveReviewModelIds()).toEqual(["gpt-6.2-sol"]);
     expect(resolveLiveReviewModelIds("gpt-6-astra")).toEqual(["gpt-6.2-astra"]);
+    expect(resolveLiveReviewModelIds("openai/gpt-6-astra")).toEqual(["gpt-6.2-astra"]);
     expect(resolveLiveReviewModelIds("gpt-6-luna")).toEqual(["gpt-6.2-sol"]);
     expect(resolveLiveReviewModelIds("gpt-5.6-sol")).toEqual(["gpt-5.6-sol"]);
   });

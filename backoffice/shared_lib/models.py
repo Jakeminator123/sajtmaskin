@@ -172,9 +172,9 @@ ROUTE_LOCAL_WORKLOAD_MODELS = {
 
 
 def active_phase_model(model: str) -> str:
-    """Resolve saved Astra selections before editing active phase routing."""
-    model = model.strip()
-    if model.removeprefix("openai/") in ("gpt-6-astra", "gpt-6.1-astra"):
+    """Resolve active OpenAI profile and phase selections to concrete model IDs."""
+    model = model.strip().removeprefix("openai/")
+    if model in ("gpt-6-astra", "gpt-6.1-astra"):
         return "gpt-6.2-astra"
     return model
 

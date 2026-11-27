@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import re
 import unittest
+from contextlib import nullcontext
+from unittest.mock import patch
 
 from backoffice import REPO_ROOT
 from backoffice.shared_lib.models import (
@@ -37,8 +39,35 @@ class ModelPolicyContractTests(unittest.TestCase):
         manifest["phaseRouting"]["defaultByTier"]["ultra"]["verifier"] = "gpt-6-astra"
         self.assertEqual(resolve_phase_models_for_dashboard(manifest, "verifier")["ultra"], "gpt-6.2-astra")
         self.assertEqual(phase_model_display_label("gpt-6-astra", "ultra", {}), "GPT-6.2 Astra")
+        self.assertEqual(active_phase_model("openai/gpt-6.2-sol"), "gpt-6.2-sol")
+        self.assertEqual(active_phase_model("anthropic/claude-opus-4.8"), "anthropic/claude-opus-4.8")
         self.assertIn("gpt-6.2-astra", AVAILABLE_PHASE_MODELS)
         self.assertEqual(human_model_label("gpt-6-astra"), "GPT-6 Astra (→ GPT-6.2 Astra)")
+
+    def test_form_saves_reasoning_mode_for_inherited_prefixed_astra(self) -> None:
+        from backoffice.pages import ai_models
+
+        manifest = _manifest()
+        manifest["buildProfiles"]["defaults"]["ultra"] = "openai/gpt-6-astra"
+        manifest["phaseRouting"]["defaultByTier"]["ultra"]["generator"] = "selected_build_model"
+        manifest["phaseRouting"]["thinkingByTier"]["ultra"]["generator"].update(
+            thinking=True, reasoningEffort="high", reasoningMode="pro",
+        )
+        with (patch.object(ai_models, "st") as ui, patch.object(ai_models, "write_json") as save):
+            ui.columns.side_effect = lambda spec, **kw: [nullcontext() for _ in range(spec if isinstance(spec, int) else len(spec))]
+            ui.tabs.side_effect = lambda labels: [nullcontext() for _ in labels]
+            ui.text_input.side_effect = lambda label, value="", **kw: value
+            ui.toggle.side_effect = lambda label, value=False, **kw: value
+            ui.selectbox.side_effect = lambda label, options, index=0, **kw: options[index]
+            ui.button.return_value = True
+            ai_models._render_generator_chain(None, "synthetic-manifest", manifest)
+            model_mode = next(call for call in ui.selectbox.call_args_list if call.kwargs.get("key") == "cfg_phase_mode_ultra_generator")
+            self.assertFalse(model_mode.kwargs["disabled"])
+            ui.stop.assert_not_called()
+            save.assert_called_once()
+            edited = save.call_args.args[1]
+            self.assertEqual(edited["buildProfiles"]["defaults"]["ultra"], "gpt-6.2-astra")
+            self.assertEqual(edited["phaseRouting"]["thinkingByTier"]["ultra"]["generator"]["reasoningMode"], "pro")
 
     def test_small_workloads_use_selected_models_and_efforts(self) -> None:
         workloads = _workloads(_manifest())

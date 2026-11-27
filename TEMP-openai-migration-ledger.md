@@ -17,4 +17,6 @@ Verifierat lokalt med modellmetadata från befintlig nyckel, 590 riktade modellt
 
 Uppföljningen av versionsgranskningen verifierades lokalt med 512 TypeScript-tester och 12 backofficeprov. De täcker bildinnehåll, utdata- och tidsbudget, reservmodell, behörighet, versionslås, F3-readiness, publicering och historiska priser. Det observerade F2-kvittot hade 101 outputtokens, varav 37 reasoning, mot taket 8 192. Produktionseffekten av modellbytet återstår att mäta.
 
+Äldre Astra-val med OpenAI-prefix får samma konkreta ID vid ny generering, fasval och beräkning av kontextbudget. En sparad Astra-chatt utan nivåsnapshot återfår Ultra vid reparation. Backoffice bevarar reasoning-läget när fasen ärver byggmodellen.
+
 [OpenAI:s modellkatalog](https://developers.openai.com/api/docs/models) · [Standardpriser](https://developers.openai.com/api/docs/pricing) · [Resonemang](https://developers.openai.com/api/docs/guides/reasoning)

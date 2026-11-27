@@ -1,9 +1,23 @@
+import { tokenBudgetsForContextPolicy } from "@/lib/gen/build-spec/token-budgets";
+import { getModelContextWindowTokens } from "@/lib/models/context-window";
 import { describe, expect, it } from "vitest";
 import {
   aliasRetiredModelId,
   ownModelIdToCanonicalModelId,
   resolveChatModelTier,
 } from "@/lib/models/catalog";
+
+it.each(["openai/gpt-6-astra", "openai/gpt-6.1-astra", "openai/gpt-6.2-astra"])(
+  "retains the Ultra context and generation tier for saved %s", (model) => {
+    const window = getModelContextWindowTokens(model);
+    expect(window).toBe(1_050_000);
+    expect(tokenBudgetsForContextPolicy("normal", window)).toEqual(
+      tokenBudgetsForContextPolicy("normal", getModelContextWindowTokens("gpt-6.2-astra")),
+    );
+    expect(ownModelIdToCanonicalModelId(model)).toBe("ultra");
+    expect(resolveChatModelTier({ model })).toBe("ultra");
+  },
+);
 
 describe("resolveChatModelTier — shared Sol build model", () => {
   it("prefers the persisted snapshot tier over the ambiguous chat.model", () => {

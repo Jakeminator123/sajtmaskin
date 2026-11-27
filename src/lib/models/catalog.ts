@@ -134,6 +134,11 @@ export function aliasRetiredModelId(value: string | null | undefined): string {
   return RETIRED_MODEL_ALIAS[trimmed] ?? trimmed;
 }
 
+/** Concrete model ID used by the own engine, its phase routing and token budgets. */
+export function resolveOwnEngineModelId(value: string | null | undefined): string {
+  return aliasRetiredModelId(value).replace(/^openai\//, "");
+}
+
 /** Union of every model ID accepted as input (canonical + legacy). */
 export const ACCEPTED_MODEL_IDS = [...CANONICAL_MODEL_IDS, ...LEGACY_MODEL_IDS] as const;
 
@@ -159,7 +164,7 @@ export function ownModelIdToCanonicalModelId(
   const persistedTier = canonicalizeModelId(value);
   if (persistedTier) return persistedTier;
 
-  const trimmed = aliasRetiredModelId(value);
+  const trimmed = resolveOwnEngineModelId(value);
   if (!trimmed) return null;
 
   // Since 2026-09-02 Låg/Mellan/Hög all persist the same Sol id as chat.model
@@ -178,12 +183,11 @@ export function ownModelIdToCanonicalModelId(
   // Fall back to canonical manifest defaults when live env overrides have
   // changed since the chat was persisted.
   for (const candidate of CANONICAL_MODEL_IDS) {
-    if (aliasRetiredModelId(getBuildProfileDefaultOwnEngineModel(candidate)) === trimmed) {
+    if (resolveOwnEngineModelId(getBuildProfileDefaultOwnEngineModel(candidate)) === trimmed) {
       return candidate;
     }
   }
-  // Astra was exclusive to Ultra before the 6.2 upgrade.
-  return value?.trim() === "gpt-6-astra" ? "ultra" : null;
+  return null;
 }
 
 /**
@@ -310,5 +314,5 @@ export function canonicalModelIdToOwnModelId(modelId: CanonicalModelId): OwnMode
       getBuildProfileDefaultOwnEngineModel("ultra"),
   };
   const raw = tierMap[modelId] ?? getBuildProfileDefaultOwnEngineModel("pro");
-  return aliasRetiredModelId(raw) as OwnModelId;
+  return resolveOwnEngineModelId(raw) as OwnModelId;
 }

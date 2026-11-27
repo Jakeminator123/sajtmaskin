@@ -253,7 +253,7 @@ def _render_generator_chain(
         with col:
             profile_inputs[key] = st.text_input(
                 TIER_LABELS_SV.get(key, key),
-                value=str(build_profiles.get(key, "")),
+                value=active_phase_model(str(build_profiles.get(key, ""))),
                 help="Konkret modell-ID som används när denna byggprofil väljs i buildern.",
                 key=f"bp_{key}",
             )
@@ -265,7 +265,7 @@ def _render_generator_chain(
         with col:
             quality_inputs[key] = st.text_input(
                 key,
-                value=str(quality_map.get(key, "")),
+                value=active_phase_model(str(quality_map.get(key, ""))),
                 key=f"quality_{key}",
             )
 
@@ -307,14 +307,10 @@ def _render_generator_chain(
                         format_func=lambda model_id, _tier=tier: phase_model_display_label(
                             model_id,
                             _tier,
-                            build_profiles,
+                            profile_inputs,
                         ),
                     )
-                resolved_model_value = (
-                    build_profiles.get(tier, "").strip()
-                    if model_value == "selected_build_model"
-                    else model_value
-                )
+                resolved_model_value = _resolve_phase_model_ref(model_value, profile_inputs[tier])
                 supports_reasoning_mode = resolved_model_value.startswith(("gpt-5.6-", "gpt-6"))
                 with c2:
                     thinking_value = st.toggle(
@@ -369,9 +365,9 @@ def _render_generator_chain(
 
     if st.button("Spara generator-kedja", type="primary"):
         for key, value in profile_inputs.items():
-            build_profiles[key] = value.strip()
+            build_profiles[key] = active_phase_model(value)
         for key, value in quality_inputs.items():
-            quality_map[key] = value.strip()
+            quality_map[key] = active_phase_model(value)
         manifest.setdefault("phaseRouting", {})["defaultByTier"] = edited_routing
         for tier, phase_entries in edited_thinking.items():
             for phase, cfg in phase_entries.items():

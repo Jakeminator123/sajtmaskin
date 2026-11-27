@@ -13,7 +13,7 @@
  * the provider's docs when adding a new model.
  */
 
-import { aliasRetiredModelId, type OwnModelId } from "@/lib/models/catalog";
+import { resolveOwnEngineModelId, type OwnModelId } from "@/lib/models/catalog";
 
 const MODEL_CONTEXT_WINDOWS: Partial<Record<OwnModelId, number>> = {
   // OpenAI direct API (api.openai.com). Deprecated ids (gpt-5.3-codex,
@@ -52,5 +52,5 @@ export function getModelContextWindowTokens(
   modelId: string | null | undefined,
 ): number | undefined {
   if (!modelId) return undefined;
-  return MODEL_CONTEXT_WINDOWS[aliasRetiredModelId(modelId) as OwnModelId];
+  return MODEL_CONTEXT_WINDOWS[resolveOwnEngineModelId(modelId) as OwnModelId];
 }
