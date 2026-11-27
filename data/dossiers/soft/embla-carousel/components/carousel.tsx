@@ -6,7 +6,7 @@ import {
   Children,
   useCallback,
   useEffect,
-  useRef,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
@@ -59,11 +59,10 @@ export function Carousel({
   const slideCount = slides.length;
 
   const autoplayDelay = !autoplay || reducedMotion ? null : autoplay;
-  const autoplayPlugin = useRef(
-    autoplayDelay !== null
-      ? Autoplay({ delay: autoplayDelay, stopOnInteraction: false, stopOnMouseEnter: true })
-      : null,
-  );
+  const plugins = useMemo(() => {
+    if (autoplayDelay === null) return [];
+    return [Autoplay({ delay: autoplayDelay, stopOnInteraction: false, stopOnMouseEnter: true })];
+  }, [autoplayDelay]);
 
   const [emblaRef, emblaApi] = useEmblaCarousel(
     {
@@ -71,7 +70,7 @@ export function Carousel({
       align: "start",
       duration: reducedMotion ? 0 : 25,
     },
-    autoplayPlugin.current ? [autoplayPlugin.current] : [],
+    plugins,
   );
 
   const [selectedIndex, setSelectedIndex] = useState(0);
