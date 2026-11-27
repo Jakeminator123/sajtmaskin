@@ -68,6 +68,8 @@ describe("buildRoutePlan", () => {
     "Add a page about owls and a page about bears",
     "Add a page about owls, and a page about bears",
     "Add a page about owls, a page about bears",
+    "Add a page about owls with photos and a page about bears",
+    "Add a page about owls with photos, and a page about bears",
   ])("keeps multiple separately requested topic pages as content routes for %s", (prompt) => {
     const plan = buildRoutePlan({
       ...websiteBase, prompt, generationMode: "followUp", existingRoutePaths: ["/"],
@@ -79,6 +81,7 @@ describe("buildRoutePlan", () => {
     ["Polish the page about owls and add a page about bears", "/bears"],
     ["Add a page about bears and polish the page about owls", "/bears"],
     ["Add a page about bears, then polish the page about owls", "/bears"],
+    ["Add a page about bears with photos, then edit the header and a page about owls", "/bears"],
     ["Putsa en sida om ugglor och lägg till en sida om björnar", "/bjornar"],
   ])("only adds subjects in an addition clause for %s", (prompt, addedPath) => {
     const plan = buildRoutePlan({

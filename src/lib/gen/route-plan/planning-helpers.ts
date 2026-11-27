@@ -576,8 +576,10 @@ export function extractExplicitNamedPages(
       // An edit target elsewhere in the prompt is not a new route. A bare
       // coordinated page can inherit the immediately preceding addition.
       const clausePrefix = subject.before.split(/[,.;!?\n]|\b(?:and|och|samt|then|sedan)\b/iu).at(-1) ?? "";
+      const interveningEdit = /(?:^|[,.;!?]|\b(?:and|och|then|sedan)\b)\s*(?:(?:please|also)\s+)?(?:polish|edit|update|improve|rewrite|redesign|adjust|change|putsa|redigera|ändra|uppdatera|förbättra)(?![\p{L}\p{N}_])/iu.test(subject.before);
       const continuesAdditionList: boolean = previousSubjectWasAddition &&
-        /^\s*(?:,\s*(?:(?:and|och|samt)\s+)?|(?:and|och|samt|plus|&|\+)\s+)(?:(?:an?|en|ett)\s+)?$/iu.test(subject.before);
+        /(?:,\s*(?:(?:and|och|samt)\s+)?|(?:and|och|samt|plus|&|\+)\s+)(?:(?:an?|en|ett)\s+)?$/iu.test(subject.before) &&
+        !interveningEdit;
       const isAddition: boolean = hasExplicitAddRouteIntent(clausePrefix + subject.intro) || continuesAdditionList;
       if (isAddition) {
         const page = parseExplicitPageName(trimBarePageName(subject.subject), patterns);

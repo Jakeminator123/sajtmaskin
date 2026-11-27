@@ -20,6 +20,8 @@ describe("inferCapabilities", () => {
     "Skapa ett formulär för inloggning",
     "Create a form to sign in",
     "Add a login page with a form",
+    "Add a login page with a simple, accessible form",
+    "Skapa en inloggningssida med ett enkelt, tillgängligt formulär",
     "Build a sign-in screen that contains a standard form",
     "Lägg till en sida för inloggning med ett formulär",
   ])("recognizes authentication-only forms in %s", (prompt) => {
@@ -29,6 +31,8 @@ describe("inferCapabilities", () => {
   it.each([
     "Build an app with login and a form that sends submissions to my email",
     "Build an app with login, then a form that sends submissions to my email",
+    "Build an app with login, a form that sends submissions to my email",
+    "Build an app with login, a separate form that sends submissions to my email",
     "Build an app with login then a form that sends submissions to my email",
     "Bygg en app med inloggning, sedan ett formulär som skickar svar till min e-post",
     "Add a login form and a survey form",

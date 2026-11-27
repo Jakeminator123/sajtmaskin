@@ -221,12 +221,14 @@ describe("content subjects from Byggval through brief and generation", () => {
     ["Build a webpage about owls with a login form and a contact form", true, true],
     ["Build an app with login and a form that sends submissions to my email", true, true],
     ["Build an app with login, then a form that sends submissions to my email", true, true],
+    ["Build an app with login, a separate form that sends submissions to my email", true, true],
     ["Build an app with login then a form that sends submissions to my email", true, true],
     ["Bygg en app med inloggning, sedan ett formulär som skickar svar till min e-post", true, true],
     ["Bygg en app med inloggning och ett formulär som skickar svar till min e-post", true, true],
     ["Build an app with a login form and a survey form that emails the results to me", true, true],
     ["Build a login form that sends password reset emails", true, false],
     ["Add a login page with a form", true, false],
+    ["Add a login page with a simple, accessible form", true, false],
     ["Lägg till en sida för inloggning med ett formulär", true, false],
   ] as const)("selects only the requested auth/contact integrations for %s", async (prompt, auth, contact) => {
     const input = generationInput(prompt, { buildIntent: "website", brief: null });
