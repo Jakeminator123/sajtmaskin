@@ -60,6 +60,7 @@ export interface SajtagentContextValue {
   /** Configured but temporarily unavailable is different from a disabled surface. */
   configured?: boolean;
   healthStatus?: "disabled" | "checking" | "ready" | "unavailable";
+  fastMode?: { enabled: boolean; setEnabled: (enabled: boolean) => void };
   messages: OpenClawMessage[];
   isStreaming: boolean;
   send: (text: string, options?: OpenClawSendOptions) => Promise<void>;
@@ -92,6 +93,7 @@ type HealthResponse = {
   surfaceEnabled?: boolean;
   debugEnabled?: boolean;
   editEnabled?: boolean;
+  fastModeSupported?: boolean;
 } | null;
 
 export function SajtagentProvider({
@@ -111,6 +113,18 @@ export function SajtagentProvider({
   const campaignScript = useOpenClawStore((s) => s.campaignScript);
   const [available, setAvailable] = useState(false);
   const [configured, setConfigured] = useState(false);
+  const [fastModeSupported, setFastModeSupported] = useState(false);
+  const [fastChats, setFastChats] = useState<ReadonlySet<string>>(() => new Set());
+  const fastModeReady = available && fastModeSupported;
+  const setFastMode = useCallback((enabled: boolean) => {
+    if (!chatId || !fastModeReady) return;
+    setFastChats((previous) => {
+      const next = new Set(previous);
+      if (enabled) next.add(chatId);
+      else next.delete(chatId);
+      return next;
+    });
+  }, [chatId, fastModeReady]);
   const [healthStatus, setHealthStatus] = useState<NonNullable<SajtagentContextValue["healthStatus"]>>("disabled");
 
   // Health: ytans aktivering + läs-/agera-grindarna. Samma best-effort som
@@ -141,6 +155,7 @@ export function SajtagentProvider({
         const ready = res.ok && data?.surfaceEnabled === true &&
           data.status === "ok" && data.readiness === "ready";
         setAvailable(ready);
+        setFastModeSupported(ready && data?.fastModeSupported === true);
         setHealthStatus(ready ? "ready" : "unavailable");
         setDebugEnabled(ready && data?.debugEnabled === true);
         setEditEnabled(ready && data?.editEnabled === true);
@@ -211,13 +226,15 @@ export function SajtagentProvider({
       const chatAtSend = chatIdRef.current;
       await chatSend(text, {
         ...options,
+        fastModeChatId: fastModeReady && chatAtSend && fastChats.has(chatAtSend) && !options?.internal
+          ? chatAtSend : undefined,
         onConversationSettled: (messages) => {
           if (chatAtSend) void persistAgentMessages(chatAtSend, messages);
           options?.onConversationSettled?.(messages);
         },
       });
     },
-    [chatSend],
+    [chatSend, fastModeReady, fastChats],
   );
 
   useOpenClawArmedContinuation(send);
@@ -448,6 +465,9 @@ export function SajtagentProvider({
       available,
       configured,
       healthStatus,
+      fastMode: fastModeReady && chatId
+        ? { enabled: fastChats.has(chatId), setEnabled: setFastMode }
+        : undefined,
       messages: chat.messages,
       isStreaming: chat.isStreaming,
       send,
@@ -456,7 +476,7 @@ export function SajtagentProvider({
       armedMandate,
       campaignScript,
     }),
-    [available, configured, healthStatus, chat.messages, chat.isStreaming, chat.stop, chat.clearConversation, send, armedMandate, campaignScript],
+    [available, configured, healthStatus, chatId, fastModeReady, fastChats, setFastMode, chat.messages, chat.isStreaming, chat.stop, chat.clearConversation, send, armedMandate, campaignScript],
   );
 
   return <SajtagentContext.Provider value={value}>{children}</SajtagentContext.Provider>;

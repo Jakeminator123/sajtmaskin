@@ -5,8 +5,12 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
+const agent = vi.hoisted(() => ({
+  configured: true,
+  fastMode: undefined as { enabled: boolean; setEnabled: (enabled: boolean) => void } | undefined,
+}));
 vi.mock("@/components/builder/chat/sajtagent/SajtagentProvider", () => ({
-  useSajtagent: () => ({ configured: true }),
+  useSajtagent: () => agent,
 }));
 vi.mock("@/lib/auth/auth-store", () => ({
   useAuth: () => ({ isAuthenticated: true, logout: vi.fn() }),
@@ -96,6 +100,7 @@ describe("BuilderHeader", () => {
 
   afterEach(() => {
     cleanup();
+    agent.fastMode = undefined;
     sessionStorage.clear();
     useOpenClawStore.setState({ editEnabled: false, armedMandate: null, powersOn: false, grantedPowers: [] });
     restoreViewport?.();
@@ -161,6 +166,19 @@ describe("BuilderHeader", () => {
     fireEvent.click(screen.getByRole("menuitemradio", { name: "Fråga" }));
     expect(useOpenClawStore.getState().armedMandate).toBeNull();
     expect(sessionStorage.getItem("sajtmaskin:composerMode:chat_1")).toBe("agent");
+  });
+
+  it("lets the user opt in to OpenAI Fast from Settings on mobile", () => {
+    restoreViewport = stubViewport(false);
+    const setEnabled = vi.fn();
+    agent.fastMode = { enabled: false, setEnabled };
+    render(<BuilderHeader {...props()} />);
+    openMoreMenu();
+    fireEvent.keyDown(screen.getByRole("menuitem", { name: "Inställningar" }), { key: "ArrowRight" });
+    const item = screen.getByRole("menuitemcheckbox", { name: /Snabbare svar från Sajtagenten.*dubbelt tokenpris/ });
+    expect(item.getAttribute("aria-checked")).toBe("false");
+    fireEvent.keyDown(item, { key: "Enter" });
+    expect(setEnabled).toHaveBeenCalledWith(true);
   });
 
   it("visar sköldens tre val med samma huvudspärr i Inställningar", () => {

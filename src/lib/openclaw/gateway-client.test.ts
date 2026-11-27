@@ -28,6 +28,28 @@ describe("postOpenClawChatCompletion", () => {
 
     const request = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
     expect(request.model).toBe("openclaw:sajtagenten-fast");
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://gateway.example/v1/chat/completions");
+  });
+
+  it("requires the gateway to acknowledge a Fast request on its dedicated path", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response("stream", { headers: { "x-sajtmaskin-fast-mode": "1" } }))
+      .mockResolvedValueOnce(new Response("older gateway"));
+    const request = {
+      gatewayUrl: "https://gateway.example",
+      gatewayToken: "secret",
+      route: fastRoute,
+      body: { messages: [], stream: true },
+      timeoutMs: 1_000,
+      fastMode: true,
+    };
+    const on = await postOpenClawChatCompletion(request);
+    expect(on.response.ok).toBe(true);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://gateway.example/v1/chat/completions/fast");
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)).model).toBe("openclaw:sajtagenten-fast");
+    const unacknowledged = await postOpenClawChatCompletion(request);
+    expect(unacknowledged.response.status).toBe(503);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("retries only an unknown routed agent once on the strong agent", async () => {

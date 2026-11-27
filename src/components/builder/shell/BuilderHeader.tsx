@@ -381,7 +381,7 @@ export function BuilderHeader(props: {
 
             <DropdownMenuSeparator />
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger disabled={isConfigLocked && !showComposerSettings && !showAgentPowers}>
+              <DropdownMenuSubTrigger disabled={isConfigLocked && !showComposerSettings && !showAgentPowers && !sajtagent?.fastMode}>
                 <Settings2 className="mr-2 h-4 w-4" />
                 Inställningar
               </DropdownMenuSubTrigger>
@@ -399,6 +399,20 @@ export function BuilderHeader(props: {
                     </DropdownMenuSubContent>
                   </DropdownMenuSub>
                 ) : null}
+                {sajtagent?.fastMode ? (
+                  <DropdownMenuCheckboxItem
+                    checked={sajtagent.fastMode.enabled}
+                    onSelect={(event) => event.preventDefault()}
+                    onCheckedChange={(checked) => sajtagent.fastMode?.setEnabled(checked === true)}
+                  >
+                    <span>
+                      Snabbare svar från Sajtagenten
+                      <span className="block text-xs text-muted-foreground">
+                        OpenAI Fast · dubbelt tokenpris hos OpenAI
+                      </span>
+                    </span>
+                  </DropdownMenuCheckboxItem>
+                ) : null}
                 {showAgentPowers ? (
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger>Sajtagentens befogenheter</DropdownMenuSubTrigger>
@@ -415,7 +429,7 @@ export function BuilderHeader(props: {
                     </DropdownMenuSubContent>
                   </DropdownMenuSub>
                 ) : null}
-                {showComposerSettings || showAgentPowers ? <DropdownMenuSeparator /> : null}
+                {showComposerSettings || showAgentPowers || sajtagent?.fastMode ? <DropdownMenuSeparator /> : null}
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger disabled={isConfigLocked}>
                     <Layers className="mr-2 h-4 w-4" />
