@@ -338,6 +338,7 @@ export function createCodeGenSSEStream(
         usage: StreamUsageLike;
         model?: string;
         durationMs: number | null;
+        errorCode: string | null;
       }> = [];
       let stepStartedAt: number | null = null;
       /**
@@ -368,25 +369,23 @@ export function createCodeGenSSEStream(
           ...(usageMeta ? { meta: usageMeta } : {}),
         } as const;
         if (completedSteps.length) {
-          for (const [index, step] of completedSteps.entries()) {
-            const isFinalStep = index === completedSteps.length - 1 && stepStartedAt === null;
-            const stepError = isFinalStep ? errorCode : null;
+          for (const step of completedSteps) {
             recordLlmUsage({
               ...common,
               usage: step.usage,
               model: step.model || defaultModel,
               durationMs: step.durationMs,
-              errorCode: stepError,
-              ok: stepError === null,
+              errorCode: step.errorCode,
+              ok: step.errorCode === null,
             });
           }
-          if (errorCode && stepStartedAt !== null) {
-            // The next request failed before it reported tokens.
+          if (errorCode && (stepStartedAt !== null || !completedSteps.at(-1)?.errorCode)) {
+            // A subsequent request may fail before the SDK emits start-step.
             recordLlmUsage({
               ...common,
               usage: null,
               model: defaultModel,
-              durationMs: Date.now() - stepStartedAt,
+              durationMs: stepStartedAt === null ? null : Date.now() - stepStartedAt,
               errorCode,
               ok: false,
             });
@@ -607,6 +606,8 @@ export function createCodeGenSSEStream(
                     usage: part.usage,
                     model: part.response?.modelId,
                     durationMs: stepStartedAt === null ? null : Date.now() - stepStartedAt,
+                    errorCode: part.finishReason === "length" ? "output_truncated"
+                      : part.finishReason === "error" ? "provider_stream_error" : null,
                   });
                 }
                 stepStartedAt = null;
@@ -901,7 +902,11 @@ export function createCodeGenSSEStream(
 
         const usage = await aggregateUsage(result);
         const streamTiming = summarizeStream("done", usage);
-        await recordCodegenUsage(null, usage, streamTiming.durationMs);
+        await recordCodegenUsage(
+          providerErrorEmitted && !finishedCleanly ? "provider_stream_error" : null,
+          usage,
+          streamTiming.durationMs,
+        );
         devLogAppend("in-progress", {
           type: "stream.summary",
           chatId: meta?.chatId ?? null,

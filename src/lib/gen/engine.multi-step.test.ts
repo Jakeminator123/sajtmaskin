@@ -166,6 +166,25 @@ function usageCall() {
   };
 }
 
+function expectUsageSteps(steps: V3Usage[]) {
+  expect(recordLlmUsage).toHaveBeenCalledTimes(steps.length);
+  for (const [index, step] of steps.entries()) {
+    expect(recordLlmUsage.mock.calls[index][0]).toMatchObject({
+      ok: true,
+      usage: {
+        inputTokens: step.inputTokens.total,
+        outputTokens: step.outputTokens.total,
+        inputTokenDetails: {
+          noCacheTokens: step.inputTokens.noCache,
+          cacheReadTokens: step.inputTokens.cacheRead,
+          cacheWriteTokens: step.inputTokens.cacheWrite,
+        },
+        outputTokenDetails: { textTokens: step.outputTokens.text, reasoningTokens: step.outputTokens.reasoning },
+      },
+    });
+  }
+}
+
 beforeEach(() => {
   toolExecutions = 0;
   recordLlmUsage.mockReset();
@@ -173,11 +192,12 @@ beforeEach(() => {
 });
 
 describe("generateCode multi-step streamText", () => {
-  it("executes the tool, continues, and logs aggregate usage once", async () => {
+  it("executes the tool, reports aggregate SSE tokens, and prices each request separately", async () => {
     const prompts: unknown[] = [];
     getOpenAIModelMock.mockImplementation(
-      () =>
+      (modelId: string) =>
         new MockLanguageModelV3({
+          modelId,
           doStream: async ({ prompt }) => {
             prompts.push(prompt);
             if (prompts.length === 1) return streamResult(toolParts(STEP_ONE, "call-1"));
@@ -216,22 +236,9 @@ describe("generateCode multi-step streamText", () => {
       completionTokens: 10,
     });
 
-    const call = usageCall();
-    expect(call.ok).toBe(true);
+    expectUsageSteps([STEP_ONE, STEP_TWO]);
+    const call = recordLlmUsage.mock.calls[0][0];
     expect(call.model).toBe("gpt-5.4");
-    expect(call.usage).toMatchObject({
-      inputTokens: 30,
-      outputTokens: 10,
-      inputTokenDetails: {
-        noCacheTokens: 16,
-        cacheReadTokens: 11,
-        cacheWriteTokens: 3,
-      },
-      outputTokenDetails: {
-        textTokens: 7,
-        reasoningTokens: 3,
-      },
-    });
     expect(call.meta).toEqual({
       requestedModelId: "gpt-5.4",
       resolvedModelId: "gpt-5.4",
@@ -267,14 +274,7 @@ describe("generateCode multi-step streamText", () => {
     expect(prompts).toHaveLength(2);
     expect(toolExecutions).toBe(2);
     expect(containsSentinel(prompts[1])).toBe(true);
-    const call = usageCall();
-    expect(call.ok).toBe(true);
-    expect(call.usage).toMatchObject({
-      inputTokens: 30,
-      outputTokens: 10,
-      inputTokenDetails: { cacheReadTokens: 11, cacheWriteTokens: 3 },
-      outputTokenDetails: { reasoningTokens: 3 },
-    });
+    expectUsageSteps([STEP_ONE, STEP_TWO]);
   });
 
   it("uses four steps when maxSteps is omitted", async () => {
@@ -302,13 +302,7 @@ describe("generateCode multi-step streamText", () => {
     expect(toolExecutions).toBe(4);
     expect(containsSentinel(prompts[0])).toBe(false);
     expect(containsSentinel(prompts[3])).toBe(true);
-    const call = usageCall();
-    expect(call.usage).toMatchObject({
-      inputTokens: 40,
-      outputTokens: 16,
-      inputTokenDetails: { cacheReadTokens: 12 },
-      outputTokenDetails: { reasoningTokens: 8 },
-    });
+    expectUsageSteps([STEP_ONE, STEP_ONE, STEP_ONE, STEP_ONE]);
   });
 
   it("logs one usage row for a tool-only maxSteps 1 run", async () => {
@@ -350,6 +344,24 @@ describe("generateCode multi-step streamText", () => {
       reasoningClampReason: "thinking_disabled_minimum",
       effectiveReasoningEffort: "low",
     });
+  });
+
+  it("preserves a completed tool request when the next provider request fails before streaming", async () => {
+    let attempts = 0;
+    getOpenAIModelMock.mockImplementation((modelId: string) => new MockLanguageModelV3({
+      modelId,
+      doStream: async () => {
+        if (attempts++ === 0) return streamResult(toolParts(STEP_ONE, "call-first"));
+        throw new Error("next request failed");
+      },
+    }));
+    const events = await drain({
+      prompt: "Look up a color and build a page.", systemPrompt: SYSTEM_PROMPT, model: "gpt-6.2-sol",
+      tools: { lookupColor }, maxSteps: 2,
+    });
+    expect(events.some((event) => event.event === "error")).toBe(true);
+    expect(recordLlmUsage.mock.calls.map(([row]) => [row.ok, row.usage?.inputTokens ?? null]))
+      .toEqual([[true, STEP_ONE.inputTokens.total], [false, null]]);
   });
 
   it("logs one usage row when the caller aborts", async () => {
@@ -556,8 +568,9 @@ describe("generateCode multi-step streamText", () => {
     meta: UsageMeta;
   }>)("usage meta: $name", async ({ options, meta }) => {
     getOpenAIModelMock.mockImplementation(
-      () =>
+      (modelId: string) =>
         new MockLanguageModelV3({
+          modelId,
           doStream: async () => streamResult(textParts("ok", STEP_ONE)),
         }),
     );
