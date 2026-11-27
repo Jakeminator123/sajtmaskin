@@ -145,7 +145,11 @@ function agent({ id, model, thinkingDefault }) {
 const config = {
   gateway: {
     mode: "local",
-    bind: env("OPENCLAW_GATEWAY_BIND", "lan"),
+    bind: env("RENDER") ? "loopback" : env("OPENCLAW_GATEWAY_BIND", "lan"),
+    ...(env("RENDER") ? {
+      port: Number(env("SAJTAGENT_INTERNAL_PORT", "18789")),
+      trustedProxies: ["127.0.0.1"],
+    } : {}),
     auth: {
       mode: "token",
       token: env("OPENCLAW_GATEWAY_TOKEN"),

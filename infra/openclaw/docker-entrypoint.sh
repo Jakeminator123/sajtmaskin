@@ -12,11 +12,18 @@ LISTEN_PORT="${PORT:-${OPENCLAW_GATEWAY_PORT:-18789}}"
 BIND_MODE="${OPENCLAW_GATEWAY_BIND:-lan}"
 OPENCLAW_VERSION="$(openclaw --version 2>/dev/null | tr -d '\r')"
 
-if [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ] && [ "$BIND_MODE" != "loopback" ]; then
-  if [ -n "${RENDER:-}" ]; then
+if [ -n "${RENDER:-}" ]; then
+  if [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
     echo "[entrypoint] ERROR: OPENCLAW_GATEWAY_TOKEN is required for a public Render gateway" >&2
     exit 1
   fi
+  BIND_MODE=loopback
+  export OPENCLAW_GATEWAY_BIND=loopback
+  SAJTAGENT_INTERNAL_PORT=18789
+  if [ "$LISTEN_PORT" = "$SAJTAGENT_INTERNAL_PORT" ]; then SAJTAGENT_INTERNAL_PORT=18790; fi
+  export SAJTAGENT_INTERNAL_PORT
+  export OPENCLAW_GATEWAY_PORT="$SAJTAGENT_INTERNAL_PORT"
+elif [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ] && [ "$BIND_MODE" != "loopback" ]; then
   echo "[entrypoint] OPENCLAW_GATEWAY_TOKEN missing; forcing loopback bind"
   BIND_MODE="loopback"
 fi
@@ -78,9 +85,12 @@ echo "[entrypoint] OpenClaw state repair complete"
 echo "[entrypoint] OpenClaw version: ${OPENCLAW_VERSION:-unknown}"
 echo "[entrypoint] Target site: ${SAJTAGENT_TARGET_SITE_URL:-http://localhost:3000}"
 echo "[entrypoint] Control UI device auth: enabled (OpenClaw secure default)"
-echo "[entrypoint] First browser connect: paste the gateway token, then run 'openclaw devices list --json' in Render Shell"
+echo "[entrypoint] First browser connect: paste the gateway token and list pending devices on the internal gateway port"
 echo "[entrypoint] Approve only the current request with 'openclaw devices approve <requestId>'; pending IDs expire or can be superseded"
-echo "[entrypoint] Render's untrusted proxy-header warning is expected with token auth and is not a device-pairing failure"
+if [ -n "${RENDER:-}" ]; then
+  echo "[entrypoint] Render ingress on port $LISTEN_PORT, OpenClaw on loopback port $SAJTAGENT_INTERNAL_PORT"
+  exec /usr/local/bin/serve-render-gateway.sh "$LISTEN_PORT" "$SAJTAGENT_INTERNAL_PORT"
+fi
 
 if [ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
   exec openclaw gateway --port "${LISTEN_PORT}" --bind "${BIND_MODE}" --token "${OPENCLAW_GATEWAY_TOKEN}" --allow-unconfigured
