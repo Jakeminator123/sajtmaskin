@@ -188,6 +188,17 @@ describe("cubeFrame", () => {
     expect(body.width).toBe(390);
   });
 
+  it.each([360, 900])("fills the mobile shell chat area at %i px without changing its saved position", (width) => {
+    const position = { x: 600, y: 300 };
+    const size = { width: 400, height: 560 };
+    const stage = { width, height: 620 };
+    const { outer, body } = cubeFrame(position, size, stage, width < 640, true);
+    expect(outer).toEqual({ x: 0, y: 0, ...stage });
+    expect(body).toEqual({ x: 0, y: CUBE_HEAD + CUBE_DOCK, width, height: 620 - CUBE_HEAD - CUBE_DOCK });
+    expect(position).toEqual({ x: 600, y: 300 });
+    expect(size).toEqual({ width: 400, height: 560 });
+  });
+
   it("shrinks the panel to fit a small stage", () => {
     const { outer, body } = cubeFrame({ x: 900, y: 300 }, { width: 600, height: 800 }, LAPTOP, false);
     expect(outer.y + outer.height).toBeLessThanOrEqual(LAPTOP.height - STAGE_MARGIN);

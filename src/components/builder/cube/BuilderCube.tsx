@@ -119,6 +119,8 @@ export interface BuilderCubeProps {
   onSizeChange: (size: Size) => void;
   mode: CubeMode;
   onModeChange: (mode: CubeMode) => void;
+  /** Flikar i hela föräldraytan, som mobilskalets separata chattyta. */
+  embedded?: boolean;
   /** Kortlägets layout. Utelämnad → intern state. */
   cards?: CubeCardsState;
   onCardsChange?: (cards: CubeCardsState) => void;
@@ -236,6 +238,7 @@ export function BuilderCube({
   onSizeChange,
   mode,
   onModeChange,
+  embedded = false,
   cards: cardsProp,
   onCardsChange,
   onResetLayout,
@@ -254,7 +257,7 @@ export function BuilderCube({
   const narrow = useMediaQuery(NARROW_QUERY);
   const reducedQuery = useMediaQuery(REDUCED_QUERY);
   const reduced = reducedProp ?? reducedQuery;
-  const layoutMode: "cube" | "cards" | "tabs" = narrow ? "tabs" : mode;
+  const layoutMode: "cube" | "cards" | "tabs" = embedded || narrow ? "tabs" : mode;
 
   // ---- Scenens storlek -----------------------------------------------------
   const rootRef = useRef<HTMLDivElement>(null);
@@ -296,8 +299,9 @@ export function BuilderCube({
       { width: sizeWidth, height: sizeHeight },
       stageSize,
       narrow,
+      embedded,
     ),
-    [positionX, positionY, sizeWidth, sizeHeight, stageSize, narrow],
+    [positionX, positionY, sizeWidth, sizeHeight, stageSize, narrow, embedded],
   );
   const liveFrame = useRef(frame);
 
@@ -1301,7 +1305,17 @@ export function BuilderCube({
                 className="border-border/70 bg-background pointer-events-none absolute inset-0 border-t"
                 aria-hidden="true"
               />
-              <div className="absolute inset-x-1 top-1" style={{ height: CUBE_DOCK - 8 }}>
+              {embedded && onExit ? (
+                <button
+                  type="button"
+                  onClick={onExit}
+                  className="text-muted-foreground hover:text-foreground focus-visible:ring-ring pointer-events-auto absolute top-1 left-2 inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs focus-visible:ring-2 focus-visible:outline-none"
+                >
+                  <PanelLeft className="size-3.5" aria-hidden="true" />
+                  Vanlig chatt
+                </button>
+              ) : null}
+              <div className="absolute inset-x-1" style={{ top: (embedded ? CUBE_HEAD : 0) + 4, height: CUBE_DOCK - 8 }}>
                 {dock}
               </div>
             </>
