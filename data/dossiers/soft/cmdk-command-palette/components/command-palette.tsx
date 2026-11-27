@@ -34,7 +34,21 @@ export interface CommandPaletteProps {
   disableShortcut?: boolean;
 }
 
-let globalListenerCount = 0;
+interface PaletteShortcut {
+  isOpen: () => boolean;
+  toggle: () => void;
+}
+
+const shortcutHandlers = new Map<number, PaletteShortcut>();
+let nextShortcutOrder = 0;
+
+function handleGlobalShortcut(event: KeyboardEvent) {
+  if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
+  event.preventDefault();
+  const active = Array.from(shortcutHandlers.values()).find((palette) => palette.isOpen());
+  const target = active ?? shortcutHandlers.get(Math.min(...shortcutHandlers.keys()));
+  target?.toggle();
+}
 
 export function CommandPalette({
   groups,
@@ -44,36 +58,49 @@ export function CommandPalette({
   disableShortcut = false,
 }: CommandPaletteProps) {
   const [open, setOpen] = useState(false);
+  const isOpenRef = useRef(false);
+  const shortcutOrder = useRef<number | null>(null);
   const triggerSourceRef = useRef<HTMLElement | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
+  const setPaletteOpen = useCallback((nextOpen: boolean) => {
+    isOpenRef.current = nextOpen;
+    setOpen(nextOpen);
+  }, []);
+
   const openPalette = useCallback(() => {
     triggerSourceRef.current = (document.activeElement as HTMLElement) ?? null;
-    setOpen(true);
-  }, []);
+    setPaletteOpen(true);
+  }, [setPaletteOpen]);
 
   useImperativeHandle(openSignalRef, () => openPalette, [openPalette]);
 
   useEffect(() => {
     if (disableShortcut) return;
-    globalListenerCount += 1;
-    if (globalListenerCount > 1 && process.env.NODE_ENV !== "production") {
+    // StrictMode may reconnect this effect after a sibling has registered.
+    const order = (shortcutOrder.current ??= nextShortcutOrder++);
+    if (shortcutHandlers.size === 0) {
+      window.addEventListener("keydown", handleGlobalShortcut);
+    } else if (process.env.NODE_ENV !== "production") {
       console.warn(
-        "[command-palette] more than one CommandPalette is mounted — global cmd+K will fire on each instance.",
+        "[command-palette] more than one CommandPalette is mounted — global cmd+K opens the first instance.",
       );
     }
-    const handler = (event: KeyboardEvent) => {
-      const isShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
-      if (!isShortcut) return;
-      event.preventDefault();
-      setOpen((prev) => !prev);
+    const togglePalette = () => {
+      if (isOpenRef.current) {
+        setPaletteOpen(false);
+      } else {
+        openPalette();
+      }
     };
-    window.addEventListener("keydown", handler);
+    shortcutHandlers.set(order, { isOpen: () => isOpenRef.current, toggle: togglePalette });
     return () => {
-      globalListenerCount -= 1;
-      window.removeEventListener("keydown", handler);
+      shortcutHandlers.delete(order);
+      if (shortcutHandlers.size === 0) {
+        window.removeEventListener("keydown", handleGlobalShortcut);
+      }
     };
-  }, [disableShortcut]);
+  }, [disableShortcut, openPalette, setPaletteOpen]);
 
   useEffect(() => {
     if (open) return;
@@ -86,14 +113,14 @@ export function CommandPalette({
   return (
     <Command.Dialog
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={setPaletteOpen}
       label="Kommandopalett"
       ref={dialogRef}
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 motion-safe:animate-in motion-safe:fade-in-0 sm:pt-[15vh]"
     >
       <div
         role="presentation"
-        onClick={() => setOpen(false)}
+        onClick={() => setPaletteOpen(false)}
         className="absolute inset-0"
       />
       <div className="relative w-full max-w-xl rounded-xl border bg-popover text-popover-foreground shadow-2xl motion-safe:animate-in motion-safe:zoom-in-95">
@@ -117,7 +144,7 @@ export function CommandPalette({
                     key={`${group.heading}::${item.label}`}
                     value={[item.label, ...(item.keywords ?? [])].join(" ")}
                     onSelect={() => {
-                      setOpen(false);
+                      setPaletteOpen(false);
                       item.onSelect();
                     }}
                     className="flex cursor-pointer items-center justify-between gap-3 rounded-md px-3 py-2 text-sm aria-selected:bg-accent aria-selected:text-accent-foreground"
