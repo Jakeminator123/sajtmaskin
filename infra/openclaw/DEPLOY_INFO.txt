@@ -125,8 +125,10 @@ Rollout order from 2026.7.1-2
    Verify the backup on an isolated restore with the old runtime: check SQLite
    integrity and the expected session history and pairing counts without
    printing contents. Render snapshots restore the whole disk and are retained
-   seven days. Allow space for Doctor's pre-repair capture and per-store SQLite
-   backups on the mounted disk. Rehearse the upgrade on the restored copy.
+   seven days. Doctor stores its full pre-repair capture in
+   /root/.openclaw.update-captures on the ephemeral container filesystem.
+   Allow space there for the capture and on the mounted disk for per-store
+   SQLite backups. Rehearse the upgrade on the restored copy.
    If OpenClaw reports retired formats requiring an intermediate release, use
    the documented 2026.9.5 bridge on the copy and follow its Doctor instructions.
    https://render.com/docs/disks#disk-snapshots
