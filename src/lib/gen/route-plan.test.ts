@@ -33,6 +33,31 @@ describe("buildRoutePlan", () => {
     brief: undefined as undefined,
   };
 
+  it.each([
+    ["Add a page about our company", "website", "/about"],
+    ["Create a new page about our company story", "website", "/about"],
+    ["Lägg till en sida om oss", "website", "/om"],
+    ["Add a page about account settings", "app", "/settings"],
+    ["Add a page about owls", "website", "/owls"],
+    ["Add a page about product photography", "website", "/product-photography"],
+    ["Add a Q&A page about billing", "website", "/pricing"],
+    ["Polish the header and add a Q&A page about billing", "website", "/pricing"],
+    ["Polish the header. Add a Q&A page about billing", "website", "/pricing"],
+    ["Add a research & development page about owls", "website", "/owls"],
+    ["Add a research and development page about owls", "website", "/owls"],
+    ["Add a .NET page about dependency injection", "website", "/dependency-injection"],
+    ["Add a U.S. travel page about visas", "website", "/visas"],
+    ["Add a Dr. Who page about time travel", "website", "/time-travel"],
+    ["Lägg till en sida om björnungar", "website", "/bjornungar"],
+  ] as const)("keeps the separate page request %s in a follow-up", (prompt, buildIntent, path) => {
+    const plan = buildRoutePlan({
+      ...websiteBase, prompt, buildIntent, generationMode: "followUp", existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.map((route) => route.path)).toContain(path);
+    expect(plan.routes.map((route) => route.path)).toContain("/");
+    if (path !== "/about") expect(plan.routes.map((route) => route.path)).not.toContain("/about");
+  });
+
   it("maps Swedish om oss to /om", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
@@ -40,6 +65,77 @@ describe("buildRoutePlan", () => {
     });
     expect(plan.routes.some((r) => r.path === "/om" && r.name === "Om oss")).toBe(true);
     expect(plan.routes.some((r) => r.path === "/about")).toBe(false);
+  });
+
+  it("keeps an initial content subject on the root route", () => {
+    const plan = buildRoutePlan({ ...websiteBase, prompt: "Create a page about our company", generationMode: "init" });
+    expect(plan.routes.map((route) => route.path)).toEqual(["/"]);
+  });
+
+  it.each([
+    "Add a page about owls and a page about bears",
+    "Add a page about owls, and a page about bears",
+    "Add a page about owls, a page about bears",
+    "Add a page about owls with photos and a page about bears",
+    "Add a page about owls with photos, and a page about bears",
+  ])("keeps multiple separately requested topic pages as content routes for %s", (prompt) => {
+    const plan = buildRoutePlan({
+      ...websiteBase, prompt, generationMode: "followUp", existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(["/", "/owls", "/bears"]);
+  });
+
+  it.each([
+    ["Polish the page about owls and add a page about bears", "/bears"],
+    ["Add photos and polish the page about owls and add a page about bears", "/bears"],
+    ["Add a page about bears and polish the page about owls", "/bears"],
+    ["Add a page about bears, then polish the page about owls", "/bears"],
+    ["Add a page about bears with photos, then edit the header and a page about owls", "/bears"],
+    ["Putsa en sida om ugglor och lägg till en sida om björnar", "/bjornar"],
+  ])("only adds subjects in an addition clause for %s", (prompt, addedPath) => {
+    const plan = buildRoutePlan({
+      ...websiteBase, prompt, generationMode: "followUp", existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(["/", addedPath]);
+  });
+
+  it.each(["and", "then", "plus", "&", "+"])("ends an addition list before %s edit", (connector) => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: `Add a page about bears with photos ${connector} edit the header and a page about owls`,
+      generationMode: "followUp", existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(["/", "/bears"]);
+  });
+
+  it.each(["och", "samt", "sedan"])("ends an addition list before %s uppdatera", (connector) => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: `Lägg till en sida om björnar med foton ${connector} uppdatera sidhuvudet och en sida om ugglor`,
+      generationMode: "followUp", existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(["/", "/bjornar"]);
+  });
+
+  it("keeps existing routes for a follow-up copy edit about a company page", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase, prompt: "Polish the page about our company", generationMode: "followUp", existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(["/"]);
+  });
+
+  it.each([
+    "Add photos. Keep the page about owls unchanged",
+    "Add photos; Keep the page about owls unchanged",
+    "Add photos\nKeep the page about owls unchanged",
+    "Add photos etc. Keep the page about owls unchanged",
+    "Add photos etc. Leave the page about owls unchanged",
+    "Lägg till foton etc. Behåll en sida om ugglor oförändrad",
+  ])("does not carry addition intent into another sentence for %s", (prompt) => {
+    const plan = buildRoutePlan({
+      ...websiteBase, prompt, generationMode: "followUp", existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(["/"]);
   });
 
   it("maps English about/company to /about", () => {

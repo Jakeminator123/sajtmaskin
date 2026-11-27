@@ -196,7 +196,8 @@ vi.mock("@/lib/models/selection", () => ({
   resolveEngineModelId: () => "gpt-5.4",
 }));
 
-vi.mock("@/lib/models/catalog", () => ({
+vi.mock("@/lib/models/catalog", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/models/catalog")>()),
   DEFAULT_MODEL_ID: "test-model-id",
   DEFAULT_OWN_MODEL_ID: "gpt-5.4",
   MODEL_LABELS: {

@@ -23,6 +23,7 @@ interface OrchestrationInputLike {
 }
 
 interface FinalizedOrchestrationContextLike {
+  effectiveBrief?: Record<string, unknown> | null;
   engineSystemPrompt: string;
   dynamicContext: string;
   dynamicContextPruning: GenerationInputPackage["dynamicContextPruning"];
@@ -39,7 +40,7 @@ export function buildGenerationInputPackage(
   input: OrchestrationInputLike,
   finalized: FinalizedOrchestrationContextLike,
 ): GenerationInputPackage {
-  const effectiveBrief = base.effectiveBrief ?? input.brief ?? null;
+  const effectiveBrief = finalized.effectiveBrief ?? base.effectiveBrief ?? input.brief ?? null;
   const lineageHash = computeLineageHash({
     userPrompt: input.prompt,
     brief: effectiveBrief,
@@ -70,6 +71,7 @@ export function buildGenerationInputPackage(
 
   return {
     ...base,
+    effectiveBrief,
     materializeImages: input.materializeImages === true && input.importedRepoMode !== true,
     userPrompt: input.prompt,
     rawPrompt: input.rawPrompt ?? input.prompt,

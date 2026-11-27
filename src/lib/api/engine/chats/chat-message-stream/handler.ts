@@ -36,7 +36,7 @@ import {
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { PROMPT_SOURCE_UI_PART_TYPE } from "@/lib/builder/types";
 import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
-import { DEFAULT_MODEL_ID, getBuildProfileId } from "@/lib/models/catalog";
+import { DEFAULT_MODEL_ID, getBuildProfileId, resolveChatModelTier } from "@/lib/models/catalog";
 import { resolveModelSelection } from "@/lib/models/selection";
 import {
   acquireChatGenerationLock,
@@ -134,17 +134,19 @@ export async function handleMessageStreamRequest(
         } = validationResult.data;
         const requestAttachments = normalizeRequestAttachments(attachments);
         const parsedMeta = parseChatRequestMeta(meta);
-        const modelSelection = resolveModelSelection({
-          requestedModelId: modelId,
-          requestedModelTier: parsedMeta.modelTier,
-          fallbackTier: DEFAULT_MODEL_ID,
-        });
         const engineChat = await getEngineChatByIdForRequest(req, chatId, { sessionId });
         if (!engineChat) {
           return attachSessionCookie(
             NextResponse.json({ error: "Chat not found" }, { status: 404 }),
           );
         }
+        const modelSelection = resolveModelSelection({
+          requestedModelId: modelId,
+          requestedModelTier: parsedMeta.modelTier,
+          fallbackTier: modelId || parsedMeta.modelTier
+            ? DEFAULT_MODEL_ID
+            : resolveChatModelTier(engineChat) ?? DEFAULT_MODEL_ID,
+        });
         // Ägaren måste sättas HÄR, inte efter kreditkollen: intent-klassificeraren
         // och brief-deltat kör innan dess och skulle annars bli oattribuerade.
         // `getRequestUserId` ger `users.id` eller `guest:<sessionId>`. Uppslaget är

@@ -7,6 +7,8 @@ export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  /** Creation time from the builder stream or chat history, in ISO format. */
+  createdAt?: string;
   thinking?: string | null;
   isStreaming?: boolean;
   uiParts?: UiMessagePart[];

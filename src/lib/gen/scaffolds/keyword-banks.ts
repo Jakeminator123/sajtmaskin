@@ -79,9 +79,8 @@ export const PORTFOLIO_KEYWORDS = [
   "developer",
   "photographer",
   "photo studio",
-  "creative",
   "creator",
-  "personal",
+  "personal brand",
   "resume",
   "cv",
   "selected work",
@@ -98,7 +97,7 @@ export const PORTFOLIO_KEYWORDS = [
   "fotograf",
   "fotostudio",
   "kreatör",
-  "personlig",
+  "personligt varumärke",
   "case",
 ];
 

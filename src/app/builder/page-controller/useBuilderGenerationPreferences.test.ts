@@ -12,20 +12,26 @@ import {
   noteFirstBuildFromWelcome,
 } from "@/lib/builder/welcome-composer-bridge";
 import type { ModelTier } from "@/lib/validations/chat-schemas";
+import {
+  readChatGenerationSettings,
+  writeChatGenerationSettings,
+  type CreatedChatGenerationSettings,
+} from "@/lib/builder/chat-generation-settings";
 
 const LEGACY_KEY = "sajtmaskin:designTheme";
 
 /** The shell's real state shape, so the hook's setters act on live state. */
-function useHarness(chatId: string | null) {
+function useHarness(chatId: string | null, serverModelTier?: ModelTier | null) {
   const [enableThinking, setEnableThinking] = useState(false);
-  const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>("gpt-5.4" as ModelTier);
+  const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>("max");
   const [enableImageGenerations, setEnableImageGenerations] = useState(false);
   const [enableBlobMedia, setEnableBlobMedia] = useState(false);
   const [designTheme, setDesignTheme] = useState<DesignTheme>("off");
-  const applyingGenerationSettingsRef = useRef(false);
-  const loadedGenerationSettingsChatRef = useRef<string | null>(null);
-  useBuilderGenerationPreferences({
+  const createdChatSettingsRef = useRef<CreatedChatGenerationSettings | null>(null);
+  const isModelTierReady = useBuilderGenerationPreferences({
     chatId,
+    serverModelTier,
+    createdChatSettingsRef,
     enableThinking,
     setEnableThinking,
     selectedModelTier,
@@ -36,10 +42,16 @@ function useHarness(chatId: string | null) {
     setEnableBlobMedia,
     designTheme,
     setDesignTheme,
-    applyingGenerationSettingsRef,
-    loadedGenerationSettingsChatRef,
   });
-  return { designTheme, setDesignTheme };
+  return {
+    designTheme,
+    setDesignTheme,
+    selectedModelTier,
+    setSelectedModelTier,
+    enableImageGenerations,
+    createdChatSettingsRef,
+    isModelTierReady,
+  };
 }
 
 beforeEach(() => {
@@ -52,6 +64,61 @@ afterEach(() => {
   localStorage.clear();
   sessionStorage.clear();
   clearFirstBuildFromWelcome();
+});
+
+describe("useBuilderGenerationPreferences — generationsval per chatt", () => {
+  it("byter från A till B utan att skriva A:s nivå medan B laddas", () => {
+    writeChatGenerationSettings("chat_a", { modelTier: "ultra", imageGenerations: false });
+    const { result, rerender } = renderHook(
+      ({ chatId, serverModelTier }) => useHarness(chatId, serverModelTier),
+      { initialProps: { chatId: "chat_a", serverModelTier: undefined as ModelTier | null | undefined } },
+    );
+    expect(result.current.selectedModelTier).toBe("ultra");
+
+    rerender({ chatId: "chat_b", serverModelTier: undefined });
+    expect(result.current.selectedModelTier).toBe("max");
+    expect(result.current.isModelTierReady()).toBe(false);
+    expect(result.current.enableImageGenerations).toBe(true);
+    expect(readChatGenerationSettings("chat_b")).toBeNull();
+
+    rerender({ chatId: "chat_b", serverModelTier: "pro" });
+    expect(result.current.selectedModelTier).toBe("pro");
+    expect(result.current.isModelTierReady()).toBe(true);
+    expect(readChatGenerationSettings("chat_b")).toEqual({ modelTier: "pro", imageGenerations: true });
+  });
+
+  it("behåller inställningarna från den egna nyskapningen före serversvaret", () => {
+    writeChatGenerationSettings("chat_saved", { modelTier: "pro", imageGenerations: true });
+    const { result, rerender } = renderHook(
+      ({ chatId, serverModelTier }) => useHarness(chatId, serverModelTier),
+      { initialProps: { chatId: null as string | null, serverModelTier: undefined as ModelTier | undefined } },
+    );
+    result.current.createdChatSettingsRef.current = {
+      chatId: "chat_new", modelTier: "ultra", imageGenerations: false,
+    };
+    rerender({ chatId: "chat_new", serverModelTier: undefined });
+    expect(result.current.selectedModelTier).toBe("ultra");
+    expect(readChatGenerationSettings("chat_new")).toEqual({ modelTier: "ultra", imageGenerations: false });
+
+    rerender({ chatId: "chat_saved", serverModelTier: "premium" });
+    expect(result.current.selectedModelTier).toBe("pro");
+    expect(result.current.enableImageGenerations).toBe(true);
+  });
+
+  it("behåller en aktiv ändring när serversvaret kommer efter snabb navigering", () => {
+    const { result, rerender } = renderHook(
+      ({ chatId, serverModelTier }) => useHarness(chatId, serverModelTier),
+      { initialProps: { chatId: null as string | null, serverModelTier: undefined as ModelTier | undefined } },
+    );
+    rerender({ chatId: "chat_a", serverModelTier: undefined });
+    rerender({ chatId: "chat_b", serverModelTier: undefined });
+    act(() => result.current.setSelectedModelTier("premium"));
+    rerender({ chatId: "chat_b", serverModelTier: "pro" });
+
+    expect(result.current.selectedModelTier).toBe("premium");
+    expect(readChatGenerationSettings("chat_b")?.modelTier).toBe("premium");
+    expect(readChatGenerationSettings("chat_a")).toBeNull();
+  });
 });
 
 describe("useBuilderGenerationPreferences — Sidans utseende följer sin sajt", () => {

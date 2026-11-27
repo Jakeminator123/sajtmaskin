@@ -14,6 +14,8 @@
  */
 import type { ScaffoldManifest } from "./types";
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import { outsidePageSubject } from "@/lib/builder/page-subject";
+import { negatedWindowRanges } from "@/lib/builder/prompt-negation";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";
 import { getScaffoldById, getScaffoldIds } from "./registry";
 import { SCAFFOLD_OFF_BASELINE_ID } from "./types";
@@ -54,7 +56,11 @@ function countPortfolioSignalBoost(text: string): number {
   const mediaScore = countKeywordMatches(text, PORTFOLIO_MEDIA_KEYWORDS);
   const artDirectionScore = countKeywordMatches(text, PORTFOLIO_ART_DIRECTION_KEYWORDS);
 
-  let boost = 0;
+  // Personality and art direction support a creator/profile request. On
+  // their own they describe how any subject should look or sound.
+  let boost = creatorScore > 0
+    ? countKeywordMatches(text, ["personal", "creative", "personlig", "kreativ"])
+    : 0;
   if (creatorScore > 0 && mediaScore > 0) boost += 2;
   if (creatorScore > 0 && artDirectionScore > 0) boost += 1;
   if (mediaScore > 0 && artDirectionScore > 0) boost += 1;
@@ -63,6 +69,10 @@ function countPortfolioSignalBoost(text: string): number {
 
 /** Minimum score to prefer a specific scaffold over fallbacks */
 const MIN_SCORE = 2;
+const PRODUCT_SURFACE_KEYWORDS = [
+  ...APP_KEYWORDS, ...DASHBOARD_KEYWORDS, ...AUTH_KEYWORDS, ...STRONG_ECOMMERCE_INTENT,
+  "widget", "widgets",
+];
 
 /**
  * Positive capability/brief boosts may reorder scaffolds that already clear
@@ -119,7 +129,6 @@ export interface ScaffoldSelectionResult {
 
 export interface ScaffoldQueryContext {
   briefPages?: Array<{ name?: string; path?: string; purpose?: string }>;
-  styleKeywords?: string[];
   domainHints?: string[];
 }
 
@@ -130,6 +139,7 @@ function sortScoresDesc<T extends { score: number }>(scores: T[]): T[] {
 function buildKeywordScores(
   promptLower: string,
   capabilities?: InferredCapabilities,
+  domainPromptLower: string = promptLower,
 ): Array<{ id: string; score: number }> {
   const authScore = countKeywordMatches(promptLower, AUTH_KEYWORDS);
   let ecommerceScore = countKeywordMatches(promptLower, ECOMMERCE_KEYWORDS);
@@ -141,7 +151,9 @@ function buildKeywordScores(
   const landingScore = countKeywordMatches(promptLower, LANDING_KEYWORDS);
   const blogScore = countKeywordMatches(promptLower, BLOG_KEYWORDS);
 
-  const hospitalityScore = countKeywordMatches(promptLower, HOSPITALITY_SERVICE_KEYWORDS);
+  // Domain evidence includes the page's subject. Positive feature scores use
+  // the structural prompt passed separately above.
+  const hospitalityScore = countKeywordMatches(domainPromptLower, HOSPITALITY_SERVICE_KEYWORDS);
   const strongEcommerceScore = countKeywordMatches(promptLower, STRONG_ECOMMERCE_INTENT);
   if (hospitalityScore > 0 && strongEcommerceScore === 0) {
     ecommerceScore = 0;
@@ -187,14 +199,13 @@ function buildKeywordScores(
 function applyBriefKeywordBoost(
   scores: Array<{ id: string; score: number }>,
   context: ScaffoldQueryContext | undefined,
+  domainPromptLower?: string,
 ): Array<{ id: string; score: number }> {
   if (!context) return scores;
   const briefPages = context.briefPages ?? [];
-  const styleKeywords = context.styleKeywords ?? [];
   const domainHints = context.domainHints ?? [];
   const combinedText = [
     ...briefPages.map((page) => `${page.name ?? ""} ${page.path ?? ""} ${page.purpose ?? ""}`),
-    ...styleKeywords,
     ...domainHints,
   ]
     .join(" ")
@@ -208,7 +219,7 @@ function applyBriefKeywordBoost(
   // Use max() rather than sum so restating a prompt token in the brief
   // ("portal" again) cannot manufacture a second hit and cross MIN_SCORE.
   // Complementary brief-only signals still win via Math.max(0, briefScore).
-  const briefScores = buildKeywordScores(combinedText);
+  const briefScores = buildKeywordScores(combinedText, undefined, domainPromptLower);
   const briefById = new Map(briefScores.map((entry) => [entry.id, entry.score]));
   return scores.map((entry) => ({
     ...entry,
@@ -225,9 +236,6 @@ function buildScaffoldPrompt(prompt: string, context: ScaffoldQueryContext | und
       .filter(Boolean)
       .join(" | ");
     if (pageSummary) fragments.push(`Brief pages: ${pageSummary}`);
-  }
-  if (context.styleKeywords && context.styleKeywords.length > 0) {
-    fragments.push(`Style keywords: ${context.styleKeywords.join(", ")}`);
   }
   if (context.domainHints && context.domainHints.length > 0) {
     fragments.push(`Domain hints: ${context.domainHints.join(", ")}`);
@@ -423,21 +431,50 @@ function applyGameKeywordPreference(
   );
 }
 
+function scaffoldStructure(prompt: string, context?: ScaffoldQueryContext) {
+  const subject = outsidePageSubject(prompt);
+  const pages = context?.briefPages ?? [];
+  // A bare topic can have a negative relative clause without requesting a
+  // workspace. Keep its positive text eligible, including for semantic search.
+  const featureText = subject ?? prompt;
+  const exclusions = negatedWindowRanges(featureText);
+  const relativeClause = featureText.search(/\s(?:där|where)\s/iu);
+  const excludedFeature = relativeClause >= 0 && exclusions.some(({ start }) => start > relativeClause);
+  if (subject === null && !excludedFeature) {
+    return { prompt, context, subject: false, explicitPage: false };
+  }
+
+  // Blank in reverse to preserve offsets, including overlapping windows.
+  let positive = featureText;
+  for (const { start, end } of exclusions.reverse()) {
+    positive = positive.slice(0, start) + " ".repeat(end - start) + positive.slice(end);
+  }
+  // A root page's copy and domain hints can repeat the subject ("CRM").
+  // Additional declared pages are independent evidence of site structure.
+  const routeContext = { briefPages: pages.filter((page) => page.path && page.path !== "/") };
+  return { prompt: positive, context: routeContext, subject: true, explicitPage: subject !== null };
+}
+
 function rankKeywordScaffolds(
-  prompt: string,
   scores: Array<{ id: string; score: number }>,
-  buildIntent?: BuildIntent | null,
-): {
-  scores: Array<{ id: string; score: number }>;
-  eligibleScores: Array<{ id: string; score: number }>;
-  scaffold: ScaffoldManifest;
-} {
-  const gameAdjustedScores = applyGameKeywordPreference(scores, prompt, buildIntent);
-  const eligibleScores = eligibleKeywordScores(gameAdjustedScores, buildIntent, prompt);
+  buildIntent: BuildIntent | null | undefined,
+  structuralPrompt: string,
+  subject: boolean,
+) {
+  const rankedScores = applyGameKeywordPreference(scores, structuralPrompt, buildIntent);
+  const eligibleScores = eligibleKeywordScores(rankedScores, buildIntent, structuralPrompt);
+  const best = pickBestScaffold(eligibleScores);
+  const useSubjectStarter =
+    subject && (buildIntent === "website" || buildIntent === "app") &&
+    !eligibleScores.some(({ id, score }) => id !== "landing-page" && score >= MIN_SCORE) &&
+    countKeywordMatches(structuralPrompt, PRODUCT_SURFACE_KEYWORDS) === 0;
   return {
-    scores: gameAdjustedScores,
+    scores: rankedScores,
     eligibleScores,
-    scaffold: pickBestScaffold(eligibleScores) ?? defaultScaffoldForIntent(buildIntent),
+    scaffold: useSubjectStarter
+      ? getScaffoldById("base-nextjs")!
+      : best ?? defaultScaffoldForIntent(buildIntent),
+    useSubjectStarter,
   };
 }
 
@@ -449,10 +486,12 @@ export function matchScaffold(
     return defaultScaffoldForIntent(buildIntent);
   }
 
+  const structure = scaffoldStructure(prompt);
   return rankKeywordScaffolds(
-    prompt,
-    buildKeywordScores(prompt.toLowerCase()),
+    buildKeywordScores(structure.prompt.toLowerCase(), undefined, prompt.toLowerCase()),
     buildIntent,
+    structure.prompt,
+    structure.subject,
   ).scaffold;
 }
 
@@ -680,23 +719,26 @@ export async function matchScaffoldAuto(
   const briefContextApplied = Boolean(
     options.queryContext &&
       ((options.queryContext.briefPages && options.queryContext.briefPages.length > 0) ||
-        (options.queryContext.styleKeywords && options.queryContext.styleKeywords.length > 0) ||
         (options.queryContext.domainHints && options.queryContext.domainHints.length > 0)),
   );
   // Embedding query uses prompt+brief (`scaffoldPrompt`). Keyword selection
   // scores the original prompt, then `applyBriefKeywordBoost` adds real
   // brief keyword counts (not a flat +2) so brief evidence can meet
   // MIN_SCORE without double-counting the same tokens via a second boost.
-  const lowerPrompt = prompt.toLowerCase();
-  const lowerScaffold = scaffoldPrompt.toLowerCase();
+  const structure = scaffoldStructure(prompt, options.queryContext);
+  const structuralPrompt = buildScaffoldPrompt(structure.prompt, structure.context);
+  const lowerPrompt = structure.prompt.toLowerCase();
+  const lowerScaffold = structuralPrompt.toLowerCase();
+  const lowerDomainPrompt = scaffoldPrompt.toLowerCase();
 
   const embeddingPromise = useEmbeddings
     ? searchScaffoldsWithDiagnostics(scaffoldPrompt, getScaffoldIds().length)
     : Promise.resolve(EMPTY_SEMANTIC_RESPONSE);
 
   const baseKeywordScores = applyBriefKeywordBoost(
-    buildKeywordScores(lowerPrompt, options.capabilities),
-    options.queryContext,
+    buildKeywordScores(lowerPrompt, options.capabilities, lowerDomainPrompt),
+    structure.context,
+    lowerDomainPrompt,
   );
   const keywordsDisabled = isScaffoldKeywordMatchDisabled();
   const unrankedKeywordScores = keywordsDisabled
@@ -708,11 +750,12 @@ export async function matchScaffoldAuto(
         eligibleScores: eligibleKeywordScores(
           unrankedKeywordScores,
           buildIntent,
-          scaffoldPrompt,
+          structuralPrompt,
         ),
         scaffold: defaultScaffoldForIntent(buildIntent),
+        useSubjectStarter: false,
       }
-    : rankKeywordScaffolds(scaffoldPrompt, unrankedKeywordScores, buildIntent);
+    : rankKeywordScaffolds(unrankedKeywordScores, buildIntent, structuralPrompt, structure.subject);
   const keywordScores = keywordRanking.scores;
   const keywordEligibleScores = keywordRanking.eligibleScores;
   const keywordResult = keywordRanking.scaffold;
@@ -722,7 +765,7 @@ export async function matchScaffoldAuto(
     keywordResult?.id ?? null,
   );
   const maxKeywordScore = Math.max(...keywordEligibleScores.map((entry) => entry.score), 0);
-  const keywordMethod = keywordsDisabled
+  const keywordMethod = keywordsDisabled || keywordRanking.useSubjectStarter
     ? "default"
     : inferKeywordSelectionMethod({
         selectedScaffold: keywordResult,
@@ -757,7 +800,7 @@ export async function matchScaffoldAuto(
   const authScore = countKeywordMatches(lowerScaffold, AUTH_KEYWORDS);
   const appScore = countKeywordMatches(lowerScaffold, APP_KEYWORDS);
   const dashboardScore = countKeywordMatches(lowerScaffold, DASHBOARD_KEYWORDS);
-  const hospitalityScore = countKeywordMatches(lowerScaffold, HOSPITALITY_SERVICE_KEYWORDS);
+  const hospitalityScore = countKeywordMatches(lowerDomainPrompt, HOSPITALITY_SERVICE_KEYWORDS);
   const strongEcommerceScore = countKeywordMatches(lowerScaffold, STRONG_ECOMMERCE_INTENT);
   const embedBias = readEmbedVsKeywordBias();
 
@@ -766,9 +809,14 @@ export async function matchScaffoldAuto(
   const autoResults = semantic.results.filter(
     (result) => result.scaffold.id !== SCAFFOLD_OFF_BASELINE_ID,
   );
-  const top = autoResults.find((result) =>
-    canRankForBuildIntent(result.scaffold, buildIntent, provisionalWebsiteAppEvidence),
-  );
+  const top = autoResults.find(({ scaffold }) => {
+    // A generic semantic resemblance cannot supply a workspace, store or
+    // portfolio for a subject-only request. Base Next.js is also not a new
+    // semantic fallback for operational apps just because it now allows App.
+    if (keywordRanking.useSubjectStarter && structure.explicitPage) return scaffold.id === "base-nextjs";
+    if (!keywordRanking.useSubjectStarter && buildIntent === "app" && scaffold.id === "base-nextjs") return false;
+    return canRankForBuildIntent(scaffold, buildIntent, provisionalWebsiteAppEvidence);
+  });
   const embeddingTopResult =
     top
       ? {

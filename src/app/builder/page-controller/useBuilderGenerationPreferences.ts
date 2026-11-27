@@ -1,11 +1,15 @@
 "use client";
 
-import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { useEffect, useRef } from "react";
+import type { Dispatch, RefObject, SetStateAction } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import {
   readChatGenerationSettings,
+  resolveBuilderModelTier,
   writeChatGenerationSettings,
+  type ChatGenerationSettings,
+  type CreatedChatGenerationSettings,
 } from "@/lib/builder/chat-generation-settings";
+import { DEFAULT_IMAGE_GENERATIONS } from "@/lib/builder/defaults";
 import {
   DEFAULT_DESIGN_THEME,
   normalizeDesignTheme,
@@ -17,6 +21,8 @@ import type { ModelTier } from "@/lib/validations/chat-schemas";
 
 type Params = {
   chatId: string | null;
+  serverModelTier?: ModelTier | null;
+  createdChatSettingsRef: RefObject<CreatedChatGenerationSettings | null>;
   enableThinking: boolean;
   setEnableThinking: Dispatch<SetStateAction<boolean>>;
   selectedModelTier: ModelTier;
@@ -27,8 +33,6 @@ type Params = {
   setEnableBlobMedia: Dispatch<SetStateAction<boolean>>;
   designTheme: DesignTheme;
   setDesignTheme: Dispatch<SetStateAction<DesignTheme>>;
-  applyingGenerationSettingsRef: MutableRefObject<boolean>;
-  loadedGenerationSettingsChatRef: MutableRefObject<string | null>;
 };
 
 /** Legacy global key. Read never again; removed on mount. */
@@ -46,6 +50,8 @@ export const WELCOME_DESIGN_THEME_KEY = "sajtmaskin:welcomeDesignTheme";
  */
 export function useBuilderGenerationPreferences({
   chatId,
+  serverModelTier,
+  createdChatSettingsRef,
   enableThinking,
   setEnableThinking,
   selectedModelTier,
@@ -56,8 +62,6 @@ export function useBuilderGenerationPreferences({
   setEnableBlobMedia,
   designTheme,
   setDesignTheme,
-  applyingGenerationSettingsRef,
-  loadedGenerationSettingsChatRef,
 }: Params) {
   // Legacy localStorage cleanup
   useEffect(() => {
@@ -72,32 +76,73 @@ export function useBuilderGenerationPreferences({
 
   useLocalStorageBooleanSync("sajtmaskin:thinking", enableThinking, setEnableThinking);
 
-  // Generation settings: load from localStorage when chatId changes
-  useEffect(() => {
+  const generationSettingsScope = useRef<{
+    chatId: string;
+    initialTier: ModelTier;
+    awaitingServerTier: boolean;
+    applying: ChatGenerationSettings | null;
+  } | null>(null);
+  useLayoutEffect(() => {
     if (!chatId) {
-      loadedGenerationSettingsChatRef.current = null;
+      generationSettingsScope.current = null;
       return;
     }
-    if (loadedGenerationSettingsChatRef.current === chatId) return;
-    const stored = readChatGenerationSettings(chatId);
-    applyingGenerationSettingsRef.current = true;
-    if (stored) {
-      setSelectedModelTier(stored.modelTier);
-      setEnableImageGenerations(Boolean(stored.imageGenerations));
+    const scope = generationSettingsScope.current;
+    if (scope?.chatId !== chatId) {
+      const stored = readChatGenerationSettings(chatId);
+      const created = createdChatSettingsRef.current?.chatId === chatId
+        ? createdChatSettingsRef.current
+        : null;
+      if (created) createdChatSettingsRef.current = null;
+      const initialTier = stored?.modelTier ?? resolveBuilderModelTier(created?.modelTier ?? serverModelTier);
+      const imageGenerations = stored?.imageGenerations ?? created?.imageGenerations ?? DEFAULT_IMAGE_GENERATIONS;
+      const awaitingServerTier = !stored && !created && serverModelTier === undefined;
+      generationSettingsScope.current = {
+        chatId,
+        initialTier,
+        awaitingServerTier,
+        applying: initialTier !== selectedModelTier || imageGenerations !== enableImageGenerations
+          ? { modelTier: initialTier, imageGenerations }
+          : null,
+      };
+      setSelectedModelTier(initialTier);
+      setEnableImageGenerations(imageGenerations);
+      if (created && !stored) {
+        writeChatGenerationSettings(chatId, { modelTier: initialTier, imageGenerations });
+      }
+      // These render values still belong to the previous chat. Never save
+      // them under the new chat's key, even if the server reply is already here.
+      return;
     }
-    loadedGenerationSettingsChatRef.current = chatId;
-    applyingGenerationSettingsRef.current = false;
-  }, [chatId, loadedGenerationSettingsChatRef, applyingGenerationSettingsRef, setSelectedModelTier, setEnableImageGenerations]);
 
-  // Generation settings: save to localStorage when user changes values
-  useEffect(() => {
-    if (!chatId) return;
-    if (applyingGenerationSettingsRef.current) return;
+    if (scope.applying) {
+      if (selectedModelTier !== scope.applying.modelTier ||
+          enableImageGenerations !== scope.applying.imageGenerations) return;
+      scope.applying = null;
+    }
+    if (scope.awaitingServerTier) {
+      if (selectedModelTier !== scope.initialTier) {
+        // Keep a user selection made while the chat details were loading.
+        scope.awaitingServerTier = false;
+      } else {
+        if (serverModelTier === undefined) return;
+        scope.awaitingServerTier = false;
+        const restored = resolveBuilderModelTier(serverModelTier);
+        if (restored !== selectedModelTier) {
+          scope.applying = { modelTier: restored, imageGenerations: enableImageGenerations };
+          setSelectedModelTier(restored);
+          return;
+        }
+      }
+    }
     writeChatGenerationSettings(chatId, {
       modelTier: selectedModelTier,
       imageGenerations: enableImageGenerations,
     });
-  }, [chatId, selectedModelTier, enableImageGenerations, applyingGenerationSettingsRef]);
+  }, [
+    chatId, serverModelTier, createdChatSettingsRef, selectedModelTier, enableImageGenerations,
+    setSelectedModelTier, setEnableImageGenerations,
+  ]);
 
   useLocalStorageBooleanSync("sajtmaskin:blobImages", enableBlobMedia, setEnableBlobMedia);
 
@@ -169,4 +214,9 @@ export function useBuilderGenerationPreferences({
       /* ignore */
     }
   }, [chatId, designTheme]);
+
+  return useCallback(() => {
+    const scope = generationSettingsScope.current;
+    return !chatId || (scope?.chatId === chatId && !scope.awaitingServerTier && !scope.applying);
+  }, [chatId]);
 }

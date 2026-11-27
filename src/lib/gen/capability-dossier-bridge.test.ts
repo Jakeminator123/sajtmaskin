@@ -32,6 +32,17 @@ function capabilities(overrides: Partial<InferredCapabilities> = {}): InferredCa
 }
 
 describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
+  it("keeps form validation independent of contact delivery for auth forms", () => {
+    const authForm = capabilities({ needsAuth: true, needsForms: true });
+    expect(resolveDossierCapabilitiesFromInferredCapabilities(authForm, { formsAreAuthOnly: true }))
+      .toEqual(["auth"]);
+    expect(resolveDossierCapabilitiesFromInferredCapabilities(authForm, { formsAreAuthOnly: false }))
+      .toEqual(["auth", "contact-form"]);
+    expect(resolveDossierCapabilitiesFromInferredCapabilities(capabilities({ needsForms: true }), {
+      formsAreAuthOnly: true,
+    })).toEqual(["contact-form"]);
+  });
+
   it("returns no dossier capabilities when bridge flags are false", () => {
     expect(
       resolveDossierCapabilitiesFromInferredCapabilities(

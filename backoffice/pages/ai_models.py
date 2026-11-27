@@ -29,12 +29,13 @@ from backoffice.shared import (
     write_phase_thinking,
     write_text,
 )
+from backoffice.shared_lib.models import active_phase_model
 
 
 def _resolve_phase_model_ref(phase_ref: str, tier_build_model: str) -> str:
-    ref = (phase_ref or "").strip() or "selected_build_model"
+    ref = active_phase_model(phase_ref or "") or "selected_build_model"
     if ref == "selected_build_model":
-        return (tier_build_model or "").strip() or "selected_build_model"
+        return active_phase_model(tier_build_model or "") or "selected_build_model"
     return ref
 
 
@@ -252,7 +253,7 @@ def _render_generator_chain(
         with col:
             profile_inputs[key] = st.text_input(
                 TIER_LABELS_SV.get(key, key),
-                value=str(build_profiles.get(key, "")),
+                value=active_phase_model(str(build_profiles.get(key, ""))),
                 help="Konkret modell-ID som används när denna byggprofil väljs i buildern.",
                 key=f"bp_{key}",
             )
@@ -264,7 +265,7 @@ def _render_generator_chain(
         with col:
             quality_inputs[key] = st.text_input(
                 key,
-                value=str(quality_map.get(key, "")),
+                value=active_phase_model(str(quality_map.get(key, ""))),
                 key=f"quality_{key}",
             )
 
@@ -284,7 +285,7 @@ def _render_generator_chain(
         edited_thinking[tier] = {}
         with tier_tabs[idx]:
             for phase in PHASE_ORDER:
-                current_model = str(tier_cfg.get(phase, "selected_build_model")).strip() or "selected_build_model"
+                current_model = active_phase_model(str(tier_cfg.get(phase, ""))) or "selected_build_model"
                 current_thinking_cfg = tier_thinking.get(phase) or {}
                 current_thinking = bool(current_thinking_cfg.get("thinking", False))
                 current_effort = str(current_thinking_cfg.get("reasoningEffort", "medium")).strip() or "medium"
@@ -306,14 +307,10 @@ def _render_generator_chain(
                         format_func=lambda model_id, _tier=tier: phase_model_display_label(
                             model_id,
                             _tier,
-                            build_profiles,
+                            profile_inputs,
                         ),
                     )
-                resolved_model_value = (
-                    build_profiles.get(tier, "").strip()
-                    if model_value == "selected_build_model"
-                    else model_value
-                )
+                resolved_model_value = _resolve_phase_model_ref(model_value, profile_inputs[tier])
                 supports_reasoning_mode = resolved_model_value.startswith(("gpt-5.6-", "gpt-6"))
                 with c2:
                     thinking_value = st.toggle(
@@ -368,9 +365,9 @@ def _render_generator_chain(
 
     if st.button("Spara generator-kedja", type="primary"):
         for key, value in profile_inputs.items():
-            build_profiles[key] = value.strip()
+            build_profiles[key] = active_phase_model(value)
         for key, value in quality_inputs.items():
-            quality_map[key] = value.strip()
+            quality_map[key] = active_phase_model(value)
         manifest.setdefault("phaseRouting", {})["defaultByTier"] = edited_routing
         for tier, phase_entries in edited_thinking.items():
             for phase, cfg in phase_entries.items():

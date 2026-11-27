@@ -1,11 +1,62 @@
 import { describe, expect, it } from "vitest";
 import {
   inferCapabilities,
+  hasOnlyAuthenticationForms,
   buildCapabilityHints,
   explicitlyRequests3D,
 } from "./capability-inference";
 
 describe("inferCapabilities", () => {
+  it("treats multiple page subjects as content without adding auth or app capabilities", () => {
+    const capabilities = inferCapabilities("Build a website about CRM and a page about login");
+    expect(capabilities.needsAuth).toBe(false);
+    expect(capabilities.needsAppShell).toBe(false);
+  });
+  it.each([
+    "Add a login form",
+    "Build a sign-in form",
+    "Add a password reset form and a login form",
+    "Skapa ett inloggningsformulär",
+    "Skapa ett formulär för inloggning",
+    "Create a form to sign in",
+    "Add a login page with a form",
+    "Add a login page with a simple, accessible form",
+    "Add a login page with a simple and accessible form",
+    "Skapa en sida för inloggning med ett enkelt och tillgängligt formulär",
+    "Add a login page, make the form accessible",
+    "Add a login page, make its form accessible",
+    "Skapa en inloggningssida med ett enkelt, tillgängligt formulär",
+    "Build a sign-in screen that contains a standard form",
+    "Lägg till en sida för inloggning med ett formulär",
+  ])("recognizes authentication-only forms in %s", (prompt) => {
+    expect(hasOnlyAuthenticationForms(prompt)).toBe(true);
+  });
+
+  it.each([
+    "Build an app with login and a form that sends submissions to my email",
+    "Build an app with login and add a form that sends submissions to my email",
+    "Bygg en app med inloggning och skapa ett formulär som skickar svar till min e-post",
+    "Build an app with login, then a form that sends submissions to my email",
+    "Build an app with login, a form that sends submissions to my email",
+    "Build an app with login, a separate form that sends submissions to my email",
+    "Build an app with login, add a form that sends submissions to my email",
+    "Build an app with login, add a simple, accessible form that sends submissions to my email",
+    "Build an app with login, a simple, accessible form that sends submissions to my email",
+    "Bygg en app med inloggning, lägg till ett enkelt, tillgängligt formulär som skickar svar till min e-post",
+    "Build an app with login, create a form that sends submissions to my email",
+    "Build an app with login, make a form that sends submissions to my email",
+    "Bygg en app med inloggning, lägg till ett formulär som skickar svar till min e-post",
+    "Bygg en app med inloggning, skapa ett formulär som skickar svar till min e-post",
+    "Build an app with login then a form that sends submissions to my email",
+    "Bygg en app med inloggning, sedan ett formulär som skickar svar till min e-post",
+    "Add a login form and a survey form",
+    "Skapa ett inloggningsformulär och ett separat formulär som skickar svar till min e-post",
+    "Add a login form, a booking form and a contact form",
+    "Create a survey",
+  ])("keeps independent form requirements in %s", (prompt) => {
+    expect(hasOnlyAuthenticationForms(prompt)).toBe(false);
+  });
+
   it.each([
     "Bygg en sida utan reklam med en roterbar 3D-produkt.",
     "Build a page without ads with a rotatable 3D product.",
@@ -88,6 +139,14 @@ describe("inferCapabilities", () => {
     expect(caps.needsEcommerce).toBe(true);
     expect(caps.needsPayments).toBe(true);
     expect(caps.needsForms).toBe(true);
+  });
+
+  it.each([
+    ["Build a website about a restaurant with a product gallery", false],
+    ["Build a website about a salon with a product gallery", false],
+    ["Build a website about a restaurant with a webshop and a product gallery", true],
+  ] as const)("retains domain context for ecommerce in %s", (prompt, expected) => {
+    expect(inferCapabilities(prompt).needsEcommerce).toBe(expected);
   });
 
   it("detects calendar from Swedish 'almanacka' and implies needsForms", () => {

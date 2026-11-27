@@ -12,6 +12,31 @@ import { matchScaffold, matchScaffoldAuto } from "./matcher";
 const mockedSearchScaffoldsWithDiagnostics = vi.mocked(searchScaffoldsWithDiagnostics);
 
 describe("matchScaffold", () => {
+  it.each(["restaurant", "café", "salon"])("keeps a %s page subject in the domain veto across matching paths", async (domain) => {
+    const prompt = `Build a website about a ${domain} with a product catalog`;
+    expect(matchScaffold(prompt, "website")?.id).not.toBe("ecommerce");
+    const keyword = await matchScaffoldAuto(prompt, "website", {
+      useEmbeddings: false, capabilities: inferCapabilities(prompt),
+    });
+    expect(keyword.scaffold?.id).not.toBe("ecommerce");
+    vi.mocked(searchScaffoldsWithDiagnostics).mockResolvedValue({
+      results: [{ scaffold: getScaffoldById("ecommerce")!, score: 0.9 }],
+      diagnostics: { attempted: true, available: true, failed: false, unavailableReason: null, errorMessage: null, durationMs: 1 },
+    });
+    const semantic = await matchScaffoldAuto(prompt, "website");
+    expect(semantic.scaffold?.id).not.toBe("ecommerce");
+  });
+
+  it("keeps explicit checkout features eligible beside a hospitality page subject", async () => {
+    const prompt = "Build a website about a restaurant with a product catalog";
+    expect(matchScaffold(`${prompt} and checkout`, "website")?.id).toBe("ecommerce");
+    const result = await matchScaffoldAuto(prompt, "website", {
+      useEmbeddings: false,
+      queryContext: { briefPages: [{ name: "Checkout", path: "/checkout", purpose: "Checkout with cart" }] },
+    });
+    expect(result.scaffold?.id).toBe("ecommerce");
+  });
+
   beforeEach(() => {
     mockedSearchScaffoldsWithDiagnostics.mockReset();
   });

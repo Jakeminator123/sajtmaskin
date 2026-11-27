@@ -1,4 +1,5 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import { outsidePageSubject } from "@/lib/builder/page-subject";
 import { stripFocusPointAppendix } from "@/lib/builder/focus-point-prompt";
 import type { ScaffoldContractRoute, ScaffoldManifest } from "../scaffolds/types";
 import { dedupePlannedRoutesInPlaceByLocale } from "./locale-dedupe";
@@ -192,8 +193,8 @@ function countCeilingRoutes(
   }, 0);
 }
 
-function inferSiteType(buildIntent: BuildIntent, routeCount: number): RoutePlanSiteType {
-  if (buildIntent === "app") return "app-shell";
+function inferSiteType(buildIntent: BuildIntent, routeCount: number, productWorkspace: boolean): RoutePlanSiteType {
+  if (buildIntent === "app" && (productWorkspace || routeCount > 1)) return "app-shell";
   if (routeCount <= 1) return "one-page";
   if (routeCount <= 5) return "brochure";
   return "content-heavy";
@@ -227,7 +228,10 @@ export function buildRoutePlan(params: {
   const routes: PlannedRoute[] = [];
   const { briefRoutes, explicitNamedPages } = canonicalizeSoleInitEquivalentPaths(
     buildRoutesFromBrief(brief),
-    extractExplicitNamedPages(prompt),
+    extractExplicitNamedPages(prompt, {
+      includeSubjects: generationMode === "followUp" && hasExplicitAddRouteIntent(prompt),
+      buildIntent,
+    }),
     resolvedScaffold,
     generationMode,
   );
@@ -247,9 +251,15 @@ export function buildRoutePlan(params: {
     hasExplicitAddRouteIntent(prompt) || explicitNamedPages.length > 0;
   let promptAddedRoutes = false;
 
+  const productWorkspace = buildIntent === "app" && resolvedScaffold?.id !== "base-nextjs";
+  const rootName = productWorkspace ? "Dashboard" : "Home";
+  const appRootIntent = productWorkspace
+    ? "Use the root route as the main product workspace or dashboard."
+    : "Use the root route for the primary app experience described in the request.";
+
   const routeNameFromPath = (path: string): string => {
     if (path === "/") {
-      return buildIntent === "app" ? "Dashboard" : "Home";
+      return rootName;
     }
     const label = path
       .replace(/^\/+/, "")
@@ -303,8 +313,8 @@ export function buildRoutePlan(params: {
     if (!useFollowUpFreeze && !hasBriefRoutes) {
       upsertRoute(routes, {
         path: "/",
-        name: "Dashboard",
-        intent: "Use the root route as the main product workspace or dashboard.",
+        name: rootName,
+        intent: appRootIntent,
         required: true,
       });
       promptAddedRoutes = true;
@@ -320,7 +330,7 @@ export function buildRoutePlan(params: {
         promptAddedRoutes = true;
       }
       const patternPrompt = neutralizeExplicitPageNameLiterals(
-        prompt,
+        outsidePageSubject(prompt) ?? prompt,
         explicitNamedPages.map((page) => page.name),
       );
       promptAddedRoutes =
@@ -347,7 +357,7 @@ export function buildRoutePlan(params: {
         promptAddedRoutes = true;
       }
       const patternPrompt = neutralizeExplicitPageNameLiterals(
-        prompt,
+        outsidePageSubject(prompt) ?? prompt,
         explicitNamedPages.map((page) => page.name),
       );
       promptAddedRoutes =
@@ -360,9 +370,9 @@ export function buildRoutePlan(params: {
   if (!useFollowUpFreeze && !routes.some((r) => normalizeRoutePath(r.path) === "/")) {
     upsertRoute(routes, {
       path: "/",
-      name: buildIntent === "app" ? "Dashboard" : "Home",
+      name: rootName,
       intent: buildIntent === "app"
-        ? "Use the root route as the main product workspace or dashboard."
+        ? appRootIntent
         : "Use the root route for the primary landing page or homepage.",
       required: true,
     });
@@ -653,7 +663,7 @@ export function buildRoutePlan(params: {
 
   return {
     provenance: { primarySource, sources },
-    siteType: inferSiteType(buildIntent, effectiveRouteCount),
+    siteType: inferSiteType(buildIntent, effectiveRouteCount, productWorkspace),
     reason,
     routes,
     ...(explicitPageCount !== null && (explicitPageCountActive || explicitPageCountTrimmed)
