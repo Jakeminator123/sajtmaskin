@@ -4,6 +4,7 @@ import { PATHS } from "@/lib/config";
 import { LocalFsProvider } from "@/lib/storage/local-fs-provider";
 import type { StorageProvider } from "@/lib/storage/types";
 import { VercelBlobProvider } from "@/lib/storage/vercel-blob-provider";
+import { PROJECT_MEDIA_LIBRARY_CATEGORY } from "@/lib/media/project-media-library";
 
 export interface BlobUploadResult {
   url: string;
@@ -11,13 +12,15 @@ export interface BlobUploadResult {
   storageType: "blob" | "local" | "dataurl";
 }
 
+type BlobCategory = "media" | "ai-images" | "project-files" | typeof PROJECT_MEDIA_LIBRARY_CATEGORY;
+
 export interface BlobUploadOptions {
   userId: string;
   filename: string;
   buffer: Buffer;
   contentType: string;
   projectId?: string;
-  category?: "media" | "ai-images" | "project-files";
+  category?: BlobCategory;
 }
 
 const MAX_SERVER_UPLOAD_BYTES = 4.5 * 1024 * 1024;
@@ -67,7 +70,7 @@ export function buildBlobPath(
   filename: string,
   options?: {
     projectId?: string;
-    category?: "media" | "ai-images" | "project-files";
+    category?: BlobCategory;
   },
 ): string {
   const safeUserId = sanitizeBlobPathSegment(userId, "anonymous");

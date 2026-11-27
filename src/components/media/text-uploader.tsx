@@ -22,6 +22,7 @@
 
 import { useState, useRef, useCallback, useMemo } from "react";
 import { FileText, Upload, Loader2, X, AlertCircle, Wand2, Save } from "lucide-react";
+import { appendProjectMediaLibraryScope } from "@/lib/media/project-media-library";
 import { cn } from "@/lib/utils";
 
 // ============================================================================
@@ -30,6 +31,7 @@ import { cn } from "@/lib/utils";
 
 interface TextUploaderProps {
   isOpen: boolean;
+  projectId?: string | null;
   onClose: () => void;
   onContentReady: (content: string, filename: string) => void;
   disabled?: boolean;
@@ -107,6 +109,7 @@ function detectContentType(content: string): { type: string; hint: string } {
 
 export function TextUploader({
   isOpen,
+  projectId,
   onClose,
   onContentReady,
   disabled = false,
@@ -206,6 +209,7 @@ export function TextUploader({
       try {
         const formData = new FormData();
         formData.append("file", pendingText.file);
+        appendProjectMediaLibraryScope(formData, projectId);
 
         const res = await fetch("/api/media/upload", {
           method: "POST",

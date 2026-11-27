@@ -16,7 +16,7 @@ it("keeps reading separate from a rights-approved image import and returns the c
     }));
   vi.stubGlobal("fetch", fetchMock);
   const onUse = vi.fn();
-  render(<SourcePagePanel chatId="chat-owner" onUse={onUse} />);
+  render(<SourcePagePanel chatId="chat-owner" projectId="site-owner" onUse={onUse} />);
   fireEvent.click(screen.getByText("Läs en webbsida"));
   fireEvent.change(screen.getByLabelText("Publik URL"), { target: { value: "https://example.com/atelier" } });
   fireEvent.click(screen.getByRole("button", { name: "Läs sidan" }));
@@ -37,6 +37,6 @@ it("keeps reading separate from a rights-approved image import and returns the c
   }, expect.objectContaining({ id: "42", url: "https://blob.example/chair.png" })));
   expect(fetchMock).toHaveBeenCalledTimes(2);
   expect(JSON.parse(fetchMock.mock.calls[1]?.[1].body)).toMatchObject({
-    chatId: "chat-owner", sourcePageUrl: "https://example.com/atelier", url: "https://images.example/chair.png",
+    chatId: "chat-owner", projectId: "site-owner", mediaScope: "media-library", sourcePageUrl: "https://example.com/atelier", url: "https://images.example/chair.png",
   });
 });

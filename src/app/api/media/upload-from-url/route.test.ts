@@ -1,13 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { MediaUploadPolicyError } from "@/lib/media/upload-policy-error";
 
 const getCurrentUser = vi.hoisted(() => vi.fn());
 const safeFetch = vi.hoisted(() => vi.fn());
 const uploadBlob = vi.hoisted(() => vi.fn());
-const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
+const deleteBlob = vi.hoisted(() => vi.fn());
+const getChatProjectId = vi.hoisted(() => vi.fn());
+const getProjectByIdForOwner = vi.hoisted(() => vi.fn());
 const saveMediaLibraryItem = vi.hoisted(() => vi.fn());
 const canUserUploadFile = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/tenant", () => ({ getEngineChatByIdForRequest }));
+vi.mock("@/lib/db/chat-repository/chats", () => ({ getChatProjectId }));
+vi.mock("@/lib/db/services/projects", () => ({ getProjectByIdForOwner }));
 vi.mock("@/lib/db/services/media", () => ({ canUserUploadFile, saveMediaLibraryItem }));
 
 vi.mock("@/lib/auth/auth", () => ({
@@ -26,6 +30,7 @@ vi.mock("@/lib/rate-limit", () => ({
 vi.mock("@/lib/vercel/blob-service", () => ({
   generateUniqueFilename: (filename: string) => `safe-${filename}`,
   uploadBlob,
+  deleteBlob,
 }));
 
 const { POST } = await import("./route");
@@ -50,7 +55,9 @@ describe("POST /api/media/upload-from-url", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getCurrentUser.mockResolvedValue({ id: "user_1" });
+    getProjectByIdForOwner.mockResolvedValue({ id: "project-1", user_id: "user_1" });
     canUserUploadFile.mockResolvedValue({ allowed: true });
+    saveMediaLibraryItem.mockResolvedValue({ id: 42 });
     safeFetch.mockResolvedValue(
       new Response(new Uint8Array([1, 2, 3]), {
         status: 200,
@@ -71,20 +78,34 @@ describe("POST /api/media/upload-from-url", () => {
       chatId: "preview-chat",
       sourcePageUrl: "https://example.com/atelier",
     });
-    getEngineChatByIdForRequest.mockResolvedValueOnce(null);
+    getChatProjectId.mockResolvedValueOnce(null);
     expect((await POST(makeRawRequest(body))).status).toBe(404);
     expect(safeFetch).not.toHaveBeenCalled();
 
-    getEngineChatByIdForRequest.mockResolvedValueOnce({ project_id: "project-1" });
+    getChatProjectId.mockResolvedValueOnce("project-1");
     saveMediaLibraryItem.mockResolvedValueOnce({ id: 42 });
     const response = await POST(makeRawRequest(body));
     expect(await response.json()).toMatchObject({ success: true, media: { id: 42 } });
-    expect(uploadBlob).toHaveBeenCalledWith(expect.objectContaining({ userId: "user_1", projectId: "project-1" }));
+    expect(getCurrentUser).toHaveBeenCalledTimes(2);
+    expect(getProjectByIdForOwner).toHaveBeenCalledExactlyOnceWith("project-1", {
+      userId: "user_1", sessionId: null,
+    });
+    expect(uploadBlob).toHaveBeenCalledWith(expect.objectContaining({ userId: "user_1", projectId: "project-1", category: "media" }));
     expect(saveMediaLibraryItem.mock.calls[0]?.slice(-2)).toEqual(["project-1", "https://example.com/atelier"]);
   });
 
+  it("persists a source-panel import in the chat-owned library category", async () => {
+    getChatProjectId.mockResolvedValueOnce("project-1");
+    const result = await POST(makeRawRequest(JSON.stringify({
+      url: "https://images.example/chair", sourcePageUrl: "https://example.com/atelier",
+      chatId: "preview-chat", mediaScope: "media-library",
+    })));
+    expect(result.status).toBe(200);
+    expect(uploadBlob).toHaveBeenCalledWith(expect.objectContaining({ projectId: "project-1", category: "media-library" }));
+  });
+
   it("shows the existing image quota before a source image is downloaded", async () => {
-    const reason = "Max 10 bilder/logos. Ta bort någon först.";
+    const reason = "Ditt personliga utrymme har nått gränsen på 200 bilder och logotyper.";
     canUserUploadFile.mockResolvedValueOnce({ allowed: false, reason });
     const response = await POST(makeRawRequest(JSON.stringify({
       url: "https://images.example/chair",
@@ -94,8 +115,33 @@ describe("POST /api/media/upload-from-url", () => {
     })));
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ error: reason });
-    expect(canUserUploadFile).toHaveBeenCalledWith("user_1", "image/png", 10, 3);
+    expect(canUserUploadFile).toHaveBeenCalledWith("user_1", "image/png", undefined);
     expect(safeFetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects a mismatched chat and explicit project before accessing the external image", async () => {
+    getChatProjectId.mockResolvedValueOnce("project-1");
+    const response = await POST(makeRawRequest(JSON.stringify({
+      url: "https://images.example/chair",
+      chatId: "chat-1",
+      projectId: "project-2",
+      sourcePageUrl: "https://example.com/atelier",
+    })));
+    expect(response.status).toBe(404);
+    expect(safeFetch).not.toHaveBeenCalled();
+  });
+
+  it("clears only the just-uploaded blob when the final project quota check rejects", async () => {
+    const reason = "Sajten har nått gränsen på 200 bilder och logotyper.";
+    saveMediaLibraryItem.mockRejectedValueOnce(new MediaUploadPolicyError(reason, 400));
+    const response = await POST(makeRawRequest(JSON.stringify({
+      url: "https://images.example/chair",
+      projectId: "project-1",
+    })));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: reason });
+    expect(canUserUploadFile).toHaveBeenCalledWith("user_1", "image/png", "project-1");
+    expect(deleteBlob).toHaveBeenCalledExactlyOnceWith("https://blob.example/hero.png");
   });
 
   it("does not log query secrets from remote image URLs", async () => {

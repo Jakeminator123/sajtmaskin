@@ -347,6 +347,8 @@ export function OpenClawChatPanel({
   const builderContext = typeof window === "undefined" ? undefined : window.__SITEMASKIN_CONTEXT;
   const sourceChatId = builderContext?.page === "builder" && typeof builderContext.chatId === "string"
     ? builderContext.chatId : undefined;
+  const sourceProjectId = !sourceChatId && builderContext?.page === "builder" && typeof builderContext.projectId === "string"
+    ? builderContext.projectId : undefined;
   const [avatarExpanded, setAvatarExpanded] = useState(false);
   const [listening, setListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -1002,7 +1004,8 @@ export function OpenClawChatPanel({
                 ) : null}
               </div>
             ) : null}
-            <ReadTaskAttachments key={`attachments:${scopeRevision}:${sourceScope}`} files={sourceFiles} disabled={isStreaming}
+            <ReadTaskAttachments key={`attachments:${scopeRevision}:${sourceScope}`} chatId={sourceChatId} projectId={sourceProjectId}
+              files={sourceFiles} disabled={isStreaming}
               onFilesChange={(files) => updateReadDraft((current) => ({ ...current, files }))} />
             <SourcePagePanel ref={sourcePagePanel} key={`page:${scopeRevision}:${sourceScope}`} disabled={isStreaming}
               chatId={sourceChatId} importImage={Boolean(sourceChatId)}

@@ -38,9 +38,11 @@ describe("DidOpenClawBridge avatar-disabled text-chat fallback", () => {
     expect(screen.queryByTestId("avatar-bridge-connect")).toBeNull();
   });
 
-  it("shows a failed upload without submitting and can attach an existing media-bank image", async () => {
+  it.each([undefined, "owned-chat"])("uses the matching image bank for avatar chat %s", async (chatId) => {
     vi.stubEnv("NEXT_PUBLIC_AVATAR_ENABLED", "");
-    const reason = "Max 10 bilder/logos. Ta bort någon först.";
+    const reason = chatId
+      ? "Sajten har nått gränsen på 200 bilder och logotyper."
+      : "Ditt personliga utrymme har nått gränsen på 200 bilder och logotyper.";
     const mockFetch = vi.fn()
       .mockResolvedValueOnce(Response.json({ success: false, error: reason }, { status: 400 }))
       .mockResolvedValueOnce(Response.json({ success: true, items: [{
@@ -51,11 +53,16 @@ describe("DidOpenClawBridge avatar-disabled text-chat fallback", () => {
       .mockResolvedValueOnce(Response.json({ success: true, reply: "En stol." }));
     vi.stubGlobal("fetch", mockFetch);
     const DidOpenClawBridge = await loadBridge();
-    const view = render(<DidOpenClawBridge />);
+    const view = render(<DidOpenClawBridge chatId={chatId} />);
     fireEvent.click(screen.getByText("Bilagor till frågan"));
     const upload = view.container.querySelector('input[type="file"]')!;
     fireEvent.change(upload, { target: { files: [new File(["image"], "ny.png", { type: "image/png" })] } });
     await screen.findByText(reason);
+    expect(mockFetch.mock.calls[0]?.[0]).toBe("/api/media/upload");
+    const uploadBody = mockFetch.mock.calls[0]?.[1].body as FormData;
+    expect(uploadBody.get("chatId")).toBe(chatId ?? null);
+    expect(uploadBody.get("projectId")).toBeNull();
+    expect(uploadBody.get("mediaScope")).toBe(chatId ? "media-library" : null);
     fireEvent.change(screen.getByTestId("avatar-bridge-input"), { target: { value: "Sök på webben efter modellen på bilden." } });
     expect(screen.getByTestId<HTMLButtonElement>("avatar-bridge-send").disabled).toBe(true);
     fireEvent.click(screen.getByTestId("avatar-bridge-send"));
@@ -64,6 +71,9 @@ describe("DidOpenClawBridge avatar-disabled text-chat fallback", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ta bort ny.png" }));
     fireEvent.click(screen.getByRole("button", { name: "Välj från mediebanken" }));
     fireEvent.click(await screen.findByAltText("tidigare.png"));
+    const listUrl = new URL(mockFetch.mock.calls[1]?.[0], "http://localhost");
+    expect(listUrl.pathname).toBe("/api/media/upload");
+    expect(listUrl.searchParams.get("chatId")).toBe(chatId ?? null);
     fireEvent.click(screen.getByTestId("avatar-bridge-send"));
     await waitFor(() => expect(screen.getAllByTestId("avatar-bridge-last-assistant")
       .some((node) => node.textContent?.includes("En stol."))).toBe(true));

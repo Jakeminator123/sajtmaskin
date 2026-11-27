@@ -37,6 +37,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { MediaFileType, MediaItem } from "./media-bank";
 import { MAX_MEDIA_IMAGES as MAX_IMAGES, MAX_MEDIA_VIDEOS as MAX_VIDEOS } from "@/lib/media/upload-limits";
+import { appendProjectMediaLibraryScope } from "@/lib/media/project-media-library";
 
 // ============================================================================
 // TYPES
@@ -46,6 +47,7 @@ interface MediaDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   projectId?: string;
+  chatId?: string;
   onFileSelect?: (item: MediaItem) => void;
 }
 
@@ -92,8 +94,11 @@ function getFileTypeIcon(type: MediaFileType) {
 // MAIN COMPONENT
 // ============================================================================
 
-export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaDrawerProps) {
+export function MediaDrawer({ isOpen, onClose, projectId, chatId, onFileSelect }: MediaDrawerProps) {
   const [items, setItems] = useState<UploadedMediaItem[]>([]);
+  const [quota, setQuota] = useState<{ scopeKey: string; counts: MediaCounts }>();
+  const listRequest = useRef<AbortController | null>(null);
+  const activeRefresh = useRef<{ scopeKey: string; load: (preserveError?: boolean) => Promise<void> } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>("");
@@ -108,45 +113,52 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
   const resolvedSearchInputId = `media-search-${searchInputId}`;
   const resolvedUploadInputId = `media-upload-${uploadInputId}`;
 
-  // Calculate counts for limits
-  const counts: MediaCounts = {
-    images: items.filter((i) => i.fileType === "image" || i.fileType === "logo").length,
-    videos: items.filter((i) => i.fileType === "video").length,
-    other: items.filter(
-      (i) => i.fileType === "pdf" || i.fileType === "text" || i.fileType === "other",
-    ).length,
-  };
+  const scopeKey = JSON.stringify([projectId, chatId]);
+  const counts = quota?.scopeKey === scopeKey ? quota.counts : undefined;
 
   // Load media library
-  const loadMediaLibrary = useCallback(async () => {
+  const loadMediaLibrary = useCallback(async (preserveError = false) => {
+    listRequest.current?.abort();
+    const controller = new AbortController();
+    listRequest.current = controller;
     setIsLoading(true);
-    setError(null);
+    if (!preserveError) setError(null);
     try {
       const params = new URLSearchParams();
       if (filterType !== "all") params.append("fileType", filterType);
+      if (projectId) params.append("projectId", projectId);
+      if (chatId) params.append("chatId", chatId);
 
-      const response = await fetch(`/api/media/upload?${params}`);
+      const response = await fetch(`/api/media/upload?${params}`, { signal: controller.signal });
       const data = await response.json();
+      if (controller.signal.aborted) return;
 
       if (data.success) {
         setItems(data.items);
+        setQuota({ scopeKey, counts: data.counts });
       } else {
         setError(data.error || "Kunde inte ladda mediabiblioteket");
       }
     } catch (err) {
-      console.error("[MediaDrawer] Failed to load:", err);
-      setError("Kunde inte ladda mediabiblioteket");
+      if (!controller.signal.aborted) {
+        console.error("[MediaDrawer] Failed to load:", err);
+        setError("Kunde inte ladda mediabiblioteket");
+      }
     } finally {
-      setIsLoading(false);
+      if (!controller.signal.aborted) setIsLoading(false);
     }
-  }, [filterType]);
+  }, [filterType, projectId, chatId, scopeKey]);
 
   // Load on open
   useEffect(() => {
-    if (isOpen) {
-      loadMediaLibrary();
-    }
-  }, [isOpen, loadMediaLibrary]);
+    if (!isOpen) return;
+    activeRefresh.current = { scopeKey, load: loadMediaLibrary };
+    void loadMediaLibrary();
+    return () => {
+      activeRefresh.current = null;
+      listRequest.current?.abort();
+    };
+  }, [isOpen, loadMediaLibrary, scopeKey]);
 
   // Close on escape key
   useEffect(() => {
@@ -170,26 +182,6 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen, onClose]);
 
-  const canUploadFileType = (mimeType: string): { ok: boolean; reason?: string } => {
-    if (mimeType.startsWith("image/")) {
-      if (counts.images >= MAX_IMAGES) {
-        return {
-          ok: false,
-          reason: `Max ${MAX_IMAGES} bilder/logos. Ta bort någon först.`,
-        };
-      }
-    }
-    if (mimeType.startsWith("video/")) {
-      if (counts.videos >= MAX_VIDEOS) {
-        return {
-          ok: false,
-          reason: `Max ${MAX_VIDEOS} videos. Ta bort någon först.`,
-        };
-      }
-    }
-    return { ok: true };
-  };
-
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -198,21 +190,16 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
     setUploadProgress("Förbereder...");
     setError(null);
 
+    let uploaded = 0;
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-
-        const limitCheck = canUploadFileType(file.type);
-        if (!limitCheck.ok) {
-          setError(limitCheck.reason || "Gränsen är nådd");
-          continue;
-        }
 
         setUploadProgress(`Laddar upp ${i + 1}/${files.length}: ${file.name}`);
 
         const formData = new FormData();
         formData.append("file", file);
-        if (projectId) formData.append("projectId", projectId);
+        appendProjectMediaLibraryScope(formData, projectId, chatId);
 
         const response = await fetch("/api/media/upload", {
           method: "POST",
@@ -222,33 +209,18 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
         const data = await response.json();
 
         if (!data.success) {
-          setError(`Kunde inte ladda upp ${file.name}: ${data.error}`);
+          if (activeRefresh.current?.scopeKey === scopeKey) setError(`Kunde inte ladda upp ${file.name}: ${data.error}`);
           continue;
         }
-
-        setItems((prev) => [
-          {
-            id: data.media.id,
-            url: data.media.url,
-            filename: data.media.filename,
-            mimeType: data.media.mimeType,
-            fileType: data.media.fileType,
-            size: data.media.size,
-            createdAt: new Date().toISOString(),
-          },
-          ...prev,
-        ]);
-
-        // DON'T auto-select uploaded files anymore
-        // User should manually click on the file to use it
-        // This prevents auto-submission of prompts when uploading
+        uploaded += 1;
       }
 
-      setUploadProgress("Klar!");
+      await activeRefresh.current?.load(true);
+      setUploadProgress(uploaded && activeRefresh.current?.scopeKey === scopeKey ? "Klar!" : "");
       setTimeout(() => setUploadProgress(""), 2000);
     } catch (err) {
       console.error("[MediaDrawer] Upload error:", err);
-      setError("Uppladdning misslyckades. Försök igen.");
+      if (activeRefresh.current?.scopeKey === scopeKey) setError("Uppladdning misslyckades. Försök igen.");
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -266,13 +238,13 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
       const data = await response.json();
 
       if (data.success) {
-        setItems((prev) => prev.filter((item) => item.id !== id));
+        await activeRefresh.current?.load(true);
       } else {
-        setError("Kunde inte ta bort filen");
+        if (activeRefresh.current?.scopeKey === scopeKey) setError("Kunde inte ta bort filen");
       }
     } catch (err) {
       console.error("[MediaDrawer] Delete error:", err);
-      setError("Kunde inte ta bort filen");
+      if (activeRefresh.current?.scopeKey === scopeKey) setError("Kunde inte ta bort filen");
     }
   };
 
@@ -389,11 +361,11 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
 
             {/* Limits */}
             <div className="flex justify-between text-xs text-gray-500">
-              <span className={cn(counts.images >= MAX_IMAGES && "text-brand-amber")}>
-                Bilder: {counts.images}/{MAX_IMAGES}
+              <span className={cn((counts?.images ?? 0) >= MAX_IMAGES && "text-brand-amber")}>
+                {projectId || chatId ? "Sajtens bilder och logotyper" : "Personliga bilder och logotyper"} {counts?.images ?? "–"}/{MAX_IMAGES}
               </span>
-              <span className={cn(counts.videos >= MAX_VIDEOS && "text-brand-amber")}>
-                Videos: {counts.videos}/{MAX_VIDEOS}
+              <span className={cn((counts?.videos ?? 0) >= MAX_VIDEOS && "text-brand-amber")}>
+                Kontots videor {counts?.videos ?? "–"}/{MAX_VIDEOS}
               </span>
             </div>
           </div>

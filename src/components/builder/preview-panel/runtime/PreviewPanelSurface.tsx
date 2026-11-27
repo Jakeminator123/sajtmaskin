@@ -50,6 +50,7 @@ const MediaDrawer = dynamic(
 type CodeDrafts = ReturnType<typeof usePreviewPanelCodeDrafts>;
 
 type PreviewPanelSurfaceProps = {
+  mediaProjectId?: string | null;
   previewUrl: string | null;
   isOwnEnginePreview: boolean;
   isTier2LivePreview: boolean;
@@ -540,6 +541,7 @@ export function PreviewPanelSurface(props: PreviewPanelSurfaceProps) {
             {inspectMenu?.mode === "image" ? (
               <MediaDrawer
                 isOpen
+                projectId={props.mediaProjectId ?? undefined}
                 onClose={() =>
                   setInspectMenu((current) => (current ? { ...current, mode: "menu" } : current))
                 }
