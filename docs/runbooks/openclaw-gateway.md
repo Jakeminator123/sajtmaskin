@@ -39,12 +39,18 @@ fel retryas inte.
 
 ### Uppgradera en befintlig gateway
 
-1. Spara tidigare modellvärden och kontrollera att den persistenta disken har en
-   återställningspunkt före runtimebytet. Render bygger gatewayn från `master`.
+1. Spara tidigare modellvärden och ID/tid för en privat, återställningsbar kopia
+   av hela `/root/.openclaw` före runtimebytet. Kontrollera SQLite, inklusive
+   sidofiler, alla agenters sessionshistorik, transkript och parkopplingar på
+   en isolerad återställning. Stoppa alla skrivare vid filbaserad kopiering.
+   Render bygger gatewayn från `master`.
 2. När releasen med OpenClaw `2026.10.34` är tillgänglig på Render, använd de
    sex värdena i [Blueprinten](../../infra/openclaw/render.yaml) och deploya den
    versionen. Render behöver sin befintliga `OPENAI_API_KEY`.
-3. Kontrollera bootloggen, appens `/api/openclaw/health` och gatewayns
+3. Startskriptet kör `openclaw doctor --fix --non-interactive` exklusivt på den
+   monterade disken, återställer gatewaykonfigurationen från miljön och startar
+   gatewayn när Doctor är klar. Vid avbruten reparation stannar starten.
+   Kontrollera bootloggen, appens `/api/openclaw/health` och gatewayns
    autentiserade `GET /v1/models`. De tre agent-id:na ovan ska finnas med
    prefixet `openclaw/`. Prova därefter ett kort anrop i varje spår med
    ett avsett testkonto. Modellistan verifierar bara att agentmålen finns.
