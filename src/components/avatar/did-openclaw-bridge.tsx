@@ -3,6 +3,10 @@
 import Link from "next/link";
 import type { UploadedFile } from "@/components/media/file-upload-zone";
 import { ReadTaskAttachments } from "@/components/openclaw/ReadTaskAttachments";
+import { VideoGenerationPanel } from "@/components/media/video-generation-panel";
+import { parseOpenClawMessage } from "@/lib/openclaw/text-field-actions";
+import { videoIntentFromProposal, type OpenClawVideoProposal } from "@/lib/openclaw/video-proposal";
+import { resolveVideoGenerationIntent, type VideoGenerationIntent } from "@/lib/media/video-generation-intent";
 import { replaceImportedSourceImage, SourcePagePanel, type SourcePagePanelHandle } from "@/components/openclaw/SourcePagePanel";
 import { readTaskAttachmentIds, resolveOpenClawReadTask } from "@/lib/openclaw/read-task-input";
 import { unselectedSourcePageUrl, type SelectedSourcePage } from "@/lib/openclaw/source-page";
@@ -23,6 +27,7 @@ type BridgeMessage = {
   role: "user" | "assistant";
   content: string;
   isError?: boolean;
+  videoProposal?: OpenClawVideoProposal;
 };
 
 type ConnectionState =
@@ -237,6 +242,9 @@ export function DidOpenClawBridge({
   const source = selectedSource?.source;
   const sourcePagePanel = useRef<SourcePagePanelHandle>(null);
   const [thinking, setThinking] = useState(false);
+  const [videoDraft, setVideoDraft] = useState<{ chatId: typeof chatId; id: string; intent: VideoGenerationIntent }>();
+  const activeVideoDraft = videoDraft?.chatId === chatId ? videoDraft : undefined;
+  if (videoDraft && !activeVideoDraft) setVideoDraft(undefined);
   const [listening, setListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
   const [avatarReady, setAvatarReady] = useState(testMode);
@@ -654,6 +662,13 @@ export function DidOpenClawBridge({
 
   const sendMessage = useCallback(
     async (rawText: string) => {
+      const video = resolveVideoGenerationIntent(rawText, sourceFiles);
+      if (video && !thinking) {
+        if (activeVideoDraft) return;
+        setVideoDraft({ chatId, id: crypto.randomUUID(), intent: video });
+        setTextInput((current) => current.trim() === rawText.trim() ? "" : current);
+        return;
+      }
       const directSource = unselectedSourcePageUrl(rawText, source);
       if (directSource && !thinking) {
         sourcePagePanel.current?.read(directSource);
@@ -689,7 +704,7 @@ export function DidOpenClawBridge({
             sessionId: sessionIdRef.current,
             message,
             recentMessages,
-            context: collectOpenClawClientContext(),
+            context: { ...collectOpenClawClientContext(), ...(chatId ? { chatId } : {}) },
             readTask,
           }),
         });
@@ -707,18 +722,24 @@ export function DidOpenClawBridge({
           throw new Error(payload?.error || `Status ${res.status}`);
         }
 
-        const reply = payload?.reply?.trim() || payload?.text?.trim() || "Inget svar från avatar-bridgen.";
+        const rawReply = payload?.reply?.trim() || payload?.text?.trim() || "";
+        const reply = !readTask && chatId ? parseOpenClawMessage(rawReply) : undefined;
+        const videoProposal = reply?.action?.type === "propose_video_generation" ? reply.action : undefined;
+        const visible = videoProposal
+          ? reply?.visibleContent || "Jag kan förbereda videobeställningen."
+          : rawReply || "Inget svar från avatar-bridgen.";
         setMessages((prev) => [
           ...prev,
           {
             id: createMessageId(),
             role: "assistant",
-            content: payload?.sources?.length ? `${reply}\n\nKällor:\n${payload.sources.join("\n")}` : reply,
+            content: payload?.sources?.length ? `${visible}\n\nKällor:\n${payload.sources.join("\n")}` : visible,
+            videoProposal,
           },
         ]);
         if (attachmentIds.length) setSourceFiles([]);
         if (source) setSelectedSource((current) => current?.source === source ? undefined : current);
-        await speakText(reply);
+        await speakText(visible);
       } catch (error) {
         const messageText =
           error instanceof Error ? error.message : "Kunde inte nå avatar-bridgen just nu.";
@@ -736,7 +757,7 @@ export function DidOpenClawBridge({
         setThinking(false);
       }
     },
-    [source, sourceFiles, speakText, thinking],
+    [activeVideoDraft, chatId, source, sourceFiles, speakText, thinking],
   );
 
   const startListening = useCallback(() => {
@@ -951,6 +972,12 @@ export function DidOpenClawBridge({
                   >
                     {message.content}
                   </p>
+                  {message.videoProposal && chatId && !activeVideoDraft && (
+                    <button type="button" className="mt-1 underline" onClick={() => {
+                      if (!message.videoProposal) return;
+                      setVideoDraft({ chatId, id: crypto.randomUUID(), intent: videoIntentFromProposal(message.videoProposal) });
+                    }}>Visa pris och välj startbild</button>
+                  )}
                 </div>
               </div>
             ))}
@@ -979,6 +1006,10 @@ export function DidOpenClawBridge({
             </div>
           )}
 
+          {activeVideoDraft && (
+            <VideoGenerationPanel key={activeVideoDraft.id} chatId={chatId}
+              requestId={activeVideoDraft.id} intent={activeVideoDraft.intent} onClose={() => setVideoDraft(undefined)} allowBuilderHandoff />
+          )}
           <ReadTaskAttachments chatId={chatId} files={sourceFiles} onFilesChange={setSourceFiles} disabled={thinking} />
           <SourcePagePanel ref={sourcePagePanel} disabled={thinking} chatId={chatId} importImage={Boolean(chatId)}
             onUse={(source, image) => {

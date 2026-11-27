@@ -36,6 +36,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { MediaFileType, MediaItem } from "./media-bank";
+import { VideoGenerationPanel } from "./video-generation-panel";
 import { MAX_MEDIA_IMAGES as MAX_IMAGES, MAX_MEDIA_VIDEOS as MAX_VIDEOS } from "@/lib/media/upload-limits";
 import { appendProjectMediaLibraryScope } from "@/lib/media/project-media-library";
 
@@ -103,6 +104,7 @@ export function MediaDrawer({ isOpen, onClose, projectId, chatId, onFileSelect }
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [videoScope, setVideoScope] = useState<string>();
   const [filterType, setFilterType] = useState<MediaFileType | "all">("all");
   const [draggedItem, setDraggedItem] = useState<UploadedMediaItem | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +116,8 @@ export function MediaDrawer({ isOpen, onClose, projectId, chatId, onFileSelect }
   const resolvedUploadInputId = `media-upload-${uploadInputId}`;
 
   const scopeKey = JSON.stringify([projectId, chatId]);
+  const openVideo = videoScope === scopeKey;
+  if (videoScope && (!isOpen || !openVideo)) setVideoScope(undefined);
   const counts = quota?.scopeKey === scopeKey ? quota.counts : undefined;
 
   // Load media library
@@ -327,6 +331,21 @@ export function MediaDrawer({ isOpen, onClose, projectId, chatId, onFileSelect }
 
         {/* Content */}
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          {(projectId || chatId) ? (
+            openVideo ? (
+              <VideoGenerationPanel key={scopeKey} projectId={projectId} chatId={chatId}
+                onClose={() => setVideoScope(undefined)}
+                onSaved={() => {
+                  const refresh = activeRefresh.current;
+                  if (refresh?.scopeKey === scopeKey) void refresh.load(true);
+                }}
+              />
+            ) : (
+              <Button type="button" variant="outline" className="w-full" onClick={() => setVideoScope(scopeKey)}>
+                <Video className="mr-2 size-4" aria-hidden="true" /> Skapa video
+              </Button>
+            )
+          ) : null}
           {/* Upload section */}
           <div className="space-y-2">
             <Button

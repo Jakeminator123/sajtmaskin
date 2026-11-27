@@ -22,6 +22,7 @@ import {
   buildOpenClawEditSystemPrompt,
 } from "@/lib/openclaw/edit-system-prompt";
 import { buildOpenClawNavigationSystemPrompt } from "@/lib/openclaw/navigation-system-prompt";
+import { OPENCLAW_VIDEO_PROPOSAL_PROMPT } from "@/lib/openclaw/video-proposal";
 import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
 import { buildOpenClawReviewContext } from "@/lib/openclaw/review-context";
 import { buildOpenClawPreviewLogBlock } from "@/lib/openclaw/preview-log-context";
@@ -326,6 +327,7 @@ export async function POST(req: NextRequest) {
       const navigateOwned = Boolean(scopedVersion);
       if (navigateOwned) {
         messages.push({ role: "system", content: buildOpenClawNavigationSystemPrompt() });
+        messages.push({ role: "system", content: OPENCLAW_VIDEO_PROPOSAL_PROMPT });
       }
 
       const contextMessage = await buildOpenClawContextSystemMessage({

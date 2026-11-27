@@ -12,6 +12,7 @@ import {
   type OpenClawOwnershipVerifier,
 } from "@/lib/openclaw/server-context";
 import { describeGatewayError } from "@/lib/openclaw/gateway-response";
+import { OPENCLAW_VIDEO_PROPOSAL_PROMPT } from "@/lib/openclaw/video-proposal";
 import { postOpenClawChatCompletion } from "@/lib/openclaw/gateway-client";
 import { resolveOpenClawModelRoute } from "@/lib/openclaw/model-routing";
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
@@ -150,6 +151,10 @@ async function buildMessages(params: {
   let codeContextMode: OpenClawCodeContextMode = "none";
 
   if (params.context && typeof params.context === "object") {
+    const chatId = typeof params.context.chatId === "string" ? params.context.chatId : null;
+    if (chatId && await params.verifyOwnership?.(chatId, null)) {
+      messages.push({ role: "system", content: OPENCLAW_VIDEO_PROPOSAL_PROMPT });
+    }
     const contextMessage = await buildOpenClawContextSystemMessage({
       messages: conversationMessages,
       context: params.context,
@@ -216,6 +221,7 @@ export async function POST(req: NextRequest) {
     // Cross-tenant guard (Codex P1): the avatar bridge may only read generated
     // files for a chat/version the REQUESTER owns. Without this, a public avatar
     // visitor (or a forged id) could pull the site owner's generated source.
+    const ownedChats = new Map<string, ReturnType<typeof getEngineChatByIdForRequest>>();
     const verifyOwnership: OpenClawOwnershipVerifier = async (cid, vid) => {
       if (vid) {
         const scoped = await getEngineVersionForChatByIdForRequest(
@@ -225,7 +231,12 @@ export async function POST(req: NextRequest) {
         ).catch(() => null);
         return scoped ? { chatId: cid, versionId: scoped.version.id } : null;
       }
-      const chat = await getEngineChatByIdForRequest(req, cid).catch(() => null);
+      let lookup = ownedChats.get(cid);
+      if (!lookup) {
+        lookup = getEngineChatByIdForRequest(req, cid).catch(() => null);
+        ownedChats.set(cid, lookup);
+      }
+      const chat = await lookup;
       return chat ? { chatId: cid, versionId: null } : null;
     };
 

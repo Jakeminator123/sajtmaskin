@@ -36,6 +36,8 @@ import {
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import type { UploadedFile } from "@/components/media/file-upload-zone";
 import { ReadTaskAttachments } from "./ReadTaskAttachments";
+import { VideoGenerationPanel } from "@/components/media/video-generation-panel";
+import { resolveVideoGenerationIntent, type VideoGenerationIntent } from "@/lib/media/video-generation-intent";
 import { replaceImportedSourceImage, SourcePagePanel, type SourcePagePanelHandle } from "./SourcePagePanel";
 import { unselectedSourcePageUrl, type SelectedSourcePage } from "@/lib/openclaw/source-page";
 import { readTaskAttachmentIds } from "@/lib/openclaw/read-task-input";
@@ -349,6 +351,10 @@ export function OpenClawChatPanel({
     ? builderContext.chatId : undefined;
   const sourceProjectId = !sourceChatId && builderContext?.page === "builder" && typeof builderContext.projectId === "string"
     ? builderContext.projectId : undefined;
+  const [videoDraft, setVideoDraft] = useState<{ scope: string; id: string; intent: VideoGenerationIntent }>();
+  const videoScope = JSON.stringify([scopeRevision, sourceScope, sourceProjectId, sourceChatId]);
+  const activeVideoDraft = videoDraft?.scope === videoScope ? videoDraft : undefined;
+  if (videoDraft && !activeVideoDraft) setVideoDraft(undefined);
   const [avatarExpanded, setAvatarExpanded] = useState(false);
   const [listening, setListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -550,6 +556,12 @@ export function OpenClawChatPanel({
 
   const sendQuestion = useCallback((text: string) => {
     if (!isCurrentScope()) return false;
+    const video = resolveVideoGenerationIntent(text, sourceFiles);
+    if (video && !isStreaming) {
+      if (activeVideoDraft) return false;
+      setVideoDraft({ scope: videoScope, id: crypto.randomUUID(), intent: video });
+      return true;
+    }
     const directSource = unselectedSourcePageUrl(text, source);
     if (directSource && !isStreaming) {
       sourcePagePanel.current?.read(directSource);
@@ -571,7 +583,7 @@ export function OpenClawChatPanel({
       },
     } : undefined);
     return true;
-  }, [isCurrentScope, isStreaming, readDraft, send, source, sourceFiles]);
+  }, [activeVideoDraft, isCurrentScope, isStreaming, readDraft, send, source, sourceFiles, videoScope]);
   const handleSend = useCallback(() => {
     if (sendQuestion(input)) setInput("");
   }, [input, sendQuestion]);
@@ -1004,6 +1016,11 @@ export function OpenClawChatPanel({
                 ) : null}
               </div>
             ) : null}
+            {activeVideoDraft && (
+              <VideoGenerationPanel key={activeVideoDraft.id} projectId={sourceProjectId} chatId={sourceChatId}
+                requestId={activeVideoDraft.id} intent={activeVideoDraft.intent}
+                onClose={() => setVideoDraft(undefined)} allowBuilderHandoff />
+            )}
             <ReadTaskAttachments key={`attachments:${scopeRevision}:${sourceScope}`} chatId={sourceChatId} projectId={sourceProjectId}
               files={sourceFiles} disabled={isStreaming}
               onFilesChange={(files) => updateReadDraft((current) => ({ ...current, files }))} />

@@ -17,6 +17,9 @@ import {
   type V0UserFileAttachment,
 } from "@/components/media/file-upload-zone";
 import { MediaDrawer } from "@/components/media/media-drawer";
+import { VideoGenerationPanel } from "@/components/media/video-generation-panel";
+import { resolveVideoGenerationIntent, type VideoGenerationIntent } from "@/lib/media/video-generation-intent";
+import { resumeVideoInsertion } from "@/lib/media/video-builder-action";
 import { TextUploader } from "@/components/media/text-uploader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -349,6 +352,20 @@ export function ChatInterface({
   const sourceSelection = selectedSource?.chatId === chatId ? selectedSource : undefined;
   const sourcePagePanel = useRef<SourcePagePanelHandle>(null);
   const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
+  const videoScope = JSON.stringify([chatId, projectId]);
+  const [videoDraft, setVideoDraft] = useState<{ scope: string; id: string; intent: VideoGenerationIntent }>();
+  const activeVideoDraft = videoDraft?.scope === videoScope ? videoDraft : undefined;
+  if (videoDraft && !activeVideoDraft) setVideoDraft(undefined);
+  useEffect(() => {
+    if (!projectId || !chatId) return;
+    const controller = new AbortController();
+    void resumeVideoInsertion({ chatId, projectId }, controller.signal).then((outcome) => {
+      if (outcome?.kind === "sent" && !controller.signal.aborted) toast.success("Videon skickades till byggaren.");
+    }).catch((reason: unknown) => {
+      if (!controller.signal.aborted) toast.error(reason instanceof Error ? reason.message : "Infogningen misslyckades.");
+    });
+    return () => controller.abort();
+  }, [chatId, projectId]);
   const [figmaUrl, setFigmaUrl] = useState("");
   const [internalFigmaInputOpen, setInternalFigmaInputOpen] = useState(false);
   const [isTextUploaderOpen, setIsTextUploaderOpen] = useState(false);
@@ -966,6 +983,16 @@ export function ChatInterface({
     const trimmed = text.trim() || (composerMode === "agent"
       ? sourceSelection ? "Vad visar den valda källan?" : hasAgentReadableAttachments ? "Vad visar mina bilagor?" : ""
       : "");
+    const video = resolveVideoGenerationIntent(trimmed, files);
+    if (video) {
+      if (activeVideoDraft) {
+        toast("Stäng den öppna videobeställningen innan du påbörjar en ny.");
+        return;
+      }
+      setVideoDraft({ scope: videoScope, id: crypto.randomUUID(), intent: video });
+      setInput((current) => current.trim() === trimmed ? "" : current);
+      return;
+    }
     const directSource = unselectedSourcePageUrl(trimmed, sourceSelection?.source);
     if (directSource) {
       revokeOpenClawBuildConsent();
@@ -1090,7 +1117,9 @@ export function ChatInterface({
     });
   };
 
-  const routeDescription = unselectedSourcePageUrl(input, sourceSelection?.source)
+  const routeDescription = resolveVideoGenerationIntent(input, files)
+    ? { tone: "agent" as const, label: "Skapa video", hint: "Välj startbild och godkänn priset för videon." }
+    : unselectedSourcePageUrl(input, sourceSelection?.source)
     ? { tone: "agent" as const, label: "Läser en webbsida", hint: "Välj det textstycke eller den bild du vill använda." }
     : describeDecision(resolveDecisionFor(input.trim()), !input.trim() && !hasComposerAttachments, input.trim());
   const routeStyle = ROUTE_TONE_STYLE[routeDescription.tone];
@@ -1597,6 +1626,11 @@ export function ChatInterface({
           </div>
         </PromptInputFooter>
       </PromptInput>
+
+      {activeVideoDraft && (
+        <VideoGenerationPanel key={activeVideoDraft.id} projectId={projectId ?? undefined} chatId={chatId}
+          requestId={activeVideoDraft.id} intent={activeVideoDraft.intent} onClose={() => setVideoDraft(undefined)} />
+      )}
 
       {mediaEnabled && (
         <MediaDrawer

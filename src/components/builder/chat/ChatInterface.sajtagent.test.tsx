@@ -115,6 +115,26 @@ it("keeps a selected source outside route intent and sends its exact media URL t
   expect(sajtagent.value.send).not.toHaveBeenCalled();
 });
 
+it("opens a quoted video order via the ordinary builder composer without sending a build", async () => {
+  const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
+  sajtagent.value = makeAgent();
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(Response.json({ success: true, projectId: "project_1", items: [] }))
+    .mockResolvedValueOnce(Response.json({
+      enabled: true, quote: { model: "gen4_turbo", durationSeconds: 5, credits: 18 }, jobs: [],
+    }));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<ChatInterface chatId="chat_1" projectId="project_1" mediaEnabled onSendMessage={build} />);
+  await typeAndSend("Kan du skapa en video: panorera över skogen?");
+  expect(await screen.findByRole("button", { name: "Beställ video för 18 krediter" })).toBeTruthy();
+  expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+    "/api/media/upload?projectId=project_1&chatId=chat_1",
+    "/api/media/video-generations?projectId=project_1",
+  ]);
+  expect(build).not.toHaveBeenCalled();
+  expect(sajtagent.value.send).not.toHaveBeenCalled();
+});
+
 async function typeAndSend(text: string) {
   const textarea = screen.getByRole("textbox", { name: "Skriv en uppdatering" });
   await act(async () => {
