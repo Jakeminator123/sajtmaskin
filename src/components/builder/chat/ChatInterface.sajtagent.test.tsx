@@ -7,6 +7,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { act, useLayoutEffect, type ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MessageOptions } from "@/lib/hooks/chat/types";
+import type { UploadedFile } from "@/components/media/file-upload-zone";
 import type { SajtagentContextValue } from "./sajtagent/SajtagentProvider";
 
 vi.mock("sonner", () => ({
@@ -15,9 +16,15 @@ vi.mock("sonner", () => ({
 
 vi.mock("@/components/forms/voice-recorder", () => ({ VoiceRecorder: () => null }));
 
+const uploadZone = vi.hoisted(() => ({
+  snapshot: undefined as { files: UploadedFile[]; onFilesChange: (files: UploadedFile[]) => void } | undefined,
+}));
 vi.mock("@/components/media/file-upload-zone", async (original) => ({
   ...await original<typeof import("@/components/media/file-upload-zone")>(),
-  FileUploadZone: () => null,
+  FileUploadZone: ({ files, onFilesChange }: NonNullable<typeof uploadZone.snapshot>) => {
+    uploadZone.snapshot = { files, onFilesChange };
+    return null;
+  },
 }));
 
 vi.mock("@/components/media/media-drawer", () => ({ MediaDrawer: () => null }));
@@ -78,6 +85,7 @@ function makeAgent(overrides: Partial<SajtagentContextValue> = {}): SajtagentCon
 
 afterEach(() => {
   sajtagent.value = null;
+  uploadZone.snapshot = undefined;
   resetAgentMissionLedgerForTests();
   useOpenClawStore.setState({
     messages: [],
@@ -202,10 +210,13 @@ it.each(["chat_2", "chat_1"])("keeps a prepared video out of another project's b
   submitPreparedVideo();
   expect(textarea().value).toBe(draft.prompt);
   fireEvent.change(textarea(), { target: { value: "Omskriven instruktion om A:s film." } });
+  const oldUploadZone = uploadZone.snapshot;
+  expect(oldUploadZone?.files.map((file) => file.url)).toEqual([draft.media.url]);
 
   view.rerender(<ScopedComposer chatId={nextChatId} projectId="project_2" />);
   expect(displayedBeforePassiveEffects.at(-1)).toBe("");
   submitPreparedVideo(); // A's late handoff event cannot refill the new scope.
+  act(() => oldUploadZone?.onFilesChange(oldUploadZone.files)); // A's upload completion republishes its entire original list.
   expect(textarea().value).toBe("");
   fireEvent.click(screen.getByRole("radio", { name: "Bygg" }));
   await typeAndSend("Ändra rubriken för B.");
@@ -215,7 +226,9 @@ it.each(["chat_2", "chat_1"])("keeps a prepared video out of another project's b
   }));
 
   view.rerender(<ScopedComposer chatId="chat_1" projectId="project_1" />);
+  act(() => oldUploadZone?.onFilesChange(oldUploadZone.files));
   expect(textarea().value).toBe("");
+  expect(uploadZone.snapshot?.files).toEqual([]);
 });
 
 it("drops a late job response after the same composer switches site", async () => {

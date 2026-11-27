@@ -310,8 +310,6 @@ export function ChatInterface({
   onTurnKept,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
-  const activeComposerChatRef = useRef(chatId);
-  activeComposerChatRef.current = chatId;
   const [isSending, setIsSending] = useState(false);
   const [promptAssistBusy, setPromptAssistBusy] = useState(false);
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -744,6 +742,7 @@ export function ChatInterface({
         body: JSON.stringify({ draft: current }),
       });
       const payload = (await response.json().catch(() => null)) as { text?: unknown } | null;
+      if (activeComposerScopeRef.current !== composerScope) return;
       if (!response.ok || typeof payload?.text !== "string" || !payload.text.trim()) {
         toast.error("Kunde inte rätta utkastet. Försök igen.");
         return;
@@ -1027,7 +1026,6 @@ export function ChatInterface({
         }
         proposalReference = resolution.reference;
       }
-      const sendingChatId = chatId;
       void agent.send(trimmed, {
         allowBuild: !sourceSelection && composerAllowsAgentBuild({ mode: composerMode, text: trimmed }),
         restrictBuild,
@@ -1037,7 +1035,7 @@ export function ChatInterface({
         } : undefined,
         proposalReference,
         onDispatchAccepted: () => {
-          if (activeComposerChatRef.current === sendingChatId) {
+          if (activeComposerScopeRef.current === composerScope) {
             setInput((current) => current.trim() === trimmed ? "" : current);
             if (hasAgentReadableAttachments) setFiles([]);
             setSelectedSource((current) => current === sourceSelection ? undefined : current);
@@ -1482,7 +1480,9 @@ export function ChatInterface({
                 <FileUploadZone
                   projectId={projectId ?? null}
                   files={files}
-                  onFilesChange={setFiles}
+                  onFilesChange={(nextFiles) => {
+                    if (activeComposerScopeRef.current === composerScope) setFiles(nextFiles);
+                  }}
                   disabled={inputDisabled}
                   compact
                 />
