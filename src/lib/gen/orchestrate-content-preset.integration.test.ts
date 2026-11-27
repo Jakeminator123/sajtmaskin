@@ -220,6 +220,8 @@ describe("content subjects from Byggval through brief and generation", () => {
     ["En sida om björnungar med kontaktformulär", false, true],
     ["Build a webpage about owls with a login form and a contact form", true, true],
     ["Build an app with login and a form that sends submissions to my email", true, true],
+    ["Build an app with login and add a form that sends submissions to my email", true, true],
+    ["Bygg en app med inloggning och skapa ett formulär som skickar svar till min e-post", true, true],
     ["Build an app with login, then a form that sends submissions to my email", true, true],
     ["Build an app with login, a separate form that sends submissions to my email", true, true],
     ["Build an app with login, add a form that sends submissions to my email", true, true],

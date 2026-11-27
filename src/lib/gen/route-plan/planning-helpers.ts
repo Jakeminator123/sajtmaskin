@@ -51,6 +51,22 @@ const SUBJECT_ADDITION_LIST_TAIL_RE = new RegExp(
   "iu",
 );
 
+/** Retain dots inside names and abbreviations while scoping imperative intent. */
+function lastSubjectSentencePrefix(text: string): string {
+  let start = 0;
+  for (const separator of text.matchAll(/[;!?\n]|\.(?=\s|$)/gu)) {
+    if (separator[0] === ".") {
+      const token = text.slice(0, separator.index).match(/[\p{L}.]+$/u)?.[0] ?? "";
+      if (
+        /^(?:dr|mr|mrs|ms|prof|sr|jr|st|vs|etc|e\.g|i\.e|t\.ex|bl\.a)$/iu.test(token) ||
+        /^(?:\p{L}\.)+\p{L}$/u.test(token)
+      ) continue;
+    }
+    start = separator.index + 1;
+  }
+  return text.slice(start);
+}
+
 const PAGE_NOUN = String.raw`(?:sidor|sida|pages?|routes?|vyer?|views?)`;
 const PAGE_NOUN_PLURAL = String.raw`(?:sidor|pages|routes|vyer|views)`;
 const PAGE_NOUN_SINGULAR = String.raw`(?:sidan?|pages?|routes?|vyer?|views?)`;
@@ -587,7 +603,7 @@ export function extractExplicitNamedPages(
     while (subject && out.length < MAX_NAMED_PAGES_FROM_LIST) {
       // An edit target elsewhere in the prompt is not a new route. A bare
       // coordinated page can inherit the immediately preceding addition.
-      const sentencePrefix = subject.before.split(/[.;!?\n]/u).at(-1) ?? "";
+      const sentencePrefix = lastSubjectSentencePrefix(subject.before);
       const lastEditClause = [...sentencePrefix.matchAll(SUBJECT_EDIT_CLAUSE_RE)].at(-1);
       const clausePrefix = lastEditClause
         ? sentencePrefix.slice(lastEditClause.index + lastEditClause[0].length)

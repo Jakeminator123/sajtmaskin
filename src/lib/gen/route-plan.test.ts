@@ -45,6 +45,9 @@ describe("buildRoutePlan", () => {
     ["Polish the header. Add a Q&A page about billing", "website", "/pricing"],
     ["Add a research & development page about owls", "website", "/owls"],
     ["Add a research and development page about owls", "website", "/owls"],
+    ["Add a .NET page about dependency injection", "website", "/dependency-injection"],
+    ["Add a U.S. travel page about visas", "website", "/visas"],
+    ["Add a Dr. Who page about time travel", "website", "/time-travel"],
     ["Lägg till en sida om björnungar", "website", "/bjornungar"],
   ] as const)("keeps the separate page request %s in a follow-up", (prompt, buildIntent, path) => {
     const plan = buildRoutePlan({

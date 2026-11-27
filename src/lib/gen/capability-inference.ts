@@ -523,10 +523,10 @@ export function hasOnlyAuthenticationForms(message: string): boolean {
     "auth(?:entication)?|registration|register|registrering(?:s)?|inloggning(?:s)?|" +
     "password[-\\s]?reset|reset[-\\s]?password|forgot[-\\s]?password|lösenordsåterställning(?:s)?";
   const separateFormObject = String.raw`(?:(?:(?:an?|another|en|ett)\s+)[^.;:!?\n]{0,60}?)?(?:form|formulär)(?![\p{L}\p{N}_])`;
-  const separateFormAfterComma = String.raw`,\s*${separateFormObject}`;
-  const imperativeAfterComma = String.raw`,\s*(?:(?:please|also|vänligen)\s+)?(?:add|create|make|lägg\s+till|skapa)\s+${separateFormObject}`;
-  const coordinatedForm = String.raw`\b(?:and|och|samt|plus)\s+${separateFormObject}`;
-  const formContext = String.raw`(?:(?!(?:\b(?:then|sedan|survey|questionnaire|feedback|booking|newsletter)\b|${coordinatedForm}|${separateFormAfterComma}|${imperativeAfterComma}))[^.;:!?\n]){0,80}?`;
+  const formRequestJoin = String.raw`(?:,\s*|\b(?:and|och|samt|plus)\s+)`;
+  const optionalFormVerb = String.raw`(?:(?:(?:please|also|vänligen)\s+)?(?:add|create|make|lägg\s+till|skapa)\s+)?`;
+  const separateFormClause = `${formRequestJoin}${optionalFormVerb}${separateFormObject}`;
+  const formContext = String.raw`(?:(?!(?:\b(?:then|sedan|survey|questionnaire|feedback|booking|newsletter)\b|${separateFormClause}))[^.;:!?\n]){0,80}?`;
   const authenticationForms = uWordRegex(
     `(?:(?:${subject})${formContext}(?:form|formulär)|(?:form|formulär)\\s+(?:for|to|för)\\s+(?:${subject}))`,
     "giu",

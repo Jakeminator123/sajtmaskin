@@ -34,6 +34,8 @@ describe("inferCapabilities", () => {
 
   it.each([
     "Build an app with login and a form that sends submissions to my email",
+    "Build an app with login and add a form that sends submissions to my email",
+    "Bygg en app med inloggning och skapa ett formulär som skickar svar till min e-post",
     "Build an app with login, then a form that sends submissions to my email",
     "Build an app with login, a form that sends submissions to my email",
     "Build an app with login, a separate form that sends submissions to my email",
