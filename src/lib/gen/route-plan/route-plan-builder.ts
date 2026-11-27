@@ -1,4 +1,5 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import { outsidePageSubject } from "@/lib/builder/page-subject";
 import { stripFocusPointAppendix } from "@/lib/builder/focus-point-prompt";
 import type { ScaffoldContractRoute, ScaffoldManifest } from "../scaffolds/types";
 import { dedupePlannedRoutesInPlaceByLocale } from "./locale-dedupe";
@@ -227,7 +228,10 @@ export function buildRoutePlan(params: {
   const routes: PlannedRoute[] = [];
   const { briefRoutes, explicitNamedPages } = canonicalizeSoleInitEquivalentPaths(
     buildRoutesFromBrief(brief),
-    extractExplicitNamedPages(prompt),
+    extractExplicitNamedPages(prompt, {
+      includeSubjects: generationMode === "followUp" && hasExplicitAddRouteIntent(prompt),
+      buildIntent,
+    }),
     resolvedScaffold,
     generationMode,
   );
@@ -245,7 +249,6 @@ export function buildRoutePlan(params: {
     : new Set<string>();
   const explicitAddRouteIntent =
     hasExplicitAddRouteIntent(prompt) || explicitNamedPages.length > 0;
-  const preserveAddedPageSubject = generationMode === "followUp" && explicitAddRouteIntent;
   let promptAddedRoutes = false;
 
   const productWorkspace = buildIntent === "app" && resolvedScaffold?.id !== "base-nextjs";
@@ -327,11 +330,11 @@ export function buildRoutePlan(params: {
         promptAddedRoutes = true;
       }
       const patternPrompt = neutralizeExplicitPageNameLiterals(
-        prompt,
+        outsidePageSubject(prompt) ?? prompt,
         explicitNamedPages.map((page) => page.name),
       );
       promptAddedRoutes =
-        applyPromptPatterns(patternPrompt, APP_ROUTE_PATTERNS, routes, preserveAddedPageSubject) || promptAddedRoutes;
+        applyPromptPatterns(patternPrompt, APP_ROUTE_PATTERNS, routes) || promptAddedRoutes;
     }
   } else {
     if (!useFollowUpFreeze && !hasBriefRoutes) {
@@ -354,11 +357,11 @@ export function buildRoutePlan(params: {
         promptAddedRoutes = true;
       }
       const patternPrompt = neutralizeExplicitPageNameLiterals(
-        prompt,
+        outsidePageSubject(prompt) ?? prompt,
         explicitNamedPages.map((page) => page.name),
       );
       promptAddedRoutes =
-        applyPromptPatterns(patternPrompt, WEBSITE_ROUTE_PATTERNS, routes, preserveAddedPageSubject) || promptAddedRoutes;
+        applyPromptPatterns(patternPrompt, WEBSITE_ROUTE_PATTERNS, routes) || promptAddedRoutes;
     }
   }
 

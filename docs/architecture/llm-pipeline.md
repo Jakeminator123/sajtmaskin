@@ -24,9 +24,10 @@ kontaktleverans när formulärsignalen enbart kommer från identifierade
 autentiseringsformulär. Separata formulär behåller den ordinarie bryggan.
 Tidigare briefval följer den ordinarie capability-unionen och F2/F3-scope.
 
-Vid uppföljningar bevarar uttryckliga sidtillägg sin ämnestext för den vanliga
-rutematchningen. Den första sidans innehållsämne kan därmed planeras separat
-från senare beställda undersidor.
+Vid uppföljningar går uttryckligt beställda ämnessidor till planeringen för
+namngivna rutter. Välkända sidtyper återanvänder befintliga rutemönster och
+övriga ämnen får en innehållsrutt från ämnesnamnet. Den första sidans
+innehållsämne kan därmed planeras separat från senare beställda undersidor.
 Inloggningsformulär behåller formulärvalidering. Kontaktmejl följer det separat
 beställda kontaktbehovet, med sparade briefval och versionsförmågor i den
 befintliga dossierunionen.

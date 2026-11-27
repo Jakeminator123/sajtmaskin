@@ -7,6 +7,11 @@ import {
 } from "./capability-inference";
 
 describe("inferCapabilities", () => {
+  it("treats multiple page subjects as content without adding auth or app capabilities", () => {
+    const capabilities = inferCapabilities("Build a website about CRM and a page about login");
+    expect(capabilities.needsAuth).toBe(false);
+    expect(capabilities.needsAppShell).toBe(false);
+  });
   it.each([
     "Add a login form",
     "Build a sign-in form",
@@ -14,6 +19,9 @@ describe("inferCapabilities", () => {
     "Skapa ett inloggningsformulär",
     "Skapa ett formulär för inloggning",
     "Create a form to sign in",
+    "Add a login page with a form",
+    "Build a sign-in screen that contains a standard form",
+    "Lägg till en sida för inloggning med ett formulär",
   ])("recognizes authentication-only forms in %s", (prompt) => {
     expect(hasOnlyAuthenticationForms(prompt)).toBe(true);
   });

@@ -5,11 +5,29 @@ const PAGE_SUBJECT_INTRO =
 const SUBJECT_END =
   /[.!?;,+\n]|\s+(?:med|with|utan|without|inklusive|including|featuring|to\s+include|via|using|där|where|som|that|which|och\s+(?:en|ett|lägg|ska|visa|bygg)|and\s+(?:an?|add|include|show|build))\s+/iu;
 
-/** Text outside the stated topic; null if the prompt names no page subject. */
-export function outsidePageSubject(prompt: string): string | null {
+/** Parts of the first content-page subject and its surrounding instructions. */
+export function splitPageSubject(prompt: string) {
   const intro = PAGE_SUBJECT_INTRO.exec(prompt);
   if (!intro) return null;
   const tail = prompt.slice(intro.index + intro[0].length);
   const end = tail.search(SUBJECT_END);
-  return prompt.slice(0, intro.index) + (end < 0 ? "" : tail.slice(end));
+  return {
+    before: prompt.slice(0, intro.index),
+    subject: end < 0 ? tail : tail.slice(0, end),
+    after: end < 0 ? "" : tail.slice(end),
+  };
+}
+
+/** Text outside stated topics; null if the prompt names no page subject. */
+export function outsidePageSubject(prompt: string): string | null {
+  let subject = splitPageSubject(prompt);
+  if (!subject) return null;
+  let outside = "";
+  let remaining = prompt;
+  while (subject) {
+    outside += subject.before;
+    remaining = subject.after;
+    subject = splitPageSubject(remaining);
+  }
+  return outside + remaining;
 }

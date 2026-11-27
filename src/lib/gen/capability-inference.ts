@@ -522,8 +522,9 @@ export function hasOnlyAuthenticationForms(message: string): boolean {
   const subject = "login|log[-\\s]?in|logga\\s+in|sign[-\\s]?(?:in|up)|" +
     "auth(?:entication)?|registration|register|registrering(?:s)?|inloggning(?:s)?|" +
     "password[-\\s]?reset|reset[-\\s]?password|forgot[-\\s]?password|lösenordsåterställning(?:s)?";
+  const formContext = String.raw`(?:(?!\b(?:and|och|samt|plus|survey|questionnaire|feedback|booking|newsletter)\b)[^.;!?\n]){0,80}?`;
   const authenticationForms = uWordRegex(
-    `(?:(?:${subject})[-\\s]*(?:form|formulär)|(?:form|formulär)\\s+(?:for|to|för)\\s+(?:${subject}))`,
+    `(?:(?:${subject})${formContext}(?:form|formulär)|(?:form|formulär)\\s+(?:for|to|för)\\s+(?:${subject}))`,
     "giu",
   );
   const remainder = message.replace(authenticationForms, " ");

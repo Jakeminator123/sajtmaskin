@@ -1,4 +1,4 @@
-import { outsidePageSubject } from "@/lib/builder/page-subject";
+import { outsidePageSubject, splitPageSubject } from "@/lib/builder/page-subject";
 import { isTermFullyNegated } from "@/lib/builder/prompt-negation";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { escapeRegexLiteral, uWord, uWordRegex } from "@/lib/utils/unicode-word-boundary";
@@ -537,10 +537,16 @@ function consumeLabeledPageList(rawList: string): string[] {
   return items;
 }
 
-function parseExplicitPageName(raw: string): ExplicitNamedPage | null {
+function parseExplicitPageName(raw: string, patterns?: RoutePatternEntry[]): ExplicitNamedPage | null {
   const name = cleanExplicitPageName(raw.replace(/[.;:]+$/g, ""));
   if (!name || name.length < 2) return null;
-  return { name, path: inferPathFromPageName(name) };
+  const canonical = patterns?.find((pattern) => {
+    if (!pattern.match.test(name)) return false;
+    const matchedWords = new RegExp(pattern.match.source, `${pattern.match.flags.replace(/g/g, "")}g`);
+    const modifiers = uWordRegex("our|my|the|a|an|account|vår|vårt|våra|min|mitt|mina", "giu");
+    return name.replace(matchedWords, " ").replace(modifiers, " ").trim().length === 0;
+  });
+  return canonical ? { name: canonical.name, path: canonical.path } : { name, path: inferPathFromPageName(name) };
 }
 
 function pushExplicitNamedPage(
@@ -555,10 +561,25 @@ function pushExplicitNamedPage(
   out.push(page);
 }
 
-export function extractExplicitNamedPages(prompt: string): ExplicitNamedPage[] {
+export function extractExplicitNamedPages(
+  prompt: string,
+  options?: { includeSubjects?: boolean; buildIntent?: BuildIntent },
+): ExplicitNamedPage[] {
   if (!prompt) return [];
   const seenPaths = new Set<string>();
   const out: ExplicitNamedPage[] = [];
+  if (options?.includeSubjects) {
+    const patterns = options.buildIntent === "app" ? APP_ROUTE_PATTERNS : WEBSITE_ROUTE_PATTERNS;
+    let subject = splitPageSubject(prompt);
+    while (subject && out.length < MAX_NAMED_PAGES_FROM_LIST) {
+      const page = parseExplicitPageName(trimBarePageName(subject.subject), patterns);
+      if (page && page.path !== "/" && !seenPaths.has(page.path)) {
+        seenPaths.add(page.path);
+        out.push(page);
+      }
+      subject = splitPageSubject(subject.after);
+    }
+  }
   for (const pattern of EXPLICIT_NAMED_PAGE_PATTERNS) {
     pattern.lastIndex = 0;
     for (const match of prompt.matchAll(pattern)) {
@@ -861,9 +882,8 @@ export function applyPromptPatterns(
   message: string,
   patterns: RoutePatternEntry[],
   routes: RouteLike[],
-  preservePageSubject = false,
 ): boolean {
-  const prompt = preservePageSubject ? message : outsidePageSubject(message) ?? message;
+  const prompt = outsidePageSubject(message) ?? message;
   const before = new Set(routes.map((route) => normalizeRoutePath(route.path)));
   for (const pattern of patterns) {
     if (pattern.match.test(prompt) && !isTermFullyNegated(prompt, pattern.match)) {
