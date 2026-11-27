@@ -393,7 +393,7 @@ describe("validateImages", () => {
         content: JSON.stringify([
           { src: photo, alt: "Foto" },
           { src: variant, kind: "video" },
-          { src: photo, kind: "video" },
+          { src: photo, kind: "video", image: "/poster.jpg" },
         ]),
       };
       fetchSpy.mockResolvedValue(new Response(null, { status: 404 }));
@@ -406,10 +406,16 @@ describe("validateImages", () => {
       ]);
       const replay = applyKnownImageReplacementsToFiles([file], buildKnownImageReplacementMap(result.broken));
       expect(replay.files[0].content).toBe(result.files[0].content);
-      const literal = 'const video = "' + variant + '"; const image = "' + photo + '";';
+      const literal = [
+        'const video = "' + variant + '"; const image = "' + photo + '";',
+        '<a href="' + photo + '">Foto</a>',
+        '<video src="' + photo + '" />',
+      ].join("\n");
       const exact = applyKnownImageReplacementsToContent(literal, buildKnownImageReplacementMap(result.broken));
       expect(exact.replacedCount).toBe(1);
       expect(exact.content).toContain('"' + variant + '"');
+      expect(exact.content).toContain('<a href="' + photo + '"');
+      expect(exact.content).toContain('<video src="' + photo + '"');
     });
 
     const filesForUrl = (url: string): TextFile[] => [

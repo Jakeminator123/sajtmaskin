@@ -339,7 +339,7 @@ function gallerySources(file: TextFile): GallerySource[] {
     if (ts.isArrayLiteralExpression(node)) {
       for (const item of node.elements) {
         if (!ts.isObjectLiteralExpression(item)) continue;
-        let src: ts.Expression | undefined;
+        const sources: ts.StringLiteralLike[] = [];
         let alt: ts.Expression | undefined;
         let declaredNonImage = false;
         let declaredImage = false;
@@ -348,25 +348,27 @@ function gallerySources(file: TextFile): GallerySource[] {
           const name = property.name;
           if (!ts.isIdentifier(name) && !ts.isStringLiteral(name)) continue;
           const value = property.initializer;
-          if (name.text === "src" || name.text === "image" || name.text === "imageUrl") src = value;
+          if ((name.text === "src" || name.text === "image" || name.text === "imageUrl") &&
+              ts.isStringLiteralLike(value) && isExternalImageUrl(value.text)) sources.push(value);
           if (name.text === "alt") alt = value;
           if (["kind", "type", "mediaType", "mimeType"].includes(name.text) && ts.isStringLiteralLike(value)) {
             declaredNonImage ||= /^(?:video|audio)(?:\/|$)/i.test(value.text);
             declaredImage ||= /^image(?:\/|$)/i.test(value.text);
           }
         }
-        if (!src || !ts.isStringLiteralLike(src) || !isExternalImageUrl(src.text)) continue;
-        const isImage = !declaredNonImage && (declaredImage || isUnsplashUrl(src.text) ||
-          isDeadUnsplashSourceUrl(src.text) || hasImageFormatHint(new URL(src.text)));
         const label = alt && ts.isArrayLiteralExpression(alt) ? alt.elements.find(ts.isStringLiteralLike) : alt;
-        refs.push({
-          url: src.text,
-          alt: label && ts.isStringLiteralLike(label) ? label.text : "",
-          file: file.name,
-          start: src.getStart(source),
-          end: src.end,
-          isImage,
-        });
+        for (const src of sources) {
+          const isImage = !declaredNonImage && (declaredImage || isUnsplashUrl(src.text) ||
+            isDeadUnsplashSourceUrl(src.text) || hasImageFormatHint(new URL(src.text)));
+          refs.push({
+            url: src.text,
+            alt: label && ts.isStringLiteralLike(label) ? label.text : "",
+            file: file.name,
+            start: src.getStart(source),
+            end: src.end,
+            isImage,
+          });
+        }
       }
     }
     ts.forEachChild(node, visit);
@@ -711,12 +713,25 @@ function rewriteImageUrls(file: TextFile, replacements: Map<string, string>) {
     return replacement;
   }
   function rewritePlain(fragment: string): string {
-    return fragment.replace(
-      /(["'\x60])(https?:\/\/[^\s"'\x60<>\\]+)\1|(https?:\/\/[^\s"'\x60<>\\)]+)/g,
-      (original, quote: string | undefined, quotedUrl: string | undefined, bareUrl: string) => {
-        const replacement = replacementFor(quotedUrl ?? bareUrl);
-        if (!replacement) return original;
-        return quote ? quote + replacement + quote : replacement;
+    // Repair sources used as images. The same URL can be an href, an Open
+    // Graph URL or a video source elsewhere in the very same file.
+    const tags = fragment.replace(/<(?:img|Image)\b[^>]*>/gi, (tag) =>
+      tag.replace(/(\s+src\s*=\s*\{?\s*)(["'])([^"']+)\2/g, (attr, prefix, quote, url) => {
+        const replacement = replacementFor(url);
+        return replacement ? prefix + quote + replacement + quote : attr;
+      }),
+    );
+    const styles = tags.replace(BG_IMAGE_RE, (css, url: string) => {
+      const replacement = replacementFor(url);
+      return replacement ? css.replace(url, () => replacement) : css;
+    });
+    // Generated pages also put a scalar URL in a named image binding.
+    return styles.replace(
+      /(\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*)(["'\x60])(https?:\/\/[^\s"'\x60<>\\]+)\3/g,
+      (declaration, prefix, name: string, quote, url) => {
+        if (!/(?:image|photo|picture|thumbnail|poster|logo)(?:url|src)?$/i.test(name)) return declaration;
+        const replacement = replacementFor(url);
+        return replacement ? prefix + quote + replacement + quote : declaration;
       },
     );
   }
