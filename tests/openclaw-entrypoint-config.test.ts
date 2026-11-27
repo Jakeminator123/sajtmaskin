@@ -81,17 +81,17 @@ afterAll(() => {
 
 interface GeneratedConfig {
   agents: {
+    ownership: string;
     defaults: {
-      heartbeat: { every: string };
+      heartbeat: { agentId: string; every: string };
+      systemAgent: { agentId: string };
       model: { primary: string; fallbacks: string[] };
       utilityModel: string;
       skipBootstrap: boolean;
       skills: string[];
-      models: Record<string, Record<string, never>>;
+      models: Record<string, { agentRuntime?: { id: string }; params?: { thinking: string } }>;
     };
-    list: Array<{
-      id: string;
-      default?: boolean;
+    entries: Record<string, {
       model: { primary: string; fallbacks: string[] };
       thinkingDefault: string;
       skills: string[];
@@ -183,13 +183,28 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
   it("emits the documented defaults when no model env is set", () => {
     const config = bootAndReadConfig({});
 
-    expect(config.agents.defaults.model.primary).toBe("openai/gpt-5.6-sol");
-    expect(config.agents.defaults.model.fallbacks).toEqual([
-      "openai/gpt-5.6-terra",
-      "openai/gpt-5.5",
-    ]);
-    expect(config.agents.defaults.utilityModel).toBe("openai/gpt-5.6-luna");
-    expect(config.agents.list.map((agent) => agent.id)).toEqual([
+    expect(config.agents.ownership).toBe("explicit");
+    expect(config.agents.defaults.systemAgent).toEqual({ agentId: "sajtagenten" });
+    expect(config.agents.defaults.model).toEqual({
+      primary: "openai/gpt-6.2-astra",
+      fallbacks: ["openai/gpt-6.2-sol", "openai/gpt-5.6-sol", "openai/gpt-5.5"],
+    });
+    expect(config.agents.entries.sajtagenten.model).toEqual(config.agents.defaults.model);
+    expect(config.agents.entries["sajtagenten-balanced"].model).toEqual({
+      primary: "openai/gpt-6.2-sol",
+      fallbacks: ["openai/gpt-5.6-sol", "openai/gpt-5.5"],
+    });
+    expect(config.agents.entries["sajtagenten-fast"].model).toEqual({
+      primary: "openai/gpt-6.2-sol",
+      fallbacks: ["openai/gpt-5.6-terra", "openai/gpt-5.5"],
+    });
+    expect(config.agents.defaults.utilityModel).toBe("openai/gpt-6.2-sol");
+    const models = config.agents.defaults.models;
+    expect(models[config.agents.defaults.utilityModel].params?.thinking).toBe("low");
+    for (const settings of Object.values(models)) {
+      expect(settings.agentRuntime?.id).toBe("openclaw");
+    }
+    expect(Object.keys(config.agents.entries)).toEqual([
       "sajtagenten",
       "sajtagenten-balanced",
       "sajtagenten-fast",
@@ -200,7 +215,7 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
   it("pins per-lane thinking and a minimal no-skill tool surface", () => {
     const config = bootAndReadConfig({});
 
-    expect(config.agents.list.map((agent) => agent.thinkingDefault)).toEqual([
+    expect(Object.values(config.agents.entries).map((agent) => agent.thinkingDefault)).toEqual([
       "high",
       "medium",
       "low",
@@ -208,7 +223,7 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
     expect(config.tools.profile).toBe("minimal");
     expect(config.agents.defaults.skipBootstrap).toBe(true);
     expect(config.agents.defaults.skills).toEqual([]);
-    for (const agent of config.agents.list) {
+    for (const agent of Object.values(config.agents.entries)) {
       expect(agent.skills).toEqual([]);
       expect(agent.tools.profile).toBe("minimal");
     }
@@ -230,10 +245,10 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
     // hour on an instance with no delivery channel — pure credit burn
     // (2026-08-17). "0m" must survive every redeploy since this config is
     // regenerated on boot.
-    expect(bootAndReadConfig({}).agents.defaults.heartbeat).toEqual({ every: "0m" });
+    expect(bootAndReadConfig({}).agents.defaults.heartbeat).toEqual({ agentId: "sajtagenten", every: "0m" });
     expect(
       bootAndReadConfig({ OPENCLAW_HEARTBEAT_EVERY: "45m" }).agents.defaults.heartbeat,
-    ).toEqual({ every: "45m" });
+    ).toEqual({ agentId: "sajtagenten", every: "45m" });
   });
 
   it("splits a comma-separated fallback chain", () => {
@@ -245,7 +260,7 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
       "openai/gpt-5.4",
       "openai/gpt-5.5",
     ]);
-    expect(config.agents.list[0].model.fallbacks).toEqual([
+    expect(config.agents.entries.sajtagenten.model.fallbacks).toEqual([
       "openai/gpt-5.4",
       "openai/gpt-5.5",
     ]);
@@ -269,23 +284,23 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
     });
 
     expect(config.agents.defaults.model.primary).toBe("openai/gpt-5.4-mini");
-    expect(config.agents.list[0].model.primary).toBe("openai/gpt-5.4-mini");
+    expect(config.agents.entries.sajtagenten.model.primary).toBe("openai/gpt-5.4-mini");
   });
 
   it("configures independent fast and balanced model chains", () => {
     const config = bootAndReadConfig({
       OPENCLAW_MODEL_BALANCED: "openai/gpt-5.5",
       OPENCLAW_MODEL_BALANCED_FALLBACK: "openai/gpt-5.6-sol",
-      OPENCLAW_MODEL_FAST: "openai/gpt-5.6-luna",
+      OPENCLAW_MODEL_FAST: "openai/gpt-6.1-terra",
       OPENCLAW_MODEL_FAST_FALLBACK: "openai/gpt-5.6-terra",
     });
 
-    expect(config.agents.list[1].model).toEqual({
+    expect(config.agents.entries["sajtagenten-balanced"].model).toEqual({
       primary: "openai/gpt-5.5",
       fallbacks: ["openai/gpt-5.6-sol"],
     });
-    expect(config.agents.list[2].model).toEqual({
-      primary: "openai/gpt-5.6-luna",
+    expect(config.agents.entries["sajtagenten-fast"].model).toEqual({
+      primary: "openai/gpt-6.1-terra",
       fallbacks: ["openai/gpt-5.6-terra"],
     });
   });

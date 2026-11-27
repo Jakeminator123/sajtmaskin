@@ -74,17 +74,17 @@ const allowedOrigins = unique([
 const strong = {
   primary: parseModelRef(
     "OPENCLAW_MODEL_PRIMARY",
-    env("OPENCLAW_MODEL_PRIMARY", "openai/gpt-5.6-sol"),
+    env("OPENCLAW_MODEL_PRIMARY", "openai/gpt-6.2-astra"),
   ),
   fallbacks: parseModelChain(
     "OPENCLAW_MODEL_FALLBACK",
-    env("OPENCLAW_MODEL_FALLBACK", "openai/gpt-5.6-terra,openai/gpt-5.5"),
+    env("OPENCLAW_MODEL_FALLBACK", "openai/gpt-6.2-sol,openai/gpt-5.6-sol,openai/gpt-5.5"),
   ),
 };
 const balanced = {
   primary: parseModelRef(
     "OPENCLAW_MODEL_BALANCED",
-    env("OPENCLAW_MODEL_BALANCED", "openai/gpt-5.6-terra"),
+    env("OPENCLAW_MODEL_BALANCED", "openai/gpt-6.2-sol"),
   ),
   fallbacks: parseModelChain(
     "OPENCLAW_MODEL_BALANCED_FALLBACK",
@@ -94,7 +94,7 @@ const balanced = {
 const fast = {
   primary: parseModelRef(
     "OPENCLAW_MODEL_FAST",
-    env("OPENCLAW_MODEL_FAST", "openai/gpt-5.6-luna"),
+    env("OPENCLAW_MODEL_FAST", "openai/gpt-6.2-sol"),
   ),
   fallbacks: parseModelChain(
     "OPENCLAW_MODEL_FAST_FALLBACK",
@@ -110,13 +110,21 @@ const allModels = unique([
   fast.primary,
   ...fast.fallbacks,
 ]);
+const modelSettings = Object.fromEntries(
+  allModels.map((model) => [
+    model,
+    {
+      // Keep OpenAI lanes on the built-in tools policy and API-key Responses route.
+      ...(model.startsWith("openai/") ? { agentRuntime: { id: "openclaw" } } : {}),
+      ...(model === fast.primary ? { params: { thinking: "low" } } : {}),
+    },
+  ]),
+);
 const workspace = path.join(openClawDir, "workspace-sajtagenten");
 
-function agent({ id, name, model, thinkingDefault, isDefault = false }) {
+function agent({ id, model, thinkingDefault }) {
   return {
-    id,
-    ...(isDefault ? { default: true } : {}),
-    name,
+    name: id,
     workspace,
     agentDir: path.join(openClawDir, "agents", id, "agent"),
     model,
@@ -152,36 +160,34 @@ const config = {
   },
   tools: { profile: "minimal" },
   agents: {
+    ownership: "explicit",
     defaults: {
       workspace,
       skipBootstrap: true,
       skills: [],
-      heartbeat: { every: env("OPENCLAW_HEARTBEAT_EVERY", "0m") },
+      heartbeat: { agentId: "sajtagenten", every: env("OPENCLAW_HEARTBEAT_EVERY", "0m") },
+      systemAgent: { agentId: "sajtagenten" },
       model: strong,
       utilityModel: fast.primary,
-      models: Object.fromEntries(allModels.map((model) => [model, {}])),
+      models: modelSettings,
     },
-    list: [
-      agent({
+    entries: {
+      sajtagenten: agent({
         id: "sajtagenten",
-        name: "sajtagenten",
         model: strong,
         thinkingDefault: "high",
-        isDefault: true,
       }),
-      agent({
+      "sajtagenten-balanced": agent({
         id: "sajtagenten-balanced",
-        name: "sajtagenten-balanced",
         model: balanced,
         thinkingDefault: "medium",
       }),
-      agent({
+      "sajtagenten-fast": agent({
         id: "sajtagenten-fast",
-        name: "sajtagenten-fast",
         model: fast,
         thinkingDefault: "low",
       }),
-    ],
+    },
   },
   session: {
     maintenance: {
