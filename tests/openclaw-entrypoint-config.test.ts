@@ -449,6 +449,7 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
     const configFile = path.join(dir, "openclaw.json");
     execFileSync(process.execPath, [CONFIG_GENERATOR, configFile, dir], {
       env: {
+        NODE_ENV: "test",
         RENDER: "true",
         OPENCLAW_GATEWAY_TOKEN: "test-token",
         OPENCLAW_GATEWAY_BIND: "lan",
