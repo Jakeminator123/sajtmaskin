@@ -90,6 +90,14 @@ describe("inferCapabilities", () => {
     expect(caps.needsForms).toBe(true);
   });
 
+  it.each([
+    ["Build a website about a restaurant with a product gallery", false],
+    ["Build a website about a salon with a product gallery", false],
+    ["Build a website about a restaurant with a webshop and a product gallery", true],
+  ] as const)("retains domain context for ecommerce in %s", (prompt, expected) => {
+    expect(inferCapabilities(prompt).needsEcommerce).toBe(expected);
+  });
+
   it("detects calendar from Swedish 'almanacka' and implies needsForms", () => {
     const caps = inferCapabilities("Jag vill ha en almanacka på sidan där man kan se datum");
     expect(caps.needsCalendar).toBe(true);

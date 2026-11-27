@@ -115,6 +115,15 @@ describe("content subjects from Byggval through brief and generation", () => {
     expect(formatBriefBuildChoicesForPrompt(warmApp)?.split("\n")).toContain("- Build intent (user choice): app");
   });
 
+  it.each(["restaurant", "salon"])("keeps a %s product gallery free of checkout requirements in init", async (domain) => {
+    const prompt = `Build a website about a ${domain} with a product gallery`;
+    const base = await resolveOrchestrationBase(generationInput(prompt, { buildIntent: "website", brief: null }));
+    expect(base.capabilities.needsEcommerce).toBe(false);
+    expect(base.resolvedScaffold?.id).not.toBe("ecommerce");
+    expect(base.capabilityHints).not.toContain("cart");
+    expect(base.capabilityHints).not.toContain("checkout");
+  });
+
   it.each([
     "En app om att planera mina arbetsuppgifter",
     "An app about tracking my customers",

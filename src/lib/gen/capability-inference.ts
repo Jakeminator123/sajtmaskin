@@ -507,7 +507,9 @@ export function inferCapabilities(message: string): InferredCapabilities {
       /(^|[^\p{L}\p{N}])(?:restaurang|restaurant|café|cafe|kafé|bistro|hotell|hotel|spa|salong|salon|klinik|clinic|bakeri|bageri|bakery|pizzeria|catering|matrestaurang|boka bord|book a table|meny|menu|öppettider|opening hours)(?=[^\p{L}\p{N}]|$)/iu;
     const strongEcommerceIntent =
       /(^|[^\p{L}\p{N}])(?:webshop|webbshop|e-handel|ecommerce|e-commerce|varukorg|kundvagn|cart|checkout|kassa|storefront|nätbutik|online store)(?=[^\p{L}\p{N}]|$)/iu;
-    if (hospitalityVeto.test(prompt) && !strongEcommerceIntent.test(prompt)) {
+    // Domain context can be the page's subject even when product vocabulary
+    // belongs to a requested content feature outside that subject.
+    if (hospitalityVeto.test(message) && !strongEcommerceIntent.test(prompt)) {
       result.needsEcommerce = false;
     }
   }
