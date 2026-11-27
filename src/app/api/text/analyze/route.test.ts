@@ -42,7 +42,7 @@ describe("POST /api/text/analyze", () => {
       const response = await POST(request);
       expect(await response.json()).toMatchObject({ success: true, summary: "Sammanfattning" });
       expect(responsesCreate).toHaveBeenCalledWith(
-        expect.objectContaining({ model: "gpt-6.1-sol", max_output_tokens: 8192, reasoning: { effort: "medium" } }),
+        expect.objectContaining({ model: "gpt-6.2-sol", max_output_tokens: 8192, reasoning: { effort: "medium" } }),
         { signal: request.signal, timeout: 30000, maxRetries: 0 },
       );
       expect(maxDuration).toBe(45);

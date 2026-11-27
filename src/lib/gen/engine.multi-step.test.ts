@@ -441,13 +441,13 @@ describe("generateCode multi-step streamText", () => {
       },
     },
     {
-      name: "thinking off keeps the minimum label when the request already matches",
+      name: "thinking off uses Sol’s minimum for a saved Luna selection",
       options: { model: "gpt-6-luna", thinking: false, reasoningEffort: "none" as const },
       meta: {
         requestedModelId: "gpt-6-luna",
-        resolvedModelId: "gpt-6-luna",
+        resolvedModelId: "gpt-6.2-sol",
         requestedReasoningEffort: "none",
-        effectiveReasoningEffort: "none",
+        effectiveReasoningEffort: "low",
         reasoningClampReason: "thinking_disabled_minimum",
       },
     },
@@ -544,7 +544,7 @@ describe("generateCode multi-step streamText", () => {
       options: { model: "gpt-5.3-codex", thinking: true, reasoningEffort: "none" as const },
       meta: {
         requestedModelId: "gpt-5.3-codex",
-        resolvedModelId: "gpt-6.1-sol",
+        resolvedModelId: "gpt-6.2-sol",
         requestedReasoningEffort: "none",
         effectiveReasoningEffort: "low",
         reasoningClampReason: "model_capability_clamp",

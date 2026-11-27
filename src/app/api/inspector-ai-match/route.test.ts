@@ -35,7 +35,7 @@ describe("POST /api/inspector-ai-match", () => {
     try {
       expect((await POST(request)).status).toBe(200);
       expect(chatCreate).toHaveBeenCalledWith(
-        expect.objectContaining({ model: "gpt-6.1-sol", max_completion_tokens: 8192 }),
+        expect.objectContaining({ model: "gpt-6.2-sol", max_completion_tokens: 8192 }),
         { signal: request.signal, timeout: 30000, maxRetries: 0 },
       );
       expect(getCurrentUser).toHaveBeenCalledTimes(1);

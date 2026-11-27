@@ -18,6 +18,9 @@ import { aliasRetiredModelId, type OwnModelId } from "@/lib/models/catalog";
 const MODEL_CONTEXT_WINDOWS: Partial<Record<OwnModelId, number>> = {
   // OpenAI direct API (api.openai.com). Deprecated ids (gpt-5.3-codex,
   // gpt-4.1) are aliased to gpt-6.1-sol before they reach budget sizing.
+  "gpt-6.2-sol": 1_050_000,
+  "gpt-6.2-astra": 1_050_000,
+  "gpt-6.1-terra": 1_050_000,
   "gpt-6.1-sol": 1_050_000,
   "gpt-6-astra": 1_050_000,
   "gpt-6-luna": 1_050_000,

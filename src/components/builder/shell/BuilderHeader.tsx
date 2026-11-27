@@ -432,7 +432,7 @@ export function BuilderHeader(props: {
                     </TooltipTrigger>
                     <TooltipContent side="left" className="max-w-xs">
                       <p className="text-xs">
-                        På: Låg/Mellan/Hög kör GPT-6.1 Sol med medium/high/xhigh enligt
+                        På: Låg/Mellan/Hög kör GPT-6.2 Sol med medium/high/xhigh enligt
                         fasinställningarna; reglaget vid chatten väljer väg. Av: modellens
                         lägsta resonemangsnivå.
                       </p>

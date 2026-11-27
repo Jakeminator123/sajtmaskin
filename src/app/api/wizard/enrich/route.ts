@@ -185,8 +185,8 @@ const INDUSTRY_CONTEXT: Record<string, string> = {
 };
 
 const WIZARD_WORKLOAD_ID = "wizard_enrich_competitors";
-// Manifest default is GPT-6.1 Sol at medium. This literal is only used when that default is missing.
-const ENRICH_MODEL = getWorkloadDefaultModelFromManifest(WIZARD_WORKLOAD_ID) ?? "openai/gpt-6.1-sol";
+// Manifest default is GPT-6.2 Sol at medium. This literal is only used when that default is missing.
+const ENRICH_MODEL = getWorkloadDefaultModelFromManifest(WIZARD_WORKLOAD_ID) ?? "openai/gpt-6.2-sol";
 const RESPONSES_MODEL = ENRICH_MODEL.replace(/^openai\//, "");
 
 type EnrichResponse = z.infer<typeof enrichResponseSchema>;

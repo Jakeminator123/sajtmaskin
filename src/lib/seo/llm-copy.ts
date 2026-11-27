@@ -48,7 +48,7 @@ const SEO_PUBLISH_COPY_WORKLOAD_ID = "seo_publish_copy";
 const TIMEOUT_MS = 30_000;
 /**
  * The reply itself is ~100 tokens, but reasoning tokens count toward the cap on
- * GPT-6.1 Sol (which has no `none` effort); a tight cap truncates the object and
+ * GPT-6.2 Sol (which has no `none` effort); a tight cap truncates the object and
  * the pass silently degrades to `llm_error`.
  */
 const MAX_OUTPUT_TOKENS = 4_000;
@@ -130,7 +130,7 @@ export async function improveSeoCopyWithLlm(
   try {
     const result = await generateObject({
       // `createDirectModel` parses the manifest's `provider/model` form.
-      // `getOpenAIModel` would forward `openai/gpt-6-luna` verbatim as a model
+      // `getOpenAIModel` would forward `openai/gpt-6.2-sol` verbatim as a model
       // name, so every call would fail and silently degrade to no rewrite.
       model: createDirectModel(options.modelId),
       schema: SeoCopySchema,

@@ -13,21 +13,21 @@ describe("builder model options", () => {
     expect(MODEL_TIER_OPTIONS.some((option) => option.value === "anthropic")).toBe(false);
     expect(MODEL_TIER_OPTIONS.at(-1)?.value).toBe("ultra");
     for (const option of MODEL_TIER_OPTIONS) {
-      expect(option.description).toContain(option.value === "ultra" ? "GPT-6 Astra" : "GPT-6.1 Sol");
+      expect(option.description).toContain(option.value === "ultra" ? "GPT-6.2 Astra" : "GPT-6.2 Sol");
     }
   });
 
-  it("offers GPT-6.1 Sol, GPT-6 Luna and the retained GPT-5.6 family for prompt assist", () => {
+  it("offers GPT-6.2 Sol and the retained Sol and Terra choices for prompt assist", () => {
     const values = PROMPT_ASSIST_MODEL_OPTIONS.map((option) => option.value);
     expect(values).toEqual(
       expect.arrayContaining([
         "openai/gpt-6.1-sol",
-        "openai/gpt-6-luna",
+        "openai/gpt-6.2-sol",
         "openai/gpt-5.6-sol",
         "openai/gpt-5.6-terra",
-        "openai/gpt-5.6-luna",
       ]),
     );
+    expect(values.some((model) => model.includes("luna"))).toBe(false);
     expect(values).not.toContain("openai/gpt-5.3-codex");
   });
 });

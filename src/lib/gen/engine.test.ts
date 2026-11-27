@@ -139,13 +139,13 @@ describe("generateCode providerOptions", () => {
     generateCode({
       prompt: "Build this",
       systemPrompt: "System",
-      model: "gpt-6.1-sol",
+      model: "gpt-6.2-sol",
       thinking: false,
     });
     generateCode({
       prompt: "Build this",
       systemPrompt: "System",
-      model: "gpt-6-luna",
+      model: "gpt-6.1-terra",
       thinking: false,
     });
 
@@ -168,13 +168,13 @@ describe("generateCode providerOptions", () => {
       reasoningEffort: "none",
     });
 
-    expect(getOpenAIModelMock).toHaveBeenCalledWith("gpt-6.1-sol");
+    expect(getOpenAIModelMock).toHaveBeenCalledWith("gpt-6.2-sol");
     expect(streamTextMock.mock.calls[0][0].providerOptions).toEqual({
       openai: { reasoningEffort: "low", reasoningSummary: "detailed" },
     });
     expect(createCodeGenSSEStreamMock).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ usageModelId: "gpt-6.1-sol" }),
+      expect.objectContaining({ usageModelId: "gpt-6.2-sol" }),
     );
   });
 
@@ -184,7 +184,7 @@ describe("generateCode providerOptions", () => {
     generateCode({
       prompt: "Build this",
       systemPrompt: "System",
-      model: "gpt-6.1-sol",
+      model: "gpt-6.2-sol",
       thinking: true,
       reasoningEffort: "none",
     });

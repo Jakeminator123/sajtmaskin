@@ -325,10 +325,10 @@ describe("runWebsiteAudit Responses fallback", () => {
     expect(timeoutSpy).toHaveBeenCalledWith(266_500);
     await vi.advanceTimersByTimeAsync(220_000);
 
-    expect(await pending).toMatchObject({ ok: true, usedModel: "openai/gpt-6.1-sol" });
+    expect(await pending).toMatchObject({ ok: true, usedModel: "openai/gpt-6.2-sol" });
     expect(responsesCreate).toHaveBeenCalledTimes(1);
     expect(responsesCreate.mock.calls[0][0]).toMatchObject({
-      model: "gpt-6.1-sol", reasoning: { effort: "medium" },
+      model: "gpt-6.2-sol", reasoning: { effort: "medium" },
     });
     vi.clearAllTimers();
   });
@@ -347,7 +347,7 @@ describe("runWebsiteAudit Responses fallback", () => {
     expect(responsesCreate).toHaveBeenCalledTimes(1);
     expect(responsesCreate.mock.calls[0][1].signal.aborted).toBe(false);
     expect(responsesCreate.mock.calls.map(([body]) => body.model)).toEqual([
-      "gpt-6.1-sol",
+      "gpt-6.2-sol",
     ]);
     expect(timeoutSpy.mock.calls.map(([timeoutMs]) => timeoutMs)).toEqual([266_500]);
     await vi.advanceTimersByTimeAsync(1);
@@ -464,7 +464,7 @@ describe("runWebsiteAudit Responses fallback", () => {
       attemptIndex: 1,
       candidateCount: 1,
       workloadId: "audit_structured_public",
-      model: "gpt-6.1-sol",
+      model: "gpt-6.2-sol",
       reasoningEffort: "medium",
       outcome: "completed",
       elapsedMs: 100_000,
@@ -535,11 +535,11 @@ describe("runWebsiteAudit Responses fallback", () => {
 
   it("real public policy preserves Sol medium", async () => {
     expect(resolveAuditRun({ promptKind: "public", auditMode: "basic" }).modelCandidates)
-      .toEqual(["openai/gpt-6.1-sol"]);
+      .toEqual(["openai/gpt-6.2-sol"]);
     expect((await runPublic()).ok).toBe(true);
     expect(responsesCreate).toHaveBeenCalledTimes(1);
     expect(responsesCreate.mock.calls[0][0]).toMatchObject({
-      model: "gpt-6.1-sol", reasoning: { effort: "medium" },
+      model: "gpt-6.2-sol", reasoning: { effort: "medium" },
     });
   });
 
@@ -554,7 +554,7 @@ describe("runWebsiteAudit Responses fallback", () => {
       responsesCreate.mockResolvedValueOnce(successfulResponse());
       expect(await runPublic()).toMatchObject({ ok: false, status: 502 });
       expect(responsesCreate).toHaveBeenCalledTimes(1);
-      expect(responsesCreate.mock.calls[0][0].model).toBe("gpt-6.1-sol");
+      expect(responsesCreate.mock.calls[0][0].model).toBe("gpt-6.2-sol");
     },
   );
 
