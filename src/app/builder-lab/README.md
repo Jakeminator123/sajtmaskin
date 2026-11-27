@@ -4,18 +4,18 @@ Fristående koncept för builderns UI/UX. All data är påhittad och körs i
 webbläsaren: inga API-anrop, ingen databas, ingen byggmotor. Sidan svarar 404
 när `VERCEL_ENV=production`. Den riktiga buildern (`/builder`) är orörd.
 
-| Fil | Ansvar |
-|---|---|
-| `_lib/engine.ts` | **Sömmen**: kontraktet `StudioEngine` som UI:t behöver från en motor, med var varje fält finns i `BuilderViewModel` |
-| `_lib/use-studio.ts` | Påhittad motor + UI-läge; `engine` kontrolleras mot kontraktet med `satisfies` |
-| `_lib/mock-data.ts` | Påhittade sajter, paletter, byggsteg och uppföljningslogik |
-| `_components/builder-lab.tsx` | Skalet: layoutlägen (panel/kub/fokus), kortkommandon, dialoger |
-| `_components/top-bar.tsx` | Toppraden (tre zoner) och statusfältet med avbryt |
-| `_components/chat-dock.tsx` | Chatten, byggkortet och komposern (med kö) |
-| `_components/canvas.tsx` | Förhandsvisningen: enheter, peka & ändra, jämför, versionssvep |
-| `_components/build-cube.tsx` | Byggkuben (sex sidor, svep, solfjäder) |
-| `_components/agent-call.tsx` | Videosamtal med Sajtagenten (bild-i-bild) |
-| `_components/lab-logo.tsx` | Raketloggan som boostar under bygget |
+| Fil                           | Ansvar                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `_lib/engine.ts`              | **Sömmen**: kontraktet `StudioEngine` som UI:t behöver från en motor, med var varje fält finns i `BuilderViewModel` |
+| `_lib/use-studio.ts`          | Påhittad motor + UI-läge; `engine` kontrolleras mot kontraktet med `satisfies`                                      |
+| `_lib/mock-data.ts`           | Påhittade sajter, paletter, byggsteg och uppföljningslogik                                                          |
+| `_components/builder-lab.tsx` | Skalet: layoutlägen (panel/kub/fokus), kortkommandon, dialoger                                                      |
+| `_components/top-bar.tsx`     | Toppraden (tre zoner) och statusfältet med avbryt                                                                   |
+| `_components/chat-dock.tsx`   | Chatten, byggkortet och komposern (med kö)                                                                          |
+| `_components/canvas.tsx`      | Förhandsvisningen: enheter, peka & ändra, jämför, versionssvep                                                      |
+| `_components/build-cube.tsx`  | Byggkuben (sex sidor, svep, solfjäder)                                                                              |
+| `_components/agent-call.tsx`  | Videosamtal med Sajtagenten (bild-i-bild)                                                                           |
+| `_components/lab-logo.tsx`    | Raketloggan som boostar under bygget                                                                                |
 
 ## Byta ut den gamla buildern
 
@@ -37,17 +37,17 @@ buildern finns kvar tills den nya är bevisad.
 4. **Vänd flaggan.** När `?ui=studio` klarar samma e2e-flöden blir den default;
    den gamla vägen tas bort i en separat PR.
 
-| `StudioEngine` | Finns i dag |
-|---|---|
-| `projectName` | `vm.appProjectName` |
-| `messages` | `vm.messages` (AI SDK-meddelanden; adaptern plockar text och byggstatus) |
-| `versions` | `vm.effectiveVersionsList` |
-| `activeVersionId` / `latestVersionId` | `vm.activeVersionId` / `vm.latestVersionId` |
-| `build` | `vm.isAnyStreaming` + `getActiveAgentLogLabel` (`chat/tooling/agent-log.tsx`) |
-| `submit` | `vm.requestCreateChat` (första prompten), sedan `vm.sendMessage` |
-| `cancel` | `vm.cancelActiveGeneration` + `revokeOpenClawBuildConsent` (som skalet gör) |
-| `selectVersion` | `vm.handleVersionSelect` |
-| `reset` | `vm.resetToNewChat` |
+| `StudioEngine`                        | Finns i dag                                                                   |
+| ------------------------------------- | ----------------------------------------------------------------------------- |
+| `projectName`                         | `vm.appProjectName`                                                           |
+| `messages`                            | `vm.messages` (AI SDK-meddelanden; adaptern plockar text och byggstatus)      |
+| `versions`                            | `vm.effectiveVersionsList`                                                    |
+| `activeVersionId` / `latestVersionId` | `vm.activeVersionId` / `vm.latestVersionId`                                   |
+| `build`                               | `vm.isAnyStreaming` + `getActiveAgentLogLabel` (`chat/tooling/agent-log.tsx`) |
+| `submit`                              | `vm.requestCreateChat` (första prompten), sedan `vm.sendMessage`              |
+| `cancel`                              | `vm.cancelActiveGeneration` + `revokeOpenClawBuildConsent` (som skalet gör)   |
+| `selectVersion`                       | `vm.handleVersionSelect`                                                      |
+| `reset`                               | `vm.resetToNewChat`                                                           |
 
 Övrigt som UI:t visar och var det finns: förhandsvisning `vm.currentPreviewUrl`
 och `PreviewPanel`; publicering `vm.handleOpenDeployDialog` och

@@ -20,13 +20,21 @@ type SiteMockProps = {
   highlight?: SectionId[];
   /** Sektioner som håller på att ändras (uppföljning pågår). */
   editing?: SectionId[];
+  /** Peka & ändra: sektionerna kan nås och väljas med tangentbordet. */
+  selectable?: boolean;
 };
 
 const KIND_ICON = { cafe: Coffee, salon: Scissors, craft: Hammer } as const;
 
 const SERIF = 'ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia, serif';
 
-export function SiteMock({ version, revealed, highlight = [], editing = [] }: SiteMockProps) {
+export function SiteMock({
+  version,
+  revealed,
+  highlight = [],
+  editing = [],
+  selectable = false,
+}: SiteMockProps) {
   const theme = SITE_THEMES[version.theme];
   const { content } = version;
   const sections = visibleSections(content);
@@ -219,7 +227,14 @@ export function SiteMock({ version, revealed, highlight = [], editing = [] }: Si
       {sections.map((id, index) => {
         const built = revealed === undefined || index < revealed;
         return (
-          <section key={id} data-sid={id} className="relative">
+          <section
+            key={id}
+            data-sid={id}
+            className="relative outline-none focus-visible:ring-2 focus-visible:ring-[var(--lab-teal,#2fc6a0)] focus-visible:ring-inset"
+            tabIndex={selectable ? 0 : undefined}
+            role={selectable ? "button" : undefined}
+            aria-label={selectable ? `Ändra ${SECTION_LABELS[id].toLowerCase()}` : undefined}
+          >
             <AnimatePresence mode="popLayout" initial={false}>
               {built ? (
                 <motion.div

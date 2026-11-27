@@ -238,7 +238,7 @@ export function MessageRow({
             ))}
           </div>
         ) : null}
-        {isLast && !studio.state.pending ? (
+        {isLast && !studio.state.pending && studio.activeVersion ? (
           <div className="mt-3 flex flex-wrap gap-1.5">
             {followUpSuggestions(studio).map((suggestion, index) => (
               <motion.button

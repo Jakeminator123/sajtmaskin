@@ -140,6 +140,8 @@ export function studioReducer(state: StudioState, action: Action): StudioState {
       if (active && state.composerMode === "ask") {
         return {
           ...state,
+          selectedSection: null,
+          inspect: false,
           messages: [
             ...state.messages,
             { id: messageId, role: "user", text: action.prompt, target: action.target },
@@ -235,6 +237,8 @@ export function studioReducer(state: StudioState, action: Action): StudioState {
         pending: null,
         queue: [],
         revealed: state.pending.first ? 0 : state.revealed,
+        // Ett avbrutet första bygge lämnar inget namn efter sig.
+        projectName: state.pending.first ? INITIAL_STUDIO_STATE.projectName : state.projectName,
         messages: [
           ...state.messages.map((message): ChatMessage => {
             if (dropped.has(message.id) && message.role === "user") {

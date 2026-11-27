@@ -30,6 +30,7 @@ export function BuilderLab() {
   const isDesktop = useMediaQuery(LG_UP_MEDIA_QUERY, true);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [publishSession, setPublishSession] = useState(0);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("panel");
   const [callOpen, setCallOpen] = useState(false);
   const [focusRequest, setFocusRequest] = useState<{ id: SectionId; n: number } | null>(null);
@@ -39,7 +40,9 @@ export function BuilderLab() {
 
   const canPublish = Boolean(activeVersion) && !state.pending;
   const openPublish = useCallback(() => {
-    if (canPublish) setPublishOpen(true);
+    if (!canPublish) return;
+    setPublishSession((n) => n + 1);
+    setPublishOpen(true);
   }, [canPublish]);
   const exit = useCallback(() => {
     setPublishOpen(false);
@@ -214,6 +217,7 @@ export function BuilderLab() {
           isDesktop={isDesktop}
         />
         <PublishDialog
+          key={publishSession}
           open={publishOpen}
           onOpenChange={setPublishOpen}
           version={activeVersion}

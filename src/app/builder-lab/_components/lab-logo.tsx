@@ -2,10 +2,11 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 
 const WORDMARK = "Sajtmaskin";
+const noopSubscribe = () => () => {};
 const SCRAMBLE = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz0123456789";
 const PARTICLES = [
   { size: 3.1, opacity: 0.48, bottom: -2, left: 12.6, duration: 0.34, delay: 0 },
@@ -32,9 +33,19 @@ export function LabLogo({
   wordmarkFrom?: "always" | "sm" | "xl" | "2xl" | "never";
   className?: string;
 }) {
-  const reduceMotion = useReducedMotion();
-  const [text, setText] = useState(reduceMotion ? WORDMARK : "");
-  const [typed, setTyped] = useState(Boolean(reduceMotion));
+  // Servern vet inte om användaren vill ha mindre rörelse. Första klientrenderingen
+  // måste därför se likadan ut som serverns, annars blir det hydreringsfel.
+  const hydrated = useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
+  const prefersReducedMotion = useReducedMotion();
+  const reduceMotion = hydrated && Boolean(prefersReducedMotion);
+  const [typedText, setText] = useState("");
+  const [typedDone, setTyped] = useState(false);
+  const text = reduceMotion ? WORDMARK : typedText;
+  const typed = reduceMotion || typedDone;
   const [hovering, setHovering] = useState(false);
   const scrambleRef = useRef<number | null>(null);
 

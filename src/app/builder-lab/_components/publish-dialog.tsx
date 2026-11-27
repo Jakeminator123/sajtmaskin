@@ -39,18 +39,21 @@ export function PublishDialog({
   const [step, setStep] = useState(0);
   const url = `${slug || "min-sajt"}.sajtmaskin.se`;
 
+  // Bara medan dialogen är öppen: en stängd dialog ska inte fortsätta publicera
+  // eller skjuta konfetti över arbetsytan. Varje öppning får nytt tillstånd
+  // (nycklad i builder-lab.tsx).
   useEffect(() => {
-    if (stage !== "publishing") return;
+    if (!open || stage !== "publishing") return;
     if (step >= PUBLISH_STEPS.length) {
       const timer = window.setTimeout(() => setStage("live"), 300);
       return () => window.clearTimeout(timer);
     }
     const timer = window.setTimeout(() => setStep((value) => value + 1), 750);
     return () => window.clearTimeout(timer);
-  }, [stage, step]);
+  }, [open, stage, step]);
 
   useEffect(() => {
-    if (stage !== "live") return;
+    if (!open || stage !== "live") return;
     let cancelled = false;
     void import("canvas-confetti").then(({ default: confetti }) => {
       if (cancelled) return;
@@ -77,20 +80,10 @@ export function PublishDialog({
     return () => {
       cancelled = true;
     };
-  }, [stage]);
-
-  const handleOpenChange = (next: boolean) => {
-    onOpenChange(next);
-    if (!next && stage !== "publishing") {
-      window.setTimeout(() => {
-        setStage("review");
-        setStep(0);
-      }, 250);
-    }
-  };
+  }, [open, stage]);
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="lab-root overflow-hidden rounded-[1.6rem] border-white/10 bg-[#0b0f18]/95 p-0 text-white backdrop-blur-2xl sm:max-w-md">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(60%_100%_at_50%_0%,rgba(61,123,255,0.35),transparent)]" />
         <AnimatePresence mode="wait" initial={false}>

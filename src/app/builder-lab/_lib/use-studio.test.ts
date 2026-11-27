@@ -65,4 +65,23 @@ describe("builder-lab studioReducer", () => {
     expect(state.versions[2].parentId).toBe("v1");
     expect(state.versions[2].content.booking).toBe(false);
   });
+  it("avbrutet första bygge lämnar inget projektnamn efter sig", () => {
+    let state = submit(INITIAL_STUDIO_STATE, "Ett kafé som heter Kaffekoppen");
+    expect(state.projectName).toBe("Kaffekoppen");
+    state = studioReducer(state, { type: "cancel" });
+    expect(state.projectName).toBe(INITIAL_STUDIO_STATE.projectName);
+    expect(state.versions).toHaveLength(0);
+  });
+
+  it("Fråga-läget stänger en öppen sektionsredigerare", () => {
+    let state = finishBuild(submit(INITIAL_STUDIO_STATE, "Ett kafé"));
+    state = studioReducer(state, {
+      type: "set",
+      patch: { composerMode: "ask", inspect: true, selectedSection: "hero" },
+    });
+    state = submit(state, "Vad tycker du om rubriken?");
+    expect(state.selectedSection).toBeNull();
+    expect(state.inspect).toBe(false);
+    expect(state.pending).toBeNull();
+  });
 });

@@ -194,6 +194,20 @@ export function Canvas({
                 const id = (target?.dataset.sid ?? null) as SectionId | null;
                 if (id) set({ selectedSection: id });
               }}
+              // Tangentbord: Tab mellan sektionerna, Enter eller mellanslag väljer.
+              onFocus={(event) => {
+                if (!state.inspect) return;
+                const id = ((event.target as HTMLElement).dataset.sid ?? null) as SectionId | null;
+                const box = id ? measure(id) : null;
+                if (id && box) setHover({ id, box });
+              }}
+              onKeyDown={(event) => {
+                if (!state.inspect || (event.key !== "Enter" && event.key !== " ")) return;
+                const id = ((event.target as HTMLElement).dataset.sid ?? null) as SectionId | null;
+                if (!id) return;
+                event.preventDefault();
+                set({ selectedSection: id });
+              }}
             >
               <div
                 ref={contentRef}
@@ -210,6 +224,7 @@ export function Canvas({
                   <SiteMock
                     version={displayVersion}
                     revealed={pending?.first ? state.revealed : undefined}
+                    selectable={state.inspect}
                     highlight={
                       activeVersion && state.freshVersionId === activeVersion.id
                         ? activeVersion.changed
