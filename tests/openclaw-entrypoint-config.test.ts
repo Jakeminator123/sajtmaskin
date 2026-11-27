@@ -443,10 +443,34 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
     expect(config.gateway.auth.token).toBe(token);
   });
 
+  it("makes only the local ingress a trusted Render proxy", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "openclaw-render-config-"));
+    sandboxes.push(dir);
+    const configFile = path.join(dir, "openclaw.json");
+    execFileSync(process.execPath, [CONFIG_GENERATOR, configFile, dir], {
+      env: {
+        NODE_ENV: "test",
+        RENDER: "true",
+        OPENCLAW_GATEWAY_TOKEN: "test-token",
+        OPENCLAW_GATEWAY_BIND: "lan",
+        SAJTAGENT_INTERNAL_PORT: "18790",
+      },
+      stdio: "pipe",
+    });
+    expect(JSON.parse(readFileSync(configFile, "utf8")).gateway).toMatchObject({
+      bind: "loopback",
+      port: 18790,
+      trustedProxies: ["127.0.0.1"],
+      auth: { mode: "token", token: "test-token" },
+      http: { endpoints: { chatCompletions: { enabled: true } } },
+    });
+  });
+
   it("fails fast on Render when the shared gateway token is missing", () => {
     expect(() =>
       bootAndReadConfig({
         RENDER: "true",
+        OPENCLAW_GATEWAY_BIND: "loopback",
         OPENCLAW_GATEWAY_TOKEN: "",
       }),
     ).toThrow();
