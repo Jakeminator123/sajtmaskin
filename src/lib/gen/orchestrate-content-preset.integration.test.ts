@@ -134,36 +134,50 @@ describe("content subjects from Byggval through brief and generation", () => {
 
   it.each([
     ["En sida om CRM-system", "app"],
+    ["En informationssida om inloggning", "app"],
+    ["En informationssida om inloggning", "website"],
+    ["En informationssajt om inloggning", "app"],
+    ["En informationssajt om inloggning", "website"],
+    ["An informational website about login", "website"],
     ["A webpage about login and password recovery", "app"],
     ["En sida om CRM utan inloggning", "app"],
     ["En sida om björnungar där besökare inte ska kunna logga in", "app"],
     ["Björnungar där besökare inte ska kunna logga in", "app"],
     ["Build a webpage about owls", "website"],
-  ] as const)("keeps topics and rejected features out of routes and functional capabilities: %s", async (prompt, buildIntent) => {
-    expect(matchScaffold(prompt, buildIntent)?.id).toBe("base-nextjs");
+  ] as const)("keeps topics and rejected features out of routes and functional capabilities: %s (%s)", async (prompt, buildIntent) => {
     const capabilities = inferCapabilities(prompt);
     const detected = detectFollowUpCapabilities(prompt, { mode: "init" });
-    const base = await resolveOrchestrationBase(generationInput(prompt, {
+    const input = generationInput(prompt, {
       buildIntent, capabilities, requestedDossierCapabilities: detected.capabilityIds,
       brief: { pages: [{ path: "/", name: "Guide", purpose: `Introduktion: ${prompt}` }] },
-    }));
+    });
+    const base = await resolveOrchestrationBase(input);
+    expect(capabilities.needsAuth).toBe(false);
+    expect(detected.capabilityIds).not.toContain("auth");
+    expect(matchScaffold(prompt, buildIntent)?.id).toBe("base-nextjs");
     expect(base.resolvedScaffold?.id).toBe("base-nextjs");
     expect(base.routePlan.routes.map(({ path }) => path)).toEqual(["/"]);
     expect(base.capabilities.needsAuth).toBe(false);
     expect(base.capabilities.needsAppShell).toBe(false);
     expect(base.mutedCapabilities).not.toContain("auth");
+    const integrations = await resolveOrchestrationBase({ ...input, lifecycleStage: "integrations" });
+    expect(integrations.dossierSelection?.selected.some(({ entry }) => entry.capability === "auth")).toBe(false);
   });
 
-  it("keeps a Swedish login request after a content subject", async () => {
-    const prompt = "En sida om CRM-system med inloggning";
+  it.each([
+    ["En sida om CRM-system med inloggning", "app"],
+    ["En informationssida om inloggning där besökare behöver kunna logga in", "app"],
+    ["En informationssida om inloggning där besökare behöver kunna logga in", "website"],
+  ] as const)("keeps a Swedish login request after a content subject: %s (%s)", async (prompt, buildIntent) => {
     const detected = detectFollowUpCapabilities(prompt, { mode: "init" });
     expect(inferCapabilities(prompt)).toMatchObject({ needsAppShell: false, needsAuth: true });
     expect(detected.capabilityIds).toContain("auth");
-    const base = await resolveOrchestrationBase(generationInput(prompt, {
-      requestedDossierCapabilities: detected.capabilityIds,
-    }));
-    expect(base.routePlan.routes.map(({ path }) => path)).toContain("/login");
+    const input = generationInput(prompt, { buildIntent, brief: null, requestedDossierCapabilities: detected.capabilityIds });
+    const base = await resolveOrchestrationBase(input);
+    if (buildIntent === "app") expect(base.routePlan.routes.map(({ path }) => path)).toContain("/login");
     expect(base.mutedCapabilities).toContain("auth");
+    const integrations = await resolveOrchestrationBase({ ...input, lifecycleStage: "integrations" });
+    expect(integrations.dossierSelection?.selected.some(({ entry }) => entry.capability === "auth")).toBe(true);
   });
 
   it("preserves the brief palette when the customer leaves the color preset off", async () => {
