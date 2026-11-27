@@ -197,7 +197,8 @@ vi.mock("@/lib/models/phase-routing", () => ({
   }),
 }));
 
-vi.mock("@/lib/builder/site-brief-generation", () => ({
+vi.mock("@/lib/builder/site-brief-generation", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/builder/site-brief-generation")>(),
   tryGenerateServerAutoBrief: vi.fn(async () => null),
 }));
 
@@ -451,7 +452,7 @@ vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
   looksLikeIncompleteJson: vi.fn(() => false),
 }));
 
-import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
+import { siteBriefSchema, tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
 import { buildFollowUpBriefFromSnapshot } from "@/lib/gen/orchestration-snapshot";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { buildF3AwaitingInputUiPart } from "@/lib/gen/stream/f3-continuation";
@@ -1995,11 +1996,11 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
   // ── OpenClaw prepared-prompt fast lane (delta-brief skip) ────────────────
   // A follow-up tagged `promptSource: "openclaw-prepared"` may skip the
   // clear-redesign delta-brief LLM pass — ONLY when the server act gate
-  // (OPENCLAW.editEnabled / OC_EDIT) is on AND the prompt passes the
-  // deterministic structure check. Everything else runs today's path.
+  // (OPENCLAW.editEnabled / OC_EDIT) is on AND the current message contains
+  // a complete siteBriefSchema JSON brief. Markdown still needs a typed brief.
   describe("OpenClaw prepared-prompt fast lane", () => {
-    // Classifies as clear-redesign (keyword classifier runs for real) AND
-    // passes the structure validator (≥200 chars, ≥2 sections, ≥3 bullets).
+    // The real keyword classifier sees clear-redesign. These headings and
+    // bullets need the normal LLM pass to produce machine-readable decisions.
     const preparedRedesignPrompt = [
       "Gör om från grunden med mörk editorial stil och ny layout.",
       "",
@@ -2015,6 +2016,53 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       "Design:",
       "- Serif-rubriker, sans-serif brödtext och generös luft",
     ].join("\n");
+
+    const preparedBrief = siteBriefSchema.parse({
+      projectTitle: "PREPARED_REDESIGN_DECISIONS",
+      brandName: "Studio",
+      oneSentencePitch: "En portfolio med utvalda kundprojekt",
+      targetAudience: "Nya kunder",
+      primaryCallToAction: "Visa projekt",
+      toneAndVoice: ["personlig"],
+      domainProfile: "general",
+      motionLevel: "minimal",
+      qualityBar: "premium",
+      seasonalHints: [],
+      requestedCapabilities: ["gallery-lightbox"],
+      pages: [{
+        name: "Hem",
+        path: "/",
+        purpose: "Presentera studions projekt",
+        sections: [{ type: "hero", heading: "Studio", bullets: ["Utvalda kundprojekt"] }],
+      }],
+      visualDirection: {
+        styleKeywords: ["mörk", "editorial"],
+        colorPalette: {
+          primary: "#45ccaa",
+          secondary: "#556677",
+          accent: "#ffcc44",
+          background: "#121212",
+          text: "#eeeeee",
+        },
+        typography: { headings: "Instrument Serif", body: "Inter" },
+      },
+      imagery: {
+        needsImages: true,
+        styleKeywords: ["arkitektur", "natt"],
+        suggestedSubjects: ["byggnad", "detalj"],
+        altTextRules: ["Beskriv motivet", "Var konkret"],
+      },
+      uiNotes: {
+        components: ["hero", "galleri", "kontaktband"],
+        interactions: ["fokus", "hovring"],
+        accessibility: ["etiketter", "kontrast", "tangentbord"],
+      },
+      seo: {
+        titleTemplate: "{page} | Studio",
+        metaDescription: "Utvalda kundprojekt",
+        keywords: ["studio", "design", "portfolio"],
+      },
+    });
 
     const chatWithLockedScaffold = {
       id: "chat_1",
@@ -2079,25 +2127,58 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       openClawEditEnabled.value = false;
     });
 
-    it("skips the delta-brief LLM pass for a tagged structured prompt when OC_EDIT is on", async () => {
+    it("generates and forwards a typed delta brief for tagged Markdown when OC_EDIT is on", async () => {
       openClawEditEnabled.value = true;
       mockParseWithPromptSource();
+      vi.mocked(tryGenerateServerAutoBrief).mockResolvedValueOnce({
+        brief: preparedBrief,
+        modelUsed: "test-delta-model",
+      });
 
       const response = await postPrepared(preparedRedesignPrompt, "openclaw-prepared");
 
       expect(response.status).toBe(200);
-      // The ONLY skipped step is the delta-brief LLM pass…
-      expect(tryGenerateServerAutoBrief).not.toHaveBeenCalled();
-      // …the rest of the turn runs unchanged: orchestration + generation…
-      expect(resolveOrchestrationBase).toHaveBeenCalled();
+      expect(tryGenerateServerAutoBrief).toHaveBeenCalledTimes(1);
+      expect(tryGenerateServerAutoBrief).toHaveBeenCalledWith(expect.objectContaining({
+        prompt: preparedRedesignPrompt,
+      }));
+      expect(resolveOrchestrationBase).toHaveBeenCalledWith(expect.objectContaining({
+        brief: preparedBrief,
+      }));
       expect(createGenerationPipeline).toHaveBeenCalled();
-      // …and the existing follow-up timeline event carries the skip reason.
+      const followupEvent = vi.mocked(devLogAppend).mock.calls.find(
+        ([, entry]) => (entry as { type?: string }).type === "comm.request.followup",
+      )?.[1] as Record<string, unknown> | undefined;
+      expect(followupEvent).toBeDefined();
+      expect(followupEvent?.briefSkipReason).toBeUndefined();
+    });
+
+    it("reuses a schema-valid JSON brief from the current tagged message and forwards its decisions", async () => {
+      openClawEditEnabled.value = true;
+      mockParseWithPromptSource();
+      const message = `Gör om från grunden enligt dessa beslut.\n\n\`\`\`json\n${JSON.stringify(preparedBrief)}\n\`\`\``;
+
+      const response = await postPrepared(message, "openclaw-prepared");
+
+      expect(response.status).toBe(200);
+      expect(tryGenerateServerAutoBrief).not.toHaveBeenCalled();
+      expect(resolveOrchestrationBase).toHaveBeenCalledWith(expect.objectContaining({
+        brief: preparedBrief,
+      }));
+      const orchestrationInput = resolveOrchestrationBase.mock.calls[0]?.[0] as {
+        brief: unknown;
+      };
+      expect(orchestrationInput.brief).not.toEqual(
+        buildFollowUpBriefFromSnapshot(chatWithLockedScaffold.orchestration_snapshot),
+      );
+      expect(createGenerationPipeline).toHaveBeenCalled();
       const followupEvent = vi
         .mocked(devLogAppend)
         .mock.calls.find(
           ([, entry]) =>
             (entry as { type?: string }).type === "comm.request.followup",
         )?.[1] as Record<string, unknown> | undefined;
+      expect(followupEvent).toBeDefined();
       expect(followupEvent?.briefSkipReason).toBe("structured_prompt");
     });
 
