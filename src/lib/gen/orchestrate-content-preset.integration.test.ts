@@ -115,13 +115,18 @@ describe("content subjects from Byggval through brief and generation", () => {
     expect(formatBriefBuildChoicesForPrompt(warmApp)?.split("\n")).toContain("- Build intent (user choice): app");
   });
 
-  it.each(["restaurant", "salon"])("keeps a %s product gallery free of checkout requirements in init", async (domain) => {
-    const prompt = `Build a website about a ${domain} with a product gallery`;
+  it.each([
+    ["restaurant", "product gallery"], ["restaurant", "product catalog"],
+    ["salon", "product gallery"], ["salon", "product catalog"],
+  ])("keeps a %s %s free of checkout requirements in init", async (domain, feature) => {
+    const prompt = `Build a website about a ${domain} with a ${feature}`;
     const base = await resolveOrchestrationBase(generationInput(prompt, { buildIntent: "website", brief: null }));
     expect(base.capabilities.needsEcommerce).toBe(false);
     expect(base.resolvedScaffold?.id).not.toBe("ecommerce");
-    expect(base.capabilityHints).not.toContain("cart");
-    expect(base.capabilityHints).not.toContain("checkout");
+    expect(base.capabilityHints ?? "").not.toContain("cart");
+    expect(base.capabilityHints ?? "").not.toContain("checkout");
+    expect(base.routePlan.routes.map(({ path }) => path)).not.toContain("/cart");
+    expect(base.routePlan.routes.map(({ path }) => path)).not.toContain("/checkout");
   });
 
   it.each([

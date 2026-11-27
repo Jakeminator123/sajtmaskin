@@ -139,6 +139,7 @@ function sortScoresDesc<T extends { score: number }>(scores: T[]): T[] {
 function buildKeywordScores(
   promptLower: string,
   capabilities?: InferredCapabilities,
+  domainPromptLower: string = promptLower,
 ): Array<{ id: string; score: number }> {
   const authScore = countKeywordMatches(promptLower, AUTH_KEYWORDS);
   let ecommerceScore = countKeywordMatches(promptLower, ECOMMERCE_KEYWORDS);
@@ -150,7 +151,9 @@ function buildKeywordScores(
   const landingScore = countKeywordMatches(promptLower, LANDING_KEYWORDS);
   const blogScore = countKeywordMatches(promptLower, BLOG_KEYWORDS);
 
-  const hospitalityScore = countKeywordMatches(promptLower, HOSPITALITY_SERVICE_KEYWORDS);
+  // Domain evidence includes the page's subject. Positive feature scores use
+  // the structural prompt passed separately above.
+  const hospitalityScore = countKeywordMatches(domainPromptLower, HOSPITALITY_SERVICE_KEYWORDS);
   const strongEcommerceScore = countKeywordMatches(promptLower, STRONG_ECOMMERCE_INTENT);
   if (hospitalityScore > 0 && strongEcommerceScore === 0) {
     ecommerceScore = 0;
@@ -196,6 +199,7 @@ function buildKeywordScores(
 function applyBriefKeywordBoost(
   scores: Array<{ id: string; score: number }>,
   context: ScaffoldQueryContext | undefined,
+  domainPromptLower?: string,
 ): Array<{ id: string; score: number }> {
   if (!context) return scores;
   const briefPages = context.briefPages ?? [];
@@ -215,7 +219,7 @@ function applyBriefKeywordBoost(
   // Use max() rather than sum so restating a prompt token in the brief
   // ("portal" again) cannot manufacture a second hit and cross MIN_SCORE.
   // Complementary brief-only signals still win via Math.max(0, briefScore).
-  const briefScores = buildKeywordScores(combinedText);
+  const briefScores = buildKeywordScores(combinedText, undefined, domainPromptLower);
   const briefById = new Map(briefScores.map((entry) => [entry.id, entry.score]));
   return scores.map((entry) => ({
     ...entry,
@@ -484,7 +488,7 @@ export function matchScaffold(
 
   const structure = scaffoldStructure(prompt);
   return rankKeywordScaffolds(
-    buildKeywordScores(structure.prompt.toLowerCase()),
+    buildKeywordScores(structure.prompt.toLowerCase(), undefined, prompt.toLowerCase()),
     buildIntent,
     structure.prompt,
     structure.subject,
@@ -725,14 +729,16 @@ export async function matchScaffoldAuto(
   const structuralPrompt = buildScaffoldPrompt(structure.prompt, structure.context);
   const lowerPrompt = structure.prompt.toLowerCase();
   const lowerScaffold = structuralPrompt.toLowerCase();
+  const lowerDomainPrompt = scaffoldPrompt.toLowerCase();
 
   const embeddingPromise = useEmbeddings
     ? searchScaffoldsWithDiagnostics(scaffoldPrompt, getScaffoldIds().length)
     : Promise.resolve(EMPTY_SEMANTIC_RESPONSE);
 
   const baseKeywordScores = applyBriefKeywordBoost(
-    buildKeywordScores(lowerPrompt, options.capabilities),
+    buildKeywordScores(lowerPrompt, options.capabilities, lowerDomainPrompt),
     structure.context,
+    lowerDomainPrompt,
   );
   const keywordsDisabled = isScaffoldKeywordMatchDisabled();
   const unrankedKeywordScores = keywordsDisabled
@@ -794,7 +800,7 @@ export async function matchScaffoldAuto(
   const authScore = countKeywordMatches(lowerScaffold, AUTH_KEYWORDS);
   const appScore = countKeywordMatches(lowerScaffold, APP_KEYWORDS);
   const dashboardScore = countKeywordMatches(lowerScaffold, DASHBOARD_KEYWORDS);
-  const hospitalityScore = countKeywordMatches(lowerScaffold, HOSPITALITY_SERVICE_KEYWORDS);
+  const hospitalityScore = countKeywordMatches(lowerDomainPrompt, HOSPITALITY_SERVICE_KEYWORDS);
   const strongEcommerceScore = countKeywordMatches(lowerScaffold, STRONG_ECOMMERCE_INTENT);
   const embedBias = readEmbedVsKeywordBias();
 
