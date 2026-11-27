@@ -88,8 +88,8 @@ const FOCUS_AFTER_SWITCH = [
   '[role="tab"][aria-selected="true"]',
   // Kortlägets fält, när Chatt-kortet är nedfällt.
   '[role="toolbar"][aria-label="Kort"] button',
-  // Panelen med den flytande inmatningen hopfälld.
-  'button[aria-label^="Visa inmatningen"]',
+  // Sidopanelens kubknapp, om inmatningen är spärrad just nu.
+  'button[aria-label="Öppna byggkuben"]',
 ] as const;
 
 /**

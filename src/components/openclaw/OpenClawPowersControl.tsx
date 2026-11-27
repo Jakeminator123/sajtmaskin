@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState, type MouseEvent } from "react";
-import { usePathname } from "next/navigation";
 import { ChevronDown, Shield, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
-import { OPENCLAW_POWER_IDS, OPENCLAW_POWER_META } from "@/lib/openclaw/powers";
+import { OPENCLAW_POWER_IDS, OPENCLAW_POWER_META, type OpenClawPowerId } from "@/lib/openclaw/powers";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -54,61 +53,30 @@ async function revalidateEditGateOnPress(setEditEnabled: (v: boolean) => void) {
   }
 }
 
-/**
- * Klasser per yta. Kontrollen renderas både i builderns komposer
- * (`ChatInterface`) och i panelens topprad (`OpenClawChatPanel`). Panelen
- * behåller exakt dagens klasser; buildern följer komposerns verktygsknappar
- * (h-8, rounded-lg, border-border/70, bg-background/80, text-[11px]) och
- * builderns vanliga dropdown-meny.
- */
-const POWERS_CONTROL_CLASSES = {
-  panel: {
-    wrapper:
-      "flex max-w-full shrink-0 cursor-pointer items-center rounded-xl border transition-colors",
-    wrapperActive: "border-fuchsia-400/40 bg-fuchsia-400/10",
-    wrapperIdle: "border-border/70 bg-background/50",
-    toggle:
-      "focus-visible:ring-ring flex h-8 items-center gap-1.5 rounded-l-xl pr-1.5 pl-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-    toggleOn: "text-fuchsia-300 hover:text-fuchsia-200",
-    toggleOff: "text-muted-foreground hover:text-foreground",
-    icon: "h-3.5 w-3.5",
-    count:
-      "flex size-4 items-center justify-center rounded-full bg-fuchsia-400/15 text-[10px] leading-none font-semibold",
-    chevron:
-      "text-muted-foreground hover:text-foreground focus-visible:ring-ring flex h-8 items-center rounded-r-xl border-l border-current/10 px-2 transition-colors focus-visible:ring-2 focus-visible:outline-none",
-    menu: "w-72 border-white/10 bg-slate-950/95 text-slate-100",
-    menuLabel: "text-[11px] tracking-[0.16em] text-slate-400 uppercase",
-    menuSeparator: "bg-white/10",
-    menuItem: "items-start focus:bg-white/10 focus:text-white",
-    menuItemDescription: "text-[11px] leading-4 text-slate-400",
-    menuNote: "px-2 py-1.5 text-[11px] leading-4 text-slate-400",
-  },
-  builder: {
-    wrapper:
-      "flex h-8 max-w-full shrink-0 cursor-pointer items-stretch rounded-lg border transition-colors",
-    wrapperActive: "border-primary/50 bg-primary/10",
-    wrapperIdle: "border-border/70 bg-background/80",
-    toggle:
-      "focus-visible:ring-ring flex items-center gap-1.5 rounded-l-md pr-1.5 pl-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-    toggleOn: "text-primary hover:bg-accent hover:text-foreground",
-    toggleOff: "text-muted-foreground hover:bg-accent hover:text-foreground",
-    icon: "size-3",
-    count:
-      "bg-primary text-primary-foreground flex size-4 items-center justify-center rounded-full text-[10px] leading-none font-semibold tabular-nums",
-    chevron:
-      "text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring border-border/70 flex items-center rounded-r-md border-l px-2 transition-colors focus-visible:ring-2 focus-visible:outline-none",
-    menu: "w-72",
-    menuLabel: undefined,
-    menuSeparator: undefined,
-    // Beskrivningen ärver radens färg, så den förblir läsbar även på
-    // menyns accentfärgade fokusrad.
-    menuItem: "items-start",
-    menuItemDescription: "text-[11px] leading-4 opacity-70",
-    menuNote: "text-muted-foreground px-2 py-1.5 text-[11px] leading-4",
-  },
+const classes = {
+  wrapper:
+    "flex max-w-full shrink-0 cursor-pointer items-center rounded-xl border transition-colors",
+  wrapperActive: "border-fuchsia-400/40 bg-fuchsia-400/10",
+  wrapperIdle: "border-border/70 bg-background/50",
+  toggle:
+    "focus-visible:ring-ring flex h-8 items-center gap-1.5 rounded-l-xl pr-1.5 pl-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+  toggleOn: "text-fuchsia-300 hover:text-fuchsia-200",
+  toggleOff: "text-muted-foreground hover:text-foreground",
+  icon: "h-3.5 w-3.5",
+  count:
+    "flex size-4 items-center justify-center rounded-full bg-fuchsia-400/15 text-[10px] leading-none font-semibold",
+  chevron:
+    "text-muted-foreground hover:text-foreground focus-visible:ring-ring flex h-8 items-center rounded-r-xl border-l border-current/10 px-2 transition-colors focus-visible:ring-2 focus-visible:outline-none",
+  menu: "w-72 border-white/10 bg-slate-950/95 text-slate-100",
+  menuLabel: "text-[11px] tracking-[0.16em] text-slate-400 uppercase",
+  menuSeparator: "bg-white/10",
+  menuItem: "items-start focus:bg-white/10 focus:text-white",
+  menuItemDescription: "text-[11px] leading-4 text-slate-400",
+  menuNote: "px-2 py-1.5 text-[11px] leading-4 text-slate-400",
+
 } as const;
 
-export function OpenClawPowersControl() {
+export function useOpenClawPowerControls() {
   const editEnabled = useOpenClawStore((s) => s.editEnabled);
   const powersOn = useOpenClawStore((s) => s.powersOn);
   const grantedPowers = useOpenClawStore((s) => s.grantedPowers);
@@ -118,12 +86,7 @@ export function OpenClawPowersControl() {
   // Scope-bytet i `OpenClawChat` nollar grantet; en hydrering som hann före
   // bytet måste göras om, därför följer effekten även `scopeKey`.
   const scopeKey = useOpenClawStore((s) => s.scopeKey);
-  const powers = useOpenClawPowers();
   const [builderChatId, setBuilderChatId] = useState<string | null>(null);
-  // Panelen renderas aldrig under /builder (`OpenClawChat`), så samma yttest
-  // som där väljer builderns stil här; utan den syns panelens klasser.
-  const isBuilderSurface = usePathname()?.startsWith("/builder") ?? false;
-  const classes = POWERS_CONTROL_CLASSES[isBuilderSurface ? "builder" : "panel"];
 
   useEffect(() => {
     const sync = () => setBuilderChatId(readActiveBuilderChatId());
@@ -138,22 +101,50 @@ export function OpenClawPowersControl() {
     void hydrateOpenClawPowersForChat(builderChatId);
   }, [builderChatId, editEnabled, scopeKey]);
 
-  if (!editEnabled) return null;
-
-  const activeCount =
-    Number(powers.armedAutonomy) + Number(powers.quickEdit) + Number(powers.liveReview);
-
-  const handleToggle = (event: MouseEvent<HTMLElement>) => {
-    // Portaled menu items are React children of this wrapper, not DOM
-    // descendants. A bubbled click from the list must not flip the switch.
-    if (!event.currentTarget.contains(event.target as Node)) return;
-    const next = !powersOn;
+  const changePowersOn = (next: boolean) => {
     setPowersOn(next);
     void persistOpenClawPowersForActiveChat();
-    // Pressing ON grants authority, so that is the moment to re-check the env
-    // gate. A stale-true answer flips editEnabled off, which withdraws the
-    // grant (store) and unmounts this control.
     if (next) void revalidateEditGateOnPress(setEditEnabled);
+  };
+  const changeGrantedPower = (id: OpenClawPowerId) => {
+    toggleGrantedPower(id);
+    void persistOpenClawPowersForActiveChat();
+  };
+  return { editEnabled, powersOn, grantedPowers, changePowersOn, changeGrantedPower };
+}
+
+export function OpenClawPowerChoices({ control, variant = "menu" }: {
+  control: ReturnType<typeof useOpenClawPowerControls>;
+  variant?: "menu" | "panel";
+}) {
+  return OPENCLAW_POWER_IDS.map((id) => (
+    <DropdownMenuCheckboxItem
+      key={id}
+      checked={control.grantedPowers.includes(id)}
+      disabled={!control.powersOn}
+      onSelect={(event) => event.preventDefault()}
+      onCheckedChange={() => control.changeGrantedPower(id)}
+      className={variant === "panel" ? classes.menuItem : "items-start"}
+    >
+      <span className="flex flex-col gap-0.5">
+        <span className="text-xs font-medium">{OPENCLAW_POWER_META[id].label}</span>
+        <span className={variant === "panel" ? classes.menuItemDescription : "text-[11px] leading-4 opacity-75"}>
+          {OPENCLAW_POWER_META[id].description}
+        </span>
+      </span>
+    </DropdownMenuCheckboxItem>
+  ));
+}
+
+export function OpenClawPowersControl() {
+  const control = useOpenClawPowerControls();
+  const { editEnabled, powersOn, changePowersOn } = control;
+  const powers = useOpenClawPowers();
+  if (!editEnabled) return null;
+  const activeCount = Number(powers.armedAutonomy) + Number(powers.quickEdit) + Number(powers.liveReview);
+  const handleToggle = (event: MouseEvent<HTMLElement>) => {
+    // React bubbles events from portals through this wrapper as well.
+    if (event.currentTarget.contains(event.target as Node)) changePowersOn(!powersOn);
   };
 
   return (
@@ -199,27 +190,7 @@ export function OpenClawPowersControl() {
             Vad agenten får göra
           </DropdownMenuLabel>
           <DropdownMenuSeparator className={classes.menuSeparator} />
-          {OPENCLAW_POWER_IDS.map((id) => (
-            <DropdownMenuCheckboxItem
-              key={id}
-              checked={grantedPowers.includes(id)}
-              disabled={!powersOn}
-              // Keep the menu open: picking two powers should not cost two trips.
-              onSelect={(event) => event.preventDefault()}
-              onCheckedChange={() => {
-                toggleGrantedPower(id);
-                void persistOpenClawPowersForActiveChat();
-              }}
-              className={classes.menuItem}
-            >
-              <span className="flex flex-col gap-0.5">
-                <span className="text-xs font-medium">{OPENCLAW_POWER_META[id].label}</span>
-                <span className={classes.menuItemDescription}>
-                  {OPENCLAW_POWER_META[id].description}
-                </span>
-              </span>
-            </DropdownMenuCheckboxItem>
-          ))}
+          <OpenClawPowerChoices control={control} variant="panel" />
           <DropdownMenuSeparator className={classes.menuSeparator} />
           <p className={classes.menuNote}>
             {powersOn

@@ -387,7 +387,7 @@ describe("BuilderCubeSurface", () => {
   it("hands back to the chat panel", () => {
     const onExit = vi.fn();
     render(<Harness onExit={onExit} />);
-    fireEvent.click(screen.getByRole("button", { name: "Tillbaka till chattpanelen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Öppna chatten som sidopanel" }));
     expect(onExit).toHaveBeenCalledTimes(1);
   });
 });

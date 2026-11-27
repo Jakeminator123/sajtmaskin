@@ -5,11 +5,16 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
+vi.mock("@/components/builder/chat/sajtagent/SajtagentProvider", () => ({
+  useSajtagent: () => ({ configured: true }),
+}));
 vi.mock("@/lib/auth/auth-store", () => ({
   useAuth: () => ({ isAuthenticated: true, logout: vi.fn() }),
 }));
 
 import { BuilderHeader } from "./BuilderHeader";
+import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
+import { useComposerMode } from "@/lib/builder/use-composer-mode";
 
 type HeaderProps = React.ComponentProps<typeof BuilderHeader>;
 
@@ -91,6 +96,8 @@ describe("BuilderHeader", () => {
 
   afterEach(() => {
     cleanup();
+    sessionStorage.clear();
+    useOpenClawStore.setState({ editEnabled: false, armedMandate: null, powersOn: false, grantedPowers: [] });
     restoreViewport?.();
     restoreViewport = undefined;
   });
@@ -135,6 +142,40 @@ describe("BuilderHeader", () => {
     restoreViewport = stubViewport(false);
     render(<BuilderHeader {...props({ isAnyStreaming: true })} />);
     expect(screen.getByRole("button", { name: "Avbryt pågående generering" })).toBeTruthy();
+  });
+
+  it("kan välja Fråga i Inställningar mitt i ett bygge och återkallar automation direkt", () => {
+    restoreViewport = stubViewport(true);
+    useOpenClawStore.setState({ armedMandate: { mode: "followups", reason: "Test", remaining: 1, createdAt: 1 } });
+    function HeaderWithMode() {
+      const { composerMode, handleComposerModeChange } = useComposerMode("chat_1");
+      return <BuilderHeader {...props({ isAnyStreaming: true, composerSettings: {
+        mode: composerMode, buildLocked: true, onModeChange: handleComposerModeChange,
+      } })} />;
+    }
+    render(<HeaderWithMode />);
+    openMoreMenu();
+    fireEvent.keyDown(screen.getByRole("menuitem", { name: "Inställningar" }), { key: "ArrowRight" });
+    fireEvent.keyDown(screen.getByRole("menuitem", { name: "Chattläge · Auto" }), { key: "ArrowRight" });
+    expect(screen.getByRole("menuitemradio", { name: "Bygg" }).getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Fråga" }));
+    expect(useOpenClawStore.getState().armedMandate).toBeNull();
+    expect(sessionStorage.getItem("sajtmaskin:composerMode:chat_1")).toBe("agent");
+  });
+
+  it("visar sköldens tre val med samma huvudspärr i Inställningar", () => {
+    restoreViewport = stubViewport(true);
+    useOpenClawStore.setState({ editEnabled: true, powersOn: true, grantedPowers: ["quick_edit"] });
+    render(<BuilderHeader {...props()} />);
+    openMoreMenu();
+    fireEvent.keyDown(screen.getByRole("menuitem", { name: "Inställningar" }), { key: "ArrowRight" });
+    fireEvent.keyDown(screen.getByRole("menuitem", { name: "Sajtagentens befogenheter" }), { key: "ArrowRight" });
+    expect(screen.getByRole("menuitemcheckbox", { name: /Snabbändringar/ }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("menuitemcheckbox", { name: /Agerar direkt/ })).toBeTruthy();
+    expect(screen.getByRole("menuitemcheckbox", { name: /Granskar sajten live/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Låt agenten ändra" }));
+    expect(useOpenClawStore.getState().powersOn).toBe(false);
+    expect(screen.getByRole("menuitemcheckbox", { name: /Snabbändringar/ }).getAttribute("aria-disabled")).toBe("true");
   });
 
   it("behåller desktopheadern: previewverktyg, Ny chatt och Logga ut som knappar", () => {

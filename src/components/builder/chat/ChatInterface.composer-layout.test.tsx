@@ -77,11 +77,12 @@ describe("ChatInterface — lugnare inmatning", () => {
     );
     expect(screen.getByRole("textbox", { name: "Skriv en uppdatering" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Lägg till media" })).toBeTruthy();
-    expect(screen.getByRole("radiogroup", { name: "Mottagare för nästa meddelande" })).toBeTruthy();
+    expect(screen.queryByRole("radiogroup", { name: "Mottagare för nästa meddelande" })).toBeNull();
     expect(screen.getByTestId("composer-route-hint")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Markera element" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Skicka" })).toBeTruthy();
 
-    for (const name of ["Plan", "Förbättra texten", "Lägg till block", "Inspektera preview", "Media", "Text/PDF", "Röstinspelning"]) {
+    for (const name of ["Plan", "Förbättra texten", "Lägg till block", "Media", "Text/PDF", "Röstinspelning"]) {
       expect(screen.queryByRole("button", { name })).toBeNull();
     }
     expect(screen.queryByRole("slider")).toBeNull();
@@ -106,7 +107,7 @@ describe("ChatInterface — lugnare inmatning", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     const row = screen.getByRole("group", { name: "Fler verktyg" });
     expect(row.id).toBe(rowId);
-    for (const name of ["Plan", "Förbättra texten", "Lägg till block", "Inspektera preview", "Media", "Text/PDF", "Röstinspelning"]) {
+    for (const name of ["Plan", "Förbättra texten", "Lägg till block", "Media", "Text/PDF", "Röstinspelning"]) {
       expect(within(row).getByRole("button", { name })).toBeTruthy();
     }
 
@@ -137,10 +138,10 @@ describe("ChatInterface — lugnare inmatning", () => {
     const { rerender } = render(<ChatInterface chatId="chat_1" previewModes={previewModes()} />);
     expect(screen.queryByTestId("composer-tools-active-dot")).toBeNull();
 
-    rerender(<ChatInterface chatId="chat_1" previewModes={previewModes({ inspectOpen: true })} />);
+    rerender(<ChatInterface chatId="chat_1" previewModes={previewModes({ composerOpen: true })} />);
     const toggle = screen.getByRole("button", { name: "Verktyg" });
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByRole("button", { name: "Sluta inspektera" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Stäng block" })).toBeTruthy();
 
     fireEvent.click(toggle);
     expect(screen.getByTestId("composer-tools-active-dot")).toBeTruthy();

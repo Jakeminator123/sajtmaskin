@@ -1,5 +1,5 @@
 import { useChatOutputCollapse } from "@/components/builder/chat/useChatOutputCollapse";
-import { usePreviewSurfaceMode } from "@/components/builder/preview-panel/usePreviewSurfaceMode";
+import { usePreviewSurfaceMode, type PreviewSurfaceState } from "@/components/builder/preview-panel/usePreviewSurfaceMode";
 import { isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import { openDossiersPanel } from "@/lib/builder/project-env-events";
 import { F3_KICK_PROMPT } from "@/lib/builder/types";
@@ -9,7 +9,7 @@ import {
   writeAutofixLocalStorage,
 } from "@/lib/hooks/chat/useAutoFix";
 import type { F3BuilderStatus, F3MissingIntegration } from "@/lib/builder/f3-status";
-import { useCallback, useEffect, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { BuilderViewModel } from "../useBuilderPageController";
 
 export function useShellPreviewLayout(
@@ -147,4 +147,34 @@ export function useShellPreviewLayout(
     chatOutputCollapse,
     isChatOutputCollapsed,
   };
+}
+
+export function useMobilePreviewInspection({
+  isDesktop,
+  hasPreview,
+  surface,
+  setMobileTab,
+}: {
+  isDesktop: boolean;
+  hasPreview: boolean;
+  surface: PreviewSurfaceState;
+  setMobileTab: (tab: "chat" | "preview") => void;
+}) {
+  const previewTabRef = useRef<HTMLButtonElement>(null);
+  const { inspectorEnabled, viewMode, inspectMode, toggleInspect, setInspectMode } = surface;
+  const toggleInspectFromChat = useCallback(() => {
+    if (!hasPreview || !inspectorEnabled || viewMode !== "preview") return;
+    toggleInspect();
+    if (!isDesktop && !inspectMode) {
+      setMobileTab("preview");
+      previewTabRef.current?.focus({ preventScroll: true });
+    }
+  }, [hasPreview, inspectorEnabled, viewMode, toggleInspect, isDesktop, inspectMode, setMobileTab]);
+
+  const returnToMobileChat = useCallback(() => {
+    setInspectMode(false);
+    setMobileTab("chat");
+  }, [setInspectMode, setMobileTab]);
+
+  return { previewTabRef, toggleInspectFromChat, returnToMobileChat };
 }

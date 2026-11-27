@@ -1,5 +1,5 @@
 /**
- * Spår 04 — `Lägg till block` och `Inspektera preview` flyttade från
+ * Spår 04 — `Lägg till block` och `Markera element` flyttade från
  * previewpanelens verktygsrad till chatpanelens Verktyg-rad. Testet låser att
  * de renderas där, att de speglar lägena de styr, och att de INTE finns kvar i
  * previewpanelen (två knappar mot ett läge är värre än ingen).
@@ -61,7 +61,7 @@ function openTools() {
 }
 
 describe("ChatInterface — previewlägen i Verktyg-raden", () => {
-  it("renderar Lägg till block och Inspektera preview bredvid Plan", () => {
+  it("visar Markera element och kan fälla ut blockverktyget", () => {
     render(<ChatInterface chatId="chat_1" previewModes={buildPreviewModes()} />);
     openTools();
 
@@ -70,7 +70,7 @@ describe("ChatInterface — previewlägen i Verktyg-raden", () => {
     // så Plan renderas nu som en vanlig verktygsknapp utan popover-omslag.
     expect(screen.getByRole("button", { name: "Plan" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Lägg till block" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Inspektera preview" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Markera element" })).toBeTruthy();
   });
 
   it("bär ägarbeslutets tooltip på Lägg till block", () => {
@@ -100,13 +100,13 @@ describe("ChatInterface — previewlägen i Verktyg-raden", () => {
     openTools();
 
     fireEvent.click(screen.getByRole("button", { name: "Lägg till block" }));
-    fireEvent.click(screen.getByRole("button", { name: "Inspektera preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Markera element" }));
 
     expect(modes.onToggleComposer).toHaveBeenCalledTimes(1);
     expect(modes.onToggleInspect).toHaveBeenCalledTimes(1);
   });
 
-  it("döljer Inspektera preview när inspektorn är avstängd", () => {
+  it("döljer Markera element när inspektorn är avstängd", () => {
     render(
       <ChatInterface
         chatId="chat_1"
@@ -115,7 +115,7 @@ describe("ChatInterface — previewlägen i Verktyg-raden", () => {
     );
     openTools();
 
-    expect(screen.queryByRole("button", { name: "Inspektera preview" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Markera element" })).toBeNull();
   });
 
   it("renderar ingen av knapparna utan preview att styra", () => {
@@ -123,7 +123,7 @@ describe("ChatInterface — previewlägen i Verktyg-raden", () => {
     openTools();
 
     expect(screen.queryByRole("button", { name: "Lägg till block" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Inspektera preview" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Markera element" })).toBeNull();
   });
 
   it("previewpanelen har inga egna knappar för lägena kvar", () => {
@@ -136,7 +136,7 @@ describe("ChatInterface — previewlägen i Verktyg-raden", () => {
     );
 
     expect(screen.queryByRole("button", { name: /Lägg till block/i })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Inspektera preview/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Markera element/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Kod$/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Rensa$/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Öppna$/i })).toBeNull();
