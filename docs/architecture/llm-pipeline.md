@@ -12,6 +12,19 @@ om generationen. Deep Brief, Byggval och tidigare versionsunderlag matas till
 [orchestrate.ts](../../src/lib/gen/orchestrate.ts). Vanlig follow-up återanvänder
 Snapshot-Brief; `clear-redesign` kan begära ny brief.
 
+I Auto väljer Sajtagenten snabbändring eller byggkommando även för tydliga
+ändringsorder när agenten är tillgänglig och chatten har befogenhet att agera.
+Explicit Bygg, init, svar på byggmotorns motfrågor och bilagebundna ändringar
+följer byggmotorn. Ägare är
+[composer-route.ts](../../src/lib/builder/composer-route.ts).
+
+Vid omdesign återanvänder
+[delta-brief-phase.ts](../../src/lib/api/engine/chats/chat-message-stream/delta-brief-phase.ts)
+en förberedd JSON-brief i det aktuella meddelandet efter validering med
+`siteBriefSchema`. Den skrivs till samma brief som orkestreringen läser.
+Vanlig formaterad text tar briefsteget så färg, typografi, sidor och funktioner
+får typade värden före scaffold- och dossierval.
+
 Den råa användartexten, user message och chatthistoriken är requestunderlag.
 User prompt ska inte dupliceras som systemkontext. Typen
 [GenerationInputPackage](../../src/lib/gen/generation-input-package.ts) äger
