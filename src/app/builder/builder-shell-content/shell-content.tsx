@@ -12,6 +12,7 @@ import {
   F3RequirementsSurface,
   F3StatusSurface,
 } from "@/components/builder/readiness/F3RequirementsSurface";
+import { useComposerMode } from "@/lib/builder/use-composer-mode";
 import { SajtagentProvider } from "@/components/builder/chat/sajtagent/SajtagentProvider";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { registerBuilderBridge } from "@/lib/openclaw/builder-bridge";
@@ -46,7 +47,7 @@ import { BuilderShellDialogs } from "./shell-dialogs";
 import { useShellDeployDomain } from "./use-deploy-domain";
 import { useShellDevContextEffects } from "./use-dev-context-effects";
 import { useShellF3TipsChrome } from "./use-f3-tips-chrome";
-import { useShellPreviewLayout } from "./use-preview-layout";
+import { useMobilePreviewInspection, useShellPreviewLayout } from "./use-preview-layout";
 import { useShellRegistryInsert } from "./use-registry-insert";
 import { useShellVersionFollowup } from "./use-version-followup";
 
@@ -82,6 +83,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   // och versionshistoriken öppnas som ett ark från Mer (rigg V-10, § 9).
   const isDesktopShell = useMediaQuery(LG_UP_MEDIA_QUERY, true);
   const [isVersionSheetOpen, setIsVersionSheetOpen] = useState(false);
+  const { composerMode, handleComposerModeChange } = useComposerMode(vm.chatId);
 
   const {
     isBusy,
@@ -153,6 +155,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     isInteractionLocked,
   });
 
+  const { previewTabRef, toggleInspectFromChat, returnToMobileChat } = useMobilePreviewInspection({
+    isDesktop: isDesktopShell,
+    hasPreview: Boolean(vm.currentPreviewUrl),
+    surface: previewSurface,
+    setMobileTab,
+  });
+
   // Builder-brygga (plan 2026-10-22 «En chatt», E4): Sajtagentens byggkommandon
   // går genom samma INLINDADE `sendMessage` som Skicka-knappen — den binder
   // armerad continuation — i stället för att fylla komposern via DOM:en.
@@ -188,10 +197,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     focusAfterCubeSwitchRef.current = true;
     setBuilderCubeEnabled(true);
   }, []);
+  const expandChatOutput = chatOutputCollapse.expand;
   const closeCube = useCallback(() => {
     focusAfterCubeSwitchRef.current = true;
+    expandChatOutput();
     setBuilderCubeEnabled(false);
-  }, []);
+  }, [expandChatOutput]);
   useEffect(() => {
     if (!focusAfterCubeSwitchRef.current) return;
     focusAfterCubeSwitchRef.current = false;
@@ -225,7 +236,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     s.messages.reduce((count, message) => count + (message.hydrated ? 0 : 1), 0),
   );
   const prevAgentMessageCountRef = useRef(agentMessageCount);
-  const expandChatOutput = chatOutputCollapse.expand;
   useEffect(() => {
     const grew = agentMessageCount > prevAgentMessageCountRef.current;
     prevAgentMessageCountRef.current = agentMessageCount;
@@ -287,7 +297,16 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
   return (
     <BuilderLayout chatId={vm.chatId} versionId={vm.activeVersionId}>
+      <SajtagentProvider
+        chatId={vm.chatId}
+        activeVersionId={vm.activeVersionId}
+        activeVersionStatus={activeVersionStatus ?? null}
+        activeVersionIsLatest={activeVersionIsLatest}
+        isAnyStreaming={vm.isAnyStreaming}
+        digestEnabled={vm.tipsEnabled}
+      >
       <BuilderHeader
+        composerSettings={{ mode: composerMode, onModeChange: handleComposerModeChange, buildLocked: isInteractionLocked }}
         scaffoldMode={vm.scaffoldMode}
         scaffoldId={vm.scaffoldId}
         onScaffoldModeChange={vm.setScaffoldMode}
@@ -372,7 +391,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           role="tab"
           aria-selected={mobileTab === "chat"}
           aria-controls="builder-chat-panel"
-          onClick={() => setMobileTab("chat")}
+          onClick={returnToMobileChat}
+          title={previewSurface.inspectMode ? "Avsluta markering och gå tillbaka till chatten" : undefined}
           className={cn(
             "flex flex-1 items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors",
             mobileTab === "chat"
@@ -387,6 +407,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           role="tab"
           aria-selected={mobileTab === "preview"}
           aria-controls="builder-preview-panel"
+          ref={previewTabRef}
           onClick={() => setMobileTab("preview")}
           className={cn(
             "flex flex-1 items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors",
@@ -424,17 +445,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             mobileTab === "chat" ? "flex" : "hidden",
           )}
         >
-          {/* Sajtagenten bor i samma chatt som byggmotorn (plan 2026-10-22).
-              Providern äger agentens samtal, continuation och «nästa steg»
-              efter bygget; MessageList och ChatInterface läser den. */}
-          <SajtagentProvider
-            chatId={vm.chatId}
-            activeVersionId={vm.activeVersionId}
-            activeVersionStatus={activeVersionStatus ?? null}
-            activeVersionIsLatest={activeVersionIsLatest}
-            isAnyStreaming={vm.isAnyStreaming}
-            digestEnabled={vm.tipsEnabled}
-          >
           {cubeActive ? (
             <BuilderCubeSurface
               // Nycklad på chatten: en ny chatt börjar på Chatt-sidan, utan
@@ -529,11 +539,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             builderMessages={vm.messages}
             isStreaming={vm.isAnyStreaming}
             statusText={chatCollapseStatusText}
-            onOpenCube={openCube}
+            onOpenCube={isDesktopShell && vm.chatId && !cubeActive ? openCube : undefined}
           >
             <Relocatable slot={composerSlot}>
             <ChatInterface
               chatId={vm.chatId}
+              composerMode={composerMode}
               projectId={vm.mediaProjectId}
               initialPrompt={vm.initialPrompt}
               auditHandoff={vm.auditHandoff}
@@ -561,7 +572,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                       composerDisabled: previewSurface.viewMode !== "preview",
                       inspectAvailable: previewSurface.inspectorEnabled,
                       inspectOpen: previewSurface.inspectMode,
-                      onToggleInspect: previewSurface.toggleInspect,
+                      onToggleInspect: toggleInspectFromChat,
                       inspectDisabled: previewSurface.viewMode !== "preview",
                     }
                   : null
@@ -577,7 +588,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             hasGitHub={hasGitHub}
             githubUsername={authUser?.github_username ?? null}
           />
-          </SajtagentProvider>
         </div>
 
         <div
@@ -733,6 +743,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         reason={vm.authModalReason ?? "builder"}
         returnTo={currentBuilderReturnTo()}
       />
+      </SajtagentProvider>
     </BuilderLayout>
   );
 }

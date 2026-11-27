@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, ChevronDown, ChevronUp, Loader2, Minus } from "lucide-react";
+import { Box, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import type { PointerEventHandler } from "react";
 import { cn } from "@/lib/utils";
 
@@ -22,8 +22,6 @@ interface ChatOutputCollapseBarProps {
   onDragHandlePointerMove?: PointerEventHandler<HTMLDivElement>;
   onDragHandlePointerUp?: PointerEventHandler<HTMLDivElement>;
   onDragHandlePointerCancel?: PointerEventHandler<HTMLDivElement>;
-  /** Flytande läge: fäller ihop hela kortet till en liten knapp. */
-  onMinimize?: () => void;
   /** Byter chattpanelen mot byggkuben. Bara på stora skärmar (lg+). */
   onOpenCube?: () => void;
 }
@@ -48,7 +46,6 @@ export function ChatOutputCollapseBar({
   onDragHandlePointerMove,
   onDragHandlePointerUp,
   onDragHandlePointerCancel,
-  onMinimize,
   onOpenCube,
 }: ChatOutputCollapseBarProps) {
   const Chevron = isCollapsed ? ChevronUp : ChevronDown;
@@ -75,22 +72,24 @@ export function ChatOutputCollapseBar({
       onPointerUp={dragEnabled ? onDragHandlePointerUp : undefined}
       onPointerCancel={dragEnabled ? onDragHandlePointerCancel : undefined}
     >
-      <button
-        type="button"
-        onClick={onToggle}
-        onPointerDown={(event) => {
-          // Keep toggle clicks from starting a drag on the parent handle.
-          event.stopPropagation();
-        }}
-        aria-expanded={!isCollapsed}
-        aria-controls="builder-chat-output"
-        aria-label={label}
-        title={label}
-        className="border-border hover:text-foreground hover:bg-muted/50 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 transition-colors"
-      >
-        <Chevron className="h-3.5 w-3.5" />
-        <span className="font-medium tabular-nums">{countLabel}</span>
-      </button>
+      {messageCount > 0 ? (
+        <button
+          type="button"
+          onClick={onToggle}
+          onPointerDown={(event) => {
+            // Keep toggle clicks from starting a drag on the parent handle.
+            event.stopPropagation();
+          }}
+          aria-expanded={!isCollapsed}
+          aria-controls="builder-chat-output"
+          aria-label={label}
+          title={label}
+          className="border-border hover:text-foreground hover:bg-muted/50 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 transition-colors"
+        >
+          <Chevron className="h-3.5 w-3.5" />
+          <span className="font-medium tabular-nums">{countLabel}</span>
+        </button>
+      ) : null}
       {/* Statusen får aldrig gömmas i nedfällt läge (komponentens hela poäng):
           "Bygger …" och versions-/F3-status ligger kvar i fliken-raden. */}
       {isStreaming ? (
@@ -109,27 +108,12 @@ export function ChatOutputCollapseBar({
           aria-label="Öppna byggkuben"
           title="Byggkuben: chatt, svar, bygglogg, verktyg, avatar och sajtkarta i en flyttbar panel"
           className={cn(
-            "hover:text-foreground hover:bg-muted/50 focus-visible:ring-ring hidden size-6 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none lg:inline-flex",
+            "hover:text-foreground hover:bg-muted/50 focus-visible:ring-ring text-foreground hidden h-7 shrink-0 items-center gap-1.5 rounded-md border border-border px-2 font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none lg:inline-flex",
             !isStreaming && !statusText && "ml-auto",
           )}
         >
-          <Box className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
-      ) : null}
-      {onMinimize ? (
-        <button
-          type="button"
-          onClick={onMinimize}
-          onPointerDown={(event) => event.stopPropagation()}
-          aria-label="Fäll ihop inmatningen"
-          title="Fäll ihop inmatningen så att sajten syns"
-          className={cn(
-            "hover:text-foreground hover:bg-muted/50 focus-visible:ring-ring inline-flex size-6 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none",
-            // Kubknappen före den här bär redan `ml-auto` på stora skärmar.
-            !isStreaming && !statusText && (onOpenCube ? "max-lg:ml-auto" : "ml-auto"),
-          )}
-        >
-          <Minus className="h-3.5 w-3.5" aria-hidden="true" />
+          <Box className="size-3.5 text-primary" aria-hidden="true" />
+          Byggkub
         </button>
       ) : null}
     </div>

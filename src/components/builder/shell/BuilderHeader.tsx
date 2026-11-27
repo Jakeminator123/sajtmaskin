@@ -6,6 +6,10 @@ import {
   isDefaultCustomInstructions,
 } from "@/lib/builder/defaults";
 import { Button } from "@/components/ui/button";
+import { ComposerModeToggle } from "@/components/builder/chat/sajtagent/ComposerModeToggle";
+import { useSajtagent } from "@/components/builder/chat/sajtagent/SajtagentProvider";
+import { OpenClawPowerChoices, useOpenClawPowerControls } from "@/components/openclaw/OpenClawPowersControl";
+import { COMPOSER_MODE_META, type ComposerMode } from "@/lib/builder/composer-route";
 import { useAuth } from "@/lib/auth/auth-store";
 import { SCAFFOLD_OFF_BASELINE_ID, type ScaffoldMode } from "@/lib/gen/scaffolds/types";
 import { SCAFFOLD_CLIENT_LIST } from "@/lib/gen/scaffolds/scaffold-client-list.generated";
@@ -68,6 +72,7 @@ const MANUALLY_SELECTABLE_SCAFFOLD_CLIENT_LIST = SCAFFOLD_CLIENT_LIST.filter(
 );
 
 export function BuilderHeader(props: {
+  composerSettings?: { mode: ComposerMode; onModeChange: (mode: ComposerMode) => void; buildLocked: boolean };
   scaffoldMode: ScaffoldMode;
   scaffoldId: string | null;
   onScaffoldModeChange: (mode: ScaffoldMode) => void;
@@ -217,6 +222,12 @@ export function BuilderHeader(props: {
   const isBusy = isAnyStreaming || isCreatingChat;
   const actionsLocked = isBusy || pipelineLocked;
   const isConfigLocked = isAnyStreaming;
+  const { composerSettings } = props;
+  const sajtagent = useSajtagent();
+  const agentConfigured = Boolean(sajtagent?.configured ?? sajtagent?.available);
+  const powerControls = useOpenClawPowerControls();
+  const showComposerSettings = Boolean(composerSettings && (agentConfigured || chatId));
+  const showAgentPowers = agentConfigured && powerControls.editEnabled;
   const scaffoldButtonLabel =
     scaffoldMode === "off"
       ? "Av"
@@ -370,11 +381,41 @@ export function BuilderHeader(props: {
 
             <DropdownMenuSeparator />
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger disabled={isConfigLocked}>
+              <DropdownMenuSubTrigger disabled={isConfigLocked && !showComposerSettings && !showAgentPowers}>
                 <Settings2 className="mr-2 h-4 w-4" />
                 Inställningar
               </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-56">
+              <DropdownMenuSubContent className="w-60">
+                {composerSettings && showComposerSettings ? (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>Chattläge · {COMPOSER_MODE_META[composerSettings.mode].label}</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-44">
+                      <ComposerModeToggle
+                        value={composerSettings.mode}
+                        onChange={composerSettings.onModeChange}
+                        agentConfigured={agentConfigured}
+                        buildLocked={composerSettings.buildLocked}
+                      />
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                ) : null}
+                {showAgentPowers ? (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>Sajtagentens befogenheter</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-72">
+                      <DropdownMenuCheckboxItem
+                        checked={powerControls.powersOn}
+                        onSelect={(event) => event.preventDefault()}
+                        onCheckedChange={(checked) => powerControls.changePowersOn(Boolean(checked))}
+                      >
+                        Låt agenten ändra
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuSeparator />
+                      <OpenClawPowerChoices control={powerControls} />
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                ) : null}
+                {showComposerSettings || showAgentPowers ? <DropdownMenuSeparator /> : null}
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger disabled={isConfigLocked}>
                     <Layers className="mr-2 h-4 w-4" />

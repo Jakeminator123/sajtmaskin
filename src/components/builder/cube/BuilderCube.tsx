@@ -949,7 +949,7 @@ export function BuilderCube({
               <div
                 {...cubeDrag}
                 data-cube-header=""
-                className="bg-background pointer-events-auto absolute inset-x-0 top-0 flex cursor-grab touch-none items-center gap-2 rounded-t-xl border border-b-0 border-border/70 px-2 select-none active:cursor-grabbing"
+                className="from-muted to-background pointer-events-auto absolute inset-x-0 top-0 flex cursor-grab touch-none items-center gap-2 rounded-t-xl border border-b-0 border-border bg-linear-to-b px-2 select-none active:cursor-grabbing"
                 style={{ height: CUBE_HEAD }}
               >
                 <button
@@ -982,11 +982,12 @@ export function BuilderCube({
                   <button
                     type="button"
                     onClick={onExit}
-                    aria-label="Tillbaka till chattpanelen"
-                    title="Tillbaka till chattpanelen"
-                    className="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring rounded-md p-1.5 outline-none focus-visible:ring-2"
+                    aria-label="Öppna chatten som sidopanel"
+                    title="Öppna chatten som sidopanel"
+                    className="border-primary/30 bg-primary/10 text-foreground hover:bg-primary/20 focus-visible:ring-ring inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium outline-none focus-visible:ring-2"
                   >
                     <PanelLeft className="size-3.5" aria-hidden="true" />
+                  Sidopanel
                   </button>
                 ) : null}
                 <button
@@ -1000,7 +1001,7 @@ export function BuilderCube({
                 </button>
               </div>
               <div
-                className="bg-background pointer-events-none absolute inset-x-0 rounded-b-xl border border-t-0 border-border/70 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.8)]"
+                className="from-background to-muted/80 pointer-events-none absolute inset-x-0 rounded-b-xl border border-t-0 border-border bg-linear-to-b shadow-[0_22px_56px_-24px_rgba(0,0,0,0.65)]"
                 style={{ top: CUBE_HEAD, bottom: 0 }}
                 aria-hidden="true"
               />
@@ -1028,7 +1029,7 @@ export function BuilderCube({
               />
               <div
                 aria-hidden="true"
-                className="pointer-events-auto absolute -right-1 -bottom-1 size-4 cursor-nwse-resize touch-none"
+                className="pointer-events-auto absolute -right-1 -bottom-1 size-5 cursor-nwse-resize touch-none after:absolute after:top-1 after:left-1 after:size-2 after:rounded-br-sm after:border-r-2 after:border-b-2 after:border-muted-foreground/60"
                 onPointerDown={startCubeResize("se")}
                 onPointerMove={cubeResize.onPointerMove}
                 onPointerUp={cubeResize.onPointerUp}
@@ -1072,8 +1073,8 @@ export function BuilderCube({
               tabIndex={-1}
               style={{ ...rectStyle(rect), zIndex: zFor(face) }}
               className={cn(
-                "bg-background text-foreground absolute flex flex-col overflow-hidden rounded-xl border border-border/80 outline-none",
-                "shadow-[0_18px_50px_-24px_rgba(0,0,0,0.75)] focus-visible:ring-2 focus-visible:ring-ring",
+                "bg-background text-foreground absolute flex flex-col overflow-hidden rounded-xl border border-border outline-none",
+                "shadow-[0_18px_50px_-24px_rgba(0,0,0,0.75)] focus-within:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring",
                 open ? "pointer-events-auto" : hiddenClass[hiddenStrategy],
                 asCard && cn("border-t-2", accent.edge),
                 layoutMode === "tabs" && "rounded-none border-x-0 border-b-0",
@@ -1199,11 +1200,12 @@ export function BuilderCube({
             <button
               type="button"
               onClick={onExit}
-              aria-label="Tillbaka till chattpanelen"
-              title="Tillbaka till chattpanelen"
-              className="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring rounded-lg p-1.5 outline-none focus-visible:ring-2"
+              aria-label="Öppna chatten som sidopanel"
+              title="Öppna chatten som sidopanel"
+              className="border-primary/30 bg-primary/10 text-foreground hover:bg-primary/20 focus-visible:ring-ring inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium outline-none focus-visible:ring-2"
             >
               <PanelLeft className="size-3.5" aria-hidden="true" />
+                  Sidopanel
             </button>
           ) : null}
         </div>
