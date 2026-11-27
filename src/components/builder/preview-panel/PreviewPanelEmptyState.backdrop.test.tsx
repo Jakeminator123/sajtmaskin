@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const searchParamsMock = vi.hoisted(() => ({ current: new URLSearchParams() }));
@@ -12,6 +12,7 @@ import {
   type FakeIntersectionObserver,
 } from "./PreviewBackdrop.test-support";
 import { resetF3FinalizeActivity } from "@/lib/builder/repair-blocked";
+import { resetInitBuildChoices } from "@/lib/builder/init-build-choices";
 
 const FIX_LABEL = "Försök reparera preview";
 const PAUSE_LABEL = "Pausa bakgrunden";
@@ -47,6 +48,7 @@ afterEach(() => {
   observer.restore();
   vi.restoreAllMocks();
   resetF3FinalizeActivity();
+  resetInitBuildChoices();
   searchParamsMock.current = new URLSearchParams();
 });
 
@@ -64,13 +66,23 @@ describe("PreviewPanelEmptyState — Moving Background 2", () => {
     expect(decoration.getAttribute("aria-hidden")).toBe("true");
     expect(decoration.className).toContain("pointer-events-none");
 
+    const openChoices = screen.getByRole("button", { name: "Byggförval" });
+    expect(decoration.contains(openChoices)).toBe(false);
+    expect(openChoices.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(openChoices);
+    expect(openChoices.getAttribute("aria-expanded")).toBe("true");
+
     const choices = screen.getAllByRole("radio");
     expect(choices.length).toBeGreaterThan(1);
     for (const choice of choices) {
       expect(decoration.contains(choice)).toBe(false);
     }
-    fireEvent.click(choices[0]!);
-    expect(choices[0]!.getAttribute("data-state")).toBe("on");
+    const darkMode = within(screen.getByRole("radiogroup", { name: "Färgläge" })).getByRole(
+      "radio",
+      { name: "Mörkt" },
+    );
+    fireEvent.click(darkMode);
+    expect(darkMode.getAttribute("data-state")).toBe("on");
   });
 
   it("lägger scenen bakom den faktiska statusen medan VM:en startar", () => {
