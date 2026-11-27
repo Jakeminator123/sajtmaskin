@@ -1,5 +1,4 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { withoutPageSubjectIntro } from "@/lib/builder/page-subject";
 import { stripFocusPointAppendix } from "@/lib/builder/focus-point-prompt";
 import type { ScaffoldContractRoute, ScaffoldManifest } from "../scaffolds/types";
 import { dedupePlannedRoutesInPlaceByLocale } from "./locale-dedupe";
@@ -358,7 +357,7 @@ export function buildRoutePlan(params: {
         explicitNamedPages.map((page) => page.name),
       );
       promptAddedRoutes =
-        applyPromptPatterns(withoutPageSubjectIntro(patternPrompt), WEBSITE_ROUTE_PATTERNS, routes) || promptAddedRoutes;
+        applyPromptPatterns(patternPrompt, WEBSITE_ROUTE_PATTERNS, routes) || promptAddedRoutes;
     }
   }
 

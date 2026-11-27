@@ -14,7 +14,8 @@
  */
 import type { ScaffoldManifest } from "./types";
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { withoutPageSubjectIntro } from "@/lib/builder/page-subject";
+import { outsidePageSubject } from "@/lib/builder/page-subject";
+import { negatedWindowRanges } from "@/lib/builder/prompt-negation";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";
 import { getScaffoldById, getScaffoldIds } from "./registry";
 import { SCAFFOLD_OFF_BASELINE_ID } from "./types";
@@ -426,23 +427,43 @@ function applyGameKeywordPreference(
   );
 }
 
+function scaffoldStructure(prompt: string, context?: ScaffoldQueryContext) {
+  const subject = outsidePageSubject(prompt);
+  const pages = context?.briefPages ?? [];
+  // A bare topic can have a negative relative clause without requesting a
+  // workspace. Keep its positive text eligible, including for semantic search.
+  const featureText = subject ?? prompt;
+  const exclusions = negatedWindowRanges(featureText);
+  const relativeClause = featureText.search(/\s(?:där|where)\s/iu);
+  const excludedFeature = relativeClause >= 0 && exclusions.some(({ start }) => start > relativeClause);
+  if (subject === null && !excludedFeature) {
+    return { prompt, context, subject: false, explicitPage: false };
+  }
+
+  // Blank in reverse to preserve offsets, including overlapping windows.
+  let positive = featureText;
+  for (const { start, end } of exclusions.reverse()) {
+    positive = positive.slice(0, start) + " ".repeat(end - start) + positive.slice(end);
+  }
+  // A root page's copy and domain hints can repeat the subject ("CRM").
+  // Additional declared pages are independent evidence of site structure.
+  const routeContext = { briefPages: pages.filter((page) => page.path && page.path !== "/") };
+  return { prompt: positive, context: routeContext, subject: true, explicitPage: subject !== null };
+}
+
 function rankKeywordScaffolds(
-  prompt: string,
   scores: Array<{ id: string; score: number }>,
-  buildIntent?: BuildIntent | null,
-  structuralPrompt = prompt,
+  buildIntent: BuildIntent | null | undefined,
+  structuralPrompt: string,
+  subject: boolean,
 ) {
   const rankedScores = applyGameKeywordPreference(scores, structuralPrompt, buildIntent);
   const eligibleScores = eligibleKeywordScores(rankedScores, buildIntent, structuralPrompt);
   const best = pickBestScaffold(eligibleScores);
-  const subject = withoutPageSubjectIntro(prompt);
-  // A plain topic has a reading surface. The App target alone supplies no
-  // evidence of a workspace. Preserve an independently requested product.
   const useSubjectStarter =
-    (buildIntent === "website" || buildIntent === "app") &&
-    subject !== prompt &&
+    subject && (buildIntent === "website" || buildIntent === "app") &&
     !eligibleScores.some(({ id, score }) => id !== "landing-page" && score >= MIN_SCORE) &&
-    countKeywordMatches(subject, PRODUCT_SURFACE_KEYWORDS) === 0;
+    countKeywordMatches(structuralPrompt, PRODUCT_SURFACE_KEYWORDS) === 0;
   return {
     scores: rankedScores,
     eligibleScores,
@@ -461,10 +482,12 @@ export function matchScaffold(
     return defaultScaffoldForIntent(buildIntent);
   }
 
+  const structure = scaffoldStructure(prompt);
   return rankKeywordScaffolds(
-    prompt,
-    buildKeywordScores(prompt.toLowerCase()),
+    buildKeywordScores(structure.prompt.toLowerCase()),
     buildIntent,
+    structure.prompt,
+    structure.subject,
   ).scaffold;
 }
 
@@ -698,8 +721,10 @@ export async function matchScaffoldAuto(
   // scores the original prompt, then `applyBriefKeywordBoost` adds real
   // brief keyword counts (not a flat +2) so brief evidence can meet
   // MIN_SCORE without double-counting the same tokens via a second boost.
-  const lowerPrompt = prompt.toLowerCase();
-  const lowerScaffold = scaffoldPrompt.toLowerCase();
+  const structure = scaffoldStructure(prompt, options.queryContext);
+  const structuralPrompt = buildScaffoldPrompt(structure.prompt, structure.context);
+  const lowerPrompt = structure.prompt.toLowerCase();
+  const lowerScaffold = structuralPrompt.toLowerCase();
 
   const embeddingPromise = useEmbeddings
     ? searchScaffoldsWithDiagnostics(scaffoldPrompt, getScaffoldIds().length)
@@ -707,7 +732,7 @@ export async function matchScaffoldAuto(
 
   const baseKeywordScores = applyBriefKeywordBoost(
     buildKeywordScores(lowerPrompt, options.capabilities),
-    options.queryContext,
+    structure.context,
   );
   const keywordsDisabled = isScaffoldKeywordMatchDisabled();
   const unrankedKeywordScores = keywordsDisabled
@@ -719,12 +744,12 @@ export async function matchScaffoldAuto(
         eligibleScores: eligibleKeywordScores(
           unrankedKeywordScores,
           buildIntent,
-          scaffoldPrompt,
+          structuralPrompt,
         ),
         scaffold: defaultScaffoldForIntent(buildIntent),
         useSubjectStarter: false,
       }
-    : rankKeywordScaffolds(prompt, unrankedKeywordScores, buildIntent, scaffoldPrompt);
+    : rankKeywordScaffolds(unrankedKeywordScores, buildIntent, structuralPrompt, structure.subject);
   const keywordScores = keywordRanking.scores;
   const keywordEligibleScores = keywordRanking.eligibleScores;
   const keywordResult = keywordRanking.scaffold;
@@ -782,8 +807,8 @@ export async function matchScaffoldAuto(
     // A generic semantic resemblance cannot supply a workspace, store or
     // portfolio for a subject-only request. Base Next.js is also not a new
     // semantic fallback for operational apps just because it now allows App.
-    if (keywordRanking.useSubjectStarter) return scaffold.id === "base-nextjs";
-    if (buildIntent === "app" && scaffold.id === "base-nextjs") return false;
+    if (keywordRanking.useSubjectStarter && structure.explicitPage) return scaffold.id === "base-nextjs";
+    if (!keywordRanking.useSubjectStarter && buildIntent === "app" && scaffold.id === "base-nextjs") return false;
     return canRankForBuildIntent(scaffold, buildIntent, provisionalWebsiteAppEvidence);
   });
   const embeddingTopResult =

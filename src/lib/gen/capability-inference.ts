@@ -24,6 +24,7 @@
  * regex banks across these three files.
  */
 
+import { outsidePageSubject } from "@/lib/builder/page-subject";
 import { uWord, uWordRegex } from "@/lib/utils/unicode-word-boundary";
 import {
   CLAUSE_BOUNDARY_RE,
@@ -408,7 +409,8 @@ const RULES: CapabilityRule[] = [
   },
 ];
 
-export function inferCapabilities(prompt: string): InferredCapabilities {
+export function inferCapabilities(message: string): InferredCapabilities {
+  const prompt = outsidePageSubject(message) ?? message;
   const result: InferredCapabilities = {
     needsMotion: false,
     needs3D: false,

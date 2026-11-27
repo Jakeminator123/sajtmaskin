@@ -1,3 +1,5 @@
+import { outsidePageSubject } from "@/lib/builder/page-subject";
+import { isTermFullyNegated } from "@/lib/builder/prompt-negation";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { escapeRegexLiteral, uWord, uWordRegex } from "@/lib/utils/unicode-word-boundary";
 import type { ScaffoldContractRoute, ScaffoldManifest } from "../scaffolds/types";
@@ -856,13 +858,14 @@ export function buildRoutesFromBrief(
 }
 
 export function applyPromptPatterns(
-  prompt: string,
+  message: string,
   patterns: RoutePatternEntry[],
   routes: RouteLike[],
 ): boolean {
+  const prompt = outsidePageSubject(message) ?? message;
   const before = new Set(routes.map((route) => normalizeRoutePath(route.path)));
   for (const pattern of patterns) {
-    if (pattern.match.test(prompt)) {
+    if (pattern.match.test(prompt) && !isTermFullyNegated(prompt, pattern.match)) {
       upsertRoute(routes, {
         path: pattern.path,
         name: pattern.name,

@@ -3,6 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import { buildInitBuildChoicesMeta, DEFAULT_INIT_BUILD_CHOICES } from "@/lib/builder/init-build-choices";
 import { resolveThemePalette } from "@/lib/builder/theme-presets";
 import { getDefaultPaletteState } from "@/lib/builder/palette";
+import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
+import { formatBriefBuildChoicesForPrompt } from "@/lib/builder/brief-build-choices-format";
+import { inferCapabilities } from "./capability-inference";
 import { buildGenerationInputPackage } from "./orchestrate/generation-package";
 import { finalizeOrchestrationPrompts, resolveOrchestrationBase, type OrchestrationInput } from "./orchestrate";
 import { buildVariantHintsForBrief, formatVariantHintsForPrompt } from "./scaffold-variants";
@@ -87,14 +90,15 @@ describe("content subjects from Byggval through brief and generation", () => {
   });
 
   it.each([
-    ["Skapa en app om fjärilar", "app", "base-nextjs"],
-    ["Build an app about bear cubs", "app", "base-nextjs"],
+    ["Skapa en app om fjärilar", "app", "app-shell"],
+    ["Build an app about bear cubs", "app", "app-shell"],
     ["Bygg en page about owls", "website", "base-nextjs"],
     ["Make a page about owls in a personal, creative style", "website", "base-nextjs"],
     ["Create a personal, creative website for a photographer", "website", "portfolio"],
     ["En sida om ormar med en CRM-widget", "app", "app-shell"],
     ["Build a site about turtles with a widget", "app", "app-shell"],
     ["An app about owls with login and password reset", "app", "auth-pages"],
+    ["A webpage about owls with login and password reset", "app", "auth-pages"],
     ["Bygg en dashboard med nyckeltal och diagram", "app", "dashboard"],
     ["Create a portfolio site with selected work", "website", "portfolio"],
   ] as const)("keeps the independent product ask in %s", async (prompt, buildIntent, expected) => {
@@ -105,6 +109,61 @@ describe("content subjects from Byggval through brief and generation", () => {
     if (expected === "base-nextjs") {
       expect(base.routePlan.routes).toMatchObject([{ path: "/", name: "Home" }]);
     }
+  });
+
+  it("passes the build target to Deep Brief without assigning product layout", () => {
+    expect(formatBriefBuildChoicesForPrompt(warmApp)?.split("\n")).toContain("- Build intent (user choice): app");
+  });
+
+  it.each([
+    "En app om att planera mina arbetsuppgifter",
+    "An app about tracking my customers",
+    "En app om tidrapportering för personal",
+    "En app om stråkplanering",
+    "An app about inventory reconciliation",
+  ])("keeps operational app wording eligible for both matching stages: %s", async (prompt) => {
+    expect(matchScaffold(prompt, "app")?.id).toBe("app-shell");
+    vi.mocked(searchScaffoldsWithDiagnostics).mockResolvedValue({
+      results: [{ scaffold: getScaffoldById("dashboard")!, score: 0.82 }],
+      diagnostics: { attempted: true, available: true, failed: false, unavailableReason: null, errorMessage: null, durationMs: 3 },
+    });
+    const base = await resolveOrchestrationBase(generationInput(prompt, { brief: null, embeddingScaffoldMatch: true }));
+    expect(base.resolvedScaffold?.id).toBe("dashboard");
+    expect(base.routePlan.siteType).toBe("app-shell");
+  });
+
+  it.each([
+    ["En sida om CRM-system", "app"],
+    ["A webpage about login and password recovery", "app"],
+    ["En sida om CRM utan inloggning", "app"],
+    ["En sida om björnungar där besökare inte ska kunna logga in", "app"],
+    ["Björnungar där besökare inte ska kunna logga in", "app"],
+    ["Build a webpage about owls", "website"],
+  ] as const)("keeps topics and rejected features out of routes and functional capabilities: %s", async (prompt, buildIntent) => {
+    expect(matchScaffold(prompt, buildIntent)?.id).toBe("base-nextjs");
+    const capabilities = inferCapabilities(prompt);
+    const detected = detectFollowUpCapabilities(prompt, { mode: "init" });
+    const base = await resolveOrchestrationBase(generationInput(prompt, {
+      buildIntent, capabilities, requestedDossierCapabilities: detected.capabilityIds,
+      brief: { pages: [{ path: "/", name: "Guide", purpose: `Introduktion: ${prompt}` }] },
+    }));
+    expect(base.resolvedScaffold?.id).toBe("base-nextjs");
+    expect(base.routePlan.routes.map(({ path }) => path)).toEqual(["/"]);
+    expect(base.capabilities.needsAuth).toBe(false);
+    expect(base.capabilities.needsAppShell).toBe(false);
+    expect(base.mutedCapabilities).not.toContain("auth");
+  });
+
+  it("keeps a Swedish login request after a content subject", async () => {
+    const prompt = "En sida om CRM-system med inloggning";
+    const detected = detectFollowUpCapabilities(prompt, { mode: "init" });
+    expect(inferCapabilities(prompt)).toMatchObject({ needsAppShell: false, needsAuth: true });
+    expect(detected.capabilityIds).toContain("auth");
+    const base = await resolveOrchestrationBase(generationInput(prompt, {
+      requestedDossierCapabilities: detected.capabilityIds,
+    }));
+    expect(base.routePlan.routes.map(({ path }) => path)).toContain("/login");
+    expect(base.mutedCapabilities).toContain("auth");
   });
 
   it("preserves the brief palette when the customer leaves the color preset off", async () => {
@@ -128,7 +187,8 @@ describe("content subjects from Byggval through brief and generation", () => {
 
   it("delivers a requested carousel in F2 and remembers an explicitly chosen hard provider for F3", async () => {
     const prompt = "En sida om björnungar med bildkarusell och inloggning via Clerk.";
-    const input = generationInput(prompt, { requestedDossierCapabilities: ["carousel", "auth"] });
+    const detected = detectFollowUpCapabilities(prompt, { mode: "init" });
+    const input = generationInput(prompt, { requestedDossierCapabilities: detected.capabilityIds });
     const design = await resolveOrchestrationBase(input);
     expect(design.dossierSelection?.selected.map(({ entry }) => entry.id)).toEqual(["embla-carousel"]);
     expect(design.mutedCapabilities).toContain("auth");

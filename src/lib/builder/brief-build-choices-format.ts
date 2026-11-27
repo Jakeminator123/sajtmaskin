@@ -22,9 +22,7 @@ export function formatBriefBuildChoicesForPrompt(
   if (!input) return undefined;
   const lines: string[] = [];
   if (input.buildIntent === "website" || input.buildIntent === "app") {
-    lines.push(
-      `- Build intent (user choice): ${input.buildIntent === "app" ? "app / product UI" : "website"}`,
-    );
+    lines.push(`- Build intent (user choice): ${input.buildIntent}`);
   }
   if (input.scaffoldId) {
     const scaffold = getScaffoldById(input.scaffoldId);
