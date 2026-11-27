@@ -245,6 +245,7 @@ export function buildRoutePlan(params: {
     : new Set<string>();
   const explicitAddRouteIntent =
     hasExplicitAddRouteIntent(prompt) || explicitNamedPages.length > 0;
+  const preserveAddedPageSubject = generationMode === "followUp" && explicitAddRouteIntent;
   let promptAddedRoutes = false;
 
   const productWorkspace = buildIntent === "app" && resolvedScaffold?.id !== "base-nextjs";
@@ -330,7 +331,7 @@ export function buildRoutePlan(params: {
         explicitNamedPages.map((page) => page.name),
       );
       promptAddedRoutes =
-        applyPromptPatterns(patternPrompt, APP_ROUTE_PATTERNS, routes) || promptAddedRoutes;
+        applyPromptPatterns(patternPrompt, APP_ROUTE_PATTERNS, routes, preserveAddedPageSubject) || promptAddedRoutes;
     }
   } else {
     if (!useFollowUpFreeze && !hasBriefRoutes) {
@@ -357,7 +358,7 @@ export function buildRoutePlan(params: {
         explicitNamedPages.map((page) => page.name),
       );
       promptAddedRoutes =
-        applyPromptPatterns(patternPrompt, WEBSITE_ROUTE_PATTERNS, routes) || promptAddedRoutes;
+        applyPromptPatterns(patternPrompt, WEBSITE_ROUTE_PATTERNS, routes, preserveAddedPageSubject) || promptAddedRoutes;
     }
   }
 

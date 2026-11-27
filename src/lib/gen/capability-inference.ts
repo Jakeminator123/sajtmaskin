@@ -517,6 +517,19 @@ export function inferCapabilities(message: string): InferredCapabilities {
   return result;
 }
 
+/** Auth forms are removed before the normal form detector checks the remainder. */
+export function hasOnlyAuthenticationForms(message: string): boolean {
+  const subject = "login|log[-\\s]?in|logga\\s+in|sign[-\\s]?(?:in|up)|" +
+    "auth(?:entication)?|registration|register|registrering(?:s)?|inloggning(?:s)?|" +
+    "password[-\\s]?reset|reset[-\\s]?password|forgot[-\\s]?password|lösenordsåterställning(?:s)?";
+  const authenticationForms = uWordRegex(
+    `(?:(?:${subject})[-\\s]*(?:form|formulär)|(?:form|formulär)\\s+(?:for|to|för)\\s+(?:${subject}))`,
+    "giu",
+  );
+  const remainder = message.replace(authenticationForms, " ");
+  return remainder !== message && !inferCapabilities(remainder).needsForms;
+}
+
 /**
  * True when any capability flag indicates a non-trivial UI/product feature.
  * Used to prevent capability-heavy follow-ups from being treated as tiny tweaks.

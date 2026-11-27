@@ -34,12 +34,12 @@ function capabilities(overrides: Partial<InferredCapabilities> = {}): InferredCa
 describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
   it("keeps form validation independent of contact delivery for auth forms", () => {
     const authForm = capabilities({ needsAuth: true, needsForms: true });
-    expect(resolveDossierCapabilitiesFromInferredCapabilities(authForm, { explicitContactRequested: false }))
+    expect(resolveDossierCapabilitiesFromInferredCapabilities(authForm, { formsAreAuthOnly: true }))
       .toEqual(["auth"]);
-    expect(resolveDossierCapabilitiesFromInferredCapabilities(authForm, { explicitContactRequested: true }))
+    expect(resolveDossierCapabilitiesFromInferredCapabilities(authForm, { formsAreAuthOnly: false }))
       .toEqual(["auth", "contact-form"]);
     expect(resolveDossierCapabilitiesFromInferredCapabilities(capabilities({ needsForms: true }), {
-      explicitContactRequested: false,
+      formsAreAuthOnly: true,
     })).toEqual(["contact-form"]);
   });
 

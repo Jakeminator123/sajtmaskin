@@ -1,11 +1,33 @@
 import { describe, expect, it } from "vitest";
 import {
   inferCapabilities,
+  hasOnlyAuthenticationForms,
   buildCapabilityHints,
   explicitlyRequests3D,
 } from "./capability-inference";
 
 describe("inferCapabilities", () => {
+  it.each([
+    "Add a login form",
+    "Build a sign-in form",
+    "Add a password reset form and a login form",
+    "Skapa ett inloggningsformulär",
+    "Skapa ett formulär för inloggning",
+    "Create a form to sign in",
+  ])("recognizes authentication-only forms in %s", (prompt) => {
+    expect(hasOnlyAuthenticationForms(prompt)).toBe(true);
+  });
+
+  it.each([
+    "Build an app with login and a form that sends submissions to my email",
+    "Add a login form and a survey form",
+    "Skapa ett inloggningsformulär och ett separat formulär som skickar svar till min e-post",
+    "Add a login form, a booking form and a contact form",
+    "Create a survey",
+  ])("keeps independent form requirements in %s", (prompt) => {
+    expect(hasOnlyAuthenticationForms(prompt)).toBe(false);
+  });
+
   it.each([
     "Bygg en sida utan reklam med en roterbar 3D-produkt.",
     "Build a page without ads with a rotatable 3D product.",

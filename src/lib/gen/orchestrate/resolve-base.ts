@@ -26,6 +26,7 @@ import {
 } from "../scaffolds/serialize";
 import {
   inferCapabilities,
+  hasOnlyAuthenticationForms,
   buildCapabilityHints,
 } from "../capability-inference";
 import {
@@ -708,7 +709,7 @@ export async function resolveOrchestrationBase(
       const rawDossierPrompt = input.rawPrompt ?? input.capabilitiesPrompt ?? input.prompt;
       const explicitCapabilityIds = detectFollowUpCapabilities(rawDossierPrompt, { mode: resolvedMode }).capabilityIds;
       const inferredCapabilityIds = resolveDossierCapabilitiesFromInferredCapabilities(capabilities, {
-        explicitContactRequested: explicitCapabilityIds.includes("contact-form"),
+        formsAreAuthOnly: !explicitCapabilityIds.includes("contact-form") && hasOnlyAuthenticationForms(rawDossierPrompt),
       });
       const briefCapsRaw = (brief as { requestedCapabilities?: unknown } | null | undefined)
         ?.requestedCapabilities;

@@ -861,8 +861,9 @@ export function applyPromptPatterns(
   message: string,
   patterns: RoutePatternEntry[],
   routes: RouteLike[],
+  preservePageSubject = false,
 ): boolean {
-  const prompt = outsidePageSubject(message) ?? message;
+  const prompt = preservePageSubject ? message : outsidePageSubject(message) ?? message;
   const before = new Set(routes.map((route) => normalizeRoutePath(route.path)));
   for (const pattern of patterns) {
     if (pattern.match.test(prompt) && !isTermFullyNegated(prompt, pattern.match)) {

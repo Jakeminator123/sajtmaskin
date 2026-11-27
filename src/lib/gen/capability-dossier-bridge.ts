@@ -40,14 +40,14 @@ export const INFERRED_CAPABILITY_DOSSIER_BRIDGE = [
 
 export function resolveDossierCapabilitiesFromInferredCapabilities(
   capabilities: InferredCapabilities,
-  options?: { explicitContactRequested: boolean },
+  options?: { formsAreAuthOnly: boolean },
 ): string[] {
   const dossierCapabilities: string[] = [];
 
   for (const entry of INFERRED_CAPABILITY_DOSSIER_BRIDGE) {
     // Auth forms still need validation, while mail delivery follows an
     // independently requested contact capability. Older callers keep the bridge.
-    if (entry.flag === "needsForms" && capabilities.needsAuth && options?.explicitContactRequested === false) {
+    if (entry.flag === "needsForms" && capabilities.needsAuth && options?.formsAreAuthOnly === true) {
       continue;
     }
     if (capabilities[entry.flag]) {

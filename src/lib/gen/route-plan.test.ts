@@ -33,6 +33,19 @@ describe("buildRoutePlan", () => {
     brief: undefined as undefined,
   };
 
+  it.each([
+    ["Add a page about our company", "website", "/about"],
+    ["Create a new page about our company story", "website", "/about"],
+    ["Lägg till en sida om oss", "website", "/om"],
+    ["Add a page about account settings", "app", "/settings"],
+  ] as const)("keeps the separate page request %s in a follow-up", (prompt, buildIntent, path) => {
+    const plan = buildRoutePlan({
+      ...websiteBase, prompt, buildIntent, generationMode: "followUp", existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.map((route) => route.path)).toContain(path);
+    expect(plan.routes.map((route) => route.path)).toContain("/");
+  });
+
   it("maps Swedish om oss to /om", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
@@ -40,6 +53,18 @@ describe("buildRoutePlan", () => {
     });
     expect(plan.routes.some((r) => r.path === "/om" && r.name === "Om oss")).toBe(true);
     expect(plan.routes.some((r) => r.path === "/about")).toBe(false);
+  });
+
+  it("keeps an initial content subject on the root route", () => {
+    const plan = buildRoutePlan({ ...websiteBase, prompt: "Create a page about our company", generationMode: "init" });
+    expect(plan.routes.map((route) => route.path)).toEqual(["/"]);
+  });
+
+  it("keeps existing routes for a follow-up copy edit about a company page", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase, prompt: "Polish the page about our company", generationMode: "followUp", existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(["/"]);
   });
 
   it("maps English about/company to /about", () => {
