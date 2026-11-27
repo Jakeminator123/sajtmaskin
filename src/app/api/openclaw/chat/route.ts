@@ -31,6 +31,7 @@ import {
   OPENCLAW_DISPATCH_HEADER,
   OPENCLAW_DISPATCH_NOT_STARTED,
   OPENCLAW_DISPATCH_STARTED,
+  OPENCLAW_FAST_UNAVAILABLE,
 } from "@/lib/openclaw/gateway-response";
 import { resolveOpenClawModelRoute } from "@/lib/openclaw/model-routing";
 import { validateOpenClawChatMessages } from "@/lib/openclaw/message-validation";
@@ -57,6 +58,7 @@ interface ChatMessage {
 interface ChatRequestBody {
   messages?: unknown;
   readTask?: unknown;
+  fastMode?: boolean;
   context?: Record<string, unknown> | null;
   /** Extra powers the user granted in the chat UI. Narrowing only — see
    * `resolveOpenClawPowersFromRequest`. */
@@ -229,6 +231,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    const fastMode = body.fastMode === true;
+    if (fastMode && !(typeof body.context?.chatId === "string" && body.context.chatId.trim())) {
+      return NextResponse.json({ error: "Öppna din byggarchatt för att använda OpenAI Fast." }, { status: 403 });
+    }
+
     const routingIntent = decideOpenClawRoutingIntent({ messages: clientMessages });
     const debug = OPENCLAW.debugEnabled;
     // Act side: OC_EDIT AND the powers the user granted in the chat UI. With no
@@ -305,6 +312,7 @@ export async function POST(req: NextRequest) {
       // read generated files for ids the REQUESTER owns. Reuse the already
       // resolved scoped version when ids match; otherwise verify per id. Covers
       // the chatId-only (manifest) case via chat-level ownership.
+      let currentChatLookup: ReturnType<typeof getEngineChatByIdForRequest> | undefined;
       const verifyOwnership = async (cid: string, vid: string | null) => {
         if (vid) {
           if (scopedVersion && cid === reviewChatId && vid === reviewVersionId) {
@@ -317,9 +325,15 @@ export async function POST(req: NextRequest) {
           ).catch(() => null);
           return scoped ? { chatId: cid, versionId: scoped.version.id } : null;
         }
-        const chat = await getEngineChatByIdForRequest(req, cid).catch(() => null);
-        return chat ? { chatId: cid, versionId: null } : null;
+        if (cid === reviewChatId && scopedVersion) return { chatId: cid, versionId: null };
+        const lookup = cid === reviewChatId
+          ? (currentChatLookup ??= getEngineChatByIdForRequest(req, cid))
+          : getEngineChatByIdForRequest(req, cid);
+        return (await lookup.catch(() => null)) ? { chatId: cid, versionId: null } : null;
       };
+      if (fastMode && reviewChatId && !(await verifyOwnership(reviewChatId, null))) {
+        return NextResponse.json({ error: "OpenAI Fast kräver åtkomst till byggarchatten." }, { status: 403 });
+      }
 
       // Kodnavigering (plan 2026-10-22): en ägarverifierad chatt får alltid
       // manifestet och instruktionen för read_files — läsning är ofarlig och
@@ -462,6 +476,7 @@ export async function POST(req: NextRequest) {
         gatewayUrl,
         gatewayToken,
         route: modelRoute,
+        fastMode,
         body: {
           messages,
           stream: true,
@@ -473,6 +488,12 @@ export async function POST(req: NextRequest) {
         console.warn(
           `[openclaw/chat] gateway status=${upstream.status} lane=${effectiveRoute.lane}`,
         );
+        if (fastMode && [404, 405, 503].includes(upstream.status)) {
+          return NextResponse.json({
+            code: OPENCLAW_FAST_UNAVAILABLE,
+            error: "OpenAI Fast är tillfälligt otillgängligt. Ditt utkast finns kvar och nästa fråga använder standard.",
+          }, { status: 503 });
+        }
         return NextResponse.json(
           { error: "Gateway error", status: upstream.status },
           { status: upstream.status >= 500 ? 502 : upstream.status },

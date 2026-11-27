@@ -56,7 +56,7 @@ function streamingReply() {
   };
 }
 
-function setupFetch(replies: Response[]) {
+function setupFetch(replies: Response[], fastAnnouncements: boolean[] = []) {
   const writes: Array<{
     url: string;
     messages: Array<{ id: string; content: string }>;
@@ -66,7 +66,7 @@ function setupFetch(replies: Response[]) {
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url === "/api/openclaw/health")
-        return Response.json({ status: "ok", readiness: "ready", surfaceEnabled: true });
+        return Response.json({ status: "ok", readiness: "ready", surfaceEnabled: true, fastModeSupported: fastAnnouncements.shift() ?? false });
       if (url === "/api/openclaw/chat") return replies.shift()!;
       if (init?.method === "POST" && url.endsWith("/agent-messages")) {
         writes.push({ url, ...JSON.parse(String(init.body)) });
@@ -99,6 +99,65 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   document.body.removeAttribute(OPENCLAW_SURFACE_BODY_ATTR);
+  delete window.__SITEMASKIN_CONTEXT;
+});
+
+it("applies paid Fast only to the user's opted-in chat and its direct gateway turns", async () => {
+  const replies = Array.from({ length: 5 }, () => {
+    const stream = streamingReply();
+    stream.text("Ett svar");
+    stream.end();
+    return stream.response;
+  });
+  setupFetch(replies, [true]);
+  window.__SITEMASKIN_CONTEXT = { chatId: "chat_a" };
+  const { rerender } = render(view());
+  await waitFor(() => expect(agent.fastMode?.enabled).toBe(false));
+  await act(() => agent.send("En vanlig fråga"));
+  act(() => agent.fastMode!.setEnabled(true));
+  await act(() => agent.send("Min snabba fråga"));
+  await act(() => agent.send("Automatisk sammanfattning", { internal: true }));
+  window.__SITEMASKIN_CONTEXT = { chatId: "chat_b" };
+  rerender(view("chat_b"));
+  expect(agent.fastMode?.enabled).toBe(false);
+  act(() => useOpenClawStore.getState().setScope("/builder::builder::chat_b"));
+  await act(() => agent.send("En fråga i nästa chatt"));
+  window.__SITEMASKIN_CONTEXT = { chatId: "chat_a" };
+  rerender(view());
+  expect(agent.fastMode?.enabled).toBe(true);
+  const outcome = vi.fn();
+  await act(() => agent.send("För tidigt under chattbytet", { onDispatchOutcome: outcome }));
+  expect(outcome).toHaveBeenCalledWith("not-started");
+  act(() => useOpenClawStore.getState().setScope("/builder::builder::chat_a"));
+  act(() => agent.fastMode!.setEnabled(false));
+  await act(() => agent.send("Tillbaka till standard"));
+  const modes = vi.mocked(fetch).mock.calls
+    .filter(([url]) => url === "/api/openclaw/chat")
+    .map(([, init]) => JSON.parse(String(init?.body)).fastMode);
+  expect(modes).toEqual([undefined, true, undefined, undefined, undefined]);
+});
+
+it("withdraws a stale Fast capability after rollback without resending the user's question", async () => {
+  const error = Response.json({
+    code: "fast_mode_unavailable", error: "Nästa fråga använder standard.",
+  }, { status: 503 });
+  const normal = streamingReply();
+  normal.text("Standardsvar");
+  normal.end();
+  setupFetch([error, normal.response], [true, false]);
+  window.__SITEMASKIN_CONTEXT = { chatId: "chat_a" };
+  render(view());
+  await waitFor(() => expect(agent.fastMode?.enabled).toBe(false));
+  act(() => agent.fastMode!.setEnabled(true));
+  await act(() => agent.send("Min fråga"));
+  await waitFor(() => expect(vi.mocked(fetch).mock.calls.filter(([url]) => url === "/api/openclaw/health")).toHaveLength(2));
+  expect(agent.fastMode).toBeUndefined();
+  expect(vi.mocked(fetch).mock.calls.filter(([url]) => url === "/api/openclaw/chat")).toHaveLength(1);
+  await act(() => agent.send("En ny fråga"));
+  const modes = vi.mocked(fetch).mock.calls
+    .filter(([url]) => url === "/api/openclaw/chat")
+    .map(([, init]) => JSON.parse(String(init?.body)).fastMode);
+  expect(modes).toEqual([true, undefined]);
 });
 
 describe("SajtagentProvider — settled history snapshots", () => {

@@ -6,6 +6,9 @@ const mocks = vi.hoisted(() => ({
   surfaceStatus: { surfaceEnabled: true, surfaceStatus: "ready", blockers: [] as string[] },
   gateway: vi.fn(),
   answerReadTask: vi.fn(),
+  lookupChat: vi.fn(),
+  latestVersion: vi.fn(),
+  buildContext: vi.fn(),
   validateMessages: vi.fn(),
   powers: { any: false, armedAutonomy: false } as {
     any: boolean;
@@ -45,7 +48,7 @@ vi.mock("@/lib/openclaw/edit-system-prompt", () => ({
   buildAgentActionConsentPrompt: (allowed: boolean) => (allowed ? "CONSENT-YES" : "CONSENT-NO"),
 }));
 vi.mock("@/lib/openclaw/server-context", () => ({
-  buildOpenClawContextSystemMessage: vi.fn(),
+  buildOpenClawContextSystemMessage: mocks.buildContext,
 }));
 vi.mock("@/lib/openclaw/review-context", () => ({ buildOpenClawReviewContext: vi.fn() }));
 vi.mock("@/lib/openclaw/preview-log-context", () => ({
@@ -77,9 +80,9 @@ vi.mock("@/lib/openclaw/debug/owner-token", () => ({
 }));
 vi.mock("@/lib/db/services/debug-findings", () => ({ queryDebugFindings: vi.fn() }));
 vi.mock("@/lib/tenant", () => ({
-  getEngineChatByIdForRequest: vi.fn(),
+  getEngineChatByIdForRequest: mocks.lookupChat,
   getEngineVersionForChatByIdForRequest: vi.fn(),
-  getLatestEngineVersionForChatForRequest: vi.fn(),
+  getLatestEngineVersionForChatForRequest: mocks.latestVersion,
 }));
 
 import {
@@ -110,6 +113,9 @@ function request(body = JSON.stringify({ messages: [{ role: "user", content: "he
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.powers = { any: false, armedAutonomy: false };
+  mocks.lookupChat.mockResolvedValue(null);
+  mocks.latestVersion.mockResolvedValue(null);
+  mocks.buildContext.mockResolvedValue({ content: "Byggarkontext", codeContextMode: "none" });
   mocks.surfaceStatus.surfaceEnabled = true;
   mocks.withRateLimit.mockImplementation(
     async (_req: Request, _key: string, callback: () => Promise<Response>) => callback(),
@@ -121,6 +127,27 @@ beforeEach(() => {
   mocks.validateMessages.mockReturnValue({
     ok: true,
     messages: [{ role: "user", content: "hej" }],
+  });
+});
+
+describe("OpenAI Fast", () => {
+  it.each([undefined, "another-chat"])("denies unowned chat %s before inference", async (chatId) => {
+    const res = await POST(request(JSON.stringify({
+      messages: [{ role: "user", content: "hej" }], context: { chatId }, fastMode: true,
+    })));
+    expect(res.status).toBe(403);
+    expect(res.headers.get(OPENCLAW_DISPATCH_HEADER)).toBe(OPENCLAW_DISPATCH_NOT_STARTED);
+    expect(mocks.gateway).not.toHaveBeenCalled();
+  });
+
+  it("passes the opt-in for an owned builder chat, including before the first version exists", async () => {
+    mocks.lookupChat.mockResolvedValue({ id: "my-chat" });
+    const res = await POST(request(JSON.stringify({
+      messages: [{ role: "user", content: "hej" }], context: { chatId: "my-chat" }, fastMode: true,
+    })));
+    expect(res.status).toBe(200);
+    expect(mocks.lookupChat).toHaveBeenCalledTimes(1);
+    expect(mocks.gateway).toHaveBeenCalledWith(expect.objectContaining({ fastMode: true }));
   });
 });
 
