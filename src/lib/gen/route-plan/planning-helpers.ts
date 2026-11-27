@@ -571,12 +571,22 @@ export function extractExplicitNamedPages(
   if (options?.includeSubjects) {
     const patterns = options.buildIntent === "app" ? APP_ROUTE_PATTERNS : WEBSITE_ROUTE_PATTERNS;
     let subject = splitPageSubject(prompt);
+    let previousSubjectWasAddition = false;
     while (subject && out.length < MAX_NAMED_PAGES_FROM_LIST) {
-      const page = parseExplicitPageName(trimBarePageName(subject.subject), patterns);
-      if (page && page.path !== "/" && !seenPaths.has(page.path)) {
-        seenPaths.add(page.path);
-        out.push(page);
+      // An edit target elsewhere in the prompt is not a new route. A bare
+      // coordinated page can inherit the immediately preceding addition.
+      const clausePrefix = subject.before.split(/[,.;!?\n]|\b(?:and|och|samt|then|sedan)\b/iu).at(-1) ?? "";
+      const continuesAdditionList = previousSubjectWasAddition &&
+        /^\s*(?:,\s*(?:(?:and|och|samt)\s+)?|(?:and|och|samt|plus|&|\+)\s+)(?:(?:an?|en|ett)\s+)?$/iu.test(subject.before);
+      const isAddition = hasExplicitAddRouteIntent(clausePrefix + subject.intro) || continuesAdditionList;
+      if (isAddition) {
+        const page = parseExplicitPageName(trimBarePageName(subject.subject), patterns);
+        if (page && page.path !== "/" && !seenPaths.has(page.path)) {
+          seenPaths.add(page.path);
+          out.push(page);
+        }
       }
+      previousSubjectWasAddition = isAddition;
       subject = splitPageSubject(subject.after);
     }
   }

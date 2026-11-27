@@ -21,11 +21,13 @@ en fullständig briefpalett används variantens färgläge som utgångspunkt.
 
 [Capability-bryggan](../../src/lib/gen/capability-dossier-bridge.ts) undertrycker
 kontaktleverans när formulärsignalen enbart kommer från identifierade
-autentiseringsformulär. Separata formulär behåller den ordinarie bryggan.
+autentiseringsformulär i samma klausul. Separata formulär efter exempelvis
+`login, then` behåller den ordinarie bryggan.
 Tidigare briefval följer den ordinarie capability-unionen och F2/F3-scope.
 
 Vid uppföljningar går uttryckligt beställda ämnessidor till planeringen för
-namngivna rutter. Välkända sidtyper återanvänder befintliga rutemönster och
+namngivna rutter. Tilläggsavsikten knyts till varje ämnesklausul, så ett samtidigt
+redigeringsmål inte blir en ny rutt. Välkända sidtyper återanvänder befintliga rutemönster och
 övriga ämnen får en innehållsrutt från ämnesnamnet. Den första sidans
 innehållsämne kan därmed planeras separat från senare beställda undersidor.
 Inloggningsformulär behåller formulärvalidering. Kontaktmejl följer det separat

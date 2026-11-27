@@ -13,6 +13,7 @@ export function splitPageSubject(prompt: string) {
   const end = tail.search(SUBJECT_END);
   return {
     before: prompt.slice(0, intro.index),
+    intro: intro[0],
     subject: end < 0 ? tail : tail.slice(0, end),
     after: end < 0 ? "" : tail.slice(end),
   };

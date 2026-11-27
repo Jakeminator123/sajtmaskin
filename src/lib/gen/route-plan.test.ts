@@ -64,11 +64,27 @@ describe("buildRoutePlan", () => {
     expect(plan.routes.map((route) => route.path)).toEqual(["/"]);
   });
 
-  it("keeps multiple separately requested topic pages as content routes", () => {
+  it.each([
+    "Add a page about owls and a page about bears",
+    "Add a page about owls, and a page about bears",
+    "Add a page about owls, a page about bears",
+  ])("keeps multiple separately requested topic pages as content routes for %s", (prompt) => {
     const plan = buildRoutePlan({
-      ...websiteBase, prompt: "Add a page about owls and a page about bears", generationMode: "followUp", existingRoutePaths: ["/"],
+      ...websiteBase, prompt, generationMode: "followUp", existingRoutePaths: ["/"],
     });
     expect(plan.routes.map((route) => route.path)).toEqual(["/", "/owls", "/bears"]);
+  });
+
+  it.each([
+    ["Polish the page about owls and add a page about bears", "/bears"],
+    ["Add a page about bears and polish the page about owls", "/bears"],
+    ["Add a page about bears, then polish the page about owls", "/bears"],
+    ["Putsa en sida om ugglor och lägg till en sida om björnar", "/bjornar"],
+  ])("only adds subjects in an addition clause for %s", (prompt, addedPath) => {
+    const plan = buildRoutePlan({
+      ...websiteBase, prompt, generationMode: "followUp", existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(["/", addedPath]);
   });
 
   it("keeps existing routes for a follow-up copy edit about a company page", () => {
