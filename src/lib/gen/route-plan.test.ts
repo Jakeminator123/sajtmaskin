@@ -128,6 +128,9 @@ describe("buildRoutePlan", () => {
     "Add photos. Keep the page about owls unchanged",
     "Add photos; Keep the page about owls unchanged",
     "Add photos\nKeep the page about owls unchanged",
+    "Add photos etc. Keep the page about owls unchanged",
+    "Add photos etc. Leave the page about owls unchanged",
+    "Lägg till foton etc. Behåll en sida om ugglor oförändrad",
   ])("does not carry addition intent into another sentence for %s", (prompt) => {
     const plan = buildRoutePlan({
       ...websiteBase, prompt, generationMode: "followUp", existingRoutePaths: ["/"],

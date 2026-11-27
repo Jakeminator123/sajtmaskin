@@ -58,7 +58,7 @@ function lastSubjectSentencePrefix(text: string): string {
     if (separator[0] === ".") {
       const token = text.slice(0, separator.index).match(/[\p{L}.]+$/u)?.[0] ?? "";
       if (
-        /^(?:dr|mr|mrs|ms|prof|sr|jr|st|vs|etc|e\.g|i\.e|t\.ex|bl\.a)$/iu.test(token) ||
+        /^(?:dr|mr|mrs|ms|prof|sr|jr|st|vs|e\.g|i\.e|t\.ex|bl\.a)$/iu.test(token) ||
         /^(?:\p{L}\.)+\p{L}$/u.test(token)
       ) continue;
     }
