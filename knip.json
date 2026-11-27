@@ -1,6 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": [
+    "infra/openclaw/check-render-proxy.mjs",
     "infra/openclaw/generate-config.mjs",
     "src/lib/observability/fault-promotion-report-cli.ts",
     "src/components/ui/**",

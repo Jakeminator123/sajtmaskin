@@ -87,10 +87,11 @@ samma token.
    godkänn det id:t:
 
    ```sh
-   openclaw devices list --json
-   openclaw devices approve <requestId>
+   OPENCLAW_GATEWAY_PORT=18789 openclaw devices list --json
+   OPENCLAW_GATEWAY_PORT=18789 openclaw devices approve <requestId>
    ```
 
+   Använd internporten från bootloggen (18790 om Render använder 18789 publikt).
    `requestId` är fältet på den väntande posten i listan, inte `deviceId`.
    Posten ska gälla `openclaw-control-ui`, rätt webbläsare och de
    operator-scopes du väntar dig. Godkänn bara det aktuella `requestId`.
@@ -113,7 +114,7 @@ token räknas inte.
 | ----------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `reason=token_missing`                          | Ett browserförsök skickade ingen token.                                          | Klistra in aktuell gateway-token och anslut igen.                                                          |
 | `phase=auth_validated` följt av 1008/pairing    | Tokenen accepterades; browsern väntar på device approval.                        | Följ [Dashboard-inloggning](#dashboard-inloggning).                                                        |
-| `Proxy headers detected from untrusted address` | Render terminerar TLS framför containern, så anslutningen räknas inte som lokal. | Förväntad varning med token-auth; inte orsaken till pairing. Lägg inte till `0.0.0.0/0` som trusted proxy. |
+| `proxy_attribution_required` | Upstream avvisar källan med HTTP 403. | Kontrollera att trafiken går genom Caddy på Render-porten och OpenClaw på loopback. |
 | Origin-fel                                      | Browserns exakta origin saknas.                                                  | Rätta `SAJTAGENT_ALLOWED_ORIGINS`; entrypointen stoppar nu felaktigt formaterade origins.                  |
 
 ## Workspace-webhook (deploy-händelser, inte loggar)
