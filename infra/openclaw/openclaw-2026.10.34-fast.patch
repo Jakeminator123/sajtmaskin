@@ -1,0 +1,88 @@
+diff --git a/dist/openai-http-DAUNzyVZ.mjs b/dist/openai-http-DAUNzyVZ.mjs
+--- a/dist/openai-http-DAUNzyVZ.mjs
++++ b/dist/openai-http-DAUNzyVZ.mjs
+@@ -271,10 +271,11 @@
+ 	};
+ }
+ async function handleOpenAiHttpRequest(req, res, opts) {
++	const fastMode = opts.fastMode === true;
+ 	const limits = resolveOpenAiChatCompletionsLimits(opts.config);
+ 	const handled = await prepareOpenAiCompatibleHttpRequest(req, res, {
+ 		...opts,
+-		pathname: "/v1/chat/completions",
++		pathname: fastMode ? "/v1/chat/completions/fast" : "/v1/chat/completions",
+ 		maxBodyBytes: opts.maxBodyBytes ?? limits.maxBodyBytes,
+ 		schema: OpenAiChatCompletionRequestSchema
+ 	});
+@@ -421,6 +422,7 @@
+ 	const mergedExtraSystemPrompt = [prompt.extraSystemPrompt, toolChoice.extraSystemPrompt].filter((part) => Boolean(part)).join("\n\n");
+ 	const runAgentCommand = () => runOpenAiCompatibleAgentCommand({
+ 		message: prompt.message,
++		fastMode: fastMode || void 0,
+ 		extraSystemPrompt: mergedExtraSystemPrompt,
+ 		images,
+ 		clientTools: toolChoice.tools,
+@@ -452,6 +454,7 @@
+ 				} });
+ 				return;
+ 			}
++			if (fastMode) res.setHeader("X-Sajtmaskin-Fast-Mode", "1");
+ 			sendJson(res, 200, {
+ 				id: runId,
+ 				object: "chat.completion",
+@@ -477,6 +480,7 @@
+ 			});
+ 		}
+ 	});
++	if (fastMode) res.setHeader("X-Sajtmaskin-Fast-Mode", "1");
+ 	setSseHeaders(res);
+ 	writeChatCompletionChoice(res, streamIdentity, { role: "assistant" });
+ 	startOpenAiCompatibleStream({
+diff --git a/dist/openai-compatible-input-limits-Cnfwt1pG.mjs b/dist/openai-compatible-input-limits-Cnfwt1pG.mjs
+--- a/dist/openai-compatible-input-limits-Cnfwt1pG.mjs
++++ b/dist/openai-compatible-input-limits-Cnfwt1pG.mjs
+@@ -174,6 +174,7 @@
+ 			clientTools: params.clientTools?.length ? params.clientTools : void 0,
+ 			extraSystemPrompt: params.extraSystemPrompt || void 0,
+ 			model: params.modelOverride,
++			fastMode: params.fastMode,
+ 			streamParams: params.streamParams,
+ 			sessionKey: params.sessionKey,
+ 			runId: params.runId,
+diff --git a/dist/models-http--yJIfAZ3.mjs b/dist/models-http--yJIfAZ3.mjs
+--- a/dist/models-http--yJIfAZ3.mjs
++++ b/dist/models-http--yJIfAZ3.mjs
+@@ -51,6 +51,7 @@
+ 	}
+ 	const ids = loadAgentModelIds();
+ 	if (requestPath === "/v1/models") {
++		if (opts.chatCompletionsEnabled) res.setHeader("X-Sajtmaskin-Fast-Mode", "1");
+ 		sendJson(res, 200, {
+ 			object: "list",
+ 			data: ids.map(toOpenAiModel)
+diff --git a/dist/gateway-prewarm.js b/dist/gateway-prewarm.js
+--- a/dist/gateway-prewarm.js
++++ b/dist/gateway-prewarm.js
+@@ -7867,7 +7867,7 @@
+ 			addAdmittedStage(req.method === "GET" && scopedRequestPath === "/oauth/mcp/callback" && Boolean(opts.handleMcpOAuthCallbackRequest), () => opts.handleMcpOAuthCallbackRequest?.(req, res) ?? false);
+ 			addRequestStage(true, () => handleHooksRequest(req, res));
+ 			addAdmittedStage(Boolean(opts.handleWatchNodeRequest) && scopedRequestPath.startsWith("/api/nodes/watch/"), () => opts.handleWatchNodeRequest?.(req, res) ?? false);
+-			addAdmittedStage(openAiCompatEnabled && (scopedRequestPath === "/v1/models" || scopedRequestPath.startsWith("/v1/models/")), async () => (await getModelsHttpModule()).handleOpenAiModelsHttpRequest(req, res, routeAuth));
++			addAdmittedStage(openAiCompatEnabled && (scopedRequestPath === "/v1/models" || scopedRequestPath.startsWith("/v1/models/")), async () => (await getModelsHttpModule()).handleOpenAiModelsHttpRequest(req, res, { ...routeAuth, chatCompletionsEnabled: openAiChatCompletionsEnabled }));
+ 			addAdmittedStage(openAiCompatEnabled && scopedRequestPath === "/v1/embeddings", async () => (await getEmbeddingsHttpModule()).handleOpenAiEmbeddingsHttpRequest(req, res, routeAuth));
+ 			addAdmittedStage(scopedRequestPath === "/tools/invoke", async () => (await getToolsInvokeHttpModule()).handleToolsInvokeHttpRequest(req, res, operatorAuth()));
+ 			addAdmittedStage(/^\/sessions\/[^/]+\/kill$/.test(scopedRequestPath), async () => (await getSessionKillHttpModule()).handleSessionKillHttpRequest(req, res, routeAuth));
+@@ -7891,9 +7891,11 @@
+ 				...operatorAuth(),
+ 				config: openResponsesConfig
+ 			}));
+-			addAdmittedStage(openAiChatCompletionsEnabled && scopedRequestPath === "/v1/chat/completions", async () => (await getOpenAiHttpModule()).handleOpenAiHttpRequest(req, res, {
++			const fastChatCompletion = scopedRequestPath === "/v1/chat/completions/fast";
++			addAdmittedStage(openAiChatCompletionsEnabled && (scopedRequestPath === "/v1/chat/completions" || fastChatCompletion), async () => (await getOpenAiHttpModule()).handleOpenAiHttpRequest(req, res, {
+ 				...operatorAuth(),
+-				config: openAiChatCompletionsConfig
++				config: openAiChatCompletionsConfig,
++				fastMode: fastChatCompletion
+ 			}));
+ 			const approvalDocument = isControlUiApprovalDocumentPath({
+ 				basePath: controlUiBasePath,
