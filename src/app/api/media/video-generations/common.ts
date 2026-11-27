@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { InsufficientCreditsError } from "@/lib/db/services/transactions";
 import {
+  parseVideoGenerationMediaId,
   VIDEO_GENERATION_PROMPT_MAX_LENGTH,
   type VideoGenerationJob,
 } from "@/lib/media/video-generation-contract";
@@ -13,7 +14,7 @@ import { MediaUploadPolicyError } from "@/lib/media/upload-policy-error";
 export const projectIdSchema = z.string().trim().min(1).max(200);
 export const videoOrderSchema = z.object({
   projectId: projectIdSchema,
-  sourceMediaId: z.number().int().positive().max(2_147_483_647),
+  sourceMediaId: z.preprocess(parseVideoGenerationMediaId, z.string()),
   prompt: z.string().trim().min(1).max(VIDEO_GENERATION_PROMPT_MAX_LENGTH),
   requestId: z.uuid().transform((value) => value.toLowerCase()),
   maxCredits: z.number().int().positive().max(2_147_483_647),

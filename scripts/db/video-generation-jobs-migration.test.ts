@@ -11,7 +11,8 @@ it("adds durable paid video orders after the existing core tables and enforces s
   expect(sql).toContain("CREATE TABLE IF NOT EXISTS video_generation_jobs");
   expect(sql).toMatch(/CREATE UNIQUE INDEX IF NOT EXISTS video_generation_jobs_user_request_unique\s+ON video_generation_jobs\(user_id, request_id\)/);
   expect(sql).toContain("CHECK (credits > 0)");
-  expect(sql).toContain("REFERENCES media_library(id) ON DELETE SET NULL");
+  expect(sql).toContain("source_media_id BIGINT NOT NULL");
+  expect(sql).toContain("result_media_id BIGINT REFERENCES media_library(id) ON DELETE SET NULL");
 });
 
 it("keeps video order inputs and provider references out of the public Data API", () => {

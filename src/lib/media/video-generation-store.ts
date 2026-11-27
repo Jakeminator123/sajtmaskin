@@ -10,6 +10,7 @@ import {
 import { createTransaction } from "@/lib/db/services/transactions";
 import { MAX_MEDIA_VIDEOS } from "@/lib/media/upload-limits";
 import {
+  parseVideoGenerationMediaId,
   VIDEO_GENERATION_SOURCE_MIME_TYPES,
   type VideoGenerationJob,
   type VideoGenerationOrder,
@@ -41,6 +42,9 @@ export async function orderVideoGeneration(
   price: Awaited<ReturnType<typeof getVideoGenerationPrice>>,
   enabled: boolean,
 ) {
+  const sourceMediaId = parseVideoGenerationMediaId(input.sourceMediaId);
+  if (sourceMediaId === null) throw new VideoGenerationError("Ogiltig startbild.", 400);
+
   return db.transaction(async (tx) => {
     // Same account lock as an ordinary video upload. The reservation and debit
     // commit together, so neither can be left over after failed admission.
@@ -53,7 +57,7 @@ export async function orderVideoGeneration(
     if (existing) {
       if (
         existing.project_id !== input.projectId ||
-        existing.source_media_id !== input.sourceMediaId ||
+        existing.source_media_id.toString() !== sourceMediaId ||
         existing.prompt !== input.prompt
       ) {
         throw new VideoGenerationError("Beställnings-ID:t används redan för en annan film.", 409);
@@ -71,7 +75,7 @@ export async function orderVideoGeneration(
       mimeType: mediaLibrary.mime_type,
       fileType: mediaLibrary.file_type,
     }).from(mediaLibrary).where(and(
-      eq(mediaLibrary.id, input.sourceMediaId),
+      eq(mediaLibrary.id, sql`${sourceMediaId}::bigint`),
       eq(mediaLibrary.user_id, userId),
       or(isNull(mediaLibrary.project_id), eq(mediaLibrary.project_id, input.projectId)),
     )).for("share");
@@ -102,7 +106,7 @@ export async function orderVideoGeneration(
       user_id: userId,
       project_id: input.projectId,
       request_id: input.requestId,
-      source_media_id: input.sourceMediaId,
+      source_media_id: BigInt(sourceMediaId),
       source_url: sourceUrl,
       prompt: input.prompt,
       credits: price.credits,
@@ -121,7 +125,9 @@ function selectPublicJobs(userId: string, projectId: string, id?: string) {
     credits: videoGenerationJobs.credits,
     error: videoGenerationJobs.error,
     media: {
-      id: mediaLibrary.id,
+      // The library still exposes driver values on legacy routes. Give this
+      // wire contract exact text regardless of the int8 parser in use.
+      id: sql<string>`${mediaLibrary.id}::text`,
       url: mediaLibrary.blob_url,
       filename: mediaLibrary.original_name,
       mimeType: mediaLibrary.mime_type,
@@ -254,11 +260,11 @@ export async function completeVideoGeneration(claim: VideoGenerationClaim, video
       mime_type: "video/mp4",
       file_type: "video",
       size_bytes: video.size,
-    }).returning({ id: mediaLibrary.id });
+    }).returning({ id: sql<string>`${mediaLibrary.id}::text` });
 
     await tx.update(videoGenerationJobs).set({
       status: "succeeded",
-      result_media_id: item.id,
+      result_media_id: BigInt(item.id),
       lease_id: null,
       lease_until: null,
     }).where(eq(videoGenerationJobs.id, id));

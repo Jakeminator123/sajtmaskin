@@ -1,3 +1,5 @@
+export { parseMediaLibraryId as parseVideoGenerationMediaId } from "./media-library-id";
+
 export const MAX_GENERATED_VIDEO_BYTES = 32 * 1024 * 1024;
 export const VIDEO_GENERATION_MODEL = "gen4_turbo";
 export const VIDEO_GENERATION_DURATION_SECONDS = 5;
@@ -15,7 +17,7 @@ export interface VideoGenerationQuote {
 }
 
 export interface VideoGenerationMedia {
-  id: number;
+  id: string;
   url: string;
   filename: string;
   mimeType: string;
@@ -32,7 +34,7 @@ export interface VideoGenerationJob {
 
 export interface VideoGenerationOrder {
   projectId: string;
-  sourceMediaId: number;
+  sourceMediaId: string;
   prompt: string;
   requestId: string;
   maxCredits: number;

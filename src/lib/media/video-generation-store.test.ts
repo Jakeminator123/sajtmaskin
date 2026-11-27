@@ -30,7 +30,7 @@ import {
 } from "./video-generation-store";
 
 const input = {
-  projectId: "site", sourceMediaId: 22, prompt: "Move",
+  projectId: "site", sourceMediaId: "22", prompt: "Move",
   requestId: "17f20503-6c24-4c16-946b-35dbbce2af2f", maxCredits: 2,
 };
 const price = {
@@ -62,7 +62,7 @@ const tx = {
   insert: (table: unknown) => ({
     values: (values: unknown) => {
       mocks.insert(table, values);
-      return { returning: () => [{ id: 17 }] };
+      return { returning: () => [{ id: "17" }] };
     },
   }),
   update: (table: unknown) => ({
@@ -70,7 +70,8 @@ const tx = {
       where: (condition: SQL) => {
         expect(table).toBe(videoGenerationJobs);
         const predicate = new PgDialect().sqlToQuery(condition);
-        return { returning: () => mocks.update(values, predicate) };
+        const result = mocks.update(values, predicate);
+        return { returning: () => result };
       },
     }),
   }),
@@ -94,7 +95,7 @@ describe("paid video orders", () => {
     expect(mocks.lock).toHaveBeenCalledExactlyOnceWith(tx, "owner");
     expect(mocks.owner).toHaveBeenCalledExactlyOnceWith("owner", "site", tx);
     expect(mocks.source).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
-      params: [22, "owner", "site"],
+      params: ["22", "owner", "site"],
       sql: expect.stringContaining('"media_library"."project_id" is null'),
     }));
     expect(mocks.quota).toHaveBeenCalledExactlyOnceWith("owner", "site", tx);
@@ -104,17 +105,19 @@ describe("paid video orders", () => {
     );
     expect(mocks.insert).toHaveBeenCalledWith(videoGenerationJobs, expect.objectContaining({
       id, user_id: "owner", project_id: "site", request_id: input.requestId,
-      credits: 2, provider_cost_ore: 245, billable_ore: 490,
+      source_media_id: 22n, credits: 2, provider_cost_ore: 245, billable_ore: 490,
     }));
   });
 
   it("replays the same UUID without consuming another slot or checking a new quote", async () => {
     mocks.prior.mockReturnValue([{
-      id: "prior-job", source_media_id: input.sourceMediaId, prompt: input.prompt,
+      id: "prior-job", source_media_id: 22n, prompt: input.prompt,
       project_id: input.projectId,
     }]);
     await expect(orderVideoGeneration("owner", input, price, false)).resolves.toBe("prior-job");
     await expect(orderVideoGeneration("owner", { ...input, prompt: "Different" }, price, true))
+      .rejects.toMatchObject({ status: 409 });
+    await expect(orderVideoGeneration("owner", { ...input, sourceMediaId: "23" }, price, true))
       .rejects.toMatchObject({ status: 409 });
     expect(mocks.source).not.toHaveBeenCalled();
     expect(mocks.ledger).not.toHaveBeenCalled();
@@ -163,6 +166,10 @@ describe("paid video orders", () => {
     expect(mocks.insert).toHaveBeenCalledExactlyOnceWith(mediaLibrary, expect.objectContaining({
       user_id: "owner", project_id: "site", size_bytes: 8_000_000, file_type: "video", mime_type: "video/mp4",
     }));
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "succeeded", result_media_id: 17n }),
+      expect.objectContaining({ params: ["job"] }),
+    );
     expect(mocks.ledger).not.toHaveBeenCalled();
   });
 });

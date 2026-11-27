@@ -54,7 +54,7 @@ const requestId = "17f20503-6c24-4c16-946b-35dbbce2af2f";
 const base = "http://localhost/api/media/video-generations";
 const job = { id, projectId: "site", status: "pending", credits: 2 };
 const quote = { credits: 2, durationSeconds: 5, model: "gen4_turbo" };
-const order = { projectId: "site", sourceMediaId: 1, prompt: "Camera moves", maxCredits: 2, requestId };
+const order = { projectId: "site", sourceMediaId: "1", prompt: "Camera moves", maxCredits: 2, requestId };
 
 function create(data: object, contentType = "application/json") {
   return POST(new NextRequest(base, {
@@ -105,7 +105,7 @@ describe("video generation API", () => {
   });
 
   it("authorizes one stored order and starts a background worker after responding", async () => {
-    const response = await create({ ...order, prompt: " " + order.prompt + " " });
+    const response = await create({ ...order, sourceMediaId: 1, prompt: " " + order.prompt + " " });
     expect(response.status).toBe(202);
     await expect(response.json()).resolves.toEqual({ job });
     expect(mocks.orderVideoGeneration).toHaveBeenCalledExactlyOnceWith(
@@ -115,6 +115,21 @@ describe("video generation API", () => {
     expect(mocks.startVideoGenerationWorker).not.toHaveBeenCalled();
     await mocks.after.mock.calls[0][0]();
     expect(mocks.startVideoGenerationWorker).toHaveBeenCalledExactlyOnceWith(id);
+  });
+
+  it("accepts exact int8 decimal IDs and rejects rounded or noncanonical inputs", async () => {
+    const largest = "9223372036854775807";
+    expect((await create({ ...order, sourceMediaId: largest })).status).toBe(202);
+    expect(mocks.orderVideoGeneration).toHaveBeenCalledExactlyOnceWith(
+      "owner", { ...order, sourceMediaId: largest }, expect.objectContaining({ credits: 2 }), true,
+    );
+
+    for (const invalid of [
+      Number.MAX_SAFE_INTEGER + 1, 0, -1, 1.5, "01", "1e3", "2\n", "9223372036854775808",
+    ]) {
+      expect((await create({ ...order, sourceMediaId: invalid })).status).toBe(400);
+    }
+    expect(mocks.orderVideoGeneration).toHaveBeenCalledTimes(1);
   });
 
   it("returns a disabled quote and blocks new orders before touching an absent job table", async () => {

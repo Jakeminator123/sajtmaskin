@@ -1,6 +1,7 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { appProjects, images, mediaLibrary, videoGenerationJobs } from "@/lib/db/schema";
+import { parseMediaLibraryId } from "@/lib/media/media-library-id";
 import { MAX_MEDIA_IMAGES, MAX_MEDIA_VIDEOS } from "@/lib/media/upload-limits";
 import { MediaUploadPolicyError } from "@/lib/media/upload-policy-error";
 import { getVideoGenerationCredentials } from "@/lib/media/video-generation-config";
@@ -178,20 +179,23 @@ export async function getMediaLibraryCounts(userId: string, projectId?: string, 
 }
 
 export async function getMediaLibraryItemById(
-  id: number,
+  id: number | string,
   userId?: string,
 ): Promise<MediaLibraryItem | null> {
   assertDbConfigured();
-  const condition = userId
-    ? and(eq(mediaLibrary.id, id), eq(mediaLibrary.user_id, userId))
-    : eq(mediaLibrary.id, id);
+  const mediaId = parseMediaLibraryId(id);
+  if (mediaId === null) return null;
+  const matchingId = eq(mediaLibrary.id, sql`${mediaId}::bigint`);
+  const condition = userId ? and(matchingId, eq(mediaLibrary.user_id, userId)) : matchingId;
   const rows = await db.select().from(mediaLibrary).where(condition).limit(1);
   return rows[0] ?? null;
 }
 
-export async function deleteMediaLibraryItem(id: number, userId: string): Promise<boolean> {
+export async function deleteMediaLibraryItem(id: number | string, userId: string): Promise<boolean> {
   assertDbConfigured();
-  const item = await getMediaLibraryItemById(id, userId);
+  const mediaId = parseMediaLibraryId(id);
+  if (mediaId === null) return false;
+  const item = await getMediaLibraryItemById(mediaId, userId);
   if (!item) return false;
 
   if (item.blob_url || item.file_path) {
@@ -200,7 +204,7 @@ export async function deleteMediaLibraryItem(id: number, userId: string): Promis
 
   await db
     .delete(mediaLibrary)
-    .where(and(eq(mediaLibrary.id, id), eq(mediaLibrary.user_id, userId)));
+    .where(and(eq(mediaLibrary.id, sql`${mediaId}::bigint`), eq(mediaLibrary.user_id, userId)));
   return true;
 }
 

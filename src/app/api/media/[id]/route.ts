@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { deleteMediaLibraryItem, getMediaLibraryItemById } from "@/lib/db/services/media";
+import { parseMediaLibraryId } from "@/lib/media/media-library-id";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -32,9 +33,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params;
-    const mediaId = id.length <= 16 && /^\d+$/.test(id) ? Number(id) : Number.NaN;
-
-    if (!Number.isSafeInteger(mediaId) || mediaId <= 0) {
+    const mediaId = parseMediaLibraryId(id);
+    if (mediaId === null) {
       return NextResponse.json({ success: false, error: "Ogiltigt fil-ID" }, { status: 400 });
     }
 
