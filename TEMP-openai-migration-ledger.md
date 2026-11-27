@@ -12,4 +12,6 @@ Jakob godkände ett modellbyte i appen med befintliga nycklar. Byggprofiler, kun
 
 Appen använder Vercel AI SDK med OpenAI Responses för byggmotorn samt befintliga direkta OpenAI-anrop för vissa verktyg. Bytet kräver inga ändringar i streaming, WebSocket-transport, tillstånd, komprimering, maxutdata, prompts, verktyg, lagring, region, cachepolicy eller behandlingstjänst. Nuvarande lagringsvillkor och eventuell Zero Data Retention är inte verifierade här. Lokal verifiering använder mockade transportsvar. Hastighet och kvalitetsutfall i produktion återstår att mäta.
 
+Verifierat lokalt med modellmetadata från befintlig nyckel, 590 riktade modelltester och 53 riktade backofficeprov. Den oberoende granskningen hittade att strömmens verktygssteg summerades inför långkontextprissättningen och att inspektören tappade rapporterade cacheskrivningar. Den nya strömmen bokför varje leverantörsanrop separat och skickar fortfarande den samlade tokenmängden till klienten. Prisuppgifter för redan bokförda anrop ligger kvar i respektive historisk post.
+
 [OpenAI:s modellkatalog](https://developers.openai.com/api/docs/models) · [Standardpriser](https://developers.openai.com/api/docs/pricing) · [Resonemang](https://developers.openai.com/api/docs/guides/reasoning)

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getCurrentUser = vi.hoisted(() => vi.fn());
 const chatCreate = vi.hoisted(() => vi.fn());
+const calculateModelCost = vi.hoisted(() => vi.fn(() => null));
 vi.mock("openai", () => ({
   default: class { chat = { completions: { create: chatCreate } }; },
 }));
@@ -9,7 +10,7 @@ vi.mock("@/lib/builder/inspector-feature", () => ({
   isBuilderInspectorEnabled: () => true,
   getBuilderInspectorDisabledMessage: () => "Avstängd",
 }));
-vi.mock("@/lib/billing/model-cost", () => ({ calculateModelCost: () => null }));
+vi.mock("@/lib/billing/model-cost", () => ({ calculateModelCost }));
 
 vi.mock("@/lib/auth/auth", () => ({
   getCurrentUser,
@@ -25,7 +26,13 @@ describe("POST /api/inspector-ai-match", () => {
   it("bounds provider waiting and forwards request cancellation", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     getCurrentUser.mockResolvedValue({ id: "user_1" });
-    chatCreate.mockResolvedValue({ choices: [{ message: { content: '{"tag":"button"}' } }] });
+    chatCreate.mockResolvedValue({
+      choices: [{ message: { content: '{"tag":"button"}' } }],
+      usage: {
+        prompt_tokens: 100, completion_tokens: 4,
+        prompt_tokens_details: { cached_tokens: 10, cache_write_tokens: 25 },
+      },
+    });
     const request = new Request("http://localhost/api/inspector-ai-match", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ xPercent: 12, yPercent: 34, viewportWidth: 1280, viewportHeight: 720,
@@ -39,6 +46,9 @@ describe("POST /api/inspector-ai-match", () => {
         { signal: request.signal, timeout: 30000, maxRetries: 0 },
       );
       expect(getCurrentUser).toHaveBeenCalledTimes(1);
+      expect(calculateModelCost).toHaveBeenCalledWith("gpt-6.2-sol", expect.objectContaining({
+        inputTokens: 100, outputTokens: 4, cachedInputTokens: 10, cacheWriteTokens: 25,
+      }));
       expect(maxDuration).toBe(45);
     } finally { vi.unstubAllEnvs(); }
   });
