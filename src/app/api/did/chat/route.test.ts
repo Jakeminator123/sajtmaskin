@@ -48,12 +48,19 @@ describe("POST /api/did/chat", () => {
     answerReadTask.mockResolvedValue(Response.json({ answer: "En bok.", sources: ["https://example.org/"] }));
     const request = new NextRequest("http://localhost/api/did/chat", {
       method: "POST",
-      body: JSON.stringify({ sessionId: "reader", message: "Sök på webben efter en bok", readTask: { search: true } }),
+      body: JSON.stringify({
+        sessionId: "reader", message: "Sök på webben efter en bok", readTask: { search: true },
+        context: { chatId: "chat-own" },
+        recentMessages: [{ role: "user", content: "Jag bygger en sajt om böcker." }],
+      }),
     });
 
     const response = await POST(request);
     expect(await response.json()).toMatchObject({ success: true, reply: "En bok.", sources: ["https://example.org/"] });
-    expect(answerReadTask).toHaveBeenCalledWith(request, { search: true }, "Sök på webben efter en bok");
+    expect(answerReadTask).toHaveBeenCalledWith(request, { search: true }, "Sök på webben efter en bok", {
+      history: [{ role: "user", content: "Jag bygger en sajt om böcker." }],
+      context: { chatId: "chat-own" }, spoken: true,
+    });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

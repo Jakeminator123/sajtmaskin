@@ -11,6 +11,7 @@ import {
 import { getScaffoldById } from "@/lib/gen/scaffolds";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+import { resolveChatModelTier } from "@/lib/models/catalog";
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
@@ -50,6 +51,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           projectId: chat.project_id,
           title: chat.title,
           model: chat.model,
+          modelTier: resolveChatModelTier(chat),
           scaffoldId: chat.scaffold_id,
           scaffoldLabel: resolvedScaffold?.label ?? null,
           ...previewUrlField(null),

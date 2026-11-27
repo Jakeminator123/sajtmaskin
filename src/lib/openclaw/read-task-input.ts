@@ -2,6 +2,7 @@ import type { SelectedSourcePage } from "./source-page";
 
 export interface OpenClawReadTask {
   search?: boolean;
+  reviewCurrentSite?: boolean;
   attachmentIds?: number[];
   source?: SelectedSourcePage;
 }
@@ -18,7 +19,10 @@ export function isExplicitOpenClawWebSearch(text: string): boolean {
 }
 
 export function resolveOpenClawReadTask(text: string, task?: OpenClawReadTask): OpenClawReadTask | undefined {
-  return isExplicitOpenClawWebSearch(text) ? { ...task, search: true } : task;
+  const search = isExplicitOpenClawWebSearch(text);
+  const reviewCurrentSite = /^(?:(?:kan du|vänligen)\s+)?(?:hur ser\s+(?:(?:min|vår|den)\s+)?(?:sajt(?:en)?|sida(?:n)?|webbplats(?:en)?|förhandsvisning(?:en)?)\s+ut|(?:granska|bedöm|titta på)\s+(?:utseendet|designen|layouten)\s+(?:på|för)\s+(?:(?:min|vår|den)\s+)?(?:sajt(?:en)?|sida(?:n)?|webbplats(?:en)?|förhandsvisning(?:en)?))(?:\s+(?:just nu|nu|idag))?\s*[?!.]*$/iu.test(text.trim());
+  if (!search && !reviewCurrentSite) return task;
+  return { ...task, ...(search ? { search: true } : {}), ...(reviewCurrentSite ? { reviewCurrentSite: true } : {}) };
 }
 
 export function readTaskAttachmentIds(files: ReadonlyArray<{ id: string; status: string; mimeType: string }>): number[] {

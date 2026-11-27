@@ -1,7 +1,14 @@
 import { afterEach, expect, it, vi } from "vitest";
-const { create, getCurrentUser, getMediaLibraryItemById, withRateLimit, safeFetch } = vi.hoisted(() => ({
+const { create, getCurrentUser, getMediaLibraryItemById, withRateLimit, safeFetch, getVersion, getLatestVersion, getReview, buildContext } = vi.hoisted(() => ({
   create: vi.fn(), getCurrentUser: vi.fn(), getMediaLibraryItemById: vi.fn(), withRateLimit: vi.fn(), safeFetch: vi.fn(),
+  getVersion: vi.fn(), getLatestVersion: vi.fn(), getReview: vi.fn(), buildContext: vi.fn(),
 }));
+vi.mock("@/lib/tenant", () => ({
+  getEngineVersionForChatByIdForRequest: getVersion,
+  getLatestEngineVersionForChatForRequest: getLatestVersion,
+}));
+vi.mock("@/lib/db/services/live-review-runs", () => ({ getLiveReviewRunForVersion: getReview }));
+vi.mock("./server-context", () => ({ buildOpenClawContextSystemMessage: buildContext }));
 vi.mock("@/lib/ssrf-guard", () => ({ safeFetch }));
 vi.mock("openai", () => ({ default: class { responses = { create }; } }));
 vi.mock("@/lib/config", () => ({ SECRETS: { openaiApiKey: "test-key" } }));
@@ -10,6 +17,7 @@ vi.mock("@/lib/db/services/media", () => ({ getMediaLibraryItemById }));
 vi.mock("@/lib/rate-limit", () => ({ withRateLimit }));
 vi.mock("@/lib/gen/defaults", () => ({ AUDIT_STRUCTURED_DEFAULT_MODEL: "test-model" }));
 import { answerOpenClawReadTask } from "./read-task";
+import { resolveOpenClawReadTask } from "./read-task-input";
 const request = new Request("https://example.com/api/openclaw/chat");
 afterEach(() => vi.resetAllMocks());
 
@@ -130,4 +138,94 @@ it("sends the owned image to vision without web search or executable action mark
   const [params] = create.mock.calls[0]!;
   expect(params.tools).toBeUndefined();
   expect(params.input[0].content).toContainEqual({ type: "input_image", image_url: url, detail: "low" });
+});
+
+it("preserves conversational follow-ups and the same persona in a spoken source-reading turn", async () => {
+  logIn();
+  create.mockResolvedValue({ output_text: "Den passar er läsare." });
+  const history = [
+    { role: "user", content: "Jag bygger en sajt för barnfamiljer." },
+    { role: "assistant", content: "Jag hjälper dig välja lämpligt innehåll." },
+  ];
+  await answerOpenClawReadTask(request, { source: { url: "https://example.org/", passage: "Björnpark." } },
+    "Passar det min målgrupp?", { history, spoken: true });
+  const [params] = create.mock.calls[0]!;
+  expect(params.instructions).toContain("vänlig, kunnig och hjälpsam");
+  expect(params.instructions).toContain("pratbart");
+  expect(params.input.slice(0, -1)).toEqual(history);
+  expect(params.instructions).toContain("bara läsa och förklara");
+});
+
+function ownedSite() {
+  logIn();
+  const scoped = { version: { id: "version-own", files_revision: "rev-current" } };
+  getVersion.mockResolvedValue(scoped);
+  getLatestVersion.mockResolvedValue(scoped);
+  buildContext.mockResolvedValue({ content: "[BUILDER-KONTEXT] Björnparken, version-own", codeContextMode: "manifest" });
+  create.mockResolvedValue({ output_text: "Jag kan bedöma den sparade vyn." });
+  return {
+    chatId: "chat-own", versionId: "version-own", filesRevision: "rev-current",
+    expiresAt: new Date(Date.now() + 60_000),
+    desktopUrl: "https://files.public.blob.vercel-storage.com/review/desktop.jpg", mobileUrl: null,
+  };
+}
+
+it("uses actual screenshot pixels only for the owned selected version and current revision", async () => {
+  const review = ownedSite();
+  getReview.mockResolvedValue(review);
+  const response = await answerOpenClawReadTask(request, { reviewCurrentSite: true }, "Hur ser min sajt ut?", {
+    context: { page: "builder", chatId: "chat-own", activeVersionId: "version-own" },
+  });
+  expect(response.status).toBe(200);
+  expect(getVersion).toHaveBeenCalledWith(request, "chat-own", "version-own");
+  expect(getReview).toHaveBeenCalledWith("version-own");
+  const [contextParams] = buildContext.mock.calls[0]!;
+  expect(await contextParams.verifyOwnership("chat-other", "version-own")).toBeNull();
+  expect(await contextParams.verifyOwnership("chat-own", "version-other")).toBeNull();
+  expect(await contextParams.verifyOwnership("chat-own", "version-own")).toEqual({ chatId: "chat-own", versionId: "version-own" });
+  const [params] = create.mock.calls[0]!;
+  expect(params.input[0].content).toContainEqual({ type: "input_image", image_url: review.desktopUrl, detail: "high" });
+  expect(params.input[0].content[0].text).toContain("Björnparken");
+  expect(params.input[0].content[0].text).toContain("byggkontrollen");
+});
+
+it.each([
+  { filesRevision: "rev-old" },
+  { chatId: "chat-other" },
+  { versionId: "version-other" },
+  { expiresAt: new Date(0) },
+  { desktopUrl: "https://untrusted.example.org/screenshot.jpg" },
+  { desktopUrl: null },
+])("explains missing current visual evidence without passing stale or unrelated screenshots ($filesRevision $chatId $versionId $desktopUrl)", async (changes) => {
+  getReview.mockResolvedValue({ ...ownedSite(), ...changes });
+  const response = await answerOpenClawReadTask(request, { reviewCurrentSite: true }, "Hur ser min sajt ut?", {
+    context: { page: "builder", chatId: "chat-own" },
+  });
+  expect(response.status).toBe(200);
+  expect(getLatestVersion).toHaveBeenCalledWith(request, "chat-own");
+  const [params] = create.mock.calls[0]!;
+  expect(params.input[0].content).toEqual([{ type: "input_text", text: expect.stringContaining("inga tillgängliga, aktuella skärmbilder") }]);
+});
+
+it("rejects a visual request for an unowned version before fetching review evidence or using a model", async () => {
+  logIn();
+  getVersion.mockResolvedValue(null);
+  const response = await answerOpenClawReadTask(request, { reviewCurrentSite: true }, "Hur ser sajten ut?", {
+    context: { chatId: "chat-other", activeVersionId: "version-other" },
+  });
+  expect(response.status).toBe(422);
+  expect(buildContext).not.toHaveBeenCalled();
+  expect(getReview).not.toHaveBeenCalled();
+  expect(create).not.toHaveBeenCalled();
+});
+
+it("selects an appearance read task for the current site while retaining selected sources", () => {
+  expect(resolveOpenClawReadTask("Hur ser min sajt ut?", { attachmentIds: [7] }))
+    .toEqual({ attachmentIds: [7], reviewCurrentSite: true });
+  expect(resolveOpenClawReadTask("Kan du granska designen på sajten?"))
+    .toEqual({ reviewCurrentSite: true });
+  expect(resolveOpenClawReadTask("Hur ser min faktura ut?"))
+    .toBeUndefined();
+  expect(resolveOpenClawReadTask("Bygg en sajt om hur ser min sajt ut i framtiden"))
+    .toBeUndefined();
 });

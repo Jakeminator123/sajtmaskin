@@ -10,11 +10,17 @@ export type ChatGenerationSettings = {
   imageGenerations: boolean;
 };
 
+export type CreatedChatGenerationSettings = ChatGenerationSettings & { chatId: string };
+
 const CHAT_GENERATION_SETTINGS_PREFIX = "sajtmaskin:chatGenerationSettings:";
 const MODEL_TIER_SET = new Set<ModelTier>(MODEL_TIER_OPTIONS.map((option) => option.value));
 
 function buildChatGenerationSettingsKey(chatId: string): string {
   return `${CHAT_GENERATION_SETTINGS_PREFIX}${chatId}`;
+}
+
+export function resolveBuilderModelTier(tier: ModelTier | null | undefined): ModelTier {
+  return tier && MODEL_TIER_SET.has(tier) ? tier : DEFAULT_MODEL_ID;
 }
 
 export function readChatGenerationSettings(chatId: string): ChatGenerationSettings | null {
@@ -31,9 +37,7 @@ export function readChatGenerationSettings(chatId: string): ChatGenerationSettin
     // slider showed for the previous chat, and the save effect would then
     // persist that onto this chat.
     return {
-      modelTier: MODEL_TIER_SET.has(canonicalModelTier as ModelTier)
-        ? (canonicalModelTier as ModelTier)
-        : (DEFAULT_MODEL_ID as ModelTier),
+      modelTier: resolveBuilderModelTier(canonicalModelTier),
       imageGenerations:
         typeof parsed.imageGenerations === "boolean"
           ? parsed.imageGenerations

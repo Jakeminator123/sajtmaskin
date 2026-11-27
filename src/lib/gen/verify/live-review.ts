@@ -13,7 +13,7 @@ import {
   getWorkloadDefaultModelFromManifest,
   getWorkloadFallbackModelsFromManifest,
 } from "@/lib/ai-models/load-manifest";
-import { aliasRetiredModelId } from "@/lib/models/catalog";
+import { resolveOwnEngineModelId } from "@/lib/models/catalog";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { uploadBlob } from "@/lib/vercel/blob-service";
 import { extractBriefSummaryFromSnapshot } from "@/lib/gen/orchestration-snapshot";
@@ -471,7 +471,7 @@ function uniqueModelIds(ids: Array<string | null | undefined>): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const id of ids) {
-    const resolved = aliasRetiredModelId(id);
+    const resolved = resolveOwnEngineModelId(id);
     if (!resolved || seen.has(resolved)) continue;
     seen.add(resolved);
     out.push(resolved);
@@ -480,7 +480,7 @@ function uniqueModelIds(ids: Array<string | null | undefined>): string[] {
 }
 
 export function resolveLiveReviewModelIds(override?: string): string[] {
-  if (override?.trim()) return [aliasRetiredModelId(override)];
+  if (override?.trim()) return [resolveOwnEngineModelId(override)];
   let defaultModel = getWorkloadDefaultModelFromManifest(LIVE_REVIEW_WORKLOAD_ID);
   let fallbacks = [...getWorkloadFallbackModelsFromManifest(LIVE_REVIEW_WORKLOAD_ID)];
   let visionModels: string[] = [];
@@ -498,7 +498,7 @@ export function resolveLiveReviewModelIds(override?: string): string[] {
   }
   const ordered = uniqueModelIds([defaultModel, ...fallbacks]);
   if (visionModels.length === 0) return ordered;
-  const allowed = new Set(visionModels.map(aliasRetiredModelId));
+  const allowed = new Set(visionModels.map(resolveOwnEngineModelId));
   const visionOnly = ordered.filter((id) => allowed.has(id));
   return visionOnly.length > 0 ? visionOnly : ordered;
 }

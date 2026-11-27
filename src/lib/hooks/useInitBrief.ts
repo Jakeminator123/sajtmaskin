@@ -48,7 +48,7 @@ function dispatchInitBriefStatus(status: string | null): void {
 }
 
 export function useInitBrief(params: PromptAssistConfig) {
-  const { model, deep, imageGenerations, themeColors: _themeColors } = params;
+  const { model, deep, imageGenerations, themeColors, designThemePreset } = params;
 
   const generateDynamicInstructions = useCallback(
     async (
@@ -125,6 +125,8 @@ export function useInitBrief(params: PromptAssistConfig) {
             imageGenerations,
             source: BRIEF_SOURCE_DYNAMIC_INSTRUCTIONS,
             ...buildChoices,
+            designThemePreset,
+            themeColors,
           }),
         });
 
@@ -187,7 +189,7 @@ export function useInitBrief(params: PromptAssistConfig) {
         dispatchInitBriefStatus(null);
       }
     },
-    [model, deep, imageGenerations],
+    [model, deep, imageGenerations, themeColors, designThemePreset],
   );
 
   return { generateDynamicInstructions };

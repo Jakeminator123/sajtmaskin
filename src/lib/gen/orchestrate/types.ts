@@ -453,6 +453,7 @@ export interface OrchestrationBase {
 }
 
 export interface FinalizedOrchestrationContext {
+  effectiveBrief: Record<string, unknown> | null;
   engineSystemPrompt: string;
   dynamicContext: string;
   dynamicContextPruning: DynamicContextPruning;

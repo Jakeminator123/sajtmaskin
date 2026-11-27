@@ -21,6 +21,7 @@ import {
 } from "@/lib/builder/prompt-limits";
 import { orchestratePromptMessage } from "@/lib/builder/prompt-orchestration";
 import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
+import { formatBriefBuildChoicesForPrompt } from "@/lib/builder/brief-build-choices-format";
 import { mergeDossierIdCapabilities } from "@/lib/builder/dossier-id-request";
 import {
   createServerAutoBriefSignal,
@@ -107,7 +108,6 @@ import { resolveVariantForStyleChoice } from "@/lib/gen/scaffold-variants/style-
 import { inferCapabilities } from "@/lib/gen/capability-inference";
 import {
   buildVariantHintsForBrief,
-  formatVariantHintsForPrompt,
 } from "@/lib/gen/scaffold-variants/variant-hints";
 import {
   acquireChatGenerationLock,
@@ -431,9 +431,18 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             }))
           : null;
         const variantHints = buildVariantHintsForBrief(preMatchScaffold, preMatchVariant);
-        const variantHintsText = variantHints
-          ? formatVariantHintsForPrompt(variantHints)
-          : undefined;
+        const variantHintsText = formatBriefBuildChoicesForPrompt({
+          buildIntent: parsedMeta.buildIntentExplicit && metaBuildIntent !== "template" ? metaBuildIntent : undefined,
+          scaffoldId: parsedMeta.scaffoldMode === "manual" ? parsedMeta.scaffoldId ?? undefined : undefined,
+          pageCountHint: parsedMeta.pageCountHint ?? undefined,
+          styleChoiceHint: parsedMeta.styleChoiceHint ?? undefined,
+          styleKeywordsHint: parsedMeta.styleKeywordsHint,
+          toneKeywordsHint: parsedMeta.toneKeywordsHint,
+          colorModeHint: parsedMeta.colorModeHint ?? undefined,
+          complexityHint: parsedMeta.complexityHint ?? undefined,
+          designThemePreset: parsedMeta.designThemePreset ?? "off",
+          themeColors: parsedMeta.themeColors,
+        }, variantHints);
         const initCapabilities = inferCapabilities(message);
         const initCapabilityDetection = mergeDossierIdCapabilities(
           detectFollowUpCapabilities(message, { mode: "init" }),
@@ -1153,8 +1162,8 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
               orchestrationBase,
               buildSpec: orchestrationBase.buildSpec,
               engineSystemPromptLength: engineSystemPrompt.length,
-              metaBriefApplied: Boolean(metaBrief),
-              metaBrief,
+              metaBriefApplied: Boolean(generationInputPackage.brief),
+              metaBrief: generationInputPackage.brief,
               customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
               scaffoldId: resolvedScaffold?.id ?? null,
               variantId: finalized.variantId,

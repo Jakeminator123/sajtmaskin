@@ -1,5 +1,6 @@
 import useSWR from "swr";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+import { canonicalizeModelId } from "@/lib/models/catalog";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -28,6 +29,11 @@ export function useChat(chatId: string | null) {
   return {
     chat: data,
     projectId,
+    // Only the active chat's response can finish tier hydration. A temporary
+    // fetch error leaves the request on the server's saved-tier path.
+    modelTier: responseChatId === chatId
+      ? canonicalizeModelId(typeof data?.modelTier === "string" ? data.modelTier : null)
+      : undefined,
     isLoading,
     isError: error,
     mutate,

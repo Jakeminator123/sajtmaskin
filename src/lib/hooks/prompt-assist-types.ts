@@ -1,4 +1,4 @@
-import type { ThemeColors } from "@/lib/builder/theme-presets";
+import type { DesignTheme, ThemeColors } from "@/lib/builder/theme-presets";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 
 export type PromptAssistConfig = {
@@ -7,6 +7,7 @@ export type PromptAssistConfig = {
   imageGenerations: boolean;
   buildIntent?: BuildIntent;
   themeColors?: ThemeColors | null;
+  designThemePreset?: DesignTheme;
 };
 
 export type InitBriefOptions = {

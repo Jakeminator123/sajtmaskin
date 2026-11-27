@@ -23,6 +23,7 @@ export interface OpenClawReviewContext {
 export async function buildOpenClawReviewContext(params: {
   versionId: string | null | undefined;
   chatId?: string | null;
+  filesRevision?: string | null;
 }): Promise<OpenClawReviewContext> {
   const versionId = (params.versionId ?? "").trim();
   if (!versionId || !dbConfigured) {
@@ -41,6 +42,10 @@ export async function buildOpenClawReviewContext(params: {
       getLatestEngineVersionErrorLogs(versionId, ROW_READ_LIMIT),
       getLiveReviewRunForVersion(versionId),
     ]);
+    const currentReview = liveReviewRow && liveReviewRow.chatId === params.chatId &&
+      liveReviewRow.versionId === versionId &&
+      Boolean(params.filesRevision) && liveReviewRow.filesRevision === params.filesRevision &&
+      liveReviewRow.expiresAt.getTime() > Date.now() ? liveReviewRow : null;
     return {
       findings: formatOpenClawFindingsBlock(
         rows.map((row) => ({
@@ -59,7 +64,7 @@ export async function buildOpenClawReviewContext(params: {
           meta: row.meta,
         })),
       ),
-      liveReview: formatOpenClawLiveReviewBlock(liveReviewRow),
+      liveReview: formatOpenClawLiveReviewBlock(currentReview),
     };
   } catch (error) {
     console.warn(

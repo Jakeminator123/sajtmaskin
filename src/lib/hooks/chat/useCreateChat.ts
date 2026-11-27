@@ -6,6 +6,8 @@ import {
   getCurrentInitBuildChoices,
   resetInitBuildChoices,
 } from "@/lib/builder/init-build-choices";
+import { applyBriefColorPalette } from "@/lib/builder/brief-build-choices";
+import { getThemeColors, normalizeDesignTheme, resolveThemePalette } from "@/lib/builder/theme-presets";
 import { appendStreamWarning } from "@/lib/builder/stream-warning";
 import { normalizePlanArtifact } from "@/lib/gen/plan/schema";
 import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
@@ -55,6 +57,7 @@ export function useCreateChat(
   const {
     chatId: _chatId,
     setChatId,
+    onChatCreated,
     chatIdParam,
     router,
     appProjectId,
@@ -136,6 +139,13 @@ export function useCreateChat(
       // explicit override > header-manual > Byggval > auto.
       const activeInitChoices = getCurrentInitBuildChoices();
       const initChoicesMeta = buildInitBuildChoicesMeta(activeInitChoices);
+      // Auto surfaces depend on the final server-side variant. The three
+      // chosen brand colors are already known, as are surfaces for a pinned mode.
+      const initTheme = normalizeDesignTheme(designThemePreset);
+      const palette = initChoicesMeta.colorModeHint
+        ? resolveThemePalette(initTheme, initChoicesMeta.colorModeHint)
+        : getThemeColors(initTheme);
+      const requestBrief = applyBriefColorPalette(pendingBriefRef?.current ?? null, palette ?? themeColors ?? null);
       // Komplexitet går strukturerat (meta.complexityHint → BuildSpec) OCH
       // som sektionsdirektiv; färgläge/ton saknar pipeline-fält och åker som
       // svenska direktiv i custom-instructions-kanalen (body.system →
@@ -220,9 +230,14 @@ export function useCreateChat(
       resetBeforeCreateChat();
 
       const now = Date.now();
+      const createdAt = new Date(now).toISOString();
       const userMessageId = `user-${now}`;
       const assistantMessageId = `assistant-${now}`;
       const canonicalTier = canonicalizeModelId(selectedModelTier) ?? "max";
+      const setCreatedChatId = (id: string | null) => {
+        if (id) onChatCreated?.(id, { modelTier: canonicalTier, imageGenerations: enableImageGenerations });
+        setChatId(id);
+      };
       const engineModel = canonicalModelIdToOwnModelId(canonicalTier);
       const buildProfileId = getBuildProfileId(canonicalTier);
 
@@ -240,6 +255,7 @@ export function useCreateChat(
       setMessages([
         {
           id: userMessageId,
+          createdAt,
           role: "user",
           content: initialMessage,
           uiParts: isAuditHandoff
@@ -256,6 +272,7 @@ export function useCreateChat(
         },
         {
           id: assistantMessageId,
+          createdAt,
           role: "assistant",
           content: "",
           thinking: "",
@@ -289,7 +306,7 @@ export function useCreateChat(
         const deepBriefVisibility = resolveDeepBriefVisibilityFields({
           briefUsedThisTurn,
           meta,
-          initBrief: pendingBriefRef?.current ?? null,
+          initBrief: requestBrief,
         });
         appendModelInfoPart(setMessages, assistantMessageId, {
           modelId:
@@ -407,7 +424,7 @@ export function useCreateChat(
           throw new Error("No chat ID returned from API");
         }
 
-        setChatId(String(newChatId));
+        setCreatedChatId(String(newChatId));
         if (newLinkedProjectId) {
           onLinkedProjectId?.(String(newLinkedProjectId));
         }
@@ -478,7 +495,7 @@ export function useCreateChat(
         // buildDynamicContext(). If it is absent, keep the raw user text;
         // Core Rules already carry the base constraints, so a mechanical
         // Prompt Assist wrapper would only add noise.
-        const hasBrief = Boolean(pendingBriefRef?.current);
+        const hasBrief = Boolean(requestBrief);
         const formattedMessage = initialMessage;
         debugLog("AI", "Prompt formatting result", {
           originalLength: initialMessage.length,
@@ -539,8 +556,8 @@ export function useCreateChat(
           promptMeta.promptSourceTechnical = options.promptSourceMeta.isTechnical;
           promptMeta.promptSourcePreservePayload = options.promptSourceMeta.preservePayload;
         }
-        if (pendingBriefRef?.current) {
-          promptMeta.brief = pendingBriefRef.current;
+        if (requestBrief) {
+          promptMeta.brief = requestBrief;
           promptMeta.promptAssistDeep = true;
         }
         if (promptHandoffId && (isAuditHandoff || buildMethod === "kostnadsfri")) {
@@ -648,7 +665,7 @@ export function useCreateChat(
               chatId: null,
               setMessages,
               touchStreamSafetyTimer,
-              setChatId,
+              setChatId: setCreatedChatId,
               chatIdParam,
               // Force Byggval-effective intent into SSE URL writes. Without this
               // the shared builder falls back to stale React state (landing
@@ -675,7 +692,7 @@ export function useCreateChat(
               promptAssistModel,
               promptAssistDeep,
               briefUsedThisTurn: requestIncludedBrief,
-              initBrief: pendingBriefRef?.current ?? null,
+              initBrief: requestBrief,
             },
             streamController.signal,
           );
@@ -760,6 +777,7 @@ export function useCreateChat(
       systemPrompt,
       setMessages,
       setChatId,
+      onChatCreated,
       chatIdParam,
       router,
       appProjectId,

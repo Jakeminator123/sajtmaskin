@@ -104,7 +104,7 @@ const ENGLISH_TO_SWEDISH_HINTS: Array<{ match: RegExp; hint: string }> = [
   { match: /\b(website|web site|homepage|landing)\b/i, hint: "webbplats landningssida startsida hemsida" },
   { match: /\b(shop|store|ecommerce|e-commerce|cart)\b/i, hint: "butik e-handel webshop varukorg" },
   { match: /\b(blog|article|post|editorial)\b/i, hint: "blogg artikel inlägg redaktionell" },
-  { match: /\b(portfolio|showcase|creative)\b/i, hint: "portfolio fotograf designer kreatör" },
+  { match: /\b(portfolio|showcase|photographer|designer)\b/i, hint: "portfolio fotograf designer kreatör" },
   { match: /\b(saas|subscription|pricing|b2b)\b/i, hint: "saas prenumeration prissättning plattform" },
   { match: /\b(login|signup|sign up|auth|password)\b/i, hint: "inloggning registrering konto lösenord" },
   { match: /\b(dashboard|analytics|metrics|admin)\b/i, hint: "instrumentpanel statistik analys admin" },
