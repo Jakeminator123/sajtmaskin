@@ -17,7 +17,7 @@ Kanonisk siffertabell för cost-scripts: [`pricing.json`](pricing.json).
 | **Låg / Mellan / Hög använder `gpt-6.2-sol`, inte ett separat `-pro`-modell-ID.** | Längre resonemang styrs med `reasoningEffort` (medium / high / xhigh) i `reasoningMode: "standard"`. |
 | **`reasoningMode: "pro"` är inte längre default.**                            | Valbart i backoffice. Prod `llm_usage` 28 jul–1 sep 2026 visade ~6× fakturerad input (142k vs 22k p50) när Premium körde pro-läge. |
 | **GPT-6.2 Sol och GPT-6.2 Astra saknar `none`.**                                | Runtime klampar begärd effort per modell (`openai-capabilities.ts`); Luna och GPT-5.6 har hela `none` … `max`. |
-| Små matchnings- och extraktionsuppgifter kör `gpt-6.2-sol` med `low`. | Bildarbetsflöden använder `gpt-6.1-terra` med `medium`. |
+| Små matchnings- och extraktionsuppgifter kör `gpt-6.2-sol` med `low`. | Versionsgranskning använder `gpt-6.2-sol` med `medium`. Presentationsanalys och scaffoldguidens bildtolkning använder `gpt-6.1-terra` med `medium`. |
 
 ## OpenAI (per 1M tokens, standardnivå)
 

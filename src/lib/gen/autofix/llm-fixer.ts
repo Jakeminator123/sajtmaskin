@@ -10,7 +10,7 @@ import {
   buildFixerUserPrompt,
   type RecurringFailurePattern,
 } from "./fixer-prompt";
-import { aliasRetiredModelId, canonicalModelIdToOwnModelId } from "@/lib/models/catalog";
+import { resolveOwnEngineModelId, canonicalModelIdToOwnModelId } from "@/lib/models/catalog";
 import {
   clampOpenAIReasoningEffort,
   resolveOpenAIReasoningEffort,
@@ -260,7 +260,7 @@ export async function runLlmFixer(
       requiredFiles: options?.requiredFiles,
       recurringPatterns: options?.recurringPatterns,
     });
-    const resolvedModelId = aliasRetiredModelId(options?.model ?? DEFAULT_FIXER_MODEL);
+    const resolvedModelId = resolveOwnEngineModelId(options?.model ?? DEFAULT_FIXER_MODEL);
     const model = getOpenAIModel(resolvedModelId);
     const resolvedThinking = Boolean(options?.thinking);
     let providerOptions: ProviderOptionsRecord | undefined;
