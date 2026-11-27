@@ -12,6 +12,32 @@
  */
 
 import type { InitBuildChoicesMeta } from "@/lib/builder/init-build-choices";
+import type { ThemeColors, ThemePalette } from "@/lib/builder/theme-presets";
+
+/** Project the resolved Byggval palette into the existing Deep Brief schema. */
+export function applyBriefColorPalette(
+  brief: Record<string, unknown> | null,
+  palette: ThemePalette | ThemeColors | null,
+): Record<string, unknown> | null {
+  if (!brief || !palette) return brief;
+  const visual = brief.visualDirection;
+  const visualDirection = visual && typeof visual === "object" && !Array.isArray(visual)
+    ? visual as Record<string, unknown>
+    : {};
+  const prior = visualDirection.colorPalette;
+  const priorColors = prior && typeof prior === "object" && !Array.isArray(prior) ? prior : {};
+  return {
+    ...brief,
+    visualDirection: {
+      ...visualDirection,
+      colorPalette: {
+        ...priorColors,
+        primary: palette.primary, secondary: palette.secondary, accent: palette.accent,
+        ...("background" in palette ? { background: palette.background, text: palette.foreground } : {}),
+      },
+    },
+  };
+}
 
 export type BriefBuildChoicesInput = {
   buildIntent?: "website" | "app";
@@ -22,6 +48,8 @@ export type BriefBuildChoicesInput = {
   toneKeywordsHint?: string[];
   colorModeHint?: "light" | "dark";
   complexityHint?: "simple" | "medium" | "complex";
+  designThemePreset?: string;
+  themeColors?: ThemeColors | null;
 };
 
 export function briefBuildChoicesFromMeta(
@@ -53,5 +81,9 @@ export function briefBuildChoicesCacheExtras(
     toneKeywordsHint: (input.toneKeywordsHint ?? []).join("|") || null,
     colorModeHint: input.colorModeHint ?? null,
     complexityHint: input.complexityHint ?? null,
+    designThemePreset: input.designThemePreset ?? null,
+    themeColors: input.themeColors
+      ? [input.themeColors.primary, input.themeColors.secondary, input.themeColors.accent].join("|")
+      : null,
   };
 }

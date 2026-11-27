@@ -26,6 +26,7 @@ import {
 } from "../scaffolds/serialize";
 import {
   inferCapabilities,
+  hasOnlyAuthenticationForms,
   buildCapabilityHints,
 } from "../capability-inference";
 import {
@@ -36,6 +37,7 @@ import {
   suppressRemovedInferredCapabilities,
 } from "../capability-removal";
 import { resolveDossierCapabilitiesFromInferredCapabilities } from "../capability-dossier-bridge";
+import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
 import { buildRoutePlan, collectExplicitRouteRemovals, normalizeRoutePath } from "../route-plan";
 import type { PlannedRoute } from "../route-plan";
 import {
@@ -704,8 +706,11 @@ export async function resolveOrchestrationBase(
   );
   if (FEATURES.useDossierPipeline) {
     try {
-      const inferredCapabilityIds =
-        resolveDossierCapabilitiesFromInferredCapabilities(capabilities);
+      const rawDossierPrompt = input.rawPrompt ?? input.capabilitiesPrompt ?? input.prompt;
+      const explicitCapabilityIds = detectFollowUpCapabilities(rawDossierPrompt, { mode: resolvedMode }).capabilityIds;
+      const inferredCapabilityIds = resolveDossierCapabilitiesFromInferredCapabilities(capabilities, {
+        formsAreAuthOnly: !explicitCapabilityIds.includes("contact-form") && hasOnlyAuthenticationForms(rawDossierPrompt),
+      });
       const briefCapsRaw = (brief as { requestedCapabilities?: unknown } | null | undefined)
         ?.requestedCapabilities;
       const briefCapsArray = Array.isArray(briefCapsRaw)
@@ -719,7 +724,6 @@ export async function resolveOrchestrationBase(
       const callerProvidedCapabilityIds = (input.requestedDossierCapabilities ?? [])
         .filter((c): c is string => typeof c === "string" && c.trim().length > 0)
         .map((c) => c.trim().toLowerCase());
-      const rawDossierPrompt = input.rawPrompt ?? input.capabilitiesPrompt ?? input.prompt;
       // A selected media-library video can arrive with a prompt like "use this".
       const attachmentCapabilityIds =
         input.requestAttachments?.some(isVideoRequestAttachment) &&

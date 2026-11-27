@@ -28,7 +28,7 @@ const STYLE_CHOICE_VARIANTS: Partial<
     minimal: "minimalist-mag",
   },
   "base-nextjs": {
-    warm: "fresh-mint",
+    warm: "studio-soft",
     corporate: "starter-neutral",
     bold: "playground-mono",
     editorial: "studio-soft",
