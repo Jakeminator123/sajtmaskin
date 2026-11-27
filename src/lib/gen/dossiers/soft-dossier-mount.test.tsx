@@ -22,13 +22,16 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import useEmblaCarousel from "embla-carousel-react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CommandPalette } from "../../../../data/dossiers/soft/cmdk-command-palette/components/command-palette";
 import { ChartCard } from "../../../../data/dossiers/soft/dashboard-charts/components/chart-card";
 import { Carousel } from "../../../../data/dossiers/soft/embla-carousel/components/carousel";
 import { GalleryLightbox } from "../../../../data/dossiers/soft/gallery-lightbox/components/gallery-lightbox";
+
+vi.mock("embla-carousel-react", { spy: true });
 
 const SOFT_DIR = path.resolve(__dirname, "../../../../data/dossiers/soft");
 
@@ -177,6 +180,26 @@ describe("CommandPalette — kommandopalett (cmdk-command-palette)", () => {
     expect(screen.getByRole("option", { name: /Logga ut/ })).toBeTruthy();
   });
 
+  it("låter bara den första monterade paletten svara på det globala kortkommandot", () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const first = render(<CommandPalette groups={groups} placeholder="Första paletten" />);
+      render(<CommandPalette groups={groups} placeholder="Andra paletten" />);
+
+      openWithShortcut();
+      expect(document.querySelectorAll("[cmdk-dialog]")).toHaveLength(1);
+      expect(screen.getByPlaceholderText("Första paletten")).toBeTruthy();
+      expect(warning).toHaveBeenCalledWith(expect.stringContaining("more than one CommandPalette"));
+
+      first.unmount();
+      openWithShortcut();
+      expect(document.querySelectorAll("[cmdk-dialog]")).toHaveLength(1);
+      expect(screen.getByPlaceholderText("Andra paletten")).toBeTruthy();
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
   it("filtrerar listan när man skriver", () => {
     renderPalette();
     openWithShortcut();
@@ -287,6 +310,34 @@ describe("GalleryLightbox — bildgalleri (gallery-lightbox)", () => {
 });
 
 describe("Carousel — bildkarusell (embla-carousel)", () => {
+  it("tar bort autoplay vid reducerad rörelse och återställer den när läget stängs av", () => {
+    const preference = Object.assign(new EventTarget(), { matches: true });
+    vi.stubGlobal("matchMedia", () => preference);
+    render(
+      <Carousel ariaLabel="Testbilder" autoplay={600}>
+        <div>Första</div>
+        <div>Andra</div>
+      </Carousel>,
+    );
+
+    expect(useEmblaCarousel).toHaveBeenLastCalledWith(expect.objectContaining({ duration: 0 }), []);
+
+    act(() => {
+      preference.matches = false;
+      preference.dispatchEvent(new Event("change"));
+    });
+    expect(useEmblaCarousel).toHaveBeenLastCalledWith(
+      expect.objectContaining({ duration: 25 }),
+      [expect.objectContaining({ name: "autoplay" })],
+    );
+
+    act(() => {
+      preference.matches = true;
+      preference.dispatchEvent(new Event("change"));
+    });
+    expect(useEmblaCarousel).toHaveBeenLastCalledWith(expect.objectContaining({ duration: 0 }), []);
+  });
+
   function renderCarousel() {
     return render(
       <Carousel ariaLabel="Kundomdömen">

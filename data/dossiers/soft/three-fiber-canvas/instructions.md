@@ -129,6 +129,6 @@ Rule of thumb: every capitalised JSX tag in the generated scene MUST have a corr
 
 - View the page on a server-rendered build (`next build && next start`). The first HTML response should NOT include any `Canvas`/`r3f` markup — only the fallback. The canvas should hydrate after.
 - Disable WebGL in dev tools (chrome://flags or about:config). The page should render the fallback without crashing.
-- Force `prefers-reduced-motion: reduce` in dev tools. The canvas should still mount but not animate.
+- Force `prefers-reduced-motion: reduce` in dev tools. A decorative scene should show its static fallback. With `decorative={false}`, the canvas should stay visible and the child scene should stop non-essential animation.
 - Resize the browser to 320×640 (mobile). FPS should stay above 50 on a mid-range laptop. If not, drop the geometry segment count or remove the second light.
 - Check memory: navigate away from the page, then back. Take a heap snapshot — there should be no growing pool of `WebGLRenderer` instances.
