@@ -48,10 +48,11 @@ services:
       - key: SAJTAGENT_ALLOWED_ORIGINS
         sync: false
       # --- Defaults: safe to keep as-is ---
+      # Render exposes Caddy on PORT. OpenClaw itself binds only to loopback.
       - key: OPENCLAW_GATEWAY_PORT
         value: "10000"
       - key: OPENCLAW_GATEWAY_BIND
-        value: lan
+        value: loopback
       # Server-owned model lanes. The app selects only an OpenClaw agent id;
       # provider model refs and fallback chains stay on this Render service.
       - key: OPENCLAW_MODEL_PRIMARY
