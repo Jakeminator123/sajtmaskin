@@ -785,9 +785,9 @@ export function BuilderCube({
       const activeChanged = activeFaceRef.current !== face;
       if (nextCards === previous && !activeChanged) return;
 
-      // Z-ordningen är den omedelbara visuella återkopplingen. Persistens och
-      // övrig React-fanout får vara en transition; annars blockerar ett vanligt
-      // fokus-/pointertryck på en tung sida nästa bild med hela sexpanelsrendern.
+      // Uppdatera z-ordningen direkt och spara samma ordning i refen innan
+      // föräldern får ändringen. Ett efterföljande pekar-/fokusevent ser då
+      // redan det lyfta kortet och behöver ingen ytterligare uppdatering.
       if (nextCards !== previous) {
         cardsRef.current = nextCards;
         nextCards.order.forEach((id, index) => {
