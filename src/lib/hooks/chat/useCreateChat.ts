@@ -229,6 +229,7 @@ export function useCreateChat(
       resetBeforeCreateChat();
 
       const now = Date.now();
+      const createdAt = new Date(now).toISOString();
       const userMessageId = `user-${now}`;
       const assistantMessageId = `assistant-${now}`;
       const canonicalTier = canonicalizeModelId(selectedModelTier) ?? "max";
@@ -249,6 +250,7 @@ export function useCreateChat(
       setMessages([
         {
           id: userMessageId,
+          createdAt,
           role: "user",
           content: initialMessage,
           uiParts: isAuditHandoff
@@ -265,6 +267,7 @@ export function useCreateChat(
         },
         {
           id: assistantMessageId,
+          createdAt,
           role: "assistant",
           content: "",
           thinking: "",

@@ -22,6 +22,8 @@ function Probe({ onValue }: { onValue: (available: boolean) => void }) {
 
 type ProviderProps = {
   chatId: string | null;
+  lastBuilderMessageId?: string | null;
+  builderMessageCount?: number;
   activeVersionId: string | null;
   activeVersionStatus: string | null;
   isAnyStreaming: boolean;
@@ -36,6 +38,8 @@ function renderProvider(
   const build = (props: ProviderProps) => (
     <SajtagentProvider
       chatId={props.chatId}
+      lastBuilderMessageId={props.lastBuilderMessageId}
+      builderMessageCount={props.builderMessageCount}
       activeVersionId={props.activeVersionId}
       activeVersionStatus={props.activeVersionStatus}
       activeVersionIsLatest
@@ -336,8 +340,12 @@ describe("SajtagentProvider — anrop bara när ytan finns", () => {
 
     // En ström som gav en ny version → exakt en digest, som intern tur.
     rerenderWith({ activeVersionId: "v2", activeVersionStatus: "generating", isAnyStreaming: true, digestEnabled: true });
-    rerenderWith({ activeVersionId: "v3", activeVersionStatus: "ready", isAnyStreaming: false, digestEnabled: true });
+    rerenderWith({ activeVersionId: "v3", activeVersionStatus: "ready", isAnyStreaming: false,
+      digestEnabled: true, lastBuilderMessageId: "build-v3", builderMessageCount: 4 });
     await waitFor(() => expect(chatCalls).toHaveLength(1));
+    expect(useOpenClawStore.getState().messages.slice(-2).map((row) =>
+      [row.role, row.anchorBuilderMessageId, row.anchorBuilderMessageIndex],
+    )).toEqual([["user", "build-v3", 4], ["assistant", "build-v3", 4]]);
     const digest = useOpenClawStore
       .getState()
       .messages.find((message) => message.content.startsWith("[Byggresultat]"));
