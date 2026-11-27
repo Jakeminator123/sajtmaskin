@@ -1,9 +1,4 @@
-/**
- * Det flytande kortet täckte 22 % av förhandsvisningen (V-riggen 2026-11-11).
- * Det är nu smalare och kan fällas ihop till en knapp utan att inmatningen
- * avmonteras, så utkastet ligger kvar.
- */
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "@/lib/builder/types";
@@ -41,13 +36,14 @@ function Draft() {
   return <textarea aria-label="Utkast" value={value} onChange={(e) => setValue(e.target.value)} />;
 }
 
-function renderFloat(floatEnabled = true) {
+function renderFloat(floatEnabled = true, onToggleCollapse = vi.fn(), onOpenCube = vi.fn()) {
   return render(
     <FloatingCollapsedChatInput
       floatEnabled={floatEnabled}
       chatId="chat_1"
       isCollapsed
-      onToggleCollapse={vi.fn()}
+      onToggleCollapse={onToggleCollapse}
+      onOpenCube={onOpenCube}
       builderMessages={messages}
       isStreaming={false}
     >
@@ -56,7 +52,7 @@ function renderFloat(floatEnabled = true) {
   );
 }
 
-describe("FloatingCollapsedChatInput — fäll ihop det flytande kortet", () => {
+describe("FloatingCollapsedChatInput — växla mellan komposer och chatt", () => {
   it("är smalare än förut (28rem i stället för 42rem)", () => {
     renderFloat();
     const card = screen.getByTestId("floating-collapsed-chat-input");
@@ -65,28 +61,18 @@ describe("FloatingCollapsedChatInput — fäll ihop det flytande kortet", () => 
     expect(card.className).not.toContain("max-w-2xl");
   });
 
-  it("fäller ihop till en knapp och tillbaka utan att tappa utkastet", () => {
-    renderFloat();
-    fireEvent.change(screen.getByRole("textbox", { name: "Utkast" }), { target: { value: "Byt rubriken" } });
-
-    act(() => {
-      fireEvent.click(screen.getByRole("button", { name: "Fäll ihop inmatningen" }));
-    });
-    expect(screen.queryByRole("textbox", { name: "Utkast" })).toBeNull();
-    const restore = screen.getByRole("button", { name: "Visa inmatningen (2 meddelanden)" });
-    expect(document.activeElement).toBe(restore);
-    // Dockad i ett hörn, inte kvar mitt över sajten.
-    const card = screen.getByTestId("floating-collapsed-chat-input");
-    expect(card.style.left).toBe("1rem");
-    expect(card.style.bottom).toBe("1rem");
-    expect(card.style.top).toBe("");
-
-    act(() => {
-      fireEvent.click(restore);
-    });
-    const draft = screen.getByRole("textbox", { name: "Utkast" }) as HTMLTextAreaElement;
+  it("behåller utkastet synligt och erbjuder sidopanel eller kub direkt", () => {
+    const onToggle = vi.fn();
+    const onOpenCube = vi.fn();
+    renderFloat(true, onToggle, onOpenCube);
+    const draft = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Utkast" });
+    fireEvent.change(draft, { target: { value: "Byt rubriken" } });
+    fireEvent.click(screen.getByRole("button", { name: "Visa chatten (2 meddelanden)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Öppna byggkuben" }));
+    expect(onToggle).toHaveBeenCalledOnce();
+    expect(onOpenCube).toHaveBeenCalledOnce();
     expect(draft.value).toBe("Byt rubriken");
-    expect(document.activeElement).toBe(draft);
+    expect(screen.queryByRole("button", { name: "Fäll ihop inmatningen" })).toBeNull();
   });
 
   it("erbjuder ingen ihopfällning när kortet inte flyter", () => {

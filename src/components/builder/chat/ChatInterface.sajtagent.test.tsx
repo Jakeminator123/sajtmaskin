@@ -4,7 +4,7 @@
  * ChatInterface.draft-retention.test.tsx.
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { act } from "react";
+import { act, type ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MessageOptions } from "@/lib/hooks/chat/types";
 import type { SajtagentContextValue } from "./sajtagent/SajtagentProvider";
@@ -32,6 +32,9 @@ vi.mock("./sajtagent/SajtagentProvider", () => ({
 }));
 
 import { ChatInterface } from "./ChatInterface";
+import { ComposerModeToggle } from "./sajtagent/ComposerModeToggle";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useComposerMode } from "@/lib/builder/use-composer-mode";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import {
   hasMissionAwaitingResult,
@@ -39,6 +42,24 @@ import {
   resetAgentMissionLedgerForTests,
 } from "@/lib/openclaw/agent-action-consent";
 import type { OpenClawSendOptions } from "@/components/openclaw/useOpenClawChat";
+
+function ComposerUnderTest(props: ComponentProps<typeof ChatInterface>) {
+  const { composerMode, handleComposerModeChange } = useComposerMode(props.chatId);
+  return (
+    <>
+      <DropdownMenu open modal={false}>
+        <DropdownMenuTrigger>Chattläge</DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <ComposerModeToggle value={composerMode} onChange={handleComposerModeChange}
+            agentConfigured={Boolean(sajtagent.value?.configured ?? sajtagent.value?.available)}
+            buildLocked={Boolean(props.isBusy)}
+          />
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ChatInterface {...props} composerMode={composerMode} />
+    </>
+  );
+}
 
 function makeAgent(overrides: Partial<SajtagentContextValue> = {}): SajtagentContextValue {
   return {
@@ -88,7 +109,7 @@ it("keeps a selected source outside route intent and sends its exact media URL t
       media: { id: 42, url: "https://blob.example/media/photo.png", filename: "photo.png", contentType: "image/png" },
     }));
   vi.stubGlobal("fetch", fetchMock);
-  render(<ChatInterface chatId="chat_1" mediaEnabled onSendMessage={build} />);
+  render(<ComposerUnderTest chatId="chat_1" mediaEnabled onSendMessage={build} />);
   const request = "Kan du gå till www.minbil.se och hämta bild X och textstycke Y?";
   await typeAndSend(request);
   expect(screen.getByTestId("composer-route-hint").textContent).toContain("Läser en webbsida");
@@ -106,7 +127,7 @@ it("keeps a selected source outside route intent and sends its exact media URL t
   await screen.findByText("Vald källa https://example.org/source");
   expect(build).not.toHaveBeenCalled();
 
-  fireEvent.click(screen.getByRole("radio", { name: "Bygg" }));
+  fireEvent.click(screen.getByRole("menuitemradio", { name: "Bygg" }));
   await typeAndSend("Lägg in bilden och texten på startsidan.");
   expect(build).toHaveBeenCalledWith(
     expect.stringContaining("Välj den här exakta texten."),
@@ -143,8 +164,8 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     const agent = makeAgent();
     sajtagent.value = agent;
     const build = vi.fn();
-    render(<ChatInterface chatId="chat_1" onSendMessage={build} />);
-    if (mode === "build") fireEvent.click(screen.getByRole("radio", { name: "Bygg" }));
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} />);
+    if (mode === "build") fireEvent.click(screen.getByRole("menuitemradio", { name: "Bygg" }));
     await typeAndSend(text);
     expect(build).not.toHaveBeenCalled();
     expect(agent.send).not.toHaveBeenCalled();
@@ -163,7 +184,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     const agent = makeAgent();
     sajtagent.value = agent;
     const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
-    render(<ChatInterface chatId="chat_1" onSendMessage={build} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} />);
     await typeAndSend(text);
     expect(build).toHaveBeenCalledExactlyOnceWith(text, expect.anything());
     expect(agent.send).not.toHaveBeenCalled();
@@ -175,7 +196,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     const agent = makeAgent();
     sajtagent.value = agent;
     const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
-    render(<ChatInterface chatId="chat_1" onSendMessage={build} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} />);
     const text = "Byt rubriken till Välkommen, ändra inget annat";
     await typeAndSend(text);
     expect(build).toHaveBeenCalledExactlyOnceWith(text, expect.anything());
@@ -189,7 +210,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     const agent = makeAgent({ available: false, configured: true, healthStatus: "unavailable" });
     sajtagent.value = agent;
     const build = vi.fn();
-    render(<ChatInterface chatId="chat_1" onSendMessage={build} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} />);
     await typeAndSend("Vad tycker du? Ändra ingenting.");
     expect(build).not.toHaveBeenCalled();
     expect(agent.send).not.toHaveBeenCalled();
@@ -200,7 +221,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
   it("keeps real build orders working when the configured agent is down", async () => {
     sajtagent.value = makeAgent({ available: false, configured: true });
     const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
-    render(<ChatInterface chatId="chat_1" onSendMessage={build} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} />);
     await typeAndSend("Byt rubriken till Välkommen");
     expect(build).toHaveBeenCalledWith("Byt rubriken till Välkommen", expect.anything());
   });
@@ -211,7 +232,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     const agent = makeAgent();
     sajtagent.value = agent;
     const build = vi.fn();
-    render(<ChatInterface chatId="chat_1" onSendMessage={build} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} />);
     await typeAndSend(question);
     expect(build).not.toHaveBeenCalled();
     expect(agent.send).toHaveBeenCalledWith(question, expect.objectContaining({ allowBuild: false }));
@@ -221,7 +242,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     let accepted: (() => void) | undefined;
     const agent = makeAgent({ send: vi.fn(async (_text, options) => { accepted = options?.onDispatchAccepted; }) });
     sajtagent.value = agent;
-    render(<ChatInterface chatId="chat_1" onSendMessage={vi.fn()} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={vi.fn()} />);
     await typeAndSend("Vad tycker du om startsidan?");
     const input = screen.getByRole("textbox", { name: "Skriv en uppdatering" }) as HTMLTextAreaElement;
     expect(input.value).toBe("Vad tycker du om startsidan?");
@@ -232,7 +253,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
   it("does not erase a new draft when an earlier agent dispatch is accepted", async () => {
     let accepted: (() => void) | undefined;
     sajtagent.value = makeAgent({ send: vi.fn(async (_text, options) => { accepted = options?.onDispatchAccepted; }) });
-    render(<ChatInterface chatId="chat_1" onSendMessage={vi.fn()} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={vi.fn()} />);
     await typeAndSend("Vad tycker du om startsidan?");
     const input = screen.getByRole("textbox", { name: "Skriv en uppdatering" }) as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: "En ny fråga" } });
@@ -248,7 +269,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     const agent = makeAgent();
     sajtagent.value = agent;
     const build = vi.fn();
-    render(<ChatInterface chatId="chat_1" onSendMessage={build} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} />);
     await typeAndSend("Gör punkt två");
     expect(build).not.toHaveBeenCalled();
     const options = vi.mocked(agent.send).mock.calls[0]?.[1] as OpenClawSendOptions;
@@ -266,7 +287,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     const agent = makeAgent();
     sajtagent.value = agent;
     const build = vi.fn();
-    render(<ChatInterface chatId="chat_1" onSendMessage={build} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} />);
     await typeAndSend("Gör punkt två");
     expect(build).not.toHaveBeenCalled();
     expect(agent.send).not.toHaveBeenCalled();
@@ -278,8 +299,8 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
       messages: [{ id: "old-user", role: "user", content: "Byt rubriken", timestamp: 1, allowBuild: true }] });
     const agent = makeAgent({ isStreaming: true });
     sajtagent.value = agent;
-    render(<ChatInterface chatId="chat_1" onSendMessage={vi.fn()} />);
-    fireEvent.click(screen.getByRole("radio", { name: "Fråga" }));
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={vi.fn()} />);
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Fråga" }));
     await typeAndSend("Ändra ingenting. Ge bara råd.");
     expect(useOpenClawStore.getState().armedMandate).toBeNull();
     expect(useOpenClawStore.getState().messages[0].allowBuild).toBe(false);
@@ -294,7 +315,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
       via: "stream" as const,
     }));
 
-    render(<ChatInterface chatId="chat_1" onSendMessage={onSendMessage} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={onSendMessage} />);
     await typeAndSend("Vad tycker du om startsidan?");
 
     expect(agent.send).toHaveBeenCalledWith("Vad tycker du om startsidan?", expect.objectContaining({ allowBuild: false }));
@@ -320,7 +341,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     sajtagent.value = agent;
     const onSendMessage = vi.fn();
 
-    render(<ChatInterface chatId="chat_1" onSendMessage={onSendMessage} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={onSendMessage} />);
     await typeAndSend(text);
 
     expect(agent.send).toHaveBeenCalledWith(text, expect.objectContaining({ allowBuild: true, restrictBuild: false }));
@@ -329,7 +350,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
 
   it("säger före klicket om Sajtagenten kan ändra sajten på den här texten", () => {
     sajtagent.value = makeAgent();
-    render(<ChatInterface chatId="chat_1" onSendMessage={vi.fn()} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={vi.fn()} />);
     const hint = () => screen.getByTestId("composer-route-hint");
     const textarea = screen.getByRole("textbox", { name: "Skriv en uppdatering" });
     const polite = "Kan du lägga till en karta på kontaktsidan?";
@@ -353,7 +374,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
 
     // Läget Fråga ändrar aldrig något.
     fireEvent.change(textarea, { target: { value: polite } });
-    fireEvent.click(screen.getByRole("radio", { name: "Fråga" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Fråga" }));
     expect(hint().textContent).toContain("Fråga – ändrar inget");
   });
 
@@ -363,8 +384,8 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
       status: "started" as const,
       via: "stream" as const,
     }));
-    render(<ChatInterface chatId="chat_1" onSendMessage={onSendMessage} />);
-    fireEvent.click(screen.getByRole("radio", { name: "Bygg" }));
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={onSendMessage} />);
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Bygg" }));
     act(() => {
       useOpenClawStore.setState({
         messages: [{ id: "mission", role: "user", content: "Gör om kontaktsidan", timestamp: 1, allowBuild: true }],
@@ -387,7 +408,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
       status: "started" as const,
       via: "stream" as const,
     }));
-    render(<ChatInterface chatId="chat_1" onSendMessage={onSendMessage} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={onSendMessage} />);
 
     await typeAndSend("Byt rubriken till Välkommen");
 
@@ -401,12 +422,12 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
       messages: [{ id: "mission", role: "user", content: "Gör om kontaktsidan", timestamp: 1, allowBuild: true }],
     });
     sajtagent.value = makeAgent();
-    render(<ChatInterface chatId="chat_1" onSendMessage={vi.fn()} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole("radio", { name: "Bygg" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Bygg" }));
     expect(useOpenClawStore.getState().messages[0].allowBuild).toBe(true);
 
-    fireEvent.click(screen.getByRole("radio", { name: "Fråga" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Fråga" }));
     expect(useOpenClawStore.getState().messages[0].allowBuild).toBe(false);
     expect(useOpenClawStore.getState().armedMandate).toBeNull();
   });
@@ -419,7 +440,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
       via: "stream" as const,
     }));
 
-    render(<ChatInterface chatId="chat_1" onSendMessage={onSendMessage} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={onSendMessage} />);
     await typeAndSend("Byt rubriken till Välkommen");
 
     expect(onSendMessage).toHaveBeenCalledTimes(1);
@@ -435,8 +456,8 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
       via: "stream" as const,
     }));
 
-    render(<ChatInterface chatId="chat_1" onSendMessage={onSendMessage} />);
-    fireEvent.click(screen.getByRole("radio", { name: "Fråga" }));
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={onSendMessage} />);
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Fråga" }));
     await typeAndSend("Byt rubriken till Välkommen");
 
     expect(agent.send).toHaveBeenCalledWith("Byt rubriken till Välkommen", expect.objectContaining({ allowBuild: false, restrictBuild: true }));
@@ -447,7 +468,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     const agent = makeAgent({ isStreaming: true });
     sajtagent.value = agent;
 
-    render(<ChatInterface chatId="chat_1" onSendMessage={vi.fn()} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={vi.fn()} />);
     expect(screen.getByTestId("composer-agent-streaming").textContent).toContain("Sajtagenten svarar");
     fireEvent.click(screen.getByRole("button", { name: "Stoppa Sajtagenten" }));
     expect(agent.stop).toHaveBeenCalledTimes(1);
@@ -455,7 +476,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
 
   it("visar alltid vad Skicka gör, från samma beslut som utskicket", async () => {
     sajtagent.value = makeAgent();
-    render(<ChatInterface chatId="chat_1" onSendMessage={vi.fn()} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={vi.fn()} />);
     const hint = () => screen.getByTestId("composer-route-hint");
     const textarea = screen.getByRole("textbox", { name: "Skriv en uppdatering" });
     expect(hint().getAttribute("data-route-tone")).toBe("neutral");
@@ -472,20 +493,20 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     const agent = makeAgent();
     sajtagent.value = agent;
     const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
-    const { rerender } = render(<ChatInterface chatId="chat_1" onSendMessage={build} />);
-    fireEvent.click(screen.getByRole("radio", { name: "Bygg" }));
-    expect(screen.getByRole("radio", { name: "Bygg" }).getAttribute("aria-checked")).toBe("true");
+    const { rerender } = render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} />);
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Bygg" }));
+    expect(screen.getByRole("menuitemradio", { name: "Bygg" }).getAttribute("aria-checked")).toBe("true");
 
-    rerender(<ChatInterface chatId="chat_2" onSendMessage={build} />);
-    expect(screen.getByRole("radio", { name: "Auto" }).getAttribute("aria-checked")).toBe("true");
+    rerender(<ComposerUnderTest chatId="chat_2" onSendMessage={build} />);
+    expect(screen.getByRole("menuitemradio", { name: "Auto" }).getAttribute("aria-checked")).toBe("true");
     await typeAndSend("Vad tycker du om startsidan?");
     expect(build).not.toHaveBeenCalled();
     expect(agent.send).toHaveBeenCalledWith("Vad tycker du om startsidan?", expect.anything());
 
     // Tillbaka i första chatten gäller dess eget val.
-    rerender(<ChatInterface chatId="chat_1" onSendMessage={build} />);
+    rerender(<ComposerUnderTest chatId="chat_1" onSendMessage={build} />);
     await waitFor(() =>
-      expect(screen.getByRole("radio", { name: "Bygg" }).getAttribute("aria-checked")).toBe("true"),
+      expect(screen.getByRole("menuitemradio", { name: "Bygg" }).getAttribute("aria-checked")).toBe("true"),
     );
   });
 
@@ -494,7 +515,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     const agent = makeAgent();
     sajtagent.value = agent;
     const build = vi.fn();
-    render(<ChatInterface chatId="chat_1" onSendMessage={build} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} />);
     await typeAndSend("Vad tycker du om startsidan?");
     expect(build).not.toHaveBeenCalled();
     expect(sessionStorage.getItem("sajtmaskin:composerMode")).toBeNull();
@@ -505,7 +526,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     const agent = makeAgent();
     sajtagent.value = agent;
     const build = vi.fn();
-    render(<ChatInterface chatId="chat_1" onSendMessage={build} isFigmaInputOpen />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} isFigmaInputOpen />);
     fireEvent.change(screen.getByPlaceholderText("Figma-länk (delningslänk)"), {
       target: { value: "https://example.com/logo.png" },
     });
@@ -530,7 +551,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     const agent = makeAgent();
     sajtagent.value = agent;
     const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
-    render(<ChatInterface chatId="chat_1" onSendMessage={build} isFigmaInputOpen />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} isFigmaInputOpen />);
     fireEvent.change(screen.getByPlaceholderText("Figma-länk (delningslänk)"), {
       target: { value: "https://example.com/logo.png" },
     });
@@ -554,8 +575,8 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
       via: "stream" as const,
     }));
 
-    render(<ChatInterface chatId="chat_1" onSendMessage={onSendMessage} isBusy />);
-    expect(screen.getByRole("radio", { name: "Bygg" }).hasAttribute("disabled")).toBe(true);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={onSendMessage} isBusy />);
+    expect(screen.getByRole("menuitemradio", { name: "Bygg" }).hasAttribute("aria-disabled")).toBe(true);
 
     await typeAndSend("Byt rubriken till Välkommen");
     expect(onSendMessage).not.toHaveBeenCalled();
@@ -573,8 +594,8 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
       via: "stream" as const,
     }));
 
-    render(<ChatInterface chatId="chat_1" onSendMessage={onSendMessage} />);
-    expect(screen.getByRole("radio", { name: "Fråga" }).hasAttribute("disabled")).toBe(true);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={onSendMessage} />);
+    expect(screen.getByRole("menuitemradio", { name: "Fråga" }).hasAttribute("aria-disabled")).toBe(true);
     await typeAndSend("Vad tycker du om startsidan?");
     expect(onSendMessage).not.toHaveBeenCalled();
     expect(screen.getByTestId("composer-route-hint").textContent).toContain("Sajtagenten finns inte här");
@@ -582,14 +603,14 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     await typeAndSend("Byt rubriken till Välkommen");
     expect(onSendMessage).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole("radio", { name: "Bygg" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Bygg" }));
     await typeAndSend("Vad tycker du om startsidan?");
     expect(onSendMessage).toHaveBeenCalledTimes(2);
   });
 
   it("utan Sajtagent och utan chatt: första bygget går som förut", async () => {
     const onCreateChat = vi.fn(async () => true);
-    render(<ChatInterface chatId={null} onCreateChat={onCreateChat} />);
+    render(<ComposerUnderTest chatId={null} onCreateChat={onCreateChat} />);
     expect(screen.queryByRole("radiogroup")).toBeNull();
     const textarea = screen.getByRole("textbox", { name: "Beskriv vad du vill bygga" });
     await act(async () => {
@@ -606,7 +627,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     const agent = makeAgent();
     sajtagent.value = agent;
     const onSendMessage = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
-    render(<ChatInterface chatId="chat_1" onSendMessage={onSendMessage}
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={onSendMessage}
       continuePlanMode={kind === "plan"} builderAwaitingReply={kind === "question"} />);
     await typeAndSend("Blått, fungerar det?");
     expect(agent.send).not.toHaveBeenCalled();
@@ -622,7 +643,7 @@ describe("ChatInterface — kvitto när ett utskick gått iväg (byggkuben)", ()
     sajtagent.value = agent;
     const onTurnSent = vi.fn();
     const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
-    render(<ChatInterface chatId="chat_1" onSendMessage={build} onTurnSent={onTurnSent} />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} onTurnSent={onTurnSent} />);
 
     await typeAndSend("Vad tycker du om startsidan?");
     expect(agent.send).toHaveBeenCalledTimes(1);
@@ -643,7 +664,7 @@ describe("ChatInterface — kvitto när ett utskick gått iväg (byggkuben)", ()
       turnRecorded: false,
     }));
     render(
-      <ChatInterface chatId="chat_1" onSendMessage={build} onTurnSent={onTurnSent} onTurnKept={onTurnKept} />,
+      <ComposerUnderTest chatId="chat_1" onSendMessage={build} onTurnSent={onTurnSent} onTurnKept={onTurnKept} />,
     );
 
     await typeAndSend("Byt rubriken till Välkommen");
@@ -660,7 +681,7 @@ describe("ChatInterface — kvitto när ett utskick gått iväg (byggkuben)", ()
     sajtagent.value = agent;
     const onTurnSent = vi.fn();
     const build = vi.fn();
-    render(<ChatInterface chatId="chat_1" onSendMessage={build} onTurnSent={onTurnSent} isBusy />);
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} onTurnSent={onTurnSent} isBusy />);
 
     // Sajtagenten is still answering, and a build is running.
     await typeAndSend("Vad tycker du om startsidan?");

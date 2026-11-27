@@ -3,7 +3,6 @@
 import {
   PromptInput,
   PromptInputBody,
-  PromptInputHeader,
   PromptInputFooter,
   PromptInputSubmit,
   PromptInputTextarea,
@@ -45,7 +44,6 @@ import {
   describeComposerDecision,
   hasScopedComposerChangeRestriction,
   isAgentProposalReference,
-  isComposerMode,
   isReadOnlyComposerRequest,
   resolveComposerDecision,
   type ComposerAttachmentKind,
@@ -56,13 +54,11 @@ import {
 import { cn } from "@/lib/utils";
 import { resolveAgentProposalReference, type AgentProposalReference } from "@/lib/builder/composer-route-reference";
 import { readActiveBuilderTarget } from "@/lib/openclaw/builder-target";
-import { OpenClawPowersControl } from "@/components/openclaw/OpenClawPowersControl";
 import { SourcePagePanel, type SourcePagePanelHandle } from "@/components/openclaw/SourcePagePanel";
 import { formatSelectedSourcePage, unselectedSourcePageUrl, type SelectedSourcePage } from "@/lib/openclaw/source-page";
 import { readTaskAttachmentIds } from "@/lib/openclaw/read-task-input";
 import { appendProjectMediaLibraryScope } from "@/lib/media/project-media-library";
 import { useOpenClawPowers } from "@/components/openclaw/useOpenClawPowers";
-import { ComposerModeToggle } from "./sajtagent/ComposerModeToggle";
 import { useSajtagent } from "./sajtagent/SajtagentProvider";
 import { SajtagentAvatar } from "./sajtagent/SajtagentAvatar";
 import type { AuditComposerToken } from "@/lib/builder/audit-handoff";
@@ -171,6 +167,7 @@ function getExtensionFromDataUrl(dataUrl?: string): string {
 }
 
 interface ChatInterfaceProps {
+  composerMode?: ComposerMode;
   chatId: string | null;
   projectId?: string | null;
   initialPrompt?: string | null;
@@ -279,37 +276,6 @@ function isFigmaUrl(url: string): boolean {
   }
 }
 
-/**
- * Läget gäller per chatt (UX-05, 2026-11-11). Förut sparades det globalt, så
- * ett Bygg-val följde med till nästa projekt och gjorde en fråga där till ett
- * betalande bygge. En ny chatt, eller ingen chatt alls, börjar alltid i Auto.
- */
-const COMPOSER_MODE_STORAGE_PREFIX = "sajtmaskin:composerMode:";
-/** Den globala nyckeln före 2026-11-11. Rensas så ett gammalt Bygg inte lever kvar. */
-const LEGACY_COMPOSER_MODE_STORAGE_KEY = "sajtmaskin:composerMode";
-
-function readStoredComposerMode(chatId: string | null): ComposerMode {
-  if (!chatId || typeof window === "undefined") return "auto";
-  try {
-    sessionStorage.removeItem(LEGACY_COMPOSER_MODE_STORAGE_KEY);
-    const stored = sessionStorage.getItem(`${COMPOSER_MODE_STORAGE_PREFIX}${chatId}`);
-    return isComposerMode(stored) ? stored : "auto";
-  } catch {
-    return "auto";
-  }
-}
-
-function storeComposerMode(chatId: string | null, mode: ComposerMode): void {
-  if (!chatId || typeof window === "undefined") return;
-  try {
-    const key = `${COMPOSER_MODE_STORAGE_PREFIX}${chatId}`;
-    if (mode === "auto") sessionStorage.removeItem(key);
-    else sessionStorage.setItem(key, mode);
-  } catch {
-    // ignore storage errors
-  }
-}
-
 const ROUTE_TONE_STYLE: Record<ComposerRouteTone, { icon: LucideIcon; text: string; iconClass: string }> = {
   neutral: { icon: Sparkles, text: "text-muted-foreground", iconClass: "text-muted-foreground" },
   agent: { icon: Bot, text: "text-foreground", iconClass: "text-brand-teal" },
@@ -319,6 +285,7 @@ const ROUTE_TONE_STYLE: Record<ComposerRouteTone, { icon: LucideIcon; text: stri
 
 export function ChatInterface({
   chatId,
+  composerMode = "auto",
   projectId,
   initialPrompt,
   auditHandoff = null,
@@ -387,25 +354,6 @@ export function ChatInterface({
   // (`start_build` kräver armerad autonomi); annars är byggmotorn närmast.
   const agentPowers = useOpenClawPowers();
   const agentCanBuild = agentPowers.armedAutonomy;
-  // Läget bär sin chatt: under renderingen där chatId just bytts är läget
-  // redan Auto, innan effekten hunnit läsa den nya chattens sparade val.
-  const [modeState, setModeState] = useState<{ chatId: string | null; mode: ComposerMode }>(
-    () => ({ chatId, mode: "auto" }),
-  );
-  useEffect(() => {
-    setModeState({ chatId, mode: readStoredComposerMode(chatId) });
-  }, [chatId]);
-  const composerMode: ComposerMode = modeState.chatId === chatId ? modeState.mode : "auto";
-  const handleComposerModeChange = useCallback(
-    (mode: ComposerMode) => {
-      setModeState({ chatId, mode });
-      storeComposerMode(chatId, mode);
-      // «Fråga – ändrar inget» gäller från valet, inte först vid nästa
-      // utskick: ett pågående agentuppdrag ska inte ta ett steg till.
-      if (mode === "agent") revokeOpenClawBuildConsent();
-    },
-    [chatId],
-  );
   const routeLabelId = useId();
   const toolsRowId = useId();
   // Sekundära verktyg (Plan, Förbättra texten, block, inspektion, media,
@@ -413,7 +361,7 @@ export function ChatInterface({
   // 2026-11-11, C2). Raden döljs men avmonteras inte, så en pågående
   // röstinspelning eller ett modellval överlever att den fälls ihop.
   const [toolsOpen, setToolsOpen] = useState(false);
-  const previewModeActive = Boolean(previewModes?.composerOpen || previewModes?.inspectOpen);
+  const previewModeActive = Boolean(previewModes?.composerOpen);
   // En röstinspelning i den hopfällda raden får inte pågå osynligt
   // (granskningen av #1747). Inspelaren byter nyckel per chatt.
   const [voiceRecording, setVoiceRecording] = useState<{ chatId: string | null; on: boolean }>(
@@ -425,8 +373,7 @@ export function ChatInterface({
     [chatId],
   );
   const hiddenToolActive = !toolsOpen && (previewModeActive || isRecordingVoice);
-  // Block och inspektion styrs bara härifrån. Slås ett läge på visas raden,
-  // så läget och knappen som stänger det syns.
+  // When block editing opens, keep its control visible in the tool row.
   useEffect(() => {
     if (previewModeActive) setToolsOpen(true);
   }, [previewModeActive]);
@@ -1095,7 +1042,6 @@ export function ChatInterface({
     : describeDecision(resolveDecisionFor(input.trim()), !input.trim() && !hasComposerAttachments, input.trim());
   const routeStyle = ROUTE_TONE_STYLE[routeDescription.tone];
   const RouteIcon = routeStyle.icon;
-  const showModeToggle = agentConfigured || Boolean(chatId);
 
   // Välkomstpanelen (paket F, `welcome-composer-bridge.ts`) visar ett förslag
   // utifrån utkastet och «Skapa första utkastet». Knappen finns bara när
@@ -1113,10 +1059,6 @@ export function ChatInterface({
     );
   }, [chatId, input, welcomeCanStart, startFromWelcome]);
   useEffect(() => () => publishWelcomeComposer(null), []);
-  const disabledComposerModes: ComposerMode[] = [
-    ...(builderLocked ? (["build"] as const) : []),
-    ...(agentConfigured ? [] : (["agent"] as const)),
-  ];
 
   return (
     <div className="border-border bg-background border-t p-4">
@@ -1161,23 +1103,6 @@ export function ChatInterface({
         allowEmptySubmit={Boolean(auditHandoff && !chatId)}
         className="border-border/80 bg-background focus-within:border-brand-blue/50 focus-within:ring-brand-blue/10 overflow-hidden rounded-2xl border shadow-[0_8px_30px_-18px_rgba(0,0,0,0.35)] transition-[border-color,box-shadow] focus-within:ring-2"
       >
-        <PromptInputHeader className="flex-col items-stretch gap-2 border-0 px-3 pt-3 pb-0">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            {showModeToggle ? (
-              <ComposerModeToggle
-                value={composerMode}
-                onChange={handleComposerModeChange}
-                disabledModes={disabledComposerModes}
-              />
-            ) : (
-              <p className="text-foreground text-xs font-medium">
-                {chatId ? "Fortsätt med din sajt" : "Din idé börjar här"}
-              </p>
-            )}
-            {agentConfigured ? <OpenClawPowersControl /> : null}
-          </div>
-        </PromptInputHeader>
-
         {(isFigmaInputOpen || figmaUrl.trim()) && (
           <div className="space-y-2 px-3 pb-2">
             <div className="flex items-center gap-2">
@@ -1432,25 +1357,6 @@ export function ChatInterface({
                     <Plus className="size-3" />
                   )}
                 </button>
-                {previewModes.inspectAvailable ? (
-                  <button
-                    type="button"
-                    onClick={previewModes.onToggleInspect}
-                    disabled={previewModes.inspectDisabled}
-                    aria-pressed={previewModes.inspectOpen}
-                    aria-label={
-                      previewModes.inspectOpen ? "Sluta inspektera" : "Inspektera preview"
-                    }
-                    title="Klicka på något i previewen för att ändra text, byta bild, ta bort det eller skicka det till chatten"
-                    className={builderModeToggleClassName(previewModes.inspectOpen, "emerald")}
-                  >
-                    {previewModes.inspectOpen ? (
-                      <SearchX className="size-3" />
-                    ) : (
-                      <Search className="size-3" />
-                    )}
-                  </button>
-                ) : null}
               </>
             ) : null}
             {mediaEnabled && (
@@ -1516,6 +1422,31 @@ export function ChatInterface({
                   compact
                 />
               )}
+              {previewModes?.inspectAvailable ? (
+                <button
+                  type="button"
+                  onClick={previewModes.onToggleInspect}
+                  disabled={previewModes.inspectDisabled}
+                  aria-pressed={previewModes.inspectOpen}
+                  aria-label={
+                    previewModes.inspectOpen ? "Sluta markera element" : "Markera element"
+                  }
+                  title="Klicka på något i previewen för att ändra text, byta bild, ta bort det eller skicka det till chatten"
+                  className={cn(
+                    "focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-md border px-2 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40",
+                    previewModes.inspectOpen
+                      ? "border-emerald-600/70 bg-emerald-500/15 text-emerald-950 dark:border-emerald-400/60 dark:bg-emerald-900/60 dark:text-emerald-100"
+                      : "border-border bg-background text-foreground hover:border-emerald-500/60 hover:bg-emerald-500/10",
+                  )}
+                >
+                  {previewModes.inspectOpen ? (
+                    <SearchX className="size-3" />
+                  ) : (
+                    <Search className="size-3" />
+                  )}
+                  <span>{previewModes.inspectOpen ? "Markerar element" : "Markera element"}</span>
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setToolsOpen((open) => !open)}
@@ -1526,7 +1457,7 @@ export function ChatInterface({
                     ? "Röstinspelning pågår"
                     : previewModeActive && !toolsOpen
                       ? "Ett verktyg är på i förhandsvisningen"
-                      : "Plan, Förbättra texten, block, inspektion, media, röst och modell"
+                      : "Plan, Förbättra texten, block, media, röst och modell"
                 }
                 className={cn(
                   "border-border/70 bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring relative inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
