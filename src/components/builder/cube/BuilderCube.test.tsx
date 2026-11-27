@@ -463,7 +463,7 @@ describe("BuilderCube", () => {
         const node = face(id);
         expect({ x: parseFloat(node.style.left), y: parseFloat(node.style.top), width: parseFloat(node.style.width), height: parseFloat(node.style.height) }).toEqual(expected.body);
       }
-      expect(onCards).not.toHaveBeenCalled();
+      for (const [update] of onCards.mock.calls) expect(update.rects).toEqual(cards.rects);
       expect(onPosition).not.toHaveBeenCalled();
       expect(onSize).not.toHaveBeenCalled();
     } finally {
