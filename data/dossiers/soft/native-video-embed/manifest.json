@@ -1,0 +1,18 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "native-video-embed",
+  "label": "Video på sajten",
+  "capability": "video-embed",
+  "codeFidelity": "rewritable",
+  "complexity": "simple",
+  "defaultForCapability": true,
+  "promptInstructionMode": "full",
+  "summary": "Keyless native playback for selected video files, including a stable MP4 URL from the media library, with accessible controls, optional poster and responsive placement.",
+  "summarySv": "Bäddar in en vald film på sajten med webbläsarens videokontroller, valfri omslagsbild och responsiv placering. Fungerar med befintliga videofiler och sparade filmer från mediebanken.",
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "exposes": [],
+  "verificationStatus": "unverified",
+  "lastVerified": "2026-11-27"
+}

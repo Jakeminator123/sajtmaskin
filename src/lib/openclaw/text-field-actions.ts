@@ -3,6 +3,8 @@ import {
   type OpenClawApplyQuickEditAction,
 } from "./quick-edit-action";
 
+import { parseOpenClawVideoProposal, type OpenClawVideoProposal } from "./video-proposal";
+
 const OPENCLAW_ACTION_OPEN_TAG = "<openclaw-action>";
 const OPENCLAW_ACTION_CLOSE_TAG = "</openclaw-action>";
 const OPENCLAW_TEXT_FIELD_SELECTOR = "[data-openclaw-text-target]";
@@ -98,6 +100,7 @@ export type OpenClawAction =
   | OpenClawStartBugHuntAction
   | OpenClawStartBuildAction
   | OpenClawReadFilesAction
+  | OpenClawVideoProposal
   | OpenClawApplyQuickEditAction;
 
 export interface ParsedOpenClawMessage {
@@ -313,6 +316,12 @@ function parseOpenClawAction(value: unknown): OpenClawActionParseResult {
     return parsed
       ? { action: parsed, error: null }
       : { action: null, error: "Läsförfrågan saknar giltiga filsökvägar." };
+  }
+  if (type === "propose_video_generation") {
+    const parsed = parseOpenClawVideoProposal(value as Record<string, unknown>);
+    return parsed
+      ? { action: parsed, error: null }
+      : { action: null, error: "Videoförslaget saknar en giltig beskrivning." };
   }
   if (type === "apply_quick_edit") {
     // Validera i stället för att parsa: förfiltret har redan tydliga svenska

@@ -81,6 +81,52 @@ describe("DidOpenClawBridge avatar-disabled text-chat fallback", () => {
     expect(JSON.parse(mockFetch.mock.calls[2]?.[1].body)).toMatchObject({ readTask: { search: true, attachmentIds: [42] } });
   });
 
+  it("opens the normal paid video workflow from D-ID text using the owned builder chat", async () => {
+    vi.stubEnv("NEXT_PUBLIC_AVATAR_ENABLED", "");
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ success: true, projectId: "owned-site", items: [] }))
+      .mockResolvedValueOnce(Response.json({
+        enabled: true, quote: { model: "gen4_turbo", durationSeconds: 5, credits: 18 }, jobs: [],
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+    const DidOpenClawBridge = await loadBridge();
+    render(<DidOpenClawBridge chatId="owned-chat" />);
+    fireEvent.change(screen.getByTestId("avatar-bridge-input"), {
+      target: { value: "Skapa en video: låt bilen köra framåt och lägg in den i heron." },
+    });
+    fireEvent.click(screen.getByTestId("avatar-bridge-send"));
+    expect(await screen.findByRole("button", { name: "Beställ video för 18 krediter" })).toBeTruthy();
+    expect(screen.getByText(/Du kan öppna ett avgiftsfritt byggutkast/)).toBeTruthy();
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "/api/media/upload?chatId=owned-chat",
+      "/api/media/video-generations?projectId=owned-site",
+    ]);
+  });
+
+  it("lets an owned D-ID gateway proposal open the same price without trusting model purchase fields", async () => {
+    vi.stubEnv("NEXT_PUBLIC_AVATAR_ENABLED", "");
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ reply: 'Jag kan förbereda ett videoklipp. <openclaw-action>{"type":"propose_video_generation","prompt":"Panorera över skogen","insert":false,"approvedCredits":999,"submit":true}</openclaw-action>' }))
+      .mockResolvedValueOnce(Response.json({ success: true, projectId: "owned-site", items: [] }))
+      .mockResolvedValueOnce(Response.json({
+        enabled: true, quote: { model: "gen4_turbo", durationSeconds: 5, credits: 18 }, jobs: [],
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+    const DidOpenClawBridge = await loadBridge();
+    render(<DidOpenClawBridge chatId="owned-chat" />);
+    fireEvent.change(screen.getByTestId("avatar-bridge-input"), {
+      target: { value: "Jag skulle vilja ha ett rörligt klipp utifrån min skogsbild." },
+    });
+    fireEvent.click(screen.getByTestId("avatar-bridge-send"));
+    fireEvent.click(await screen.findByRole("button", { name: "Visa pris och välj startbild" }));
+    await screen.findByRole("button", { name: "Beställ video för 18 krediter" });
+    expect(screen.getByLabelText<HTMLTextAreaElement>("Beskriv hur videon ska röra sig").value).toBe("Panorera över skogen");
+    expect(screen.getByText("Jag kan förbereda ett videoklipp.")).toBeTruthy();
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "/api/did/chat", "/api/media/upload?chatId=owned-chat", "/api/media/video-generations?projectId=owned-site",
+    ]);
+  });
+
   it("opens one page from a typed request, then sends the rights-approved imported image for vision", async () => {
     vi.stubEnv("NEXT_PUBLIC_AVATAR_ENABLED", "");
     const mockFetch = vi.fn()

@@ -45,6 +45,15 @@ describe("getDossierStagingSpec", () => {
     }
   });
 
+  it("offers optional placement for the native video player", () => {
+    const spec = getDossierStagingSpec("native-video-embed");
+    expect(spec.kind).toBe("placement");
+    expect(buildDossierStagingLines(spec, defaultDossierStagingAnswer(spec))).toEqual([]);
+    expect(buildDossierStagingLines(spec, { kind: "placement", optionId: "home-section" })).toEqual([
+      "Placering: Sektion på startsidan",
+    ]);
+  });
+
   it("asks a content question for data blocks", () => {
     const db = getDossierStagingSpec("postgres-drizzle");
     expect(db.kind).toBe("content");

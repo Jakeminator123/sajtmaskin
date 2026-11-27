@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:e0ca6de6f156be35 -->
+<!-- source-fingerprint: config/env-policy.json sha256:432febda8e8078e7 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:906768b4c309ab32 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:ed83b142db793efe -->
 
@@ -117,6 +117,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `REDIS_URL`                                          | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `RENDER`                                             | `local_only`           | —                                      | No            | Yes          |
 | `RESEND_API_KEY`                                     | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
+| `RUNWAY_API_KEY`                                     | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_ASSIST_MODEL`                            | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR`                 | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_BLOCKING_ESLINT`                         | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |

@@ -66,6 +66,9 @@ const NEGATED_CAPABILITY_TERMS: Record<string, RegExp[]> = {
   database: DATABASE_TERMS,
   // (`cms` left the map 2026-09-02 with the parked sanity-cms dossier.)
   analytics: INTEGRATION_TERMS,
+  "video-embed": [
+    /(?<![\p{L}\p{N}_])(?:video(?:n|r|rna|s)?|videoklipp(?:et)?|film(?:en)?|bakgrunds(?:video|film)|videobakgrund|videospelare|video-embed|mp4)(?![\p{L}\p{N}_])/iu,
+  ],
 };
 
 /**

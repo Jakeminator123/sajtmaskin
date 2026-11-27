@@ -125,11 +125,11 @@ const STRONG_ADD_VERB_PATTERNS: RegExp[] = [
   // Att önskeformen "skulle vilja SÄTTA IN" redan låg i mönstret nedan
   // gjorde luckan asymmetrisk: det artiga läget öppnade gaten, imperativen
   // gjorde det inte.
-  /(?<![\p{L}\p{N}_])(?:lägg(?:er|de)?\s+(?:till|in|dit)|sätt(?:er|te)?\s+(?:in|dit)|stoppa(?:r|de)?\s+in|infoga(?:r|de)?|inkludera(?:r|de)?|skapa(?:r|de)?|bygg(?:er|de)?|gör|designa(?:r|de)?|implementera(?:r|de)?|aktivera(?:r|de)?|koppla(?:r|de)?\s+(?:på|in))(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:lägg(?:er|de)?\s+(?:till|in|dit)|sätt(?:er|te)?\s+(?:in|dit)|stoppa(?:r|de)?\s+in|infoga(?:r|de)?|bädda(?:r|de)?\s+in|inkludera(?:r|de)?|skapa(?:r|de)?|bygg(?:er|de)?|gör|designa(?:r|de)?|implementera(?:r|de)?|aktivera(?:r|de)?|koppla(?:r|de)?\s+(?:på|in))(?![\p{L}\p{N}_])/iu,
   // Artigt önskeläge med efterföljande handlingsverb: "jag skulle vilja lägga
   // till / sätta in / koppla …". Rena önskeformer ligger i WEAK nedan.
   /(?<![\p{L}\p{N}_])skulle\s+vilja\s+(?:lägga\s+till|sätta\s+in|koppla|bygga|skapa|aktivera|integrera)(?![\p{L}\p{N}_])/iu,
-  /(?<![\p{L}\p{N}_])(?:add|insert|include|build|create|implement|set\s+up|wire\s+up|hook\s+up|enable|integrate)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:add|insert|embed|include|build|create|implement|set\s+up|wire\s+up|hook\s+up|enable|integrate)(?![\p{L}\p{N}_])/iu,
   // Appointment actions express the addition themselves. Keep this phrase-
   // specific so a subject/modal sentence over the short-prompt budget
   // ("customers can schedule appointments online") opens the gate without

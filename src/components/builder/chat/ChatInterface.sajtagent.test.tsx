@@ -4,9 +4,10 @@
  * ChatInterface.draft-retention.test.tsx.
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { act, type ComponentProps } from "react";
+import { act, useLayoutEffect, type ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MessageOptions } from "@/lib/hooks/chat/types";
+import type { UploadedFile } from "@/components/media/file-upload-zone";
 import type { SajtagentContextValue } from "./sajtagent/SajtagentProvider";
 
 vi.mock("sonner", () => ({
@@ -15,9 +16,15 @@ vi.mock("sonner", () => ({
 
 vi.mock("@/components/forms/voice-recorder", () => ({ VoiceRecorder: () => null }));
 
+const uploadZone = vi.hoisted(() => ({
+  snapshot: undefined as { files: UploadedFile[]; onFilesChange: (files: UploadedFile[]) => void } | undefined,
+}));
 vi.mock("@/components/media/file-upload-zone", async (original) => ({
   ...await original<typeof import("@/components/media/file-upload-zone")>(),
-  FileUploadZone: () => null,
+  FileUploadZone: ({ files, onFilesChange }: NonNullable<typeof uploadZone.snapshot>) => {
+    uploadZone.snapshot = { files, onFilesChange };
+    return null;
+  },
 }));
 
 vi.mock("@/components/media/media-drawer", () => ({ MediaDrawer: () => null }));
@@ -32,6 +39,7 @@ vi.mock("./sajtagent/SajtagentProvider", () => ({
 }));
 
 import { ChatInterface } from "./ChatInterface";
+import { BUILDER_VIDEO_DRAFT_EVENT, prepareGeneratedVideoInBuilder, type BuilderVideoDraft } from "@/lib/media/video-builder-action";
 import { ComposerModeToggle } from "./sajtagent/ComposerModeToggle";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useComposerMode } from "@/lib/builder/use-composer-mode";
@@ -77,6 +85,7 @@ function makeAgent(overrides: Partial<SajtagentContextValue> = {}): SajtagentCon
 
 afterEach(() => {
   sajtagent.value = null;
+  uploadZone.snapshot = undefined;
   resetAgentMissionLedgerForTests();
   useOpenClawStore.setState({
     messages: [],
@@ -134,6 +143,141 @@ it("keeps a selected source outside route intent and sends its exact media URL t
     expect.objectContaining({ attachments: [expect.objectContaining({ url: "https://blob.example/media/photo.png" })] }),
   );
   expect(sajtagent.value.send).not.toHaveBeenCalled();
+});
+
+it("orders an exact BIGINT start image and prepares the saved MP4 through the ordinary composer", async () => {
+  const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
+  sajtagent.value = makeAgent();
+  const startId = "9007199254740993";
+  const start = {
+    id: startId, projectId: "project_1", fileType: "image", mimeType: "image/png",
+    url: "https://files.public.blob.vercel-storage.com/owner/start.png", filename: "start.png",
+  };
+  const output = {
+    id: "9223372036854775807", filename: "skogen.mp4", mimeType: "video/mp4",
+    url: "https://files.public.blob.vercel-storage.com/owner/skogen.mp4",
+  };
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(Response.json({ success: true, projectId: "project_1", items: [start] }))
+    .mockResolvedValueOnce(Response.json({
+      enabled: true, quote: { model: "gen4_turbo", durationSeconds: 5, credits: 18 }, jobs: [],
+    }))
+    .mockResolvedValueOnce(Response.json({
+      job: { id: "job-1", projectId: "project_1", status: "succeeded", credits: 18, media: output },
+    }));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<ComposerUnderTest chatId="chat_1" projectId="project_1" mediaEnabled onSendMessage={build} />);
+  act(() => uploadZone.snapshot?.onFilesChange([{ ...start, status: "success", size: 0, isPublicUrl: true }]));
+  await typeAndSend("Kan du skapa en video: panorera över skogen och lägg in den i heron?");
+  const purchase = await screen.findByRole("button", { name: "Beställ video för 18 krediter" });
+  expect(screen.getByLabelText<HTMLSelectElement>("Startbild från mediebanken").value).toBe(startId);
+  expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+    "/api/media/upload?projectId=project_1&chatId=chat_1",
+    "/api/media/video-generations?projectId=project_1",
+  ]);
+  expect(build).not.toHaveBeenCalled();
+  expect(sajtagent.value.send).not.toHaveBeenCalled();
+
+  fireEvent.click(purchase);
+  expect((await screen.findByRole("link", { name: "Öppna skogen.mp4" })).getAttribute("href")).toBe(output.url);
+  expect(fetchMock.mock.lastCall?.[0]).toBe("/api/media/video-generations");
+  expect(JSON.parse(String(fetchMock.mock.lastCall?.[1]?.body))).toMatchObject({ sourceMediaId: startId });
+  fireEvent.click(screen.getByRole("button", { name: "Öppna i byggaren" }));
+  expect(uploadZone.snapshot?.files).toContainEqual(expect.objectContaining({ id: `media-${output.id}`, url: output.url }));
+  expect(build).not.toHaveBeenCalled();
+});
+
+it("keeps the exact saved MP4 in a free draft until the user uses the ordinary builder send", async () => {
+  const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
+  const url = "https://files.public.blob.vercel-storage.com/owner/video.mp4";
+  const prompt = "Lägg in den färdiga bifogade MP4-videon på sajten.";
+  const view = render(<ComposerUnderTest chatId="chat_1" projectId="project_1" mediaEnabled onSendMessage={build} />);
+  const input = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Skriv en uppdatering" });
+  fireEvent.change(input, { target: { value: "Behåll rubriken." } });
+  await act(async () => {
+    window.dispatchEvent(new CustomEvent<BuilderVideoDraft>(BUILDER_VIDEO_DRAFT_EVENT, {
+      cancelable: true,
+      detail: { chatId: "chat_1", projectId: "project_1", prompt, media: { id: "9007199254740993", url, filename: "video.mp4", mimeType: "video/mp4" } },
+    }));
+  });
+  view.rerender(<ComposerUnderTest chatId="chat_1" projectId="project_1" mediaEnabled avatarElsewhere onSendMessage={build} />);
+  expect(input.value).toBe(`Behåll rubriken.\n\n${prompt}`);
+  expect(uploadZone.snapshot?.files).toEqual([expect.objectContaining({ id: "media-9007199254740993", url })]);
+  expect(build).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("menuitemradio", { name: "Bygg" }));
+  await typeAndSend(input.value);
+  expect(build).toHaveBeenCalledExactlyOnceWith(expect.stringContaining(prompt),
+    expect.objectContaining({ attachments: [expect.objectContaining({ url, mimeType: "video/mp4" })] }));
+});
+
+it.each(["chat_2", "chat_1"])("keeps a prepared video out of another project's build with chat %s", async (nextChatId) => {
+  const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
+  const textarea = () => screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Skriv en uppdatering" });
+  const displayedBeforePassiveEffects: string[] = [];
+  function ScopedComposer({ chatId, projectId }: { chatId: string; projectId: string }) {
+    useLayoutEffect(() => {
+      displayedBeforePassiveEffects.push(textarea().value);
+    }, [chatId, projectId]);
+    return <ComposerUnderTest chatId={chatId} projectId={projectId} mediaEnabled onSendMessage={build} />;
+  }
+  const view = render(<ScopedComposer chatId="chat_1" projectId="project_1" />);
+  const draft: BuilderVideoDraft = {
+    chatId: "chat_1",
+    projectId: "project_1",
+    prompt: "Lägg in endast A:s video.",
+    media: { id: "42", url: "https://files.public.blob.vercel-storage.com/owner/a.mp4", filename: "a.mp4", mimeType: "video/mp4" },
+  };
+  const submitPreparedVideo = () => act(() => {
+    window.dispatchEvent(new CustomEvent<BuilderVideoDraft>(BUILDER_VIDEO_DRAFT_EVENT, { cancelable: true, detail: draft }));
+  });
+  submitPreparedVideo();
+  expect(textarea().value).toBe(draft.prompt);
+  fireEvent.change(textarea(), { target: { value: "Omskriven instruktion om A:s film." } });
+  const oldUploadZone = uploadZone.snapshot;
+  expect(oldUploadZone?.files.map((file) => file.url)).toEqual([draft.media.url]);
+
+  view.rerender(<ScopedComposer chatId={nextChatId} projectId="project_2" />);
+  expect(displayedBeforePassiveEffects.at(-1)).toBe("");
+  submitPreparedVideo(); // A's late handoff event cannot refill the new scope.
+  act(() => oldUploadZone?.onFilesChange(oldUploadZone.files)); // A's upload completion republishes its entire original list.
+  expect(textarea().value).toBe("");
+  fireEvent.click(screen.getByRole("menuitemradio", { name: "Bygg" }));
+  await typeAndSend("Ändra rubriken för B.");
+  expect(build).toHaveBeenCalledExactlyOnceWith("Ändra rubriken för B.", expect.objectContaining({
+    attachments: undefined,
+    attachmentPrompt: "",
+  }));
+
+  view.rerender(<ScopedComposer chatId="chat_1" projectId="project_1" />);
+  act(() => oldUploadZone?.onFilesChange(oldUploadZone.files));
+  expect(textarea().value).toBe("");
+  expect(uploadZone.snapshot?.files).toEqual([]);
+});
+
+it("drops a late job response after the same composer switches site", async () => {
+  const target = { chatId: "chat_1", projectId: "project_1" };
+  const job = {
+    id: "job-a", projectId: target.projectId, status: "succeeded" as const, credits: 18,
+    media: { id: "42", url: "https://files.public.blob.vercel-storage.com/owner/a.mp4", filename: "a.mp4", mimeType: "video/mp4" },
+  };
+  const handoff = prepareGeneratedVideoInBuilder(job, target, new AbortController().signal, { allowHandoff: true });
+  if (handoff.kind !== "handoff") throw new Error("Fristående videohandoff saknas");
+  handoff.prepare();
+  let finish!: (response: Response) => void;
+  const fetchMock = vi.fn(() => new Promise<Response>((resolve) => { finish = resolve; }));
+  vi.stubGlobal("fetch", fetchMock);
+  const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
+  const view = render(<ComposerUnderTest {...target} mediaEnabled onSendMessage={build} />);
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
+    "/api/media/video-generations/job-a?projectId=project_1",
+    { signal: expect.any(AbortSignal) },
+  );
+  view.rerender(<ComposerUnderTest chatId="chat_2" projectId="project_2" mediaEnabled onSendMessage={build} />);
+  await act(async () => finish(Response.json({ job })));
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Skriv en uppdatering" }).value).toBe("");
+  fireEvent.click(screen.getByRole("menuitemradio", { name: "Bygg" }));
+  await typeAndSend("Ändra B.");
+  expect(build).toHaveBeenCalledExactlyOnceWith("Ändra B.", expect.objectContaining({ attachments: undefined }));
 });
 
 async function typeAndSend(text: string) {

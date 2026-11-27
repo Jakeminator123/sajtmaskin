@@ -114,6 +114,7 @@ const STAGING_BY_ID: Record<string, DossierStagingSpec> = {
   "dashboard-charts": GENERIC_PLACEMENT,
   "embla-carousel": GENERIC_PLACEMENT,
   "gallery-lightbox": GENERIC_PLACEMENT,
+  "native-video-embed": GENERIC_PLACEMENT,
   "interactive-game-loop": GENERIC_PLACEMENT,
   "local-site-search": GENERIC_PLACEMENT,
   "maplibre-map": GENERIC_PLACEMENT,

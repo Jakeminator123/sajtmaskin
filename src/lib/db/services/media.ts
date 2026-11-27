@@ -1,8 +1,10 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { appProjects, images, mediaLibrary } from "@/lib/db/schema";
+import { appProjects, images, mediaLibrary, videoGenerationJobs } from "@/lib/db/schema";
+import { parseMediaLibraryId } from "@/lib/media/media-library-id";
 import { MAX_MEDIA_IMAGES, MAX_MEDIA_VIDEOS } from "@/lib/media/upload-limits";
 import { MediaUploadPolicyError } from "@/lib/media/upload-policy-error";
+import { getVideoGenerationCredentials } from "@/lib/media/video-generation-config";
 import { deleteBlob } from "@/lib/vercel/blob-service";
 import { assertDbConfigured } from "./shared";
 import type { MediaLibraryItem } from "./shared";
@@ -58,6 +60,11 @@ export async function canUserUploadFile(
 
 type MediaTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+export async function lockVideoMediaQuota(tx: MediaTransaction, userId: string): Promise<void> {
+  const key = JSON.stringify(["media-videos", userId]);
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
+}
+
 async function withMediaQuota<T>(
   userId: string,
   fileType: string,
@@ -66,10 +73,10 @@ async function withMediaQuota<T>(
 ): Promise<T> {
   assertDbConfigured();
   return db.transaction(async (tx) => {
-    if (fileType === "image" || fileType === "video") {
-      const key = fileType === "image"
-        ? JSON.stringify(["media-images", userId, projectId ?? null])
-        : JSON.stringify(["media-videos", userId]);
+    if (fileType === "video") {
+      await lockVideoMediaQuota(tx, userId);
+    } else if (fileType === "image") {
+      const key = JSON.stringify(["media-images", userId, projectId ?? null]);
       await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
     }
     await requireMediaUploadProject(userId, projectId, tx);
@@ -133,6 +140,13 @@ export async function getMediaLibraryByUser(
     .orderBy(desc(mediaLibrary.created_at));
 }
 
+export async function hasVideoGenerationStorage(executor: MediaExecutor = db): Promise<boolean> {
+  const result = await executor.execute<{ available: boolean }>(
+    sql`select to_regclass('public.video_generation_jobs') is not null as available`,
+  );
+  return result.rows[0]?.available === true;
+}
+
 export async function getMediaLibraryCounts(userId: string, projectId?: string, executor: MediaExecutor = db): Promise<MediaCounts> {
   assertDbConfigured();
   const imageTypes = sql`${mediaLibrary.file_type} in ('image', 'logo')`;
@@ -147,9 +161,17 @@ export async function getMediaLibraryCounts(userId: string, projectId?: string, 
       where ${eq(images.project_id, projectId)} and ${eq(appProjects.user_id, userId)}
     ) as owned_image_paths
   )` : sql<string>`count(*) filter (where ${imageTypes} and ${isNull(mediaLibrary.project_id)})`;
+  // When the optional provider is off, support installations without its
+  // migration while still reserving slots for previously submitted jobs.
+  const hasReservations = getVideoGenerationCredentials() || await hasVideoGenerationStorage(executor);
+  const activeReservations = hasReservations ? sql`(
+    select count(*) from ${videoGenerationJobs}
+    where ${eq(videoGenerationJobs.user_id, userId)}
+      and ${videoGenerationJobs.status} in ('pending', 'processing')
+  )` : sql`0`;
   const [row] = await executor.select({
     images: imageCount,
-    videos: sql<string>`count(*) filter (where ${mediaLibrary.file_type} = 'video')`,
+    videos: sql<string>`count(*) filter (where ${mediaLibrary.file_type} = 'video') + ${activeReservations}`,
     other: sql<string>`count(*) filter (where ${mediaLibrary.file_type} not in ('image', 'logo', 'video'))`,
   }).from(mediaLibrary).where(eq(mediaLibrary.user_id, userId));
   // COUNT returns int8, which node-postgres decodes as a string.
@@ -157,20 +179,23 @@ export async function getMediaLibraryCounts(userId: string, projectId?: string, 
 }
 
 export async function getMediaLibraryItemById(
-  id: number,
+  id: number | string,
   userId?: string,
 ): Promise<MediaLibraryItem | null> {
   assertDbConfigured();
-  const condition = userId
-    ? and(eq(mediaLibrary.id, id), eq(mediaLibrary.user_id, userId))
-    : eq(mediaLibrary.id, id);
+  const mediaId = parseMediaLibraryId(id);
+  if (mediaId === null) return null;
+  const matchingId = eq(mediaLibrary.id, sql`${mediaId}::bigint`);
+  const condition = userId ? and(matchingId, eq(mediaLibrary.user_id, userId)) : matchingId;
   const rows = await db.select().from(mediaLibrary).where(condition).limit(1);
   return rows[0] ?? null;
 }
 
-export async function deleteMediaLibraryItem(id: number, userId: string): Promise<boolean> {
+export async function deleteMediaLibraryItem(id: number | string, userId: string): Promise<boolean> {
   assertDbConfigured();
-  const item = await getMediaLibraryItemById(id, userId);
+  const mediaId = parseMediaLibraryId(id);
+  if (mediaId === null) return false;
+  const item = await getMediaLibraryItemById(mediaId, userId);
   if (!item) return false;
 
   if (item.blob_url || item.file_path) {
@@ -179,7 +204,7 @@ export async function deleteMediaLibraryItem(id: number, userId: string): Promis
 
   await db
     .delete(mediaLibrary)
-    .where(and(eq(mediaLibrary.id, id), eq(mediaLibrary.user_id, userId)));
+    .where(and(eq(mediaLibrary.id, sql`${mediaId}::bigint`), eq(mediaLibrary.user_id, userId)));
   return true;
 }
 

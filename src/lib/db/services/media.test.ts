@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { type SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { appProjects, images, mediaLibrary } from "@/lib/db/schema";
@@ -9,6 +9,8 @@ const state = vi.hoisted(() => ({
   media: [] as FakeMedia[],
   legacy: [] as FakeLegacy[],
   projects: new Map<string, string>(),
+  reservationStorage: true,
+  reservations: [] as { userId: string; status: "pending" | "processing" | "failed" }[],
   locks: new Map<string, Promise<void>>(),
   events: [] as string[],
 }));
@@ -18,6 +20,7 @@ vi.mock("@/lib/vercel/blob-service", () => ({ deleteBlob: vi.fn() }));
 vi.mock("@/lib/db/client", () => ({
   db: {
     select: selection,
+    execute: storageProbe,
     transaction: async (callback: (tx: unknown) => Promise<unknown>, options: unknown) => {
       expect(options).toEqual({ isolationLevel: "read committed" });
       let release: (() => void) | undefined;
@@ -26,6 +29,7 @@ vi.mock("@/lib/db/client", () => ({
           select: selection,
           execute: async (statement: SQL) => {
             const { params, sql } = new PgDialect().sqlToQuery(statement);
+            if (sql.includes("to_regclass")) return storageProbe(statement);
             expect(sql).toContain("pg_advisory_xact_lock");
             const key = String(params[0]);
             const earlier = state.locks.get(key);
@@ -53,6 +57,11 @@ vi.mock("@/lib/db/client", () => ({
     },
   },
 }));
+
+function storageProbe(statement: SQL) {
+  expect(new PgDialect().sqlToQuery(statement).sql).toContain("to_regclass('public.video_generation_jobs')");
+  return Promise.resolve({ rows: [{ available: state.reservationStorage }] });
+}
 
 function selection(fields: { id?: unknown; images?: SQL; videos?: SQL; other?: SQL }) {
   return {
@@ -86,7 +95,12 @@ function selection(fields: { id?: unknown; images?: SQL; videos?: SQL; other?: S
           const legacy = state.projects.get(scope) === owner ? state.legacy.filter((row) => row.project_id === scope) : [];
           imageCount = new Set([...ownedImages, ...legacy].map((row) => row.file_path)).size;
         }
-        const videoCount = rows.filter((row) => row.file_type === "video").length;
+        const videoQuery = dialect.sqlToQuery(fields.videos!);
+        const countsReservations = videoQuery.sql.includes('"video_generation_jobs"');
+        expect(videoQuery.params).toEqual(countsReservations ? [owner] : []);
+        if (countsReservations) expect(videoQuery.sql).toContain("in ('pending', 'processing')");
+        const reserved = countsReservations ? state.reservations.filter((row) => row.userId === owner && row.status !== "failed").length : 0;
+        const videoCount = rows.filter((row) => row.file_type === "video").length + reserved;
         state.events.push("count");
         // node-postgres returns COUNT as an int8 string.
         return Promise.resolve([{ images: String(imageCount), videos: String(videoCount), other: "0" }]);
@@ -97,9 +111,15 @@ function selection(fields: { id?: unknown; images?: SQL; videos?: SQL; other?: S
 
 import { canUserUploadFile, getMediaLibraryCounts, saveImage, saveMediaLibraryItem } from "./media";
 
+afterEach(() => vi.unstubAllEnvs());
+
 beforeEach(() => {
+  vi.stubEnv("RUNWAY_API_KEY", "provider-test");
+  vi.stubEnv("BLOB_READ_WRITE_TOKEN", "blob-test");
+  state.reservationStorage = true;
   state.media = [];
   state.legacy = [];
+  state.reservations = [];
   state.projects = new Map([["a", "owner"], ["b", "owner"], ["other", "other-owner"]]);
   state.locks.clear();
   state.events = [];
@@ -168,10 +188,32 @@ it("locks the same account-wide video quota across sites and personal uploads", 
   ]);
 });
 
+it("includes active video orders in the ordinary account quota", async () => {
+  seed("owner", "a", 1, "video");
+  state.reservations.push(
+    { userId: "owner", status: "pending" },
+    { userId: "owner", status: "processing" },
+    { userId: "owner", status: "failed" },
+    { userId: "other-owner", status: "processing" },
+  );
+  expect((await getMediaLibraryCounts("owner", "b")).videos).toBe(3);
+  expect(await canUserUploadFile("owner", "video/mp4", "b")).toMatchObject({ allowed: false });
+  await expect(save("b", "video/mp4")).rejects.toMatchObject({ status: 400 });
+});
+
 it("rejects a foreign site before preflight and again at persistence after ownership changes", async () => {
   await expect(canUserUploadFile("owner", "image/png", "other")).rejects.toMatchObject({ status: 404 });
   expect(await canUserUploadFile("owner", "image/png", "a")).toEqual({ allowed: true });
   state.projects.set("a", "other-owner");
   await expect(save("a")).rejects.toMatchObject({ status: 404 });
   expect(state.media).toHaveLength(0);
+});
+
+it("keeps existing upload counts without the optional migration and honors outstanding jobs after key removal", async () => {
+  vi.stubEnv("RUNWAY_API_KEY", "");
+  state.reservations = [{ userId: "owner", status: "processing" }];
+  state.reservationStorage = false;
+  await expect(getMediaLibraryCounts("owner")).resolves.toEqual({ images: 0, videos: 0, other: 0 });
+  state.reservationStorage = true;
+  await expect(getMediaLibraryCounts("owner")).resolves.toEqual({ images: 0, videos: 1, other: 0 });
 });

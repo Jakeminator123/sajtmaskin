@@ -933,6 +933,7 @@ const ALL_TABLES = [
   "project_files",
   "images",
   "media_library",
+  "video_generation_jobs",
   "users",
   "password_reset_tokens",
   "user_integrations",

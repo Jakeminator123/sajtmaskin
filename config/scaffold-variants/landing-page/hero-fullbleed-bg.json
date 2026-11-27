@@ -44,7 +44,8 @@
   "promptHints": [
     "Build the hero as a single full-bleed section spanning the full viewport height (min-h-screen). The background carries the visual story (atmospheric image, gradient mesh, or subtle motion canvas); the foreground holds ONLY a tight centered cluster: eyebrow line, oversized headline (clamp-based, not fixed px), short standfirst, and one or two CTAs.",
     "Do NOT split the hero into a left text column + right product/screenshot card. The whole viewport IS the hero. Subsequent sections can use grids, but section #1 must be visually unified.",
-    "Treat negative space as a feature: never fill the hero edges with logos, badges, or chips. Trust the background and let the centered cluster breathe with generous margin from the top/bottom of the fold."
+    "Treat negative space as a feature: never fill the hero edges with logos, badges, or chips. Trust the background and let the centered cluster breathe with generous margin from the top/bottom of the fold.",
+    "When the user selects a video for the background, keep this layout and use the video-embed dossier for playback, reduced motion and fallback. Keep a video requested as inline content in the foreground or its own section."
   ],
   "signaturePatterns": {
     "layouts": [

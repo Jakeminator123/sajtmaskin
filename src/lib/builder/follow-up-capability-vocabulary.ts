@@ -438,6 +438,18 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
   // like "lägg till en FAQ" is now an ordinary content edit, not a dossier
   // injection.
   {
+    capability: "video-embed",
+    patterns: [
+      /(?<![\p{L}\p{N}_])(?:native-video-embed|video[-\s]embed|videoinbäddning(?:en)?|videospelare(?:n)?|video[-\s]player|bakgrunds[-\s]?(?:video|film)(?:en|n)?|videobakgrund(?:en)?|hero[-\s](?:video|film)|background[-\s]video|video[-\s]background|videogalleri(?:et)?|video[-\s]gallery)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:bädda\s+in|spela\s+upp|lägg\s+(?:in|till)|infoga|visa|använd|generera|skapa)\s+(?:(?:en|ett|den|det|vår|våra|min|mina|egna|bifogad(?:e)?|uppladdad(?:e)?|sparad(?:e)?|befintlig(?:a)?|kort)\s+){0,4}(?:video(?:n|r|rna)?|videoklipp(?:et)?|film(?:en|er|erna)?|mp4(?:-fil(?:en)?)?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:embed|play|add|insert|show|use|generate|create)\s+(?:(?:a|an|the|our|my|own|uploaded|attached|saved|existing|short|promo|hero|background)\s+){0,4}(?:videos?|clips?|mp4)(?![\p{L}\p{N}_]|[-\s]+(?:games?|calls?|chat|conferencing|production|editing)(?![\p{L}\p{N}_]))/iu,
+      /https?:\/\/[^\s?#<>()"']+\.(?:mp4|webm|m4v|ogv|mov)(?=$|[?#\s<>()"'])/iu,
+    ],
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:youtube|youtu\.be|vimeo|tiktok)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
     // Hosted storage for the owner's OWN heavy media (vercel-blob-media,
     // 2026-09-02): their MP4s / growing photo library served from a Blob store
     // instead of the repo. High-precision on purpose — a plain "lägg till en
@@ -450,7 +462,7 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])ladda\s+upp\s+(?:(?:egna|våra|mina|nya)\s+)?(?:bilder(?:na)?|foton|filmer(?:na)?|videor(?:na)?|videos?|videoklipp|filer(?:na)?|mp4(?:-?filer)?)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])upload\s+(?:(?:our|my|their|own|new)\s+)?(?:photos|images|pictures|videos?|files|clips)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:egna|våra|mina)\s+(?:video)?filmer(?:na)?(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])mp4(?:-?(?:filer|filmer|video(?:r|s)?))?(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:egna|våra|mina|own)\s+mp4(?:-?(?:filer|filmer|video(?:r|s)?))?(?![\p{L}\p{N}_])/iu,
     ],
     // Embedding a third-party video/feed is page content, not storage; and
     // visitor uploads (UGC) are explicitly outside the dossier.

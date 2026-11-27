@@ -5,6 +5,7 @@ import {
   timestamp,
   varchar,
   jsonb,
+  bigint,
   boolean,
   uniqueIndex,
   unique,
@@ -12,8 +13,10 @@ import {
   index,
   integer,
   serial,
+  check,
 } from "drizzle-orm/pg-core";
 import type { CreditPriceOverrides } from "@/lib/credits/pricing";
+import type { VideoGenerationStatus } from "@/lib/media/video-generation-contract";
 
 // Re-export timestamptz helper so call-sites use the correct Drizzle type.
 // All timestamp columns in this repo must be TIMESTAMPTZ (with timezone) so that
@@ -407,6 +410,43 @@ export const userIntegrations = pgTable(
     ),
     userIdx: index("idx_user_integrations_user_id").on(table.user_id),
     projectIdx: index("idx_user_integrations_project_id").on(table.project_id),
+  }),
+);
+
+export const videoGenerationJobs = pgTable(
+  "video_generation_jobs",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    // Preserve the paid order and its refund if the project/source is deleted.
+    project_id: text("project_id").notNull(),
+    request_id: text("request_id").notNull(),
+    source_media_id: bigint("source_media_id", { mode: "bigint" }).notNull(),
+    source_url: text("source_url").notNull(),
+    prompt: text("prompt").notNull(),
+    status: text("status").$type<VideoGenerationStatus>().notNull().default("pending"),
+    credits: integer("credits").notNull(),
+    provider_cost_ore: integer("provider_cost_ore").notNull(),
+    billable_ore: integer("billable_ore").notNull(),
+    provider_task_id: text("provider_task_id"),
+    result_media_id: bigint("result_media_id", { mode: "bigint" }).references(() => mediaLibrary.id, { onDelete: "set null" }),
+    error: text("error"),
+    lease_id: text("lease_id"),
+    lease_until: timestamptz("lease_until"),
+    next_check_at: timestamptz("next_check_at").notNull().defaultNow(),
+    poll_failures: integer("poll_failures").notNull().default(0),
+    created_at: timestamptz("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    statusCheck: check("video_generation_jobs_status_check",
+      sql`${table.status} in ('pending', 'processing', 'succeeded', 'failed')`),
+    creditsCheck: check("video_generation_jobs_credits_check", sql`${table.credits} > 0`),
+    userRequest: uniqueIndex("video_generation_jobs_user_request_unique").on(table.user_id, table.request_id),
+    ownerProject: index("idx_video_generation_jobs_owner_project").on(table.user_id, table.project_id, table.created_at),
+    activeUser: index("idx_video_generation_jobs_active_user").on(table.user_id)
+      .where(sql`${table.status} in ('pending', 'processing')`),
+    activeDue: index("idx_video_generation_jobs_active_due").on(table.next_check_at)
+      .where(sql`${table.status} in ('pending', 'processing')`),
   }),
 );
 

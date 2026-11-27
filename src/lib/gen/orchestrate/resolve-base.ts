@@ -4,6 +4,7 @@
  * from `src/lib/gen/orchestrate.ts` (structural split, no behavior change).
  */
 import { detectCapabilityRemoval } from "@/lib/builder/follow-up-capability-removal";
+import { isCapabilityNegated } from "@/lib/builder/prompt-negation";
 import {
   resolveBuildIntentForMethod,
   resolveBuildIntentWithScaffold,
@@ -63,6 +64,7 @@ import {
 } from "../dossiers";
 import { getModelContextWindowTokens } from "@/lib/models/context-window";
 import { deriveFollowUpStateFromInputs } from "../follow-up-predicate";
+import { isVideoRequestAttachment } from "../request-metadata";
 import {
   inheritQualityTargetFromPriorVersion,
   resolveBuildIntentPromotion,
@@ -717,16 +719,24 @@ export async function resolveOrchestrationBase(
       const callerProvidedCapabilityIds = (input.requestedDossierCapabilities ?? [])
         .filter((c): c is string => typeof c === "string" && c.trim().length > 0)
         .map((c) => c.trim().toLowerCase());
+      const rawDossierPrompt = input.rawPrompt ?? input.capabilitiesPrompt ?? input.prompt;
+      // A selected media-library video can arrive with a prompt like "use this".
+      const attachmentCapabilityIds =
+        input.requestAttachments?.some(isVideoRequestAttachment) &&
+        !isCapabilityNegated(rawDossierPrompt, "video-embed")
+          ? ["video-embed"]
+          : [];
       const mergedCapsRaw = Array.from(
         new Set([
           ...briefCapsArray.map((c) => c.toLowerCase()),
           ...inferredCapabilityIds,
           ...callerProvidedCapabilityIds,
+          ...attachmentCapabilityIds,
         ]),
       );
       const promptFilter = filterDossierCapabilitiesForPromptWithMutes({
         capabilities: mergedCapsRaw,
-        prompt: input.rawPrompt ?? input.capabilitiesPrompt ?? input.prompt,
+        prompt: rawDossierPrompt,
         previewPolicy: buildSpec.previewPolicy,
       });
       const mergedCaps = promptFilter.capabilities;
@@ -805,6 +815,7 @@ export async function resolveOrchestrationBase(
         const explicitCapabilities = [
           ...inferredCapabilityIds,
           ...callerProvidedCapabilityIds,
+          ...attachmentCapabilityIds,
           // Durable approvals (review round 2, fix 5): capabilities the user
           // explicitly approved in an EARLIER F3 round, persisted on the
           // snapshot. Without these, approve → build-incomplete (no file

@@ -27,7 +27,7 @@ describe("DELETE /api/media/[id]", () => {
     deleteMediaLibraryItem.mockResolvedValue(true);
   });
 
-  it.each(["12extra", "0", "-1", "9007199254740992", "1".repeat(10_000)])(
+  it.each(["12extra", "0", "-1", "9223372036854775808", "1".repeat(10_000)])(
     "rejects the malformed media id %s",
     async (id) => {
       const res = await request(id);
@@ -36,6 +36,16 @@ describe("DELETE /api/media/[id]", () => {
       expect(getMediaLibraryItemById).not.toHaveBeenCalled();
     },
   );
+
+  it("keeps the full ID intact for owned lookup and deletion", async () => {
+    const id = "9007199254740993";
+    getMediaLibraryItemById.mockResolvedValue({ id });
+
+    const response = await request(id);
+    expect(response.status).toBe(200);
+    expect(getMediaLibraryItemById).toHaveBeenCalledExactlyOnceWith(id, "user_1");
+    expect(deleteMediaLibraryItem).toHaveBeenCalledExactlyOnceWith(id, "user_1");
+  });
 
   it("does not expose media-service failures", async () => {
     getMediaLibraryItemById.mockRejectedValue(new Error("database host secret"));

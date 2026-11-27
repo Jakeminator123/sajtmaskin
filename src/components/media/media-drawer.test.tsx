@@ -4,6 +4,18 @@ import { MediaDrawer } from "./media-drawer";
 
 afterEach(() => vi.unstubAllGlobals());
 
+it("opens Skapa video in the ordinary media bank without placing an order", async () => {
+  const fetchMock = vi.fn(async (input: string) => input.startsWith("/api/media/video-generations?")
+    ? Response.json({ enabled: true, quote: { credits: 18, durationSeconds: 5, model: "gen4_turbo" }, jobs: [] })
+    : Response.json({ success: true, projectId: "site-a", items: [], counts: { images: 0, videos: 0, other: 0 } }));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<MediaDrawer isOpen projectId="site-a" onClose={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "Skapa video" }));
+  const order = await screen.findByRole<HTMLButtonElement>("button", { name: "Beställ video för 18 krediter" });
+  expect(order.disabled).toBe(true);
+  expect(fetchMock.mock.calls.map(([url]) => url)).toContain("/api/media/video-generations?projectId=site-a");
+});
+
 it.each(["POST", "DELETE"])("refreshes the current project and filter when a delayed %s completes", async (method) => {
   let finish!: (response: Response) => void;
   const pending = new Promise<Response>((resolve) => { finish = resolve; });

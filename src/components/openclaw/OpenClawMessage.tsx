@@ -8,6 +8,8 @@ import {
   type ComponentProps,
   type ReactNode,
 } from "react";
+import { VideoGenerationPanel } from "@/components/media/video-generation-panel";
+import { videoIntentFromProposal, type OpenClawVideoProposal } from "@/lib/openclaw/video-proposal";
 import {
   AlertCircle,
   AlertTriangle,
@@ -270,6 +272,18 @@ function recordOpenClawPreparedFill(action: OpenClawFillTextFieldAction) {
   setPreparedFill({ target: OPENCLAW_BUILDER_CHAT_TARGET, value: action.value });
 }
 
+function VideoProposalCard({ action, chatId }: { action: OpenClawVideoProposal; chatId: string }) {
+  const [requestId, setRequestId] = useState<string>();
+  if (requestId) {
+    return <VideoGenerationPanel chatId={chatId} requestId={requestId}
+      intent={videoIntentFromProposal(action)} onClose={() => setRequestId(undefined)} />;
+  }
+  return (
+    <button type="button" className="rounded-md border px-3 py-2 text-sm underline"
+      onClick={() => setRequestId(crypto.randomUUID())}>Visa pris och välj startbild</button>
+  );
+}
+
 export function OpenClawMessage({
   msg,
   streaming = false,
@@ -516,6 +530,11 @@ export function OpenClawMessage({
             budgetSpent={powers.armedAutonomy && missionBudgetSpent}
             builderTarget={msg.builderTarget ?? null}
           />
+        ) : null}
+
+        {interactive && action?.type === "propose_video_generation" && msg.builderTarget?.chatId ? (
+          <VideoProposalCard key={`video:${msg.id}:${msg.builderTarget.chatId}`}
+            action={action} chatId={msg.builderTarget.chatId} />
         ) : null}
 
         {!isUser && action?.type === "read_files" ? (

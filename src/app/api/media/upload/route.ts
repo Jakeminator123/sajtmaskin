@@ -333,6 +333,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      projectId,
       items: items.map((item) => ({
         id: item.id,
         url: item.blob_url || item.file_path,

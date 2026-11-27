@@ -16,6 +16,9 @@ import {
   type V0UserFileAttachment,
 } from "@/components/media/file-upload-zone";
 import { MediaDrawer } from "@/components/media/media-drawer";
+import { VideoGenerationPanel } from "@/components/media/video-generation-panel";
+import { resolveVideoGenerationIntent, type VideoGenerationIntent } from "@/lib/media/video-generation-intent";
+import { BUILDER_VIDEO_DRAFT_EVENT, resumeVideoInsertion, type BuilderVideoDraft } from "@/lib/media/video-builder-action";
 import { TextUploader } from "@/components/media/text-uploader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -307,8 +310,6 @@ export function ChatInterface({
   onTurnKept,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
-  const activeComposerChatRef = useRef(chatId);
-  activeComposerChatRef.current = chatId;
   const [isSending, setIsSending] = useState(false);
   const [promptAssistBusy, setPromptAssistBusy] = useState(false);
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -316,6 +317,54 @@ export function ChatInterface({
   const sourceSelection = selectedSource?.chatId === chatId ? selectedSource : undefined;
   const sourcePagePanel = useRef<SourcePagePanelHandle>(null);
   const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
+  const videoScope = JSON.stringify([chatId, projectId]);
+  const composerScope = useMemo(() => ({ key: videoScope }), [videoScope]);
+  const activeComposerScopeRef = useRef(composerScope);
+  activeComposerScopeRef.current = composerScope;
+  const [preparedVideoScope, setPreparedVideoScope] = useState<string>();
+  // The video instruction is editable after handoff. Reset its whole composer
+  // draft on a scope change so an edited copy cannot travel with the attachment.
+  if (preparedVideoScope && preparedVideoScope !== videoScope) {
+    setPreparedVideoScope(undefined);
+    setInput("");
+    setFiles([]);
+  }
+  const [videoDraft, setVideoDraft] = useState<{ scope: string; id: string; intent: VideoGenerationIntent }>();
+  const activeVideoDraft = videoDraft?.scope === videoScope ? videoDraft : undefined;
+  if (videoDraft && !activeVideoDraft) setVideoDraft(undefined);
+  useEffect(() => {
+    if (!projectId || !chatId) return;
+    const controller = new AbortController();
+    const prepareDraft = (event: Event) => {
+      const command = (event as CustomEvent<BuilderVideoDraft>).detail;
+      if (controller.signal.aborted || activeComposerScopeRef.current !== composerScope ||
+          command?.chatId !== chatId || command.projectId !== projectId) return;
+      event.preventDefault();
+      setPreparedVideoScope(composerScope.key);
+      setFiles((current) => current.some((file) => file.url === command.media.url)
+        ? current
+        : [...current, {
+          id: `media-${command.media.id}`,
+          url: command.media.url,
+          filename: command.media.filename,
+          mimeType: command.media.mimeType,
+          status: "success",
+          isPublicUrl: true,
+          size: 0,
+        }]);
+      setInput((current) => current.includes(command.prompt) ? current
+        : [current, command.prompt].filter(Boolean).join("\n\n"));
+      toast.success("Videon är bifogad i utkastet. Skicka i Bygg när du vill infoga den.");
+    };
+    window.addEventListener(BUILDER_VIDEO_DRAFT_EVENT, prepareDraft);
+    void resumeVideoInsertion({ chatId, projectId }, controller.signal).catch((reason: unknown) => {
+      if (!controller.signal.aborted) toast.error(reason instanceof Error ? reason.message : "Kunde inte förbereda byggutkastet.");
+    });
+    return () => {
+      controller.abort();
+      window.removeEventListener(BUILDER_VIDEO_DRAFT_EVENT, prepareDraft);
+    };
+  }, [chatId, projectId, composerScope]);
   const [figmaUrl, setFigmaUrl] = useState("");
   const [internalFigmaInputOpen, setInternalFigmaInputOpen] = useState(false);
   const [isTextUploaderOpen, setIsTextUploaderOpen] = useState(false);
@@ -693,6 +742,7 @@ export function ChatInterface({
         body: JSON.stringify({ draft: current }),
       });
       const payload = (await response.json().catch(() => null)) as { text?: unknown } | null;
+      if (activeComposerScopeRef.current !== composerScope) return;
       if (!response.ok || typeof payload?.text !== "string" || !payload.text.trim()) {
         toast.error("Kunde inte rätta utkastet. Försök igen.");
         return;
@@ -786,7 +836,7 @@ export function ChatInterface({
     setIsSending(true);
     try {
       const payload = await buildMessagePayload(baseMessage);
-      if (!payload.finalMessage.trim()) return;
+      if (activeComposerScopeRef.current !== composerScope || !payload.finalMessage.trim()) return;
       // OpenClaw prepared-prompt fast lane: tag a follow-up send whose FINAL
       // message is exactly what OpenClaw filled into this composer (a power
       // granted, no user edits, no appended Figma/inspect blocks or
@@ -821,7 +871,7 @@ export function ChatInterface({
         try {
           outcome = await onSendMessage(payload.finalMessage, msgOpts);
         } catch (error) {
-          onTurnKept?.();
+          if (activeComposerScopeRef.current === composerScope) onTurnKept?.();
           throw error;
         }
         // Utfallskontraktet (BB#shadcn-lane1): en avvisad tur som servern INTE
@@ -831,6 +881,7 @@ export function ChatInterface({
         // sändvägen resolvade utan kast. Skrev servern ner turen ligger prompten
         // i tråden i stället och utkastet rensas — annars finns den på två
         // ställen och ett omsänd kan dubblera turen (bugbot på #610).
+        if (activeComposerScopeRef.current !== composerScope) return;
         if (outcome.status === "rejected" && !outcome.turnRecorded) {
           onTurnKept?.();
           return;
@@ -845,6 +896,7 @@ export function ChatInterface({
         useOpenClawStore.getState().setPreparedFill(null);
       }
       if (options.clearDraft !== false) {
+        setPreparedVideoScope(undefined);
         setInput("");
         setFiles([]);
         setSelectedSource(undefined);
@@ -909,10 +961,20 @@ export function ChatInterface({
     });
 
   const handleSubmit = async ({ text }: { text: string }) => {
-    if (submitDisabled) return;
+    if (submitDisabled || activeComposerScopeRef.current !== composerScope) return;
     const trimmed = text.trim() || (composerMode === "agent"
       ? sourceSelection ? "Vad visar den valda källan?" : hasAgentReadableAttachments ? "Vad visar mina bilagor?" : ""
       : "");
+    const video = resolveVideoGenerationIntent(trimmed, files);
+    if (video) {
+      if (activeVideoDraft) {
+        toast("Stäng den öppna videobeställningen innan du påbörjar en ny.");
+        return;
+      }
+      setVideoDraft({ scope: videoScope, id: crypto.randomUUID(), intent: video });
+      setInput((current) => current.trim() === trimmed ? "" : current);
+      return;
+    }
     const directSource = unselectedSourcePageUrl(trimmed, sourceSelection?.source);
     if (directSource) {
       revokeOpenClawBuildConsent();
@@ -964,7 +1026,6 @@ export function ChatInterface({
         }
         proposalReference = resolution.reference;
       }
-      const sendingChatId = chatId;
       void agent.send(trimmed, {
         allowBuild: !sourceSelection && composerAllowsAgentBuild({ mode: composerMode, text: trimmed }),
         restrictBuild,
@@ -974,7 +1035,7 @@ export function ChatInterface({
         } : undefined,
         proposalReference,
         onDispatchAccepted: () => {
-          if (activeComposerChatRef.current === sendingChatId) {
+          if (activeComposerScopeRef.current === composerScope) {
             setInput((current) => current.trim() === trimmed ? "" : current);
             if (hasAgentReadableAttachments) setFiles([]);
             setSelectedSource((current) => current === sourceSelection ? undefined : current);
@@ -1037,7 +1098,9 @@ export function ChatInterface({
     });
   };
 
-  const routeDescription = unselectedSourcePageUrl(input, sourceSelection?.source)
+  const routeDescription = resolveVideoGenerationIntent(input, files)
+    ? { tone: "agent" as const, label: "Skapa video", hint: "Välj startbild och godkänn priset för videon." }
+    : unselectedSourcePageUrl(input, sourceSelection?.source)
     ? { tone: "agent" as const, label: "Läser en webbsida", hint: "Välj det textstycke eller den bild du vill använda." }
     : describeDecision(resolveDecisionFor(input.trim()), !input.trim() && !hasComposerAttachments, input.trim());
   const routeStyle = ROUTE_TONE_STYLE[routeDescription.tone];
@@ -1417,7 +1480,9 @@ export function ChatInterface({
                 <FileUploadZone
                   projectId={projectId ?? null}
                   files={files}
-                  onFilesChange={setFiles}
+                  onFilesChange={(nextFiles) => {
+                    if (activeComposerScopeRef.current === composerScope) setFiles(nextFiles);
+                  }}
                   disabled={inputDisabled}
                   compact
                 />
@@ -1528,6 +1593,11 @@ export function ChatInterface({
           </div>
         </PromptInputFooter>
       </PromptInput>
+
+      {activeVideoDraft && (
+        <VideoGenerationPanel key={activeVideoDraft.id} projectId={projectId ?? undefined} chatId={chatId}
+          requestId={activeVideoDraft.id} intent={activeVideoDraft.intent} onClose={() => setVideoDraft(undefined)} />
+      )}
 
       {mediaEnabled && (
         <MediaDrawer

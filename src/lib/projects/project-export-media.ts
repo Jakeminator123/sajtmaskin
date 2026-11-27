@@ -5,6 +5,8 @@ import { db } from "@/lib/db/client";
 import { deployments, images, mediaLibrary } from "@/lib/db/schema";
 import { getUploadsDir } from "@/lib/db/services/shared";
 import { isProjectMediaLibraryPath } from "@/lib/media/project-media-library";
+import { MAX_MEDIA_VIDEOS } from "@/lib/media/upload-limits";
+import { MAX_GENERATED_VIDEO_BYTES } from "@/lib/media/video-generation-contract";
 import { resolveStorageAbsolutePath } from "@/lib/storage/shared";
 import { VercelBlobProvider } from "@/lib/storage/vercel-blob-provider";
 import { fetchWithPinnedDns } from "@/lib/capture/pinned-fetch";
@@ -13,6 +15,7 @@ import { resolveLegacyProviderUrl } from "@/app/api/v0/deployments/_route/legacy
 export const PROJECT_EXPORT_MEDIA_MAX_FILE_BYTES = 4.5 * 1024 * 1024;
 export const PROJECT_EXPORT_MEDIA_MAX_TOTAL_BYTES = 32 * 1024 * 1024;
 const PROJECT_EXPORT_MEDIA_TIMEOUT_MS = 10_000;
+const PROJECT_EXPORT_MAX_VIDEO_BYTES = MAX_MEDIA_VIDEOS * MAX_GENERATED_VIDEO_BYTES;
 
 export type ProjectExportMedia = {
   id: number | string;
@@ -34,11 +37,14 @@ function isOwnedVercelBlobUrl(rawUrl: string, storagePath: string): boolean {
   }
 }
 
-async function readMediaBody(row: { file_path: string; blob_url: string | null }): Promise<Buffer> {
+async function readMediaBody(
+  row: { file_path: string; blob_url: string | null },
+  maxBlobBytes = PROJECT_EXPORT_MEDIA_MAX_FILE_BYTES,
+): Promise<Buffer> {
   if (row.blob_url && isOwnedVercelBlobUrl(row.blob_url, row.file_path)) {
     const response = await fetchWithPinnedDns(row.blob_url, {
       timeoutMs: PROJECT_EXPORT_MEDIA_TIMEOUT_MS,
-      maxBodyBytes: PROJECT_EXPORT_MEDIA_MAX_FILE_BYTES,
+      maxBodyBytes: maxBlobBytes,
     });
     if (response.status < 200 || response.status >= 300) {
       throw new Error(`Mediafilen kunde inte hämtas (HTTP ${response.status})`);
@@ -156,6 +162,7 @@ export async function loadProjectExportMedia(params: {
 
   const output: ProjectExportMedia[] = [];
   let totalBytes = 0;
+  let totalVideoBytes = 0;
   for (const row of libraryRows) {
     const sourceUrls = [row.blob_url, localMediaUrl(row.file_path)].filter(
       (value): value is string => Boolean(value),
@@ -164,12 +171,20 @@ export async function loadProjectExportMedia(params: {
     const referenced = sourceUrls.some((sourceUrl) => params.referencedText.includes(sourceUrl));
     if (!explicitlyExported && !referenced) continue;
 
-    if (row.size_bytes > PROJECT_EXPORT_MEDIA_MAX_FILE_BYTES) {
+    // Generated MP4s bypass the upload route's 4 MiB limit. Keep the existing
+    // export budget for other media and give owned Blob videos their own budget.
+    const largeVideo = row.file_type === "video" &&
+      row.mime_type === "video/mp4" &&
+      isProjectMediaLibraryPath(row.file_path) &&
+      Boolean(row.blob_url && isOwnedVercelBlobUrl(row.blob_url, row.file_path));
+    const maxFileBytes = largeVideo ? MAX_GENERATED_VIDEO_BYTES : PROJECT_EXPORT_MEDIA_MAX_FILE_BYTES;
+    if (row.size_bytes > maxFileBytes) {
       throw new Error(`Mediafilen “${row.original_name}” är för stor för export`);
     }
-    const body = await readMediaBody(row);
-    totalBytes += body.byteLength;
-    if (totalBytes > PROJECT_EXPORT_MEDIA_MAX_TOTAL_BYTES) {
+    const body = await readMediaBody(row, maxFileBytes);
+    if (largeVideo) totalVideoBytes += body.byteLength;
+    else totalBytes += body.byteLength;
+    if (totalBytes > PROJECT_EXPORT_MEDIA_MAX_TOTAL_BYTES || totalVideoBytes > PROJECT_EXPORT_MAX_VIDEO_BYTES) {
       throw new Error("Projektets media är för stora för en GitHub-export");
     }
     output.push({
