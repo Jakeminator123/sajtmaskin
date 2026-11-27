@@ -30,6 +30,7 @@ export function loadPersistedMessages(chatId: string): ChatMessage[] {
         id: m.id,
         role: m.role,
         content: m.content,
+        createdAt: typeof m.createdAt === "string" ? m.createdAt : undefined,
         thinking: typeof m.thinking === "string" ? m.thinking : null,
         uiParts: Array.isArray(m.uiParts)
           ? m.uiParts.filter((part: unknown) => part && typeof part === "object")
@@ -48,6 +49,7 @@ export function persistMessages(chatId: string, messages: ChatMessage[]): void {
       id: m.id,
       role: m.role,
       content: m.content,
+      createdAt: m.createdAt,
       thinking: m.thinking ?? null,
       uiParts: m.uiParts ?? undefined,
     }));
