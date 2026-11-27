@@ -452,7 +452,7 @@ vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
   looksLikeIncompleteJson: vi.fn(() => false),
 }));
 
-import { siteBriefSchema, tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
+import { buildBriefTrace, siteBriefSchema, tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
 import { buildFollowUpBriefFromSnapshot } from "@/lib/gen/orchestration-snapshot";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { buildF3AwaitingInputUiPart } from "@/lib/gen/stream/f3-continuation";
@@ -2133,6 +2133,12 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       vi.mocked(tryGenerateServerAutoBrief).mockResolvedValueOnce({
         brief: preparedBrief,
         modelUsed: "test-delta-model",
+        trace: buildBriefTrace({
+          source: "server_auto_brief",
+          prompt: preparedRedesignPrompt,
+          modelId: "test-delta-model",
+          imageGenerations: true,
+        }),
       });
 
       const response = await postPrepared(preparedRedesignPrompt, "openclaw-prepared");
