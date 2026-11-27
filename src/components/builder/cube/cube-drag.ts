@@ -147,12 +147,24 @@ export function usePointerDrag({ onStart, onMove, onEnd }: DragCallbacks, option
     callbacks.current.onEnd?.(d.moved);
   }, []);
 
+  const cancel = useCallback(() => {
+    const d = drag.current;
+    if (!d) return false;
+    if (d.frame !== null) cancelAnimationFrame(d.frame);
+    drag.current = null;
+    return true;
+  }, []);
+  useLayoutEffect(() => () => {
+    cancel();
+  }, [cancel]);
+
   return {
     onPointerDown,
     onPointerMove,
     onPointerUp: finish,
     onPointerCancel: finish,
     onLostPointerCapture: finish,
+    cancel,
   };
 }
 
