@@ -17,7 +17,8 @@ vi.mock("@/lib/rate-limit", () => ({
     handler: () => Promise<Response>,
   ) => handler(),
 }));
-vi.mock("@/lib/observability/llm-usage", () => ({
+vi.mock("@/lib/observability/llm-usage", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/observability/llm-usage")>(),
   recordLlmUsage: vi.fn(),
 }));
 
