@@ -1,5 +1,6 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { resetInitBuildChoices } from "@/lib/builder/init-build-choices";
 
 // Controllable stand-in for the URL params the component reads via
 // `useSearchParams` (template entries suppress the onboarding welcome).
@@ -50,6 +51,7 @@ afterEach(() => {
   searchParamsMock.current = new URLSearchParams();
   publishWelcomeComposer(null);
   clearFirstBuildFromWelcome();
+  resetInitBuildChoices();
 });
 
 // R-1743 P2: temahooken behåller välkomstvalet bara för en chatt som skapats
@@ -205,9 +207,38 @@ describe("PreviewPanelEmptyState — välkomst med chattens utkast", () => {
     expect(screen.queryByText(/Förslag utifrån din beskrivning/)).toBeNull();
   });
 
+  it("fäller undan byggförvalen och behåller valen när de öppnas igen", () => {
+    const start = vi.fn();
+    act(() => publishWelcomeComposer({ draft: CAFE, start }));
+    renderEmptyState({ chatId: null, versionId: null, onDesignThemeChange: vi.fn() });
+    const toggle = screen.getByRole("button", { name: "Byggförval" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("radiogroup", { name: "Färgläge" })).toBeNull();
+    expect(screen.getByRole("button", { name: START_LABEL })).toBeTruthy();
+
+    fireEvent.click(toggle);
+    fireEvent.click(
+      within(screen.getByRole("radiogroup", { name: "Färgläge" })).getByRole("radio", {
+        name: "Mörkt",
+      }),
+    );
+    fireEvent.click(toggle);
+    fireEvent.click(toggle);
+
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      within(screen.getByRole("radiogroup", { name: "Färgläge" })).getByRole("radio", {
+        name: "Mörkt",
+      }).dataset.state,
+    ).toBe("on");
+    fireEvent.click(screen.getByRole("button", { name: START_LABEL }));
+    expect(start).toHaveBeenCalledTimes(1);
+  });
+
   it("föreslår utseende ur utkastet utan att erbjuda en död startknapp", () => {
     act(() => publishWelcomeComposer({ draft: CAFE, start: null }));
     renderEmptyState({ chatId: null, versionId: null, onDesignThemeChange: vi.fn() });
+    fireEvent.click(screen.getByRole("button", { name: "Byggförval" }));
     expect(screen.getByText(/Förslag utifrån din beskrivning \(mat och fika\)/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: START_LABEL })).toBeNull();
   });
@@ -216,7 +247,7 @@ describe("PreviewPanelEmptyState — välkomst med chattens utkast", () => {
     const start = vi.fn();
     act(() => publishWelcomeComposer({ draft: CAFE, start }));
     renderEmptyState({ chatId: null, versionId: null, hasPrefilledPrompt: true });
-    expect(screen.getByText(/skapa sedan första utkastet/)).toBeTruthy();
+    expect(screen.getByText(/anpassa byggförvalen först/)).toBeTruthy();
     expect(screen.queryByText(/tryck sedan på pilen/)).toBeNull();
     screen.getByRole("button", { name: START_LABEL }).click();
     expect(start).toHaveBeenCalledTimes(1);

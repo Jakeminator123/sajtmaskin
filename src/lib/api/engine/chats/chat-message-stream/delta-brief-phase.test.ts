@@ -1,6 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
+import { OPENCLAW } from "@/lib/config";
+import { OPENCLAW_PREPARED_PROMPT_SOURCE } from "@/lib/openclaw/prepared-prompt";
 import { buildFollowUpContract } from "@/lib/gen/orchestration-snapshot";
 import { resolveOrchestrationBase } from "@/lib/gen/orchestrate/resolve-base";
 import { shouldIgnorePersistedScaffoldForMatch } from "@/lib/providers/own-engine/follow-up-clarification";
@@ -10,7 +12,8 @@ import { parseChatRequestMeta, type ParsedChatRequestMeta } from "../parse-chat-
 
 // Delta-brief LLM pass: return a deterministic brief so the phase reaches the
 // write-back branch without any network/model dependency.
-vi.mock("@/lib/builder/site-brief-generation", () => ({
+vi.mock("@/lib/builder/site-brief-generation", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/builder/site-brief-generation")>(),
   tryGenerateServerAutoBrief: vi.fn(async () => ({
     brief: { projectTitle: "Fixture" },
     modelUsed: "fixture-model",
@@ -291,5 +294,77 @@ describe("runClearRedesignDeltaBriefPhase — imported repo mode", () => {
 
     expect(tryGenerateServerAutoBrief).not.toHaveBeenCalled();
     expect(result.brief).toBeNull();
+  });
+});
+
+describe("runClearRedesignDeltaBriefPhase — prepared current-turn decisions", () => {
+  const freshBrief = {
+    projectTitle: "Mörk portfolio",
+    brandName: "Studio",
+    oneSentencePitch: "En portfolio med skyddad kundportal",
+    targetAudience: "Kunder",
+    primaryCallToAction: "Visa projekt",
+    toneAndVoice: ["personlig"],
+    domainProfile: "general",
+    motionLevel: "minimal",
+    qualityBar: "premium",
+    seasonalHints: [],
+    requestedCapabilities: ["auth"],
+    pages: [{ name: "Hem", path: "/", purpose: "Visa projekt", sections: [
+      { type: "hero", heading: "Studio", bullets: ["Utvalda projekt"] },
+    ] }],
+    visualDirection: {
+      styleKeywords: ["mörk", "editorial"],
+      colorPalette: { primary: "#45ccaa", secondary: "#556677", accent: "#ffcc44", background: "#121212", text: "#eeeeee" },
+      typography: { headings: "Instrument Serif", body: "Inter" },
+    },
+    imagery: { needsImages: true, styleKeywords: ["arkitektur", "natt"], suggestedSubjects: ["byggnad", "detalj"], altTextRules: ["Beskriv motivet", "Var konkret"] },
+    uiNotes: { components: ["hero", "gallery", "login"], interactions: ["focus", "hover"], accessibility: ["labels", "contrast", "keyboard"] },
+    seo: { titleTemplate: "{page} | Studio", metaDescription: "Utvalda projekt", keywords: ["studio", "design", "portfolio"] },
+  };
+
+  beforeEach(() => {
+    vi.spyOn(OPENCLAW, "editEnabled", "get").mockReturnValue(true);
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each(["json", "fenced"])("routes validated %s decisions into the active brief without a model pass", async (format) => {
+    const json = JSON.stringify(freshBrief);
+    const message = format === "json" ? json : `Bygg om enligt dessa beslut.\n\n\`\`\`json\n${json}\n\`\`\``;
+    const params = basePhaseParams({ message, followUpIntentMessage: message, requestPromptSource: OPENCLAW_PREPARED_PROMPT_SOURCE });
+    const result = await runClearRedesignDeltaBriefPhase(params);
+    expect(tryGenerateServerAutoBrief).not.toHaveBeenCalled();
+    expect(result).toEqual({ brief: freshBrief, skipReason: "structured_prompt" });
+    expect(params.parsedMeta.brief).toEqual(freshBrief);
+  });
+
+  it.each([
+    "## Ny design\n- Bygg hela sajten mörk med nya typsnitt och en inloggning.\n- Visa bildgalleri.\n## Sidor\n- Hem och kundportal.\nEn sammanhållen genomarbetad upplevelse med typografi och layout anpassad för kunderna.",
+    '{"projectTitle":"Mörk portfolio","requestedCapabilities":["auth"]}',
+    '```json\n{"projectTitle":\n```',
+    `\`\`\`json\n${JSON.stringify(freshBrief)}\n\`\`\`\n\`\`\`json\n${JSON.stringify({ ...freshBrief, requestedCapabilities: [] })}\n\`\`\``,
+  ])("generates a typed delta brief for incomplete or ambiguous prepared text", async (message) => {
+    const params = basePhaseParams({ message, followUpIntentMessage: message, requestPromptSource: OPENCLAW_PREPARED_PROMPT_SOURCE });
+    expect(await runClearRedesignDeltaBriefPhase(params)).toEqual({ brief: { projectTitle: "Fixture" }, skipReason: null });
+    expect(tryGenerateServerAutoBrief).toHaveBeenCalledOnce();
+    expect(params.parsedMeta.brief).toEqual({ projectTitle: "Fixture" });
+  });
+
+  it.each(["disabled", "changed-message", "missing-tag"])("retains the normal delta path for %s", async (reason) => {
+    vi.spyOn(OPENCLAW, "editEnabled", "get").mockReturnValue(reason !== "disabled");
+    const message = JSON.stringify(freshBrief);
+    await runClearRedesignDeltaBriefPhase(basePhaseParams({
+      message,
+      followUpIntentMessage: reason === "changed-message" ? "Original contract-gated request" : message,
+      requestPromptSource: reason === "missing-tag" ? null : OPENCLAW_PREPARED_PROMPT_SOURCE,
+    }));
+    expect(tryGenerateServerAutoBrief).toHaveBeenCalledOnce();
+  });
+
+  it("keeps normal generation failure visible when prose cannot supply typed decisions", async () => {
+    vi.mocked(tryGenerateServerAutoBrief).mockResolvedValueOnce(null);
+    const params = basePhaseParams({ requestPromptSource: OPENCLAW_PREPARED_PROMPT_SOURCE });
+    expect(await runClearRedesignDeltaBriefPhase(params)).toEqual({ brief: null, skipReason: null });
+    expect(params.parsedMeta.brief).toBeNull();
   });
 });
