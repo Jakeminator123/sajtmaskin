@@ -4,6 +4,7 @@
  * `src/lib/gen/orchestrate.ts` (structural split, no behavior change).
  */
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import { applyBriefColorPalette } from "@/lib/builder/brief-build-choices";
 import {
   normalizeDesignTheme,
   resolveThemePalette,
@@ -278,10 +279,21 @@ export async function finalizeOrchestrationPrompts(
     ? (THEME_CLUSTERS[normalizedDesignTheme as ThemeClusterId]?.label ?? null)
     : null;
 
+  const effectiveBrief = applyBriefColorPalette(brief, lockedColorPalette);
+  // The registry variant is shared. Adapt only this generation's color fields;
+  // typography, geometry and the user's selected variant id retain their owners.
+  if (resolvedVariant && lockedColorPalette) {
+    resolvedVariant = {
+      ...resolvedVariant,
+      colorMode: input.colorModeHint ?? resolvedVariant.colorMode,
+      themeTokens: { ...resolvedVariant.themeTokens, ...lockedColorPalette },
+    };
+  }
+
   const dynamicOpts: DynamicContextOptions = {
     intent: finalBuildIntent,
-    brief: brief as DynamicContextOptions["brief"],
-    themeOverride: themeColors,
+    brief: effectiveBrief as DynamicContextOptions["brief"],
+    themeOverride: lockedColorPalette ?? themeColors,
     imageGenerations,
     scaffoldContext: base.scaffoldContext,
     capabilityHints: base.capabilityHints,
@@ -340,6 +352,7 @@ export async function finalizeOrchestrationPrompts(
   });
 
   return {
+    effectiveBrief,
     engineSystemPrompt,
     dynamicContext: dynamic.context,
     dynamicContextPruning: dynamic.pruning,

@@ -38,8 +38,8 @@
   "signaturePatterns": {
     "layouts": [
       "Use a centered single-column shell with a narrow max-width, slim transparent top bar, and tall vertical rhythm separating soft section blocks.",
-      "Build the hero as a gently centered or left-aligned headline stack with one calm primary action, one ghost link, and abundant breathing room around it.",
-      "Compose feature areas as a three-card row of soft pastel surfaces with rounded corners, short copy, and small icons sized as quiet markers rather than illustrations.",
+      "Open with the subject in a large, clear headline and a short lead. For a reading experience, pair it with a relevant image or illustration when available and a caption that adds a concrete detail.",
+      "Group supporting details under descriptive headings. Use a reading column for a narrative, short pastel cards for comparable facts, and a primary action when the brief calls for one.",
       "Lay out content or about pages as a single reading column with generous line-height, small caption-style metadata, and quiet horizontal rules between blocks.",
       "Use forms and onboarding screens as a centered card with rounded corners, gentle shadow, and stacked fields with calm helper text underneath."
     ],

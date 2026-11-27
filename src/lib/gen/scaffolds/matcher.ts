@@ -14,6 +14,7 @@
  */
 import type { ScaffoldManifest } from "./types";
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import { withoutPageSubjectIntro } from "@/lib/builder/page-subject";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";
 import { getScaffoldById, getScaffoldIds } from "./registry";
 import { SCAFFOLD_OFF_BASELINE_ID } from "./types";
@@ -54,7 +55,11 @@ function countPortfolioSignalBoost(text: string): number {
   const mediaScore = countKeywordMatches(text, PORTFOLIO_MEDIA_KEYWORDS);
   const artDirectionScore = countKeywordMatches(text, PORTFOLIO_ART_DIRECTION_KEYWORDS);
 
-  let boost = 0;
+  // Personality and art direction support a creator/profile request. On
+  // their own they describe how any subject should look or sound.
+  let boost = creatorScore > 0
+    ? countKeywordMatches(text, ["personal", "creative", "personlig", "kreativ"])
+    : 0;
   if (creatorScore > 0 && mediaScore > 0) boost += 2;
   if (creatorScore > 0 && artDirectionScore > 0) boost += 1;
   if (mediaScore > 0 && artDirectionScore > 0) boost += 1;
@@ -63,6 +68,10 @@ function countPortfolioSignalBoost(text: string): number {
 
 /** Minimum score to prefer a specific scaffold over fallbacks */
 const MIN_SCORE = 2;
+const PRODUCT_SURFACE_KEYWORDS = [
+  ...APP_KEYWORDS, ...DASHBOARD_KEYWORDS, ...AUTH_KEYWORDS, ...STRONG_ECOMMERCE_INTENT,
+  "widget", "widgets",
+];
 
 /**
  * Positive capability/brief boosts may reorder scaffolds that already clear
@@ -119,7 +128,6 @@ export interface ScaffoldSelectionResult {
 
 export interface ScaffoldQueryContext {
   briefPages?: Array<{ name?: string; path?: string; purpose?: string }>;
-  styleKeywords?: string[];
   domainHints?: string[];
 }
 
@@ -190,11 +198,9 @@ function applyBriefKeywordBoost(
 ): Array<{ id: string; score: number }> {
   if (!context) return scores;
   const briefPages = context.briefPages ?? [];
-  const styleKeywords = context.styleKeywords ?? [];
   const domainHints = context.domainHints ?? [];
   const combinedText = [
     ...briefPages.map((page) => `${page.name ?? ""} ${page.path ?? ""} ${page.purpose ?? ""}`),
-    ...styleKeywords,
     ...domainHints,
   ]
     .join(" ")
@@ -225,9 +231,6 @@ function buildScaffoldPrompt(prompt: string, context: ScaffoldQueryContext | und
       .filter(Boolean)
       .join(" | ");
     if (pageSummary) fragments.push(`Brief pages: ${pageSummary}`);
-  }
-  if (context.styleKeywords && context.styleKeywords.length > 0) {
-    fragments.push(`Style keywords: ${context.styleKeywords.join(", ")}`);
   }
   if (context.domainHints && context.domainHints.length > 0) {
     fragments.push(`Domain hints: ${context.domainHints.join(", ")}`);
@@ -427,17 +430,26 @@ function rankKeywordScaffolds(
   prompt: string,
   scores: Array<{ id: string; score: number }>,
   buildIntent?: BuildIntent | null,
-): {
-  scores: Array<{ id: string; score: number }>;
-  eligibleScores: Array<{ id: string; score: number }>;
-  scaffold: ScaffoldManifest;
-} {
-  const gameAdjustedScores = applyGameKeywordPreference(scores, prompt, buildIntent);
-  const eligibleScores = eligibleKeywordScores(gameAdjustedScores, buildIntent, prompt);
+  structuralPrompt = prompt,
+) {
+  const rankedScores = applyGameKeywordPreference(scores, structuralPrompt, buildIntent);
+  const eligibleScores = eligibleKeywordScores(rankedScores, buildIntent, structuralPrompt);
+  const best = pickBestScaffold(eligibleScores);
+  const subject = withoutPageSubjectIntro(prompt);
+  // A plain topic has a reading surface. The App target alone supplies no
+  // evidence of a workspace. Preserve an independently requested product.
+  const useSubjectStarter =
+    (buildIntent === "website" || buildIntent === "app") &&
+    subject !== prompt &&
+    !eligibleScores.some(({ id, score }) => id !== "landing-page" && score >= MIN_SCORE) &&
+    countKeywordMatches(subject, PRODUCT_SURFACE_KEYWORDS) === 0;
   return {
-    scores: gameAdjustedScores,
+    scores: rankedScores,
     eligibleScores,
-    scaffold: pickBestScaffold(eligibleScores) ?? defaultScaffoldForIntent(buildIntent),
+    scaffold: useSubjectStarter
+      ? getScaffoldById("base-nextjs")!
+      : best ?? defaultScaffoldForIntent(buildIntent),
+    useSubjectStarter,
   };
 }
 
@@ -680,7 +692,6 @@ export async function matchScaffoldAuto(
   const briefContextApplied = Boolean(
     options.queryContext &&
       ((options.queryContext.briefPages && options.queryContext.briefPages.length > 0) ||
-        (options.queryContext.styleKeywords && options.queryContext.styleKeywords.length > 0) ||
         (options.queryContext.domainHints && options.queryContext.domainHints.length > 0)),
   );
   // Embedding query uses prompt+brief (`scaffoldPrompt`). Keyword selection
@@ -711,8 +722,9 @@ export async function matchScaffoldAuto(
           scaffoldPrompt,
         ),
         scaffold: defaultScaffoldForIntent(buildIntent),
+        useSubjectStarter: false,
       }
-    : rankKeywordScaffolds(scaffoldPrompt, unrankedKeywordScores, buildIntent);
+    : rankKeywordScaffolds(prompt, unrankedKeywordScores, buildIntent, scaffoldPrompt);
   const keywordScores = keywordRanking.scores;
   const keywordEligibleScores = keywordRanking.eligibleScores;
   const keywordResult = keywordRanking.scaffold;
@@ -722,7 +734,7 @@ export async function matchScaffoldAuto(
     keywordResult?.id ?? null,
   );
   const maxKeywordScore = Math.max(...keywordEligibleScores.map((entry) => entry.score), 0);
-  const keywordMethod = keywordsDisabled
+  const keywordMethod = keywordsDisabled || keywordRanking.useSubjectStarter
     ? "default"
     : inferKeywordSelectionMethod({
         selectedScaffold: keywordResult,
@@ -766,9 +778,14 @@ export async function matchScaffoldAuto(
   const autoResults = semantic.results.filter(
     (result) => result.scaffold.id !== SCAFFOLD_OFF_BASELINE_ID,
   );
-  const top = autoResults.find((result) =>
-    canRankForBuildIntent(result.scaffold, buildIntent, provisionalWebsiteAppEvidence),
-  );
+  const top = autoResults.find(({ scaffold }) => {
+    // A generic semantic resemblance cannot supply a workspace, store or
+    // portfolio for a subject-only request. Base Next.js is also not a new
+    // semantic fallback for operational apps just because it now allows App.
+    if (keywordRanking.useSubjectStarter) return scaffold.id === "base-nextjs";
+    if (buildIntent === "app" && scaffold.id === "base-nextjs") return false;
+    return canRankForBuildIntent(scaffold, buildIntent, provisionalWebsiteAppEvidence);
+  });
   const embeddingTopResult =
     top
       ? {

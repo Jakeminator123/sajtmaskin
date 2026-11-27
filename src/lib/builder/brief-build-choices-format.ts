@@ -23,7 +23,7 @@ export function formatBriefBuildChoicesForPrompt(
   const lines: string[] = [];
   if (input.buildIntent === "website" || input.buildIntent === "app") {
     lines.push(
-      `- Build intent (user choice): ${input.buildIntent === "app" ? "app / product UI" : "marketing website"}`,
+      `- Build intent (user choice): ${input.buildIntent === "app" ? "app / product UI" : "website"}`,
     );
   }
   if (input.scaffoldId) {

@@ -20,7 +20,7 @@ describe("formatBriefBuildChoicesForPrompt", () => {
       complexityHint: "simple",
     });
     expect(text).toContain("Byggval constraints");
-    expect(text).toContain("marketing website");
+    expect(text).toContain("Build intent (user choice): website");
     expect(text).toContain("Page count ceiling (this round): 2");
     expect(text).toContain("Style choice: minimal");
     // landing-page + minimal pins minimalist-mag → variant hint block present
