@@ -587,10 +587,11 @@ export function extractExplicitNamedPages(
     while (subject && out.length < MAX_NAMED_PAGES_FROM_LIST) {
       // An edit target elsewhere in the prompt is not a new route. A bare
       // coordinated page can inherit the immediately preceding addition.
-      const lastEditClause = [...subject.before.matchAll(SUBJECT_EDIT_CLAUSE_RE)].at(-1);
+      const sentencePrefix = subject.before.split(/[.;!?\n]/u).at(-1) ?? "";
+      const lastEditClause = [...sentencePrefix.matchAll(SUBJECT_EDIT_CLAUSE_RE)].at(-1);
       const clausePrefix = lastEditClause
-        ? subject.before.slice(lastEditClause.index + lastEditClause[0].length)
-        : subject.before;
+        ? sentencePrefix.slice(lastEditClause.index + lastEditClause[0].length)
+        : sentencePrefix;
       const continuesAdditionList: boolean = previousSubjectWasAddition &&
         SUBJECT_ADDITION_LIST_TAIL_RE.test(subject.before) &&
         !lastEditClause;

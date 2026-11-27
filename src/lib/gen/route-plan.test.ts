@@ -42,6 +42,7 @@ describe("buildRoutePlan", () => {
     ["Add a page about product photography", "website", "/product-photography"],
     ["Add a Q&A page about billing", "website", "/pricing"],
     ["Polish the header and add a Q&A page about billing", "website", "/pricing"],
+    ["Polish the header. Add a Q&A page about billing", "website", "/pricing"],
     ["Add a research & development page about owls", "website", "/owls"],
     ["Add a research and development page about owls", "website", "/owls"],
     ["Lägg till en sida om björnungar", "website", "/bjornungar"],
@@ -116,6 +117,17 @@ describe("buildRoutePlan", () => {
   it("keeps existing routes for a follow-up copy edit about a company page", () => {
     const plan = buildRoutePlan({
       ...websiteBase, prompt: "Polish the page about our company", generationMode: "followUp", existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(["/"]);
+  });
+
+  it.each([
+    "Add photos. Keep the page about owls unchanged",
+    "Add photos; Keep the page about owls unchanged",
+    "Add photos\nKeep the page about owls unchanged",
+  ])("does not carry addition intent into another sentence for %s", (prompt) => {
+    const plan = buildRoutePlan({
+      ...websiteBase, prompt, generationMode: "followUp", existingRoutePaths: ["/"],
     });
     expect(plan.routes.map((route) => route.path)).toEqual(["/"]);
   });
