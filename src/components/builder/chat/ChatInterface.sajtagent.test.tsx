@@ -344,7 +344,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     expect(hint().textContent).toContain("Till Sajtagenten – kan ändra sajten");
     expect(hint().textContent).not.toContain("ändrar inget");
 
-    fireEvent.change(textarea, { target: { value: "Sök efter https://example.com på webben." } });
+    fireEvent.change(textarea, { target: { value: "Sök efter https://example.org/produkt?id=42&typ=1#bild på webben." } });
     expect(hint().textContent).toContain("Fråga – ändrar inget");
 
     // En fråga med frågeord bär aldrig medgivande, så löftet står kvar.

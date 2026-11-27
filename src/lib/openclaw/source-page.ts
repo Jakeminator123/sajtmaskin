@@ -1,4 +1,4 @@
-import { isExplicitOpenClawWebSearch } from "./read-task-input";
+import { isExplicitOpenClawWebSearch, requestedWebAddresses } from "./read-task-input";
 
 export interface PublicSourcePage {
   url: string;
@@ -21,9 +21,9 @@ export function requestedSourcePageUrl(text: string): string | undefined {
       !/^(?:(?:kan (?:du|ni)|skulle du kunna|vänligen)\s+)?(?:gå till|läs|hämta|öppna|besök|titta på|kolla)(?:\s|$)/iu.test(question)) {
     return undefined;
   }
-  const addresses = [...question.matchAll(/(?:https?:\/\/|\bwww\.)[^\s<>"']+/giu)];
+  const addresses = requestedWebAddresses(question);
   if (addresses.length !== 1) return undefined;
-  const address = addresses[0][0].replace(/[),.!?;]+$/u, "");
+  const address = addresses[0].replace(/[),.!?;]+$/u, "");
   try {
     const url = new URL(/^www\./i.test(address) ? `https://${address}` : address);
     if (!url.hostname.includes(".") || url.username || url.password) return undefined;

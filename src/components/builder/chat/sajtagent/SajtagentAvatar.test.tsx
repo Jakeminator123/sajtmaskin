@@ -7,6 +7,7 @@ import { SajtagentAvatar } from "./SajtagentAvatar";
 
 const state = vi.hoisted(() => ({
   enabled: true,
+  isAdmin: false,
   agent: {
     available: true,
     isStreaming: false,
@@ -22,6 +23,9 @@ const state = vi.hoisted(() => ({
   },
   connect: vi.fn(),
   disconnect: vi.fn(),
+}));
+vi.mock("@/lib/auth/auth-store", () => ({
+  useAuthStore: (selector: (value: { user: { isAdmin: boolean } }) => unknown) => selector({ user: { isAdmin: state.isAdmin } }),
 }));
 vi.mock("./SajtagentProvider", () => ({ useSajtagent: () => state.agent }));
 vi.mock("@/lib/openclaw/use-did-avatar", async (importOriginal) => {
@@ -61,6 +65,7 @@ const reply = (
 beforeEach(() => {
   vi.clearAllMocks();
   state.enabled = true;
+  state.isAdmin = false;
   state.agent = {
     available: true,
     isStreaming: false,
@@ -77,6 +82,15 @@ afterEach(() => {
 });
 
 describe("SajtagentAvatar — voice output in the shared conversation", () => {
+  it("passes the active chat to the admin pilot without exposing it as an ordinary user action", () => {
+    const { rerender } = render(<SajtagentAvatar variant="stage" chatId="active-chat" />);
+    expect(screen.queryByRole("link", { name: "Öppna avatarpiloten" })).toBeNull();
+    state.isAdmin = true;
+    rerender(<SajtagentAvatar variant="stage" chatId="active-chat" />);
+    expect(screen.getByRole("link", { name: "Öppna avatarpiloten" }).getAttribute("href"))
+      .toBe("/avatar?mode=bridge&chatId=active-chat");
+  });
+
   it("connects only after opt-in and never replays existing history", () => {
     const { rerender } = render(<SajtagentAvatar />);
     expect(state.connect).not.toHaveBeenCalled();

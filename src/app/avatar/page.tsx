@@ -44,9 +44,10 @@ export default async function AvatarPage({ searchParams }: AvatarPageProps) {
   const mockMode = mode === "bridge" && resolvedSearchParams.mock === "1";
   const chatId = typeof resolvedSearchParams.chatId === "string" && resolvedSearchParams.chatId.length <= 200
     ? resolvedSearchParams.chatId.trim() || undefined : undefined;
-  const iframeHref = "/avatar?mode=iframe";
-  const bridgeHref = "/avatar?mode=bridge";
-  const bridgeMockHref = "/avatar?mode=bridge&mock=1";
+  const projectContext = chatId ? `&chatId=${encodeURIComponent(chatId)}` : "";
+  const iframeHref = `/avatar?mode=iframe${projectContext}`;
+  const bridgeHref = `/avatar?mode=bridge${projectContext}`;
+  const bridgeMockHref = `/avatar?mode=bridge&mock=1${projectContext}`;
 
   return (
     <main className="bg-background min-h-screen px-6 py-10 md:py-16">

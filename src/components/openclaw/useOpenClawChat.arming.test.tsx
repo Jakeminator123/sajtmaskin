@@ -126,7 +126,7 @@ describe("useOpenClawChat — arming consent", () => {
     const source = { url: "https://example.org/", passage: "En stol." };
     const { result } = renderHook(() => useOpenClawChat());
     await act(async () => {
-      await result.current.send("Sök efter https://example.com på webben.", {
+      await result.current.send("Sök efter https://example.org/produkt?id=42&typ=1#bild på webben.", {
         readTask: { source, attachmentIds: [42] }, allowBuild: true,
       });
     });
