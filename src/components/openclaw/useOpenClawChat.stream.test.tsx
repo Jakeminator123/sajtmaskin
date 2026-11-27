@@ -115,6 +115,16 @@ describe("useOpenClawChat — terminal empty stream", () => {
     expect(result.current.isStreaming).toBe(false);
   });
 
+  it("shows the Fast-specific recovery when only Fast is unavailable", async () => {
+    const error = "OpenAI Fast är tillfälligt otillgängligt. Ditt utkast finns kvar och nästa fråga använder standard.";
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+      code: "fast_mode_unavailable", error,
+    }, { status: 503 })));
+    const { result } = renderHook(() => useOpenClawChat());
+    await act(() => result.current.send("hej"));
+    expect(lastAssistantContent()).toBe(error);
+  });
+
   it("keeps the Swedish error text for a gateway error envelope", async () => {
     vi.stubGlobal(
       "fetch",

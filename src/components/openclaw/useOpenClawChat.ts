@@ -18,6 +18,7 @@ import {
   consumeGatewayStream,
   logOpenClawChatStreamEnd,
   OPENCLAW_DISPATCH_HEADER,
+  OPENCLAW_FAST_UNAVAILABLE,
   OPENCLAW_DISPATCH_NOT_STARTED,
   OPENCLAW_DISPATCH_STARTED,
   OPENCLAW_EMPTY_REPLY_COPY,
@@ -55,6 +56,10 @@ function makeId() {
 
 export interface OpenClawSendOptions {
   readTask?: OpenClawReadTask;
+  /** Bind a builder send to the chat which owns its history and preferences. */
+  builderChatId?: string;
+  fastMode?: boolean;
+  onFastModeUnavailable?: () => void;
   /**
    * Trusted local composer consent: the turn was sent in Auto or Bygg, so the
    * agent may act on it directly (`agent-action-consent.ts`). Missing metadata
@@ -182,6 +187,17 @@ export function useOpenClawChat() {
         return;
       }
 
+      const clientContext = collectOpenClawClientContext();
+      const builderChatId = options?.builderChatId;
+      if (builderChatId && (
+        !useOpenClawStore.getState().scopeKey.endsWith(`::${builderChatId}`) ||
+        (typeof clientContext?.chatId === "string" && clientContext.chatId !== builderChatId) ||
+        (options.fastMode && clientContext?.chatId !== builderChatId)
+      )) {
+        // The composer keeps the draft until dispatch is accepted.
+        reportDispatchOutcome();
+        return;
+      }
       const readTask = options?.internal ? options.readTask : resolveOpenClawReadTask(trimmed, options?.readTask);
       const buildRestricted = !options?.internal &&
         (Boolean(readTask) || options?.restrictBuild === true || isReadOnlyComposerRequest(trimmed));
@@ -229,7 +245,6 @@ export function useOpenClawChat() {
         return;
       }
 
-      const clientContext = collectOpenClawClientContext();
       const campaignScript = useOpenClawStore.getState().campaignScript;
       const shouldChargeQuota =
         options?.countTowardCampaignQuota !== false &&
@@ -368,6 +383,7 @@ export function useOpenClawChat() {
             messages: apiMessages,
             context: clientContext,
             readTask,
+            ...(options?.fastMode && builderChatId && !options.internal && !readTask ? { fastMode: true } : {}),
             // Which extra powers the user granted for THIS turn. The server ANDs
             // the list with its own OC_EDIT, so it can only narrow the edit
             // instructions — never unlock anything the deployment forbids.
@@ -407,6 +423,11 @@ export function useOpenClawChat() {
           if (errText && !looksLikeHtml) {
             try {
               const parsed = JSON.parse(errText);
+              if (parsed?.code === OPENCLAW_FAST_UNAVAILABLE && typeof parsed.error === "string") {
+                options?.onFastModeUnavailable?.();
+                updateAssistantMessage(placeholderId, parsed.error.slice(0, 280));
+                return;
+              }
               const candidate =
                 (typeof parsed?.error === "string" && parsed.error) ||
                 (typeof parsed?.detail === "string" && parsed.detail) ||
