@@ -1,10 +1,10 @@
 /**
- * Auto-curate `signaturePatterns` for every scaffold variant via GPT-5.4.
+ * Auto-curate `signaturePatterns` for each scaffold variant.
  *
  * For each variant in config/scaffold-variants/<scaffold>/<variant>.json:
  *   1. Reads the existing variant JSON (label, description, keywords,
  *      signatureMotif, colorMode, promptHints, sourceTemplateIds).
- *   2. Asks GPT-5.4 to produce a structured `signaturePatterns` object via Zod:
+ *   2. Requests a structured `signaturePatterns` object via Zod:
  *        layouts: 3-5 CONCRETE layout choices (not abstract principles)
  *        motifs:  2-4 visual motifs that read at first glance
  *        antiPatterns: 2-4 patterns the LLM should NOT use
@@ -20,7 +20,7 @@
  *   --only=<id>       Curate only this variant id (e.g. friendly-saas).
  *   --limit=<N>       Curate at most N variants.
  *   --force           Overwrite existing signaturePatterns.
- *   --model=<id>      Override LLM (default: gpt-6.1-sol).
+ *   --model=<id>      Override LLM (default: gpt-6.2-sol).
  *
  * Usage:
  *   npx tsx scripts/scaffolds/auto-curate-variant-patterns.ts --dry-run --only=friendly-saas
@@ -41,7 +41,7 @@ import { z } from "zod";
 
 const WORKSPACE_ROOT = process.cwd();
 const VARIANTS_ROOT = resolve(WORKSPACE_ROOT, "config", "scaffold-variants");
-const DEFAULT_MODEL = "gpt-6.1-sol";
+const DEFAULT_MODEL = "gpt-6.2-sol";
 
 interface CliArgs {
   dryRun: boolean;

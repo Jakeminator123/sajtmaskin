@@ -9,7 +9,7 @@ import { aliasRetiredModelId } from "@/lib/models/catalog";
 import type { OpenAIReasoningEffort } from "@/lib/models/openai-capabilities";
 
 export const PROMPT_REWRITE_WORKLOAD_ID = "prompt_rewrite";
-export const PROMPT_REWRITE_FALLBACK_MODEL = "openai/gpt-6.1-sol";
+export const PROMPT_REWRITE_FALLBACK_MODEL = "openai/gpt-6.2-sol";
 export const PROMPT_ASSIST_DRAFT_MAX_CHARS = 8_000;
 /**
  * Total Responses output budget, including reasoning tokens, so a rewrite of
@@ -23,7 +23,7 @@ export const PROMPT_REWRITE_MAX_CHARS = PROMPT_ASSIST_DRAFT_MAX_CHARS;
 export function resolvePromptRewriteModel(
   env: Record<string, string | undefined> = process.env,
 ): string {
-  return (
+  return aliasRetiredModelId(
     env.SAJTMASKIN_PROMPT_REWRITE_MODEL?.trim() ||
     getWorkloadDefaultModelFromManifest(PROMPT_REWRITE_WORKLOAD_ID) ||
     PROMPT_REWRITE_FALLBACK_MODEL

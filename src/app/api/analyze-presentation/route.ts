@@ -7,7 +7,7 @@
  * confidence, posture, and eye contact.
  *
  * When frames are provided, uses the analyze_presentation_vision workload
- * (gpt-6.1-sol by default) via OpenAI Chat Completions with image_url parts.
+ * (gpt-6.1-terra by default) via OpenAI Chat Completions with image_url parts.
  * Text-only path also prefers direct provider calls.
  */
 
@@ -274,7 +274,7 @@ async function handlePOST(req: Request) {
   }
 }
 
-/** Analyze with the vision workload model (gpt-6.1-sol default) -- reads images */
+/** Analyze with the vision workload model (gpt-6.1-terra default) -- reads images */
 async function analyzeWithVision(userText: string, frames: string[]): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
@@ -295,7 +295,7 @@ async function analyzeWithVision(userText: string, frames: string[]): Promise<st
   }));
 
   const model = toOpenAiDirectModelId(
-    getWorkloadDefaultModelFromManifest(VISION_WORKLOAD_ID) ?? "gpt-6.1-sol",
+    getWorkloadDefaultModelFromManifest(VISION_WORKLOAD_ID) ?? "gpt-6.1-terra",
   );
   const completion = await openai.chat.completions.create({
     model,
@@ -310,7 +310,7 @@ async function analyzeWithVision(userText: string, frames: string[]): Promise<st
       },
     ],
     // Reasoning models reject `max_tokens` + custom temperature. 8192 is the
-    // total output ceiling, including Sol medium reasoning. Classic models keep
+    // total output ceiling, including Terra medium reasoning. Classic models keep
     // their smaller cap and temperature. Chat Completions still accepts image_url.
     max_completion_tokens: isReasoningChatModel(model) ? 8_192 : 600,
     ...(isReasoningChatModel(model)

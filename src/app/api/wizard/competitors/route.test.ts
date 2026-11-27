@@ -78,7 +78,7 @@ describe("POST /api/wizard/competitors", () => {
     expect(response.status).toBe(200);
     expect(responsesCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "gpt-6.1-sol",
+        model: "gpt-6.2-sol",
         max_output_tokens: 8192,
         reasoning: { effort: "medium" },
       }),
@@ -198,7 +198,7 @@ describe("POST /api/wizard/competitors", () => {
       marketInsight: "Tydlig lokal konkurrens",
     });
     expect(braveWebSearch).toHaveBeenCalledWith("Sajtstudio Webb Stockholm konkurrenter", 8);
-    expect(createDirectModel).toHaveBeenCalledWith("openai/gpt-6.1-sol");
+    expect(createDirectModel).toHaveBeenCalledWith("openai/gpt-6.2-sol");
     expect(generateText).toHaveBeenCalledWith(
       expect.objectContaining({
         maxOutputTokens: 8_192,

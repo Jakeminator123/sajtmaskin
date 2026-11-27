@@ -41,23 +41,15 @@ WORKLOAD_DOSSIER_CURATION = "backoffice_dossier_curation"
 # tyst göra vision-gatingen mer tillåtande än manifestet. Paritet mot
 # manifestet grindas i `backoffice/test_wizard_support_models.py`, så tuplarna
 # kan inte drifta från posterna.
-#
-# Ingen dold Luna: de tre posterna har defaultModel gpt-6.1-sol och tomma
-# fallbackModels. Luna i VISION_FALLBACKS är den historiska vision-allowlisten
-# (explicit val), inte en automatisk modellfallback.
 MODEL_FALLBACKS: dict[str, tuple[str, ...]] = {
-    WORKLOAD_SCAFFOLD_WIZARD_PERSONA: ("gpt-6.1-sol",),
-    WORKLOAD_SCAFFOLD_WIZARD_GUIDE: ("gpt-6.1-sol",),
-    WORKLOAD_DOSSIER_CURATION: ("gpt-6.1-sol",),
+    WORKLOAD_SCAFFOLD_WIZARD_PERSONA: ("gpt-6.1-terra",),
+    WORKLOAD_SCAFFOLD_WIZARD_GUIDE: ("gpt-6.2-sol",),
+    WORKLOAD_DOSSIER_CURATION: ("gpt-6.2-sol",),
 }
 VISION_FALLBACKS: dict[str, frozenset[str]] = {
-    WORKLOAD_SCAFFOLD_WIZARD_PERSONA: frozenset({"gpt-6.1-sol", "gpt-6-luna"}),
+    WORKLOAD_SCAFFOLD_WIZARD_PERSONA: frozenset({"gpt-6.1-terra", "gpt-6.2-sol"}),
 }
 
-# Säker effort när manifestet saknas för Sol-defaulten ovan. Inte en gissad
-# `low`, och inte ett erbjudande av en annan modell.
-_DOCUMENTED_SOL_REASONING_EFFORT = "medium"
-_SOL_DEFAULT_MODEL = "gpt-6.1-sol"
 _REASONING_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
 
 
@@ -137,20 +129,15 @@ def _bare_model_id(model: str) -> str:
 
 
 def resolve_reasoning_effort(repo_root: Path, workload_id: str, model: str) -> str | None:
-    """Explicit effort för dessa workloads aktuella Sol-default, annars None.
-
-    När manifestet saknas eller är trasigt får de tre Sol-defaultsen dokumenterad
-    ``medium``. Prefixlikhet bevisar inte capabilities: äldre explicita val och
-    okända id:n behåller provider-default, utan en parallell modellkatalog.
-    """
-    if _bare_model_id(model) != _SOL_DEFAULT_MODEL:
+    """Läs workloadens effort för de text- och bildmodeller som stöds här."""
+    model_id = _bare_model_id(model)
+    if model_id not in {"gpt-6.2-sol", "gpt-6.1-terra", "gpt-6.1-sol"}:
         return None
     workload = load_workload(repo_root, workload_id)
     if workload is None:
-        choices = MODEL_FALLBACKS.get(workload_id, ())
-        if _bare_model_id(model) == _SOL_DEFAULT_MODEL and _SOL_DEFAULT_MODEL in choices:
-            return _DOCUMENTED_SOL_REASONING_EFFORT
-        return None
+        if model_id not in MODEL_FALLBACKS.get(workload_id, ()):
+            return None
+        return "low" if workload_id == WORKLOAD_SCAFFOLD_WIZARD_GUIDE else "medium"
     requested = workload.get("reasoningEffort")
     if not isinstance(requested, str):
         return None

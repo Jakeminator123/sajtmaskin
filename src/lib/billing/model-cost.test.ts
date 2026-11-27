@@ -9,6 +9,18 @@ describe("model-cost", () => {
     );
   });
 
+  it.each([
+    ["gpt-6.2-sol", 2, 0.1, 2.5, 10],
+    ["gpt-6.2-astra", 8, 0.4, 10, 40],
+    ["gpt-6.1-terra", 1, 0.05, 1.25, 5],
+    ["gpt-6-astra", 10, 1, 12.5, 50],
+  ] as const)("prices %s at its own standard rates", (model, input, cachedInput, cacheWriteInput, output) => {
+    const cost = calculateModelCost(model, {
+      inputTokens: 1000, cachedInputTokens: 100, cacheWriteTokens: 100, outputTokens: 500,
+    });
+    expect(cost?.rates).toEqual({ input, cachedInput, cacheWriteInput, output });
+  });
+
   it("prices uncached, cache-read, cache-write and output tokens separately", () => {
     const cost = calculateModelCost("gpt-5.6-sol", {
       inputTokens: 100_000,

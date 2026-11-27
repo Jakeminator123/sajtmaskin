@@ -24,10 +24,10 @@ export const DEFAULT_MODEL_ID: CanonicalModelId = "max";
 /**
  * Concrete model IDs for the own engine.
  *
- * GPT-6.1 Sol is the build model for Låg/Mellan/Hög; GPT-6 Astra builds Extra
+ * GPT-6.2 Sol is the build model for Låg/Mellan/Hög; GPT-6.2 Astra builds Extra
  * hög. The GPT-5.6 family and older full-size IDs remain for persisted
  * chat/version rows and environment overrides.
- * GPT-5.3 Codex and GPT-4.1 are deprecated by OpenAI and alias to GPT-6.1 Sol
+ * GPT-5.3 Codex and GPT-4.1 are deprecated by OpenAI and alias to GPT-6.2 Sol
  * via {@link aliasRetiredModelId}.
  *
  * `claude-sonnet-4.6` is **retired** (2026-06-28): it is no longer a default
@@ -36,6 +36,9 @@ export const DEFAULT_MODEL_ID: CanonicalModelId = "max";
  * kept here only so persisted/legacy strings still parse and round-trip.
  */
 export const OWN_MODEL_IDS = [
+  "gpt-6.2-sol",
+  "gpt-6.2-astra",
+  "gpt-6.1-terra",
   "gpt-6.1-sol",
   "gpt-6-astra",
   "gpt-6-luna",
@@ -57,10 +60,9 @@ export const DEFAULT_OWN_MODEL_ID = getDefaultMaxTierOwnEngineModel() as OwnMode
 
 /**
  * Build models shared by Låg/Mellan/Hög (see `buildProfiles.notes`): the
- * current GPT-6.1 Sol plus the GPT-5.6 Sol that chats persisted before the
- * 2026-10-17 upgrade.
+ * current and previously persisted Sol builds.
  */
-const SHARED_BUILD_MODEL_IDS: ReadonlySet<string> = new Set(["gpt-6.1-sol", "gpt-5.6-sol"]);
+const SHARED_BUILD_MODEL_IDS: ReadonlySet<string> = new Set(["gpt-6.2-sol", "gpt-6.1-sol", "gpt-5.6-sol"]);
 
 /**
  * Old model IDs that may exist in persisted data (localStorage, DB rows,
@@ -93,19 +95,24 @@ const LEGACY_MODEL_IDS = Object.keys(LEGACY_ALIAS) as (keyof typeof LEGACY_ALIAS
  * direct-model path can slip the retired id through.
  *
  * OpenAI lists GPT-5.3 Codex (and the never-valid `-max` id), GPT-4.1 and
- * GPT-4o mini as deprecated (2026-10-17); they route to GPT-6.1 Sol.
+ * GPT-4o mini as deprecated (2026-10-17); they route to GPT-6.2 Sol.
  */
 const RETIRED_MODEL_ALIAS: Record<string, string> = {
-  "gpt-5.4-mini": "gpt-6.1-sol",
-  "openai/gpt-5.4-mini": "openai/gpt-6.1-sol",
-  "gpt-5.3-codex": "gpt-6.1-sol",
-  "openai/gpt-5.3-codex": "openai/gpt-6.1-sol",
-  "gpt-5.3-codex-max": "gpt-6.1-sol",
-  "openai/gpt-5.3-codex-max": "openai/gpt-6.1-sol",
-  "gpt-4.1": "gpt-6.1-sol",
-  "openai/gpt-4.1": "openai/gpt-6.1-sol",
-  "gpt-4o-mini": "gpt-6.1-sol",
-  "openai/gpt-4o-mini": "openai/gpt-6.1-sol",
+  // Read saved Luna selections while routing subsequent text calls through Sol.
+  "gpt-6-luna": "gpt-6.2-sol",
+  "openai/gpt-6-luna": "openai/gpt-6.2-sol",
+  "gpt-5.6-luna": "gpt-6.2-sol",
+  "openai/gpt-5.6-luna": "openai/gpt-6.2-sol",
+  "gpt-5.4-mini": "gpt-6.2-sol",
+  "openai/gpt-5.4-mini": "openai/gpt-6.2-sol",
+  "gpt-5.3-codex": "gpt-6.2-sol",
+  "openai/gpt-5.3-codex": "openai/gpt-6.2-sol",
+  "gpt-5.3-codex-max": "gpt-6.2-sol",
+  "openai/gpt-5.3-codex-max": "openai/gpt-6.2-sol",
+  "gpt-4.1": "gpt-6.2-sol",
+  "openai/gpt-4.1": "openai/gpt-6.2-sol",
+  "gpt-4o-mini": "gpt-6.2-sol",
+  "openai/gpt-4o-mini": "openai/gpt-6.2-sol",
   "claude-sonnet-4.6": "claude-opus-4.8",
   "claude-sonnet-4-6": "claude-opus-4-8",
   "anthropic/claude-sonnet-4.6": "anthropic/claude-opus-4.8",
@@ -152,8 +159,7 @@ export function ownModelIdToCanonicalModelId(
   if (!trimmed) return null;
 
   // Since 2026-09-02 Låg/Mellan/Hög all persist the same Sol id as chat.model
-  // (`gpt-5.6-sol` until 2026-10-17, `gpt-6.1-sol` after), so the build model
-  // alone cannot identify the tier. Resolve a shared model to Mellan: its
+  // across model upgrades, so the build model alone cannot identify the tier. Resolve a shared model to Mellan: its
   // fixer/verifier config sits between the two neighbours, which bounds the
   // cost of guessing wrong in either direction. Callers that know the tier
   // (request payload, telemetry) should prefer that over this lookup.
@@ -172,7 +178,8 @@ export function ownModelIdToCanonicalModelId(
       return candidate;
     }
   }
-  return null;
+  // Astra was exclusive to Ultra before the 6.2 upgrade.
+  return trimmed === "gpt-6-astra" ? "ultra" : null;
 }
 
 /**
@@ -231,12 +238,12 @@ export function isSelectableModelId(value: string): value is SelectableModelId {
 
 /** Short helper text per tier for the builder slider / pricing table. */
 export const MODEL_TIER_DESCRIPTIONS: Record<CanonicalModelId, string> = {
-  pro: "Snabbast och billigast. GPT-6.1 Sol med måttligt resonemang.",
-  max: "Balans. GPT-6.1 Sol med högt resonemang.",
-  premium: "Mest genomarbetat. GPT-6.1 Sol med maximalt resonemang – tar längre tid.",
+  pro: "Snabbast och billigast. GPT-6.2 Sol med måttligt resonemang.",
+  max: "Balans. GPT-6.2 Sol med högt resonemang.",
+  premium: "Mest genomarbetat. GPT-6.2 Sol med maximalt resonemang – tar längre tid.",
   codex: "Dold kompatibilitetsprofil (samma som Mellan).",
   anthropic: "Claude Opus 4.8 i alla faser.",
-  ultra: "Starkast och dyrast. GPT-6 Astra med högt resonemang – tar längst tid.",
+  ultra: "Starkast och dyrast. GPT-6.2 Astra med högt resonemang – tar längst tid.",
 };
 
 export const BUILD_PROFILE_IDS: Record<

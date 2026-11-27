@@ -323,7 +323,7 @@ function resolveDescribeModels(workloadId: string): string[] {
     models.push(
       explicitAutoBriefModel(envKeys.serverAutoOpenAI) ??
         getWorkloadDefaultModelFromManifest(workloadId) ??
-        "openai/gpt-6.1-sol",
+        "openai/gpt-6.2-sol",
     );
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {

@@ -263,7 +263,7 @@ describe("LLM call options", () => {
     recordLlmUsage.mockClear();
   });
 
-  it("sends Sol medium and an 8192 ceiling for both describe steps", async () => {
+  it("sends Sol low and an 8192 ceiling for both describe steps", async () => {
     clearAutoBriefEnv();
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("ANTHROPIC_API_KEY", "");
@@ -295,7 +295,7 @@ describe("LLM call options", () => {
       expect.objectContaining({
         maxRetries: 1,
         maxOutputTokens: 8192,
-        providerOptions: { openai: { reasoningEffort: "medium" } },
+        providerOptions: { openai: { reasoningEffort: "low" } },
       }),
     );
     expect(generateObject).toHaveBeenNthCalledWith(
@@ -303,7 +303,7 @@ describe("LLM call options", () => {
       expect.objectContaining({
         maxRetries: 1,
         maxOutputTokens: 8192,
-        providerOptions: { openai: { reasoningEffort: "medium" } },
+        providerOptions: { openai: { reasoningEffort: "low" } },
       }),
     );
     expect(ranked.ranking).toBe("llm");
@@ -312,7 +312,7 @@ describe("LLM call options", () => {
       expect.objectContaining({
         phase: "describe",
         workload: QUERY_WORKLOAD,
-        model: "openai/gpt-6.1-sol",
+        model: "openai/gpt-6.2-sol",
         usage: { inputTokens: 2, outputTokens: 3 },
       }),
     );
@@ -343,10 +343,10 @@ describe("LLM call options", () => {
   });
 
   it.each([
-    ["gpt-4o-mini", "gpt-6.1-sol"],
-    ["openai/gpt-4o-mini", "openai/gpt-6.1-sol"],
-    ["gpt-4.1", "gpt-6.1-sol"],
-    ["openai/gpt-4.1", "openai/gpt-6.1-sol"],
+    ["gpt-4o-mini", "gpt-6.2-sol"],
+    ["openai/gpt-4o-mini", "openai/gpt-6.2-sol"],
+    ["gpt-4.1", "gpt-6.2-sol"],
+    ["openai/gpt-4.1", "openai/gpt-6.2-sol"],
   ])("resolves retired override %s before both payload and usage decisions", async (requested, resolved) => {
     clearAutoBriefEnv();
     vi.stubEnv("OPENAI_API_KEY", "test-key");
@@ -360,7 +360,7 @@ describe("LLM call options", () => {
     for (const [options] of generateObject.mock.calls) {
       expect(options).toMatchObject({
         model: { modelId: resolved }, maxOutputTokens: 8192,
-        providerOptions: { openai: { reasoningEffort: "medium" } },
+        providerOptions: { openai: { reasoningEffort: "low" } },
       });
     }
     expect(recordLlmUsage).toHaveBeenCalledTimes(2);

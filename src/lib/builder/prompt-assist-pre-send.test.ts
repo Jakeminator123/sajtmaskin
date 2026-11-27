@@ -83,7 +83,7 @@ describe("prompt-assist-pre-send", () => {
   it("caps provider output at 8192 and uses the prompt_rewrite workload effort", () => {
     expect(PROMPT_REWRITE_MAX_CHARS).toBe(8_000);
     expect(PROMPT_REWRITE_MAX_OUTPUT_TOKENS).toBe(8_192);
-    expect(buildPromptAssistModelOptions("openai/gpt-6.1-sol")).toEqual({
+    expect(buildPromptAssistModelOptions("openai/gpt-6.2-sol")).toEqual({
       maxOutputTokens: PROMPT_REWRITE_MAX_OUTPUT_TOKENS,
       providerOptions: { openai: { reasoningEffort: "low" } },
     });

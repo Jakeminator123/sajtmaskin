@@ -93,10 +93,9 @@ export const PROMPT_ASSIST_OFF_VALUE = "off";
 
 const PROMPT_ASSIST_LABELS: Record<string, string> = {
   "openai/gpt-6.1-sol": "OpenAI GPT-6.1 Sol",
-  "openai/gpt-6-luna": "OpenAI GPT-6 Luna",
+  "openai/gpt-6.2-sol": "OpenAI GPT-6.2 Sol",
   "openai/gpt-5.6-sol": "OpenAI GPT-5.6 Sol",
   "openai/gpt-5.6-terra": "OpenAI GPT-5.6 Terra",
-  "openai/gpt-5.6-luna": "OpenAI GPT-5.6 Luna",
   "openai/gpt-5.5": "OpenAI GPT-5.5",
   "openai/gpt-5.4": "OpenAI GPT-5.4",
   "openai/gpt-5.2": "OpenAI GPT-5.2",

@@ -148,10 +148,9 @@ class WorkloadResolutionTests(unittest.TestCase):
     def test_codegen_follows_phase_routing_generator(self) -> None:
         manifest = _manifest()
         workload = next(w for w in manifest["workloads"] if w["id"] == "own_engine_codegen")
-        manifest["phaseRouting"]["defaultByTier"]["max"]["generator"] = "gpt-6-luna"
+        manifest["phaseRouting"]["defaultByTier"]["max"]["generator"] = "gpt-6.2-astra"
         label, source, _note = describe_workload_model_resolution(workload, manifest)
-        self.assertIn("Mellan (max): OpenAI GPT-6 Luna", label.replace("GPT-6 Luna", "OpenAI GPT-6 Luna")
-                      if "OpenAI GPT-6 Luna" not in label else label)
+        self.assertIn("Mellan (max): GPT-6.2 Astra", label)
         self.assertIn("phaseRouting.generator", source)
 
 

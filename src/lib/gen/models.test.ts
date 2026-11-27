@@ -29,12 +29,16 @@ describe("getOpenAIModel", () => {
   });
 
   it("pins the Responses API for every registered GPT-6 and GPT-5.6 model", () => {
-    const ids = ["gpt-6.1-sol", "gpt-6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"];
+    const ids = ["gpt-6.2-sol", "gpt-6.2-astra", "gpt-6.1-terra", "gpt-6.1-sol", "gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"];
     for (const id of ids) {
       expect(getOpenAIModel(id)).toEqual({ endpoint: "responses", id });
     }
     expect(mocks.responses).toHaveBeenCalledTimes(ids.length);
     expect(mocks.chat).not.toHaveBeenCalled();
+  });
+
+  it.each(["gpt-6-luna", "gpt-5.6-luna"])("routes saved %s through Sol", (id) => {
+    expect(getOpenAIModel(id)).toEqual({ endpoint: "responses", id: "gpt-6.2-sol" });
   });
 
   it("keeps older OpenAI models on the provider default", () => {

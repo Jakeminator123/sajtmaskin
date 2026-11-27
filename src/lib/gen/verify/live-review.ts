@@ -13,6 +13,7 @@ import {
   getWorkloadDefaultModelFromManifest,
   getWorkloadFallbackModelsFromManifest,
 } from "@/lib/ai-models/load-manifest";
+import { aliasRetiredModelId } from "@/lib/models/catalog";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { uploadBlob } from "@/lib/vercel/blob-service";
 import { extractBriefSummaryFromSnapshot } from "@/lib/gen/orchestration-snapshot";
@@ -78,7 +79,7 @@ const SENSOR_CODES = new Set([
 export const LIVE_REVIEW_ATTEMPT_TIMEOUT_MS = 45_000;
 /** Wall-clock cap for the whole default + fallback chain. */
 export const LIVE_REVIEW_TOTAL_TIMEOUT_MS = 90_000;
-/** Total output ceiling for Sol medium, including reasoning tokens. Not measured usage. */
+/** Total output ceiling for the vision model, including reasoning tokens. Not measured usage. */
 const MAX_OUTPUT_TOKENS = 8192;
 const MAX_USER_REQUEST_CHARS = 4000;
 const MAX_BRIEF_CHARS = 1200;
@@ -470,16 +471,16 @@ function uniqueModelIds(ids: Array<string | null | undefined>): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const id of ids) {
-    const trimmed = id?.trim();
-    if (!trimmed || seen.has(trimmed)) continue;
-    seen.add(trimmed);
-    out.push(trimmed);
+    const resolved = aliasRetiredModelId(id);
+    if (!resolved || seen.has(resolved)) continue;
+    seen.add(resolved);
+    out.push(resolved);
   }
   return out;
 }
 
 export function resolveLiveReviewModelIds(override?: string): string[] {
-  if (override?.trim()) return [override.trim()];
+  if (override?.trim()) return [aliasRetiredModelId(override)];
   let defaultModel = getWorkloadDefaultModelFromManifest(LIVE_REVIEW_WORKLOAD_ID);
   let fallbacks = [...getWorkloadFallbackModelsFromManifest(LIVE_REVIEW_WORKLOAD_ID)];
   let visionModels: string[] = [];
@@ -497,7 +498,7 @@ export function resolveLiveReviewModelIds(override?: string): string[] {
   }
   const ordered = uniqueModelIds([defaultModel, ...fallbacks]);
   if (visionModels.length === 0) return ordered;
-  const allowed = new Set(visionModels);
+  const allowed = new Set(visionModels.map(aliasRetiredModelId));
   const visionOnly = ordered.filter((id) => allowed.has(id));
   return visionOnly.length > 0 ? visionOnly : ordered;
 }
