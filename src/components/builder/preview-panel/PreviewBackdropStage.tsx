@@ -20,14 +20,14 @@ export interface PreviewBackdropStageProps {
    * ingen kontinuerlig rörelse i texten, och ingen animation på första ritningen.
    */
   statusKey: string;
-  /** `welcome` ger ett bredare, rullbart kort med plats för byggvalen. */
+  /** `welcome` lägger byggförvalen vid ytans vänsterkant. */
   variant?: "status" | "welcome";
   children: ReactNode;
 }
 
 /**
  * Previewrektangelns dekorations- och statuslager: Moving Background 2 bakom
- * ett fönsterliknande kort med produktens verkliga texter, frågor och knappar.
+ * en kompakt yta för produktens verkliga texter, frågor och knappar.
  *
  * Bakgrunden hör bara till den här rektangeln — den följer aldrig med i
  * exporterade eller genererade användarsajter, och den ritas bara i lägen där
@@ -62,33 +62,23 @@ export function PreviewBackdropStage({
   // `max-h-full` mäts mot content-boxen, så kortet kan aldrig växa ner under
   // kontrollen — även när previewpanelen är låg.
   return (
-    <div className="relative isolate flex h-full flex-col items-center justify-center overflow-hidden px-6 pt-8 pb-16">
+    <div
+      className={cn(
+        "relative isolate flex h-full flex-col overflow-hidden px-3 pt-4 pb-16 sm:px-6",
+        variant === "welcome" ? "items-start justify-start" : "items-center justify-center",
+      )}
+    >
       <PreviewBackdrop motion={motion} />
-      {/*
-        Opakt kort, ingen heltäckande dimma över scenen. `--muted-foreground`
-        mot #211b38 ger 5.6:1 och klarar AA; en genomskinlig kortbakgrund gör
-        kontrasten beroende av vilken videoruta som råkar ligga bakom.
-      */}
+      {/* Opak kortyta håller text och kontroller läsbara över scenen. */}
       <div
-        className={cn(
-          "relative z-10 flex max-h-full w-full flex-col overflow-y-auto rounded-2xl border border-violet-300/30 bg-[#211b38] pb-6 text-center shadow-[0_15px_50px_rgba(43,16,51,0.4)]",
-          variant === "welcome" ? "max-w-lg" : "max-w-md",
-        )}
+        className="bg-card border-border/70 relative z-10 flex max-h-full w-full max-w-md flex-col overflow-y-auto rounded-xl border p-4 shadow-lg"
       >
         <div
-          aria-hidden="true"
-          className="flex h-9 shrink-0 items-center gap-1.5 rounded-t-2xl border-b border-violet-300/15 bg-violet-400/10 px-3.5"
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-violet-300/40" />
-          <span className="h-1.5 w-1.5 rounded-full bg-violet-300/40" />
-          <span className="h-1.5 w-1.5 rounded-full bg-violet-300/40" />
-          <span className="ml-auto text-[8px] tracking-[0.13em] text-violet-200/80">
-            FÖRHANDSVISNING
-          </span>
-        </div>
-        <div
           ref={contentRef}
-          className="text-muted-foreground flex flex-col items-center px-6 pt-6 text-center"
+          className={cn(
+            "text-muted-foreground flex flex-col",
+            variant === "welcome" ? "items-stretch text-left" : "items-center text-center",
+          )}
         >
           {children}
         </div>
