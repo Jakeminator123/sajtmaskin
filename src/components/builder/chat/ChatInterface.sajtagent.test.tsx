@@ -154,7 +154,7 @@ it("opens a quoted video order via the ordinary builder composer without sending
       enabled: true, quote: { model: "gen4_turbo", durationSeconds: 5, credits: 18 }, jobs: [],
     }));
   vi.stubGlobal("fetch", fetchMock);
-  render(<ChatInterface chatId="chat_1" projectId="project_1" mediaEnabled onSendMessage={build} />);
+  render(<ComposerUnderTest chatId="chat_1" projectId="project_1" mediaEnabled onSendMessage={build} />);
   await typeAndSend("Kan du skapa en video: panorera över skogen?");
   expect(await screen.findByRole("button", { name: "Beställ video för 18 krediter" })).toBeTruthy();
   expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
@@ -169,7 +169,7 @@ it("keeps the exact saved MP4 in a free draft until the user uses the ordinary b
   const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
   const url = "https://files.public.blob.vercel-storage.com/owner/video.mp4";
   const prompt = "Lägg in den färdiga bifogade MP4-videon på sajten.";
-  const view = render(<ChatInterface chatId="chat_1" projectId="project_1" mediaEnabled onSendMessage={build} />);
+  const view = render(<ComposerUnderTest chatId="chat_1" projectId="project_1" mediaEnabled onSendMessage={build} />);
   const input = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Skriv en uppdatering" });
   fireEvent.change(input, { target: { value: "Behåll rubriken." } });
   await act(async () => {
@@ -178,10 +178,10 @@ it("keeps the exact saved MP4 in a free draft until the user uses the ordinary b
       detail: { chatId: "chat_1", projectId: "project_1", prompt, media: { id: 42, url, filename: "video.mp4", mimeType: "video/mp4" } },
     }));
   });
-  view.rerender(<ChatInterface chatId="chat_1" projectId="project_1" mediaEnabled avatarElsewhere onSendMessage={build} />);
+  view.rerender(<ComposerUnderTest chatId="chat_1" projectId="project_1" mediaEnabled avatarElsewhere onSendMessage={build} />);
   expect(input.value).toBe(`Behåll rubriken.\n\n${prompt}`);
   expect(build).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("radio", { name: "Bygg" }));
+  fireEvent.click(screen.getByRole("menuitemradio", { name: "Bygg" }));
   await typeAndSend(input.value);
   expect(build).toHaveBeenCalledExactlyOnceWith(expect.stringContaining(prompt),
     expect.objectContaining({ attachments: [expect.objectContaining({ url, mimeType: "video/mp4" })] }));
@@ -195,7 +195,7 @@ it.each(["chat_2", "chat_1"])("keeps a prepared video out of another project's b
     useLayoutEffect(() => {
       displayedBeforePassiveEffects.push(textarea().value);
     }, [chatId, projectId]);
-    return <ChatInterface chatId={chatId} projectId={projectId} mediaEnabled onSendMessage={build} />;
+    return <ComposerUnderTest chatId={chatId} projectId={projectId} mediaEnabled onSendMessage={build} />;
   }
   const view = render(<ScopedComposer chatId="chat_1" projectId="project_1" />);
   const draft: BuilderVideoDraft = {
@@ -218,7 +218,7 @@ it.each(["chat_2", "chat_1"])("keeps a prepared video out of another project's b
   submitPreparedVideo(); // A's late handoff event cannot refill the new scope.
   act(() => oldUploadZone?.onFilesChange(oldUploadZone.files)); // A's upload completion republishes its entire original list.
   expect(textarea().value).toBe("");
-  fireEvent.click(screen.getByRole("radio", { name: "Bygg" }));
+  fireEvent.click(screen.getByRole("menuitemradio", { name: "Bygg" }));
   await typeAndSend("Ändra rubriken för B.");
   expect(build).toHaveBeenCalledExactlyOnceWith("Ändra rubriken för B.", expect.objectContaining({
     attachments: undefined,
@@ -244,15 +244,15 @@ it("drops a late job response after the same composer switches site", async () =
   const fetchMock = vi.fn(() => new Promise<Response>((resolve) => { finish = resolve; }));
   vi.stubGlobal("fetch", fetchMock);
   const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
-  const view = render(<ChatInterface {...target} mediaEnabled onSendMessage={build} />);
+  const view = render(<ComposerUnderTest {...target} mediaEnabled onSendMessage={build} />);
   expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
     "/api/media/video-generations/job-a?projectId=project_1",
     { signal: expect.any(AbortSignal) },
   );
-  view.rerender(<ChatInterface chatId="chat_2" projectId="project_2" mediaEnabled onSendMessage={build} />);
+  view.rerender(<ComposerUnderTest chatId="chat_2" projectId="project_2" mediaEnabled onSendMessage={build} />);
   await act(async () => finish(Response.json({ job })));
   expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Skriv en uppdatering" }).value).toBe("");
-  fireEvent.click(screen.getByRole("radio", { name: "Bygg" }));
+  fireEvent.click(screen.getByRole("menuitemradio", { name: "Bygg" }));
   await typeAndSend("Ändra B.");
   expect(build).toHaveBeenCalledExactlyOnceWith("Ändra B.", expect.objectContaining({ attachments: undefined }));
 });
