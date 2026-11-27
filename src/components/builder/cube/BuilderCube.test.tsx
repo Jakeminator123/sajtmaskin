@@ -277,8 +277,6 @@ describe("BuilderCube", () => {
         expect(onCards).toHaveBeenCalledTimes(1);
         expect(onCards.mock.lastCall?.[0].rects.chat?.x).toBe(before + 35);
       }
-      if (mode === "cube") expect(onPosition.mock.lastCall?.[0].x).toBe(before + 35);
-      else expect(onCards.mock.lastCall?.[0].rects.chat?.x).toBe(before + 35);
     } finally {
       vi.useRealTimers();
     }

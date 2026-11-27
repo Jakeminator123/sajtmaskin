@@ -290,7 +290,12 @@ export function BuilderCube({
   const { x: positionX, y: positionY } = position;
   const { width: sizeWidth, height: sizeHeight } = size;
   const frame = useMemo(
-    () => cubeFrame({ x: positionX, y: positionY }, { width: sizeWidth, height: sizeHeight }, stageSize, narrow),
+    () => cubeFrame(
+      { x: positionX, y: positionY },
+      { width: sizeWidth, height: sizeHeight },
+      stageSize,
+      narrow,
+    ),
     [positionX, positionY, sizeWidth, sizeHeight, stageSize, narrow],
   );
   const liveFrame = useRef(frame);
