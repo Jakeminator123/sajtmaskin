@@ -394,6 +394,7 @@ export async function POST(req: NextRequest) {
           } = await buildOpenClawReviewContext({
             chatId: reviewChatId,
             versionId: scopedVersion.version.id,
+            filesRevision: scopedVersion.version.files_revision,
           });
           if (findingsBlock) {
             messages.push({ role: "system", content: findingsBlock });

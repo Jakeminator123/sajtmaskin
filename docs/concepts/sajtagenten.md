@@ -92,6 +92,8 @@ kontrollerar ägarskap, version, filrevision och bildernas giltighetstid före
 bildläsningen. Saknas aktuella bilder ska svaret säga vilket bildunderlag som
 saknas. Läsningen använder ett modellanrop och kan lämna svar och källor.
 Ändringsbegäranden fortsätter genom byggmotorn och dess handlingsmedgivande.
+Den vanliga chatten får också den sparade granskningsdomen först när chatt,
+version, filrevision och giltighetstid stämmer.
 
 Ägarna är `read-task.ts`, `read-task-input.ts` och `persona.ts` under
 `src/lib/openclaw/`. Gatewayns direkta verktygskonfiguration ägs av
