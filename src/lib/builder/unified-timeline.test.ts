@@ -78,6 +78,43 @@ describe("buildUnifiedTimeline", () => {
     expect(ids(entries)).toEqual(["builder:u1", "agent:late"]);
   });
 
+  it("placerar äldre byggkommentarer enligt faktiska byggtider och bevarar angivna ankare", () => {
+    const at = (second: number) => new Date(second * 1000).toISOString();
+    const rows = [
+      { ...builder("b1"), createdAt: at(10) },
+      { ...builder("b2"), createdAt: at(20) },
+      { ...builder("b3"), createdAt: at(40) },
+    ];
+    const entries = buildUnifiedTimeline(rows, [
+      { ...agent("before", undefined), timestamp: 5_000 },
+      { ...agent("digest", undefined), timestamp: 25_000 },
+      { ...agent("anchored", "b1", 2), timestamp: 50_000 },
+      { ...agent("index", "old-id", 2), timestamp: 51_000 },
+    ]);
+    expect(ids(entries)).toEqual([
+      "agent:before", "builder:b1", "agent:anchored", "builder:b2", "agent:digest", "agent:index", "builder:b3",
+    ]);
+  });
+
+  it("använder äldre lokala builder-id:n när klockslagen saknas i cachen", () => {
+    const rows = [builder("assistant-1795778220000"), builder("user-1795778230000")];
+    const digest = { ...agent("digest", undefined), timestamp: 1795778225423 };
+    expect(ids(buildUnifiedTimeline(rows, [digest]))).toEqual([
+      "builder:assistant-1795778220000", "agent:digest", "builder:user-1795778230000",
+    ]);
+  });
+
+  it("orders hydrated and live rows on screen without changing the active turn's dispatch order", () => {
+    const active = { ...agent("z-live", "build"), timestamp: 2000, role: "user" as const };
+    const reply = { ...agent("a-reply", "build"), timestamp: 2000 };
+    const later = { ...agent("other-tab", "build"), timestamp: 3000, hydrated: true };
+    const storeRows = [later, reply, active];
+    expect(ids(buildUnifiedTimeline([builder("build")], storeRows))).toEqual([
+      "builder:build", "agent:z-live", "agent:a-reply", "agent:other-tab",
+    ]);
+    expect(storeRows.map((row) => row.id)).toEqual(["other-tab", "a-reply", "z-live"]);
+  });
+
   it("hanterar en tom builderchatt", () => {
     const entries = buildUnifiedTimeline([], [agent("q", null), agent("r", "x", 1)]);
     expect(ids(entries)).toEqual(["agent:q", "agent:r"]);

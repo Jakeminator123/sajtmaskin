@@ -120,6 +120,7 @@ interface MessageListProps {
   agentMessages?: AgentMessage[];
   /** True while the agent's latest assistant row is still streaming. */
   agentStreaming?: boolean;
+  onOpenBuildLog?: (messageId: string) => void;
 }
 
 const NO_AGENT_MESSAGES: AgentMessage[] = [];
@@ -165,6 +166,7 @@ const MessageListComponent = ({
   isStreaming = false,
   agentMessages: agentMessagesProp,
   agentStreaming: agentStreamingProp,
+  onOpenBuildLog,
 }: MessageListProps) => {
   // Utan props läses Sajtagenten från providern (buildern); utan provider
   // (tester, andra ytor) finns inga agentrader alls.
@@ -752,6 +754,7 @@ const MessageListComponent = ({
                       actions={renderCompactTools(actionToolParts)}
                       turnKind={turnKind}
                       showInternalDetails={showInternalDetails}
+                      onOpenBuildLog={onOpenBuildLog ? () => onOpenBuildLog(message.id) : undefined}
                     />
                     {planParts.map((part, index) => (
                       <BuildPlanCard

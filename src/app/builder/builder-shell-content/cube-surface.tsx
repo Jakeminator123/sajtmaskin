@@ -22,7 +22,7 @@
  * svar som inte har visats.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
 import {
   Bot,
   FolderTree,
@@ -37,7 +37,7 @@ import {
 import { BuilderCube, type CubeFaceSpec } from "@/components/builder/cube/BuilderCube";
 import { useCubeLayout } from "@/components/builder/cube/cube-layout-storage";
 import type { CubeFaceId } from "@/components/builder/cube/cube-model";
-import { CubeBuildLogFace } from "@/components/builder/cube/faces/CubeBuildLogFace";
+import { CubeBuildLogFace, type BuildLogPreview } from "@/components/builder/cube/faces/CubeBuildLogFace";
 import { CubeSitemapFace } from "@/components/builder/cube/faces/CubeSitemapFace";
 import { CubeToolsFace } from "@/components/builder/cube/faces/CubeToolsFace";
 import { RelocationOutlet, type RelocationSlot } from "@/components/builder/cube/relocation";
@@ -57,6 +57,8 @@ export interface BuilderCubeSlots {
 export interface BuilderCubeSurfaceProps {
   vm: BuilderViewModel;
   slots: BuilderCubeSlots;
+  openBuildLogRef?: Ref<(messageId: string) => void>;
+  preview?: BuildLogPreview;
   /** Ett bygge pågår eller builderns interaktion är låst. */
   locked: boolean;
   /**
@@ -117,6 +119,8 @@ const FACE_BUTTON_CLASS =
 export function BuilderCubeSurface({
   vm,
   slots,
+  openBuildLogRef,
+  preview,
   locked,
   statusText,
   noticesPending,
@@ -206,7 +210,22 @@ export function BuilderCubeSurface({
     [embedded, setLayout],
   );
   const showChat = useCallback(() => revealFace("chat"), [revealFace]);
-  const showBuildLog = useCallback(() => revealFace("buildlog"), [revealFace]);
+  const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
+  const logContainer = useRef<HTMLDivElement>(null);
+  const openBuildLog = useCallback((messageId: string | null) => {
+    setSelectedLogId(messageId);
+    revealFace("buildlog");
+    requestAnimationFrame(() => {
+      const panel = logContainer.current?.closest<HTMLElement>("[data-cube-face]");
+      if (!panel) return;
+      // The cube face is inert during the turn animation. Its dock tab is already usable.
+      const tabId = panel.getAttribute("aria-labelledby");
+      const target = panel.hasAttribute("inert") && tabId ? document.getElementById(tabId) : panel;
+      target?.focus({ preventScroll: true });
+    });
+  }, [revealFace]);
+  const showBuildLog = useCallback(() => openBuildLog(null), [openBuildLog]);
+  useImperativeHandle(openBuildLogRef, () => openBuildLog, [openBuildLog]);
 
   const isStreaming = vm.isAnyStreaming;
   const composerStatus = isStreaming ? "Bygger …" : statusText;
@@ -293,8 +312,14 @@ export function BuilderCubeSurface({
           <div className="flex h-full min-h-0 flex-col">
             {/* F3-ytorna bär sina egna marginaler; tomt utlopp tar ingen plats. */}
             <RelocationOutlet slot={slots.notices} className="max-h-1/2 shrink-0 overflow-y-auto" />
-            <div className="min-h-0 flex-1">
-              <CubeBuildLogFace messages={vm.messages} isStreaming={isStreaming} />
+            <div ref={logContainer} className="min-h-0 flex-1">
+              <CubeBuildLogFace
+                messages={vm.messages}
+                isStreaming={isStreaming}
+                selectedMessageId={selectedLogId}
+                preview={preview}
+                onShowLatest={showBuildLog}
+              />
             </div>
           </div>
         ),
@@ -347,6 +372,8 @@ export function BuilderCubeSurface({
       locked,
       noticesPending,
       onShowPreview,
+      selectedLogId,
+      preview,
       showBuildLog,
       showChat,
       sitemapVisible,

@@ -26,7 +26,11 @@ vi.mock("@/components/builder/chat/ChatInterface", async () => {
   };
 });
 vi.mock("@/components/builder/chat/MessageList", () => ({
-  MessageList: () => <div data-testid="shell-timeline">Chatthistorik</div>,
+  MessageList: ({ onOpenBuildLog }: { onOpenBuildLog?: (id: string) => void }) => (
+    <div data-testid="shell-timeline">
+      <button onClick={() => onOpenBuildLog?.("old-build")}>Visa tidigare bygglogg</button>
+    </div>
+  ),
 }));
 vi.mock("@/components/builder/preview-panel/PreviewPanel", () => ({
   PreviewPanel: () => <div data-testid="shell-preview">Sajtens förhandsvisning</div>,
@@ -41,7 +45,17 @@ vi.mock("@/components/builder/chat/sajtagent/SajtagentProvider", () => ({
   useSajtagent: () => null,
 }));
 vi.mock("@/components/builder/chat/sajtagent/SajtagentAvatar", () => ({ SajtagentAvatar: () => <div>Avatar</div> }));
-vi.mock("@/components/builder/cube/faces/CubeBuildLogFace", () => ({ CubeBuildLogFace: () => <div>Byggstatus</div> }));
+vi.mock("@/components/builder/cube/faces/CubeBuildLogFace", () => ({
+  CubeBuildLogFace: ({ selectedMessageId, preview }: {
+    selectedMessageId?: string | null;
+    preview?: { versionId: string | null; previewVisible: boolean };
+  }) => (
+    <div data-testid="shell-buildlog" data-selected={selectedMessageId}
+      data-preview-version={preview?.versionId} data-preview-visible={preview?.previewVisible}>
+      Byggstatus
+    </div>
+  ),
+}));
 vi.mock("@/components/builder/cube/faces/CubeToolsFace", () => ({ CubeToolsFace: () => <div>Modell och byggval</div> }));
 vi.mock("@/components/builder/cube/faces/CubeSitemapFace", () => ({
   CubeSitemapFace: ({ visible, onNavigate }: { visible: boolean; onNavigate?: () => void }) => (
@@ -168,5 +182,32 @@ describe("BuilderShellContent mobile cube entry", () => {
     expect(screen.queryByRole("region", { name: "Byggkuben" })).toBeNull();
     expect(screen.getAllByLabelText("Skriv till Sajtagenten")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Öppna byggkuben" })).toBeTruthy();
+  });
+
+  it("opens the selected historical log on mobile and keeps it while switching preview and draft", () => {
+    mobileViewport(360);
+    setBuilderCubeEnabled(true);
+    const vm = { ...viewModel(), previewLifecycle: "live" as const };
+    const { rerender } = render(<BuilderShellContent {...vm} />);
+    const views = () => within(screen.getByRole("tablist", { name: "Sidor" }));
+    const composer = screen.getByLabelText("Skriv till Sajtagenten") as HTMLTextAreaElement;
+    fireEvent.change(composer, { target: { value: "Nästa ändring" } });
+    fireEvent.click(views().getByRole("tab", { name: "Svar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Visa tidigare bygglogg" }));
+    expect(views().getByRole("tab", { name: "Bygglogg" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByTestId("shell-buildlog").dataset).toMatchObject({
+      selected: "old-build", previewVersion: "v1", previewVisible: "true",
+    });
+    fireEvent.click(views().getByRole("tab", { name: "Sajtkarta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Öppna Om sajten" }));
+    expect(screen.getByRole("tab", { name: "Förhandsvisning" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(screen.getByRole("tab", { name: "Byggvyer" }));
+    fireEvent.click(views().getByRole("tab", { name: "Bygglogg" }));
+    rerender(<BuilderShellContent {...vm} activeVersionId="v2" />);
+    expect(screen.getByTestId("shell-buildlog").dataset).toMatchObject({ selected: "old-build", previewVersion: "v2" });
+    fireEvent.click(views().getByRole("tab", { name: "Chatt" }));
+    expect(screen.getByLabelText("Skriv till Sajtagenten")).toBe(composer);
+    expect(composer.value).toBe("Nästa ändring");
+    expect(lifecycle.mount).toHaveBeenCalledTimes(1);
   });
 });

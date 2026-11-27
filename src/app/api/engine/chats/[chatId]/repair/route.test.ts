@@ -601,7 +601,6 @@ describe("POST repair — stale-base no-op must not fail the user's newer edit (
       { params: Promise.resolve({ chatId: "chat-1" }) },
     );
     const body = await res.json();
-
     // The repair was attempted and the base was threaded through to the save.
     expect(saveRepairedFiles).toHaveBeenCalledTimes(1);
     expect(saveRepairedFiles.mock.calls[0]?.[4]).toBe(
@@ -625,6 +624,24 @@ describe("POST repair — stale-base no-op must not fail the user's newer edit (
     expect(triggerServerVerification).toHaveBeenCalledWith(
       expect.objectContaining({ chatId: "chat-1", versionId: "ver-1" }),
     );
+  });
+
+  it.each([
+    [{ id: "chat-1", model: "unknown-legacy-model" }, "medium"],
+    [{ id: "chat-1", model: "gpt-6.2-sol", orchestration_snapshot: { modelTier: "premium" } }, "high"],
+  ])("uses the manifest fixer phase for %j", async (chat, effort) => {
+    getChat.mockResolvedValue(chat);
+    const response = await POST(req({
+      versionId: "ver-1",
+      repairContext: { qualityGate: [{ check: "typecheck", exitCode: 1, output: "boom" }] },
+    }), { params: Promise.resolve({ chatId: "chat-1" }) });
+
+    expect(response.status).toBe(200);
+    expect(runRepairLoop).toHaveBeenCalledWith(expect.objectContaining({
+      fixerModel: "gpt-6.2-sol",
+      fixerThinking: false,
+      fixerReasoningEffort: effort,
+    }));
   });
 });
 

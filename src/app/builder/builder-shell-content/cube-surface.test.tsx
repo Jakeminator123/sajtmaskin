@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Relocatable, useRelocationSlot } from "@/components/builder/cube/relocation";
 import type { CubeFaceId } from "@/components/builder/cube/cube-model";
@@ -19,8 +20,10 @@ vi.mock("@/components/builder/chat/sajtagent/SajtagentAvatar", () => ({
   ),
 }));
 vi.mock("@/components/builder/cube/faces/CubeBuildLogFace", () => ({
-  CubeBuildLogFace: ({ messages, isStreaming }: { messages: unknown[]; isStreaming: boolean }) => (
-    <div data-testid="buildlog" data-messages={messages.length} data-streaming={String(isStreaming)} />
+  CubeBuildLogFace: ({ messages, isStreaming, selectedMessageId }: {
+    messages: unknown[]; isStreaming: boolean; selectedMessageId?: string | null;
+  }) => (
+    <div data-testid="buildlog" data-messages={messages.length} data-streaming={String(isStreaming)} data-selected={selectedMessageId} />
   ),
 }));
 vi.mock("@/components/builder/cube/faces/CubeToolsFace", () => ({
@@ -96,6 +99,7 @@ function Harness({
   composerTurnsKept = 0,
   onExit = () => {},
 }: HarnessProps) {
+  const openBuildLog = useRef<((id: string) => void) | null>(null);
   const composer = useRelocationSlot();
   const timeline = useRelocationSlot();
   const notices = useRelocationSlot();
@@ -106,7 +110,7 @@ function Harness({
           <div data-testid="f3-notices" />
         </Relocatable>
         <Relocatable slot={timeline}>
-          <div data-testid="timeline" />
+          <div data-testid="timeline"><button onClick={() => openBuildLog.current?.("old")}>Öppna äldre svar</button></div>
         </Relocatable>
         <Relocatable slot={composer}>
           <textarea aria-label="Skriv en uppdatering" />
@@ -114,6 +118,7 @@ function Harness({
       </div>
       <BuilderCubeSurface
         vm={vm}
+        openBuildLogRef={openBuildLog}
         slots={{ composer, timeline, notices }}
         locked={locked}
         statusText={statusText}
@@ -125,6 +130,15 @@ function Harness({
     </>
   );
 }
+
+it("reveals and focuses the log requested by the relocated answers face", async () => {
+  render(<Harness />);
+  fireEvent.click(tab(/^Svar/));
+  fireEvent.click(screen.getByRole("button", { name: "Öppna äldre svar" }));
+  expect(selected(/^Bygglogg/)).toBe(true);
+  expect(within(face("buildlog")).getByTestId("buildlog").dataset.selected).toBe("old");
+  await waitFor(() => expect([face("buildlog"), tab(/^Bygglogg/)]).toContain(document.activeElement));
+});
 
 const face = (id: CubeFaceId) => document.querySelector(`[data-cube-face="${id}"]`) as HTMLElement;
 const tab = (name: RegExp | string) => screen.getByRole("tab", { name });

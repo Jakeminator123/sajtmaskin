@@ -182,11 +182,21 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     [bridgeChatId, bridgeVersionId, bridgeCancel, isInteractionLocked, sendMessage],
   );
 
+  const previewStatus = useMemo(() => ({
+    chatId: vm.chatId,
+    versionId: vm.activeVersionId,
+    previewVisible: vm.previewLifecycle === "live",
+    canonical: activeVersionStatusIdentity ? {
+      ...activeVersionStatusIdentity, status: activeVersionStatus, isLatest: activeVersionIsLatest,
+    } : null,
+  }), [vm.chatId, vm.activeVersionId, vm.previewLifecycle, activeVersionStatusIdentity, activeVersionStatus, activeVersionIsLatest]);
   // Byggkubens sex vyer följer användarens val på alla skärmar. På mobil
   // använder de hela chattytan med flikar, bredvid fliken Förhandsvisning.
   // Välkomstläget använder den vanliga inmatningen tills en chatt finns.
   const cubeEnabled = useBuilderCubeEnabled();
   const cubeActive = cubeEnabled && Boolean(vm.chatId);
+  const openCubeBuildLog = useRef<((messageId: string) => void) | null>(null);
+  const showMessageBuildLog = useCallback((messageId: string) => openCubeBuildLog.current?.(messageId), []);
   // Fokus följer bytet. Knappen som öppnade kuben blir osynlig och knappen
   // som stängde den avmonteras; utan det här hamnar fokus på <body> och den
   // som använder tangentbordet tappar sin plats. Bara när användaren själv
@@ -298,6 +308,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     <BuilderLayout chatId={vm.chatId} versionId={vm.activeVersionId}>
       <SajtagentProvider
         chatId={vm.chatId}
+        lastBuilderMessageId={vm.messages.at(-1)?.id ?? null}
+        builderMessageCount={vm.messages.length}
         activeVersionId={vm.activeVersionId}
         activeVersionStatus={activeVersionStatus ?? null}
         activeVersionIsLatest={activeVersionIsLatest}
@@ -451,6 +463,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               key={vm.chatId}
               vm={vm}
               slots={cubeSlots}
+              openBuildLogRef={openCubeBuildLog}
+              preview={previewStatus}
               locked={isInteractionLocked}
               statusText={chatCollapseStatusText}
               noticesPending={Boolean(visibleF3Requirements)}
@@ -512,14 +526,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           >
             <Relocatable slot={timelineSlot}>
             <MessageList
+              onOpenBuildLog={cubeActive ? showMessageBuildLog : undefined}
               chatId={vm.chatId}
               versionId={vm.activeVersionId}
-              canonicalVersionStatus={activeVersionStatusIdentity ? {
-                ...activeVersionStatusIdentity,
-                status: activeVersionStatus,
-                isLatest: activeVersionIsLatest,
-              } : null}
-              previewVisible={vm.previewLifecycle === "live"}
+              canonicalVersionStatus={previewStatus.canonical}
+              previewVisible={previewStatus.previewVisible}
               messages={vm.messages}
               showStructuredParts={vm.showStructuredChat}
               onQuickReply={async (text, options) => {
