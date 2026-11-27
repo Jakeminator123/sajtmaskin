@@ -22,7 +22,7 @@ interface ChatOutputCollapseBarProps {
   onDragHandlePointerMove?: PointerEventHandler<HTMLDivElement>;
   onDragHandlePointerUp?: PointerEventHandler<HTMLDivElement>;
   onDragHandlePointerCancel?: PointerEventHandler<HTMLDivElement>;
-  /** Byter chattpanelen mot byggkuben. Bara på stora skärmar (lg+). */
+  /** Byter chattpanelen mot byggkubens vyer, med flikar på mobil. */
   onOpenCube?: () => void;
 }
 
@@ -106,9 +106,9 @@ export function ChatOutputCollapseBar({
           onClick={onOpenCube}
           onPointerDown={(event) => event.stopPropagation()}
           aria-label="Öppna byggkuben"
-          title="Byggkuben: chatt, svar, bygglogg, verktyg, avatar och sajtkarta i en flyttbar panel"
+          title="Byggkuben: chatt, svar, bygglogg, verktyg, avatar och sajtkarta"
           className={cn(
-            "hover:text-foreground hover:bg-muted/50 focus-visible:ring-ring text-foreground hidden h-7 shrink-0 items-center gap-1.5 rounded-md border border-border px-2 font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none lg:inline-flex",
+            "hover:text-foreground hover:bg-muted/50 focus-visible:ring-ring text-foreground inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border px-2 font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
             !isStreaming && !statusText && "ml-auto",
           )}
         >

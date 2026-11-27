@@ -79,6 +79,11 @@ export interface BuilderCubeSurfaceProps {
    * tillbaka till Chatt.
    */
   composerTurnsKept: number;
+  /** Använd hela chattytan med flikar, utan flyttbara kort. */
+  embedded?: boolean;
+  /** Det omgivande skalets chattflik är synlig. */
+  visible?: boolean;
+  onShowPreview?: () => void;
   onExit: () => void;
 }
 
@@ -121,9 +126,13 @@ export function BuilderCubeSurface({
   noticesPending,
   composerTurns,
   composerTurnsKept,
+  embedded = false,
+  visible = true,
+  onShowPreview,
   onExit,
 }: BuilderCubeSurfaceProps) {
   const { layout, setLayout, resetLayout } = useCubeLayout();
+  const cardsMode = !embedded && layout.mode === "cards";
   // Ett bygge som redan pågår när kuben visas (en ny chatts första bygge, en
   // omladdning mitt i ett bygge) börjar på svaren, där det syns.
   const [activeFace, setActiveFace] = useState<CubeFaceId>(() =>
@@ -153,7 +162,7 @@ export function BuilderCubeSurface({
   const [trackedTurns, setTrackedTurns] = useState(composerTurns);
   if (trackedTurns !== composerTurns) {
     setTrackedTurns(composerTurns);
-    if (composerTurns > trackedTurns && layout.mode === "cube" && activeFace === "chat") {
+    if (composerTurns > trackedTurns && !cardsMode && activeFace === "chat") {
       setActiveFace("answers");
     }
   }
@@ -162,7 +171,7 @@ export function BuilderCubeSurface({
   const [trackedKept, setTrackedKept] = useState(composerTurnsKept);
   if (trackedKept !== composerTurnsKept) {
     setTrackedKept(composerTurnsKept);
-    if (composerTurnsKept > trackedKept && layout.mode === "cube" && activeFace === "answers") {
+    if (composerTurnsKept > trackedKept && !cardsMode && activeFace === "answers") {
       setActiveFace("chat");
     }
   }
@@ -174,8 +183,8 @@ export function BuilderCubeSurface({
     // oläst.
     if (trackedCount === 0) setSeenCount(messageCount);
   }
-  const answersVisible =
-    layout.mode === "cards" ? !layout.folded.includes("answers") : activeFace === "answers";
+  const answersVisible = visible &&
+    (cardsMode ? !layout.folded.includes("answers") : activeFace === "answers");
   if (answersVisible && seenCount !== messageCount) setSeenCount(messageCount);
   const unread = answersVisible ? 0 : Math.max(0, messageCount - seenCount);
 
@@ -184,7 +193,7 @@ export function BuilderCubeSurface({
   const revealFace = useCallback(
     (face: CubeFaceId) => {
       setLayout((current) => {
-        if (current.mode !== "cards") return current;
+        if (embedded || current.mode !== "cards") return current;
         const folded = current.folded.includes(face)
           ? current.folded.filter((id) => id !== face)
           : current.folded;
@@ -198,7 +207,7 @@ export function BuilderCubeSurface({
       });
       setActiveFace(face);
     },
-    [setLayout],
+    [embedded, setLayout],
   );
   const showChat = useCallback(() => revealFace("chat"), [revealFace]);
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
@@ -220,8 +229,8 @@ export function BuilderCubeSurface({
 
   const isStreaming = vm.isAnyStreaming;
   const composerStatus = isStreaming ? "Bygger …" : statusText;
-  const sitemapVisible =
-    layout.mode === "cards" ? !layout.folded.includes("sitemap") : activeFace === "sitemap";
+  const sitemapVisible = visible &&
+    (cardsMode ? !layout.folded.includes("sitemap") : activeFace === "sitemap");
 
   const faces = useMemo<Record<CubeFaceId, CubeFaceSpec>>(
     () => ({
@@ -233,7 +242,7 @@ export function BuilderCubeSurface({
           // komposern slutjusteras: innehåll som svämmar över uppåt i en
           // slutjusterad flexbox går inte att rulla till.
           <div className="flex h-full min-h-0 flex-col overflow-y-auto">
-            {layout.mode === "cube" ? (
+            {!cardsMode ? (
               <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-4 text-center">
                 <span className="bg-primary/10 text-primary flex size-10 items-center justify-center rounded-full">
                   <MessageSquare className="size-5" aria-hidden="true" />
@@ -284,7 +293,7 @@ export function BuilderCubeSurface({
               slot={slots.timeline}
               className="relative min-h-0 flex-1 overflow-hidden"
             />
-            {layout.mode === "cube" ? (
+            {!cardsMode ? (
               <div className="border-border/60 shrink-0 border-t p-2">
                 <button type="button" onClick={showChat} className={`${FACE_BUTTON_CLASS} w-full`}>
                   <PenLine className="size-3" aria-hidden="true" />
@@ -349,6 +358,7 @@ export function BuilderCubeSurface({
             previewUrl={vm.currentPreviewUrl}
             refreshToken={vm.previewRefreshToken}
             visible={sitemapVisible}
+            onNavigate={onShowPreview}
           />
         ),
       },
@@ -358,9 +368,10 @@ export function BuilderCubeSurface({
       agent?.configured,
       composerStatus,
       isStreaming,
-      layout.mode,
+      cardsMode,
       locked,
       noticesPending,
+      onShowPreview,
       selectedLogId,
       preview,
       showBuildLog,
@@ -399,6 +410,7 @@ export function BuilderCubeSurface({
       size={{ width: layout.cube.width, height: layout.cube.height }}
       onSizeChange={(size) => setLayout((l) => ({ ...l, cube: { ...l.cube, ...size } }))}
       mode={layout.mode}
+      embedded={embedded}
       onModeChange={(mode) => setLayout((l) => ({ ...l, mode }))}
       cards={{ rects: layout.cards, folded: layout.folded, order: layout.order }}
       onCardsChange={(cards) =>

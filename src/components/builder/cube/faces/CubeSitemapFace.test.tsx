@@ -132,6 +132,20 @@ describe("CubeSitemapFace", () => {
     expect(within(nav).getByRole("button", { name: /Start/ }).getAttribute("aria-current")).toBeNull();
   });
 
+  it("opens the preview view even when the selected route is already loaded", () => {
+    routesState.routes = [page("/"), page("/kontakt")];
+    const preview = publishPreview("/");
+    const onNavigate = vi.fn();
+    render(<CubeSitemapFace chatId="c1" versionId="v1" previewUrl={PREVIEW_URL} visible onNavigate={onNavigate} />);
+    const nav = screen.getByRole("navigation", { name: "Sajtkarta" });
+    fireEvent.click(within(nav).getByRole("button", { name: /Start/ }));
+    expect(onNavigate).toHaveBeenCalledTimes(1);
+    expect(preview.navigate).not.toHaveBeenCalled();
+    fireEvent.click(within(nav).getByRole("button", { name: /Kontakt/ }));
+    expect(preview.navigate).toHaveBeenCalledWith("/kontakt");
+    expect(onNavigate).toHaveBeenCalledTimes(2);
+  });
+
   it("lists a dynamic or unlinked page without making it a dead button", () => {
     routesState.routes = [
       page("/"),

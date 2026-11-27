@@ -43,10 +43,12 @@ befintliga publika D-ID-nycklarna och avatarflaggan är konfigurerade.
 
 ## Byggkuben
 
-Från `lg` kan chattpanelen bytas mot byggkuben: en flyttbar panel över
-förhandsvisningen med sex sidor. Kubknappen sitter i raden ovanför
-inmatningen, och valet sparas per webbläsare. Under `lg` och utan chatt gäller
-panelen.
+Chattpanelen kan bytas mot byggkubens sex vyer. Från `lg` visas de i en
+flyttbar panel över förhandsvisningen. På mobil fyller de chattytan med sex
+flikar under **Byggvyer**, bredvid **Förhandsvisning**. **Vanlig chatt** går
+tillbaka till den klassiska chatten. Kubknappen ovanför inmatningen öppnar
+vyerna igen, och valet sparas per webbläsare. Utan chatt används den vanliga
+inmatningen.
 
 | Sida | Innehåll |
 |---|---|
@@ -63,6 +65,11 @@ kuben: [`relocation.tsx`](../../src/components/builder/cube/relocation.tsx)
 flyttar DOM-noden, så ett layoutbyte tappar varken utkast, bilagor eller
 rulläge. Ytan ägs av
 [`cube-surface.tsx`](../../src/app/builder/builder-shell-content/cube-surface.tsx).
+
+**Samla till vänster** återställer kubens läge, storlek och kortplaceringar och
+samlar alla sex vyer i kuben till vänster. Vald vy och pågående utkast finns
+kvar. Valet gäller även efter omladdning. **Samla till kub** använder kubens
+senast sparade plats. **Sidopanel** öppnar den vanliga chatten till vänster.
 
 ## Vad Sajtagenten ser
 

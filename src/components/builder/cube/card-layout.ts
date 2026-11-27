@@ -250,13 +250,26 @@ export function bodyFromOuter(outer: Rect): Rect {
 
 /**
  * Effektiv ram för kuben på en scen. Smal scen: flikar i full bredd längst
- * ned (bottenark), ingen dragning. Annars: sparad position/storlek inpassad.
+ * ned (bottenark), ingen dragning. Inbäddat läge fyller hela chattytan.
+ * Annars används sparad position/storlek inpassad.
  */
-export function cubeFrame(position: Point, size: Size, stage: Size, narrow: boolean): CubeFrame {
-  if (narrow) {
-    const height = Math.round(Math.min(stage.height, Math.max(320, stage.height * 0.62)));
+export function cubeFrame(
+  position: Point,
+  size: Size,
+  stage: Size,
+  narrow: boolean,
+  embedded = false,
+): CubeFrame {
+  if (narrow || embedded) {
+    const height = embedded
+      ? stage.height
+      : Math.round(Math.min(stage.height, Math.max(320, stage.height * 0.62)));
     const outer = { x: 0, y: Math.max(0, stage.height - height), width: stage.width, height };
-    return { outer, body: { x: 0, y: outer.y + CUBE_DOCK, width: stage.width, height: height - CUBE_DOCK } };
+    const header = CUBE_DOCK + (embedded ? CUBE_HEAD : 0);
+    return {
+      outer,
+      body: { x: 0, y: outer.y + header, width: stage.width, height: Math.max(0, height - header) },
+    };
   }
   const outer = fitRect(outerFromBody(position, size), stage, chromeLimits());
   return { outer, body: bodyFromOuter(outer) };

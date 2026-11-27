@@ -182,10 +182,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     [bridgeChatId, bridgeVersionId, bridgeCancel, isInteractionLocked, sendMessage],
   );
 
-  // Byggkuben (valfri, lg+): chattpanelens innehåll som sex sidor i en
-  // flyttbar panel över förhandsvisningen. Under lg och utan chatt gäller den
-  // vanliga panelen: kuben har ingen mobil form, och välkomstläget har bara
-  // inmatningen att visa.
   const previewStatus = useMemo(() => ({
     chatId: vm.chatId,
     versionId: vm.activeVersionId,
@@ -194,8 +190,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       ...activeVersionStatusIdentity, status: activeVersionStatus, isLatest: activeVersionIsLatest,
     } : null,
   }), [vm.chatId, vm.activeVersionId, vm.previewLifecycle, activeVersionStatusIdentity, activeVersionStatus, activeVersionIsLatest]);
+  // Byggkubens sex vyer följer användarens val på alla skärmar. På mobil
+  // använder de hela chattytan med flikar, bredvid fliken Förhandsvisning.
+  // Välkomstläget använder den vanliga inmatningen tills en chatt finns.
   const cubeEnabled = useBuilderCubeEnabled();
-  const cubeActive = cubeEnabled && isDesktopShell && Boolean(vm.chatId);
+  const cubeActive = cubeEnabled && Boolean(vm.chatId);
   const openCubeBuildLog = useRef<((messageId: string) => void) | null>(null);
   const showMessageBuildLog = useCallback((messageId: string) => openCubeBuildLog.current?.(messageId), []);
   // Fokus följer bytet. Knappen som öppnade kuben blir osynlig och knappen
@@ -413,7 +412,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           )}
         >
           <MessageSquare className="h-4 w-4" />
-          Chatt
+          {cubeActive ? "Byggvyer" : "Chatt"}
         </button>
         <button
           role="tab"
@@ -447,7 +446,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           id="builder-chat-panel"
           role="tabpanel"
           className={cn(
-            "border-border bg-background min-h-0 w-full flex-col lg:flex",
+            "border-border bg-background relative min-h-0 w-full flex-col lg:flex",
             // Kuben använder samma överlägg som den nedfällda chatten:
             // panelen täcker ytan utan att fånga klick, kuben fångar sina egna.
             isChatOutputCollapsed || cubeActive
@@ -471,6 +470,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               noticesPending={Boolean(visibleF3Requirements)}
               composerTurns={composerTurns}
               composerTurnsKept={composerTurnsKept}
+              embedded={!isDesktopShell}
+              visible={isDesktopShell || mobileTab === "chat"}
+              onShowPreview={isDesktopShell ? undefined : () => setMobileTab("preview")}
               onExit={closeCube}
             />
           ) : null}
@@ -550,7 +552,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             builderMessages={vm.messages}
             isStreaming={vm.isAnyStreaming}
             statusText={chatCollapseStatusText}
-            onOpenCube={isDesktopShell && vm.chatId && !cubeActive ? openCube : undefined}
+            onOpenCube={vm.chatId && !cubeActive ? openCube : undefined}
           >
             <Relocatable slot={composerSlot}>
             <ChatInterface

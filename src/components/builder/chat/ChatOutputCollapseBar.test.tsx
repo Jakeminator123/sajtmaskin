@@ -114,10 +114,6 @@ describe("ChatOutputCollapseBar", () => {
       />,
     );
     const button = screen.getByRole("button", { name: "Öppna byggkuben" });
-    // Kuben har ingen mobil form: knappen finns bara från `lg`.
-    expect(button.className).toContain("hidden");
-    expect(button.className).toContain("lg:inline-flex");
-
     // Ett tryck på knappen börjar inte dra det flytande kortet.
     fireEvent.pointerDown(button);
     expect(onDragStart).not.toHaveBeenCalled();
