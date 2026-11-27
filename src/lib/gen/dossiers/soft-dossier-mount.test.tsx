@@ -23,6 +23,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { createRef, StrictMode } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -195,6 +196,44 @@ describe("CommandPalette — kommandopalett (cmdk-command-palette)", () => {
       openWithShortcut();
       expect(document.querySelectorAll("[cmdk-dialog]")).toHaveLength(1);
       expect(screen.getByPlaceholderText("Andra paletten")).toBeTruthy();
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
+  it("behåller första palettens kortkommando när StrictMode återansluter dess effekt", () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      render(
+        <>
+          <StrictMode>
+            <CommandPalette groups={groups} placeholder="Första paletten" />
+          </StrictMode>
+          <CommandPalette groups={groups} placeholder="Andra paletten" />
+        </>,
+      );
+      openWithShortcut();
+      expect(screen.getByPlaceholderText("Första paletten")).toBeTruthy();
+      expect(document.querySelectorAll("[cmdk-dialog]")).toHaveLength(1);
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
+  it("stänger en lokalt öppnad palett med genvägen utan att öppna en andra dialog", () => {
+    const openSecond = createRef<(() => void) | null>();
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      render(
+        <>
+          <CommandPalette groups={groups} placeholder="Första paletten" />
+          <CommandPalette groups={groups} placeholder="Andra paletten" openSignalRef={openSecond} />
+        </>,
+      );
+      act(() => openSecond.current?.());
+      expect(screen.getByPlaceholderText("Andra paletten")).toBeTruthy();
+      openWithShortcut();
+      expect(document.querySelectorAll("[cmdk-dialog]")).toHaveLength(0);
     } finally {
       warning.mockRestore();
     }

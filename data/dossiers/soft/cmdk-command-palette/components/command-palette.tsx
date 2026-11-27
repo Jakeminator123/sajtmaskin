@@ -34,12 +34,20 @@ export interface CommandPaletteProps {
   disableShortcut?: boolean;
 }
 
-const shortcutHandlers = new Set<() => void>();
+interface PaletteShortcut {
+  isOpen: () => boolean;
+  toggle: () => void;
+}
+
+const shortcutHandlers = new Map<number, PaletteShortcut>();
+let nextShortcutOrder = 0;
 
 function handleGlobalShortcut(event: KeyboardEvent) {
   if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
   event.preventDefault();
-  shortcutHandlers.values().next().value?.();
+  const active = Array.from(shortcutHandlers.values()).find((palette) => palette.isOpen());
+  const target = active ?? shortcutHandlers.get(Math.min(...shortcutHandlers.keys()));
+  target?.toggle();
 }
 
 export function CommandPalette({
@@ -51,6 +59,7 @@ export function CommandPalette({
 }: CommandPaletteProps) {
   const [open, setOpen] = useState(false);
   const isOpenRef = useRef(false);
+  const shortcutOrder = useRef<number | null>(null);
   const triggerSourceRef = useRef<HTMLElement | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -68,6 +77,8 @@ export function CommandPalette({
 
   useEffect(() => {
     if (disableShortcut) return;
+    // StrictMode may reconnect this effect after a sibling has registered.
+    const order = (shortcutOrder.current ??= nextShortcutOrder++);
     if (shortcutHandlers.size === 0) {
       window.addEventListener("keydown", handleGlobalShortcut);
     } else if (process.env.NODE_ENV !== "production") {
@@ -82,9 +93,9 @@ export function CommandPalette({
         openPalette();
       }
     };
-    shortcutHandlers.add(togglePalette);
+    shortcutHandlers.set(order, { isOpen: () => isOpenRef.current, toggle: togglePalette });
     return () => {
-      shortcutHandlers.delete(togglePalette);
+      shortcutHandlers.delete(order);
       if (shortcutHandlers.size === 0) {
         window.removeEventListener("keydown", handleGlobalShortcut);
       }

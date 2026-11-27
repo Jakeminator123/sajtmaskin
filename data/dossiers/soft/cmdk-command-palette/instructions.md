@@ -79,7 +79,7 @@ A small clickable trigger that shows the shortcut hint is a common pattern in ap
 
 - Do not put input fields inside palette items. The palette is a list of *commands*, not a form. If you need an input (rename, set quantity), open a Dialog from the command's `onSelect`.
 - Do not auto-select the first item on every keystroke unless you want Enter to fire it. cmdk's default behavior is correct — leave it alone.
-- Do not register more than one global cmd+K listener. Mount the palette once, near the root layout. Mounting per-page causes the listener to multiply and triggers double-opens.
+- Mount the shared palette once near the root layout. When several palettes enable the shortcut, cmd/ctrl+K closes the open palette or opens the first one mounted. Use `openSignalRef` for a button that targets a particular palette.
 - Do not paraphrase the cmdk component names (`Command.Root`, `Command.Input`, `Command.List`, `Command.Group`, `Command.Item`, `Command.Empty`). Their compound-component contract is what the package exports.
 - Do not lazy-load the palette behind a Suspense boundary keyed off the cmd+K event — the first open will be visibly empty for ~200ms while the chunk loads. Mount it eagerly; the bundle is < 8KB gzipped.
 
