@@ -79,6 +79,24 @@ frågar äger chatten innan något versionsbundet läggs till.
 
 ## Vad Sajtagenten kan göra
 
+### Läsa källor och granska utseendet
+
+En uttrycklig webbsökning, en vald sidkälla eller en bild-/textbilaga använder
+en lästur. Samma personakärna används i chatt, avatar och lästur. Lästuren
+får upp till åtta tidigare meddelanden och byggkontext för den ägarverifierade
+aktiva versionen. Avataren får ett kort, pratbart svar med källänkar separat.
+
+Frågor som «Hur ser min sajt ut?» och «Granska designen på sajten» använder
+befintliga dator- och mobilskärmbilder från versionskontrollen. Servern
+kontrollerar ägarskap, version, filrevision och bildernas giltighetstid före
+bildläsningen. Saknas aktuella bilder ska svaret säga vilket bildunderlag som
+saknas. Läsningen använder ett modellanrop och kan lämna svar och källor.
+Ändringsbegäranden fortsätter genom byggmotorn och dess handlingsmedgivande.
+
+Ägarna är `read-task.ts`, `read-task-input.ts` och `persona.ts` under
+`src/lib/openclaw/`. Gatewayns direkta verktygskonfiguration ägs av
+`infra/openclaw/generate-config.mjs`.
+
 Agenten svarar med text och högst ett `<openclaw-action>`-block per svar.
 Parsern i [`text-field-actions.ts`](../../src/lib/openclaw/text-field-actions.ts)
 är enda vägen in; allt den inte känner igen blir ett synligt «kunde inte tolkas».
