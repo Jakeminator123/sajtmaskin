@@ -163,6 +163,23 @@ afterEach(() => {
 });
 
 describe("useSendMessage 5-2 stale-base gate (client half)", () => {
+  it.each([false, true])("sends a model selection only once chat preferences are ready (%s)", async (modelTierReady) => {
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      capturedBody = JSON.parse(String(init?.body));
+      return new Response(null, { status: 200 });
+    });
+    handleSseStream.mockResolvedValue(undefined);
+    const { result } = createHarness({ selectedModelTier: "ultra", isModelTierReady: () => modelTierReady });
+    await send(result, "Uppdatera rubriken");
+
+    if (modelTierReady) {
+      expect(capturedBody).toMatchObject({ modelId: "ultra", meta: { modelTier: "ultra" } });
+    } else {
+      expect(capturedBody).not.toHaveProperty("modelId");
+      expect(capturedBody?.meta).not.toHaveProperty("modelTier");
+    }
+  });
+
   it.each([[true, false], [false, true], [true, true], [undefined, false]] as const)(
     "sends Blob materialization %s independently of image generations %s", async (materializeImages, imageGenerations) => {
       fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {

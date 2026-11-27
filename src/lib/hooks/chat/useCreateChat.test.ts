@@ -261,8 +261,13 @@ describe("useCreateChat broken-stream handling", () => {
       chatId: "chat_json", versionId: "ver_json", previewUrl: "https://preview.example/json",
     }));
     const refresh = vi.fn();
+    const onChatCreated = vi.fn();
+    const setChatId = vi.fn();
     const { result, messagesBox } = createHarness({
       enableImageMaterialization: true,
+      selectedModelTier: "ultra",
+      onChatCreated,
+      setChatId,
       onVersionStatusRefresh: refresh,
     });
     expect(await create(result)).toBe(true);
@@ -271,7 +276,26 @@ describe("useCreateChat broken-stream handling", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)).materializeImages).toBe(true);
     expect(handleSseStream).not.toHaveBeenCalled();
     expect(refresh).toHaveBeenCalledOnce();
+    expect(onChatCreated).toHaveBeenCalledWith("chat_json", { modelTier: "ultra", imageGenerations: false });
+    expect(onChatCreated).toHaveBeenCalledBefore(setChatId);
     expect(messagesBox.current.some(message => message.isStreaming)).toBe(false);
+  });
+  it("binds the SSE create request's settings to its new chat before opening it", async () => {
+    fetchMock.mockResolvedValue(sseResponse());
+    handleSseStream.mockImplementationOnce(async (_response, context) => {
+      context.setChatId("chat_sse");
+      return { versionIdFromStream: null };
+    });
+    const onChatCreated = vi.fn();
+    const setChatId = vi.fn();
+    const { result } = createHarness({
+      selectedModelTier: "pro", enableImageGenerations: true, onChatCreated, setChatId,
+    });
+
+    await create(result);
+
+    expect(onChatCreated).toHaveBeenCalledWith("chat_sse", { modelTier: "pro", imageGenerations: true });
+    expect(onChatCreated).toHaveBeenCalledBefore(setChatId);
   });
   it.each([[true, false], [false, true], [true, true], [undefined, false]] as const)(
     "sends Blob materialization %s independently of image generations %s", async (materializeImages, imageGenerations) => {

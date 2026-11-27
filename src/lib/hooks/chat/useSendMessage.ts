@@ -56,6 +56,7 @@ export function useSendMessage(
     latestKnownVersionId,
     appProjectId,
     selectedModelTier,
+    isModelTierReady,
     enableImageGenerations,
     enableImageMaterialization = false,
     enableThinking,
@@ -189,6 +190,7 @@ export function useSendMessage(
         settleRejectedTurn("Kunde inte starta generationen just nu — försök igen om en stund.");
         return true;
       };
+      const modelTierReady = isModelTierReady?.() ?? true;
       const canonicalTier = canonicalizeModelId(selectedModelTier) ?? "max";
       const engineModel = canonicalModelIdToOwnModelId(canonicalTier);
       const buildProfileId = getBuildProfileId(canonicalTier);
@@ -196,10 +198,9 @@ export function useSendMessage(
       debugLog("AI", "Send message requested", {
         messageLength: messageText.length,
         attachments: options.attachments?.length ?? 0,
-        buildProfile: MODEL_LABELS[canonicalTier],
-        buildProfileId,
-        internalModelSelection: canonicalTier,
-        engineModel,
+        ...(modelTierReady
+          ? { buildProfile: MODEL_LABELS[canonicalTier], buildProfileId, internalModelSelection: canonicalTier, engineModel }
+          : { modelSelection: "server" }),
       });
 
       // Synthetic sends (auto-repair, F3 kick) carry a `prompt-source`
@@ -363,16 +364,18 @@ export function useSendMessage(
         if (trimmedParentVersionId) {
           promptMeta.parentVersionId = trimmedParentVersionId;
         }
-        promptMeta.modelTier = selectedModelTier;
-        promptMeta.modelTierId = canonicalTier;
-        promptMeta.buildProfile = MODEL_LABELS[canonicalTier];
-        promptMeta.buildProfileId = buildProfileId;
-        promptMeta.modelId = engineModel;
+        if (modelTierReady) {
+          promptMeta.modelTier = selectedModelTier;
+          promptMeta.modelTierId = canonicalTier;
+          promptMeta.buildProfile = MODEL_LABELS[canonicalTier];
+          promptMeta.buildProfileId = buildProfileId;
+          promptMeta.modelId = engineModel;
+        }
         promptMeta.imageGenerations = enableImageGenerations;
 
         requestBody = {
           message: finalMessage,
-          modelId: selectedModelTier,
+          ...(modelTierReady ? { modelId: selectedModelTier } : {}),
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
           materializeImages: enableImageMaterialization,
@@ -757,6 +760,7 @@ export function useSendMessage(
       onGenerationComplete,
       onPreviewSessionMeta,
       selectedModelTier,
+      isModelTierReady,
       buildIntent,
       setBuildIntent,
       buildMethod,
