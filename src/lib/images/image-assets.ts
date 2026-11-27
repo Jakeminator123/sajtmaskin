@@ -70,9 +70,6 @@ export function looksLikeImageUrl(rawUrl: string): boolean {
   const host = u.hostname.toLowerCase();
   if (host.includes(".blob.vercel-storage.com")) return false;
   if (host === "localhost" || host === "127.0.0.1") return false;
-  // Some preview assets are hosted on vusercontent.net without extensions.
-  if (host.endsWith("vusercontent.net")) return true;
-
   const path = u.pathname.toLowerCase();
 
   const nonImageExts = [
@@ -97,6 +94,9 @@ export function looksLikeImageUrl(rawUrl: string): boolean {
     ".gz",
   ];
   if (nonImageExts.some((ext) => path.endsWith(ext))) return false;
+
+  // Extensionless assets are common on the preview CDN.
+  if (host === "vusercontent.net" || host.endsWith(".vusercontent.net")) return true;
 
   const imageExts = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".avif", ".bmp", ".ico"];
   if (imageExts.some((ext) => path.endsWith(ext))) return true;

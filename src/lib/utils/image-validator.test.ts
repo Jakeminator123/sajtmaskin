@@ -101,6 +101,9 @@ describe("extractImageRefs", () => {
       { src: photo, alt: "Samma bild" },
       { href: "https://example.org/page", alt: "Länk" },
       { src: "https://cdn.example.org/movie.mp4", alt: "Film" },
+      { src: "https://preview.vusercontent.net/showreel.mp4", alt: "Video" },
+      { kind: "video", src: "https://preview.vusercontent.net/playback?id=1", alt: "Ström" },
+      { src: "https://site.example.org/about", alt: null },
       { src: "https://customer.public.blob.vercel-storage.com/mine.jpg", alt: "Egen bild" },
     ]);
 
@@ -355,6 +358,22 @@ describe("validateImages", () => {
       expect(result.files[0].content).toContain("/api/placeholder?w=1200&h=800&label=Cyklist%20i%20skogen");
       expect(result.files[0].content).toContain(kept);
       expect(result.files[0].content).not.toContain(dead);
+    });
+
+    it("repairs an escaped JSON image URL and replays the saved correction", async () => {
+      const dead = "https://images.unsplash.com/photo-missing?w=900&fit=crop";
+      const original = {
+        name: "data/gallery.json",
+        content: JSON.stringify([{ src: dead, alt: "Cykling" }]).replace("&", "\\u0026"),
+      };
+      fetchSpy.mockResolvedValue(new Response(null, { status: 404 }));
+      const result = await validateImages({ files: [original], autoFix: true, unsplashAccessKey: null });
+      expect(result.replacedCount).toBe(1);
+      expect(JSON.parse(result.files[0].content)[0].src).toBe("/api/placeholder?w=1200&h=800&label=Cykling");
+
+      const replay = applyKnownImageReplacementsToFiles([original], buildKnownImageReplacementMap(result.broken));
+      expect(replay.replacedCount).toBe(1);
+      expect(replay.files[0].content).toBe(result.files[0].content);
     });
 
     const filesForUrl = (url: string): TextFile[] => [
