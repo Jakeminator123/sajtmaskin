@@ -32,6 +32,8 @@ export interface CubeSitemapFaceProps {
    * filer till sina flikar.
    */
   visible: boolean;
+  /** Mobilskalets väg till den separata förhandsvisningsfliken. */
+  onNavigate?: () => void;
 }
 
 export interface SitemapNode {
@@ -92,6 +94,7 @@ export function CubeSitemapFace({
   previewUrl,
   refreshToken,
   visible,
+  onNavigate,
 }: CubeSitemapFaceProps) {
   const { previewRoutes, previewRoutesLoading } = usePreviewPanelPreviewRoutes(
     visible ? chatId : null,
@@ -104,8 +107,9 @@ export function CubeSitemapFace({
 
   // Sidan som redan visas laddas inte om; allt annat avgör förhandsvisningen.
   const navigate = (route: string) => {
-    if (!navigator || route === navigator.activeRoute) return;
-    navigator.navigate(route);
+    if (!navigator) return;
+    if (route !== navigator.activeRoute) navigator.navigate(route);
+    onNavigate?.();
   };
 
   const renderNode = (node: SitemapNode) => {

@@ -20,6 +20,19 @@ describe("OpenClaw store assistant targeting", () => {
     clearCampaignScriptStorageForTests();
   });
 
+  it("keeps the live turn together for action dispatch when another tab's history arrives", () => {
+    const store = useOpenClawStore.getState();
+    store.addMessage({ id: "live-question", role: "user", content: "Fråga", allowBuild: true, timestamp: 2000 });
+    store.addMessage({ id: "live-answer", role: "assistant", content: "", delivery: "streaming", timestamp: 2000 });
+    store.hydrateMessages([
+      { id: "other-question", role: "user", content: "Annan fråga", hydrated: true, timestamp: 3000 },
+      { id: "other-answer", role: "assistant", content: "Annat svar", hydrated: true, timestamp: 3000 },
+    ]);
+    expect(useOpenClawStore.getState().messages.slice(-2).map((message) => message.id)).toEqual([
+      "live-question", "live-answer",
+    ]);
+  });
+
   it("opens text-first without starting the D-ID avatar", () => {
     expect(useOpenClawStore.getState().avatarMode).toBe(false);
   });

@@ -62,6 +62,18 @@ describe("chat message cache ownership", () => {
     expect(loadPersistedMessages("B").map((m) => m.content)).toEqual(["SERVER B"]);
   });
 
+  it("recovers server dates on an older cache while keeping its richer tool data", () => {
+    const date = "2026-11-27T11:14:33.859Z";
+    const cached = { ...message("b1"), uiParts: [{ type: "tool:engine-generation" }] };
+    persistMessages("B", [cached]);
+    const { result, rerender } = renderHook(useNavigationHarness, {
+      initialProps: { urlChatId: "A", serverMessages: [message("A TEXT")], serverMessagesChatId: "A" },
+    });
+    rerender({ urlChatId: "B", serverMessages: [{ ...message("b1"), createdAt: date }], serverMessagesChatId: "B" });
+    expect(result.current.messages[0]).toMatchObject({ ...cached, createdAt: date });
+    expect(loadPersistedMessages("B")[0]).toMatchObject({ ...cached, createdAt: date });
+  });
+
   it("keeps newly generated messages when creation assigns a new chat id", () => {
     const { result } = renderHook(useNavigationHarness, { initialProps: { urlChatId: "A" } });
     act(() => {

@@ -3,10 +3,12 @@
 import {
   AlertCircle,
   ArrowLeft,
+  ArrowRight,
+  ChevronDown,
   Loader2,
   MessageCircleQuestion,
   RotateCcw,
-  Sparkles,
+  SlidersHorizontal,
   Wand2,
 } from "lucide-react";
 import {
@@ -20,10 +22,11 @@ import {
   type PreviewLifecycleState,
 } from "@/lib/builder/preview-lifecycle";
 import type { DesignTheme } from "@/lib/builder/theme-presets";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { PreviewBackdropStage } from "./PreviewBackdropStage";
 import { PreviewPanelInitControls } from "./composer/PreviewPanelInitControls";
 import { useRepairBlocked } from "@/lib/builder/repair-blocked";
@@ -127,6 +130,8 @@ export function PreviewPanelEmptyState({
   onRetryTemplateInit = null,
   hasPrefilledPrompt = false,
 }: PreviewPanelEmptyStateProps) {
+  const [buildChoicesOpen, setBuildChoicesOpen] = useState(false);
+
   // Täcker både pågående generering och deterministisk /finalize-design.
   const repairBlocked = useRepairBlocked(isGenerating);
   // Chattens utkast + start (publiceras av komposern före första bygget). Tom
@@ -299,9 +304,8 @@ export function PreviewPanelEmptyState({
     missing: AlertCircle,
   }[emptyIconKind];
 
-  // Välkomst-läget (ingen chat/version ännu) är ett riktigt onboarding-steg:
-  // "Sidans utseende" först, övriga Byggval bakom "Fler byggval". Valen går
-  // strukturerat i request-meta, aldrig som text i chattens input.
+  // Före första bygget kan förvalen fällas ut i välkomstytan. Valen går
+  // strukturerat i request-meta och återställs från storen när de öppnas igen.
   const showWelcome =
     isInitialEmpty && !previewBuildError && !awaitingInput && !previewPending;
 
@@ -328,48 +332,56 @@ export function PreviewPanelEmptyState({
       welcomeComposer.start && welcomeDescription.trim() ? welcomeComposer.start : null;
     return (
       <PreviewBackdropStage motion statusKey="welcome" variant="welcome">
-        <div className="w-full max-w-md text-center">
-          <div className="bg-primary/10 text-primary mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl">
-            <Sparkles className="h-6 w-6" aria-hidden="true" />
-          </div>
-          <h2 className="text-foreground mb-2 text-xl font-semibold tracking-tight">
+        <div className="w-full text-left">
+          <h2 className="text-foreground mb-2 text-lg font-semibold tracking-tight">
             {hasPrefilledPrompt ? "Din beskrivning är klar" : "Vad vill du bygga?"}
           </h2>
-          <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
+          <p className="text-muted-foreground mb-4 text-sm leading-relaxed">
             {hasPrefilledPrompt ? (
               <>
                 Den ligger i chatten <ChatLocation />.{" "}
                 {welcomeStart
-                  ? "Välj gärna utseende nedan och skapa sedan första utkastet."
-                  : "Välj gärna utseende nedan och tryck sedan på pilen i chatten för att skapa första utkastet."}
+                  ? "Skapa första utkastet eller anpassa byggförvalen först."
+                  : "Anpassa byggförvalen om du vill och tryck sedan på pilen i chatten för att skapa första utkastet."}
               </>
             ) : (
               <>
-                Beskriv din sajt i chatten <ChatLocation />. Valen nedan styr första
-                utkastet.
+                Beskriv din sajt i chatten <ChatLocation /> för att starta. Du kan också välja
+                färgtema och andra byggförval.
               </>
             )}
           </p>
 
-          <PreviewPanelInitControls
-            designTheme={designTheme}
-            onDesignThemeChange={onDesignThemeChange}
-            themeLocked={themeLocked}
-            description={welcomeDescription}
-            onStart={welcomeStart}
-          />
+          <Collapsible open={buildChoicesOpen} onOpenChange={setBuildChoicesOpen}>
+            <CollapsibleTrigger asChild>
+              <Button type="button" variant="outline" className="w-full justify-start gap-2">
+                <SlidersHorizontal className="size-4" aria-hidden="true" />
+                Byggförval
+                <ChevronDown
+                  className={cn(
+                    "ml-auto size-4 transition-transform",
+                    buildChoicesOpen && "rotate-180",
+                  )}
+                  aria-hidden="true"
+                />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-3">
+              <PreviewPanelInitControls
+                designTheme={designTheme}
+                onDesignThemeChange={onDesignThemeChange}
+                themeLocked={themeLocked}
+                description={welcomeDescription}
+              />
+            </CollapsibleContent>
+          </Collapsible>
 
-          {/* Full opacitet: /70 mot builder-bakgrunden gav ~3.7:1 och föll på
-              WCAG 2 AA (4.5:1) i Vercel-toolbarens a11y-kontroll. Med en
-              startknapp i panelen behövs inte hänvisningen till chatten. */}
-          {welcomeStart ? null : (
-            <p className="text-muted-foreground mt-6 inline-flex items-center gap-1.5 text-xs">
-              <ArrowLeft className="hidden h-3.5 w-3.5 lg:inline" aria-hidden="true" />
-              <span>
-                Skriv i chatten <ChatLocation /> för att starta
-              </span>
-            </p>
-          )}
+          {welcomeStart ? (
+            <Button type="button" className="mt-3 w-full" onClick={welcomeStart}>
+              Skapa första utkastet
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </Button>
+          ) : null}
         </div>
       </PreviewBackdropStage>
     );

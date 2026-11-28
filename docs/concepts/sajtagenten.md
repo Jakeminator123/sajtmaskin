@@ -43,10 +43,12 @@ befintliga publika D-ID-nycklarna och avatarflaggan är konfigurerade.
 
 ## Byggkuben
 
-Från `lg` kan chattpanelen bytas mot byggkuben: en flyttbar panel över
-förhandsvisningen med sex sidor. Kubknappen sitter i raden ovanför
-inmatningen, och valet sparas per webbläsare. Under `lg` och utan chatt gäller
-panelen.
+Chattpanelen kan bytas mot byggkubens sex vyer. Från `lg` visas de i en
+flyttbar panel över förhandsvisningen. På mobil fyller de chattytan med sex
+flikar under **Byggvyer**, bredvid **Förhandsvisning**. **Vanlig chatt** går
+tillbaka till den klassiska chatten. Kubknappen ovanför inmatningen öppnar
+vyerna igen, och valet sparas per webbläsare. Utan chatt används den vanliga
+inmatningen.
 
 | Sida | Innehåll |
 |---|---|
@@ -64,6 +66,11 @@ flyttar DOM-noden, så ett layoutbyte tappar varken utkast, bilagor eller
 rulläge. Ytan ägs av
 [`cube-surface.tsx`](../../src/app/builder/builder-shell-content/cube-surface.tsx).
 
+**Samla till vänster** återställer kubens läge, storlek och kortplaceringar och
+samlar alla sex vyer i kuben till vänster. Vald vy och pågående utkast finns
+kvar. Valet gäller även efter omladdning. **Samla till kub** använder kubens
+senast sparade plats. **Sidopanel** öppnar den vanliga chatten till vänster.
+
 ## Vad Sajtagenten ser
 
 Allt skickas per tur till `/api/openclaw/chat`; servern verifierar att den som
@@ -78,6 +85,26 @@ frågar äger chatten innan något versionsbundet läggs till.
 | Preview-VM:ens logg, bug-hunt-fynd, Sajtmaskins egen källkod | Bara `OC_DEBUG` (källkod kräver dessutom operatörstoken) | `preview-log-context.ts`, `repo-context.ts` |
 
 ## Vad Sajtagenten kan göra
+
+### Läsa källor och granska utseendet
+
+En uttrycklig webbsökning, en vald sidkälla eller en bild-/textbilaga använder
+en lästur. Samma personakärna används i chatt, avatar och lästur. Lästuren
+får upp till åtta tidigare meddelanden och byggkontext för den ägarverifierade
+aktiva versionen. Avataren får ett kort, pratbart svar med källänkar separat.
+
+Frågor som «Hur ser min sajt ut?» och «Granska designen på sajten» använder
+befintliga dator- och mobilskärmbilder från versionskontrollen. Servern
+kontrollerar ägarskap, version, filrevision och bildernas giltighetstid före
+bildläsningen. Saknas aktuella bilder ska svaret säga vilket bildunderlag som
+saknas. Läsningen använder ett modellanrop och kan lämna svar och källor.
+Ändringsbegäranden fortsätter genom byggmotorn och dess handlingsmedgivande.
+Den vanliga chatten får också den sparade granskningsdomen först när chatt,
+version, filrevision och giltighetstid stämmer.
+
+Ägarna är `read-task.ts`, `read-task-input.ts` och `persona.ts` under
+`src/lib/openclaw/`. Gatewayns direkta verktygskonfiguration ägs av
+`infra/openclaw/generate-config.mjs`.
 
 Agenten svarar med text och högst ett `<openclaw-action>`-block per svar.
 Parsern i [`text-field-actions.ts`](../../src/lib/openclaw/text-field-actions.ts)

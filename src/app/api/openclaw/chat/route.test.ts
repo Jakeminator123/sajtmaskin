@@ -102,13 +102,31 @@ it("answers a read-only attachment turn in chat without dispatching the gateway"
   })));
   expect(result.headers.get(OPENCLAW_DISPATCH_HEADER)).toBe(OPENCLAW_DISPATCH_STARTED);
   expect(await result.text()).toContain('"content":"En stol."');
-  expect(mocks.answerReadTask).toHaveBeenCalledWith(expect.any(Request), { attachmentIds: [42] }, "hej");
+  expect(mocks.answerReadTask).toHaveBeenCalledWith(expect.any(Request), { attachmentIds: [42] }, "hej", {
+    history: [], context: undefined,
+  });
   expect(mocks.gateway).not.toHaveBeenCalled();
 });
 
 function request(body = JSON.stringify({ messages: [{ role: "user", content: "hej" }] })) {
   return new NextRequest("http://localhost/api/openclaw/chat", { method: "POST", body });
 }
+
+it("sends the gateway an accurate Auto role and movable builder views", async () => {
+  const response = await POST(request());
+  expect(response.status).toBe(200);
+  const call = mocks.gateway.mock.calls[0]?.[0] as {
+    body: { messages: { role: string; content: string }[] };
+  };
+  const systemPrompt = call.body.messages.filter((message) => message.role === "system")
+    .map((message) => message.content).join("\n");
+  expect(systemPrompt).toContain("Agerar direkt");
+  expect(systemPrompt).toContain("snabbändring eller byggkommando");
+  expect(systemPrompt).toContain("fria kort");
+  expect(systemPrompt).toContain("Bygglogg");
+  expect(systemPrompt).not.toContain("rena byggordrar går direkt till byggmotorn");
+  expect(systemPrompt).not.toContain("Builder-vyn har tre kolumner");
+});
 
 beforeEach(() => {
   vi.clearAllMocks();

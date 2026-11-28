@@ -16,6 +16,7 @@ function normalizeServerMessages(input: ChatMessage[] | undefined): ChatMessage[
     .map((msg) => ({
       id: msg.id,
       role: msg.role,
+      createdAt: typeof msg.createdAt === "string" ? msg.createdAt : undefined,
       content: sanitizeChatMessageContentForDisplay({
         role: msg.role,
         content: msg.content,
@@ -26,6 +27,20 @@ function normalizeServerMessages(input: ChatMessage[] | undefined): ChatMessage[
         : undefined,
       isStreaming: false,
     }));
+}
+
+// An older local snapshot may carry richer tool output but lack the server's dates.
+function restoreMissingDates(messages: ChatMessage[], server: ChatMessage[]): ChatMessage[] {
+  if (!server.length || !messages.some((message) => !message.createdAt)) return messages;
+  const dates = new Map(server.map((message) => [message.id, message.createdAt]));
+  let changed = false;
+  const restored = messages.map((message) => {
+    const date = dates.get(message.id);
+    if (message.createdAt || !date) return message;
+    changed = true;
+    return { ...message, createdAt: date };
+  });
+  return changed ? restored : messages;
 }
 
 function countUiParts(messages: ChatMessage[]): number {
@@ -99,7 +114,7 @@ export function usePersistedChatMessages(params: {
         : [];
       const next = server.length > cached.length || countUiParts(server) > countUiParts(cached)
         ? server
-        : cached;
+        : restoreMissingDates(cached, server);
       restore(next);
       return;
     }
@@ -125,6 +140,9 @@ export function usePersistedChatMessages(params: {
       ) {
         restore(normalizedServerMessages);
         persistMessages(chatId, normalizedServerMessages);
+      } else if (serverMessagesChatId === chatId) {
+        const dated = restoreMissingDates(messages, normalizedServerMessages);
+        if (dated !== messages) restore(dated);
       }
       return;
     }
@@ -155,7 +173,7 @@ export function usePersistedChatMessages(params: {
     }
 
     if (restored.length > 0) {
-      restore(restored);
+      restore(restoreMissingDates(restored, normalizedServerMessages));
     }
   }, [
     chatId,

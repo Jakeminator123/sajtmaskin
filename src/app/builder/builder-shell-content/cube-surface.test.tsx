@@ -1,7 +1,9 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Relocatable, useRelocationSlot } from "@/components/builder/cube/relocation";
 import type { CubeFaceId } from "@/components/builder/cube/cube-model";
+import { CUBE_LAYOUT_STORAGE_KEY, defaultCubeLayout } from "@/components/builder/cube/cube-layout-storage";
 import type { ChatMessage } from "@/lib/builder/types";
 import type { OpenClawMessage } from "@/lib/openclaw/openclaw-store";
 import type { BuilderViewModel } from "../useBuilderPageController";
@@ -18,8 +20,10 @@ vi.mock("@/components/builder/chat/sajtagent/SajtagentAvatar", () => ({
   ),
 }));
 vi.mock("@/components/builder/cube/faces/CubeBuildLogFace", () => ({
-  CubeBuildLogFace: ({ messages, isStreaming }: { messages: unknown[]; isStreaming: boolean }) => (
-    <div data-testid="buildlog" data-messages={messages.length} data-streaming={String(isStreaming)} />
+  CubeBuildLogFace: ({ messages, isStreaming, selectedMessageId }: {
+    messages: unknown[]; isStreaming: boolean; selectedMessageId?: string | null;
+  }) => (
+    <div data-testid="buildlog" data-messages={messages.length} data-streaming={String(isStreaming)} data-selected={selectedMessageId} />
   ),
 }));
 vi.mock("@/components/builder/cube/faces/CubeToolsFace", () => ({
@@ -95,6 +99,7 @@ function Harness({
   composerTurnsKept = 0,
   onExit = () => {},
 }: HarnessProps) {
+  const openBuildLog = useRef<((id: string) => void) | null>(null);
   const composer = useRelocationSlot();
   const timeline = useRelocationSlot();
   const notices = useRelocationSlot();
@@ -105,7 +110,7 @@ function Harness({
           <div data-testid="f3-notices" />
         </Relocatable>
         <Relocatable slot={timeline}>
-          <div data-testid="timeline" />
+          <div data-testid="timeline"><button onClick={() => openBuildLog.current?.("old")}>Öppna äldre svar</button></div>
         </Relocatable>
         <Relocatable slot={composer}>
           <textarea aria-label="Skriv en uppdatering" />
@@ -113,6 +118,7 @@ function Harness({
       </div>
       <BuilderCubeSurface
         vm={vm}
+        openBuildLogRef={openBuildLog}
         slots={{ composer, timeline, notices }}
         locked={locked}
         statusText={statusText}
@@ -124,6 +130,15 @@ function Harness({
     </>
   );
 }
+
+it("reveals and focuses the log requested by the relocated answers face", async () => {
+  render(<Harness />);
+  fireEvent.click(tab(/^Svar/));
+  fireEvent.click(screen.getByRole("button", { name: "Öppna äldre svar" }));
+  expect(selected(/^Bygglogg/)).toBe(true);
+  expect(within(face("buildlog")).getByTestId("buildlog").dataset.selected).toBe("old");
+  await waitFor(() => expect([face("buildlog"), tab(/^Bygglogg/)]).toContain(document.activeElement));
+});
 
 const face = (id: CubeFaceId) => document.querySelector(`[data-cube-face="${id}"]`) as HTMLElement;
 const tab = (name: RegExp | string) => screen.getByRole("tab", { name });
@@ -389,5 +404,56 @@ describe("BuilderCubeSurface", () => {
     render(<Harness onExit={onExit} />);
     fireEvent.click(screen.getByRole("button", { name: "Öppna chatten som sidopanel" }));
     expect(onExit).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a moved cube to the left while keeping the selected view", () => {
+    localStorage.setItem("sajtmaskin:builder-cube:v1", JSON.stringify({
+      mode: "cube",
+      cube: { x: 600, y: 120, width: 400, height: 400 },
+      cards: {},
+      folded: [],
+      order: [],
+    }));
+    render(<Harness />);
+    fireEvent.click(tab("Verktyg"));
+    fireEvent.click(screen.getByRole("button", { name: "Samla till vänster" }));
+    expect(selected("Verktyg")).toBe(true);
+    expect(document.activeElement).toBe(tab("Verktyg"));
+    expect((document.querySelector("[data-cube-chrome]") as HTMLElement).style.left).toBe("24px");
+  });
+
+  it("collects the six views to the left without replacing the draft or timeline", () => {
+    localStorage.setItem(CUBE_LAYOUT_STORAGE_KEY, JSON.stringify({
+      ...defaultCubeLayout(),
+      mode: "cards",
+      cube: { x: 600, y: 150, width: 450, height: 500 },
+      cards: { chat: { x: 500, y: 200, width: 320, height: 350 } },
+      folded: ["chat", "sitemap"],
+    }));
+    render(<Harness />);
+    const composer = screen.getByLabelText("Skriv en uppdatering") as HTMLTextAreaElement;
+    const timeline = screen.getByTestId("timeline");
+    fireEvent.change(composer, { target: { value: "Mitt pågående utkast" } });
+
+    const collect = screen.getByRole("button", { name: "Samla till vänster" });
+    collect.focus();
+    fireEvent.click(collect);
+
+    expect(document.querySelector('[data-cube-mode="cube"]')).toBeTruthy();
+    expect((document.querySelector("[data-cube-chrome]") as HTMLElement).style.left).toBe("24px");
+    expect(screen.getAllByRole("tab")).toHaveLength(6);
+    expect(document.activeElement).toBe(tab("Chatt"));
+    expect(screen.getByLabelText("Skriv en uppdatering")).toBe(composer);
+    expect(composer.value).toBe("Mitt pågående utkast");
+    fireEvent.click(tab("Svar"));
+    expect(face("answers").contains(timeline)).toBe(true);
+    fireEvent.click(tab("Sajtkarta"));
+    expect(screen.getByTestId("sitemap").dataset.visible).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Fäll ut till kort" }));
+    const bar = screen.getByRole("toolbar", { name: "Kort" });
+    const chatButton = bar.querySelector(`[aria-controls="${face("chat").id}"]`);
+    expect(chatButton?.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByLabelText("Skriv en uppdatering")).toBe(composer);
   });
 });

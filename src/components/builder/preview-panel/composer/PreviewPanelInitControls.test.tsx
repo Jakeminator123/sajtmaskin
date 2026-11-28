@@ -111,6 +111,7 @@ describe("PreviewPanelInitControls — Sidans utseende", () => {
    */
   it("ritar varje kort med temats riktiga bakgrund, text och knapp", () => {
     render(<ControlledControls />);
+    fireEvent.click(within(choiceRow("Färgläge")).getByRole("radio", { name: "Ljust" }));
     const card = within(paletteGroup()).getByRole("radio", { name: /Varm & inbjudande, Bärnsten/ });
     expect(miniatureVars(card)).toEqual(expectedVars(THEME_CLUSTERS.orange.light));
     // Rubrik, brödtext och knapp läser just de variablerna.
@@ -200,6 +201,21 @@ describe("PreviewPanelInitControls — Sidans utseende", () => {
     fireEvent.click(within(choiceRow("Färgläge")).getByRole("radio", { name: "Mörkt" }));
     const card = within(paletteGroup()).getByRole("radio", { name: /Bärnsten/ });
     expect(miniatureVars(card)).toEqual(expectedVars(THEME_CLUSTERS.orange.dark));
+  });
+
+  it("visar båda möjliga färglägen i Auto och lämnar valet till bygget", () => {
+    render(<ControlledControls initialTheme="orange" />);
+    const card = within(paletteGroup()).getByRole("radio", { name: /Bärnsten/ });
+    const miniatureBackgrounds = Array.from(
+      card.querySelectorAll<HTMLElement>("[data-palette-miniature]"),
+      (miniature) => miniature.style.getPropertyValue("--mini-bg"),
+    );
+    expect(miniatureBackgrounds).toEqual([
+      THEME_CLUSTERS.orange.light.background,
+      THEME_CLUSTERS.orange.dark.background,
+    ]);
+    expect(getCurrentInitBuildChoices().colorMode).toBe("auto");
+    expect(screen.getByText(/Auto låter AI välja färgläge/)).toBeTruthy();
   });
 
   it("markerar ett läge som beskrivningen ber om utan att välja det", () => {

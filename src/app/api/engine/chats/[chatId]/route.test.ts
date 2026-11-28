@@ -88,6 +88,7 @@ describe("GET /api/engine/chats/[chatId]", () => {
       project_id: "proj_1",
       title: "Test",
       model: "gpt-5.4",
+      orchestration_snapshot: { modelTier: "ultra", internal: "only on the server" },
       scaffold_id: null,
       created_at: "2026-03-13T10:00:00.000Z",
       updated_at: "2026-03-13T10:00:00.000Z",
@@ -114,6 +115,8 @@ describe("GET /api/engine/chats/[chatId]", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
+    expect(json.modelTier).toBe("ultra");
+    expect(json).not.toHaveProperty("orchestration_snapshot");
     expect(json.previewUrl).toBeNull();
     expect(json.latestVersion.previewUrl).toBeNull();
     expect(json).not.toHaveProperty("legacyShimPreviewUrl");

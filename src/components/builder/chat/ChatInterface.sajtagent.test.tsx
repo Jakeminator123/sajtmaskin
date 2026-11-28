@@ -477,6 +477,8 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
   it.each([
     "Kan du lägga till en karta på kontaktsidan?",
     "Jag vill ha en rosa knapp i headern",
+    "Byt rubriken till Välkommen",
+    "Gör om hela sajten till en mörk portfolio",
   ])("skickar en artig begäran till Sajtagenten med handlingsmedgivande: %s", async (text) => {
     act(() => {
       useOpenClawStore.setState({ editEnabled: true, powersOn: true, grantedPowers: ["armed_autonomy"] });
@@ -520,6 +522,25 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     fireEvent.change(textarea, { target: { value: polite } });
     fireEvent.click(screen.getByRole("menuitemradio", { name: "Fråga" }));
     expect(hint().textContent).toContain("Fråga – ändrar inget");
+  });
+
+  it("sends the armed agent's prepared build to the builder without dispatching it back to the agent", async () => {
+    const text = "Gör om hela sajten till en mörk portfolio";
+    useOpenClawStore.setState({
+      editEnabled: true,
+      powersOn: true,
+      grantedPowers: ["armed_autonomy"],
+      preparedFill: { target: "builder.chat.primary", value: text },
+    });
+    const agent = makeAgent();
+    sajtagent.value = agent;
+    const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} />);
+
+    await typeAndSend(text);
+
+    expect(agent.send).not.toHaveBeenCalled();
+    expect(build).toHaveBeenCalledExactlyOnceWith(text, expect.objectContaining({ promptSource: "openclaw-prepared" }));
   });
 
   it("återkallar uppdraget när man skriver stopp i Bygg-läget", async () => {

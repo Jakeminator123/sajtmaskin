@@ -29,6 +29,8 @@ function makeArgs(
     isCreatingChat: false,
     isAnyStreaming: false,
     selectedModelTier: "max",
+    enableImageGenerations: true,
+    onChatCreated: vi.fn(),
     appProjectId: "proj_1",
     applyAppProjectId: vi.fn(),
     searchParams: new URLSearchParams(
@@ -66,6 +68,25 @@ describe("useBuilderEffects template init", () => {
     toastWarning.mockReset();
     saveProjectData.mockReset();
     vi.stubGlobal("fetch", vi.fn());
+  });
+
+  it.each([true, false])("binder bara generationsval till en ny mallchatt (cached %s)", async (cached) => {
+    saveProjectData.mockResolvedValue(undefined);
+    vi.mocked(fetch).mockResolvedValue(jsonResponse({ success: true, chatId: "chat_template", cached }));
+    const setChatId = vi.fn();
+    const onChatCreated = vi.fn();
+    const args = makeArgs({ selectedModelTier: "ultra", enableImageGenerations: false, setChatId, onChatCreated });
+    renderHook(() => useBuilderEffects(args));
+    await waitFor(() => expect(setChatId).toHaveBeenCalledWith("chat_template"));
+
+    if (cached) {
+      expect(onChatCreated).not.toHaveBeenCalled();
+    } else {
+      expect(onChatCreated).toHaveBeenCalledWith("chat_template", {
+        modelTier: "ultra", imageGenerations: false,
+      });
+      expect(onChatCreated).toHaveBeenCalledBefore(setChatId);
+    }
   });
 
   it("sätter explicit felläge när POST /api/template misslyckas", async () => {

@@ -498,7 +498,14 @@ export function resolveComposerDecision(input: ResolveComposerRouteInput): Compo
   // («Kan du göra en sida för mitt kafé?»).
   if (!input.hasChat) return { route: "build" };
   const intent = classifyComposerIntent(input.text);
-  if (intent === "build") return { route: "build" };
+  if (intent === "build") {
+    // Auto lets the armed orchestrator choose a quick edit or a full build.
+    // Attachments stay on the builder path until every edit input can be
+    // carried through the agent's action handoff.
+    return agentReachable && input.agentCanBuild === true && !input.hasAttachments
+      ? { route: "agent" }
+      : { route: "build" };
+  }
   if (intent === "agent") {
     if (input.hasAttachments && isAttachmentBuildRequest(input.text)) return { route: "build" };
     return toAgent();

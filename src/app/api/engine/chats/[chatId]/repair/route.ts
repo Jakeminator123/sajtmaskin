@@ -47,7 +47,7 @@ import type { CodeFile } from "@/lib/gen/parser";
 import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
-import { resolveChatModelTier } from "@/lib/models/catalog";
+import { DEFAULT_MODEL_ID, resolveChatModelTier } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import {
   LLM_FIXER_RETRY_TIMEOUT_MS,
@@ -663,11 +663,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     ];
     let llmPasses = 0;
     const originatingChat = await getChat(chatId).catch(() => null);
-    const originatingTier = resolveChatModelTier(originatingChat);
-    const fixerModel = originatingTier
-      ? resolvePhaseModel(originatingTier, "fixer").modelId
-      : undefined;
-    const fixerThinking = originatingTier ? resolvePhaseThinking(originatingTier, "fixer") : null;
+    const fixerTier = resolveChatModelTier(originatingChat) ?? DEFAULT_MODEL_ID;
+    const fixerModel = resolvePhaseModel(fixerTier, "fixer").modelId;
+    const fixerThinking = resolvePhaseThinking(fixerTier, "fixer");
 
     const loopResult = await runRepairLoop<{ newVersionId: string | null }>({
       initialContent,
@@ -683,9 +681,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       llmRetryTimeoutMs: LLM_FIXER_RETRY_TIMEOUT_MS,
       repairDeadlineEpochMs,
       fixerModel,
-      fixerThinking: fixerThinking?.thinking,
-      fixerReasoningEffort: fixerThinking?.reasoningEffort,
-      fixerReasoningMode: fixerThinking?.reasoningMode,
+      fixerThinking: fixerThinking.thinking,
+      fixerReasoningEffort: fixerThinking.reasoningEffort,
+      fixerReasoningMode: fixerThinking.reasoningMode,
       recurringPatterns: readRecurringPatternsForChat(chatId),
       // Fas 3 (RepairGate): the manual route is a separate HTTP invocation, so
       // it gets a fresh per-run ledger (no in-memory finalize ledger to reuse)
