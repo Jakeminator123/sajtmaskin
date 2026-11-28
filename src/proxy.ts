@@ -363,7 +363,9 @@ export async function proxy(request: NextRequest) {
   }
 
   // ---- Page auth redirects ----
-  if (needsAdminAuth(pathname) || needsUserAuth(pathname)) {
+  const privateAlinaAsset = pathname.startsWith("/video/aida/presenter-v2/") &&
+    !(process.env.NODE_ENV === "development" && ["127.0.0.1", "localhost", "[::1]"].includes(hostname));
+  if (privateAlinaAsset || needsAdminAuth(pathname) || needsUserAuth(pathname)) {
     const token = getTokenFromRequestEdge(request);
     const jwtSecret =
       process.env.JWT_SECRET ||
@@ -374,6 +376,9 @@ export async function proxy(request: NextRequest) {
     }
     const payload = token && jwtSecret ? await verifyTokenEdge(token, jwtSecret) : null;
 
+    if (privateAlinaAsset && (!payload || !isAdminEmailEdge(payload.email))) {
+      return new NextResponse(null, { status: 404, headers: { "Cache-Control": "private, no-store" } });
+    }
     if (needsAdminAuth(pathname)) {
       if (!payload || !isAdminEmailEdge(payload.email)) {
         const redirect = NextResponse.redirect(new URL("/", request.url));
@@ -399,6 +404,7 @@ export async function proxy(request: NextRequest) {
   });
 
   // ---- CORS headers for API responses ----
+  if (privateAlinaAsset) response.headers.set("Cache-Control", "private, no-store");
   if (isApiRoute(pathname)) {
     addCorsHeaders(response, origin, trustedOrigins);
   }
@@ -415,6 +421,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/video/aida/presenter-v2/:path*",
     "/((?!_next/static|_next/image|favicon\\.ico|icons|images|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

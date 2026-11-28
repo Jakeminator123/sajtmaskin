@@ -41,6 +41,7 @@ import { resolveVideoGenerationIntent, type VideoGenerationIntent } from "@/lib/
 import { replaceImportedSourceImage, SourcePagePanel, type SourcePagePanelHandle } from "./SourcePagePanel";
 import { unselectedSourcePageUrl, type SelectedSourcePage } from "@/lib/openclaw/source-page";
 import { readTaskAttachmentIds } from "@/lib/openclaw/read-task-input";
+import { parseOpenClawMessage } from "@/lib/openclaw/text-field-actions";
 import {
   DID_AVATAR_AVAILABLE,
   useDidAvatar,
@@ -48,6 +49,8 @@ import {
   type DidConnectionState,
 } from "@/lib/openclaw/use-did-avatar";
 import { useOpenClawChat } from "./useOpenClawChat";
+import { AlinaStage } from "@/components/avatar/alina-stage";
+import { alinaSpeechVersion } from "@/lib/openclaw/alina-speech";
 import { useOpenClawArmedContinuation } from "./useOpenClawArmedContinuation";
 import { OpenClawMessage } from "./OpenClawMessage";
 import { OpenClawPowersControl } from "./OpenClawPowersControl";
@@ -296,6 +299,7 @@ export function OpenClawChatPanel({
   content = DEFAULT_OPENCLAW_CHAT_PANEL_CONTENT,
   isOpen = true,
   powersAvailable = false,
+  localAlina = false,
 }: {
   onClose: () => void;
   content?: OpenClawChatPanelContent;
@@ -304,6 +308,7 @@ export function OpenClawChatPanel({
    * and kostnadsfri have no builder target, so a grant there could only
    * produce failure cards — the control is not rendered at all. */
   powersAvailable?: boolean;
+  localAlina?: boolean;
 }) {
   const { messages, isStreaming, send, stop, clearConversation } = useOpenClawChat();
   // Closes the armed-autonomy loop: an auto-send registers a watch and this
@@ -324,7 +329,7 @@ export function OpenClawChatPanel({
     addMessage,
   } = useOpenClawStore();
   const isTakeover = panelPresentation === "takeover";
-  const avatar = useDidAvatar({ enabled: avatarMode && isOpen });
+  const avatar = useDidAvatar({ enabled: avatarMode && isOpen && !localAlina });
   const [input, setInput] = useState("");
   const sourceScope = useOpenClawStore((state) => state.scopeKey);
   const scopeRevision = useOpenClawStore((state) => state.scopeRevision);
@@ -516,14 +521,14 @@ export function OpenClawChatPanel({
     const wasStreaming = prevStreamingRef.current;
     prevStreamingRef.current = isStreaming;
     if (!wasStreaming || isStreaming) return;
-    if (!avatarMode) return;
+    if (!avatarMode || localAlina) return;
     if (avatar.connectionState !== "connected") return;
 
     const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
     if (!lastAssistant?.content) return;
     const speechText = truncateForSpeech(lastAssistant.content);
     if (speechText) void avatar.speak(speechText);
-  }, [isStreaming, avatarMode, avatar, messages]);
+  }, [isStreaming, avatarMode, avatar, messages, localAlina]);
 
   // Seeded campaign intro never goes through the streaming path, so the
   // greeting would otherwise stay silent even after the avatar connects.
@@ -532,7 +537,7 @@ export function OpenClawChatPanel({
     if (!avatarMode) greetedIntroRef.current = false;
   }, [avatarMode]);
   useEffect(() => {
-    if (!isOpen || !avatarMode) return;
+    if (!isOpen || !avatarMode || localAlina) return;
     if (!avatar.avatarReady) return;
     if (avatar.connectionState !== "connected") return;
     if (greetedIntroRef.current) return;
@@ -542,7 +547,7 @@ export function OpenClawChatPanel({
     if (!speechText) return;
     greetedIntroRef.current = true;
     void avatar.speak(speechText);
-  }, [isOpen, avatarMode, avatar, avatar.avatarReady, avatar.connectionState, messages]);
+  }, [isOpen, avatarMode, avatar, avatar.avatarReady, avatar.connectionState, messages, localAlina]);
 
   useEffect(() => () => {
     const recording = recognitionRef.current;
@@ -738,7 +743,14 @@ export function OpenClawChatPanel({
     }
   }, []);
 
-  const showAvatar = avatarMode && DID_AVATAR_AVAILABLE;
+  const avatarAvailable = localAlina || DID_AVATAR_AVAILABLE;
+  const showAvatar = avatarMode && avatarAvailable;
+  const latest = messages[messages.length - 1];
+  const spokenReply =
+    localAlina && !isStreaming && latest?.role === "assistant" && latest.delivery === "complete"
+      ? parseOpenClawMessage(latest.content).visibleContent.trim()
+      : "";
+  const alinaReply = spokenReply ? { id: latest.id, ...alinaSpeechVersion(spokenReply, latest.alinaSpoken) } : null;
   const showLiveAvatar = showAvatar && avatar.avatarReady;
   const panelWidthClass = avatarExpanded
     ? "w-[min(520px,calc(100vw-1rem))]"
@@ -861,7 +873,7 @@ export function OpenClawChatPanel({
               )}
             </button>
           ) : null}
-          {DID_AVATAR_AVAILABLE ? (
+          {avatarAvailable ? (
             <button
               type="button"
               onClick={() => setAvatarMode(!avatarMode)}
@@ -902,7 +914,17 @@ export function OpenClawChatPanel({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
-        {showAvatar ? (
+        {localAlina && showAvatar ? (
+          isOpen ? (
+            <AlinaStage
+              reply={alinaReply}
+              draft={input}
+              interrupted={latest?.role === "assistant" && latest.delivery === "interrupted"}
+              waitingForModel={isStreaming && latest?.alinaWait}
+              userTurn={messages.findLast((message) => message.role === "user")?.id}
+            />
+          ) : null
+        ) : showAvatar ? (
           <OpenClawAvatarStage
             isTakeover={isTakeover}
             avatarExpanded={avatarExpanded}
@@ -954,7 +976,7 @@ export function OpenClawChatPanel({
                       {content.emptyBody}
                     </p>
                   </div>
-                  {DID_AVATAR_AVAILABLE && !avatarMode ? (
+                  {avatarAvailable && !avatarMode ? (
                     <button
                       type="button"
                       onClick={() => setAvatarMode(true)}

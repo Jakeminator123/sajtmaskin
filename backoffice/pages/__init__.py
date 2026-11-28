@@ -9,6 +9,7 @@ from . import (
     building_blocks,
     codegen_core,
     concurrency,
+    alina,
     control_plane,
     cursor_agents,
     database_health,
@@ -83,6 +84,7 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
         mode="read",
         blurb="Registerkarta: vilken fil äger vilket beslut, och var den redigeras.",
     ),
+    PageSpec("Alinas studio", "Start", alina.render, mode="edit", blurb="Regissörsvy för Alinas entré, röst, format och bakgrund."),
     # ── Byggstenar ───────────────────────────────────────────────────────
     # Ordningen är arbetsordningen: förstå → titta → skapa/ta bort → guide →
     # byggblock → mallar. Namnen innehåller verbet, så menyn svarar på "var

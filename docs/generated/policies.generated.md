@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:432febda8e8078e7 -->
+<!-- source-fingerprint: config/env-policy.json sha256:d7b045425bc9605c -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:906768b4c309ab32 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:ed83b142db793efe -->
 
@@ -32,6 +32,8 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `ADMIN_CREDENTIALS`                                  | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `ADMIN_EMAILS`                                       | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `ADMIN_HANDOFF_SECRET`                               | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
+| `ALINA_BRIDGE_TOKEN`                                 | `optional_runtime`     | `preview`, `production`                | No            | No           |
+| `ALINA_STUDIO_URL`                                   | `optional_runtime`     | `preview`, `production`                | No            | No           |
 | `AUDIT_WEB_SEARCH`                                   | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `AUTH_DEBUG`                                         | `local_only`           | —                                      | Yes           | No           |
 | `BACKOFFICE_PASSWORD`                                | `environment_specific` | `preview`, `production`                | Yes           | No           |

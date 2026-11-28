@@ -27,6 +27,9 @@ import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context
 import { buildOpenClawReviewContext } from "@/lib/openclaw/review-context";
 import { buildOpenClawPreviewLogBlock } from "@/lib/openclaw/preview-log-context";
 import { postOpenClawChatCompletion } from "@/lib/openclaw/gateway-client";
+import { ALINA_SPEECH_PROMPT } from "@/lib/openclaw/alina-speech";
+import { hostedAlina } from "@/lib/avatar/alina-hosted";
+import { requireAdminAccess } from "@/lib/auth/admin";
 import {
   OPENCLAW_DISPATCH_HEADER,
   OPENCLAW_DISPATCH_NOT_STARTED,
@@ -57,6 +60,7 @@ interface ChatMessage {
 }
 
 interface ChatRequestBody {
+  alinaVoice?: boolean;
   messages?: unknown;
   readTask?: unknown;
   fastMode?: boolean;
@@ -461,6 +465,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const labVoice = body.alinaVoice === true && (
+      (process.env.NODE_ENV === "development" && gatewayUrl === "http://127.0.0.1:18792")
+      || (Boolean(hostedAlina()) && (await requireAdminAccess(req)).ok)
+    );
+    if (labVoice) messages.push({role: "system", content: ALINA_SPEECH_PROMPT});
     messages.push(...clientMessages);
 
     const modelRoute = resolveOpenClawModelRoute({
@@ -477,7 +486,8 @@ export async function POST(req: NextRequest) {
       // before invoking the gateway so no post-send failure can be mislabeled
       // as safe to retry.
       gatewayDispatched = true;
-      const { response: upstream, route: effectiveRoute } = await postOpenClawChatCompletion({
+      const gatewayStartedAt = Date.now();
+      const dispatched = postOpenClawChatCompletion({
         gatewayUrl,
         gatewayToken,
         route: modelRoute,
@@ -486,8 +496,55 @@ export async function POST(req: NextRequest) {
           messages,
           stream: true,
         },
-        timeoutMs: 90_000,
+        // The isolated Alina gateway boots its local agent and a remote text model on first use.
+        timeoutMs:
+          process.env.NODE_ENV === "development" && gatewayUrl === "http://127.0.0.1:18792"
+            ? 180_000
+            : 90_000,
       });
+
+      if (labVoice) {
+        // Send the route decision before the gateway has produced its first token.
+        const encoder = new TextEncoder();
+        let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+        let cancelled = false;
+        const stream = new ReadableStream<Uint8Array>({
+          async start(controller) {
+            controller.enqueue(encoder.encode(": alina\n\n"));
+            try {
+              const { response } = await dispatched;
+              if (cancelled) { await response.body?.cancel(); return; }
+              if (!response.ok || !response.body) {
+                await response.body?.cancel();
+                throw new Error("gateway");
+              }
+              reader = response.body.getReader();
+              let first = true;
+              while (!cancelled) {
+                const {value, done} = await reader.read();
+                if (done || cancelled) break;
+                if (first) {
+                  console.info("[alina/chat]", modelRoute.lane, "first gateway bytes ms", Date.now() - gatewayStartedAt);
+                  first = false;
+                }
+                controller.enqueue(value);
+              }
+            } catch {
+              if (!cancelled) controller.enqueue(encoder.encode('data: {"error":{"message":"Gateway error"}}\n\n'));
+            } finally {
+              reader?.releaseLock();
+              if (!cancelled) controller.close();
+              console.info("[alina/chat]", modelRoute.lane, "gateway complete ms", Date.now() - gatewayStartedAt);
+            }
+          },
+          async cancel() { cancelled = true; await reader?.cancel(); },
+        });
+        return new Response(stream, { headers: {
+          "Content-Type": "text/event-stream", "Cache-Control": "no-store",
+          "X-Alina-Lane": modelRoute.lane,
+        } });
+      }
+      const {response: upstream, route: effectiveRoute} = await dispatched;
 
       if (!upstream.ok) {
         console.warn(

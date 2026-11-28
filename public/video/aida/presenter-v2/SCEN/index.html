@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Alina · Sajtmaskin</title>
+    <link rel="stylesheet" href="studio.css?v=8" />
+  </head>
+  <body>
+    <section hidden id="file-launch">
+      <h1>Alinas studio</h1>
+      <p>Öppna studion via webbservern för att prova röst och läppsynk.</p>
+      <a href="http://127.0.0.1:5814/admin">Öppna Alinas lokala studio</a>
+      <p>Om servern är avstängd, kör <code>npm run alina:studio</code> i projektmappen.</p>
+    </section>
+    <main>
+      <header>
+        <div>
+          <span class="brand">Sajtmaskin</span>
+          <h1>Alinas studio</h1>
+        </div>
+        <a id="edit-link" href="?edit=1">Öppna regissörsvyn</a>
+      </header>
+      <div class="layout">
+        <section class="preview">
+          <div id="stage" class="stage" aria-label="Alinas videoscen">
+            <div class="scene-window">
+              <div id="set">
+                <img id="near" alt="" src="kvall.webp" />
+                <div id="ambience">
+                  <img id="backdrop" alt="" src="kvall.webp" />
+                  <div class="water"><img class="boat" src="motorbat.webp" alt="" /></div>
+                  <div class="door"><img class="passer" src="kollega.webp" alt="" /></div>
+                </div>
+              </div>
+            </div>
+            <canvas id="person" width="540" height="720" aria-label="Alina"></canvas>
+            <canvas id="mouth" width="180" height="120" hidden aria-hidden="true"></canvas>
+            <canvas id="outgoing" hidden aria-hidden="true"></canvas>
+            <div class="sill" aria-hidden="true"></div>
+            <img id="sleeper" alt="" src="../A-SOVA/ankare.webp?v=2" />
+            <video id="film" muted playsinline preload="auto" hidden></video>
+            <button id="listen" class="listen" hidden>Spela med ljud</button>
+            <div class="caption">
+              <span>Alina</span><output id="state" aria-live="polite">A-IDLE</output>
+            </div>
+          </div>
+          <p id="line" aria-live="polite"></p>
+          <div id="transport">
+            <button id="start">Spela entré och hälsning</button
+            ><button id="audio" aria-pressed="false">Stäng av ljud</button>
+          </div>
+        </section>
+        <form id="director" hidden>
+          <h2>Regissörsvy</h2>
+          <label
+            >Miljö<select id="scene">
+              <option value="kvall">Hamnkontoret</option>
+              <option value="bibliotek">Biblioteket</option>
+              <option value="atelje">Ateljén</option>
+            </select></label
+          >
+          <label
+            >Bildformat<select id="format">
+              <option value="wide">Liggande · 16:9</option>
+              <option value="square">Kvadratiskt · 1:1</option>
+              <option value="portrait">Stående · 3:4</option>
+            </select></label
+          >
+          <label
+            >Bakgrundsoskärpa <output id="blur-value"></output
+            ><input id="blur" type="range" min="0" max="8" step="0.5"
+          /></label>
+          <label class="check"
+            ><input id="ambient" type="checkbox" /> Ljus och rörelse i bakgrunden</label
+          >
+          <label class="check"
+            ><input id="entrance" type="checkbox" /> Spela entrén vid välkomsthälsning</label
+          >
+          <label class="check"
+            ><input id="personal" type="checkbox" /> Hälsa med förnamn från inloggningen</label
+          >
+          <label class="check"
+            ><input id="enabled" type="checkbox" /> Aktivera Alina i chatten</label
+          >
+          <label
+            >Vila efter <output id="idleMinutes-value"></output>
+            <input id="idleMinutes" type="range" min="1" max="30" step="1" />
+          </label>
+          <div class="pair">
+            <label
+              >Röst<select id="voice">
+                <option value="sanna">Sanna Hartfield</option>
+                <option value="eva">Eva</option>
+                <option value="vera">Vera</option>
+              </select></label
+            ><label
+              >Taltempo <output id="tempo-value"></output
+              ><input id="tempo" type="range" min="0.70" max="1.25" step="0.05"
+            /></label>
+          </div>
+          <label>Läppsynk<select id="method">
+            <option value="musetalk">MuseTalk</option>
+            <option value="visemes">Sparade munbilder · lokal</option>
+          </select></label>
+          <details>
+            <summary>Fördelning av idle-klipp</summary>
+            <label
+              >Chans efter ett andetag <output id="chance-value"></output
+              ><input id="chance" type="range" min="0" max="100" step="1"
+            /></label>
+            <div id="weights"></div>
+          </details>
+          <button type="submit">Spara standardinställningar</button
+          ><output id="saved" role="status"></output>
+          <details id="service-status">
+            <summary>Drift och krediter</summary>
+            <p id="studio-budget"></p>
+            <button type="button" id="check-accounts">Kontrollera RunPod, ElevenLabs och drift</button>
+            <dl id="account-status" aria-live="polite"></dl>
+            <p>OpenAI-provet skickar en kort testtext med studions nyckel och kan debiteras separat.</p>
+            <button type="button" id="check-openai">Prova OpenAI-nyckeln</button>
+            <p id="openai-status" role="status"></p>
+          </details>
+          <h3>Provspela</h3>
+          <label
+            >Förnamn i lokal provhälsning<input
+              id="name"
+              maxlength="45"
+              placeholder="Till exempel Jakob"
+          /></label>
+          <div class="actions">
+            <button type="button" id="welcome">Välkomsthälsning</button
+            ><button type="button" id="sample">A-TALK · röstprov</button
+            ><button type="button" id="computer">A-DATOR</button
+            ><button type="button" id="event">Bakgrundshändelse</button>
+            <button type="button" id="sleep-preview">A-SOVA</button>
+          </div>
+          <label for="reply-text"
+            >Eget chatsvar
+            <textarea
+              id="reply-text"
+              rows="3"
+              maxlength="450"
+              placeholder="Skriv det Alina ska säga."
+            ></textarea>
+          </label>
+          <button type="button" id="try-reply" disabled>Provspela chatsvar</button>
+          <button type="button" id="compare" disabled>Jämför båda med samma ljud</button>
+          <details id="measurements">
+            <summary>Tider för läppsynk</summary>
+            <p>Första ordet mäts med ljudspårets talstart och spelarens klocka. Vid jämförelse startar en ny mätning för varje metod.</p>
+            <p><output id="gpu-state" role="status"></output></p>
+            <output id="reply-times" aria-live="polite"></output>
+            <p><output id="measure-visemes"></output></p>
+            <p><output id="measure-musetalk"></output></p>
+            <p><output id="measure-intro"></output></p>
+          </details>
+          <a href="../IDLE/index.html">Öppna klippbiblioteket</a>
+          <a id="chat-link" href="/">Öppna Alina i chatten</a>
+        </form>
+      </div>
+    </main>
+    <script src="keyer.js?v=3"></script>
+    <script src="mouth.js?v=2"></script>
+    <script src="entry.js?v=1" data-studio="studio.js?v=12"></script>
+  </body>
+</html>

@@ -1,0 +1,440 @@
+:root {
+  --surround: #161b20;
+  color-scheme: dark;
+  font:
+    15px/1.45 "DM Sans",
+    Inter,
+    system-ui,
+    sans-serif;
+  background: var(--surround);
+  color: #f0efe8;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 1220px;
+  padding: clamp(16px, 4vw, 52px);
+  margin: auto;
+}
+header,
+.pair,
+.actions,
+#transport,
+.caption {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+header {
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+.brand {
+  font-size: 13px;
+  color: #b3cabf;
+}
+h1 {
+  font:
+    normal clamp(32px, 5vw, 56px)/1 Georgia,
+    serif;
+  letter-spacing: -0.05em;
+  margin: 5px 0 0;
+}
+h2,
+h3 {
+  margin: 0 0 10px;
+  font-weight: 550;
+}
+h3 {
+  margin-top: 12px;
+  font-size: 16px;
+}
+a {
+  color: #d4e7dc;
+  text-underline-offset: 4px;
+}
+.layout {
+  display: grid;
+  gap: 24px;
+}
+.editing .layout {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+}
+.preview {
+  min-width: 0;
+}
+.stage {
+  --sill-height: 20%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: var(--surround);
+}
+.scene-window {
+  position: absolute;
+  inset: 0;
+  background: #283645;
+  clip-path: inset(0 0 var(--sill-height) round 18px);
+}
+.sill {
+  position: absolute;
+  inset: calc(100% - var(--sill-height)) 0 0;
+  z-index: 2;
+  background: var(--surround);
+  pointer-events: none;
+}
+#sleeper {
+  display: none;
+  position: absolute;
+  top: var(--presenter-top, 0px);
+  left: 50%;
+  height: var(--presenter-height, 100%);
+  width: auto;
+  max-width: none;
+  object-fit: contain;
+  transform: translateX(-50%);
+  transform-origin: 50% 80%;
+  pointer-events: none;
+  z-index: 3;
+}
+.stage[data-state="A-SOVA"] #sleeper {
+  display: block;
+  animation: sleeping-breath 6s ease-in-out infinite;
+}
+.stage[data-state="A-SOVA"] #person {
+  visibility: hidden;
+}
+.stage[data-state="SOMNAR"] #person,
+.stage[data-state="VAKNAR"] #person {
+  z-index: 3;
+}
+.stage[data-state="A-SOVA"] #set {
+  animation-play-state: paused;
+}
+@keyframes sleeping-breath {
+  50% {
+    transform: translateX(-50%) scaleY(1.009);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage[data-state="A-SOVA"] #sleeper {
+    animation: none;
+  }
+}
+.stage[data-format="square"] {
+  aspect-ratio: 1;
+  max-width: 600px;
+  margin: auto;
+}
+.stage[data-format="portrait"] {
+  aspect-ratio: 3/4;
+  max-width: 425px;
+  margin: auto;
+}
+#set {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  transition: transform 1.3s ease;
+  pointer-events: none;
+}
+#set.camera {
+  transform: translate(-50%, -52%) scale(1.035);
+}
+#ambience,
+#backdrop,
+.water,
+.door {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+}
+#ambience {
+  filter: blur(var(--blur, 2px));
+}
+#backdrop {
+  display: block;
+}
+.ambient #set {
+  animation: cloud 34s ease-in-out infinite alternate;
+}
+@keyframes cloud {
+  0%,
+  18%,
+  95%,
+  100% {
+    filter: brightness(1);
+  }
+  52%,
+  62% {
+    filter: brightness(0.92);
+  }
+}
+.water,
+.door {
+  display: none;
+  overflow: hidden;
+}
+.stage[data-scene="kvall"].ambient .water,
+.stage[data-scene="atelje"].ambient .door {
+  display: block;
+}
+.water {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0 23.2%,
+    black 23.2% 32.2%,
+    transparent 32.2% 33.4%,
+    black 33.4% 67%,
+    transparent 67% 68.3%,
+    black 68.3% 80.8%,
+    transparent 80.8%
+  );
+}
+.boat {
+  position: absolute;
+  top: 49.3%;
+  width: 4.2%;
+  left: 17%;
+  opacity: 0;
+}
+.door {
+  clip-path: polygon(8% 48%, 8.5% 43%, 10% 40%, 12% 38.5%, 14% 39%, 16.7% 42%, 16.7% 68%, 8% 68%);
+}
+.passer {
+  position: absolute;
+  bottom: 33.5%;
+  height: 21%;
+  width: auto;
+  opacity: 0;
+  filter: brightness(0.55) blur(1.3px);
+}
+#person {
+  display: block;
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+}
+#mouth, #outgoing {
+  position: absolute;
+  pointer-events: none;
+}
+#outgoing {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.caption {
+  position: absolute;
+  bottom: calc(var(--sill-height) + 10px);
+  z-index: 4;
+  left: 14px;
+  background: #14201fc9;
+  color: #fff;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  gap: 9px;
+  pointer-events: none;
+}
+.caption output {
+  color: #ccdfd4;
+  font-size: 10px;
+}
+.listen {
+  position: absolute;
+  z-index: 5;
+  inset: auto 12px calc(var(--sill-height) + 10px) auto;
+}
+button,
+select,
+textarea,
+input:not([type="range"], [type="checkbox"]) {
+  font: inherit;
+  border: 1px solid #66736d;
+  border-radius: 8px;
+  background: #27322f;
+  color: #f5f4ee;
+  padding: 8px 11px;
+}
+button,
+summary {
+  cursor: pointer;
+}
+button:not(:disabled):hover {
+  background: #36453f;
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #b8e8cd;
+  outline-offset: 3px;
+}
+#director {
+  border: 1px solid #ffffff20;
+  border-radius: 14px;
+  padding: 17px;
+  background: #1d2627;
+  display: grid;
+  gap: 10px;
+}
+#director[hidden],
+[hidden] {
+  display: none !important;
+}
+#director label {
+  display: block;
+  font-size: 13px;
+}
+label > select,
+label > textarea,
+label > input:not([type="checkbox"]) {
+  width: 100%;
+  display: block;
+  margin-top: 3px;
+}
+textarea {
+  resize: vertical;
+}
+input[type="range"],
+input[type="checkbox"] {
+  accent-color: #b3d7c3;
+}
+label.check {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+}
+.pair {
+  align-items: end;
+}
+.pair > label {
+  flex: 1;
+}
+.actions,
+#transport {
+  flex-wrap: wrap;
+}
+#line {
+  min-height: 1.45em;
+  margin: 12px 0;
+  color: #d9e3da;
+}
+button[type="submit"] {
+  background: #bfd4bf;
+  color: #19281d;
+}
+.embedded main {
+  padding: 0;
+}
+.embedded header,
+.embedded #transport,
+.embedded #line:empty {
+  display: none;
+}
+.embedded .stage {
+  max-width: none;
+  height: 100dvh;
+}
+.embedded #line {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 18dvh;
+  overflow: auto;
+  font-size: 12px;
+  margin: 5px 8px;
+}
+.embedded {
+  background: var(--surround);
+}
+#weights {
+  display: grid;
+  gap: 5px;
+  margin: 7px 0;
+}
+.weight-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.weight-row button {
+  font-size: 12px;
+  padding: 4px 9px;
+}
+.actions button {
+  font-size: 13px;
+}
+@media (max-width: 780px) {
+  .editing .layout {
+    grid-template-columns: 1fr;
+  }
+  main {
+    padding: 15px;
+  }
+  #director {
+    grid-template-columns: 1fr;
+  }
+  .caption {
+    bottom: 7px;
+    left: 7px;
+  }
+  .stage {
+    border-radius: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ambient #set {
+    animation: none;
+  }
+  #set {
+    transition: none;
+  }
+}
+#near {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+#backdrop {
+  mask-image: radial-gradient(ellipse at 51% 37%, black 30%, #000e 53%, transparent 89%);
+}
+.stage[data-scene="kvall"] #backdrop {
+  mask-image: linear-gradient(to bottom, black 0 56%, transparent 81%);
+}
+.embedded .caption output {
+  display: none;
+}
+.embedded main,
+.embedded .layout,
+.embedded .preview {
+  height: 100dvh;
+}
+.embedded .preview {
+  display: flex;
+  flex-direction: column;
+}
+.embedded #stage {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  aspect-ratio: auto;
+}

@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   latestVersion: vi.fn(),
   buildContext: vi.fn(),
   validateMessages: vi.fn(),
+  admin: vi.fn(),
+  studio: vi.fn(),
   powers: { any: false, armedAutonomy: false } as {
     any: boolean;
     armedAutonomy: boolean;
@@ -19,6 +21,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/openclaw/read-task", () => ({ answerOpenClawReadTask: mocks.answerReadTask }));
 
+vi.mock("@/lib/auth/admin", () => ({ requireAdminAccess: mocks.admin }));
+vi.mock("@/lib/avatar/alina-hosted", () => ({ hostedAlina: mocks.studio }));
 vi.mock("@/lib/config", () => ({
   OPENCLAW: {
     gatewayUrl: "https://gateway.example",
@@ -170,6 +174,14 @@ describe("OpenAI Fast", () => {
 });
 
 describe("POST /api/openclaw/chat dispatch receipt", () => {
+  it.each([true, false])("adds hosted voice only for a lab administrator (admin=%s)", async ok => {
+    mocks.studio.mockReturnValueOnce({ origin: "https://studio.example" });
+    mocks.admin.mockResolvedValueOnce({ ok });
+    const response = await POST(request(JSON.stringify({ messages: [{ role: "user", content: "hej" }], alinaVoice: true })));
+    expect(response.headers.has("x-alina-lane")).toBe(ok);
+    expect(JSON.stringify(mocks.gateway.mock.calls[0][0].body.messages).includes("[ALINA-TAL]")).toBe(ok);
+    await response.text();
+  });
   it.each([403, 429, 503])(
     "certifierar limiter-svar %s som not-started",
     async (status) => {

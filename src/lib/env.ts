@@ -130,6 +130,8 @@ export const serverSchema = z.object({
 
   // OpenClaw (Sajtagenten)
   OPENCLAW_GATEWAY_URL: z.string().optional(),
+  ALINA_STUDIO_URL: z.string().optional(),
+  ALINA_BRIDGE_TOKEN: z.string().optional(),
   OPENCLAW_GATEWAY_TOKEN: z.string().optional(),
   /** Server-owned fast/balanced/strong agent routing. Defaults off so Vercel
    * can be deployed before the Render gateway exposes all three agent ids. */

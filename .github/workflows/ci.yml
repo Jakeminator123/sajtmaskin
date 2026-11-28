@@ -567,7 +567,7 @@ jobs:
 
       - name: Install backoffice dependencies
         if: ${{ env.RUN_HEAVY == 'true' }}
-        run: python -m pip install --disable-pip-version-check -r requirements.backoffice.txt
+        run: python -m pip install --disable-pip-version-check -r requirements.backoffice.txt -r scripts/alina/requirements.txt
 
       # Curator-testerna kör den statiska Node-auditorn mot lokala ZIP-fixtures.
       # Installera exakt lockfilens beroenden; inga package scripts behövs här.
@@ -578,6 +578,10 @@ jobs:
       - name: Backoffice tests (blocking)
         if: ${{ env.RUN_HEAVY == 'true' }}
         run: npm run backoffice:test
+
+      - name: Alina speech worker tests (blocking, offline)
+        if: ${{ env.RUN_HEAVY == 'true' }}
+        run: npm run alina:test
 
       # Genlogg-insamlingen (scripts/observability/last-generated-usersite.py).
       # Också nyckelfri och offline: env-parsning, secret-maskering,

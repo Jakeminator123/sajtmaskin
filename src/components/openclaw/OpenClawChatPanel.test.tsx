@@ -3,11 +3,13 @@ import { act } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { emptyCampaignScript } from "@/lib/kostnadsfri/agent-campaign-script";
 import { OpenClawChatPanel } from "./OpenClawChatPanel";
-import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
+import { useOpenClawStore, type OpenClawMessage } from "@/lib/openclaw/openclaw-store";
+
+const chat = vi.hoisted(() => ({ messages: [] as OpenClawMessage[] }));
 
 vi.mock("./useOpenClawChat", () => ({
   useOpenClawChat: () => ({
-    messages: [],
+    messages: chat.messages,
     isStreaming: false,
     send: vi.fn(),
     stop: vi.fn(),
@@ -16,6 +18,7 @@ vi.mock("./useOpenClawChat", () => ({
 }));
 
 beforeEach(() => {
+  chat.messages = [];
   // The panel's mount effect fetches /api/openclaw/health and writes the store.
   vi.stubGlobal(
     "fetch",
@@ -37,6 +40,35 @@ beforeEach(() => {
 });
 
 describe("OpenClawChatPanel", () => {
+  it("sends completed replies to Alina and keeps an interrupted stream silent", () => {
+    act(() => useOpenClawStore.setState({ avatarMode: true }));
+    const { rerender } = render(<OpenClawChatPanel onClose={vi.fn()} localAlina />);
+    const frame = screen.getByTitle("Alina i studion") as HTMLIFrameElement;
+    const target = frame.contentWindow!;
+    const post = vi.spyOn(target, "postMessage");
+    fireEvent(window, new MessageEvent("message", {
+      origin: location.origin,
+      source: target,
+      data: { type: "alina:ready" },
+    }));
+    const question: OpenClawMessage = { id: "question", role: "user", timestamp: 0, content: "Hej!" };
+    chat.messages = [question, {
+      id: "failed", role: "assistant", timestamp: 1,
+      delivery: "interrupted", content: "Tekniskt fel.",
+    }];
+    rerender(<OpenClawChatPanel onClose={vi.fn()} localAlina />);
+    expect(post.mock.calls.filter(([message]) => message.type === "alina:reply")).toHaveLength(0);
+    const nextQuestion = { ...question, id: "next-question" };
+    chat.messages = [question, nextQuestion, {
+      id: "done", role: "assistant", timestamp: 2,
+      delivery: "complete", content: "Hej Jakob!",
+    }];
+    rerender(<OpenClawChatPanel onClose={vi.fn()} localAlina />);
+    expect(post).toHaveBeenCalledWith({
+      type: "alina:reply", text: "Hej Jakob!", turn: "next-question", summary: false, readyAt: expect.any(Number),
+    }, location.origin);
+  });
+
   it("uses viewport-clamped sizing classes for narrow screens", () => {
     const { container } = render(<OpenClawChatPanel onClose={vi.fn()} />);
     const panel = container.firstElementChild as HTMLElement | null;
