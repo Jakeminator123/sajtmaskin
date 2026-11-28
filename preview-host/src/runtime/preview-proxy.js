@@ -681,6 +681,19 @@ function chatStateForPreviewOriginSlug(slug) {
   return state ? { chatId, state } : null;
 }
 
+function isDeclaredPublicFile(req, pathname, session) {
+  if ((req.method !== "GET" && req.method !== "HEAD") || req.headers.upgrade) return false;
+  if (/%2f|%5c/i.test(pathname)) return false;
+  let filePath;
+  try {
+    filePath = decodeURIComponent(pathname);
+  } catch {
+    return false;
+  }
+  if (CONTROL_PLANE_PATH_RE.test(filePath) || /^\/__sm(?:\/|$)/.test(filePath)) return false;
+  return Object.hasOwn(session.filesJson ?? {}, `public${filePath}`);
+}
+
 /**
  * Den enda origin-medvetna punkten i proxyn. Returnerar:
  *   - `null`                         ej en preview-request (anroparen faller vidare)
@@ -718,17 +731,17 @@ function resolvePreviewTarget(req, pathname, search = "") {
     if (direct) return { type: "proxy", info, state: direct };
   }
   const isRoot = pathname === "/";
-  if (
-    !isRoot &&
-    !NEXT_INTERNAL_ROOT_PATH_RE.test(pathname) &&
-    !APP_API_ROOT_PATH_RE.test(pathname)
-  ) {
-    return null;
-  }
   const owned = chatStateForPreviewOriginSlug(host.slug);
   if (!owned) return null;
   if (isRoot) {
     return { type: "redirect", location: `/${encodeURIComponent(owned.chatId)}${search}` };
+  }
+  if (
+    !NEXT_INTERNAL_ROOT_PATH_RE.test(pathname) &&
+    !APP_API_ROOT_PATH_RE.test(pathname) &&
+    !isDeclaredPublicFile(req, pathname, owned.state.session)
+  ) {
+    return null;
   }
   return {
     type: "proxy",

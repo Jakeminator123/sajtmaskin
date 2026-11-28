@@ -147,6 +147,8 @@ const largePrefix = Buffer.concat([
 ]);
 const splitEmoji = Buffer.from("🧪", "utf8");
 const largeDocumentTail = Buffer.from("TAIL</body></html>", "utf8");
+const publicImagePath = "/illustrations/skogs-glantan.svg";
+const publicImageBody = '<svg xmlns="http://www.w3.org/2000/svg"><circle r="5"/></svg>';
 const upstream = http.createServer((req, res) => {
   lastUpstreamHeaders = req.headers;
   lastUpstreamUrl = req.url;
@@ -156,6 +158,11 @@ const upstream = http.createServer((req, res) => {
   req.on("end", () => {
     lastUpstreamBody = Buffer.concat(chunks).toString("utf8");
     const requestPath = new URL(req.url, "http://runtime.invalid").pathname;
+    if (requestPath.endsWith(publicImagePath)) {
+      res.writeHead(200, { "content-type": "image/svg+xml" });
+      res.end(publicImageBody);
+      return;
+    }
     if (requestPath.endsWith("/no-content")) {
       res.writeHead(204, { "content-type": "text/html; charset=utf-8" });
       res.end();
@@ -862,6 +869,10 @@ async function runPreviewOriginContracts() {
     };
     previewSessionToSession[previewSessionId] = sessionId;
   }
+  const publicFilesA = sessions[`session-${chatA}`].filesJson;
+  publicFilesA[`public${publicImagePath}`] = publicImageBody;
+  publicFilesA["public/illustrations/blå bär.svg"] = publicImageBody;
+  publicFilesA["public/admin/metrics"] = "reserved";
   store.writeStoreAtomicSync({ sessions, logs: {}, previewSessionToSession, prewarmLeases: {} });
   for (const chatId of [chatA, chatB]) {
     runtime.__testing.setRuntimeStateForTesting({
@@ -1013,6 +1024,21 @@ async function runPreviewOriginContracts() {
     });
     assert.equal(spoofedReferer.status, 200);
     assert.equal(lastUpstreamUrl, `/${chatB}/api/chat`, "Host slug wins over Referer");
+
+    // A browser resolves an unprefixed <img src> on the preview origin.
+    const image = await onHost(hostA, `${publicImagePath}?v=1`);
+    assert.equal(image.status, 200, "serve the project's declared public SVG");
+    assert.equal(image.headers["content-type"], "image/svg+xml");
+    assert.equal(image.body, publicImageBody);
+    assert.equal(lastUpstreamUrl, `/${encA}${publicImagePath}?v=1`);
+    const encodedImage = "/illustrations/bl%C3%A5%20b%C3%A4r.svg";
+    assert.equal((await onHost(hostA, encodedImage, { method: "HEAD" })).status, 200);
+    assert.equal(lastUpstreamUrl, `/${encA}${encodedImage}`);
+    lastUpstreamUrl = null;
+    assert.equal((await onHost(hostB, publicImagePath)).status, 404);
+    assert.equal((await onHost(hostA, "/illustrations/missing.svg")).status, 404);
+    assert.equal((await onHost(hostA, publicImagePath, { method: "POST" })).status, 404);
+    assert.equal(lastUpstreamUrl, null);
 
     // Root of a preview origin forwards to the chat; placeholder stays public.
     const rootRedirect = await onHost(hostA, "/?a=1");
