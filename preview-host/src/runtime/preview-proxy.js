@@ -341,11 +341,7 @@ function sendPendingSessionNavigationPage(req, res, pathname) {
   const info = routeInfoFromPathname(pathname);
   if (!info || !isPreviewDocumentNavigation(req, info.restPath)) return false;
   const host = classifyRequestHost(req);
-  if (host.kind === "preview") {
-    if (chatStateForPreviewOriginSlug(host.slug)) return false;
-  } else if (host.kind !== "disabled") {
-    return false;
-  }
+  if (host.kind !== "preview" && host.kind !== "disabled") return false;
   if (!res || res.headersSent || res.writableEnded) return false;
   res.writeHead(503, {
     "content-type": "text/html; charset=utf-8",
@@ -651,10 +647,10 @@ function resolveSharedOriginTarget(req, pathname) {
 // inaktuellt index kan aldrig routa en värd till fel chatt.
 let previewOriginSlugIndex = new Map();
 
-function rebuildPreviewOriginSlugIndex() {
+function rebuildPreviewOriginSlugIndex(store) {
   const next = new Map();
   const nowMs = Date.now();
-  for (const session of Object.values(readStoreSync().sessions ?? {})) {
+  for (const session of Object.values(store.sessions ?? {})) {
     if (!session || session.status === "destroyed") continue;
     const expiresAt = Date.parse(session.sessionExpiresAt);
     if (Number.isFinite(expiresAt) && nowMs > expiresAt) continue;
@@ -665,20 +661,34 @@ function rebuildPreviewOriginSlugIndex() {
   previewOriginSlugIndex = next;
 }
 
-function stateOwnedBySlug(chatId, slug) {
+function stateOwnedBySlug(chatId, slug, store) {
   if (!chatId) return null;
-  const state = getRuntimeStateForChat(chatId);
+  const state = getRuntimeStateForChat(chatId, store);
   if (!state.session) return null;
   return sessionPreviewOriginSlug(state.session, chatId) === slug ? state : null;
 }
 
 function chatStateForPreviewOriginSlug(slug) {
-  const cached = stateOwnedBySlug(previewOriginSlugIndex.get(slug), slug);
+  const store = readStoreSync();
+  const cached = stateOwnedBySlug(previewOriginSlugIndex.get(slug), slug, store);
   if (cached) return { chatId: previewOriginSlugIndex.get(slug), state: cached };
-  rebuildPreviewOriginSlugIndex();
+  rebuildPreviewOriginSlugIndex(store);
   const chatId = previewOriginSlugIndex.get(slug);
-  const state = stateOwnedBySlug(chatId, slug);
+  const state = stateOwnedBySlug(chatId, slug, store);
   return state ? { chatId, state } : null;
+}
+
+function isDeclaredPublicFile(req, pathname, session) {
+  if ((req.method !== "GET" && req.method !== "HEAD") || req.headers.upgrade) return false;
+  if (/%2f|%5c/i.test(pathname)) return false;
+  let filePath;
+  try {
+    filePath = decodeURIComponent(pathname);
+  } catch {
+    return false;
+  }
+  if (CONTROL_PLANE_PATH_RE.test(filePath) || /^\/__sm(?:\/|$)/.test(filePath)) return false;
+  return Object.hasOwn(session.filesJson ?? {}, `public${filePath}`);
 }
 
 /**
@@ -687,6 +697,7 @@ function chatStateForPreviewOriginSlug(slug) {
  *   - `{ type: "proxy", info, state }`
  *   - `{ type: "redirect", location }` (bas-värd i subdomän-läge, eller `/` på en preview-origin)
  *   - `{ type: "unavailable" }`     subdomän begärd men felkonfigurerad
+ *   - `{ type: "not-found" }`       egen origin men ingen matchande route
  * Allt efter uppslagningen (bootstrap, inspector, Origin-strip, HMR) är oförändrat.
  */
 function resolvePreviewTarget(req, pathname, search = "") {
@@ -712,23 +723,19 @@ function resolvePreviewTarget(req, pathname, search = "") {
     };
   }
   // host.kind === "preview": värdens slug är auktoritet, Referer behövs inte.
-  const info = routeInfoFromPathname(pathname);
-  if (info) {
-    const direct = stateOwnedBySlug(info.chatId, host.slug);
-    if (direct) return { type: "proxy", info, state: direct };
-  }
-  const isRoot = pathname === "/";
-  if (
-    !isRoot &&
-    !NEXT_INTERNAL_ROOT_PATH_RE.test(pathname) &&
-    !APP_API_ROOT_PATH_RE.test(pathname)
-  ) {
-    return null;
-  }
   const owned = chatStateForPreviewOriginSlug(host.slug);
   if (!owned) return null;
-  if (isRoot) {
+  const info = routeInfoFromPathname(pathname);
+  if (info?.chatId === owned.chatId) return { type: "proxy", info, state: owned.state };
+  if (pathname === "/") {
     return { type: "redirect", location: `/${encodeURIComponent(owned.chatId)}${search}` };
+  }
+  if (
+    !NEXT_INTERNAL_ROOT_PATH_RE.test(pathname) &&
+    !APP_API_ROOT_PATH_RE.test(pathname) &&
+    !isDeclaredPublicFile(req, pathname, owned.state.session)
+  ) {
+    return { type: "not-found" };
   }
   return {
     type: "proxy",
@@ -854,6 +861,7 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
   // WITHOUT the multiplexing prefix. Path mode recovers it from the iframe
   // Referer; a per-chat preview origin recovers it from the Host slug.
   const target = resolvePreviewTarget(req, pathname, search);
+  if (target?.type === "not-found") return false;
   if (!target) return sendPendingSessionNavigationPage(req, res, pathname);
   if (target.type === "redirect") {
     sendPreviewOriginRedirect(res, target.location);
