@@ -172,6 +172,8 @@ function isViableImageQuery(query: string): boolean {
 export interface MaterializeResult {
   content: string;
   replacedCount: number;
+  searchHitCount: number;
+  fallbackCount: number;
   skippedCount: number;
   queries: string[];
   /** URLs that were freshly resolved from Unsplash -- safe to skip HEAD-check. */
@@ -188,6 +190,7 @@ export const IMAGE_MATERIALIZATION_CONCURRENCY = 2;
 type ImageResolution = {
   url: string;
   queryUsed: string;
+  source: "search" | "fallback";
 };
 
 async function mapWithConcurrency<T, R>(
@@ -222,10 +225,19 @@ export async function materializeImages(
   content: string,
   options: MaterializeImagesOptions = {},
 ): Promise<MaterializeResult> {
+  const unchanged = () => ({
+    content,
+    replacedCount: 0,
+    searchHitCount: 0,
+    fallbackCount: 0,
+    skippedCount: 0,
+    queries: [],
+    resolvedUrls: new Set<string>(),
+  });
   const accessKey = SECRETS.unsplashAccessKey;
   if (!accessKey || !FEATURES.useUnsplash) {
     warnLog("images", "Image materialization skipped — UNSPLASH_ACCESS_KEY not configured. Placeholder images will remain.");
-    return { content, replacedCount: 0, skippedCount: 0, queries: [], resolvedUrls: new Set() };
+    return unchanged();
   }
 
   const matches: Array<{
@@ -250,7 +262,7 @@ export async function materializeImages(
   }
 
   if (matches.length === 0) {
-    return { content, replacedCount: 0, skippedCount: 0, queries: [], resolvedUrls: new Set() };
+    return unchanged();
   }
 
   const maxReplacements = Math.max(
@@ -308,6 +320,7 @@ export async function materializeImages(
         resolution = {
           url: buildUnsplashUrl(result.hit.rawUrl, match.width, match.height),
           queryUsed: candidate,
+          source: "search",
         };
         seen.set(cacheKey, resolution);
         if (result.hit.downloadLocation) {
@@ -323,6 +336,7 @@ export async function materializeImages(
       resolution = {
         url: buildFallbackImageUrl(match.width, match.height),
         queryUsed: match.text,
+        source: "fallback",
       };
       seen.set(cacheKey, resolution);
       warnLog("images", "Unsplash miss, using fallback", {
@@ -342,6 +356,7 @@ export async function materializeImages(
   }
 
   let replaced = 0;
+  let searchHitCount = 0;
   const queries: string[] = [];
   let result = content;
   const appliedKeys = new Set<string>();
@@ -353,6 +368,7 @@ export async function materializeImages(
 
     result = result.replace(match.fullMatch, resolution.url);
     replaced++;
+    if (resolution.source === "search") searchHitCount++;
     queries.push(appliedKeys.has(cacheKey) ? match.text : resolution.queryUsed);
     appliedKeys.add(cacheKey);
   }
@@ -365,6 +381,8 @@ export async function materializeImages(
   return {
     content: result,
     replacedCount: replaced,
+    searchHitCount,
+    fallbackCount: replaced - searchHitCount,
     skippedCount,
     queries,
     resolvedUrls: new Set(Array.from(seen.values(), (resolution) => resolution.url)),

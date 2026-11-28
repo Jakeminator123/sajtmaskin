@@ -51,6 +51,14 @@ describe("static core visual-design contract", () => {
     expect(core).toContain("prefers-reduced-motion");
   });
 
+  it("routes explicitly requested stock-photo searches through the materializer", () => {
+    expect(core).toContain("**Explicit stock-photo search:**");
+    expect(core).toContain("/placeholder.svg?width=<w>&height=<h>&text=<subject>");
+    expect(core).toContain("A direct Unsplash photo ID bypasses the search");
+    expect(core).toContain("preserve any exact image URL or asset the user supplied");
+    expect(core).toContain("For stock images without an explicit search request, direct");
+  });
+
   it("keeps color, font, contrast and chart technical protections", () => {
     expect(core).toContain("@theme inline");
     expect(core).toContain("--color-background: oklch(...)");

@@ -320,26 +320,29 @@ export async function runFinalizeFastPath(params: {
     onProgress?.("materialize_images", { phase: "start" });
     try {
       const imgResult = await materializeImages(contentForVersion, { maxReplacements });
+      const imageCounts = {
+        replacedCount: imgResult.replacedCount,
+        searchHitCount: imgResult.searchHitCount,
+        fallbackCount: imgResult.fallbackCount,
+        skippedCount: imgResult.skippedCount,
+      };
       if (imgResult.replacedCount > 0) {
         contentForVersion = imgResult.content;
         devLogAppend("in-progress", {
           type: "image-materialization",
           chatId,
-          replacedCount: imgResult.replacedCount,
-          skippedCount: imgResult.skippedCount,
+          ...imageCounts,
           queries: imgResult.queries.slice(0, 10),
         });
       }
       onProgress?.("materialize_images", {
         phase: "done",
         durationMs: Date.now() - imageStartedAt,
-        replacedCount: imgResult.replacedCount,
-        skippedCount: imgResult.skippedCount,
+        ...imageCounts,
       });
       stepTelemetry.materialize_images = createFinalizeStepTelemetry(imageStartedAt, "done", {
         maxReplacements,
-        replacedCount: imgResult.replacedCount,
-        skippedCount: imgResult.skippedCount,
+        ...imageCounts,
       });
     } catch (imgErr) {
       console.warn("[image-materializer] Non-fatal error, continuing with placeholders:", imgErr);

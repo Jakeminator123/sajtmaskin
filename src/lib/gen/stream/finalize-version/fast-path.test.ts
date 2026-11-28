@@ -40,9 +40,14 @@ vi.mock("@/lib/gen/autofix/validate-and-fix", () => ({
 vi.mock("@/lib/gen/retry/validate-syntax", () => ({
   validateGeneratedCode: vi.fn(async () => ({ valid: true, errors: [] })),
 }));
-vi.mock("@/lib/gen/post-process/image-materializer", () => ({
-  materializeImages: vi.fn(async (content: string) => ({ content, replacedCount: 0 })),
-}));
+vi.mock("@/lib/config", async (importOriginal) => {
+  const config = await importOriginal<typeof import("@/lib/config")>();
+  return {
+    ...config,
+    FEATURES: { ...config.FEATURES, useUnsplash: true },
+    SECRETS: { ...config.SECRETS, unsplashAccessKey: "offline-fixture" },
+  };
+});
 vi.mock("@/lib/gen/preview/build-preview-document", () => ({
   buildPreviewHtml: vi.fn(async () => "<html><body>Offline preview</body></html>"),
 }));
@@ -91,6 +96,51 @@ beforeEach(() => {
 });
 
 describe("complete candidate before semantic verification", () => {
+  it.each([
+    {
+      label: "explicit stock search",
+      prompt: "Sök fram ett riktigt naturfoto av brunbjörnsungar från Unsplashs bildbibliotek.",
+      image: "/placeholder.svg?width=1440&height=900&text=brown%20bear%20cubs",
+      expected: "https://images.unsplash.com/photo-test-cubs?w=1440&h=900&fit=crop&q=80",
+      searches: 1,
+    },
+    {
+      label: "user-provided URL",
+      prompt: "Skapa en sida om björnungar med mitt eget foto https://example.com/bear-cubs.jpg",
+      image: "https://example.com/bear-cubs.jpg",
+      expected: "https://example.com/bear-cubs.jpg",
+      searches: 0,
+    },
+  ])("finalizes an initial build with $label", async ({ prompt, image, expected, searches }) => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({ results: [{ urls: { raw: "https://images.unsplash.com/photo-test-cubs" } }] }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const onProgress = vi.fn();
+      const generated = file(
+        page.path,
+        page.content.replace("</section>", `<img src="${image}" alt="Brunbjörnsungar" /></section>`),
+      );
+      const outcome = await runFinalizeFastPath({
+        ...params("init"),
+        originalPrompt: prompt,
+        contentForVersion: serializeCodeProject([generated]),
+        onProgress,
+      });
+      const persisted = JSON.parse(outcome.filesJson) as CodeFile[];
+      expect(persisted.find((item) => item.path === page.path)?.content).toContain(expected);
+      expect(fetchMock).toHaveBeenCalledTimes(searches);
+      expect(onProgress).toHaveBeenCalledWith("materialize_images", expect.objectContaining({
+        phase: "done",
+        searchHitCount: searches,
+        fallbackCount: 0,
+      }));
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it.each(["init", "followup", "imported"] as const)("verifies the final %s project including base files and dependencies", async (mode) => {
     importedRepo.mockResolvedValue(mode === "imported");
     const outcome = await runFinalizeFastPath(params(mode));

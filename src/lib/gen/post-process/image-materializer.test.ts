@@ -54,6 +54,35 @@ describe("materializeImages", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  it("searches for the literal stock-photo subject in a new site's code", async () => {
+    const content =
+      '<img src="/placeholder.svg?width=1440&height=900&text=brown%20bear%20cubs" alt="Brunbjörnsungar" />';
+
+    const result = await materializeImages(content);
+
+    expect(result).toMatchObject({ replacedCount: 1, searchHitCount: 1, fallbackCount: 0 });
+    expect(result.content).toContain("https://images.unsplash.com/brown%20bear%20cubs");
+    expect(vi.mocked(global.fetch).mock.calls.map(([url]) => String(url))).toContain(
+      "https://api.unsplash.com/search/photos?query=brown%20bear%20cubs&per_page=1&orientation=landscape",
+    );
+  });
+
+  it("leaves ordinary direct photos, user media and authored illustrations in place", async () => {
+    const content = [
+      '<img src="https://images.unsplash.com/photo-1530595467537-0b5996c41f2d" />',
+      '<img src="https://example.com/our-photo.jpg" />',
+      '<img src="/images/bear-illustration.svg" />',
+    ].join("\n");
+
+    expect(await materializeImages(content)).toMatchObject({
+      content,
+      replacedCount: 0,
+      searchHitCount: 0,
+      fallbackCount: 0,
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("falls back to bounded dimensions for invalid placeholder sizes", async () => {
     const content =
       '<img src="/placeholder.svg?width=999999&height=-2&text=bounded+image" />';
@@ -155,6 +184,7 @@ describe("materializeImages", () => {
     const result = await materializeImages(content, { maxReplacements: 1 });
 
     expect(result.replacedCount).toBe(1);
+    expect(result).toMatchObject({ searchHitCount: 0, fallbackCount: 1 });
     expect(result.content).toContain("images.unsplash.com/photo-");
     expect(result.content).not.toContain("placeholder.svg");
   });
