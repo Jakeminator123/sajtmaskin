@@ -51,7 +51,7 @@ it.each(["21", "12", "9007199254740993"])("quotes and orders using exact media-b
   fireEvent.click(button);
   const video = await screen.findByRole("link", { name: "Öppna film.mp4" });
   expect(video.getAttribute("href")).toBe(media.url);
-  expect(onSaved).toHaveBeenCalledExactlyOnceWith(ready);
+  await waitFor(() => expect(onSaved).toHaveBeenCalledExactlyOnceWith(ready));
   const posts = fetchMock.mock.calls.filter(([, init]) => init?.method === "POST");
   expect(posts).toHaveLength(1);
   expect(JSON.parse(String(posts[0]?.[1]?.body))).toEqual({
@@ -103,7 +103,7 @@ it("polls the project-bound order and saves only the confirmed final file", asyn
   expect(onSaved).not.toHaveBeenCalled();
   await screen.findByRole("link", { name: "Öppna film.mp4" }, { timeout: 7000 });
   expect(fetchMock).toHaveBeenCalledWith("/api/media/video-generations/job-a?projectId=site-a", { signal: expect.any(AbortSignal) });
-  expect(onSaved).toHaveBeenCalledExactlyOnceWith(ready);
+  await waitFor(() => expect(onSaved).toHaveBeenCalledExactlyOnceWith(ready));
 });
 
 it("offers a picker and keeps an over-budget start uncharged", async () => {
