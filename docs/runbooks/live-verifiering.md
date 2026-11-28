@@ -57,6 +57,17 @@ uppföljning 2 är antingen quick edit eller annan liten innehållsändring.
 
 ## 4. Resultatdisciplin
 
+För en layout- eller bildkontroll efter en preview-hoständring, öppna den
+aktuella previewn i webbläsaren och ta nya skärmbilder i de viewportar som
+granskas. Anteckna preview-hostrelease, chatt, `versionId` och
+`filesRevision`. En ändring i enbart hosten kan ändra renderingen med samma
+sajtversion och filrevision. Då kan tidigare desktop-/mobilbilder och ett
+cachat Live Review-resultat återanvändas. Använd de nya bilderna och
+webbläsarens nätverkssvar som bevis för renderingen efter ändringen.
+Se [felsökning av rotabsoluta resurser](../../preview-host/README.md#webbläsar-origin-per-chatt-preview_host_origin_mode),
+[skärmbildsnyckeln](../../src/lib/gen/verify/live-review.ts) och
+[Live Review-cachen](../../src/lib/gen/verify/live-review-session.ts).
+
 - Reproducerad defekt: skapa/uppdatera en stabil `SM-###`-rad med kodägare och
   minsta nästa steg.
 - Ingen träff: lämna i `Behöver repro` tills evidensen är tillräckligt färsk för

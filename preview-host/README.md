@@ -285,6 +285,7 @@ Sökvägen behåller `/<chatId>` eftersom runtimen kör Next med `basePath`.
 | `path` | Exakt som tidigare. `Host` ignoreras |
 | `subdomain`, `<slug>.<domän>` + egen `/<chatId>/…` | Proxas (HTTP och WebSocket/HMR) |
 | Samma värd, rotabsolut `/_next/…`, `/__nextjs…`, `/api/…` | Chatten slås upp via värdens slug, ingen Referer behövs |
+| Samma värd, `GET`/`HEAD` till en rotabsolut sökväg vars `public/<fil>` finns i sessionens filförteckning | Proxas till samma chatt utan Referer. Kontrollplansvägar är reserverade. |
 | Samma värd, `/` | `307` till `/<chatId>` |
 | Samma värd, `/placeholder.svg` | Hostens SVG |
 | Samma värd, annan chatts sökväg, `/health`, `/preview/*`, `/admin/*` | `404`, WebSocket stängs |
@@ -292,6 +293,13 @@ Sökvägen behåller `/<chatId>` eftersom runtimen kör Next med `basePath`.
 | Bas-värden, sökväg som pekar på en chatt (direkt eller via Referer) | `307` + `Cache-Control: no-store` till chattens origin; WebSocket stängs |
 | Bas-värden, kontrollplanet | Som tidigare |
 | Domän saknas/ogiltig eller okänt läge (fail-closed) | Previews `503 preview_origin_unavailable`, `start`/`update`/`patch` `503 configuration_error`; status, verify, hibernate, destroy, admin och health fungerar |
+
+Vid en saknad bild, kontrollera sidans faktiska URL i webbläsarens nätverksflik.
+Jämför till exempel `/illustrations/bjorn.svg` och
+`/<chatId>/illustrations/bjorn.svg` på samma chattdomän. Om bara den senare
+svarar med bilden, kontrollera sessionens filförteckning för
+`public/illustrations/bjorn.svg` och vilken preview-hostrelease som svarar.
+Routing ägs av [preview-proxyn](src/runtime/preview-proxy.js).
 
 `previewUrl` räknas ut vid varje svar (`/status`, `start`, `update`, `patch`,
 `GET /preview/session/:id`), så påslag och rollback slår igenom vid nästa
