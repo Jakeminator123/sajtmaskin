@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import net from "node:net";
 import { once } from "node:events";
+import { mock } from "node:test";
+import fs from "node:fs";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -1031,12 +1033,23 @@ async function runPreviewOriginContracts() {
     assert.equal(image.headers["content-type"], "image/svg+xml");
     assert.equal(image.body, publicImageBody);
     assert.equal(lastUpstreamUrl, `/${encA}${publicImagePath}?v=1`);
+    const storeRead = mock.method(fs, "readFileSync");
+    try {
+      for (const [pathname, status] of [[publicImagePath, 200], ["/illustrations/missing.svg", 404]]) {
+        storeRead.mock.resetCalls();
+        const response = await onHost(hostA, pathname);
+        assert.equal(response.status, status);
+        const reads = storeRead.mock.calls.filter(call => call.arguments[0] === store.getStoreFilePath());
+        assert.equal(reads.length, 1, `one current store snapshot for ${pathname}`);
+      }
+    } finally {
+      storeRead.mock.restore();
+    }
     const encodedImage = "/illustrations/bl%C3%A5%20b%C3%A4r.svg";
     assert.equal((await onHost(hostA, encodedImage, { method: "HEAD" })).status, 200);
     assert.equal(lastUpstreamUrl, `/${encA}${encodedImage}`);
     lastUpstreamUrl = null;
     assert.equal((await onHost(hostB, publicImagePath)).status, 404);
-    assert.equal((await onHost(hostA, "/illustrations/missing.svg")).status, 404);
     assert.equal((await onHost(hostA, publicImagePath, { method: "POST" })).status, 404);
     assert.equal(lastUpstreamUrl, null);
 
