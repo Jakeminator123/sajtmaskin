@@ -1,6 +1,6 @@
 // All anchors share the same physical scale, even when a gesture has a wider source.
 const motionAspect = 1.2;
-function presenterRect(width, height, sourceAspect) {
+export function presenterRect(width, height, sourceAspect) {
   const h = Math.min(height, width / Math.max(motionAspect, sourceAspect));
   const w = h * sourceAspect;
   return { left: (width - w) / 2, top: (height - h) * 0.8, width: w, height: h };
@@ -17,7 +17,7 @@ function fitPresenter(canvas, source, maxHeight) {
   }
   return presenterRect(width, height, aspect);
 }
-function createKeyer(canvas) {
+export function createKeyer(canvas) {
   const gl = canvas.getContext("webgl", {
     alpha: true,
     premultipliedAlpha: false,

@@ -1,8 +1,11 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": [
+    "public/video/aida/presenter-v2/SCEN/entry.js",
+    "public/video/aida/presenter-v2/SCEN/studio.css",
     "infra/openclaw/check-render-proxy.mjs",
     "infra/openclaw/generate-config.mjs",
+    "src/lib/gen/eval/cli.ts",
     "src/lib/observability/fault-promotion-report-cli.ts",
     "src/components/ui/**",
     "src/lib/hooks/use-mobile.ts",

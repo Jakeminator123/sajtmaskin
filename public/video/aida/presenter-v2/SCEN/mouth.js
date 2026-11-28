@@ -1,9 +1,11 @@
+import { presenterRect } from "./keyer.js";
+
 // Tiles from Alina's talk plate. The rounded vowel uses a registered Runway mouth patch.
 const mouthTiles = ["rest", "open", "round", "wide", "teeth", "mid"];
-const mouthAtlas = new Image();
+export const mouthAtlas = new Image();
 mouthAtlas.src = "../TAL/munformer-mjuk.webp";
 
-function positionMouth(stage, canvas) {
+export function positionMouth(stage, canvas) {
   const rect = presenterRect(stage.clientWidth, stage.clientHeight, 1080 / 1440);
   const scale = rect.width / 1080;
   Object.assign(canvas.style, {
@@ -22,7 +24,7 @@ function mouthWindow(seconds) {
   return t < 0 ? (1 + t) ** 2 / 2 : 1 - (1 - t) ** 2 / 2;
 }
 
-function paintMouth(canvas, cues, time) {
+export function paintMouth(canvas, cues, time) {
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, 180, 120);
   if (!mouthAtlas.complete || !mouthAtlas.naturalWidth) return;
@@ -56,7 +58,7 @@ const sourceRows = [0, 35, 46, 70, 85, 120];
 const displayRows = [0, 35, 49, 67, 85, 120];
 let lastMouthSource = -1, lastMouthTime = -1;
 
-function paintVideoMouth(canvas, video, version, time) {
+export function paintVideoMouth(canvas, video, version, time) {
   if (video.videoWidth !== 1080 || video.videoHeight !== 1440 ||
       !mouthAtlas.complete || !mouthAtlas.naturalWidth) {
     canvas.hidden = true;

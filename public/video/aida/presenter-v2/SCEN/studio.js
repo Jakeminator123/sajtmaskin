@@ -1,3 +1,6 @@
+import { createKeyer, presenterRect } from "./keyer.js";
+import { mouthAtlas, paintMouth, paintVideoMouth, positionMouth } from "./mouth.js";
+
 const el = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const editing = params.get("edit") === "1";
