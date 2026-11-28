@@ -22,8 +22,7 @@
  */
 
 import { uWord, uWordRegex } from "@/lib/utils/unicode-word-boundary";
-import { isExplicitOpenClawWebSearch } from "@/lib/openclaw/read-task-input";
-import { requestedSourcePageUrl } from "@/lib/openclaw/source-page";
+import { isExplicitOpenClawWebSearch, requestedSourcePageUrl } from "@/lib/openclaw/source-page";
 import { parseArmingDirective, parseStopDirective } from "@/lib/openclaw/debug/armed-mandate";
 
 export type ComposerMode = "auto" | "agent" | "build";
@@ -311,9 +310,15 @@ export function isReadOnlyComposerRequest(rawText: string): boolean {
 
   // A scoped prohibition can accompany a complete positive instruction:
   // «Ändra inte färgerna men byt rubriken till Välkommen».
-  const clauses = text.split(/[,;]|\s+(?:men|utan|but|instead)\s+/iu);
+  const hasReview = REVIEW_TERMS.test(text);
+  const clauses = text.split(/[,;]|\s+(?:men|utan|but|instead)\s+/iu)
+    .flatMap(clause => hasReview ? clause.split(REVIEW_DETAIL_SEPARATORS) : [clause]);
   return !clauses.some(
-    (clause) => matchesAtStart(BUILD_OPENERS, clause.trim()) && !NEGATED_BUILD.test(clause),
+    (clause) => !NEGATED_BUILD.test(clause) && (
+      // En blandad granskning kan också beställa textändringar som inte
+      // ingår i byggmotorns öppningar. Absoluta förbud hanteras ovan.
+      hasReview ? reviewClauseChange(clause) === "positive" : matchesAtStart(BUILD_OPENERS, clause.trim())
+    ),
   );
 }
 
@@ -407,6 +412,93 @@ export function opensWithQuestionWord(rawText: string): boolean {
   return QUESTION_OPENERS.test(lower) && matchesAtStart(QUESTION_OPENERS, lower);
 }
 
+const REVIEW_SITE = String.raw`(?:(?:min|vår|den)\s+)?(?:sajt(?:en)?|sida(?:n)?|webbplats(?:en)?|förhandsvisning(?:en)?)`;
+const SITE_REVIEW_OPENER = new RegExp(
+  String.raw`^(?:(?:kan du|vänligen)\s+)?(?:hur ser\s+${REVIEW_SITE}\s+ut|` +
+    String.raw`(?:granska|bedöm|titta på)\s+(?:utseendet|designen|layouten)\s+(?:på|för)\s+${REVIEW_SITE})` +
+    String.raw`(?:\s+(?:just nu|nu|idag))?(?=[^\S\r\n]*(?:[?!.:\r\n]|$))`,
+  "iu",
+);
+// Bilagebyggens öppningar är avsiktligt smala. En blandad granskning måste
+// även känna igen skrivinstruktioner som «skriv om» och «korta ner».
+const SITE_REVIEW_CHANGE = uWordRegex(
+  "byt(?:a)?(?: ut)?|ändra|uppdatera|justera|flytta|ersätt(?:a)?|ersatt(?:a)?|" +
+    "lägg(?:a)? (?:till|in)|lagg(?:a)? (?:till|in)|ta bort|bygg(?:a)?|skapa|gör(?:a)?(?: om)?|gor(?:a)?(?: om)?|" +
+    "fixa|rätta|ratta|infoga|implementera|centrera|förstora|forstora|förminska|forminska|" +
+    "skriv(?:a)? om|korta(?: ner)?|förkorta|forkorta|minska|öka|oka|radera|dölj(?:a)?|dolj(?:a)?|göm(?:ma)?|gom(?:ma)?|" +
+    "add|insert|remove|delete|change|update|replace|move|make|create|build|fix|adjust|style|design|resize|rewrite|shorten|hide|redesign|rename",
+  "iu",
+);
+const REVIEW_ACTION_NEGATION = uWordRegex("inte|ej|aldrig|not|never", "iu");
+const REVIEW_REPORT_OBJECT = uWordRegex(
+  String.raw`(?:(?:en|ett|din|ditt|dina|min|mitt|mina|the|a|an|your|my)\s+(?:[\p{L}-]+\s+){0,3})?(?:${POLITE_REVIEW_OBJECT.source}|sammanfattning|beskrivning|redogörelse|rapport|svar|observation|summary|description|report|answer)`,
+  "iu",
+);
+const REVIEW_REWRITE_VERB = uWordRegex("(?:skriv(?:a)? om|rewrite)$", "iu");
+// En nominalfras: bestämning/genitiv + textobjekt i singular eller plural.
+// Fria mellanord skulle också släppa igenom rapporter som «dina observationer
+// kring sidans rubrik». Ett pronomen måste stå självt eller följas av måltext.
+const REVIEW_REWRITE_TARGET = uWordRegex(
+  String.raw`(?:(?:hela|alla|den|det|de|min|mitt|mina|din|ditt|dina|vår|vårt|våra|the|my|our|your|[\p{L}-]+s)\s+){0,2}` +
+    "(?:(?:under)?rubrik(?:en|er(?:na)?)?|(?:knapp|länk|bröd|bild)?text(?:en|er(?:na)?)?|" +
+    "ingress(?:en|er(?:na)?)?|styck(?:e|et|en(?:a)?)|(?:sid)?titel(?:n)?|(?:sid)?titlar(?:na)?|titles?|headlines?|copy|paragraphs?)|" +
+    String.raw`(?:den|det|detta|dem|dessa|it|this|that|them)(?=\s*(?:[.!?]|$)|\s+(?:till|to|in)\s+)`,
+  "iu",
+);
+const REVIEW_REPORT_REFERENCE = uWordRegex("(?:det|den|what) (?:du|ni|you) (?:ser|läser|see|read)", "iu");
+// Meningsgränserna behövs även när en ändringsorder följer ett nekande.
+const REVIEW_DETAIL_SEPARATORS = /(?<=[?!.])\s+|[\r\n]+/u;
+const REVIEW_CLAUSE_SEPARATORS = /[:,;]|\s+(?:och|samt|men|utan|istället|istallet|sedan|sen|därefter|and|then|also|but|instead)\s+/iu;
+
+function reviewClauseChange(clause: string): "positive" | "read" | undefined {
+  const request = normalize(clause).replace(/^(?:(?:snälla|vänligen|please)\s*,?\s*|(?:också|även|ocksa|aven)\s+)*/iu, "");
+  if (/^(?:(?:do not|don't|don’t|never|inte|ej|aldrig)\s+|(?:(?:kan|vill)\s+(?:du|ni)|skulle\s+(?:du|ni)\s+kunna|(?:can|could|would|will)\s+you)\s+(?:inte|ej|aldrig|not|never)\s+)/iu.test(request)) {
+    return "read";
+  }
+  const action = SITE_REVIEW_CHANGE.exec(request);
+  const polite = POLITE_BUILD_REQUEST.exec(request);
+  const politeAction = polite ? SITE_REVIEW_CHANGE.exec(polite[0]) : null;
+  const hasPoliteChange = polite && politeAction && politeAction.index + politeAction[0].length === polite[0].length;
+  const opener = action && matchesAtStart(SITE_REVIEW_CHANGE, request)
+    ? action : hasPoliteChange ? polite : null;
+  if (!opener) return undefined;
+  const object = request.slice(opener.index + opener[0].length).trim();
+  // «Skriv om dina observationer» kan be om en rapport. En omskrivning
+  // behöver ett uttryckligt textobjekt eller en referens till det granskade.
+  if (REVIEW_REWRITE_VERB.test(opener[0]) && !matchesAtStart(REVIEW_REWRITE_TARGET, object)) return "read";
+  // «Gör en bedömning» skriver ett svar; «gör rubriken större efter din
+  // bedömning» beställer däremot en sajtändring.
+  // Nekandet behöver inte följa direkt på verbet («korta absolut inte»).
+  // En oklar negerad sats i en granskning får inte ge ändringsmedgivande.
+  return !object || REVIEW_ACTION_NEGATION.test(object) ||
+    matchesAtStart(REVIEW_REPORT_OBJECT, object) || opensWithQuestionWord(object) ||
+    matchesAtStart(REVIEW_REPORT_REFERENCE, object)
+    ? "read" : "positive";
+}
+
+export function isExplicitOpenClawSiteReview(rawText: string): boolean {
+  const text = rawText.trim();
+  const opener = SITE_REVIEW_OPENER.exec(text);
+  if (!opener) return false;
+
+  // Bildfrågan kan precisera vad som ska granskas. Ett blandat uppdrag
+  // behåller sin ordinarie väg eftersom läsvägen inte kan utföra ändringar.
+  const details = text.slice(opener[0].length).trim().replace(/^[:?!.]+\s*/u, "");
+  return details.split(REVIEW_DETAIL_SEPARATORS).every((part) => {
+    const detail = part.trim();
+    if (!detail) return true;
+    const changes = detail.split(REVIEW_CLAUSE_SEPARATORS).map((part) => {
+      const clause = part.trim();
+      if (isReadOnlyComposerRequest(clause)) return "read";
+      if (parseArmingDirective(clause)) return "positive";
+      return reviewClauseChange(clause);
+    });
+    // En uttrycklig granskning förblir läsande tills en positiv ändringsorder
+    // faktiskt känns igen. Okänd rapporttext får inte skapa medgivande.
+    return !changes.includes("positive");
+  });
+}
+
 /**
  * Bär komposerturen medgivande för Sajtagenten att agera direkt
  * (`agent-action-consent.ts`)? Ägarbeslut 2026-11-20: agenten är orkestrator
@@ -416,6 +508,7 @@ export function opensWithQuestionWord(rawText: string): boolean {
  *
  * - läget Fråga («Fråga – ändrar inget»),
  * - en uttrycklig «ändra inget»-formulering,
+ * - en uttrycklig bildgranskning av den aktuella sajten,
  * - ett stopp,
  * - text som öppnar med ett frågeord («Vad tycker du om startsidan?»): en
  *   fråga blir aldrig tyst ett bygge.
@@ -425,7 +518,9 @@ export function opensWithQuestionWord(rawText: string): boolean {
  */
 export function composerAllowsAgentBuild(input: { mode: ComposerMode; text: string }): boolean {
   if (input.mode === "agent" || !normalize(input.text)) return false;
-  if (isReadOnlyComposerRequest(input.text) || parseStopDirective(input.text)) return false;
+  if (isReadOnlyComposerRequest(input.text) || isExplicitOpenClawSiteReview(input.text) || parseStopDirective(input.text)) {
+    return false;
+  }
   return !opensWithQuestionWord(input.text);
 }
 

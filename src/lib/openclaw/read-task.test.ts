@@ -171,7 +171,9 @@ function ownedSite() {
 }
 
 it("uses actual screenshot pixels only for the owned selected version and current revision", async () => {
-  const review = ownedSite();
+  const review = {
+    ...ownedSite(), mobileUrl: "https://files.public.blob.vercel-storage.com/review/mobile.jpg",
+  };
   getReview.mockResolvedValue(review);
   const response = await answerOpenClawReadTask(request, { reviewCurrentSite: true }, "Hur ser min sajt ut?", {
     context: { page: "builder", chatId: "chat-own", activeVersionId: "version-own" },
@@ -185,6 +187,7 @@ it("uses actual screenshot pixels only for the owned selected version and curren
   expect(await contextParams.verifyOwnership("chat-own", "version-own")).toEqual({ chatId: "chat-own", versionId: "version-own" });
   const [params] = create.mock.calls[0]!;
   expect(params.input[0].content).toContainEqual({ type: "input_image", image_url: review.desktopUrl, detail: "high" });
+  expect(params.input[0].content).toContainEqual({ type: "input_image", image_url: review.mobileUrl, detail: "high" });
   expect(params.input[0].content[0].text).toContain("Björnparken");
   expect(params.input[0].content[0].text).toContain("byggkontrollen");
 });
@@ -224,8 +227,75 @@ it("selects an appearance read task for the current site while retaining selecte
     .toEqual({ attachmentIds: [7], reviewCurrentSite: true });
   expect(resolveOpenClawReadTask("Kan du granska designen på sajten?"))
     .toEqual({ reviewCurrentSite: true });
+  expect(resolveOpenClawReadTask("Bedöm layouten på min webbplats:\nBeskriv tre detaljer: rubrik, färger och bildyta."))
+    .toEqual({ reviewCurrentSite: true });
   expect(resolveOpenClawReadTask("Hur ser min faktura ut?"))
     .toBeUndefined();
   expect(resolveOpenClawReadTask("Bygg en sajt om hur ser min sajt ut i framtiden"))
     .toBeUndefined();
+});
+
+it.each([
+  "Hur ser min sajt ut?",
+  "Kan du granska designen på sajten?",
+  "Bedöm layouten på min webbplats:\nBeskriv tre detaljer: rubrik, färger och bildyta.",
+  "Granska designen på sajten. Ser du rubriken? Är den tydlig?",
+  "Granska designen på sajten. Kan du se vad som står på knappen?",
+  "Granska designen på sajten. Saknas kontrast i mobilvyn?",
+  "Granska designen på sajten. Är rubriken tydlig",
+  "Granska designen på sajten. Rubriken ser liten ut. Jag ser ingen bild i mobilvyn.",
+  "Granska designen på sajten. Beskriv om vi borde skriva om rubriken.",
+  "Granska designen på sajten. Beskriv rubriken och skriv inte om den.",
+  "Granska designen på sajten. Korta inte ner rubriken.",
+  "Granska designen på sajten. Byt inte rubriken och ändra ingenting.",
+  "Granska designen på sajten. Kan du inte beskriva rubriken?",
+  "Granska designen på sajten. Kan du inte skriva om rubriken",
+  "Granska designen på sajten. Do not rewrite the title.",
+  "Granska designen på sajten. Gör en bedömning av rubrikens storlek.",
+  "Granska designen på sajten. Kan du göra en analys av layouten?",
+  "Granska designen på sajten. Ändra inte färgerna men skriv vad du ser på bilden.",
+  "Granska designen på sajten. Ändra inte färgerna men skriv en kort analys av designen.",
+  "Granska designen på sajten. Ändra inte färgerna men korta absolut inte rubriken.",
+  "Granska designen på sajten. Skriv vad du ser på bilden.",
+  "Granska designen på sajten. Skriv en kort analys av designen.",
+  "Granska designen på sajten. Kan du skriva vad du ser på bilden?",
+  "Granska designen på sajten. Gör en kort analys av designen.",
+  "Granska designen på sajten. Gör din bedömning av designen.",
+  "Granska designen på sajten. Skriv om dina observationer.",
+  "Granska designen på sajten. Skriv om dina synpunkter på startsidan.",
+  "Granska designen på sajten. Skriv om den utförliga redogörelsen.",
+  "Granska designen på sajten. Skriv om mina observationer kring sidans rubriker.",
+  "Granska designen på sajten. Skriv inte om sidans rubriker.",
+  "Granska designen på sajten. Skriv om vad du ser på bilden.",
+  "Granska designen på sajten. Något om kontrasten vore hjälpsamt.",
+  "Granska designen på sajten. Använd skärmbilderna som underlag för din bedömning.",
+  "Granska designen på sajten. Kan du använda skärmbilderna som underlag för din bedömning?",
+  "Granska designen på sajten. Use the screenshots as the basis for your assessment.",
+])("retains observations, questions and negated changes on the read route (%s)", text => {
+  expect(resolveOpenClawReadTask(text)).toEqual({ reviewCurrentSite: true });
+});
+
+it.each([
+  "Granska designen på sajten och byt rubriken.",
+  "Granska designen på sajten. Skriv om texterna på startsidan.",
+  "Granska designen på sajten. Skriv om sidans rubrik till Välkommen.",
+  "Granska designen på sajten. Kan du skriva om startsidans rubriker?",
+  "Granska designen på sajten. Ändra rubriken till Välkommen.",
+  "Granska designen på sajten. Beskriv rubriken och byt den till Välkommen.",
+  "Granska designen på sajten. Utgå från skärmbilderna och lägg till en ny bild.",
+  "Granska designen på sajten. Vad ser du? Kan du också byta bakgrund?",
+  "Granska designen på sajten. Beskriv rubriken och skriv om den till Välkommen.",
+  "Granska designen på sajten. Beskriv rubriken och korta ner den till tre ord.",
+  "Granska designen på sajten. Beskriv rubriken och förkorta den.",
+  "Granska designen på sajten. Beskriv rubriken och öka storleken.",
+  "Granska designen på sajten. Beskriv rubriken och dölj den på mobil.",
+  "Granska designen på sajten. Kan du beskriva rubriken och skriva om den till Välkommen?",
+  "Granska designen på sajten. Beskriv rubriken och rewrite it in English.",
+  "Granska designen på sajten. Byt inte bilden men skriv om rubriken till Välkommen.",
+  "Granska designen på sajten. Saknas kontrast? Korta ner rubriken till tre ord.",
+  "Granska designen på sajten. Kan du göra rubriken större efter din bedömning?",
+  "Granska designen på sajten. Ändra inte färgerna men skriv om rubriken till Välkommen.",
+  "Granska designen på sajten. Skriv inte om rubriken utan korta ner den till tre ord.",
+])("leaves a combined review and edit on the regular route (%s)", (text) => {
+  expect(resolveOpenClawReadTask(text)).toBeUndefined();
 });

@@ -1,4 +1,13 @@
-import { isExplicitOpenClawWebSearch, requestedWebAddresses } from "./read-task-input";
+const WEB_ADDRESS_SPAN = /\b(?:https?:\/\/|www\.)[^\s<>"']+/giu;
+
+function requestedWebAddresses(text: string): string[] {
+  return [...text.matchAll(WEB_ADDRESS_SPAN)].map(([address]) => address);
+}
+
+export function isExplicitOpenClawWebSearch(text: string): boolean {
+  const intentText = text.replace(WEB_ADDRESS_SPAN, " URL ").trim();
+  return /^(?:(?:kan du|vänligen)\s+)?(?:sök(?:a)?(?:\s+(?:efter\s+[^\n!?]{1,350})?)?\s+(?:på|via)\s+(?:webben|internet|nätet)|webbsök|googla)(?:[\s:?!.,]|$)/iu.test(intentText);
+}
 
 export interface PublicSourcePage {
   url: string;

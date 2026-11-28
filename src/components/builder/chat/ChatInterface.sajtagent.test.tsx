@@ -3,7 +3,7 @@
  * byggordrar till byggmotorn (`composer-route.ts`). Samma mock-harness som
  * ChatInterface.draft-retention.test.tsx.
  */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { act, useLayoutEffect, type ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MessageOptions } from "@/lib/hooks/chat/types";
@@ -49,7 +49,7 @@ import {
   markMissionAwaitingResult,
   resetAgentMissionLedgerForTests,
 } from "@/lib/openclaw/agent-action-consent";
-import type { OpenClawSendOptions } from "@/components/openclaw/useOpenClawChat";
+import { useOpenClawChat, type OpenClawSendOptions } from "@/components/openclaw/useOpenClawChat";
 
 function ComposerUnderTest(props: ComponentProps<typeof ChatInterface>) {
   const { composerMode, handleComposerModeChange } = useComposerMode(props.chatId);
@@ -290,7 +290,92 @@ async function typeAndSend(text: string) {
   });
 }
 
+const SCREENSHOT_QUESTION = "Granska designen på sajten. Utgå från skärmbilderna för dator och mobil. " +
+  "Vad ser du i sidans topp på respektive bild? Beskriv rubriken, färgerna och vad som syns i bildytan. " +
+  "Nämn ett konkret problem om du ser något, och säg om något underlag saknas.";
+
 describe("ChatInterface — Sajtagenten i samma input", () => {
+  it.each([
+    ["Auto", SCREENSHOT_QUESTION],
+    ["Fråga", SCREENSHOT_QUESTION],
+    ["Auto", "Granska designen på sajten. Saknas kontrast i mobilvyn?"],
+    ["Auto", "Granska designen på sajten. Beskriv rubriken och skriv inte om den."],
+    ["Auto", "Granska designen på sajten. Kan du se vad som står på knappen?"],
+    ["Auto", "Granska designen på sajten. Ändra inte färgerna men skriv vad du ser på bilden."],
+    ["Auto", "Granska designen på sajten. Ändra inte färgerna men skriv en kort analys av designen."],
+    ["Auto", "Granska designen på sajten. Ändra inte färgerna men korta absolut inte rubriken."],
+    ["Auto", "Granska designen på sajten. Använd skärmbilderna som underlag för din bedömning."],
+    ["Auto", "Granska designen på sajten. Skriv om dina observationer kring sidans rubriker."],
+    ["Auto", "Granska designen på sajten. Skriv inte om sidans rubriker."],
+  ])("skickar bildfrågan till läsvägen i %s: %s", async (mode, text) => {
+    const context = { page: "builder", chatId: "chat_1", activeVersionId: "v1" };
+    window.__SITEMASKIN_CONTEXT = context as typeof window.__SITEMASKIN_CONTEXT;
+    useOpenClawStore.setState({ editEnabled: true, powersOn: true, grantedPowers: ["armed_autonomy"] });
+    const answer = "Datorvyn har text och en bild bredvid varandra, mobilvyn staplar dem.";
+    const delta = JSON.stringify({ choices: [{ delta: { content: answer } }] });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(
+      `data: ${delta}\n\ndata: [DONE]\n\n`,
+      { headers: { "Content-Type": "text/event-stream" } },
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useOpenClawChat());
+    sajtagent.value = makeAgent({ send: result.current.send });
+    const build = vi.fn();
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} />);
+    if (mode === "Fråga") fireEvent.click(screen.getByRole("menuitemradio", { name: "Fråga" }));
+
+    await typeAndSend(text);
+
+    expect(fetchMock).toHaveBeenCalledExactlyOnceWith("/api/openclaw/chat", expect.anything());
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      context,
+      messages: [{ role: "user", content: text }],
+      readTask: { reviewCurrentSite: true },
+      buildConsent: false,
+    });
+    expect(useOpenClawStore.getState().messages.at(-1)?.content).toBe(answer);
+    expect(build).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "Granska designen på sajten. Beskriv rubriken och byt den till Välkommen.",
+    "Granska designen på sajten. Beskriv rubriken och skriv om den till Välkommen.",
+    "Granska designen på sajten. Skriv om texterna på startsidan.",
+    "Granska designen på sajten. Skriv om sidans rubrik till Välkommen.",
+    "Granska designen på sajten. Beskriv rubriken och korta ner den till tre ord.",
+    "Granska sajten. Ändra inte färgerna men skriv om rubriken till Välkommen.",
+  ])("behåller ändringsmedgivandet när en granskning även beställer en ändring: %s", async text => {
+    useOpenClawStore.setState({ editEnabled: true, powersOn: true, grantedPowers: ["armed_autonomy"] });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response("data: [DONE]\n\n", {
+      headers: { "Content-Type": "text/event-stream" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useOpenClawChat());
+    sajtagent.value = makeAgent({ send: result.current.send });
+    const build = vi.fn();
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} />);
+
+    await typeAndSend(text);
+
+    expect(fetchMock).toHaveBeenCalledExactlyOnceWith("/api/openclaw/chat", expect.anything());
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.readTask).toBeUndefined();
+    expect(body.buildConsent).toBe(true);
+    expect(build).not.toHaveBeenCalled();
+  });
+
+  it("behåller en väntande byggfråga på byggvägen i Auto", async () => {
+    const agent = makeAgent();
+    sajtagent.value = agent;
+    const build = vi.fn(async () => ({ status: "started" as const, via: "stream" as const }));
+    render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} builderAwaitingReply />);
+
+    await typeAndSend(SCREENSHOT_QUESTION);
+
+    expect(build).toHaveBeenCalledExactlyOnceWith(SCREENSHOT_QUESTION, expect.anything());
+    expect(agent.send).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["Gör punkt två och tre", "auto"], ["Gör punkt 2 och punkt 3", "auto"],
     ["Gör punkt två och tre", "build"], ["Gör punkt 2 och punkt 3", "build"],

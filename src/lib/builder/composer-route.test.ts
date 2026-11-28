@@ -232,6 +232,65 @@ describe("isAgentProposalReference", () => {
 });
 
 describe("composerAllowsAgentBuild", () => {
+  it.each([
+    ["Beskriv rubriken och skriv om den till Välkommen.", true],
+    ["Beskriv rubriken och korta ner den till tre ord.", true],
+    ["Kan du beskriva rubriken och skriva om den till Välkommen?", true],
+    ["Byt inte bilden men korta ner rubriken till tre ord.", true],
+    ["Beskriv rubriken och skriv inte om den.", false],
+    ["Korta inte ner rubriken.", false],
+    ["Saknas kontrast i mobilvyn?", false],
+    ["Ser du rubriken? Är den tydlig?", false],
+    ["Kan du se vad som står på knappen?", false],
+    ["Ändra inte färgerna men skriv om rubriken till Välkommen.", true],
+    ["Ändra inte färgerna men korta ner rubriken till tre ord.", true],
+    ["Ändra inte färgerna. Skriv om rubriken till Välkommen.", true],
+    ["Ändra inte färgerna och skriv inte om rubriken.", false],
+    ["Ändra inte färgerna men skriv vad du ser på bilden.", false],
+    ["Ändra inte färgerna men skriv en kort analys av designen.", false],
+    ["Ändra inte färgerna men korta absolut inte rubriken.", false],
+    ["Ändra inte färgerna men gör absolut inte knappen större.", false],
+    ["Skriv vad du ser på bilden.", false],
+    ["Skriv en kort analys av designen.", false],
+    ["Kan du skriva vad du ser på bilden?", false],
+    ["Gör en kort analys av designen.", false],
+    ["Gör din bedömning av designen.", false],
+    ["Skriv om dina observationer.", false],
+    ["Skriv om dina synpunkter på startsidan.", false],
+    ["Skriv om den utförliga redogörelsen.", false],
+    ["Skriv om mina observationer kring sidans rubriker.", false],
+    ["Skriv om vad du ser på bilden.", false],
+    ["Skriv om texterna på startsidan.", true],
+    ["Skriv om sidans rubrik till Välkommen.", true],
+    ["Kan du skriva om startsidans rubriker?", true],
+    ["Skriv om våra ingresser.", true],
+    ["Skriv om alla styckena på startsidan.", true],
+    ["Skriv om knapptexterna och länktexterna.", true],
+    ["Skriv om brödtexten.", true],
+    ["Skriv om bildtexterna.", true],
+    ["Skriv om sidtiteln.", true],
+    ["Skriv om titlarna.", true],
+    ["Rewrite the headlines in English.", true],
+    ["Skriv inte om sidans rubriker.", false],
+    ["Skriv om texterna men ändra ingenting.", false],
+    ["Något om kontrasten vore hjälpsamt.", false],
+    ["Använd skärmbilderna som underlag för din bedömning.", false],
+    ["Kan du använda skärmbilderna som underlag för din bedömning?", false],
+    ["Use the screenshots as the basis for your assessment.", false],
+    ["Skriv om rubriken till Välkommen men ändra ingenting.", false],
+  ] as const)("bevarar medgivandekontraktet efter en bildgranskning: %s", (detail, expected) => {
+    const text = `Granska designen på sajten. ${detail}`;
+    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(expected);
+    expect(composerAllowsAgentBuild({ mode: "agent", text })).toBe(false);
+  });
+
+  it("bevarar en explicit textändring efter en allmän granskning och ett avgränsat förbud", () => {
+    const text = "Granska sajten. Ändra inte färgerna men skriv om rubriken till Välkommen.";
+    expect(isReadOnlyComposerRequest(text)).toBe(false);
+    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(true);
+    expect(composerAllowsAgentBuild({ mode: "agent", text })).toBe(false);
+  });
+
   it.each(["auto", "build"] as const)("tillåter positiv komplett order i %s", (mode) => {
     expect(composerAllowsAgentBuild({ mode, text: "Byt rubriken till Välkommen" })).toBe(true);
     expect(
