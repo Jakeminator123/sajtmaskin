@@ -198,6 +198,14 @@ const buildProgressSteps = (step: string, phase: string, payload: Record<string,
   if (step === "materialize_images") {
     if (phase === "start") return ["Materialiserar bildplatshållare (t.ex. riktiga bild-URL:er)"];
     if (phase === "done") {
+      const { searchHitCount, fallbackCount } = payload;
+      if (
+        typeof searchHitCount === "number" &&
+        typeof fallbackCount === "number" &&
+        searchHitCount + fallbackCount > 0
+      ) {
+        return [`Bildsökning: ${searchHitCount} träffar, ${fallbackCount} reservbilder${doneSuffix}`];
+      }
       const replaced =
         typeof payload.replacedCount === "number" && Number.isFinite(payload.replacedCount)
           ? payload.replacedCount
@@ -205,7 +213,7 @@ const buildProgressSteps = (step: string, phase: string, payload: Record<string,
       if (replaced !== null && replaced > 0) {
         return [`Bytte ut ${replaced} bildplatshållare${doneSuffix}`];
       }
-      return [`Inga bildplatshållare behövde bytas${doneSuffix}`];
+      return [`Inga bildplatshållare byttes${doneSuffix}`];
     }
     if (phase === "error") {
       return ["Bildmaterialisering misslyckades — platshållare kan kvarstå"];
