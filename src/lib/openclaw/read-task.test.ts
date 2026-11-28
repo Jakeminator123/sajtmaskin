@@ -171,7 +171,9 @@ function ownedSite() {
 }
 
 it("uses actual screenshot pixels only for the owned selected version and current revision", async () => {
-  const review = ownedSite();
+  const review = {
+    ...ownedSite(), mobileUrl: "https://files.public.blob.vercel-storage.com/review/mobile.jpg",
+  };
   getReview.mockResolvedValue(review);
   const response = await answerOpenClawReadTask(request, { reviewCurrentSite: true }, "Hur ser min sajt ut?", {
     context: { page: "builder", chatId: "chat-own", activeVersionId: "version-own" },
@@ -185,6 +187,7 @@ it("uses actual screenshot pixels only for the owned selected version and curren
   expect(await contextParams.verifyOwnership("chat-own", "version-own")).toEqual({ chatId: "chat-own", versionId: "version-own" });
   const [params] = create.mock.calls[0]!;
   expect(params.input[0].content).toContainEqual({ type: "input_image", image_url: review.desktopUrl, detail: "high" });
+  expect(params.input[0].content).toContainEqual({ type: "input_image", image_url: review.mobileUrl, detail: "high" });
   expect(params.input[0].content[0].text).toContain("Björnparken");
   expect(params.input[0].content[0].text).toContain("byggkontrollen");
 });
@@ -224,8 +227,20 @@ it("selects an appearance read task for the current site while retaining selecte
     .toEqual({ attachmentIds: [7], reviewCurrentSite: true });
   expect(resolveOpenClawReadTask("Kan du granska designen på sajten?"))
     .toEqual({ reviewCurrentSite: true });
+  expect(resolveOpenClawReadTask("Bedöm layouten på min webbplats:\nBeskriv tre detaljer: rubrik, färger och bildyta."))
+    .toEqual({ reviewCurrentSite: true });
   expect(resolveOpenClawReadTask("Hur ser min faktura ut?"))
     .toBeUndefined();
   expect(resolveOpenClawReadTask("Bygg en sajt om hur ser min sajt ut i framtiden"))
     .toBeUndefined();
+});
+
+it.each([
+  "Granska designen på sajten och byt rubriken.",
+  "Granska designen på sajten. Ändra rubriken till Välkommen.",
+  "Granska designen på sajten. Beskriv rubriken och byt den till Välkommen.",
+  "Granska designen på sajten. Utgå från skärmbilderna och lägg till en ny bild.",
+  "Granska designen på sajten. Vad ser du? Kan du också byta bakgrund?",
+])("leaves a combined review and edit on the regular route (%s)", (text) => {
+  expect(resolveOpenClawReadTask(text)).toBeUndefined();
 });

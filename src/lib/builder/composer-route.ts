@@ -22,8 +22,7 @@
  */
 
 import { uWord, uWordRegex } from "@/lib/utils/unicode-word-boundary";
-import { isExplicitOpenClawWebSearch } from "@/lib/openclaw/read-task-input";
-import { requestedSourcePageUrl } from "@/lib/openclaw/source-page";
+import { isExplicitOpenClawWebSearch, requestedSourcePageUrl } from "@/lib/openclaw/source-page";
 import { parseArmingDirective, parseStopDirective } from "@/lib/openclaw/debug/armed-mandate";
 
 export type ComposerMode = "auto" | "agent" | "build";
@@ -407,6 +406,42 @@ export function opensWithQuestionWord(rawText: string): boolean {
   return QUESTION_OPENERS.test(lower) && matchesAtStart(QUESTION_OPENERS, lower);
 }
 
+const REVIEW_SITE = String.raw`(?:(?:min|vår|den)\s+)?(?:sajt(?:en)?|sida(?:n)?|webbplats(?:en)?|förhandsvisning(?:en)?)`;
+const SITE_REVIEW_OPENER = new RegExp(
+  String.raw`^(?:(?:kan du|vänligen)\s+)?(?:hur ser\s+${REVIEW_SITE}\s+ut|` +
+    String.raw`(?:granska|bedöm|titta på)\s+(?:utseendet|designen|layouten)\s+(?:på|för)\s+${REVIEW_SITE})` +
+    String.raw`(?:\s+(?:just nu|nu|idag))?(?=[^\S\r\n]*(?:[?!.:\r\n]|$))`,
+  "iu",
+);
+const SITE_REVIEW_DETAIL = uWordRegex(
+  "utgå från|beskriv|nämn|jämför|förklara|berätta|säg|peka ut|lista|sammanfatta",
+  "iu",
+);
+const REVIEW_DETAIL_SEPARATORS = /[?!.]+(?=\s|$)|[\r\n]+/u;
+const REVIEW_CLAUSE_SEPARATORS = /[:,;]|\s+(?:och|samt|men|sedan|sen|därefter|and|then|also|but)\s+/iu;
+
+export function isExplicitOpenClawSiteReview(rawText: string): boolean {
+  const text = rawText.trim();
+  const opener = SITE_REVIEW_OPENER.exec(text);
+  if (!opener) return false;
+
+  // Bildfrågan kan precisera vad som ska granskas. Ett blandat uppdrag
+  // behåller sin ordinarie väg eftersom läsvägen inte kan utföra ändringar.
+  const details = text.slice(opener[0].length).trim().replace(/^[:?!.]+\s*/u, "");
+  return details.split(REVIEW_DETAIL_SEPARATORS).every((part) => {
+    const detail = part.trim();
+    if (!detail) return true;
+    if (!matchesAtStart(SITE_REVIEW_DETAIL, detail) && !opensWithQuestionWord(detail) &&
+        !isReadOnlyComposerRequest(detail)) return false;
+
+    return !detail.split(REVIEW_CLAUSE_SEPARATORS).some((part) => {
+      const clause = part.trim();
+      return (isAttachmentBuildRequest(clause) || Boolean(parseArmingDirective(clause))) &&
+        !isReadOnlyComposerRequest(clause);
+    });
+  });
+}
+
 /**
  * Bär komposerturen medgivande för Sajtagenten att agera direkt
  * (`agent-action-consent.ts`)? Ägarbeslut 2026-11-20: agenten är orkestrator
@@ -416,6 +451,7 @@ export function opensWithQuestionWord(rawText: string): boolean {
  *
  * - läget Fråga («Fråga – ändrar inget»),
  * - en uttrycklig «ändra inget»-formulering,
+ * - en uttrycklig bildgranskning av den aktuella sajten,
  * - ett stopp,
  * - text som öppnar med ett frågeord («Vad tycker du om startsidan?»): en
  *   fråga blir aldrig tyst ett bygge.
@@ -425,7 +461,9 @@ export function opensWithQuestionWord(rawText: string): boolean {
  */
 export function composerAllowsAgentBuild(input: { mode: ComposerMode; text: string }): boolean {
   if (input.mode === "agent" || !normalize(input.text)) return false;
-  if (isReadOnlyComposerRequest(input.text) || parseStopDirective(input.text)) return false;
+  if (isReadOnlyComposerRequest(input.text) || isExplicitOpenClawSiteReview(input.text) || parseStopDirective(input.text)) {
+    return false;
+  }
   return !opensWithQuestionWord(input.text);
 }
 
