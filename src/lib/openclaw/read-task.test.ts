@@ -253,6 +253,20 @@ it.each([
   "Granska designen på sajten. Do not rewrite the title.",
   "Granska designen på sajten. Gör en bedömning av rubrikens storlek.",
   "Granska designen på sajten. Kan du göra en analys av layouten?",
+  "Granska designen på sajten. Ändra inte färgerna men skriv vad du ser på bilden.",
+  "Granska designen på sajten. Ändra inte färgerna men skriv en kort analys av designen.",
+  "Granska designen på sajten. Ändra inte färgerna men korta absolut inte rubriken.",
+  "Granska designen på sajten. Skriv vad du ser på bilden.",
+  "Granska designen på sajten. Skriv en kort analys av designen.",
+  "Granska designen på sajten. Kan du skriva vad du ser på bilden?",
+  "Granska designen på sajten. Gör en kort analys av designen.",
+  "Granska designen på sajten. Gör din bedömning av designen.",
+  "Granska designen på sajten. Skriv om dina observationer.",
+  "Granska designen på sajten. Skriv om vad du ser på bilden.",
+  "Granska designen på sajten. Något om kontrasten vore hjälpsamt.",
+  "Granska designen på sajten. Använd skärmbilderna som underlag för din bedömning.",
+  "Granska designen på sajten. Kan du använda skärmbilderna som underlag för din bedömning?",
+  "Granska designen på sajten. Use the screenshots as the basis for your assessment.",
 ])("retains observations, questions and negated changes on the read route (%s)", text => {
   expect(resolveOpenClawReadTask(text)).toEqual({ reviewCurrentSite: true });
 });

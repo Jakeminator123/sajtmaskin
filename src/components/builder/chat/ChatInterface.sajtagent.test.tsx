@@ -301,6 +301,10 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     ["Auto", "Granska designen på sajten. Saknas kontrast i mobilvyn?"],
     ["Auto", "Granska designen på sajten. Beskriv rubriken och skriv inte om den."],
     ["Auto", "Granska designen på sajten. Kan du se vad som står på knappen?"],
+    ["Auto", "Granska designen på sajten. Ändra inte färgerna men skriv vad du ser på bilden."],
+    ["Auto", "Granska designen på sajten. Ändra inte färgerna men skriv en kort analys av designen."],
+    ["Auto", "Granska designen på sajten. Ändra inte färgerna men korta absolut inte rubriken."],
+    ["Auto", "Granska designen på sajten. Använd skärmbilderna som underlag för din bedömning."],
   ])("skickar bildfrågan till läsvägen i %s: %s", async (mode, text) => {
     const context = { page: "builder", chatId: "chat_1", activeVersionId: "v1" };
     window.__SITEMASKIN_CONTEXT = context as typeof window.__SITEMASKIN_CONTEXT;
