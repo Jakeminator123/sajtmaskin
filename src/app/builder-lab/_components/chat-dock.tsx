@@ -457,7 +457,7 @@ export function Composer({
   const editingOld = Boolean(
     activeVersion && latestVersion && activeVersion.id !== latestVersion.id && !state.pending,
   );
-  const [text, setText] = useState("");
+  const text = state.composerDraft;
   const ref = useRef<HTMLTextAreaElement>(null);
   const locked = Boolean(state.pending);
 
@@ -471,7 +471,7 @@ export function Composer({
   const send = () => {
     if (!text.trim()) return;
     submit(text);
-    setText("");
+    set({ composerDraft: "" });
   };
 
   return (
@@ -515,7 +515,7 @@ export function Composer({
           id={compact ? "lab-composer-sheet" : "lab-composer"}
           ref={ref}
           value={text}
-          onChange={(event) => setText(event.target.value)}
+          onChange={(event) => set({ composerDraft: event.target.value })}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();

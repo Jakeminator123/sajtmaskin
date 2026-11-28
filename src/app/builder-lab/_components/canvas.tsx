@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, ExternalLink, Lock, Loader2, RotateCw, Wand2, X } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -267,7 +267,13 @@ export function Canvas({
                     key={state.selectedSection}
                     id={state.selectedSection}
                     box={selectedBox}
-                    onClose={() => set({ selectedSection: null })}
+                    onClose={() => {
+                      const section = contentRef.current?.querySelector<HTMLElement>(
+                        `[data-sid="${state.selectedSection}"]`,
+                      );
+                      set({ selectedSection: null });
+                      section?.focus({ preventScroll: true });
+                    }}
                     onSubmit={(text) => studio.submit(text, state.selectedSection)}
                   />
                 ) : null}
@@ -291,14 +297,14 @@ export function Canvas({
               <div className="lab-scan" />
             </div>
           ) : null}
+          {state.view === "preview" && state.compare && previousVersion && activeVersion ? (
+            <CompareSlider
+              viewportRef={scrollRef}
+              beforeLabel={`v${previousVersion.number}`}
+              afterLabel={`v${activeVersion.number}`}
+            />
+          ) : null}
         </motion.div>
-
-        {state.compare && previousVersion && activeVersion ? (
-          <CompareSlider
-            beforeLabel={`v${previousVersion.number}`}
-            afterLabel={`v${activeVersion.number}`}
-          />
-        ) : null}
 
         <AnimatePresence>
           {pending && !pending.first ? (
@@ -399,6 +405,12 @@ function SectionEditor({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", stiffness: 420, damping: 32 }}
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key !== "Escape") return;
+          event.preventDefault();
+          event.stopPropagation();
+          onClose();
+        }}
         className="lab-root absolute left-1/2 z-30 w-[min(460px,calc(100%-24px))] -translate-x-1/2 cursor-default scroll-mb-24 rounded-2xl border border-white/10 bg-[#0b0f18]/95 p-3 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] backdrop-blur-xl"
         style={{ top: box.top + box.height + 10 }}
       >
@@ -422,7 +434,6 @@ function SectionEditor({
             onChange={(event) => setText(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") send(text);
-              if (event.key === "Escape") onClose();
             }}
             placeholder={`Vad vill du ändra i ${SECTION_LABELS[id].toLowerCase()}?`}
             aria-label={`Ändring för ${SECTION_LABELS[id]}`}
@@ -469,22 +480,40 @@ function CompareLayers({ before, after }: { before: SiteVersion; after: SiteVers
 }
 
 /**
- * Före/efter-reglaget. Skriver positionen som CSS-variabel på dokumentet så
- * lagren klipps utan att React renderar om vid varje drag.
+ * Före/efter-reglaget delar enhetsram och CSS-variabel med bildlagren.
+ * Spårets bredd följer den rullbara bildytan, utan dess eventuella rullist.
  */
-function CompareSlider({ beforeLabel, afterLabel }: { beforeLabel: string; afterLabel: string }) {
+function CompareSlider({
+  beforeLabel,
+  afterLabel,
+  viewportRef,
+}: {
+  beforeLabel: string;
+  afterLabel: string;
+  viewportRef: RefObject<HTMLDivElement | null>;
+}) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState(50);
 
-  useEffect(() => {
-    document.documentElement.style.setProperty("--lab-split", `${pos}%`);
+  useLayoutEffect(() => {
+    trackRef.current?.parentElement?.style.setProperty("--lab-split", `${pos}%`);
   }, [pos]);
-  useEffect(
-    () => () => {
-      document.documentElement.style.removeProperty("--lab-split");
-    },
-    [],
-  );
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    const viewport = viewportRef.current;
+    if (!track || !viewport) return;
+    const scope = track.parentElement;
+    const updateWidth = () => {
+      track.style.width = `${viewport.clientWidth}px`;
+    };
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(viewport);
+    return () => {
+      observer.disconnect();
+      scope?.style.removeProperty("--lab-split");
+    };
+  }, [viewportRef]);
 
   const update = (clientX: number) => {
     const rect = trackRef.current?.getBoundingClientRect();
@@ -493,17 +522,18 @@ function CompareSlider({ beforeLabel, afterLabel }: { beforeLabel: string; after
   };
 
   return (
-    <div ref={trackRef} className="pointer-events-none absolute inset-0 z-20">
+    <div ref={trackRef} className="pointer-events-none absolute inset-y-0 left-0 z-20">
       <div
         className="pointer-events-auto absolute inset-y-0 w-10 -translate-x-1/2 cursor-ew-resize touch-none"
         style={{ left: `${pos}%` }}
         role="slider"
         aria-label="Jämför versioner"
-        aria-valuemin={0}
-        aria-valuemax={100}
+        aria-valuemin={4}
+        aria-valuemax={96}
         aria-valuenow={Math.round(pos)}
         tabIndex={0}
         onKeyDown={(event) => {
+          if (event.key === "ArrowLeft" || event.key === "ArrowRight") event.preventDefault();
           if (event.key === "ArrowLeft") setPos((value) => Math.max(4, value - 4));
           if (event.key === "ArrowRight") setPos((value) => Math.min(96, value + 4));
         }}

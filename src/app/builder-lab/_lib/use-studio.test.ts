@@ -73,6 +73,21 @@ describe("builder-lab studioReducer", () => {
     expect(state.versions).toHaveLength(0);
   });
 
+  it("behåller ett manuellt projektnamn när första bygget avbryts", () => {
+    let state = submit(INITIAL_STUDIO_STATE, "Ett kafé som heter Kaffekoppen");
+    state = studioReducer(state, { type: "set", patch: { projectName: "Mitt kafé" } });
+    state = studioReducer(state, { type: "cancel" });
+    expect(state.projectName).toBe("Mitt kafé");
+    expect(state.versions).toHaveLength(0);
+  });
+
+  it("återställer fortfarande automatiskt namn efter en oförändrad namnredigering", () => {
+    let state = submit(INITIAL_STUDIO_STATE, "Ett kafé som heter Kaffekoppen");
+    state = studioReducer(state, { type: "set", patch: { projectName: state.projectName } });
+    state = studioReducer(state, { type: "cancel" });
+    expect(state.projectName).toBe(INITIAL_STUDIO_STATE.projectName);
+  });
+
   it("Fråga-läget stänger en öppen sektionsredigerare", () => {
     let state = finishBuild(submit(INITIAL_STUDIO_STATE, "Ett kafé"));
     state = studioReducer(state, {

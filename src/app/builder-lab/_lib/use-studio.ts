@@ -38,6 +38,8 @@ export type PendingBuild = {
   startedAt: number;
   first: boolean;
   target: SectionId | null;
+  previousProjectName: string;
+  projectNameEdited: boolean;
 };
 
 export type StudioState = {
@@ -56,6 +58,8 @@ export type StudioState = {
   preferredTheme: ThemeKey | "auto";
   siteType: SiteType;
   composerMode: ComposerMode;
+  /** Samma oskickade text följer med mellan panel, kub, fokus och mobilvy. */
+  composerDraft: string;
   lastBuildMs: Record<string, number>;
   /** Senast byggda versionen, medan dess ändringar lyser upp i canvasen. */
   freshVersionId: string | null;
@@ -87,6 +91,7 @@ export const INITIAL_STUDIO_STATE: StudioState = {
   preferredTheme: "auto",
   siteType: "auto",
   composerMode: "auto",
+  composerDraft: "",
   lastBuildMs: {},
   freshVersionId: null,
   queue: [],
@@ -122,6 +127,8 @@ function startBuild(
       startedAt: at,
       first,
       target,
+      previousProjectName: state.projectName,
+      projectNameEdited: false,
     },
     revealed: first ? 0 : state.revealed,
     inspect: false,
@@ -237,8 +244,11 @@ export function studioReducer(state: StudioState, action: Action): StudioState {
         pending: null,
         queue: [],
         revealed: state.pending.first ? 0 : state.revealed,
-        // Ett avbrutet första bygge lämnar inget namn efter sig.
-        projectName: state.pending.first ? INITIAL_STUDIO_STATE.projectName : state.projectName,
+        // Återställ det automatiska namnet, men behåll användarens namnändring.
+        projectName:
+          state.pending.first && !state.pending.projectNameEdited
+            ? state.pending.previousProjectName
+            : state.projectName,
         messages: [
           ...state.messages.map((message): ChatMessage => {
             if (dropped.has(message.id) && message.role === "user") {
@@ -265,7 +275,15 @@ export function studioReducer(state: StudioState, action: Action): StudioState {
     case "reveal":
       return { ...state, revealed: state.revealed + 1 };
     case "set":
-      return { ...state, ...action.patch };
+      return {
+        ...state,
+        ...action.patch,
+        ...(state.pending?.first &&
+        action.patch.projectName !== undefined &&
+        action.patch.projectName !== state.projectName
+          ? { pending: { ...state.pending, projectNameEdited: true } }
+          : {}),
+      };
     case "selectVersion":
       if (state.pending) return state;
       return { ...state, activeVersionId: action.id, compare: false, selectedSection: null };
