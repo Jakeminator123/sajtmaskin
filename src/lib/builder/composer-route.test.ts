@@ -232,6 +232,34 @@ describe("isAgentProposalReference", () => {
 });
 
 describe("composerAllowsAgentBuild", () => {
+  it.each([
+    ["Beskriv rubriken och skriv om den till Välkommen.", true],
+    ["Beskriv rubriken och korta ner den till tre ord.", true],
+    ["Kan du beskriva rubriken och skriva om den till Välkommen?", true],
+    ["Byt inte bilden men korta ner rubriken till tre ord.", true],
+    ["Beskriv rubriken och skriv inte om den.", false],
+    ["Korta inte ner rubriken.", false],
+    ["Saknas kontrast i mobilvyn?", false],
+    ["Ser du rubriken? Är den tydlig?", false],
+    ["Kan du se vad som står på knappen?", false],
+    ["Ändra inte färgerna men skriv om rubriken till Välkommen.", true],
+    ["Ändra inte färgerna men korta ner rubriken till tre ord.", true],
+    ["Ändra inte färgerna. Skriv om rubriken till Välkommen.", true],
+    ["Ändra inte färgerna och skriv inte om rubriken.", false],
+    ["Skriv om rubriken till Välkommen men ändra ingenting.", false],
+  ] as const)("bevarar medgivandekontraktet efter en bildgranskning: %s", (detail, expected) => {
+    const text = `Granska designen på sajten. ${detail}`;
+    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(expected);
+    expect(composerAllowsAgentBuild({ mode: "agent", text })).toBe(false);
+  });
+
+  it("bevarar en explicit textändring efter en allmän granskning och ett avgränsat förbud", () => {
+    const text = "Granska sajten. Ändra inte färgerna men skriv om rubriken till Välkommen.";
+    expect(isReadOnlyComposerRequest(text)).toBe(false);
+    expect(composerAllowsAgentBuild({ mode: "auto", text })).toBe(true);
+    expect(composerAllowsAgentBuild({ mode: "agent", text })).toBe(false);
+  });
+
   it.each(["auto", "build"] as const)("tillåter positiv komplett order i %s", (mode) => {
     expect(composerAllowsAgentBuild({ mode, text: "Byt rubriken till Välkommen" })).toBe(true);
     expect(

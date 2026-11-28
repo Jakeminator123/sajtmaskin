@@ -310,9 +310,16 @@ export function isReadOnlyComposerRequest(rawText: string): boolean {
 
   // A scoped prohibition can accompany a complete positive instruction:
   // «Ändra inte färgerna men byt rubriken till Välkommen».
-  const clauses = text.split(/[,;]|\s+(?:men|utan|but|instead)\s+/iu);
+  const hasReview = REVIEW_TERMS.test(text);
+  const clauses = text.split(/[,;]|\s+(?:men|utan|but|instead)\s+/iu)
+    .flatMap(clause => hasReview ? clause.split(REVIEW_DETAIL_SEPARATORS) : [clause]);
   return !clauses.some(
-    (clause) => matchesAtStart(BUILD_OPENERS, clause.trim()) && !NEGATED_BUILD.test(clause),
+    (clause) => !NEGATED_BUILD.test(clause) && (
+      matchesAtStart(BUILD_OPENERS, clause.trim()) ||
+      // En blandad granskning kan också beställa textändringar som inte
+      // ingår i byggmotorns öppningar. Absoluta förbud hanteras ovan.
+      (hasReview && reviewClauseChange(clause) === "positive")
+    ),
   );
 }
 
@@ -414,11 +421,40 @@ const SITE_REVIEW_OPENER = new RegExp(
   "iu",
 );
 const SITE_REVIEW_DETAIL = uWordRegex(
-  "utgå från|beskriv|nämn|jämför|förklara|berätta|säg|peka ut|lista|sammanfatta",
+  "utgå från|beskriv|nämn|jämför|förklara|berätta|säg|peka ut|lista|sammanfatta|observera|notera|läs|identifiera|redogör för|" +
+    "ser du|syns|visar|finns|är|saknas|behövs|fungerar|kan du (?:se|läsa|beskriva|förklara|berätta|jämföra)|" +
+    "jag (?:ser|läser|tycker|uppfattar)|(?:rubriken|färgerna|bilden|layouten|texten|knappen|sidan|mobilvyn|datorvyn) (?:är|ser|har|visar|verkar)",
   "iu",
 );
-const REVIEW_DETAIL_SEPARATORS = /[?!.]+(?=\s|$)|[\r\n]+/u;
-const REVIEW_CLAUSE_SEPARATORS = /[:,;]|\s+(?:och|samt|men|sedan|sen|därefter|and|then|also|but)\s+/iu;
+// Bilagebyggens öppningar är avsiktligt smala. En blandad granskning måste
+// även känna igen skrivinstruktioner som «skriv om» och «korta ner».
+const SITE_REVIEW_CHANGE = uWordRegex(
+  `${BUILD_OPENERS.source}|skriv(?:a)?|korta|förkorta|forkorta|minska|öka|oka|radera|dölj(?:a)?|dolj(?:a)?|göm(?:ma)?|gom(?:ma)?|` +
+    "anpassa|matcha|kopiera|använd(?:a)?|anvand(?:a)?|ladda upp|byta|ersätta|ersatta|göra|gora|lägga (?:till|in)|lagga (?:till|in)|bygga|sätta|satta|" +
+    "rewrite|write|shorten|resize|hide|copy|apply|use|adjust",
+  "iu",
+);
+const REVIEW_ACTION_NEGATION = uWordRegex("inte|ej|aldrig|not|never", "iu");
+// Behåll frågetecknet så även en fråga utan ett känt frågeord förblir läsande.
+const REVIEW_DETAIL_SEPARATORS = /(?<=[?!.])\s+|[\r\n]+/u;
+const REVIEW_CLAUSE_SEPARATORS = /[:,;]|\s+(?:och|samt|men|utan|istället|istallet|sedan|sen|därefter|and|then|also|but|instead)\s+/iu;
+
+function reviewClauseChange(clause: string): "positive" | "read" | undefined {
+  const request = normalize(clause).replace(/^(?:(?:snälla|vänligen|please)\s*,?\s*|(?:också|även|ocksa|aven)\s+)*/iu, "");
+  if (/^(?:(?:do not|don't|don’t|never|inte|ej|aldrig)\s+|(?:(?:kan|vill)\s+(?:du|ni)|skulle\s+(?:du|ni)\s+kunna|(?:can|could|would|will)\s+you)\s+(?:inte|ej|aldrig|not|never)\s+)/iu.test(request)) {
+    return "read";
+  }
+  const action = SITE_REVIEW_CHANGE.exec(request);
+  const opener = action && matchesAtStart(SITE_REVIEW_CHANGE, request)
+    ? action : POLITE_BUILD_REQUEST.exec(request);
+  if (!opener) return undefined;
+  const object = request.slice(opener.index + opener[0].length).trim();
+  const reviewObject = object.replace(/^(?:en|ett|a|an)\s+/iu, "");
+  // «Gör en bedömning» skriver ett svar; «gör rubriken större efter din
+  // bedömning» beställer däremot en sajtändring.
+  return matchesAtStart(REVIEW_ACTION_NEGATION, object) || matchesAtStart(POLITE_REVIEW_OBJECT, reviewObject)
+    ? "read" : "positive";
+}
 
 export function isExplicitOpenClawSiteReview(rawText: string): boolean {
   const text = rawText.trim();
@@ -431,14 +467,15 @@ export function isExplicitOpenClawSiteReview(rawText: string): boolean {
   return details.split(REVIEW_DETAIL_SEPARATORS).every((part) => {
     const detail = part.trim();
     if (!detail) return true;
-    if (!matchesAtStart(SITE_REVIEW_DETAIL, detail) && !opensWithQuestionWord(detail) &&
-        !isReadOnlyComposerRequest(detail)) return false;
-
-    return !detail.split(REVIEW_CLAUSE_SEPARATORS).some((part) => {
+    const changes = detail.split(REVIEW_CLAUSE_SEPARATORS).map((part) => {
       const clause = part.trim();
-      return (isAttachmentBuildRequest(clause) || Boolean(parseArmingDirective(clause))) &&
-        !isReadOnlyComposerRequest(clause);
+      if (isReadOnlyComposerRequest(clause)) return "read";
+      if (parseArmingDirective(clause)) return "positive";
+      return reviewClauseChange(clause);
     });
+    if (changes.includes("positive")) return false;
+    return matchesAtStart(SITE_REVIEW_DETAIL, detail) || opensWithQuestionWord(detail) ||
+      isReadOnlyComposerRequest(detail) || changes[0] === "read" || /[?？]\s*$/u.test(detail);
   });
 }
 

@@ -295,7 +295,13 @@ const SCREENSHOT_QUESTION = "Granska designen på sajten. Utgå från skärmbild
   "Nämn ett konkret problem om du ser något, och säg om något underlag saknas.";
 
 describe("ChatInterface — Sajtagenten i samma input", () => {
-  it.each(["Auto", "Fråga"])("skickar en detaljerad bildfråga till läsvägen i %s", async (mode) => {
+  it.each([
+    ["Auto", SCREENSHOT_QUESTION],
+    ["Fråga", SCREENSHOT_QUESTION],
+    ["Auto", "Granska designen på sajten. Saknas kontrast i mobilvyn?"],
+    ["Auto", "Granska designen på sajten. Beskriv rubriken och skriv inte om den."],
+    ["Auto", "Granska designen på sajten. Kan du se vad som står på knappen?"],
+  ])("skickar bildfrågan till läsvägen i %s: %s", async (mode, text) => {
     const context = { page: "builder", chatId: "chat_1", activeVersionId: "v1" };
     window.__SITEMASKIN_CONTEXT = context as typeof window.__SITEMASKIN_CONTEXT;
     useOpenClawStore.setState({ editEnabled: true, powersOn: true, grantedPowers: ["armed_autonomy"] });
@@ -312,12 +318,12 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} />);
     if (mode === "Fråga") fireEvent.click(screen.getByRole("menuitemradio", { name: "Fråga" }));
 
-    await typeAndSend(SCREENSHOT_QUESTION);
+    await typeAndSend(text);
 
     expect(fetchMock).toHaveBeenCalledExactlyOnceWith("/api/openclaw/chat", expect.anything());
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
       context,
-      messages: [{ role: "user", content: SCREENSHOT_QUESTION }],
+      messages: [{ role: "user", content: text }],
       readTask: { reviewCurrentSite: true },
       buildConsent: false,
     });
@@ -325,7 +331,12 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     expect(build).not.toHaveBeenCalled();
   });
 
-  it("behåller ändringsmedgivandet när en granskning även beställer en ändring", async () => {
+  it.each([
+    "Granska designen på sajten. Beskriv rubriken och byt den till Välkommen.",
+    "Granska designen på sajten. Beskriv rubriken och skriv om den till Välkommen.",
+    "Granska designen på sajten. Beskriv rubriken och korta ner den till tre ord.",
+    "Granska sajten. Ändra inte färgerna men skriv om rubriken till Välkommen.",
+  ])("behåller ändringsmedgivandet när en granskning även beställer en ändring: %s", async text => {
     useOpenClawStore.setState({ editEnabled: true, powersOn: true, grantedPowers: ["armed_autonomy"] });
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response("data: [DONE]\n\n", {
       headers: { "Content-Type": "text/event-stream" },
@@ -336,7 +347,7 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     const build = vi.fn();
     render(<ComposerUnderTest chatId="chat_1" onSendMessage={build} />);
 
-    await typeAndSend("Granska designen på sajten. Beskriv rubriken och byt den till Välkommen.");
+    await typeAndSend(text);
 
     expect(fetchMock).toHaveBeenCalledExactlyOnceWith("/api/openclaw/chat", expect.anything());
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));

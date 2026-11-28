@@ -236,11 +236,45 @@ it("selects an appearance read task for the current site while retaining selecte
 });
 
 it.each([
+  "Hur ser min sajt ut?",
+  "Kan du granska designen på sajten?",
+  "Bedöm layouten på min webbplats:\nBeskriv tre detaljer: rubrik, färger och bildyta.",
+  "Granska designen på sajten. Ser du rubriken? Är den tydlig?",
+  "Granska designen på sajten. Kan du se vad som står på knappen?",
+  "Granska designen på sajten. Saknas kontrast i mobilvyn?",
+  "Granska designen på sajten. Är rubriken tydlig",
+  "Granska designen på sajten. Rubriken ser liten ut. Jag ser ingen bild i mobilvyn.",
+  "Granska designen på sajten. Beskriv om vi borde skriva om rubriken.",
+  "Granska designen på sajten. Beskriv rubriken och skriv inte om den.",
+  "Granska designen på sajten. Korta inte ner rubriken.",
+  "Granska designen på sajten. Byt inte rubriken och ändra ingenting.",
+  "Granska designen på sajten. Kan du inte beskriva rubriken?",
+  "Granska designen på sajten. Kan du inte skriva om rubriken",
+  "Granska designen på sajten. Do not rewrite the title.",
+  "Granska designen på sajten. Gör en bedömning av rubrikens storlek.",
+  "Granska designen på sajten. Kan du göra en analys av layouten?",
+])("retains observations, questions and negated changes on the read route (%s)", text => {
+  expect(resolveOpenClawReadTask(text)).toEqual({ reviewCurrentSite: true });
+});
+
+it.each([
   "Granska designen på sajten och byt rubriken.",
   "Granska designen på sajten. Ändra rubriken till Välkommen.",
   "Granska designen på sajten. Beskriv rubriken och byt den till Välkommen.",
   "Granska designen på sajten. Utgå från skärmbilderna och lägg till en ny bild.",
   "Granska designen på sajten. Vad ser du? Kan du också byta bakgrund?",
+  "Granska designen på sajten. Beskriv rubriken och skriv om den till Välkommen.",
+  "Granska designen på sajten. Beskriv rubriken och korta ner den till tre ord.",
+  "Granska designen på sajten. Beskriv rubriken och förkorta den.",
+  "Granska designen på sajten. Beskriv rubriken och öka storleken.",
+  "Granska designen på sajten. Beskriv rubriken och dölj den på mobil.",
+  "Granska designen på sajten. Kan du beskriva rubriken och skriva om den till Välkommen?",
+  "Granska designen på sajten. Beskriv rubriken och rewrite it in English.",
+  "Granska designen på sajten. Byt inte bilden men skriv om rubriken till Välkommen.",
+  "Granska designen på sajten. Saknas kontrast? Korta ner rubriken till tre ord.",
+  "Granska designen på sajten. Kan du göra rubriken större efter din bedömning?",
+  "Granska designen på sajten. Ändra inte färgerna men skriv om rubriken till Välkommen.",
+  "Granska designen på sajten. Skriv inte om rubriken utan korta ner den till tre ord.",
 ])("leaves a combined review and edit on the regular route (%s)", (text) => {
   expect(resolveOpenClawReadTask(text)).toBeUndefined();
 });
