@@ -1,0 +1,16 @@
+**
+!scripts/
+!scripts/alina/
+!scripts/alina/*.py
+!scripts/alina/requirements.txt
+!scripts/alina/worker/
+!scripts/alina/worker/*.py
+!scripts/alina/worker/weights.json
+!public/
+!public/video/
+!public/video/aida/
+!public/video/aida/presenter-v2/
+!public/video/aida/presenter-v2/TAL/
+!public/video/aida/presenter-v2/TAL/alina-a1-talbas.mp4
+!public/video/aida/presenter-v2/TAL/alina-a1-mun-kake.png
+!public/video/aida/presenter-v2/TAL/valkommen.mp4

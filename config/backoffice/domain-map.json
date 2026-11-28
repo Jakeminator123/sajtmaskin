@@ -11,6 +11,11 @@
     ".codex": "Codex-profiler, projektstandarder och separat checkout-guide. Produktens runtime läser inte denna katalog."
   },
   "pages": {
+    "Alinas studio": {
+      "summary": "Välj Alinas miljö, bildformat, entré, röst och idle-rörelser. Ändringarna delas med den lokala adminpanelen.",
+      "canonicalPaths": ["scripts/alina/server.py", "public/video/aida/presenter-v2/SCEN/"],
+      "codeReaders": ["backoffice/pages/alina.py", "src/app/admin/alina/page.tsx"]
+    },
     "Översikt": {
       "summary": "Samlad status. Själva innehållet redigeras i respektive vy eller direkt under config/. För manifest vs kod som faktiskt styr modeller: vyn **LLM-faser & runtime-sanning**. Fasindelad LLM-kedja: docs/architecture/README.md. Fas 2 (orkestrering/finalize/validering): docs/architecture/llm-pipeline.md § FAS 2.",
       "canonicalPaths": [

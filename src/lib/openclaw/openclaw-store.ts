@@ -37,6 +37,8 @@ import {
 export type OpenClawPanelPresentation = "bubble" | "takeover";
 
 export interface OpenClawMessage {
+  alinaWait?: boolean;
+  alinaSpoken?: string;
   id: string;
   role: "user" | "assistant";
   content: string;

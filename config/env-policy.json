@@ -104,6 +104,8 @@
     "EMAIL_FROM"
   ],
   "extraKnownKeys": [
+    "ALINA_BRIDGE_TOKEN",
+    "ALINA_STUDIO_URL",
     "ADMIN_CREDENTIALS",
     "ADMIN_EMAILS",
     "ADMIN_HANDOFF_SECRET",
@@ -901,6 +903,18 @@
       "classification": "local_only",
       "recommendedVercelTargets": [],
       "notes": "Local test password."
+    },
+    {
+      "key": "ALINA_STUDIO_URL",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["preview", "production"],
+      "notes": "HTTPS origin of the admin-only Alina studio worker. Configure together with ALINA_BRIDGE_TOKEN."
+    },
+    {
+      "key": "ALINA_BRIDGE_TOKEN",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["preview", "production"],
+      "notes": "Server-only shared secret for the Alina worker. Set the same secret on the worker and on the corresponding site deployment."
     },
     {
       "key": "OPENCLAW_GATEWAY_URL",
