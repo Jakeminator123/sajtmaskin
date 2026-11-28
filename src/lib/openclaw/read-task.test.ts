@@ -262,6 +262,10 @@ it.each([
   "Granska designen på sajten. Gör en kort analys av designen.",
   "Granska designen på sajten. Gör din bedömning av designen.",
   "Granska designen på sajten. Skriv om dina observationer.",
+  "Granska designen på sajten. Skriv om dina synpunkter på startsidan.",
+  "Granska designen på sajten. Skriv om den utförliga redogörelsen.",
+  "Granska designen på sajten. Skriv om mina observationer kring sidans rubriker.",
+  "Granska designen på sajten. Skriv inte om sidans rubriker.",
   "Granska designen på sajten. Skriv om vad du ser på bilden.",
   "Granska designen på sajten. Något om kontrasten vore hjälpsamt.",
   "Granska designen på sajten. Använd skärmbilderna som underlag för din bedömning.",
@@ -273,6 +277,9 @@ it.each([
 
 it.each([
   "Granska designen på sajten och byt rubriken.",
+  "Granska designen på sajten. Skriv om texterna på startsidan.",
+  "Granska designen på sajten. Skriv om sidans rubrik till Välkommen.",
+  "Granska designen på sajten. Kan du skriva om startsidans rubriker?",
   "Granska designen på sajten. Ändra rubriken till Välkommen.",
   "Granska designen på sajten. Beskriv rubriken och byt den till Välkommen.",
   "Granska designen på sajten. Utgå från skärmbilderna och lägg till en ny bild.",

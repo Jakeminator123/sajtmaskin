@@ -305,6 +305,8 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
     ["Auto", "Granska designen på sajten. Ändra inte färgerna men skriv en kort analys av designen."],
     ["Auto", "Granska designen på sajten. Ändra inte färgerna men korta absolut inte rubriken."],
     ["Auto", "Granska designen på sajten. Använd skärmbilderna som underlag för din bedömning."],
+    ["Auto", "Granska designen på sajten. Skriv om dina observationer kring sidans rubriker."],
+    ["Auto", "Granska designen på sajten. Skriv inte om sidans rubriker."],
   ])("skickar bildfrågan till läsvägen i %s: %s", async (mode, text) => {
     const context = { page: "builder", chatId: "chat_1", activeVersionId: "v1" };
     window.__SITEMASKIN_CONTEXT = context as typeof window.__SITEMASKIN_CONTEXT;
@@ -338,6 +340,8 @@ describe("ChatInterface — Sajtagenten i samma input", () => {
   it.each([
     "Granska designen på sajten. Beskriv rubriken och byt den till Välkommen.",
     "Granska designen på sajten. Beskriv rubriken och skriv om den till Välkommen.",
+    "Granska designen på sajten. Skriv om texterna på startsidan.",
+    "Granska designen på sajten. Skriv om sidans rubrik till Välkommen.",
     "Granska designen på sajten. Beskriv rubriken och korta ner den till tre ord.",
     "Granska sajten. Ändra inte färgerna men skriv om rubriken till Välkommen.",
   ])("behåller ändringsmedgivandet när en granskning även beställer en ändring: %s", async text => {

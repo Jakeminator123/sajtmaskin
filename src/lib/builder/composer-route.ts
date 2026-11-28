@@ -435,8 +435,14 @@ const REVIEW_REPORT_OBJECT = uWordRegex(
   "iu",
 );
 const REVIEW_REWRITE_VERB = uWordRegex("(?:skriv(?:a)? om|rewrite)$", "iu");
+// En nominalfras: bestämning/genitiv + textobjekt i singular eller plural.
+// Fria mellanord skulle också släppa igenom rapporter som «dina observationer
+// kring sidans rubrik». Ett pronomen måste stå självt eller följas av måltext.
 const REVIEW_REWRITE_TARGET = uWordRegex(
-  "(?:(?:hela|den|det|min|mitt|vår|vårt|the|my|our) )?(?:rubrik(?:en)?|text(?:en)?|ingress(?:en)?|stycke(?:t)?|knapptext(?:en)?|den|det|detta|it|this|that|title|headline|copy|paragraph)",
+  String.raw`(?:(?:hela|alla|den|det|de|min|mitt|mina|din|ditt|dina|vår|vårt|våra|the|my|our|your|[\p{L}-]+s)\s+){0,2}` +
+    "(?:(?:under)?rubrik(?:en|er(?:na)?)?|(?:knapp|länk|bröd|bild)?text(?:en|er(?:na)?)?|" +
+    "ingress(?:en|er(?:na)?)?|styck(?:e|et|en(?:a)?)|(?:sid)?titel(?:n)?|(?:sid)?titlar(?:na)?|titles?|headlines?|copy|paragraphs?)|" +
+    String.raw`(?:den|det|detta|dem|dessa|it|this|that|them)(?=\s*(?:[.!?]|$)|\s+(?:till|to|in)\s+)`,
   "iu",
 );
 const REVIEW_REPORT_REFERENCE = uWordRegex("(?:det|den|what) (?:du|ni|you) (?:ser|läser|see|read)", "iu");
