@@ -77,6 +77,13 @@ describe("proxy duplicate public host redirect", () => {
 });
 
 describe("proxy auth gate — customer portal routes", () => {
+  it.each(["SCEN/index.html", "TAL/valkommen.mp4", "SCEN/kvall.webp"])(
+    "keeps hosted Alina assets private without a session (%s)", async asset => {
+      const response = await proxy(new NextRequest("https://sajtmaskin.example/video/aida/presenter-v2/" + asset));
+      expect(response.status).toBe(404);
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+    },
+  );
   it.each(["/projects", "/projects/abc123", "/projects/abc123/", "/buy-credits", "/konto"])(
     "redirects an anonymous visitor away from %s",
     async (path) => {

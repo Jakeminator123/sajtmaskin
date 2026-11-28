@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { splitAlinaSpeech } from "@/lib/openclaw/alina-speech";
 import {
   readActiveOpenClawPowerIds,
   readOpenClawPowers,
@@ -385,6 +386,8 @@ export function useOpenClawChat() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             messages: apiMessages,
+            ...(live.avatarMode && (turn.scopeKey === "/alina/chatt" || process.env.NODE_ENV === "development")
+              ? { alinaVoice: true } : {}),
             context: clientContext,
             readTask,
             ...(options?.fastMode && builderChatId && !options.internal && !readTask ? { fastMode: true } : {}),
@@ -457,6 +460,12 @@ export function useOpenClawChat() {
           return;
         }
 
+        const lane = res.headers.get("X-Alina-Lane");
+        const patchVoice = (fields: Pick<OpenClawMessage, "alinaWait" | "alinaSpoken">) =>
+          useOpenClawStore.setState(s => ({messages: s.messages.map(m =>
+            m.id === placeholderId ? { ...m, ...fields } : m)}));
+        if (lane && lane !== "fast") patchVoice({alinaWait: true});
+        let voiceResponse = "";
         const reader = res.body.getReader();
         turn.reader = reader;
         const streamError: { current: GatewayErrorDescription | null } = {
@@ -469,11 +478,15 @@ export function useOpenClawChat() {
             streamError.current = event.description;
             return;
           }
-          accumulated += event.text;
+          if (lane) {
+            voiceResponse += event.text;
+            accumulated = splitAlinaSpeech(voiceResponse).full;
+          } else accumulated += event.text;
           updateAssistantMessage(placeholderId, accumulated);
         });
         if (!ownsTurn()) return;
         const gatewayError = streamError.current;
+        if (lane && !gatewayError) patchVoice({alinaSpoken: splitAlinaSpeech(voiceResponse).spoken});
 
         // The gateway answers 200 with a valid stream even when every model in
         // the fallback chain failed, so the reason lives in an error chunk

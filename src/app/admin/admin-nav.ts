@@ -47,6 +47,10 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     icon: LayoutDashboard,
     kind: "read",
   },
+  ...(process.env.NODE_ENV === "development" ? [{
+    href: "/admin/alina", label: "Alina", description: "Ställ in Alinas scen, rörelser och röst i den lokala studion.",
+    icon: LayoutDashboard, kind: "write" as const,
+  }] : []),
   {
     href: "/admin/statistik",
     label: "Statistik",

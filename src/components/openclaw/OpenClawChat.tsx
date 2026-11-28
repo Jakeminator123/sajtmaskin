@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { MessageCircle, Sparkles, X } from "lucide-react";
+import { COOKIE_CONSENT_CHANGE_EVENT } from "@/lib/ads/fire-google-ads-conversion";
+import { readStoredCookieConsent } from "@/components/landing-v2/lanyard-consent";
 import {
   buildKostnadsfriHandoffIntro,
   decideKostnadsfriBuildStartedAnnounce,
@@ -220,6 +222,42 @@ export function OpenClawChat() {
   const { isOpen, open, close, setScope, setAvatarMode, panelPresentation } = useOpenClawStore();
   const isTakeover = isOpen && panelPresentation === "takeover";
   const [showTeaser, setShowTeaser] = useState(true);
+  const [localAlina, setLocalAlina] = useState(false);
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+    const controller = new AbortController();
+    let enabled = false;
+    let landingVisible = Boolean(readStoredCookieConsent());
+    let greeted = false;
+    function welcomeOnLanding() {
+      if (!enabled || !landingVisible || pathname !== "/" || greeted) return;
+      try {
+        if (sessionStorage.getItem("alina.welcomed")) return;
+        sessionStorage.setItem("alina.welcomed", "1");
+      } catch {
+        // The current visit still gets its welcome with browser storage disabled.
+      }
+      greeted = true;
+      setAvatarMode(true);
+      open();
+    }
+    function onBannerClosed() {
+      landingVisible = true;
+      welcomeOnLanding();
+    }
+    window.addEventListener(COOKIE_CONSENT_CHANGE_EVENT, onBannerClosed, { signal: controller.signal });
+    void fetch("/api/alina/config", { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = await response.json();
+        if (controller.signal.aborted) return;
+        enabled = data.enabled === true;
+        setLocalAlina(enabled);
+        welcomeOnLanding();
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [pathname, open, setAvatarMode]);
   const [contextSurface, setContextSurface] = useState<KostnadsfriOpenClawSurfaceContext | null>(
     null,
   );
@@ -273,7 +311,7 @@ export function OpenClawChat() {
 
   const handleOpen = () => {
     setShowTeaser(false);
-    setAvatarMode(false);
+    setAvatarMode(localAlina);
     open();
   };
 
@@ -377,6 +415,7 @@ export function OpenClawChat() {
           onClose={close}
           content={content.panel}
           isOpen={isOpen}
+          localAlina={localAlina}
           powersAvailable={isBuilderSurface}
         />
       </div>
