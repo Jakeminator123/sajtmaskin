@@ -1670,8 +1670,8 @@ function takeRestartBootsQueuedForTesting() {
   return count;
 }
 
-function getRuntimeStateForChat(chatId) {
-  const session = findSessionByChatId(readStoreSync(), chatId);
+function getRuntimeStateForChat(chatId, store = readStoreSync()) {
+  const session = findSessionByChatId(store, chatId);
   if (!session) {
     return {
       session: null,
