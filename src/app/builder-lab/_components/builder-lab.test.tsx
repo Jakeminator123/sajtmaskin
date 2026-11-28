@@ -50,7 +50,7 @@ describe("builder-lab interaktionsregressioner", () => {
     });
 
     for (const mode of ["Kub", "Fokus", "Panel"]) {
-      fireEvent.click(screen.getByRole("radio", { name: mode, exact: true }));
+      fireEvent.click(screen.getByRole("radio", { name: mode }));
       await waitFor(() => {
         const inputs = screen.getAllByRole<HTMLTextAreaElement>("textbox", {
           name: "Beskriv en ändring",
@@ -72,7 +72,7 @@ describe("builder-lab interaktionsregressioner", () => {
   it("återför fokus till sektionen när Esc stänger redigeraren och avslutar inspektion först vid nästa Esc", async () => {
     start();
     fireEvent.keyDown(window, { key: "e" });
-    const section = screen.getByRole("button", { name: "Ändra startbild", exact: true });
+    const section = screen.getByRole("button", { name: "Ändra startbild" });
     act(() => section.focus());
     fireEvent.keyDown(section, { key: "Enter" });
     const input = await screen.findByRole("textbox", { name: "Ändring för Startbild" });
@@ -80,16 +80,16 @@ describe("builder-lab interaktionsregressioner", () => {
     fireEvent.keyDown(input, { key: "Escape" });
     expect(screen.queryByRole("textbox", { name: "Ändring för Startbild" })).toBeNull();
     expect(document.activeElement).toBe(section);
-    expect(screen.getByRole("button", { name: "Ändra startbild", exact: true })).toBe(section);
+    expect(screen.getByRole("button", { name: "Ändra startbild" })).toBe(section);
     fireEvent.keyDown(section, { key: "Escape" });
-    expect(screen.queryByRole("button", { name: "Ändra startbild", exact: true })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ändra startbild" })).toBeNull();
   });
 
   it("förankrar jämförelselinjen i enhetsramen och använder bildytans bredd", async () => {
     vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(370);
     start();
     fireEvent.keyDown(window, { key: "3" });
-    fireEvent.click(screen.getByRole("button", { name: "Jämför", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Jämför" }));
     const slider = screen.getByRole("slider", { name: "Jämför versioner" });
     const track = slider.parentElement!;
     const deviceFrame = track.parentElement!;
